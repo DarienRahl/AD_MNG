@@ -87,8 +87,10 @@ internal sealed class UiTestContext : IAsyncDisposable
     /// <summary>No WPF binding errors and no unhandled exceptions so far.</summary>
     public void AssertHealthy()
     {
-        Assert.Equal([], WpfTestHost.Bindings.Errors);
-        Assert.Equal([], _exceptions.Select(e => e.ToString()));
+        // Full texts in the failure message: CI logs are the only place where these can be read.
+        var bindingErrors = WpfTestHost.Bindings.Errors;
+        Assert.True(bindingErrors.Count == 0, "WPF binding errors:" + Environment.NewLine + string.Join(Environment.NewLine, bindingErrors));
+        Assert.True(_exceptions.Count == 0, "Unhandled exceptions:" + Environment.NewLine + string.Join(Environment.NewLine, _exceptions));
     }
 
     public async ValueTask DisposeAsync()

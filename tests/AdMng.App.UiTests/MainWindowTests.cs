@@ -67,6 +67,8 @@ public sealed class MainWindowTests
         Assert.Equal(2, document.Selection.Count);
         Assert.Equal(2, shell.SelectedObject?.Count);
 
+        // After SelectAll the first row already is the SelectedItem: clear the selection so that selecting it is a change.
+        list.ListControl.UnselectAll();
         list.ListControl.SelectedItem = document.Items[0];
         await Task.Delay(400);
         await UiTestSupport.WaitForIdleAsync();

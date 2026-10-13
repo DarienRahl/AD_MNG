@@ -13,12 +13,12 @@
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
       <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
         <Button x:Name="ConfirmButton"
-                AutomationProperties.Name="{Binding ConfirmText, Mode=OneTime}"
+                AutomationProperties.Name="{Binding ConfirmText, Mode=OneTime, TargetNullValue=''}"
                 Command="{Binding ConfirmCommand}"
                 Content="{Binding ConfirmText, Mode=OneTime}"
                 Style="{StaticResource Ad.DialogButton}" />
         <Button x:Name="CancelButton"
-                AutomationProperties.Name="{Binding CancelText, Mode=OneTime}"
+                AutomationProperties.Name="{Binding CancelText, Mode=OneTime, TargetNullValue=''}"
                 Command="{Binding CancelCommand}"
                 Content="{Binding CancelText, Mode=OneTime}"
                 Style="{StaticResource Ad.DialogButton}"
