@@ -16,3 +16,6 @@ coverage*/
 # Never commit exported directory data or session logs
 *.ldif
 exports/
+
+# Agent worktrees
+.claude/worktrees/
