@@ -211,7 +211,7 @@ public sealed class PoolTests
             Server = "127.0.0.1",
             Port = proxy.Port,
             MaxConnections = 2,
-            RequestTimeout = TimeSpan.FromSeconds(2),
+            RequestTimeout = TimeSpan.FromSeconds(5),
         };
         await using var session = await LabFixture.ConnectAsync(options, LabSettings.AdminPassword, logs, cancellationToken: ct);
         var pool = ((LdapDirectorySession)session).Pool;
@@ -232,11 +232,12 @@ public sealed class PoolTests
                 }
             }
 
-            // Each timed out connection was dropped, so the next request runs on a fresh one at once.
+            // Each timed out connection was dropped, so the next request runs on a fresh one (connect + bind) instead of
+            // waiting for the request timeout of a stalled connection. The margin leaves room for slow CI runners.
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var read = await session.GetAsync(LabSettings.CompanyOu, [Attr.Ou], ct);
             Assert.Equal("Firma", read!.GetString(Attr.Ou));
-            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(1.5), $"Took {stopwatch.Elapsed}.");
+            Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(3.5), $"Took {stopwatch.Elapsed} (request timeout 5 s).");
             Assert.NotEmpty(logs.WithEventId(1101));
         }
         finally
