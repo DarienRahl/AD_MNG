@@ -65,16 +65,26 @@ public sealed class WatchAndRestoreTests(LabFixture lab)
             ct);
         Assert.SkipWhen(watch is null, "The server does not support change notifications.");
 
+        // First change: the callback throws.
         await lab.CreateContactAsync(ou, "Pierwszy");
-        await lab.CreateContactAsync(ou, "Drugi");
-        var deadline = DateTime.UtcNow.AddSeconds(15);
-        while (Volatile.Read(ref calls) < 2 && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(200, ct);
-        }
-
+        await WaitForCallsAsync(1);
         Assert.SkipWhen(Volatile.Read(ref calls) == 0, "The server delivered no change notifications.");
-        Assert.True(Volatile.Read(ref calls) >= 2);
+
+        // A change made only after the failing callback must still be reported (two changes made back to back may be
+        // delivered as one notification, so they are made one after another).
+        var before = Volatile.Read(ref calls);
+        await lab.CreateContactAsync(ou, "Drugi");
+        await WaitForCallsAsync(before + 1);
+        Assert.True(Volatile.Read(ref calls) > before, "No notification after a callback that threw.");
+
+        async Task WaitForCallsAsync(int expected)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (Volatile.Read(ref calls) < expected && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(200, ct);
+            }
+        }
     }
 
     [Fact]
