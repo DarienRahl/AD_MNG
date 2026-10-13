@@ -65,10 +65,14 @@
       <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
     </Style>
 
-    <!-- Attribute picker: free text with autocomplete over "Display Name [ldapName]" suggestions. -->
+    <!--
+      Attribute picker: free text, the drop-down offers "Display Name [ldapName]" suggestions. No text search: typed
+      text must never be completed to another attribute ("l" (city) would become the first text starting with "l",
+      "mail" would become "mailNickname"), and Tab would accept the completion.
+    -->
     <Style x:Key="AttributeComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
       <Setter Property="IsEditable" Value="True" />
-      <Setter Property="IsTextSearchEnabled" Value="True" />
+      <Setter Property="IsTextSearchEnabled" Value="False" />
       <Setter Property="DisplayMemberPath" Value="Text" />
       <Setter Property="TextSearch.TextPath" Value="Text" />
       <Setter Property="MaxDropDownHeight" Value="320" />

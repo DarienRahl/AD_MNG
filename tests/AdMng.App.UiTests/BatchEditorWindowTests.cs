@@ -130,6 +130,11 @@ public sealed class BatchEditorWindowTests
         Assert.DoesNotContain(Descendants<TextBlock>(window.OperationsList), t => t.Text.StartsWith("AdMng.", StringComparison.Ordinal));
         Assert.All(editor.Operations, op => Assert.NotNull(window.OperationsList.ItemContainerGenerator.ContainerFromItem(op)));
 
+        // Attribute pickers are free text: typing "l" (city) must not be completed to another attribute.
+        var attributePickers = Descendants<ComboBox>(window.OperationsList).Where(c => c.IsEditable).ToList();
+        Assert.NotEmpty(attributePickers);
+        Assert.All(attributePickers, c => Assert.False(c.IsTextSearchEnabled));
+
         // The password boxes of the reset operation are handed over as IPasswordInput.
         var reset = editor.Operations.OfType<ResetPasswordEditorViewModel>().Single();
         reset.UseFixedPassword = true;
