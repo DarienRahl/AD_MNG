@@ -19,10 +19,23 @@ public partial class App : Application
     /// <summary>The running host (null before start-up completed and in the smoke test).</summary>
     public IServiceProvider? Services => _host?.Services;
 
+    /// <summary>
+    /// Whether start-up builds the host and opens the connect window (default). Hosts that only need the application
+    /// object and its resources - the UI tests - set it to false before the dispatcher runs: WPF raises Startup from a
+    /// dispatcher callback queued by the <see cref="Application"/> constructor even when <see cref="Application.Run()"/>
+    /// is never called.
+    /// </summary>
+    public bool StartShell { get; init; } = true;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnStartup(e);
+        if (!StartShell)
+        {
+            return;
+        }
+
         var options = StartupOptions.Parse(e.Args);
         if (options.SmokeTest)
         {

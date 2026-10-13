@@ -44,7 +44,8 @@ internal static class WpfTestHost
                     dispatcher = Dispatcher.CurrentDispatcher;
                     SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(dispatcher));
                     bindings = BindingErrorListener.Install();
-                    var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                    // StartShell = false: only the application object and its resources; each test builds its own host.
+                    var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown, StartShell = false };
                     app.InitializeComponent();
                 }
                 catch (Exception ex)
