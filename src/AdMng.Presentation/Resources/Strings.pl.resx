@@ -1699,6 +1699,9 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
   <data name="Batch.PreviewSummary" xml:space="preserve">
     <value>Obiekty: {0} · do zmiany: {1} · bez zmian: {2} · z błędami: {3} · z ostrzeżeniami: {4} · wykluczone: {5}.</value>
   </data>
+  <data name="Batch.ReplacePasswords" xml:space="preserve">
+    <value>Bieżące wyniki zawierają wygenerowane hasła, które nie zostały wyeksportowane ani skopiowane. Wykonanie zastąpi te wyniki, więc haseł nie będzie można ponownie wyświetlić, a z kont nie będzie można korzystać do czasu ponownego zresetowania haseł. Wykonać mimo to?</value>
+  </data>
   <data name="Batch.ResultSummary" xml:space="preserve">
     <value>Powodzenie: {0}, niepowodzenie: {1}, pominięte: {2}</value>
   </data>

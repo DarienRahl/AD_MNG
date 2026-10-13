@@ -133,6 +133,7 @@ public static partial class L
     {
         public const string WindowTitle = "Batch.WindowTitle";
         public const string DiscardPasswords = "Batch.DiscardPasswords";
+        public const string ReplacePasswords = "Batch.ReplacePasswords";
         public const string CsvWindowTitle = "Batch.CsvWindowTitle";
         public const string DefaultChangeTitle = "Batch.DefaultChangeTitle";
         public const string CsvChangeTitle = "Batch.CsvChangeTitle";

@@ -71,6 +71,10 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private IReadOnlyList<BatchOperation> _plannedOperations = [];
     private bool _passwordsExported;
 
+    // Whether Result came from operations that generate passwords. Captured when the results are shown: the planned
+    // operations change with Undo, Back + Preview or Retry while Result still holds the generated passwords.
+    private bool _resultHasGeneratedPasswords;
+
     public BatchEditorViewModel(DialogServices services, BatchEngines engines, BatchEditorRequest request)
         : base(services)
     {
@@ -287,10 +291,13 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         return true;
     }
 
-    /// <summary>The results contain generated passwords that were not exported (closing asks first).</summary>
+    /// <summary>
+    /// The results contain generated passwords that were not exported (closing or executing again asks first). Stays
+    /// true while an undo plan or new operations are previewed: the results are only replaced by the next execution.
+    /// </summary>
     public bool HasUnsavedGeneratedPasswords =>
         !_passwordsExported
-        && GeneratesPasswords
+        && _resultHasGeneratedPasswords
         && Result is { } result
         && result.Objects.Any(o => o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword));
 
@@ -408,6 +415,14 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         if (executable == 0)
         {
             Services.Notifications.Show(NotificationSeverity.Info, Localizer.Format(L.Changes.NothingToDo, ChangeTitle));
+            return;
+        }
+
+        // The new results replace the current ones (retry, undo, edited operations): generated passwords that were
+        // not exported would be gone for good.
+        if (HasUnsavedGeneratedPasswords
+            && !await Services.Dialogs.ConfirmAsync(ChangeTitle, Localizer[L.Batch.ReplacePasswords], destructive: true).ConfigureAwait(true))
+        {
             return;
         }
 
@@ -685,6 +700,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         var session = Services.Sessions.Current;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
         Result = result;
+        _resultHasGeneratedPasswords = GeneratesPasswords;
         _passwordsExported = false;
         _resultRows.Clear();
         _resultRows.AddRange(result.Objects.Select(builder.BuildResult));

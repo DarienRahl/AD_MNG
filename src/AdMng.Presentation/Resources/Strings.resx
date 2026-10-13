@@ -1699,6 +1699,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Batch.PreviewSummary" xml:space="preserve">
     <value>{0} objects: {1} will change, {2} without change, {3} with errors, {4} with warnings, {5} excluded.</value>
   </data>
+  <data name="Batch.ReplacePasswords" xml:space="preserve">
+    <value>The current results contain generated passwords that have not been exported or copied. Executing replaces these results, so the passwords cannot be shown again and the accounts cannot be used until their passwords are reset again. Execute anyway?</value>
+  </data>
   <data name="Batch.ResultSummary" xml:space="preserve">
     <value>Succeeded: {0}, failed: {1}, skipped: {2}</value>
   </data>

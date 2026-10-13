@@ -266,6 +266,66 @@ public class BatchEditorTests
     }
 
     [Fact]
+    public async Task GeneratedPasswords_StayProtected_WhileAnUndoIsPreviewed_AndBeforeTheResultsAreReplaced()
+    {
+        var (editor, harness) = await OpenAsync(
+            c => [c.JanKowalski],
+            new ResetPasswordOperation(PasswordMode.GenerateUnique),
+            new SetAttributeOperation(Attr.Title, "Konsultant"));
+        await editor.PreviewCommand.ExecuteAsync(null);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(BatchEditorStep.Results, editor.Step);
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+
+        // The undo plan is only previewed: the results and their passwords are still in the window.
+        editor.UndoCommand.Execute(null);
+        Assert.True(editor.IsRollbackPreview);
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+        Assert.False(await editor.CanCloseAsync());
+        Assert.Contains($"confirm:{harness.Localizer[L.Batch.DiscardPasswords]}", harness.Dialogs.Shown);
+
+        // Executing the undo replaces the results: declined, nothing runs.
+        harness.Dialogs.ConfirmAnswers.Enqueue(false);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Contains($"confirm:{harness.Localizer[L.Batch.ReplacePasswords]}", harness.Dialogs.Shown);
+        Assert.Equal(BatchEditorStep.Preview, editor.Step);
+        Assert.Equal("Konsultant", harness.Value(harness.Company.JanKowalski, Attr.Title));
+
+        // Accepted: the undo runs; its results hold no generated passwords.
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(BatchEditorStep.Results, editor.Step);
+        Assert.Equal("Administrator systemów", harness.Value(harness.Company.JanKowalski, Attr.Title));
+        Assert.False(editor.HasUnsavedGeneratedPasswords);
+        Assert.True(await editor.CanCloseAsync());
+    }
+
+    [Fact]
+    public async Task GeneratedPasswords_StayProtected_WhenOtherOperationsArePreviewedAndExecuted()
+    {
+        var (editor, harness) = await OpenAsync(c => [c.JanKowalski], new ResetPasswordOperation(PasswordMode.GenerateUnique));
+        await editor.PreviewCommand.ExecuteAsync(null);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+
+        editor.BackToEditCommand.Execute(null);
+        editor.RemoveOperationCommand.Execute(editor.Operations[0]);
+        var set = Add<SetAttributeEditorViewModel>(editor, OperationType.SetAttribute);
+        set.Attribute = Attr.Title;
+        set.ValueTemplate = "Konsultant";
+        await editor.PreviewCommand.ExecuteAsync(null);
+
+        Assert.Equal(BatchEditorStep.Preview, editor.Step);
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Contains($"confirm:{harness.Localizer[L.Batch.ReplacePasswords]}", harness.Dialogs.Shown);
+        Assert.Equal(BatchEditorStep.Preview, editor.Step);
+        Assert.Equal("Administrator systemów", harness.Value(harness.Company.JanKowalski, Attr.Title));
+    }
+
+    [Fact]
     public async Task PreviewExport_AndPowerShell()
     {
         var (editor, harness) = await OpenAsync(c => [c.JanKowalski], new SetAttributeOperation(Attr.Title, "Konsultant"));
