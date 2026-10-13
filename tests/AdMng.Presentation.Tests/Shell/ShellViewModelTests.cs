@@ -75,23 +75,105 @@ public class ShellViewModelTests
     }
 
     [Fact]
-    public async Task QuickSearch_Enter_OpensSuggestion_ShowAll_OpensUnlimitedSearchTab()
+    public async Task QuickSearch_Enter_OpensTheHighlightedSuggestion_OtherwiseAnUnlimitedSearchTab()
     {
         var (shell, harness) = await CreateShellAsync();
         shell.SearchText = "ewa";
         harness.Time.Advance(TimeSpan.FromMilliseconds(300));
         await shell.PendingSearch;
 
+        // Nothing is pre-highlighted (spec: Enter opens the results tab); the operator arrows down to a suggestion.
+        Assert.Null(shell.SelectedSuggestion);
+        shell.SelectedSuggestion = Assert.Single(shell.SearchSuggestions);
         await shell.SubmitSearchCommand.ExecuteAsync(null);
         Assert.Equal(It, shell.SelectedDocument!.Location!.BaseDn, ignoreCase: true);
         Assert.Equal(Ewa, shell.SelectedDocument.SelectedItem?.Dn);
+        Assert.Single(shell.Documents);
+        Assert.False(shell.IsSuggestionsOpen);
 
-        await shell.ShowAllSearchResultsCommand.ExecuteAsync(null);
+        shell.SearchText = "ewa.";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(300));
+        await shell.PendingSearch;
+        Assert.True(shell.IsSuggestionsOpen);
+        await shell.SubmitSearchCommand.ExecuteAsync(null);
+
         Assert.Equal(2, shell.Documents.Count);
         var results = shell.SelectedDocument!;
-        Assert.Equal("Search: ewa", results.Title);
+        Assert.Equal("Search: ewa.", results.Title);
         Assert.Equal(0, results.LastSearch!.SizeLimit);
         Assert.Equal(["Ewa Kowalska"], results.Items.Select(r => r.Name));
+        Assert.False(shell.IsSuggestionsOpen);
+        Assert.False(shell.IsSearching);
+    }
+
+    [Fact]
+    public async Task QuickSearch_SizeLimitExceeded_ShowsTheEntriesReturnedSoFar()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        shell.SearchText = "łuk";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(300));
+        await shell.PendingSearch;
+        Assert.Equal("Łukasz Żółć", Assert.Single(shell.SearchSuggestions).Name);
+
+        // A broad query: the DC returns the first entries, then ends the search with "size limit exceeded".
+        harness.Directory.FailAfterResults = s => s.Filter.Contains("(anr=", StringComparison.Ordinal)
+            ? new DirectoryException(DirectoryErrorKind.SizeLimitExceeded, "size limit") { LdapResultCode = 4 }
+            : null;
+        shell.SearchText = "ewa";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(300));
+        await shell.PendingSearch;
+
+        Assert.Equal("Ewa Kowalska", Assert.Single(shell.SearchSuggestions).Name);
+        Assert.True(shell.IsSuggestionsOpen);
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Severity == NotificationSeverity.Warning);
+    }
+
+    [Fact]
+    public async Task SearchAndAddressShortcuts_MoveTheFocus_InsteadOfRunningASearch()
+    {
+        var (shell, _) = await CreateShellAsync();
+        var requests = new List<ShellFocusTarget>();
+        shell.FocusRequested += (_, target) => requests.Add(target);
+        shell.SearchText = "ewa";
+        var documents = shell.Documents.Count;
+
+        shell.CommandPalette.Find("nav.search")!.Command.Execute(null);
+        shell.CommandPalette.Find("nav.address")!.Command.Execute(null);
+
+        Assert.Equal([ShellFocusTarget.Search, ShellFocusTarget.Address], requests);
+        Assert.Equal(documents, shell.Documents.Count);
+        Assert.Equal("Ctrl+E", shell.CommandPalette.Find("nav.search")!.Shortcut);
+    }
+
+    [Fact]
+    public async Task PinnedContainers_CanBeReordered()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        await harness.Views.PinAsync(It, "IT");
+        await harness.Views.PinAsync(Firma, "Firma");
+        var it = shell.Tree.ViewsNode.Children.OfType<ContainerNodeViewModel>().Single(n => n.Dn == It);
+
+        await shell.MovePinnedDownCommand.ExecuteAsync(it);
+
+        Assert.Equal([Firma, It], harness.Views.PinnedContainers.Select(p => p.DistinguishedName));
+        Assert.Equal(["Firma", "IT"], shell.Tree.ViewsNode.Children.OfType<ContainerNodeViewModel>().Select(n => n.Name));
+    }
+
+    [Fact]
+    public async Task ShowAllResults_WhileASuggestionQueryRuns_DoesNotLeaveTheSearchBusy()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        var gate = new TaskCompletionSource();
+        harness.Directory.Hold = s => s.Filter.Contains("(anr=", StringComparison.Ordinal) && s.SizeLimit > 0 ? gate.Task : null;
+        shell.SearchText = "ewa";
+        harness.Time.Advance(TimeSpan.FromMilliseconds(300));
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.IsSearching);
+
+        await shell.ShowAllSearchResultsCommand.ExecuteAsync(null);
+        await shell.PendingSearch;
+
+        Assert.False(shell.IsSearching);
+        Assert.Equal("Search: ewa", shell.SelectedDocument!.Title);
     }
 
     [Fact]
@@ -114,6 +196,102 @@ public class ShellViewModelTests
         Assert.Contains(harness.Notifications.Items, n => n.Severity == NotificationSeverity.Success);
         Assert.Same(row, shell.SelectedDocument!.Items.Single(r => r.Dn == Lukasz));
         Assert.Single(harness.Activities.Activities);
+    }
+
+    [Fact]
+    public async Task Disable_ReevaluatesCommandsAndDetails_WhenTheSelectedRowChanges()
+    {
+        var (shell, harness) = await CreateShellAsync(It);
+        var row = Select(shell, "Łukasz Żółć");
+        harness.Executor.OnExecute = _ =>
+            harness.Directory.Put(WithAttribute(harness.Directory.Find(Lukasz)!, Attr.UserAccountControl, "514"));
+        var enableNotified = 0;
+        shell.EnableCommand.CanExecuteChanged += (_, _) => enableNotified++;
+
+        await shell.DisableCommand.ExecuteAsync(null);
+        await ObjectListViewModelTests.WaitUntilAsync(() => row.IsDisabled && enableNotified > 0);
+
+        // The toolbar learns that "Enable" is now possible (CanExecuteChanged), and the details pane re-reads the object.
+        Assert.True(shell.EnableCommand.CanExecute(null));
+        Assert.False(shell.DisableCommand.CanExecute(null));
+        await ObjectListViewModelTests.WaitUntilAsync(() =>
+        {
+            harness.Time.Advance(TimeSpan.FromMilliseconds(150));
+            return shell.SelectedObject is { IsDisabled: true };
+        });
+    }
+
+    [Fact]
+    public async Task ExportList_CanExecute_FollowsTheShownRows()
+    {
+        var (shell, _) = await CreateShellAsync(It);
+        var notified = 0;
+        shell.ExportListCommand.CanExecuteChanged += (_, _) => notified++;
+
+        shell.SelectedDocument!.QuickFilterText = "nikogo takiego";
+        Assert.True(notified > 0);
+        Assert.False(shell.ExportListCommand.CanExecute(null));
+
+        notified = 0;
+        shell.SelectedDocument.QuickFilterText = string.Empty;
+        Assert.True(notified > 0);
+        Assert.True(shell.ExportListCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Delete_WhenTheChildCheckFails_ShowsTheErrorAndDeletesNothing()
+    {
+        var (shell, harness) = await CreateShellAsync(Firma);
+        Select(shell, "IT");
+        harness.Directory.FailSearch = s => s.Scope == SearchScope.OneLevel && s.SizeLimit == 1
+            ? new DirectoryException(DirectoryErrorKind.AccessDenied, "denied")
+            : null;
+
+        await shell.DeleteCommand.ExecuteAsync(null);
+
+        var error = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal("Access is denied.", error.Message);
+        Assert.Empty(harness.Dialogs.TypedConfirmations);
+        Assert.Empty(harness.Planner.Requests);
+    }
+
+    [Fact]
+    public async Task ShellNavigation_StaysExecutable_WhileALongLoadRuns()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 300);
+        var shell = harness.CreateShell();
+        await shell.InitializeAsync();
+        var gate = new TaskCompletionSource();
+        harness.Directory.Hold = s => s.Scope == SearchScope.OneLevel && s.BaseDn.StartsWith("OU=Masowe", StringComparison.Ordinal) ? gate.Task : null;
+
+        shell.AddressText = "OU=Masowe,DC=contoso,DC=test";
+        var navigation = shell.NavigateToAddressCommand.ExecuteAsync(null);
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.SelectedDocument!.IsLoading && shell.SelectedDocument.Title == "Masowe");
+
+        Assert.True(shell.NavigateToAddressCommand.CanExecute(null));
+        Assert.True(shell.GoBackCommand.CanExecute(null));
+        Assert.True(shell.RefreshCommand.CanExecute(null));
+        await shell.GoBackCommand.ExecuteAsync(null);
+        await navigation;
+        gate.SetResult();
+
+        Assert.Equal("contoso.test", shell.SelectedDocument!.Title);
+        Assert.True(shell.SelectedDocument.IsFullyLoaded);
+    }
+
+    [Fact]
+    public async Task Initialize_JoinsTheInitializationStartedByTheConnect()
+    {
+        var harness = TestHarness.Disconnected();
+        var shell = harness.CreateShell();
+
+        // The shell exists before the first connect: SessionChanged starts the initialization, then the app calls it too.
+        await harness.Sessions.ConnectAsync(new ConnectionOptions(), null, TestContext.Current.CancellationToken);
+        await shell.InitializeAsync();
+
+        await shell.SelectedDocument!.CurrentLoad;
+        Assert.Single(shell.Documents);
+        Assert.Equal("contoso.test", shell.SelectedDocument.Title);
     }
 
     [Fact]
@@ -284,7 +462,7 @@ public class ShellViewModelTests
     [Fact]
     public async Task AddressBar_AcceptsCanonicalPathsAndDns()
     {
-        var (shell, _) = await CreateShellAsync();
+        var (shell, harness) = await CreateShellAsync();
 
         shell.AddressText = "contoso.test/Firma/Księgowość";
         await shell.NavigateToAddressCommand.ExecuteAsync(null);
@@ -299,6 +477,14 @@ public class ShellViewModelTests
         shell.AddressText = "contoso.test/Nie ma takiego";
         await shell.NavigateToAddressCommand.ExecuteAsync(null);
         Assert.Equal("The address was not found in the directory.", shell.AddressError);
+
+        // Two children with the same name (OU=IT and CN=IT): no "size limit exceeded", the first match is used.
+        harness.Directory.SizeLimitBehavior = SizeLimitBehavior.ThrowBeforeEntries;
+        harness.Directory.Put(Container("CN=IT,OU=Firma,DC=contoso,DC=test"));
+        shell.AddressText = "contoso.test/Firma/IT";
+        await shell.NavigateToAddressCommand.ExecuteAsync(null);
+        Assert.Null(shell.AddressError);
+        Assert.Equal("IT", shell.SelectedDocument!.Title);
     }
 
     [Fact]
@@ -393,7 +579,7 @@ public class ShellViewModelTests
     }
 
     [Fact]
-    public async Task PinContainer_AddsItToViews_Once()
+    public async Task PinContainer_AddsItToViews_Once_AndUnpinReenablesIt()
     {
         var (shell, harness) = await CreateShellAsync(It);
 
@@ -401,6 +587,12 @@ public class ShellViewModelTests
 
         Assert.Equal(It, Assert.Single(harness.Views.PinnedContainers).DistinguishedName);
         Assert.False(shell.PinContainerCommand.CanExecute(null));
+
+        var notified = 0;
+        shell.PinContainerCommand.CanExecuteChanged += (_, _) => notified++;
+        await harness.Views.UnpinAsync(It);
+        Assert.True(notified > 0);
+        Assert.True(shell.PinContainerCommand.CanExecute(null));
     }
 
     [Fact]
@@ -499,6 +691,8 @@ public class ShellViewModelTests
         Assert.Empty(shell.Documents);
         Assert.Contains("connect", harness.Dialogs.Shown);
         Assert.False(shell.IsConnected);
+        Assert.Null(shell.Tree.DomainNode);
+        Assert.Equal([shell.Tree.ViewsNode], shell.Tree.Roots);
 
         // The connect window reconnects: the shell rebuilds itself for the new session.
         await harness.Sessions.ConnectAsync(new ConnectionOptions(), null, TestContext.Current.CancellationToken);

@@ -25,6 +25,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     private readonly IDirectoryChangeNotifier _changes;
     private readonly Dictionary<string, ContainerNodeViewModel> _index = new(StringComparer.Ordinal);
     private bool _suppressActivation;
+    private int _viewsInactiveDays;
 
     public NavigationTreeViewModel(
         ISessionManager sessions,
@@ -46,6 +47,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         _views.Changed += OnViewsChanged;
         _changes.Changed += OnDirectoryChanged;
         Localizer.CultureChanged += OnCultureChanged;
+        Settings.Changed += OnSettingsChanged;
     }
 
     /// <summary>Raised when the operator selects a node (not for programmatic selection via <see cref="ExpandToAsync"/>).</summary>
@@ -100,6 +102,8 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     public void RebuildViews()
     {
         var inactiveDays = Settings.Current.InactiveDays;
+        _viewsInactiveDays = inactiveDays;
+        var selected = SelectedNode;
         var quick = new FolderNodeViewModel(this, ViewsNode, Localizer[L.Tree.QuickFilters], ObjectIcon.QuickFilter);
         quick.Children.ReplaceAll(BuiltInViews.All.Select(v => new ViewNodeViewModel(this, quick, v, v.Title(Localizer, inactiveDays))));
         var nodes = new List<TreeNodeViewModel> { quick };
@@ -112,6 +116,20 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         var wasExpanded = ViewsNode.Children.OfType<FolderNodeViewModel>().FirstOrDefault()?.IsExpanded ?? false;
         quick.IsExpanded = wasExpanded;
         ViewsNode.Children.ReplaceAll(nodes);
+
+        // Keep the selection on the rebuilt counterpart of a selected view / pinned container (no re-navigation).
+        TreeNodeViewModel? replacement = selected switch
+        {
+            ViewNodeViewModel view => nodes.SelectMany(n => n is FolderNodeViewModel f ? f.Children : [n])
+                .OfType<ViewNodeViewModel>().FirstOrDefault(n => string.Equals(n.ViewId, view.ViewId, StringComparison.Ordinal)),
+            ContainerNodeViewModel { IsPinnedEntry: true } pin => nodes.OfType<ContainerNodeViewModel>()
+                .FirstOrDefault(n => DistinguishedName.AreEqual(n.Dn, pin.Dn)),
+            _ => null,
+        };
+        if (replacement is not null)
+        {
+            SelectSilently(replacement);
+        }
     }
 
     /// <summary>
@@ -199,13 +217,20 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         _views.Changed -= OnViewsChanged;
         _changes.Changed -= OnDirectoryChanged;
         Localizer.CultureChanged -= OnCultureChanged;
+        Settings.Changed -= OnSettingsChanged;
     }
 
     internal void Register(ContainerNodeViewModel node) => _index[DnKey.For(node.Dn)] = node;
 
     internal void Unregister(ContainerNodeViewModel node)
     {
-        _index.Remove(DnKey.For(node.Dn));
+        // Only the registered instance: children of pinned shortcuts share DNs with domain tree nodes.
+        var key = DnKey.For(node.Dn);
+        if (_index.TryGetValue(key, out var registered) && ReferenceEquals(registered, node))
+        {
+            _index.Remove(key);
+        }
+
         foreach (var child in node.Children.OfType<ContainerNodeViewModel>())
         {
             Unregister(child);
@@ -242,6 +267,15 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
             : ObjectKind.Container;
 
     private void OnViewsChanged(object? sender, EventArgs e) => _ = Dispatcher.RunAsync(RebuildViews);
+
+    /// <summary>The "Inactive users (N days)" titles follow the InactiveDays setting.</summary>
+    private void OnSettingsChanged(object? sender, EventArgs e) => _ = Dispatcher.RunAsync(() =>
+    {
+        if (Settings.Current.InactiveDays != _viewsInactiveDays)
+        {
+            RebuildViews();
+        }
+    });
 
     private void OnCultureChanged(object? sender, EventArgs e)
     {

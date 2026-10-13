@@ -132,6 +132,58 @@ public class NavigationTreeTests
     }
 
     [Fact]
+    public async Task ViewsRebuild_KeepsTheSelectedView_AndFollowsInactiveDays()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        await harness.Views.SaveViewAsync(new SavedView { Id = "v1", Name = "Dział IT" });
+        var tree = harness.CreateTree();
+        await tree.InitializeAsync();
+        var activated = 0;
+        tree.NodeActivated += (_, _) => activated++;
+        var view = tree.ViewsNode.Children.OfType<ViewNodeViewModel>().Single();
+        view.IsSelected = true;
+
+        await harness.Views.SaveViewAsync(view.SavedView! with { Name = "Dział IT – nowy" });
+
+        var rebuilt = Assert.IsType<ViewNodeViewModel>(tree.SelectedNode);
+        Assert.NotSame(view, rebuilt);
+        Assert.Equal("Dział IT – nowy", rebuilt.Name);
+        Assert.True(rebuilt.IsSelected);
+        Assert.Equal(1, activated);
+
+        await harness.Settings.UpdateAsync(s => s.InactiveDays = 60, TestContext.Current.CancellationToken);
+        var quick = Assert.IsType<FolderNodeViewModel>(tree.ViewsNode.Children[0]);
+        Assert.Contains(quick.Children, c => c.Name == "Inactive users (60 days)");
+    }
+
+    [Fact]
+    public async Task PinnedShortcutChildren_NeverUnindexDomainTreeNodes()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        await harness.Views.PinAsync(Firma, "Firma");
+        var tree = harness.CreateTree();
+        await tree.InitializeAsync();
+        var domainFirma = (ContainerNodeViewModel)tree.DomainNode!.Children.Single(c => c.Name == "Firma");
+        await domainFirma.EnsureChildrenLoadedAsync();
+        var pinned = tree.ViewsNode.Children.OfType<ContainerNodeViewModel>().Single();
+        await pinned.EnsureChildrenLoadedAsync();
+        var domainIt = tree.FindNode(It);
+        Assert.NotNull(domainIt);
+
+        harness.Directory.FailSearch = _ => new DirectoryException(DirectoryErrorKind.ServerUnavailable, "down");
+        await pinned.RefreshAsync();
+
+        Assert.NotNull(pinned.LoadError);
+        Assert.Same(domainIt, tree.FindNode(It));
+
+        // A failed refresh of a domain node drops its detached children from the index.
+        harness.Directory.FailSearch = _ => new DirectoryException(DirectoryErrorKind.ServerUnavailable, "down");
+        await domainFirma.RefreshAsync();
+        Assert.Null(tree.FindNode(It));
+        Assert.False(domainFirma.ChildrenLoaded);
+    }
+
+    [Fact]
     public async Task ChildLoadFailure_IsShownOnTheNode()
     {
         var harness = await TestHarness.ConnectedAsync();

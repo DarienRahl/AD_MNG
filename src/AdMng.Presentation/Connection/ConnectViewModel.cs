@@ -182,20 +182,36 @@ public sealed partial class ConnectViewModel : ObservableObject
         StatusText = _localizer.Format(L.Connect.Connecting, options.Server ?? options.Domain ?? string.Empty);
         try
         {
-            await _sessions.ConnectAsync(options, credential, cancellationToken).ConfigureAwait(true);
+            try
+            {
+                await _sessions.ConnectAsync(options, credential, cancellationToken).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText = _localizer[L.Errors.Cancelled];
+                return;
+            }
+            catch (Exception ex)
+            {
+                StatusText = null;
+                ErrorText = _errors.TranslateConnectError(ex);
+                return;
+            }
+
+            // Connected: from here on nothing may turn the success into an error - a failed profile save would
+            // otherwise leave an open session behind a "failed" window and the next attempt would open a second one.
             PasswordInput?.Clear();
-            await RememberProfileAsync().ConfigureAwait(true);
             StatusText = null;
+            try
+            {
+                await RememberProfileAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // The profile is not saved; the connection is fine.
+            }
+
             Connected?.Invoke(this, EventArgs.Empty);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = _localizer[L.Errors.Cancelled];
-        }
-        catch (Exception ex)
-        {
-            StatusText = null;
-            ErrorText = _errors.TranslateConnectError(ex);
         }
         finally
         {

@@ -1,10 +1,23 @@
 using AdMng.Presentation.Localization;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Shell;
+
+/// <summary>Input field of the main window that a keyboard shortcut moves the focus to.</summary>
+public enum ShellFocusTarget
+{
+    /// <summary>Global quick search box (Ctrl+E).</summary>
+    Search,
+
+    /// <summary>Editable address bar (Ctrl+L).</summary>
+    Address,
+}
 
 /// <summary>Command descriptors (palette, menus, key bindings). Shortcuts follow ADUC where ADUC has one.</summary>
 public sealed partial class ShellViewModel
 {
+    /// <summary>Asks the view to focus (and select the text of) an input field - Ctrl+E / Ctrl+L.</summary>
+    public event EventHandler<ShellFocusTarget>? FocusRequested;
     /// <summary>All shell commands with ids, localized title keys, categories and keyboard shortcuts.</summary>
     public IReadOnlyList<CommandDescriptor> CommandDescriptors => CommandPalette.Commands;
 
@@ -36,11 +49,11 @@ public sealed partial class ShellViewModel
             new("new.computer", L.Commands.NewComputer, create, string.Empty, NewComputerCommand),
             new("new.contact", L.Commands.NewContact, create, string.Empty, NewContactCommand),
             new("nav.find", L.Commands.Find, nav, "Ctrl+F", FindCommand),
-            new("nav.search", L.Commands.QuickSearch, nav, "Ctrl+E", ShowAllSearchResultsCommand),
+            new("nav.search", L.Commands.QuickSearch, nav, "Ctrl+E", FocusSearchCommand),
             new("nav.back", L.Commands.Back, nav, "Alt+Left", GoBackCommand),
             new("nav.forward", L.Commands.Forward, nav, "Alt+Right", GoForwardCommand),
             new("nav.up", L.Commands.Up, nav, "Alt+Up", GoUpCommand),
-            new("nav.address", L.Commands.GoToAddress, nav, "Ctrl+L", NavigateToAddressCommand),
+            new("nav.address", L.Commands.GoToAddress, nav, "Ctrl+L", FocusAddressCommand),
             new("nav.newTab", L.Commands.NewTab, nav, "Ctrl+T", NewTabCommand),
             new("nav.openInNewTab", L.Commands.OpenInNewTab, nav, "Ctrl+Enter", OpenInNewTabCommand),
             new("nav.closeTab", L.Commands.CloseTab, nav, "Ctrl+W", CloseTabCommand),
@@ -58,4 +71,12 @@ public sealed partial class ShellViewModel
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),
         ];
     }
+
+    /// <summary>Ctrl+E: the search box takes the keyboard (typing then searches as you type).</summary>
+    [RelayCommand]
+    private void FocusSearch() => FocusRequested?.Invoke(this, ShellFocusTarget.Search);
+
+    /// <summary>Ctrl+L: the address bar takes the keyboard (Enter then runs <see cref="NavigateToAddressCommand"/>).</summary>
+    [RelayCommand]
+    private void FocusAddress() => FocusRequested?.Invoke(this, ShellFocusTarget.Address);
 }

@@ -115,7 +115,7 @@ public sealed partial class ShellViewModel
         return !distinguishedNames.All(dn => DistinguishedName.TryParse(dn, out var s) && s.Parent is { } p && p.Equals(target));
     }
 
-    [RelayCommand(CanExecute = nameof(HasDocument))]
+    [RelayCommand(CanExecute = nameof(HasDocument), AllowConcurrentExecutions = true)]
     private async Task RefreshAsync()
     {
         if (SelectedDocument is not { } document)
@@ -163,7 +163,17 @@ public sealed partial class ShellViewModel
         }
 
         var containers = selection.Where(r => r.IsContainer).Select(r => r.Dn).ToList();
-        var withChildren = containers.Count > 0 && await Task.Run(() => AnyHasChildrenAsync(session, containers)).ConfigureAwait(true);
+        bool withChildren;
+        try
+        {
+            withChildren = containers.Count > 0 && await Task.Run(() => AnyHasChildrenAsync(session, containers)).ConfigureAwait(true);
+        }
+        catch (DirectoryException ex)
+        {
+            // E.g. the container was deleted meanwhile or listing it is denied - never guess "empty" for a delete.
+            await _dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
+            return;
+        }
         var message = selection.Count == 1
             ? Localizer.Format(L.Delete.ConfirmOne, selection[0].Name, selection[0].TypeText)
             : Localizer.Format(L.Delete.ConfirmMany, selection.Count);
@@ -336,7 +346,7 @@ public sealed partial class ShellViewModel
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasDocument))]
+    [RelayCommand(CanExecute = nameof(HasDocument), AllowConcurrentExecutions = true)]
     private Task OpenInNewTabAsync()
     {
         if (CurrentSelection is [{ IsContainer: true } row])
@@ -419,6 +429,15 @@ public sealed partial class ShellViewModel
     [RelayCommand]
     private Task MoveViewDownAsync(ViewNodeViewModel? node) => node?.SavedView is { } v ? _views.MoveViewAsync(v.Id, 1) : Task.CompletedTask;
 
+    /// <summary>Reorders a pinned container shortcut in the Views section.</summary>
+    [RelayCommand]
+    private Task MovePinnedUpAsync(ContainerNodeViewModel? node) =>
+        node is { IsPinnedEntry: true } ? _views.MovePinnedAsync(node.Dn, -1) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task MovePinnedDownAsync(ContainerNodeViewModel? node) =>
+        node is { IsPinnedEntry: true } ? _views.MovePinnedAsync(node.Dn, 1) : Task.CompletedTask;
+
     [RelayCommand]
     private async Task ExportViewsAsync()
     {
@@ -494,12 +513,9 @@ public sealed partial class ShellViewModel
         }
     }
 
+    /// <summary>Shows/hides the details pane; <see cref="OnSettingsChanged"/> fills or clears it.</summary>
     [RelayCommand]
-    private async Task ToggleDetailsPaneAsync()
-    {
-        await Settings.UpdateAsync(s => s.ShowDetailsPane = !s.ShowDetailsPane).ConfigureAwait(true);
-        await UpdateDetailsAsync().ConfigureAwait(true);
-    }
+    private Task ToggleDetailsPaneAsync() => Settings.UpdateAsync(s => s.ShowDetailsPane = !s.ShowDetailsPane);
 
     [RelayCommand]
     private Task ShowSessionLogAsync() => _dialogs.ShowSessionLogAsync();

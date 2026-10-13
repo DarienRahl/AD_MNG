@@ -55,7 +55,10 @@ public static class AddressResolver
                 Scope = SearchScope.OneLevel,
                 Filter = LdapFilter.Equal(Attr.Name, segment),
                 Attributes = [Attr.ObjectClass],
-                SizeLimit = 1,
+
+                // No size limit: two children may share the name (OU=Sales and CN=Sales) and a size limit of 1 would
+                // end the search with "size limit exceeded" instead of a result. The first match wins.
+                PageSize = 10,
             };
             string? next = null;
             await foreach (var obj in session.SearchAsync(search, cancellationToken).ConfigureAwait(false))

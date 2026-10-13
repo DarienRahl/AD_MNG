@@ -18,7 +18,11 @@ public interface ISettingsStore
     /// <summary>Loads settings from storage (defaults when missing; corrupt files are backed up and reset).</summary>
     Task LoadAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>Applies <paramref name="change"/> to <see cref="Current"/>, raises <see cref="Changed"/> and persists.</summary>
+    /// <summary>
+    /// Applies <paramref name="change"/> to <see cref="Current"/>, raises <see cref="Changed"/> and persists.
+    /// A failed write (read-only profile, file locked by another instance or an antivirus scan) is logged and does not
+    /// throw: the change stays in effect for this session - losing a column width must never break a command.
+    /// </summary>
     Task UpdateAsync(Action<AppSettings> change, CancellationToken cancellationToken = default);
 
     /// <summary>Raised (on the thread that called <see cref="UpdateAsync"/> / <see cref="LoadAsync"/>) after a change.</summary>
@@ -71,6 +75,11 @@ public sealed class JsonSettingsStore : ISettingsStore
                 _logger.LogWarning("Settings file is corrupt ({ErrorType}); it is backed up and defaults are used.", ex.GetType().Name);
                 BackUpCorruptFile(path);
             }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Unreadable (locked, no access): start with defaults but keep the file as it is.
+                _logger.LogWarning("Settings file could not be read ({ErrorType}); defaults are used.", ex.GetType().Name);
+            }
         }
 
         loaded ??= new AppSettings();
@@ -97,22 +106,33 @@ public sealed class JsonSettingsStore : ISettingsStore
     private async Task WriteAtomicAsync(string json, CancellationToken cancellationToken)
     {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var temp = FilePath + ".tmp";
         try
         {
             Directory.CreateDirectory(_directory);
-            var path = FilePath;
-            var temp = path + ".tmp";
             await File.WriteAllTextAsync(temp, json, cancellationToken).ConfigureAwait(false);
-            File.Move(temp, path, overwrite: true);
+            File.Move(temp, FilePath, overwrite: true);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogError("Settings could not be written ({ErrorType}).", ex.GetType().Name);
-            throw;
+            _logger.LogError("Settings could not be written ({ErrorType}); the change applies to this session only.", ex.GetType().Name);
+            TryDelete(temp);
         }
         finally
         {
             _writeGate.Release();
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort; the next successful write replaces it.
         }
     }
 
@@ -123,7 +143,7 @@ public sealed class JsonSettingsStore : ISettingsStore
             var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
             File.Move(path, Path.Combine(_directory, $"settings.corrupt-{stamp}.json"), overwrite: true);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning("Corrupt settings file could not be backed up ({ErrorType}).", ex.GetType().Name);
         }

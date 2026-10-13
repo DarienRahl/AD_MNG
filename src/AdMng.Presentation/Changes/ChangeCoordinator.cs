@@ -182,6 +182,11 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         {
             result = await ExecutePlanAsync(plan, request.Title, cancellationToken).ConfigureAwait(true);
         }
+        catch (OperationCanceledException)
+        {
+            // Cancelled by the operator (activity center) - the activity shows it; no error dialog.
+            return ChangeOutcome.Cancelled;
+        }
         catch (Exception ex)
         {
             await _dialogs.ShowErrorAsync(request.Title, _errors.Translate(ex)).ConfigureAwait(true);

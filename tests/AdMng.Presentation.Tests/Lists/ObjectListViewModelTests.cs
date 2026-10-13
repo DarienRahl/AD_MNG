@@ -1,6 +1,7 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
+using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Tests.TestDoubles;
@@ -310,6 +311,24 @@ public class ObjectListViewModelTests
     }
 
     [Fact]
+    public async Task ShowingAHiddenColumnAgain_LoadsItsAttribute()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var list = await harness.OpenContainerAsync(It);
+        await list.ApplyColumnsAsync(["name", "objectClass", "department"]);
+        var department = list.Columns.Single(c => c.Attribute == Attr.Department);
+        department.IsVisible = false;
+        await list.LoadAsync();
+        Assert.DoesNotContain(Attr.Department, list.LastSearch!.Attributes);
+
+        department.IsVisible = true;
+        await list.CurrentLoad;
+
+        Assert.Contains(Attr.Department, list.LastSearch!.Attributes);
+        Assert.Equal("IT", list.Items.Single(r => r.Dn == Lukasz)[Attr.Department]);
+    }
+
+    [Fact]
     public async Task ColumnChooser_OffersSchemaAttributes_WithoutBinaryOnes()
     {
         var harness = await TestHarness.ConnectedAsync();
@@ -416,6 +435,95 @@ public class ObjectListViewModelTests
         Assert.Equal("Typ", list.Columns[1].Header);
         Assert.Equal("Wyłączone", list.FilterChips.Single(c => c.Kind == QuickFilterKind.Disabled).Title);
         Assert.Equal("Nieaktywne 90 dni", list.FilterChips.Single(c => c.Kind == QuickFilterKind.Inactive).Title);
+    }
+
+    [Fact]
+    public async Task NavigationCommands_StayExecutable_WhileALongLoadRuns()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 300);
+        var list = await harness.OpenContainerAsync(It);
+        await list.NavigateAsync(ListLocation.ForContainer("OU=Masowe,DC=contoso,DC=test"));
+        var gate = new TaskCompletionSource();
+        harness.Directory.Hold = s => s.BaseDn.StartsWith("OU=Masowe", StringComparison.Ordinal) ? gate.Task : null;
+
+        var refresh = list.RefreshCommand.ExecuteAsync(null);
+        Assert.True(list.IsLoading);
+
+        // F5, Back and column clicks must not wait for the running load - they cancel it.
+        Assert.True(list.RefreshCommand.CanExecute(null));
+        Assert.True(list.GoBackCommand.CanExecute(null));
+        Assert.True(list.SortCommand.CanExecute(list.Columns[0]));
+        await list.GoBackCommand.ExecuteAsync(null);
+        await refresh;
+        gate.SetResult();
+
+        Assert.Equal(It, list.Location!.BaseDn);
+        Assert.Equal(6, list.Items.Count);
+        Assert.True(list.IsFullyLoaded);
+    }
+
+    [Fact]
+    public async Task LiveUpdates_ANewNotification_DoesNotDropARefreshInFlight()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Directory.SupportsWatch = true;
+        var list = await harness.OpenContainerAsync(It);
+        const string first = "CN=Pierwsza Osoba,OU=IT,OU=Firma,DC=contoso,DC=test";
+        const string second = "CN=Druga Osoba,OU=IT,OU=Firma,DC=contoso,DC=test";
+        harness.Directory.Put(User(first, "pierwsza"));
+        harness.Directory.Put(User(second, "druga"));
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldBeforeResults = s => s.Scope == SearchScope.Base ? gate.Task : null;
+
+        harness.Directory.RaiseChange(first);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await WaitUntilAsync(() => harness.Directory.Searches.Any(s => s.BaseDn == first));
+
+        // The second notification arrives while the first refresh still waits for the DC.
+        harness.Directory.RaiseChange(second);
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await WaitUntilAsync(() => harness.Directory.Searches.Any(s => s.BaseDn == second));
+        gate.SetResult();
+
+        await WaitUntilAsync(() => list.Items.Any(r => r.Dn == first) && list.Items.Any(r => r.Dn == second));
+        list.Dispose();
+    }
+
+    [Fact]
+    public async Task RenamedSelectedObject_StaysSelected_UnderItsNewDn()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var list = await harness.OpenContainerAsync(It);
+        list.SelectedItem = list.Items.Single(r => r.Dn == Ewa);
+        const string renamed = "CN=Ewa Nowak,OU=IT,OU=Firma,DC=contoso,DC=test";
+        harness.Directory.Remove(Ewa);
+        harness.Directory.Put(User(renamed, "ewa.kowalska", disabled: true));
+
+        await list.HandleChangesAsync([new DirectoryChange(DirectoryChangeKind.Moved, Ewa, renamed, ObjectKind.User)]);
+
+        Assert.Equal(renamed, list.SelectedItem?.Dn);
+        Assert.DoesNotContain(list.Items, r => r.Dn == Ewa);
+        Assert.Equal(6, list.Items.Count);
+    }
+
+    [Fact]
+    public async Task ModifiedObject_ThatNowMatchesTheFilter_IsAdded_AndOneThatNoLongerMatches_IsRemoved()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var list = await harness.OpenContainerAsync(It);
+        list.FilterChips.Single(c => c.Kind == QuickFilterKind.Disabled).IsActive = true;
+        await list.CurrentLoad;
+        Assert.Equal(["Ewa Kowalska"], list.Items.Select(r => r.Name));
+        harness.Directory.Put(WithAttribute(harness.Directory.Find(Lukasz)!, Attr.UserAccountControl, "514"));
+        harness.Directory.Put(WithAttribute(harness.Directory.Find(Ewa)!, Attr.UserAccountControl, "512"));
+
+        await list.HandleChangesAsync(
+        [
+            new DirectoryChange(DirectoryChangeKind.Modified, Lukasz, ObjectKind: ObjectKind.User),
+            new DirectoryChange(DirectoryChangeKind.Modified, Ewa, ObjectKind: ObjectKind.User),
+        ]);
+
+        Assert.Equal(["Łukasz Żółć"], list.Items.Select(r => r.Name));
     }
 
     [Fact]

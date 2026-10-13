@@ -59,10 +59,25 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
     /// </summary>
     public Func<DirectorySearch, Task?>? Hold { get; set; }
 
+    /// <summary>
+    /// Like <see cref="Hold"/>, but the search pauses before its first result - for base reads, whose callers stop
+    /// enumerating after one result.
+    /// </summary>
+    public Func<DirectorySearch, Task?>? HoldBeforeResults { get; set; }
+
     /// <summary>Thrown by the next search (then cleared) - e.g. to simulate an unsupported sort control.</summary>
     public Func<DirectorySearch, Exception?>? FailSearch { get; set; }
 
+    /// <summary>
+    /// Thrown after the last result of a matching search (not cleared) - like AD ending a search with
+    /// "size limit exceeded" after it returned the first entries.
+    /// </summary>
+    public Func<DirectorySearch, Exception?>? FailAfterResults { get; set; }
+
     public bool SupportsWatch { get; set; }
+
+    /// <summary>What a search with more matches than <see cref="DirectorySearch.SizeLimit"/> does.</summary>
+    public SizeLimitBehavior SizeLimitBehavior { get; set; } = SizeLimitBehavior.Truncate;
 
     public bool Disposed { get; private set; }
 
@@ -93,6 +108,7 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
     {
         _searches.Enqueue(search);
         var hold = Hold?.Invoke(search);
+        var holdBefore = HoldBeforeResults?.Invoke(search);
         if (FailSearch?.Invoke(search) is { } failure)
         {
             FailSearch = null;
@@ -100,7 +116,19 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
         }
 
         await Task.Yield();
-        var results = Query(search).ToList();
+        if (holdBefore is not null)
+        {
+            await holdBefore.WaitAsync(cancellationToken);
+        }
+
+        var all = Query(search).ToList();
+        var exceeded = search.SizeLimit > 0 && all.Count > search.SizeLimit;
+        var results = exceeded ? all.Take(search.SizeLimit).ToList() : all;
+        if (exceeded && SizeLimitBehavior == SizeLimitBehavior.ThrowBeforeEntries)
+        {
+            throw SizeLimitExceeded();
+        }
+
         var count = 0;
         foreach (var obj in results)
         {
@@ -117,11 +145,21 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
                 await hold.WaitAsync(cancellationToken);
             }
         }
+
+        if (exceeded && SizeLimitBehavior == SizeLimitBehavior.ThrowAfterEntries)
+        {
+            throw SizeLimitExceeded();
+        }
+
+        if (FailAfterResults?.Invoke(search) is { } late)
+        {
+            throw late;
+        }
     }
 
     public Task<VirtualListPage> GetVirtualListPageAsync(DirectorySearch search, VirtualListRequest window, CancellationToken cancellationToken)
     {
-        var all = Query(search).ToList();
+        var all = Query(search).Take(search.SizeLimit > 0 ? search.SizeLimit : int.MaxValue).ToList();
         var items = all.Skip(window.Offset).Take(window.Count).Select(o => Project(o, search.Attributes)).ToList();
         return Task.FromResult(new VirtualListPage(items, window.Offset, all.Count, null));
     }
@@ -233,8 +271,11 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
             matches = matches.OrderBy(o => o.DistinguishedName.Length).ThenBy(o => o.DistinguishedName, StringComparer.Ordinal);
         }
 
-        return search.SizeLimit > 0 ? matches.Take(search.SizeLimit) : matches;
+        return matches;
     }
+
+    private static DirectoryException SizeLimitExceeded() =>
+        new(DirectoryErrorKind.SizeLimitExceeded, "Size limit exceeded.") { LdapResultCode = 4 };
 
     private static bool InScope(DistinguishedName dn, DistinguishedName baseDn, SearchScope scope) => scope switch
     {
@@ -265,6 +306,19 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
             return ValueTask.CompletedTask;
         }
     }
+}
+
+/// <summary>How the in-memory DC handles a search that matches more objects than its size limit.</summary>
+internal enum SizeLimitBehavior
+{
+    /// <summary>Returns the first N objects and completes normally.</summary>
+    Truncate,
+
+    /// <summary>Returns the first N objects, then fails with sizeLimitExceeded (AD with a streaming client).</summary>
+    ThrowAfterEntries,
+
+    /// <summary>Fails with sizeLimitExceeded before returning anything (a client that throws on the page response).</summary>
+    ThrowBeforeEntries,
 }
 
 /// <summary>Fluent creation of directory objects for tests.</summary>

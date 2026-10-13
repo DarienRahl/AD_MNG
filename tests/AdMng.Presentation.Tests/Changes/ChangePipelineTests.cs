@@ -145,6 +145,20 @@ public class ChangePipelineTests
     }
 
     [Fact]
+    public async Task Coordinator_CancelledFromTheActivityCenter_EndsWithoutAnErrorDialog()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Executor.Gate = new TaskCompletionSource();
+
+        var apply = harness.Coordinator.ApplyAsync(new ChangeRequest([Ewa], [new UnlockAccountOperation()], "Unlock"), TestContext.Current.CancellationToken);
+        await ObjectListViewModelTests.WaitUntilAsync(() => harness.Activities.Activities.Count == 1);
+        harness.Activities.Activities[0].CancelCommand.Execute(null);
+
+        Assert.Equal(ChangeOutcome.Cancelled, await apply);
+        Assert.Empty(harness.Dialogs.Errors);
+    }
+
+    [Fact]
     public async Task Activity_CompletesWithResult()
     {
         var harness = await TestHarness.ConnectedAsync();

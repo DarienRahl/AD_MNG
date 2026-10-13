@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Lists;
+using AdMng.Presentation.Settings;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Presentation.Views;
 using static AdMng.Presentation.Tests.TestDoubles.TestDirectory;
@@ -156,6 +157,24 @@ public class ViewsTests
         await library.PinAsync(It.ToUpperInvariant(), "IT");
         Assert.Single(library.PinnedContainers);
         Assert.True(library.IsPinned(It));
-        Assert.True(changed >= 5);
+        Assert.Equal(5, changed);
+    }
+
+    [Fact]
+    public async Task Library_IgnoresUnrelatedSettingsChanges()
+    {
+        var settings = new InMemorySettingsStore();
+        var library = new ViewLibrary(settings);
+        await library.SaveViewAsync(new SavedView { Id = "a", Name = "A" });
+        var changed = 0;
+        library.Changed += (_, _) => changed++;
+
+        // Navigation (recent containers) and column resizing must not rebuild the Views section of the tree.
+        await settings.UpdateAsync(s => s.AddRecentContainer(It), TestContext.Current.CancellationToken);
+        await settings.UpdateAsync(s => s.ColumnLayouts["container"] = [new ColumnLayoutEntry("name", 300)], TestContext.Current.CancellationToken);
+        Assert.Equal(0, changed);
+
+        await library.SaveViewAsync(library.FindView("a")! with { Name = "A2" });
+        Assert.Equal(1, changed);
     }
 }

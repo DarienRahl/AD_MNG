@@ -60,13 +60,16 @@ public sealed partial class ShellViewModel
     public static string BuildSearchFilter(string text) =>
         LdapFilter.And(LdapFilter.Anr(text.Trim()), LdapFilter.Or(SearchKinds.Select(k => k.ToLdapFilter())));
 
-    /// <summary>Enter in the search box: opens the highlighted suggestion, otherwise all results in a new tab.</summary>
-    [RelayCommand]
+    /// <summary>
+    /// Enter in the search box: opens the suggestion the operator highlighted (arrow keys / mouse), otherwise all
+    /// results in a new tab. Suggestions are never pre-highlighted, so a plain Enter always shows all results.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task SubmitSearchAsync() =>
         SelectedSuggestion is { } suggestion && IsSuggestionsOpen ? OpenSuggestionAsync(suggestion) : ShowAllSearchResultsAsync();
 
     /// <summary>"Show all results": a Search tab without size limit (streamed).</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task ShowAllSearchResultsAsync()
     {
         var session = Sessions.Current;
@@ -77,13 +80,14 @@ public sealed partial class ShellViewModel
         }
 
         _searchDebouncer.Cancel();
+        IsSearching = false;
         IsSuggestionsOpen = false;
         var location = ListLocation.ForSearch(text, session.Info.DefaultNamingContext, Localizer.Format(L.Search.TabTitle, text), BuildSearchFilter(text));
         return OpenLocationInNewTabAsync(location);
     }
 
     /// <summary>Opens a suggestion: containers are navigated into, other objects are located (parent opened, object selected).</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task OpenSuggestionAsync(SearchSuggestionViewModel? suggestion)
     {
         if (suggestion is null)
@@ -122,6 +126,7 @@ public sealed partial class ShellViewModel
         if (session is null || query.Length < MinimumSearchLength)
         {
             SearchSuggestions.Clear();
+            SelectedSuggestion = null;
             IsSuggestionsOpen = false;
             IsSearching = false;
             return;
@@ -139,22 +144,29 @@ public sealed partial class ShellViewModel
                 SizeLimit = SuggestionLimit,
                 PageSize = SuggestionLimit,
             };
-            var found = await Task.Run(
-                async () =>
-                {
-                    var list = new List<DirectoryObject>(SuggestionLimit);
-                    await foreach (var obj in session.SearchAsync(search, token).ConfigureAwait(false))
+            var found = new List<DirectoryObject>(SuggestionLimit);
+            try
+            {
+                await Task.Run(
+                    async () =>
                     {
-                        list.Add(obj);
-                        if (list.Count >= SuggestionLimit)
+                        await foreach (var obj in session.SearchAsync(search, token).ConfigureAwait(false))
                         {
-                            break;
+                            found.Add(obj);
+                            if (found.Count >= SuggestionLimit)
+                            {
+                                break;
+                            }
                         }
-                    }
+                    },
+                    token).ConfigureAwait(true);
+            }
+            catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.SizeLimitExceeded)
+            {
+                // More than SuggestionLimit matches: the DC ends the search with "size limit exceeded" after
+                // returning the first entries - show those (the "show all" tab has no limit).
+            }
 
-                    return list;
-                },
-                token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
 
             SearchSuggestions.Clear();
@@ -170,12 +182,8 @@ public sealed partial class ShellViewModel
                     obj.GetString(Attr.Description)));
             }
 
-            SelectedSuggestion = SearchSuggestions.FirstOrDefault();
+            SelectedSuggestion = null;
             IsSuggestionsOpen = true;
-        }
-        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.SizeLimitExceeded)
-        {
-            IsSuggestionsOpen = SearchSuggestions.Count > 0;
         }
         catch (DirectoryException ex)
         {

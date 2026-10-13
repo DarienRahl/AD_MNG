@@ -207,7 +207,14 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
             await _tree.Dispatcher.RunAsync(() =>
             {
                 LoadError = _tree.Errors.Translate(ex);
+                foreach (var child in Children.OfType<ContainerNodeViewModel>())
+                {
+                    // Detached nodes must not stay findable (FindNode / locate / change refresh would use them).
+                    _tree.Unregister(child);
+                }
+
                 Children.ReplaceAll([]);
+                ChildrenLoaded = false;
             }).ConfigureAwait(true);
         }
         finally

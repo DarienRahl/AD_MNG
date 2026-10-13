@@ -19,14 +19,21 @@ public sealed class ViewLibrary
     public const string ExportFormat = "AdMng.Views";
 
     private readonly ISettingsStore _settings;
+    private readonly Lock _gate = new();
+    private SavedView[] _lastViews;
+    private PinnedContainer[] _lastPins;
 
     public ViewLibrary(ISettingsStore settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _settings.Changed += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
+        (_lastViews, _lastPins) = Snapshot();
+        _settings.Changed += OnSettingsChanged;
     }
 
-    /// <summary>Raised when views or pinned containers changed (also after settings were reloaded).</summary>
+    /// <summary>
+    /// Raised when views or pinned containers changed (also after settings were reloaded) - not for unrelated settings
+    /// such as column widths or recent containers, which change on every navigation and would rebuild the tree.
+    /// </summary>
     public event EventHandler? Changed;
 
     public IReadOnlyList<SavedView> SavedViews => _settings.Current.SavedViews;
@@ -138,6 +145,27 @@ public sealed class ViewLibrary
         }).ConfigureAwait(true);
         return added;
     }
+
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        lock (_gate)
+        {
+            var (views, pins) = Snapshot();
+
+            // Views are immutable records replaced on save, so element equality detects edits, adds, removals and moves.
+            if (views.SequenceEqual(_lastViews) && pins.SequenceEqual(_lastPins))
+            {
+                return;
+            }
+
+            (_lastViews, _lastPins) = (views, pins);
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private (SavedView[] Views, PinnedContainer[] Pins) Snapshot() =>
+        ([.. _settings.Current.SavedViews], [.. _settings.Current.PinnedContainers]);
 
     private static bool IsValidBase(string? baseDn)
     {

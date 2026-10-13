@@ -159,6 +159,26 @@ public class SessionAndConnectTests
     }
 
     [Fact]
+    public async Task Connect_Succeeds_EvenWhenTheProfileCannotBeSaved()
+    {
+        var harness = TestHarness.Disconnected();
+        var vm = new ConnectViewModel(harness.Connector, harness.Sessions, new UnwritableSettingsStore(), harness.Localizer, harness.Errors);
+        vm.Initialize();
+        vm.SaveProfile = true;
+        vm.ProfileName = "Produkcja";
+        var connected = 0;
+        vm.Connected += (_, _) => connected++;
+
+        await vm.ConnectCommand.ExecuteAsync(null);
+
+        // The session is open, so the window must report success (a retry would open a second session).
+        Assert.Equal(1, connected);
+        Assert.Null(vm.ErrorText);
+        Assert.False(vm.IsBusy);
+        Assert.Single(harness.Sessions.Sessions);
+    }
+
+    [Fact]
     public async Task FindDomainControllers_ListsClientSiteFirst_AndSelectingOneSetsServer()
     {
         var (vm, _, _) = CreateConnect();
@@ -182,6 +202,22 @@ public class SessionAndConnectTests
 
         Assert.Equal(0, harness.Connector.ConnectCount);
         Assert.Contains("domain", vm.ErrorText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class UnwritableSettingsStore : ISettingsStore
+    {
+        public AppSettings Current { get; } = new();
+
+        public event EventHandler? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task UpdateAsync(Action<AppSettings> change, CancellationToken cancellationToken = default) =>
+            Task.FromException(new IOException("The process cannot access the file because it is being used by another process."));
     }
 
     private static (ConnectViewModel Vm, TestHarness Harness, FakePasswordInput Password) CreateConnect()

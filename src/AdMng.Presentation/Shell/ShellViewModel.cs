@@ -39,6 +39,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly Debouncer _detailsDebouncer;
     private ObjectListViewModel? _observedDocument;
     private IDirectorySession? _initializedFor;
+    private Task? _initialization;
+    private bool _detailsPaneVisible;
 
     public ShellViewModel(
         ObjectListServices lists,
@@ -67,11 +69,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);
         CommandPalette.Register(CreateCommandDescriptors());
 
+        _detailsPaneVisible = Settings.Current.ShowDetailsPane;
         Tree.NodeActivated += OnNodeActivated;
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
         _activities.PropertyChanged += OnActivitiesChanged;
+        _views.Changed += OnViewsChanged;
     }
 
     public NavigationTreeViewModel Tree { get; }
@@ -152,13 +156,22 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// Call once after the first successful connect; later reconnects (Disconnect → connect window) re-initialize
     /// automatically. Idempotent for the same session.
     /// </summary>
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
-        if (Sessions.Current is { } current && ReferenceEquals(current, _initializedFor) && Documents.Count > 0)
+        // The app calls this after the first connect while SessionChanged may already have started the same
+        // initialization (shell created before connecting): join it instead of building a second tree and tab.
+        if (Sessions.Current is { } current && ReferenceEquals(current, _initializedFor) && _initialization is { } running
+            && (!running.IsCompleted || Documents.Count > 0))
         {
-            return;
+            return running;
         }
 
+        _initialization = InitializeCoreAsync();
+        return _initialization;
+    }
+
+    private async Task InitializeCoreAsync()
+    {
         _initializedFor = Sessions.Current;
         RaiseHeaderChanged();
         foreach (var existing in Documents)
@@ -172,8 +185,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IsPrivilegedIdentity = false;
         var session = Sessions.Current;
         await Tree.InitializeAsync().ConfigureAwait(true);
-        if (session is null)
+        if (session is null || !ReferenceEquals(session, _initializedFor))
         {
+            // Disconnected, or a newer session started its own initialization meanwhile.
             return;
         }
 
@@ -222,7 +236,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         await document.NavigateAsync(location, distinguishedName).ConfigureAwait(true);
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task NewTabAsync()
     {
         var session = Sessions.Current;
@@ -249,7 +263,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task NavigateToAddressAsync()
     {
         var session = Sessions.Current;
@@ -292,7 +306,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Double click / Enter on a row: containers open in the current tab, other objects show properties.</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task OpenItemAsync(ObjectRowViewModel? row)
     {
         row ??= SelectedDocument?.SelectedItem;
@@ -311,17 +325,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanGoBack))]
+    [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => SelectedDocument?.GoBackCommand.ExecuteAsync(null) ?? Task.CompletedTask;
 
     private bool CanGoBack() => SelectedDocument?.GoBackCommand.CanExecute(null) == true;
 
-    [RelayCommand(CanExecute = nameof(CanGoForward))]
+    [RelayCommand(CanExecute = nameof(CanGoForward), AllowConcurrentExecutions = true)]
     private Task GoForwardAsync() => SelectedDocument?.GoForwardCommand.ExecuteAsync(null) ?? Task.CompletedTask;
 
     private bool CanGoForward() => SelectedDocument?.GoForwardCommand.CanExecute(null) == true;
 
-    [RelayCommand(CanExecute = nameof(CanGoUp))]
+    [RelayCommand(CanExecute = nameof(CanGoUp), AllowConcurrentExecutions = true)]
     private Task GoUpAsync() => SelectedDocument?.GoUpCommand.ExecuteAsync(null) ?? Task.CompletedTask;
 
     private bool CanGoUp() => SelectedDocument?.GoUpCommand.CanExecute(null) == true;
@@ -330,6 +344,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         Tree.NodeActivated -= OnNodeActivated;
         _activities.PropertyChanged -= OnActivitiesChanged;
+        _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
         Settings.Changed -= OnSettingsChanged;
         Localizer.CultureChanged -= OnCultureChanged;
@@ -371,6 +386,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             _observedDocument.SelectionChanged -= OnDocumentSelectionChanged;
             _observedDocument.PropertyChanged -= OnDocumentPropertyChanged;
+            _observedDocument.Items.CollectionChanged -= OnDocumentItemsChanged;
         }
 
         _observedDocument = document;
@@ -378,8 +394,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             document.SelectionChanged += OnDocumentSelectionChanged;
             document.PropertyChanged += OnDocumentPropertyChanged;
+            document.Items.CollectionChanged += OnDocumentItemsChanged;
         }
     }
+
+    /// <summary>Rows arrived, were filtered or removed: "Export list" depends on the shown rows.</summary>
+    private void OnDocumentItemsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        ExportListCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Views or pins changed (also from another window): "Pin" depends on the pinned containers.</summary>
+    private void OnViewsChanged(object? sender, EventArgs e) =>
+        _ = _lists.Dispatcher.RunAsync(PinContainerCommand.NotifyCanExecuteChanged);
 
     private void OnDocumentPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -505,6 +530,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (Sessions.Current is null)
         {
             _initializedFor = null;
+            _initialization = null;
             foreach (var document in Documents)
             {
                 document.Dispose();
@@ -514,6 +540,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             SelectedDocument = null;
             SelectedObject = null;
             IsPrivilegedIdentity = false;
+
+            // Drop the domain tree of the closed session (only the Views section stays).
+            Tree.InitializeAsync().Forget();
         }
     });
 
@@ -522,6 +551,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsDetailsPaneVisible));
         OnPropertyChanged(nameof(ShowAdvancedFeatures));
         OnPropertyChanged(nameof(RecentContainers));
+        if (_detailsPaneVisible != IsDetailsPaneVisible)
+        {
+            // Toggled (also from the settings dialog): fill or clear the pane for the current selection.
+            _detailsPaneVisible = IsDetailsPaneVisible;
+            _ = _lists.Dispatcher.RunAsync(() => UpdateDetailsAsync().Forget());
+        }
     }
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -603,7 +638,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                         : ObjectSummaryViewModel.Create(obj, Localizer, Sessions.Formatter, session.Schema, policy, _lists.Time.GetUtcNow());
                 }
             }
-            catch (DirectoryException)
+            catch (DirectoryException) when (!token.IsCancellationRequested)
             {
                 SelectedObject = null;
             }

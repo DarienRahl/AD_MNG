@@ -37,6 +37,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private const int BackgroundSortThreshold = 2000;
     private const int RefreshParallelism = 4;
 
+    /// <summary>
+    /// Modified objects that are in scope but not listed (they may match the filter now, e.g. a newly disabled
+    /// account in "Disabled users") are re-read up to this number per change batch; larger batches show them on F5.
+    /// </summary>
+    private const int MaxUnlistedRefresh = 100;
+
     private readonly ObjectListServices _services;
     private readonly List<ObjectRowViewModel> _allRows = [];
     private readonly Dictionary<string, ObjectRowViewModel> _rowsByDn = new(StringComparer.Ordinal);
@@ -46,6 +52,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private readonly Debouncer _liveRefresh;
     private readonly HashSet<string> _liveChanged = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _liveGate = new();
+    private readonly CancellationTokenSource _lifetime = new();
     private int _generation;
     private RowContext? _rowContext;
     private DirectorySearch? _lastSearch;
@@ -289,7 +296,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Reloads the location from the directory (cancels a running load).</summary>
-    [RelayCommand]
+    /// <remarks>
+    /// Navigation commands allow concurrent executions: their task completes only when the whole list is loaded, and a
+    /// new navigation must be possible meanwhile (it cancels the running load) - otherwise F5, Back or a column click
+    /// would stay disabled until a 50 000 object container finished streaming.
+    /// </remarks>
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public Task RefreshAsync() => LoadAsync();
 
     /// <summary>Loads the current location (cancels a running load). Completes when the load ended.</summary>
@@ -334,7 +346,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Sorts by a column: locally when everything is loaded, otherwise re-queries with server side sort.</summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public async Task SortAsync(ColumnViewModel? column)
     {
         if (column is null)
@@ -364,17 +376,17 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ClearQuickFilter() => QuickFilterText = string.Empty;
 
-    [RelayCommand(CanExecute = nameof(CanGoBack))]
+    [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => _history.GoBack() is { } previous ? ShowLocationAsync(previous) : Task.CompletedTask;
 
     private bool CanGoBack() => _history.CanGoBack;
 
-    [RelayCommand(CanExecute = nameof(CanGoForward))]
+    [RelayCommand(CanExecute = nameof(CanGoForward), AllowConcurrentExecutions = true)]
     private Task GoForwardAsync() => _history.GoForward() is { } next ? ShowLocationAsync(next) : Task.CompletedTask;
 
     private bool CanGoForward() => _history.CanGoForward;
 
-    [RelayCommand(CanExecute = nameof(CanGoUp))]
+    [RelayCommand(CanExecute = nameof(CanGoUp), AllowConcurrentExecutions = true)]
     private Task GoUpAsync() => UpLocation() is { } up ? NavigateAsync(up) : Task.CompletedTask;
 
     private bool CanGoUp() => UpLocation() is not null;
@@ -427,6 +439,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         _loads.Cancel();
         _layoutSaver.Cancel();
         _liveRefresh.Cancel();
+        _lifetime.Cancel();
         _services.Changes.Changed -= OnDirectoryChanged;
         _services.Localizer.CultureChanged -= OnCultureChanged;
         foreach (var chip in FilterChips)
@@ -481,6 +494,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
         var token = _loads.Next();
         var generation = ++_generation;
+
+        // The previous search/context describe the previous location: a row refresh started before this load
+        // publishes its own search must not insert objects of the old location under the new generation.
+        _lastSearch = null;
+        _rowContext = null;
         await StopWatchingAsync().ConfigureAwait(true);
         _allRows.Clear();
         _rowsByDn.Clear();
@@ -767,12 +785,15 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     {
         var lockedOnly = postFilter == ListPostFilter.LockedOnly || ChipsRequireLockedPostFilter;
         var structureChanged = false;
+        var selected = Selection.ToHashSet();
+        var selectionAffected = false;
         foreach (var (dn, obj) in results)
         {
             var key = DnKey.For(dn);
             _rowsByDn.TryGetValue(key, out var existing);
             var keep = obj is not null;
             ObjectRowViewModel? candidate = null;
+            selectionAffected |= existing is not null && selected.Contains(existing);
             if (obj is not null)
             {
                 if (existing is not null)
@@ -794,6 +815,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                 {
                     _rowsByDn.Remove(key);
                     _allRows.Remove(existing);
+                    ForgetSelected(existing);
                     structureChanged = true;
                 }
 
@@ -808,22 +830,36 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             }
         }
 
-        if (!structureChanged)
+        if (structureChanged)
         {
-            return;
+            LoadedCount = _allRows.Count;
+            OnPropertyChanged(nameof(TotalCount));
+            if (_localSortAttribute is not null)
+            {
+                var sorted = RowSorting.Sort(_allRows, _localSortAttribute, _localSortDescending, _services.Localizer.Culture, _services.Sessions.Current?.Schema);
+                _allRows.Clear();
+                _allRows.AddRange(sorted);
+            }
+
+            ApplyLocalView();
+            TrySelectPending(_allRows);
         }
 
-        LoadedCount = _allRows.Count;
-        OnPropertyChanged(nameof(TotalCount));
-        if (_localSortAttribute is not null)
+        if (selectionAffected)
         {
-            var sorted = RowSorting.Sort(_allRows, _localSortAttribute, _localSortDescending, _services.Localizer.Culture, _services.Sessions.Current?.Schema);
-            _allRows.Clear();
-            _allRows.AddRange(sorted);
+            // A selected row changed state (disabled, unlocked, renamed...) or vanished: selection dependent commands
+            // (Enable/Disable/Unlock...) and the details pane must re-evaluate.
+            RaiseSelectionChanged();
         }
+    }
 
-        ApplyLocalView();
-        TrySelectPending(_allRows);
+    /// <summary>Drops a removed row from <see cref="SelectedItem"/> (the view's multi-selection follows the Items reset).</summary>
+    private void ForgetSelected(ObjectRowViewModel row)
+    {
+        if (ReferenceEquals(SelectedItem, row))
+        {
+            SelectedItem = null;
+        }
     }
 
     private static bool IsInScope(string dn, string baseDn, SearchScope scope)
@@ -861,6 +897,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
         var refresh = new List<string>();
         var removed = false;
+        var unlisted = 0;
         foreach (var change in changes)
         {
             var oldKey = DnKey.For(change.DistinguishedName);
@@ -870,10 +907,16 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                     removed |= RemoveRow(oldKey);
                     break;
                 case DirectoryChangeKind.Moved:
+                    var wasSelected = _rowsByDn.TryGetValue(oldKey, out var movedRow) && ReferenceEquals(SelectedItem, movedRow);
                     removed |= RemoveRow(oldKey);
                     if (IsInScope(change.CurrentDistinguishedName, search.BaseDn, location.Scope))
                     {
                         refresh.Add(change.CurrentDistinguishedName);
+                        if (wasSelected)
+                        {
+                            // Renamed in place (F2): keep the object selected under its new DN.
+                            _pendingSelectionKey = DnKey.For(change.CurrentDistinguishedName);
+                        }
                     }
 
                     break;
@@ -888,6 +931,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                     if (_rowsByDn.ContainsKey(oldKey))
                     {
                         refresh.Add(change.DistinguishedName);
+                    }
+                    else if (unlisted < MaxUnlistedRefresh && IsInScope(change.DistinguishedName, search.BaseDn, location.Scope))
+                    {
+                        // Not listed, but it may match the filter now (the base read applies the list filter).
+                        refresh.Add(change.DistinguishedName);
+                        unlisted++;
                     }
 
                     break;
@@ -948,6 +997,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         }
 
         _allRows.Remove(row);
+        ForgetSelected(row);
         return true;
     }
 
@@ -1003,7 +1053,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             _liveChanged.Add(distinguishedName);
         }
 
-        _ = _services.Dispatcher.RunAsync(() => _ = _liveRefresh.RunAsync(async ct =>
+        _ = _services.Dispatcher.RunAsync(() => _ = _liveRefresh.RunAsync(async _ =>
         {
             string[] pending;
             lock (_liveGate)
@@ -1014,7 +1064,9 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
             try
             {
-                await RefreshObjectsAsync(pending, ct).ConfigureAwait(true);
+                // Not the debouncer's token: a newer notification cancels only the pending delay, never a refresh that
+                // already took its DNs out of the queue (those changes would be lost until F5).
+                await RefreshObjectsAsync(pending, _lifetime.Token).ConfigureAwait(true);
             }
             catch (Exception ex) when (ex is DirectoryException or OperationCanceledException)
             {
@@ -1127,6 +1179,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             if (e.PropertyName == nameof(ColumnViewModel.IsVisible))
             {
                 OnPropertyChanged(nameof(VisibleColumns));
+
+                // Only visible columns are requested: a column shown again needs its attribute from the DC.
+                if (sender is ColumnViewModel { IsVisible: true } column && !ColumnSets.IsPseudo(column.Attribute)
+                    && _lastSearch is { } search && !search.Attributes.Contains(column.Attribute, StringComparer.OrdinalIgnoreCase))
+                {
+                    LoadAsync().Forget();
+                }
             }
 
             _layoutSaver.RunAsync(_ => SaveLayoutAsync()).Forget();

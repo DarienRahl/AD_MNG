@@ -102,6 +102,24 @@ public sealed class SettingsTests : IDisposable
     }
 
     [Fact]
+    public async Task Update_WhenTheFileCannotBeWritten_KeepsTheChange_AndDoesNotThrow()
+    {
+        // The settings "directory" is a file: every write fails with an IOException (like a locked or read-only profile).
+        Directory.CreateDirectory(_paths.SettingsDirectory);
+        var blocked = new BlockedAppPaths(Path.Combine(_paths.SettingsDirectory, "not-a-directory"));
+        await File.WriteAllTextAsync(blocked.SettingsDirectory, "x", TestContext.Current.CancellationToken);
+        var store = new JsonSettingsStore(blocked);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+        var changed = 0;
+        store.Changed += (_, _) => changed++;
+
+        await store.UpdateAsync(s => s.ShowAdvancedFeatures = true, TestContext.Current.CancellationToken);
+
+        Assert.True(store.Current.ShowAdvancedFeatures);
+        Assert.Equal(1, changed);
+    }
+
+    [Fact]
     public void RecentContainers_AreMostRecentFirst_Deduplicated_AndCapped()
     {
         var settings = new AppSettings();
@@ -130,6 +148,11 @@ public sealed class SettingsTests : IDisposable
         Assert.Equal(1, settings.ConfirmationThreshold);
         Assert.Equal(1, settings.InactiveDays);
         Assert.Equal(string.Empty, settings.Language);
+    }
+
+    private sealed class BlockedAppPaths(string directory) : Services.IAppPaths
+    {
+        public string SettingsDirectory { get; } = directory;
     }
 
     private static IEnumerable<string> PersistedPropertyNames(Type type, HashSet<Type>? seen = null)
