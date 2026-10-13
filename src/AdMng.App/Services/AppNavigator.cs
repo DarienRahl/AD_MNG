@@ -16,12 +16,14 @@ public sealed class AppNavigator
 {
     private readonly IServiceProvider _services;
     private readonly ILogger<AppNavigator> _logger;
+    private readonly IAppShutdown _shutdown;
     private ConnectWindow? _connect;
 
-    public AppNavigator(IServiceProvider services, ILogger<AppNavigator> logger)
+    public AppNavigator(IServiceProvider services, ILogger<AppNavigator> logger, IAppShutdown shutdown)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _shutdown = shutdown ?? throw new ArgumentNullException(nameof(shutdown));
     }
 
     /// <summary>The main window once the first connection succeeded.</summary>
@@ -122,13 +124,13 @@ public sealed class AppNavigator
         if (MainWindow is null)
         {
             // Closed before the first connection: nothing else to show.
-            Application.Current?.Shutdown();
+            _shutdown.Shutdown();
         }
     }
 
     private void OnMainClosed(object? sender, EventArgs e)
     {
         _connect?.Close();
-        Application.Current?.Shutdown();
+        _shutdown.Shutdown();
     }
 }

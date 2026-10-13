@@ -22,16 +22,24 @@ internal sealed class UiTestContext : IAsyncDisposable
     private readonly List<Exception> _exceptions = [];
     private readonly GlobalExceptionHandler _exceptionHandler;
 
-    private UiTestContext(IHost host, FakeDirectoryBuilder directory, SampleCompany company, FakeDirectoryConnector connector, string settingsDirectory)
+    private UiTestContext(
+        IHost host,
+        FakeDirectoryBuilder directory,
+        SampleCompany company,
+        FakeDirectoryConnector connector,
+        RecordingShutdown shutdown,
+        string settingsDirectory)
     {
         Host = host;
+        Shutdown = shutdown;
         Directory = directory;
         Company = company;
         Connector = connector;
         _settingsDirectory = settingsDirectory;
         _exceptionHandler = host.Services.GetRequiredService<GlobalExceptionHandler>();
         _exceptionHandler.Recorder = _exceptions.Add;
-        _exceptionHandler.Attach(Application.Current);
+        _exceptionHandler.Attach(Application.Current
+            ?? throw new InvalidOperationException("The shared WPF application object is missing (was it shut down by a test?)."));
     }
 
     public IHost Host { get; }
@@ -44,6 +52,9 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public FakeDirectoryConnector Connector { get; }
 
+    /// <summary>Shutdown requests (closing the main window, or the connect window before connecting).</summary>
+    public RecordingShutdown Shutdown { get; }
+
     public IReadOnlyList<Exception> Exceptions => _exceptions;
 
     /// <param name="language">UI language ("en" / "pl").</param>
@@ -53,14 +64,16 @@ internal sealed class UiTestContext : IAsyncDisposable
         var directory = new FakeDirectoryBuilder();
         var company = directory.AddSampleCompany();
         var connector = new FakeDirectoryConnector(directory.Build());
+        var shutdown = new RecordingShutdown();
         var settingsDirectory = Path.Combine(Path.GetTempPath(), "AdMng-uitests-" + Guid.NewGuid().ToString("N"));
         var options = new StartupOptions(Language: language, SettingsDirectory: settingsDirectory);
         var host = AppHost.Build(options, services =>
         {
             services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector));
+            services.Replace(ServiceDescriptor.Singleton<IAppShutdown>(shutdown));
             configure?.Invoke(services);
         });
-        var context = new UiTestContext(host, directory, company, connector, settingsDirectory);
+        var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory);
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();
         return context;

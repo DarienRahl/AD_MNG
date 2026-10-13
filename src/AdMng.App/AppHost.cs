@@ -92,6 +92,7 @@ public static class AppHost
         services.AddSingleton<IUiDispatcher>(uiDispatcher);
         services.AddSingleton<IAppPaths>(new AppPaths(options.SettingsDirectory));
         services.AddSingleton<IWindowService, WindowService>();
+        services.AddSingleton<IAppShutdown, ApplicationShutdown>();
         services.AddSingleton<AppNavigator>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IFileDialogService, FileDialogService>();
