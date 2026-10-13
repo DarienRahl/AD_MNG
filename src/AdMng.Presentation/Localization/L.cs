@@ -5,7 +5,7 @@ namespace AdMng.Presentation.Localization;
 /// verify that every key exists in both languages. Dynamic key families (enum names, issue codes, attributes) are
 /// built by <see cref="DisplayNames"/>.
 /// </summary>
-public static class L
+public static partial class L
 {
     public static class App
     {

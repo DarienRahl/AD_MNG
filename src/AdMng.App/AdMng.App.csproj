@@ -17,4 +17,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.App.UiTests" />
+  </ItemGroup>
 </Project>

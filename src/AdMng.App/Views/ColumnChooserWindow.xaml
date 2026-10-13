@@ -1,0 +1,117 @@
+<Window x:Class="AdMng.App.Views.ColumnChooserWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        Title="{l:Tr Columns.ChooserTitle}"
+        Width="720"
+        Height="520"
+        MinWidth="560"
+        MinHeight="380"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <Button Margin="0"
+                Command="{Binding ResetToDefaultCommand}"
+                Content="{l:Tr Common.ResetToDefault}"
+                DockPanel.Dock="Left" />
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+          <Button x:Name="OkButton"
+                  Click="OnOkClick"
+                  Content="{l:Tr Common.Ok}"
+                  IsDefault="True"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+          <Button Click="OnCancelClick"
+                  Content="{l:Tr Common.Cancel}"
+                  IsCancel="True"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Margin="16,12,16,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+
+      <!-- Available attributes -->
+      <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Columns.Available}" />
+      <Grid Grid.Row="1" Margin="0,0,0,6">
+        <TextBox x:Name="FilterBox"
+                 AutomationProperties.Name="{l:Tr Common.Filter}"
+                 Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Common.Filter}"
+                   Visibility="{Binding Text, ElementName=FilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+      <ListBox x:Name="AvailableList"
+               Grid.Row="2"
+               AutomationProperties.Name="{l:Tr Columns.Available}"
+               DisplayMemberPath="Text"
+               ItemsSource="{Binding Available}"
+               MouseDoubleClick="OnAvailableDoubleClick"
+               SelectedItem="{Binding SelectedAvailable}"
+               VirtualizingPanel.IsVirtualizing="True"
+               VirtualizingPanel.VirtualizationMode="Recycling" />
+
+      <!-- Add / remove -->
+      <StackPanel Grid.Row="2"
+                  Grid.Column="1"
+                  Margin="10,0"
+                  VerticalAlignment="Center">
+        <Button Margin="0,0,0,8"
+                AutomationProperties.Name="{l:Tr Common.Add}"
+                Command="{Binding AddCommand}"
+                Content="{x:Static c:Glyphs.ChevronRight}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.Add}" />
+        <Button AutomationProperties.Name="{l:Tr Common.Remove}"
+                Command="{Binding RemoveCommand}"
+                Content="{x:Static c:Glyphs.Back}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.Remove}" />
+      </StackPanel>
+
+      <!-- Displayed columns, in order -->
+      <TextBlock Grid.Column="2"
+                 Style="{StaticResource Ad.SectionHeader}"
+                 Text="{l:Tr Columns.Selected}" />
+      <ListBox x:Name="SelectedList"
+               Grid.Row="1"
+               Grid.RowSpan="2"
+               Grid.Column="2"
+               AutomationProperties.Name="{l:Tr Columns.Selected}"
+               DisplayMemberPath="Text"
+               ItemsSource="{Binding Selected}"
+               MouseDoubleClick="OnSelectedDoubleClick"
+               SelectedItem="{Binding SelectedColumn}" />
+
+      <StackPanel Grid.Row="2"
+                  Grid.Column="3"
+                  Margin="10,0,0,0"
+                  VerticalAlignment="Center">
+        <Button Margin="0,0,0,8"
+                AutomationProperties.Name="{l:Tr Common.MoveUp}"
+                Command="{Binding MoveUpCommand}"
+                Content="{x:Static c:Glyphs.ChevronUp}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.MoveUp}" />
+        <Button AutomationProperties.Name="{l:Tr Common.MoveDown}"
+                Command="{Binding MoveDownCommand}"
+                Content="{x:Static c:Glyphs.ChevronDown}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.MoveDown}" />
+      </StackPanel>
+    </Grid>
+  </DockPanel>
+</Window>
