@@ -83,6 +83,10 @@ internal static partial class Log
         Message = "TLS server certificate validation is disabled for {Server} (lab only)")]
     public static partial void CertificateValidationDisabled(ILogger logger, string server);
 
+    [LoggerMessage(EventId = 1010, Level = LogLevel.Warning,
+        Message = "Domain controller {Server} does not resolve; further connections use {ConnectedHost} and may reach another domain controller")]
+    public static partial void PinningFailed(ILogger logger, string server, string connectedHost);
+
     [LoggerMessage(EventId = 1100, Level = LogLevel.Debug,
         Message = "Pooled LDAP connection opened to {Server} ({Count}/{Max})")]
     public static partial void PoolConnectionOpened(ILogger logger, string server, int count, int max);

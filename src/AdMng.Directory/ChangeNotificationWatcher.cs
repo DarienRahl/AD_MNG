@@ -16,6 +16,9 @@ internal sealed class ChangeNotificationWatcher : IAsyncDisposable
     /// <summary>Partial-results requests time out client side; notifications must stay open indefinitely.</summary>
     private static readonly TimeSpan NotificationTimeout = TimeSpan.FromDays(3650);
 
+    /// <summary>How long <see cref="DisposeAsync"/> waits for S.DS.P to release the subscription.</summary>
+    private static readonly TimeSpan ReleaseWait = TimeSpan.FromSeconds(2);
+
     private readonly LdapConnection _connection;
     private readonly Action<string> _onChanged;
     private readonly ILogger _logger;
@@ -67,6 +70,12 @@ internal sealed class ChangeNotificationWatcher : IAsyncDisposable
         return watcher;
     }
 
+    /// <remarks>
+    /// Never blocks the caller for long: on Linux/macOS <see cref="LdapConnection.Abort"/> waits for S.DS.P's
+    /// shared partial-results thread, which can be stuck polling a quiet connection (see
+    /// <see cref="OpenLdapTls.TryShutdownSocket"/>). The socket is shut down first to wake it, and the abort runs on
+    /// its own thread; no change is delivered after this method returned.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -74,6 +83,26 @@ internal sealed class ChangeNotificationWatcher : IAsyncDisposable
             return;
         }
 
+        _changes.Writer.TryComplete();
+        if (!OperatingSystem.IsWindows())
+        {
+            // Also ends the server side search: the DC sees the connection go away.
+            OpenLdapTls.TryShutdownSocket(_connection);
+        }
+
+        var release = Task.Factory.StartNew(
+            static state => ((ChangeNotificationWatcher)state!).ReleaseConnection(),
+            this,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+        await Task.WhenAny(release, Task.Delay(ReleaseWait)).ConfigureAwait(false);
+        await _dispatcher.ConfigureAwait(false);
+        Log.WatchStopped(_logger);
+    }
+
+    private void ReleaseConnection()
+    {
         if (_request is { } request)
         {
             try
@@ -87,9 +116,6 @@ internal sealed class ChangeNotificationWatcher : IAsyncDisposable
         }
 
         _connection.Dispose();
-        _changes.Writer.TryComplete();
-        await _dispatcher.ConfigureAwait(false);
-        Log.WatchStopped(_logger);
     }
 
     private void OnResults(IAsyncResult asyncResult)

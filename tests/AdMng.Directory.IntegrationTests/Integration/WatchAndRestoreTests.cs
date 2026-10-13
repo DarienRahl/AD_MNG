@@ -78,6 +78,35 @@ public sealed class WatchAndRestoreTests(LabFixture lab)
     }
 
     [Fact]
+    public async Task Watch_DisposingAQuietSubscription_IsPrompt_AndOthersKeepWorking()
+    {
+        LabSettings.RequireLab();
+        var ct = TestContext.Current.CancellationToken;
+        var quietOu = await lab.CreateOuAsync(TestNames.Unique("Cisza"));
+        var busyOu = await lab.CreateOuAsync(TestNames.Unique("Ruch"));
+        var quiet = await lab.Admin.WatchAsync(quietOu, _ => { }, ct);
+        Assert.SkipWhen(quiet is null, "The server does not support change notifications.");
+
+        // Nothing changes below the quiet OU: S.DS.P's shared results thread ends up polling its connection.
+        await Task.Delay(1000, ct);
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        await quiet.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(20), ct);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Dispose took {stopwatch.Elapsed}.");
+
+        // The results thread was not left stuck on the disposed subscription.
+        var changes = new ConcurrentQueue<string>();
+        await using var busy = await lab.Admin.WatchAsync(busyOu, changes.Enqueue, ct);
+        var contact = await lab.CreateContactAsync(busyOu, "Po Ciszy");
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (!changes.Any(dn => DistinguishedName.AreEqual(dn, contact)) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100, ct);
+        }
+
+        Assert.Contains(changes, dn => DistinguishedName.AreEqual(dn, contact));
+    }
+
+    [Fact]
     public async Task RestoreDeleted_BringsATombstoneBack()
     {
         LabSettings.RequireLab();

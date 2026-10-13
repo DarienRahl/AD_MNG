@@ -138,6 +138,68 @@ public sealed class ConnectorTests
         Assert.Equal(DirectoryErrorKind.ServerUnavailable, error.Kind);
     }
 
+    [Fact]
+    public async Task Pinning_UsesTheDomainControllersOwnName()
+    {
+        var logs = new Infrastructure.CapturingLoggerFactory();
+        var logger = logs.CreateLogger("pin");
+        var throughDomain = new LdapConnectionFactory(LabLikeSettings(), "contoso.test", "contoso.test", logger);
+
+        var pinned = await LdapDirectoryConnector.PinAsync(
+            throughDomain, RootDseOf("localhost"), "contoso.test", "contoso.test", logger, TestContext.Current.CancellationToken);
+
+        Assert.Equal("localhost", pinned.Host);
+        Assert.Empty(logs.WithEventId(1010));
+    }
+
+    [Fact]
+    public async Task Pinning_WarnsWhenTheDomainControllerNameDoesNotResolve()
+    {
+        var logs = new Infrastructure.CapturingLoggerFactory();
+        var logger = logs.CreateLogger("pin");
+        var throughDomain = new LdapConnectionFactory(LabLikeSettings(), "contoso.test", "contoso.test", logger);
+
+        var pinned = await LdapDirectoryConnector.PinAsync(
+            throughDomain, RootDseOf("dc01.does-not-exist.invalid"), "contoso.test", "contoso.test", logger, TestContext.Current.CancellationToken);
+
+        Assert.Same(throughDomain, pinned);
+        var warning = Assert.Single(logs.WithEventId(1010));
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+    }
+
+    [Fact]
+    public async Task Pinning_IsNotNeededForAnExplicitServer()
+    {
+        var logs = new Infrastructure.CapturingLoggerFactory();
+        var logger = logs.CreateLogger("pin");
+        var explicitDc = new LdapConnectionFactory(LabLikeSettings(), "10.0.0.5", "contoso.test", logger);
+
+        var pinned = await LdapDirectoryConnector.PinAsync(
+            explicitDc, RootDseOf("dc01.does-not-exist.invalid"), "contoso.test", "contoso.test", logger, TestContext.Current.CancellationToken);
+
+        Assert.Same(explicitDc, pinned);
+        Assert.Empty(logs.Records);
+    }
+
+    private static ConnectionSettings LabLikeSettings() => ConnectionSettings.Create(
+        new ConnectionOptions
+        {
+            Domain = "contoso.test",
+            Authentication = AuthenticationMode.SimpleBind,
+            Security = TransportSecurity.Tls,
+            UserName = "jan@contoso.test",
+        },
+        new NetworkCredential(string.Empty, "x"),
+        isWindows: false);
+
+    private static RootDse RootDseOf(string dnsHostName) => new()
+    {
+        DefaultNamingContext = "DC=contoso,DC=test",
+        ConfigurationNamingContext = "CN=Configuration,DC=contoso,DC=test",
+        SchemaNamingContext = "CN=Schema,CN=Configuration,DC=contoso,DC=test",
+        DnsHostName = dnsHostName,
+    };
+
     private static int UnusedLocalPort()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

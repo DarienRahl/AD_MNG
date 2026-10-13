@@ -327,7 +327,7 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
     /// Keeps every connection of the session on the DC that answered the first bind. When the session was opened
     /// through the domain name (DNS round robin) the DC's own host name is used for further connections.
     /// </summary>
-    private static async Task<LdapConnectionFactory> PinAsync(
+    internal static async Task<LdapConnectionFactory> PinAsync(
         LdapConnectionFactory factory,
         RootDse rootDse,
         string domain,
@@ -354,11 +354,14 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
                 return new LdapConnectionFactory(factory.Settings, dcHost, domain, logger);
             }
         }
-        catch (SocketException)
+        catch (Exception ex) when (ex is SocketException or ArgumentException)
         {
-            // The DC's name does not resolve here; keep using the name that worked.
+            // The DC's name does not resolve here; keep using the name that worked (see the warning below).
         }
 
+        // Further pooled connections go through the domain name again and may reach another DC (rule: one DC per
+        // session). Make that visible; the operator can enter the DC explicitly.
+        Log.PinningFailed(logger, dcHost, factory.Host);
         return factory;
     }
 

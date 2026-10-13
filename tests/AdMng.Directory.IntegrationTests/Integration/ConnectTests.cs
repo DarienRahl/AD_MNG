@@ -164,6 +164,35 @@ public sealed class ConnectTests(LabFixture lab)
     }
 
     [Fact]
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    public async Task SocketShutdown_BreaksExactlyThatConnection()
+    {
+        LabSettings.RequireLab();
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "libldap interop is only used on Linux and macOS.");
+        var ct = TestContext.Current.CancellationToken;
+        var settings = ConnectionSettings.Create(
+            LabSettings.Plain(LabSettings.AdminUser),
+            LabSettings.Password(LabSettings.AdminPassword),
+            isWindows: false);
+        var factory = new LdapConnectionFactory(settings, LabSettings.Server!, LabSettings.DomainDns, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        using var target = await factory.OpenAsync(probeReachability: false, ct);
+        using var other = await factory.OpenAsync(probeReachability: false, ct);
+        var rootDse = new System.DirectoryServices.Protocols.SearchRequest(
+            string.Empty,
+            "(objectClass=*)",
+            System.DirectoryServices.Protocols.SearchScope.Base,
+            "1.1");
+
+        // Guards the reflection on S.DS.P's handle field and the libldap / libc imports.
+        Assert.True(OpenLdapTls.TryShutdownSocket(target));
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
+            target.SendAsync<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct));
+        Assert.True(LdapErrors.IsConnectionBroken(error), error.ToString());
+        Assert.NotNull(await other.SendAsync<System.DirectoryServices.Protocols.SearchResponse>(rootDse, TimeSpan.FromSeconds(5), ct));
+    }
+
+    [Fact]
     public async Task DisposedSession_RejectsOperations()
     {
         LabSettings.RequireLab();
