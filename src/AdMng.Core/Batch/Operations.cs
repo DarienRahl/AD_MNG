@@ -20,6 +20,16 @@ public sealed record SetAttributeOperation(string Attribute, string ValueTemplat
 /// <summary>Removes all values of an attribute.</summary>
 public sealed record ClearAttributeOperation(string Attribute) : BatchOperation;
 
+/// <summary>
+/// Sets an attribute to exactly <paramref name="Values"/> (no templating: braces are literal text). An empty list
+/// clears the attribute. Used by property sheets and the attribute editor, where the operator edits the final values.
+/// </summary>
+/// <remarks>Booleans are normalized to TRUE/FALSE; duplicates (per the attribute's matching rule) are dropped.</remarks>
+public sealed record SetValuesOperation(string Attribute, IReadOnlyList<string> Values) : BatchOperation
+{
+    public override string ToString() => $"{nameof(SetValuesOperation)} {{ Attribute = {Attribute}, Values = {Values.Count} }}";
+}
+
 /// <summary>Adds values (templates) to a multi-valued attribute, e.g. proxyAddresses or otherTelephone.</summary>
 public sealed record AddValuesOperation(string Attribute, IReadOnlyList<string> ValueTemplates) : BatchOperation;
 

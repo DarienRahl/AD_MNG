@@ -1,0 +1,167 @@
+using System.Globalization;
+using System.Net;
+using AdMng.Core.Audit;
+using AdMng.Core.Batch;
+using AdMng.Core.Csv;
+using AdMng.Core.Directory;
+using AdMng.Core.Formatting;
+using AdMng.Core.Security;
+using AdMng.Core.Templates;
+using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Changes;
+using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Errors;
+using AdMng.Presentation.Lists;
+using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
+using AdMng.Presentation.Settings;
+using AdMng.Presentation.Tests.TestDoubles;
+using AdMng.Presentation.Views;
+using AdMng.Testing;
+using ManualTimeProvider = AdMng.Testing.ManualTimeProvider;
+
+namespace AdMng.Presentation.Tests.Dialogs;
+
+/// <summary>
+/// The real presentation services and the REAL Core engines (planner, executor, rollback, CSV, templates, formatter)
+/// over <see cref="FakeDirectorySession"/> with the Polish sample company - view models are tested end to end.
+/// UI services are scripted doubles.
+/// </summary>
+internal sealed class B2Harness
+{
+    private B2Harness(CultureInfo culture)
+    {
+        Builder = new FakeDirectoryBuilder(timeProvider: Time);
+        Company = Builder.AddSampleCompany();
+        Localizer = new ResxLocalizer(culture);
+        Errors = new ErrorTranslator(Localizer);
+        Sessions = new SessionManager(new SessionConnector(Session), new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)), Localizer);
+        Lists = new ObjectListServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time);
+        Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time);
+        var templates = new TemplateEngine();
+        Planner = new ChangePlanner(templates, new PasswordGenerator(), Time);
+        Executor = new BatchExecutor(AuditLog, Time);
+        PowerShell = new PowerShellHistory(new PowerShellExporter());
+        Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, PowerShell);
+        Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists);
+        var csv = new CsvCodec();
+        Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv));
+        Views = new ViewLibrary(Settings);
+        Factory = new DialogViewModelFactory(Services, Engines, Views, AuditLog, new AuditLogExporter(csv), PowerShell, Theme);
+    }
+
+    public ManualTimeProvider Time { get; } = new();
+
+    public FakeDirectoryBuilder Builder { get; }
+
+    public FakeDirectorySession Session => Builder.Session;
+
+    public SampleCompany Company { get; }
+
+    public ResxLocalizer Localizer { get; }
+
+    public ErrorTranslator Errors { get; }
+
+    public SessionManager Sessions { get; }
+
+    public SynchronousUiDispatcher Dispatcher { get; } = new();
+
+    public InMemorySettingsStore Settings { get; } = new();
+
+    public DirectoryChangeNotifier Changes { get; } = new();
+
+    public ObjectListServices Lists { get; }
+
+    public ActivityCenterViewModel Activities { get; }
+
+    public InMemoryAuditLog AuditLog { get; } = new();
+
+    public ChangePlanner Planner { get; }
+
+    public BatchExecutor Executor { get; }
+
+    public PowerShellHistory PowerShell { get; }
+
+    public ChangeCoordinator Coordinator { get; }
+
+    public ScriptedDialogService Dialogs { get; } = new();
+
+    public RecordingNotificationService Notifications { get; } = new();
+
+    public FakeFileDialogService Files { get; } = new();
+
+    public FakeClipboard Clipboard { get; } = new();
+
+    public FakeThemeService Theme { get; } = new();
+
+    public DialogServices Services { get; }
+
+    public BatchEngines Engines { get; }
+
+    public ViewLibrary Views { get; }
+
+    public DialogViewModelFactory Factory { get; }
+
+    public static async Task<B2Harness> CreateAsync(CultureInfo? culture = null)
+    {
+        var harness = new B2Harness(culture ?? CultureInfo.GetCultureInfo("en-US"));
+        await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
+        return harness;
+    }
+
+    /// <summary>Values of an attribute as stored in the fake directory.</summary>
+    public IReadOnlyList<string> Values(string dn, string attribute) => Session.GetValues(dn, attribute);
+
+    public string? Value(string dn, string attribute) => Session.GetValues(dn, attribute).FirstOrDefault();
+
+    /// <summary>Waits until a condition holds (background work started fire-and-forget by view models).</summary>
+    public static async Task WaitUntilAsync(Func<bool> condition, int timeoutMs = 5000)
+    {
+        var started = Environment.TickCount64;
+        while (!condition())
+        {
+            if (Environment.TickCount64 - started > timeoutMs)
+            {
+                throw new TimeoutException("The condition was not met in time.");
+            }
+
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+    }
+
+    private sealed class SessionConnector(IDirectorySession session) : IDirectoryConnector
+    {
+        public string? GetComputerDomain() => FakeDirectoryBuilder.DefaultDomain;
+
+        public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<DomainControllerInfo>>([]);
+
+        public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
+            Task.FromResult(session);
+    }
+}
+
+/// <summary>Theme service double recording the applied preference.</summary>
+internal sealed class FakeThemeService : IThemeService
+{
+    public ThemePreference? Applied { get; private set; }
+
+    public void Apply(ThemePreference preference) => Applied = preference;
+}
+
+/// <summary>Password box double for views that hand passwords over through <see cref="IPasswordInput"/>.</summary>
+internal sealed class TestPasswordInput(string password) : IPasswordInput
+{
+    public string Password { get; set; } = password;
+
+    public bool Cleared { get; private set; }
+
+    public string GetPassword() => Password;
+
+    public void Clear()
+    {
+        Cleared = true;
+        Password = string.Empty;
+    }
+}

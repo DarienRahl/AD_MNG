@@ -1427,4 +1427,1890 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Views.TestResult" xml:space="preserve">
     <value>Matching objects: {0} ({1} s)</value>
   </data>
+  <data name="Attribute.directReports" xml:space="preserve">
+    <value>Direct reports</value>
+  </data>
+  <data name="Attribute.mailNickname" xml:space="preserve">
+    <value>Alias</value>
+  </data>
+  <data name="Attribute.msDS-AllowedToDelegateTo" xml:space="preserve">
+    <value>Services to which this account can present delegated credentials</value>
+  </data>
+  <data name="Attribute.msDS-SupportedEncryptionTypes" xml:space="preserve">
+    <value>Supported Kerberos encryption types</value>
+  </data>
+  <data name="Attribute.msDS-User-Account-Control-Computed" xml:space="preserve">
+    <value>Computed account state</value>
+  </data>
+  <data name="Attribute.msExchHideFromAddressLists" xml:space="preserve">
+    <value>Hide from address lists</value>
+  </data>
+  <data name="Attribute.operatingSystemServicePack" xml:space="preserve">
+    <value>Service pack</value>
+  </data>
+  <data name="Attribute.otherFacsimileTelephoneNumber" xml:space="preserve">
+    <value>Other fax numbers</value>
+  </data>
+  <data name="Attribute.otherHomePhone" xml:space="preserve">
+    <value>Other home phone numbers</value>
+  </data>
+  <data name="Attribute.otherIpPhone" xml:space="preserve">
+    <value>Other IP phone numbers</value>
+  </data>
+  <data name="Attribute.otherMobile" xml:space="preserve">
+    <value>Other mobile numbers</value>
+  </data>
+  <data name="Attribute.otherPager" xml:space="preserve">
+    <value>Other pager numbers</value>
+  </data>
+  <data name="Attribute.otherTelephone" xml:space="preserve">
+    <value>Other telephone numbers</value>
+  </data>
+  <data name="Attribute.primaryGroupID" xml:space="preserve">
+    <value>Primary group ID</value>
+  </data>
+  <data name="Attribute.showInAdvancedViewOnly" xml:space="preserve">
+    <value>Show in advanced view only</value>
+  </data>
+  <data name="Attribute.targetAddress" xml:space="preserve">
+    <value>Target address</value>
+  </data>
+  <data name="Attribute.url" xml:space="preserve">
+    <value>Other web pages</value>
+  </data>
+  <data name="Attribute.userWorkstations" xml:space="preserve">
+    <value>Log on to</value>
+  </data>
+  <data name="Attribute.uSNChanged" xml:space="preserve">
+    <value>USN of the last change</value>
+  </data>
+  <data name="Attribute.uSNCreated" xml:space="preserve">
+    <value>USN when created</value>
+  </data>
+  <data name="AttributeEditor.BinaryReadOnly" xml:space="preserve">
+    <value>Binary values can only be viewed here.</value>
+  </data>
+  <data name="AttributeEditor.DateTimeHint" xml:space="preserve">
+    <value>A date and time, e.g. 2026-12-31 18:00.</value>
+  </data>
+  <data name="AttributeEditor.DnHint" xml:space="preserve">
+    <value>A distinguished name; use Browse to choose an object.</value>
+  </data>
+  <data name="AttributeEditor.EditorTitle" xml:space="preserve">
+    <value>Attribute: {0}</value>
+  </data>
+  <data name="AttributeEditor.FileTimeHint" xml:space="preserve">
+    <value>A date and time, a number of 100-ns intervals, or "never".</value>
+  </data>
+  <data name="AttributeEditor.IntegerHint" xml:space="preserve">
+    <value>A whole number; hexadecimal values start with 0x.</value>
+  </data>
+  <data name="AttributeEditor.NotSet" xml:space="preserve">
+    <value>&lt;not set&gt;</value>
+  </data>
+  <data name="Batch.Action" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="Batch.AddOperation" xml:space="preserve">
+    <value>Add operation</value>
+  </data>
+  <data name="Batch.After" xml:space="preserve">
+    <value>After</value>
+  </data>
+  <data name="Batch.AttributeRequired" xml:space="preserve">
+    <value>Choose an attribute.</value>
+  </data>
+  <data name="Batch.Before" xml:space="preserve">
+    <value>Before</value>
+  </data>
+  <data name="Batch.ConfirmExecute" xml:space="preserve">
+    <value>{0} objects will be changed: {1}.
+This cannot be undone automatically for password resets and deletions.
+Type {2} to confirm.</value>
+  </data>
+  <data name="Batch.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="Batch.CopyPowerShell" xml:space="preserve">
+    <value>Copy as PowerShell</value>
+  </data>
+  <data name="Batch.CsvChangeTitle" xml:space="preserve">
+    <value>CSV import {0}</value>
+  </data>
+  <data name="Batch.CsvWindowTitle" xml:space="preserve">
+    <value>Import changes from CSV</value>
+  </data>
+  <data name="Batch.DefaultChangeTitle" xml:space="preserve">
+    <value>Batch edit ({0} objects)</value>
+  </data>
+  <data name="Batch.DeleteAlone" xml:space="preserve">
+    <value>Delete cannot be combined with other operations.</value>
+  </data>
+  <data name="Batch.ExcludeAll" xml:space="preserve">
+    <value>Exclude all</value>
+  </data>
+  <data name="Batch.Execute" xml:space="preserve">
+    <value>Execute</value>
+  </data>
+  <data name="Batch.ExecutedNotification" xml:space="preserve">
+    <value>{0}: {1}</value>
+  </data>
+  <data name="Batch.Exported" xml:space="preserve">
+    <value>Saved {0}.</value>
+  </data>
+  <data name="Batch.ExportPasswordsTitle" xml:space="preserve">
+    <value>Include passwords?</value>
+  </data>
+  <data name="Batch.ExportPasswordsWarning" xml:space="preserve">
+    <value>The results contain the new passwords. Include them in the file in plain text?
+Anyone who can read the file can sign in with these accounts - store it securely and delete it after use. Choose No to export without passwords.</value>
+  </data>
+  <data name="Batch.ExportPreview" xml:space="preserve">
+    <value>Export preview</value>
+  </data>
+  <data name="Batch.ExportResults" xml:space="preserve">
+    <value>Export results</value>
+  </data>
+  <data name="Batch.FindRequired" xml:space="preserve">
+    <value>Enter the text to find.</value>
+  </data>
+  <data name="Batch.GroupsRequired" xml:space="preserve">
+    <value>Add at least one group.</value>
+  </data>
+  <data name="Batch.Include" xml:space="preserve">
+    <value>Include</value>
+  </data>
+  <data name="Batch.IncludeAll" xml:space="preserve">
+    <value>Include all</value>
+  </data>
+  <data name="Batch.InvalidAttribute" xml:space="preserve">
+    <value>This is not a valid attribute name.</value>
+  </data>
+  <data name="Batch.InvalidRegex" xml:space="preserve">
+    <value>The regular expression is not valid.</value>
+  </data>
+  <data name="Batch.InvalidTemplate" xml:space="preserve">
+    <value>The template is not valid (check the braces and function names).</value>
+  </data>
+  <data name="Batch.Message" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="Batch.NameRequired" xml:space="preserve">
+    <value>Enter the name template.</value>
+  </data>
+  <data name="Batch.NoChange" xml:space="preserve">
+    <value>No change</value>
+  </data>
+  <data name="Batch.NotExecuted" xml:space="preserve">
+    <value>Will not be executed</value>
+  </data>
+  <data name="Batch.NothingToUndo" xml:space="preserve">
+    <value>There is nothing to undo.</value>
+  </data>
+  <data name="Batch.OnlyOnce" xml:space="preserve">
+    <value>"{0}" can be used only once.</value>
+  </data>
+  <data name="Batch.OptionRequired" xml:space="preserve">
+    <value>Choose an account option.</value>
+  </data>
+  <data name="Batch.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Batch.PasswordLength" xml:space="preserve">
+    <value>Generated passwords must be {0} to {1} characters long.</value>
+  </data>
+  <data name="Batch.PasswordMismatch" xml:space="preserve">
+    <value>The passwords do not match.</value>
+  </data>
+  <data name="Batch.PasswordRequired" xml:space="preserve">
+    <value>Enter the new password.</value>
+  </data>
+  <data name="Batch.Planning" xml:space="preserve">
+    <value>Reading current values and validating...</value>
+  </data>
+  <data name="Batch.PowerShellCopied" xml:space="preserve">
+    <value>The PowerShell script was copied to the clipboard.</value>
+  </data>
+  <data name="Batch.PreviewSummary" xml:space="preserve">
+    <value>{0} objects: {1} will change, {2} without change, {3} with errors, {4} with warnings, {5} excluded.</value>
+  </data>
+  <data name="Batch.ResultSummary" xml:space="preserve">
+    <value>Succeeded: {0}, failed: {1}, skipped: {2}</value>
+  </data>
+  <data name="Batch.RetryFailed" xml:space="preserve">
+    <value>Retry failed</value>
+  </data>
+  <data name="Batch.RollbackPreview" xml:space="preserve">
+    <value>Undo plan: review the changes that restore the previous values.</value>
+  </data>
+  <data name="Batch.Sample" xml:space="preserve">
+    <value>Sample for the first object</value>
+  </data>
+  <data name="Batch.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Batch.StepExecute" xml:space="preserve">
+    <value>Execution</value>
+  </data>
+  <data name="Batch.StepOperations" xml:space="preserve">
+    <value>Operations</value>
+  </data>
+  <data name="Batch.StepPreview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Batch.StepResults" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="Batch.TargetRequired" xml:space="preserve">
+    <value>Choose the target container.</value>
+  </data>
+  <data name="Batch.Targets" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="Batch.Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Batch.UnknownAttribute" xml:space="preserve">
+    <value>The attribute is not defined in the schema.</value>
+  </data>
+  <data name="Batch.ValuesRequired" xml:space="preserve">
+    <value>Enter at least one value.</value>
+  </data>
+  <data name="Batch.WindowTitle" xml:space="preserve">
+    <value>Batch edit - {0} objects</value>
+  </data>
+  <data name="ChangeAction.AddMember" xml:space="preserve">
+    <value>Add to group</value>
+  </data>
+  <data name="ChangeAction.Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="ChangeAction.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="ChangeAction.Modify" xml:space="preserve">
+    <value>Modify</value>
+  </data>
+  <data name="ChangeAction.Move" xml:space="preserve">
+    <value>Move</value>
+  </data>
+  <data name="ChangeAction.RemoveMember" xml:space="preserve">
+    <value>Remove from group</value>
+  </data>
+  <data name="ChangeAction.Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="ChangeAction.ResetPassword" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
+  <data name="Commands.ImportCsv" xml:space="preserve">
+    <value>Import changes from CSV...</value>
+  </data>
+  <data name="Country.AD" xml:space="preserve">
+    <value>Andorra</value>
+  </data>
+  <data name="Country.AE" xml:space="preserve">
+    <value>United Arab Emirates</value>
+  </data>
+  <data name="Country.AF" xml:space="preserve">
+    <value>Afghanistan</value>
+  </data>
+  <data name="Country.AG" xml:space="preserve">
+    <value>Antigua and Barbuda</value>
+  </data>
+  <data name="Country.AI" xml:space="preserve">
+    <value>Anguilla</value>
+  </data>
+  <data name="Country.AL" xml:space="preserve">
+    <value>Albania</value>
+  </data>
+  <data name="Country.AM" xml:space="preserve">
+    <value>Armenia</value>
+  </data>
+  <data name="Country.AO" xml:space="preserve">
+    <value>Angola</value>
+  </data>
+  <data name="Country.AQ" xml:space="preserve">
+    <value>Antarctica</value>
+  </data>
+  <data name="Country.AR" xml:space="preserve">
+    <value>Argentina</value>
+  </data>
+  <data name="Country.AS" xml:space="preserve">
+    <value>American Samoa</value>
+  </data>
+  <data name="Country.AT" xml:space="preserve">
+    <value>Austria</value>
+  </data>
+  <data name="Country.AU" xml:space="preserve">
+    <value>Australia</value>
+  </data>
+  <data name="Country.AW" xml:space="preserve">
+    <value>Aruba</value>
+  </data>
+  <data name="Country.AX" xml:space="preserve">
+    <value>Åland Islands</value>
+  </data>
+  <data name="Country.AZ" xml:space="preserve">
+    <value>Azerbaijan</value>
+  </data>
+  <data name="Country.BA" xml:space="preserve">
+    <value>Bosnia and Herzegovina</value>
+  </data>
+  <data name="Country.BB" xml:space="preserve">
+    <value>Barbados</value>
+  </data>
+  <data name="Country.BD" xml:space="preserve">
+    <value>Bangladesh</value>
+  </data>
+  <data name="Country.BE" xml:space="preserve">
+    <value>Belgium</value>
+  </data>
+  <data name="Country.BF" xml:space="preserve">
+    <value>Burkina Faso</value>
+  </data>
+  <data name="Country.BG" xml:space="preserve">
+    <value>Bulgaria</value>
+  </data>
+  <data name="Country.BH" xml:space="preserve">
+    <value>Bahrain</value>
+  </data>
+  <data name="Country.BI" xml:space="preserve">
+    <value>Burundi</value>
+  </data>
+  <data name="Country.BJ" xml:space="preserve">
+    <value>Benin</value>
+  </data>
+  <data name="Country.BL" xml:space="preserve">
+    <value>Saint Barthélemy</value>
+  </data>
+  <data name="Country.BM" xml:space="preserve">
+    <value>Bermuda</value>
+  </data>
+  <data name="Country.BN" xml:space="preserve">
+    <value>Brunei</value>
+  </data>
+  <data name="Country.BO" xml:space="preserve">
+    <value>Bolivia</value>
+  </data>
+  <data name="Country.BQ" xml:space="preserve">
+    <value>Bonaire, Sint Eustatius and Saba</value>
+  </data>
+  <data name="Country.BR" xml:space="preserve">
+    <value>Brazil</value>
+  </data>
+  <data name="Country.BS" xml:space="preserve">
+    <value>Bahamas</value>
+  </data>
+  <data name="Country.BT" xml:space="preserve">
+    <value>Bhutan</value>
+  </data>
+  <data name="Country.BV" xml:space="preserve">
+    <value>Bouvet Island</value>
+  </data>
+  <data name="Country.BW" xml:space="preserve">
+    <value>Botswana</value>
+  </data>
+  <data name="Country.BY" xml:space="preserve">
+    <value>Belarus</value>
+  </data>
+  <data name="Country.BZ" xml:space="preserve">
+    <value>Belize</value>
+  </data>
+  <data name="Country.CA" xml:space="preserve">
+    <value>Canada</value>
+  </data>
+  <data name="Country.CC" xml:space="preserve">
+    <value>Cocos (Keeling) Islands</value>
+  </data>
+  <data name="Country.CD" xml:space="preserve">
+    <value>Congo (DRC)</value>
+  </data>
+  <data name="Country.CF" xml:space="preserve">
+    <value>Central African Republic</value>
+  </data>
+  <data name="Country.CG" xml:space="preserve">
+    <value>Congo</value>
+  </data>
+  <data name="Country.CH" xml:space="preserve">
+    <value>Switzerland</value>
+  </data>
+  <data name="Country.CI" xml:space="preserve">
+    <value>Côte d'Ivoire</value>
+  </data>
+  <data name="Country.CK" xml:space="preserve">
+    <value>Cook Islands</value>
+  </data>
+  <data name="Country.CL" xml:space="preserve">
+    <value>Chile</value>
+  </data>
+  <data name="Country.CM" xml:space="preserve">
+    <value>Cameroon</value>
+  </data>
+  <data name="Country.CN" xml:space="preserve">
+    <value>China</value>
+  </data>
+  <data name="Country.CO" xml:space="preserve">
+    <value>Colombia</value>
+  </data>
+  <data name="Country.CR" xml:space="preserve">
+    <value>Costa Rica</value>
+  </data>
+  <data name="Country.CU" xml:space="preserve">
+    <value>Cuba</value>
+  </data>
+  <data name="Country.CV" xml:space="preserve">
+    <value>Cabo Verde</value>
+  </data>
+  <data name="Country.CW" xml:space="preserve">
+    <value>Curaçao</value>
+  </data>
+  <data name="Country.CX" xml:space="preserve">
+    <value>Christmas Island</value>
+  </data>
+  <data name="Country.CY" xml:space="preserve">
+    <value>Cyprus</value>
+  </data>
+  <data name="Country.CZ" xml:space="preserve">
+    <value>Czechia</value>
+  </data>
+  <data name="Country.DE" xml:space="preserve">
+    <value>Germany</value>
+  </data>
+  <data name="Country.DJ" xml:space="preserve">
+    <value>Djibouti</value>
+  </data>
+  <data name="Country.DK" xml:space="preserve">
+    <value>Denmark</value>
+  </data>
+  <data name="Country.DM" xml:space="preserve">
+    <value>Dominica</value>
+  </data>
+  <data name="Country.DO" xml:space="preserve">
+    <value>Dominican Republic</value>
+  </data>
+  <data name="Country.DZ" xml:space="preserve">
+    <value>Algeria</value>
+  </data>
+  <data name="Country.EC" xml:space="preserve">
+    <value>Ecuador</value>
+  </data>
+  <data name="Country.EE" xml:space="preserve">
+    <value>Estonia</value>
+  </data>
+  <data name="Country.EG" xml:space="preserve">
+    <value>Egypt</value>
+  </data>
+  <data name="Country.EH" xml:space="preserve">
+    <value>Western Sahara</value>
+  </data>
+  <data name="Country.ER" xml:space="preserve">
+    <value>Eritrea</value>
+  </data>
+  <data name="Country.ES" xml:space="preserve">
+    <value>Spain</value>
+  </data>
+  <data name="Country.ET" xml:space="preserve">
+    <value>Ethiopia</value>
+  </data>
+  <data name="Country.FI" xml:space="preserve">
+    <value>Finland</value>
+  </data>
+  <data name="Country.FJ" xml:space="preserve">
+    <value>Fiji</value>
+  </data>
+  <data name="Country.FK" xml:space="preserve">
+    <value>Falkland Islands (Malvinas)</value>
+  </data>
+  <data name="Country.FM" xml:space="preserve">
+    <value>Micronesia</value>
+  </data>
+  <data name="Country.FO" xml:space="preserve">
+    <value>Faroe Islands</value>
+  </data>
+  <data name="Country.FR" xml:space="preserve">
+    <value>France</value>
+  </data>
+  <data name="Country.GA" xml:space="preserve">
+    <value>Gabon</value>
+  </data>
+  <data name="Country.GB" xml:space="preserve">
+    <value>United Kingdom</value>
+  </data>
+  <data name="Country.GD" xml:space="preserve">
+    <value>Grenada</value>
+  </data>
+  <data name="Country.GE" xml:space="preserve">
+    <value>Georgia</value>
+  </data>
+  <data name="Country.GF" xml:space="preserve">
+    <value>French Guiana</value>
+  </data>
+  <data name="Country.GG" xml:space="preserve">
+    <value>Guernsey</value>
+  </data>
+  <data name="Country.GH" xml:space="preserve">
+    <value>Ghana</value>
+  </data>
+  <data name="Country.GI" xml:space="preserve">
+    <value>Gibraltar</value>
+  </data>
+  <data name="Country.GL" xml:space="preserve">
+    <value>Greenland</value>
+  </data>
+  <data name="Country.GM" xml:space="preserve">
+    <value>Gambia</value>
+  </data>
+  <data name="Country.GN" xml:space="preserve">
+    <value>Guinea</value>
+  </data>
+  <data name="Country.GP" xml:space="preserve">
+    <value>Guadeloupe</value>
+  </data>
+  <data name="Country.GQ" xml:space="preserve">
+    <value>Equatorial Guinea</value>
+  </data>
+  <data name="Country.GR" xml:space="preserve">
+    <value>Greece</value>
+  </data>
+  <data name="Country.GS" xml:space="preserve">
+    <value>South Georgia and the South Sandwich Islands</value>
+  </data>
+  <data name="Country.GT" xml:space="preserve">
+    <value>Guatemala</value>
+  </data>
+  <data name="Country.GU" xml:space="preserve">
+    <value>Guam</value>
+  </data>
+  <data name="Country.GW" xml:space="preserve">
+    <value>Guinea-Bissau</value>
+  </data>
+  <data name="Country.GY" xml:space="preserve">
+    <value>Guyana</value>
+  </data>
+  <data name="Country.HK" xml:space="preserve">
+    <value>Hong Kong</value>
+  </data>
+  <data name="Country.HM" xml:space="preserve">
+    <value>Heard Island and McDonald Islands</value>
+  </data>
+  <data name="Country.HN" xml:space="preserve">
+    <value>Honduras</value>
+  </data>
+  <data name="Country.HR" xml:space="preserve">
+    <value>Croatia</value>
+  </data>
+  <data name="Country.HT" xml:space="preserve">
+    <value>Haiti</value>
+  </data>
+  <data name="Country.HU" xml:space="preserve">
+    <value>Hungary</value>
+  </data>
+  <data name="Country.ID" xml:space="preserve">
+    <value>Indonesia</value>
+  </data>
+  <data name="Country.IE" xml:space="preserve">
+    <value>Ireland</value>
+  </data>
+  <data name="Country.IL" xml:space="preserve">
+    <value>Israel</value>
+  </data>
+  <data name="Country.IM" xml:space="preserve">
+    <value>Isle of Man</value>
+  </data>
+  <data name="Country.IN" xml:space="preserve">
+    <value>India</value>
+  </data>
+  <data name="Country.IO" xml:space="preserve">
+    <value>British Indian Ocean Territory</value>
+  </data>
+  <data name="Country.IQ" xml:space="preserve">
+    <value>Iraq</value>
+  </data>
+  <data name="Country.IR" xml:space="preserve">
+    <value>Iran</value>
+  </data>
+  <data name="Country.IS" xml:space="preserve">
+    <value>Iceland</value>
+  </data>
+  <data name="Country.IT" xml:space="preserve">
+    <value>Italy</value>
+  </data>
+  <data name="Country.JE" xml:space="preserve">
+    <value>Jersey</value>
+  </data>
+  <data name="Country.JM" xml:space="preserve">
+    <value>Jamaica</value>
+  </data>
+  <data name="Country.JO" xml:space="preserve">
+    <value>Jordan</value>
+  </data>
+  <data name="Country.JP" xml:space="preserve">
+    <value>Japan</value>
+  </data>
+  <data name="Country.KE" xml:space="preserve">
+    <value>Kenya</value>
+  </data>
+  <data name="Country.KG" xml:space="preserve">
+    <value>Kyrgyzstan</value>
+  </data>
+  <data name="Country.KH" xml:space="preserve">
+    <value>Cambodia</value>
+  </data>
+  <data name="Country.KI" xml:space="preserve">
+    <value>Kiribati</value>
+  </data>
+  <data name="Country.KM" xml:space="preserve">
+    <value>Comoros</value>
+  </data>
+  <data name="Country.KN" xml:space="preserve">
+    <value>Saint Kitts and Nevis</value>
+  </data>
+  <data name="Country.KP" xml:space="preserve">
+    <value>North Korea</value>
+  </data>
+  <data name="Country.KR" xml:space="preserve">
+    <value>South Korea</value>
+  </data>
+  <data name="Country.KW" xml:space="preserve">
+    <value>Kuwait</value>
+  </data>
+  <data name="Country.KY" xml:space="preserve">
+    <value>Cayman Islands</value>
+  </data>
+  <data name="Country.KZ" xml:space="preserve">
+    <value>Kazakhstan</value>
+  </data>
+  <data name="Country.LA" xml:space="preserve">
+    <value>Laos</value>
+  </data>
+  <data name="Country.LB" xml:space="preserve">
+    <value>Lebanon</value>
+  </data>
+  <data name="Country.LC" xml:space="preserve">
+    <value>Saint Lucia</value>
+  </data>
+  <data name="Country.LI" xml:space="preserve">
+    <value>Liechtenstein</value>
+  </data>
+  <data name="Country.LK" xml:space="preserve">
+    <value>Sri Lanka</value>
+  </data>
+  <data name="Country.LR" xml:space="preserve">
+    <value>Liberia</value>
+  </data>
+  <data name="Country.LS" xml:space="preserve">
+    <value>Lesotho</value>
+  </data>
+  <data name="Country.LT" xml:space="preserve">
+    <value>Lithuania</value>
+  </data>
+  <data name="Country.LU" xml:space="preserve">
+    <value>Luxembourg</value>
+  </data>
+  <data name="Country.LV" xml:space="preserve">
+    <value>Latvia</value>
+  </data>
+  <data name="Country.LY" xml:space="preserve">
+    <value>Libya</value>
+  </data>
+  <data name="Country.MA" xml:space="preserve">
+    <value>Morocco</value>
+  </data>
+  <data name="Country.MC" xml:space="preserve">
+    <value>Monaco</value>
+  </data>
+  <data name="Country.MD" xml:space="preserve">
+    <value>Moldova</value>
+  </data>
+  <data name="Country.ME" xml:space="preserve">
+    <value>Montenegro</value>
+  </data>
+  <data name="Country.MF" xml:space="preserve">
+    <value>Saint Martin (French part)</value>
+  </data>
+  <data name="Country.MG" xml:space="preserve">
+    <value>Madagascar</value>
+  </data>
+  <data name="Country.MH" xml:space="preserve">
+    <value>Marshall Islands</value>
+  </data>
+  <data name="Country.MK" xml:space="preserve">
+    <value>North Macedonia</value>
+  </data>
+  <data name="Country.ML" xml:space="preserve">
+    <value>Mali</value>
+  </data>
+  <data name="Country.MM" xml:space="preserve">
+    <value>Myanmar</value>
+  </data>
+  <data name="Country.MN" xml:space="preserve">
+    <value>Mongolia</value>
+  </data>
+  <data name="Country.MO" xml:space="preserve">
+    <value>Macao</value>
+  </data>
+  <data name="Country.MP" xml:space="preserve">
+    <value>Northern Mariana Islands</value>
+  </data>
+  <data name="Country.MQ" xml:space="preserve">
+    <value>Martinique</value>
+  </data>
+  <data name="Country.MR" xml:space="preserve">
+    <value>Mauritania</value>
+  </data>
+  <data name="Country.MS" xml:space="preserve">
+    <value>Montserrat</value>
+  </data>
+  <data name="Country.MT" xml:space="preserve">
+    <value>Malta</value>
+  </data>
+  <data name="Country.MU" xml:space="preserve">
+    <value>Mauritius</value>
+  </data>
+  <data name="Country.MV" xml:space="preserve">
+    <value>Maldives</value>
+  </data>
+  <data name="Country.MW" xml:space="preserve">
+    <value>Malawi</value>
+  </data>
+  <data name="Country.MX" xml:space="preserve">
+    <value>Mexico</value>
+  </data>
+  <data name="Country.MY" xml:space="preserve">
+    <value>Malaysia</value>
+  </data>
+  <data name="Country.MZ" xml:space="preserve">
+    <value>Mozambique</value>
+  </data>
+  <data name="Country.NA" xml:space="preserve">
+    <value>Namibia</value>
+  </data>
+  <data name="Country.NC" xml:space="preserve">
+    <value>New Caledonia</value>
+  </data>
+  <data name="Country.NE" xml:space="preserve">
+    <value>Niger</value>
+  </data>
+  <data name="Country.NF" xml:space="preserve">
+    <value>Norfolk Island</value>
+  </data>
+  <data name="Country.NG" xml:space="preserve">
+    <value>Nigeria</value>
+  </data>
+  <data name="Country.NI" xml:space="preserve">
+    <value>Nicaragua</value>
+  </data>
+  <data name="Country.NL" xml:space="preserve">
+    <value>Netherlands</value>
+  </data>
+  <data name="Country.NO" xml:space="preserve">
+    <value>Norway</value>
+  </data>
+  <data name="Country.NP" xml:space="preserve">
+    <value>Nepal</value>
+  </data>
+  <data name="Country.NR" xml:space="preserve">
+    <value>Nauru</value>
+  </data>
+  <data name="Country.NU" xml:space="preserve">
+    <value>Niue</value>
+  </data>
+  <data name="Country.NZ" xml:space="preserve">
+    <value>New Zealand</value>
+  </data>
+  <data name="Country.OM" xml:space="preserve">
+    <value>Oman</value>
+  </data>
+  <data name="Country.PA" xml:space="preserve">
+    <value>Panama</value>
+  </data>
+  <data name="Country.PE" xml:space="preserve">
+    <value>Peru</value>
+  </data>
+  <data name="Country.PF" xml:space="preserve">
+    <value>French Polynesia</value>
+  </data>
+  <data name="Country.PG" xml:space="preserve">
+    <value>Papua New Guinea</value>
+  </data>
+  <data name="Country.PH" xml:space="preserve">
+    <value>Philippines</value>
+  </data>
+  <data name="Country.PK" xml:space="preserve">
+    <value>Pakistan</value>
+  </data>
+  <data name="Country.PL" xml:space="preserve">
+    <value>Poland</value>
+  </data>
+  <data name="Country.PM" xml:space="preserve">
+    <value>Saint Pierre and Miquelon</value>
+  </data>
+  <data name="Country.PN" xml:space="preserve">
+    <value>Pitcairn</value>
+  </data>
+  <data name="Country.PR" xml:space="preserve">
+    <value>Puerto Rico</value>
+  </data>
+  <data name="Country.PS" xml:space="preserve">
+    <value>Palestine</value>
+  </data>
+  <data name="Country.PT" xml:space="preserve">
+    <value>Portugal</value>
+  </data>
+  <data name="Country.PW" xml:space="preserve">
+    <value>Palau</value>
+  </data>
+  <data name="Country.PY" xml:space="preserve">
+    <value>Paraguay</value>
+  </data>
+  <data name="Country.QA" xml:space="preserve">
+    <value>Qatar</value>
+  </data>
+  <data name="Country.RE" xml:space="preserve">
+    <value>Réunion</value>
+  </data>
+  <data name="Country.RO" xml:space="preserve">
+    <value>Romania</value>
+  </data>
+  <data name="Country.RS" xml:space="preserve">
+    <value>Serbia</value>
+  </data>
+  <data name="Country.RU" xml:space="preserve">
+    <value>Russia</value>
+  </data>
+  <data name="Country.RW" xml:space="preserve">
+    <value>Rwanda</value>
+  </data>
+  <data name="Country.SA" xml:space="preserve">
+    <value>Saudi Arabia</value>
+  </data>
+  <data name="Country.SB" xml:space="preserve">
+    <value>Solomon Islands</value>
+  </data>
+  <data name="Country.SC" xml:space="preserve">
+    <value>Seychelles</value>
+  </data>
+  <data name="Country.SD" xml:space="preserve">
+    <value>Sudan</value>
+  </data>
+  <data name="Country.SE" xml:space="preserve">
+    <value>Sweden</value>
+  </data>
+  <data name="Country.SG" xml:space="preserve">
+    <value>Singapore</value>
+  </data>
+  <data name="Country.SH" xml:space="preserve">
+    <value>Saint Helena, Ascension and Tristan da Cunha</value>
+  </data>
+  <data name="Country.SI" xml:space="preserve">
+    <value>Slovenia</value>
+  </data>
+  <data name="Country.SJ" xml:space="preserve">
+    <value>Svalbard and Jan Mayen</value>
+  </data>
+  <data name="Country.SK" xml:space="preserve">
+    <value>Slovakia</value>
+  </data>
+  <data name="Country.SL" xml:space="preserve">
+    <value>Sierra Leone</value>
+  </data>
+  <data name="Country.SM" xml:space="preserve">
+    <value>San Marino</value>
+  </data>
+  <data name="Country.SN" xml:space="preserve">
+    <value>Senegal</value>
+  </data>
+  <data name="Country.SO" xml:space="preserve">
+    <value>Somalia</value>
+  </data>
+  <data name="Country.SR" xml:space="preserve">
+    <value>Suriname</value>
+  </data>
+  <data name="Country.SS" xml:space="preserve">
+    <value>South Sudan</value>
+  </data>
+  <data name="Country.ST" xml:space="preserve">
+    <value>Sao Tome and Principe</value>
+  </data>
+  <data name="Country.SV" xml:space="preserve">
+    <value>El Salvador</value>
+  </data>
+  <data name="Country.SX" xml:space="preserve">
+    <value>Sint Maarten (Dutch part)</value>
+  </data>
+  <data name="Country.SY" xml:space="preserve">
+    <value>Syria</value>
+  </data>
+  <data name="Country.SZ" xml:space="preserve">
+    <value>Eswatini</value>
+  </data>
+  <data name="Country.TC" xml:space="preserve">
+    <value>Turks and Caicos Islands</value>
+  </data>
+  <data name="Country.TD" xml:space="preserve">
+    <value>Chad</value>
+  </data>
+  <data name="Country.TF" xml:space="preserve">
+    <value>French Southern Territories</value>
+  </data>
+  <data name="Country.TG" xml:space="preserve">
+    <value>Togo</value>
+  </data>
+  <data name="Country.TH" xml:space="preserve">
+    <value>Thailand</value>
+  </data>
+  <data name="Country.TJ" xml:space="preserve">
+    <value>Tajikistan</value>
+  </data>
+  <data name="Country.TK" xml:space="preserve">
+    <value>Tokelau</value>
+  </data>
+  <data name="Country.TL" xml:space="preserve">
+    <value>Timor-Leste</value>
+  </data>
+  <data name="Country.TM" xml:space="preserve">
+    <value>Turkmenistan</value>
+  </data>
+  <data name="Country.TN" xml:space="preserve">
+    <value>Tunisia</value>
+  </data>
+  <data name="Country.TO" xml:space="preserve">
+    <value>Tonga</value>
+  </data>
+  <data name="Country.TR" xml:space="preserve">
+    <value>Türkiye</value>
+  </data>
+  <data name="Country.TT" xml:space="preserve">
+    <value>Trinidad and Tobago</value>
+  </data>
+  <data name="Country.TV" xml:space="preserve">
+    <value>Tuvalu</value>
+  </data>
+  <data name="Country.TW" xml:space="preserve">
+    <value>Taiwan</value>
+  </data>
+  <data name="Country.TZ" xml:space="preserve">
+    <value>Tanzania</value>
+  </data>
+  <data name="Country.UA" xml:space="preserve">
+    <value>Ukraine</value>
+  </data>
+  <data name="Country.UG" xml:space="preserve">
+    <value>Uganda</value>
+  </data>
+  <data name="Country.UM" xml:space="preserve">
+    <value>United States Minor Outlying Islands</value>
+  </data>
+  <data name="Country.US" xml:space="preserve">
+    <value>United States</value>
+  </data>
+  <data name="Country.UY" xml:space="preserve">
+    <value>Uruguay</value>
+  </data>
+  <data name="Country.UZ" xml:space="preserve">
+    <value>Uzbekistan</value>
+  </data>
+  <data name="Country.VA" xml:space="preserve">
+    <value>Vatican City</value>
+  </data>
+  <data name="Country.VC" xml:space="preserve">
+    <value>Saint Vincent and the Grenadines</value>
+  </data>
+  <data name="Country.VE" xml:space="preserve">
+    <value>Venezuela</value>
+  </data>
+  <data name="Country.VG" xml:space="preserve">
+    <value>British Virgin Islands</value>
+  </data>
+  <data name="Country.VI" xml:space="preserve">
+    <value>U.S. Virgin Islands</value>
+  </data>
+  <data name="Country.VN" xml:space="preserve">
+    <value>Vietnam</value>
+  </data>
+  <data name="Country.VU" xml:space="preserve">
+    <value>Vanuatu</value>
+  </data>
+  <data name="Country.WF" xml:space="preserve">
+    <value>Wallis and Futuna</value>
+  </data>
+  <data name="Country.WS" xml:space="preserve">
+    <value>Samoa</value>
+  </data>
+  <data name="Country.YE" xml:space="preserve">
+    <value>Yemen</value>
+  </data>
+  <data name="Country.YT" xml:space="preserve">
+    <value>Mayotte</value>
+  </data>
+  <data name="Country.ZA" xml:space="preserve">
+    <value>South Africa</value>
+  </data>
+  <data name="Country.ZM" xml:space="preserve">
+    <value>Zambia</value>
+  </data>
+  <data name="Country.ZW" xml:space="preserve">
+    <value>Zimbabwe</value>
+  </data>
+  <data name="Csv.AnyKind" xml:space="preserve">
+    <value>Any type</value>
+  </data>
+  <data name="Csv.Column" xml:space="preserve">
+    <value>Column</value>
+  </data>
+  <data name="Csv.DownloadTemplate" xml:space="preserve">
+    <value>Download template</value>
+  </data>
+  <data name="Csv.DuplicateMapping" xml:space="preserve">
+    <value>Several columns are mapped to '{0}'.</value>
+  </data>
+  <data name="Csv.EmptyCells" xml:space="preserve">
+    <value>Empty cells</value>
+  </data>
+  <data name="Csv.EmptyClear" xml:space="preserve">
+    <value>Clear the attribute</value>
+  </data>
+  <data name="Csv.EmptyIgnore" xml:space="preserve">
+    <value>Leave the attribute unchanged</value>
+  </data>
+  <data name="Csv.EntireDomain" xml:space="preserve">
+    <value>Entire domain</value>
+  </data>
+  <data name="Csv.Ignore" xml:space="preserve">
+    <value>(ignore)</value>
+  </data>
+  <data name="Csv.InvalidFile" xml:space="preserve">
+    <value>The file is not a valid CSV file.</value>
+  </data>
+  <data name="Csv.KeyAttribute" xml:space="preserve">
+    <value>Match with</value>
+  </data>
+  <data name="Csv.KeyColumn" xml:space="preserve">
+    <value>Key column</value>
+  </data>
+  <data name="Csv.KeyColumnRequired" xml:space="preserve">
+    <value>Choose the column that identifies the objects.</value>
+  </data>
+  <data name="Csv.MappingRequired" xml:space="preserve">
+    <value>Map at least one column to an attribute.</value>
+  </data>
+  <data name="Csv.MapsTo" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="Csv.MultiValueSeparator" xml:space="preserve">
+    <value>Separator of multiple values</value>
+  </data>
+  <data name="Csv.NoFile" xml:space="preserve">
+    <value>Choose a CSV file.</value>
+  </data>
+  <data name="Csv.NoHeader" xml:space="preserve">
+    <value>The file has no header row.</value>
+  </data>
+  <data name="Csv.NoRows" xml:space="preserve">
+    <value>The file has no data rows.</value>
+  </data>
+  <data name="Csv.OpenTitle" xml:space="preserve">
+    <value>Open CSV file</value>
+  </data>
+  <data name="Csv.RowsLoaded" xml:space="preserve">
+    <value>{0} rows, delimiter: {1}</value>
+  </data>
+  <data name="Csv.TabDelimiter" xml:space="preserve">
+    <value>Tab</value>
+  </data>
+  <data name="Csv.TemplateSaved" xml:space="preserve">
+    <value>Template saved as {0}.</value>
+  </data>
+  <data name="Csv.TemplateTitle" xml:space="preserve">
+    <value>Save CSV template</value>
+  </data>
+  <data name="Csv.TextFilter" xml:space="preserve">
+    <value>Text files (*.txt, *.tsv)</value>
+  </data>
+  <data name="Csv.UnknownAttribute" xml:space="preserve">
+    <value>'{0}' is not an attribute of the schema.</value>
+  </data>
+  <data name="Fields.AsciiOnly" xml:space="preserve">
+    <value>Only ASCII characters are allowed (no diacritics).</value>
+  </data>
+  <data name="Fields.ComputerRequired" xml:space="preserve">
+    <value>Add at least one computer or choose "All computers".</value>
+  </data>
+  <data name="Fields.Copied" xml:space="preserve">
+    <value>Copied to the clipboard.</value>
+  </data>
+  <data name="Fields.DateRequired" xml:space="preserve">
+    <value>Choose a date.</value>
+  </data>
+  <data name="Fields.DigitsOnly" xml:space="preserve">
+    <value>Only digits and spaces are allowed.</value>
+  </data>
+  <data name="Fields.DuplicateValue" xml:space="preserve">
+    <value>This value is already in the list.</value>
+  </data>
+  <data name="Fields.EndOf" xml:space="preserve">
+    <value>End of:</value>
+  </data>
+  <data name="Fields.InvalidAddress" xml:space="preserve">
+    <value>Enter a valid address (e-mail addresses must contain @).</value>
+  </data>
+  <data name="Fields.InvalidBoolean" xml:space="preserve">
+    <value>Enter TRUE or FALSE.</value>
+  </data>
+  <data name="Fields.InvalidComputerName" xml:space="preserve">
+    <value>Enter a valid computer name (up to 15 characters, no spaces or special characters).</value>
+  </data>
+  <data name="Fields.InvalidDate" xml:space="preserve">
+    <value>Enter a date (and time) or "never".</value>
+  </data>
+  <data name="Fields.InvalidDn" xml:space="preserve">
+    <value>Enter a distinguished name, e.g. CN=Jan Kowalski,OU=IT,DC=contoso,DC=com.</value>
+  </data>
+  <data name="Fields.InvalidNumber" xml:space="preserve">
+    <value>Enter a whole number.</value>
+  </data>
+  <data name="Fields.InvalidSamAccountName" xml:space="preserve">
+    <value>The logon name cannot contain " / \ [ ] : ; | = , + * ? &lt; &gt; @.</value>
+  </data>
+  <data name="Fields.InvalidScopeChange" xml:space="preserve">
+    <value>This group scope cannot be changed directly to the selected scope (convert it to Universal first).</value>
+  </data>
+  <data name="Fields.InvalidUpn" xml:space="preserve">
+    <value>Enter a valid user logon name (no spaces or @) and choose a suffix.</value>
+  </data>
+  <data name="Fields.InvalidValue" xml:space="preserve">
+    <value>The value is not valid.</value>
+  </data>
+  <data name="Fields.Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="Fields.NoCountry" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="Fields.NotFound" xml:space="preserve">
+    <value>(not found)</value>
+  </data>
+  <data name="Fields.OnePrimarySmtp" xml:space="preserve">
+    <value>Exactly one SMTP address must be the primary address (SMTP: in capitals).</value>
+  </data>
+  <data name="Fields.Other" xml:space="preserve">
+    <value>Other...</value>
+  </data>
+  <data name="Fields.PrintableOnly" xml:space="preserve">
+    <value>Only letters A-Z, digits, spaces and ' ( ) + , - . / : = ? are allowed.</value>
+  </data>
+  <data name="Fields.ReadOnlyPermission" xml:space="preserve">
+    <value>You do not have permission to change this value.</value>
+  </data>
+  <data name="Fields.ReadOnlySystem" xml:space="preserve">
+    <value>This value is maintained by the system and cannot be changed.</value>
+  </data>
+  <data name="Fields.Required" xml:space="preserve">
+    <value>A value is required.</value>
+  </data>
+  <data name="Fields.SetPrimary" xml:space="preserve">
+    <value>Set as primary</value>
+  </data>
+  <data name="Fields.TooLong" xml:space="preserve">
+    <value>The value is too long (maximum {0} characters).</value>
+  </data>
+  <data name="Fields.TooShort" xml:space="preserve">
+    <value>The value is too short (at least {0} characters).</value>
+  </data>
+  <data name="Fields.UncPathRequired" xml:space="preserve">
+    <value>Enter a network path such as \\server\share\user.</value>
+  </data>
+  <data name="Find.Advanced" xml:space="preserve">
+    <value>Advanced</value>
+  </data>
+  <data name="Find.ClearAll" xml:space="preserve">
+    <value>Clear All</value>
+  </data>
+  <data name="Find.Condition" xml:space="preserve">
+    <value>Condition</value>
+  </data>
+  <data name="Find.Field" xml:space="preserve">
+    <value>Field</value>
+  </data>
+  <data name="Find.FindNow" xml:space="preserve">
+    <value>Find Now</value>
+  </data>
+  <data name="Find.In" xml:space="preserve">
+    <value>In</value>
+  </data>
+  <data name="Find.IncludeSubcontainers" xml:space="preserve">
+    <value>Include subcontainers</value>
+  </data>
+  <data name="Find.LdapFilter" xml:space="preserve">
+    <value>LDAP filter</value>
+  </data>
+  <data name="Find.ResultsTitle" xml:space="preserve">
+    <value>Find results</value>
+  </data>
+  <data name="Find.WindowTitle" xml:space="preserve">
+    <value>Find {0}</value>
+  </data>
+  <data name="FindKind.Computers" xml:space="preserve">
+    <value>Computers</value>
+  </data>
+  <data name="FindKind.Contacts" xml:space="preserve">
+    <value>Contacts</value>
+  </data>
+  <data name="FindKind.Custom" xml:space="preserve">
+    <value>Custom Search</value>
+  </data>
+  <data name="FindKind.Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="FindKind.OrganizationalUnits" xml:space="preserve">
+    <value>Organizational Units</value>
+  </data>
+  <data name="FindKind.Users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="FindKind.UsersContactsGroups" xml:space="preserve">
+    <value>Users, Contacts, and Groups</value>
+  </data>
+  <data name="FindOperator.Contains" xml:space="preserve">
+    <value>Contains</value>
+  </data>
+  <data name="FindOperator.EndsWith" xml:space="preserve">
+    <value>Ends with</value>
+  </data>
+  <data name="FindOperator.Is" xml:space="preserve">
+    <value>Is (exactly)</value>
+  </data>
+  <data name="FindOperator.IsNot" xml:space="preserve">
+    <value>Is not</value>
+  </data>
+  <data name="FindOperator.NotPresent" xml:space="preserve">
+    <value>Not present</value>
+  </data>
+  <data name="FindOperator.Present" xml:space="preserve">
+    <value>Present</value>
+  </data>
+  <data name="FindOperator.StartsWith" xml:space="preserve">
+    <value>Starts with</value>
+  </data>
+  <data name="KindPlural.BitLockerRecovery" xml:space="preserve">
+    <value>BitLocker Recovery Information</value>
+  </data>
+  <data name="KindPlural.BuiltinDomain" xml:space="preserve">
+    <value>Builtin Domains</value>
+  </data>
+  <data name="KindPlural.Computer" xml:space="preserve">
+    <value>Computers</value>
+  </data>
+  <data name="KindPlural.Contact" xml:space="preserve">
+    <value>Contacts</value>
+  </data>
+  <data name="KindPlural.Container" xml:space="preserve">
+    <value>Containers</value>
+  </data>
+  <data name="KindPlural.Domain" xml:space="preserve">
+    <value>Domains</value>
+  </data>
+  <data name="KindPlural.ForeignSecurityPrincipal" xml:space="preserve">
+    <value>Foreign Security Principals</value>
+  </data>
+  <data name="KindPlural.Group" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="KindPlural.GroupManagedServiceAccount" xml:space="preserve">
+    <value>Group Managed Service Accounts</value>
+  </data>
+  <data name="KindPlural.InetOrgPerson" xml:space="preserve">
+    <value>InetOrgPerson objects</value>
+  </data>
+  <data name="KindPlural.LostAndFound" xml:space="preserve">
+    <value>Lost and Found containers</value>
+  </data>
+  <data name="KindPlural.ManagedServiceAccount" xml:space="preserve">
+    <value>Service Accounts</value>
+  </data>
+  <data name="KindPlural.OrganizationalUnit" xml:space="preserve">
+    <value>Organizational Units</value>
+  </data>
+  <data name="KindPlural.PrintQueue" xml:space="preserve">
+    <value>Printers</value>
+  </data>
+  <data name="KindPlural.SharedFolder" xml:space="preserve">
+    <value>Shared Folders</value>
+  </data>
+  <data name="KindPlural.Unknown" xml:space="preserve">
+    <value>Other objects</value>
+  </data>
+  <data name="KindPlural.User" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="Labels.AccountExpires" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="Labels.AccountOptions" xml:space="preserve">
+    <value>Account options</value>
+  </data>
+  <data name="Labels.Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Labels.AddressType" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Labels.Aes128" xml:space="preserve">
+    <value>This account supports Kerberos AES 128 bit encryption.</value>
+  </data>
+  <data name="Labels.Aes256" xml:space="preserve">
+    <value>This account supports Kerberos AES 256 bit encryption.</value>
+  </data>
+  <data name="Labels.AllComputers" xml:space="preserve">
+    <value>All computers</value>
+  </data>
+  <data name="Labels.AllNested" xml:space="preserve">
+    <value>All (nested)</value>
+  </data>
+  <data name="Labels.Attribute" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="Labels.CanonicalName" xml:space="preserve">
+    <value>Canonical name of object</value>
+  </data>
+  <data name="Labels.ComputerName" xml:space="preserve">
+    <value>Computer name</value>
+  </data>
+  <data name="Labels.ComputerNamePre2000" xml:space="preserve">
+    <value>Computer name (pre-Windows 2000)</value>
+  </data>
+  <data name="Labels.ComputerRole" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="Labels.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Labels.Country" xml:space="preserve">
+    <value>Country/region</value>
+  </data>
+  <data name="Labels.Delegation" xml:space="preserve">
+    <value>Delegation</value>
+  </data>
+  <data name="Labels.DelegationConstrainedAnyProtocol" xml:space="preserve">
+    <value>Trust this computer for delegation to specified services only (use any authentication protocol)</value>
+  </data>
+  <data name="Labels.DelegationConstrainedKerberos" xml:space="preserve">
+    <value>Trust this computer for delegation to specified services only (use Kerberos only)</value>
+  </data>
+  <data name="Labels.DelegationNone" xml:space="preserve">
+    <value>Do not trust this computer for delegation</value>
+  </data>
+  <data name="Labels.DelegationUnconstrained" xml:space="preserve">
+    <value>Trust this computer for delegation to any service (Kerberos only)</value>
+  </data>
+  <data name="Labels.Distribution" xml:space="preserve">
+    <value>Distribution</value>
+  </data>
+  <data name="Labels.Folder" xml:space="preserve">
+    <value>Active Directory Domain Services folder</value>
+  </data>
+  <data name="Labels.GroupName" xml:space="preserve">
+    <value>Group name</value>
+  </data>
+  <data name="Labels.GroupNamePre2000" xml:space="preserve">
+    <value>Group name (pre-Windows 2000)</value>
+  </data>
+  <data name="Labels.GroupScope" xml:space="preserve">
+    <value>Group scope</value>
+  </data>
+  <data name="Labels.GroupType" xml:space="preserve">
+    <value>Group type</value>
+  </data>
+  <data name="Labels.HomeFolder" xml:space="preserve">
+    <value>Home folder</value>
+  </data>
+  <data name="Labels.KerberosAes" xml:space="preserve">
+    <value>Kerberos AES encryption</value>
+  </data>
+  <data name="Labels.LocalPath" xml:space="preserve">
+    <value>Local path</value>
+  </data>
+  <data name="Labels.LogOnTo" xml:space="preserve">
+    <value>Log On To</value>
+  </data>
+  <data name="Labels.MustChangePassword" xml:space="preserve">
+    <value>User must change password at next logon</value>
+  </data>
+  <data name="Labels.PrimaryGroup" xml:space="preserve">
+    <value>Primary group</value>
+  </data>
+  <data name="Labels.RoleDomainController" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Labels.RoleReadOnlyDomainController" xml:space="preserve">
+    <value>Read-only domain controller</value>
+  </data>
+  <data name="Labels.RoleWorkstation" xml:space="preserve">
+    <value>Workstation or server</value>
+  </data>
+  <data name="Labels.Security" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="Labels.SetPrimaryAddress" xml:space="preserve">
+    <value>Set as primary</value>
+  </data>
+  <data name="Labels.ShowOnlyWithValues" xml:space="preserve">
+    <value>Show only attributes that have values</value>
+  </data>
+  <data name="Labels.ShowOnlyWritable" xml:space="preserve">
+    <value>Show only writable attributes</value>
+  </data>
+  <data name="Labels.Syntax" xml:space="preserve">
+    <value>Syntax</value>
+  </data>
+  <data name="Labels.TheseComputers" xml:space="preserve">
+    <value>The following computers</value>
+  </data>
+  <data name="Labels.To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="Labels.UnlockAccount" xml:space="preserve">
+    <value>Unlock account. This account is currently locked out on this Active Directory Domain Controller.</value>
+  </data>
+  <data name="Labels.UserLogonName" xml:space="preserve">
+    <value>User logon name</value>
+  </data>
+  <data name="Labels.UserProfile" xml:space="preserve">
+    <value>User profile</value>
+  </data>
+  <data name="Labels.UsnCurrent" xml:space="preserve">
+    <value>Update sequence number (current)</value>
+  </data>
+  <data name="Labels.UsnOriginal" xml:space="preserve">
+    <value>Update sequence number (original)</value>
+  </data>
+  <data name="Labels.Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Membership.Direct" xml:space="preserve">
+    <value>Direct</value>
+  </data>
+  <data name="Membership.GroupCount" xml:space="preserve">
+    <value>Groups: {0}</value>
+  </data>
+  <data name="Membership.MemberCount" xml:space="preserve">
+    <value>Members: {0}</value>
+  </data>
+  <data name="Membership.Nested" xml:space="preserve">
+    <value>All (nested)</value>
+  </data>
+  <data name="Membership.PendingAdd" xml:space="preserve">
+    <value>Will be added</value>
+  </data>
+  <data name="Membership.PendingRemove" xml:space="preserve">
+    <value>Will be removed</value>
+  </data>
+  <data name="Membership.PrimaryGroup" xml:space="preserve">
+    <value>Primary group</value>
+  </data>
+  <data name="NewObject.AlreadyExists" xml:space="preserve">
+    <value>An object named '{0}' already exists in this container.</value>
+  </data>
+  <data name="NewObject.CannotChangePassword" xml:space="preserve">
+    <value>User cannot change password</value>
+  </data>
+  <data name="NewObject.ChangeTitle" xml:space="preserve">
+    <value>New {0}: {1}</value>
+  </data>
+  <data name="NewObject.Created" xml:space="preserve">
+    <value>Created {0}.</value>
+  </data>
+  <data name="NewObject.CreateIn" xml:space="preserve">
+    <value>Create in:</value>
+  </data>
+  <data name="NewObject.Failed" xml:space="preserve">
+    <value>The object could not be created.</value>
+  </data>
+  <data name="NewObject.FullName" xml:space="preserve">
+    <value>Full name</value>
+  </data>
+  <data name="NewObject.NameRequired" xml:space="preserve">
+    <value>Enter a name.</value>
+  </data>
+  <data name="NewObject.NeverExpiresWarning" xml:space="preserve">
+    <value>The password never expires, so the user will not be required to change it at next logon.</value>
+  </data>
+  <data name="NewObject.PartiallyCreated" xml:space="preserve">
+    <value>{0} was created, but not all settings could be applied (the account may be disabled):
+{1}</value>
+  </data>
+  <data name="NewObject.PasswordRequired" xml:space="preserve">
+    <value>Enter a password (or create the account disabled).</value>
+  </data>
+  <data name="NewObject.ProtectFromDeletion" xml:space="preserve">
+    <value>Protect container from accidental deletion</value>
+  </data>
+  <data name="NewObject.ProtectionComingSoon" xml:space="preserve">
+    <value>Protection from accidental deletion will be available in a later version.</value>
+  </data>
+  <data name="NewObject.SamAvailable" xml:space="preserve">
+    <value>Available</value>
+  </data>
+  <data name="NewObject.SamChecking" xml:space="preserve">
+    <value>Checking...</value>
+  </data>
+  <data name="NewObject.SamInvalid" xml:space="preserve">
+    <value>Up to {0} characters; not allowed: " / \ [ ] : ; | = , + * ? &lt; &gt; @</value>
+  </data>
+  <data name="NewObject.SamTaken" xml:space="preserve">
+    <value>'{0}' is already used by {1}.</value>
+  </data>
+  <data name="NewObject.WindowTitle" xml:space="preserve">
+    <value>New Object - {0}</value>
+  </data>
+  <data name="Operation.AccountExpiration" xml:space="preserve">
+    <value>Account expiration</value>
+  </data>
+  <data name="Operation.AccountFlag" xml:space="preserve">
+    <value>Account option</value>
+  </data>
+  <data name="Operation.AddToGroups" xml:space="preserve">
+    <value>Add to groups</value>
+  </data>
+  <data name="Operation.AddValues" xml:space="preserve">
+    <value>Add values</value>
+  </data>
+  <data name="Operation.ClearAttribute" xml:space="preserve">
+    <value>Clear attribute</value>
+  </data>
+  <data name="Operation.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Operation.EnableDisable" xml:space="preserve">
+    <value>Enable or disable account</value>
+  </data>
+  <data name="Operation.FindReplace" xml:space="preserve">
+    <value>Find and replace</value>
+  </data>
+  <data name="Operation.Move" xml:space="preserve">
+    <value>Move to container</value>
+  </data>
+  <data name="Operation.RemoveFromGroups" xml:space="preserve">
+    <value>Remove from groups</value>
+  </data>
+  <data name="Operation.RemoveValues" xml:space="preserve">
+    <value>Remove values</value>
+  </data>
+  <data name="Operation.Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Operation.RequirePasswordChange" xml:space="preserve">
+    <value>Password change at next logon</value>
+  </data>
+  <data name="Operation.ResetPassword" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
+  <data name="Operation.SetAttribute" xml:space="preserve">
+    <value>Set attribute</value>
+  </data>
+  <data name="Operation.SetValues" xml:space="preserve">
+    <value>Set exact values</value>
+  </data>
+  <data name="Operation.Unlock" xml:space="preserve">
+    <value>Unlock account</value>
+  </data>
+  <data name="OperationHint.AccountExpiration" xml:space="preserve">
+    <value>Sets when the accounts expire (or never).</value>
+  </data>
+  <data name="OperationHint.AccountFlag" xml:space="preserve">
+    <value>Sets or clears an account option such as "Password never expires".</value>
+  </data>
+  <data name="OperationHint.AddToGroups" xml:space="preserve">
+    <value>Adds the objects to groups.</value>
+  </data>
+  <data name="OperationHint.AddValues" xml:space="preserve">
+    <value>Adds values to a multi-valued attribute (e.g. proxyAddresses).</value>
+  </data>
+  <data name="OperationHint.ClearAttribute" xml:space="preserve">
+    <value>Removes all values of the attribute.</value>
+  </data>
+  <data name="OperationHint.Delete" xml:space="preserve">
+    <value>Deletes the objects (cannot be combined with other operations).</value>
+  </data>
+  <data name="OperationHint.EnableDisable" xml:space="preserve">
+    <value>Enables or disables the accounts.</value>
+  </data>
+  <data name="OperationHint.FindReplace" xml:space="preserve">
+    <value>Replaces text in every value (plain text or regular expression).</value>
+  </data>
+  <data name="OperationHint.Move" xml:space="preserve">
+    <value>Moves the objects to another container or organizational unit.</value>
+  </data>
+  <data name="OperationHint.RemoveFromGroups" xml:space="preserve">
+    <value>Removes the objects from groups.</value>
+  </data>
+  <data name="OperationHint.RemoveValues" xml:space="preserve">
+    <value>Removes the listed values from a multi-valued attribute.</value>
+  </data>
+  <data name="OperationHint.Rename" xml:space="preserve">
+    <value>Renames the objects using a template, e.g. {{givenName}} {{sn}}.</value>
+  </data>
+  <data name="OperationHint.RequirePasswordChange" xml:space="preserve">
+    <value>Requires (or no longer requires) a password change at the next logon.</value>
+  </data>
+  <data name="OperationHint.ResetPassword" xml:space="preserve">
+    <value>Sets new passwords (unique generated passwords or one you type).</value>
+  </data>
+  <data name="OperationHint.SetAttribute" xml:space="preserve">
+    <value>Writes a value built from a template, e.g. {{givenName}}.{{sn}}@firma.pl.</value>
+  </data>
+  <data name="OperationHint.SetValues" xml:space="preserve">
+    <value>Writes exactly the values entered, one per line (no template).</value>
+  </data>
+  <data name="OperationHint.Unlock" xml:space="preserve">
+    <value>Unlocks locked-out accounts.</value>
+  </data>
+  <data name="Picker.Ambiguous" xml:space="preserve">
+    <value>Several objects match '{0}' - select one in the list.</value>
+  </data>
+  <data name="Picker.CheckNames" xml:space="preserve">
+    <value>Check Names</value>
+  </data>
+  <data name="Picker.ContainerWindowTitle" xml:space="preserve">
+    <value>Browse for Container</value>
+  </data>
+  <data name="Picker.EnterNames" xml:space="preserve">
+    <value>Enter the object names to select</value>
+  </data>
+  <data name="Picker.Found" xml:space="preserve">
+    <value>Objects found: {0}</value>
+  </data>
+  <data name="Picker.Location" xml:space="preserve">
+    <value>From this location</value>
+  </data>
+  <data name="Picker.NotFound" xml:space="preserve">
+    <value>No object found for '{0}'.</value>
+  </data>
+  <data name="Picker.ObjectTypes" xml:space="preserve">
+    <value>Object types</value>
+  </data>
+  <data name="Picker.TooMany" xml:space="preserve">
+    <value>More than {0} objects match - narrow the search.</value>
+  </data>
+  <data name="Picker.WindowTitle" xml:space="preserve">
+    <value>Select {0}</value>
+  </data>
+  <data name="PowerShellHistory.Empty" xml:space="preserve">
+    <value>No changes have been made in this session yet.</value>
+  </data>
+  <data name="PowerShellHistory.SaveTitle" xml:space="preserve">
+    <value>Save PowerShell script</value>
+  </data>
+  <data name="PowerShellHistory.ScriptFilter" xml:space="preserve">
+    <value>PowerShell scripts (*.ps1)</value>
+  </data>
+  <data name="PowerShellHistory.WindowTitle" xml:space="preserve">
+    <value>PowerShell history</value>
+  </data>
+  <data name="PreviewFilter.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="PreviewFilter.Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="PreviewFilter.Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="PreviewFilter.NoChange" xml:space="preserve">
+    <value>No change</value>
+  </data>
+  <data name="PreviewFilter.Warnings" xml:space="preserve">
+    <value>Warnings</value>
+  </data>
+  <data name="PropertySheet.ApplyBlocked" xml:space="preserve">
+    <value>The changes cannot be applied - see the highlighted values.</value>
+  </data>
+  <data name="PropertySheet.ApplyFailed" xml:space="preserve">
+    <value>Some changes could not be applied:</value>
+  </data>
+  <data name="PropertySheet.ApplyTitle" xml:space="preserve">
+    <value>Change properties of {0}</value>
+  </data>
+  <data name="PropertySheet.Deleted" xml:space="preserve">
+    <value>The object was deleted.</value>
+  </data>
+  <data name="PropertySheet.DiscardChanges" xml:space="preserve">
+    <value>Discard the changes you made?</value>
+  </data>
+  <data name="PropertySheet.FixErrors" xml:space="preserve">
+    <value>Correct the highlighted values before applying.</value>
+  </data>
+  <data name="PropertySheet.MembershipFailed" xml:space="preserve">
+    <value>The membership in '{0}' cannot be changed.</value>
+  </data>
+  <data name="PropertySheet.NotFound" xml:space="preserve">
+    <value>The object no longer exists.</value>
+  </data>
+  <data name="PropertySheet.Outdated" xml:space="preserve">
+    <value>The object was changed elsewhere. Refresh to see the current values (your changes will be discarded).</value>
+  </data>
+  <data name="PropertySheet.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="PropertySheet.WindowTitle" xml:space="preserve">
+    <value>{0} Properties</value>
+  </data>
+  <data name="ResetPassword.ConfirmMany" xml:space="preserve">
+    <value>The passwords of {0} accounts will be reset.
+Type {1} to confirm.</value>
+  </data>
+  <data name="ResetPassword.ConfirmPassword" xml:space="preserve">
+    <value>Confirm password</value>
+  </data>
+  <data name="ResetPassword.Done" xml:space="preserve">
+    <value>The password was changed ({0}).</value>
+  </data>
+  <data name="ResetPassword.Generate" xml:space="preserve">
+    <value>Generate a random password</value>
+  </data>
+  <data name="ResetPassword.MustChange" xml:space="preserve">
+    <value>User must change password at next logon</value>
+  </data>
+  <data name="ResetPassword.NewPassword" xml:space="preserve">
+    <value>New password</value>
+  </data>
+  <data name="ResetPassword.NothingToReset" xml:space="preserve">
+    <value>No password can be reset:</value>
+  </data>
+  <data name="ResetPassword.PasswordCopied" xml:space="preserve">
+    <value>The password was copied to the clipboard.</value>
+  </data>
+  <data name="ResetPassword.Reveal" xml:space="preserve">
+    <value>Show password</value>
+  </data>
+  <data name="ResetPassword.Unlock" xml:space="preserve">
+    <value>Unlock the user's account</value>
+  </data>
+  <data name="ResetPassword.WindowTitleMany" xml:space="preserve">
+    <value>Reset Password - {0} accounts</value>
+  </data>
+  <data name="ResetPassword.WindowTitleOne" xml:space="preserve">
+    <value>Reset Password - {0}</value>
+  </data>
+  <data name="ResultFilter.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="ResultFilter.Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="ResultFilter.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="ResultFilter.Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="ResultStatus.Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="ResultStatus.Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="ResultStatus.PartiallySucceeded" xml:space="preserve">
+    <value>Partially succeeded</value>
+  </data>
+  <data name="ResultStatus.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="ResultStatus.Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="SessionLog.Count" xml:space="preserve">
+    <value>Entries: {0} of {1}</value>
+  </data>
+  <data name="SessionLog.ExportTitle" xml:space="preserve">
+    <value>Export session log</value>
+  </data>
+  <data name="SessionLog.Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="SessionLog.FailuresOnly" xml:space="preserve">
+    <value>Failures only</value>
+  </data>
+  <data name="SessionLog.Succeeded" xml:space="preserve">
+    <value>Succeeded</value>
+  </data>
+  <data name="SessionLog.WindowTitle" xml:space="preserve">
+    <value>Session log</value>
+  </data>
+  <data name="Settings.OutOfRange" xml:space="preserve">
+    <value>{0} must be between {1} and {2}.</value>
+  </data>
+  <data name="Syntax.AccessPoint" xml:space="preserve">
+    <value>Access Point</value>
+  </data>
+  <data name="Syntax.Boolean" xml:space="preserve">
+    <value>Boolean</value>
+  </data>
+  <data name="Syntax.CaseExactString" xml:space="preserve">
+    <value>Case Sensitive String</value>
+  </data>
+  <data name="Syntax.CaseIgnoreString" xml:space="preserve">
+    <value>Case Insensitive String</value>
+  </data>
+  <data name="Syntax.DistinguishedName" xml:space="preserve">
+    <value>Distinguished Name</value>
+  </data>
+  <data name="Syntax.DnWithBinary" xml:space="preserve">
+    <value>DN Binary</value>
+  </data>
+  <data name="Syntax.DnWithString" xml:space="preserve">
+    <value>DN String</value>
+  </data>
+  <data name="Syntax.Enumeration" xml:space="preserve">
+    <value>Enumeration</value>
+  </data>
+  <data name="Syntax.GeneralizedTime" xml:space="preserve">
+    <value>Generalized Time</value>
+  </data>
+  <data name="Syntax.IA5String" xml:space="preserve">
+    <value>IA5-String</value>
+  </data>
+  <data name="Syntax.Integer" xml:space="preserve">
+    <value>Integer</value>
+  </data>
+  <data name="Syntax.LargeInteger" xml:space="preserve">
+    <value>Large Integer/Interval</value>
+  </data>
+  <data name="Syntax.NumericString" xml:space="preserve">
+    <value>Numerical String</value>
+  </data>
+  <data name="Syntax.ObjectIdentifier" xml:space="preserve">
+    <value>Object Identifier</value>
+  </data>
+  <data name="Syntax.OctetString" xml:space="preserve">
+    <value>Octet String</value>
+  </data>
+  <data name="Syntax.ORName" xml:space="preserve">
+    <value>OR Name</value>
+  </data>
+  <data name="Syntax.PresentationAddress" xml:space="preserve">
+    <value>Presentation Address</value>
+  </data>
+  <data name="Syntax.PrintableString" xml:space="preserve">
+    <value>Printable String</value>
+  </data>
+  <data name="Syntax.ReplicaLink" xml:space="preserve">
+    <value>Replica Link</value>
+  </data>
+  <data name="Syntax.SecurityDescriptor" xml:space="preserve">
+    <value>NT Security Descriptor</value>
+  </data>
+  <data name="Syntax.Sid" xml:space="preserve">
+    <value>SID</value>
+  </data>
+  <data name="Syntax.UnicodeString" xml:space="preserve">
+    <value>Unicode String</value>
+  </data>
+  <data name="Syntax.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Syntax.UtcTime" xml:space="preserve">
+    <value>UTC Coded Time</value>
+  </data>
 </root>

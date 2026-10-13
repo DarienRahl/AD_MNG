@@ -5,7 +5,7 @@ namespace AdMng.Presentation.Localization;
 /// verify that every key exists in both languages. Dynamic key families (enum names, issue codes, attributes) are
 /// built by <see cref="DisplayNames"/>.
 /// </summary>
-public static class L
+public static partial class L
 {
     public static class App
     {
@@ -169,6 +169,7 @@ public static class L
         public const string Settings = "Commands.Settings";
         public const string Disconnect = "Commands.Disconnect";
         public const string CancelLoad = "Commands.CancelLoad";
+        public const string ImportCsv = "Commands.ImportCsv";
     }
 
     public static class Tree
@@ -355,5 +356,6 @@ public static class L
         public const string ConfirmationThreshold = "Settings.ConfirmationThreshold";
         public const string InactiveDays = "Settings.InactiveDays";
         public const string LiveUpdates = "Settings.LiveUpdates";
+        public const string OutOfRange = "Settings.OutOfRange";
     }
 }

@@ -335,6 +335,15 @@ public sealed class ChangePlanner : IChangePlanner
                 case ClearAttributeOperation clear:
                     CheckAttributeName(index, clear.Attribute);
                     break;
+                case SetValuesOperation setValues:
+                    CheckAttributeName(index, setValues.Attribute);
+                    if (setValues.Values is null || setValues.Values.Any(v => v is null))
+                    {
+                        OperationErrors[index] ??= PlanValidation.Error(IssueCodes.InvalidValue,
+                            $"The values of '{setValues.Attribute}' cannot be null.", setValues.Attribute);
+                    }
+
+                    break;
                 case AddValuesOperation add:
                     CheckAttributeName(index, add.Attribute);
                     foreach (var template in add.ValueTemplates)
@@ -555,6 +564,9 @@ public sealed class ChangePlanner : IChangePlanner
                     break;
                 case ClearAttributeOperation clear:
                     Edit(clear.Attribute).Replace([]);
+                    break;
+                case SetValuesOperation setValues:
+                    Edit(setValues.Attribute).Replace(setValues.Values.Select(v => PlanValidation.NormalizeValue(_context.Schema, setValues.Attribute, v)));
                     break;
                 case AddValuesOperation add:
                     ApplyAddValues(add);
