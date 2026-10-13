@@ -26,13 +26,15 @@ public sealed class DialogService : IDialogService
     private readonly ILocalizer _localizer;
     private readonly WpfUiDispatcher _dispatcher;
     private readonly AppNavigator _navigator;
+    private readonly ToolWindows _tools; // C2b
 
-    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator)
+    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator, ToolWindows tools)
     {
         _windows = windows ?? throw new ArgumentNullException(nameof(windows));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
+        _tools = tools ?? throw new ArgumentNullException(nameof(tools)); // C2b
     }
 
     // ---- Message boxes ----------------------------------------------------------------------------------------
@@ -92,10 +94,15 @@ public sealed class DialogService : IDialogService
         return NotAvailableAsync(L.Commands.Properties);
     }
 
+    // ---- C2b: batch editor / CSV import (modeless) ----
     public Task ShowBatchEditorAsync(BatchEditorRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return NotAvailableAsync(L.Commands.BatchEdit);
+        return OnUiThreadAsync(() =>
+        {
+            _tools.ShowBatchEditor(request);
+            return true;
+        });
     }
 
     public Task ShowResetPasswordAsync(IReadOnlyList<string> distinguishedNames)
@@ -121,9 +128,14 @@ public sealed class DialogService : IDialogService
 
     public Task ShowFindAsync(string? startDn) => NotAvailableAsync(L.Commands.Find);
 
-    public Task ShowSessionLogAsync() => NotAvailableAsync(L.Commands.SessionLog);
+    // ---- C2b: session log (modeless, one window) and settings (modal) ----
+    public Task ShowSessionLogAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowSessionLog();
+        return true;
+    });
 
-    public Task ShowSettingsAsync() => NotAvailableAsync(L.Commands.Settings);
+    public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
 
     // ---- Helpers ----------------------------------------------------------------------------------------------
 

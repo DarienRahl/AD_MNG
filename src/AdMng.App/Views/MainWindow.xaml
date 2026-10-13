@@ -344,8 +344,12 @@
         <MenuItem b:CommandMenu.Id="nav.search" />
         <MenuItem b:CommandMenu.Id="nav.address" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
+        <MenuItem b:CommandMenu.Id="tools.importCsv" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
+        <MenuItem x:Name="PowerShellHistoryMenuItem"
+                  Click="OnPowerShellHistoryClick"
+                  Header="{l:Tr PowerShellHistory.WindowTitle}" />
         <MenuItem b:CommandMenu.Id="tools.palette" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.settings" />
