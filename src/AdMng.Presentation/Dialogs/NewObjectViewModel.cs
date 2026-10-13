@@ -214,6 +214,12 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
     /// <summary>The pending availability check (tests await it).</summary>
     internal Task PendingAvailabilityCheck { get; private set; } = Task.CompletedTask;
 
+    /// <summary>
+    /// The window stays open while the object is being created: closing it then would drop <see cref="CreatedDn"/>
+    /// although the object gets created (the Cancel button is disabled for the same reason).
+    /// </summary>
+    public override Task<bool> CanCloseAsync() => Task.FromResult(!IsBusy);
+
     public override async Task InitializeAsync()
     {
         if (Kind == ObjectKind.User && Services.Sessions.Current is { } session)

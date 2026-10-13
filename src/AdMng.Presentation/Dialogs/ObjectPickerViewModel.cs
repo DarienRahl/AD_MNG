@@ -49,6 +49,9 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     private readonly SerialCancellation _searches = new();
     private IList? _selectedResults;
 
+    /// <summary>The listed matches of ambiguous names → the typed name each one answers (ADUC "Multiple Names Found").</summary>
+    private Dictionary<DirectoryItem, string> _ambiguousMatches = new(ReferenceEqualityComparer.Instance);
+
     public ObjectPickerViewModel(DialogServices services, IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect)
         : base(services)
     {
@@ -151,6 +154,7 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
                 ? LdapFilter.And(KindsFilter(), LdapFilter.Anr(text))
                 : KindsFilter();
             var found = await SearchAsync(filter, MaxResults + 1, token).ConfigureAwait(true);
+            _ambiguousMatches = new(ReferenceEqualityComparer.Instance);
             Results.ReplaceAll(found.Take(MaxResults));
             StatusText = found.Count > MaxResults
                 ? Localizer.Format(L.Picker.TooMany, MaxResults)
@@ -192,6 +196,7 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
         try
         {
             var ambiguous = new List<DirectoryItem>();
+            var ambiguousMatches = new Dictionary<DirectoryItem, string>(ReferenceEqualityComparer.Instance);
             foreach (var term in terms)
             {
                 var matches = await FindByNameAsync(term, token).ConfigureAwait(true);
@@ -206,7 +211,12 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
                         break;
                     default:
                         unresolved.Add(term);
-                        ambiguous.AddRange(matches);
+                        foreach (var match in matches)
+                        {
+                            ambiguous.Add(match);
+                            ambiguousMatches[match] = term;
+                        }
+
                         messages.Add(Localizer.Format(L.Picker.Ambiguous, term));
                         break;
                 }
@@ -214,6 +224,7 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
 
             if (ambiguous.Count > 0)
             {
+                _ambiguousMatches = ambiguousMatches;
                 Results.ReplaceAll(ambiguous);
             }
 
@@ -243,14 +254,24 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
 
     private bool CanSearch() => !IsSearching && ObjectTypes.Any(o => o.IsChecked);
 
-    /// <summary>Adds the selected results to <see cref="Chosen"/>.</summary>
+    /// <summary>
+    /// Adds the selected results to <see cref="Chosen"/>. A match of an ambiguous name answers that name: the name is
+    /// removed from <see cref="SearchText"/>, so OK does not resolve it again.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(HasSelectedResults))]
     private void AddSelected()
     {
+        var answered = new List<string>();
         foreach (var item in SelectedItems().ToList())
         {
             Choose(item);
+            if (_ambiguousMatches.TryGetValue(item, out var term))
+            {
+                answered.Add(term);
+            }
         }
+
+        RemoveTerms(answered);
     }
 
     [RelayCommand]
@@ -266,6 +287,12 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanOk))]
     private async Task OkAsync()
     {
+        // Matches selected for ambiguous names answer them (OK in ADUC's "Multiple Names Found").
+        if (SelectedItems().Any(_ambiguousMatches.ContainsKey))
+        {
+            AddSelected();
+        }
+
         if (SearchText.Trim().Length > 0 && !await ResolveNamesAsync().ConfigureAwait(true))
         {
             return;
@@ -327,6 +354,19 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
         }
 
         return SelectedResult is null ? [] : [SelectedResult];
+    }
+
+    /// <summary>Removes typed names that were answered by choosing one of their matches.</summary>
+    private void RemoveTerms(IReadOnlyCollection<string> answered)
+    {
+        if (answered.Count == 0)
+        {
+            return;
+        }
+
+        var remaining = SearchText.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(t => !answered.Contains(t, StringComparer.Ordinal));
+        SearchText = string.Join("; ", remaining);
     }
 
     private void Choose(DirectoryItem item)

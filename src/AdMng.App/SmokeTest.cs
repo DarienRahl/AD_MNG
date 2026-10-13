@@ -5,6 +5,8 @@ using System.Text;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.Views;
+using AdMng.Core.Model;
+using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Views;
@@ -143,11 +145,38 @@ internal static class SmokeTest
         var chooser = windows.CreateWindow(new ColumnChooserViewModel(localizer, null, ColumnSets.Search, ColumnSets.Container));
         UiTestSupport.ShowOffScreen(chooser);
 
+        // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
+        // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
+        RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
+
         await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
         main.Shell.CommandPalette.CloseCommand.Execute(null);
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts) and Find.</summary>
+    private static void RenderObjectDialogs(IWindowService windows, IDialogViewModelFactory factory)
+    {
+        const string Parent = "OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test";
+        const string User = "CN=Jan Kowalski," + Parent;
+        IWindowViewModel[] dialogs =
+        [
+            factory.CreatePropertySheet(User),
+            factory.CreateNewObject(ObjectKind.User, Parent),
+            factory.CreateNewObject(ObjectKind.Group, Parent),
+            factory.CreateNewObject(ObjectKind.OrganizationalUnit, Parent),
+            factory.CreateNewObject(ObjectKind.Computer, Parent),
+            factory.CreateNewObject(ObjectKind.Contact, Parent),
+            factory.CreateResetPassword([User]),
+            factory.CreateResetPassword([User, "CN=Łukasz Wiśniewski," + Parent]),
+            factory.CreateFind(null),
+        ];
+        foreach (var dialog in dialogs)
+        {
+            UiTestSupport.ShowOffScreen(windows.CreateWindow(dialog));
+        }
     }
 
     private static void Report(IReadOnlyList<string> failures)
