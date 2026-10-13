@@ -273,11 +273,16 @@ public sealed partial class FindViewModel : WindowViewModelBase
         return row is null ? Task.CompletedTask : Services.Dialogs.ShowPropertiesAsync(row.Dn);
     }
 
-    partial void OnKindChanged(Option<FindKind> value)
+    partial void OnKindChanged(Option<FindKind> oldValue, Option<FindKind> newValue)
     {
-        if (value.Value == FindKind.Custom)
+        if (newValue.Value == FindKind.Custom)
         {
             IsRawFilter = true;
+        }
+        else if (oldValue is { Value: FindKind.Custom })
+        {
+            // Leaving "Custom search" for a predefined kind: the filter follows kind, name and conditions again.
+            IsRawFilter = false;
         }
 
         RegenerateFilter();

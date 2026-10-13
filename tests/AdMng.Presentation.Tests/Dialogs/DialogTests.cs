@@ -1,10 +1,13 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Audit;
 using AdMng.Core.Batch;
+using AdMng.Core.Csv;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Navigation;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using CommunityToolkit.Mvvm.Input;
 
@@ -65,6 +68,14 @@ public class ResetPasswordTests
         Assert.NotEqual(harness.Session.PasswordResets[0].Password, harness.Session.PasswordResets[1].Password);
         var row = dialog.Results.Single(r => r.Name == "Jan Kowalski");
         Assert.Equal("••••••••", row.DisplayedPassword);
+
+        // Closing before the passwords were shown, copied or exported asks first (they cannot be shown again).
+        bool? closed = null;
+        dialog.CloseRequested += (_, result) => closed = result;
+        Assert.True(dialog.HasUnsavedGeneratedPasswords);
+        await dialog.CancelCommand.ExecuteAsync(null);
+        Assert.Null(closed);
+
         row.IsRevealed = true;
         var reset = harness.Session.PasswordResets.Single(r => r.DistinguishedName.StartsWith("CN=Jan Kowalski", StringComparison.Ordinal));
         Assert.Equal(reset.Password, row.DisplayedPassword);
@@ -72,6 +83,11 @@ public class ResetPasswordTests
 
         dialog.CopyPasswordCommand.Execute(row);
         Assert.Equal(reset.Password, harness.Clipboard.Text);
+        Assert.True(dialog.HasUnsavedGeneratedPasswords);
+        dialog.CopyPasswordCommand.Execute(dialog.Results.Single(r => r.Name != "Jan Kowalski"));
+        Assert.False(dialog.HasUnsavedGeneratedPasswords);
+        await dialog.CancelCommand.ExecuteAsync(null);
+        Assert.True(closed);
         dialog.Dispose();
         Assert.Empty(dialog.Results);
     }
@@ -289,6 +305,13 @@ public class FindTests
         find.ResetFilterCommand.Execute(null);
         Assert.False(find.IsRawFilter);
         Assert.StartsWith("(|(sAMAccountType=805306368)", find.FilterText, StringComparison.Ordinal);
+
+        // Leaving "Custom search" for a predefined kind generates the filter of that kind again.
+        find.Kind = Assert.Single(find.Kinds, k => k.Value == FindKind.Custom);
+        Assert.True(find.IsRawFilter);
+        find.Kind = Assert.Single(find.Kinds, k => k.Value == FindKind.Computers);
+        Assert.False(find.IsRawFilter);
+        Assert.Equal(ObjectKind.Computer.ToLdapFilter(), find.FilterText);
     }
 }
 
@@ -318,6 +341,24 @@ public class PickerTests
 
         Assert.True(closed);
         Assert.Equal([harness.Company.JanKowalski, harness.Company.GroupIt], picker.Result);
+    }
+
+    [Fact]
+    public async Task Ok_IsEnabledAsSoonAsANameIsTyped()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var picker = harness.Factory.CreateObjectPicker(harness.Session, [ObjectKind.User], multiSelect: false);
+        var notifications = 0;
+        picker.OkCommand.CanExecuteChanged += (_, _) => notifications++;
+        Assert.False(picker.OkCommand.CanExecute(null));
+
+        // ADUC: type a name and press OK (the names are checked on OK).
+        picker.SearchText = "Kowalski";
+
+        Assert.True(notifications > 0);
+        Assert.True(picker.OkCommand.CanExecute(null));
+        await picker.OkCommand.ExecuteAsync(null);
+        Assert.Equal([harness.Company.JanKowalski], picker.Result);
     }
 
     [Fact]
@@ -397,6 +438,41 @@ public class SessionLogAndHistoryTests
     }
 
     [Fact]
+    public async Task SessionLog_AddsABurstOfBackgroundEntriesInOneDispatcherCall()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dispatcher = new QueuedUiDispatcher();
+        var services = new DialogServices(harness.Sessions, harness.Localizer, dispatcher, harness.Settings, harness.Errors, harness.Changes,
+            harness.Time, harness.Dialogs, harness.Files, harness.Clipboard, harness.Notifications, harness.Coordinator, harness.Activities, harness.Lists);
+        harness.AuditLog.Record(Entry(0));
+        using var log = new SessionLogViewModel(services, harness.AuditLog, new AuditLogExporter(new CsvCodec()));
+        Assert.Single(log.Entries);
+
+        // A large batch records one entry per object and attribute on worker threads.
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(t => Task.Run(
+            () =>
+            {
+                for (var i = 1; i <= 250; i++)
+                {
+                    harness.AuditLog.Record(Entry((t * 1000) + i));
+                }
+            },
+            TestContext.Current.CancellationToken)));
+
+        Assert.Equal(1, dispatcher.Pending);
+        dispatcher.RunAll();
+        Assert.Equal(1001, log.Entries.Count);
+        Assert.Equal("Entries: 1001 of 1001", log.CountText);
+
+        harness.AuditLog.Record(Entry(5000));
+        dispatcher.RunAll();
+        Assert.Equal(1002, log.Entries.Count);
+
+        AuditEntry Entry(int n) => new(harness.Time.GetUtcNow(), "admin", "dc01", $"CN=Użytkownik {n},DC=contoso,DC=test", "Modify",
+            Attr.Title, null, "Analityk", true, null);
+    }
+
+    [Fact]
     public async Task PowerShellHistory_ListsExecutedChangesNewestFirst()
     {
         var harness = await B2Harness.CreateAsync();
@@ -461,5 +537,52 @@ public class SettingsDialogTests
         using var again = harness.Factory.CreateSettings(toggle);
         await again.SaveCommand.ExecuteAsync(null);
         Assert.Equal(1, toggled);
+    }
+}
+
+/// <summary>Dispatcher double that queues work until the test runs it (like a busy UI thread).</summary>
+internal sealed class QueuedUiDispatcher : IUiDispatcher
+{
+    private readonly Queue<Action> _queue = new();
+    private readonly Lock _gate = new();
+
+    public int Pending
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _queue.Count;
+            }
+        }
+    }
+
+    public bool CheckAccess() => false;
+
+    public Task InvokeAsync(Action action)
+    {
+        lock (_gate)
+        {
+            _queue.Enqueue(action);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public void RunAll()
+    {
+        while (true)
+        {
+            Action action;
+            lock (_gate)
+            {
+                if (!_queue.TryDequeue(out action!))
+                {
+                    return;
+                }
+            }
+
+            action();
+        }
     }
 }

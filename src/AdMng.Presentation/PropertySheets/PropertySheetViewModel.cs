@@ -31,10 +31,23 @@ public sealed record SheetIssueViewModel(IssueSeverity Severity, string Text)
 /// </summary>
 public sealed partial class PropertySheetViewModel : WindowViewModelBase
 {
+    /// <summary>
+    /// Attributes whose planned "old" values legitimately differ from what the sheet showed: userAccountControl
+    /// options are merged bit by bit into the current value, pwdLastSet / lockoutTime have write-only semantics.
+    /// </summary>
+    private static readonly HashSet<string> MergedAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        Attr.UserAccountControl, Attr.PwdLastSet, Attr.LockoutTime,
+    };
+
     private readonly IChangePlanner _planner;
     private readonly SerialCancellation _loads = new();
     private FieldContext? _context;
     private bool _applying;
+
+    /// <summary>The object as the pages show it (values the operator based the edits on), and the attributes read.</summary>
+    private DirectoryObject? _loaded;
+    private HashSet<string> _loadedAttributes = new(StringComparer.OrdinalIgnoreCase);
 
     public PropertySheetViewModel(DialogServices services, IChangePlanner planner, string distinguishedName)
         : base(services)
@@ -121,8 +134,10 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     /// <summary>Reads the object and fills all pages (discarding pending changes). Never throws.</summary>
     public Task LoadAsync() => LoadCoreAsync(keepMessages: false);
 
+    /// <remarks>The window stays open while changes are being applied (their outcome is shown on the sheet).</remarks>
     public override async Task<bool> CanCloseAsync() =>
-        !HasChanges || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.PropertySheet.DiscardChanges], destructive: true).ConfigureAwait(true);
+        !IsApplying
+        && (!HasChanges || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.PropertySheet.DiscardChanges], destructive: true).ConfigureAwait(true));
 
     /// <summary>Applies the pending changes. Returns true when everything was written (or there was nothing to write).</summary>
     public async Task<bool> ApplyChangesAsync()
@@ -182,6 +197,21 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             {
                 await LoadCoreAsync(keepMessages: true).ConfigureAwait(true);
                 return true;
+            }
+
+            // The planner diffs against fresh values, so a value changed on the DC after this window was opened
+            // (by another administrator or tool) would be overwritten silently - ask first.
+            var changedOnServer = ChangedOnServer(objectPlan);
+            if (changedOnServer.Count > 0)
+            {
+                IsOutdated = true;
+                var names = string.Join(", ", changedOnServer.Select(a => Localizer.AttributeName(a, session.Schema)));
+                if (!await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer.Format(L.PropertySheet.ChangedOnServer, names), destructive: true)
+                        .ConfigureAwait(true))
+                {
+                    ApplyError = Localizer[L.PropertySheet.Outdated];
+                    return false;
+                }
             }
 
             BatchResult result;
@@ -319,6 +349,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 if (needed.Except(attributes, StringComparer.OrdinalIgnoreCase).Any())
                 {
                     obj = await Task.Run(() => session.GetAsync(dn, needed, token), token).ConfigureAwait(true);
+                    attributes = needed;
                 }
 
                 ReplacePages(pages);
@@ -336,6 +367,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 session.Schema.GetMandatoryAttributes(obj.GetStrings(Attr.ObjectClass)), StringComparer.OrdinalIgnoreCase);
             token.ThrowIfCancellationRequested();
 
+            _loaded = obj;
+            _loadedAttributes = new HashSet<string>(attributes, StringComparer.OrdinalIgnoreCase);
             DistinguishedName = obj.DistinguishedName;
             Name = obj.Name;
             Kind = obj.Kind;
@@ -451,6 +484,52 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             Issues.Add(new SheetIssueViewModel(IssueSeverity.Error, Localizer.Format(L.PropertySheet.MembershipFailed, group)));
         }
     }
+
+    /// <summary>
+    /// Attributes the plan replaces whose current value on the DC differs from the value the operator saw (the
+    /// sheet's read, or the Attribute Editor's read for values staged there).
+    /// </summary>
+    private List<string> ChangedOnServer(ObjectPlan plan)
+    {
+        var editor = Pages.OfType<AttributeEditorPageViewModel>().FirstOrDefault();
+        var changed = new List<string>();
+        foreach (var change in plan.Changes.Where(c => c.Action == ChangeAction.Modify).SelectMany(c => c.Attributes))
+        {
+            if (change.Kind is not (AttributeChangeKind.Replace or AttributeChangeKind.Clear)
+                || MergedAttributes.Contains(change.Attribute)
+                || changed.Contains(change.Attribute, StringComparer.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var shown = editor?.StagedBaseline(change.Attribute) ?? LoadedValues(change.Attribute);
+            if (shown is not null && !SameValues(shown, change.OldValues))
+            {
+                changed.Add(change.Attribute);
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>Values of the sheet's read, or null when the attribute was not read (or only partially - ranged).</summary>
+    private IReadOnlyList<string>? LoadedValues(string attribute)
+    {
+        if (_loaded is null || !_loadedAttributes.Contains(attribute))
+        {
+            return null;
+        }
+
+        if (!_loaded.TryGet(attribute, out var values))
+        {
+            return [];
+        }
+
+        return values.Name.Contains(";range=", StringComparison.OrdinalIgnoreCase) ? null : values.Strings;
+    }
+
+    private static bool SameValues(IReadOnlyList<string> a, IReadOnlyList<string> b) =>
+        a.Count == b.Count && a.Order(StringComparer.Ordinal).SequenceEqual(b.Order(StringComparer.Ordinal), StringComparer.Ordinal);
 
     private string DescribeFailure(ObjectResult result)
     {

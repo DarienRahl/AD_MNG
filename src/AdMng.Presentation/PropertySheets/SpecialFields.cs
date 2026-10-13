@@ -25,19 +25,21 @@ public sealed record CountryOption(CountryInfo? Country, string Text)
 /// </summary>
 public sealed partial class CountryFieldViewModel : PropertyFieldViewModel
 {
+    private readonly IReadOnlyList<CountryOption> _standardOptions;
     private CountryOption? _original;
 
     internal CountryFieldViewModel(FieldContext context)
         : base(context, Attr.Country, context.Localizer[L.Labels.Country])
     {
         var comparer = StringComparer.Create(context.Culture, ignoreCase: true);
-        Options =
+        _standardOptions =
         [
             new CountryOption(null, context.Localizer[L.Fields.NoCountry]),
             .. Countries.All
                 .Select(c => new CountryOption(c, context.Localizer[DisplayNames.CountryKey(c.Code)]))
                 .OrderBy(o => o.Text, comparer),
         ];
+        Options = _standardOptions;
     }
 
     public IReadOnlyList<CountryOption> Options { get; private set; }
@@ -54,20 +56,27 @@ public sealed partial class CountryFieldViewModel : PropertyFieldViewModel
         var code = obj.GetString(Attr.Country);
         var country = Countries.FindByCode(code) ?? (string.IsNullOrEmpty(code) ? Countries.FindByNumericCode(obj.GetInt32(Attr.CountryCode)) : null);
         CountryOption option;
+        IReadOnlyList<CountryOption> options = _standardOptions;
         if (country is not null)
         {
-            option = Options.First(o => o.Country == country);
+            option = _standardOptions.First(o => o.Country == country);
         }
         else if (!string.IsNullOrWhiteSpace(code))
         {
-            // A code outside ISO 3166-1 (hand-edited data): keep it selectable so the value is not lost.
+            // A code outside ISO 3166-1 (hand-edited data): keep it selectable so the value is not lost
+            // (one extra entry per load, not one more on every reload).
             option = new CountryOption(new CountryInfo(code, obj.GetInt32(Attr.CountryCode) ?? 0), obj.GetString(Attr.CountryName) ?? code);
-            Options = [.. Options, option];
-            OnPropertyChanged(nameof(Options));
+            options = [.. _standardOptions, option];
         }
         else
         {
-            option = Options[0];
+            option = _standardOptions[0];
+        }
+
+        if (!ReferenceEquals(options, Options))
+        {
+            Options = options;
+            OnPropertyChanged(nameof(Options));
         }
 
         _original = option;

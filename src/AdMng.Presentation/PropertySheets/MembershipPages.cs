@@ -137,7 +137,11 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     internal IEnumerable<MembershipItemViewModel> AllItems => _all;
 
     /// <summary>Call with the DataGrid's selection after it changed (multi-select remove).</summary>
-    public void NotifySelectionChanged() => RemoveCommand.NotifyCanExecuteChanged();
+    public void NotifySelectionChanged()
+    {
+        RemoveCommand.NotifyCanExecuteChanged();
+        OnSelectionChanged();
+    }
 
     public override void Revert()
     {
@@ -287,6 +291,11 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     /// <summary>Filter of the "All (nested)" list for the object.</summary>
     protected abstract string NestedFilter(string distinguishedName);
 
+    /// <summary>The selection or the selected items' state changed (commands of derived pages re-evaluate CanExecute).</summary>
+    protected virtual void OnSelectionChanged()
+    {
+    }
+
     /// <summary>Whether an existing item may be removed (the primary group cannot).</summary>
     protected virtual bool CanRemoveItem(MembershipItemViewModel item) => true;
 
@@ -360,10 +369,13 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
             .OrderBy(i => i.Name, comparer));
         CountText = FormatCount(_all.Count(i => i.State != MembershipState.PendingRemove));
         RemoveCommand.NotifyCanExecuteChanged();
+        OnSelectionChanged();
         UpdateState();
     }
 
     partial void OnFilterTextChanged(string value) => Refresh();
+
+    partial void OnSelectedItemChanged(MembershipItemViewModel? value) => OnSelectionChanged();
 
     private IEnumerable<MembershipItemViewModel> Selection()
     {
@@ -420,12 +432,13 @@ public sealed partial class MemberOfPageViewModel : MembershipPageViewModel
         _pendingPrimary = selected.Rid == _primaryRid ? null : selected;
         PrimaryGroupName = selected.Name;
         Refresh();
-        SetPrimaryGroupCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanSetPrimaryGroup() => SupportsPrimaryGroup && SelectedItem is { } item && CanBePrimary(item);
 
     partial void OnSupportsPrimaryGroupChanged(bool value) => SetPrimaryGroupCommand.NotifyCanExecuteChanged();
+
+    protected override void OnSelectionChanged() => SetPrimaryGroupCommand.NotifyCanExecuteChanged();
 
     internal override void Load(DirectoryObject obj)
     {

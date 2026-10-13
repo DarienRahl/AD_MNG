@@ -99,10 +99,16 @@ public class FieldTests
     {
         var (context, _) = await ContextAsync();
         var field = new CountryFieldViewModel(context);
+        var standard = field.Options.Count;
+        field.Load(Object((Attr.Country, ["XK"]), (Attr.CountryName, ["Kosovo"]), (Attr.CountryCode, ["0"])));
         field.Load(Object((Attr.Country, ["XK"]), (Attr.CountryName, ["Kosovo"]), (Attr.CountryCode, ["0"])));
 
         Assert.Equal("Kosovo", field.SelectedOption?.Text);
         Assert.False(field.IsDirty);
+
+        // Reloading the sheet must not add the hand-edited entry again.
+        Assert.Equal(standard + 1, field.Options.Count);
+        Assert.Single(field.Options, o => o.Country?.Code == "XK");
 
         field.SelectedOption = field.Options[0];
         var operations = field.GetOperations().ToList();

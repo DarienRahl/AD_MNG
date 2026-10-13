@@ -47,6 +47,11 @@ public sealed partial class PasswordResultViewModel : ObservableObject
 
     internal string? Password => _password;
 
+    /// <summary>The operator revealed or copied the password (closing the window then does not ask).</summary>
+    internal bool WasHandedOut { get; set; }
+
+    partial void OnIsRevealedChanged(bool value) => WasHandedOut |= value;
+
     /// <summary>Never print the password.</summary>
     public override string ToString() => $"{Name} succeeded={Succeeded}";
 }
@@ -64,6 +69,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
     private readonly BatchReportExporter _reports;
     private readonly IReadOnlyList<string> _targets;
     private BatchResult? _result;
+    private bool _passwordsExported;
 
     public ResetPasswordViewModel(DialogServices services, IChangePlanner planner, BatchReportExporter reports, IReadOnlyList<string> distinguishedNames)
         : base(services)
@@ -130,6 +136,15 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
 
     [ObservableProperty]
     public partial string ResultSummary { get; private set; } = string.Empty;
+
+    /// <summary>Generated passwords that were neither shown, copied nor exported (closing asks first).</summary>
+    public bool HasUnsavedGeneratedPasswords => !_passwordsExported && Results.Any(r => r.HasPassword && !r.WasHandedOut);
+
+    /// <summary>Generated passwords exist only in this window: closing without taking them leaves unknown passwords.</summary>
+    public override async Task<bool> CanCloseAsync() =>
+        !IsBusy
+        && (!HasUnsavedGeneratedPasswords
+            || await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true));
 
     public override async Task InitializeAsync()
     {
@@ -240,6 +255,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
     {
         if (row?.Password is { } password)
         {
+            row.WasHandedOut = true;
             Services.Clipboard.SetText(password);
             Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.ResetPassword.PasswordCopied]);
         }
@@ -269,6 +285,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
         {
             var delimiter = CsvFiles.ListSeparator(Localizer.Culture);
             await CsvFiles.WriteAsync(path, writer => _reports.Write(writer, result, includePasswords, delimiter)).ConfigureAwait(true);
+            _passwordsExported |= includePasswords;
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Batch.Exported, Path.GetFileName(path)));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -280,7 +297,13 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
     private bool CanExport() => IsCompleted;
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
-    private void Cancel() => RequestClose(IsCompleted);
+    private async Task CancelAsync()
+    {
+        if (await CanCloseAsync().ConfigureAwait(true))
+        {
+            RequestClose(IsCompleted);
+        }
+    }
 
     private bool CanCancel() => !IsBusy;
 

@@ -69,6 +69,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private ChangePlan? _plan;
     private PlanSource _planSource;
     private IReadOnlyList<BatchOperation> _plannedOperations = [];
+    private bool _passwordsExported;
 
     public BatchEditorViewModel(DialogServices services, BatchEngines engines, BatchEditorRequest request)
         : base(services)
@@ -271,12 +272,27 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
     }
 
-    public override Task<bool> CanCloseAsync()
+    public override async Task<bool> CanCloseAsync()
     {
+        // Generated passwords exist only in this window: closing without exporting them (or while they are being
+        // set) leaves the accounts with passwords nobody knows.
+        if ((HasUnsavedGeneratedPasswords || (IsExecutingStep && GeneratesPasswords))
+            && !await Services.Dialogs.ConfirmAsync(WindowTitle, Localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
+        {
+            return false;
+        }
+
         // Planning is cancelled; an execution keeps running as a background activity (activity center).
         _planning.Cancel();
-        return Task.FromResult(true);
+        return true;
     }
+
+    /// <summary>The results contain generated passwords that were not exported (closing asks first).</summary>
+    public bool HasUnsavedGeneratedPasswords =>
+        !_passwordsExported
+        && GeneratesPasswords
+        && Result is { } result
+        && result.Objects.Any(o => o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword));
 
     [RelayCommand]
     private void AddOperation(OperationType type)
@@ -427,7 +443,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             Services.Activities.Activities.CollectionChanged -= CaptureActivity;
         }
 
-        ShowResults(result);
+        // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
+        if (!IsDisposed)
+        {
+            ShowResults(result);
+        }
     }
 
     private bool CanExecute() => Step == BatchEditorStep.Preview && !IsBusy && ChangeCount > 0;
@@ -459,8 +479,11 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
                 Localizer[L.Batch.ExportPasswordsTitle], Localizer[L.Batch.ExportPasswordsWarning], destructive: true).ConfigureAwait(true);
         }
 
-        await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Localizer.Culture)))
-            .ConfigureAwait(true);
+        if (await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Localizer.Culture)))
+                .ConfigureAwait(true) && includePasswords)
+        {
+            _passwordsExported = true;
+        }
     }
 
     /// <summary>Plans the failed (or cancelled) objects again with fresh values and shows the preview.</summary>
@@ -517,7 +540,13 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private bool CanUndo() => Step == BatchEditorStep.Results && !IsBusy && Result is { SucceededCount: > 0 } or { FailedCount: > 0 };
 
     [RelayCommand]
-    private void Close() => RequestClose(Result is not null);
+    private async Task CloseAsync()
+    {
+        if (await CanCloseAsync().ConfigureAwait(true))
+        {
+            RequestClose(Result is not null);
+        }
+    }
 
     partial void OnPreviewFilterChanged(PreviewFilter value) => ApplyPreviewFilter();
 
@@ -548,14 +577,20 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
             CurrentActivity = null;
 
-            // Drop plan and results (they may hold generated passwords) as soon as the window is gone.
+            // Drop plan, operations and results (they may hold the fixed or generated passwords) as soon as the
+            // window is gone.
             _plan = null;
+            _plannedOperations = [];
+            Result = null;
             _previewObjects.Clear();
             _previewRows.Clear();
             _resultRows.Clear();
             _sampleTarget = null;
         }
     }
+
+    private bool GeneratesPasswords =>
+        _planSource == PlanSource.Operations && _plannedOperations.OfType<ResetPasswordOperation>().Any(o => o.Mode == PasswordMode.GenerateUnique);
 
     private static bool IsRetryable(ObjectResult result) =>
         result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded or ObjectResultStatus.Cancelled;
@@ -650,6 +685,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         var session = Services.Sessions.Current;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
         Result = result;
+        _passwordsExported = false;
         _resultRows.Clear();
         _resultRows.AddRange(result.Objects.Select(builder.BuildResult));
         ResultFilter = result.FailedCount > 0 ? ResultFilter.Failed : ResultFilter.All;
@@ -734,24 +770,27 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
     }
 
-    private async Task ExportAsync(string kind, Action<TextWriter> write)
+    /// <summary>Asks for a file and writes it; true when the file was written.</summary>
+    private async Task<bool> ExportAsync(string kind, Action<TextWriter> write)
     {
         var title = Localizer[kind == "preview" ? L.Batch.ExportPreview : L.Batch.ExportResults];
         var name = $"{kind}-{Services.Time.GetLocalNow():yyyyMMdd-HHmm}.csv";
         var path = await Services.Files.SaveFileAsync(title, name, [new FileFilter(Localizer[L.Files.CsvFilter], "*.csv")]).ConfigureAwait(true);
         if (path is null)
         {
-            return;
+            return false;
         }
 
         try
         {
             await CsvFiles.WriteAsync(path, write).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Batch.Exported, Path.GetFileName(path)));
+            return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             await Services.Dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
+            return false;
         }
     }
 
@@ -885,10 +924,21 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             var needed = parsed.ReferencedAttributes.Append(Attr.ObjectClass).Append(Attr.DisplayName).ToList();
             if (_sampleTarget is null || !needed.All(_sampleAttributes.Contains))
             {
-                _sampleAttributes.UnionWith(needed);
+                // The cache only claims the attributes once a read with them completed (a superseded read must
+                // not leave attributes marked as read that the cached object does not have).
+                var wanted = new HashSet<string>(_sampleAttributes, StringComparer.OrdinalIgnoreCase);
+                wanted.UnionWith(needed);
                 var dn = _request.TargetDns[0];
-                string[] attributes = [.. _sampleAttributes];
-                _sampleTarget = await Task.Run(() => session.GetAsync(dn, attributes, cancellationToken), cancellationToken).ConfigureAwait(true);
+                string[] attributes = [.. wanted];
+                var read = await Task.Run(() => session.GetAsync(dn, attributes, cancellationToken), cancellationToken).ConfigureAwait(true);
+                if (read is null)
+                {
+                    return null;
+                }
+
+                _sampleTarget = read;
+                _sampleAttributes.Clear();
+                _sampleAttributes.UnionWith(wanted);
             }
 
             if (_sampleTarget is not { } target)

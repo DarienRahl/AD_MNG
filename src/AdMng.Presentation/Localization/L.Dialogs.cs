@@ -11,6 +11,7 @@ public static partial class L
         public const string ApplyTitle = "PropertySheet.ApplyTitle";
         public const string ApplyBlocked = "PropertySheet.ApplyBlocked";
         public const string ApplyFailed = "PropertySheet.ApplyFailed";
+        public const string ChangedOnServer = "PropertySheet.ChangedOnServer";
         public const string NotFound = "PropertySheet.NotFound";
         public const string MembershipFailed = "PropertySheet.MembershipFailed";
         public const string Outdated = "PropertySheet.Outdated";
@@ -131,6 +132,7 @@ public static partial class L
     public static class Batch
     {
         public const string WindowTitle = "Batch.WindowTitle";
+        public const string DiscardPasswords = "Batch.DiscardPasswords";
         public const string CsvWindowTitle = "Batch.CsvWindowTitle";
         public const string DefaultChangeTitle = "Batch.DefaultChangeTitle";
         public const string CsvChangeTitle = "Batch.CsvChangeTitle";

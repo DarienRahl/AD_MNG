@@ -842,6 +842,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Errors.Cancelled" xml:space="preserve">
     <value>Operacja została anulowana.</value>
   </data>
+  <data name="Errors.Conflict" xml:space="preserve">
+    <value>Wartość została zmieniona przez kogoś innego po jej odczytaniu, dlatego nie została nadpisana. Odśwież i spróbuj ponownie.</value>
+  </data>
   <data name="Errors.File" xml:space="preserve">
     <value>Nie można uzyskać dostępu do pliku: {0}</value>
   </data>
@@ -1545,6 +1548,9 @@ Wpisz {2}, aby potwierdzić.</value>
   </data>
   <data name="Batch.DeleteAlone" xml:space="preserve">
     <value>Usuwania nie można łączyć z innymi operacjami.</value>
+  </data>
+  <data name="Batch.DiscardPasswords" xml:space="preserve">
+    <value>Wygenerowane hasła nie zostały wyeksportowane ani skopiowane. Po zamknięciu tego okna nie będzie można ich ponownie wyświetlić, a z kont nie będzie można korzystać do czasu ponownego zresetowania haseł. Zamknąć mimo to?</value>
   </data>
   <data name="Batch.ExcludeAll" xml:space="preserve">
     <value>Wyklucz wszystkie</value>
@@ -3131,6 +3137,9 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
   </data>
   <data name="PropertySheet.ApplyTitle" xml:space="preserve">
     <value>Zmiana właściwości: {0}</value>
+  </data>
+  <data name="PropertySheet.ChangedOnServer" xml:space="preserve">
+    <value>Te wartości zostały zmienione na kontrolerze domeny po otwarciu tego okna: {0}. Zastąpić je Twoimi wartościami?</value>
   </data>
   <data name="PropertySheet.Deleted" xml:space="preserve">
     <value>Obiekt został usunięty.</value>

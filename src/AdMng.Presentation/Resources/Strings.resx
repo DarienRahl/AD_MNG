@@ -842,6 +842,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Errors.Cancelled" xml:space="preserve">
     <value>The operation was cancelled.</value>
   </data>
+  <data name="Errors.Conflict" xml:space="preserve">
+    <value>The value was changed by someone else after it was read, so it was not overwritten. Refresh and try again.</value>
+  </data>
   <data name="Errors.File" xml:space="preserve">
     <value>The file could not be accessed: {0}</value>
   </data>
@@ -1545,6 +1548,9 @@ Type {2} to confirm.</value>
   </data>
   <data name="Batch.DeleteAlone" xml:space="preserve">
     <value>Delete cannot be combined with other operations.</value>
+  </data>
+  <data name="Batch.DiscardPasswords" xml:space="preserve">
+    <value>The generated passwords have not been exported or copied. They cannot be shown again after this window is closed, and the accounts cannot be used until their passwords are reset again. Close anyway?</value>
   </data>
   <data name="Batch.ExcludeAll" xml:space="preserve">
     <value>Exclude all</value>
@@ -3131,6 +3137,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="PropertySheet.ApplyTitle" xml:space="preserve">
     <value>Change properties of {0}</value>
+  </data>
+  <data name="PropertySheet.ChangedOnServer" xml:space="preserve">
+    <value>These values were changed on the domain controller after this window was opened: {0}. Overwrite them with your values?</value>
   </data>
   <data name="PropertySheet.Deleted" xml:space="preserve">
     <value>The object was deleted.</value>

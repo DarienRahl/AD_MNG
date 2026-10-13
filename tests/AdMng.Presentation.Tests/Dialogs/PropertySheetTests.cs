@@ -266,6 +266,33 @@ public class PropertySheetTests
     }
 
     [Fact]
+    public async Task MemberOf_SetPrimaryGroup_FollowsTheSelection_AndWritesPrimaryGroupId()
+    {
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        var page = Assert.IsType<MemberOfPageViewModel>(Assert.Single(sheet.Pages, p => p.Key == L.Pages.MemberOf));
+        var notifications = 0;
+        page.SetPrimaryGroupCommand.CanExecuteChanged += (_, _) => notifications++;
+
+        // The button must be re-evaluated when the selection changes (WPF only asks again on CanExecuteChanged).
+        page.SelectedItem = Assert.Single(page.Items, i => i.Name == "GG_IT");
+        Assert.True(notifications > 0);
+        Assert.True(page.SetPrimaryGroupCommand.CanExecute(null));
+        page.SelectedItem = Assert.Single(page.Items, i => i.IsPrimary);
+        Assert.False(page.SetPrimaryGroupCommand.CanExecute(null));
+
+        page.SelectedItem = Assert.Single(page.Items, i => i.Name == "GG_IT");
+        page.SetPrimaryGroupCommand.Execute(null);
+        Assert.Equal("GG_IT", page.PrimaryGroupName);
+        Assert.True(sheet.HasChanges);
+        Assert.True(await sheet.ApplyChangesAsync());
+
+        Assert.NotEqual("513", harness.Value(harness.Company.JanKowalski, Attr.PrimaryGroupId));
+        page = Assert.IsType<MemberOfPageViewModel>(Assert.Single(sheet.Pages, p => p.Key == L.Pages.MemberOf));
+        Assert.Equal("GG_IT", page.PrimaryGroupName);
+        Assert.Equal("GG_IT", Assert.Single(page.Items, i => i.IsPrimary).Name);
+    }
+
+    [Fact]
     public async Task MemberOf_FilterAndNestedMemberships()
     {
         var (sheet, _) = await OpenAsync(c => c.JanKowalski);
@@ -486,6 +513,9 @@ public class PropertySheetTests
 
         Assert.Equal("jan@firma.pl", proxies.PrimarySmtpAddress);
         Assert.Equal("jan@firma.pl", mail.Value);
+
+        // One E-mail field shown on both tabs: the General tab cannot show (or write) a different address.
+        Assert.Same(mail, Text(sheet, L.Pages.General, Attr.Mail));
         Assert.Single(proxies.Items, i => i.IsPrimary);
         Assert.True(await sheet.ApplyChangesAsync());
         Assert.Equal(
@@ -509,6 +539,34 @@ public class PropertySheetTests
 
         Assert.True(sheet.IsOutdated);
         Assert.Equal("K", Text(sheet, L.Pages.General, Attr.Initials).Value);
+    }
+
+    [Fact]
+    public async Task ValueChangedOnTheServerAfterOpening_IsNotOverwrittenWithoutAsking()
+    {
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        harness.Session.SetValues(harness.Company.JanKowalski, Attr.Title, "Zmienione przez kogoś");
+        Text(sheet, L.Pages.Organization, Attr.Title).Value = "Mój tytuł";
+        Text(sheet, L.Pages.General, Attr.Initials).Value = "K";
+
+        harness.Dialogs.ConfirmAnswers.Enqueue(false);
+        Assert.False(await sheet.ApplyChangesAsync());
+
+        var question = Assert.Single(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.Contains(harness.Localizer.AttributeName(Attr.Title, harness.Session.Schema), question, StringComparison.Ordinal);
+        Assert.DoesNotContain(harness.Localizer.AttributeName(Attr.Initials, harness.Session.Schema), question, StringComparison.Ordinal);
+        Assert.True(sheet.IsOutdated);
+        Assert.Equal(harness.Localizer[L.PropertySheet.Outdated], sheet.ApplyError);
+        Assert.Equal("Zmienione przez kogoś", harness.Value(harness.Company.JanKowalski, Attr.Title));
+        Assert.Null(harness.Value(harness.Company.JanKowalski, Attr.Initials));
+        Assert.True(sheet.HasChanges);
+
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        Assert.True(await sheet.ApplyChangesAsync());
+
+        Assert.Equal("Mój tytuł", harness.Value(harness.Company.JanKowalski, Attr.Title));
+        Assert.Equal("K", harness.Value(harness.Company.JanKowalski, Attr.Initials));
+        Assert.False(sheet.IsOutdated);
     }
 
     [Fact]

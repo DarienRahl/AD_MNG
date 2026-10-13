@@ -146,8 +146,15 @@ public abstract partial class OperationEditorViewModel : ObservableObject
     internal BatchOperation? Build()
     {
         Revalidate();
-        return Error is null ? BuildCore() : null;
+        return Error is null && ValidateBuild() is null ? BuildCore() : null;
     }
+
+    /// <summary>
+    /// Last check right before the operation is built, for inputs the view model cannot observe live (password
+    /// boxes). It must not affect <see cref="IsValid"/>, otherwise Preview could stay disabled after the operator
+    /// corrected the input. Returns a localized error (shown by the editor) or null.
+    /// </summary>
+    protected virtual string? ValidateBuild() => null;
 
     /// <summary>Re-evaluates <see cref="Error"/>.</summary>
     internal void Revalidate() => Error = Validate();
@@ -714,11 +721,25 @@ public sealed partial class ResetPasswordEditorViewModel : OperationEditorViewMo
     /// <summary>Confirmation password box (set by the view).</summary>
     public IPasswordInput? ConfirmPasswordInput { get; set; }
 
+    /// <summary>
+    /// Localized problem of the typed password ("required", "do not match") found by the last Preview. The password
+    /// boxes cannot be observed, so they are checked when the operation is built; the error does not disable Preview.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? PasswordError { get; private set; }
+
     public int MinimumLength => PasswordGenerator.MinimumLength;
 
     public int MaximumLength => PasswordGenerator.MaximumLength;
 
-    partial void OnGenerateChanged(bool value) => OnChanged();
+    /// <summary>Call from the view when the operator typed in a password box (clears <see cref="PasswordError"/>).</summary>
+    public void NotifyPasswordChanged() => PasswordError = null;
+
+    partial void OnGenerateChanged(bool value)
+    {
+        PasswordError = null;
+        OnChanged();
+    }
 
     partial void OnGeneratedLengthChanged(int value) => OnChanged();
 
@@ -729,24 +750,31 @@ public sealed partial class ResetPasswordEditorViewModel : OperationEditorViewMo
     /// <summary>Never print the password.</summary>
     public override string ToString() => $"{nameof(ResetPasswordEditorViewModel)} {{ Generate = {Generate} }}";
 
-    protected override string? Validate()
+    protected override string? Validate() =>
+        Generate && GeneratedLength is < PasswordGenerator.MinimumLength or > PasswordGenerator.MaximumLength
+            ? Localizer.Format(L.Batch.PasswordLength, PasswordGenerator.MinimumLength, PasswordGenerator.MaximumLength)
+            : null;
+
+    /// <summary>The typed password is checked only here (typing in a PasswordBox raises no change notification).</summary>
+    protected override string? ValidateBuild()
     {
+        PasswordError = null;
         if (Generate)
         {
-            return GeneratedLength is < PasswordGenerator.MinimumLength or > PasswordGenerator.MaximumLength
-                ? Localizer.Format(L.Batch.PasswordLength, PasswordGenerator.MinimumLength, PasswordGenerator.MaximumLength)
-                : null;
+            return null;
         }
 
         var password = PasswordInput?.GetPassword() ?? string.Empty;
         if (password.Length == 0)
         {
-            return Localizer[L.Batch.PasswordRequired];
+            PasswordError = Localizer[L.Batch.PasswordRequired];
+        }
+        else if (!string.Equals(password, ConfirmPasswordInput?.GetPassword() ?? string.Empty, StringComparison.Ordinal))
+        {
+            PasswordError = Localizer[L.Batch.PasswordMismatch];
         }
 
-        return string.Equals(password, ConfirmPasswordInput?.GetPassword() ?? string.Empty, StringComparison.Ordinal)
-            ? null
-            : Localizer[L.Batch.PasswordMismatch];
+        return PasswordError;
     }
 
     /// <summary>The fixed password is read from the password box only here, when the operation is built.</summary>

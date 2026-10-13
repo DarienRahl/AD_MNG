@@ -199,6 +199,28 @@ public class BatchEditorTests
     }
 
     [Fact]
+    public async Task ValueChangedAfterThePreview_IsReportedAsAConflict()
+    {
+        var harness = await B2Harness.CreateAsync();
+        harness.Session.SetValues(harness.Company.JanKowalski, Attr.Title, "Przed");
+        var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([harness.Company.JanKowalski])
+        {
+            Operations = [new SetAttributeOperation(Attr.Title, "Architekt")],
+        });
+        await editor.InitializeAsync();
+        await editor.PreviewCommand.ExecuteAsync(null);
+        Assert.Equal(1, editor.ChangeCount);
+
+        harness.Session.SetValues(harness.Company.JanKowalski, Attr.Title, "Zmienione w międzyczasie");
+        await editor.ExecuteCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(editor.ResultRows);
+        Assert.Equal(ObjectResultStatus.Failed, row.Status);
+        Assert.Equal(harness.Localizer[L.Errors.Conflict], row.Message);
+        Assert.Equal("Zmienione w międzyczasie", harness.Value(harness.Company.JanKowalski, Attr.Title));
+    }
+
+    [Fact]
     public async Task ResultsExport_IncludesPasswordsOnlyAfterConfirmation()
     {
         var (editor, harness) = await OpenAsync(c => [c.JanKowalski, c.LukaszWisniewski], new ResetPasswordOperation(PasswordMode.GenerateUnique));
@@ -209,6 +231,15 @@ public class BatchEditorTests
         await editor.ExecuteCommand.ExecuteAsync(null);
         Assert.Equal(2, harness.Session.PasswordResets.Count);
 
+        // The generated passwords exist only in this window: closing asks until they were exported.
+        bool? closed = null;
+        editor.CloseRequested += (_, result) => closed = result;
+        Assert.True(editor.HasUnsavedGeneratedPasswords);
+        harness.Dialogs.ConfirmAnswers.Enqueue(false);
+        await editor.CloseCommand.ExecuteAsync(null);
+        Assert.Null(closed);
+        Assert.Contains($"confirm:{harness.Localizer[L.Batch.DiscardPasswords]}", harness.Dialogs.Shown);
+
         var path = Path.Combine(Path.GetTempPath(), $"admng-test-{Guid.NewGuid():N}.csv");
         try
         {
@@ -217,6 +248,7 @@ public class BatchEditorTests
             await editor.ExportResultsCommand.ExecuteAsync(null);
             var withoutPasswords = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
             Assert.DoesNotContain("Password", withoutPasswords.Split('\n')[0], StringComparison.Ordinal);
+            Assert.True(editor.HasUnsavedGeneratedPasswords);
 
             harness.Dialogs.ConfirmAnswers.Enqueue(true);
             await editor.ExportResultsCommand.ExecuteAsync(null);
@@ -224,6 +256,8 @@ public class BatchEditorTests
             Assert.Contains("Password", withPasswords.Split('\n')[0], StringComparison.Ordinal);
             Assert.Contains(harness.Session.PasswordResets[0].Password, withPasswords, StringComparison.Ordinal);
             Assert.Equal(0xEF, (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken))[0]);
+            Assert.False(editor.HasUnsavedGeneratedPasswords);
+            Assert.True(await editor.CanCloseAsync());
         }
         finally
         {
@@ -306,14 +340,28 @@ public class BatchEditorTests
     {
         var (editor, harness) = await OpenAsync(c => [c.JanKowalski]);
         var reset = Add<ResetPasswordEditorViewModel>(editor, OperationType.ResetPassword);
+        reset.PasswordInput = new TestPasswordInput(string.Empty);
+        reset.ConfirmPasswordInput = new TestPasswordInput(string.Empty);
         reset.UseFixedPassword = true;
-        reset.PasswordInput = new TestPasswordInput("Haslo!2026xyz");
-        reset.ConfirmPasswordInput = new TestPasswordInput("Inne!2026xyz");
         reset.MustChangeAtNextLogon = false;
 
-        Assert.Equal(harness.Localizer[L.Batch.PasswordMismatch], reset.Error);
-        ((TestPasswordInput)reset.ConfirmPasswordInput).Password = "Haslo!2026xyz";
+        // Typing in a PasswordBox raises no notification: the boxes must not make the editor invalid, otherwise
+        // Preview would stay disabled after the operator typed the password.
+        ((TestPasswordInput)reset.PasswordInput).Password = "Haslo!2026xyz";
+        ((TestPasswordInput)reset.ConfirmPasswordInput).Password = "Inne!2026xyz";
+        Assert.True(reset.IsValid);
+        Assert.True(editor.PreviewCommand.CanExecute(null));
+
         await editor.PreviewCommand.ExecuteAsync(null);
+
+        Assert.Equal(BatchEditorStep.Edit, editor.Step);
+        Assert.Equal(harness.Localizer[L.Batch.PasswordMismatch], reset.PasswordError);
+        Assert.True(editor.PreviewCommand.CanExecute(null));
+        ((TestPasswordInput)reset.ConfirmPasswordInput).Password = "Haslo!2026xyz";
+        reset.NotifyPasswordChanged();
+        Assert.Null(reset.PasswordError);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        Assert.Equal(BatchEditorStep.Preview, editor.Step);
         harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
         await editor.ExecuteCommand.ExecuteAsync(null);
 

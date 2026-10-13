@@ -54,7 +54,7 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
         {
             script = _exporter.Export(result.Plan with { Objects = executed }, result.Server);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             // The history is a convenience; it must never fail the execution that already happened.
             return;

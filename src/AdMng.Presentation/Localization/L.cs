@@ -301,6 +301,7 @@ public static partial class L
     {
         public const string Title = "Errors.Title";
         public const string Cancelled = "Errors.Cancelled";
+        public const string Conflict = "Errors.Conflict";
         public const string Unexpected = "Errors.Unexpected";
         public const string File = "Errors.File";
         public const string NotConnected = "Errors.NotConnected";

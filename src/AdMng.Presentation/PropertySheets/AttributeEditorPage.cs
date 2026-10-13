@@ -462,6 +462,12 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
     internal override Task LoadDetailsAsync(DirectoryObject obj, CancellationToken cancellationToken) =>
         _activated ? ReloadAsync() : Task.CompletedTask;
 
+    /// <summary>Values the Attribute Editor showed for an attribute with staged values (null when nothing is staged).</summary>
+    internal IReadOnlyList<string>? StagedBaseline(string attribute) =>
+        _rows.FirstOrDefault(r => r.IsDirty && string.Equals(r.Attribute, attribute, StringComparison.OrdinalIgnoreCase)) is { } row
+            ? row.Values?.Strings ?? []
+            : null;
+
     internal override IEnumerable<BatchOperation> GetOperations() =>
         [.. _rows.Where(r => r.PendingValues is not null && !r.IsReadOnly).Select(r => new SetValuesOperation(r.Attribute, r.PendingValues!))];
 

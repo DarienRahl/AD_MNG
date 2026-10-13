@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Ldap;
@@ -62,6 +63,9 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     private readonly IAuditLog _log;
     private readonly AuditLogExporter _exporter;
     private readonly List<AuditEntryViewModel> _all = [];
+    private readonly HashSet<AuditEntry> _known = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentQueue<AuditEntry> _incoming = new();
+    private int _flushScheduled;
 
     public SessionLogViewModel(DialogServices services, IAuditLog log, AuditLogExporter exporter)
         : base(services)
@@ -154,22 +158,54 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     private void Reload()
     {
         _all.Clear();
-        _all.AddRange(_log.Entries.Select(Create));
+        _known.Clear();
+        foreach (var entry in _log.Entries)
+        {
+            if (_known.Add(entry))
+            {
+                _all.Add(Create(entry));
+            }
+        }
+
         ApplyFilter();
     }
 
     private AuditEntryViewModel Create(AuditEntry entry) => new(entry, Localizer, Services.Time.LocalTimeZone);
 
-    /// <summary>The log may record entries on background threads (batch execution).</summary>
-    private void OnEntryRecorded(object? sender, AuditEntry entry) => _ = Services.Dispatcher.InvokeAsync(() =>
+    /// <summary>
+    /// The log records entries on background threads (batch execution, one entry per attribute and object). They are
+    /// queued and added in one dispatcher call per burst, so a large batch does not rebuild the list once per entry
+    /// on the UI thread.
+    /// </summary>
+    private void OnEntryRecorded(object? sender, AuditEntry entry)
     {
-        // The snapshot taken when the window opened may already contain the entry.
-        if (!IsDisposed && !_all.Any(e => ReferenceEquals(e.Entry, entry)))
+        _incoming.Enqueue(entry);
+        if (Interlocked.Exchange(ref _flushScheduled, 1) == 0)
         {
-            _all.Add(Create(entry));
+            _ = Services.Dispatcher.InvokeAsync(FlushIncoming);
+        }
+    }
+
+    private void FlushIncoming()
+    {
+        // Reset first: an entry queued while draining schedules another flush instead of being missed.
+        Volatile.Write(ref _flushScheduled, 0);
+        var added = false;
+        while (_incoming.TryDequeue(out var entry))
+        {
+            // The snapshot taken when the window opened may already contain the entry.
+            if (!IsDisposed && _known.Add(entry))
+            {
+                _all.Add(Create(entry));
+                added = true;
+            }
+        }
+
+        if (added)
+        {
             ApplyFilter();
         }
-    });
+    }
 
     private void ApplyFilter()
     {

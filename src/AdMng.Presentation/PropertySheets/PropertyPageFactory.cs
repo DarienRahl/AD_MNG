@@ -41,11 +41,12 @@ internal static class PropertyPageFactory
 
         public List<PropertyPageViewModel> User(DirectoryObject obj)
         {
+            var mail = Text(Attr.Mail);
             var pages = new List<PropertyPageViewModel>
             {
                 Page(L.Pages.General, Section(null,
                     Text(Attr.GivenName), Text(Attr.Initials), Text(Attr.Sn), Text(Attr.DisplayName), Text(Attr.Description),
-                    Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), Text(Attr.Mail),
+                    Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), mail,
                     Text(Attr.WwwHomePage, others: Attr.Url))),
                 AddressPage(),
                 AccountPage(),
@@ -56,7 +57,7 @@ internal static class PropertyPageFactory
                 OrganizationPage(),
                 new MemberOfPageViewModel(context),
             };
-            AddEmailPage(pages, obj);
+            AddEmailPage(pages, obj, mail);
             pages.Add(ObjectPage());
             pages.Add(new AttributeEditorPageViewModel(context));
             return pages;
@@ -64,18 +65,19 @@ internal static class PropertyPageFactory
 
         public List<PropertyPageViewModel> Contact(DirectoryObject obj)
         {
+            var mail = Text(Attr.Mail);
             var pages = new List<PropertyPageViewModel>
             {
                 Page(L.Pages.General, Section(null,
                     Text(Attr.GivenName), Text(Attr.Initials), Text(Attr.Sn), Text(Attr.DisplayName), Text(Attr.Description),
-                    Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), Text(Attr.Mail),
+                    Text(Attr.Office), Text(Attr.TelephoneNumber, others: Attr.OtherTelephone), mail,
                     Text(Attr.WwwHomePage, others: Attr.Url))),
                 AddressPage(),
                 TelephonesPage(),
                 OrganizationPage(),
                 new MemberOfPageViewModel(context),
             };
-            AddEmailPage(pages, obj);
+            AddEmailPage(pages, obj, mail);
             pages.Add(ObjectPage());
             pages.Add(new AttributeEditorPageViewModel(context));
             return pages;
@@ -195,14 +197,17 @@ internal static class PropertyPageFactory
             Page(L.Pages.ManagedBy, Section(null,
                 Known(Attr.ManagedBy, () => new DnFieldViewModel(context, Attr.ManagedBy, ManagerKinds, showDetails: true))));
 
-        private void AddEmailPage(List<PropertyPageViewModel> pages, DirectoryObject obj)
+        /// <remarks>
+        /// <paramref name="mail"/> is the General page's E-mail field: both tabs show the same field, so a primary
+        /// SMTP change made here is visible there and the two tabs can never write different values.
+        /// </remarks>
+        private void AddEmailPage(List<PropertyPageViewModel> pages, DirectoryObject obj, FieldViewModel? mail)
         {
             if (!context.Session.Info.HasExchangeSchema && !obj.Has(Attr.ProxyAddresses))
             {
                 return;
             }
 
-            var mail = Text(Attr.Mail);
             var proxies = Known(Attr.ProxyAddresses, () => new ProxyAddressesFieldViewModel(context));
             if (proxies is not null && mail is not null)
             {

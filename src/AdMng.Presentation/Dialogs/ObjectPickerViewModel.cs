@@ -84,7 +84,7 @@ public sealed partial class ObjectPickerViewModel : WindowViewModelBase
 
     /// <summary>Names to resolve, separated by ';' ("Enter the object names to select").</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CheckNamesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckNamesCommand), nameof(OkCommand))]
     public partial string SearchText { get; set; } = string.Empty;
 
     /// <summary>Resolved objects that will be returned by OK.</summary>
