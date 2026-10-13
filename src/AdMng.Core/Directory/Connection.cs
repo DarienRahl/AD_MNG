@@ -66,6 +66,12 @@ public sealed record ConnectionOptions
     /// <summary>Lab only: accept any TLS certificate. Never enable in production.</summary>
     public bool AllowUntrustedCertificate { get; init; }
 
+    /// <summary>
+    /// Lab only: permit <see cref="AuthenticationMode.SimpleBind"/> over an unprotected channel
+    /// (<see cref="TransportSecurity.None"/>). Without it such a combination is refused before any packet is sent.
+    /// </summary>
+    public bool AllowInsecureSimpleBind { get; init; }
+
     /// <summary>Port that will be used when <see cref="Port"/> is not set.</summary>
     public int EffectivePort => Port ?? (GlobalCatalog
         ? (Security == TransportSecurity.Tls ? 3269 : 3268)
