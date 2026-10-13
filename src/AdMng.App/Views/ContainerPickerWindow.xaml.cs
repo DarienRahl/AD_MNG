@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.Presentation.Dialogs;
@@ -26,4 +28,27 @@ public partial class ContainerPickerWindow : Window, IDialogResultWindow
 
     /// <summary>Completes when the tree was expanded to the start container (tests).</summary>
     internal Task Initialization => _host.Initialization;
+
+    /// <summary>
+    /// Scrolls the selected container into view - also when the view model selects it (the start container deep in a
+    /// large domain). The item was usually just generated, so this waits for its layout.
+    /// </summary>
+    private void OnContainerSelected(object sender, RoutedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, e.OriginalSource) || sender is not TreeViewItem item)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _ = Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (item.IsSelected && item.IsVisible)
+                {
+                    item.BringIntoView(new Rect(0, 0, item.ActualWidth, Math.Min(item.ActualHeight, 28)));
+                }
+            },
+            DispatcherPriority.Loaded);
+    }
 }

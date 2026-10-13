@@ -114,8 +114,9 @@
                      Text="{x:Static c:Glyphs.Edit}"
                      ToolTip="{l:Tr ObjectDialogs.PendingChanges}"
                      Visibility="{Binding IsDirty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <!-- AutomationProperties.Name rejects null (WPF validates it): editable fields have no reason. -->
           <TextBlock Margin="4,0,0,0"
-                     AutomationProperties.Name="{Binding ReadOnlyReason, Mode=OneWay}"
+                     AutomationProperties.Name="{Binding ReadOnlyReason, Mode=OneWay, TargetNullValue=''}"
                      FontSize="12"
                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                      Style="{StaticResource Ad.GlyphText}"
@@ -404,6 +405,7 @@
                    ItemContainerStyle="{StaticResource ReferenceItemStyle}"
                    ItemTemplate="{StaticResource DirectoryItemTemplate}"
                    ItemsSource="{Binding Items, Mode=OneWay}"
+                   KeyDown="OnReferenceListKeyDown"
                    SelectedItem="{Binding SelectedItem}" />
           <WrapPanel Margin="0,6,0,0">
             <Button Command="{Binding OpenCommand}"
@@ -764,6 +766,7 @@
           <Grid Width="260" HorizontalAlignment="Left">
             <TextBox x:Name="MembershipFilterBox"
                      AutomationProperties.Name="{l:Tr Common.Filter}"
+                     KeyDown="OnFilterBoxKeyDown"
                      Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=120}" />
             <TextBlock Style="{StaticResource Ad.HintText}"
                        Text="{l:Tr Common.Filter}"
@@ -896,6 +899,7 @@
               <ListView x:Name="NestedList"
                         AutomationProperties.Name="{l:Tr Membership.Nested}"
                         ItemsSource="{Binding NestedItems, Mode=OneWay}"
+                        KeyDown="OnNestedListKeyDown"
                         SelectionMode="Single">
                 <ListView.ItemContainerStyle>
                   <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
@@ -1040,7 +1044,8 @@
     </Style>
 
     <DataTemplate DataType="{x:Type ps:AttributeValueEditorViewModel}">
-      <DockPanel>
+      <!-- Code-behind moves the keyboard focus into the editor when it opens and back to the list when it closes. -->
+      <DockPanel Loaded="OnValueEditorLoaded" Unloaded="OnValueEditorUnloaded">
         <!-- Enter / Esc act on the value editor, not on the sheet's OK / Cancel buttons. -->
         <DockPanel.InputBindings>
           <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
@@ -1147,15 +1152,19 @@
                          IsChecked="{Binding BooleanValue, Converter={StaticResource NullableBoolRadio}, ConverterParameter=Null}"
                          IsEnabled="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}" />
           </StackPanel>
-          <!-- Binary: read-only hexadecimal view -->
-          <TextBox MaxHeight="130"
-                   AutomationProperties.Name="{Binding Title, Mode=OneWay}"
-                   FontFamily="Cascadia Mono, Consolas"
-                   IsReadOnly="True"
-                   Style="{StaticResource BinaryEditor}"
-                   Text="{Binding Value, Mode=OneWay}"
-                   TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto" />
+          <!--
+            Binary: read-only hexadecimal view. The visibility style sits on a wrapper: an explicit Style on the TextBox
+            would replace its implicit Fluent style.
+          -->
+          <Grid Style="{StaticResource BinaryEditor}">
+            <TextBox MaxHeight="130"
+                     AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                     FontFamily="Cascadia Mono, Consolas"
+                     IsReadOnly="True"
+                     Text="{Binding Value, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" />
+          </Grid>
         </Grid>
       </DockPanel>
     </DataTemplate>
@@ -1176,6 +1185,7 @@
                 DockPanel.Dock="Left">
             <TextBox x:Name="AttributeFilterBox"
                      AutomationProperties.Name="{l:Tr Common.Filter}"
+                     KeyDown="OnFilterBoxKeyDown"
                      Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
             <TextBlock Style="{StaticResource Ad.HintText}"
                        Text="{l:Tr Common.Filter}"
@@ -1471,7 +1481,8 @@
                 AutomationProperties.Name="{Binding Name, Mode=OneWay}"
                 ItemTemplate="{StaticResource PageHeaderTemplate}"
                 ItemsSource="{Binding Pages, Mode=OneWay}"
-                SelectedItem="{Binding SelectedPage}">
+                SelectedItem="{Binding SelectedPage}"
+                SelectionChanged="OnPageChanged">
       <TabControl.ItemContainerStyle>
         <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
           <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />

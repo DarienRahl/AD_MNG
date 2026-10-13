@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.Presentation.Dialogs;
@@ -12,7 +14,9 @@ namespace AdMng.App.Views;
 /// <summary>
 /// Property sheet of one object (modeless). The window only hosts <see cref="PropertySheetViewModel"/>: the pages,
 /// fields and the Apply pipeline live in the view model. Code-behind wires what XAML cannot: multi-selection of the
-/// membership lists, double click / Enter / Delete on list rows and the lazy "All (nested)" tab.
+/// membership lists, double click / Enter / Delete on list rows, the lazy "All (nested)" tab and keyboard focus. Enter
+/// presses OK (ADUC) except where it has a local meaning: lists open or edit their row, filter boxes move to their list
+/// and the Attribute Editor's value editor confirms the value.
 /// </summary>
 public partial class PropertiesWindow : Window, IDialogResultWindow
 {
@@ -54,6 +58,28 @@ public partial class PropertiesWindow : Window, IDialogResultWindow
         }
     }
 
+    /// <summary>
+    /// Pages of the same type share one visual tree (the tab content only changes its DataContext), so a field page
+    /// would open scrolled to where the previous one was left: start every page at the top.
+    /// </summary>
+    private void OnPageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, PageTabs))
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(
+            () =>
+            {
+                foreach (var viewer in Descendants<ScrollViewer>(PageTabs).Where(v => v.DataContext is FieldsPageViewModel))
+                {
+                    viewer.ScrollToTop();
+                }
+            },
+            DispatcherPriority.Loaded);
+    }
+
     // ---- Referenced objects (direct reports) --------------------------------------------------------------------
 
     private void OnReferenceItemDoubleClick(object sender, MouseButtonEventArgs e)
@@ -65,6 +91,48 @@ public partial class PropertiesWindow : Window, IDialogResultWindow
         {
             field.OpenCommand.Execute(item);
             e.Handled = true;
+        }
+    }
+
+    private void OnReferenceListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter
+            && Keyboard.Modifiers == ModifierKeys.None
+            && sender is ListBox { DataContext: ReferenceListFieldViewModel field }
+            && field.OpenCommand.CanExecute(null))
+        {
+            // Enter opens the selected object instead of pressing OK.
+            field.OpenCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    // ---- Filter boxes -------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The filters apply while typing; Enter moves to the filtered list instead of pressing OK (which would apply the
+    /// pending changes and close the sheet).
+    /// </summary>
+    private void OnFilterBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None || sender is not DependencyObject box)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        for (var scope = VisualTreeHelper.GetParent(box); scope is not null; scope = VisualTreeHelper.GetParent(scope))
+        {
+            if (Descendants<ListView>(scope).FirstOrDefault(l => l.IsVisible) is { } list)
+            {
+                FocusList(list);
+                return;
+            }
+
+            if (scope is TabControl or Window)
+            {
+                return;
+            }
         }
     }
 
@@ -143,6 +211,16 @@ public partial class PropertiesWindow : Window, IDialogResultWindow
         }
     }
 
+    private void OnNestedListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None && sender is ListView { SelectedItem: DirectoryItem item })
+        {
+            // Enter opens the selected object instead of pressing OK.
+            _ = _dialogs.ShowPropertiesAsync(item.Dn);
+            e.Handled = true;
+        }
+    }
+
     /// <summary>The "All (nested)" list is loaded the first time its tab is shown.</summary>
     private void OnMembershipTabChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -185,6 +263,76 @@ public partial class PropertiesWindow : Window, IDialogResultWindow
             // Enter edits the selected attribute instead of pressing OK.
             page.EditCommand.Execute(null);
             e.Handled = true;
+        }
+    }
+
+    /// <summary>The value editor opened: its input gets the keyboard focus (it is docked below the list).</summary>
+    private void OnValueEditorLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement editor)
+        {
+            return;
+        }
+
+        _ = Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (editor.IsVisible
+                    && Descendants<Control>(editor).FirstOrDefault(c => c is TextBox or RadioButton or ListBox && c.IsVisible && c.IsEnabled) is { } input)
+                {
+                    input.Focus();
+                }
+            },
+            DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// The value editor closed (OK, Cancel, Esc): the focused input went with it, so the focus returns to the attribute
+    /// list - otherwise the next Enter would press the sheet's OK button.
+    /// </summary>
+    private void OnValueEditorUnloaded(object sender, RoutedEventArgs e) =>
+        _ = Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (IsVisible && !IsKeyboardFocusWithin
+                    && Descendants<ListView>(PageTabs).FirstOrDefault(l => l.Name == "AttributeList" && l.IsVisible) is { } list)
+                {
+                    FocusList(list);
+                }
+            },
+            DispatcherPriority.Background);
+
+    // ---- Helpers ------------------------------------------------------------------------------------------------
+
+    /// <summary>Focuses the selected row of <paramref name="list"/> (else the first row, else the list).</summary>
+    private static void FocusList(ListView list)
+    {
+        var index = Math.Max(list.SelectedIndex, 0);
+        if (list.Items.Count > 0 && list.ItemContainerGenerator.ContainerFromIndex(index) is ListViewItem row)
+        {
+            row.Focus();
+        }
+        else
+        {
+            list.Focus();
+        }
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var nested in Descendants<T>(child))
+            {
+                yield return nested;
+            }
         }
     }
 }

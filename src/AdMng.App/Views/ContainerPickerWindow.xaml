@@ -85,6 +85,7 @@
           <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
           <Setter Property="Margin" Value="0" />
           <Setter Property="Padding" Value="2" />
+          <EventSetter Event="Selected" Handler="OnContainerSelected" />
         </Style>
       </TreeView.Resources>
     </TreeView>

@@ -9,6 +9,7 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
+using AdMng.Testing;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Tests.Dialogs;
@@ -259,6 +260,35 @@ public class NewObjectTests
         Assert.Equal("Enter a name.", dialog.Error);
         Assert.Null(dialog.CreatedDn);
     }
+
+    [Fact]
+    public async Task Closing_IsRefusedWhileTheObjectIsBeingCreated()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateNewObject(ObjectKind.OrganizationalUnit, harness.Company.CompanyOu);
+        using var release = new ManualResetEventSlim();
+        var adding = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add)
+            {
+                adding.TrySetResult();
+                release.Wait(TimeSpan.FromSeconds(10));
+            }
+        };
+        Assert.True(await dialog.CanCloseAsync());
+
+        dialog.Name = "Projekty";
+        var create = dialog.CreateCommand.ExecuteAsync(null);
+        await adding.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        var closable = await dialog.CanCloseAsync();
+        release.Set();
+        await create;
+
+        Assert.False(closable);
+        Assert.NotNull(dialog.CreatedDn);
+        Assert.True(await dialog.CanCloseAsync());
+    }
 }
 
 public class FindTests
@@ -332,8 +362,10 @@ public class PickerTests
         Assert.Equal(["GG_IT", "GG_Ksiegowosc", "GG_Sprzedaz"], picker.Results.Select(r => r.Name));
         Assert.Contains("No object found for 'nikt'.", picker.StatusText, StringComparison.Ordinal);
 
+        // Choosing a match answers the ambiguous name; the name that was not found stays to be corrected.
         picker.SelectedResult = picker.Results[0];
         picker.AddSelectedCommand.Execute(null);
+        Assert.Equal("nikt", picker.SearchText);
         picker.SearchText = string.Empty;
         bool? closed = null;
         picker.CloseRequested += (_, r) => closed = r;
@@ -341,6 +373,29 @@ public class PickerTests
 
         Assert.True(closed);
         Assert.Equal([harness.Company.JanKowalski, harness.Company.GroupIt], picker.Result);
+    }
+
+    [Fact]
+    public async Task Ok_WithAMatchOfAnAmbiguousNameSelected_ChoosesItAndCloses()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var picker = harness.Factory.CreateObjectPicker(harness.Session, [ObjectKind.Group], multiSelect: false);
+        bool? closed = null;
+        picker.CloseRequested += (_, r) => closed = r;
+
+        // OK with an ambiguous name lists its matches and stays open.
+        picker.SearchText = "GG_";
+        await picker.OkCommand.ExecuteAsync(null);
+        Assert.Null(closed);
+        Assert.Equal(3, picker.Results.Count);
+
+        // Selecting one of them and pressing OK again answers the name (ADUC "Multiple Names Found").
+        picker.SelectedResult = picker.Results.Single(r => r.Name == "GG_Sprzedaz");
+        await picker.OkCommand.ExecuteAsync(null);
+
+        Assert.True(closed);
+        Assert.Equal(string.Empty, picker.SearchText);
+        Assert.Equal([picker.Results.Single(r => r.Name == "GG_Sprzedaz").Dn], picker.Result);
     }
 
     [Fact]

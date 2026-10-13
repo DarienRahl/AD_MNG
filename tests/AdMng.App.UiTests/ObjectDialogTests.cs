@@ -207,6 +207,12 @@ public sealed class ObjectDialogTests
         await UiWait.UntilAsync(() => !editor.IsLoading && editor.Rows.Count > 0, "attributes read");
         editor.FilterText = "department";
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        // Enter in the filter box is taken by the box (the filter applies while typing), not by the sheet's OK button.
+        var filterBox = UiWait.Descendants<TextBox>(window).Single(t => t.Name == "AttributeFilterBox");
+        var enter = new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(filterBox)!, 0, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent };
+        filterBox.RaiseEvent(enter);
+        Assert.True(enter.Handled);
         var row = editor.Rows.Single(r => r.Attribute == Attr.Department);
         var list = UiWait.Descendants<ListView>(window).Single(l => l.Name == "AttributeList");
         list.UpdateLayout();
@@ -475,6 +481,37 @@ public sealed class ObjectDialogTests
         Assert.True(window.Result);
         Assert.Equal(3, picker.Result.Count);
         Assert.Contains(context.Company.LukaszWisniewski, picker.Result, StringComparer.OrdinalIgnoreCase);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task ObjectPicker_DoubleClickOnAMatchOfAnAmbiguousName_ConfirmsASinglePick() => WpfTestHost.RunAsync(async () =>
+    {
+        var (created, _) = await TestDialogService.CreateContextAsync();
+        await using var context = created;
+        var session = await context.ConnectAsync();
+        var picker = Factory(context).CreateObjectPicker(session, [ObjectKind.Group], multiSelect: false);
+        var window = (ObjectPickerWindow)Windows(context).CreateWindow(picker);
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        Assert.Equal(System.Windows.Controls.SelectionMode.Single, window.ResultsList.SelectionMode);
+
+        // OK with an ambiguous name lists its matches and keeps the window open.
+        window.SearchBox.Text = "GG_";
+        await picker.OkCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(window.IsVisible);
+        var match = picker.Results.Single(r => r.Name == "GG_IT");
+
+        // Double click on a match answers the name and confirms the single-object pick.
+        window.ResultsList.SelectedItem = match;
+        window.ResultsList.UpdateLayout();
+        var container = Assert.IsType<ListViewItem>(window.ResultsList.ItemContainerGenerator.ContainerFromItem(match));
+        container.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left) { RoutedEvent = Control.MouseDoubleClickEvent });
+        await UiWait.UntilAsync(() => !window.IsVisible, "the picker closed");
+
+        Assert.True(window.Result);
+        Assert.Equal([context.Company.GroupIt], picker.Result, StringComparer.OrdinalIgnoreCase);
         context.AssertHealthy();
     });
 

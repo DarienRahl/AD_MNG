@@ -220,7 +220,18 @@ public sealed class DialogService : IDialogService
             throw;
         }
 
-        var dialogResult = _windows.ShowDialog(window);
+        bool? dialogResult;
+        try
+        {
+            dialogResult = _windows.ShowDialog(window);
+        }
+        catch
+        {
+            // The window could not be shown, so it never closes and never disposes the view model (disposing twice is safe).
+            viewModel.Dispose();
+            throw;
+        }
+
         return window is IDialogResultWindow resultWindow ? resultWindow.Result == true : dialogResult == true;
     }
 
