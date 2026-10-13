@@ -171,6 +171,30 @@ public class CsvCodecTests
         Assert.Equal("h\r\n\"'\rx\"\r\n", Write(["h"], [["\rx"]]));
     }
 
+    [Theory]
+    [InlineData("'=SUM(A1:A2)", "=SUM(A1:A2)")]
+    [InlineData("'+48 22 123", "+48 22 123")]
+    [InlineData("'-1", "-1")]
+    [InlineData("'@cmd", "@cmd")]
+    [InlineData("'\tx", "\tx")]
+    [InlineData("'quoted'", "'quoted'")]
+    [InlineData("'", "'")]
+    [InlineData("", "")]
+    public void RemoveFormulaProtection_UndoesOnlyTheProtectionPrefix(string value, string expected)
+    {
+        Assert.Equal(expected, CsvCodec.RemoveFormulaProtection(value));
+    }
+
+    [Fact]
+    public void WriteThenRead_RoundTripsProtectedValuesWithRemoveFormulaProtection()
+    {
+        string[] values = ["+48 22 123", "=1+1", "-1", "@x", "zwykły"];
+
+        var table = Read(Write(["v"], values.Select(v => new[] { v }).ToArray()));
+
+        Assert.Equal(values, table.Rows.Select(r => CsvCodec.RemoveFormulaProtection(r[0])));
+    }
+
     [Fact]
     public void WriteThenRead_RoundTrips()
     {

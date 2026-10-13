@@ -175,6 +175,8 @@ public class AttributeFormatterTests
     [InlineData(Attr.Manager, "not a dn", "is not a valid distinguished name")]
     [InlineData(Attr.WhenCreated, "wczoraj", "is not a valid date")]
     [InlineData(Attr.AccountExpires, "kiedyś", "is not a date, a FILETIME number or 'never'")]
+    [InlineData(Attr.AccountExpires, "1500-01-01", "is before 1601-01-01")]
+    [InlineData(Attr.AccountExpires, "0001-01-01", "")]
     [InlineData(Attr.Department, "", "A value is required")]
     [InlineData(Attr.ThumbnailPhoto, "ABC", "is not valid hexadecimal data")]
     [InlineData(Attr.ObjectGuid, "01 02", "The value is too short (2 bytes, minimum 16)")]

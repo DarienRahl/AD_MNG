@@ -253,6 +253,52 @@ public class ChangePlannerTests
     }
 
     [Fact]
+    public async Task AccountExpiration_BeforeFileTimeEpochIsAnErrorNotACrash()
+    {
+        var plan = await PlanOneAsync(_company.JanKowalski, new SetAccountExpirationOperation(new DateTimeOffset(1500, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+
+        Assert.True(plan.HasErrors);
+        Assert.Equal(Attr.AccountExpires, Issue(plan, IssueCodes.InvalidValue).Attribute);
+    }
+
+    [Fact]
+    public async Task RangedValues_AreReadCompletelyBeforePlanning()
+    {
+        // GG_Ksiegowosc has three members; the DC returns at most two values per read (AD: 1500).
+        Session.MaxValueRange = 2;
+
+        var remove = await PlanOneAsync(_company.GroupAccounting, new RemoveValuesOperation(Attr.Member, [_company.ZbigniewKazmierczak]));
+        var clear = await PlanOneAsync(_company.GroupAccounting, new ClearAttributeOperation(Attr.Member));
+
+        Assert.Equal([_company.ZbigniewKazmierczak], Change(remove, Attr.Member).NewValues);
+        Assert.Equal([_company.MalgorzataWojcik, _company.GrazynaDabrowska, _company.ZbigniewKazmierczak], Change(clear, Attr.Member).OldValues);
+        Assert.Contains(Session.Operations, o => o.Kind == FakeOperationKind.GetAllValues && o.Attributes.SequenceEqual([Attr.Member]));
+    }
+
+    [Fact]
+    public async Task RangedMemberOf_DoesNotHideExistingMemberships()
+    {
+        // Jan is in GG_IT plus four more groups; a read returns four memberOf values (and all four objectClass values).
+        var extra = Enumerable.Range(1, 4).Select(i => _builder.AddGroup($"GG_Projekt{i}", _company.GroupsOu, members: [_company.JanKowalski])).ToList();
+        Session.MaxValueRange = 4;
+
+        var plan = await PlanOneAsync(_company.JanKowalski, new AddToGroupsOperation([extra[^1]]));
+
+        Assert.Equal(ObjectKind.User, plan.Kind);
+        Assert.True(plan.IsNoOp);
+        Assert.Empty(plan.Changes);
+        Assert.DoesNotContain(AllIssues(plan), i => i.Severity != IssueSeverity.Info);
+    }
+
+    [Fact]
+    public async Task Templates_LastZeroIsEmptyNotACrash()
+    {
+        var plan = await PlanOneAsync(_company.JanKowalski, new SetAttributeOperation(Attr.Info, "{sn|last:0}x"));
+
+        Assert.Equal(["x"], Change(plan, Attr.Info).NewValues);
+    }
+
+    [Fact]
     public async Task ResetPassword_GeneratesUniquePasswordsAndOrdersSteps()
     {
         Session.SetValues(_company.PawelLewandowski, Attr.PwdLastSet, "0");

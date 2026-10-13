@@ -11,7 +11,9 @@ namespace AdMng.Core.Batch;
 /// <remarks>
 /// Not reversible (reported as <see cref="IssueCodes.NotReversible"/> warnings, the step is omitted): password resets,
 /// deletions and unlocks. Restoring "must change password" uses pwdLastSet=-1 (the password age restarts now), which
-/// is reported as a warning too. A created object is rolled back by deleting it.
+/// is reported as a warning too. After a successful password reset pwdLastSet is never restored: the administrator-set
+/// password stays (it cannot be undone), so "must change password at next logon" must stay as well.
+/// A created object is rolled back by deleting it.
 /// </remarks>
 public sealed class RollbackPlanner : IRollbackPlanner
 {
@@ -51,6 +53,10 @@ public sealed class RollbackPlanner : IRollbackPlanner
             return Build(objectResult, steps, issues);
         }
 
+        // The new password cannot be taken back; removing "must change at next logon" would leave the account with a
+        // password the administrator (and the exported results) know, without forcing the user to replace it.
+        var passwordWasReset = succeeded.Any(c => c.Action == ChangeAction.ResetPassword);
+
         // DN before each step, so a rename/move can be undone to the exact original name/parent.
         var dnBefore = new List<string>(succeeded.Count);
         var currentDn = plan.DistinguishedName;
@@ -69,7 +75,7 @@ public sealed class RollbackPlanner : IRollbackPlanner
                     var attributes = new List<AttributeChange>();
                     foreach (var attribute in change.Attributes)
                     {
-                        if (Invert(attribute, issues) is { } inverse)
+                        if (Invert(attribute, passwordWasReset, issues) is { } inverse)
                         {
                             attributes.Add(inverse);
                         }
@@ -144,7 +150,7 @@ public sealed class RollbackPlanner : IRollbackPlanner
         }
     }
 
-    private static AttributeChange? Invert(AttributeChange change, List<ValidationIssue> issues)
+    private static AttributeChange? Invert(AttributeChange change, bool passwordWasReset, List<ValidationIssue> issues)
     {
         var written = change.ResultValues;
         if (string.Equals(change.Attribute, Attr.LockoutTime, StringComparison.OrdinalIgnoreCase))
@@ -156,6 +162,13 @@ public sealed class RollbackPlanner : IRollbackPlanner
 
         if (string.Equals(change.Attribute, Attr.PwdLastSet, StringComparison.OrdinalIgnoreCase))
         {
+            if (passwordWasReset)
+            {
+                issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
+                    "The password reset cannot be undone, so the password-change setting of the reset is kept.", change.Attribute));
+                return null;
+            }
+
             // pwdLastSet only accepts 0 ("must change") and -1 ("now").
             if (change.OldValues is ["0"])
             {

@@ -18,6 +18,9 @@ internal sealed class PlanningContext
     private static readonly string[] ReferenceAttributes =
         [Attr.ObjectClass, Attr.DistinguishedName, Attr.Name, Attr.ObjectSid, Attr.GroupType];
 
+    /// <summary>Attribute option of a partial (ranged) value list, e.g. <c>member;range=0-1499</c>.</summary>
+    private const string RangeOption = ";range=";
+
     private readonly ConcurrentDictionary<string, Lazy<Task<EffectivePermissions>>> _permissions = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Lazy<Task<DirectoryObject?>>> _references = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ClassAttributeSets> _classSets = new(StringComparer.OrdinalIgnoreCase);
@@ -64,6 +67,42 @@ internal sealed class PlanningContext
     public Task<DirectoryObject?> GetReferenceAsync(string dn) =>
         _references.GetOrAdd(Key(dn), _ => new Lazy<Task<DirectoryObject?>>(
             () => Session.GetAsync(dn, ReferenceAttributes, CancellationToken))).Value;
+
+    /// <summary>
+    /// Reads the remaining values of attributes the server returned only partially. AD returns at most MaxValRange
+    /// (1500) values of a multi-valued attribute per read, as <c>member;range=0-1499</c>; planning on such a truncated
+    /// list would turn removals of later values into silent no-ops and make a clear (compare-and-swap) delete only the
+    /// first chunk. Binary attributes are left as they are (they cannot be edited in a batch).
+    /// </summary>
+    public async Task<DirectoryObject> CompleteRangedValuesAsync(DirectoryObject obj)
+    {
+        List<AttributeValues>? completed = null;
+        foreach (var values in obj.Attributes.Values)
+        {
+            var name = values.Name;
+            var range = name.IndexOf(RangeOption, StringComparison.OrdinalIgnoreCase);
+            if (range <= 0 || name.EndsWith("-*", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var baseName = name[..name.IndexOf(';', StringComparison.Ordinal)];
+            if (Schema.IsBinary(baseName))
+            {
+                continue;
+            }
+
+            var all = new List<object>();
+            await foreach (var value in Session.GetAllValuesAsync(obj.DistinguishedName, baseName, CancellationToken).ConfigureAwait(false))
+            {
+                all.Add(value);
+            }
+
+            (completed ??= []).Add(new AttributeValues(baseName, all));
+        }
+
+        return completed is null ? obj : obj.With(completed);
+    }
 
     /// <summary>Allowed and mandatory attributes for a combination of object classes (cached per combination).</summary>
     public ClassAttributeSets GetClassAttributes(IReadOnlyList<string> objectClasses) =>

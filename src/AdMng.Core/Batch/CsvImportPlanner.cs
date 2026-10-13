@@ -13,7 +13,8 @@ namespace AdMng.Core.Batch;
 /// direct reads), then every resolved row goes through the same validation as <see cref="ChangePlanner"/>.
 /// </summary>
 /// <remarks>
-/// Cell values are trimmed. Cells of multi-valued attributes are split on <see cref="CsvImportMapping.MultiValueSeparator"/>
+/// Cell values are trimmed, and the apostrophe that CSV formula protection puts in front of values such as
+/// <c>+48 22 123</c> is removed (<see cref="CsvCodec.RemoveFormulaProtection"/>). Cells of multi-valued attributes are split on <see cref="CsvImportMapping.MultiValueSeparator"/>
 /// and replace all values. Two rows resolving to the same object are reported as <see cref="IssueCodes.DuplicateInBatch"/>
 /// on the later row. The progress callback of <see cref="PlanAsync"/> receives the number of rows planned so far.
 /// </remarks>
@@ -55,7 +56,7 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
         var keys = new string[table.Rows.Count];
         for (var row = 0; row < keys.Length; row++)
         {
-            keys[row] = table.Cell(row, keyIndex).Trim();
+            keys[row] = CellValue(table, row, keyIndex);
         }
 
         var resolver = new KeyResolver(context, mapping, attributes);
@@ -211,7 +212,8 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
         ObjectPlanDraft draft,
         int row)
     {
-        if (draft.Current!.IsProtectedByAdminSdHolder)
+        draft.Current = await context.CompleteRangedValuesAsync(draft.Current!).ConfigureAwait(false);
+        if (draft.Current.IsProtectedByAdminSdHolder)
         {
             draft.Issues.Add(PlanValidation.Warning(IssueCodes.AdminSdHolder,
                 "The object is protected by AdminSDHolder (adminCount=1); changes may require Domain Admin rights."));
@@ -219,7 +221,7 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
 
         foreach (var column in columns)
         {
-            var cell = table.Cell(row, column.Index).Trim();
+            var cell = CellValue(table, row, column.Index);
             var edit = draft.GetEdit(column.Attribute, context.Schema);
             if (cell.Length == 0)
             {
@@ -242,6 +244,9 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
         var permissions = await context.GetPermissionsAsync(draft.DistinguishedName).ConfigureAwait(false);
         await PlanValidation.ValidateAttributeChangesAsync(context, draft, permissions).ConfigureAwait(false);
     }
+
+    private static string CellValue(CsvTable table, int row, int column) =>
+        CsvCodec.RemoveFormulaProtection(table.Cell(row, column).Trim());
 
     private sealed record ColumnMapping(int Index, string Column, string Attribute);
 

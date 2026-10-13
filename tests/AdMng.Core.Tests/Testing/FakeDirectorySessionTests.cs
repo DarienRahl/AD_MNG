@@ -501,6 +501,31 @@ public class FakeDirectorySessionTests
     }
 
     [Fact]
+    public async Task MaxValueRange_ReturnsRangedDescriptionsLikeAd()
+    {
+        var (builder, company) = Create();
+        var session = builder.Session;
+        session.MaxValueRange = 2;
+
+        var group = await session.GetAsync(company.GroupAccounting, [Attr.Member, Attr.SamAccountName], Ct);
+        var found = Assert.Single(await SearchAsync(session, "(sAMAccountName=GG_Ksiegowosc)", attributes: Attr.Member));
+        var all = new List<string>();
+        await foreach (var value in session.GetAllValuesAsync(company.GroupAccounting, Attr.Member, Ct))
+        {
+            all.Add(value);
+        }
+
+        Assert.True(group!.TryGet(Attr.Member, out var members));
+        Assert.Equal("member;range=0-1", members.Name);
+        Assert.Equal([company.MalgorzataWojcik, company.GrazynaDabrowska], members.Strings);
+        Assert.Equal("GG_Ksiegowosc", group.GetString(Attr.SamAccountName));
+        Assert.Equal(2, found.GetStrings(Attr.Member).Count);
+        Assert.Equal(3, all.Count);
+        Assert.Equal(3, session.Snapshot(company.GroupAccounting)!.GetStrings(Attr.Member).Count);
+        Assert.Throws<ArgumentOutOfRangeException>(() => session.MaxValueRange = 0);
+    }
+
+    [Fact]
     public async Task DisposedSession_RejectsCalls()
     {
         var (builder, company) = Create();

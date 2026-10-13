@@ -61,6 +61,9 @@ public sealed class AttributeFormatter : IAttributeFormatter
         (0x10, "APP_BASIC_GROUP"), (0x20, "APP_QUERY_GROUP"), (unchecked((int)0x80000000), "SECURITY_ENABLED"),
     ];
 
+    /// <summary>FILETIME 0 (1601-01-01 UTC); earlier dates cannot be stored.</summary>
+    private static readonly DateTimeOffset FileTimeEpoch = new(1601, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     private static readonly string[] IsoDateFormats =
     [
         "yyyy-MM-dd", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd'T'HH:mm", "yyyy-MM-dd'T'HH:mm:ss",
@@ -338,6 +341,12 @@ public sealed class AttributeFormatter : IAttributeFormatter
 
         if (TryParseDate(trimmed, culture, out var when))
         {
+            if (when < FileTimeEpoch)
+            {
+                error = $"'{input}' is before 1601-01-01 (UTC), the earliest date a FILETIME attribute can hold.";
+                return false;
+            }
+
             value = AdConvert.ToFileTime(when).ToString(CultureInfo.InvariantCulture);
             return true;
         }
@@ -491,8 +500,16 @@ public sealed class AttributeFormatter : IAttributeFormatter
         }
 
         var unspecified = DateTime.SpecifyKind(local, DateTimeKind.Unspecified);
-        value = new DateTimeOffset(unspecified, TimeZoneInfo.Local.GetUtcOffset(unspecified));
-        return true;
+        try
+        {
+            value = new DateTimeOffset(unspecified, TimeZoneInfo.Local.GetUtcOffset(unspecified));
+            return true;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            // 0001-01-01 east of UTC / 9999-12-31 west of UTC cannot be represented.
+            return false;
+        }
     }
 
     private static bool TryParseSid(string input, out object? value, out string? error)

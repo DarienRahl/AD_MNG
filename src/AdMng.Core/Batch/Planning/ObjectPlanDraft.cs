@@ -56,7 +56,8 @@ internal sealed class ObjectPlanDraft
     public string DisplayName { get; }
 
     /// <summary>The object as read while planning; null when not found / not resolved.</summary>
-    public DirectoryObject? Current { get; }
+    /// <remarks>Replaced only before the first edit, when ranged values were completed (same DN).</remarks>
+    public DirectoryObject? Current { get; set; }
 
     public int? SourceRow { get; }
 

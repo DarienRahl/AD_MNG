@@ -160,12 +160,23 @@ public sealed class TemplateEngine : ITemplateEngine
 
     private static string FirstTextElements(string value, int count)
     {
+        if (count == 0)
+        {
+            return string.Empty;
+        }
+
         var info = new StringInfo(value);
         return info.LengthInTextElements <= count ? value : info.SubstringByTextElements(0, count);
     }
 
     private static string LastTextElements(string value, int count)
     {
+        // StringInfo.SubstringByTextElements(length, 0) throws, so 0 is handled explicitly.
+        if (count == 0)
+        {
+            return string.Empty;
+        }
+
         var info = new StringInfo(value);
         var length = info.LengthInTextElements;
         return length <= count ? value : info.SubstringByTextElements(length - count, count);

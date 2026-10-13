@@ -1,6 +1,7 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Directory;
+using AdMng.Core.Ldap;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Core.Batch;
@@ -14,6 +15,9 @@ namespace AdMng.Core.Batch;
 /// A Modify step whose changes mix replace/clear (sent strictly, as compare-and-swap with
 /// <see cref="BatchOptions.OptimisticConcurrency"/>) and add/remove values (sent with the permissive modify control)
 /// is executed as two modify requests, because the permissive control would defeat the compare-and-swap.
+/// A rename, move or delete whose retry (after a timeout or a lost connection) fails with noSuchObject is confirmed
+/// by reading the directory, because the attempt that seemed to fail may have been applied.
+/// Audit log failures (e.g. a throwing <see cref="IAuditLog.EntryRecorded"/> subscriber) are logged, never thrown.
 /// The diagnostic log contains counts, actions and error kinds only - never DNs or values.
 /// </remarks>
 public sealed partial class BatchExecutor : IBatchExecutor
@@ -22,6 +26,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
     public const string ConflictMessagePrefix = "Conflict: value changed since preview";
 
     private const int MaxParallelism = 16;
+
+    /// <summary>ERROR_DS_SINGLE_VALUE_CONSTRAINT: a single-valued attribute got a second value (constraintViolation).</summary>
+    private const int ErrorDsSingleValueConstraint = 0x2081;
 
     private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(30);
 
@@ -82,6 +89,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Unexpected {ExceptionType} during {Action}: {StackTrace}")]
     private static partial void LogUnexpected(ILogger logger, string exceptionType, ChangeAction action, string? stackTrace);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Recording the audit entry of {Action} failed with {ExceptionType}")]
+    private static partial void LogAuditFailed(ILogger logger, ChangeAction action, string exceptionType);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Batch finished in {Seconds:0.0} s: {Succeeded} succeeded, {Failed} failed, {Skipped} skipped, cancelled: {Cancelled}")]
     private static partial void LogFinished(ILogger logger, double seconds, int succeeded, int failed, int skipped, bool cancelled);
@@ -318,34 +328,87 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         return Invalid(change, "The rename step has no new name.");
                     }
 
-                    return ToOutcome(change, await InvokeAsync(change.Action,
-                        () => _session.MoveAsync(dn, null, change.TargetDn, CancellationToken.None)).ConfigureAwait(false), newDn: true);
+                    var renamed = await InvokeAsync(change.Action,
+                        () => _session.MoveAsync(dn, null, change.TargetDn, CancellationToken.None)).ConfigureAwait(false);
+                    return ToOutcome(change, await ConfirmMoveAsync(renamed, dn, ExpectedDn(dn, change)).ConfigureAwait(false), newDn: true);
                 case ChangeAction.Move:
                     if (string.IsNullOrEmpty(change.TargetDn))
                     {
                         return Invalid(change, "The move step has no target container.");
                     }
 
-                    return ToOutcome(change, await InvokeAsync(change.Action,
-                        () => _session.MoveAsync(dn, change.TargetDn, null, CancellationToken.None)).ConfigureAwait(false), newDn: true);
+                    var moved = await InvokeAsync(change.Action,
+                        () => _session.MoveAsync(dn, change.TargetDn, null, CancellationToken.None)).ConfigureAwait(false);
+                    return ToOutcome(change, await ConfirmMoveAsync(moved, dn, ExpectedDn(dn, change)).ConfigureAwait(false), newDn: true);
                 case ChangeAction.Delete:
-                    return ToOutcome(change, await InvokeAsync(change.Action, async () =>
+                    var deleted = await InvokeAsync(change.Action, async () =>
                     {
                         await _session.DeleteAsync(dn, change.DeleteSubtree, CancellationToken.None).ConfigureAwait(false);
                         return true;
-                    }).ConfigureAwait(false));
+                    }).ConfigureAwait(false);
+
+                    // noSuchObject on a retry: the attempt that timed out has already deleted the object.
+                    return ToOutcome(change, IsAmbiguousNoSuchObject(deleted) ? deleted with { Value = true, Error = null } : deleted);
                 case ChangeAction.Create:
-                    var attributes = change.Attributes
-                        .Where(a => a.NewValues.Count > 0)
-                        .ToDictionary(a => a.Attribute, a => (IReadOnlyList<object>)[.. a.NewValues], StringComparer.OrdinalIgnoreCase);
                     return ToOutcome(change, await InvokeAsync(change.Action, async () =>
                     {
+                        // Built inside the request so that an invalid step (e.g. an attribute listed twice) fails this
+                        // object only instead of aborting the whole batch.
+                        var attributes = change.Attributes
+                            .Where(a => a.NewValues.Count > 0)
+                            .ToDictionary(a => a.Attribute, a => (IReadOnlyList<object>)[.. a.NewValues], StringComparer.OrdinalIgnoreCase);
                         await _session.AddAsync(objectPlan.DistinguishedName, attributes, CancellationToken.None).ConfigureAwait(false);
                         return true;
                     }).ConfigureAwait(false));
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
+        }
+
+        /// <summary>
+        /// A transient error (timeout, lost connection) does not tell whether the DC applied the request. When the retry
+        /// then fails with noSuchObject, the earlier attempt most likely went through; reporting a failure would lose
+        /// the DN tracking of the following steps and the rollback of a change that was made.
+        /// </summary>
+        private static bool IsAmbiguousNoSuchObject<T>(Attempted<T> attempted) =>
+            attempted.Attempts > 1 && attempted.Error is DirectoryException { Kind: DirectoryErrorKind.NoSuchObject };
+
+        /// <summary>Confirms an ambiguous rename/move by reading the directory: the source is gone and the target exists.</summary>
+        private async Task<Attempted<string>> ConfirmMoveAsync(Attempted<string> attempted, string dn, string? expectedDn)
+        {
+            if (!IsAmbiguousNoSuchObject(attempted) || expectedDn is null)
+            {
+                return attempted;
+            }
+
+            try
+            {
+                if (await _session.GetAsync(dn, [Attr.DistinguishedName], CancellationToken.None).ConfigureAwait(false) is null
+                    && await _session.GetAsync(expectedDn, [Attr.DistinguishedName], CancellationToken.None).ConfigureAwait(false) is { } moved)
+                {
+                    return attempted with { Value = moved.DistinguishedName, Error = null };
+                }
+            }
+            catch (DirectoryException)
+            {
+                // Keep the original error.
+            }
+
+            return attempted;
+        }
+
+        /// <summary>The DN a rename (new RDN in TargetDn) or move (new parent in TargetDn) produces, or null.</summary>
+        private static string? ExpectedDn(string dn, PlannedChange change)
+        {
+            if (!DistinguishedName.TryParse(dn, out var current) || current.IsRoot
+                || !DistinguishedName.TryParse(change.TargetDn, out var target) || target.IsRoot)
+            {
+                return null;
+            }
+
+            return change.Action == ChangeAction.Rename
+                ? current.Parent?.Child(target.Leaf.Type, target.Leaf.Value).ToString()
+                : current.WithParent(target).ToString();
         }
 
         private static StepOutcome Invalid(PlannedChange change, string message) =>
@@ -426,10 +489,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 if (attempted.Error is not null)
                 {
                     var outcome = ToOutcome(change, attempted);
-                    if (compareAndSwap && attempted.Error is DirectoryException
-                        {
-                            Kind: DirectoryErrorKind.NoSuchAttribute or DirectoryErrorKind.AttributeOrValueExists or DirectoryErrorKind.ConstraintViolation,
-                        })
+                    if (compareAndSwap && attempted.Error is DirectoryException directoryError && IsConcurrentChange(directoryError))
                     {
                         outcome = outcome with
                         {
@@ -458,6 +518,19 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
             return new StepOutcome(new ChangeResult(change, true, Attempts: Math.Max(attempts, 1)), null, false);
         }
+
+        /// <summary>
+        /// Whether a failed compare-and-swap modify means that a value changed after the preview: the old value is gone
+        /// (noSuchAttribute), the new one is already there (attributeOrValueExists) or a single-valued attribute got a
+        /// value meanwhile (constraintViolation / ERROR_DS_SINGLE_VALUE_CONSTRAINT). Other constraint violations
+        /// (range, size) are reported as they are.
+        /// </summary>
+        private static bool IsConcurrentChange(DirectoryException error) => error.Kind switch
+        {
+            DirectoryErrorKind.NoSuchAttribute or DirectoryErrorKind.AttributeOrValueExists => true,
+            DirectoryErrorKind.ConstraintViolation => error.Win32Error is null or ErrorDsSingleValueConstraint,
+            _ => false,
+        };
 
         /// <summary>
         /// Runs one directory request. The request itself is not cancelled (a write that reached the DC must finish
@@ -532,14 +605,14 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 case ChangeAction.Modify or ChangeAction.Create:
                     if (change.Attributes.Count == 0)
                     {
-                        _owner._auditLog.Record(Entry(change.Action.ToString()));
+                        Record(change.Action, Entry(change.Action.ToString()));
                         break;
                     }
 
                     foreach (var attribute in change.Attributes)
                     {
                         var secret = SecretAttributes.Contains(attribute.Attribute);
-                        _owner._auditLog.Record(Entry(
+                        Record(change.Action, Entry(
                             change.Action.ToString(),
                             attribute.Attribute,
                             secret ? null : Join(attribute.OldValues),
@@ -548,18 +621,37 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
                     break;
                 case ChangeAction.AddMember:
-                    _owner._auditLog.Record(Entry(change.Action.ToString(), Attr.MemberOf, newValue: change.TargetDn));
+                    Record(change.Action, Entry(change.Action.ToString(), Attr.MemberOf, newValue: change.TargetDn));
                     break;
                 case ChangeAction.RemoveMember:
-                    _owner._auditLog.Record(Entry(change.Action.ToString(), Attr.MemberOf, oldValue: change.TargetDn));
+                    Record(change.Action, Entry(change.Action.ToString(), Attr.MemberOf, oldValue: change.TargetDn));
                     break;
                 case ChangeAction.Rename or ChangeAction.Move:
-                    _owner._auditLog.Record(Entry(change.Action.ToString(), oldValue: dn, newValue: outcome.NewDn ?? change.TargetDn));
+                    Record(change.Action, Entry(change.Action.ToString(), oldValue: dn, newValue: outcome.NewDn ?? change.TargetDn));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).
-                    _owner._auditLog.Record(Entry(change.Action.ToString()));
+                    Record(change.Action, Entry(change.Action.ToString()));
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Records one audit entry. A failing audit log (or a throwing EntryRecorded subscriber) must not abort the
+        /// batch: the step already ran against the DC and its outcome has to reach the result.
+        /// </summary>
+        private void Record(ChangeAction action, AuditEntry entry)
+        {
+            try
+            {
+                _owner._auditLog.Record(entry);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                if (_owner._logger is { } logger)
+                {
+                    LogAuditFailed(logger, action, ex.GetType().FullName ?? ex.GetType().Name);
+                }
             }
         }
 

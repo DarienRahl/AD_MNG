@@ -106,6 +106,17 @@ public sealed class CsvCodec : ICsvCodec
         return needsQuotes ? Quote + value.Replace("\"", "\"\"", StringComparison.Ordinal) + Quote : value;
     }
 
+    /// <summary>
+    /// Removes the apostrophe that formula protection (<see cref="FormatField"/>) puts in front of a value starting with
+    /// '=', '+', '-', '@', tab or CR, so that a file exported by the application, edited and imported again does not
+    /// write <c>'+48 22 123</c> instead of <c>+48 22 123</c>. Other values are returned unchanged.
+    /// </summary>
+    public static string RemoveFormulaProtection(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return value.Length > 1 && value[0] == '\'' && value[1] is '=' or '+' or '-' or '@' or '\t' or '\r' ? value[1..] : value;
+    }
+
     private static void WriteRecord(TextWriter writer, IReadOnlyList<string> fields, char delimiter, bool protectFormulas)
     {
         for (var i = 0; i < fields.Count; i++)

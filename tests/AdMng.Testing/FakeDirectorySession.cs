@@ -62,6 +62,7 @@ public sealed class FakeDirectorySession : IDirectorySession
     private int _inFlight;
     private int _maxObservedConcurrency;
     private volatile bool _disposed;
+    private int? _maxValueRange;
 
     public FakeDirectorySession(SessionInfo? info = null, ISchemaCatalog? schema = null, TimeProvider? timeProvider = null)
     {
@@ -91,6 +92,25 @@ public sealed class FakeDirectorySession : IDirectorySession
 
     /// <summary>Invoked before every call is applied (outside the lock) - simulate concurrent changes or cancel tokens.</summary>
     public Action<FakeOperation>? BeforeOperation { get; set; }
+
+    /// <summary>
+    /// Simulates AD's MaxValRange: reads (GetAsync, SearchAsync) return at most this many values of an attribute, under
+    /// a ranged description such as <c>member;range=0-1</c>, like AD does beyond 1500 values. Only
+    /// <see cref="GetAllValuesAsync"/> returns everything. Null (default) returns all values.
+    /// </summary>
+    public int? MaxValueRange
+    {
+        get => _maxValueRange;
+        set
+        {
+            if (value is < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "MaxValueRange must be at least 1.");
+            }
+
+            _maxValueRange = value;
+        }
+    }
 
     public bool IsDisposed => _disposed;
 
@@ -263,7 +283,7 @@ public sealed class FakeDirectorySession : IDirectorySession
     {
         lock (_gate)
         {
-            return _entries.TryGetValue(FakeDn.Parse(distinguishedName), out var entry) ? ToDirectoryObject(entry, ["*"]) : null;
+            return _entries.TryGetValue(FakeDn.Parse(distinguishedName), out var entry) ? ToDirectoryObject(entry, ["*"], ranged: false) : null;
         }
     }
 
@@ -287,6 +307,18 @@ public sealed class FakeDirectorySession : IDirectorySession
         lock (_gate)
         {
             _failures.Add(new InjectedFailure(kind, distinguishedName is null ? null : FakeDn.Parse(distinguishedName), error, times));
+        }
+    }
+
+    /// <summary>
+    /// Makes the next call of <paramref name="kind"/> (optionally only for one DN) succeed on the "server" but fail
+    /// with <paramref name="error"/> on the client - a lost response, e.g. a timeout after the DC applied the write.
+    /// </summary>
+    public void LoseNextResponse(FakeOperationKind kind, string? distinguishedName, DirectoryErrorKind error = DirectoryErrorKind.Timeout)
+    {
+        lock (_gate)
+        {
+            _failures.Add(new InjectedFailure(kind, distinguishedName is null ? null : FakeDn.Parse(distinguishedName), error, 1) { AfterApply = true });
         }
     }
 
@@ -503,8 +535,13 @@ public sealed class FakeDirectorySession : IDirectorySession
             T result;
             lock (_gate)
             {
-                ThrowIfInjected(operation);
+                var lostResponse = TakeInjected(operation);
                 result = action();
+                if (lostResponse is not null)
+                {
+                    throw Error(CodeFor(lostResponse.Error), $"Injected {lostResponse.Error} failure after the operation was applied.", operation.DistinguishedName, lostResponse.Error);
+                }
+
                 _operations.Add(operation);
             }
 
@@ -525,16 +562,22 @@ public sealed class FakeDirectorySession : IDirectorySession
         }
     }
 
-    private void ThrowIfInjected(FakeOperation operation)
+    /// <summary>Throws an injected failure, or returns the injected lost response to throw after applying the call.</summary>
+    private InjectedFailure? TakeInjected(FakeOperation operation)
     {
         var target = DistinguishedName.TryParse(operation.DistinguishedName, out var parsed) ? parsed : null;
         var failure = _failures.FirstOrDefault(f => f.Remaining > 0 && f.Kind == operation.Kind && (f.Dn is null || f.Dn == target));
         if (failure is null)
         {
-            return;
+            return null;
         }
 
         failure.Remaining--;
+        if (failure.AfterApply)
+        {
+            return failure;
+        }
+
         throw Error(CodeFor(failure.Error), $"Injected {failure.Error} failure.", operation.DistinguishedName, failure.Error);
     }
 
@@ -1581,7 +1624,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         return entry.Attributes.TryGetValue(name, out var stored) ? stored : [];
     }
 
-    private DirectoryObject ToDirectoryObject(Entry entry, IReadOnlyList<string> requested)
+    private DirectoryObject ToDirectoryObject(Entry entry, IReadOnlyList<string> requested, bool ranged = true)
     {
         var names = new List<string>();
         foreach (var attribute in requested)
@@ -1601,7 +1644,17 @@ public sealed class FakeDirectorySession : IDirectorySession
         foreach (var name in names.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var values = ValuesOf(entry, name);
-            if (values.Count > 0)
+            if (values.Count == 0)
+            {
+                continue;
+            }
+
+            if (ranged && _maxValueRange is { } max && values.Count > max)
+            {
+                var description = string.Create(CultureInfo.InvariantCulture, $"{name};range=0-{max - 1}");
+                attributes.Add(new AttributeValues(description, values.Take(max).Select(CloneValue)));
+            }
+            else
             {
                 attributes.Add(new AttributeValues(name, values.Select(CloneValue)));
             }
@@ -1851,6 +1904,9 @@ public sealed class FakeDirectorySession : IDirectorySession
         public DirectoryErrorKind Error { get; } = error;
 
         public int Remaining { get; set; } = remaining;
+
+        /// <summary>The call is applied first and the error is reported afterwards (lost response).</summary>
+        public bool AfterApply { get; init; }
     }
 
     private sealed class Watcher(FakeDirectorySession owner, DistinguishedName container, Action<string> callback) : IAsyncDisposable

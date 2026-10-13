@@ -83,8 +83,10 @@ public sealed class BatchReportExporter
             var objectMessage = Describe(objectPlan.Issues);
             if (objectResult.Changes.Count == 0)
             {
+                // Nothing ran (skipped / cancelled): the reason may be an issue of a step, e.g. a value that is too long.
+                var reasons = Describe(objectPlan.Issues.Concat(objectPlan.Changes.SelectMany(c => c.Issues)));
                 yield return Row(includePasswords, objectResult.Status.ToString(), objectPlan.DisplayName, objectResult.FinalDn,
-                    string.Empty, null, null, null, objectMessage, null);
+                    string.Empty, null, null, null, reasons, null);
                 continue;
             }
 

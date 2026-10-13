@@ -175,6 +175,34 @@ public class CsvImportPlannerTests
     }
 
     [Fact]
+    public async Task FormulaProtectionOfExportedFiles_IsRemovedOnImport()
+    {
+        // A file exported by the application (formula protection on), edited and imported again.
+        using var writer = new StringWriter();
+        _csv.Write(writer, ["login", "telefon", "opis"], [["jan.kowalski", "+48 22 333", "-"]]);
+
+        var plan = await PlanAsync(Table(writer.ToString()), Mapping("login", Attr.SamAccountName, ("telefon", Attr.TelephoneNumber), ("opis", Attr.Info)));
+
+        Assert.Contains("'+48 22 333", writer.ToString(), StringComparison.Ordinal);
+        Assert.Equal(["+48 22 333"], Change(plan.Objects[0], Attr.TelephoneNumber).NewValues);
+        Assert.Equal(["-"], Change(plan.Objects[0], Attr.Info).NewValues);
+    }
+
+    [Fact]
+    public async Task RangedValues_AreComparedCompletely()
+    {
+        Session.SetValues(_company.JanKowalski, Attr.OtherTelephone, "111", "222", "333");
+        Session.MaxValueRange = 2;
+        var table = Table("login;telefony\njan.kowalski;111|222|333\nlukasz.wisniewski;444|555|666\n");
+
+        var plan = await PlanAsync(table, Mapping("login", Attr.SamAccountName, ("telefony", Attr.OtherTelephone)));
+
+        Assert.True(plan.Objects[0].IsNoOp);
+        Assert.Empty(plan.Objects[0].Changes);
+        Assert.Equal(["444", "555", "666"], Change(plan.Objects[1], Attr.OtherTelephone).NewValues);
+    }
+
+    [Fact]
     public async Task Rows_AreValidatedLikeBatchChanges()
     {
         var longValue = new string('x', 65);

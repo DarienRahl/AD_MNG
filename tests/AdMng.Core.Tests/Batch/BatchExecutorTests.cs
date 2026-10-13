@@ -99,6 +99,89 @@ public class BatchExecutorTests
         Assert.Equal(1, result.FailedCount);
     }
 
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(0x2081, true)] // ERROR_DS_SINGLE_VALUE_CONSTRAINT: the attribute got a value after the preview
+    [InlineData(0x2082, false)] // ERROR_DS_RANGE_CONSTRAINT: a plain validation error, not a conflict
+    public async Task Modify_ConstraintViolationIsAConflictOnlyForSingleValueConstraint(int? win32Error, bool isConflict)
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new SetAttributeOperation(Attr.Title, "Kierownik"));
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify)
+            {
+                throw new DirectoryException(DirectoryErrorKind.ConstraintViolation, "Constraint violation.") { LdapResultCode = 19, Win32Error = win32Error };
+            }
+        };
+
+        var result = await ExecuteAsync(plan);
+
+        var change = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.False(change.Succeeded);
+        Assert.Equal(DirectoryErrorKind.ConstraintViolation, change.ErrorKind);
+        Assert.Equal(isConflict, change.ErrorMessage!.StartsWith(BatchExecutor.ConflictMessagePrefix, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ClearOfARangedAttribute_RemovesEveryValue()
+    {
+        Session.MaxValueRange = 2;
+
+        var (_, result) = await RunAsync([_company.GroupAccounting], new ClearAttributeOperation(Attr.Member));
+
+        Assert.Equal(ObjectResultStatus.Succeeded, Assert.Single(result.Objects).Status);
+        Assert.Empty(Session.GetValues(_company.GroupAccounting, Attr.Member));
+    }
+
+    [Fact]
+    public async Task ThrowingAuditSubscriber_DoesNotAbortTheBatch()
+    {
+        var plan = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski],
+            new SetAttributeOperation(Attr.Title, "Kierownik"),
+            new SetAttributeOperation(Attr.Department, "Zarząd"));
+        _audit.EntryRecorded += (_, _) => throw new InvalidOperationException("UI thread only");
+
+        var result = await ExecuteAsync(plan);
+
+        Assert.Equal(2, result.SucceededCount);
+        Assert.All(result.Objects, o => Assert.NotNull(o));
+        Assert.Equal("Kierownik", Value(_company.LukaszWisniewski, Attr.Title));
+        Assert.Equal(4, _audit.Entries.Count);
+        Assert.Contains(_logger.Entries, e => e.Message.Contains("InvalidOperationException", StringComparison.Ordinal));
+        Assert.DoesNotContain("UI thread only", _logger.AllText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task InvalidCreateStep_FailsOnlyThatObject()
+    {
+        var dn = "CN=Anna Nowak," + _company.SalesOu;
+        var invalid = new ObjectPlan
+        {
+            DistinguishedName = dn,
+            DisplayName = "Anna Nowak",
+            Changes =
+            [
+                new PlannedChange
+                {
+                    Action = ChangeAction.Create,
+                    Attributes =
+                    [
+                        new AttributeChange(Attr.ObjectClass, AttributeChangeKind.Replace, [], ["user"]),
+                        new AttributeChange(Attr.Department, AttributeChangeKind.Replace, [], ["Sprzedaż"]),
+                        new AttributeChange("DEPARTMENT", AttributeChangeKind.Replace, [], ["Zakupy"]),
+                    ],
+                },
+            ],
+        };
+        var other = (await PlanAsync([_company.JanKowalski], new SetAttributeOperation(Attr.Title, "Kierownik"))).Objects[0];
+
+        var result = await ExecuteAsync(new ChangePlan { Server = Session.Info.Server, Objects = [invalid, other] });
+
+        Assert.Equal([ObjectResultStatus.Failed, ObjectResultStatus.Succeeded], result.Objects.Select(o => o.Status));
+        Assert.Equal(DirectoryErrorKind.Unknown, Assert.Single(result.Objects[0].Changes).ErrorKind);
+        Assert.False(Session.Exists(dn));
+    }
+
     [Fact]
     public async Task Modify_WithoutOptimisticConcurrencyOverwrites()
     {
@@ -228,6 +311,55 @@ public class BatchExecutorTests
         Assert.False(change.Succeeded);
         Assert.Equal(DirectoryErrorKind.ServerUnavailable, change.ErrorKind);
         Assert.Equal(2, change.Attempts);
+    }
+
+    [Fact]
+    public async Task LostResponses_OfRenameAndMove_AreConfirmedAfterTheRetry()
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new RenameOperation("{givenName} {sn}-Nowak"), new MoveOperation(_company.SalesOu));
+        Session.LoseNextResponse(FakeOperationKind.Move, _company.JanKowalski);
+        Session.LoseNextResponse(FakeOperationKind.Move, "CN=Jan Kowalski-Nowak," + _company.ItOu, DirectoryErrorKind.ServerUnavailable);
+
+        var result = await ExecuteAsync(plan);
+
+        var expected = "CN=Jan Kowalski-Nowak," + _company.SalesOu;
+        var jan = Assert.Single(result.Objects);
+        Assert.Equal(ObjectResultStatus.Succeeded, jan.Status);
+        Assert.Equal([2, 2], jan.Changes.Select(c => c.Attempts));
+        Assert.Equal(expected, jan.FinalDn);
+        Assert.True(Session.Exists(expected));
+        Assert.All(_audit.Entries, e => Assert.True(e.Succeeded));
+    }
+
+    [Fact]
+    public async Task LostResponse_OfDelete_IsConfirmedAfterTheRetry()
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new DeleteOperation());
+        Session.LoseNextResponse(FakeOperationKind.Delete, _company.JanKowalski);
+
+        var result = await ExecuteAsync(plan);
+
+        var change = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.True(change.Succeeded);
+        Assert.Equal(2, change.Attempts);
+        Assert.False(Session.Exists(_company.JanKowalski));
+    }
+
+    [Fact]
+    public async Task NoSuchObjectWithoutAnEarlierTransientError_StaysAFailure()
+    {
+        var plan = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski], new MoveOperation(_company.SalesOu));
+        Session.FailNext(FakeOperationKind.Move, _company.JanKowalski, DirectoryErrorKind.NoSuchObject);
+        Session.FailNext(FakeOperationKind.Move, _company.LukaszWisniewski, DirectoryErrorKind.Timeout);
+        Session.FailNext(FakeOperationKind.Move, _company.LukaszWisniewski, DirectoryErrorKind.NoSuchObject);
+
+        var result = await ExecuteAsync(plan);
+
+        // Jan: a plain failure. Łukasz: the timed-out attempt was not applied, so the retry's noSuchObject is real.
+        Assert.All(result.Objects, o => Assert.Equal(ObjectResultStatus.Failed, o.Status));
+        Assert.All(result.Objects, o => Assert.Equal(DirectoryErrorKind.NoSuchObject, Assert.Single(o.Changes).ErrorKind));
+        Assert.Equal([1, 2], result.Objects.Select(o => o.Changes[0].Attempts));
+        Assert.True(Session.Exists(_company.LukaszWisniewski));
     }
 
     [Fact]

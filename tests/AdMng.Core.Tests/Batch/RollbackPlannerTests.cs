@@ -141,14 +141,35 @@ public class RollbackPlannerTests
     {
         var result = await RunAsync([_company.ZanetaSzymanska], new ResetPasswordOperation(PasswordMode.GenerateUnique));
 
-        var plan = Assert.Single(_rollback.CreateRollbackPlan(result).Objects);
+        var rollback = _rollback.CreateRollbackPlan(result);
+        var plan = Assert.Single(rollback.Objects);
+        var outcome = await ExecuteAsync(rollback);
 
-        var pwdLastSet = Assert.Single(Assert.Single(plan.Changes).Attributes);
-        Assert.Equal(Attr.PwdLastSet, pwdLastSet.Attribute);
-        Assert.Equal(["-1"], pwdLastSet.NewValues);
-        Assert.Equal(3, plan.Issues.Count(i => i is { Code: IssueCodes.NotReversible, Severity: IssueSeverity.Warning }));
+        // Neither the password nor the unlock can be undone, and "must change at next logon" stays with the
+        // administrator-set password.
+        Assert.Empty(plan.Changes);
+        Assert.True(plan.IsNoOp);
+        Assert.Equal(
+            [null, Attr.LockoutTime, Attr.PwdLastSet],
+            plan.Issues.Where(i => i is { Code: IssueCodes.NotReversible, Severity: IssueSeverity.Warning }).Select(i => i.Attribute).Order());
         Assert.False(plan.HasErrors);
-        Assert.DoesNotContain(plan.Changes, c => c.Password is not null);
+        Assert.Equal(ObjectResultStatus.Skipped, Assert.Single(outcome.Objects).Status);
+        Assert.Equal(["0"], Session.GetValues(_company.ZanetaSzymanska, Attr.PwdLastSet));
+    }
+
+    [Fact]
+    public async Task PasswordReset_RollbackRestoresOtherValuesButKeepsMustChange()
+    {
+        var result = await RunAsync([_company.JanKowalski],
+            new ResetPasswordOperation(PasswordMode.GenerateUnique),
+            new SetAttributeOperation(Attr.Title, "Kierownik"));
+
+        var rollback = _rollback.CreateRollbackPlan(result);
+        await ExecuteAsync(rollback);
+
+        Assert.Equal([Attr.Title], Assert.Single(Assert.Single(rollback.Objects).Changes).Attributes.Select(a => a.Attribute));
+        Assert.Equal(["Administrator systemów"], Session.GetValues(_company.JanKowalski, Attr.Title));
+        Assert.Equal(["0"], Session.GetValues(_company.JanKowalski, Attr.PwdLastSet));
     }
 
     [Fact]

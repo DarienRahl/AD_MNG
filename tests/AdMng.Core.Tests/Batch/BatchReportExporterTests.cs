@@ -114,6 +114,20 @@ public class BatchReportExporterTests
     }
 
     [Fact]
+    public async Task Result_ExplainsWhyAnObjectWasSkipped()
+    {
+        _builder.Session.SetPermissions(_company.LukaszWisniewski, new EffectivePermissions { IsKnown = true });
+        var plan = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski], new SetAttributeOperation(Attr.Title, "Nowy"));
+        var result = await new BatchExecutor(new InMemoryAuditLog(), _time).ExecuteAsync(_builder.Session, plan, null, null, Ct);
+
+        var table = Export(w => Exporter.Write(w, result));
+
+        var lukasz = Enumerable.Range(0, table.Rows.Count).Single(r => Cell(table, r, "DN") == _company.LukaszWisniewski);
+        Assert.Equal(nameof(ObjectResultStatus.Skipped), Cell(table, lukasz, "Status"));
+        Assert.Contains("[Error: NotWritable]", Cell(table, lukasz, "Message"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Result_MarksStepsThatDidNotRun()
     {
         var plan = await PlanAsync([_company.JanKowalski], new SetAttributeOperation(Attr.Title, "Nowy"), new MoveOperation(_company.SalesOu));

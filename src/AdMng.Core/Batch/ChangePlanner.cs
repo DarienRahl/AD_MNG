@@ -36,6 +36,9 @@ public sealed class ChangePlanner : IChangePlanner
 
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
+    /// <summary>FILETIME 0; earlier dates cannot be converted.</summary>
+    private static readonly DateTimeOffset FileTimeEpoch = new(1601, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
     private readonly ITemplateEngine _templates;
     private readonly PasswordGenerator _passwords;
     private readonly TimeProvider _timeProvider;
@@ -128,6 +131,8 @@ public sealed class ChangePlanner : IChangePlanner
             missing.Issues.Add(PlanValidation.Error(IssueCodes.NotFound, $"The object '{target}' does not exist (any more)."));
             return missing;
         }
+
+        current = await context.CompleteRangedValuesAsync(current).ConfigureAwait(false);
 
         var draft = new ObjectPlanDraft(current.DistinguishedName, ObjectPlanDraft.DisplayNameOf(current), current);
         if (analysis.RequestErrors.Count > 0)
@@ -830,6 +835,13 @@ public sealed class ChangePlanner : IChangePlanner
                     Edit(Attr.AccountExpires).Replace([AccountExpiresNever]);
                 }
 
+                return;
+            }
+
+            if (operation.ExpiresAt.Value < FileTimeEpoch)
+            {
+                _draft.AttributeIssues.Add(PlanValidation.Error(IssueCodes.InvalidValue,
+                    "The expiration date is before 1601-01-01 (UTC), which accountExpires cannot hold.", Attr.AccountExpires));
                 return;
             }
 
