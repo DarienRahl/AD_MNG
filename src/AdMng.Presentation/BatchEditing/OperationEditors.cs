@@ -263,7 +263,7 @@ internal sealed class TemplateSample(OperationEditorContext context, Action<stri
     public async Task UpdateAsync(string template)
     {
         var token = _renders.Next();
-        if (!context.Templates.Parse(template ?? string.Empty).IsValid)
+        if (string.IsNullOrEmpty(template) || !context.Templates.Parse(template).IsValid)
         {
             setSample(null);
             return;
@@ -271,7 +271,7 @@ internal sealed class TemplateSample(OperationEditorContext context, Action<stri
 
         try
         {
-            var sample = await context.RenderSample(template ?? string.Empty, token).ConfigureAwait(true);
+            var sample = await context.RenderSample(template, token).ConfigureAwait(true);
             if (!token.IsCancellationRequested)
             {
                 setSample(sample);

@@ -91,7 +91,7 @@ public class BatchEditorTests
         set.Attribute = Attr.Mail;
 
         set.ValueTemplate = "{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}@firma.pl";
-        await B2Harness.WaitUntilAsync(() => set.Sample is not null);
+        await B2Harness.WaitUntilAsync(() => set.Sample == "lukasz.wisniewski@firma.pl");
 
         Assert.Equal("lukasz.wisniewski@firma.pl", set.Sample);
         set.ValueTemplate = "{givenName|";
