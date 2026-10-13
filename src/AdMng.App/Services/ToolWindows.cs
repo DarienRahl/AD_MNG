@@ -30,6 +30,13 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     private IDialogViewModelFactory Factory => _services.GetRequiredService<IDialogViewModelFactory>();
 
+    /// <summary>
+    /// An open batch editor holds generated passwords that were not exported. The main window asks before it closes:
+    /// owned windows are closed with it and cannot refuse.
+    /// </summary>
+    public bool HasUnsavedGeneratedPasswords =>
+        Application.Current?.Windows.OfType<BatchEditorWindow>().Any(w => w.ViewModel.HasUnsavedGeneratedPasswords) == true;
+
     /// <summary>A new (modeless) batch editor; an empty target list opens the CSV import.</summary>
     public Window ShowBatchEditor(BatchEditorRequest request)
     {

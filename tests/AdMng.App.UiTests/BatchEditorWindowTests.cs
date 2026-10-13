@@ -260,6 +260,40 @@ public sealed class BatchEditorWindowTests
     });
 
     [Fact]
+    public Task MainWindow_AsksBeforeClosing_WhenABatchEditorHoldsUnexportedPasswords() => WpfTestHost.RunAsync(async () =>
+    {
+        var dialogs = new ScriptedDialogService { ConfirmAnswer = true };
+        await using var context = await UiTestContext.CreateAsync(
+            configure: services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
+        await context.ConnectAsync();
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        await main.Shell.InitializeAsync();
+        var (_, editor) = await OpenAsync(context, new BatchEditorRequest([context.Company.BartlomiejKozlowski])
+        {
+            Operations = [new ResetPasswordOperation(PasswordMode.GenerateUnique)],
+        });
+        await editor.PreviewCommand.ExecuteAsync(null);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(context.Services.GetRequiredService<ToolWindows>().HasUnsavedGeneratedPasswords);
+        var asked = dialogs.Confirmations.Count;
+
+        // Owned batch editors would close with the main window without asking: the main window asks instead.
+        dialogs.ConfirmAnswer = false;
+        main.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(main.IsVisible);
+        Assert.Equal(asked + 1, dialogs.Confirmations.Count);
+
+        dialogs.ConfirmAnswer = true;
+        main.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.False(main.IsVisible);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task DialogService_OpensTheBatchEditor_AndTheCsvImport() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync();

@@ -92,12 +92,13 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (e.Cancel || _closeConfirmed || !Shell.Activities.HasRunning)
+        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords))
         {
             return;
         }
 
-        // Running batches would be interrupted: cancel this close and ask first. The question (a modal dialog) and the
+        // Running batches would be interrupted, and generated passwords that were not exported would be lost with the
+        // batch editors (owned windows close without asking): cancel this close and ask first. The question (a modal dialog) and the
         // second Close() must run after this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
@@ -123,7 +124,10 @@ public partial class MainWindow : Window
         try
         {
             if (!_closed
-                && await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true)
+                && (!Shell.Activities.HasRunning
+                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
+                && (!_tools.HasUnsavedGeneratedPasswords
+                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
                 && !_closed)
             {
                 _closeConfirmed = true;
