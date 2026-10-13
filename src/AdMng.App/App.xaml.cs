@@ -53,7 +53,14 @@ public partial class App : Application
                     host.Dispose();
                 }
             });
-            _ = stop.Wait(TimeSpan.FromSeconds(10));
+            try
+            {
+                _ = stop.Wait(TimeSpan.FromSeconds(10));
+            }
+            catch (AggregateException)
+            {
+                // Best effort: a service that fails to dispose must not turn a normal exit into a crash.
+            }
         }
 
         base.OnExit(e);

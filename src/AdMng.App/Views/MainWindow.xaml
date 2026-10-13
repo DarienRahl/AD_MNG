@@ -637,10 +637,13 @@
                        Text="{l:Tr Shell.NoSelection}"
                        TextWrapping="Wrap"
                        Visibility="{Binding SelectedObject, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
-            <ScrollViewer DataContext="{Binding SelectedObject, Mode=OneWay}"
+            <!-- FallbackValue: while the DataContext is null WPF does not call the converter (the binding falls back
+                 to the default, Visible), so without it an empty summary would show before the first selection. -->
+            <ScrollViewer x:Name="DetailsContent"
+                          DataContext="{Binding SelectedObject, Mode=OneWay}"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
-                          Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                          Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
               <StackPanel Margin="12,4,12,12">
                 <DockPanel>
                   <c:ObjectIconView Margin="0,2,10,0"

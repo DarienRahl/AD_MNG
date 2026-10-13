@@ -46,14 +46,20 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public IReadOnlyList<Exception> Exceptions => _exceptions;
 
-    public static async Task<UiTestContext> CreateAsync(string language = "en")
+    /// <param name="language">UI language ("en" / "pl").</param>
+    /// <param name="configure">Further replacements of services (e.g. a scripted dialog service).</param>
+    public static async Task<UiTestContext> CreateAsync(string language = "en", Action<IServiceCollection>? configure = null)
     {
         var directory = new FakeDirectoryBuilder();
         var company = directory.AddSampleCompany();
         var connector = new FakeDirectoryConnector(directory.Build());
         var settingsDirectory = Path.Combine(Path.GetTempPath(), "AdMng-uitests-" + Guid.NewGuid().ToString("N"));
         var options = new StartupOptions(Language: language, SettingsDirectory: settingsDirectory);
-        var host = AppHost.Build(options, services => services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector)));
+        var host = AppHost.Build(options, services =>
+        {
+            services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector));
+            configure?.Invoke(services);
+        });
         var context = new UiTestContext(host, directory, company, connector, settingsDirectory);
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();

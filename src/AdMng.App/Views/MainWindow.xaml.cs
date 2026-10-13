@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private readonly ILocalizer _localizer;
     private GridLength _detailsWidth = new(300);
     private bool _closeConfirmed;
+    private bool _confirmingClose;
+    private bool _closed;
     private bool _addressPicked;
     private TreeViewItem? _dropTarget;
 
@@ -83,31 +85,52 @@ public partial class MainWindow : Window
         return VisualTreeHelper.GetChildrenCount(presenter) > 0 ? VisualTreeHelper.GetChild(presenter, 0) as ObjectListView : null;
     }
 
-    protected override async void OnClosing(CancelEventArgs e)
+    protected override void OnClosing(CancelEventArgs e)
     {
+        ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (_closeConfirmed || !Shell.Activities.HasRunning)
+        if (e.Cancel || _closeConfirmed || !Shell.Activities.HasRunning)
         {
             return;
         }
 
-        // Running batches would be interrupted: ask first (asynchronously, so cancel the close and re-close later).
+        // Running batches would be interrupted: cancel this close and ask first. The question (a modal dialog) and the
+        // second Close() must run after this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
-        if (await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
+        if (!_confirmingClose)
         {
-            _closeConfirmed = true;
-            Close();
+            _confirmingClose = true;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Normal, ConfirmClose);
         }
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _closed = true;
         Shell.FocusRequested -= OnFocusRequested;
         Shell.RenameRequested -= OnRenameRequested;
         Shell.PropertyChanged -= OnShellPropertyChanged;
         Shell.CommandPalette.PropertyChanged -= OnPaletteChanged;
         Shell.Dispose();
         base.OnClosed(e);
+    }
+
+    private async void ConfirmClose()
+    {
+        try
+        {
+            if (!_closed
+                && await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true)
+                && !_closed)
+            {
+                _closeConfirmed = true;
+                Close();
+            }
+        }
+        finally
+        {
+            _confirmingClose = false;
+        }
     }
 
     // ---- Keyboard ----------------------------------------------------------------------------------------------
@@ -476,15 +499,21 @@ public partial class MainWindow : Window
 
     private void OnTreeDragLeave(object sender, DragEventArgs e) => SetDropTarget(null);
 
-    private async void OnTreeDrop(object sender, DragEventArgs e)
+    private void OnTreeDrop(object sender, DragEventArgs e)
     {
         SetDropTarget(null);
         if (ItemFrom(e.OriginalSource)?.DataContext is ContainerNodeViewModel target && DraggedDns(e) is { Length: > 0 } dns)
         {
             e.Handled = true;
-            await Shell.MoveAsync(dns, target.Dn).ConfigureAwait(true);
+
+            // Confirm and move after the OLE drag loop has ended: a modal dialog inside Drop would keep the drag
+            // source (DoDragDrop in the list) blocked, with the drag cursor on screen, until the dialog is closed.
+            var targetDn = target.Dn;
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Background, () => MoveDropped(dns, targetDn));
         }
     }
+
+    private async void MoveDropped(string[] dns, string targetDn) => await Shell.MoveAsync(dns, targetDn).ConfigureAwait(true);
 
     private void SetDropTarget(TreeViewItem? item)
     {

@@ -26,16 +26,25 @@ internal static class SmokeTest
     public const int TimedOut = 2;
 
     private const int AttachParentProcess = -1;
+    private const int StdErrorHandle = -12;
     private static readonly TimeSpan FailSafe = TimeSpan.FromSeconds(30);
+
+    // Rooted here: a timer referenced only by the (possibly stuck) async state machine could be collected and never fire.
+    private static Timer? _failSafe;
 
     public static void Start(App app, StartupOptions options)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(options);
 
-        // Best effort: show the report in the console the test was started from (AdMng.exe is a GUI application).
-        _ = AttachConsole(AttachParentProcess);
-        var failSafe = new Timer(
+        // Best effort: show the report in the console the test was started from (AdMng.exe is a GUI application) -
+        // unless the error output is already redirected (CI captures it into a file).
+        if (GetStdHandle(StdErrorHandle) is 0 or -1)
+        {
+            _ = AttachConsole(AttachParentProcess);
+        }
+
+        var failSafe = _failSafe = new Timer(
             static _ =>
             {
                 Console.Error.WriteLine("SMOKE TEST TIMED OUT after 30 s.");
@@ -81,21 +90,32 @@ internal static class SmokeTest
         failures.AddRange(bindings.Errors.Select(e => $"Binding error: {e}"));
         exceptions?.Detach();
         Report(failures);
-        await failSafe.DisposeAsync().ConfigureAwait(true);
         if (host is not null)
         {
-            await host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
-            if (host is IAsyncDisposable disposable)
+            try
             {
-                await disposable.DisposeAsync().ConfigureAwait(true);
+                await host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(true);
+                if (host is IAsyncDisposable disposable)
+                {
+                    await disposable.DisposeAsync().ConfigureAwait(true);
+                }
+                else
+                {
+                    host.Dispose();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                host.Dispose();
+                // The exception handler is detached: report it here instead of crashing with an unrelated exit code.
+                failures.Add($"Host shutdown: {ex}");
+                Report([failures[^1]]);
             }
         }
 
         TryDelete(settingsDirectory);
+
+        // Only now: a host that hangs while stopping is still caught by the fail-safe.
+        await failSafe.DisposeAsync().ConfigureAwait(true);
         app.Shutdown(failures.Count == 0 ? Passed : Failed);
     }
 
@@ -168,4 +188,7 @@ internal static class SmokeTest
     [DllImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool AttachConsole(int processId);
+
+    [DllImport("kernel32.dll")]
+    private static extern nint GetStdHandle(int standardHandle);
 }

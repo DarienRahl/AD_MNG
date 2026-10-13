@@ -712,6 +712,22 @@ public class ShellViewModelTests
         Assert.StartsWith("Obiektów: 5", shell.StatusText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Dispose_IsIdempotent_TheSecondCallLeavesBoundCollectionsAlone()
+    {
+        // The main window disposes the shell when it closes; the DI container disposes it again at exit, on another
+        // thread - where a collection notification would fail in a bound WPF collection view.
+        var (shell, _) = await CreateShellAsync();
+        shell.Dispose();
+        var notifications = 0;
+        shell.Documents.CollectionChanged += (_, _) => notifications++;
+
+        shell.Dispose();
+
+        Assert.Equal(0, notifications);
+        Assert.Empty(shell.Documents);
+    }
+
     private static async Task<(ShellViewModel Shell, TestHarness Harness)> CreateShellAsync(string? container = null)
     {
         var harness = await TestHarness.ConnectedAsync();

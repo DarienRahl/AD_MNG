@@ -261,7 +261,7 @@ public partial class ObjectListView : UserControl
     {
         if (e.Key == Key.Enter)
         {
-            CommitRename();
+            CommitRename(refocus: true);
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
@@ -272,17 +272,18 @@ public partial class ObjectListView : UserControl
         }
     }
 
-    private void OnRenameEditorLostFocus(object sender, KeyboardFocusChangedEventArgs e) => CommitRename();
+    // Focus moved elsewhere (a click into the tree, the search box...): commit, but leave the focus where it went.
+    private void OnRenameEditorLostFocus(object sender, KeyboardFocusChangedEventArgs e) => CommitRename(refocus: false);
 
     private void OnListScrolled(object sender, ScrollChangedEventArgs e)
     {
         if (IsRenaming && (e.VerticalChange != 0 || e.HorizontalChange != 0))
         {
-            CommitRename();
+            CommitRename(refocus: RenameEditor.IsKeyboardFocusWithin);
         }
     }
 
-    private async void CommitRename()
+    private async void CommitRename(bool refocus)
     {
         if (_renaming is not { } row)
         {
@@ -292,7 +293,11 @@ public partial class ObjectListView : UserControl
         var text = RenameEditor.Text;
         _renaming = null;
         RenameEditor.Visibility = Visibility.Collapsed;
-        FocusList();
+        if (refocus)
+        {
+            FocusList();
+        }
+
         if (CommandMenu.FindShell(this) is { } shell && !string.Equals(text.Trim(), row.Name, StringComparison.Ordinal))
         {
             // Goes through the change pipeline; failures are shown by the coordinator / an error dialog.

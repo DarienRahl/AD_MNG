@@ -9,8 +9,10 @@ using AdMng.App.Views;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
@@ -29,6 +31,10 @@ public sealed class MainWindowTests
         Assert.False(window.Shell.IsConnected);
         Assert.Empty(window.Shell.Documents);
         Assert.Contains(window.Shell.Tree.ViewsNode, window.Shell.Tree.Roots);
+
+        // Nothing selected: only the "no selection" hint, not an empty summary (null DataContext → fallback value).
+        Assert.Null(window.Shell.SelectedObject);
+        Assert.Equal(Visibility.Collapsed, window.DetailsContent.Visibility);
         context.AssertHealthy();
     });
 
@@ -49,6 +55,7 @@ public sealed class MainWindowTests
         var document = Assert.Single(shell.Documents);
         Assert.NotEmpty(document.Items);
         Assert.NotNull(window.SelectedListView);
+        Assert.Equal(Visibility.Collapsed, window.DetailsContent.Visibility);
 
         // Open the IT OU (users with Polish names), select everything, then a single user (details pane).
         await shell.NavigateAsync(ListLocation.ForContainer(context.Company.ItOu));
@@ -65,6 +72,7 @@ public sealed class MainWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Single(document.Selection);
         Assert.Equal(document.Items[0].Name, shell.SelectedObject?.Name);
+        Assert.Equal(Visibility.Visible, window.DetailsContent.Visibility);
 
         // A second tab, the command palette, the filter chips toggle and the details pane toggle.
         await shell.NewTabCommand.ExecuteAsync(null);
@@ -218,6 +226,65 @@ public sealed class MainWindowTests
         }
 
         Assert.Equal(ThemePreference.System, theme.Current);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_ClosingWhileAnOperationRuns_AsksAfterTheClosingEvent_ThenCloses() => WpfTestHost.RunAsync(async () =>
+    {
+        // Close() inside the Closing event throws in WPF: the question and the second Close() must come after it.
+        var dialogs = new ScriptedDialogService { ConfirmAnswer = true };
+        await using var context = await UiTestContext.CreateAsync(
+            configure: services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
+        var window = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(window);
+        await window.Shell.InitializeAsync();
+        var activity = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            throw new InvalidOperationException("unreachable");
+        });
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(window.Shell.Activities.HasRunning);
+
+        window.Close();
+        Assert.True(window.IsVisible);
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Single(dialogs.Confirmations);
+        Assert.False(window.IsVisible);
+        activity.CancelCommand.Execute(null);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => activity.Completion);
+        await UiTestSupport.WaitForIdleAsync();
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_ClosingWhileAnOperationRuns_StaysOpenWhenDeclined() => WpfTestHost.RunAsync(async () =>
+    {
+        var dialogs = new ScriptedDialogService { ConfirmAnswer = false };
+        await using var context = await UiTestContext.CreateAsync(
+            configure: services => services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs)));
+        var window = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(window);
+        await window.Shell.InitializeAsync();
+        var activity = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            throw new InvalidOperationException("unreachable");
+        });
+        await UiTestSupport.WaitForIdleAsync();
+
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal(2, dialogs.Confirmations.Count);
+        Assert.True(window.IsVisible);
+        activity.CancelCommand.Execute(null);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => activity.Completion);
+        await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
 
