@@ -1,0 +1,213 @@
+<Window x:Class="AdMng.App.Views.ConnectWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:core="clr-namespace:AdMng.Core.Directory;assembly=AdMng.Core"
+        Title="{l:Tr Connect.Title}"
+        Width="560"
+        MinWidth="460"
+        ResizeMode="CanMinimize"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <!-- Domain controller entries of the server drop-down: host name, site, GC / RODC flags. -->
+    <DataTemplate x:Key="DomainControllerTemplate" DataType="{x:Type core:DomainControllerInfo}">
+      <StackPanel Margin="0,2">
+        <TextBlock Text="{Binding HostName, Mode=OneWay}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Style="{StaticResource Ad.SecondaryText}">
+            <Run Text="{l:Tr Connect.Site}" /><Run Text=": " /><Run Text="{Binding Site, Mode=OneWay}" />
+          </TextBlock>
+          <TextBlock Margin="10,0,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Connect.GlobalCatalog}"
+                     Visibility="{Binding IsGlobalCatalog, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock Margin="10,0,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Connect.ReadOnlyDc}"
+                     Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Radio button look for an option list (selection = the bound value). -->
+    <Style x:Key="RadioOptionItem" TargetType="ListBoxItem">
+      <Setter Property="Focusable" Value="True" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Text, Mode=OneWay}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <RadioButton Margin="0,2"
+                         Content="{Binding Text, Mode=OneWay}"
+                         Focusable="False"
+                         IsChecked="{Binding IsSelected, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="ConnectButton"
+                  Command="{Binding ConnectCommand}"
+                  Content="{l:Tr Connect.ConnectButton}"
+                  IsDefault="True"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+          <Button Command="{Binding ConnectCancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button Command="{Binding FindDomainControllersCancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+        </StackPanel>
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+          <ProgressBar Width="72"
+                       Margin="0,0,10,0"
+                       VerticalAlignment="Center"
+                       IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
+                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding StatusText, Mode=OneWay}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <StackPanel Margin="24,18,24,16">
+      <TextBlock Style="{StaticResource Ad.Title}" Text="{l:Tr Connect.Title}" />
+      <TextBlock Margin="0,4,0,6"
+                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                 Text="{l:Tr Connect.Subtitle}"
+                 TextWrapping="Wrap" />
+
+      <!-- Saved profiles -->
+      <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Profile}" />
+      <DockPanel>
+        <Button Margin="6,0,0,0"
+                AutomationProperties.Name="{l:Tr Connect.DeleteProfile}"
+                Command="{Binding DeleteProfileCommand}"
+                Content="{x:Static c:Glyphs.Delete}"
+                DockPanel.Dock="Right"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Connect.DeleteProfile}" />
+        <ComboBox x:Name="ProfileBox"
+                  AutomationProperties.Name="{l:Tr Connect.Profile}"
+                  DisplayMemberPath="Name"
+                  ItemsSource="{Binding Profiles}"
+                  SelectedItem="{Binding SelectedProfile}" />
+      </DockPanel>
+
+      <!-- Domain -->
+      <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Domain}" />
+      <TextBox x:Name="DomainBox"
+               AutomationProperties.Name="{l:Tr Connect.Domain}"
+               Text="{Binding Domain, UpdateSourceTrigger=PropertyChanged}" />
+
+      <!-- Domain controller: empty = located automatically -->
+      <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Server}" />
+      <DockPanel>
+        <Button Margin="6,0,0,0"
+                Command="{Binding FindDomainControllersCommand}"
+                Content="{l:Tr Connect.FindDomainControllers}"
+                DockPanel.Dock="Right" />
+        <Grid>
+          <ComboBox x:Name="ServerBox"
+                    AutomationProperties.Name="{l:Tr Connect.Server}"
+                    IsEditable="True"
+                    IsTextSearchEnabled="False"
+                    ItemTemplate="{StaticResource DomainControllerTemplate}"
+                    ItemsSource="{Binding DomainControllers}"
+                    SelectedItem="{Binding SelectedDomainController}"
+                    Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}"
+                    TextSearch.TextPath="HostName" />
+          <TextBlock Margin="11,0,40,0"
+                     Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Connect.ServerAutomatic}"
+                     Visibility="{Binding Text, ElementName=ServerBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+      </DockPanel>
+
+      <!-- Authentication -->
+      <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Authentication}" />
+      <ListBox Background="Transparent"
+               BorderThickness="0"
+               AutomationProperties.Name="{l:Tr Connect.Authentication}"
+               ItemContainerStyle="{StaticResource RadioOptionItem}"
+               ItemsSource="{Binding AuthenticationModes}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+               SelectedValue="{Binding Authentication}"
+               SelectedValuePath="Value" />
+      <TextBlock Margin="28,2,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Visibility="{Binding RequiresCredentials, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+        <TextBlock.Text>
+          <MultiBinding Converter="{StaticResource Ad.Format}">
+            <l:TrBinding Key="Connect.CurrentUserFormat" />
+            <Binding Mode="OneWay" Path="CurrentWindowsUser" />
+          </MultiBinding>
+        </TextBlock.Text>
+      </TextBlock>
+
+      <StackPanel Visibility="{Binding RequiresCredentials, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.UserName}" />
+        <Grid>
+          <TextBox x:Name="UserNameBox"
+                   AutomationProperties.Name="{l:Tr Connect.UserName}"
+                   Text="{Binding UserName, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Connect.UserNameHint}"
+                     Visibility="{Binding Text, ElementName=UserNameBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Password}" />
+        <PasswordBox x:Name="PasswordBox" AutomationProperties.Name="{l:Tr Connect.Password}" />
+        <TextBlock Margin="0,4,0,0"
+                   FontSize="11"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr Connect.PasswordNeverStored}" />
+      </StackPanel>
+
+      <!-- Channel security -->
+      <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Security}" />
+      <ComboBox AutomationProperties.Name="{l:Tr Connect.Security}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding SecurityModes}"
+                SelectedValue="{Binding Security}"
+                SelectedValuePath="Value" />
+
+      <!-- Save as profile (never with a password) -->
+      <CheckBox Margin="0,12,0,0"
+                Content="{l:Tr Connect.SaveProfile}"
+                IsChecked="{Binding SaveProfile}" />
+      <Grid Margin="0,4,0,0" Visibility="{Binding SaveProfile, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBox x:Name="ProfileNameBox"
+                 AutomationProperties.Name="{l:Tr Connect.ProfileName}"
+                 Text="{Binding ProfileName, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Connect.ProfileName}"
+                   Visibility="{Binding Text, ElementName=ProfileNameBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+
+      <!-- Error with a hint how to fix it -->
+      <Border Margin="0,14,0,0"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding ErrorText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <TextBlock x:Name="ErrorTextBlock"
+                     AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding ErrorText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+    </StackPanel>
+  </DockPanel>
+</Window>

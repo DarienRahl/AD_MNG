@@ -41,7 +41,10 @@ jobs:
         if: hashFiles('src/AdMng.App/SmokeTest.cs') != ''
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath publish/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait
+          # AdMng.exe is a GUI application: capture its report through redirected handles and print it.
+          $p = Start-Process -FilePath publish/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait `
+            -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
+          Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
       - uses: actions/upload-artifact@v4
         with:

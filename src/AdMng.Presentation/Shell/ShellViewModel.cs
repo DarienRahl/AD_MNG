@@ -41,6 +41,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private IDirectorySession? _initializedFor;
     private Task? _initialization;
     private bool _detailsPaneVisible;
+    private bool _disposed;
 
     public ShellViewModel(
         ObjectListServices lists,
@@ -340,8 +341,19 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private bool CanGoUp() => SelectedDocument?.GoUpCommand.CanExecute(null) == true;
 
+    /// <summary>
+    /// Releases the subscriptions and documents. Idempotent: the window disposes the shell when it closes, and a DI
+    /// container that created it disposes it again at exit (possibly on another thread - a second pass must not touch
+    /// the bound collections).
+    /// </summary>
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         Tree.NodeActivated -= OnNodeActivated;
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
