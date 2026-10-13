@@ -11,9 +11,11 @@ using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
 using AdMng.Presentation;
+using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
@@ -114,6 +116,14 @@ public static class AppHost
         services.AddWindow<MessageDialogViewModel, MessageDialogWindow>();
         services.AddWindow<SavedViewEditorViewModel, SavedViewEditorWindow>();
         services.AddWindow<ColumnChooserViewModel, ColumnChooserWindow>();
+
+        // ---- C2a: object dialogs (view models from IDialogViewModelFactory, opened by DialogService) ----
+        services.AddWindow<PropertySheetViewModel, PropertiesWindow>();
+        services.AddWindow<NewObjectViewModel, NewObjectWindow>();
+        services.AddWindow<ResetPasswordViewModel, ResetPasswordWindow>();
+        services.AddWindow<ObjectPickerViewModel, ObjectPickerWindow>();
+        services.AddWindow<ContainerPickerViewModel, ContainerPickerWindow>();
+        services.AddWindow<FindViewModel, FindWindow>();
         return services;
     }
 

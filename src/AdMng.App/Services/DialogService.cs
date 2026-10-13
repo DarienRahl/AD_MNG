@@ -1,18 +1,22 @@
+using System.Windows;
 using AdMng.App.Views;
 using AdMng.Core.Directory;
+using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.Services;
 
 /// <summary>
 /// WPF <see cref="IDialogService"/>. Message boxes, the saved view editor and the column chooser are shown through
-/// <see cref="IWindowService"/> (view model → registered window). The property sheet, batch editor, reset password,
-/// new object, Find, pickers, session log and settings dialogs belong to the next UI wave: until their windows are
-/// registered they show a localized "not available yet" message (pickers then return nothing).
+/// <see cref="IWindowService"/> (view model → registered window). Property sheets, New Object, Reset Password, the
+/// pickers and Find host the view models of <see cref="IDialogViewModelFactory"/>. Dialogs whose windows are not
+/// registered yet show a localized "not available yet" message.
 /// </summary>
 /// <remarks>
 /// To plug in a dialog: register its window (<c>services.AddWindow&lt;TViewModel, TWindow&gt;()</c> in
@@ -27,13 +31,20 @@ public sealed class DialogService : IDialogService
     private readonly WpfUiDispatcher _dispatcher;
     private readonly AppNavigator _navigator;
 
-    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator)
+    // ---- C2a: dialog view model factory. Resolved lazily: DialogServices (inside the factory) depends on IDialogService.
+    private readonly IServiceProvider _services;
+    private IDialogViewModelFactory? _factory;
+
+    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator, IServiceProvider services)
     {
         _windows = windows ?? throw new ArgumentNullException(nameof(windows));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
+        _services = services ?? throw new ArgumentNullException(nameof(services));
     }
+
+    private IDialogViewModelFactory Factory => _factory ??= _services.GetRequiredService<IDialogViewModelFactory>();
 
     // ---- Message boxes ----------------------------------------------------------------------------------------
 
@@ -71,26 +82,62 @@ public sealed class DialogService : IDialogService
 
     // ---- Dialogs of the next wave (property sheets, wizards, pickers) ----------------------------------------
 
+    // ---- C2a: object dialogs (property sheets, New Object, Reset Password, pickers, Find) ----------------------
+    // The windows call InitializeAsync when they are loaded and dispose their view model when they are closed.
+
     public async Task<string?> PickContainerAsync(IDirectorySession session, string? startDn)
     {
         ArgumentNullException.ThrowIfNull(session);
-        await NotAvailableAsync(L.Ui.PickContainer).ConfigureAwait(true);
-        return null;
+        string? result = null;
+        await OnUiThreadAsync(() =>
+        {
+            var picker = Factory.CreateContainerPicker(session, startDn);
+            result = ShowWindowModal(picker) ? picker.Result : null;
+            return result is not null;
+        }).ConfigureAwait(true);
+        return result;
     }
 
     public async Task<IReadOnlyList<string>> PickObjectsAsync(IDirectorySession session, IReadOnlyList<ObjectKind> kinds, bool multiSelect)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(kinds);
-        await NotAvailableAsync(L.Ui.PickObjects).ConfigureAwait(true);
-        return [];
+        IReadOnlyList<string> result = [];
+        await OnUiThreadAsync(() =>
+        {
+            var picker = Factory.CreateObjectPicker(session, kinds, multiSelect);
+            result = ShowWindowModal(picker) ? picker.Result : [];
+            return result.Count > 0;
+        }).ConfigureAwait(true);
+        return result;
     }
 
+    /// <summary>One property sheet per object: a second request activates the open window.</summary>
     public Task ShowPropertiesAsync(string distinguishedName)
     {
         ArgumentNullException.ThrowIfNull(distinguishedName);
-        return NotAvailableAsync(L.Commands.Properties);
+        return OnUiThreadAsync(() =>
+        {
+            var key = PropertiesWindowKey(distinguishedName);
+            if (_windows.FindOpen(key) is { } open)
+            {
+                if (open.WindowState == WindowState.Minimized)
+                {
+                    open.WindowState = WindowState.Normal;
+                }
+
+                open.Activate();
+                return true;
+            }
+
+            ShowWindowModeless(Factory.CreatePropertySheet(distinguishedName), key);
+            return true;
+        });
     }
+
+    /// <summary>Singleton key of the property sheet of <paramref name="distinguishedName"/> (escaping and case ignored).</summary>
+    internal static string PropertiesWindowKey(string distinguishedName) =>
+        "properties:" + (DistinguishedName.TryParse(distinguishedName, out var dn) ? dn.ToString() : distinguishedName).ToUpperInvariant();
 
     public Task ShowBatchEditorAsync(BatchEditorRequest request)
     {
@@ -101,25 +148,30 @@ public sealed class DialogService : IDialogService
     public Task ShowResetPasswordAsync(IReadOnlyList<string> distinguishedNames)
     {
         ArgumentNullException.ThrowIfNull(distinguishedNames);
-        return NotAvailableAsync(L.Commands.ResetPassword);
+        return OnUiThreadAsync(() => ShowWindowModal(Factory.CreateResetPassword(distinguishedNames)));
     }
 
     public async Task<string?> ShowNewObjectAsync(ObjectKind kind, string parentDn)
     {
         ArgumentNullException.ThrowIfNull(parentDn);
-        await NotAvailableAsync(kind switch
+        string? created = null;
+        await OnUiThreadAsync(() =>
         {
-            ObjectKind.User or ObjectKind.InetOrgPerson => L.Commands.NewUser,
-            ObjectKind.Group => L.Commands.NewGroup,
-            ObjectKind.OrganizationalUnit => L.Commands.NewOrganizationalUnit,
-            ObjectKind.Computer => L.Commands.NewComputer,
-            ObjectKind.Contact => L.Commands.NewContact,
-            _ => L.Shell.MenuNew,
+            var dialog = Factory.CreateNewObject(kind, parentDn);
+            ShowWindowModal(dialog);
+
+            // Set as soon as the object exists (also when not all of its settings could be applied).
+            created = dialog.CreatedDn;
+            return created is not null;
         }).ConfigureAwait(true);
-        return null;
+        return created;
     }
 
-    public Task ShowFindAsync(string? startDn) => NotAvailableAsync(L.Commands.Find);
+    public Task ShowFindAsync(string? startDn) => OnUiThreadAsync(() =>
+    {
+        ShowWindowModeless(Factory.CreateFind(startDn), singletonKey: null);
+        return true;
+    });
 
     public Task ShowSessionLogAsync() => NotAvailableAsync(L.Commands.SessionLog);
 
@@ -147,6 +199,43 @@ public sealed class DialogService : IDialogService
         var window = _windows.CreateWindow(viewModel);
         var dialogResult = _windows.ShowDialog(window);
         return window is IDialogResultWindow resultWindow ? resultWindow.Result == true : dialogResult == true;
+    }
+
+    // ---- C2a: hosting window view models -------------------------------------------------------------------
+
+    /// <summary>
+    /// Shows a window view model modally (the window initializes and disposes it). True when the window reported a
+    /// positive result.
+    /// </summary>
+    private bool ShowWindowModal(IWindowViewModel viewModel)
+    {
+        Window window;
+        try
+        {
+            window = _windows.CreateWindow(viewModel);
+        }
+        catch
+        {
+            viewModel.Dispose();
+            throw;
+        }
+
+        var dialogResult = _windows.ShowDialog(window);
+        return window is IDialogResultWindow resultWindow ? resultWindow.Result == true : dialogResult == true;
+    }
+
+    /// <summary>Shows a window view model modelessly (the window initializes and disposes it).</summary>
+    private void ShowWindowModeless(IWindowViewModel viewModel, string? singletonKey)
+    {
+        try
+        {
+            _windows.Show(viewModel, singletonKey);
+        }
+        catch
+        {
+            viewModel.Dispose();
+            throw;
+        }
     }
 
     private Task<bool> OnUiThreadAsync(Func<bool> show)

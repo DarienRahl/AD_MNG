@@ -1,0 +1,1482 @@
+<!--
+  ADUC-style property sheet of one object (modeless, one window per DN). Tabs come from PropertySheetViewModel.Pages and
+  are templated by page type; fields are templated by field type (implicit DataTemplates below). Every field shares the
+  FieldChrome template: label column, editor, dirty marker, lock glyph with the read-only reason, validation error and
+  planner finding. Nothing here writes to the directory: Apply/OK go through the view model's change pipeline.
+-->
+<Window x:Class="AdMng.App.Views.PropertiesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ad="clr-namespace:AdMng.Core.ActiveDirectory;assembly=AdMng.Core"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:conv="clr-namespace:AdMng.App.Converters"
+        xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:ps="clr-namespace:AdMng.Presentation.PropertySheets;assembly=AdMng.Presentation"
+        xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="640"
+        Height="720"
+        MinWidth="480"
+        MinHeight="460"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <!-- Compact input density (Fluent reads these keys as dynamic resources). -->
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+
+    <conv:GroupScopeEnabledConverter x:Key="GroupScopeEnabled" />
+    <conv:NullableBoolRadioConverter x:Key="NullableBoolRadio" />
+
+    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+      <Setter Property="Padding" Value="8,3" />
+    </Style>
+
+    <Style x:Key="CompactRow" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+
+    <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Padding" Value="10,3" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="MinWidth" Value="72" />
+    </Style>
+
+    <Style x:Key="ErrorText" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,3,0,0" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
+    </Style>
+
+    <!-- A referenced object in a small list: icon, name, folder. -->
+    <DataTemplate x:Key="DirectoryItemTemplate" DataType="{x:Type dlg:DirectoryItem}">
+      <StackPanel Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <TextBlock Margin="10,0,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding Path, Mode=OneWay}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <Style x:Key="ReferenceItemStyle" TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnReferenceItemDoubleClick" />
+    </Style>
+
+    <!--
+      Common frame of every field. Tag selects the layout: (none) = label left / editor right, "Stacked" = label above a
+      full-width editor (lists), "Check" = no label column (check boxes, radio groups under a section header).
+    -->
+    <ControlTemplate x:Key="FieldChrome" TargetType="ContentControl">
+      <Grid Margin="0,3">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="FieldStatus" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="LabelText"
+                   Grid.Row="1"
+                   MaxWidth="190"
+                   Margin="0,6,12,0"
+                   VerticalAlignment="Top"
+                   Text="{Binding Label, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+        <ContentPresenter x:Name="Editor"
+                          Grid.Row="1"
+                          Grid.Column="1" />
+        <StackPanel x:Name="StatusGlyphs"
+                    Grid.Row="1"
+                    Grid.Column="2"
+                    Margin="6,7,0,0"
+                    VerticalAlignment="Top"
+                    Orientation="Horizontal">
+          <TextBlock AutomationProperties.Name="{l:Tr ObjectDialogs.PendingChanges}"
+                     FontSize="12"
+                     Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Edit}"
+                     ToolTip="{l:Tr ObjectDialogs.PendingChanges}"
+                     Visibility="{Binding IsDirty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock Margin="4,0,0,0"
+                     AutomationProperties.Name="{Binding ReadOnlyReason, Mode=OneWay}"
+                     FontSize="12"
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Lock}"
+                     ToolTip="{Binding ReadOnlyReason, Mode=OneWay}"
+                     Visibility="{Binding ReadOnlyReason, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+        <TextBlock x:Name="ErrorLine"
+                   Grid.Row="2"
+                   Grid.Column="1"
+                   Style="{StaticResource ErrorText}"
+                   Text="{Binding Error, Mode=OneWay}"
+                   Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <DockPanel x:Name="IssueLine"
+                   Grid.Row="3"
+                   Grid.Column="1"
+                   Margin="0,3,0,0"
+                   Visibility="{Binding Issue, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <Grid Margin="0,1,6,0"
+                VerticalAlignment="Top"
+                DockPanel.Dock="Left">
+            <TextBlock FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Error}"
+                       Visibility="{Binding IsIssueError, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}"
+                       Visibility="{Binding IsIssueError, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          </Grid>
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Issue, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Grid>
+      <ControlTemplate.Triggers>
+        <Trigger Property="Tag" Value="Stacked">
+          <Setter TargetName="LabelText" Property="Grid.Row" Value="0" />
+          <Setter TargetName="LabelText" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="LabelText" Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
+          <Setter TargetName="LabelText" Property="Margin" Value="0,6,0,4" />
+          <Setter TargetName="Editor" Property="Grid.Column" Value="0" />
+          <Setter TargetName="Editor" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="StatusGlyphs" Property="Grid.Row" Value="0" />
+          <Setter TargetName="ErrorLine" Property="Grid.Column" Value="0" />
+          <Setter TargetName="ErrorLine" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="IssueLine" Property="Grid.Column" Value="0" />
+          <Setter TargetName="IssueLine" Property="Grid.ColumnSpan" Value="2" />
+        </Trigger>
+        <Trigger Property="Tag" Value="Check">
+          <Setter TargetName="LabelText" Property="Visibility" Value="Collapsed" />
+          <Setter TargetName="Editor" Property="Grid.Column" Value="0" />
+          <Setter TargetName="Editor" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="StatusGlyphs" Property="Margin" Value="6,2,0,0" />
+          <Setter TargetName="ErrorLine" Property="Grid.Column" Value="0" />
+          <Setter TargetName="ErrorLine" Property="Grid.ColumnSpan" Value="2" />
+          <Setter TargetName="IssueLine" Property="Grid.Column" Value="0" />
+          <Setter TargetName="IssueLine" Property="Grid.ColumnSpan" Value="2" />
+        </Trigger>
+      </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- ===== Fields ===== -->
+
+    <!-- Single text value; informational fields are read-only text boxes (selectable), optional copy and "Other..." list. -->
+    <DataTemplate DataType="{x:Type ps:FieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel>
+          <DockPanel>
+            <Button Margin="4,0,0,0"
+                    VerticalAlignment="Top"
+                    AutomationProperties.Name="{l:Tr Common.Copy}"
+                    Command="{Binding CopyCommand}"
+                    Content="{x:Static c:Glyphs.Copy}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource Ad.IconButton}"
+                    ToolTip="{l:Tr Common.Copy}"
+                    Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <ToggleButton x:Name="OthersToggle"
+                          Margin="4,0,0,0"
+                          Padding="10,4"
+                          VerticalAlignment="Top"
+                          Content="{l:Tr Fields.Other}"
+                          DockPanel.Dock="Right"
+                          Visibility="{Binding Others, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            <TextBox x:Name="ValueBox"
+                     AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                     IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                     MaxLength="{Binding MaxLength, Mode=OneWay}"
+                     Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+          </DockPanel>
+          <ContentControl Margin="0,4,0,0"
+                          Content="{Binding Others, Mode=OneWay}"
+                          Focusable="False"
+                          Grid.IsSharedSizeScope="True"
+                          IsTabStop="False"
+                          Visibility="{Binding IsChecked, ElementName=OthersToggle, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </ContentControl>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsMultiline, Mode=OneWay}" Value="True">
+          <Setter TargetName="ValueBox" Property="AcceptsReturn" Value="True" />
+          <Setter TargetName="ValueBox" Property="TextWrapping" Value="Wrap" />
+          <Setter TargetName="ValueBox" Property="MinHeight" Value="64" />
+          <Setter TargetName="ValueBox" Property="VerticalContentAlignment" Value="Top" />
+          <Setter TargetName="ValueBox" Property="VerticalScrollBarVisibility" Value="Auto" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- Multi-valued text (otherTelephone, url...): list + add / edit / remove. -->
+    <DataTemplate DataType="{x:Type ps:MultiValueFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Stacked"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel>
+          <ListBox MinHeight="56"
+                   MaxHeight="120"
+                   AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                   ItemsSource="{Binding Values, Mode=OneWay}"
+                   SelectedItem="{Binding SelectedValue}" />
+          <DockPanel Margin="0,6,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button Margin="6,0,0,0"
+                      Command="{Binding AddCommand}"
+                      Content="{l:Tr Common.Add}" />
+              <Button Margin="6,0,0,0"
+                      Command="{Binding EditCommand}"
+                      Content="{l:Tr Common.Edit}" />
+              <Button Margin="6,0,0,0"
+                      Command="{Binding RemoveCommand}"
+                      Content="{l:Tr Common.Remove}" />
+            </StackPanel>
+            <TextBox AutomationProperties.Name="{l:Tr ObjectDialogs.NewValue}" Text="{Binding NewValue, UpdateSourceTrigger=PropertyChanged}">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+          </DockPanel>
+          <TextBlock Style="{StaticResource ErrorText}"
+                     Text="{Binding NewValueError, Mode=OneWay}"
+                     Visibility="{Binding NewValueError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Check box (account options, unlock, must change password). -->
+    <DataTemplate DataType="{x:Type ps:CheckFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}"
+                      Visibility="{Binding IsVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <CheckBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                  IsChecked="{Binding IsChecked}"
+                  IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <TextBlock Text="{Binding Label, Mode=OneWay}" TextWrapping="Wrap" />
+        </CheckBox>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- userAccountControl option (same look as a check field). -->
+    <DataTemplate DataType="{x:Type ps:FlagFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}"
+                      Visibility="{Binding IsVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <CheckBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                  IsChecked="{Binding IsChecked}"
+                  IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <TextBlock Text="{Binding Label, Mode=OneWay}" TextWrapping="Wrap" />
+        </CheckBox>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Account expires: Never / End of [date]. -->
+    <DataTemplate DataType="{x:Type ps:ExpiryFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <Grid IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <RadioButton Grid.ColumnSpan="2"
+                       Content="{l:Tr Fields.Never}"
+                       IsChecked="{Binding IsNever}" />
+          <RadioButton Grid.Row="1"
+                       Margin="0,6,0,0"
+                       VerticalAlignment="Center"
+                       Content="{l:Tr Fields.EndOf}"
+                       IsChecked="{Binding IsNever, Converter={StaticResource Ad.InverseBool}}" />
+          <DatePicker Grid.Row="1"
+                      Grid.Column="1"
+                      MinWidth="160"
+                      MaxWidth="240"
+                      Margin="10,6,0,0"
+                      HorizontalAlignment="Left"
+                      AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                      IsEnabled="{Binding IsNever, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
+                      SelectedDate="{Binding EndOfDate}" />
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Reference to another object (manager, managed by) with picker, properties and the manager's details. -->
+    <DataTemplate DataType="{x:Type ps:DnFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel>
+          <Grid>
+            <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                     IsReadOnly="True"
+                     Text="{Binding DisplayName, Mode=OneWay}"
+                     ToolTip="{Binding Value, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr Common.NotSet}"
+                       Visibility="{Binding HasValue, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          </Grid>
+          <TextBlock Margin="2,2,0,0"
+                     FontSize="11"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding Path, Mode=OneWay}"
+                     Visibility="{Binding Path, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <WrapPanel Margin="0,6,0,0">
+            <Button Command="{Binding BrowseCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Command="{Binding OpenCommand}"
+                    Content="{l:Tr Commands.Properties}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Command="{Binding ClearCommand}"
+                    Content="{l:Tr Common.Clear}"
+                    Style="{StaticResource SmallButton}" />
+          </WrapPanel>
+          <ItemsControl Margin="0,8,0,0"
+                        Focusable="False"
+                        Grid.IsSharedSizeScope="True"
+                        ItemsSource="{Binding Details, Mode=OneWay}"
+                        Visibility="{Binding ShowsDetails, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type shell:SummaryField}">
+                <Grid Margin="0,2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="DetailLabel" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Margin="0,0,10,0"
+                             VerticalAlignment="Top"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding Label, Mode=OneWay}" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding Value, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Read-only list of referenced objects (direct reports); double click opens their properties. -->
+    <DataTemplate DataType="{x:Type ps:ReferenceListFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Stacked"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel>
+          <ListBox MinHeight="56"
+                   MaxHeight="140"
+                   AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                   ItemContainerStyle="{StaticResource ReferenceItemStyle}"
+                   ItemTemplate="{StaticResource DirectoryItemTemplate}"
+                   ItemsSource="{Binding Items, Mode=OneWay}"
+                   SelectedItem="{Binding SelectedItem}" />
+          <WrapPanel Margin="0,6,0,0">
+            <Button Command="{Binding OpenCommand}"
+                    Content="{l:Tr Commands.Properties}"
+                    Style="{StaticResource SmallButton}" />
+          </WrapPanel>
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Country/region (writes c, co and countryCode). -->
+    <DataTemplate DataType="{x:Type ps:CountryFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <ComboBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                  DisplayMemberPath="Text"
+                  IsEnabled="{Binding IsEditable, Mode=OneWay}"
+                  ItemsSource="{Binding Options, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedOption}"
+                  TextSearch.TextPath="Text">
+          <ComboBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel />
+            </ItemsPanelTemplate>
+          </ComboBox.ItemsPanel>
+        </ComboBox>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Home folder: local path, or a drive letter connected to a network path. -->
+    <DataTemplate DataType="{x:Type ps:HomeFolderFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <Grid IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <RadioButton VerticalAlignment="Center"
+                       Content="{l:Tr Labels.LocalPath}"
+                       IsChecked="{Binding UseLocalPath}" />
+          <TextBox Grid.Column="1"
+                   Grid.ColumnSpan="3"
+                   Margin="10,0,0,0"
+                   AutomationProperties.Name="{l:Tr Labels.LocalPath}"
+                   IsEnabled="{Binding UseLocalPath, Mode=OneWay}"
+                   Text="{Binding LocalPath, UpdateSourceTrigger=PropertyChanged}" />
+          <RadioButton Grid.Row="1"
+                       Margin="0,6,0,0"
+                       VerticalAlignment="Center"
+                       Content="{l:Tr Labels.Connect}"
+                       IsChecked="{Binding UseDrive}" />
+          <ComboBox Grid.Row="1"
+                    Grid.Column="1"
+                    MinWidth="72"
+                    Margin="10,6,0,0"
+                    AutomationProperties.Name="{l:Tr Labels.Connect}"
+                    IsEnabled="{Binding UseDrive, Mode=OneWay}"
+                    ItemsSource="{Binding Drives, Mode=OneWay}"
+                    SelectedItem="{Binding Drive}" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="2"
+                     Margin="10,6,0,0"
+                     VerticalAlignment="Center"
+                     Text="{l:Tr Labels.To}" />
+          <TextBox Grid.Row="1"
+                   Grid.Column="3"
+                   Margin="8,6,0,0"
+                   AutomationProperties.Name="{l:Tr Labels.To}"
+                   IsEnabled="{Binding UseDrive, Mode=OneWay}"
+                   Text="{Binding NetworkPath, UpdateSourceTrigger=PropertyChanged}" />
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- User logon name: prefix @ suffix. -->
+    <DataTemplate DataType="{x:Type ps:UpnFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                   IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                   Text="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Column="1"
+                     Margin="6,0"
+                     VerticalAlignment="Center"
+                     Text="@" />
+          <ComboBox Grid.Column="2"
+                    MinWidth="140"
+                    AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                    IsEnabled="{Binding IsEditable, Mode=OneWay}"
+                    ItemsSource="{Binding Suffixes, Mode=OneWay}"
+                    SelectedItem="{Binding Suffix}" />
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Log On To: all computers or a list of computer names. -->
+    <DataTemplate DataType="{x:Type ps:WorkstationsFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <RadioButton Content="{l:Tr Labels.AllComputers}" IsChecked="{Binding AllComputers}" />
+          <RadioButton Margin="0,4,0,0"
+                       Content="{l:Tr Labels.TheseComputers}"
+                       IsChecked="{Binding AllComputers, Converter={StaticResource Ad.InverseBool}}" />
+          <StackPanel Margin="28,6,0,0" IsEnabled="{Binding AllComputers, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}">
+            <DockPanel>
+              <Button Margin="6,0,0,0"
+                      Command="{Binding AddCommand}"
+                      Content="{l:Tr Common.Add}"
+                      DockPanel.Dock="Right" />
+              <TextBox AutomationProperties.Name="{l:Tr Labels.ComputerName}" Text="{Binding NewComputer, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                  <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
+                </TextBox.InputBindings>
+              </TextBox>
+            </DockPanel>
+            <TextBlock Style="{StaticResource ErrorText}"
+                       Text="{Binding NewComputerError, Mode=OneWay}"
+                       Visibility="{Binding NewComputerError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            <DockPanel Margin="0,6,0,0">
+              <Button Margin="6,0,0,0"
+                      VerticalAlignment="Top"
+                      Command="{Binding RemoveCommand}"
+                      Content="{l:Tr Common.Remove}"
+                      DockPanel.Dock="Right" />
+              <ListBox MinHeight="56"
+                       MaxHeight="120"
+                       AutomationProperties.Name="{l:Tr Labels.TheseComputers}"
+                       ItemsSource="{Binding Computers, Mode=OneWay}"
+                       SelectedItem="{Binding SelectedComputer}" />
+            </DockPanel>
+          </StackPanel>
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Group scope and type with ADUC's conversion rules (disabled scopes cannot be reached directly). -->
+    <DataTemplate DataType="{x:Type ps:GroupTypeFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <Grid IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Labels.GroupScope}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr GroupScope.DomainLocal}"
+                         IsChecked="{Binding IsDomainLocal}"
+                         IsEnabled="{Binding ScopeOptions, Mode=OneWay, Converter={StaticResource GroupScopeEnabled}, ConverterParameter={x:Static ad:GroupScope.DomainLocal}}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr GroupScope.Global}"
+                         IsChecked="{Binding IsGlobal}"
+                         IsEnabled="{Binding ScopeOptions, Mode=OneWay, Converter={StaticResource GroupScopeEnabled}, ConverterParameter={x:Static ad:GroupScope.Global}}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr GroupScope.Universal}"
+                         IsChecked="{Binding IsUniversal}"
+                         IsEnabled="{Binding ScopeOptions, Mode=OneWay, Converter={StaticResource GroupScopeEnabled}, ConverterParameter={x:Static ad:GroupScope.Universal}}" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Labels.GroupType}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr Labels.Security}"
+                         IsChecked="{Binding IsSecurity}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr Labels.Distribution}"
+                         IsChecked="{Binding IsDistribution}" />
+          </StackPanel>
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Kerberos AES encryption types. -->
+    <DataTemplate DataType="{x:Type ps:EncryptionTypesFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Stacked"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <CheckBox AutomationProperties.Name="{Binding Aes128Label, Mode=OneWay}" IsChecked="{Binding Aes128}">
+            <TextBlock Text="{Binding Aes128Label, Mode=OneWay}" TextWrapping="Wrap" />
+          </CheckBox>
+          <CheckBox Margin="0,4,0,0"
+                    AutomationProperties.Name="{Binding Aes256Label, Mode=OneWay}"
+                    IsChecked="{Binding Aes256}">
+            <TextBlock Text="{Binding Aes256Label, Mode=OneWay}" TextWrapping="Wrap" />
+          </CheckBox>
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- E-mail addresses (proxyAddresses) with the primary SMTP rule. -->
+    <DataTemplate DataType="{x:Type ps:ProxyAddressesFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Stacked"
+                      Template="{StaticResource FieldChrome}">
+        <StackPanel>
+          <ListView Height="150"
+                    AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                    ItemContainerStyle="{StaticResource CompactRow}"
+                    ItemsSource="{Binding Items, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedItem}"
+                    SelectionMode="Single">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="72" Header="{l:Tr Labels.AddressType}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type ps:ProxyAddressViewModel}">
+                      <TextBlock x:Name="TypeText" Text="{Binding Type, Mode=OneWay}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsPrimary, Mode=OneWay}" Value="True">
+                          <Setter TargetName="TypeText" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="260" Header="{l:Tr Labels.Address}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type ps:ProxyAddressViewModel}">
+                      <TextBlock x:Name="AddressText"
+                                 Text="{Binding Address, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsPrimary, Mode=OneWay}" Value="True">
+                          <Setter TargetName="AddressText" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="90" Header="{l:Tr ObjectDialogs.Primary}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type ps:ProxyAddressViewModel}">
+                      <TextBlock HorizontalAlignment="Left"
+                                 FontSize="12"
+                                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{x:Static c:Glyphs.Completed}"
+                                 Visibility="{Binding IsPrimary, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <WrapPanel Margin="0,6,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
+            <Button Command="{Binding SetPrimaryCommand}"
+                    Content="{l:Tr Labels.SetPrimaryAddress}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Command="{Binding RemoveCommand}"
+                    Content="{l:Tr Common.Remove}"
+                    Style="{StaticResource SmallButton}" />
+          </WrapPanel>
+          <DockPanel Margin="0,6,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
+            <Button Margin="6,0,0,0"
+                    Command="{Binding AddCommand}"
+                    Content="{l:Tr Common.Add}"
+                    DockPanel.Dock="Right" />
+            <ComboBox Width="96"
+                      Margin="0,0,6,0"
+                      AutomationProperties.Name="{l:Tr Labels.AddressType}"
+                      DockPanel.Dock="Left"
+                      IsEditable="True"
+                      ItemsSource="{Binding Types, Mode=OneWay}"
+                      Text="{Binding NewType, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox AutomationProperties.Name="{l:Tr Labels.Address}" Text="{Binding NewAddress, UpdateSourceTrigger=PropertyChanged}">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding AddCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+          </DockPanel>
+          <TextBlock Style="{StaticResource ErrorText}"
+                     Text="{Binding NewAddressError, Mode=OneWay}"
+                     Visibility="{Binding NewAddressError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- ===== Pages ===== -->
+
+    <DataTemplate x:Key="PageHeaderTemplate" DataType="{x:Type ps:PropertyPageViewModel}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" />
+        <TextBlock Margin="5,0,0,0"
+                   FontSize="10"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Edit}"
+                   ToolTip="{l:Tr ObjectDialogs.PendingChanges}"
+                   Visibility="{Binding HasChanges, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <TextBlock Margin="5,0,0,0"
+                   FontSize="10"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}"
+                   ToolTip="{l:Tr PropertySheet.FixErrors}"
+                   Visibility="{Binding HasErrors, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- General, Address, Account, Profile, Telephones, Organization, E-mail Addresses, Object... -->
+    <DataTemplate DataType="{x:Type ps:FieldsPageViewModel}">
+      <ScrollViewer Focusable="False"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl Margin="16,10,16,16"
+                      Focusable="False"
+                      Grid.IsSharedSizeScope="True"
+                      ItemsSource="{Binding Sections, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type ps:FieldSectionViewModel}">
+              <StackPanel Margin="0,0,0,10">
+                <TextBlock Margin="0,8,0,2"
+                           Style="{StaticResource Ad.SectionHeader}"
+                           Text="{Binding Header, Mode=OneWay}"
+                           Visibility="{Binding Header, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                <ItemsControl Focusable="False" ItemsSource="{Binding Fields, Mode=OneWay}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DataTemplate>
+
+    <!-- Member Of / Members: filter, direct list with staged changes, lazily loaded "All (nested)" list. -->
+    <DataTemplate x:Key="MembershipBody" DataType="{x:Type ps:MembershipPageViewModel}">
+      <DockPanel>
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <TextBlock Margin="12,0,0,0"
+                     VerticalAlignment="Center"
+                     DockPanel.Dock="Right"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding CountText, Mode=OneWay}" />
+          <Grid Width="260" HorizontalAlignment="Left">
+            <TextBox x:Name="MembershipFilterBox"
+                     AutomationProperties.Name="{l:Tr Common.Filter}"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=120}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr Common.Filter}"
+                       Visibility="{Binding Text, ElementName=MembershipFilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+        </DockPanel>
+        <ProgressBar Height="2"
+                     Margin="0,0,0,4"
+                     DockPanel.Dock="Top"
+                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.ErrorBar}"
+                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+        <TabControl x:Name="MembershipTabs" SelectionChanged="OnMembershipTabChanged">
+          <TabItem Header="{l:Tr Membership.Direct}">
+            <DockPanel Margin="0,6,0,0">
+              <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+                <Button Command="{Binding AddCommand}"
+                        Content="{l:Tr Common.Add}"
+                        Style="{StaticResource SmallButton}" />
+                <Button Command="{Binding RemoveCommand}"
+                        Content="{l:Tr Common.Remove}"
+                        Style="{StaticResource SmallButton}" />
+                <Button Command="{Binding OpenCommand}"
+                        Content="{l:Tr Commands.Properties}"
+                        Style="{StaticResource SmallButton}" />
+              </WrapPanel>
+              <ListView x:Name="MembershipList"
+                        AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                        ItemsSource="{Binding Items, Mode=OneWay}"
+                        KeyDown="OnMembershipListKeyDown"
+                        Loaded="OnMembershipListLoaded"
+                        SelectedItem="{Binding SelectedItem}"
+                        SelectionChanged="OnMembershipSelectionChanged"
+                        SelectionMode="Extended"
+                        Unloaded="OnMembershipListUnloaded">
+                <ListView.ItemContainerStyle>
+                  <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+                    <EventSetter Event="MouseDoubleClick" Handler="OnMembershipItemDoubleClick" />
+                  </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.View>
+                  <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Width="220" Header="{l:Tr Common.Name}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type ps:MembershipItemViewModel}">
+                          <DockPanel>
+                            <c:ObjectIconView Margin="0,0,6,0"
+                                              VerticalAlignment="Center"
+                                              DockPanel.Dock="Left"
+                                              Icon="{Binding Icon, Mode=OneWay}"
+                                              Size="16" />
+                            <TextBlock x:Name="NameText"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding Name, Mode=OneWay}"
+                                       TextTrimming="CharacterEllipsis" />
+                          </DockPanel>
+                          <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsPendingRemove, Mode=OneWay}" Value="True">
+                              <Setter TargetName="NameText" Property="TextDecorations" Value="Strikethrough" />
+                              <Setter TargetName="NameText" Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsPendingAdd, Mode=OneWay}" Value="True">
+                              <Setter TargetName="NameText" Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsPrimary, Mode=OneWay}" Value="True">
+                              <Setter TargetName="NameText" Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                          </DataTemplate.Triggers>
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="140" Header="{l:Tr Columns.Type}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type ps:MembershipItemViewModel}">
+                          <TextBlock Text="{Binding TypeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="200" Header="{l:Tr Labels.Folder}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type ps:MembershipItemViewModel}">
+                          <TextBlock Text="{Binding Path, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="130" Header="{l:Tr Batch.Status}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type ps:MembershipItemViewModel}">
+                          <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding StatusText, Mode=OneWay}" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="{l:Tr Membership.Nested}">
+            <DockPanel Margin="0,6,0,0">
+              <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+                <Button Command="{Binding LoadNestedCommand}"
+                        Content="{l:Tr Commands.Refresh}"
+                        DockPanel.Dock="Left"
+                        Style="{StaticResource SmallButton}" />
+                <Button Command="{Binding LoadNestedCancelCommand}"
+                        Content="{l:Tr Common.Stop}"
+                        DockPanel.Dock="Left"
+                        Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+                <ProgressBar Margin="12,0,0,0"
+                             VerticalAlignment="Center"
+                             IsIndeterminate="{Binding IsNestedLoading, Mode=OneWay}"
+                             Visibility="{Binding IsNestedLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              </DockPanel>
+              <Border Margin="0,0,0,6"
+                      DockPanel.Dock="Top"
+                      Style="{StaticResource Ad.ErrorBar}"
+                      Visibility="{Binding NestedError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                <TextBlock AutomationProperties.LiveSetting="Assertive"
+                           Text="{Binding NestedError, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+              </Border>
+              <ListView x:Name="NestedList"
+                        AutomationProperties.Name="{l:Tr Membership.Nested}"
+                        ItemsSource="{Binding NestedItems, Mode=OneWay}"
+                        SelectionMode="Single">
+                <ListView.ItemContainerStyle>
+                  <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+                    <EventSetter Event="MouseDoubleClick" Handler="OnNestedItemDoubleClick" />
+                  </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.View>
+                  <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Width="240" Header="{l:Tr Common.Name}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type dlg:DirectoryItem}">
+                          <DockPanel>
+                            <c:ObjectIconView Margin="0,0,6,0"
+                                              VerticalAlignment="Center"
+                                              DockPanel.Dock="Left"
+                                              Icon="{Binding Icon, Mode=OneWay}"
+                                              Size="16" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{Binding Name, Mode=OneWay}"
+                                       TextTrimming="CharacterEllipsis" />
+                          </DockPanel>
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="150" Header="{l:Tr Columns.Type}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type dlg:DirectoryItem}">
+                          <TextBlock Text="{Binding TypeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="220" Header="{l:Tr Labels.Folder}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type dlg:DirectoryItem}">
+                          <TextBlock Text="{Binding Path, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </DockPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type ps:MemberOfPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,10,0,0"
+                   DockPanel.Dock="Bottom"
+                   Visibility="{Binding SupportsPrimaryGroup, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <Button Margin="12,0,0,0"
+                  Command="{Binding SetPrimaryGroupCommand}"
+                  Content="{l:Tr ObjectDialogs.SetPrimaryGroup}"
+                  DockPanel.Dock="Right" />
+          <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+            <Run Text="{l:Tr Labels.PrimaryGroup}" /><Run Text=": " /><Run FontWeight="SemiBold" Text="{Binding PrimaryGroupName, Mode=OneWay}" />
+          </TextBlock>
+        </DockPanel>
+        <ContentControl Content="{Binding Mode=OneWay}"
+                        ContentTemplate="{StaticResource MembershipBody}"
+                        Focusable="False"
+                        IsTabStop="False" />
+      </DockPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type ps:MembersPageViewModel}">
+      <ContentControl Margin="12,10,12,12"
+                      Content="{Binding Mode=OneWay}"
+                      ContentTemplate="{StaticResource MembershipBody}"
+                      Focusable="False"
+                      IsTabStop="False" />
+    </DataTemplate>
+
+    <!-- Attribute Editor: value editor panel (shown while AttributeEditorPageViewModel.Editor is set). -->
+    <Style x:Key="SingleValueEditor" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Text}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Integer}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.LargeInteger}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.FileTime}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.DateTime}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Dn}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="MultiValueEditor" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.MultiText}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.MultiDn}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BooleanEditor" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Boolean}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BinaryEditor" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Binary}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="BrowseDnButton" TargetType="Button" BasedOn="{StaticResource SmallButton}">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.Dn}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="{x:Static ps:AttributeEditorKind.MultiDn}">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <DataTemplate DataType="{x:Type ps:AttributeValueEditorViewModel}">
+      <DockPanel>
+        <!-- Enter / Esc act on the value editor, not on the sheet's OK / Cancel buttons. -->
+        <DockPanel.InputBindings>
+          <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+        </DockPanel.InputBindings>
+        <TextBlock DockPanel.Dock="Top"
+                   FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock Margin="0,2,0,0"
+                   DockPanel.Dock="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding Hint, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding Hint, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <DockPanel Margin="0,4,0,0"
+                   DockPanel.Dock="Top"
+                   Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <TextBlock Margin="0,0,6,0"
+                     DockPanel.Dock="Left"
+                     FontSize="12"
+                     Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Lock}" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding Row.ReadOnlyReason, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+        <StackPanel Margin="0,8,0,0"
+                    HorizontalAlignment="Right"
+                    DockPanel.Dock="Bottom"
+                    Orientation="Horizontal">
+          <Button Command="{Binding ClearCommand}"
+                  Content="{l:Tr Common.Clear}"
+                  Style="{StaticResource SmallButton}"
+                  Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <Button Command="{Binding OkCommand}"
+                  Content="{l:Tr Common.Ok}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Margin="0"
+                  Command="{Binding CancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  Style="{StaticResource SmallButton}" />
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Bottom"
+                   Style="{StaticResource ErrorText}"
+                   Text="{Binding Error, Mode=OneWay}"
+                   Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <Grid Margin="0,8,0,0">
+          <!-- Text, numbers, dates, one DN -->
+          <DockPanel Style="{StaticResource SingleValueEditor}">
+            <Button Margin="6,0,0,0"
+                    Command="{Binding BrowseCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource BrowseDnButton}" />
+            <TextBox AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                     IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                     Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}">
+              <TextBox.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding OkCommand}" />
+              </TextBox.InputBindings>
+            </TextBox>
+          </DockPanel>
+          <!-- Several values -->
+          <DockPanel Style="{StaticResource MultiValueEditor}">
+            <DockPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Margin="6,0,0,0"
+                        Command="{Binding AddValueCommand}"
+                        Content="{l:Tr Common.Add}" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding RemoveValueCommand}"
+                        Content="{l:Tr Common.Remove}" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding BrowseCommand}"
+                        Content="{l:Tr Common.Browse}"
+                        Style="{StaticResource BrowseDnButton}" />
+              </StackPanel>
+              <TextBox AutomationProperties.Name="{l:Tr ObjectDialogs.NewValue}"
+                       IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                       Text="{Binding NewValue, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                  <KeyBinding Key="Enter" Command="{Binding AddValueCommand}" />
+                </TextBox.InputBindings>
+              </TextBox>
+            </DockPanel>
+            <ListBox MinHeight="60"
+                     MaxHeight="130"
+                     AutomationProperties.Name="{l:Tr ObjectDialogs.Values}"
+                     ItemsSource="{Binding Values, Mode=OneWay}"
+                     SelectedItem="{Binding SelectedValue}" />
+          </DockPanel>
+          <!-- TRUE / FALSE / not set -->
+          <StackPanel Orientation="Horizontal" Style="{StaticResource BooleanEditor}">
+            <RadioButton Margin="0,0,16,0"
+                         Content="{l:Tr Format.True}"
+                         IsChecked="{Binding BooleanValue, Converter={StaticResource NullableBoolRadio}, ConverterParameter=True}"
+                         IsEnabled="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}" />
+            <RadioButton Margin="0,0,16,0"
+                         Content="{l:Tr Format.False}"
+                         IsChecked="{Binding BooleanValue, Converter={StaticResource NullableBoolRadio}, ConverterParameter=False}"
+                         IsEnabled="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}" />
+            <RadioButton Content="{l:Tr AttributeEditor.NotSet}"
+                         IsChecked="{Binding BooleanValue, Converter={StaticResource NullableBoolRadio}, ConverterParameter=Null}"
+                         IsEnabled="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}" />
+          </StackPanel>
+          <!-- Binary: read-only hexadecimal view -->
+          <TextBox MaxHeight="130"
+                   AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   IsReadOnly="True"
+                   Style="{StaticResource BinaryEditor}"
+                   Text="{Binding Value, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   VerticalScrollBarVisibility="Auto" />
+        </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type ps:AttributeEditorPageViewModel}">
+      <DockPanel Margin="12,10,12,12">
+        <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                  Command="{Binding RefreshCommand}"
+                  Content="{x:Static c:Glyphs.Refresh}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.IconButton}"
+                  ToolTip="{l:Tr Commands.Refresh}" />
+          <Grid Width="220"
+                VerticalAlignment="Top"
+                DockPanel.Dock="Left">
+            <TextBox x:Name="AttributeFilterBox"
+                     AutomationProperties.Name="{l:Tr Common.Filter}"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged, Delay=150}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr Common.Filter}"
+                       Visibility="{Binding Text, ElementName=AttributeFilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+          <WrapPanel Margin="12,0,0,0" VerticalAlignment="Center">
+            <CheckBox Margin="0,0,12,0"
+                      Content="{l:Tr Labels.ShowOnlyWithValues}"
+                      IsChecked="{Binding ShowOnlyWithValues}" />
+            <CheckBox Content="{l:Tr Labels.ShowOnlyWritable}" IsChecked="{Binding ShowOnlyWritable}" />
+          </WrapPanel>
+        </DockPanel>
+        <ProgressBar Height="2"
+                     Margin="0,0,0,4"
+                     DockPanel.Dock="Top"
+                     IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Border Margin="0,0,0,6"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.ErrorBar}"
+                Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+        <Border Margin="0,8,0,0"
+                DockPanel.Dock="Bottom"
+                Style="{StaticResource Ad.Card}"
+                Visibility="{Binding Editor, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <ContentControl x:Name="ValueEditorHost"
+                          Content="{Binding Editor, Mode=OneWay}"
+                          Focusable="False"
+                          IsTabStop="False" />
+        </Border>
+        <WrapPanel Margin="0,8,0,0" DockPanel.Dock="Bottom">
+          <Button Command="{Binding EditCommand}"
+                  Content="{l:Tr Common.Edit}"
+                  Style="{StaticResource SmallButton}" />
+          <Button Command="{Binding CopyValueCommand}"
+                  Content="{l:Tr Common.Copy}"
+                  Style="{StaticResource SmallButton}" />
+        </WrapPanel>
+        <ListView x:Name="AttributeList"
+                  AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                  ItemsSource="{Binding Rows, Mode=OneWay}"
+                  KeyDown="OnAttributeListKeyDown"
+                  SelectedItem="{Binding SelectedRow}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.ItemContainerStyle>
+            <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Attribute, Mode=OneWay}" />
+              <Setter Property="ToolTip" Value="{Binding DisplayName, Mode=OneWay}" />
+              <EventSetter Event="MouseDoubleClick" Handler="OnAttributeRowDoubleClick" />
+            </Style>
+          </ListView.ItemContainerStyle>
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="210" Header="{l:Tr Labels.Attribute}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type ps:AttributeRowViewModel}">
+                    <DockPanel>
+                      <TextBlock Margin="0,0,4,0"
+                                 DockPanel.Dock="Right"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{x:Static c:Glyphs.Lock}"
+                                 ToolTip="{Binding ReadOnlyReason, Mode=OneWay}"
+                                 Visibility="{Binding IsReadOnly, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                      <TextBlock Margin="0,0,4,0"
+                                 DockPanel.Dock="Right"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{x:Static c:Glyphs.Edit}"
+                                 ToolTip="{l:Tr ObjectDialogs.PendingChanges}"
+                                 Visibility="{Binding IsDirty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                      <TextBlock x:Name="AttributeText"
+                                 VerticalAlignment="Center"
+                                 Text="{Binding Attribute, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding IsDirty, Mode=OneWay}" Value="True">
+                        <Setter TargetName="AttributeText" Property="FontWeight" Value="SemiBold" />
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="250" Header="{l:Tr Labels.Value}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type ps:AttributeRowViewModel}">
+                    <TextBlock Text="{Binding ValueText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="130" Header="{l:Tr Labels.Syntax}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type ps:AttributeRowViewModel}">
+                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SyntaxText, Mode=OneWay}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- The "deleted" bar is shown when the object disappeared while the sheet was open (a reload shows LoadError). -->
+    <Style x:Key="DeletedBar" TargetType="Border" BasedOn="{StaticResource Ad.ErrorBar}">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding IsDeleted, Mode=OneWay}" Value="True" />
+            <Condition Binding="{Binding LoadError, Mode=OneWay}" Value="{x:Null}" />
+          </MultiDataTrigger.Conditions>
+          <Setter Property="Visibility" Value="Visible" />
+        </MultiDataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <!-- Footer: Refresh | OK Cancel Apply -->
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <Button x:Name="RefreshButton"
+                Margin="0"
+                Command="{Binding RefreshCommand}"
+                Content="{l:Tr PropertySheet.Refresh}"
+                DockPanel.Dock="Left"
+                Style="{StaticResource Ad.DialogButton}" />
+        <ProgressBar Width="72"
+                     Margin="12,0,0,0"
+                     VerticalAlignment="Center"
+                     DockPanel.Dock="Left"
+                     IsIndeterminate="{Binding IsApplying, Mode=OneWay}"
+                     Visibility="{Binding IsApplying, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+          <Button x:Name="OkButton"
+                  Command="{Binding OkCommand}"
+                  Content="{l:Tr Common.Ok}"
+                  IsDefault="True"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+          <Button x:Name="CancelButton"
+                  Command="{Binding CancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  IsCancel="True"
+                  Style="{StaticResource Ad.DialogButton}" />
+          <Button x:Name="ApplyButton"
+                  Command="{Binding ApplyCommand}"
+                  Content="{l:Tr Common.Apply}"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Header: icon, name, type and folder -->
+    <DockPanel Margin="16,12,16,8" DockPanel.Dock="Top">
+      <c:ObjectIconView Margin="0,2,12,0"
+                        VerticalAlignment="Top"
+                        DockPanel.Dock="Left"
+                        Icon="{Binding Icon, Mode=OneWay}"
+                        Size="32" />
+      <StackPanel>
+        <TextBlock FontSize="16"
+                   FontWeight="SemiBold"
+                   Text="{Binding Name, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock Style="{StaticResource Ad.SecondaryText}">
+          <Run Text="{Binding TypeText, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding Path, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+    </DockPanel>
+
+    <ProgressBar Height="2"
+                 Margin="16,0,16,4"
+                 AutomationProperties.Name="{l:Tr Common.Loading}"
+                 DockPanel.Dock="Top"
+                 IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                 Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+
+    <!-- State and messages -->
+    <StackPanel Margin="16,0,16,0" DockPanel.Dock="Top">
+      <Border Margin="0,0,0,8"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding LoadError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <Button Margin="10,0,0,0"
+                  VerticalAlignment="Top"
+                  Command="{Binding RefreshCommand}"
+                  Content="{l:Tr Common.Retry}"
+                  DockPanel.Dock="Right" />
+          <TextBlock VerticalAlignment="Center"
+                     AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding LoadError, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+      <Border Margin="0,0,0,8" Style="{StaticResource DeletedBar}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Delete}" />
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{l:Tr PropertySheet.Deleted}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+      <Border Margin="0,0,0,8"
+              Style="{StaticResource Ad.WarningBar}"
+              Visibility="{Binding IsOutdated, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Warning}" />
+          <Button Margin="10,0,0,0"
+                  VerticalAlignment="Top"
+                  Command="{Binding RefreshCommand}"
+                  Content="{l:Tr PropertySheet.Refresh}"
+                  DockPanel.Dock="Right" />
+          <TextBlock VerticalAlignment="Center"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{l:Tr PropertySheet.Outdated}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+      <Border Margin="0,0,0,8"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding ApplyError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <TextBlock AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding ApplyError, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+      <ItemsControl Margin="0,0,0,8"
+                    Focusable="False"
+                    ItemsSource="{Binding Issues, Mode=OneWay}"
+                    Visibility="{Binding Issues.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type ps:SheetIssueViewModel}">
+            <DockPanel Margin="0,2">
+              <Grid Margin="0,1,8,0"
+                    VerticalAlignment="Top"
+                    DockPanel.Dock="Left">
+                <TextBlock FontSize="12"
+                           Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Error}"
+                           Visibility="{Binding IsError, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBlock FontSize="12"
+                           Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Warning}"
+                           Visibility="{Binding IsError, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              </Grid>
+              <TextBlock AutomationProperties.LiveSetting="Polite"
+                         Text="{Binding Text, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DockPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <!-- Pages -->
+    <TabControl x:Name="PageTabs"
+                Margin="12,0,12,12"
+                AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                ItemTemplate="{StaticResource PageHeaderTemplate}"
+                ItemsSource="{Binding Pages, Mode=OneWay}"
+                SelectedItem="{Binding SelectedPage}">
+      <TabControl.ItemContainerStyle>
+        <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+          <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+        </Style>
+      </TabControl.ItemContainerStyle>
+    </TabControl>
+  </DockPanel>
+</Window>

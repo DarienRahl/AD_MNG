@@ -98,6 +98,7 @@ public static class FakeSchema
         Def("primaryGroupID", AttributeSyntax.Integer),
         Def("servicePrincipalName", AttributeSyntax.UnicodeString, single: false),
         Def("msDS-SupportedEncryptionTypes", AttributeSyntax.Integer),
+        Def("userWorkstations", AttributeSyntax.UnicodeString, lower: 0, upper: 1024),
 
         // Groups
         Def("member", AttributeSyntax.DistinguishedName, single: false, linkId: 2),
@@ -167,7 +168,7 @@ public static class FakeSchema
                 "userAccountControl", "accountExpires", "pwdLastSet", "lockoutTime", "badPwdCount", "lastLogon",
                 "lastLogonTimestamp", "logonCount", "userPrincipalName", "unicodePwd", "homeDirectory", "homeDrive",
                 "scriptPath", "profilePath", "primaryGroupID", "employeeID", "servicePrincipalName",
-                "msDS-SupportedEncryptionTypes", "msDS-User-Account-Control-Computed",
+                "msDS-SupportedEncryptionTypes", "msDS-User-Account-Control-Computed", "userWorkstations",
             ],
             PossibleSuperiors = ["organizationalUnit", "container", "domainDNS"],
             DefaultObjectCategory = $"CN=Person,{schemaNc}",

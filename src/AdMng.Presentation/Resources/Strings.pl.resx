@@ -3381,4 +3381,46 @@ Wpisz {1}, aby potwierdzić.</value>
   <data name="Syntax.UtcTime" xml:space="preserve">
     <value>Czas UTC</value>
   </data>
+  <data name="ObjectDialogs.PendingChanges" xml:space="preserve">
+    <value>Zmieniono – jeszcze nie zastosowano</value>
+  </data>
+  <data name="ObjectDialogs.NewValue" xml:space="preserve">
+    <value>Wartość do dodania</value>
+  </data>
+  <data name="ObjectDialogs.Values" xml:space="preserve">
+    <value>Wartości</value>
+  </data>
+  <data name="ObjectDialogs.Primary" xml:space="preserve">
+    <value>Podstawowy</value>
+  </data>
+  <data name="ObjectDialogs.SetPrimaryGroup" xml:space="preserve">
+    <value>Ustaw grupę podstawową</value>
+  </data>
+  <data name="ObjectDialogs.SamTemplate" xml:space="preserve">
+    <value>Szablon nazwy logowania</value>
+  </data>
+  <data name="ObjectDialogs.PasswordLength" xml:space="preserve">
+    <value>Długość hasła</value>
+  </data>
+  <data name="ObjectDialogs.GeneratedPasswordsHint" xml:space="preserve">
+    <value>Wyświetl, skopiuj lub wyeksportuj wygenerowane hasła przed zamknięciem – nie będzie można ich ponownie wyświetlić.</value>
+  </data>
+  <data name="ObjectDialogs.SelectedObjects" xml:space="preserve">
+    <value>Wybrane obiekty</value>
+  </data>
+  <data name="ObjectDialogs.SearchResults" xml:space="preserve">
+    <value>Wyniki wyszukiwania</value>
+  </data>
+  <data name="ObjectDialogs.FindKind" xml:space="preserve">
+    <value>Znajdź</value>
+  </data>
+  <data name="ObjectDialogs.AddCondition" xml:space="preserve">
+    <value>Dodaj warunek</value>
+  </data>
+  <data name="ObjectDialogs.RebuildFilter" xml:space="preserve">
+    <value>Odtwórz filtr</value>
+  </data>
+  <data name="ObjectDialogs.RawFilterNote" xml:space="preserve">
+    <value>Filtr zmieniono ręcznie – nazwa i warunki nie są używane, dopóki filtr nie zostanie odtworzony.</value>
+  </data>
 </root>
