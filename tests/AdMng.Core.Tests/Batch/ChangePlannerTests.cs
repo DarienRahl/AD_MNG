@@ -151,6 +151,59 @@ public class ChangePlannerTests
     }
 
     [Fact]
+    public async Task SetValues_WritesExactValuesWithoutTemplating()
+    {
+        var jan = await PlanOneAsync(_company.JanKowalski,
+            new SetValuesOperation(Attr.Description, ["Pracownik {givenName} – dział {{IT}}"]),
+            new SetValuesOperation(Attr.OtherTelephone, ["+48 22 111 22 33", "+48 22 111 22 34", "+48 22 111 22 33"]));
+
+        var description = Change(jan, Attr.Description);
+        Assert.Equal(AttributeChangeKind.Replace, description.Kind);
+        Assert.Equal(["Pracownik {givenName} – dział {{IT}}"], description.NewValues);
+        Assert.Equal(["+48 22 111 22 33", "+48 22 111 22 34"], Change(jan, Attr.OtherTelephone).NewValues);
+        Assert.False(jan.HasErrors);
+    }
+
+    [Fact]
+    public async Task SetValues_EmptyListClearsAndSameValuesAreANoOp()
+    {
+        var clear = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.Department, []));
+        var same = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.Department, ["IT"]));
+        var absentCleared = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.Info, []));
+
+        var change = Change(clear, Attr.Department);
+        Assert.Equal(AttributeChangeKind.Clear, change.Kind);
+        Assert.Equal(["IT"], change.OldValues);
+        Assert.True(same.IsNoOp);
+        Assert.True(absentCleared.IsNoOp);
+    }
+
+    [Fact]
+    public async Task SetValues_IsValidatedAndNormalized()
+    {
+        var plan = await PlanOneAsync(_company.JanKowalski,
+            new SetValuesOperation(Attr.HideFromAddressLists, ["true"]),
+            new SetValuesOperation(Attr.Title, ["Kierownik", "Dyrektor"]));
+        var nullValue = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.Title, [null!]));
+        var tooLong = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.Info, [new string('x', 1025)]));
+
+        Assert.Equal(["TRUE"], Change(plan, Attr.HideFromAddressLists).NewValues);
+        Assert.Equal(IssueSeverity.Error, Issue(plan, IssueCodes.SingleValued).Severity);
+        Assert.True(nullValue.HasErrors);
+        Assert.Equal(IssueCodes.InvalidValue, Assert.Single(AllIssues(nullValue), i => i.Severity == IssueSeverity.Error).Code);
+        Assert.Equal(IssueSeverity.Error, Issue(tooLong, IssueCodes.TooLong).Severity);
+    }
+
+    [Fact]
+    public void SetValues_ToStringDoesNotPrintValues()
+    {
+        var text = new SetValuesOperation(Attr.Info, ["poufna notatka"]).ToString();
+
+        Assert.DoesNotContain("poufna", text, StringComparison.Ordinal);
+        Assert.Contains(Attr.Info, text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task FindReplace_SupportsPlainTextAndRegex()
     {
         var plain = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski], new FindReplaceOperation(Attr.City, "warszawa", "Warsaw"));

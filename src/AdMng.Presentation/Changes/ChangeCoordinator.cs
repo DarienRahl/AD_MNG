@@ -82,7 +82,9 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     private readonly IDirectoryChangeNotifier _changes;
     private readonly ErrorTranslator _errors;
     private readonly ILocalizer _localizer;
+    private readonly PowerShellHistory? _history;
 
+    /// <remarks>The optional <see cref="PowerShellHistory"/> records the equivalent PowerShell of every executed plan.</remarks>
     public ChangeCoordinator(
         ISessionManager sessions,
         IChangePlanner planner,
@@ -93,7 +95,8 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         ActivityCenterViewModel activities,
         IDirectoryChangeNotifier changes,
         ErrorTranslator errors,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        PowerShellHistory? history = null)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _planner = planner ?? throw new ArgumentNullException(nameof(planner));
@@ -105,6 +108,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         _changes = changes ?? throw new ArgumentNullException(nameof(changes));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
+        _history = history;
     }
 
     public async Task<ChangeOutcome> ApplyAsync(ChangeRequest request, CancellationToken cancellationToken = default)
@@ -205,6 +209,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         using var registration = cancellationToken.Register(activity.RequestCancellation);
         var result = await activity.Completion.ConfigureAwait(true);
         _changes.Publish(DirectoryChanges.FromResult(result));
+        _history?.Record(result, title);
         return result;
     }
 

@@ -42,7 +42,7 @@ public sealed partial class ShellViewModel
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -273,6 +273,10 @@ public sealed partial class ShellViewModel
     }
 
     private bool CanAddToGroup() => CurrentSelection.Any(r => CanBeMember(r.Kind));
+
+    /// <summary>Opens the batch editor in CSV import mode (bulk modification from a spreadsheet).</summary>
+    [RelayCommand(CanExecute = nameof(IsConnected))]
+    private Task ImportCsvAsync() => _dialogs.ShowBatchEditorAsync(new BatchEditorRequest([]));
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private Task BatchEditAsync() =>

@@ -54,8 +54,17 @@ public sealed class ErrorTranslator(ILocalizer localizer)
     };
 
     /// <summary>Message for a failed step of a batch (<see cref="ChangeResult.ErrorKind"/> + <see cref="ChangeResult.ErrorMessage"/>).</summary>
+    /// <remarks>
+    /// A compare-and-swap failure (<see cref="BatchExecutor.ConflictMessagePrefix"/>: the value was changed by
+    /// somebody else after the preview) is reported as such, not as the raw LDAP error (noSuchAttribute...).
+    /// </remarks>
     public string TranslateFailure(DirectoryErrorKind? kind, string? errorMessage)
     {
+        if (errorMessage is not null && errorMessage.StartsWith(BatchExecutor.ConflictMessagePrefix, StringComparison.Ordinal))
+        {
+            return localizer[L.Errors.Conflict];
+        }
+
         if (kind is null or DirectoryErrorKind.Unknown)
         {
             return string.IsNullOrWhiteSpace(errorMessage)

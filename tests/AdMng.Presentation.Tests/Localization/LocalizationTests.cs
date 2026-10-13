@@ -90,7 +90,7 @@ public partial class LocalizationTests
         foreach (var value in en.Values.Concat(pl.Values))
         {
             // Every value must be a valid composite format string (no stray braces).
-            _ = string.Format(CultureInfo.InvariantCulture, value, "a", "b", "c", "d");
+            _ = string.Format(CultureInfo.InvariantCulture, value, "a", "b", "c", "d", "e", "f", "g", "h");
         }
     }
 

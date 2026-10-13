@@ -66,6 +66,7 @@ public sealed partial class ShellViewModel
             new("view.advanced", L.Commands.ToggleAdvancedFeatures, view, string.Empty, ToggleAdvancedFeaturesCommand),
             new("view.details", L.Commands.ToggleDetailsPane, view, "Ctrl+D", ToggleDetailsPaneCommand),
             new("tools.palette", L.Commands.CommandPalette, tools, "Ctrl+K", CommandPalette.OpenCommand),
+            new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),

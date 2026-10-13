@@ -13,7 +13,7 @@ namespace AdMng.Presentation.Localization;
 /// Localized names of enums, issue codes and attributes. Every key family below is complete in both resource
 /// files (enforced by unit tests that enumerate the enums / constants).
 /// </summary>
-public static class DisplayNames
+public static partial class DisplayNames
 {
     /// <summary>
     /// Attributes with a localized fallback name (used when the forest has no display specifier for the UI language).
