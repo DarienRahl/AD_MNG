@@ -226,7 +226,7 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 
 ## Decyzje do podjęcia z zespołem
 
-Pełna lista pytań: [RESEARCH.md](RESEARCH.md#11-pytania-otwarte). Najważniejsze dla kolejnych faz:
+Pełna lista pytań: [RESEARCH.md](RESEARCH.md#11-pytania-otwarte-do-zespołu). Najważniejsze dla kolejnych faz:
 
 1. **Skala i topologia:** liczba domen/lasów i zaufań, liczba obiektów, największe OU i grupa (wpływa na priorytet VLV i
    wielu domen).
