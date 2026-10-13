@@ -71,6 +71,18 @@ internal static class LdapErrors
         _ => false,
     };
 
+    /// <summary>
+    /// True for a client side timeout: the server did not answer within the request timeout. The connection is
+    /// suspect (silently dropped by a firewall or VPN change, or a hung DC) and should be replaced; the request is
+    /// not repeated automatically because it may just be expensive.
+    /// </summary>
+    public static bool IsClientTimeout(Exception exception) => Unwrap(exception) switch
+    {
+        TimeoutException => true,
+        LdapException le => le.ErrorCode == ClientTimeout,
+        _ => false,
+    };
+
     /// <summary>True when the request provably did not reach the server.</summary>
     public static bool WasNotSent(Exception exception) => exception is RequestNotSentException;
 

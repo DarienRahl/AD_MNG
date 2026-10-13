@@ -5,8 +5,9 @@ namespace AdMng.Directory;
 /// <summary>A request in flight.</summary>
 /// <param name="Response">What the caller awaits; cancelled as soon as the caller's token is cancelled.</param>
 /// <param name="Completion">
-/// Completes when the connection is free again (the request finished or was abandoned). Can outlive
-/// <paramref name="Response"/> on platforms where a request cannot be interrupted.
+/// Completes when the connection is free again (the request finished or was abandoned), with the request's own
+/// outcome (faulted when the request failed). Can outlive <paramref name="Response"/> on platforms where a request
+/// cannot be interrupted.
 /// </param>
 internal readonly record struct PendingResponse<TResponse>(Task<TResponse> Response, Task Completion)
     where TResponse : DirectoryResponse;
@@ -23,12 +24,28 @@ internal readonly record struct PendingResponse<TResponse>(Task<TResponse> Respo
 /// tens of seconds. Searches therefore use the blocking <see cref="LdapConnection.SendRequest(DirectoryRequest, TimeSpan)"/>
 /// on a worker thread (OpenLDAP then reads the whole response at socket speed). Such a request cannot be
 /// interrupted: cancellation completes <see cref="PendingResponse{TResponse}.Response"/> immediately while the
-/// request finishes in the background (bounded by the request and server time limits), signalled by
-/// <see cref="PendingResponse{TResponse}.Completion"/>. Single-message operations keep the APM path.
+/// request finishes in the background, signalled by <see cref="PendingResponse{TResponse}.Completion"/>.
+/// Single-message operations keep the APM path.
+/// </para>
+/// <para>
+/// The blocking call does not enforce its timeout while the server is silent: S.DS.P passes a 2 x 32 bit
+/// <c>struct timeval</c> to <c>ldap_result</c>, which reads 2 x 64 bit on LP64 platforms, so the poll waits
+/// until data arrives (observed: a 2 s timeout returned only after 10 s, when the stalled server answered). The
+/// timeout is therefore also enforced here (<see cref="TimeoutException"/>); the request itself may keep running
+/// on a connection that then has to be dropped.
 /// </para>
 /// </remarks>
 internal static class LdapAsync
 {
+    /// <summary>
+    /// Extra time granted to S.DS.P's own client timeout (which also abandons the request) before the blocking
+    /// path gives up on its own.
+    /// </summary>
+    internal static readonly TimeSpan BlockingTimeoutGrace = TimeSpan.FromSeconds(1);
+
+    /// <summary>Largest timeout <see cref="Task.WaitAsync(TimeSpan)"/> accepts.</summary>
+    private static readonly TimeSpan MaxWaitTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
     /// <summary>Sends one request. See <see cref="PendingResponse{TResponse}"/>.</summary>
     /// <remarks>
     /// Exceptions thrown while sending through the APM path are wrapped in <see cref="RequestNotSentException"/>
@@ -82,13 +99,16 @@ internal static class LdapAsync
             TaskScheduler.Default);
 
         // Observe a late failure of a request the caller stopped waiting for.
-        var completion = work.ContinueWith(
+        _ = work.ContinueWith(
             static t => _ = t.Exception,
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
-        var response = cancellationToken.CanBeCanceled ? work.WaitAsync(cancellationToken) : work;
-        return new PendingResponse<TResponse>(response, completion);
+        var deadline = timeout + BlockingTimeoutGrace;
+        var response = deadline < MaxWaitTimeout
+            ? work.WaitAsync(deadline, cancellationToken)
+            : work.WaitAsync(cancellationToken);
+        return new PendingResponse<TResponse>(response, work);
     }
 
     private static PendingResponse<TResponse> SendWithAbort<TResponse>(

@@ -105,11 +105,19 @@ public sealed class WatchAndRestoreTests(LabFixture lab)
         Assert.Equal(true, tombstone.GetBoolean(Attr.IsDeleted));
         Assert.Equal(guid, tombstone.ObjectGuid);
 
-        // Without the Show Deleted control the tombstone is invisible.
+        // Without the Show Deleted control the tombstone is invisible. AD hides the (deleted) Deleted Objects
+        // container itself and answers noSuchObject; Samba returns no entries.
         var hidden = 0;
-        await foreach (var _ in lab.Admin.SearchAsync(deleted with { IncludeDeleted = false }, ct))
+        try
         {
-            hidden++;
+            await foreach (var _ in lab.Admin.SearchAsync(deleted with { IncludeDeleted = false }, ct))
+            {
+                hidden++;
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+        {
+            // AD behaviour - nothing was returned.
         }
 
         Assert.Equal(0, hidden);

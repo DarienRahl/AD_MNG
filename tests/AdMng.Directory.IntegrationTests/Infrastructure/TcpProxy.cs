@@ -15,6 +15,7 @@ internal sealed class TcpProxy : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Lock _gate = new();
     private readonly List<TcpClient> _open = [];
+    private readonly List<ResponseGate> _gates = [];
     private readonly Task _acceptLoop;
     private int _accepted;
 
@@ -61,8 +62,30 @@ internal sealed class TcpProxy : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Holds back the server's answers on every connection proxied so far (requests still reach the server).
+    /// Connections accepted afterwards are not affected - a DC that stopped answering on one connection only.
+    /// </summary>
+    public void StallExisting()
+    {
+        lock (_gate)
+        {
+            _gates.ForEach(g => g.Stall());
+        }
+    }
+
+    /// <summary>Delivers everything held back by <see cref="StallExisting"/> and lets traffic flow again.</summary>
+    public void ResumeAll()
+    {
+        lock (_gate)
+        {
+            _gates.ForEach(g => g.Resume());
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        ResumeAll();
         await _stop.CancelAsync();
         _listener.Stop();
         DropAll();
@@ -105,22 +128,41 @@ internal sealed class TcpProxy : IAsyncDisposable
                 continue;
             }
 
+            var responses = new ResponseGate();
             lock (_gate)
             {
                 _open.Add(inbound);
                 _open.Add(outbound);
+                _gates.Add(responses);
             }
 
-            _ = PumpAsync(inbound, outbound);
-            _ = PumpAsync(outbound, inbound);
+            _ = PumpAsync(inbound, outbound, null);
+            _ = PumpAsync(outbound, inbound, responses);
         }
     }
 
-    private static async Task PumpAsync(TcpClient from, TcpClient to)
+    private static async Task PumpAsync(TcpClient from, TcpClient to, ResponseGate? gate)
     {
+        var buffer = new byte[81920];
         try
         {
-            await from.GetStream().CopyToAsync(to.GetStream());
+            var source = from.GetStream();
+            var target = to.GetStream();
+            while (true)
+            {
+                var read = await source.ReadAsync(buffer);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                if (gate is not null)
+                {
+                    await gate.WhenOpen;
+                }
+
+                await target.WriteAsync(buffer.AsMemory(0, read));
+            }
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException or SocketException)
         {
@@ -130,6 +172,50 @@ internal sealed class TcpProxy : IAsyncDisposable
         {
             from.Dispose();
             to.Dispose();
+        }
+    }
+
+    /// <summary>Open/stalled switch of one server-to-client direction.</summary>
+    private sealed class ResponseGate
+    {
+        private readonly Lock _lock = new();
+        private TaskCompletionSource _open = Opened();
+
+        public Task WhenOpen
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _open.Task;
+                }
+            }
+        }
+
+        public void Stall()
+        {
+            lock (_lock)
+            {
+                if (_open.Task.IsCompleted)
+                {
+                    _open = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                }
+            }
+        }
+
+        public void Resume()
+        {
+            lock (_lock)
+            {
+                _open.TrySetResult();
+            }
+        }
+
+        private static TaskCompletionSource Opened()
+        {
+            var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            source.SetResult();
+            return source;
         }
     }
 }

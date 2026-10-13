@@ -38,6 +38,11 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
   response controls (paging cookie). The pool serializes requests per connection and opens more connections.
 - **Searches use the blocking `SendRequest` on a worker thread**: the asynchronous S.DS.P path reads one LDAP
   message per poll (up to 100 ms apart), which would make large pages take minutes.
+- **The blocking call ignores its timeout while the server is silent**: S.DS.P passes a 2 x 32 bit
+  `struct timeval` to `ldap_result`, which reads 2 x 64 bit on 64-bit Linux/macOS, so it waits until data
+  arrives. `LdapAsync` enforces the request timeout itself (plus 1 s), the pool drops a connection that let a
+  request time out, and requests queued on it move to another connection. The abandoned worker thread stays
+  blocked until the socket delivers data or fails (`PoolTests` stall the lab through `TcpProxy.StallExisting`).
 
 ## Samba deviations seen in the lab (AD behaves as documented)
 

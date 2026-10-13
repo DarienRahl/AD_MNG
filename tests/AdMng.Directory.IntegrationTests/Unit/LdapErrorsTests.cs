@@ -91,6 +91,19 @@ public sealed class LdapErrorsTests
     }
 
     [Fact]
+    public void ClientTimeouts_AreRecognized()
+    {
+        Assert.True(LdapErrors.IsClientTimeout(new TimeoutException()));
+        Assert.True(LdapErrors.IsClientTimeout(new LdapException(85)));
+        Assert.True(LdapErrors.IsClientTimeout(new RequestNotSentException(new LdapException(85))));
+        Assert.False(LdapErrors.IsClientTimeout(new LdapException(81)));
+
+        // A server side time limit (timeLimitExceeded) is an answer - the connection is fine.
+        Assert.False(LdapErrors.IsClientTimeout(new DirectoryOperationException("time limit")));
+        Assert.False(LdapErrors.IsClientTimeout(new OperationCanceledException()));
+    }
+
+    [Fact]
     public void TimeoutAndSocketErrors_AreTranslated()
     {
         Assert.Equal(DirectoryErrorKind.Timeout, LdapErrors.Translate(new TimeoutException(), OperationKind.Bind, null)!.Kind);

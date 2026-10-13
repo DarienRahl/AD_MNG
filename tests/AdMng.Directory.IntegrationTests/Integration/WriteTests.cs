@@ -306,7 +306,12 @@ public sealed class WriteTests(LabFixture lab)
             null,
             ct));
         await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync(dn, null, null, ct));
-        await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync(dn, null, "CN=a,CN=b", ct));
+        var notOneRdn = await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync(dn, null, "CN=a,CN=b", ct));
+        Assert.DoesNotContain("CN=a", notOneRdn.Message, StringComparison.Ordinal);
+        var malformedRdn = await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync(dn, null, "CN=Kowalski\\", ct));
+        Assert.DoesNotContain("Kowalski", malformedRdn.Message, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync("nie-DN", LabSettings.TestOu, null, ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.MoveAsync(dn, "OU=Zły,=x", null, ct));
         await Assert.ThrowsAsync<ArgumentException>(() => lab.Admin.AddAsync(dn, new Dictionary<string, IReadOnlyList<object>>(), ct));
     }
 }

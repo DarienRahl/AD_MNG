@@ -347,19 +347,18 @@ internal sealed class LdapDirectorySession : IDirectorySession
             throw new ArgumentException("Either a new parent or a new RDN is required.", nameof(newParentDn));
         }
 
-        var current = DistinguishedName.Parse(distinguishedName);
-        if (current.IsRoot)
+        // TryParse, not Parse: messages of argument errors must not quote DNs (they may end up in logs).
+        if (!DistinguishedName.TryParse(distinguishedName, out var current) || current.IsRoot)
         {
-            throw new ArgumentException("The root DN cannot be moved.", nameof(distinguishedName));
+            throw new ArgumentException("The object to move must be given by a valid, non-empty DN.", nameof(distinguishedName));
         }
 
         Rdn leaf;
         if (newRdn is not null)
         {
-            var parsed = DistinguishedName.Parse(newRdn);
-            if (parsed.Rdns.Count != 1)
+            if (!DistinguishedName.TryParse(newRdn, out var parsed) || parsed.Rdns.Count != 1)
             {
-                throw new ArgumentException($"'{newRdn}' is not a single RDN.", nameof(newRdn));
+                throw new ArgumentException("The new RDN must consist of exactly one RDN, e.g. CN=Name.", nameof(newRdn));
             }
 
             leaf = parsed.Leaf;
@@ -369,7 +368,16 @@ internal sealed class LdapDirectorySession : IDirectorySession
             leaf = current.Leaf;
         }
 
-        var parent = newParentDn is null ? current.Parent! : DistinguishedName.Parse(newParentDn);
+        DistinguishedName parent;
+        if (newParentDn is null)
+        {
+            parent = current.Parent!;
+        }
+        else if (!DistinguishedName.TryParse(newParentDn, out parent) || parent.IsRoot)
+        {
+            throw new ArgumentException("The new parent must be a valid, non-empty DN.", nameof(newParentDn));
+        }
+
         var newDn = parent.Child(leaf.Type, leaf.Value).ToString();
         var request = new ModifyDNRequest(distinguishedName, newParentDn, leaf.ToString())
         {
@@ -821,6 +829,11 @@ internal sealed class LdapDirectorySession : IDirectorySession
             paging.Cookie = cookie;
             await lease.SendAsync<SearchResponse>(request, AbandonTimeout, CancellationToken.None).ConfigureAwait(false);
         }
+        catch (Exception ex) when (LdapErrors.IsClientTimeout(ex))
+        {
+            // No answer at all: the connection is unusable (and the result set is gone with it).
+            lease.MarkBroken("no answer to an abandon request");
+        }
         catch (Exception ex) when (ex is DirectoryOperationException or LdapException or RequestNotSentException
             or ObjectDisposedException or InvalidOperationException)
         {
@@ -952,6 +965,11 @@ internal sealed class LdapDirectorySession : IDirectorySession
         if (LdapErrors.IsConnectionBroken(exception))
         {
             lease.MarkBroken("server down");
+        }
+        else if (LdapErrors.IsClientTimeout(exception))
+        {
+            // Do not let the next requests queue behind a connection that stopped answering.
+            lease.MarkBroken("no answer within the request timeout");
         }
 
         var translated = LdapErrors.Translate(exception, operation, distinguishedName);
