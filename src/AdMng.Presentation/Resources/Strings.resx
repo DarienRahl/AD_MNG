@@ -1,0 +1,1427 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Activity.Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="Activity.ClearFinished" xml:space="preserve">
+    <value>Clear finished</value>
+  </data>
+  <data name="Activity.Completed" xml:space="preserve">
+    <value>Completed ({0} objects)</value>
+  </data>
+  <data name="Activity.CompletedWithFailures" xml:space="preserve">
+    <value>Completed: {0} succeeded, {1} failed</value>
+  </data>
+  <data name="Activity.None" xml:space="preserve">
+    <value>No background operations</value>
+  </data>
+  <data name="Activity.Progress" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="Activity.ProgressWithFailures" xml:space="preserve">
+    <value>{0} / {1} · failed: {2}</value>
+  </data>
+  <data name="Activity.Running" xml:space="preserve">
+    <value>Running operations: {0}</value>
+  </data>
+  <data name="Activity.Title" xml:space="preserve">
+    <value>Background operations</value>
+  </data>
+  <data name="App.ShortTitle" xml:space="preserve">
+    <value>AD Manager</value>
+  </data>
+  <data name="App.Title" xml:space="preserve">
+    <value>Active Directory Users and Computers</value>
+  </data>
+  <data name="Attribute.accountExpires" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="Attribute.adminCount" xml:space="preserve">
+    <value>Protected (adminCount)</value>
+  </data>
+  <data name="Attribute.badPwdCount" xml:space="preserve">
+    <value>Bad password count</value>
+  </data>
+  <data name="Attribute.c" xml:space="preserve">
+    <value>Country/region code</value>
+  </data>
+  <data name="Attribute.canonicalName" xml:space="preserve">
+    <value>Canonical name</value>
+  </data>
+  <data name="Attribute.cn" xml:space="preserve">
+    <value>Common name</value>
+  </data>
+  <data name="Attribute.co" xml:space="preserve">
+    <value>Country/region</value>
+  </data>
+  <data name="Attribute.company" xml:space="preserve">
+    <value>Company</value>
+  </data>
+  <data name="Attribute.department" xml:space="preserve">
+    <value>Department</value>
+  </data>
+  <data name="Attribute.description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Attribute.displayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Attribute.distinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="Attribute.dNSHostName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="Attribute.employeeID" xml:space="preserve">
+    <value>Employee ID</value>
+  </data>
+  <data name="Attribute.employeeNumber" xml:space="preserve">
+    <value>Employee number</value>
+  </data>
+  <data name="Attribute.employeeType" xml:space="preserve">
+    <value>Employee type</value>
+  </data>
+  <data name="Attribute.facsimileTelephoneNumber" xml:space="preserve">
+    <value>Fax</value>
+  </data>
+  <data name="Attribute.givenName" xml:space="preserve">
+    <value>First name</value>
+  </data>
+  <data name="Attribute.groupType" xml:space="preserve">
+    <value>Group type</value>
+  </data>
+  <data name="Attribute.homeDirectory" xml:space="preserve">
+    <value>Home folder</value>
+  </data>
+  <data name="Attribute.homeDrive" xml:space="preserve">
+    <value>Home drive</value>
+  </data>
+  <data name="Attribute.homePhone" xml:space="preserve">
+    <value>Home</value>
+  </data>
+  <data name="Attribute.info" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Attribute.initials" xml:space="preserve">
+    <value>Initials</value>
+  </data>
+  <data name="Attribute.ipPhone" xml:space="preserve">
+    <value>IP phone</value>
+  </data>
+  <data name="Attribute.l" xml:space="preserve">
+    <value>City</value>
+  </data>
+  <data name="Attribute.lastLogon" xml:space="preserve">
+    <value>Last logon (this DC)</value>
+  </data>
+  <data name="Attribute.lastLogonTimestamp" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="Attribute.location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Attribute.lockoutTime" xml:space="preserve">
+    <value>Locked out at</value>
+  </data>
+  <data name="Attribute.logonCount" xml:space="preserve">
+    <value>Logon count</value>
+  </data>
+  <data name="Attribute.mail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Attribute.managedBy" xml:space="preserve">
+    <value>Managed by</value>
+  </data>
+  <data name="Attribute.manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="Attribute.member" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Attribute.memberOf" xml:space="preserve">
+    <value>Member of</value>
+  </data>
+  <data name="Attribute.mobile" xml:space="preserve">
+    <value>Mobile</value>
+  </data>
+  <data name="Attribute.msDS-UserPasswordExpiryTimeComputed" xml:space="preserve">
+    <value>Password expires</value>
+  </data>
+  <data name="Attribute.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Attribute.objectClass" xml:space="preserve">
+    <value>Object class</value>
+  </data>
+  <data name="Attribute.objectGUID" xml:space="preserve">
+    <value>Object GUID</value>
+  </data>
+  <data name="Attribute.objectSid" xml:space="preserve">
+    <value>Security identifier (SID)</value>
+  </data>
+  <data name="Attribute.operatingSystem" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="Attribute.operatingSystemVersion" xml:space="preserve">
+    <value>Operating system version</value>
+  </data>
+  <data name="Attribute.pager" xml:space="preserve">
+    <value>Pager</value>
+  </data>
+  <data name="Attribute.physicalDeliveryOfficeName" xml:space="preserve">
+    <value>Office</value>
+  </data>
+  <data name="Attribute.postalCode" xml:space="preserve">
+    <value>ZIP/Postal Code</value>
+  </data>
+  <data name="Attribute.postOfficeBox" xml:space="preserve">
+    <value>P.O. Box</value>
+  </data>
+  <data name="Attribute.profilePath" xml:space="preserve">
+    <value>Profile path</value>
+  </data>
+  <data name="Attribute.proxyAddresses" xml:space="preserve">
+    <value>Proxy addresses</value>
+  </data>
+  <data name="Attribute.pwdLastSet" xml:space="preserve">
+    <value>Password last set</value>
+  </data>
+  <data name="Attribute.sAMAccountName" xml:space="preserve">
+    <value>User logon name (pre-Windows 2000)</value>
+  </data>
+  <data name="Attribute.scriptPath" xml:space="preserve">
+    <value>Logon script</value>
+  </data>
+  <data name="Attribute.servicePrincipalName" xml:space="preserve">
+    <value>Service principal names</value>
+  </data>
+  <data name="Attribute.sn" xml:space="preserve">
+    <value>Last name</value>
+  </data>
+  <data name="Attribute.st" xml:space="preserve">
+    <value>State/province</value>
+  </data>
+  <data name="Attribute.streetAddress" xml:space="preserve">
+    <value>Street</value>
+  </data>
+  <data name="Attribute.telephoneNumber" xml:space="preserve">
+    <value>Telephone number</value>
+  </data>
+  <data name="Attribute.title" xml:space="preserve">
+    <value>Job Title</value>
+  </data>
+  <data name="Attribute.userAccountControl" xml:space="preserve">
+    <value>Account options</value>
+  </data>
+  <data name="Attribute.userPrincipalName" xml:space="preserve">
+    <value>User logon name</value>
+  </data>
+  <data name="Attribute.whenChanged" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="Attribute.whenCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Attribute.wWWHomePage" xml:space="preserve">
+    <value>Web page</value>
+  </data>
+  <data name="Auth.Credentials" xml:space="preserve">
+    <value>Other credentials</value>
+  </data>
+  <data name="Auth.CurrentUser" xml:space="preserve">
+    <value>Current Windows user</value>
+  </data>
+  <data name="Auth.SimpleBind" xml:space="preserve">
+    <value>Simple bind (TLS only)</value>
+  </data>
+  <data name="BuiltInView.DisabledComputers" xml:space="preserve">
+    <value>Disabled computers</value>
+  </data>
+  <data name="BuiltInView.DisabledUsers" xml:space="preserve">
+    <value>Disabled users</value>
+  </data>
+  <data name="BuiltInView.EmptyGroups" xml:space="preserve">
+    <value>Empty groups</value>
+  </data>
+  <data name="BuiltInView.ExpiredAccounts" xml:space="preserve">
+    <value>Expired accounts</value>
+  </data>
+  <data name="BuiltInView.ExpiringAccounts" xml:space="preserve">
+    <value>Accounts expiring in 30 days</value>
+  </data>
+  <data name="BuiltInView.InactiveComputers" xml:space="preserve">
+    <value>Inactive computers ({0} days)</value>
+  </data>
+  <data name="BuiltInView.InactiveUsers" xml:space="preserve">
+    <value>Inactive users ({0} days)</value>
+  </data>
+  <data name="BuiltInView.LockedUsers" xml:space="preserve">
+    <value>Locked out users</value>
+  </data>
+  <data name="BuiltInView.MustChangePassword" xml:space="preserve">
+    <value>Must change password at next logon</value>
+  </data>
+  <data name="BuiltInView.NeverLoggedOn" xml:space="preserve">
+    <value>Never logged on</value>
+  </data>
+  <data name="BuiltInView.PasswordNeverExpires" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="BuiltInView.PasswordNotRequired" xml:space="preserve">
+    <value>Password not required</value>
+  </data>
+  <data name="BuiltInView.PreAuthNotRequired" xml:space="preserve">
+    <value>Kerberos pre-authentication disabled</value>
+  </data>
+  <data name="BuiltInView.PrivilegedAccounts" xml:space="preserve">
+    <value>Privileged accounts (adminCount=1)</value>
+  </data>
+  <data name="BuiltInView.UnconstrainedDelegation" xml:space="preserve">
+    <value>Unconstrained delegation</value>
+  </data>
+  <data name="BuiltInView.UsersWithoutManager" xml:space="preserve">
+    <value>Users without a manager</value>
+  </data>
+  <data name="Changes.Cancelled" xml:space="preserve">
+    <value>{0}: cancelled ({1} objects changed).</value>
+  </data>
+  <data name="Changes.ContinueWithValid" xml:space="preserve">
+    <value>Some objects cannot be changed:
+{0}
+
+Apply the change to the remaining {1} object(s)?</value>
+  </data>
+  <data name="Changes.Failed" xml:space="preserve">
+    <value>Failed: {0}, succeeded: {1}.</value>
+  </data>
+  <data name="Changes.MoreIssues" xml:space="preserve">
+    <value>…and {0} more.</value>
+  </data>
+  <data name="Changes.NothingToDo" xml:space="preserve">
+    <value>{0}: nothing to change – the objects already have the requested values.</value>
+  </data>
+  <data name="Changes.Succeeded" xml:space="preserve">
+    <value>{0}: done ({1} objects).</value>
+  </data>
+  <data name="Chip.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Chip.EmptyGroups" xml:space="preserve">
+    <value>Empty groups</value>
+  </data>
+  <data name="Chip.Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Chip.Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Chip.Expiring" xml:space="preserve">
+    <value>Expiring in 30 days</value>
+  </data>
+  <data name="Chip.Inactive" xml:space="preserve">
+    <value>Inactive {0} days</value>
+  </data>
+  <data name="Chip.Locked" xml:space="preserve">
+    <value>Locked out</value>
+  </data>
+  <data name="Chip.MustChangePassword" xml:space="preserve">
+    <value>Must change password</value>
+  </data>
+  <data name="Chip.PasswordNeverExpires" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="Columns.Available" xml:space="preserve">
+    <value>Available columns</value>
+  </data>
+  <data name="Columns.ChooserTitle" xml:space="preserve">
+    <value>Add/Remove Columns</value>
+  </data>
+  <data name="Columns.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Columns.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Columns.Selected" xml:space="preserve">
+    <value>Displayed columns</value>
+  </data>
+  <data name="Columns.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="CommandCategories.Navigation" xml:space="preserve">
+    <value>Navigation</value>
+  </data>
+  <data name="CommandCategories.New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="CommandCategories.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="CommandCategories.Session" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="CommandCategories.Tools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="CommandCategories.View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Commands.AddToGroup" xml:space="preserve">
+    <value>Add to a group...</value>
+  </data>
+  <data name="Commands.Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Commands.BatchEdit" xml:space="preserve">
+    <value>Batch edit...</value>
+  </data>
+  <data name="Commands.CancelLoad" xml:space="preserve">
+    <value>Stop loading</value>
+  </data>
+  <data name="Commands.ChooseColumns" xml:space="preserve">
+    <value>Add/Remove Columns...</value>
+  </data>
+  <data name="Commands.CloseTab" xml:space="preserve">
+    <value>Close tab</value>
+  </data>
+  <data name="Commands.CommandPalette" xml:space="preserve">
+    <value>Command palette</value>
+  </data>
+  <data name="Commands.CopyDn" xml:space="preserve">
+    <value>Copy distinguished name</value>
+  </data>
+  <data name="Commands.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Commands.DeleteView" xml:space="preserve">
+    <value>Delete view</value>
+  </data>
+  <data name="Commands.Disable" xml:space="preserve">
+    <value>Disable Account</value>
+  </data>
+  <data name="Commands.Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="Commands.EditView" xml:space="preserve">
+    <value>Edit view...</value>
+  </data>
+  <data name="Commands.Enable" xml:space="preserve">
+    <value>Enable Account</value>
+  </data>
+  <data name="Commands.ExportList" xml:space="preserve">
+    <value>Export List...</value>
+  </data>
+  <data name="Commands.ExportViews" xml:space="preserve">
+    <value>Export views...</value>
+  </data>
+  <data name="Commands.Find" xml:space="preserve">
+    <value>Find...</value>
+  </data>
+  <data name="Commands.Forward" xml:space="preserve">
+    <value>Forward</value>
+  </data>
+  <data name="Commands.GoToAddress" xml:space="preserve">
+    <value>Go to address</value>
+  </data>
+  <data name="Commands.ImportViews" xml:space="preserve">
+    <value>Import views...</value>
+  </data>
+  <data name="Commands.Move" xml:space="preserve">
+    <value>Move...</value>
+  </data>
+  <data name="Commands.NewComputer" xml:space="preserve">
+    <value>New Computer</value>
+  </data>
+  <data name="Commands.NewContact" xml:space="preserve">
+    <value>New Contact</value>
+  </data>
+  <data name="Commands.NewGroup" xml:space="preserve">
+    <value>New Group</value>
+  </data>
+  <data name="Commands.NewOrganizationalUnit" xml:space="preserve">
+    <value>New Organizational Unit</value>
+  </data>
+  <data name="Commands.NewTab" xml:space="preserve">
+    <value>New tab</value>
+  </data>
+  <data name="Commands.NewUser" xml:space="preserve">
+    <value>New User</value>
+  </data>
+  <data name="Commands.OpenInNewTab" xml:space="preserve">
+    <value>Open in new tab</value>
+  </data>
+  <data name="Commands.PinContainer" xml:space="preserve">
+    <value>Pin to Views</value>
+  </data>
+  <data name="Commands.Properties" xml:space="preserve">
+    <value>Properties</value>
+  </data>
+  <data name="Commands.QuickSearch" xml:space="preserve">
+    <value>Search the directory</value>
+  </data>
+  <data name="Commands.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Commands.Rename" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="Commands.ResetPassword" xml:space="preserve">
+    <value>Reset Password...</value>
+  </data>
+  <data name="Commands.SaveAsView" xml:space="preserve">
+    <value>Save as view...</value>
+  </data>
+  <data name="Commands.SessionLog" xml:space="preserve">
+    <value>Session log</value>
+  </data>
+  <data name="Commands.Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Commands.ToggleAdvancedFeatures" xml:space="preserve">
+    <value>Advanced Features</value>
+  </data>
+  <data name="Commands.ToggleDetailsPane" xml:space="preserve">
+    <value>Details pane</value>
+  </data>
+  <data name="Commands.Unlock" xml:space="preserve">
+    <value>Unlock Account</value>
+  </data>
+  <data name="Commands.UnpinContainer" xml:space="preserve">
+    <value>Unpin</value>
+  </data>
+  <data name="Commands.Up" xml:space="preserve">
+    <value>Up one level</value>
+  </data>
+  <data name="Common.Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Common.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Common.Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Common.Browse" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="Common.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Common.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Common.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Common.Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Common.Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Common.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Common.Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Common.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Common.Filter" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Common.Finish" xml:space="preserve">
+    <value>Finish</value>
+  </data>
+  <data name="Common.Information" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="Common.Loading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="Common.MoveDown" xml:space="preserve">
+    <value>Move down</value>
+  </data>
+  <data name="Common.MoveUp" xml:space="preserve">
+    <value>Move up</value>
+  </data>
+  <data name="Common.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Common.Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Common.No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="Common.NotSet" xml:space="preserve">
+    <value>(not set)</value>
+  </data>
+  <data name="Common.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Common.ResetToDefault" xml:space="preserve">
+    <value>Reset to default</value>
+  </data>
+  <data name="Common.Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Common.Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Common.Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Common.Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Common.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Common.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Common.Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="Connect.Authentication" xml:space="preserve">
+    <value>Sign in as</value>
+  </data>
+  <data name="Connect.ConnectButton" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Connect.Connecting" xml:space="preserve">
+    <value>Connecting to {0}…</value>
+  </data>
+  <data name="Connect.CurrentUserFormat" xml:space="preserve">
+    <value>Current Windows user ({0})</value>
+  </data>
+  <data name="Connect.DeleteProfile" xml:space="preserve">
+    <value>Delete profile</value>
+  </data>
+  <data name="Connect.Domain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="Connect.DomainControllersFound" xml:space="preserve">
+    <value>Domain controllers found: {0}</value>
+  </data>
+  <data name="Connect.DomainRequired" xml:space="preserve">
+    <value>Enter the domain name (this computer is not joined to a domain).</value>
+  </data>
+  <data name="Connect.FindDomainControllers" xml:space="preserve">
+    <value>Find domain controllers</value>
+  </data>
+  <data name="Connect.FindingDomainControllers" xml:space="preserve">
+    <value>Looking for domain controllers of {0}…</value>
+  </data>
+  <data name="Connect.GlobalCatalog" xml:space="preserve">
+    <value>Global catalog</value>
+  </data>
+  <data name="Connect.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Connect.PasswordNeverStored" xml:space="preserve">
+    <value>The password is never stored.</value>
+  </data>
+  <data name="Connect.PasswordRequired" xml:space="preserve">
+    <value>Enter the password.</value>
+  </data>
+  <data name="Connect.Profile" xml:space="preserve">
+    <value>Connection profile</value>
+  </data>
+  <data name="Connect.ProfileName" xml:space="preserve">
+    <value>Profile name</value>
+  </data>
+  <data name="Connect.ProfileNameRequired" xml:space="preserve">
+    <value>Enter a profile name.</value>
+  </data>
+  <data name="Connect.ReadOnlyDc" xml:space="preserve">
+    <value>Read-only</value>
+  </data>
+  <data name="Connect.SaveProfile" xml:space="preserve">
+    <value>Save as profile</value>
+  </data>
+  <data name="Connect.Security" xml:space="preserve">
+    <value>Connection security</value>
+  </data>
+  <data name="Connect.Server" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Connect.ServerAutomatic" xml:space="preserve">
+    <value>Automatic (nearest domain controller)</value>
+  </data>
+  <data name="Connect.SimpleBindRequiresTls" xml:space="preserve">
+    <value>Simple bind sends the password in a form readable by the server – use LDAPS (TLS) or StartTLS.</value>
+  </data>
+  <data name="Connect.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="Connect.Subtitle" xml:space="preserve">
+    <value>Data is read live from the domain controller; nothing is stored on this computer.</value>
+  </data>
+  <data name="Connect.Title" xml:space="preserve">
+    <value>Connect to Active Directory</value>
+  </data>
+  <data name="Connect.UserName" xml:space="preserve">
+    <value>User name</value>
+  </data>
+  <data name="Connect.UserNameHint" xml:space="preserve">
+    <value>DOMAIN\user or user@domain</value>
+  </data>
+  <data name="Connect.UserNameRequired" xml:space="preserve">
+    <value>Enter the user name.</value>
+  </data>
+  <data name="Delete.ConfirmMany" xml:space="preserve">
+    <value>Are you sure you want to delete these {0} objects?</value>
+  </data>
+  <data name="Delete.ConfirmOne" xml:space="preserve">
+    <value>Are you sure you want to delete the {1} named '{0}'?</value>
+  </data>
+  <data name="Delete.SubtreeWarning" xml:space="preserve">
+    <value>The container holds other objects. Deleting it also deletes everything inside it.</value>
+  </data>
+  <data name="Delete.TypeToConfirm" xml:space="preserve">
+    <value>Type "{0}" to confirm.</value>
+  </data>
+  <data name="Details.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="Details.ManySelected" xml:space="preserve">
+    <value>{0} objects selected</value>
+  </data>
+  <data name="Details.MustChangePassword" xml:space="preserve">
+    <value>Must change at next logon</value>
+  </data>
+  <data name="Details.PasswordExpires" xml:space="preserve">
+    <value>Password expires</value>
+  </data>
+  <data name="Details.PasswordNeverExpires" xml:space="preserve">
+    <value>Never (password never expires)</value>
+  </data>
+  <data name="Details.Path" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Details.ProtectedObject" xml:space="preserve">
+    <value>Protected account (adminCount=1)</value>
+  </data>
+  <data name="Details.QuickActions" xml:space="preserve">
+    <value>Quick actions</value>
+  </data>
+  <data name="Details.State" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Details.StateDisabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="Details.StateEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="Details.StateLocked" xml:space="preserve">
+    <value>Locked out</value>
+  </data>
+  <data name="ErrorKind.AccessDenied" xml:space="preserve">
+    <value>Access is denied.</value>
+  </data>
+  <data name="ErrorKind.AccountRestriction" xml:space="preserve">
+    <value>The account cannot be used to sign in (account restriction).</value>
+  </data>
+  <data name="ErrorKind.AlreadyExists" xml:space="preserve">
+    <value>An object with this name already exists.</value>
+  </data>
+  <data name="ErrorKind.AttributeOrValueExists" xml:space="preserve">
+    <value>The value already exists.</value>
+  </data>
+  <data name="ErrorKind.Busy" xml:space="preserve">
+    <value>The domain controller is busy. Try again in a moment.</value>
+  </data>
+  <data name="ErrorKind.Cancelled" xml:space="preserve">
+    <value>The operation was cancelled.</value>
+  </data>
+  <data name="ErrorKind.ConstraintViolation" xml:space="preserve">
+    <value>The value violates a directory constraint.</value>
+  </data>
+  <data name="ErrorKind.InvalidCredentials" xml:space="preserve">
+    <value>The user name or password is incorrect.</value>
+  </data>
+  <data name="ErrorKind.InvalidSyntax" xml:space="preserve">
+    <value>The value has an invalid format for this attribute.</value>
+  </data>
+  <data name="ErrorKind.NoSuchAttribute" xml:space="preserve">
+    <value>The attribute does not exist on the object.</value>
+  </data>
+  <data name="ErrorKind.NoSuchObject" xml:space="preserve">
+    <value>The object does not exist (it may have been deleted or moved).</value>
+  </data>
+  <data name="ErrorKind.NotAllowedOnNonLeaf" xml:space="preserve">
+    <value>The object contains other objects.</value>
+  </data>
+  <data name="ErrorKind.ObjectClassViolation" xml:space="preserve">
+    <value>The change violates the definition of the object's class.</value>
+  </data>
+  <data name="ErrorKind.PasswordPolicy" xml:space="preserve">
+    <value>The password does not meet the password policy requirements (length, complexity, history).</value>
+  </data>
+  <data name="ErrorKind.Referral" xml:space="preserve">
+    <value>The object is in another domain (referral).</value>
+  </data>
+  <data name="ErrorKind.ServerUnavailable" xml:space="preserve">
+    <value>The domain controller is not available.</value>
+  </data>
+  <data name="ErrorKind.SizeLimitExceeded" xml:space="preserve">
+    <value>The result exceeds the size limit.</value>
+  </data>
+  <data name="ErrorKind.StrongAuthRequired" xml:space="preserve">
+    <value>The domain controller requires a signed or encrypted connection.</value>
+  </data>
+  <data name="ErrorKind.Timeout" xml:space="preserve">
+    <value>The operation timed out.</value>
+  </data>
+  <data name="ErrorKind.Unknown" xml:space="preserve">
+    <value>An unknown directory error occurred.</value>
+  </data>
+  <data name="ErrorKind.UnsupportedControl" xml:space="preserve">
+    <value>The domain controller does not support this operation.</value>
+  </data>
+  <data name="ErrorKind.UnwillingToPerform" xml:space="preserve">
+    <value>The server is unwilling to perform the operation.</value>
+  </data>
+  <data name="Errors.AccountDisabled" xml:space="preserve">
+    <value>The account is disabled.</value>
+  </data>
+  <data name="Errors.AccountExpired" xml:space="preserve">
+    <value>The account has expired.</value>
+  </data>
+  <data name="Errors.AccountLockedOut" xml:space="preserve">
+    <value>The account is locked out.</value>
+  </data>
+  <data name="Errors.Cancelled" xml:space="preserve">
+    <value>The operation was cancelled.</value>
+  </data>
+  <data name="Errors.File" xml:space="preserve">
+    <value>The file could not be accessed: {0}</value>
+  </data>
+  <data name="Errors.InvalidLogonHours" xml:space="preserve">
+    <value>The account is not allowed to sign in at this time.</value>
+  </data>
+  <data name="Errors.InvalidWorkstation" xml:space="preserve">
+    <value>The account is not allowed to sign in from this computer.</value>
+  </data>
+  <data name="Errors.MustChangePassword" xml:space="preserve">
+    <value>The password must be changed before signing in.</value>
+  </data>
+  <data name="Errors.NotConnected" xml:space="preserve">
+    <value>Not connected to a domain.</value>
+  </data>
+  <data name="Errors.PasswordExpired" xml:space="preserve">
+    <value>The password has expired.</value>
+  </data>
+  <data name="Errors.Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Errors.Unexpected" xml:space="preserve">
+    <value>Unexpected error: {0}</value>
+  </data>
+  <data name="Files.CsvFilter" xml:space="preserve">
+    <value>CSV files (*.csv)</value>
+  </data>
+  <data name="Files.Exported" xml:space="preserve">
+    <value>Exported rows: {0} to {1}.</value>
+  </data>
+  <data name="Files.JsonFilter" xml:space="preserve">
+    <value>JSON files (*.json)</value>
+  </data>
+  <data name="Format.False" xml:space="preserve">
+    <value>False</value>
+  </data>
+  <data name="Format.Never" xml:space="preserve">
+    <value>(never)</value>
+  </data>
+  <data name="Format.True" xml:space="preserve">
+    <value>True</value>
+  </data>
+  <data name="GroupScope.BuiltinLocal" xml:space="preserve">
+    <value>Builtin local</value>
+  </data>
+  <data name="GroupScope.DomainLocal" xml:space="preserve">
+    <value>Domain local</value>
+  </data>
+  <data name="GroupScope.Global" xml:space="preserve">
+    <value>Global</value>
+  </data>
+  <data name="GroupScope.Universal" xml:space="preserve">
+    <value>Universal</value>
+  </data>
+  <data name="GroupScope.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="GroupType.Distribution.BuiltinLocal" xml:space="preserve">
+    <value>Distribution Group - Builtin Local</value>
+  </data>
+  <data name="GroupType.Distribution.DomainLocal" xml:space="preserve">
+    <value>Distribution Group - Domain Local</value>
+  </data>
+  <data name="GroupType.Distribution.Global" xml:space="preserve">
+    <value>Distribution Group - Global</value>
+  </data>
+  <data name="GroupType.Distribution.Universal" xml:space="preserve">
+    <value>Distribution Group - Universal</value>
+  </data>
+  <data name="GroupType.Security.BuiltinLocal" xml:space="preserve">
+    <value>Security Group - Builtin Local</value>
+  </data>
+  <data name="GroupType.Security.DomainLocal" xml:space="preserve">
+    <value>Security Group - Domain Local</value>
+  </data>
+  <data name="GroupType.Security.Global" xml:space="preserve">
+    <value>Security Group - Global</value>
+  </data>
+  <data name="GroupType.Security.Universal" xml:space="preserve">
+    <value>Security Group - Universal</value>
+  </data>
+  <data name="Hints.AccountRestriction" xml:space="preserve">
+    <value>Ask an administrator to check the account (unlock, enable, logon hours, allowed computers).</value>
+  </data>
+  <data name="Hints.ChangePassword" xml:space="preserve">
+    <value>Change the password (Ctrl+Alt+Del) and try again.</value>
+  </data>
+  <data name="Hints.InvalidCredentials" xml:space="preserve">
+    <value>Check the user name (DOMAIN\user or user@domain), the password and Caps Lock.</value>
+  </data>
+  <data name="Hints.ServerUnavailable" xml:space="preserve">
+    <value>Check the domain controller name, network connection and firewall (TCP 389, 636 for LDAPS, 88 for Kerberos). For LDAPS the DC certificate must be trusted.</value>
+  </data>
+  <data name="Hints.StrongAuthRequired" xml:space="preserve">
+    <value>The domain controller requires LDAP signing. Use "Sign and seal (Kerberos)" or LDAPS (TLS).</value>
+  </data>
+  <data name="Hints.UnwillingToPerform" xml:space="preserve">
+    <value>The server refused the operation – password operations require an encrypted connection.</value>
+  </data>
+  <data name="Issue.AdminSdHolder" xml:space="preserve">
+    <value>Privileged account protected by AdminSDHolder (adminCount=1) – permission changes may be reverted.</value>
+  </data>
+  <data name="Issue.Ambiguous" xml:space="preserve">
+    <value>More than one object matches.</value>
+  </data>
+  <data name="Issue.BinaryNotSupported" xml:space="preserve">
+    <value>The binary attribute '{0}' cannot be edited here.</value>
+  </data>
+  <data name="Issue.CannotCreateChild" xml:space="preserve">
+    <value>You cannot create this type of object in this container.</value>
+  </data>
+  <data name="Issue.Conflict" xml:space="preserve">
+    <value>'{0}' was changed by someone else after the preview.</value>
+  </data>
+  <data name="Issue.CriticalSystemObject" xml:space="preserve">
+    <value>Critical system object.</value>
+  </data>
+  <data name="Issue.Duplicate" xml:space="preserve">
+    <value>The value of '{0}' is already used by another object.</value>
+  </data>
+  <data name="Issue.DuplicateInBatch" xml:space="preserve">
+    <value>The value of '{0}' repeats within this batch.</value>
+  </data>
+  <data name="Issue.InvalidCombination" xml:space="preserve">
+    <value>These operations cannot be combined.</value>
+  </data>
+  <data name="Issue.InvalidValue" xml:space="preserve">
+    <value>The value of '{0}' is not valid.</value>
+  </data>
+  <data name="Issue.MandatoryAttribute" xml:space="preserve">
+    <value>'{0}' is required.</value>
+  </data>
+  <data name="Issue.NoChange" xml:space="preserve">
+    <value>No change – the value is already set.</value>
+  </data>
+  <data name="Issue.NotApplicable" xml:space="preserve">
+    <value>The operation does not apply to this object.</value>
+  </data>
+  <data name="Issue.NotFound" xml:space="preserve">
+    <value>Object not found.</value>
+  </data>
+  <data name="Issue.NotReversible" xml:space="preserve">
+    <value>This change cannot be undone.</value>
+  </data>
+  <data name="Issue.NotWritable" xml:space="preserve">
+    <value>You do not have permission to change '{0}'.</value>
+  </data>
+  <data name="Issue.PasswordNeverExpiresConflict" xml:space="preserve">
+    <value>"Password never expires" overrides "User must change password at next logon".</value>
+  </data>
+  <data name="Issue.ProtectedObject" xml:space="preserve">
+    <value>The object is protected from accidental deletion or change.</value>
+  </data>
+  <data name="Issue.ReadOnlyAttribute" xml:space="preserve">
+    <value>'{0}' is read-only.</value>
+  </data>
+  <data name="Issue.SingleValued" xml:space="preserve">
+    <value>'{0}' accepts only one value.</value>
+  </data>
+  <data name="Issue.TargetIsSameContainer" xml:space="preserve">
+    <value>The object is already in this container.</value>
+  </data>
+  <data name="Issue.TemplateError" xml:space="preserve">
+    <value>The template for '{0}' is not valid.</value>
+  </data>
+  <data name="Issue.TooLong" xml:space="preserve">
+    <value>The value of '{0}' is too long.</value>
+  </data>
+  <data name="Issue.TooShort" xml:space="preserve">
+    <value>The value of '{0}' is too short.</value>
+  </data>
+  <data name="Issue.UnknownAttribute" xml:space="preserve">
+    <value>'{0}' is not a valid attribute for this object.</value>
+  </data>
+  <data name="List.Empty" xml:space="preserve">
+    <value>There are no items to show in this view.</value>
+  </data>
+  <data name="List.FilteringLoaded" xml:space="preserve">
+    <value>Filtering {0} loaded objects…</value>
+  </data>
+  <data name="List.FilterMatches" xml:space="preserve">
+    <value>{0} of {1} objects match</value>
+  </data>
+  <data name="List.Loading" xml:space="preserve">
+    <value>Loading… {0} objects</value>
+  </data>
+  <data name="List.LoadSummary" xml:space="preserve">
+    <value>{0} objects · {1} s · as of {2}</value>
+  </data>
+  <data name="List.LocationDeleted" xml:space="preserve">
+    <value>This container no longer exists.</value>
+  </data>
+  <data name="List.Partial" xml:space="preserve">
+    <value>Stopped – {0} objects loaded (incomplete list)</value>
+  </data>
+  <data name="List.QuickFilterPlaceholder" xml:space="preserve">
+    <value>Filter this list</value>
+  </data>
+  <data name="List.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="List.ServerFilters" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="Move.ConfirmDrop" xml:space="preserve">
+    <value>Move {0} object(s) to {1}?</value>
+  </data>
+  <data name="Move.InvalidTarget" xml:space="preserve">
+    <value>Objects cannot be moved into themselves, into their own sub-containers or into the container they are already in.</value>
+  </data>
+  <data name="ObjectKind.BitLockerRecovery" xml:space="preserve">
+    <value>BitLocker Recovery Information</value>
+  </data>
+  <data name="ObjectKind.BuiltinDomain" xml:space="preserve">
+    <value>builtinDomain</value>
+  </data>
+  <data name="ObjectKind.Computer" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="ObjectKind.Contact" xml:space="preserve">
+    <value>Contact</value>
+  </data>
+  <data name="ObjectKind.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="ObjectKind.Domain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="ObjectKind.ForeignSecurityPrincipal" xml:space="preserve">
+    <value>Foreign Security Principal</value>
+  </data>
+  <data name="ObjectKind.Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="ObjectKind.GroupManagedServiceAccount" xml:space="preserve">
+    <value>Group Managed Service Account</value>
+  </data>
+  <data name="ObjectKind.InetOrgPerson" xml:space="preserve">
+    <value>InetOrgPerson</value>
+  </data>
+  <data name="ObjectKind.LostAndFound" xml:space="preserve">
+    <value>lostAndFound</value>
+  </data>
+  <data name="ObjectKind.ManagedServiceAccount" xml:space="preserve">
+    <value>Managed Service Account</value>
+  </data>
+  <data name="ObjectKind.OrganizationalUnit" xml:space="preserve">
+    <value>Organizational Unit</value>
+  </data>
+  <data name="ObjectKind.PrintQueue" xml:space="preserve">
+    <value>Printer</value>
+  </data>
+  <data name="ObjectKind.SharedFolder" xml:space="preserve">
+    <value>Shared Folder</value>
+  </data>
+  <data name="ObjectKind.Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="ObjectKind.User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="Pages.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Pages.Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Pages.AttributeEditor" xml:space="preserve">
+    <value>Attribute Editor</value>
+  </data>
+  <data name="Pages.Delegation" xml:space="preserve">
+    <value>Delegation</value>
+  </data>
+  <data name="Pages.EmailAddresses" xml:space="preserve">
+    <value>E-mail Addresses</value>
+  </data>
+  <data name="Pages.General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Pages.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Pages.ManagedBy" xml:space="preserve">
+    <value>Managed By</value>
+  </data>
+  <data name="Pages.MemberOf" xml:space="preserve">
+    <value>Member Of</value>
+  </data>
+  <data name="Pages.Members" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Pages.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="Pages.OperatingSystem" xml:space="preserve">
+    <value>Operating System</value>
+  </data>
+  <data name="Pages.Organization" xml:space="preserve">
+    <value>Organization</value>
+  </data>
+  <data name="Pages.Profile" xml:space="preserve">
+    <value>Profile</value>
+  </data>
+  <data name="Pages.Telephones" xml:space="preserve">
+    <value>Telephones</value>
+  </data>
+  <data name="Rename.TooLong" xml:space="preserve">
+    <value>The name can have at most {0} characters.</value>
+  </data>
+  <data name="Scope.Base" xml:space="preserve">
+    <value>This object only</value>
+  </data>
+  <data name="Scope.OneLevel" xml:space="preserve">
+    <value>This container only (one level)</value>
+  </data>
+  <data name="Scope.Subtree" xml:space="preserve">
+    <value>This container and all sub-containers</value>
+  </data>
+  <data name="Search.TabTitle" xml:space="preserve">
+    <value>Search: {0}</value>
+  </data>
+  <data name="Security.None" xml:space="preserve">
+    <value>Unprotected (test lab only)</value>
+  </data>
+  <data name="Security.SignAndSeal" xml:space="preserve">
+    <value>Sign and seal (Kerberos, port 389)</value>
+  </data>
+  <data name="Security.StartTls" xml:space="preserve">
+    <value>StartTLS (port 389)</value>
+  </data>
+  <data name="Security.Tls" xml:space="preserve">
+    <value>LDAPS (TLS, port 636)</value>
+  </data>
+  <data name="Settings.BatchParallelism" xml:space="preserve">
+    <value>Parallel batch operations</value>
+  </data>
+  <data name="Settings.ConfirmationThreshold" xml:space="preserve">
+    <value>Ask for confirmation above (objects)</value>
+  </data>
+  <data name="Settings.InactiveDays" xml:space="preserve">
+    <value>Inactive after (days)</value>
+  </data>
+  <data name="Settings.Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings.LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings.LanguagePolish" xml:space="preserve">
+    <value>Polski</value>
+  </data>
+  <data name="Settings.LanguageSystem" xml:space="preserve">
+    <value>System default</value>
+  </data>
+  <data name="Settings.LiveUpdates" xml:space="preserve">
+    <value>Refresh lists automatically when objects change</value>
+  </data>
+  <data name="Settings.PageSize" xml:space="preserve">
+    <value>LDAP page size</value>
+  </data>
+  <data name="Settings.Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="Settings.Title" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Severity.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Severity.Info" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="Severity.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Shell.AddressNotFound" xml:space="preserve">
+    <value>The address was not found in the directory.</value>
+  </data>
+  <data name="Shell.AddressPlaceholder" xml:space="preserve">
+    <value>Path or distinguished name (e.g. contoso.com/Company/IT)</value>
+  </data>
+  <data name="Shell.BoundAs" xml:space="preserve">
+    <value>Signed in as: {0}</value>
+  </data>
+  <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
+    <value>Type a command…</value>
+  </data>
+  <data name="Shell.ConnectedTo" xml:space="preserve">
+    <value>Domain controller: {0}</value>
+  </data>
+  <data name="Shell.CopiedDn" xml:space="preserve">
+    <value>Copied distinguished names to the clipboard: {0}.</value>
+  </data>
+  <data name="Shell.DetailsPane" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
+    <value>Background operations are still running. Disconnect anyway? Running operations will be interrupted.</value>
+  </data>
+  <data name="Shell.MenuAction" xml:space="preserve">
+    <value>Action</value>
+  </data>
+  <data name="Shell.MenuFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="Shell.MenuHelp" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="Shell.MenuNew" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="Shell.MenuTools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="Shell.MenuView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="Shell.NoResults" xml:space="preserve">
+    <value>No matching objects</value>
+  </data>
+  <data name="Shell.NoSelection" xml:space="preserve">
+    <value>Select an object to see its details.</value>
+  </data>
+  <data name="Shell.PrivilegedIdentity" xml:space="preserve">
+    <value>Privileged account – changes affect the whole domain</value>
+  </data>
+  <data name="Shell.Recent" xml:space="preserve">
+    <value>Recent</value>
+  </data>
+  <data name="Shell.SearchPlaceholder" xml:space="preserve">
+    <value>Search users, computers, groups… (Ctrl+E)</value>
+  </data>
+  <data name="Shell.ShowAllResults" xml:space="preserve">
+    <value>Show all results</value>
+  </data>
+  <data name="Shell.WindowTitleConnected" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="Theme.Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="Theme.Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="Theme.System" xml:space="preserve">
+    <value>Use system setting</value>
+  </data>
+  <data name="Tree.LoadFailed" xml:space="preserve">
+    <value>Could not load: {0}</value>
+  </data>
+  <data name="Tree.QuickFilters" xml:space="preserve">
+    <value>Quick filters</value>
+  </data>
+  <data name="Tree.Views" xml:space="preserve">
+    <value>Views</value>
+  </data>
+  <data name="Uac.AccountDisable" xml:space="preserve">
+    <value>Account is disabled</value>
+  </data>
+  <data name="Uac.DontExpirePassword" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="Uac.DontRequirePreauth" xml:space="preserve">
+    <value>Do not require Kerberos preauthentication</value>
+  </data>
+  <data name="Uac.EncryptedTextPasswordAllowed" xml:space="preserve">
+    <value>Store password using reversible encryption</value>
+  </data>
+  <data name="Uac.HomeDirRequired" xml:space="preserve">
+    <value>Home folder required</value>
+  </data>
+  <data name="Uac.InterdomainTrustAccount" xml:space="preserve">
+    <value>Interdomain trust account</value>
+  </data>
+  <data name="Uac.Lockout" xml:space="preserve">
+    <value>Account is locked out</value>
+  </data>
+  <data name="Uac.MnsLogonAccount" xml:space="preserve">
+    <value>MNS logon account</value>
+  </data>
+  <data name="Uac.NormalAccount" xml:space="preserve">
+    <value>Normal account</value>
+  </data>
+  <data name="Uac.NotDelegated" xml:space="preserve">
+    <value>Account is sensitive and cannot be delegated</value>
+  </data>
+  <data name="Uac.PartialSecretsAccount" xml:space="preserve">
+    <value>Read-only domain controller account</value>
+  </data>
+  <data name="Uac.PasswordCantChange" xml:space="preserve">
+    <value>User cannot change password</value>
+  </data>
+  <data name="Uac.PasswordExpired" xml:space="preserve">
+    <value>Password has expired</value>
+  </data>
+  <data name="Uac.PasswordNotRequired" xml:space="preserve">
+    <value>Password not required</value>
+  </data>
+  <data name="Uac.Script" xml:space="preserve">
+    <value>Logon script executed</value>
+  </data>
+  <data name="Uac.ServerTrustAccount" xml:space="preserve">
+    <value>Domain controller account</value>
+  </data>
+  <data name="Uac.SmartcardRequired" xml:space="preserve">
+    <value>Smart card is required for interactive logon</value>
+  </data>
+  <data name="Uac.TempDuplicateAccount" xml:space="preserve">
+    <value>Temporary duplicate account</value>
+  </data>
+  <data name="Uac.TrustedForDelegation" xml:space="preserve">
+    <value>Trusted for delegation (unconstrained)</value>
+  </data>
+  <data name="Uac.TrustedToAuthForDelegation" xml:space="preserve">
+    <value>Trusted to authenticate for delegation</value>
+  </data>
+  <data name="Uac.UseDesKeyOnly" xml:space="preserve">
+    <value>Use only Kerberos DES encryption types for this account</value>
+  </data>
+  <data name="Uac.WorkstationTrustAccount" xml:space="preserve">
+    <value>Workstation or server account</value>
+  </data>
+  <data name="Views.BaseDn" xml:space="preserve">
+    <value>Search in</value>
+  </data>
+  <data name="Views.DeleteConfirm" xml:space="preserve">
+    <value>Delete the view '{0}'?</value>
+  </data>
+  <data name="Views.DeleteTitle" xml:space="preserve">
+    <value>Delete view</value>
+  </data>
+  <data name="Views.EditViewTitle" xml:space="preserve">
+    <value>Edit view</value>
+  </data>
+  <data name="Views.Exported" xml:space="preserve">
+    <value>Exported views: {0} to {1}.</value>
+  </data>
+  <data name="Views.ExportTitle" xml:space="preserve">
+    <value>Export views</value>
+  </data>
+  <data name="Views.Filter" xml:space="preserve">
+    <value>LDAP filter</value>
+  </data>
+  <data name="Views.FilterHint" xml:space="preserve">
+    <value>e.g. (&amp;(objectCategory=person)(department=IT))</value>
+  </data>
+  <data name="Views.Imported" xml:space="preserve">
+    <value>Imported views: {0}, skipped invalid: {1}.</value>
+  </data>
+  <data name="Views.ImportTitle" xml:space="preserve">
+    <value>Import views</value>
+  </data>
+  <data name="Views.InvalidFile" xml:space="preserve">
+    <value>The file is not a valid views file.</value>
+  </data>
+  <data name="Views.InvalidFilter" xml:space="preserve">
+    <value>The LDAP filter is not valid (check parentheses and escape sequences).</value>
+  </data>
+  <data name="Views.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Views.NewViewTitle" xml:space="preserve">
+    <value>New view</value>
+  </data>
+  <data name="Views.Pinned" xml:space="preserve">
+    <value>'{0}' pinned to Views.</value>
+  </data>
+  <data name="Views.Saved" xml:space="preserve">
+    <value>View '{0}' saved.</value>
+  </data>
+  <data name="Views.Scope" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="Views.Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Views.Testing" xml:space="preserve">
+    <value>Counting matching objects…</value>
+  </data>
+  <data name="Views.TestResult" xml:space="preserve">
+    <value>Matching objects: {0} ({1} s)</value>
+  </data>
+</root>
