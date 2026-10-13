@@ -28,7 +28,10 @@ commit messages and these notes are in English.
 | `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
-| `tests/*` | | xUnit v3 tests; `AdMng.Directory.IntegrationTests` need the lab DC |
+| `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
+| `tests/AdMng.Core.Tests`, `tests/AdMng.Presentation.Tests` | net10.0 | Unit tests (view models run against the real Core engines + fake directory) |
+| `tests/AdMng.Directory.IntegrationTests` | net10.0 | Unit tests + integration tests against the lab DC (skipped without `ADMNG_TEST_LDAP_*`) |
+| `tests/AdMng.App.UiTests` | net10.0-windows | WPF UI tests (STA, off-screen windows, binding-error listener); run on Windows only |
 
 ## Commands
 
@@ -41,8 +44,10 @@ export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@cont
 dotnet test tests/AdMng.Directory.IntegrationTests
 ```
 
-The WPF app cannot run on Linux; it is compiled here and smoke-tested on Windows CI
-(`AdMng.exe --smoke-test`).
+The WPF app cannot run on Linux; it is compiled here and tested on Windows CI
+(`AdMng.App.UiTests` with `ADMNG_UI_TESTS=1`, then the published `AdMng.exe --smoke-test`).
+New windows: register with `services.AddWindow<TViewModel, TWindow>()` in `AppHost`, open them from
+`Services/DialogService.cs`, and add them to `SmokeTest` and a UI test.
 
 ## Conventions
 
