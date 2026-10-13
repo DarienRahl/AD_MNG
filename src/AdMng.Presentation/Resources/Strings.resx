@@ -980,6 +980,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Issue.NotApplicable" xml:space="preserve">
     <value>The operation does not apply to this object.</value>
   </data>
+  <data name="Issue.HasChildren" xml:space="preserve">
+    <value>The object contains child objects; delete it together with its subtree.</value>
+  </data>
   <data name="Issue.NotFound" xml:space="preserve">
     <value>Object not found.</value>
   </data>

@@ -980,6 +980,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Issue.NotApplicable" xml:space="preserve">
     <value>Operacja nie dotyczy tego obiektu.</value>
   </data>
+  <data name="Issue.HasChildren" xml:space="preserve">
+    <value>Obiekt zawiera obiekty podrzędne; usuń go razem z całym poddrzewem.</value>
+  </data>
   <data name="Issue.NotFound" xml:space="preserve">
     <value>Nie znaleziono obiektu.</value>
   </data>
