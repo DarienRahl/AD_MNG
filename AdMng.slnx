@@ -9,5 +9,6 @@
     <Project Path="tests/AdMng.Core.Tests/AdMng.Core.Tests.csproj" />
     <Project Path="tests/AdMng.Directory.IntegrationTests/AdMng.Directory.IntegrationTests.csproj" />
     <Project Path="tests/AdMng.Presentation.Tests/AdMng.Presentation.Tests.csproj" />
+    <Project Path="tests/AdMng.Testing/AdMng.Testing.csproj" />
   </Folder>
 </Solution>

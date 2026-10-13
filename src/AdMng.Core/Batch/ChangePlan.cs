@@ -116,6 +116,9 @@ public static class IssueCodes
     public const string PasswordNeverExpiresConflict = "PasswordNeverExpiresConflict";
     public const string TargetIsSameContainer = "TargetIsSameContainer";
     public const string CannotCreateChild = "CannotCreateChild";
+
+    /// <summary>The object has child objects and the delete does not include the subtree.</summary>
+    public const string HasChildren = "HasChildren";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>
