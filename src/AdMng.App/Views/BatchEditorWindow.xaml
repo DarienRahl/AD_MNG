@@ -1,0 +1,1417 @@
+<!--
+  Batch editor and CSV import (BatchEditorViewModel): Edit (operations or file + column mapping) → Preview (diff with
+  include check boxes) → Executing (progress of the background activity) → Results (export, retry, undo).
+  Operation editors are implicit DataTemplates keyed by the editor view model type.
+-->
+<Window x:Class="AdMng.App.Views.BatchEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:conv="clr-namespace:AdMng.App.Converters"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+        xmlns:corebatch="clr-namespace:AdMng.Core.Batch;assembly=AdMng.Core"
+        xmlns:dialogs="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1180"
+        Height="760"
+        MinWidth="860"
+        MinHeight="540"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <!-- The editor view model for places that have another DataContext (operation cards, CSV mapping rows). -->
+    <c:BindingProxy x:Key="EditorProxy" Data="{Binding}" />
+
+    <!-- Compact density (Fluent reads these keys as dynamic resources). -->
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <conv:RowSeverityToGlyphConverter x:Key="RowSeverityGlyph" />
+    <conv:ResultStatusToGlyphConverter x:Key="ResultStatusGlyph" />
+    <conv:NotEmptyToBooleanConverter x:Key="NotEmpty" />
+    <conv:OperationHintConverter x:Key="OperationHint" />
+
+    <!-- Text -->
+    <Style x:Key="EditorLabel" TargetType="TextBlock" BasedOn="{StaticResource Ad.FieldLabel}">
+      <Setter Property="Margin" Value="0,8,0,3" />
+    </Style>
+
+    <Style x:Key="WrappedSecondaryText" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="TextTrimming" Value="None" />
+    </Style>
+
+    <Style x:Key="ErrorText" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,6,0,0" />
+      <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="AutomationProperties.LiveSetting" Value="Assertive" />
+    </Style>
+
+    <!-- Inputs -->
+    <Style x:Key="TemplateBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas" />
+    </Style>
+
+    <Style x:Key="ValuesBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="AcceptsReturn" Value="True" />
+      <Setter Property="MinHeight" Value="64" />
+      <Setter Property="MaxHeight" Value="160" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="VerticalContentAlignment" Value="Top" />
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+      <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    </Style>
+
+    <!--
+      Attribute picker: free text, the drop-down offers "Display Name [ldapName]" suggestions. No text search: typed
+      text must never be completed to another attribute ("l" (city) would become the first text starting with "l",
+      "mail" would become "mailNickname"), and Tab would accept the completion.
+    -->
+    <Style x:Key="AttributeComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+      <Setter Property="IsEditable" Value="True" />
+      <Setter Property="IsTextSearchEnabled" Value="False" />
+      <Setter Property="DisplayMemberPath" Value="Text" />
+      <Setter Property="TextSearch.TextPath" Value="Text" />
+      <Setter Property="MaxDropDownHeight" Value="320" />
+      <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+      <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+      <Setter Property="ItemsPanel">
+        <Setter.Value>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="CardIconButton" TargetType="Button" BasedOn="{StaticResource Ad.IconButton}">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="2,0,0,0" />
+    </Style>
+
+    <!-- Wizard steps: the current step is highlighted (Tag = IsXxxStep). -->
+    <Style x:Key="StepStyle" TargetType="Border">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+          <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+          <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="StepNumber" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="StepChevron" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+      <Setter Property="Margin" Value="4,0" />
+      <Setter Property="FontSize" Value="10" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+      <Setter Property="Text" Value="{x:Static c:Glyphs.ChevronRight}" />
+    </Style>
+
+    <!-- Grid rows -->
+    <Style x:Key="PreviewRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="30" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <Style.Triggers>
+        <!-- Excluded objects and objects that will not be executed are dimmed. -->
+        <DataTrigger Binding="{Binding IsIncluded, Mode=OneWay}" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ResultRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+    </Style>
+
+    <Style x:Key="MappingRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,2" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Column, Mode=OneWay}" />
+    </Style>
+
+    <Style x:Key="CsvRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+    </Style>
+
+    <!-- A referenced object (targets, groups): icon, name, folder. -->
+    <DataTemplate x:Key="DirectoryItemTemplate" DataType="{x:Type dialogs:DirectoryItem}">
+      <DockPanel Margin="0,2" ToolTip="{Binding Dn, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,8,0"
+                          VerticalAlignment="Center"
+                          DockPanel.Dock="Left"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <StackPanel>
+          <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+          <TextBlock FontSize="11"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding Path, Mode=OneWay}" />
+        </StackPanel>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- ===== Operation editors ===== -->
+
+    <DataTemplate x:Key="AttributePickerTemplate" DataType="{x:Type batch:AttributeOperationEditorViewModel}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr Labels.Attribute}" />
+        <ComboBox AutomationProperties.Name="{l:Tr Labels.Attribute}"
+                  ItemsSource="{Binding AttributeOptions, Mode=OneWay}"
+                  Style="{StaticResource AttributeComboBox}"
+                  Text="{Binding Attribute, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:SetAttributeEditorViewModel}">
+      <StackPanel>
+        <ContentControl Content="{Binding}"
+                        ContentTemplate="{StaticResource AttributePickerTemplate}"
+                        Focusable="False" />
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.ValueTemplate}" />
+        <Grid>
+          <TextBox x:Name="TemplateInput"
+                   AutomationProperties.Name="{l:Tr BatchUi.ValueTemplate}"
+                   Style="{StaticResource TemplateBox}"
+                   Text="{Binding ValueTemplate, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Ad.HintText}" Visibility="{Binding Text, ElementName=TemplateInput, Converter={StaticResource Ad.EmptyToVisible}}">
+            <TextBlock.Text>
+              <MultiBinding Converter="{StaticResource Ad.Format}">
+                <l:TrBinding Key="BatchUi.TemplateHint" />
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+        </Grid>
+        <TextBlock Margin="0,4,0,0"
+                   Style="{StaticResource WrappedSecondaryText}"
+                   Visibility="{Binding Sample, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <Run Text="{l:Tr Batch.Sample}" /><Run Text=": " /><Run FontWeight="SemiBold" Text="{Binding Sample, Mode=OneWay}" />
+        </TextBlock>
+        <CheckBox Margin="0,8,0,0"
+                  Content="{l:Tr BatchUi.EmptyClears}"
+                  IsChecked="{Binding EmptyClears}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:SetValuesEditorViewModel}">
+      <StackPanel>
+        <ContentControl Content="{Binding}"
+                        ContentTemplate="{StaticResource AttributePickerTemplate}"
+                        Focusable="False" />
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.ValuesOnePerLine}" />
+        <TextBox AutomationProperties.Name="{l:Tr BatchUi.ValuesOnePerLine}"
+                 Style="{StaticResource ValuesBox}"
+                 Text="{Binding ValuesText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Margin="0,4,0,0"
+                   Style="{StaticResource WrappedSecondaryText}"
+                   Text="{l:Tr BatchUi.SetValuesHint}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:ClearAttributeEditorViewModel}">
+      <ContentControl Content="{Binding}"
+                      ContentTemplate="{StaticResource AttributePickerTemplate}"
+                      Focusable="False" />
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:AddValuesEditorViewModel}">
+      <StackPanel>
+        <ContentControl Content="{Binding}"
+                        ContentTemplate="{StaticResource AttributePickerTemplate}"
+                        Focusable="False" />
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.TemplatesOnePerLine}" />
+        <TextBox AutomationProperties.Name="{l:Tr BatchUi.TemplatesOnePerLine}"
+                 FontFamily="Cascadia Mono, Consolas"
+                 Style="{StaticResource ValuesBox}"
+                 Text="{Binding ValuesText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Margin="0,4,0,0"
+                   Style="{StaticResource WrappedSecondaryText}"
+                   Visibility="{Binding Sample, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <Run Text="{l:Tr Batch.Sample}" /><Run Text=": " /><Run FontWeight="SemiBold" Text="{Binding Sample, Mode=OneWay}" />
+        </TextBlock>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:RemoveValuesEditorViewModel}">
+      <StackPanel>
+        <ContentControl Content="{Binding}"
+                        ContentTemplate="{StaticResource AttributePickerTemplate}"
+                        Focusable="False" />
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.ValuesOnePerLine}" />
+        <TextBox AutomationProperties.Name="{l:Tr BatchUi.ValuesOnePerLine}"
+                 Style="{StaticResource ValuesBox}"
+                 Text="{Binding ValuesText, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:FindReplaceEditorViewModel}">
+      <StackPanel>
+        <ContentControl Content="{Binding}"
+                        ContentTemplate="{StaticResource AttributePickerTemplate}"
+                        Focusable="False" />
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.Find}" />
+            <TextBox AutomationProperties.Name="{l:Tr BatchUi.Find}"
+                     Style="{StaticResource TemplateBox}"
+                     Text="{Binding Find, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.ReplaceWith}" />
+            <TextBox AutomationProperties.Name="{l:Tr BatchUi.ReplaceWith}"
+                     Style="{StaticResource TemplateBox}"
+                     Text="{Binding Replace, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+        </Grid>
+        <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+          <CheckBox Content="{l:Tr BatchUi.UseRegex}" IsChecked="{Binding UseRegex}" />
+          <CheckBox Margin="16,0,0,0"
+                    Content="{l:Tr BatchUi.MatchCase}"
+                    IsChecked="{Binding MatchCase}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:EnableDisableEditorViewModel}">
+      <StackPanel Margin="0,6,0,0" Orientation="Horizontal">
+        <RadioButton Content="{l:Tr Commands.Enable}" IsChecked="{Binding Enable}" />
+        <RadioButton Margin="16,0,0,0"
+                     Content="{l:Tr Commands.Disable}"
+                     IsChecked="{Binding Disable}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:AccountFlagEditorViewModel}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.Option}" />
+        <ComboBox AutomationProperties.Name="{l:Tr BatchUi.Option}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding Flags, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedFlag}" />
+        <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+          <RadioButton Content="{l:Tr BatchUi.FlagOn}" IsChecked="{Binding Set}" />
+          <RadioButton Margin="16,0,0,0"
+                       Content="{l:Tr BatchUi.FlagOff}"
+                       IsChecked="{Binding Clear}" />
+        </StackPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:UnlockEditorViewModel}">
+      <Border />
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:RequirePasswordChangeEditorViewModel}">
+      <CheckBox Margin="0,6,0,0"
+                Content="{l:Tr Labels.MustChangePassword}"
+                IsChecked="{Binding Required}" />
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:AccountExpirationEditorViewModel}">
+      <!-- Both radio buttons share one parent, so they form one group. -->
+      <Grid Margin="0,6,0,0">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <RadioButton Content="{l:Tr Fields.Never}" IsChecked="{Binding IsNever}" />
+        <RadioButton Grid.Row="1"
+                     Margin="0,6,0,0"
+                     VerticalAlignment="Center"
+                     Content="{l:Tr Fields.EndOf}"
+                     IsChecked="{Binding IsNever, Converter={StaticResource Ad.InverseBool}}" />
+        <DatePicker Grid.Row="1"
+                    Grid.Column="1"
+                    Width="180"
+                    Margin="8,6,0,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="{l:Tr Labels.AccountExpires}"
+                    IsEnabled="{Binding IsNever, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
+                    SelectedDate="{Binding EndOfDate}" />
+      </Grid>
+    </DataTemplate>
+
+    <!-- Password boxes are handed to the view model as IPasswordInput (code-behind); the password is never bound. -->
+    <DataTemplate DataType="{x:Type batch:ResetPasswordEditorViewModel}">
+      <StackPanel Margin="0,6,0,0">
+        <RadioButton Content="{l:Tr ResetPassword.Generate}" IsChecked="{Binding Generate}" />
+        <StackPanel Margin="28,6,0,0"
+                    Orientation="Horizontal"
+                    Visibility="{Binding Generate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <TextBlock VerticalAlignment="Center" Text="{l:Tr BatchUi.PasswordLength}" />
+          <TextBox Width="72"
+                   Margin="8,0,0,0"
+                   AutomationProperties.Name="{l:Tr BatchUi.PasswordLength}"
+                   Text="{Binding GeneratedLength, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Margin="8,0,0,0" Style="{StaticResource Ad.SecondaryText}">
+            <Run Text="{Binding MinimumLength, Mode=OneWay}" /><Run Text="–" /><Run Text="{Binding MaximumLength, Mode=OneWay}" />
+          </TextBlock>
+        </StackPanel>
+        <RadioButton Margin="0,8,0,0"
+                     Content="{l:Tr BatchUi.UseThisPassword}"
+                     IsChecked="{Binding UseFixedPassword}" />
+        <Grid Margin="28,4,0,0" Visibility="{Binding UseFixedPassword, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr ResetPassword.NewPassword}" />
+            <PasswordBox AutomationProperties.Name="{l:Tr ResetPassword.NewPassword}"
+                         Loaded="OnPasswordBoxLoaded"
+                         PasswordChanged="OnPasswordChanged" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr ResetPassword.ConfirmPassword}" />
+            <PasswordBox AutomationProperties.Name="{l:Tr ResetPassword.ConfirmPassword}"
+                         Loaded="OnConfirmPasswordBoxLoaded"
+                         PasswordChanged="OnPasswordChanged" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Margin="28,6,0,0"
+                   Style="{StaticResource ErrorText}"
+                   Text="{Binding PasswordError, Mode=OneWay}"
+                   Visibility="{Binding PasswordError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <CheckBox Margin="0,10,0,0"
+                  Content="{l:Tr ResetPassword.MustChange}"
+                  IsChecked="{Binding MustChangeAtNextLogon}" />
+        <CheckBox Margin="0,4,0,0"
+                  Content="{l:Tr ResetPassword.Unlock}"
+                  IsChecked="{Binding UnlockAccount}" />
+        <TextBlock Margin="0,6,0,0"
+                   Style="{StaticResource WrappedSecondaryText}"
+                   Text="{l:Tr BatchUi.GeneratedPasswordsHint}"
+                   Visibility="{Binding Generate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:MoveEditorViewModel}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.TargetContainer}" />
+        <DockPanel>
+          <Button Margin="6,0,0,0"
+                  Command="{Binding BrowseCommand}"
+                  Content="{l:Tr Common.Browse}"
+                  DockPanel.Dock="Right" />
+          <TextBox AutomationProperties.Name="{l:Tr BatchUi.TargetContainer}" Text="{Binding TargetContainerDn, UpdateSourceTrigger=PropertyChanged}" />
+        </DockPanel>
+        <TextBlock Margin="0,4,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding TargetPath, Mode=OneWay}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:RenameEditorViewModel}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.NameTemplate}" />
+        <TextBox AutomationProperties.Name="{l:Tr BatchUi.NameTemplate}"
+                 Style="{StaticResource TemplateBox}"
+                 Text="{Binding NameTemplate, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Margin="0,4,0,0"
+                   Style="{StaticResource WrappedSecondaryText}"
+                   Visibility="{Binding Sample, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <Run Text="{l:Tr Batch.Sample}" /><Run Text=": " /><Run FontWeight="SemiBold" Text="{Binding Sample, Mode=OneWay}" />
+        </TextBlock>
+        <CheckBox Margin="0,8,0,0"
+                  Content="{l:Tr BatchUi.AlsoSetDisplayName}"
+                  IsChecked="{Binding AlsoSetDisplayName}" />
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:GroupsEditorViewModel}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr BatchUi.Groups}" />
+        <DockPanel>
+          <StackPanel Margin="8,0,0,0" DockPanel.Dock="Right">
+            <Button MinWidth="96"
+                    Command="{Binding AddGroupsCommand}"
+                    Content="{l:Tr Common.Add}" />
+            <Button MinWidth="96"
+                    Margin="0,6,0,0"
+                    Command="{Binding RemoveGroupCommand}"
+                    Content="{l:Tr Common.Remove}" />
+          </StackPanel>
+          <ListBox Height="120"
+                   AutomationProperties.Name="{l:Tr BatchUi.Groups}"
+                   ItemTemplate="{StaticResource DirectoryItemTemplate}"
+                   ItemsSource="{Binding Groups}"
+                   SelectedItem="{Binding SelectedGroup}">
+            <ListBox.Resources>
+              <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+              </Style>
+            </ListBox.Resources>
+          </ListBox>
+        </DockPanel>
+      </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate DataType="{x:Type batch:DeleteEditorViewModel}">
+      <StackPanel Margin="0,6,0,0">
+        <CheckBox Content="{l:Tr BatchUi.IncludeSubtree}" IsChecked="{Binding IncludeSubtree}" />
+        <Border Margin="0,8,0,0" Style="{StaticResource Ad.WarningBar}">
+          <DockPanel>
+            <TextBlock Margin="0,0,8,0"
+                       DockPanel.Dock="Left"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <TextBlock Text="{l:Tr BatchUi.DeleteWarning}" TextWrapping="Wrap" />
+          </DockPanel>
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- The card around each operation editor: title, description, move/remove, validation message. -->
+    <DataTemplate x:Key="OperationCardTemplate" DataType="{x:Type batch:OperationEditorViewModel}">
+      <Border Margin="0,0,0,8"
+              Padding="14,8,8,12"
+              Style="{StaticResource Ad.Card}">
+        <DockPanel>
+          <DockPanel DockPanel.Dock="Top">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button AutomationProperties.Name="{l:Tr Common.MoveUp}"
+                      Command="{Binding Data.MoveOperationUpCommand, Source={StaticResource EditorProxy}}"
+                      CommandParameter="{Binding}"
+                      Content="{x:Static c:Glyphs.ChevronUp}"
+                      Style="{StaticResource CardIconButton}"
+                      ToolTip="{l:Tr Common.MoveUp}" />
+              <Button AutomationProperties.Name="{l:Tr Common.MoveDown}"
+                      Command="{Binding Data.MoveOperationDownCommand, Source={StaticResource EditorProxy}}"
+                      CommandParameter="{Binding}"
+                      Content="{x:Static c:Glyphs.ChevronDown}"
+                      Style="{StaticResource CardIconButton}"
+                      ToolTip="{l:Tr Common.MoveDown}" />
+              <Button AutomationProperties.Name="{l:Tr Common.Remove}"
+                      Command="{Binding Data.RemoveOperationCommand, Source={StaticResource EditorProxy}}"
+                      CommandParameter="{Binding}"
+                      Content="{x:Static c:Glyphs.Delete}"
+                      Style="{StaticResource CardIconButton}"
+                      ToolTip="{l:Tr Common.Remove}" />
+            </StackPanel>
+            <TextBlock VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{Binding Title, Mode=OneWay}"
+                       TextTrimming="CharacterEllipsis" />
+          </DockPanel>
+          <TextBlock Margin="0,0,40,0"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource WrappedSecondaryText}"
+                     Text="{Binding Type, Mode=OneWay, Converter={StaticResource OperationHint}}" />
+          <DockPanel Margin="0,8,40,0"
+                     DockPanel.Dock="Bottom"
+                     Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock Margin="0,1,6,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <TextBlock AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding Error, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+          <ContentPresenter x:Name="EditorBody"
+                            Margin="0,2,40,0"
+                            Content="{Binding}" />
+        </DockPanel>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+
+  <DockPanel>
+    <!-- ===== Steps ===== -->
+    <Border Padding="16,10,16,10"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1"
+            DockPanel.Dock="Top">
+      <DockPanel>
+        <TextBlock MaxWidth="460"
+                   Margin="16,0,0,0"
+                   DockPanel.Dock="Right"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ChangeTitle, Mode=OneWay}"
+                   ToolTip="{Binding ChangeTitle, Mode=OneWay}" />
+        <StackPanel x:Name="StepStrip" Orientation="Horizontal">
+          <Border Style="{StaticResource StepStyle}" Tag="{Binding IsEditStep, Mode=OneWay}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource StepNumber}" Text="1" />
+              <TextBlock Text="{l:Tr Batch.StepOperations}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              <TextBlock Text="{l:Tr BatchUi.StepCsv}" Visibility="{Binding IsCsvMode, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Style="{StaticResource StepChevron}" />
+          <Border Style="{StaticResource StepStyle}" Tag="{Binding IsPreviewStep, Mode=OneWay}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource StepNumber}" Text="2" />
+              <TextBlock Text="{l:Tr Batch.StepPreview}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Style="{StaticResource StepChevron}" />
+          <Border Style="{StaticResource StepStyle}" Tag="{Binding IsExecutingStep, Mode=OneWay}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource StepNumber}" Text="3" />
+              <TextBlock Text="{l:Tr Batch.StepExecute}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Style="{StaticResource StepChevron}" />
+          <Border Style="{StaticResource StepStyle}" Tag="{Binding IsResultsStep, Mode=OneWay}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource StepNumber}" Text="4" />
+              <TextBlock Text="{l:Tr Batch.StepResults}" />
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ===== Footer: planning progress, step buttons ===== -->
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="BackButton"
+                  Command="{Binding BackToEditCommand}"
+                  Content="{l:Tr Common.Back}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button x:Name="PreviewButton"
+                  Command="{Binding PreviewCommand}"
+                  Content="{l:Tr Batch.StepPreview}"
+                  Style="{StaticResource Ad.AccentDialogButton}"
+                  Visibility="{Binding IsEditStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button Command="{Binding PreviewCancelCommand}"
+                  Content="{l:Tr Common.Stop}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button x:Name="ExecuteButton"
+                  Command="{Binding ExecuteCommand}"
+                  Content="{l:Tr Batch.Execute}"
+                  Style="{StaticResource Ad.AccentDialogButton}"
+                  Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button x:Name="CancelExecutionButton"
+                  Command="{Binding CancelExecutionCommand}"
+                  Content="{l:Tr Common.Stop}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button x:Name="CloseButton"
+                  Command="{Binding CloseCommand}"
+                  Content="{l:Tr Common.Close}"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+        <StackPanel VerticalAlignment="Center"
+                    Orientation="Horizontal"
+                    Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ProgressBar Width="160"
+                       VerticalAlignment="Center"
+                       AutomationProperties.Name="{l:Tr Batch.Planning}"
+                       Maximum="{Binding PlanningTotal, Mode=OneWay}"
+                       Minimum="0"
+                       Value="{Binding PlanningCompleted, Mode=OneWay}" />
+          <TextBlock Margin="10,0,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}">
+            <Run Text="{l:Tr Batch.Planning}" /><Run Text="  " /><Run Text="{Binding PlanningCompleted, Mode=OneWay}" /><Run Text=" / " /><Run Text="{Binding PlanningTotal, Mode=OneWay}" />
+          </TextBlock>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ===== Planning / execution error ===== -->
+    <Border Margin="16,10,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,10,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}" />
+        <TextBlock x:Name="ErrorMessage"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <Grid Margin="16,10,16,12">
+      <!-- ===== 1. Edit: objects and operations ===== -->
+      <Grid x:Name="ObjectsEditPanel">
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
+                  <Condition Binding="{Binding IsCsvMode, Mode=OneWay}" Value="False" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="300" MinWidth="200" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" MinWidth="420" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Targets -->
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Style="{StaticResource Ad.SectionHeader}">
+            <Run Text="{l:Tr Batch.Targets}" /><Run Text=" (" /><Run Text="{Binding TargetCount, Mode=OneWay}" /><Run Text=")" />
+          </TextBlock>
+          <TextBlock Margin="0,0,0,6"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource WrappedSecondaryText}"
+                     Text="{Binding TargetSummary, Mode=OneWay}"
+                     Visibility="{Binding TargetSummary, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <ProgressBar Margin="0,0,0,6"
+                       DockPanel.Dock="Top"
+                       IsIndeterminate="{Binding IsLoadingTargets, Mode=OneWay}"
+                       Visibility="{Binding IsLoadingTargets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <ListBox x:Name="TargetsList"
+                   AutomationProperties.Name="{l:Tr Batch.Targets}"
+                   ItemTemplate="{StaticResource DirectoryItemTemplate}"
+                   ItemsSource="{Binding Targets}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   VirtualizingPanel.IsVirtualizing="True"
+                   VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListBox.Resources>
+              <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+              </Style>
+            </ListBox.Resources>
+          </ListBox>
+        </DockPanel>
+
+        <GridSplitter Grid.Column="1"
+                      Width="5"
+                      Margin="6,0"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Stretch"
+                      Background="Transparent"
+                      ResizeBehavior="PreviousAndNext"
+                      ResizeDirection="Columns" />
+
+        <!-- Operations -->
+        <DockPanel Grid.Column="2">
+          <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+            <Button x:Name="AddOperationButton"
+                    Margin="0"
+                    AutomationProperties.Name="{l:Tr Batch.AddOperation}"
+                    Click="OnAddOperationClick"
+                    DockPanel.Dock="Left"
+                    Style="{StaticResource Ad.AccentDialogButton}">
+              <Button.ContextMenu>
+                <ContextMenu />
+              </Button.ContextMenu>
+              <StackPanel Orientation="Horizontal">
+                <TextBlock FontSize="12"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Add}" />
+                <TextBlock Margin="8,0" Text="{l:Tr Batch.AddOperation}" />
+                <TextBlock FontSize="10"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.ChevronDown}" />
+              </StackPanel>
+            </Button>
+          </DockPanel>
+          <Border Margin="0,0,0,8"
+                  DockPanel.Dock="Top"
+                  Style="{StaticResource Ad.WarningBar}"
+                  Visibility="{Binding OperationsError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <DockPanel>
+              <TextBlock Margin="0,0,8,0"
+                         DockPanel.Dock="Left"
+                         Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                         Style="{StaticResource Ad.GlyphText}"
+                         Text="{x:Static c:Glyphs.Warning}" />
+              <TextBlock AutomationProperties.LiveSetting="Polite"
+                         Text="{Binding OperationsError, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DockPanel>
+          </Border>
+          <Grid>
+            <ScrollViewer x:Name="OperationsScroller"
+                          Focusable="False"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+              <ItemsControl x:Name="OperationsList"
+                            Margin="0,0,8,0"
+                            AutomationProperties.Name="{l:Tr Batch.StepOperations}"
+                            Focusable="False"
+                            ItemTemplate="{StaticResource OperationCardTemplate}"
+                            ItemsSource="{Binding Operations}" />
+            </ScrollViewer>
+            <TextBlock MaxWidth="440"
+                       Margin="0,32,0,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource WrappedSecondaryText}"
+                       Text="{l:Tr BatchUi.NoOperations}"
+                       TextAlignment="Center"
+                       Visibility="{Binding Operations.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+        </DockPanel>
+      </Grid>
+
+      <!-- ===== 1. Edit: CSV file and column mapping ===== -->
+      <Border x:Name="CsvEditPanel">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+              <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                  <Condition Binding="{Binding IsEditStep, Mode=OneWay}" Value="True" />
+                  <Condition Binding="{Binding IsCsvMode, Mode=OneWay}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Visibility" Value="Visible" />
+              </MultiDataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Grid DataContext="{Binding CsvImport, Mode=OneWay}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+          </Grid.RowDefinitions>
+
+          <!-- File -->
+          <DockPanel>
+            <Button Margin="8,0,0,0"
+                    Command="{Binding DownloadTemplateCommand}"
+                    Content="{l:Tr Csv.DownloadTemplate}"
+                    DockPanel.Dock="Right" />
+            <Button x:Name="BrowseFileButton"
+                    Margin="0"
+                    Command="{Binding BrowseCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    DockPanel.Dock="Left"
+                    Style="{StaticResource Ad.AccentDialogButton}" />
+            <ProgressBar Width="80"
+                         Margin="12,0,0,0"
+                         VerticalAlignment="Center"
+                         DockPanel.Dock="Left"
+                         IsIndeterminate="{Binding IsLoading, Mode=OneWay}"
+                         Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+              <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Csv.NoFile}"
+                         Visibility="{Binding FileName, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+              <TextBlock x:Name="FileNameText"
+                         FontWeight="SemiBold"
+                         Text="{Binding FileName, Mode=OneWay}"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip="{Binding FilePath, Mode=OneWay}"
+                         Visibility="{Binding FileName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+              <TextBlock Style="{StaticResource Ad.SecondaryText}" Visibility="{Binding IsLoaded, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <TextBlock.Text>
+                  <MultiBinding Converter="{StaticResource Ad.Format}">
+                    <l:TrBinding Key="Csv.RowsLoaded" />
+                    <Binding Mode="OneWay" Path="RowCount" />
+                    <Binding Mode="OneWay" Path="DelimiterText" />
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
+            </StackPanel>
+          </DockPanel>
+
+          <!-- Load error -->
+          <Border Grid.Row="1"
+                  Margin="0,10,0,0"
+                  Style="{StaticResource Ad.ErrorBar}"
+                  Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <DockPanel>
+              <TextBlock Margin="0,0,10,0"
+                         DockPanel.Dock="Left"
+                         Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                         Style="{StaticResource Ad.GlyphText}"
+                         Text="{x:Static c:Glyphs.Error}" />
+              <TextBlock AutomationProperties.LiveSetting="Assertive"
+                         Text="{Binding Error, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DockPanel>
+          </Border>
+
+          <!-- Key, lookup and value options -->
+          <Grid Grid.Row="2" Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Style="{StaticResource EditorLabel}" Text="{l:Tr Csv.KeyColumn}" />
+            <ComboBox x:Name="KeyColumnBox"
+                      Grid.Row="1"
+                      AutomationProperties.Name="{l:Tr Csv.KeyColumn}"
+                      ItemsSource="{Binding Headers, Mode=OneWay}"
+                      SelectedItem="{Binding KeyColumn}" />
+
+            <TextBlock Grid.Column="2"
+                       Style="{StaticResource EditorLabel}"
+                       Text="{l:Tr Csv.KeyAttribute}" />
+            <ComboBox Grid.Row="1"
+                      Grid.Column="2"
+                      AutomationProperties.Name="{l:Tr Csv.KeyAttribute}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding KeyAttributes, Mode=OneWay}"
+                      SelectedItem="{Binding KeyAttribute}" />
+
+            <TextBlock Grid.Column="4"
+                       Style="{StaticResource EditorLabel}"
+                       Text="{l:Tr BatchUi.ObjectType}" />
+            <ComboBox Grid.Row="1"
+                      Grid.Column="4"
+                      AutomationProperties.Name="{l:Tr BatchUi.ObjectType}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding KindOptions, Mode=OneWay}"
+                      SelectedItem="{Binding Kind}" />
+
+            <TextBlock Grid.Row="2"
+                       Style="{StaticResource EditorLabel}"
+                       Text="{l:Tr Csv.EmptyCells}" />
+            <ComboBox Grid.Row="3"
+                      AutomationProperties.Name="{l:Tr Csv.EmptyCells}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding EmptyCellOptions, Mode=OneWay}"
+                      SelectedItem="{Binding EmptyCells}" />
+
+            <TextBlock Grid.Row="2"
+                       Grid.Column="2"
+                       Style="{StaticResource EditorLabel}"
+                       Text="{l:Tr Csv.MultiValueSeparator}" />
+            <TextBox Grid.Row="3"
+                     Grid.Column="2"
+                     AutomationProperties.Name="{l:Tr Csv.MultiValueSeparator}"
+                     FontFamily="Cascadia Mono, Consolas"
+                     Text="{Binding MultiValueSeparator, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBlock Grid.Row="2"
+                       Grid.Column="4"
+                       Style="{StaticResource EditorLabel}"
+                       Text="{l:Tr Views.BaseDn}" />
+            <DockPanel Grid.Row="3" Grid.Column="4">
+              <Button Margin="4,0,0,0"
+                      AutomationProperties.Name="{l:Tr Common.Clear}"
+                      Command="{Binding ClearSearchBaseCommand}"
+                      Content="{x:Static c:Glyphs.Cancel}"
+                      DockPanel.Dock="Right"
+                      Style="{StaticResource CardIconButton}"
+                      ToolTip="{l:Tr Common.Clear}"
+                      Visibility="{Binding SearchBaseDn, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+              <Button Margin="6,0,0,0"
+                      Command="{Binding BrowseSearchBaseCommand}"
+                      Content="{l:Tr Common.Browse}"
+                      DockPanel.Dock="Right" />
+              <TextBlock VerticalAlignment="Center"
+                         Text="{Binding SearchBaseText, Mode=OneWay}"
+                         TextTrimming="CharacterEllipsis"
+                         ToolTip="{Binding SearchBaseDn, Mode=OneWay}" />
+            </DockPanel>
+          </Grid>
+
+          <!-- Why Preview is not possible yet -->
+          <DockPanel Grid.Row="3"
+                     Margin="0,10,0,0"
+                     Visibility="{Binding MappingError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock Margin="0,1,6,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Warning}" />
+            <TextBlock x:Name="MappingErrorText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding MappingError, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </DockPanel>
+
+          <!-- Column mapping | file preview -->
+          <Grid Grid.Row="4" Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="520" MinWidth="320" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" MinWidth="240" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr BatchUi.ColumnMapping}" />
+              <ListView x:Name="MappingList"
+                        AutomationProperties.Name="{l:Tr BatchUi.ColumnMapping}"
+                        ItemContainerStyle="{StaticResource MappingRowStyle}"
+                        ItemsSource="{Binding Mappings}">
+                <ListView.View>
+                  <GridView AllowsColumnReorder="False">
+                    <GridViewColumn Width="150" Header="{l:Tr Csv.Column}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type batch:CsvColumnMappingViewModel}">
+                          <StackPanel>
+                            <TextBlock FontWeight="SemiBold"
+                                       Text="{Binding Column, Mode=OneWay}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Column, Mode=OneWay}" />
+                            <TextBlock FontSize="11"
+                                       Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                       Text="{l:Tr Csv.KeyColumn}"
+                                       Visibility="{Binding IsKey, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                          </StackPanel>
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="230" Header="{l:Tr Csv.MapsTo}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type batch:CsvColumnMappingViewModel}">
+                          <Grid MinWidth="200">
+                            <!-- The key column is not written: it shows the attribute it is matched with. -->
+                            <TextBlock VerticalAlignment="Center"
+                                       Style="{StaticResource Ad.SecondaryText}"
+                                       Text="{Binding Data.CsvImport.KeyAttribute.Text, Source={StaticResource EditorProxy}, Mode=OneWay}"
+                                       Visibility="{Binding IsKey, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                            <Grid Visibility="{Binding IsKey, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+                              <ComboBox x:Name="AttributeInput"
+                                        AutomationProperties.Name="{Binding Column, Mode=OneWay}"
+                                        ItemsSource="{Binding Data.CsvImport.AttributeOptions, Source={StaticResource EditorProxy}, Mode=OneWay}"
+                                        Style="{StaticResource AttributeComboBox}"
+                                        Text="{Binding Attribute, UpdateSourceTrigger=PropertyChanged}" />
+                              <TextBlock Margin="11,0,36,0"
+                                         Style="{StaticResource Ad.HintText}"
+                                         Text="{l:Tr Csv.Ignore}"
+                                         Visibility="{Binding Text, ElementName=AttributeInput, Converter={StaticResource Ad.EmptyToVisible}}" />
+                            </Grid>
+                          </Grid>
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                    <GridViewColumn Width="130" Header="{l:Tr BatchUi.FirstRow}">
+                      <GridViewColumn.CellTemplate>
+                        <DataTemplate DataType="{x:Type batch:CsvColumnMappingViewModel}">
+                          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                                     Text="{Binding Sample, Mode=OneWay}"
+                                     ToolTip="{Binding Sample, Mode=OneWay}"
+                                     ToolTipService.IsEnabled="{Binding Sample, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                        </DataTemplate>
+                      </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
+                  </GridView>
+                </ListView.View>
+              </ListView>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          Margin="6,0"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch"
+                          Background="Transparent"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns" />
+
+            <DockPanel Grid.Column="2">
+              <TextBlock DockPanel.Dock="Top"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr BatchUi.FilePreview}" />
+              <!-- Columns are created in code from the CSV header (one per column, bound to Cells[i]). -->
+              <ListView x:Name="CsvPreviewList"
+                        AutomationProperties.Name="{l:Tr BatchUi.FilePreview}"
+                        ItemContainerStyle="{StaticResource CsvRowStyle}"
+                        ItemsSource="{Binding PreviewRows}"
+                        VirtualizingPanel.IsVirtualizing="True"
+                        VirtualizingPanel.VirtualizationMode="Recycling">
+                <ListView.View>
+                  <GridView AllowsColumnReorder="False" />
+                </ListView.View>
+              </ListView>
+            </DockPanel>
+          </Grid>
+        </Grid>
+      </Border>
+
+      <!-- ===== 2. Preview ===== -->
+      <DockPanel x:Name="PreviewPanel" Visibility="{Binding IsPreviewStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border x:Name="RollbackBanner"
+                Margin="0,0,0,8"
+                DockPanel.Dock="Top"
+                Style="{StaticResource Ad.WarningBar}"
+                Visibility="{Binding IsRollbackPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <DockPanel>
+            <TextBlock Margin="0,0,8,0"
+                       DockPanel.Dock="Left"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Info}" />
+            <TextBlock Text="{l:Tr Batch.RollbackPreview}" TextWrapping="Wrap" />
+          </DockPanel>
+        </Border>
+
+        <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button Margin="8,0,0,0"
+                    Command="{Binding ExportPreviewCommand}"
+                    Content="{l:Tr Batch.ExportPreview}" />
+            <Button Margin="8,0,0,0"
+                    Command="{Binding CopyPowerShellCommand}"
+                    Content="{l:Tr Batch.CopyPowerShell}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,8,0"
+                       VerticalAlignment="Center"
+                       Text="{l:Tr Common.Filter}" />
+            <ComboBox x:Name="PreviewFilterBox"
+                      MinWidth="200"
+                      AutomationProperties.Name="{l:Tr Common.Filter}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding PreviewFilters, Mode=OneWay}"
+                      SelectedValue="{Binding PreviewFilter}"
+                      SelectedValuePath="Value" />
+            <Button Margin="12,0,0,0"
+                    Command="{Binding SetAllIncludedCommand}"
+                    Content="{l:Tr Batch.IncludeAll}">
+              <Button.CommandParameter>
+                <sys:Boolean>True</sys:Boolean>
+              </Button.CommandParameter>
+            </Button>
+            <Button Margin="6,0,0,0"
+                    Command="{Binding SetAllIncludedCommand}"
+                    Content="{l:Tr Batch.ExcludeAll}">
+              <Button.CommandParameter>
+                <sys:Boolean>False</sys:Boolean>
+              </Button.CommandParameter>
+            </Button>
+          </StackPanel>
+        </DockPanel>
+
+        <TextBlock x:Name="PreviewSummaryText"
+                   Margin="0,0,0,8"
+                   AutomationProperties.LiveSetting="Polite"
+                   DockPanel.Dock="Top"
+                   Text="{Binding PreviewSummary, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+
+        <Grid>
+          <ListView x:Name="PreviewList"
+                    AutomationProperties.Name="{l:Tr Batch.StepPreview}"
+                    ItemContainerStyle="{StaticResource PreviewRowStyle}"
+                    ItemsSource="{Binding PreviewRows}"
+                    PreviewKeyDown="OnPreviewListKeyDown"
+                    ScrollViewer.CanContentScroll="True"
+                    SelectionMode="Extended"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.ScrollUnit="Item"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="76" Header="{l:Tr Batch.Include}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <CheckBox MinWidth="0"
+                                MinHeight="0"
+                                Padding="0"
+                                HorizontalAlignment="Center"
+                                AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                                IsChecked="{Binding IsIncluded}"
+                                IsEnabled="{Binding CanToggle, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="34">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <TextBlock x:Name="SeverityGlyph"
+                                 FontSize="13"
+                                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{Binding Severity, Mode=OneWay, Converter={StaticResource RowSeverityGlyph}}"
+                                 ToolTip="{Binding IssueText, Mode=OneWay}"
+                                 ToolTipService.IsEnabled="{Binding IssueText, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Warning}">
+                          <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Error}">
+                          <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="220" Header="{l:Tr BatchUi.Object}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <DockPanel ToolTip="{Binding Dn, Mode=OneWay}">
+                        <TextBlock Margin="0,0,6,0"
+                                   DockPanel.Dock="Left"
+                                   Style="{StaticResource Ad.SecondaryText}"
+                                   Visibility="{Binding SourceRow, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                          <Run Text="#" /><Run Text="{Binding SourceRow, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock x:Name="NameText"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   Text="{Binding Name, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                      <DataTemplate.Triggers>
+                        <!-- The object's first row carries the name; its other rows repeat it dimmed. -->
+                        <DataTrigger Binding="{Binding IsFirstOfObject, Mode=OneWay}" Value="True">
+                          <Setter TargetName="NameText" Property="FontWeight" Value="SemiBold" />
+                          <Setter TargetName="NameText" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="130"
+                                DisplayMemberBinding="{Binding Action, Mode=OneWay}"
+                                Header="{l:Tr Batch.Action}" />
+                <GridViewColumn Width="150"
+                                DisplayMemberBinding="{Binding Attribute, Mode=OneWay}"
+                                Header="{l:Tr Labels.Attribute}" />
+                <GridViewColumn Width="200" Header="{l:Tr Batch.Before}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <TextBlock Text="{Binding Before, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Before, Mode=OneWay}"
+                                 ToolTipService.IsEnabled="{Binding Before, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="200" Header="{l:Tr Batch.After}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <TextBlock FontWeight="SemiBold"
+                                 Text="{Binding After, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding After, Mode=OneWay}"
+                                 ToolTipService.IsEnabled="{Binding After, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="320" Header="{l:Tr BatchUi.Findings}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:PreviewRowViewModel}">
+                      <TextBlock Text="{Binding IssueText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding IssueText, Mode=OneWay}"
+                                 ToolTipService.IsEnabled="{Binding IssueText, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Margin="0,60,0,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr BatchUi.NoRowsMatch}"
+                     Visibility="{Binding PreviewRows.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+      </DockPanel>
+
+      <!-- ===== 3. Executing ===== -->
+      <Grid x:Name="ExecutingPanel" Visibility="{Binding IsExecutingStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border Width="580"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Padding="20,16"
+                Style="{StaticResource Ad.Card}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Ad.SectionHeader}"
+                       Text="{Binding ChangeTitle, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+            <!-- Until the activity is known (it starts right away). -->
+            <ProgressBar Margin="0,10,0,6"
+                         AutomationProperties.Name="{l:Tr Batch.StepExecute}"
+                         IsIndeterminate="{Binding IsExecutingStep, Mode=OneWay}"
+                         Visibility="{Binding CurrentActivity, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+            <StackPanel x:Name="ActivityPanel"
+                        DataContext="{Binding CurrentActivity, Mode=OneWay}"
+                        Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+              <ProgressBar Margin="0,10,0,6"
+                           AutomationProperties.Name="{l:Tr Batch.StepExecute}"
+                           Maximum="1"
+                           Minimum="0"
+                           Value="{Binding Fraction, Mode=OneWay}" />
+              <TextBlock AutomationProperties.LiveSetting="Polite"
+                         Text="{Binding StatusText, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+              <TextBlock Margin="0,2,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding CurrentObject, Mode=OneWay}" />
+            </StackPanel>
+            <TextBlock Margin="0,12,0,0"
+                       Style="{StaticResource WrappedSecondaryText}"
+                       Text="{l:Tr BatchUi.ExecutingHint}" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- ===== 4. Results ===== -->
+      <DockPanel x:Name="ResultsPanel" Visibility="{Binding IsResultsStep, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <Button Margin="8,0,0,0"
+                    Command="{Binding ExportResultsCommand}"
+                    Content="{l:Tr Batch.ExportResults}" />
+            <Button x:Name="RetryFailedButton"
+                    Margin="8,0,0,0"
+                    Command="{Binding RetryFailedCommand}"
+                    Content="{l:Tr Batch.RetryFailed}" />
+            <Button x:Name="UndoButton"
+                    Margin="8,0,0,0"
+                    Command="{Binding UndoCommand}"
+                    Content="{l:Tr Batch.Undo}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,8,0"
+                       VerticalAlignment="Center"
+                       Text="{l:Tr Common.Filter}" />
+            <ComboBox x:Name="ResultFilterBox"
+                      MinWidth="200"
+                      AutomationProperties.Name="{l:Tr Common.Filter}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding ResultFilters, Mode=OneWay}"
+                      SelectedValue="{Binding ResultFilter}"
+                      SelectedValuePath="Value" />
+            <TextBlock x:Name="ResultSummaryText"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       AutomationProperties.LiveSetting="Polite"
+                       FontWeight="SemiBold"
+                       Text="{Binding ResultSummary, Mode=OneWay}" />
+          </StackPanel>
+        </DockPanel>
+
+        <Grid>
+          <ListView x:Name="ResultList"
+                    AutomationProperties.Name="{l:Tr Batch.StepResults}"
+                    ItemContainerStyle="{StaticResource ResultRowStyle}"
+                    ItemsSource="{Binding ResultRows}"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="34">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:ResultRowViewModel}">
+                      <TextBlock x:Name="StatusGlyph"
+                                 FontSize="13"
+                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{Binding Status, Mode=OneWay, Converter={StaticResource ResultStatusGlyph}}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding Status, Mode=OneWay}" Value="{x:Static corebatch:ObjectResultStatus.Succeeded}">
+                          <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status, Mode=OneWay}" Value="{x:Static corebatch:ObjectResultStatus.Failed}">
+                          <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status, Mode=OneWay}" Value="{x:Static corebatch:ObjectResultStatus.PartiallySucceeded}">
+                          <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Status, Mode=OneWay}" Value="{x:Static corebatch:ObjectResultStatus.Cancelled}">
+                          <Setter TargetName="StatusGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150"
+                                DisplayMemberBinding="{Binding StatusText, Mode=OneWay}"
+                                Header="{l:Tr Batch.Status}" />
+                <GridViewColumn Width="240" Header="{l:Tr BatchUi.Object}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:ResultRowViewModel}">
+                      <DockPanel ToolTip="{Binding Dn, Mode=OneWay}">
+                        <TextBlock Margin="0,0,6,0"
+                                   DockPanel.Dock="Left"
+                                   Style="{StaticResource Ad.SecondaryText}"
+                                   Visibility="{Binding SourceRow, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                          <Run Text="#" /><Run Text="{Binding SourceRow, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{Binding Name, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="420" Header="{l:Tr Batch.Message}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type batch:ResultRowViewModel}">
+                      <TextBlock Text="{Binding Message, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding Message, Mode=OneWay}"
+                                 ToolTipService.IsEnabled="{Binding Message, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="320"
+                                DisplayMemberBinding="{Binding Dn, Mode=OneWay}"
+                                Header="{l:Tr Details.DistinguishedName}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <TextBlock Margin="0,60,0,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr BatchUi.NoRowsMatch}"
+                     Visibility="{Binding ResultRows.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

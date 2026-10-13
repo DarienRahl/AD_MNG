@@ -15,8 +15,8 @@ namespace AdMng.App.Services;
 /// <summary>
 /// WPF <see cref="IDialogService"/>. Message boxes, the saved view editor and the column chooser are shown through
 /// <see cref="IWindowService"/> (view model → registered window). Property sheets, New Object, Reset Password, the
-/// pickers and Find host the view models of <see cref="IDialogViewModelFactory"/>. Dialogs whose windows are not
-/// registered yet show a localized "not available yet" message.
+/// pickers and Find host the view models of <see cref="IDialogViewModelFactory"/>; the batch editor, the session log
+/// and the settings go through <see cref="ToolWindows"/>.
 /// </summary>
 /// <remarks>
 /// To plug in a dialog: register its window (<c>services.AddWindow&lt;TViewModel, TWindow&gt;()</c> in
@@ -30,18 +30,20 @@ public sealed class DialogService : IDialogService
     private readonly ILocalizer _localizer;
     private readonly WpfUiDispatcher _dispatcher;
     private readonly AppNavigator _navigator;
+    private readonly ToolWindows _tools; // C2b
 
     // ---- C2a: dialog view model factory. Resolved lazily: DialogServices (inside the factory) depends on IDialogService.
     private readonly IServiceProvider _services;
     private IDialogViewModelFactory? _factory;
 
-    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator, IServiceProvider services)
+    public DialogService(IWindowService windows, ILocalizer localizer, WpfUiDispatcher dispatcher, AppNavigator navigator, ToolWindows tools, IServiceProvider services)
     {
         _windows = windows ?? throw new ArgumentNullException(nameof(windows));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        _tools = tools ?? throw new ArgumentNullException(nameof(tools)); // C2b
     }
 
     private IDialogViewModelFactory Factory => _factory ??= _services.GetRequiredService<IDialogViewModelFactory>();
@@ -139,10 +141,15 @@ public sealed class DialogService : IDialogService
     internal static string PropertiesWindowKey(string distinguishedName) =>
         "properties:" + (DistinguishedName.TryParse(distinguishedName, out var dn) ? dn.ToString() : distinguishedName).ToUpperInvariant();
 
+    // ---- C2b: batch editor / CSV import (modeless) ----
     public Task ShowBatchEditorAsync(BatchEditorRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return NotAvailableAsync(L.Commands.BatchEdit);
+        return OnUiThreadAsync(() =>
+        {
+            _tools.ShowBatchEditor(request);
+            return true;
+        });
     }
 
     public Task ShowResetPasswordAsync(IReadOnlyList<string> distinguishedNames)
@@ -173,9 +180,14 @@ public sealed class DialogService : IDialogService
         return true;
     });
 
-    public Task ShowSessionLogAsync() => NotAvailableAsync(L.Commands.SessionLog);
+    // ---- C2b: session log (modeless, one window) and settings (modal) ----
+    public Task ShowSessionLogAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowSessionLog();
+        return true;
+    });
 
-    public Task ShowSettingsAsync() => NotAvailableAsync(L.Commands.Settings);
+    public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
 
     // ---- Helpers ----------------------------------------------------------------------------------------------
 

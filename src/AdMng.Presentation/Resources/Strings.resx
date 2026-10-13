@@ -1699,6 +1699,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Batch.PreviewSummary" xml:space="preserve">
     <value>{0} objects: {1} will change, {2} without change, {3} with errors, {4} with warnings, {5} excluded.</value>
   </data>
+  <data name="Batch.ReplacePasswords" xml:space="preserve">
+    <value>The current results contain generated passwords that have not been exported or copied. Executing replaces these results, so the passwords cannot be shown again and the accounts cannot be used until their passwords are reset again. Execute anyway?</value>
+  </data>
   <data name="Batch.ResultSummary" xml:space="preserve">
     <value>Succeeded: {0}, failed: {1}, skipped: {2}</value>
   </data>
@@ -3422,5 +3425,137 @@ Type {1} to confirm.</value>
   </data>
   <data name="ObjectDialogs.RawFilterNote" xml:space="preserve">
     <value>The filter was edited by hand – the name and the conditions are not used until it is rebuilt.</value>
+  </data>
+  <data name="BatchUi.AlsoSetDisplayName" xml:space="preserve">
+    <value>Also set the display name</value>
+  </data>
+  <data name="BatchUi.ColumnMapping" xml:space="preserve">
+    <value>Column mapping</value>
+  </data>
+  <data name="BatchUi.DeleteWarning" xml:space="preserve">
+    <value>Deleted objects cannot be restored with Undo. Use the Active Directory Recycle Bin if it is enabled.</value>
+  </data>
+  <data name="BatchUi.EmptyClears" xml:space="preserve">
+    <value>Clear the attribute when the result is empty</value>
+  </data>
+  <data name="BatchUi.ExecutingHint" xml:space="preserve">
+    <value>The change keeps running in the background if you close this window; its progress stays in Background operations.</value>
+  </data>
+  <data name="BatchUi.FilePreview" xml:space="preserve">
+    <value>File preview (first rows)</value>
+  </data>
+  <data name="BatchUi.Find" xml:space="preserve">
+    <value>Find</value>
+  </data>
+  <data name="BatchUi.Findings" xml:space="preserve">
+    <value>Findings</value>
+  </data>
+  <data name="BatchUi.FirstRow" xml:space="preserve">
+    <value>First row</value>
+  </data>
+  <data name="BatchUi.FlagOff" xml:space="preserve">
+    <value>Turn off</value>
+  </data>
+  <data name="BatchUi.FlagOn" xml:space="preserve">
+    <value>Turn on</value>
+  </data>
+  <data name="BatchUi.GeneratedPasswordsHint" xml:space="preserve">
+    <value>Each account gets a unique password. Export the results with the passwords before closing this window - they cannot be shown again.</value>
+  </data>
+  <data name="BatchUi.Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="BatchUi.IncludeSubtree" xml:space="preserve">
+    <value>Also delete everything inside the containers (tree delete)</value>
+  </data>
+  <data name="BatchUi.MatchCase" xml:space="preserve">
+    <value>Match case</value>
+  </data>
+  <data name="BatchUi.NameTemplate" xml:space="preserve">
+    <value>New name (template)</value>
+  </data>
+  <data name="BatchUi.NoOperations" xml:space="preserve">
+    <value>Add an operation to describe the change - for example set an attribute, disable the accounts or move them to another container.</value>
+  </data>
+  <data name="BatchUi.NoRowsMatch" xml:space="preserve">
+    <value>No rows match the filter.</value>
+  </data>
+  <data name="BatchUi.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="BatchUi.ObjectType" xml:space="preserve">
+    <value>Object type</value>
+  </data>
+  <data name="BatchUi.Option" xml:space="preserve">
+    <value>Option</value>
+  </data>
+  <data name="BatchUi.PasswordLength" xml:space="preserve">
+    <value>Length</value>
+  </data>
+  <data name="BatchUi.ReplaceWith" xml:space="preserve">
+    <value>Replace with</value>
+  </data>
+  <data name="BatchUi.Row" xml:space="preserve">
+    <value>Row</value>
+  </data>
+  <data name="BatchUi.SetValuesHint" xml:space="preserve">
+    <value>Leave empty to clear the attribute.</value>
+  </data>
+  <data name="BatchUi.StepCsv" xml:space="preserve">
+    <value>File and columns</value>
+  </data>
+  <data name="BatchUi.TargetContainer" xml:space="preserve">
+    <value>Target container</value>
+  </data>
+  <data name="BatchUi.TemplateHint" xml:space="preserve">
+    <value>e.g. {{givenName}}.{{sn}}@firma.pl</value>
+  </data>
+  <data name="BatchUi.TemplatesOnePerLine" xml:space="preserve">
+    <value>Values - templates, one per line</value>
+  </data>
+  <data name="BatchUi.UseRegex" xml:space="preserve">
+    <value>Regular expression</value>
+  </data>
+  <data name="BatchUi.UseThisPassword" xml:space="preserve">
+    <value>Use this password for all accounts</value>
+  </data>
+  <data name="BatchUi.ValueTemplate" xml:space="preserve">
+    <value>Value (template)</value>
+  </data>
+  <data name="BatchUi.ValuesOnePerLine" xml:space="preserve">
+    <value>Values (one per line)</value>
+  </data>
+  <data name="ToolsUi.HistoryDetails" xml:space="preserve">
+    <value>{0} · {1} · objects: {2}</value>
+  </data>
+  <data name="ToolsUi.LogEmpty" xml:space="preserve">
+    <value>No entries to show.</value>
+  </data>
+  <data name="ToolsUi.LogFilterHint" xml:space="preserve">
+    <value>Filter by object, attribute, value or operator</value>
+  </data>
+  <data name="ToolsUi.Operator" xml:space="preserve">
+    <value>Operator</value>
+  </data>
+  <data name="ToolsUi.SaveScript" xml:space="preserve">
+    <value>Save as .ps1...</value>
+  </data>
+  <data name="ToolsUi.Script" xml:space="preserve">
+    <value>Script</value>
+  </data>
+  <data name="ToolsUi.Server" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="ToolsUi.SettingsAppearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="ToolsUi.SettingsBatch" xml:space="preserve">
+    <value>Batch operations</value>
+  </data>
+  <data name="ToolsUi.SettingsDirectory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="ToolsUi.Time" xml:space="preserve">
+    <value>Time</value>
   </data>
 </root>

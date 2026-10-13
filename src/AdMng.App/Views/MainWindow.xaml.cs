@@ -27,6 +27,7 @@ public partial class MainWindow : Window
     private readonly IDialogService _dialogs;
     private readonly ViewLibrary _views;
     private readonly ILocalizer _localizer;
+    private readonly ToolWindows _tools;
     private GridLength _detailsWidth = new(300);
     private bool _closeConfirmed;
     private bool _confirmingClose;
@@ -40,7 +41,8 @@ public partial class MainWindow : Window
         AppearanceService appearance,
         IDialogService dialogs,
         ViewLibrary views,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        ToolWindows tools)
     {
         ArgumentNullException.ThrowIfNull(notifications);
         ArgumentNullException.ThrowIfNull(appearance);
@@ -48,6 +50,7 @@ public partial class MainWindow : Window
         _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
         _views = views ?? throw new ArgumentNullException(nameof(views));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
+        _tools = tools ?? throw new ArgumentNullException(nameof(tools));
 
         InitializeComponent();
         UiLanguage.ApplyTo(this);
@@ -89,12 +92,13 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (e.Cancel || _closeConfirmed || !Shell.Activities.HasRunning)
+        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords))
         {
             return;
         }
 
-        // Running batches would be interrupted: cancel this close and ask first. The question (a modal dialog) and the
+        // Running batches would be interrupted, and generated passwords that were not exported would be lost with the
+        // batch editors (owned windows close without asking): cancel this close and ask first. The question (a modal dialog) and the
         // second Close() must run after this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
@@ -120,7 +124,10 @@ public partial class MainWindow : Window
         try
         {
             if (!_closed
-                && await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true)
+                && (!Shell.Activities.HasRunning
+                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
+                && (!_tools.HasUnsavedGeneratedPasswords
+                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
                 && !_closed)
             {
                 _closeConfirmed = true;
@@ -265,6 +272,9 @@ public partial class MainWindow : Window
     }
 
     private void OnFiltersMenuClick(object sender, RoutedEventArgs e) => FilterToggle.IsChecked = FilterToggle.IsChecked != true;
+
+    /// <summary>Tools > PowerShell history (no IDialogService entry: it is a tool window of the WPF shell).</summary>
+    private void OnPowerShellHistoryClick(object sender, RoutedEventArgs e) => _tools.ShowPowerShellHistory();
 
     // ---- Tabs --------------------------------------------------------------------------------------------------
 

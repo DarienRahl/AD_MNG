@@ -11,6 +11,7 @@ using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
 using AdMng.Presentation;
+using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Lists;
@@ -125,6 +126,14 @@ public static class AppHost
         services.AddWindow<ObjectPickerViewModel, ObjectPickerWindow>();
         services.AddWindow<ContainerPickerViewModel, ContainerPickerWindow>();
         services.AddWindow<FindViewModel, FindWindow>();
+
+        // ---- C2b: batch and tool windows (opened through ToolWindows) ----
+        services.AddSingleton<ToolWindows>();
+        services.AddWindow<BatchEditorViewModel, BatchEditorWindow>();
+        services.AddWindow<SessionLogViewModel, SessionLogWindow>();
+        services.AddWindow<PowerShellHistoryViewModel, PowerShellHistoryWindow>();
+        services.AddWindow<SettingsViewModel, SettingsWindow>();
+        // ---- end C2b ----
         return services;
     }
 

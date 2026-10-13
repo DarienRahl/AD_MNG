@@ -5,10 +5,13 @@ using System.Text;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.Views;
+using AdMng.Core.Csv;
 using AdMng.Core.Model;
+using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -148,6 +151,7 @@ internal static class SmokeTest
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
+        RenderToolWindows(services, windows); // C2b
 
         await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
         main.Shell.CommandPalette.CloseCommand.Execute(null);
@@ -177,6 +181,36 @@ internal static class SmokeTest
         {
             UiTestSupport.ShowOffScreen(windows.CreateWindow(dialog));
         }
+    }
+
+    // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
+
+    /// <summary>
+    /// Settings, session log, PowerShell history, the CSV import with a parsed table and the batch editor with every
+    /// operation editor. None of them needs a directory: without a session the batch editor shows "not connected".
+    /// </summary>
+    private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
+    {
+        var factory = services.GetRequiredService<IDialogViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSettings()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
+
+        var import = factory.CreateBatchEditor(new BatchEditorRequest([]));
+        import.CsvImport!.Load(new CsvTable(
+            ["sAMAccountName", "department", "title"],
+            [["jan.kowalski", "IT", "Kierownik zespołu"], ["zaneta.szymanska", "Sprzedaż", "Handlowiec"]],
+            ';'));
+        import.CsvImport.Mappings[1].Attribute = "department";
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(import));
+
+        var batch = factory.CreateBatchEditor(new BatchEditorRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"]));
+        foreach (var type in Enum.GetValues<OperationType>())
+        {
+            batch.AddOperationCommand.Execute(type);
+        }
+
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(batch));
     }
 
     private static void Report(IReadOnlyList<string> failures)

@@ -1699,6 +1699,9 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
   <data name="Batch.PreviewSummary" xml:space="preserve">
     <value>Obiekty: {0} · do zmiany: {1} · bez zmian: {2} · z błędami: {3} · z ostrzeżeniami: {4} · wykluczone: {5}.</value>
   </data>
+  <data name="Batch.ReplacePasswords" xml:space="preserve">
+    <value>Bieżące wyniki zawierają wygenerowane hasła, które nie zostały wyeksportowane ani skopiowane. Wykonanie zastąpi te wyniki, więc haseł nie będzie można ponownie wyświetlić, a z kont nie będzie można korzystać do czasu ponownego zresetowania haseł. Wykonać mimo to?</value>
+  </data>
   <data name="Batch.ResultSummary" xml:space="preserve">
     <value>Powodzenie: {0}, niepowodzenie: {1}, pominięte: {2}</value>
   </data>
@@ -3422,5 +3425,137 @@ Wpisz {1}, aby potwierdzić.</value>
   </data>
   <data name="ObjectDialogs.RawFilterNote" xml:space="preserve">
     <value>Filtr zmieniono ręcznie – nazwa i warunki nie są używane, dopóki filtr nie zostanie odtworzony.</value>
+  </data>
+  <data name="BatchUi.AlsoSetDisplayName" xml:space="preserve">
+    <value>Ustaw również nazwę wyświetlaną</value>
+  </data>
+  <data name="BatchUi.ColumnMapping" xml:space="preserve">
+    <value>Przypisanie kolumn</value>
+  </data>
+  <data name="BatchUi.DeleteWarning" xml:space="preserve">
+    <value>Usuniętych obiektów nie można przywrócić poleceniem Cofnij. Użyj Kosza usługi Active Directory, jeśli jest włączony.</value>
+  </data>
+  <data name="BatchUi.EmptyClears" xml:space="preserve">
+    <value>Wyczyść atrybut, gdy wynik jest pusty</value>
+  </data>
+  <data name="BatchUi.ExecutingHint" xml:space="preserve">
+    <value>Zmiana będzie wykonywana w tle także po zamknięciu tego okna; jej postęp pozostaje widoczny w obszarze Operacje w tle.</value>
+  </data>
+  <data name="BatchUi.FilePreview" xml:space="preserve">
+    <value>Podgląd pliku (pierwsze wiersze)</value>
+  </data>
+  <data name="BatchUi.Find" xml:space="preserve">
+    <value>Znajdź</value>
+  </data>
+  <data name="BatchUi.Findings" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="BatchUi.FirstRow" xml:space="preserve">
+    <value>Pierwszy wiersz</value>
+  </data>
+  <data name="BatchUi.FlagOff" xml:space="preserve">
+    <value>Wyłącz</value>
+  </data>
+  <data name="BatchUi.FlagOn" xml:space="preserve">
+    <value>Włącz</value>
+  </data>
+  <data name="BatchUi.GeneratedPasswordsHint" xml:space="preserve">
+    <value>Każde konto otrzyma unikatowe hasło. Przed zamknięciem tego okna wyeksportuj wyniki z hasłami - nie będzie można ich ponownie wyświetlić.</value>
+  </data>
+  <data name="BatchUi.Groups" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="BatchUi.IncludeSubtree" xml:space="preserve">
+    <value>Usuń również całą zawartość kontenerów (usuwanie drzewa)</value>
+  </data>
+  <data name="BatchUi.MatchCase" xml:space="preserve">
+    <value>Uwzględniaj wielkość liter</value>
+  </data>
+  <data name="BatchUi.NameTemplate" xml:space="preserve">
+    <value>Nowa nazwa (szablon)</value>
+  </data>
+  <data name="BatchUi.NoOperations" xml:space="preserve">
+    <value>Dodaj operację opisującą zmianę - na przykład ustaw atrybut, wyłącz konta lub przenieś je do innego kontenera.</value>
+  </data>
+  <data name="BatchUi.NoRowsMatch" xml:space="preserve">
+    <value>Żaden wiersz nie pasuje do filtru.</value>
+  </data>
+  <data name="BatchUi.Object" xml:space="preserve">
+    <value>Obiekt</value>
+  </data>
+  <data name="BatchUi.ObjectType" xml:space="preserve">
+    <value>Typ obiektu</value>
+  </data>
+  <data name="BatchUi.Option" xml:space="preserve">
+    <value>Opcja</value>
+  </data>
+  <data name="BatchUi.PasswordLength" xml:space="preserve">
+    <value>Długość</value>
+  </data>
+  <data name="BatchUi.ReplaceWith" xml:space="preserve">
+    <value>Zamień na</value>
+  </data>
+  <data name="BatchUi.Row" xml:space="preserve">
+    <value>Wiersz</value>
+  </data>
+  <data name="BatchUi.SetValuesHint" xml:space="preserve">
+    <value>Pozostaw puste, aby wyczyścić atrybut.</value>
+  </data>
+  <data name="BatchUi.StepCsv" xml:space="preserve">
+    <value>Plik i kolumny</value>
+  </data>
+  <data name="BatchUi.TargetContainer" xml:space="preserve">
+    <value>Kontener docelowy</value>
+  </data>
+  <data name="BatchUi.TemplateHint" xml:space="preserve">
+    <value>np. {{givenName}}.{{sn}}@firma.pl</value>
+  </data>
+  <data name="BatchUi.TemplatesOnePerLine" xml:space="preserve">
+    <value>Wartości - szablony, po jednej w wierszu</value>
+  </data>
+  <data name="BatchUi.UseRegex" xml:space="preserve">
+    <value>Wyrażenie regularne</value>
+  </data>
+  <data name="BatchUi.UseThisPassword" xml:space="preserve">
+    <value>Użyj tego hasła dla wszystkich kont</value>
+  </data>
+  <data name="BatchUi.ValueTemplate" xml:space="preserve">
+    <value>Wartość (szablon)</value>
+  </data>
+  <data name="BatchUi.ValuesOnePerLine" xml:space="preserve">
+    <value>Wartości (po jednej w wierszu)</value>
+  </data>
+  <data name="ToolsUi.HistoryDetails" xml:space="preserve">
+    <value>{0} · {1} · obiekty: {2}</value>
+  </data>
+  <data name="ToolsUi.LogEmpty" xml:space="preserve">
+    <value>Brak wpisów do wyświetlenia.</value>
+  </data>
+  <data name="ToolsUi.LogFilterHint" xml:space="preserve">
+    <value>Filtruj według obiektu, atrybutu, wartości lub operatora</value>
+  </data>
+  <data name="ToolsUi.Operator" xml:space="preserve">
+    <value>Operator</value>
+  </data>
+  <data name="ToolsUi.SaveScript" xml:space="preserve">
+    <value>Zapisz jako .ps1...</value>
+  </data>
+  <data name="ToolsUi.Script" xml:space="preserve">
+    <value>Skrypt</value>
+  </data>
+  <data name="ToolsUi.Server" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="ToolsUi.SettingsAppearance" xml:space="preserve">
+    <value>Wygląd</value>
+  </data>
+  <data name="ToolsUi.SettingsBatch" xml:space="preserve">
+    <value>Operacje zbiorcze</value>
+  </data>
+  <data name="ToolsUi.SettingsDirectory" xml:space="preserve">
+    <value>Katalog</value>
+  </data>
+  <data name="ToolsUi.Time" xml:space="preserve">
+    <value>Czas</value>
   </data>
 </root>
