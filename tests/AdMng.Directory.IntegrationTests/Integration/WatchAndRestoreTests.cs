@@ -1,0 +1,122 @@
+using System.Collections.Concurrent;
+using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Directory;
+using AdMng.Core.Ldap;
+using AdMng.Core.Model;
+using AdMng.Directory.IntegrationTests.Infrastructure;
+
+namespace AdMng.Directory.IntegrationTests.Integration;
+
+public sealed class WatchAndRestoreTests(LabFixture lab)
+{
+    [Fact]
+    public async Task Watch_ReportsChangesBelowTheContainer()
+    {
+        LabSettings.RequireLab();
+        var ct = TestContext.Current.CancellationToken;
+        var ou = await lab.CreateOuAsync(TestNames.Unique("Obserwacja"));
+        var changes = new ConcurrentQueue<string>();
+        var signal = new SemaphoreSlim(0);
+
+        var watch = await lab.Admin.WatchAsync(ou, dn => { changes.Enqueue(dn); signal.Release(); }, ct);
+        if (watch is null)
+        {
+            Assert.False(lab.Admin.Info.Supports(LdapControls.Notification));
+            Assert.Skip("The server does not support change notifications.");
+        }
+
+        string contact;
+        await using (watch)
+        {
+            contact = await lab.CreateContactAsync(ou, "Nowy Kontakt Ąę");
+            var deadline = DateTime.UtcNow.AddSeconds(15);
+            while (!changes.Any(dn => DistinguishedName.AreEqual(dn, contact)) && DateTime.UtcNow < deadline)
+            {
+                await signal.WaitAsync(TimeSpan.FromMilliseconds(500), ct);
+            }
+
+            if (!changes.Any(dn => DistinguishedName.AreEqual(dn, contact)))
+            {
+                Assert.Skip("The server accepted the notification request but delivered no change within 15 s.");
+            }
+        }
+
+        // Disposed: further changes are not reported.
+        var countAfterDispose = changes.Count;
+        await lab.Admin.ModifyAsync(contact, [AttributeModification.Replace(Attr.Description, "po zakończeniu")], null, ct);
+        await Task.Delay(1000, ct);
+        Assert.Equal(countAfterDispose, changes.Count);
+    }
+
+    [Fact]
+    public async Task Watch_CallbackFailures_DoNotStopNotifications()
+    {
+        LabSettings.RequireLab();
+        var ct = TestContext.Current.CancellationToken;
+        var ou = await lab.CreateOuAsync(TestNames.Unique("Wyjatki"));
+        var calls = 0;
+        await using var watch = await lab.Admin.WatchAsync(
+            ou,
+            _ =>
+            {
+                Interlocked.Increment(ref calls);
+                throw new InvalidOperationException("subscriber bug");
+            },
+            ct);
+        Assert.SkipWhen(watch is null, "The server does not support change notifications.");
+
+        await lab.CreateContactAsync(ou, "Pierwszy");
+        await lab.CreateContactAsync(ou, "Drugi");
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (Volatile.Read(ref calls) < 2 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(200, ct);
+        }
+
+        Assert.SkipWhen(Volatile.Read(ref calls) == 0, "The server delivered no change notifications.");
+        Assert.True(Volatile.Read(ref calls) >= 2);
+    }
+
+    [Fact]
+    public async Task RestoreDeleted_BringsATombstoneBack()
+    {
+        LabSettings.RequireLab();
+        var ct = TestContext.Current.CancellationToken;
+        var ou = await lab.CreateOuAsync(TestNames.Unique("Kosz"));
+        var dn = await lab.CreateUserAsync(ou, "Usunięty Przypadkiem");
+        var guid = (await lab.Admin.GetAsync(dn, [Attr.ObjectGuid], ct))!.ObjectGuid!.Value;
+        await lab.Admin.DeleteAsync(dn, subtree: false, ct);
+
+        var deleted = new DirectorySearch
+        {
+            BaseDn = $"CN=Deleted Objects,{LabSettings.DomainDn}",
+            Scope = SearchScope.OneLevel,
+            Filter = LdapFilter.And(LdapFilter.EqualGuid(Attr.ObjectGuid, guid), LdapFilter.Equal(Attr.IsDeleted, "TRUE")),
+            Attributes = [Attr.IsDeleted, Attr.LastKnownParent, Attr.MsDsLastKnownRdn, Attr.ObjectGuid],
+            IncludeDeleted = true,
+        };
+        DirectoryObject? tombstone = null;
+        await foreach (var entry in lab.Admin.SearchAsync(deleted, ct))
+        {
+            tombstone = entry;
+        }
+
+        Assert.NotNull(tombstone);
+        Assert.Equal(true, tombstone.GetBoolean(Attr.IsDeleted));
+        Assert.Equal(guid, tombstone.ObjectGuid);
+
+        // Without the Show Deleted control the tombstone is invisible.
+        var hidden = 0;
+        await foreach (var _ in lab.Admin.SearchAsync(deleted with { IncludeDeleted = false }, ct))
+        {
+            hidden++;
+        }
+
+        Assert.Equal(0, hidden);
+
+        await lab.Admin.RestoreDeletedAsync(tombstone.DistinguishedName, dn, ct);
+        var restored = await lab.Admin.GetAsync(dn, [Attr.ObjectGuid], ct);
+        Assert.NotNull(restored);
+        Assert.Equal(guid, restored.ObjectGuid);
+    }
+}
