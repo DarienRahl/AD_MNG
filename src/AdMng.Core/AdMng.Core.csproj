@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Pure domain logic: LDAP primitives, AD semantics, schema model, batch engine contracts.
+       No dependency on any LDAP client library so that it is fully unit-testable on any OS. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Core.Tests" />
+  </ItemGroup>
+</Project>
