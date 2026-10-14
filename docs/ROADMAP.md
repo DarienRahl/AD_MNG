@@ -20,11 +20,11 @@ Legenda statusu: ✅ zrobione · 🟡 pierwsza wersja gotowa, wymaga dopracowani
 | Faza | Cel | Najważniejsze rezultaty | Status |
 |---|---|---|---|
 | 0 | Fundamenty | Rozwiązanie, CI, laboratorium Samba AD, rdzeń LDAP, kontrakty, prototyp wydajności | ✅ |
-| 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 |
-| 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 |
-| 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ |
-| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡) |
-| 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ |
+| 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 zaimplementowane, czeka na pilotaż na Windows AD |
+| 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 zaimplementowane, czeka na testy obciążeniowe |
+| 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (karta Adresy e-mail: ✅) |
+| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡, członkostwo zagnieżdżone i eksport widoków: ✅) |
+| 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 
@@ -56,6 +56,30 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 ## Faza 1 – MVP: codzienna praca zamiast ADUC 🟡
 
 **Cel:** helpdesk i administratorzy mogą wykonywać codzienne czynności szybciej niż w `dsa.msc`.
+
+### Stan realizacji
+
+- ✅ **Połączenie:** bieżące konto Windows lub inne poświadczenia, Kerberos z podpisywaniem i szyfrowaniem, LDAPS,
+  StartTLS; wykrywanie domeny i kontrolerów (DsGetDcName, lokacja), wybór DC przy łączeniu, profile połączeń bez haseł,
+  pasek tożsamości z ostrzeżeniem dla kont uprzywilejowanych, komunikaty błędów AD po polsku i angielsku.
+- ✅ **Nawigacja i listy:** drzewo ładowane leniwie, „Funkcje zaawansowane”, listy bez limitu 2000 (strony
+  strumieniowane, wirtualizacja), sortowanie, wybór kolumn z atrybutów schematu, nazwy z display specifiers (`CN=415`),
+  znaczniki stanu, pasek adresu (DN lub ścieżka), Wstecz/Dalej/W górę, karty (Ctrl+T, Ctrl+Enter), panel szczegółów,
+  „stan na godz.”, szybkie filtry po stronie serwera, **odświeżanie list na żywo** (powiadomienia LDAP o zmianach).
+- ✅ **Wyszukiwanie:** ANR w trakcie pisania (Ctrl+E), Znajdź (Ctrl+F) z kategoriami i własnym filtrem LDAP, okno wyboru
+  obiektów, paleta poleceń (Ctrl+K).
+- ✅ **Właściwości:** wszystkie karty z tabeli poniżej, okna niemodalne, pola niedozwolone dla operatora tylko do odczytu
+  (`allowedAttributesEffective`), członkostwo bezpośrednie **i pełne (zagnieżdżone)**, grupy z > 1500 członkami.
+- ✅ **Akcje:** wszystkie z listy poniżej, a także nowy `inetOrgPerson`, historia poleceń PowerShell i dziennik sesji.
+  Pojedyncze zmiany przechodzą przez ten sam silnik zmian (walidacja, dziennik, PowerShell), ale **cofanie jest na razie
+  dostępne tylko w edytorze zbiorczym** – cofanie pojedynczej zmiany z dziennika sesji jest w planach.
+- ✅ **Jakość:** PL/EN bez restartu, motyw jasny/ciemny/systemowy (Fluent), skróty jak w ADUC, testy UI (UI Automation)
+  i test dymny opublikowanego `AdMng.exe` w CI.
+- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID, „Zmień kontroler domeny” w trakcie sesji, „Godzin logowania”,
+  „Kopiuj użytkownika” (faza 3), VLV na listach bardzo dużych OU (sesja już go obsługuje), pól opartych o ACL (na razie
+  wyświetlane jako tylko do odczytu – faza 5).
+- 🟡 **Do weryfikacji na Windows Server:** pilotaż, pomiar 100 000 obiektów, Kerberos z wymuszonym channel binding,
+  test „żadnych danych na dysku”, wysoki kontrast i czytnik ekranu.
 
 ### Połączenie i sesja
 - Logowanie bieżącym kontem Windows lub innymi poświadczeniami; Kerberos z podpisywaniem i szyfrowaniem, LDAPS, StartTLS.
@@ -106,6 +130,20 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 ## Faza 2 – Edycja zbiorcza v1 (kluczowa) 🟡
 
 **Cel:** bezpieczne, przewidywalne i odwracalne zmiany na setkach i tysiącach obiektów.
+
+### Stan realizacji
+
+- ✅ Edytor zbiorczy (Ctrl+Shift+B) ze wszystkimi operacjami z tabeli poniżej, cały potok 1–6, „ponów nieudane”,
+  cofanie, eksport podglądu i raportu do CSV, skrypt PowerShell, import CSV aktualizujący obiekty (z wykrywaniem
+  separatora i kodowania, także cp1250 z polskiego Excela, i ochroną przed formułami w eksporcie).
+- ✅ Wykonanie z ograniczoną równoległością, ponawianiem błędów przejściowych i współbieżnością optymistyczną (atomowe
+  „usuń starą wartość + dodaj nową” – zmiana wprowadzona przez kogoś innego po podglądzie kończy się konfliktem, a nie
+  nadpisaniem). Paczki ponad próg z ustawień albo z usuwaniem, przenoszeniem lub resetem haseł wymagają wpisania liczby
+  obiektów.
+- ✅ Hasła wygenerowane przy resecie istnieją tylko w pamięci; eksport wyników z hasłami wyłącznie na wyraźne polecenie,
+  z ostrzeżeniem przed nadpisaniem niezapisanych haseł.
+- 🟡 Kryteria ukończenia: konflikty, cofanie i plan PowerShell są pokryte testami automatycznymi (także na laboratorium
+  Samba); paczka 5000 obiektów i porównanie z `-WhatIf` na Windows Server – do zrobienia.
 
 ### Źródła zaznaczenia
 - Zaznaczenie wielu obiektów na liście, wynik wyszukiwania, szybki filtr lub zapisany widok, plik CSV.
@@ -180,12 +218,14 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   testami jednostkowymi, testami UI i na laboratorium Samba (odtworzenie poddrzewa z tombstone).
   Do zrobienia: weryfikacja na Windows Server z włączonym Koszem i z uprawnieniami delegowanymi do `CN=Deleted Objects`,
   ostrzeżenie w oknie usuwania, gdy Kosz jest wyłączony, przywracanie w partycjach Configuration i stref DNS.
-- **Widoki dla działów:** przestrzenie robocze (np. *Pracownicy*, *Komputery*, *Kontrahenci*) – zestawy przypiętych OU,
-  zapisanych zapytań, kolumn i szablonów; osobne dla helpdesku i administratorów; eksport/import dla zespołu.
+- 🟡 **Widoki dla działów:** ✅ przypinanie OU, zapisane widoki (zapytanie LDAP + kontener + kolumny), gotowe widoki
+  wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
+  *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
 - Kreator zapytań (warunki ↔ LDAP), zapisane zapytania jako foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
-- Członkostwo bezpośrednie vs pełne (zagnieżdżone), efektywne członkostwo użytkownika.
+- ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
+  (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
 
 ## Faza 5 – Helpdesk+ i bezpieczeństwo ⬜
@@ -196,7 +236,8 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   aktualizować listę członków”; karta Zabezpieczenia (podgląd), znaczniki Tier 0.
 - Ostatnie logowanie i stan blokady na **wszystkich** DC (zamiennik LockoutStatus.exe).
 - Karta Historia: kiedy i na którym DC zmieniono każdy atrybut (`msDS-ReplAttributeMetaData`) i członka grupy.
-- Odświeżanie list na żywo (powiadomienia LDAP o zmianach, zapasowo odpytywanie USN).
+- ✅ Odświeżanie list na żywo przez powiadomienia LDAP o zmianach (osobne połączenie do tego samego DC, odświeżane są
+  tylko zmienione obiekty); ⬜ zapasowe odpytywanie USN, gdy DC odmawia powiadomień.
 - Windows LAPS (odczyt/odszyfrowanie dla uprawnionych, „wygaś teraz”), klucze odzyskiwania BitLocker, TPM,
   polityki haseł szczegółowych (FGPP) i wynikowa polityka użytkownika.
 
@@ -214,6 +255,30 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 - Podpisany instalator MSI (certyfikat z firmowego AD CS), reguły WDAC/AppLocker, dystrybucja przez Intune/ConfigMgr/GPO.
 - Zatwierdzanie „cztery oczy”: operator A eksportuje podpisany plan zmian, operator B weryfikuje go na żywo i wykonuje.
 - Członkostwo czasowe (PAM/TTL), polityki i silosy uwierzytelniania (podgląd), logowanie kartą inteligentną.
+
+---
+
+## Znane ograniczenia
+
+Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki i uproszczenia w tym, co już działa.
+
+- **Nie sprawdzone na Windows Server AD.** Testy integracyjne działają na kontrolerze Samba 4.19; pilotaż, pomiary na
+  dużych katalogach, Kerberos z wymuszonym channel binding, Kosz AD z delegowanymi uprawnieniami i test „żadnych danych
+  na dysku” są przed nami (fazy 1–2, 4).
+- **Jeden kontroler przez całą sesję** – zmiana DC wymaga rozłączenia i ponownego połączenia (brak okna „Zmień
+  kontroler domeny”).
+- **Kontenery dobrze znane** (`Users`, `Computers`, …) nie są rozpoznawane po WKGUID – drzewo pokazuje je jak zwykłe
+  kontenery, a obiekty są zawsze tworzone w bieżącym kontenerze, nie w domyślnym z `wellKnownObjects`.
+- **Bardzo duże OU** są wczytywane strumieniowo w całości (bez VLV) – lista działa płynnie, ale zajmuje pamięć
+  proporcjonalną do liczby obiektów.
+- **Pola oparte o ACL** („Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer
+  może aktualizować listę członków”) są pokazywane tylko do odczytu; brak karty Zabezpieczenia i „Godzin logowania”.
+- **Cofanie** działa w edytorze zbiorczym (cała paczka); pojedynczych zmian z kart właściwości i menu nie da się jeszcze
+  cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
+- **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
+- **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
+- **Filtr „Puste grupy”** sprawdza tylko atrybut `member`; grupy, których członkowie wynikają z `primaryGroupID`, mogą
+  być pokazywane jako puste.
 
 ---
 
