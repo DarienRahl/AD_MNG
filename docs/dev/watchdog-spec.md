@@ -4457,7 +4457,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | GET | `/api/v1/events/{id}` | Viewer | – | `EventDetails` | 404 when purged; detail level as above; access logged |
 | POST | `/api/v1/events/{id}/ack` | Viewer | `AcknowledgeRequest` | 204 | idempotent; stores caller account |
 | POST | `/api/v1/events/ack` | Viewer | `BulkAcknowledgeRequest` (1–500 ids) | 204 | bulk acknowledge (lockout-heavy feeds) |
-| GET | `/api/v1/config` | Viewer | – | `ConfigEnvelope` + `ETag: "<version>"` | Admin: full (secrets as `IsSet`/`Hint` only); Viewer: **redacted** by `ConfigRedactor` (`IsRedacted = true`: exclusions removed – only their count per rule –, recipient addresses removed, SMTP host/user/from/replyTo/localDomain removed, channel URL hints and OAuth ids removed) |
+| GET | `/api/v1/config` | Viewer | – | `ConfigEnvelope` + `ETag: "<version>"` | Admin: full (secrets as `IsSet`/`Hint` only); Viewer: **redacted** by `ConfigRedactor` (`IsRedacted = true`: exclusions and actor exclusions (`ExcludeActors`) removed – only their count per rule –, recipient addresses and webhook `AllowedHosts` removed, SMTP host/user/from/replyTo/localDomain removed, channel URL hints and OAuth ids removed) |
 | PUT | `/api/v1/config` | Admin | `ConfigEnvelope` + `If-Match: "<version>"` | `ConfigEnvelope` (new version) | algorithm below; 412 on version conflict; 400 with issues |
 | GET | `/api/v1/config/defaults` | Viewer | – | `WatchdogConfiguration` | for "reset rule to default" |
 | POST | `/api/v1/config/validate` | Admin | `WatchdogConfiguration` | `ConfigValidationResult` | no side effects |
@@ -5192,8 +5192,10 @@ public static class TimeZoneResolver
 addresses, SMTP host/user/from/replyTo/localDomain, OAuth tenant/client ids and certificate thumbprints (SMTP and
 Teams) removed; every `SecretField` reduced to `{ IsSet }` (all hints removed); each exclusion replaced by a placeholder
 (`Id = "redacted-<n>"`, empty reason/creator, `CreatedAt = default`, nothing else) so `rule.Exclusions.Count` is the
-count. Everything else (incl. `PublicBaseUrl`, webhook `AllowedHosts`, rule actor filters) is returned unchanged; the
-input is not modified.
+count; each `ActorFilter.ExcludeActors` SID replaced by the placeholder `redacted-<n>` (only the count remains – actor
+exclusions reveal monitoring blind spots like exclusions); webhook `AllowedHosts` removed (like recipients they reveal
+where alerts go). Everything else (incl. `PublicBaseUrl`, `ExcludeSelfChanges`) is returned unchanged; the input is not
+modified. (Lead decision 2026-10-14: actor filters and allowed hosts redacted as well.)
 
 ```csharp
 public sealed class ConfigRedactor
