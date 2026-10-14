@@ -103,13 +103,24 @@ public sealed class WatchAndRestoreTests(LabFixture lab)
         await quiet.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(20), ct);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5), $"Dispose took {stopwatch.Elapsed}.");
 
-        // The results thread was not left stuck on the disposed subscription.
+        // The results thread was not left stuck on the disposed subscription. WatchAsync returns once the request is
+        // sent and the DC registers it asynchronously (later under load), so a change made right away can be missed:
+        // keep changing the contact until one is reported. A stuck results thread reports none of them.
         var changes = new ConcurrentQueue<string>();
         await using var busy = await lab.Admin.WatchAsync(busyOu, changes.Enqueue, ct);
         var contact = await lab.CreateContactAsync(busyOu, "Po Ciszy");
-        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        var nextChange = DateTime.UtcNow.AddSeconds(2);
+        var round = 0;
         while (!changes.Any(dn => DistinguishedName.AreEqual(dn, contact)) && DateTime.UtcNow < deadline)
         {
+            if (DateTime.UtcNow >= nextChange)
+            {
+                round++;
+                await lab.Admin.ModifyAsync(contact, [AttributeModification.Replace(Attr.Description, $"zmiana {round}")], null, ct);
+                nextChange = DateTime.UtcNow.AddSeconds(2);
+            }
+
             await Task.Delay(100, ct);
         }
 
