@@ -253,10 +253,11 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
     [RelayCommand]
     private void CopyPassword(PasswordResultViewModel? row)
     {
-        if (row?.Password is { } password)
+        // Kept out of clipboard history and cloud clipboard, cleared after a while. When the clipboard was busy the
+        // password was not handed out (the clipboard service warns the operator).
+        if (row?.Password is { } password && Services.Clipboard.SetSecret(password))
         {
             row.WasHandedOut = true;
-            Services.Clipboard.SetText(password);
             Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.ResetPassword.PasswordCopied]);
         }
     }
@@ -270,7 +271,8 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
             return;
         }
 
-        var includePasswords = result.Plan.ContainsPasswords
+        // Only the passwords of the resets that succeeded are exported: nothing to ask when none did.
+        var includePasswords = BatchReportExporter.ContainsSecrets(result)
             && await Services.Dialogs.ConfirmAsync(Localizer[L.Batch.ExportPasswordsTitle], Localizer[L.Batch.ExportPasswordsWarning], destructive: true)
                 .ConfigureAwait(true);
         var title = Localizer[L.Batch.ExportResults];

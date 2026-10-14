@@ -128,5 +128,25 @@ public sealed class AppHelperTests
         Assert.False(BindingErrorListener.IsThemeNoise("BindingExpression path error: 'Nmae' property not found on 'object'"));
     }
 
+    [Fact]
+    public void ClipboardSecret_IsKeptOutOfHistoryCloudClipboardAndMonitors()
+    {
+        SkipUnlessWindows();
+        var data = ClipboardService.CreateSecretData("Zażółć!Hasło2026");
+
+        Assert.Equal("Zażółć!Hasło2026", data.GetText(System.Windows.TextDataFormat.UnicodeText));
+        foreach (var format in new[]
+        {
+            ClipboardService.ExcludeFromMonitoringFormat, ClipboardService.CanIncludeInHistoryFormat, ClipboardService.CanUploadToCloudFormat,
+        })
+        {
+            Assert.True(data.GetDataPresent(format, autoConvert: false), format);
+            var stream = Assert.IsAssignableFrom<System.IO.MemoryStream>(data.GetData(format, autoConvert: false));
+            Assert.Equal(new byte[4], stream.ToArray());
+        }
+
+        Assert.Equal(TimeSpan.FromSeconds(60), ClipboardService.SecretLifetime);
+    }
+
     private static void SkipUnlessWindows() => Assert.SkipUnless(OperatingSystem.IsWindows(), "WPF tests need Windows.");
 }

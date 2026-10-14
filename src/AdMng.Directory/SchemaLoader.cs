@@ -239,6 +239,7 @@ internal static class SchemaLoader
             IsSystemOnly = entry.GetBoolean("systemOnly") ?? false,
             IsConstructed = (systemFlags & 0x4) != 0,
             IsIndexed = (searchFlags & 0x1) != 0,
+            IsConfidential = (searchFlags & 0x80) != 0,
             IsInGlobalCatalog = entry.GetBoolean("isMemberOfPartialAttributeSet") ?? false,
             LinkId = entry.GetInt32("linkID"),
             SchemaIdGuid = ReadGuid(entry, "schemaIDGUID") ?? Guid.Empty,

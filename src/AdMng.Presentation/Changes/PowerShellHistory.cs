@@ -1,4 +1,5 @@
 using AdMng.Core.Batch;
+using AdMng.Core.Schema;
 
 namespace AdMng.Presentation.Changes;
 
@@ -7,7 +8,7 @@ namespace AdMng.Presentation.Changes;
 /// <param name="ExecutedAt">When the execution finished.</param>
 /// <param name="Server">Domain controller.</param>
 /// <param name="ObjectCount">Objects executed.</param>
-/// <param name="Script">PowerShell (ActiveDirectory module); passwords are never embedded (Read-Host).</param>
+/// <param name="Script">PowerShell (ActiveDirectory module); passwords and secret attribute values are never embedded (Read-Host).</param>
 public sealed record PowerShellHistoryEntry(string Title, DateTimeOffset ExecutedAt, string Server, int ObjectCount, string Script);
 
 /// <summary>
@@ -40,7 +41,10 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
     }
 
     /// <summary>Records the objects of the result that were executed (succeeded, failed or partially executed).</summary>
-    public void Record(BatchResult result, string title)
+    /// <param name="result">The executed batch.</param>
+    /// <param name="title">Title of the change.</param>
+    /// <param name="schema">Schema of the session: values of its confidential attributes are not embedded either.</param>
+    public void Record(BatchResult result, string title, ISchemaCatalog? schema = null)
     {
         ArgumentNullException.ThrowIfNull(result);
         var executed = result.Objects.Where(o => o.Changes.Count > 0).Select(o => o.Plan).ToList();
@@ -52,7 +56,7 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
         string script;
         try
         {
-            script = _exporter.Export(result.Plan with { Objects = executed }, result.Server);
+            script = _exporter.Export(result.Plan with { Objects = executed }, result.Server, schema);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

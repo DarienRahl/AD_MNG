@@ -3690,4 +3690,8 @@ Type {1} to confirm.</value>
   <data name="RecycleBin.Restored" xml:space="preserve">
     <value>Restored from the AD Recycle Bin: {0}.</value>
   </data>
+  <data name="Files.ExportSecretColumns" xml:space="preserve">
+    <value>The list has columns with passwords or other confidential values: {0}. Include them in the file in plain text?
+Anyone who can read the file can see these values - store it securely and delete it after use. Choose No to export the list without these columns.</value>
+  </data>
 </root>

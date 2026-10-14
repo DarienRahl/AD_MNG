@@ -7,6 +7,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
@@ -1333,6 +1334,20 @@ public sealed record ListExportSnapshot(IReadOnlyList<(string Attribute, string 
     /// <summary>Formats all cells (call on a background thread for large lists).</summary>
     public IEnumerable<IReadOnlyList<string>> FormatRows() =>
         Rows.Select(r => (IReadOnlyList<string>)[.. Columns.Select(c => r.FormatUncached(c.Attribute))]);
+
+    /// <summary>
+    /// Columns whose values are secrets (passwords, LAPS... and the confidential attributes of <paramref name="schema"/>):
+    /// they are exported only after the operator confirmed it.
+    /// </summary>
+    public IReadOnlyList<(string Attribute, string Header)> SecretColumns(ISchemaCatalog? schema) =>
+        [.. Columns.Where(c => SecretAttributes.IsSecret(c.Attribute, schema))];
+
+    /// <summary>The same rows without the given columns.</summary>
+    public ListExportSnapshot WithoutColumns(IEnumerable<string> attributes)
+    {
+        var excluded = new HashSet<string>(attributes, StringComparer.OrdinalIgnoreCase);
+        return this with { Columns = [.. Columns.Where(c => !excluded.Contains(c.Attribute))] };
+    }
 
     /// <summary>Default export file name from a list title (invalid file name characters removed).</summary>
     public static string SuggestFileName(string title, DateTimeOffset now)

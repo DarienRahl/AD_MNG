@@ -1,4 +1,5 @@
 using AdMng.Core.Batch;
+using AdMng.Core.Schema;
 
 namespace AdMng.Core.Tests.Batch;
 
@@ -198,5 +199,100 @@ public class PowerShellExporterTests
 
         Assert.DoesNotContain(lines, l => l.StartsWith("Remove-ADObject", StringComparison.Ordinal));
         Assert.All(lines.Where(l => l.Contains("Linia1", StringComparison.Ordinal)), l => Assert.StartsWith("#", l, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Export_NeverEmbedsValuesOfSecretAttributes()
+    {
+        const string LapsPassword = "Laps!Sekret#2026";
+        const string Pin = "Zażółć-1234";
+        var schema = new SchemaCatalog(
+            [new AttributeDefinition { LdapName = "contoso-Pin", Syntax = AttributeSyntax.UnicodeString, IsConfidential = true }], []);
+        var plan = new ChangePlan
+        {
+            Objects =
+            [
+                new ObjectPlan
+                {
+                    DistinguishedName = "CN=PC-01,OU=Komputery,DC=contoso,DC=test",
+                    DisplayName = "PC-01",
+                    Changes =
+                    [
+                        new PlannedChange
+                        {
+                            Action = ChangeAction.Modify,
+                            Attributes =
+                            [
+                                new AttributeChange("ms-Mcs-AdmPwd", AttributeChangeKind.Replace, ["Stare!Haslo"], [LapsPassword]),
+                                new AttributeChange("contoso-Pin", AttributeChangeKind.AddValues, [], [Pin, "4321"]),
+                                new AttributeChange("description", AttributeChangeKind.Replace, [], ["Komputer Łukasza"]),
+                            ],
+                        },
+                    ],
+                },
+                new ObjectPlan
+                {
+                    DistinguishedName = "CN=Ewa Kowalska,OU=IT,DC=contoso,DC=test",
+                    DisplayName = "Ewa Kowalska",
+                    ObjectClasses = ["top", "person", "organizationalPerson", "user"],
+                    Changes =
+                    [
+                        new PlannedChange
+                        {
+                            Action = ChangeAction.Create,
+                            Attributes =
+                            [
+                                new AttributeChange("cn", AttributeChangeKind.Replace, [], ["Ewa Kowalska"]),
+                                new AttributeChange("userPassword", AttributeChangeKind.Replace, [], [LapsPassword]),
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var script = _exporter.Export(plan, null, schema);
+        var lines = script.Split("\r\n");
+
+        Assert.DoesNotContain(LapsPassword, script, StringComparison.Ordinal);
+        Assert.DoesNotContain("Stare!Haslo", script, StringComparison.Ordinal);
+        Assert.DoesNotContain(Pin, script, StringComparison.Ordinal);
+        Assert.DoesNotContain("4321", script, StringComparison.Ordinal);
+        Assert.Contains("# Values of secret attributes are not included; the script prompts for each of them.", lines);
+        Assert.Contains("$secret1 = [System.Net.NetworkCredential]::new('', (Read-Host -AsSecureString -Prompt 'ms-Mcs-AdmPwd for PC-01')).Password", lines);
+        Assert.Contains("$secret2 = [System.Net.NetworkCredential]::new('', (Read-Host -AsSecureString -Prompt 'contoso-Pin (1/2) for PC-01')).Password", lines);
+        Assert.Contains("Set-ADObject -Identity $dn -Replace @{'ms-Mcs-AdmPwd'=$secret1; description='Komputer Łukasza'} -Add @{'contoso-Pin'=@($secret2,$secret3)}", lines);
+        Assert.Contains("Remove-Variable secret1,secret2,secret3", lines);
+        Assert.Contains("New-ADObject -Name 'Ewa Kowalska' -Type 'user' -Path 'OU=IT,DC=contoso,DC=test' -OtherAttributes @{userPassword=$secret1}", lines);
+        Assert.Contains("Remove-Variable secret1", lines);
+    }
+
+    [Fact]
+    public void Export_WithoutSchema_StillHidesWellKnownSecrets()
+    {
+        var plan = new ChangePlan
+        {
+            Objects =
+            [
+                new ObjectPlan
+                {
+                    DistinguishedName = "CN=PC-01,DC=contoso,DC=test",
+                    DisplayName = "PC-01",
+                    Changes =
+                    [
+                        new PlannedChange
+                        {
+                            Action = ChangeAction.Modify,
+                            Attributes = [new AttributeChange("msLAPS-Password", AttributeChangeKind.Replace, [], ["Laps!Sekret#2026"])],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var script = _exporter.Export(plan, null);
+
+        Assert.DoesNotContain("Laps!Sekret#2026", script, StringComparison.Ordinal);
+        Assert.Contains("-Replace @{'msLAPS-Password'=$secret1}", script, StringComparison.Ordinal);
     }
 }

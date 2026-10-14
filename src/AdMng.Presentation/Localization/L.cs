@@ -296,6 +296,9 @@ public static partial class L
         public const string CsvFilter = "Files.CsvFilter";
         public const string JsonFilter = "Files.JsonFilter";
         public const string Exported = "Files.Exported";
+
+        /// <summary>{0} = headers of the list columns that hold secret values.</summary>
+        public const string ExportSecretColumns = "Files.ExportSecretColumns";
     }
 
     public static class Errors

@@ -3690,4 +3690,8 @@ Wpisz {1}, aby potwierdzić.</value>
   <data name="RecycleBin.Restored" xml:space="preserve">
     <value>Przywrócono z Kosza AD: {0}.</value>
   </data>
+  <data name="Files.ExportSecretColumns" xml:space="preserve">
+    <value>Lista zawiera kolumny z hasłami lub innymi poufnymi wartościami: {0}. Czy zapisać je w pliku jawnym tekstem?
+Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usuń po użyciu. Wybierz Nie, aby wyeksportować listę bez tych kolumn.</value>
+  </data>
 </root>

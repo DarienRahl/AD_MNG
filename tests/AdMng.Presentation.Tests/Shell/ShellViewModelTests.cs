@@ -4,6 +4,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Navigation;
@@ -701,6 +702,91 @@ public class ShellViewModelTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task ExportList_WritesSecretColumnsOnlyAfterTheExportPasswordsConfirmation()
+    {
+        const string LapsPassword = "Laps!Sekret#2026";
+        var (shell, harness) = await CreateShellAsync(It);
+        harness.Directory.Put(WithAttribute(harness.Directory.Find(Lukasz)!, "ms-Mcs-AdmPwd", LapsPassword));
+        await shell.SelectedDocument!.ApplyColumnsAsync([Attr.Name, "ms-Mcs-AdmPwd", Attr.Description]);
+        shell.SelectedDocument.QuickFilterText = "łukasz";
+        var path = Path.Combine(Path.GetTempPath(), $"admng-export-{Guid.NewGuid():N}.csv");
+        harness.Files.NextSavePath = path;
+        try
+        {
+            // Declined: the list is exported without the secret column.
+            harness.Dialogs.ConfirmAnswers.Enqueue(false);
+            await shell.ExportListCommand.ExecuteAsync(null);
+
+            var declined = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+            Assert.DoesNotContain(LapsPassword, declined, StringComparison.Ordinal);
+            Assert.StartsWith("Name,Description", declined, StringComparison.Ordinal);
+            var confirmation = Assert.Single(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal));
+            Assert.Contains("ms-Mcs-AdmPwd", confirmation, StringComparison.Ordinal);
+
+            // Confirmed: the operator chose to write the values.
+            harness.Dialogs.ConfirmAnswers.Enqueue(true);
+            await shell.ExportListCommand.ExecuteAsync(null);
+
+            var lines = await File.ReadAllLinesAsync(path, TestContext.Current.CancellationToken);
+            Assert.Equal(3, lines[0].Split(',').Length);
+            Assert.Contains(LapsPassword, lines[1], StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ExportList_ASavedViewWithASecretColumn_FollowsTheSameRule()
+    {
+        const string LapsPassword = "Laps!Sekret#2026";
+        var (shell, harness) = await CreateShellAsync();
+        harness.Directory.Put(WithAttribute(harness.Directory.Find(Lukasz)!, "msLAPS-Password", LapsPassword));
+        await harness.Views.SaveViewAsync(new SavedView
+        {
+            Id = "laps",
+            Name = "Hasła LAPS",
+            Filter = "(objectClass=user)",
+            Columns = [Attr.Name, "msLAPS-Password"],
+        });
+        shell.Tree.ViewsNode.Children.OfType<ViewNodeViewModel>().Single(v => v.ViewId == "laps").IsSelected = true;
+        await shell.SelectedDocument!.CurrentLoad;
+        Assert.Contains(shell.SelectedDocument.Items, r => r.Name == "Łukasz Żółć");
+        var path = Path.Combine(Path.GetTempPath(), $"admng-export-{Guid.NewGuid():N}.csv");
+        harness.Files.NextSavePath = path;
+        try
+        {
+            // No answer scripted: the confirmation is declined.
+            await shell.ExportListCommand.ExecuteAsync(null);
+
+            var lines = await File.ReadAllLinesAsync(path, TestContext.Current.CancellationToken);
+            Assert.Equal("Name", lines[0]);
+            Assert.DoesNotContain(lines, l => l.Contains(LapsPassword, StringComparison.Ordinal));
+            Assert.Single(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void ListExportSnapshot_TreatsConfidentialSchemaAttributesAsSecret()
+    {
+        var schema = new SchemaCatalog(
+            [new AttributeDefinition { LdapName = "contoso-Pin", Syntax = AttributeSyntax.UnicodeString, IsConfidential = true }], []);
+        var snapshot = new ListExportSnapshot(
+            [(Attr.Name, "Name"), ("contoso-Pin", "PIN"), ("msLAPS-Password", "LAPS"), (Attr.Description, "Description")], []);
+
+        var secret = snapshot.SecretColumns(schema);
+
+        Assert.Equal(["contoso-Pin", "msLAPS-Password"], secret.Select(c => c.Attribute));
+        Assert.Equal(["msLAPS-Password"], snapshot.SecretColumns(null).Select(c => c.Attribute));
+        Assert.Equal(["Name", "Description"], snapshot.WithoutColumns(secret.Select(c => c.Attribute)).Columns.Select(c => c.Header));
     }
 
     [Fact]

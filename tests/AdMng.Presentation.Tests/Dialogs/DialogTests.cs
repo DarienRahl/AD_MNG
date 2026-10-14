@@ -84,6 +84,7 @@ public class ResetPasswordTests
 
         dialog.CopyPasswordCommand.Execute(row);
         Assert.Equal(reset.Password, harness.Clipboard.Text);
+        Assert.True(harness.Clipboard.IsSecret);
         Assert.True(dialog.HasUnsavedGeneratedPasswords);
         dialog.CopyPasswordCommand.Execute(dialog.Results.Single(r => r.Name != "Jan Kowalski"));
         Assert.False(dialog.HasUnsavedGeneratedPasswords);
@@ -91,6 +92,64 @@ public class ResetPasswordTests
         Assert.True(closed);
         dialog.Dispose();
         Assert.Empty(dialog.Results);
+    }
+
+    [Fact]
+    public async Task CopyPassword_WhenTheClipboardIsBusy_DoesNotCountAsHandedOut()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.JanKowalski, harness.Company.LukaszWisniewski]);
+        await dialog.InitializeAsync();
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await dialog.ResetCommand.ExecuteAsync(null);
+        var row = dialog.Results.Single(r => r.Name == "Jan Kowalski");
+        var other = dialog.Results.Single(r => r.Name != "Jan Kowalski");
+        other.IsRevealed = true;
+        var copied = harness.Localizer[AdMng.Presentation.Localization.L.ResetPassword.PasswordCopied];
+
+        harness.Clipboard.IsBusy = true;
+        dialog.CopyPasswordCommand.Execute(row);
+
+        Assert.Null(harness.Clipboard.Text);
+        Assert.DoesNotContain(harness.Notifications.Items, n => n.Message == copied);
+        Assert.True(dialog.HasUnsavedGeneratedPasswords);
+
+        harness.Clipboard.IsBusy = false;
+        dialog.CopyPasswordCommand.Execute(row);
+
+        Assert.True(harness.Clipboard.IsSecret);
+        Assert.Contains(harness.Notifications.Items, n => n.Message == copied);
+        Assert.False(dialog.HasUnsavedGeneratedPasswords);
+    }
+
+    [Fact]
+    public async Task Export_ContainsOnlyThePasswordsOfResetsThatSucceeded()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var dialog = harness.Factory.CreateResetPassword([harness.Company.JanKowalski, harness.Company.LukaszWisniewski]);
+        await dialog.InitializeAsync();
+        harness.Session.FailNext(FakeOperationKind.ResetPassword, harness.Company.LukaszWisniewski, Core.Directory.DirectoryErrorKind.AccessDenied);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await dialog.ResetCommand.ExecuteAsync(null);
+        var succeeded = Assert.Single(harness.Session.PasswordResets);
+        Assert.StartsWith("CN=Jan Kowalski", succeeded.DistinguishedName, StringComparison.Ordinal);
+        var path = Path.Combine(Path.GetTempPath(), $"admng-reset-{Guid.NewGuid():N}.csv");
+        harness.Files.NextSavePath = path;
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        try
+        {
+            await dialog.ExportCommand.ExecuteAsync(null);
+
+            var text = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
+            Assert.Contains(succeeded.Password, text, StringComparison.Ordinal);
+            var lines = text.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+            var lukasz = Assert.Single(lines, l => l.Contains("ResetPassword", StringComparison.Ordinal) && l.Contains("Wiśniewski", StringComparison.Ordinal));
+            Assert.EndsWith(",", lukasz, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]
