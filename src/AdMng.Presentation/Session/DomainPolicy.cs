@@ -15,7 +15,7 @@ public enum LockState
 
 /// <summary>
 /// Domain-wide account policy read once per session from the domain root object (lockoutDuration,
-/// lockoutThreshold, maxPwdAge). Metadata only - kept in memory with the session.
+/// lockoutThreshold, maxPwdAge, objectSid). Metadata only - kept in memory with the session.
 /// </summary>
 public sealed record DomainPolicy
 {
@@ -24,7 +24,8 @@ public sealed record DomainPolicy
     public const string MaxPasswordAgeAttribute = "maxPwdAge";
 
     /// <summary>Attributes to read from the domain root object.</summary>
-    public static IReadOnlyList<string> Attributes { get; } = [LockoutDurationAttribute, LockoutThresholdAttribute, MaxPasswordAgeAttribute];
+    public static IReadOnlyList<string> Attributes { get; } =
+        [LockoutDurationAttribute, LockoutThresholdAttribute, MaxPasswordAgeAttribute, Attr.ObjectSid];
 
     /// <summary>Policy that could not be read: lock states are reported as <see cref="LockState.PossiblyLocked"/>.</summary>
     public static DomainPolicy Unknown { get; } = new();
@@ -40,6 +41,9 @@ public sealed record DomainPolicy
     /// <summary>Maximum password age; null = passwords never expire by domain policy.</summary>
     public TimeSpan? MaxPasswordAge { get; init; }
 
+    /// <summary>SID of the domain (S-1-5-21-...), null when not readable; well-known domain groups are this SID plus a RID.</summary>
+    public string? DomainSid { get; init; }
+
     public static DomainPolicy FromDomainObject(DirectoryObject domain)
     {
         ArgumentNullException.ThrowIfNull(domain);
@@ -51,7 +55,20 @@ public sealed record DomainPolicy
             LockoutDuration = duration is { } d ? AdConvert.FromInterval(d) : null,
             LockoutThreshold = domain.GetInt32(LockoutThresholdAttribute) ?? 0,
             MaxPasswordAge = maxAge is { } m ? AdConvert.FromInterval(m) : null,
+            DomainSid = ReadSid(domain),
         };
+    }
+
+    private static string? ReadSid(DirectoryObject domain)
+    {
+        try
+        {
+            return domain.ObjectSid;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Evaluates lockoutTime (FILETIME) against the lockout duration.</summary>

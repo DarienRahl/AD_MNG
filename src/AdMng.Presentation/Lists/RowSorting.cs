@@ -28,6 +28,24 @@ public static class RowSorting
         return [.. ordered.Select(k => k.Row)];
     }
 
+    /// <summary>
+    /// Compares two rows the way <see cref="Sort"/> orders them (0 for equal keys, whose order <see cref="Sort"/> keeps).
+    /// Keys are computed per comparison: meant for binary searches in an already sorted list, not for sorting many rows.
+    /// </summary>
+    public static IComparer<ObjectRowViewModel> CreateComparer(string attribute, bool descending, CultureInfo culture, ISchemaCatalog? schema)
+    {
+        ArgumentNullException.ThrowIfNull(attribute);
+        ArgumentNullException.ThrowIfNull(culture);
+        var keyKind = KeyKindOf(attribute, schema);
+        var comparer = new KeyComparer(StringComparer.Create(culture, CompareOptions.IgnoreCase));
+        return Comparer<ObjectRowViewModel>.Create((x, y) =>
+        {
+            var keyX = KeyOf(x, attribute, keyKind);
+            var keyY = KeyOf(y, attribute, keyKind);
+            return descending ? comparer.Compare(keyY, keyX) : comparer.Compare(keyX, keyY);
+        });
+    }
+
     private enum KeyKind
     {
         Text,

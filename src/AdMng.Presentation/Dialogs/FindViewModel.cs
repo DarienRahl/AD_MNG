@@ -239,7 +239,8 @@ public sealed partial class FindViewModel : WindowViewModelBase
 
         var baseDn = SearchBaseDn ?? session.Info.DefaultNamingContext;
         var scope = SearchBaseDn is null || IncludeSubcontainers ? SearchScope.Subtree : SearchScope.OneLevel;
-        var location = ListLocation.ForQuery(Localizer[L.Find.ResultsTitle], baseDn, scope, LdapFilter.Wrap(FilterText));
+        var location = ListLocation.ForQuery(Localizer[L.Find.ResultsTitle], baseDn, scope, LdapFilter.Wrap(FilterText))
+            with { TitleKey = L.Find.ResultsTitle };
         HasSearched = true;
         await Results.NavigateAsync(location).ConfigureAwait(true);
     }

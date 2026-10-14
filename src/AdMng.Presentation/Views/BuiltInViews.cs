@@ -87,9 +87,10 @@ public sealed record BuiltInViewDefinition(
     }
 
     /// <summary>
-    /// The view as a static base filter plus the quick filter chip that carries its date threshold or post-filter
-    /// (chips are evaluated at query time) - what "Save as view" stores, so a saved copy stays current instead of
-    /// freezing today's dates (and keeps "locked out" exact). Views without dates or post-filter: their filter, no chip.
+    /// The view as a static base filter plus the quick filter chip that carries its date threshold, post-filter or
+    /// session facts (chips are evaluated at query time) - what "Save as view" stores, so a saved copy stays current
+    /// instead of freezing today's dates (and keeps "locked out" exact and "empty groups" free of primary groups).
+    /// Views without any of these: their filter, no chip.
     /// </summary>
     public (string Filter, QuickFilterKind? Chip) ToSavedDefinition(DateTimeOffset now, int inactiveDays) => Kind switch
     {
@@ -98,17 +99,25 @@ public sealed record BuiltInViewDefinition(
         BuiltInViewKind.InactiveComputers => (QuickFilters.Computers, QuickFilterKind.Inactive),
         BuiltInViewKind.ExpiringAccounts => (QuickFilters.Users, QuickFilterKind.Expiring),
         BuiltInViewKind.ExpiredAccounts => (QuickFilters.Users, QuickFilterKind.Expired),
+        BuiltInViewKind.EmptyGroups => (QuickFilters.Groups, QuickFilterKind.EmptyGroups),
         _ => (BuildFilter(now, inactiveDays), null),
     };
 
-    /// <summary>The list location (subtree of the domain) with the filter computed for <paramref name="now"/>.</summary>
+    /// <summary>
+    /// The list location (subtree of the domain) with the filter computed for <paramref name="now"/>. "Empty groups"
+    /// is the groups filter with its chip active instead: the chip is built when the list loads, with the domain SID
+    /// that excludes the default primary groups (<see cref="QuickFilters.EmptyGroups"/>).
+    /// </summary>
     public ListLocation ToLocation(ILocalizer localizer, string defaultNamingContext, DateTimeOffset now, int inactiveDays) => new()
     {
         Kind = ListLocationKind.View,
         BaseDn = defaultNamingContext,
         Scope = SearchScope.Subtree,
-        Filter = BuildFilter(now, inactiveDays),
+        Filter = Kind == BuiltInViewKind.EmptyGroups ? QuickFilters.Groups : BuildFilter(now, inactiveDays),
+        QuickFilters = Kind == BuiltInViewKind.EmptyGroups ? [QuickFilterKind.EmptyGroups] : [],
         Title = Title(localizer, inactiveDays),
+        TitleKey = DisplayNames.BuiltInViewKey(Kind),
+        TitleArguments = UsesInactiveDays ? [inactiveDays] : [],
         Icon = ObjectIcon.QuickFilter,
         ViewId = Id,
         ColumnLayoutKey = Id,

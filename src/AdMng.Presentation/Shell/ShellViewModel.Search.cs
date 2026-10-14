@@ -82,7 +82,8 @@ public sealed partial class ShellViewModel
         _searchDebouncer.Cancel();
         IsSearching = false;
         IsSuggestionsOpen = false;
-        var location = ListLocation.ForSearch(text, session.Info.DefaultNamingContext, Localizer.Format(L.Search.TabTitle, text), BuildSearchFilter(text));
+        var location = ListLocation.ForSearch(text, session.Info.DefaultNamingContext, Localizer.Format(L.Search.TabTitle, text), BuildSearchFilter(text))
+            with { TitleKey = L.Search.TabTitle, TitleArguments = [text] };
         return OpenLocationInNewTabAsync(location);
     }
 

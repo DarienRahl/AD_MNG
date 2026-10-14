@@ -60,6 +60,9 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     // Incremented whenever rows are added to or removed from _allRows: a background sort of a snapshot is stale when
     // it changed meanwhile (a rename removes one row and adds another - the count alone stays the same).
     private int _rowsVersion;
+
+    // InactiveDays the Inactive chip's title (and an active chip's query) were built with.
+    private int _inactiveDays;
     private RowContext? _rowContext;
     private DirectorySearch? _lastSearch;
     private SortKey? _serverSort;
@@ -82,6 +85,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         _session = session ?? (() => services.Sessions.Current);
         _layoutSaver = new Debouncer(services.Time, LayoutSaveDelay);
         _liveRefresh = new Debouncer(services.Time, LiveUpdateDelay);
+        _inactiveDays = services.Settings.Current.InactiveDays;
         foreach (var kind in Enum.GetValues<QuickFilterKind>())
         {
             var chip = new FilterChipViewModel(kind, ChipTitle(kind));
@@ -490,6 +494,14 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
     private async Task ShowLocationAsync(ListLocation location)
     {
+        // A history entry from before a language switch: show its title in the current language.
+        var localized = location.Relocalize(_services.Localizer);
+        if (!ReferenceEquals(localized, location))
+        {
+            _history.ReplaceCurrent(localized);
+            location = localized;
+        }
+
         var previousKey = Location?.ColumnLayoutKey;
         Location = location;
         if (!string.Equals(previousKey, location.ColumnLayoutKey, StringComparison.Ordinal) || Columns.Count == 0)
@@ -554,7 +566,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             token.ThrowIfCancellationRequested();
             var context = new RowContext(_services.Localizer, _services.Sessions.Formatter, policy, _services.Time.GetUtcNow());
             _rowContext = context;
-            var search = BuildSearch(location, session.Info.DefaultNamingContext);
+            var search = BuildSearch(location, session.Info.DefaultNamingContext, policy.DomainSid);
             _lastSearch = search;
             try
             {
@@ -614,7 +626,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         }
     }
 
-    private DirectorySearch BuildSearch(ListLocation location, string defaultNamingContext)
+    private DirectorySearch BuildSearch(ListLocation location, string defaultNamingContext, string? domainSid)
     {
         var settings = _services.Settings.Current;
         var filter = location.Filter;
@@ -626,7 +638,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         var chips = FilterChips.Where(c => c.IsActive).Select(c => c.Kind).ToList();
         if (chips.Count > 0)
         {
-            filter = QuickFilters.Combine(filter, chips, _services.Time.GetUtcNow(), settings.InactiveDays);
+            filter = QuickFilters.Combine(filter, chips, _services.Time.GetUtcNow(), settings.InactiveDays, domainSid);
         }
 
         var attributes = ColumnSets.BaseAttributes
@@ -839,9 +851,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private void ApplyRefreshedObjects(List<(string Dn, DirectoryObject? Object)> results, RowContext context, ListPostFilter postFilter)
     {
         var lockedOnly = postFilter == ListPostFilter.LockedOnly || ChipsRequireLockedPostFilter;
-        var structureChanged = false;
         var selected = Selection.ToHashSet();
         var selectionAffected = false;
+        var removed = new HashSet<ObjectRowViewModel>();
+        var updated = new HashSet<ObjectRowViewModel>();
+        var added = new List<ObjectRowViewModel>();
         foreach (var (dn, obj) in results)
         {
             var key = DnKey.For(dn);
@@ -869,9 +883,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                 if (existing is not null)
                 {
                     _rowsByDn.Remove(key);
-                    _allRows.Remove(existing);
+                    removed.Add(existing);
                     ForgetSelected(existing);
-                    structureChanged = true;
                 }
 
                 continue;
@@ -880,24 +893,40 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             if (existing is null && candidate is not null)
             {
                 _rowsByDn[key] = candidate;
-                _allRows.Add(candidate);
-                structureChanged = true;
+                added.Add(candidate);
             }
+            else if (existing is not null)
+            {
+                updated.Add(existing);
+            }
+        }
+
+        var structureChanged = removed.Count > 0 || added.Count > 0;
+        var reordered = false;
+        if (_localSortAttribute is { } sortAttribute && (structureChanged || updated.Count > 0))
+        {
+            reordered = MergeIntoSortedRows(sortAttribute, removed, updated, added);
+        }
+        else if (structureChanged)
+        {
+            if (removed.Count > 0)
+            {
+                _allRows.RemoveAll(removed.Contains);
+            }
+
+            _allRows.AddRange(added);
+        }
+
+        if (structureChanged || reordered)
+        {
+            _rowsVersion++;
+            ApplyLocalView();
         }
 
         if (structureChanged)
         {
-            _rowsVersion++;
             LoadedCount = _allRows.Count;
             OnPropertyChanged(nameof(TotalCount));
-            if (_localSortAttribute is not null)
-            {
-                var sorted = RowSorting.Sort(_allRows, _localSortAttribute, _localSortDescending, _services.Localizer.Culture, _session()?.Schema);
-                _allRows.Clear();
-                _allRows.AddRange(sorted);
-            }
-
-            ApplyLocalView();
             TrySelectPending(_allRows);
         }
 
@@ -907,6 +936,92 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             // (Enable/Disable/Unlock...) and the details pane must re-evaluate.
             RaiseSelectionChanged();
         }
+    }
+
+    /// <summary>
+    /// Applies removed, updated and new rows to the locally sorted <see cref="_allRows"/> without sorting all of them on
+    /// the UI thread (a live update in a 50 000 row list must not freeze it): one pass drops removed rows and takes out
+    /// updated ones, then updated and new rows are put back by binary search. The result is exactly what a stable sort
+    /// of the changed list gives: equal keys keep their previous order, new rows follow the existing ones.
+    /// </summary>
+    /// <returns>True when the order of the rows changed (beyond removing rows and appending new ones).</returns>
+    private bool MergeIntoSortedRows(
+        string attribute,
+        HashSet<ObjectRowViewModel> removed,
+        HashSet<ObjectRowViewModel> updated,
+        List<ObjectRowViewModel> added)
+    {
+        var comparer = RowSorting.CreateComparer(attribute, _localSortDescending, _services.Localizer.Culture, _session()?.Schema);
+        var remaining = new List<ObjectRowViewModel>(_allRows.Count);
+        var remainingOrigins = new List<int>(_allRows.Count);
+        var inserts = new List<(ObjectRowViewModel Row, int Origin)>(updated.Count + added.Count);
+        for (var i = 0; i < _allRows.Count; i++)
+        {
+            var row = _allRows[i];
+            if (removed.Contains(row))
+            {
+                continue;
+            }
+
+            if (updated.Contains(row))
+            {
+                inserts.Add((row, i));
+            }
+            else
+            {
+                remaining.Add(row);
+                remainingOrigins.Add(i);
+            }
+        }
+
+        var origin = _allRows.Count;
+        foreach (var row in added)
+        {
+            inserts.Add((row, origin++));
+        }
+
+        // Total order (key, previous position): the inserts in result order, and each one's place among the others.
+        int Compare(ObjectRowViewModel row, int rowOrigin, ObjectRowViewModel other, int otherOrigin) =>
+            comparer.Compare(row, other) is var byKey and not 0 ? byKey : rowOrigin.CompareTo(otherOrigin);
+
+        inserts.Sort((a, b) => Compare(a.Row, a.Origin, b.Row, b.Origin));
+        var result = new List<ObjectRowViewModel>(remaining.Count + inserts.Count);
+        var next = 0;
+        foreach (var (row, rowOrigin) in inserts)
+        {
+            // First remaining row after this one (the inserts are ordered, so the search starts where the previous ended).
+            int low = next, high = remaining.Count;
+            while (low < high)
+            {
+                var middle = low + ((high - low) / 2);
+                if (Compare(remaining[middle], remainingOrigins[middle], row, rowOrigin) > 0)
+                {
+                    high = middle;
+                }
+                else
+                {
+                    low = middle + 1;
+                }
+            }
+
+            result.AddRange(remaining.GetRange(next, low - next));
+            result.Add(row);
+            next = low;
+        }
+
+        result.AddRange(remaining.GetRange(next, remaining.Count - next));
+        var reordered = false;
+        if (removed.Count == 0 && added.Count == 0)
+        {
+            for (var i = 0; i < result.Count && !reordered; i++)
+            {
+                reordered = !ReferenceEquals(result[i], _allRows[i]);
+            }
+        }
+
+        _allRows.Clear();
+        _allRows.AddRange(result);
+        return reordered;
     }
 
     /// <summary>Drops a removed row from <see cref="SelectedItem"/> (the view's multi-selection follows the Items reset).</summary>
@@ -946,7 +1061,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (await HandleLocationChangeAsync(changes, location).ConfigureAwait(true))
+        if (await HandleLocationChangeAsync(changes, location, search.BaseDn).ConfigureAwait(true))
         {
             return;
         }
@@ -954,6 +1069,35 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         var refresh = new List<string>();
         var removed = false;
         var unlisted = 0;
+        foreach (var change in changes)
+        {
+            // One change is published for the root of a moved/renamed/deleted subtree: rows listed below that root (a
+            // subtree view like "Disabled users" listing users of a moved OU) changed their DN or are gone.
+            if (change.Kind is not (DirectoryChangeKind.Deleted or DirectoryChangeKind.Moved)
+                || !(change.ObjectKind == ObjectKind.Unknown || change.ObjectKind.IsContainer())
+                || !DistinguishedName.TryParse(change.DistinguishedName, out var root)
+                || RowKeysBelow(root) is not { Count: > 0 } below)
+            {
+                continue;
+            }
+
+            if (change.Kind == DirectoryChangeKind.Moved)
+            {
+                if (DistinguishedName.TryParse(change.CurrentDistinguishedName, out var target))
+                {
+                    await ReloadAfterMoveAsync(root, target).ConfigureAwait(true);
+                    return;
+                }
+
+                continue;
+            }
+
+            foreach (var key in below)
+            {
+                removed |= RemoveRow(key);
+            }
+        }
+
         foreach (var change in changes)
         {
             var oldKey = DnKey.For(change.DistinguishedName);
@@ -1019,30 +1163,98 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         }
     }
 
-    private async Task<bool> HandleLocationChangeAsync(IReadOnlyList<DirectoryChange> changes, ListLocation location)
+    /// <summary>
+    /// The listed container (search base) itself or a container above it was deleted, moved or renamed - one change
+    /// is published for the root of a subtree: a deleted base shows the "no longer exists" state, a moved one is shown
+    /// at its new DN (old prefix replaced by the new one) with the same chips, sort and columns.
+    /// </summary>
+    /// <param name="changes">The published changes.</param>
+    /// <param name="location">The shown location.</param>
+    /// <param name="baseDn">Resolved base DN of the last search (saved views may hold a domain placeholder).</param>
+    private async Task<bool> HandleLocationChangeAsync(IReadOnlyList<DirectoryChange> changes, ListLocation location, string baseDn)
     {
-        var baseKey = DnKey.For(location.BaseDn);
-        var own = changes.FirstOrDefault(c => c.Kind is DirectoryChangeKind.Deleted or DirectoryChangeKind.Moved
-            && DnKey.For(c.DistinguishedName) == baseKey);
-        if (own is null)
+        if (!DistinguishedName.TryParse(baseDn, out var current))
         {
             return false;
         }
 
-        if (own.Kind == DirectoryChangeKind.Deleted)
+        foreach (var change in changes)
         {
-            _loads.Cancel();
-            ClearRows();
-            Error = _services.Localizer[L.List.LocationDeleted];
+            if (change.Kind is not (DirectoryChangeKind.Deleted or DirectoryChangeKind.Moved)
+                || !DistinguishedName.TryParse(change.DistinguishedName, out var changed)
+                || !(current.Equals(changed) || current.IsDescendantOf(changed)))
+            {
+                continue;
+            }
+
+            if (change.Kind == DirectoryChangeKind.Deleted)
+            {
+                _loads.Cancel();
+                ClearRows();
+                Error = _services.Localizer[L.List.LocationDeleted];
+                return true;
+            }
+
+            if (!DistinguishedName.TryParse(change.CurrentDistinguishedName, out var target))
+            {
+                continue;
+            }
+
+            var rebased = Rebase(current, changed, target).ToString();
+
+            // A renamed container gets its new name as title; otherwise only the base DN changes.
+            var moved = location.Kind == ListLocationKind.Container && current.Equals(changed)
+                ? location with { BaseDn = rebased, Title = ListLocation.ForContainer(rebased).Title }
+                : location with { BaseDn = rebased };
+            _history.ReplaceCurrent(moved);
+            Location = moved;
+            NotifyNavigationCommands();
+            Navigated?.Invoke(this, EventArgs.Empty);
+            await ReloadAfterMoveAsync(changed, target).ConfigureAwait(true);
             return true;
         }
 
-        var moved = location.Kind == ListLocationKind.Container
-            ? ListLocation.ForContainer(own.CurrentDistinguishedName) with { Icon = location.Icon }
-            : location with { BaseDn = own.CurrentDistinguishedName };
-        _history.ReplaceCurrent(moved);
-        await ShowLocationAsync(moved).ConfigureAwait(true);
-        return true;
+        return false;
+    }
+
+    /// <summary>Reloads the list after <paramref name="oldDn"/> moved to <paramref name="newDn"/>; the selected object stays selected.</summary>
+    private Task ReloadAfterMoveAsync(DistinguishedName oldDn, DistinguishedName newDn)
+    {
+        if (SelectedItem is { } selected && DistinguishedName.TryParse(selected.Dn, out var dn) && dn.IsDescendantOf(oldDn))
+        {
+            _pendingSelectionKey = DnKey.For(Rebase(dn, oldDn, newDn).ToString());
+        }
+
+        return LoadAsync();
+    }
+
+    /// <summary><paramref name="dn"/> (equal to or below <paramref name="oldAncestor"/>) with that prefix replaced by <paramref name="newAncestor"/>.</summary>
+    private static DistinguishedName Rebase(DistinguishedName dn, DistinguishedName oldAncestor, DistinguishedName newAncestor)
+    {
+        var result = newAncestor;
+        for (var i = dn.Rdns.Count - oldAncestor.Rdns.Count - 1; i >= 0; i--)
+        {
+            result = result.Child(dn.Rdns[i].Type, dn.Rdns[i].Value);
+        }
+
+        return result;
+    }
+
+    /// <summary>Keys of the listed rows strictly below <paramref name="root"/>.</summary>
+    private List<string> RowKeysBelow(DistinguishedName root)
+    {
+        var suffix = "," + DnKey.For(root.ToString());
+        var below = new List<string>();
+        foreach (var key in _rowsByDn.Keys)
+        {
+            // The suffix test is cheap; parsing confirms it (an escaped comma in a name could fake the suffix).
+            if (key.EndsWith(suffix, StringComparison.Ordinal) && DistinguishedName.TryParse(key, out var dn) && dn.IsDescendantOf(root))
+            {
+                below.Add(key);
+            }
+        }
+
+        return below;
     }
 
     private bool RemoveRow(string key)
@@ -1294,8 +1506,21 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
     private void OnSettingsChanged(object? sender, EventArgs e) => _ = _services.Dispatcher.RunAsync(() =>
     {
+        var days = _services.Settings.Current.InactiveDays;
+        if (_disposed || days == _inactiveDays)
+        {
+            // Most settings changes (column widths, recent containers...) do not concern the chips.
+            return;
+        }
+
+        _inactiveDays = days;
         var inactive = FilterChips.Single(c => c.Kind == QuickFilterKind.Inactive);
         inactive.Title = ChipTitle(QuickFilterKind.Inactive);
+        if (inactive.IsActive && Location is not null)
+        {
+            // The rows were read with the previous threshold: the chip's title and the list must agree.
+            LoadAsync().Forget();
+        }
     });
 
     private void OnCultureChanged(object? sender, EventArgs e)
@@ -1318,6 +1543,20 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             {
                 row.Reformat(updated);
             }
+        }
+
+        // Built-in views, search and Find results: tab header and address text in the new language.
+        if (Location is { } location && location.Relocalize(_services.Localizer) is var localized && !ReferenceEquals(localized, location))
+        {
+            _history.ReplaceCurrent(localized);
+            Location = localized;
+        }
+
+        // Collation and the localized Type/Location texts changed: keep a local sort exact (live updates insert rows
+        // by binary search into the sorted list).
+        if (_localSortAttribute is not null && !IsLoading)
+        {
+            ApplyLocalSortAsync().Forget();
         }
 
         OnPropertyChanged(nameof(StatusText));

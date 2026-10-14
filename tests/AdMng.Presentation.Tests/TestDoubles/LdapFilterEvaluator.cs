@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Model;
 
 namespace AdMng.Presentation.Tests.TestDoubles;
@@ -127,8 +128,14 @@ internal static class LdapFilterEvaluator
         }
 
         var expected = Unescape(raw);
-        return o => o.GetStrings(attr).Any(v => string.Equals(v, expected, StringComparison.OrdinalIgnoreCase));
+        return o => o.GetStrings(attr).Any(v => string.Equals(v, expected, StringComparison.OrdinalIgnoreCase)) || SidEquals(o, attr, expected);
     }
+
+    /// <summary>Like AD: a binary SID attribute (objectSid, sIDHistory) matches the SID string form (S-1-5-21-...-513).</summary>
+    private static bool SidEquals(DirectoryObject o, string attribute, string expected) =>
+        expected.StartsWith("S-1-", StringComparison.OrdinalIgnoreCase)
+        && o.TryGet(attribute, out var values)
+        && values.OfType<byte[]>().Any(b => b.Length >= 8 && string.Equals(AdConvert.SidToString(b), expected, StringComparison.OrdinalIgnoreCase));
 
     private static IEnumerable<long> Numbers(DirectoryObject o, string attribute) =>
         o.GetStrings(attribute).Select(v => long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? (long?)n : null)

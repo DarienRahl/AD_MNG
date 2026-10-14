@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.Icons;
+using AdMng.Presentation.Localization;
 
 namespace AdMng.Presentation.Lists;
 
@@ -50,6 +51,15 @@ public sealed record ListLocation
     /// <summary>Localized tab title.</summary>
     public required string Title { get; init; }
 
+    /// <summary>
+    /// Resource key <see cref="Title"/> was formatted from (built-in views, search and Find results), so the title can
+    /// follow a language switch (<see cref="Relocalize"/>). Null for titles that are names (containers, saved views).
+    /// </summary>
+    public string? TitleKey { get; init; }
+
+    /// <summary>Format arguments of <see cref="TitleKey"/> (e.g. the search text or the number of inactive days).</summary>
+    public IReadOnlyList<object> TitleArguments { get; init; } = [];
+
     public ObjectIcon Icon { get; init; } = ObjectIcon.Container;
 
     /// <summary>Key of the persisted column layout (settings.ColumnLayouts).</summary>
@@ -76,6 +86,22 @@ public sealed record ListLocation
     public string? UpDn => Kind == ListLocationKind.Container
         ? (DistinguishedName.TryParse(BaseDn, out var dn) && dn.Parent is { IsRoot: false } parent ? parent.ToString() : null)
         : BaseDn;
+
+    /// <summary>
+    /// The location with <see cref="Title"/> formatted from <see cref="TitleKey"/> in the localizer's current language;
+    /// this instance when it has no key or the title is already current.
+    /// </summary>
+    public ListLocation Relocalize(ILocalizer localizer)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        if (TitleKey is null)
+        {
+            return this;
+        }
+
+        var title = TitleArguments.Count == 0 ? localizer[TitleKey] : localizer.Format(TitleKey, [.. TitleArguments]);
+        return string.Equals(title, Title, StringComparison.Ordinal) ? this : this with { Title = title };
+    }
 
     /// <summary>Children of a container.</summary>
     public static ListLocation ForContainer(string distinguishedName, string title, ObjectIcon icon = ObjectIcon.Container) => new()

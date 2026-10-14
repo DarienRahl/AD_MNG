@@ -101,6 +101,32 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
 
     public DirectoryObject? Find(string dn) => _objects.TryGetValue(DnKey(dn), out var o) ? o : null;
 
+    /// <summary>Moves/renames an object with everything below it (what a modify DN of a container does on the DC).</summary>
+    public void MoveSubtree(string oldDn, string newDn)
+    {
+        var from = DistinguishedName.Parse(oldDn);
+        var to = DistinguishedName.Parse(newDn);
+        foreach (var obj in _objects.Values.ToList())
+        {
+            var dn = obj.Dn;
+            if (!dn.Equals(from) && !dn.IsDescendantOf(from))
+            {
+                continue;
+            }
+
+            var target = to;
+            for (var i = dn.Rdns.Count - from.Rdns.Count - 1; i >= 0; i--)
+            {
+                target = target.Child(dn.Rdns[i].Type, dn.Rdns[i].Value);
+            }
+
+            Remove(obj.DistinguishedName);
+            var targetDn = target.ToString();
+            Put(new DirectoryObject(targetDn, obj.Attributes.Values).With(
+                [new AttributeValues(Attr.DistinguishedName, [targetDn]), new AttributeValues(Attr.Name, [target.Name])]));
+        }
+    }
+
     /// <summary>Simulates a server change notification for the watched container of <paramref name="dn"/>.</summary>
     public void RaiseChange(string dn)
     {

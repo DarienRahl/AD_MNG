@@ -435,8 +435,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             case nameof(ObjectListViewModel.StatusText):
                 OnPropertyChanged(nameof(StatusText));
                 break;
+            case nameof(ObjectListViewModel.SelectionText):
+                // Also raised on a language switch ("3 selected" -> "Zaznaczono: 3").
+                OnPropertyChanged(nameof(SelectionText));
+                break;
             case nameof(ObjectListViewModel.IsLoading):
                 OnPropertyChanged(nameof(IsBusy));
+                break;
+            case nameof(ObjectListViewModel.Title):
+                // Relocalized after a language switch, or the shown container was moved/renamed: the address follows.
+                UpdateAddress();
                 break;
             case nameof(ObjectListViewModel.Location):
                 RefreshCommandStates();

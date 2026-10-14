@@ -1,3 +1,4 @@
+using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
@@ -38,7 +39,21 @@ public static class QuickFilters
     /// <summary>User and computer accounts.</summary>
     public static string Accounts => LdapFilter.Or(Users, Computers);
 
-    public static string Build(QuickFilterKind kind, DateTimeOffset now, int inactiveDays) => kind switch
+    /// <summary>
+    /// RIDs of the domain's default primary groups: Domain Users, Domain Guests, Domain Computers, Domain Controllers
+    /// and Read-only Domain Controllers.
+    /// </summary>
+    public static IReadOnlyList<uint> PrimaryGroupRids { get; } =
+    [
+        WellKnownRids.DomainUsers, WellKnownRids.DomainGuests, WellKnownRids.DomainComputers,
+        WellKnownRids.DomainControllers, WellKnownRids.ReadOnlyDomainControllers,
+    ];
+
+    /// <param name="kind">The quick filter.</param>
+    /// <param name="now">Reference time of the date based filters.</param>
+    /// <param name="inactiveDays">Threshold of <see cref="QuickFilterKind.Inactive"/>.</param>
+    /// <param name="domainSid">SID of the session's domain (refines <see cref="QuickFilterKind.EmptyGroups"/>), null when unknown.</param>
+    public static string Build(QuickFilterKind kind, DateTimeOffset now, int inactiveDays, string? domainSid = null) => kind switch
     {
         QuickFilterKind.Disabled => LdapFilter.BitAnd(Attr.UserAccountControl, (int)UserAccountControl.AccountDisable),
         QuickFilterKind.Enabled => LdapFilter.And(
@@ -54,7 +69,7 @@ public static class QuickFilters
         QuickFilterKind.Expiring => LdapFilter.And(
             LdapFilter.GreaterOrEqual(Attr.AccountExpires, AdConvert.ToFileTime(now)),
             LdapFilter.LessOrEqual(Attr.AccountExpires, AdConvert.ToFileTime(now.AddDays(ExpiringDays)))),
-        QuickFilterKind.EmptyGroups => LdapFilter.And(Groups, LdapFilter.NotPresent(Attr.Member)),
+        QuickFilterKind.EmptyGroups => EmptyGroups(domainSid),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 
@@ -74,11 +89,45 @@ public static class QuickFilters
                     LdapFilter.LessOrEqual(Attr.WhenCreated, AdConvert.ToGeneralizedTime(threshold)))));
     }
 
+    /// <summary>
+    /// Groups without <c>member</c> values. Accounts are not listed in <c>member</c> of their primary group (they point
+    /// to it with <c>primaryGroupID</c>), so Domain Users, Domain Computers, Domain Controllers... always look empty:
+    /// with the domain's SID these default primary groups (<see cref="PrimaryGroupRids"/>) are excluded server side by
+    /// <c>objectSid</c> (AD accepts the SID string form in filters). Without the SID they are listed.
+    /// Limitation: a custom group that is only some accounts' primary group (their primaryGroupID is its RID) and has
+    /// no other members is still listed - telling it apart needs one primaryGroupID query per listed group.
+    /// </summary>
+    /// <param name="domainSid">SID of the session's domain (S-1-5-21-x-y-z); anything else is ignored.</param>
+    public static string EmptyGroups(string? domainSid)
+    {
+        string? primaryGroups = null;
+        if (IsDomainSid(domainSid))
+        {
+            primaryGroups = LdapFilter.Not(LdapFilter.Or(PrimaryGroupRids.Select(rid =>
+                LdapFilter.Equal(Attr.ObjectSid, string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{rid}")))));
+        }
+
+        return LdapFilter.And(Groups, LdapFilter.NotPresent(Attr.Member), primaryGroups);
+    }
+
     /// <summary>Combines a base filter with active chips (AND).</summary>
-    public static string Combine(string baseFilter, IEnumerable<QuickFilterKind> chips, DateTimeOffset now, int inactiveDays)
+    /// <param name="baseFilter">Filter of the location.</param>
+    /// <param name="chips">Active quick filters.</param>
+    /// <param name="now">Reference time of the date based filters.</param>
+    /// <param name="inactiveDays">Threshold of <see cref="QuickFilterKind.Inactive"/>.</param>
+    /// <param name="domainSid">SID of the session's domain (refines <see cref="QuickFilterKind.EmptyGroups"/>), null when unknown.</param>
+    public static string Combine(string baseFilter, IEnumerable<QuickFilterKind> chips, DateTimeOffset now, int inactiveDays, string? domainSid = null)
     {
         ArgumentNullException.ThrowIfNull(chips);
-        return LdapFilter.And([baseFilter, .. chips.Select(c => Build(c, now, inactiveDays))]);
+        return LdapFilter.And([baseFilter, .. chips.Select(c => Build(c, now, inactiveDays, domainSid))]);
+    }
+
+    /// <summary>A domain SID in SDDL form: S-1-5-21 and three numeric sub-authorities (nothing else reaches a filter).</summary>
+    private static bool IsDomainSid(string? sid)
+    {
+        var parts = sid?.Split('-');
+        return parts is ["S", "1", "5", "21", _, _, _]
+            && parts.Skip(4).All(p => p.Length > 0 && uint.TryParse(p, NumberStyles.None, CultureInfo.InvariantCulture, out _));
     }
 }
 

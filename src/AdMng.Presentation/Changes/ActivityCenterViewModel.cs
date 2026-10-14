@@ -40,6 +40,7 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
 
         // Disconnect or another identity: the finished operations of the previous session (titles, object names) go.
         sessions.SessionChanged += (_, _) => _ = _dispatcher.RunAsync(RemoveFinished);
+        _localizer.CultureChanged += (_, _) => OnCultureChanged();
     }
 
     /// <summary>Newest first.</summary>
@@ -109,6 +110,16 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(HasRunning));
         OnPropertyChanged(nameof(Summary));
+    }
+
+    /// <summary>Live language switch: the status bar summary and the activities' status lines in the new language.</summary>
+    private void OnCultureChanged()
+    {
+        OnPropertyChanged(nameof(Summary));
+        foreach (var activity in Activities)
+        {
+            activity.RaiseTextsChanged();
+        }
     }
 
     private async Task<BatchResult> RunAsync(
@@ -301,4 +312,7 @@ public sealed partial class ActivityViewModel : ObservableObject
     }
 
     internal void MarkCompleted() => _completion.TrySetResult();
+
+    /// <summary>The localized texts depend on the UI language (see <see cref="ActivityCenterViewModel"/>).</summary>
+    internal void RaiseTextsChanged() => OnPropertyChanged(nameof(StatusText));
 }

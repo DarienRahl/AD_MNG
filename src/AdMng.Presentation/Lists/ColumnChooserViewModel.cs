@@ -192,6 +192,9 @@ public sealed partial class ColumnChooserViewModel : ObservableObject
             }
         }
 
+        // Add/Remove/Reset change the selection list: the selected column may now be first/last (or no longer be last).
         RemoveCommand.NotifyCanExecuteChanged();
+        MoveUpCommand.NotifyCanExecuteChanged();
+        MoveDownCommand.NotifyCanExecuteChanged();
     }
 }
