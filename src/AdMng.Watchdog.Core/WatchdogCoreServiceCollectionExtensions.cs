@@ -1,5 +1,6 @@
 using AdMng.Watchdog.Core.Registration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.Watchdog.Core;
 
@@ -16,6 +17,9 @@ public static class WatchdogCoreServiceCollectionExtensions
     public static IServiceCollection AddWatchdogCore(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Shared by all three areas; TryAdd so a host or test that registered a TimeProvider (FakeTimeProvider) keeps it.
+        services.TryAddSingleton(TimeProvider.System);
         DetectionRegistration.Add(services);
         RulesRegistration.Add(services);
         NotificationRegistration.Add(services);
