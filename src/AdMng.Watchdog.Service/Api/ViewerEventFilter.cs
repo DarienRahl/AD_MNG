@@ -2,6 +2,7 @@ using AdMng.Core.Schema;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Formatting;
 
 namespace AdMng.Watchdog.Service.Api;
 
@@ -10,16 +11,16 @@ namespace AdMng.Watchdog.Service.Api;
 /// counterpart of the notification <c>DetailLevelFilter</c>: <b>Minimal</b> – attribute names only (values, flags and
 /// value lists removed and marked <see cref="AttributeChange.Redacted"/>), no workstation/IP (attribution and lockout
 /// sources), Via path DNs removed (names kept); <b>Standard</b> – values except the personal-data attributes, which are
-/// redacted; <b>Full</b> – unchanged. Secret attributes are redacted at every level.
+/// redacted; <b>Full</b> – unchanged. Secret attributes are redacted at every level. Unlike the notification masking
+/// (<see cref="DetailLevelFilter"/>) hidden values are marked <see cref="AttributeChange.Redacted"/> for the GUI and
+/// never truncated.
 /// </summary>
 public static class ViewerEventFilter
 {
-    /// <summary>Attributes whose values are personal data (hidden below Full).</summary>
-    public static readonly IReadOnlySet<string> PersonalDataAttributes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "telephoneNumber", "mobile", "employeeID", "employeeNumber", "employeeType", "info", "physicalDeliveryOfficeName",
-        "homeDirectory", "logonHours",
-    };
+    /// <summary>Attributes whose values are personal data (hidden below Full) – the notification side's list
+    /// (<see cref="DetailLevelFilter.PersonalAttributes"/>, spec 14.1), so the API, the event page and the notifications
+    /// hide the same values.</summary>
+    public static IReadOnlySet<string> PersonalDataAttributes => DetailLevelFilter.PersonalAttributes;
 
     public static WatchEvent Apply(WatchEvent watchEvent, DetailLevel level)
     {
