@@ -1,5 +1,6 @@
 using System.DirectoryServices.Protocols;
 using System.Text;
+using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 
@@ -9,7 +10,12 @@ namespace AdMng.Directory;
 internal static class EntryReader
 {
     /// <summary>Builds an in-memory snapshot of one search result entry.</summary>
-    public static DirectoryObject ToDirectoryObject(SearchResultEntry entry, ISchemaCatalog schema)
+    /// <param name="entry">The entry.</param>
+    /// <param name="schema">Schema for value types.</param>
+    /// <param name="extendedDn">The request carried the Extended DN control: AD (and Samba) then return the entry DN
+    /// itself in extended form (<c>&lt;GUID=…&gt;;&lt;SID=…&gt;;dn</c>) – it is stripped to the plain DN, attribute values
+    /// keep the extended form.</param>
+    public static DirectoryObject ToDirectoryObject(SearchResultEntry entry, ISchemaCatalog schema, bool extendedDn = false)
     {
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(schema);
@@ -19,8 +25,15 @@ internal static class EntryReader
             attributes.Add(Decode(attribute.Name, attribute.GetValues(typeof(byte[])), schema));
         }
 
-        return new DirectoryObject(entry.DistinguishedName, attributes);
+        var dn = extendedDn ? PlainDn(entry.DistinguishedName) : entry.DistinguishedName;
+        return new DirectoryObject(dn, attributes);
     }
+
+    /// <summary>The plain DN of a value that may be in extended form; other values are returned unchanged.</summary>
+    public static string PlainDn(string distinguishedName) =>
+        distinguishedName.StartsWith('<') && ExtendedDistinguishedName.TryParse(distinguishedName, out var parsed)
+            ? parsed.Dn
+            : distinguishedName;
 
     /// <summary>
     /// Decodes raw values: binary syntaxes (per schema, also for ranged descriptions) stay byte[],
