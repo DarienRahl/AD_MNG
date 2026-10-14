@@ -782,10 +782,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                     return;
                 }
 
-                if (version != _rowsVersion)
+                if (version != _rowsVersion || !Equals(culture, _services.Localizer.Culture))
                 {
                     // Rows were added or removed while the snapshot was sorted (live update, rename, delete): applying
-                    // it would bring back removed rows and drop new ones - sort the current rows again.
+                    // it would bring back removed rows and drop new ones - sort the current rows again. The same after
+                    // a language switch: a snapshot sorted with the previous collation must not finish last (live
+                    // updates insert rows by binary search into this order).
                     rowsChanged = true;
                     return;
                 }
@@ -1092,10 +1094,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                 continue;
             }
 
-            foreach (var key in below)
-            {
-                removed |= RemoveRow(key);
-            }
+            removed |= RemoveRows(below);
         }
 
         foreach (var change in changes)
@@ -1217,10 +1216,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         return false;
     }
 
-    /// <summary>Reloads the list after <paramref name="oldDn"/> moved to <paramref name="newDn"/>; the selected object stays selected.</summary>
+    /// <summary>
+    /// Reloads the list after <paramref name="oldDn"/> moved to <paramref name="newDn"/>; the selected object (the moved
+    /// container itself, e.g. renamed with F2 in a subtree list, or an object below it) stays selected.
+    /// </summary>
     private Task ReloadAfterMoveAsync(DistinguishedName oldDn, DistinguishedName newDn)
     {
-        if (SelectedItem is { } selected && DistinguishedName.TryParse(selected.Dn, out var dn) && dn.IsDescendantOf(oldDn))
+        if (SelectedItem is { } selected && DistinguishedName.TryParse(selected.Dn, out var dn) && (dn.Equals(oldDn) || dn.IsDescendantOf(oldDn)))
         {
             _pendingSelectionKey = DnKey.For(Rebase(dn, oldDn, newDn).ToString());
         }
@@ -1267,6 +1269,36 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         _rowsVersion++;
         _allRows.Remove(row);
         ForgetSelected(row);
+        return true;
+    }
+
+    /// <summary>
+    /// Removes the rows with these keys in one pass over the list: a deleted OU can take thousands of rows of a large
+    /// subtree view, and removing them one by one would scan the list once per row on the UI thread.
+    /// </summary>
+    private bool RemoveRows(IReadOnlyCollection<string> keys)
+    {
+        var gone = new HashSet<ObjectRowViewModel>();
+        foreach (var key in keys)
+        {
+            if (_rowsByDn.Remove(key, out var row))
+            {
+                gone.Add(row);
+            }
+        }
+
+        if (gone.Count == 0)
+        {
+            return false;
+        }
+
+        _rowsVersion++;
+        _allRows.RemoveAll(gone.Contains);
+        if (SelectedItem is { } selected && gone.Contains(selected))
+        {
+            SelectedItem = null;
+        }
+
         return true;
     }
 

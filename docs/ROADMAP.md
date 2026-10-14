@@ -277,8 +277,9 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
-- **Filtr „Puste grupy”** sprawdza tylko atrybut `member`; grupy, których członkowie wynikają z `primaryGroupID`, mogą
-  być pokazywane jako puste.
+- **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
+  Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
+  grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.
 
 ---
 

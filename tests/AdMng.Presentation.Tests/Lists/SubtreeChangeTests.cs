@@ -1,3 +1,4 @@
+using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Lists;
@@ -83,6 +84,24 @@ public class SubtreeChangeTests
 
         Assert.Equal(["CN=Ewa Kowalska," + moved], list.Items.Select(r => r.Dn));
         Assert.Equal(Domain, list.Location!.BaseDn);
+    }
+
+    [Fact]
+    public async Task SubtreeList_SelectedContainerRenamed_StaysSelectedUnderItsNewDn()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var list = harness.Lists.CreateList();
+        await list.NavigateAsync(ListLocation.ForQuery("Firma", Firma, SearchScope.Subtree, ListLocation.AllObjectsFilter));
+        list.SelectedItem = list.Items.Single(r => r.Dn == It);
+        const string renamed = "OU=Informatyka,OU=Firma,DC=contoso,DC=test";
+
+        // Rows below the renamed OU are listed too: the list reloads, and the OU renamed with F2 stays selected.
+        harness.Directory.MoveSubtree(It, renamed);
+        await list.HandleChangesAsync([new DirectoryChange(DirectoryChangeKind.Moved, It, renamed, ObjectKind.OrganizationalUnit)]);
+
+        Assert.Equal(renamed, list.SelectedItem?.Dn);
+        Assert.Contains(list.Items, r => r.Dn == "CN=Ewa Kowalska," + renamed);
+        Assert.DoesNotContain(list.Items, r => r.Dn == Ewa);
     }
 
     [Fact]

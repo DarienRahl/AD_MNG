@@ -97,5 +97,42 @@ public class SortedLiveUpdateTests
         Assert.Equal("Aaa Pierwszy", list.Items[^1].Name);
     }
 
+    [Fact]
+    public async Task LanguageSwitch_DuringABackgroundSort_TheOrderOfTheNewCollationWins()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 2000);
+        const string bulk = "OU=Masowe,DC=contoso,DC=test";
+
+        // English collation sorts Ć like C (Ćma before Cyna), Polish after C (Cyna before Ćma).
+        harness.Directory.Put(User($"CN=Ćma,{bulk}", "cma"));
+        harness.Directory.Put(User($"CN=Cyna,{bulk}", "cyna"));
+        var list = await harness.OpenContainerAsync(bulk);
+        Assert.NotEqual("Cyna", list.Items[0].Name);
+        var english = new TaskCompletionSource();
+        var polish = new TaskCompletionSource();
+        var calls = 0;
+        list.BackgroundSort = async sort =>
+        {
+            var call = Interlocked.Increment(ref calls);
+            await (call == 1 ? english.Task : call == 2 ? polish.Task : Task.CompletedTask);
+            return sort();
+        };
+
+        // An English sort runs when the language switches; the switch sorts again in Polish, and that one ends first.
+        var sorting = list.SortCommand.ExecuteAsync(list.Columns.Single(c => c.Attribute == Attr.Name));
+        harness.Localizer.SetCulture(CultureInfo.GetCultureInfo("pl-PL"));
+        Assert.Equal(2, calls);
+        polish.SetResult();
+        await ObjectListViewModelTests.WaitUntilAsync(() => list.Items[0].Name == "Cyna");
+        english.SetResult();
+        await sorting;
+
+        // The English snapshot finished last: it must not replace the Polish order (inserts rely on it).
+        Assert.Equal(["Cyna", "Ćma"], list.Items.Take(2).Select(r => r.Name));
+        var polishOrder = RowSorting.Sort(list.AllRows, Attr.Name, descending: false, CultureInfo.GetCultureInfo("pl-PL"), harness.Directory.Schema);
+        Assert.Equal(polishOrder, list.AllRows);
+        Assert.Equal(list.AllRows, list.Items);
+    }
+
     private static string Dn(string name) => $"CN={name},{SortOu}";
 }
