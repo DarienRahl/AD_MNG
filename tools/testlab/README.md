@@ -42,3 +42,26 @@ dotnet test tests/AdMng.Directory.IntegrationTests
 
 Lab dopuszcza proste wiązanie (simple bind) bez TLS wyłącznie po to, by działały `ldapsearch -x` i testy na
 Linuksie. Aplikacja produkcyjnie używa Negotiate (Kerberos) z podpisywaniem i szyfrowaniem lub LDAPS.
+
+## AdMng Watchdog
+
+Usługę monitorującą **AdMng Watchdog** uruchamia się przeciwko temu laboratorium skryptami z
+[`watchdog/`](watchdog/README.md): Mailpit jako serwer SMTP z podglądem wiadomości, odbiornik webhooków i kart Teams,
+scenariusz zmian w jednorazowym `OU=WatchdogDemo` oraz opcjonalny prawdziwy Kerberos.
+
+```bash
+tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa + Mailpit + odbiornik
+tools/testlab/watchdog/configure-lab.sh --test                    # SMTP, kanały, odbiorcy (przez API)
+tools/testlab/watchdog/lab-scenario.sh --verify                   # zmiany w katalogu i sprawdzenie powiadomień
+tools/testlab/watchdog/run-watchdog-lab.sh --stop
+```
+
+Testy integracyjne usługi (`tests/AdMng.Watchdog.IntegrationTests`) potrzebują dodatkowo konta tylko do odczytu i
+Mailpit:
+
+```bash
+tools/testlab/watchdog/start-mailpit.sh
+export ADMNG_TEST_LDAP_READONLY_USER='odczyt.test@contoso.test' ADMNG_TEST_LDAP_READONLY_PASSWORD='Passw0rd!Lab2026'
+export ADMNG_TEST_SMTP_HOST=127.0.0.1 ADMNG_TEST_SMTP_PORT=1025 ADMNG_TEST_MAILPIT_API=http://127.0.0.1:8025
+dotnet test tests/AdMng.Watchdog.IntegrationTests
+```
