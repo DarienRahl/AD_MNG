@@ -219,7 +219,8 @@ public class FieldTests
         // Polish region, English UI: Excel's ANSI files are Windows-1250 and its delimiter is ';'.
         var english = System.Globalization.CultureInfo.GetCultureInfo("en-US");
         var regional = new SystemRegionalSettings(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"), 1250);
-        var bytes = Encoding.GetEncoding(1250).GetBytes("Łukasz Żółć;Księgowość");
+        // The code page provider directly: Encoding.GetEncoding(1250) depends on whether CsvFiles registered it already.
+        var bytes = CodePagesEncodingProvider.Instance.GetEncoding(1250)!.GetBytes("Łukasz Żółć;Księgowość");
 
         Assert.Equal("Łukasz Żółć;Księgowość", CsvFiles.Decode(bytes, regional.AnsiCodePage));
         Assert.NotEqual("Łukasz Żółć;Księgowość", CsvFiles.Decode(bytes, english.TextInfo.ANSICodePage));
