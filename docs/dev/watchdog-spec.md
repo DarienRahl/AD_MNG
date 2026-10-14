@@ -270,6 +270,9 @@ Configuration/SecretBindings.cs                              destination fingerp
 Configuration/TimeZoneResolver.cs                            IANA/Windows id → TimeZoneInfo incl. built-in map (NLS hosts)
 Configuration/ConfigChangeAuditor.cs                         old vs new config → WatchdogConfigurationChanged (severity, summary)
 Configuration/ConfigRedactor.cs                              Viewer view of the configuration (17.2)
+Configuration/ConfiguredSecret.cs                            one secret field + expected binding (SecretBindings.Enumerate)
+Configuration/ConfigChangeAudit.cs                           ConfigChangeAuditor.Compare result (severity, items, summary)
+Configuration/ConfigChangeItem.cs                            ConfigChangeItem + ConfigChangeKind
 Detection/ChangeDetectionEngine.cs                           [S*] IWatchdogJob: one poll cycle (section 10)
 Detection/DetectionModeSelector.cs                           decides Baseline / Incremental / Resync / Reconciliation
 Detection/DcStateReader.cs                                   RootDSE + invocationId + PDC lookup
@@ -375,6 +378,7 @@ Formatting/Webhooks/WebhookPayloadFormatter.cs
 Formatting/Webhooks/WebhookEventTypes.cs
 Formatting/Webhooks/StandardWebhookSigner.cs
 Formatting/Webhooks/TeamsUrlValidator.cs
+Formatting/Webhooks/TeamsUrlValidationResult.cs              TeamsUrlValidationResult + TeamsUrlProblem
 Retention/RetentionJob.cs                                    [S*] IWatchdogJob
 Resources/NotificationStrings.resx                           en (neutral)
 Resources/NotificationStrings.pl.resx                        pl
@@ -5121,6 +5125,187 @@ so no agent edits another agent's registrations. Shared services used across the
 agent registers them. A class one agent needs from another's folder is never re-implemented: the agent codes against
 the abstraction (or a scaffold stub) and lists the dependency in its report. Tests that need another area's behaviour
 use fakes in their own test folder.
+
+### 25.6 Shared Core classes implemented before the split
+
+The six Core classes below are used across agent boundaries (W-service uses all of them; W-rules owns
+`Configuration/`, W-notify owns `Formatting/`), so they were implemented completely – final public API, XML docs and
+unit tests (`tests/AdMng.Watchdog.Core.Tests/Configuration/**`, `…/Formatting/Webhooks/**`) – in one sequential step
+after the scaffold and before the parallel agents start. **Ownership after the split stays as in 25.3/25.5**
+(`Configuration/**` → W-rules, `Formatting/**` → W-notify), but the owners **must keep the public API below stable**
+(additive changes only: new optional parameters with defaults, new members, new overloads); W-service and the other
+agents code against exactly these signatures. `RulesRegistration.Add` registers `ConfigRedactor` and
+`ConfigChangeAuditor` as singletons (`TryAdd`); the other classes are static.
+
+Namespaces: `AdMng.Watchdog.Core.Configuration` and `AdMng.Watchdog.Core.Formatting.Webhooks`.
+
+`Configuration/SecretBindings.cs`, `Configuration/ConfiguredSecret.cs` – destination bindings of section 18
+(lower-case, `|`-separated, `%`/`|`/control characters percent-escaped, GUIDs in "D" form, hosts in IDNA form without a
+trailing dot; never a secret value – URLs contribute their host only):
+
+```csharp
+public static class SecretBindings
+{
+    public static string ForSmtpPassword(SmtpSettings smtp);                         // smtp|<host>|<port>|<userName>|basic
+    public static string ForSmtpOAuthClientSecret(SmtpSettings smtp);                // smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>
+    public static string ForChannelUrl(ChannelSettings channel);                     // channel|<id>|<type>
+    public static string ForTeamsClientSecret(ChannelSettings channel, string? urlHost);    // teams-oauth|<cloud>|<tenantId>|<clientId>|<scope>|<url host>
+    public static string ForWebhookSigningSecret(ChannelSettings channel, string? urlHost); // webhook|<id>|<url host> (also previousSigningSecret)
+    public static string? UrlHost(string? url);                                      // host of a URL or URL hint; null when not absolute
+    public static string? DeclaredUrlHost(ChannelSettings channel);                  // Url.NewValue host, else Url.Hint host (validator view)
+    public static IReadOnlyList<ConfiguredSecret> Enumerate(WatchdogConfiguration configuration, Func<ChannelSettings, string?>? urlHost = null);
+    public static bool RequiresRebind(ConfiguredSecret secret, IReadOnlyDictionary<string, string> storedBindings); // 8.3 secretRebindRequired
+}
+
+public sealed record ConfiguredSecret
+{
+    public required string Name { get; init; }      // SecretNames value (ISecretStore key)
+    public required string Path { get; init; }      // "smtp.password", "smtp.oAuth.clientSecret", "channels[2].url", "channels[2].teams.clientSecret", "channels[2].webhook.signingSecret", "channels[2].webhook.previousSigningSecret"
+    public required SecretField Field { get; init; }
+    public required string Binding { get; init; }   // expected binding under these settings
+    public string? ChannelId { get; init; }
+    public bool InUse { get; init; }                // Basic / OAuth2ClientCredentials / every channel URL / Teams EntraClientCredentials / webhook signing secrets; Enabled flags ignored
+}
+```
+
+A null `urlHost` yields an empty host component that never matches a stored binding (fail closed). The validator uses
+the default resolver (`DeclaredUrlHost`); `ConfigSecretsApplier`, `DestinationGuard` and the test-send check pass a
+resolver that returns the host of the new value or of the **decrypted stored URL**. `RequiresRebind` = in use, a secret
+of that name is stored, no `NewValue`/`Clear`, and the stored binding differs.
+
+`Configuration/TimeZoneResolver.cs` – IANA or Windows id → `TimeZoneInfo` (as given → runtime IANA↔Windows conversion →
+built-in map Europe/Warsaw ↔ Central European Standard Time, Europe/Berlin ↔ W. Europe Standard Time, Europe/London ↔ GMT
+Standard Time, UTC/Etc/UTC ↔ UTC → `TimeZoneInfo.Utc` for "UTC"/"Etc/UTC"; trimmed; control characters never resolve;
+never throws from `TryResolve`):
+
+```csharp
+public static class TimeZoneResolver
+{
+    public static bool TryResolve(string? id, [NotNullWhen(true)] out TimeZoneInfo? timeZone);
+    public static TimeZoneInfo Resolve(string id);   // ArgumentException (empty) / TimeZoneNotFoundException
+}
+```
+
+`Configuration/ConfigRedactor.cs` – Viewer view of `GET /api/v1/config` (17.2): `IsRedacted = true`; recipient
+addresses, SMTP host/user/from/replyTo/localDomain, OAuth tenant/client ids and certificate thumbprints (SMTP and
+Teams) removed; every `SecretField` reduced to `{ IsSet }` (all hints removed); each exclusion replaced by a placeholder
+(`Id = "redacted-<n>"`, empty reason/creator, `CreatedAt = default`, nothing else) so `rule.Exclusions.Count` is the
+count. Everything else (incl. `PublicBaseUrl`, webhook `AllowedHosts`, rule actor filters) is returned unchanged; the
+input is not modified.
+
+```csharp
+public sealed class ConfigRedactor
+{
+    public const string RedactedExclusionIdPrefix = "redacted-";
+    public ConfigEnvelope Redact(ConfigEnvelope envelope);
+    public WatchdogConfiguration Redact(WatchdogConfiguration configuration);
+}
+```
+
+`Configuration/ConfigChangeAuditor.cs`, `ConfigChangeAudit.cs`, `ConfigChangeItem.cs` – old vs new configuration →
+`WatchdogConfigurationChanged` data (17.2 step 5). JSON-tree diff of every serialized property (additive contract
+changes are covered automatically); rules, channels, recipient groups matched by id (`rules[tier0-security].enabled`);
+exclusions only as counts per rule (`rules[lockouts].exclusions +1 -0 ~1`); lists as case-insensitive counts
+(`recipientGroups[it-admins].addresses +0 -1`); secrets as `set` / `replaced` (NewValue) / `cleared` – pass the new
+configuration **as received**, before `ConfigSecretsApplier` strips NewValue/Clear. No values, secrets, addresses or
+exclusion contents ever appear. Severity = max over the items, at least Medium: **Critical** for disabling or weakening
+a `tier0-*`/`health` rule (removed, disabled, kinds/object kinds/scope/attributes/tags narrowed, group filter,
+MinSeverity raised, Severity override other than Critical, actor exclusions or exclusions added/changed, immediate /
+digest / all-channels off, recipient groups or channels removed, hours weakened, aggregation window or repeat
+suppression set/increased, hourly cap set/lowered), `locked` cleared on any rule, additions to
+`directory.ignoredAttributes` / `disabledKinds` / `excludedSubtrees`, removals from `directory.criticalObjects` and the
+privileged-group lists (except `watchListDns`), configuration/schema partition watching off, `smtp.enabled` off, a
+channel or recipient group used by a `tier0-*`/`health` rule (incl. `AllEnabledChannels`) removed/disabled or emptied
+of addresses, a whole section removed; **High** for any other change of recipients (groups, rule and digest references),
+channels, SMTP, attribution, exclusions, `digest.enabled`; **Medium** otherwise.
+
+```csharp
+public sealed class ConfigChangeAuditor
+{
+    public const int MaxSummaryItems = 40;
+    public ConfigChangeAuditor(TimeProvider timeProvider);
+    public ConfigChangeAudit Compare(WatchdogConfiguration previous, WatchdogConfiguration current);
+    /// Kind WatchdogConfigurationChanged, Source Health, Object { Kind = Watchdog, Dn = "" }, Id 0, EventId = ChangeSetId = Guid v7,
+    /// attribution Resolved/High with changedBy as actor (IpAddress + SourceMethod "local" when given),
+    /// Changes: one AttributeChange per item { Attribute = Path, ValueKind = Text, NewValues = [Description] }.
+    public WatchEvent CreateEvent(ConfigChangeAudit audit, PrincipalRef changedBy, string? domain = null, string? sourceIpAddress = null);
+}
+
+public sealed record ConfigChangeAudit
+{
+    public required Severity Severity { get; init; }
+    public IReadOnlyList<ConfigChangeItem> Items { get; init; } = [];   // most severe first, then document order
+    public required string Summary { get; init; }                      // "path description; …; (+N more)" or "no changes" – for IConfigStore.SaveAsync(summary)
+    public bool HasChanges { get; }
+}
+
+public enum ConfigChangeKind { Added, Removed, Modified, SecretSet, SecretReplaced, SecretCleared }
+
+public sealed record ConfigChangeItem
+{
+    public required string Path { get; init; }
+    public required ConfigChangeKind Kind { get; init; }
+    public required Severity Severity { get; init; }
+    public bool IsCollection { get; init; }
+    public int AddedCount { get; init; }
+    public int RemovedCount { get; init; }
+    public int ModifiedCount { get; init; }
+    public string Description { get; }   // added | removed | changed | set | replaced | cleared | "+2 -1" | "+1 -0 ~1" | reordered
+}
+```
+
+`Formatting/Webhooks/TeamsUrlValidator.cs`, `TeamsUrlValidationResult.cs` – Teams channel URL check (8.3, 15.7). Standard:
+`https://<env>.environment.api.powerplatform.com[:443]/powerautomate/automations/direct/[…/]workflows/…` (incl.
+`/direct/cu/NN/workflows/`, any length). Order: missing → `required`; not an absolute URL / file URL → `teamsUrlFormat`
+(Malformed); `*.webhook.office.com`, `*.logic.azure.com`, `outlook.office(365).com/webhook…` → `retiredTeamsUrl` +
+hint `teams.retiredUrl` (also over http); non-http(s) scheme → `insecureUrl`; user info → Malformed; http →
+`insecureUrl` unless loopback with `allowInsecureLoopback`; non-standard host/port/path → `teamsUrlFormat` (Warning for
+SAS, Error for EntraClientCredentials). The URL never appears in a result.
+
+```csharp
+public static class TeamsUrlValidator
+{
+    public const string PowerPlatformHostSuffix = ".environment.api.powerplatform.com";
+    public static TeamsUrlValidationResult Validate(string? url, TeamsAuthMode authMode, bool allowInsecureLoopback = false);
+    public static bool IsPowerPlatformHost(string? host);   // host only; bearer-token gate = Validate(url, EntraClientCredentials).IsValid
+}
+
+public enum TeamsUrlProblem { None, Missing, Malformed, Insecure, Retired, NonStandard }
+
+public sealed record TeamsUrlValidationResult
+{
+    public required TeamsUrlProblem Problem { get; init; }
+    public string? Code { get; init; }               // null | "required" | "teamsUrlFormat" | "insecureUrl" | "retiredTeamsUrl"
+    public IssueSeverity? Severity { get; init; }    // null when valid
+    public string? Message { get; init; }            // English fallback (ConfigIssue.Message)
+    public string? Hint { get; init; }               // DeliveryHints.RetiredTeamsUrl for retired URLs
+    public bool IsPowerPlatformHost { get; init; }   // https, port 443, *.environment.api.powerplatform.com
+    public bool IsValid { get; }                     // Problem == None
+    public bool IsAccepted { get; }                  // Severity != Error
+}
+```
+
+`Formatting/Webhooks/StandardWebhookSigner.cs` – Standard Webhooks v1 (14.5). Both test vectors of 14.5 are unit tests
+(`StandardWebhookSignerTests`). Key = base64 part after `whsec_` (24–64 bytes, padding optional); the GitHub signature
+uses the UTF-8 bytes of the whole secret text; message ids must be non-empty and contain no '.'; secrets never appear in
+exceptions; key buffers are zeroed.
+
+```csharp
+public static class StandardWebhookSigner
+{
+    public const string SecretPrefix = "whsec_";
+    public const int MinKeyBytes = 24, MaxKeyBytes = 64, GeneratedKeyBytes = 32;   // (declared as separate constants)
+    public const string IdHeader = "webhook-id", TimestampHeader = "webhook-timestamp", SignatureHeader = "webhook-signature",
+        GitHubSignatureHeader = "X-Hub-Signature-256";                              // (declared as separate constants)
+    public static string GenerateSecret();                                        // "whsec_" + Base64(32 random bytes)
+    public static bool IsValidSecret(string? secret);
+    public static bool TryParseKey(string? secret, [NotNullWhen(true)] out byte[]? key);
+    public static string Sign(SecretValue secret, string messageId, long timestamp, ReadOnlySpan<byte> body);              // "v1,<base64>"
+    public static string CreateSignatureHeader(SecretValue secret, SecretValue? previousSecret, string messageId, long timestamp, ReadOnlySpan<byte> body); // "v1,<a>[ v1,<b>]"
+    public static string SignGitHub(SecretValue secret, ReadOnlySpan<byte> body);                                          // "sha256=<hex>"
+    public static bool Verify(string? signatureHeader, SecretValue secret, string messageId, long timestamp, ReadOnlySpan<byte> body); // any v1 entry, constant time
+}
+```
 
 ---
 

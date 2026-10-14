@@ -1,4 +1,6 @@
+using AdMng.Watchdog.Core.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.Watchdog.Core.Registration;
 
@@ -8,6 +10,9 @@ internal static class RulesRegistration
 {
     internal static void Add(IServiceCollection services)
     {
-        // Scaffold: nothing registered yet.
+        // Shared Core classes implemented before the split (spec 25.6); the static helpers (SecretBindings,
+        // TimeZoneResolver) need no registration.
+        services.TryAddSingleton<ConfigRedactor>();
+        services.TryAddSingleton<ConfigChangeAuditor>();
     }
 }
