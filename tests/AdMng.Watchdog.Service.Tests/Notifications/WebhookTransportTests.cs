@@ -50,7 +50,7 @@ public sealed class WebhookTransportTests : IAsyncLifetime
         Assert.True(StandardWebhookSigner.Verify(request.Headers["webhook-signature"], new SecretValue(SigningSecret), message.MessageId, timestamp, request.Body));
         Assert.Equal(message.Http!.Body, request.Body);
         Assert.False(request.Headers.ContainsKey(StandardWebhookSigner.GitHubSignatureHeader));
-        Assert.Equal(HealthState.Ok, _fixture.Health.Channel(ChannelId)?.State);
+        Assert.Null(_fixture.Health.Channel(ChannelId));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Fact]

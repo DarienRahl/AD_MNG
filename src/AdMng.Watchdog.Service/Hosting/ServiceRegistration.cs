@@ -84,7 +84,6 @@ public static class ServiceRegistration
         services.AddSingleton<CertificateSelector>();
         services.AddSingleton<DestinationGuard>();
         services.AddSingleton<ChannelRateLimiters>();
-        services.AddSingleton<ChannelHealthTracker>();
         services.AddSingleton<SmtpOAuthTokenProvider>();
         services.AddSingleton<TeamsTokenProvider>();
         services.AddSingleton<HttpChannelSender>();

@@ -87,6 +87,7 @@ public sealed partial class AttributionEngine(
             foreach (var degraded in degradedMonitor.Check(hosts.Concat(sources.Select(s => s.Host)), domain))
             {
                 await events.AppendAsync(degraded, cancellationToken).ConfigureAwait(false);
+                LogDegraded(degraded.Object.Name ?? "-");
                 appended++;
             }
 
@@ -229,6 +230,9 @@ public sealed partial class AttributionEngine(
 
     private string? Domain() =>
         DistinguishedName.TryParse(tokens.Current.DomainDn, out var dn) && !dn.IsRoot ? dn.DnsDomain : null;
+
+    [LoggerMessage(EventId = WatchdogEventIds.AttributionDegraded, Level = LogLevel.Warning, Message = "Attribution from the Security log of {Host} is degraded.")]
+    private partial void LogDegraded(string host);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Attribution: {Processed} pending events processed, {Final} final.")]
     private partial void LogCorrelated(int processed, int final);

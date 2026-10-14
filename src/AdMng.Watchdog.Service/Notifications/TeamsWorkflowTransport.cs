@@ -21,7 +21,6 @@ public sealed class TeamsWorkflowTransport(
     TeamsTokenProvider tokens,
     HttpChannelSender sender,
     ChannelRateLimiters limiters,
-    ChannelHealthTracker health,
     IHostEnvironment environment) : INotificationTransport
 {
     /// <summary>Attempt timeout (Teams channels have no timeout setting).</summary>
@@ -54,7 +53,6 @@ public sealed class TeamsWorkflowTransport(
             result = await SendAsync(channel, message.Http.Body, message.Http.ContentType, recorder: null, cancellationToken).ConfigureAwait(false);
         }
 
-        health.Record(DeliveryChannelType.Teams, message.ChannelId, result.Result);
         return result.Result;
     }
 

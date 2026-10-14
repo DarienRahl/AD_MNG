@@ -51,7 +51,7 @@ public sealed class TeamsWorkflowTransportTests : IAsyncLifetime
         Assert.False(request.Headers.ContainsKey("Authorization"));
         Assert.StartsWith("AdMng-Watchdog/", request.Headers["User-Agent"], StringComparison.Ordinal);
         Assert.EndsWith(SasQuery[^20..], Uri.UnescapeDataString(request.PathAndQuery), StringComparison.Ordinal);
-        Assert.Equal(HealthState.Ok, _fixture.Health.Channel(channel.Id)?.State);
+        Assert.Null(_fixture.Health.Channel(channel.Id));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Theory]
@@ -85,7 +85,7 @@ public sealed class TeamsWorkflowTransportTests : IAsyncLifetime
 
         Assert.Equal(DeliveryOutcome.ChannelBroken, result.Outcome);
         Assert.Equal(DeliveryHints.TeamsAuthMismatch, result.Detail);
-        Assert.Equal(HealthState.Error, _fixture.Health.Channel(ChannelId)?.State);
+        Assert.Null(_fixture.Health.Channel(ChannelId));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Fact]

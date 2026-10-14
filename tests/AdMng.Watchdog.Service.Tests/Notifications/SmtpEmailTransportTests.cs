@@ -42,7 +42,7 @@ public sealed class SmtpEmailTransportTests
         Assert.Equal("0192f3a4-5b6c-7d8e-9f00-112233445566", mime.Headers["X-AdMng-Event-Id"]);
         Assert.Equal("Księgowość", mime.TextBody?.Trim());
         Assert.Contains("<b>Księgowość</b>", mime.HtmlBody, StringComparison.Ordinal);
-        Assert.Equal(HealthState.Ok, fixture.Health.Channel("email")?.State);
+        Assert.Null(fixture.Health.Channel("email"));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class SmtpEmailTransportTests
         Assert.Equal("tls", result.ErrorCode);
         Assert.Equal(DeliveryHints.CertificateUntrusted, result.Detail);
         Assert.Empty(sink.Messages);
-        Assert.Equal(HealthState.Error, fixture.Health.Channel("email")?.State);
+        Assert.Null(fixture.Health.Channel("email"));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Fact]

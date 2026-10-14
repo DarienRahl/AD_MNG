@@ -80,7 +80,7 @@ public sealed class SmtpProtocolTests
         Assert.Equal(DeliveryOutcome.AuthenticationFailed, result.Outcome);
         Assert.Equal("smtp.535.5.7.139", result.ErrorCode);
         Assert.Equal(hint, result.Detail);
-        Assert.Equal(HealthState.Error, fixture.Health.Channel("email")?.State);
+        Assert.Null(fixture.Health.Channel("email"));   // channel health is the outbox sender's (spec 15.1, 15.8), not the transport's
     }
 
     [Fact]

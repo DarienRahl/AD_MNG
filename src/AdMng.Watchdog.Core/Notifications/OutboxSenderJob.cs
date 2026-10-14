@@ -225,6 +225,6 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
     [LoggerMessage(Level = LogLevel.Warning, Message = "Outbox message {Id} on channel {ChannelId} gave up ({ErrorCode}).")]
     private partial void LogDead(long id, string channelId, string errorCode);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Channel {ChannelId} cannot deliver notifications ({ErrorCode}).")]
+    [LoggerMessage(EventId = WatchdogEventIds.DeliveryFailing, Level = LogLevel.Error, Message = "Channel {ChannelId} cannot deliver notifications ({ErrorCode}).")]
     private partial void LogChannelFailing(string channelId, string errorCode);
 }
