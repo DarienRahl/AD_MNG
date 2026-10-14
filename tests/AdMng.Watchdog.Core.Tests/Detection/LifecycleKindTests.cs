@@ -80,6 +80,8 @@ public class LifecycleKindTests
         Assert.Equal(guid, deleted.Object.ObjectGuid);
         Assert.Equal(scenario.Company.BartlomiejKozlowski, deleted.PreviousDn);
         Assert.Equal(DetectionSource.DeletedObjects, deleted.Source);
+        var memberOf = Assert.Single(deleted.Changes, c => c.Attribute.Equals(Attr.MemberOf, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal([scenario.Company.GroupSales], memberOf.OldValues);
         Assert.True(scenario.Store.Snapshots.Single(s => s.ObjectGuid == guid).IsDeleted);
         var sales = scenario.Snapshot(scenario.Company.GroupSales)!.ObjectGuid;
         Assert.DoesNotContain(await scenario.Store.GetMembersAsync(sales, TestContext.Current.CancellationToken), m => m.Key == guid.ToString("N"));

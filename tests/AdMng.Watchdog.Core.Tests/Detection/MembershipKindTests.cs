@@ -1,4 +1,5 @@
 using AdMng.Core.ActiveDirectory;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Testing.Scenarios;
 
@@ -61,6 +62,31 @@ public class MembershipKindTests
         var removed = Assert.Single(await scenario.CycleEventsAsync());
         Assert.Equal(WatchEventKind.GroupMemberRemoved, removed.Kind);
         Assert.Equal(renamed, removed.Member!.Dn);
+    }
+
+    [Fact]
+    public async Task PrivilegedAndWatchListOnly_TracksOnlyThoseGroupsButStillFindsNestedPrivileges()
+    {
+        string? watched = null;
+        await using var scenario = new DetectionScenario(seed: b => watched = b.AddGroup("GG_Kadry_Płace", b.UsersDn));
+        scenario.Config.Update(c => c with
+        {
+            Directory = c.Directory with { MembershipTracking = MembershipTracking.PrivilegedAndWatchListOnly },
+            PrivilegedGroups = c.PrivilegedGroups with { WatchListDns = [watched!] },
+        });
+        await scenario.BaselineAsync();
+
+        await scenario.AddValuesAsync(scenario.Company.GroupIt, Attr.Member, scenario.Company.PawelLewandowski);
+        await scenario.AddValuesAsync(watched!, Attr.Member, scenario.Company.MalgorzataWojcik);
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, scenario.Company.GroupIt);
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.DoesNotContain(events, e => e.Kind == WatchEventKind.GroupMemberAdded && e.Object.Dn == scenario.Company.GroupIt);
+        Assert.Single(events, e => e.Kind == WatchEventKind.GroupMemberAdded && e.Object.Dn == watched);
+        Assert.Single(events, e => e.Kind == WatchEventKind.GroupMemberAdded && e.Object.Dn == scenario.Builder.DomainAdminsDn);
+        var granted = events.Where(e => e.Kind == WatchEventKind.PrivilegeGranted).Select(e => e.Object.Dn).ToList();
+        Assert.Contains(scenario.Company.JanKowalski, granted);
+        Assert.Contains(scenario.Company.PawelLewandowski, granted);
     }
 
     [Fact]
