@@ -319,6 +319,23 @@ public sealed partial class ShellViewModel
 
         var snapshot = document.CreateExportSnapshot();
         var title = Localizer[L.Commands.ExportList];
+
+        // Columns with passwords, LAPS or other confidential values (added in the column chooser or by an imported saved
+        // view) are written only after the same warning as exported passwords; declined, they are left out.
+        var secret = snapshot.SecretColumns(Sessions.Current?.Schema);
+        if (secret.Count > 0)
+        {
+            var message = Localizer.Format(L.Files.ExportSecretColumns, string.Join(", ", secret.Select(c => c.Header)));
+            if (!await _dialogs.ConfirmAsync(Localizer[L.Batch.ExportPasswordsTitle], message, destructive: true).ConfigureAwait(true))
+            {
+                snapshot = snapshot.WithoutColumns(secret.Select(c => c.Attribute));
+                if (snapshot.Columns.Count == 0)
+                {
+                    return;
+                }
+            }
+        }
+
         var path = await _files.SaveFileAsync(
             title,
             ListExportSnapshot.SuggestFileName(document.Title, _lists.Time.GetLocalNow()),

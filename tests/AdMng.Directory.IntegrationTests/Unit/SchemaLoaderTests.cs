@@ -49,6 +49,31 @@ public sealed class SchemaLoaderTests
         Assert.Null(definition.LinkId);
         Assert.Equal(DepartmentGuid, definition.SchemaIdGuid);
         Assert.Equal(PersonalInformation, definition.PropertySetGuid);
+        Assert.False(definition.IsConfidential);
+    }
+
+    [Fact]
+    public void ConfidentialAttributes_AreRecognised()
+    {
+        // Legacy LAPS: searchFlags 904 = 0x388 (confidential 0x80, never audited 0x100, RODC filtered 0x200, copy 0x8).
+        var laps = SchemaLoader.ParseAttribute(Entry(
+            "CN=ms-Mcs-AdmPwd," + SchemaNc,
+            ("lDAPDisplayName", ["ms-Mcs-AdmPwd"]),
+            ("attributeSyntax", ["2.5.5.5"]),
+            ("oMSyntax", ["19"]),
+            ("searchFlags", ["904"])));
+        var custom = SchemaLoader.ParseAttribute(Entry(
+            "CN=contoso-Pin," + SchemaNc,
+            ("lDAPDisplayName", ["contoso-Pin"]),
+            ("attributeSyntax", ["2.5.5.12"]),
+            ("oMSyntax", ["64"]),
+            ("searchFlags", ["128"])));
+
+        Assert.True(laps!.IsConfidential);
+        Assert.False(laps.IsIndexed);
+        Assert.True(custom!.IsConfidential);
+        Assert.True(SecretAttributes.IsSecret("contoso-Pin", new SchemaCatalog([custom], [])));
+        Assert.False(SecretAttributes.IsSecret("contoso-Pin"));
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using AdMng.Core.Directory;
+using AdMng.Core.Schema;
 
 namespace AdMng.Core.Batch;
 
@@ -150,7 +151,9 @@ public interface IPowerShellExporter
     /// Produces a script using Set-ADObject/-Replace/-Clear/-Add/-Remove, Move-ADObject, Rename-ADObject,
     /// Add-ADGroupMember/Remove-ADGroupMember, Unlock-ADAccount, Set-ADAccountPassword (password read with
     /// Read-Host -AsSecureString, never embedded), Remove-ADObject and Restore-ADObject, all with -Server pinned to the DC.
+    /// Values of secret attributes (<see cref="SecretAttributes"/>, including the confidential attributes of
+    /// <paramref name="schema"/>) are never embedded either: the script prompts for them with Read-Host -AsSecureString.
     /// Objects with errors are emitted as comments.
     /// </summary>
-    string Export(ChangePlan plan, string? server);
+    string Export(ChangePlan plan, string? server, ISchemaCatalog? schema = null);
 }

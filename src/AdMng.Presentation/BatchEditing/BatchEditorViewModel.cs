@@ -384,7 +384,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         var plan = IncludedPlan(_plan);
-        await ExportAsync("preview", writer => _engines.Reports.Write(writer, plan, includePasswords: false, CsvFiles.ListSeparator(Services.Regional.Culture)))
+        var schema = Services.Sessions.Current?.Schema;
+        await ExportAsync("preview", writer => _engines.Reports.Write(writer, plan, includePasswords: false, CsvFiles.ListSeparator(Services.Regional.Culture), schema))
             .ConfigureAwait(true);
     }
 
@@ -396,7 +397,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
-        var script = _engines.PowerShell.Export(IncludedPlan(_plan), Services.Sessions.Current?.Info.Server ?? _plan.Server);
+        var session = Services.Sessions.Current;
+        var script = _engines.PowerShell.Export(IncludedPlan(_plan), session?.Info.Server ?? _plan.Server, session?.Schema);
         Services.Clipboard.SetText(script);
         Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.PowerShellCopied]);
     }
@@ -475,7 +477,10 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     private bool CanCancelExecution() => CurrentActivity is { IsRunning: true };
 
-    /// <summary>Exports the results; passwords only when the operator confirms the warning.</summary>
+    /// <summary>
+    /// Exports the results; the passwords of the resets that succeeded and the values of secret attributes only when the
+    /// operator confirms the warning (masked otherwise).
+    /// </summary>
     [RelayCommand(CanExecute = nameof(IsResultsStep))]
     private async Task ExportResultsAsync()
     {
@@ -484,14 +489,15 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
+        var schema = Services.Sessions.Current?.Schema;
         var includePasswords = false;
-        if (result.Plan.ContainsPasswords)
+        if (BatchReportExporter.ContainsSecrets(result, schema))
         {
             includePasswords = await Services.Dialogs.ConfirmAsync(
                 Localizer[L.Batch.ExportPasswordsTitle], Localizer[L.Batch.ExportPasswordsWarning], destructive: true).ConfigureAwait(true);
         }
 
-        if (await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Services.Regional.Culture)))
+        if (await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Services.Regional.Culture), schema))
                 .ConfigureAwait(true) && includePasswords)
         {
             _passwordsExported = true;

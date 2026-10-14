@@ -175,11 +175,12 @@ public sealed class ResultRowViewModel
     public bool HasPassword => Result.Changes.Any(c => c.Succeeded && c.Change.Password is not null);
 }
 
-/// <summary>Turns plans and results into localized grid rows.</summary>
+/// <summary>
+/// Turns plans and results into localized grid rows. Passwords and the values of secret attributes
+/// (<see cref="SecretAttributes"/>, including the schema's confidential attributes) are shown as a mask.
+/// </summary>
 internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator errors, IAttributeFormatter formatter, ISchemaCatalog schema)
 {
-    private const string HiddenPassword = "••••••••";
-
     public List<PreviewObjectViewModel> Build(ChangePlan plan)
     {
         var objects = new List<PreviewObjectViewModel>(plan.Objects.Count);
@@ -289,7 +290,7 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                     Add(action, localizer[L.Batch.Container], string.Empty, ParentPath(change.TargetDn ?? string.Empty), change.Issues, isChange: true);
                     break;
                 case ChangeAction.ResetPassword:
-                    Add(action, localizer[L.Batch.Password], string.Empty, change.Password is null ? string.Empty : HiddenPassword, change.Issues, isChange: true);
+                    Add(action, localizer[L.Batch.Password], string.Empty, change.Password is null ? string.Empty : SecretAttributes.Mask, change.Issues, isChange: true);
                     break;
                 default:
                     Add(action, string.Empty, string.Empty, string.Empty, change.Issues, isChange: true);
@@ -301,7 +302,9 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
     }
 
     private string Format(string attribute, IReadOnlyList<string> values) =>
-        string.Join("; ", values.Select(v => formatter.FormatValue(attribute, v, localizer.Culture)));
+        values.Count == 0 ? string.Empty
+        : SecretAttributes.IsSecret(attribute, schema) ? SecretAttributes.Mask
+        : string.Join("; ", values.Select(v => formatter.FormatValue(attribute, v, localizer.Culture)));
 
     private static string NameOf(string? dn) =>
         dn is not null && DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot ? parsed.Name : dn ?? string.Empty;

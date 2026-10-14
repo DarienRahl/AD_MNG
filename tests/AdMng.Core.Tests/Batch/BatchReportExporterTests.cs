@@ -3,6 +3,7 @@ using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
+using AdMng.Core.Schema;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Testing;
@@ -38,6 +39,8 @@ public class BatchReportExporterTests
     }
 
     private static string Cell(CsvTable table, int row, string column) => table.Cell(row, table.IndexOf(column));
+
+    private static string[] Column(CsvTable table, string column) => [.. Enumerable.Range(0, table.Rows.Count).Select(r => Cell(table, r, column))];
 
     [Fact]
     public async Task Plan_IsWrittenOneRowPerChange()
@@ -137,5 +140,108 @@ public class BatchReportExporterTests
         var table = Export(w => Exporter.Write(w, result));
 
         Assert.Equal([BatchReportExporter.StatusFailed, BatchReportExporter.StatusNotExecuted], table.Rows.Select(r => r[0]));
+    }
+
+    [Fact]
+    public async Task Result_ContainsOnlyThePasswordsOfResetsThatSucceeded()
+    {
+        var plan = await PlanAsync([_company.JanKowalski, _company.LukaszWisniewski], new ResetPasswordOperation(PasswordMode.GenerateUnique));
+        var passwords = plan.Objects.ToDictionary(o => o.DistinguishedName, o => o.Changes.Single(c => c.Action == ChangeAction.ResetPassword).Password!);
+        _builder.Session.FailNext(FakeOperationKind.ResetPassword, _company.LukaszWisniewski, DirectoryErrorKind.AccessDenied);
+        var result = await new BatchExecutor(new InMemoryAuditLog(), _time)
+            .ExecuteAsync(_builder.Session, plan, new BatchOptions { MaxDegreeOfParallelism = 1, MaxRetries = 0 }, null, Ct);
+
+        using var writer = new StringWriter();
+        Exporter.Write(writer, result, includePasswords: true);
+        var text = writer.ToString();
+        var table = _csv.Read(new StringReader(text));
+
+        int ResetRow(string dn) => Enumerable.Range(0, table.Rows.Count).Single(r => Cell(table, r, "DN") == dn && Cell(table, r, "Action") == "ResetPassword");
+        var jan = ResetRow(_company.JanKowalski);
+        var lukasz = ResetRow(_company.LukaszWisniewski);
+        Assert.Equal(BatchReportExporter.StatusSucceeded, Cell(table, jan, "Status"));
+        Assert.Equal(passwords[_company.JanKowalski], Cell(table, jan, "Password"));
+        Assert.Equal(BatchReportExporter.StatusFailed, Cell(table, lukasz, "Status"));
+        Assert.Equal(string.Empty, Cell(table, lukasz, "Password"));
+        Assert.DoesNotContain(passwords[_company.LukaszWisniewski], text, StringComparison.Ordinal);
+        Assert.True(BatchReportExporter.ContainsSecrets(result));
+    }
+
+    [Fact]
+    public void Result_DoesNotContainThePasswordOfAResetThatNeverRan()
+    {
+        const string Password = "Nigdy!Uzyte2026";
+        var modify = new PlannedChange
+        {
+            Action = ChangeAction.Modify,
+            Attributes = [new AttributeChange(Attr.Title, AttributeChangeKind.Replace, [], ["Kierownik"])],
+        };
+        var reset = new PlannedChange { Action = ChangeAction.ResetPassword, Password = Password };
+        var objectPlan = new ObjectPlan { DistinguishedName = _company.JanKowalski, DisplayName = "Jan Kowalski", Changes = [modify, reset] };
+        var plan = new ChangePlan { Objects = [objectPlan] };
+        var result = new BatchResult(
+            plan,
+            [new ObjectResult(objectPlan, ObjectResultStatus.Failed, [new ChangeResult(modify, false, DirectoryErrorKind.AccessDenied, "Denied.")],
+                _company.JanKowalski, _time.GetUtcNow(), _time.GetUtcNow())],
+            "dc01.contoso.test",
+            "admin",
+            _time.GetUtcNow(),
+            _time.GetUtcNow(),
+            WasCancelled: false);
+
+        using var writer = new StringWriter();
+        Exporter.Write(writer, result, includePasswords: true);
+        var table = _csv.Read(new StringReader(writer.ToString()));
+
+        Assert.DoesNotContain(Password, writer.ToString(), StringComparison.Ordinal);
+        var row = Enumerable.Range(0, table.Rows.Count).Single(r => Cell(table, r, "Action") == "ResetPassword");
+        Assert.Equal(BatchReportExporter.StatusNotExecuted, Cell(table, row, "Status"));
+        Assert.False(BatchReportExporter.ContainsSecrets(result));
+    }
+
+    [Fact]
+    public void SecretAttributeValues_AreMaskedUnlessPasswordsAreIncluded()
+    {
+        var schema = new SchemaCatalog(
+            [new AttributeDefinition { LdapName = "contoso-Pin", Syntax = AttributeSyntax.UnicodeString, IsConfidential = true }], []);
+        var modify = new PlannedChange
+        {
+            Action = ChangeAction.Modify,
+            Attributes =
+            [
+                new AttributeChange("ms-Mcs-AdmPwd", AttributeChangeKind.Replace, ["Stare!Haslo"], ["Nowe!Haslo"]),
+                new AttributeChange("contoso-Pin", AttributeChangeKind.Replace, ["1234"], ["Zażółć-9876"]),
+                new AttributeChange("msLAPS-Password", AttributeChangeKind.Clear, [], []),
+                new AttributeChange(Attr.Description, AttributeChangeKind.Replace, ["stary"], ["nowy"]),
+            ],
+        };
+        var objectPlan = new ObjectPlan { DistinguishedName = _company.Computer1, DisplayName = "PC-01", Changes = [modify] };
+        var plan = new ChangePlan { Objects = [objectPlan] };
+        var result = new BatchResult(
+            plan,
+            [new ObjectResult(objectPlan, ObjectResultStatus.Succeeded, [new ChangeResult(modify, true)], _company.Computer1, _time.GetUtcNow(), _time.GetUtcNow())],
+            "dc01.contoso.test",
+            "admin",
+            _time.GetUtcNow(),
+            _time.GetUtcNow(),
+            WasCancelled: false);
+
+        var preview = Export(w => Exporter.Write(w, plan, schema: schema));
+        var masked = Export(w => Exporter.Write(w, result, schema: schema));
+        var revealed = Export(w => Exporter.Write(w, result, includePasswords: true, schema: schema));
+
+        foreach (var table in new[] { preview, masked })
+        {
+            Assert.All(table.Rows, r => Assert.DoesNotContain(r, c => c.Contains("Haslo", StringComparison.Ordinal) || c.Contains("1234", StringComparison.Ordinal)
+                || c.Contains("9876", StringComparison.Ordinal)));
+            Assert.Equal([SecretAttributes.Mask, SecretAttributes.Mask, string.Empty, "stary"], Column(table, "Old value"));
+            Assert.Equal([SecretAttributes.Mask, SecretAttributes.Mask, string.Empty, "nowy"], Column(table, "New value"));
+        }
+
+        Assert.Equal(["Stare!Haslo", "1234", string.Empty, "stary"], Column(revealed, "Old value"));
+        Assert.Equal(["Nowe!Haslo", "Zażółć-9876", string.Empty, "nowy"], Column(revealed, "New value"));
+        Assert.True(BatchReportExporter.ContainsSecrets(plan, schema));
+        Assert.True(BatchReportExporter.ContainsSecrets(result, schema));
+        Assert.False(BatchReportExporter.ContainsSecrets(plan with { Objects = [objectPlan with { Changes = [modify with { Attributes = [modify.Attributes[^1]] }] }] }, schema));
     }
 }

@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Csv;
+using AdMng.Core.Schema;
 
 namespace AdMng.Core.Batch;
 
@@ -10,6 +11,9 @@ namespace AdMng.Core.Batch;
 /// <remarks>
 /// Columns: Status, Name, DN, Action, Attribute, Old value, New value, Message - plus Password when
 /// <c>includePasswords</c> is true (the caller must have warned the operator; the default never writes passwords).
+/// The old and new values of secret attributes (<see cref="SecretAttributes"/>, with the schema's confidential attributes
+/// when a schema is passed) are written as <see cref="SecretAttributes.Mask"/> unless <c>includePasswords</c> is true.
+/// A result contains the password of a reset only when the reset succeeded (a failed or not executed reset set nothing).
 /// Status values are stable English tokens: for a plan <see cref="StatusError"/>, <see cref="StatusNoChange"/>,
 /// <see cref="StatusPlanned"/>; for a result the step outcome (<see cref="StatusSucceeded"/>, <see cref="StatusFailed"/>,
 /// <see cref="StatusNotExecuted"/>) or the object status (<see cref="ObjectResultStatus"/> name) for objects without steps.
@@ -36,25 +40,63 @@ public sealed class BatchReportExporter
     }
 
     /// <summary>Writes the preview of a plan.</summary>
-    public void Write(TextWriter writer, ChangePlan plan, bool includePasswords = false, char delimiter = ';')
+    /// <param name="writer">Target.</param>
+    /// <param name="plan">The plan.</param>
+    /// <param name="includePasswords">Write passwords and the values of secret attributes in plain text.</param>
+    /// <param name="delimiter">CSV delimiter.</param>
+    /// <param name="schema">Schema of the session: its confidential attributes are masked as well.</param>
+    public void Write(TextWriter writer, ChangePlan plan, bool includePasswords = false, char delimiter = ';', ISchemaCatalog? schema = null)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(plan);
-        _csv.Write(writer, Headers(includePasswords), PlanRows(plan, includePasswords), delimiter, protectFormulas: true);
+        _csv.Write(writer, Headers(includePasswords), PlanRows(plan, new Secrets(includePasswords, schema)), delimiter, protectFormulas: true);
     }
 
     /// <summary>Writes the outcome of an executed batch.</summary>
-    public void Write(TextWriter writer, BatchResult result, bool includePasswords = false, char delimiter = ';')
+    /// <param name="writer">Target.</param>
+    /// <param name="result">The result.</param>
+    /// <param name="includePasswords">
+    /// Write the passwords of the resets that succeeded and the values of secret attributes in plain text.
+    /// </param>
+    /// <param name="delimiter">CSV delimiter.</param>
+    /// <param name="schema">Schema of the session: its confidential attributes are masked as well.</param>
+    public void Write(TextWriter writer, BatchResult result, bool includePasswords = false, char delimiter = ';', ISchemaCatalog? schema = null)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(result);
-        _csv.Write(writer, Headers(includePasswords), ResultRows(result, includePasswords), delimiter, protectFormulas: true);
+        _csv.Write(writer, Headers(includePasswords), ResultRows(result, new Secrets(includePasswords, schema)), delimiter, protectFormulas: true);
     }
+
+    /// <summary>
+    /// True when exporting the plan with <c>includePasswords</c> would write something the default export hides: a password
+    /// or a value of a secret attribute. The caller asks the operator before including them.
+    /// </summary>
+    public static bool ContainsSecrets(ChangePlan plan, ISchemaCatalog? schema = null)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.ContainsPasswords || plan.Objects.SelectMany(o => o.Changes).Any(c => HasSecretValues(c, schema));
+    }
+
+    /// <summary>
+    /// True when exporting the result with <c>includePasswords</c> would write something the default export hides: the
+    /// password of a reset that succeeded or a value of a secret attribute.
+    /// </summary>
+    public static bool ContainsSecrets(BatchResult result, ISchemaCatalog? schema = null)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.Objects.Any(o => o.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.ResetPassword && c.Change.Password is not null))
+            || result.Plan.Objects.SelectMany(o => o.Changes).Any(c => HasSecretValues(c, schema));
+    }
+
+    private static bool HasSecretValues(PlannedChange change, ISchemaCatalog? schema) =>
+        change.Action is ChangeAction.Modify or ChangeAction.Create
+        && change.Attributes.Any(a => (a.OldValues.Count > 0 || a.NewValues.Count > 0) && SecretAttributes.IsSecret(a.Attribute, schema));
 
     private static string[] Headers(bool includePasswords) => includePasswords ? [.. Columns, PasswordColumn] : Columns;
 
-    private static IEnumerable<IReadOnlyList<string>> PlanRows(ChangePlan plan, bool includePasswords)
+    private static IEnumerable<IReadOnlyList<string>> PlanRows(ChangePlan plan, Secrets secrets)
     {
+        var includePasswords = secrets.Include;
         foreach (var objectPlan in plan.Objects)
         {
             var status = objectPlan.HasErrors ? StatusError : objectPlan.IsNoOp ? StatusNoChange : StatusPlanned;
@@ -67,7 +109,7 @@ public sealed class BatchReportExporter
 
             foreach (var change in objectPlan.Changes)
             {
-                foreach (var row in StepRows(change, status, objectPlan, objectPlan.DistinguishedName, objectMessage, null, includePasswords))
+                foreach (var row in StepRows(change, status, objectPlan, objectPlan.DistinguishedName, objectMessage, null, secrets, passwordSet: true))
                 {
                     yield return row;
                 }
@@ -75,8 +117,9 @@ public sealed class BatchReportExporter
         }
     }
 
-    private static IEnumerable<IReadOnlyList<string>> ResultRows(BatchResult result, bool includePasswords)
+    private static IEnumerable<IReadOnlyList<string>> ResultRows(BatchResult result, Secrets secrets)
     {
+        var includePasswords = secrets.Include;
         foreach (var objectResult in result.Objects)
         {
             var objectPlan = objectResult.Plan;
@@ -94,7 +137,10 @@ public sealed class BatchReportExporter
             {
                 var executed = objectResult.Changes.FirstOrDefault(r => ReferenceEquals(r.Change, change));
                 var status = executed is null ? StatusNotExecuted : executed.Succeeded ? StatusSucceeded : StatusFailed;
-                foreach (var row in StepRows(change, status, objectPlan, objectResult.FinalDn, objectMessage, executed?.ErrorMessage, includePasswords))
+                // Only a reset that succeeded set its password; the password of a failed or not executed reset is useless and
+                // must not end up in a file.
+                var passwordSet = executed is { Succeeded: true };
+                foreach (var row in StepRows(change, status, objectPlan, objectResult.FinalDn, objectMessage, executed?.ErrorMessage, secrets, passwordSet))
                 {
                     yield return row;
                 }
@@ -109,8 +155,10 @@ public sealed class BatchReportExporter
         string dn,
         string objectMessage,
         string? error,
-        bool includePasswords)
+        Secrets secrets,
+        bool passwordSet)
     {
+        var includePasswords = secrets.Include;
         var name = objectPlan.DisplayName;
         var message = Join(objectMessage, Describe(change.Issues), error);
         var action = change.Action.ToString();
@@ -128,7 +176,8 @@ public sealed class BatchReportExporter
                     var issues = Describe(change.Issues.Where(i => i.Attribute is null
                         || string.Equals(i.Attribute, attribute.Attribute, StringComparison.OrdinalIgnoreCase)));
                     yield return Row(includePasswords, status, name, dn, action, attribute.Attribute,
-                        JoinValues(attribute.OldValues), JoinValues(attribute.ResultValues), Join(objectMessage, issues, error), null);
+                        secrets.Values(attribute.Attribute, attribute.OldValues), secrets.Values(attribute.Attribute, attribute.ResultValues),
+                        Join(objectMessage, issues, error), null);
                 }
 
                 break;
@@ -146,7 +195,7 @@ public sealed class BatchReportExporter
                 yield return Row(includePasswords, status, name, dn, action, null, objectPlan.DistinguishedName, change.TargetDn, message, null);
                 break;
             case ChangeAction.ResetPassword:
-                yield return Row(includePasswords, status, name, dn, action, null, null, null, message, change.Password);
+                yield return Row(includePasswords, status, name, dn, action, null, null, null, message, passwordSet ? change.Password : null);
                 break;
             default:
                 yield return Row(includePasswords, status, name, dn, action, null, null, null, message, null);
@@ -171,6 +220,16 @@ public sealed class BatchReportExporter
     }
 
     private static string JoinValues(IReadOnlyList<string> values) => string.Join("; ", values);
+
+    /// <summary>Whether secrets are written in plain text, and which attributes are secret.</summary>
+    private readonly record struct Secrets(bool Include, ISchemaCatalog? Schema)
+    {
+        /// <summary>The joined values, or the mask for (non-empty) values of a secret attribute that are not included.</summary>
+        public string Values(string attribute, IReadOnlyList<string> values) =>
+            values.Count == 0 ? string.Empty
+            : !Include && SecretAttributes.IsSecret(attribute, Schema) ? SecretAttributes.Mask
+            : JoinValues(values);
+    }
 
     private static string Describe(IEnumerable<ValidationIssue> issues) =>
         string.Join(" ", issues.Select(i => $"[{i.Severity}: {i.Code}] {i.Message}"));

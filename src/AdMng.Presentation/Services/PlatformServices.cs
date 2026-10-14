@@ -17,6 +17,13 @@ public interface IFileDialogService
 public interface IClipboardService
 {
     void SetText(string text);
+
+    /// <summary>
+    /// Puts a secret (a password) on the clipboard: excluded from clipboard history, cloud clipboard and clipboard
+    /// monitors, and cleared after a short time if the clipboard still holds it. Returns false when the clipboard could
+    /// not be written (the operator is warned) - the secret was then not handed out.
+    /// </summary>
+    bool SetSecret(string secret);
 }
 
 /// <summary>Severity of a toast notification.</summary>

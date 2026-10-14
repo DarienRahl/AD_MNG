@@ -2,6 +2,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
+using AdMng.Core.Schema;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Testing;
@@ -403,6 +404,47 @@ public class BatchExecutorTests
         Assert.All(passwords, p => Assert.DoesNotContain(p, _logger.AllText, StringComparison.Ordinal));
         Assert.DoesNotContain(_company.JanKowalski, _logger.AllText, StringComparison.OrdinalIgnoreCase);
         Assert.NotEmpty(_logger.Entries);
+    }
+
+    [Fact]
+    public async Task Audit_NeverRecordsValuesOfSecretOrConfidentialAttributes()
+    {
+        var fake = FakeSchema.Create();
+        var schema = new SchemaCatalog(
+            [.. fake.Attributes, new AttributeDefinition { LdapName = "contoso-Pin", Syntax = AttributeSyntax.UnicodeString, IsConfidential = true }],
+            fake.Classes);
+        var session = new FakeDirectorySession(FakeDirectorySession.CreateInfo(), schema, _time);
+        var plan = new ChangePlan
+        {
+            Objects =
+            [
+                new ObjectPlan
+                {
+                    DistinguishedName = "CN=PC-01,DC=contoso,DC=test",
+                    DisplayName = "PC-01",
+                    Changes =
+                    [
+                        new PlannedChange
+                        {
+                            Action = ChangeAction.Modify,
+                            Attributes =
+                            [
+                                new AttributeChange("ms-Mcs-AdmPwd", AttributeChangeKind.Replace, ["Stare!Haslo"], ["Nowe!Haslo"]),
+                                new AttributeChange("contoso-Pin", AttributeChangeKind.Replace, ["1234"], ["9876"]),
+                                new AttributeChange(Attr.Description, AttributeChangeKind.Replace, ["stary"], ["nowy"]),
+                            ],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        // The object does not exist: the step fails, and the attempt is audited all the same.
+        await Executor.ExecuteAsync(session, plan, Fast, null, Ct);
+
+        Assert.Contains(_audit.Entries, e => e is { Attribute: "ms-Mcs-AdmPwd", OldValue: null, NewValue: null });
+        Assert.Contains(_audit.Entries, e => e is { Attribute: "contoso-Pin", OldValue: null, NewValue: null });
+        Assert.Contains(_audit.Entries, e => e is { Attribute: Attr.Description, OldValue: "stary", NewValue: "nowy" });
     }
 
     [Fact]

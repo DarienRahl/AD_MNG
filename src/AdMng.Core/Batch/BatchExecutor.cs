@@ -4,6 +4,7 @@ using AdMng.Core.Batch.Planning;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Core.Batch;
@@ -50,12 +51,6 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private static readonly HashSet<string> NonConcurrentAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         Attr.PwdLastSet, Attr.LockoutTime, Attr.UnicodePwd, "userPassword",
-    };
-
-    /// <summary>Attributes whose values are never written to the audit log.</summary>
-    private static readonly HashSet<string> SecretAttributes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        Attr.UnicodePwd, "userPassword", "ms-Mcs-AdmPwd", "msLAPS-Password", "msLAPS-EncryptedPassword",
     };
 
     private readonly IAuditLog _auditLog;
@@ -533,7 +528,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                 return attempted;
             }
 
-            var written = change.Attributes.Where(a => a.NewValues.Count > 0 && !SecretAttributes.Contains(a.Attribute)).ToList();
+            var written = change.Attributes.Where(a => a.NewValues.Count > 0 && !SecretAttributes.IsSecret(a.Attribute, _session.Schema)).ToList();
             try
             {
                 var existing = await _session.GetAsync(dn, [.. written.Select(a => a.Attribute)], CancellationToken.None).ConfigureAwait(false);
@@ -825,7 +820,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
                     foreach (var attribute in change.Attributes)
                     {
-                        var secret = SecretAttributes.Contains(attribute.Attribute);
+                        var secret = SecretAttributes.IsSecret(attribute.Attribute, _session.Schema);
                         Record(change.Action, Entry(
                             change.Action.ToString(),
                             attribute.Attribute,

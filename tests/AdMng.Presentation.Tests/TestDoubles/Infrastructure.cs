@@ -273,7 +273,32 @@ internal sealed class FakeClipboard : IClipboardService
 {
     public string? Text { get; private set; }
 
-    public void SetText(string text) => Text = text;
+    /// <summary>The last text was put there with <see cref="SetSecret"/>.</summary>
+    public bool IsSecret { get; private set; }
+
+    /// <summary>Simulates a clipboard held by another process: writes fail.</summary>
+    public bool IsBusy { get; set; }
+
+    public void SetText(string text)
+    {
+        if (!IsBusy)
+        {
+            Text = text;
+            IsSecret = false;
+        }
+    }
+
+    public bool SetSecret(string secret)
+    {
+        if (IsBusy)
+        {
+            return false;
+        }
+
+        Text = secret;
+        IsSecret = true;
+        return true;
+    }
 }
 
 internal sealed class FakeFileDialogService : IFileDialogService

@@ -485,11 +485,24 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
     private void CopyValue(AttributeRowViewModel? row)
     {
         row ??= SelectedRow;
-        if (row is { HasValue: true })
+        if (row is not { HasValue: true })
         {
-            Context.Services.Clipboard.SetText(row.ValueText);
-            Context.Services.Notifications.Show(NotificationSeverity.Info, Context.Localizer[L.Fields.Copied]);
+            return;
         }
+
+        // A LAPS password or another secret value: kept out of clipboard history and cleared after a while.
+        if (SecretAttributes.IsSecret(row.Attribute, Context.Schema))
+        {
+            if (Context.Services.Clipboard.SetSecret(row.ValueText))
+            {
+                Context.Services.Notifications.Show(NotificationSeverity.Info, Context.Localizer[L.Fields.Copied]);
+            }
+
+            return;
+        }
+
+        Context.Services.Clipboard.SetText(row.ValueText);
+        Context.Services.Notifications.Show(NotificationSeverity.Info, Context.Localizer[L.Fields.Copied]);
     }
 
     private bool HasSelection(AttributeRowViewModel? row) => (row ?? SelectedRow) is not null;

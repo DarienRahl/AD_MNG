@@ -66,6 +66,12 @@ public sealed record AttributeDefinition
     /// <summary>searchFlags bit 0 - indexed, cheap to filter on.</summary>
     public bool IsIndexed { get; init; }
 
+    /// <summary>
+    /// searchFlags 0x80 (fCONFIDENTIAL) - reading the values needs the control access right; the values are treated as
+    /// secrets (<see cref="SecretAttributes"/>).
+    /// </summary>
+    public bool IsConfidential { get; init; }
+
     /// <summary>Replicated to the global catalog (isMemberOfPartialAttributeSet).</summary>
     public bool IsInGlobalCatalog { get; init; }
 
