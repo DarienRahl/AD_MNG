@@ -8,6 +8,9 @@ name: Release
 #  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
 # The build job builds, tests and publishes AdMng.exe on Windows and renders screenshots of exactly that commit; the
 # release gets the zip, the screenshots and SHA256SUMS.txt. Tags v0.* and tags with a suffix are pre-releases.
+# Creating releases uses the repository secret RELEASE_TOKEN when it exists (a fine-grained token for this repository
+# with Contents and Workflows: read and write): the workflow token is refused here with 403 "Resource not accessible by
+# integration" and cannot create a tag on a commit that changes .github/workflows anyway.
 on:
   push:
     tags: ["v*"]
@@ -203,7 +206,7 @@ jobs:
           path: dist
       - name: Create or update the release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           GH_REPO: ${{ github.repository }}
           REF_TYPE: ${{ github.ref_type }}
           TAG: ${{ needs.plan.outputs.tag }}
@@ -255,7 +258,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Update the release description
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.plan.outputs.tag }}
           VERSION: ${{ needs.plan.outputs.version }}
