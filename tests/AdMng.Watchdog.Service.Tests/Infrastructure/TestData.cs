@@ -1,6 +1,7 @@
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
+using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 
 namespace AdMng.Watchdog.Service.Tests.Infrastructure;
 
@@ -41,7 +42,7 @@ public static class TestData
         ObjectRef? target = null,
         DateTimeOffset? detectedAt = null,
         Severity? severity = null,
-        Attribution? attribution = null,
+        EventAttribution? attribution = null,
         IReadOnlyList<AttributeChange>? changes = null)
     {
         var obj = target ?? Zofia;
@@ -55,12 +56,12 @@ public static class TestData
             Domain = Domain,
             DetectedAt = detectedAt ?? TestStore.Start,
             Source = DetectionSource.IncrementalPoll,
-            Attribution = attribution ?? Attribution.Pending,
+            Attribution = attribution ?? EventAttribution.Pending,
             Changes = changes ?? [],
         };
     }
 
-    public static Attribution Resolved(string account = @"CONTOSO\adm.łukasz", string sid = "S-1-5-21-1004336348-1177238915-682003330-1104") => new()
+    public static EventAttribution Resolved(string account = @"CONTOSO\adm.łukasz", string sid = "S-1-5-21-1004336348-1177238915-682003330-1104") => new()
     {
         Status = AttributionStatus.Resolved,
         Confidence = AttributionConfidence.High,
