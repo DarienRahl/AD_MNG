@@ -93,6 +93,9 @@ public static class ConfigEndpoints
             return ApiResults.Problem(StatusCodes.Status412PreconditionFailed, ApiProblem.VersionConflict, "The configuration was changed by someone else; reload it.");
         }
 
+        // Reload first: the change event wakes the rule evaluation job at once, and it must plan the event with the NEW
+        // configuration (17.2 step 5); the previous one is planned explicitly by the notifier.
+        var current = await provider.ReloadAsync(cancellationToken).ConfigureAwait(false);
         await notifier.NotifyAsync(
             audit,
             caller,
@@ -101,7 +104,6 @@ public static class ConfigEndpoints
             context.Connection.RemoteIpAddress?.ToString(),
             previous,
             cancellationToken).ConfigureAwait(false);
-        var current = await provider.ReloadAsync(cancellationToken).ConfigureAwait(false);
         signals.Raise(WatchdogSignal.ConfigChanged);
         context.Response.Headers.ETag = ETag(saved.Version);
         return ApiResults.Json(current.Version == saved.Version ? current : saved);

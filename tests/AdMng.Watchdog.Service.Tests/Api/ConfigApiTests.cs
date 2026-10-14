@@ -3,8 +3,11 @@ using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Configuration;
+using AdMng.Watchdog.Service.Api;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.Watchdog.Service.Tests.Api;
 
@@ -161,6 +164,22 @@ public sealed class ConfigApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Save_LoadsTheNewConfiguration_BeforeTheChangeEventIsStored()
+    {
+        // The stored change event wakes the rule evaluation job at once; it must already see the new configuration
+        // (found in the live lab run: the event was planned with the old one, SMTP off, and nobody was notified).
+        var probe = new ProviderProbe();
+        await using var factory = new WatchdogFactory(services: s => s.AddSingleton<IConfigChangeNotificationPlanner>(probe));
+        probe.Provider = factory.Services.GetRequiredService<IWatchdogConfigProvider>();
+        using var admin = factory.Admin();
+
+        var saved = await PutAsync(admin, WithSecrets(), version: 0);
+
+        Assert.Equal(saved.Version, probe.VersionWhenPlanned);
+        Assert.True(probe.SmtpEnabledWhenPlanned);
+    }
+
+    [Fact]
     public async Task Save_RecordsAConfigurationChangedEvent_AttributedToTheCaller()
     {
         using var admin = _factory.Admin();
@@ -255,5 +274,21 @@ public sealed class ConfigApiTests : IAsyncLifetime
         using var response = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = version, Configuration = configuration }), Ct);
         Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
         return await ApiJson.ReadAsync<ConfigEnvelope>(response);
+    }
+
+    private sealed class ProviderProbe : IConfigChangeNotificationPlanner
+    {
+        public IWatchdogConfigProvider? Provider { get; set; }
+
+        public long? VersionWhenPlanned { get; private set; }
+
+        public bool SmtpEnabledWhenPlanned { get; private set; }
+
+        public Task PlanWithPreviousConfigurationAsync(WatchEvent stored, WatchdogConfiguration previous, CancellationToken cancellationToken)
+        {
+            VersionWhenPlanned = Provider?.Current.Version;
+            SmtpEnabledWhenPlanned = Provider?.Current.Configuration.Smtp.Enabled == true;
+            return Task.CompletedTask;
+        }
     }
 }
