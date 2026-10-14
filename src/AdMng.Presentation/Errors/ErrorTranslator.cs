@@ -2,6 +2,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Session;
 
 namespace AdMng.Presentation.Errors;
 
@@ -30,6 +31,7 @@ public sealed class ErrorTranslator(ILocalizer localizer)
         return exception switch
         {
             DirectoryException de => Translate(de.Kind, de.Win32Error),
+            SessionEndedException => localizer[L.WindowSession.Ended],
             OperationCanceledException => localizer[L.Errors.Cancelled],
             TimeoutException => localizer.ErrorKindName(DirectoryErrorKind.Timeout),
             UnauthorizedAccessException or IOException => localizer.Format(L.Errors.File, exception.Message),

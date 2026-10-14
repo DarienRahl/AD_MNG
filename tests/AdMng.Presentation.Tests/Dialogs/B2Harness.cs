@@ -13,9 +13,11 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Presentation.Views;
 using AdMng.Testing;
@@ -37,7 +39,7 @@ internal sealed class B2Harness
         Localizer = new ResxLocalizer(culture);
         Regional = new SystemRegionalSettings(regional, regional.TextInfo.ANSICodePage);
         Errors = new ErrorTranslator(Localizer);
-        Sessions = new SessionManager(new SessionConnector(Session), new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)), Localizer);
+        Sessions = new SessionManager(new SessionConnector(() => NextSession ?? Session), new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)), Localizer);
         Lists = new ObjectListServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time);
         Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time, Sessions);
         var templates = new TemplateEngine();
@@ -57,6 +59,9 @@ internal sealed class B2Harness
     public FakeDirectoryBuilder Builder { get; }
 
     public FakeDirectorySession Session => Builder.Session;
+
+    /// <summary>What the next connect returns (default: <see cref="Session"/>), e.g. a session of another identity.</summary>
+    public IDirectorySession? NextSession { get; set; }
 
     public SampleCompany Company { get; }
 
@@ -117,6 +122,31 @@ internal sealed class B2Harness
         return harness;
     }
 
+    /// <summary>The main window's view model over the same services (real engines, fake directory).</summary>
+    public ShellViewModel CreateShell() => new(
+        Lists,
+        new NavigationTreeViewModel(Sessions, Settings, Localizer, Dispatcher, Errors, Views, Changes),
+        Activities,
+        Coordinator,
+        Views,
+        Dialogs,
+        Files,
+        Clipboard,
+        Notifications,
+        new CsvCodec(),
+        Regional);
+
+    /// <summary>
+    /// The operator disconnects and connects again - to <paramref name="next"/>, a new session (e.g. another identity
+    /// with the same sample company).
+    /// </summary>
+    public async Task ReconnectAsync(IDirectorySession next)
+    {
+        await Sessions.DisconnectAsync();
+        NextSession = next;
+        await Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
+    }
+
     /// <summary>Values of an attribute as stored in the fake directory.</summary>
     public IReadOnlyList<string> Values(string dn, string attribute) => Session.GetValues(dn, attribute);
 
@@ -137,7 +167,7 @@ internal sealed class B2Harness
         }
     }
 
-    private sealed class SessionConnector(IDirectorySession session) : IDirectoryConnector
+    private sealed class SessionConnector(Func<IDirectorySession> session) : IDirectoryConnector
     {
         public string? GetComputerDomain() => FakeDirectoryBuilder.DefaultDomain;
 
@@ -145,7 +175,7 @@ internal sealed class B2Harness
             Task.FromResult<IReadOnlyList<DomainControllerInfo>>([]);
 
         public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
-            Task.FromResult(session);
+            Task.FromResult(session());
     }
 }
 

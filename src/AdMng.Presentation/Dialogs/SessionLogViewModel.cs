@@ -130,9 +130,14 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
         }
     }
 
-    [RelayCommand]
+    /// <summary>Opens the properties of the entry's object - not any more once the window's session ended.</summary>
+    [RelayCommand(CanExecute = nameof(IsSessionActive))]
     private Task OpenAsync(AuditEntryViewModel? entry) =>
-        (entry ?? SelectedEntry) is { } target ? Services.Dialogs.ShowPropertiesAsync(target.Dn) : Task.CompletedTask;
+        !IsSessionEnded && (entry ?? SelectedEntry) is { } target ? Services.Dialogs.ShowPropertiesAsync(target.Dn) : Task.CompletedTask;
+
+    private bool IsSessionActive(AuditEntryViewModel? entry) => !IsSessionEnded;
+
+    protected override void OnSessionEnded() => OpenCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private void Close() => RequestClose(true);

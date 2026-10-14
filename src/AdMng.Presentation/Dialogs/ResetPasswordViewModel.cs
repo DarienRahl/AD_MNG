@@ -148,10 +148,10 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
 
     public override async Task InitializeAsync()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            Error = Localizer[L.Errors.NotConnected];
+            Error = NoSessionMessage;
             return;
         }
 
@@ -172,10 +172,10 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanReset))]
     private async Task ResetAsync()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            Error = Localizer[L.Errors.NotConnected];
+            Error = NoSessionMessage;
             return;
         }
 
@@ -233,7 +233,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
                 }
             }
 
-            var result = await Services.Coordinator.ExecutePlanAsync(plan, title).ConfigureAwait(true);
+            var result = await Services.Coordinator.ExecutePlanAsync(plan, title, session).ConfigureAwait(true);
             PasswordInput?.Clear();
             ConfirmPasswordInput?.Clear();
             ShowResults(result, operation.Mode == PasswordMode.GenerateUnique);
@@ -248,7 +248,13 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
         }
     }
 
-    private bool CanReset() => !IsBusy && !IsCompleted && _targets.Count > 0;
+    private bool CanReset() => !IsBusy && !IsCompleted && _targets.Count > 0 && !IsSessionEnded;
+
+    protected override void OnSessionEnded()
+    {
+        Error = SessionEndedMessage;
+        ResetCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private void CopyPassword(PasswordResultViewModel? row)

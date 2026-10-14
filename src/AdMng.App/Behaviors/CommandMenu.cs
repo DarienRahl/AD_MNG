@@ -69,15 +69,29 @@ public static class CommandMenu
                 }
 
                 item.InputGestureText = ShortcutText.Format(descriptor.Shortcut);
+                if (descriptor.DisabledReason is { } itemReason)
+                {
+                    // A disabled item says why (e.g. no permission to create this class in the container).
+                    DisabledReasonToolTip.Apply(item, descriptor.TitleKey, shortcut: null, () => itemReason(descriptor.Parameter));
+                }
+
                 break;
             case ButtonBase button:
                 button.Command = descriptor.Command;
                 button.CommandParameter = descriptor.Parameter;
-                button.SetBinding(FrameworkElement.ToolTipProperty, new TrBinding(descriptor.TitleKey)
+                if (descriptor.DisabledReason is { } buttonReason)
                 {
-                    Converter = ToolTipConverter,
-                    ConverterParameter = descriptor.Shortcut,
-                });
+                    DisabledReasonToolTip.Apply(button, descriptor.TitleKey, descriptor.Shortcut, () => buttonReason(descriptor.Parameter));
+                }
+                else
+                {
+                    button.SetBinding(FrameworkElement.ToolTipProperty, new TrBinding(descriptor.TitleKey)
+                    {
+                        Converter = ToolTipConverter,
+                        ConverterParameter = descriptor.Shortcut,
+                    });
+                }
+
                 button.SetBinding(AutomationProperties.NameProperty, new TrBinding(descriptor.TitleKey));
                 ToolTipService.SetShowOnDisabled(button, true);
                 break;

@@ -1,5 +1,6 @@
 using System.Windows;
 using AdMng.App.Infrastructure;
+using AdMng.Presentation.Dialogs;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.Services;
@@ -51,7 +52,10 @@ public interface IWindowService
     /// </summary>
     Window Show(object viewModel, string? singletonKey = null);
 
-    /// <summary>Finds an open window shown with <paramref name="singletonKey"/>.</summary>
+    /// <summary>
+    /// Finds an open window shown with <paramref name="singletonKey"/>. A window whose directory session ended
+    /// (<see cref="WindowViewModelBase.IsSessionEnded"/>) is not reused: reopening it opens a new window in the current session.
+    /// </summary>
     Window? FindOpen(string singletonKey);
 
     /// <summary>The window new dialogs should be owned by: the active window, else the main window (null when none is shown).</summary>
@@ -159,7 +163,8 @@ public sealed class WindowService : IWindowService
     {
         ArgumentNullException.ThrowIfNull(singletonKey);
         return Application.Current?.Windows.OfType<Window>()
-            .FirstOrDefault(w => string.Equals((string?)w.GetValue(SingletonKeyProperty), singletonKey, StringComparison.Ordinal));
+            .FirstOrDefault(w => string.Equals((string?)w.GetValue(SingletonKeyProperty), singletonKey, StringComparison.Ordinal)
+                && w.DataContext is not WindowViewModelBase { IsSessionEnded: true });
     }
 
     public Window? GetOwner()

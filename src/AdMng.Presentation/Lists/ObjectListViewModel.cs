@@ -44,6 +44,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private const int MaxUnlistedRefresh = 100;
 
     private readonly ObjectListServices _services;
+    private readonly Func<IDirectorySession?> _session;
     private readonly List<ObjectRowViewModel> _allRows = [];
     private readonly Dictionary<string, ObjectRowViewModel> _rowsByDn = new(StringComparer.Ordinal);
     private readonly SerialCancellation _loads = new();
@@ -69,9 +70,15 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private bool _disposed;
     private bool _settingChips;
 
-    public ObjectListViewModel(ObjectListServices services)
+    /// <param name="services">Shared list services.</param>
+    /// <param name="session">
+    /// The session the list reads from; null = the current session. A window passes the session it was opened in
+    /// (null once it ended), so its list never reads with the identity of a newer session.
+    /// </param>
+    public ObjectListViewModel(ObjectListServices services, Func<IDirectorySession?>? session = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
+        _session = session ?? (() => services.Sessions.Current);
         _layoutSaver = new Debouncer(services.Time, LayoutSaveDelay);
         _liveRefresh = new Debouncer(services.Time, LiveUpdateDelay);
         foreach (var kind in Enum.GetValues<QuickFilterKind>())
@@ -333,7 +340,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     public async Task RefreshObjectsAsync(IEnumerable<string> distinguishedNames, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(distinguishedNames);
-        var session = _services.Sessions.Current;
+        var session = _session();
         var search = _lastSearch;
         var location = Location;
         var context = _rowContext;
@@ -408,7 +415,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
     /// <summary>Column chooser pre-filled with the current columns and all schema attributes of users, computers, groups and contacts.</summary>
     public ColumnChooserViewModel CreateColumnChooser() =>
-        new(_services.Localizer, _services.Sessions.Current?.Schema, [.. Columns.Select(c => c.Attribute)], Location?.DefaultColumns ?? ColumnSets.Container);
+        new(_services.Localizer, _session()?.Schema, [.. Columns.Select(c => c.Attribute)], Location?.DefaultColumns ?? ColumnSets.Container);
 
     /// <summary>Applies a column selection, persists it for the location's layout key and reloads when new attributes are needed.</summary>
     public async Task ApplyColumnsAsync(IReadOnlyList<string> attributes)
@@ -529,7 +536,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TotalCount));
         var started = _services.Time.GetTimestamp();
 
-        var session = _services.Sessions.Current;
+        var session = _session();
         if (session is null)
         {
             Error = _services.Localizer[L.Errors.NotConnected];
@@ -744,7 +751,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         {
             var descending = _localSortDescending;
             var culture = _services.Localizer.Culture;
-            var schema = _services.Sessions.Current?.Schema;
+            var schema = _session()?.Schema;
             var snapshot = _allRows.ToArray();
             var generation = _generation;
             var version = _rowsVersion;
@@ -884,7 +891,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(TotalCount));
             if (_localSortAttribute is not null)
             {
-                var sorted = RowSorting.Sort(_allRows, _localSortAttribute, _localSortDescending, _services.Localizer.Culture, _services.Sessions.Current?.Schema);
+                var sorted = RowSorting.Sort(_allRows, _localSortAttribute, _localSortDescending, _services.Localizer.Culture, _session()?.Schema);
                 _allRows.Clear();
                 _allRows.AddRange(sorted);
             }
@@ -1151,7 +1158,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private ListLocation? UpLocation()
     {
         var location = Location;
-        var session = _services.Sessions.Current;
+        var session = _session();
         if (location?.UpDn is not { } up || session is null)
         {
             return null;
@@ -1221,7 +1228,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
         return string.Equals(attribute, Attr.Name, StringComparison.OrdinalIgnoreCase)
             ? l[L.Columns.Name]
-            : l.AttributeName(attribute, _services.Sessions.Current?.Schema);
+            : l.AttributeName(attribute, _session()?.Schema);
     }
 
     private void OnColumnChanged(object? sender, PropertyChangedEventArgs e)

@@ -65,6 +65,12 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private readonly List<PreviewRowViewModel> _previewRows = [];
     private readonly List<ResultRowViewModel> _resultRows = [];
     private readonly HashSet<string> _sampleAttributes = new(StringComparer.OrdinalIgnoreCase);
+
+    // Steps of the current operations that already succeeded, per object (DnKey of its current DN; see StepKeys): a
+    // retry runs only the failed and not executed steps - never a second password reset, which would invalidate the
+    // password already handed out. Accumulated over retries, cleared when new operations are previewed.
+    private readonly Dictionary<string, HashSet<string>> _succeededSteps = new(StringComparer.Ordinal);
+
     private DirectoryObject? _sampleTarget;
     private ChangePlan? _plan;
     private PlanSource _planSource;
@@ -80,7 +86,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     {
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
         _request = request ?? throw new ArgumentNullException(nameof(request));
-        _editorContext = new OperationEditorContext(services, engines.Templates, RenderSampleAsync);
+        _editorContext = new OperationEditorContext(services, engines.Templates, RenderSampleAsync, () => Session);
         Mode = request.TargetDns.Count == 0 ? BatchSourceMode.Csv : BatchSourceMode.Objects;
         OperationTypes = [.. Enum.GetValues<OperationType>().Select(t => new OperationTypeOption(
             t, Localizer[DisplayNames.OperationTypeKey(t)], Localizer.Format(DisplayNames.OperationDescriptionKey(t))))];
@@ -88,7 +94,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         ResultFilters = [.. Enum.GetValues<ResultFilter>().Select(f => new Option<ResultFilter>(f, Localizer[DisplayNames.ResultFilterKey(f)]))];
         if (Mode == BatchSourceMode.Csv)
         {
-            CsvImport = new CsvImportViewModel(services, engines);
+            CsvImport = new CsvImportViewModel(services, engines, () => Session);
             CsvImport.Changed += OnCsvImportChanged;
         }
         else
@@ -343,14 +349,14 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
         IReadOnlyList<BatchOperation> built = [.. operations.OfType<BatchOperation>()];
         await RunPlanningAsync(
-            (progress, token) => PlanOperationsAsync(_request.TargetDns, built, progress, token),
+            (progress, token) => PlanOperationsAsync(_request.TargetDns, built, new Dictionary<string, HashSet<string>>(), progress, token),
             TargetCount,
             PlanSource.Operations,
             cancellationToken).ConfigureAwait(true);
     }
 
     private bool CanPreview() =>
-        Step == BatchEditorStep.Edit && !IsBusy
+        Step == BatchEditorStep.Edit && !IsBusy && !IsSessionEnded
         && (Mode == BatchSourceMode.Csv
             ? CsvImport!.IsValid
             : TargetCount > 0 && Operations.Count > 0 && Operations.All(o => o.IsValid) && OperationsError is null);
@@ -396,7 +402,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
-        var script = _engines.PowerShell.Export(IncludedPlan(_plan), Services.Sessions.Current?.Info.Server ?? _plan.Server);
+        var script = _engines.PowerShell.Export(IncludedPlan(_plan), Session?.Info.Server ?? _plan.Server);
         Services.Clipboard.SetText(script);
         Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.PowerShellCopied]);
     }
@@ -446,7 +452,9 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         {
             // The coordinator hands over the activity of this execution: progress and Cancel must never follow another
             // operation the operator starts meanwhile (another batch editor, a disable from the main window...).
-            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, activity => CurrentActivity = activity).ConfigureAwait(true);
+            // Only in the session the plan was made in - never with the identity of a newer session.
+            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, RequireSession(), activity => CurrentActivity = activity)
+                .ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -462,7 +470,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
     }
 
-    private bool CanExecute() => Step == BatchEditorStep.Preview && !IsBusy && ChangeCount > 0;
+    private bool CanExecute() => Step == BatchEditorStep.Preview && !IsBusy && ChangeCount > 0 && !IsSessionEnded;
 
     [RelayCommand(CanExecute = nameof(CanCancelExecution))]
     private void CancelExecution()
@@ -521,14 +529,33 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             return;
         }
 
+        // Only the failed and not executed steps run again (steps that succeeded in this or an earlier run are left
+        // out): e.g. an object whose password was reset keeps it - a new reset would invalidate the one handed out.
         var dns = failed.Select(o => o.FinalDn).ToList();
+        var succeeded = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var obj in failed)
+        {
+            var steps = new HashSet<string>(StringComparer.Ordinal);
+            if (_succeededSteps.TryGetValue(DnKey.For(obj.Plan.DistinguishedName), out var earlier))
+            {
+                steps.UnionWith(earlier);
+            }
+
+            steps.UnionWith(obj.Changes.Where(c => c.Succeeded).SelectMany(c => StepKeys(c.Change)));
+            if (steps.Count > 0)
+            {
+                succeeded[DnKey.For(obj.FinalDn)] = steps;
+            }
+        }
+
         var operations = _plannedOperations;
-        await RunPlanningAsync((progress, token) => PlanOperationsAsync(dns, operations, progress, token), dns.Count, PlanSource.Operations, CancellationToken.None)
+        await RunPlanningAsync((progress, token) => PlanOperationsAsync(dns, operations, succeeded, progress, token), dns.Count, PlanSource.Operations, CancellationToken.None)
             .ConfigureAwait(true);
     }
 
     private bool CanRetryFailed() =>
-        Step == BatchEditorStep.Results && !IsBusy && _planSource != PlanSource.Rollback && Result is { } result && result.Objects.Any(IsRetryable);
+        Step == BatchEditorStep.Results && !IsBusy && !IsSessionEnded && _planSource != PlanSource.Rollback
+        && Result is { } result && result.Objects.Any(IsRetryable);
 
     /// <summary>Creates the rollback plan of the results and shows it in the preview (execute to undo).</summary>
     [RelayCommand(CanExecute = nameof(CanUndo))]
@@ -565,6 +592,19 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     partial void OnResultFilterChanged(ResultFilter value) => ApplyResultFilter();
 
     partial void OnOperationsErrorChanged(string? value) => PreviewCommand.NotifyCanExecuteChanged();
+
+    /// <remarks>
+    /// Results and previews stay readable (export, PowerShell, the undo plan), but nothing is planned or executed any
+    /// more; a running execution was cancelled by the disconnect and reports its outcome as usual.
+    /// </remarks>
+    protected override void OnSessionEnded()
+    {
+        _planning.Cancel();
+        Error = SessionEndedMessage;
+        PreviewCommand.NotifyCanExecuteChanged();
+        ExecuteCommand.NotifyCanExecuteChanged();
+        RetryFailedCommand.NotifyCanExecuteChanged();
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -607,20 +647,86 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private static bool IsRetryable(ObjectResult result) =>
         result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded or ObjectResultStatus.Cancelled;
 
+    /// <summary>
+    /// Plans <paramref name="operations"/> for <paramref name="targets"/> with fresh values, leaving out the steps listed
+    /// in <paramref name="succeeded"/> (per DnKey, see <see cref="StepKeys"/>) - they already ran.
+    /// </summary>
     private async Task<ChangePlan> PlanOperationsAsync(
         IReadOnlyList<string> targets,
         IReadOnlyList<BatchOperation> operations,
+        Dictionary<string, HashSet<string>> succeeded,
         IProgress<int> progress,
         CancellationToken cancellationToken)
     {
-        var session = Services.Sessions.RequireSession();
+        var session = RequireSession();
         var request = new BatchRequest(targets, operations) { Title = ChangeTitle };
         var options = new PlanningOptions { MaxDegreeOfParallelism = Services.Settings.Current.BatchMaxParallelism };
         var planner = _engines.Planner;
         var plan = await Task.Run(() => planner.PlanAsync(session, request, options, progress, cancellationToken), cancellationToken)
             .ConfigureAwait(true);
+        if (succeeded.Count > 0)
+        {
+            plan = plan with
+            {
+                Objects = [.. plan.Objects.Select(o => succeeded.TryGetValue(DnKey.For(o.DistinguishedName), out var done) ? WithoutSteps(o, done) : o)],
+            };
+        }
+
+        _succeededSteps.Clear();
+        foreach (var (key, steps) in succeeded)
+        {
+            _succeededSteps[key] = steps;
+        }
+
         _plannedOperations = operations;
         return plan;
+    }
+
+    /// <summary>
+    /// Identifies what a step did, so that a retry can leave it out: one key per attribute of a modify step, the group
+    /// of a membership step, the action otherwise (an object has at most one reset, rename and move).
+    /// </summary>
+    private static IEnumerable<string> StepKeys(PlannedChange change) => change.Action switch
+    {
+        ChangeAction.Modify => change.Attributes.Select(a => AttributeStepKey(a.Attribute)),
+        ChangeAction.AddMember or ChangeAction.RemoveMember => [$"{change.Action}:{DnKey.For(change.TargetDn ?? string.Empty)}"],
+        _ => [change.Action.ToString()],
+    };
+
+    private static string AttributeStepKey(string attribute) => "Modify:" + attribute.ToUpperInvariant();
+
+    /// <summary>The object's plan without the steps (and attribute changes) in <paramref name="done"/>.</summary>
+    private static ObjectPlan WithoutSteps(ObjectPlan plan, HashSet<string> done)
+    {
+        var changes = new List<PlannedChange>(plan.Changes.Count);
+        foreach (var change in plan.Changes)
+        {
+            if (change.Action != ChangeAction.Modify)
+            {
+                if (!StepKeys(change).All(done.Contains))
+                {
+                    changes.Add(change);
+                }
+
+                continue;
+            }
+
+            var remaining = change.Attributes.Where(a => !done.Contains(AttributeStepKey(a.Attribute))).ToList();
+            if (remaining.Count == change.Attributes.Count)
+            {
+                changes.Add(change);
+            }
+            else if (remaining.Count > 0)
+            {
+                changes.Add(change with
+                {
+                    Attributes = remaining,
+                    Issues = [.. change.Issues.Where(i => i.Attribute is null || remaining.Any(a => string.Equals(a.Attribute, i.Attribute, StringComparison.OrdinalIgnoreCase)))],
+                });
+            }
+        }
+
+        return plan with { Changes = changes };
     }
 
     private async Task RunPlanningAsync(
@@ -671,7 +777,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
             obj.PropertyChanged -= OnPreviewObjectChanged;
         }
 
-        var session = Services.Sessions.Current;
+        var session = Session;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
         _plan = plan;
         _planSource = source;
@@ -694,7 +800,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     private void ShowResults(BatchResult result)
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
         Result = result;
         _resultHasGeneratedPasswords = GeneratesPasswords;
@@ -872,10 +978,10 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
     private async Task LoadTargetsAsync()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            Error = Localizer[L.Errors.NotConnected];
+            Error = NoSessionMessage;
             return;
         }
 
@@ -912,7 +1018,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     /// <summary>Renders a template for the first target (attributes are read on demand, once per new attribute).</summary>
     private async Task<string?> RenderSampleAsync(string template, CancellationToken cancellationToken)
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null || _request.TargetDns.Count == 0)
         {
             return null;

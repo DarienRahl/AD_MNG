@@ -76,6 +76,12 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
 
     public bool SupportsWatch { get; set; }
 
+    /// <summary>Effective permissions per DN (null or no entry: unknown, like a DC that cannot evaluate them).</summary>
+    public Func<string, EffectivePermissions?>? Permissions { get; set; }
+
+    /// <summary>DNs whose effective permissions were read, in order.</summary>
+    public ConcurrentQueue<string> PermissionReads { get; } = new();
+
     /// <summary>
     /// When set, disposing a watch waits for this task first (the real watcher abandons its notification search,
     /// which can take a while) - lets tests start new loads while the previous watch is still being disposed.
@@ -191,8 +197,11 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
         }
     }
 
-    public Task<EffectivePermissions> GetEffectivePermissionsAsync(string distinguishedName, CancellationToken cancellationToken) =>
-        Task.FromResult(EffectivePermissions.Unknown);
+    public Task<EffectivePermissions> GetEffectivePermissionsAsync(string distinguishedName, CancellationToken cancellationToken)
+    {
+        PermissionReads.Enqueue(distinguishedName);
+        return Task.FromResult(Permissions?.Invoke(distinguishedName) ?? EffectivePermissions.Unknown);
+    }
 
     public Task ModifyAsync(string distinguishedName, IReadOnlyList<AttributeModification> modifications, ModifyOptions? options, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Writes go through the change pipeline doubles.");

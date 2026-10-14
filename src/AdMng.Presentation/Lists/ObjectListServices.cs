@@ -1,3 +1,4 @@
+using AdMng.Core.Directory;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
@@ -35,5 +36,6 @@ public sealed class ObjectListServices(
     public TimeProvider Time { get; } = time ?? throw new ArgumentNullException(nameof(time));
 
     /// <summary>Creates a new, empty list (call <see cref="ObjectListViewModel.NavigateAsync"/> to show something).</summary>
-    public ObjectListViewModel CreateList() => new(this);
+    /// <param name="session">The session the list reads from (a window's own session); null = the current session.</param>
+    public ObjectListViewModel CreateList(Func<IDirectorySession?>? session = null) => new(this, session);
 }

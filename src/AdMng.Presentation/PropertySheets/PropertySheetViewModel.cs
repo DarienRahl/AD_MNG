@@ -155,10 +155,11 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             return false;
         }
 
-        var session = Services.Sessions.Current;
+        // Only in the session the sheet was opened (and read) in - never as the identity of a newer session.
+        var session = Session;
         if (session is null)
         {
-            ApplyError = Localizer[L.Errors.NotConnected];
+            ApplyError = NoSessionMessage;
             return false;
         }
 
@@ -218,7 +219,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             _applying = true;
             try
             {
-                result = await Services.Coordinator.ExecutePlanAsync(plan, title).ConfigureAwait(true);
+                result = await Services.Coordinator.ExecutePlanAsync(plan, title, session).ConfigureAwait(true);
             }
             finally
             {
@@ -258,7 +259,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanApply))]
     private Task ApplyAsync() => ApplyChangesAsync();
 
-    private bool CanApply() => HasChanges && !HasErrors && !IsApplying && !IsLoading && !IsDeleted;
+    private bool CanApply() => HasChanges && !HasErrors && !IsApplying && !IsLoading && !IsDeleted && !IsSessionEnded;
 
     [RelayCommand(CanExecute = nameof(CanOk))]
     private async Task OkAsync()
@@ -294,9 +295,19 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         await LoadAsync().ConfigureAwait(true);
     }
 
-    private bool CanRefresh() => !IsApplying && !IsLoading;
+    private bool CanRefresh() => !IsApplying && !IsLoading && !IsSessionEnded;
 
     partial void OnSelectedPageChanged(PropertyPageViewModel? value) => value?.ActivateAsync().Forget();
+
+    /// <remarks>The pending changes stay visible, but they can no longer be applied (reopen the sheet).</remarks>
+    protected override void OnSessionEnded()
+    {
+        _loads.Cancel();
+        IsLoading = false;
+        LoadError = SessionEndedMessage;
+        ApplyCommand.NotifyCanExecuteChanged();
+        RefreshCommand.NotifyCanExecuteChanged();
+    }
 
     protected override void Dispose(bool disposing)
     {
@@ -314,10 +325,10 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     private async Task LoadCoreAsync(bool keepMessages)
     {
         var token = _loads.Next();
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            LoadError = Localizer[L.Errors.NotConnected];
+            LoadError = NoSessionMessage;
             return;
         }
 

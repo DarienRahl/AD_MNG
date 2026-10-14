@@ -74,7 +74,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             new(GroupScope.Global, Localizer.GroupScopeName(GroupScope.Global)),
             new(GroupScope.Universal, Localizer.GroupScopeName(GroupScope.Universal)),
         ];
-        if (services.Sessions.Current is { } session)
+        if (Session is { } session)
         {
             UpnSuffix = session.Info.DomainDnsName;
             UpnSuffixes = [session.Info.DomainDnsName];
@@ -222,7 +222,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
     public override async Task InitializeAsync()
     {
-        if (Kind == ObjectKind.User && Services.Sessions.Current is { } session)
+        if (Kind == ObjectKind.User && Session is { } session)
         {
             UpnSuffixes = await UpnFieldViewModel.ReadUpnSuffixesAsync(session, CancellationToken.None).ConfigureAwait(true);
         }
@@ -248,10 +248,10 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanCreate))]
     private async Task CreateAsync()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            Error = Localizer[L.Errors.NotConnected];
+            Error = NoSessionMessage;
             return;
         }
 
@@ -313,7 +313,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             }
 
             var title = Localizer.Format(L.NewObject.ChangeTitle, Localizer.ObjectKindName(Kind), ObjectName.Trim());
-            var result = await Services.Coordinator.ExecutePlanAsync(plan, title).ConfigureAwait(true);
+            var result = await Services.Coordinator.ExecutePlanAsync(plan, title, session).ConfigureAwait(true);
             var objectResult = result.Objects[0];
             var created = objectResult.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.Create);
             if (!created)
@@ -351,7 +351,13 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         }
     }
 
-    private bool CanCreate() => !IsBusy;
+    private bool CanCreate() => !IsBusy && !IsSessionEnded;
+
+    protected override void OnSessionEnded()
+    {
+        Error = SessionEndedMessage;
+        CreateCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel() => RequestClose(false);
@@ -547,7 +553,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
                         "INITIALS" => Initials.Trim().Length == 0 ? [] : [Initials.Trim()],
                         _ => [],
                     },
-                    Domain = Services.Sessions.Current?.Info.DomainDnsName,
+                    Domain = Session?.Info.DomainDnsName,
                     Now = Services.Time.GetLocalNow(),
                 });
             }
@@ -610,7 +616,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         SamAvailabilityText = Localizer[L.NewObject.SamChecking];
         PendingAvailabilityCheck = _samCheck.RunAsync(async token =>
         {
-            var session = Services.Sessions.Current;
+            var session = Session;
             if (session is null)
             {
                 return;
