@@ -21,6 +21,8 @@ public sealed partial class WatchdogExclusionViewModel : ObservableObject
 
     private readonly WatchdogServices _services;
     private readonly bool _canEdit;
+    private readonly DateTimeOffset? _originalExpiresAt;
+    private readonly DateTime? _originalExpiryDate;
     private bool _loading;
 
     public WatchdogExclusionViewModel(WatchdogServices services, RuleExclusion exclusion, bool canEdit)
@@ -38,7 +40,9 @@ public sealed partial class WatchdogExclusionViewModel : ObservableObject
         Actor = exclusion.Actor ?? string.Empty;
         Attribute = exclusion.Attribute ?? string.Empty;
         Reason = exclusion.Reason;
-        ExpiresAt = exclusion.ExpiresAt is { } expires ? TimeZoneInfo.ConvertTime(expires, services.TimeZone).Date : null;
+        _originalExpiresAt = exclusion.ExpiresAt;
+        _originalExpiryDate = exclusion.ExpiresAt is { } expires ? TimeZoneInfo.ConvertTime(expires, services.TimeZone).Date : null;
+        ExpiresAt = _originalExpiryDate;
         _loading = false;
         Validate();
     }
@@ -116,11 +120,16 @@ public sealed partial class WatchdogExclusionViewModel : ObservableObject
     public RuleExclusion ToExclusion()
     {
         var zone = _services.TimeZone;
-        DateTimeOffset? expires = null;
-        if (ExpiresAt is { } date)
+        var expires = _originalExpiresAt;
+        if (ExpiresAt?.Date != _originalExpiryDate)
         {
-            var endOfDay = DateTime.SpecifyKind(date.Date.AddDays(1), DateTimeKind.Unspecified);
-            expires = new DateTimeOffset(endOfDay, zone.GetUtcOffset(endOfDay)).AddTicks(-1).ToUniversalTime();
+            // A new date: valid until the end of that local day.
+            expires = null;
+            if (ExpiresAt is { } date)
+            {
+                var endOfDay = DateTime.SpecifyKind(date.Date.AddDays(1), DateTimeKind.Unspecified);
+                expires = new DateTimeOffset(endOfDay, zone.GetUtcOffset(endOfDay)).AddTicks(-1).ToUniversalTime();
+            }
         }
 
         return new RuleExclusion

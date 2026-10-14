@@ -52,7 +52,7 @@ public sealed partial class SmtpSettingsViewModel : ObservableObject
         CheckRevocation = _original.CheckRevocation;
         MaxMessagesPerMinute = _original.MaxMessagesPerMinute.ToString(CultureInfo.InvariantCulture);
         MaxRecipientsPerMessage = _original.MaxRecipientsPerMessage.ToString(CultureInfo.InvariantCulture);
-        TimeoutSeconds = ((int)_original.Timeout.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        TimeoutSeconds = Seconds(_original.Timeout);
         _loading = false;
         RefreshErrors();
     }
@@ -171,7 +171,7 @@ public sealed partial class SmtpSettingsViewModel : ObservableObject
         CheckRevocation = CheckRevocation,
         MaxMessagesPerMinute = Number(MaxMessagesPerMinute, _original.MaxMessagesPerMinute),
         MaxRecipientsPerMessage = Number(MaxRecipientsPerMessage, _original.MaxRecipientsPerMessage),
-        Timeout = TimeSpan.FromSeconds(Number(TimeoutSeconds, (int)_original.Timeout.TotalSeconds)),
+        Timeout = WatchdogEditValues.KeepUnchanged(_original.Timeout, TimeoutSeconds, Seconds, t => TimeSpan.FromSeconds(Number(t, (int)_original.Timeout.TotalSeconds))),
     };
 
     /// <summary>Shows the service's issues of the "smtp." section next to the fields.</summary>
@@ -236,6 +236,8 @@ public sealed partial class SmtpSettingsViewModel : ObservableObject
     partial void OnTimeoutSecondsChanged(string value) => Commit();
 
     private static string? Blank(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    private static string Seconds(TimeSpan value) => ((int)value.TotalSeconds).ToString(CultureInfo.InvariantCulture);
 
     private static int Number(string text, int fallback) =>
         int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : fallback;

@@ -204,19 +204,20 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
     /// <summary>The rule built from the editor's fields.</summary>
     public RuleSettings Build()
     {
-        var kinds = KindGroups.SelectMany(g => g.Options).Where(o => o.IsChecked).Select(o => o.Value).ToList();
-        return Original with
+        var original = Original;
+        var kinds = KindGroups.SelectMany(g => g.Options).Where(o => o.IsChecked).Select(o => o.Value);
+        return original with
         {
             Id = Id.Trim(),
             Name = Name.Trim(),
             Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
             Enabled = IsEnabled,
-            Kinds = Original.Locked ? Original.Kinds : kinds,
-            ObjectKinds = [.. ObjectKinds.Where(o => o.IsChecked).Select(o => o.Value)],
+            Kinds = original.Locked ? original.Kinds : WatchdogEditValues.KeepOrder(original.Kinds, kinds),
+            ObjectKinds = WatchdogEditValues.KeepOrder(original.ObjectKinds, ObjectKinds.Where(o => o.IsChecked).Select(o => o.Value)),
             Scope = new RuleScope { IncludeSubtrees = WatchdogDn.Lines(IncludeSubtrees), ExcludeSubtrees = WatchdogDn.Lines(ExcludeSubtrees) },
-            Attributes = [.. Attributes.Split([',', ';', '\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
-            RequiredTags = [.. RequiredTags.Where(t => t.IsChecked).Select(t => t.Value)],
-            AnyTags = [.. AnyTags.Where(t => t.IsChecked).Select(t => t.Value)],
+            Attributes = WatchdogEditValues.KeepUnchanged(original.Attributes, Attributes, JoinAttributes, ParseAttributes),
+            RequiredTags = WatchdogEditValues.KeepOrder(original.RequiredTags, RequiredTags.Where(t => t.IsChecked).Select(t => t.Value)),
+            AnyTags = WatchdogEditValues.KeepOrder(original.AnyTags, AnyTags.Where(t => t.IsChecked).Select(t => t.Value)),
             Groups = Groups.Value,
             GroupDns = WatchdogDn.Lines(GroupDns),
             MinSeverity = MinSeverity.Value,
@@ -225,14 +226,14 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
             Delivery = new RuleDelivery
             {
                 Immediate = Immediate,
-                RecipientGroupIds = [.. RecipientGroups.Where(g => g.IsChecked).Select(g => g.Value)],
-                ChannelIds = [.. Channels.Where(c => c.IsChecked).Select(c => c.Value)],
+                RecipientGroupIds = WatchdogEditValues.KeepOrder(original.Delivery.RecipientGroupIds, RecipientGroups.Where(g => g.IsChecked).Select(g => g.Value), StringComparer.Ordinal),
+                ChannelIds = WatchdogEditValues.KeepOrder(original.Delivery.ChannelIds, Channels.Where(c => c.IsChecked).Select(c => c.Value), StringComparer.Ordinal),
                 AllEnabledChannels = AllEnabledChannels,
                 IncludeInDigest = IncludeInDigest,
                 Hours = Hours.Value,
-                AggregationWindow = ParseMinutes(AggregationMinutes),
+                AggregationWindow = WatchdogEditValues.KeepUnchanged(original.Delivery.AggregationWindow, AggregationMinutes, Minutes, ParseMinutes),
                 MaxMessagesPerHour = ParseInt(MaxMessagesPerHour),
-                RepeatSuppression = ParseMinutes(RepeatSuppressionMinutes),
+                RepeatSuppression = WatchdogEditValues.KeepUnchanged(original.Delivery.RepeatSuppression, RepeatSuppressionMinutes, Minutes, ParseMinutes),
                 NotifyManager = NotifyManager,
             },
             Exclusions = [.. Exclusions.Select(e => e.ToExclusion())],
@@ -399,6 +400,11 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
 
     partial void OnNotifyManagerChanged(bool value) => Commit();
 
+    private static string JoinAttributes(IReadOnlyList<string> attributes) => string.Join(", ", attributes);
+
+    private static IReadOnlyList<string> ParseAttributes(string text) =>
+        [.. text.Split([',', ';', '\r', '\n', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+
     private static string AppendLine(string text, string line) => string.IsNullOrWhiteSpace(text) ? line : text.TrimEnd() + Environment.NewLine + line;
 
     private static TimeSpan? ParseMinutes(string text) =>
@@ -445,7 +451,7 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
             Fill(ObjectKinds, Enum.GetValues<WatchObjectKind>().Where(k => k != WatchObjectKind.Unknown), localizer.WatchObjectKindName, rule.ObjectKinds);
             IncludeSubtrees = string.Join(Environment.NewLine, rule.Scope.IncludeSubtrees);
             ExcludeSubtrees = string.Join(Environment.NewLine, rule.Scope.ExcludeSubtrees);
-            Attributes = string.Join(", ", rule.Attributes);
+            Attributes = JoinAttributes(rule.Attributes);
             Fill(RequiredTags, WatchdogDisplay.Tags, localizer.TagName, rule.RequiredTags);
             Fill(AnyTags, WatchdogDisplay.Tags, localizer.TagName, rule.AnyTags);
             Groups = GroupFilters.First(g => g.Value == rule.Groups);

@@ -98,10 +98,10 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     public DigestSettings Build() => _original with
     {
         Enabled = Enabled,
-        Time = TryParseTime(Time, out var time) ? time : _original.Time,
-        Days = [.. Days.Where(d => d.IsChecked).Select(d => d.Value)],
-        RecipientGroupIds = [.. RecipientGroups.Where(g => g.IsChecked).Select(g => g.Value)],
-        ChannelIds = [.. Channels.Where(c => c.IsChecked).Select(c => c.Value)],
+        Time = WatchdogEditValues.KeepUnchanged(_original.Time, Time, FormatTime, t => TryParseTime(t, out var time) ? time : _original.Time),
+        Days = WatchdogEditValues.KeepOrder(_original.Days, Days.Where(d => d.IsChecked).Select(d => d.Value)),
+        RecipientGroupIds = WatchdogEditValues.KeepOrder(_original.RecipientGroupIds, RecipientGroups.Where(g => g.IsChecked).Select(g => g.Value), StringComparer.Ordinal),
+        ChannelIds = WatchdogEditValues.KeepOrder(_original.ChannelIds, Channels.Where(c => c.IsChecked).Select(c => c.Value), StringComparer.Ordinal),
         SendWhenEmpty = SendWhenEmpty,
         MaxRowsPerSection = Number(MaxRowsPerSection, _original.MaxRowsPerSection),
         WeeklySectionsDay = WeeklySectionsDay.Value,
@@ -204,6 +204,8 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     private static bool TryParseTime(string text, out TimeOnly time) =>
         TimeOnly.TryParseExact(text.Trim(), ["HH:mm", "H:mm", "HH:mm:ss"], CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
 
+    private static string FormatTime(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
     private static int Number(string text, int fallback) =>
         int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : fallback;
 
@@ -222,7 +224,7 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
             _original = working?.Digest ?? new DigestSettings();
             var names = _services.Localizer.Culture.DateTimeFormat.DayNames;
             Enabled = _original.Enabled;
-            Time = _original.Time.ToString("HH:mm", CultureInfo.InvariantCulture);
+            Time = FormatTime(_original.Time);
             Days.Clear();
             var monday = (int)DayOfWeek.Monday;
             foreach (var day in Enum.GetValues<DayOfWeek>().OrderBy(d => ((int)d - monday + 7) % 7))

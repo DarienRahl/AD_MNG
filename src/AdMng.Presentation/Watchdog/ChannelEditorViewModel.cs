@@ -59,9 +59,9 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
         CertificateThumbprint = teams.CertificateThumbprint ?? string.Empty;
         SendGitHubSignature = webhook.SendGitHubSignature;
         AllowedHosts = string.Join(Environment.NewLine, webhook.AllowedHosts);
-        TimeoutSeconds = ((int)webhook.Timeout.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        TimeoutSeconds = Seconds(webhook.Timeout);
         IncludeDigest = webhook.IncludeDigest;
-        HeartbeatMinutes = webhook.HeartbeatInterval is { } heartbeat ? ((int)heartbeat.TotalMinutes).ToString(CultureInfo.InvariantCulture) : string.Empty;
+        HeartbeatMinutes = Minutes(webhook.HeartbeatInterval);
         PerSecond = _original.RateLimit.PerSecond.ToString(CultureInfo.InvariantCulture);
         PerMinute = _original.RateLimit.PerMinute.ToString(CultureInfo.InvariantCulture);
         PerHour = _original.RateLimit.PerHour.ToString(CultureInfo.InvariantCulture);
@@ -215,9 +215,9 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
                     PreviousSigningSecret = PreviousSigningSecret.ToField(),
                     SendGitHubSignature = SendGitHubSignature,
                     AllowedHosts = [.. AllowedHosts.Split([',', ';', ' ', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
-                    Timeout = TimeSpan.FromSeconds(Number(TimeoutSeconds, (int)webhook.Timeout.TotalSeconds)),
+                    Timeout = WatchdogEditValues.KeepUnchanged(webhook.Timeout, TimeoutSeconds, Seconds, t => TimeSpan.FromSeconds(Number(t, (int)webhook.Timeout.TotalSeconds))),
                     IncludeDigest = IncludeDigest,
-                    HeartbeatInterval = int.TryParse(HeartbeatMinutes.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes) ? TimeSpan.FromMinutes(minutes) : null,
+                    HeartbeatInterval = WatchdogEditValues.KeepUnchanged(webhook.HeartbeatInterval, HeartbeatMinutes, Minutes, ParseMinutes),
                 }
                 : _original.Webhook,
             RateLimit = new RateLimitSettings
@@ -315,6 +315,13 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
     partial void OnPerHourChanged(string value) => Commit();
 
     private static string? Blank(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    private static string Seconds(TimeSpan value) => ((int)value.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+
+    private static string Minutes(TimeSpan? value) => value is { } span ? ((int)span.TotalMinutes).ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+    private static TimeSpan? ParseMinutes(string text) =>
+        int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var minutes) ? TimeSpan.FromMinutes(minutes) : null;
 
     private static int Number(string text, int fallback) =>
         int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) ? value : fallback;

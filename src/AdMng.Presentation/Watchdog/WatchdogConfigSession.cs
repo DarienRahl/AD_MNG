@@ -130,7 +130,7 @@ public sealed partial class WatchdogConfigSession : ObservableObject
     /// <summary>Validates the working copy on the service (no side effects). Returns true when it has no errors.</summary>
     public async Task<bool> ValidateAsync()
     {
-        if (Working is not { } working)
+        if (Working is not { } working || !CanEdit)
         {
             return false;
         }
@@ -160,10 +160,10 @@ public sealed partial class WatchdogConfigSession : ObservableObject
 
     private bool CanValidate() => CanEdit && !IsBusy;
 
-    /// <summary>Saves the working copy (PUT with If-Match). Returns true when saved.</summary>
+    /// <summary>Saves the working copy (PUT with If-Match). Returns true when saved. A redacted copy is never sent.</summary>
     public async Task<bool> SaveAsync()
     {
-        if (Working is not { } working || Envelope is not { } envelope)
+        if (Working is not { } working || Envelope is not { } envelope || !CanEdit)
         {
             return false;
         }
