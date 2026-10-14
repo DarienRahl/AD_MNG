@@ -225,7 +225,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.DoesNotContain("Zofia", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
-    private static WatchdogConfiguration WithSecrets() => new()
+    private static WatchdogConfiguration WithSecrets() => TestData.Configuration() with
     {
         Smtp = new SmtpSettings
         {
@@ -253,7 +253,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
     private static async Task<ConfigEnvelope> PutAsync(HttpClient client, WatchdogConfiguration configuration, long version)
     {
         using var response = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = version, Configuration = configuration }), Ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
         return await ApiJson.ReadAsync<ConfigEnvelope>(response);
     }
 }

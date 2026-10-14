@@ -3,6 +3,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Configuration;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Service.Tests.Infrastructure;
 using AdMng.Watchdog.Testing.Certificates;
 using AdMng.Watchdog.Testing.Smtp;
 using MimeKit;
@@ -216,7 +217,7 @@ public sealed class SmtpEmailTransportTests
         Assert.Equal("smtp.disabled", result.ErrorCode);
     }
 
-    internal static WatchdogConfiguration Configuration(int port, SmtpSecurity security, bool pinned = false, bool basic = false) => new()
+    internal static WatchdogConfiguration Configuration(int port, SmtpSecurity security, bool pinned = false, bool basic = false) => TestData.Configuration() with
     {
         General = new GeneralSettings { InstanceName = "Watchdog – Centrala" },
         Smtp = new SmtpSettings

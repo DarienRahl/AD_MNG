@@ -1,7 +1,7 @@
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Hosting;
-using AdMng.Watchdog.Service.Hosting.Fallbacks;
+using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Service.Tests.Fakes;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
 using Microsoft.Extensions.Logging;
@@ -110,10 +110,11 @@ public sealed class HostingUnitTests
     }
 
     [Fact]
-    public async Task FallbackSignals_WakeOnlyMatchingSubscriptions_AndTimeOutOnTheClock()
+    public async Task Signals_WakeOnlyMatchingSubscriptions_AndTimeOutOnTheClock()
     {
+        // The job host's contract with the Core signals (one latch per subscription, timeouts on the injected clock).
         var clock = new TestClock(TestStore.Start);
-        var signals = new FallbackWatchdogSignals(clock);
+        var signals = new WatchdogSignals(clock);
         using var outbox = signals.Subscribe([WatchdogSignal.OutboxEnqueued]);
         using var config = signals.Subscribe([WatchdogSignal.ConfigChanged]);
 
@@ -137,9 +138,9 @@ public sealed class HostingUnitTests
     }
 
     [Fact]
-    public void FallbackHealthRegistry_KeepsTheLastReportPerCode()
+    public void HealthRegistry_KeepsTheLastReportPerCode()
     {
-        var registry = new FallbackHealthRegistry();
+        var registry = new HealthRegistry();
 
         registry.Report(new HealthCheckDto { Code = "storage.free", State = HealthState.Ok });
         registry.Report(new HealthCheckDto { Code = "storage.free", State = HealthState.Warning });

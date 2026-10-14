@@ -1,6 +1,8 @@
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Rules;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 
 namespace AdMng.Watchdog.Service.Tests.Infrastructure;
@@ -9,6 +11,10 @@ namespace AdMng.Watchdog.Service.Tests.Infrastructure;
 public static class TestData
 {
     public const string Domain = "contoso.test";
+
+    /// <summary>A valid runtime configuration to start from: the defaults (built-in rules incl. the locked health rule,
+    /// recipient groups it-admins and helpdesk) – what the GUI sends back after <c>GET /config</c>.</summary>
+    public static WatchdogConfiguration Configuration() => new DefaultConfigurationFactory().Create();
 
     public static readonly Guid ZofiaGuid = Guid.Parse("9b0f4e3c-1a2b-4c5d-8e9f-0a1b2c3d4e5f");
 

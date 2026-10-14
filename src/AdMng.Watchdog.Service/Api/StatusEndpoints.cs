@@ -2,6 +2,7 @@ using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
 using AdMng.Watchdog.Service.Storage;
@@ -58,6 +59,8 @@ public static class StatusEndpoints
         IOutboxStore outbox,
         IStoreMaintenance maintenance,
         IExclusionSuggestionSource suggestions,
+        IDigestService digest,
+        RolloutGate rollout,
         WatchdogDomain domain,
         ServiceStartTime started,
         TimeProvider timeProvider,
@@ -68,13 +71,13 @@ public static class StatusEndpoints
         var config = configuration.Current.Configuration;
         var pending = await outbox.CountPendingByChannelAsync(cancellationToken).ConfigureAwait(false);
         var directory = health.Directory;
-        var digest = context.RequestServices.GetService<IDigestService>();
+        var watchedDomain = await domain.GetAsync(cancellationToken).ConfigureAwait(false);
         var isAdmin = CallerIdentity.IsAdmin(context.User, options.CurrentValue);
         return ApiResults.Json(new StatusDto
         {
             ServiceVersion = ServiceVersion.Current,
             InstanceName = config.General.InstanceName,
-            Domain = await domain.GetAsync(cancellationToken).ConfigureAwait(false),
+            Domain = watchedDomain,
             StartedAt = started.StartedAt,
             Now = now,
             Directory = directory,
@@ -83,8 +86,8 @@ public static class StatusEndpoints
             Channels = [.. health.Channels.Select(c => c with { Pending = pending.GetValueOrDefault(c.ChannelId) })],
             Storage = await StorageAsync(maintenance, isAdmin, cancellationToken).ConfigureAwait(false),
             Last24Hours = await events.CountAsync(now.AddHours(-24), cancellationToken).ConfigureAwait(false),
-            NextDigestAt = digest?.NextScheduledAt,
-            RolloutModeUntil = RolloutUntil(config.General, directory, now),
+            NextDigestAt = digest.NextScheduledAt,
+            RolloutModeUntil = await rollout.ActiveUntilAsync(config, watchedDomain, now, cancellationToken).ConfigureAwait(false),
             Suggestions = suggestions.Current,
         });
     }
@@ -95,15 +98,4 @@ public static class StatusEndpoints
         return isAdmin ? storage : storage with { DataDirectory = string.Empty };   // local paths only for Admins
     }
 
-    /// <summary>End of rollout mode (spec 12.5): baseline completion + RolloutDays, unless ended early or over.</summary>
-    internal static DateTimeOffset? RolloutUntil(Contracts.Configuration.GeneralSettings general, DirectoryStatusDto directory, DateTimeOffset now)
-    {
-        if (general.RolloutEnded || general.RolloutDays <= 0 || directory.BaselineCompletedAt is not { } baseline)
-        {
-            return null;
-        }
-
-        var until = baseline.AddDays(general.RolloutDays);
-        return until > now ? until : null;
-    }
 }

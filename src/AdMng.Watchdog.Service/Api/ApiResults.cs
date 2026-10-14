@@ -42,9 +42,6 @@ public static class ApiResults
     /// <summary>404.</summary>
     public static IResult NotFound(string title = "Not found.") => Problem(StatusCodes.Status404NotFound, ApiProblem.NotFound, title);
 
-    /// <summary>503: a component this endpoint needs is not available in this build or state.</summary>
-    public static IResult Unavailable(string title) => Problem(StatusCodes.Status503ServiceUnavailable, ApiProblem.Unavailable, title);
-
     /// <summary>Reads a JSON body of a contract type (≤ <see cref="ApiLimits.MaxRequestBodyBytes"/>). Returns the value or the
     /// error response: 415 for another content type, 413 for a larger body, 400 for malformed JSON or an empty body.</summary>
     public static async Task<(T? Value, IResult? Error)> ReadJsonAsync<T>(HttpRequest request, bool allowEmpty, CancellationToken cancellationToken)

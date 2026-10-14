@@ -43,7 +43,7 @@ public sealed class AuthorizationTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(WatchdogRoutes.Status, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(WatchdogRoutes.Config, Ct)).StatusCode);
-        using var put = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration() }), Ct);
+        using var put = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() }), Ct);
         Assert.Equal(HttpStatusCode.Forbidden, put.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(WatchdogRoutes.Outbox, Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(WatchdogRoutes.ConfigAudit, Ct)).StatusCode);
@@ -54,7 +54,7 @@ public sealed class AuthorizationTests : IAsyncLifetime
     {
         using var client = _factory.Admin();
 
-        using var put = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration() }), Ct);
+        using var put = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() }), Ct);
 
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
     }

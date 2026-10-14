@@ -139,8 +139,8 @@ public sealed class TestSendApiTests : IAsyncLifetime
     {
         using var response = await admin.PutAsync(
             WatchdogRoutes.Config,
-            ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration { Smtp = smtp } }),
+            ApiJson.Content(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() with { Smtp = smtp } }),
             Ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
     }
 }

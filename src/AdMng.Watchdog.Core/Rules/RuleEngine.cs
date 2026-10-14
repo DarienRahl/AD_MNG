@@ -15,10 +15,16 @@ public sealed class RuleEngine
     private readonly IWatchdogConfigProvider _configProvider;
     private readonly IConfigTokenSource _tokens;
     private readonly TimeProvider _timeProvider;
+    private readonly IReadOnlyList<string> _roleGroupSids;
     private readonly Lock _cacheGate = new();
     private (WatchdogConfiguration Configuration, ConfigTokens Tokens, RuleMatchContext Context)? _cached;
 
-    public RuleEngine(IWatchdogConfigProvider configProvider, IConfigTokenSource tokens, TimeProvider timeProvider)
+    /// <param name="configProvider">The configuration.</param>
+    /// <param name="tokens">Token values.</param>
+    /// <param name="timeProvider">Clock (exclusion expiry).</param>
+    /// <param name="hostOptions">The watchdog's own role and host groups from the bootstrap file – privileged roots for
+    /// the rules' <c>Groups = Privileged</c> filter as for detection (10.8).</param>
+    public RuleEngine(IWatchdogConfigProvider configProvider, IConfigTokenSource tokens, TimeProvider timeProvider, Detection.DetectionHostOptions? hostOptions = null)
     {
         ArgumentNullException.ThrowIfNull(configProvider);
         ArgumentNullException.ThrowIfNull(tokens);
@@ -26,6 +32,7 @@ public sealed class RuleEngine
         _configProvider = configProvider;
         _tokens = tokens;
         _timeProvider = timeProvider;
+        _roleGroupSids = hostOptions?.RoleGroupSids ?? [];
     }
 
     /// <summary>Evaluates <paramref name="watchEvent"/> against the current configuration.</summary>
@@ -113,7 +120,7 @@ public sealed class RuleEngine
         var effective = ReferenceEquals(configuration, _configProvider.Current.Configuration)
             ? configuration
             : WatchdogConfigProvider.Effective(configuration);
-        var context = RuleMatchContext.Create(effective, tokens);
+        var context = RuleMatchContext.Create(effective, tokens, _roleGroupSids);
         lock (_cacheGate)
         {
             _cached = (configuration, tokens, context);

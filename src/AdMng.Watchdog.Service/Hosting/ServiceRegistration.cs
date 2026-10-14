@@ -3,20 +3,22 @@ using AdMng.Core.Directory;
 using AdMng.Directory;
 using AdMng.Watchdog.Core;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Service.Api;
 using AdMng.Watchdog.Service.Attribution;
 using AdMng.Watchdog.Service.Directory;
-using AdMng.Watchdog.Service.Hosting.Fallbacks;
 using AdMng.Watchdog.Service.Notifications;
 using AdMng.Watchdog.Service.Storage;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// The service's DI registrations (spec 19.1): bootstrap options, <c>AddWatchdogCore()</c> and the Core fallbacks, the
-/// SQLite stores (one <see cref="SqliteWatchdogStore"/> behind every store interface), transports and the delivery
-/// tester, directory session and Security-log source, API helpers, job hosts, start-up checks.
+/// The service's DI registrations (spec 19.1): bootstrap options, the SQLite stores (one <see cref="SqliteWatchdogStore"/>
+/// behind every store interface), transports and the delivery tester, directory session and Security-log source, the
+/// detection host options, API helpers – all registered BEFORE <c>AddWatchdogCore()</c>, whose TryAdd registrations then
+/// only fill what the host leaves open – followed by the job hosts and start-up checks.
 /// </summary>
 public static class ServiceRegistration
 {
@@ -40,13 +42,11 @@ public static class ServiceRegistration
         services.AddExceptionHandler<ApiExceptionHandler>();
         services.AddRateLimiter(ConfigureRateLimiter);
 
-        services.AddWatchdogCore();
-        CoreFallbacks.Add(services);
-
         AddStorage(services, dataDirectory);
         AddDelivery(services);
         AddDirectory(services, configuration);
         AddApi(services);
+        services.AddWatchdogCore();
 
         services.TryAddSingleton<IProcessTerminator, EnvironmentProcessTerminator>();
         services.AddSingleton<FatalErrorHandler>();
@@ -120,6 +120,21 @@ public static class ServiceRegistration
         {
             services.TryAddSingleton<ISecurityEventSource, NullSecurityEventSource>();
         }
+
+        // The watchdog's own role and host groups are High-tier privileged roots (spec 10.8 step 1).
+        services.TryAddSingleton(provider => DetectionHostOptionsFrom(provider.GetRequiredService<IOptions<ServiceOptions>>().Value));
+    }
+
+    /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and watchdog host group SIDs.</summary>
+    public static DetectionHostOptions DetectionHostOptionsFrom(ServiceOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var authorization = options.Authorization ?? new AuthorizationOptions();
+        return new DetectionHostOptions
+        {
+            RoleGroupSids = [.. (authorization.ViewerSids ?? []).Concat(authorization.AdminSids ?? []).Concat(authorization.WatchdogHostGroupSids ?? [])
+                .Where(sid => !string.IsNullOrWhiteSpace(sid)).Select(sid => sid.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)],
+        };
     }
 
     private static void AddApi(IServiceCollection services)
@@ -130,8 +145,8 @@ public static class ServiceRegistration
         services.AddSingleton<ConfigValidationService>();
         services.AddSingleton<ConfigChangeNotifier>();
         services.AddSingleton<WatchdogDomain>();
-        services.TryAddSingleton<IConfigChangeNotificationPlanner, NoConfigChangeNotificationPlanner>();
-        services.TryAddSingleton<IExclusionSuggestionSource, NoExclusionSuggestions>();
+        services.TryAddSingleton<IConfigChangeNotificationPlanner, RuleEngineConfigChangePlanner>();
+        services.TryAddSingleton<IExclusionSuggestionSource, DetectionExclusionSuggestions>();
     }
 
     private static void ConfigureRateLimiter(Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options)

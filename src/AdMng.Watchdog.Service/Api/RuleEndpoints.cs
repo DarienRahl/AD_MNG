@@ -6,7 +6,7 @@ using AdMng.Watchdog.Service.Auth;
 namespace AdMng.Watchdog.Service.Api;
 
 /// <summary><c>POST /api/v1/rules/preview</c> (Admin): what an unsaved rule would have matched and sent over the last
-/// days (<see cref="IRulePreviewService"/>; 503 when this build has none).</summary>
+/// days (<see cref="IRulePreviewService"/>).</summary>
 public static class RuleEndpoints
 {
     public static void Map(IEndpointRouteBuilder api)
@@ -15,14 +15,8 @@ public static class RuleEndpoints
         api.MapPost(WatchdogRoutes.RulePreview, PreviewAsync).RequireAuthorization(WatchdogPolicies.Admin).AddEndpointFilter<ClientHeaderFilter>();
     }
 
-    private static async Task<IResult> PreviewAsync(HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> PreviewAsync(HttpContext context, IRulePreviewService preview, CancellationToken cancellationToken)
     {
-        var preview = context.RequestServices.GetService<IRulePreviewService>();
-        if (preview is null)
-        {
-            return ApiResults.Unavailable("Rule preview is not available.");
-        }
-
         var (request, error) = await ApiResults.ReadJsonAsync<RulePreviewRequest>(context.Request, allowEmpty: false, cancellationToken).ConfigureAwait(false);
         if (error is not null)
         {
