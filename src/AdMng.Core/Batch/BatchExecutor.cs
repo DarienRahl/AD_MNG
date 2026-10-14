@@ -454,8 +454,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         return targetDn;
                     }).ConfigureAwait(false);
 
-                    // noSuchObject on a retry: the attempt that timed out restored it (the deleted object is gone, the target exists).
-                    return ToOutcome(change, await ConfirmMoveAsync(restored, dn, targetDn).ConfigureAwait(false), newDn: true);
+                    // noSuchObject on a retry: the attempt that timed out restored it (the deleted object is gone and the
+                    // object at the target DN is this one, not somebody else's object with the same name).
+                    return ToOutcome(change, await ConfirmRestoreAsync(restored, targetDn, objectPlan.ObjectGuid).ConfigureAwait(false), newDn: true);
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
@@ -483,6 +484,34 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     && await _session.GetAsync(expectedDn, [Attr.DistinguishedName], CancellationToken.None).ConfigureAwait(false) is { } moved)
                 {
                     return attempted with { Value = moved.DistinguishedName, Error = null };
+                }
+            }
+            catch (DirectoryException)
+            {
+                // Keep the original error.
+            }
+
+            return attempted;
+        }
+
+        /// <summary>
+        /// Confirms an ambiguous restore (noSuchObject on a retry): the object at the target DN is the restored one - it has
+        /// the plan's objectGUID (when the plan knows it). Unlike <see cref="ConfirmMoveAsync"/> the source is not read: a
+        /// DN in CN=Deleted Objects is never visible without the Show Deleted control, so its absence proves nothing.
+        /// </summary>
+        private async Task<Attempted<string>> ConfirmRestoreAsync(Attempted<string> attempted, string targetDn, Guid? objectGuid)
+        {
+            if (!IsAmbiguousNoSuchObject(attempted))
+            {
+                return attempted;
+            }
+
+            try
+            {
+                if (await _session.GetAsync(targetDn, [Attr.ObjectGuid], CancellationToken.None).ConfigureAwait(false) is { } restored
+                    && (objectGuid is null || restored.ObjectGuid == objectGuid))
+                {
+                    return attempted with { Value = restored.DistinguishedName, Error = null };
                 }
             }
             catch (DirectoryException)

@@ -147,7 +147,6 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     private int _generation;
     private bool _initialized;
     private bool _settingFilters;
-    private bool _isPlanning;
 
     public RecycleBinViewModel(DialogServices services)
         : base(services)
@@ -279,6 +278,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool IsPreviewing { get; private set; }
 
+    /// <summary>The selected objects are read again and the restore is planned (Stop or Back cancels it).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StopCommand), nameof(BackCommand))]
+    public partial bool IsPlanning { get; private set; }
+
     /// <summary>Planning or executing a restore.</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(RestoreCommand), nameof(RestoreToCommand), nameof(ConfirmRestoreCommand), nameof(BackCommand))]
@@ -334,8 +338,21 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     private bool CanRefresh() => IsConnected && !IsBusy;
 
-    [RelayCommand(CanExecute = nameof(IsLoading))]
-    private void Stop() => _loads.Cancel();
+    /// <summary>Stops the planning of a restore (the list stays as it is), else the running load.</summary>
+    [RelayCommand(CanExecute = nameof(CanStop))]
+    private void Stop()
+    {
+        if (IsPlanning)
+        {
+            _planning.Cancel();
+        }
+        else
+        {
+            _loads.Cancel();
+        }
+    }
+
+    private bool CanStop() => IsLoading || IsPlanning;
 
     [RelayCommand]
     private void Sort(DeletedObjectSort column)
@@ -474,7 +491,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanGoBack))]
     private void Back()
     {
-        if (_isPlanning)
+        if (IsPlanning)
         {
             _planning.Cancel();
         }
@@ -484,7 +501,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         }
     }
 
-    private bool CanGoBack() => _isPlanning || (IsPreviewing && !IsBusy);
+    private bool CanGoBack() => IsPlanning || (IsPreviewing && !IsBusy);
 
     [RelayCommand]
     private void Close() => RequestClose(true);
@@ -933,8 +950,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         }
 
         var token = _planning.Next();
-        _isPlanning = true;
+        var status = StatusText;
+        var planningText = Localizer[L.RecycleBin.Planning];
+        IsPlanning = true;
         IsBusy = true;
+        StatusText = planningText;
         try
         {
             var dns = selection.Select(r => r.Dn).ToList();
@@ -960,8 +980,13 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         }
         finally
         {
-            _isPlanning = false;
+            IsPlanning = false;
             IsBusy = false;
+            if (string.Equals(StatusText, planningText, StringComparison.Ordinal))
+            {
+                // Unless a load finished meanwhile and wrote its own status.
+                StatusText = status;
+            }
         }
     }
 

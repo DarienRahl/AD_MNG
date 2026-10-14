@@ -257,6 +257,37 @@ public class RecycleBinViewModelTests
     }
 
     [Fact]
+    public async Task Planning_ShowsItsStatus_AndStopCancelsIt()
+    {
+        var harness = await B2Harness.CreateAsync();
+        await harness.Session.DeleteAsync(harness.Company.JanKowalski, subtree: false, Ct);
+        using var bin = harness.Factory.CreateRecycleBin();
+        await bin.InitializeAsync();
+        var listed = bin.StatusText;
+        bin.SelectedItem = Assert.Single(bin.Items);
+        Assert.False(bin.StopCommand.CanExecute(null));
+        harness.Session.Latency = TimeSpan.FromMinutes(5);
+
+        var planning = bin.RestoreCommand.ExecuteAsync(null);
+
+        Assert.True(bin.IsPlanning);
+        Assert.True(bin.IsBusy);
+        Assert.Equal("Checking the selected objects…", bin.StatusText);
+        Assert.False(bin.RefreshCommand.CanExecute(null));
+        Assert.True(bin.StopCommand.CanExecute(null));
+        bin.StopCommand.Execute(null);
+        await planning.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.False(bin.IsPlanning);
+        Assert.False(bin.IsBusy);
+        Assert.False(bin.IsPreviewing);
+        Assert.Equal(listed, bin.StatusText);
+        Assert.False(bin.StopCommand.CanExecute(null));
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Single(bin.Items);
+    }
+
+    [Fact]
     public async Task WithoutRecycleBin_WarnsAndAsksBeforeReanimatingTombstones()
     {
         var harness = await B2Harness.CreateAsync();

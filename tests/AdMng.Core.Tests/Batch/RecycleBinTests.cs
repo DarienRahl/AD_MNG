@@ -426,6 +426,32 @@ public class RecycleBinTests
     }
 
     [Fact]
+    public async Task Execute_AnAmbiguousRestore_IsNotConfirmedByAnotherObjectWithTheSameName()
+    {
+        await Session.DeleteAsync(_company.JanKowalski, subtree: false, Ct);
+        var deletedDn = Assert.Single(Session.DeletedDistinguishedNames);
+        var plan = await PlanAsync([deletedDn]);
+
+        // After the preview somebody creates another "Jan Kowalski" in OU=IT; the first attempt times out before it reaches
+        // the DC and the retry is answered with noSuchObject (as if the deleted object had been purged meanwhile).
+        var other = _builder.AddUser("Jan", "Kowalski", _company.ItOu, new Dictionary<string, object?> { [Attr.SamAccountName] = "jan.kowalski2" });
+        Session.FailNext(FakeOperationKind.RestoreDeleted, deletedDn, DirectoryErrorKind.Timeout);
+        Session.FailNext(FakeOperationKind.RestoreDeleted, deletedDn, DirectoryErrorKind.NoSuchObject);
+
+        var result = await new BatchExecutor(_audit, _time).ExecuteAsync(Session, plan, Fast, null, Ct);
+
+        var obj = Assert.Single(result.Objects);
+        Assert.Equal(_company.JanKowalski, other);
+        Assert.Equal(ObjectResultStatus.Failed, obj.Status);
+        var step = Assert.Single(obj.Changes);
+        Assert.Equal(2, step.Attempts);
+        Assert.Equal(DirectoryErrorKind.NoSuchObject, step.ErrorKind);
+        Assert.Equal(deletedDn, obj.FinalDn);
+        Assert.False(Assert.Single(_audit.Entries).Succeeded);
+        Assert.Equal([deletedDn], Session.DeletedDistinguishedNames);
+    }
+
+    [Fact]
     public async Task Execute_ARestoreStepWithoutTarget_FailsWithoutARequest()
     {
         var plan = new ChangePlan
