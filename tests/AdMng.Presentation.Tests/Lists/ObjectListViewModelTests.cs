@@ -538,6 +538,69 @@ public class ObjectListViewModelTests
         Assert.False(list.IsLoading);
     }
 
+    [Fact]
+    public async Task SupersededLoad_ResumingAfterTheOldWatchIsDisposed_LeavesTheNewerLoadAlone()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Directory.SupportsWatch = true;
+        var list = await harness.OpenContainerAsync(It);
+        Assert.Equal([It], harness.Directory.WatchedContainers);
+
+        // Disposing the IT watch takes a while: the load of Księgowość waits for it, the operator moves on to Firma.
+        var disposal = new TaskCompletionSource();
+        harness.Directory.WatchDisposeGate = disposal.Task;
+        var superseded = list.NavigateAsync(ListLocation.ForContainer(Ksiegowosc));
+        await list.NavigateAsync(ListLocation.ForContainer(Firma));
+        Assert.Equal(["IT", "Księgowość"], list.Items.Select(r => r.Name).Order(StringComparer.Ordinal));
+
+        disposal.SetResult();
+        await superseded;
+
+        Assert.Equal(Firma, list.Location!.BaseDn);
+        Assert.Equal(Firma, list.LastSearch!.BaseDn);
+        Assert.Equal(["IT", "Księgowość"], list.Items.Select(r => r.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(2, list.LoadedCount);
+        Assert.False(list.IsLoading);
+        Assert.True(list.IsFullyLoaded);
+        await WaitUntilAsync(() => harness.Directory.WatcherCount == 1);
+        Assert.Equal([Firma], harness.Directory.WatchedContainers);
+        list.Dispose();
+    }
+
+    [Fact]
+    public async Task BackgroundSort_RowsReplacedMeanwhile_KeepsTheNewRowAndDropsTheRemovedOne()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: 2000);
+        const string bulk = "OU=Masowe,DC=contoso,DC=test";
+        var list = await harness.OpenContainerAsync(bulk);
+        var gate = new TaskCompletionSource();
+        list.BackgroundSort = async sort =>
+        {
+            await gate.Task;
+            return sort();
+        };
+
+        var sorting = list.SortCommand.ExecuteAsync(list.Columns.First(c => c.Attribute == Attr.Name));
+
+        // A rename finishes while the 2000 rows are sorted: one row goes, another one comes - the count stays.
+        const string old = "CN=Użytkownik 0005,OU=Masowe,DC=contoso,DC=test";
+        const string renamed = "CN=Ździsław Nowy,OU=Masowe,DC=contoso,DC=test";
+        harness.Directory.Remove(old);
+        harness.Directory.Put(User(renamed, "user0005"));
+        await list.HandleChangesAsync([new DirectoryChange(DirectoryChangeKind.Moved, old, renamed, ObjectKind.User)]);
+        Assert.Equal(2000, list.AllRows.Count);
+        gate.SetResult();
+        await sorting;
+
+        Assert.Equal(2000, list.Items.Count);
+        Assert.Contains(list.Items, r => r.Dn == renamed);
+        Assert.DoesNotContain(list.Items, r => r.Dn == old);
+        Assert.Equal(list.Items.Count, list.Items.Select(r => r.Dn).Distinct(StringComparer.Ordinal).Count());
+        var names = list.Items.Select(r => r.Name).ToList();
+        Assert.Equal(names.Order(StringComparer.Create(CultureInfo.GetCultureInfo("en-US"), ignoreCase: true)), names);
+        Assert.Equal(SortDirection.Ascending, list.Columns.First(c => c.Attribute == Attr.Name).SortDirection);
+    }
+
     /// <summary>
     /// Polls a condition. Tests have no single UI thread (the test dispatcher runs work inline on pool threads), so a
     /// collection may change while the condition enumerates it - that read simply counts as "not yet".

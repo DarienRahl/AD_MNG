@@ -465,13 +465,50 @@ public partial class MainWindow : Window
         return null;
     }
 
+    /// <summary>True when the click went to a node's expander (it toggles the node, it does not open it).</summary>
+    private static bool IsOnExpander(object source)
+    {
+        for (var current = source as DependencyObject;
+             current is not null and not TreeViewItem;
+             current = current is Visual ? VisualTreeHelper.GetParent(current) : null)
+        {
+            if (current is System.Windows.Controls.Primitives.ToggleButton)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void OnTreeLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // A click on the node that is already selected changes no selection and would open nothing - but the tab may
+        // show something else by now (search results, an edited view): open it explicitly. The shell ignores a click on
+        // the container the tab already shows.
+        if (e.ClickCount == 1
+            && !IsOnExpander(e.OriginalSource)
+            && ItemFrom(e.OriginalSource)?.DataContext is TreeNodeViewModel { IsSelected: true } node
+            && ReferenceEquals(node, Shell.Tree.SelectedNode))
+        {
+            Shell.Tree.ActivateSelected();
+        }
+    }
+
     private void OnTreeRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         // Like ADUC: right-click selects the node (and opens it), so "New" acts on that container.
         if (ItemFrom(e.OriginalSource) is { DataContext: TreeNodeViewModel node and not PlaceholderNodeViewModel } item)
         {
             item.Focus();
-            node.IsSelected = true;
+            if (node.IsSelected && ReferenceEquals(node, Shell.Tree.SelectedNode))
+            {
+                Shell.Tree.ActivateSelected();
+            }
+            else
+            {
+                node.IsSelected = true;
+            }
         }
     }
 

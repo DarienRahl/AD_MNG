@@ -510,6 +510,7 @@
                 DragOver="OnTreeDragOver"
                 Drop="OnTreeDrop"
                 ItemsSource="{Binding Tree.Roots}"
+                PreviewMouseLeftButtonDown="OnTreeLeftButtonDown"
                 PreviewMouseRightButtonDown="OnTreeRightButtonDown"
                 VirtualizingPanel.IsVirtualizing="True"
                 VirtualizingPanel.VirtualizationMode="Recycling">

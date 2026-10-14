@@ -5,6 +5,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Testing;
@@ -538,6 +539,106 @@ public class BatchEditorTests
         {
             File.Delete(path);
         }
+    }
+
+    [Fact]
+    public async Task CsvMode_EnglishUiOnPolishWindows_DecodesTheExcelFileWithTheSystemCodePage()
+    {
+        // English UI chosen in the app, Polish Windows: Excel's "CSV (rozdzielany przecinkami)" is Windows-1250.
+        var harness = await B2Harness.CreateAsync(CultureInfo.GetCultureInfo("en-US"), regional: CultureInfo.GetCultureInfo("pl-PL"));
+        var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([]));
+        await editor.InitializeAsync();
+        var csv = Assert.IsType<CsvImportViewModel>(editor.CsvImport);
+        var path = Path.Combine(Path.GetTempPath(), $"admng-test-{Guid.NewGuid():N}.csv");
+        try
+        {
+            var content = "sAMAccountName;department;sn\r\njan.kowalski;Księgowość;Żółć\r\n";
+            await File.WriteAllBytesAsync(path, Encoding.GetEncoding(1250).GetBytes(content), TestContext.Current.CancellationToken);
+            harness.Files.NextOpenPath = path;
+            await csv.BrowseCommand.ExecuteAsync(null);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+
+        Assert.Null(csv.Error);
+        Assert.Equal("Księgowość", csv.PreviewRows[0].Cells[1]);
+        Assert.Equal("Żółć", csv.PreviewRows[0].Cells[2]);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal("Księgowość", harness.Value(harness.Company.JanKowalski, Attr.Department));
+        Assert.Equal("Żółć", harness.Value(harness.Company.JanKowalski, Attr.Sn));
+    }
+
+    [Fact]
+    public async Task CsvTemplate_UsesTheRegionalListSeparator_NotTheUiLanguage()
+    {
+        var harness = await B2Harness.CreateAsync(CultureInfo.GetCultureInfo("en-US"), regional: CultureInfo.GetCultureInfo("pl-PL"));
+        var csv = harness.Factory.CreateBatchEditor(new BatchEditorRequest([])).CsvImport!;
+        var path = Path.Combine(Path.GetTempPath(), $"admng-test-{Guid.NewGuid():N}.csv");
+        try
+        {
+            harness.Files.NextSavePath = path;
+            await csv.DownloadTemplateCommand.ExecuteAsync(null);
+
+            var header = (await File.ReadAllLinesAsync(path, TestContext.Current.CancellationToken))[0];
+            Assert.StartsWith("sAMAccountName;givenName;sn;displayName", header, StringComparison.Ordinal);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task Executing_ShowsAndCancelsItsOwnActivity_NotOneStartedMeanwhile()
+    {
+        var (editor, harness) = await OpenAsync(c => [c.JanKowalski, c.LukaszWisniewski], new SetAttributeOperation(Attr.Title, "Kierownik"));
+        await editor.PreviewCommand.ExecuteAsync(null);
+        using var writes = new ManualResetEventSlim();
+        harness.Session.BeforeOperation = operation =>
+        {
+            if (operation.IsWrite)
+            {
+                writes.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+
+        var execution = editor.ExecuteCommand.ExecuteAsync(null);
+        ActivityViewModel own;
+        ActivityViewModel other;
+        Task<BatchResult> otherExecution;
+        try
+        {
+            own = Assert.IsType<ActivityViewModel>(editor.CurrentActivity);
+            Assert.True(own.IsRunning);
+
+            // The operator keeps working: another operation starts in the activity center while the batch runs.
+            (other, otherExecution) = harness.Activities.Start("Wyłącz konto", 1, async (_, token) =>
+            {
+                await Task.Delay(Timeout.Infinite, token);
+                throw new InvalidOperationException("unreachable");
+            });
+
+            Assert.Same(own, editor.CurrentActivity);
+            Assert.Equal(editor.ChangeTitle, editor.CurrentActivity!.Title);
+            editor.CancelExecutionCommand.Execute(null);
+            Assert.True(own.IsCancelling);
+            Assert.False(other.IsCancelling);
+            Assert.True(other.IsRunning);
+        }
+        finally
+        {
+            writes.Set();
+        }
+
+        await execution;
+        Assert.Equal(BatchEditorStep.Results, editor.Step);
+        Assert.True(editor.Result!.WasCancelled);
+        Assert.True(other.IsRunning);
+        other.CancelCommand.Execute(null);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => otherExecution);
     }
 
     [Fact]

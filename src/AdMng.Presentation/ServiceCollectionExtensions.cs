@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         // Infrastructure (singletons shared by all windows).
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<ILocalizer, ResxLocalizer>();
+        services.TryAddSingleton<Services.IRegionalSettings, Services.SystemRegionalSettings>();
         services.TryAddSingleton<ISettingsStore, JsonSettingsStore>();
         services.TryAddSingleton<ISessionManager, SessionManager>();
         services.TryAddSingleton<ErrorTranslator>();

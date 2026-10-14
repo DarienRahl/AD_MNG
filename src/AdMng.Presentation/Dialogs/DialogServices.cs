@@ -27,7 +27,8 @@ public sealed class DialogServices(
     INotificationService notifications,
     IChangeCoordinator coordinator,
     ActivityCenterViewModel activities,
-    ObjectListServices lists)
+    ObjectListServices lists,
+    IRegionalSettings regional)
 {
     public ISessionManager Sessions { get; } = sessions ?? throw new ArgumentNullException(nameof(sessions));
 
@@ -60,4 +61,7 @@ public sealed class DialogServices(
 
     /// <summary>Creates object lists (Find results, picker results).</summary>
     public ObjectListServices Lists { get; } = lists ?? throw new ArgumentNullException(nameof(lists));
+
+    /// <summary>Regional settings of the system (CSV list separator and ANSI code page) - not the UI language.</summary>
+    public IRegionalSettings Regional { get; } = regional ?? throw new ArgumentNullException(nameof(regional));
 }

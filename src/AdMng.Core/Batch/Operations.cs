@@ -83,7 +83,15 @@ public sealed record MoveOperation(string TargetContainerDn) : BatchOperation;
 
 /// <summary>Renames objects (new RDN value from a template, e.g. <c>{givenName} {sn}</c>).
 /// Optionally also sets displayName to the same value (ADUC rename behaviour for users).</summary>
-public sealed record RenameOperation(string NameTemplate, bool AlsoSetDisplayName = false) : BatchOperation;
+public sealed record RenameOperation(string NameTemplate, bool AlsoSetDisplayName = false) : BatchOperation
+{
+    /// <summary>
+    /// With <see cref="AlsoSetDisplayName"/>: the display name follows the rename only while it is empty or equal to the
+    /// current name (RDN value, case-insensitive); a display name maintained separately - "Kowalski Jan (IT)", or
+    /// "Jan Kowalski" for <c>CN=jkowalski</c> - is kept. Used by the inline rename (F2), which has no preview.
+    /// </summary>
+    public bool KeepCustomDisplayName { get; init; }
+}
 
 /// <summary>Adds objects to groups (modifies the groups' member attribute, idempotent).</summary>
 public sealed record AddToGroupsOperation(IReadOnlyList<string> GroupDns) : BatchOperation;

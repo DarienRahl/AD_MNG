@@ -70,9 +70,11 @@ public sealed partial class ShellViewModel
             return false;
         }
 
+        // The display name follows only while it is the old name: one maintained separately ("Kowalski Jan (IT)", or the
+        // full name of CN=jkowalski) is kept - F2 executes without a preview, ADUC would show it in its Rename dialog.
         var alsoDisplayName = row.Kind is ObjectKind.User or ObjectKind.InetOrgPerson or ObjectKind.Contact;
-        var outcome = await ApplyAsync([row.Dn], [new RenameOperation(TemplateText.Escape(name), alsoDisplayName)], Localizer[L.Commands.Rename])
-            .ConfigureAwait(true);
+        var rename = new RenameOperation(TemplateText.Escape(name), alsoDisplayName) { KeepCustomDisplayName = alsoDisplayName };
+        var outcome = await ApplyAsync([row.Dn], [rename], Localizer[L.Commands.Rename]).ConfigureAwait(true);
         return outcome is ChangeOutcome.Executed or ChangeOutcome.OpenedInEditor;
     }
 
@@ -162,18 +164,21 @@ public sealed partial class ShellViewModel
             return;
         }
 
-        var containers = selection.Where(r => r.IsContainer).Select(r => r.Dn).ToList();
+        // Not only OUs and containers hold children: a computer has its BitLocker recovery information
+        // (msFVE-RecoveryInformation) or print queues below it, a user Exchange ActiveSync devices. Like ADUC, such an
+        // object is deleted as a tree after a typed confirmation - a plain delete is refused by the planner.
         bool withChildren;
         try
         {
-            withChildren = containers.Count > 0 && await Task.Run(() => AnyHasChildrenAsync(session, containers)).ConfigureAwait(true);
+            withChildren = await Task.Run(() => AnyHasChildrenAsync(session, dns)).ConfigureAwait(true);
         }
         catch (DirectoryException ex)
         {
-            // E.g. the container was deleted meanwhile or listing it is denied - never guess "empty" for a delete.
+            // E.g. the object was deleted meanwhile or listing it is denied - never guess "empty" for a delete.
             await _dialogs.ShowErrorAsync(title, Errors.Translate(ex)).ConfigureAwait(true);
             return;
         }
+
         var message = selection.Count == 1
             ? Localizer.Format(L.Delete.ConfirmOne, selection[0].Name, selection[0].TypeText)
             : Localizer.Format(L.Delete.ConfirmMany, selection.Count);
@@ -282,20 +287,22 @@ public sealed partial class ShellViewModel
     private Task BatchEditAsync() =>
         _dialogs.ShowBatchEditorAsync(new BatchEditorRequest(Dns(CurrentSelection)) { Title = Localizer[L.Commands.BatchEdit] });
 
+    // The New commands take an optional parent DN: the tree's context menu passes the right-clicked container (which
+    // need not be the current tab's); menus, toolbar, shortcuts and the palette pass none (CurrentContainerDn).
     [RelayCommand(CanExecute = nameof(CanCreate))]
-    private Task NewUserAsync() => CreateObjectAsync(ObjectKind.User);
+    private Task NewUserAsync(string? parentDn) => CreateObjectAsync(ObjectKind.User, parentDn);
 
     [RelayCommand(CanExecute = nameof(CanCreate))]
-    private Task NewGroupAsync() => CreateObjectAsync(ObjectKind.Group);
+    private Task NewGroupAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Group, parentDn);
 
     [RelayCommand(CanExecute = nameof(CanCreate))]
-    private Task NewOrganizationalUnitAsync() => CreateObjectAsync(ObjectKind.OrganizationalUnit);
+    private Task NewOrganizationalUnitAsync(string? parentDn) => CreateObjectAsync(ObjectKind.OrganizationalUnit, parentDn);
 
     [RelayCommand(CanExecute = nameof(CanCreate))]
-    private Task NewComputerAsync() => CreateObjectAsync(ObjectKind.Computer);
+    private Task NewComputerAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Computer, parentDn);
 
     [RelayCommand(CanExecute = nameof(CanCreate))]
-    private Task NewContactAsync() => CreateObjectAsync(ObjectKind.Contact);
+    private Task NewContactAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Contact, parentDn);
 
     private bool CanCreate() => IsConnected && CurrentContainerDn is not null;
 
@@ -321,7 +328,8 @@ public sealed partial class ShellViewModel
             return;
         }
 
-        var delimiter = ListSeparator(Localizer.Culture);
+        // Excel of the operator's region (';' in Poland), whatever the UI language of the app.
+        var delimiter = CsvFiles.ListSeparator(_regional.Culture);
         try
         {
             await Task.Run(() =>
@@ -393,14 +401,28 @@ public sealed partial class ShellViewModel
         }
 
         var sort = document.Columns.FirstOrDefault(c => c.SortDirection != SortDirection.None);
+        var filter = location.Filter;
+        var chips = document.FilterChips.Where(c => c.IsActive).Select(c => c.Kind).ToList();
+        if (location.Kind == ListLocationKind.View && BuiltInViews.Find(location.ViewId) is { } builtIn)
+        {
+            // The built-in filter holds today's dates ("expiring in 30 days" from now) and some views a post-filter
+            // ("locked out" without expired lockouts): save the definition as a static filter plus its chip instead.
+            var (staticFilter, chip) = builtIn.ToSavedDefinition(_lists.Time.GetUtcNow(), Settings.Current.InactiveDays);
+            filter = staticFilter;
+            if (chip is { } definitionChip && !chips.Contains(definitionChip))
+            {
+                chips.Insert(0, definitionChip);
+            }
+        }
+
         var view = new SavedView
         {
             Name = location.Title,
             BaseDn = SavedView.ToPortableDn(document.LastSearch?.BaseDn ?? location.BaseDn, session.Info.DefaultNamingContext),
             Scope = location.Scope,
-            Filter = location.Filter,
+            Filter = filter,
             Columns = [.. document.VisibleColumns.Select(c => c.Attribute)],
-            QuickFilters = [.. document.FilterChips.Where(c => c.IsActive).Select(c => c.Kind)],
+            QuickFilters = chips,
             SortAttribute = sort?.Attribute,
             SortDescending = sort?.SortDirection == SortDirection.Descending,
         };
@@ -549,9 +571,9 @@ public sealed partial class ShellViewModel
     private Task<ChangeOutcome> ApplyAsync(IReadOnlyList<string> dns, IReadOnlyList<BatchOperation> operations, string title) =>
         dns.Count == 0 ? Task.FromResult(ChangeOutcome.NothingToDo) : _changes.ApplyAsync(new ChangeRequest(dns, operations, title));
 
-    private async Task CreateObjectAsync(ObjectKind kind)
+    private async Task CreateObjectAsync(ObjectKind kind, string? parentDn)
     {
-        if (CurrentContainerDn is not { } parent)
+        if ((string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn) is not { } parent)
         {
             return;
         }
@@ -570,6 +592,17 @@ public sealed partial class ShellViewModel
         {
             await _views.SaveViewAsync(saved).ConfigureAwait(true);
             _notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Views.Saved, saved.Name));
+
+            // Tabs showing the edited view run its new definition right away (F5 would repeat the old query, and a click
+            // on its tree node - re-selected silently - would change nothing).
+            if (Sessions.Current is { } session)
+            {
+                var location = saved.ToLocation(session.Info.DefaultNamingContext);
+                foreach (var document in Documents.Where(d => string.Equals(d.Location?.ViewId, saved.Id, StringComparison.Ordinal)).ToList())
+                {
+                    document.ReplaceLocationAsync(location).Forget();
+                }
+            }
         }
     }
 
@@ -589,15 +622,9 @@ public sealed partial class ShellViewModel
 
     private static bool CanBeMember(ObjectKind kind) => kind.IsSecurityPrincipal() || kind == ObjectKind.Contact;
 
-    private static char ListSeparator(CultureInfo culture)
+    private static async Task<bool> AnyHasChildrenAsync(IDirectorySession session, IReadOnlyList<string> distinguishedNames)
     {
-        var separator = culture.TextInfo.ListSeparator;
-        return string.IsNullOrEmpty(separator) || separator[0] is ' ' ? ';' : separator[0];
-    }
-
-    private static async Task<bool> AnyHasChildrenAsync(IDirectorySession session, IReadOnlyList<string> containers)
-    {
-        foreach (var dn in containers)
+        foreach (var dn in distinguishedNames)
         {
             var search = new DirectorySearch { BaseDn = dn, Scope = SearchScope.OneLevel, Attributes = [], SizeLimit = 1 };
             try

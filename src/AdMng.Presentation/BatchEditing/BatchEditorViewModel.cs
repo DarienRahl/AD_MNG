@@ -384,7 +384,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         var plan = IncludedPlan(_plan);
-        await ExportAsync("preview", writer => _engines.Reports.Write(writer, plan, includePasswords: false, CsvFiles.ListSeparator(Localizer.Culture)))
+        await ExportAsync("preview", writer => _engines.Reports.Write(writer, plan, includePasswords: false, CsvFiles.ListSeparator(Services.Regional.Culture)))
             .ConfigureAwait(true);
     }
 
@@ -442,20 +442,17 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         Error = null;
         Step = BatchEditorStep.Executing;
         BatchResult result;
-        Services.Activities.Activities.CollectionChanged += CaptureActivity;
         try
         {
-            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle).ConfigureAwait(true);
+            // The coordinator hands over the activity of this execution: progress and Cancel must never follow another
+            // operation the operator starts meanwhile (another batch editor, a disable from the main window...).
+            result = await Services.Coordinator.ExecutePlanAsync(plan, ChangeTitle, activity => CurrentActivity = activity).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             Error = Errors.Translate(ex);
             Step = BatchEditorStep.Preview;
             return;
-        }
-        finally
-        {
-            Services.Activities.Activities.CollectionChanged -= CaptureActivity;
         }
 
         // Closed while executing: the activity center reports the outcome and no results (passwords) are kept.
@@ -494,7 +491,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
                 Localizer[L.Batch.ExportPasswordsTitle], Localizer[L.Batch.ExportPasswordsWarning], destructive: true).ConfigureAwait(true);
         }
 
-        if (await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Localizer.Culture)))
+        if (await ExportAsync("results", writer => _engines.Reports.Write(writer, result, includePasswords, CsvFiles.ListSeparator(Services.Regional.Culture)))
                 .ConfigureAwait(true) && includePasswords)
         {
             _passwordsExported = true;
@@ -754,14 +751,6 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         if (e.PropertyName == nameof(PreviewObjectViewModel.IsIncluded))
         {
             UpdateCounts();
-        }
-    }
-
-    private void CaptureActivity(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems is [ActivityViewModel activity, ..])
-        {
-            CurrentActivity = activity;
         }
     }
 

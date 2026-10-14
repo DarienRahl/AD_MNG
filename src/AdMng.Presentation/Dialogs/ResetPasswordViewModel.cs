@@ -283,7 +283,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
 
         try
         {
-            var delimiter = CsvFiles.ListSeparator(Localizer.Culture);
+            var delimiter = CsvFiles.ListSeparator(Services.Regional.Culture);
             await CsvFiles.WriteAsync(path, writer => _reports.Write(writer, result, includePasswords, delimiter)).ConfigureAwait(true);
             _passwordsExported |= includePasswords;
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Batch.Exported, Path.GetFileName(path)));

@@ -531,6 +531,31 @@ public class ChangePlannerTests
     }
 
     [Fact]
+    public async Task Rename_KeepCustomDisplayName_ChangesOnlyADisplayNameThatIsTheOldName()
+    {
+        // F2: the display name equals the CN, so it follows the corrected name.
+        var follows = await PlanOneAsync(_company.JanKowalski, new RenameOperation("Jan Kowalsky", AlsoSetDisplayName: true) { KeepCustomDisplayName = true });
+
+        // A display name maintained separately (GAL "Wiśniewski Łukasz (IT)") is kept; only the CN changes.
+        Session.SetValues(_company.LukaszWisniewski, Attr.DisplayName, "Wiśniewski Łukasz (IT)");
+        var custom = await PlanOneAsync(_company.LukaszWisniewski, new RenameOperation("Łukasz Wiśniewski-Nowak", AlsoSetDisplayName: true) { KeepCustomDisplayName = true });
+
+        // No display name at all: it gets the new name.
+        Session.SetValues(_company.MalgorzataWojcik, Attr.DisplayName);
+        var empty = await PlanOneAsync(_company.MalgorzataWojcik, new RenameOperation("Małgorzata Wójcik-Nowak", AlsoSetDisplayName: true) { KeepCustomDisplayName = true });
+
+        // The batch editor's explicit "Also set the display name" still overwrites a custom one.
+        var batch = await PlanOneAsync(_company.LukaszWisniewski, new RenameOperation("Łukasz Wiśniewski-Nowak", AlsoSetDisplayName: true));
+
+        Assert.Equal(["Jan Kowalsky"], Change(follows, Attr.DisplayName).NewValues);
+        Assert.Equal("CN=Jan Kowalsky", Step(follows, ChangeAction.Rename).TargetDn);
+        Assert.Equal("CN=Łukasz Wiśniewski-Nowak", Step(custom, ChangeAction.Rename).TargetDn);
+        Assert.DoesNotContain(custom.Changes.SelectMany(c => c.Attributes), a => a.Attribute == Attr.DisplayName);
+        Assert.Equal(["Małgorzata Wójcik-Nowak"], Change(empty, Attr.DisplayName).NewValues);
+        Assert.Equal(["Łukasz Wiśniewski-Nowak"], Change(batch, Attr.DisplayName).NewValues);
+    }
+
+    [Fact]
     public async Task Rename_ValidatesNameLengthCollisionsAndPermissions()
     {
         Session.SetValues(_company.JanKowalski, Attr.Description, new string('x', 70));

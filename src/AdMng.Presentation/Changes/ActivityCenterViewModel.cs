@@ -3,14 +3,25 @@ using AdMng.Core.Batch;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Changes;
 
+/// <summary>A started background execution.</summary>
+/// <param name="Activity">What the activity center shows (progress, cancel, outcome counters).</param>
+/// <param name="Execution">
+/// Completes with the batch result, or faults/cancels when the execution failed as a whole. Only the caller holds it:
+/// the activity keeps no reference to the result, so the plan with its passwords and old/new values becomes
+/// collectable as soon as the caller is done with it (ADR-0003, CLAUDE.md rule 2).
+/// </param>
+public readonly record struct ActivityRun(ActivityViewModel Activity, Task<BatchResult> Execution);
+
 /// <summary>
 /// Background operations of the session (batch executions) shown in the status bar flyout with progress and
-/// cancel, so the operator keeps working while a large batch runs.
+/// cancel, so the operator keeps working while a large batch runs. Activities keep only what they display (title,
+/// counters, error) - never the <see cref="BatchResult"/> - and finished ones are dropped when the session changes.
 /// </summary>
 public sealed partial class ActivityCenterViewModel : ObservableObject
 {
@@ -19,12 +30,16 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
     private readonly ErrorTranslator _errors;
     private readonly TimeProvider _time;
 
-    public ActivityCenterViewModel(IUiDispatcher dispatcher, ILocalizer localizer, ErrorTranslator errors, TimeProvider time)
+    public ActivityCenterViewModel(IUiDispatcher dispatcher, ILocalizer localizer, ErrorTranslator errors, TimeProvider time, ISessionManager sessions)
     {
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _time = time ?? throw new ArgumentNullException(nameof(time));
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        // Disconnect or another identity: the finished operations of the previous session (titles, object names) go.
+        sessions.SessionChanged += (_, _) => _ = _dispatcher.RunAsync(RemoveFinished);
     }
 
     /// <summary>Newest first.</summary>
@@ -39,25 +54,26 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
     public string Summary => RunningCount == 0 ? string.Empty : _localizer.Format(L.Activity.Running, RunningCount);
 
     /// <summary>
-    /// Starts a background batch execution. Must be called on the UI thread. The returned activity's
-    /// <see cref="ActivityViewModel.Completion"/> completes with the result (or the failure).
+    /// Starts a background batch execution. Must be called on the UI thread. The result is handed to the caller only
+    /// through <see cref="ActivityRun.Execution"/>; the activity keeps just the counters it displays.
     /// </summary>
     /// <param name="title">Localized title.</param>
     /// <param name="total">Number of objects (for the progress bar before the first report).</param>
     /// <param name="work">The execution; receives a UI-thread progress sink and the activity's cancellation token.</param>
-    public ActivityViewModel Start(string title, int total, Func<IProgress<BatchProgress>, CancellationToken, Task<BatchResult>> work)
+    public ActivityRun Start(string title, int total, Func<IProgress<BatchProgress>, CancellationToken, Task<BatchResult>> work)
     {
         ArgumentNullException.ThrowIfNull(work);
         var activity = new ActivityViewModel(title, total, _time.GetLocalNow(), _localizer);
         Activities.Insert(0, activity);
         RunningCount++;
         var progress = _dispatcher.CreateProgress<BatchProgress>(activity.Report);
-        activity.Completion = RunAsync(activity, progress, work);
-        return activity;
+        return new ActivityRun(activity, RunAsync(activity, progress, work));
     }
 
     [RelayCommand]
-    private void ClearFinished()
+    private void ClearFinished() => RemoveFinished();
+
+    private void RemoveFinished()
     {
         for (var i = Activities.Count - 1; i >= 0; i--)
         {
@@ -82,7 +98,10 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
         try
         {
             var result = await Task.Run(() => work(progress, activity.CancellationToken)).ConfigureAwait(false);
-            await _dispatcher.RunAsync(() => activity.Finish(result, null, _time.GetLocalNow())).ConfigureAwait(false);
+
+            // Only counters reach the activity (and the dispatched closure) - never the result with its plan.
+            var outcome = ActivityOutcome.From(result);
+            await _dispatcher.RunAsync(() => activity.Finish(outcome, null, _time.GetLocalNow())).ConfigureAwait(false);
             return result;
         }
         catch (Exception ex)
@@ -93,15 +112,33 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
         }
         finally
         {
-            await _dispatcher.RunAsync(() => RunningCount--).ConfigureAwait(false);
+            try
+            {
+                await _dispatcher.RunAsync(() => RunningCount--).ConfigureAwait(false);
+            }
+            finally
+            {
+                activity.MarkCompleted();
+            }
         }
     }
+}
+
+/// <summary>What a finished activity displays: counters only (no plan, no values, no passwords).</summary>
+internal readonly record struct ActivityOutcome(int Executed, int Succeeded, int Failed, bool WasCancelled)
+{
+    public static ActivityOutcome From(BatchResult result) => new(
+        result.Objects.Count(o => o.Status != ObjectResultStatus.Skipped),
+        result.SucceededCount,
+        result.FailedCount,
+        result.WasCancelled);
 }
 
 /// <summary>One background operation.</summary>
 public sealed partial class ActivityViewModel : ObservableObject
 {
     private readonly CancellationTokenSource _cancellation = new();
+    private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ILocalizer _localizer;
 
     internal ActivityViewModel(string title, int total, DateTimeOffset startedAt, ILocalizer localizer)
@@ -117,8 +154,11 @@ public sealed partial class ActivityViewModel : ObservableObject
 
     public DateTimeOffset StartedAt { get; }
 
-    /// <summary>Completes with the batch result; faults when the execution itself failed.</summary>
-    public Task<BatchResult> Completion { get; internal set; } = null!;
+    /// <summary>
+    /// Completes when the operation has ended (succeeded, failed or cancelled - see <see cref="StatusText"/>). It never
+    /// faults and carries no result: the caller of <see cref="ActivityCenterViewModel.Start"/> gets that.
+    /// </summary>
+    public Task Completion => _completion.Task;
 
     internal CancellationToken CancellationToken => _cancellation.Token;
 
@@ -143,10 +183,19 @@ public sealed partial class ActivityViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     public partial bool IsCancelling { get; private set; }
 
+    /// <summary>Objects that succeeded (set when the execution ended).</summary>
     [ObservableProperty]
-    public partial BatchResult? Result { get; private set; }
+    public partial int SucceededCount { get; private set; }
 
-    /// <summary>Localized failure of the execution as a whole (per-object failures are in <see cref="Result"/>).</summary>
+    /// <summary>Objects that failed or partially failed (set when the execution ended).</summary>
+    [ObservableProperty]
+    public partial int FailedCount { get; private set; }
+
+    /// <summary>The execution was cancelled; objects not reached were skipped.</summary>
+    [ObservableProperty]
+    public partial bool WasCancelled { get; private set; }
+
+    /// <summary>Localized failure of the execution as a whole (per-object failures are counted in <see cref="FailedCount"/>).</summary>
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
@@ -173,14 +222,14 @@ public sealed partial class ActivityViewModel : ObservableObject
                     : _localizer.Format(L.Activity.Progress, Completed, Total);
             }
 
-            if (Result is { WasCancelled: true })
+            if (WasCancelled)
             {
                 return _localizer[L.Activity.Cancelled];
             }
 
-            return Result is { FailedCount: > 0 } r
-                ? _localizer.Format(L.Activity.CompletedWithFailures, r.SucceededCount, r.FailedCount)
-                : _localizer.Format(L.Activity.Completed, Result?.SucceededCount ?? Completed);
+            return FailedCount > 0
+                ? _localizer.Format(L.Activity.CompletedWithFailures, SucceededCount, FailedCount)
+                : _localizer.Format(L.Activity.Completed, SucceededCount);
         }
     }
 
@@ -212,14 +261,16 @@ public sealed partial class ActivityViewModel : ObservableObject
         OnPropertyChanged(nameof(StatusText));
     }
 
-    internal void Finish(BatchResult? result, string? error, DateTimeOffset finishedAt)
+    internal void Finish(ActivityOutcome? outcome, string? error, DateTimeOffset finishedAt)
     {
-        Result = result;
         Error = error;
-        if (result is not null)
+        if (outcome is { } o)
         {
-            Completed = result.Objects.Count(o => o.Status != ObjectResultStatus.Skipped);
-            Failed = result.FailedCount;
+            Completed = o.Executed;
+            Failed = o.Failed;
+            SucceededCount = o.Succeeded;
+            FailedCount = o.Failed;
+            WasCancelled = o.WasCancelled;
         }
 
         FinishedAt = finishedAt;
@@ -227,4 +278,6 @@ public sealed partial class ActivityViewModel : ObservableObject
         OnPropertyChanged(nameof(Fraction));
         OnPropertyChanged(nameof(StatusText));
     }
+
+    internal void MarkCompleted() => _completion.TrySetResult();
 }

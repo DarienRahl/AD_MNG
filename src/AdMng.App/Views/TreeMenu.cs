@@ -27,7 +27,7 @@ internal static class TreeMenu
                     shell.OpenLocationInNewTabAsync(ListLocation.ForContainer(container.Dn, container.Name, container.Icon)))));
                 items.Add(Item(L.Commands.Refresh, container.RefreshCommand));
                 items.Add(new Separator());
-                items.Add(NewMenu(shell));
+                items.Add(NewMenu(shell, container));
                 items.Add(new Separator());
                 if (container.IsPinnedEntry)
                 {
@@ -63,15 +63,17 @@ internal static class TreeMenu
         return items;
     }
 
-    private static MenuItem NewMenu(ShellViewModel shell)
+    private static MenuItem NewMenu(ShellViewModel shell, ContainerNodeViewModel container)
     {
         var menu = new MenuItem();
         menu.SetBinding(HeaderedItemsControl.HeaderProperty, new TrBinding(L.Shell.MenuNew));
-        foreach (var id in (string[])["new.user", "new.group", "new.ou", "new.computer", "new.contact"])
-        {
-            menu.Items.Add(CommandItem(id, shell));
-        }
 
+        // Creates in the right-clicked container itself, not in the current tab's (it may show another container).
+        menu.Items.Add(Item(L.Commands.NewUser, shell.NewUserCommand, container.Dn));
+        menu.Items.Add(Item(L.Commands.NewGroup, shell.NewGroupCommand, container.Dn));
+        menu.Items.Add(Item(L.Commands.NewOrganizationalUnit, shell.NewOrganizationalUnitCommand, container.Dn));
+        menu.Items.Add(Item(L.Commands.NewComputer, shell.NewComputerCommand, container.Dn));
+        menu.Items.Add(Item(L.Commands.NewContact, shell.NewContactCommand, container.Dn));
         return menu;
     }
 

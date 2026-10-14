@@ -65,6 +65,13 @@ public interface IChangeCoordinator
     /// Must be called on the UI thread.
     /// </summary>
     Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Like <see cref="ExecutePlanAsync(ChangePlan, string, CancellationToken)"/>; <paramref name="started"/> receives the
+    /// activity of THIS execution right after it started (on the UI thread), e.g. for a window that shows its own
+    /// progress and cancel - other activities started meanwhile are not confused with it.
+    /// </summary>
+    Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, Action<ActivityViewModel>? started, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Default <see cref="IChangeCoordinator"/>.</summary>
@@ -200,14 +207,19 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         return await ReportAsync(request.Title, result).ConfigureAwait(true);
     }
 
-    public async Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, CancellationToken cancellationToken = default)
+    public Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, CancellationToken cancellationToken = default) =>
+        ExecutePlanAsync(plan, title, started: null, cancellationToken);
+
+    public async Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, Action<ActivityViewModel>? started, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
         var session = _sessions.RequireSession();
         var options = new BatchOptions { MaxDegreeOfParallelism = _settings.Current.BatchMaxParallelism };
-        var activity = _activities.Start(title, plan.ExecutableCount, (progress, token) => _executor.ExecuteAsync(session, plan, options, progress, token));
+        var (activity, execution) = _activities.Start(
+            title, plan.ExecutableCount, (progress, token) => _executor.ExecuteAsync(session, plan, options, progress, token));
+        started?.Invoke(activity);
         using var registration = cancellationToken.Register(activity.RequestCancellation);
-        var result = await activity.Completion.ConfigureAwait(true);
+        var result = await execution.ConfigureAwait(true);
         _changes.Publish(DirectoryChanges.FromResult(result));
         _history?.Record(result, title);
         return result;

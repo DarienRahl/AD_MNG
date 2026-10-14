@@ -230,7 +230,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
         try
         {
-            var delimiter = CsvFiles.ListSeparator(localizer.Culture);
+            var delimiter = CsvFiles.ListSeparator(_services.Regional.Culture);
             await CsvFiles.WriteAsync(path, writer => _engines.Csv.Write(writer, headers, [], delimiter, protectFormulas: true)).ConfigureAwait(true);
             _services.Notifications.Show(NotificationSeverity.Success, localizer.Format(L.Csv.TemplateSaved, System.IO.Path.GetFileName(path)));
         }
@@ -240,7 +240,10 @@ public sealed partial class CsvImportViewModel : ObservableObject
         }
     }
 
-    /// <summary>Reads a CSV file (UTF-8 or the ANSI code page of the UI language, delimiter detected).</summary>
+    /// <summary>
+    /// Reads a CSV file (UTF-8, else the system's ANSI code page - Excel's "CSV (comma delimited)" - whatever the UI
+    /// language; delimiter detected).
+    /// </summary>
     public async Task LoadFileAsync(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -248,11 +251,11 @@ public sealed partial class CsvImportViewModel : ObservableObject
         Error = null;
         try
         {
-            var culture = _services.Localizer.Culture;
+            var ansiCodePage = _services.Regional.AnsiCodePage;
             var csv = _engines.Csv;
             var table = await Task.Run(async () =>
             {
-                var text = await CsvFiles.ReadTextAsync(path, culture).ConfigureAwait(false);
+                var text = await CsvFiles.ReadTextAsync(path, ansiCodePage).ConfigureAwait(false);
                 using var reader = new StringReader(text);
                 return csv.Read(reader);
             }).ConfigureAwait(true);

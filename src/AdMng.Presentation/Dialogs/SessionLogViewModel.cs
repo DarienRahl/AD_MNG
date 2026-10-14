@@ -110,7 +110,7 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
         var entries = Entries.Select(e => e.Entry).Reverse().ToList();
         try
         {
-            var delimiter = CsvFiles.ListSeparator(Localizer.Culture);
+            var delimiter = CsvFiles.ListSeparator(Services.Regional.Culture);
             await CsvFiles.WriteAsync(path, writer => _exporter.Write(writer, entries, delimiter)).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Files.Exported, entries.Count, Path.GetFileName(path)));
         }

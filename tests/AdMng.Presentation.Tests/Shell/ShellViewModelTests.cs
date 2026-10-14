@@ -1,6 +1,7 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
+using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
@@ -8,6 +9,7 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
+using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Presentation.Tests.Lists;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Presentation.Views;
@@ -379,6 +381,31 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task Delete_ComputerWithBitLockerRecoveryInformation_AsksForTypedConfirmation_AndDeletesTheTree()
+    {
+        // Real planner and executor over the fake DC: a plain delete of an object with children is refused there.
+        var harness = await B2Harness.CreateAsync();
+        var laptop = harness.Company.Laptop;
+        var recovery = harness.Session.Seed(
+            $"CN=2026-10-01T08:00:00-00:00{{6E1B0C8F-7A43-4C3E-9B54-0D7C3F1E2A10}},{laptop}",
+            new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "msFVE-RecoveryInformation" } });
+        using var shell = CreateShell(harness);
+        await shell.InitializeAsync();
+        await shell.NavigateAsync(ListLocation.ForContainer(harness.Company.ComputersOu));
+        Select(shell, "KRK-LT001");
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+
+        await shell.DeleteCommand.ExecuteAsync(null);
+
+        var typed = Assert.Single(harness.Dialogs.TypedConfirmations);
+        Assert.Equal("KRK-LT001", typed.Expected);
+        Assert.Contains("contains other objects", typed.Message, StringComparison.Ordinal);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.False(harness.Session.Exists(recovery));
+        Assert.False(harness.Session.Exists(laptop));
+    }
+
+    [Fact]
     public async Task Move_UsesContainerPicker_AndRejectsInvalidTargets()
     {
         var (shell, harness) = await CreateShellAsync(Firma);
@@ -423,9 +450,29 @@ public class ShellViewModelTests
 
         Assert.Same(row, requested);
         Assert.True(ok);
-        Assert.Equal(new RenameOperation("Łukasz {{Admin}} Żółć", AlsoSetDisplayName: true), Assert.Single(Assert.Single(harness.Planner.Requests).Operations));
+        Assert.Equal(
+            new RenameOperation("Łukasz {{Admin}} Żółć", AlsoSetDisplayName: true) { KeepCustomDisplayName = true },
+            Assert.Single(Assert.Single(harness.Planner.Requests).Operations));
         Assert.False(await shell.RenameAsync(row, "   "));
         Assert.False(await shell.RenameAsync(row, new string('x', 65)));
+    }
+
+    [Fact]
+    public async Task Rename_KeepsADisplayNameMaintainedSeparately_AndUpdatesOneThatIsTheOldName()
+    {
+        // Real planner and executor: F2 executes without a preview, so it must not overwrite a GAL display name.
+        var harness = await B2Harness.CreateAsync();
+        harness.Session.SetValues(harness.Company.JanKowalski, Attr.DisplayName, "Kowalski Jan (IT)");
+        using var shell = CreateShell(harness);
+        await shell.InitializeAsync();
+        await shell.NavigateAsync(ListLocation.ForContainer(harness.Company.ItOu));
+
+        Assert.True(await shell.RenameAsync(Select(shell, "Jan Kowalski"), "Jan Kowalsky"));
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.SelectedDocument!.Items.Any(r => r.Name == "Jan Kowalsky"));
+        Assert.True(await shell.RenameAsync(Select(shell, "Łukasz Wiśniewski"), "Łukasz Wiśniewski-Nowak"));
+
+        Assert.Equal("Kowalski Jan (IT)", harness.Value($"CN=Jan Kowalsky,{harness.Company.ItOu}", Attr.DisplayName));
+        Assert.Equal("Łukasz Wiśniewski-Nowak", harness.Value($"CN=Łukasz Wiśniewski-Nowak,{harness.Company.ItOu}", Attr.DisplayName));
     }
 
     [Fact]
@@ -503,6 +550,119 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task SwitchingTabs_SyncsTheTree_SoAClickOnTheOtherTabsContainerOpensIt()
+    {
+        var (shell, _) = await CreateShellAsync(Ksiegowosc);
+        var accounting = shell.SelectedDocument!;
+        await shell.OpenLocationInNewTabAsync(ListLocation.ForContainer(It));
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.Tree.SelectedNode is ContainerNodeViewModel { Name: "IT" });
+
+        shell.SelectedDocument = accounting;
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.Tree.SelectedNode is ContainerNodeViewModel { Name: "Księgowość" });
+
+        // The operator clicks IT in the tree: the active tab opens it.
+        shell.Tree.FindNode(It)!.IsSelected = true;
+        await accounting.CurrentLoad;
+        Assert.Equal(It, accounting.Location!.BaseDn);
+        Assert.Equal(2, shell.Documents.Count);
+    }
+
+    [Fact]
+    public async Task ClickOnTheSelectedNode_OpensIt_WhenTheTabShowsSomethingElse_AndIsIgnoredOtherwise()
+    {
+        var (shell, _) = await CreateShellAsync(It);
+        var document = shell.SelectedDocument!;
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.Tree.SelectedNode is ContainerNodeViewModel { Name: "IT" });
+
+        // The tab moved on to search results; IT stays highlighted in the tree.
+        await shell.NavigateAsync(ListLocation.ForSearch("kowal", Domain, "kowal", "(objectClass=user)"));
+        Assert.Same(shell.Tree.FindNode(It), shell.Tree.SelectedNode);
+
+        shell.Tree.ActivateSelected();
+        await document.CurrentLoad;
+        Assert.Equal(It, document.Location!.BaseDn);
+
+        // Clicking it again: the tab shows IT already - no reload, no history entry.
+        var load = document.CurrentLoad;
+        shell.Tree.ActivateSelected();
+        Assert.Same(load, document.CurrentLoad);
+        await document.GoBackCommand.ExecuteAsync(null);
+        Assert.Equal(ListLocationKind.Search, document.Location!.Kind);
+    }
+
+    [Fact]
+    public async Task NewFromTheTreeContextMenu_CreatesInTheClickedContainer_NotInTheTabsContainer()
+    {
+        var (shell, harness) = await CreateShellAsync(Ksiegowosc);
+
+        await shell.NewUserCommand.ExecuteAsync(It);
+        await shell.NewGroupCommand.ExecuteAsync(null);
+
+        Assert.Equal([$"new:User:{It}", $"new:Group:{Ksiegowosc}"], harness.Dialogs.Shown.Where(s => s.StartsWith("new:", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task EditingTheShownSavedView_RunsItsNewDefinition()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        await harness.Views.SaveViewAsync(new SavedView { Id = "wylaczeni", Name = "Wyłączeni", Filter = "(objectClass=user)" });
+        var node = shell.Tree.ViewsNode.Children.OfType<ViewNodeViewModel>().Single(v => v.ViewId == "wylaczeni");
+        node.IsSelected = true;
+        var document = shell.SelectedDocument!;
+        await document.CurrentLoad;
+        Assert.Equal("(objectClass=user)", document.Location!.Filter);
+        harness.Dialogs.ViewEditorHandler = editor =>
+        {
+            editor.Filter = "(&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=2))";
+            editor.SaveCommand.Execute(null);
+            return true;
+        };
+
+        await shell.EditViewCommand.ExecuteAsync(node);
+
+        await ObjectListViewModelTests.WaitUntilAsync(() => document.Location!.Filter.Contains("803", StringComparison.Ordinal));
+        await document.CurrentLoad;
+        Assert.Contains("803", document.LastSearch!.Filter, StringComparison.Ordinal);
+        Assert.Equal(["Ewa Kowalska"], document.Items.Select(r => r.Name));
+
+        // The new definition replaced the old one in place: Back returns to the domain, not to the outdated view.
+        await document.GoBackCommand.ExecuteAsync(null);
+        Assert.Equal(ListLocationKind.Container, document.Location!.Kind);
+    }
+
+    [Fact]
+    public async Task SaveAsView_FromADateBasedBuiltInView_StoresItsChip_NotTodaysDates()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        harness.Dialogs.ViewEditorHandler = editor =>
+        {
+            editor.SaveCommand.Execute(null);
+            return true;
+        };
+        var quick = (FolderNodeViewModel)shell.Tree.ViewsNode.Children[0];
+        foreach (var kind in new[] { BuiltInViewKind.ExpiringAccounts, BuiltInViewKind.LockedUsers, BuiltInViewKind.InactiveComputers })
+        {
+            quick.Children.OfType<ViewNodeViewModel>().Single(v => v.BuiltIn!.Kind == kind).IsSelected = true;
+            await shell.SelectedDocument!.CurrentLoad;
+            await shell.SaveAsViewCommand.ExecuteAsync(null);
+        }
+
+        var saved = harness.Views.SavedViews;
+        Assert.Equal(3, saved.Count);
+        Assert.Equal(QuickFilters.Users, saved[0].Filter);
+        Assert.Equal([QuickFilterKind.Expiring], saved[0].QuickFilters);
+        Assert.Equal(QuickFilters.Users, saved[1].Filter);
+        Assert.Equal([QuickFilterKind.Locked], saved[1].QuickFilters);
+        Assert.Equal(QuickFilters.Computers, saved[2].Filter);
+        Assert.Equal([QuickFilterKind.Inactive], saved[2].QuickFilters);
+        Assert.All(saved, v => Assert.DoesNotContain(Attr.AccountExpires, v.Filter, StringComparison.OrdinalIgnoreCase));
+
+        // Opened later, the saved "locked out" view keeps the exact lockout check (Stary Zamek's lockout expired).
+        await shell.NavigateAsync(saved[1].ToLocation(Domain));
+        Assert.Equal(["Jan Nowak"], shell.SelectedDocument!.Items.Select(r => r.Name));
+    }
+
+    [Fact]
     public async Task ViewNode_OpensBuiltInView()
     {
         var (shell, _) = await CreateShellAsync();
@@ -536,6 +696,31 @@ public class ShellViewModelTests
             Assert.Equal(2, lines.Length);
             Assert.StartsWith("IT_", harness.Files.LastDefaultFileName, StringComparison.Ordinal);
             Assert.Contains(harness.Notifications.Items, n => n.Severity == NotificationSeverity.Success);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task ExportList_UsesTheRegionalListSeparator_NotTheUiLanguage()
+    {
+        // English UI on Polish Windows: Polish Excel splits columns at ';'.
+        var harness = await TestHarness.ConnectedAsync(regional: CultureInfo.GetCultureInfo("pl-PL"));
+        var shell = harness.CreateShell();
+        await shell.InitializeAsync();
+        await shell.NavigateAsync(ListLocation.ForContainer(It));
+        shell.SelectedDocument!.QuickFilterText = "łukasz";
+        var path = Path.Combine(Path.GetTempPath(), $"admng-export-{Guid.NewGuid():N}.csv");
+        harness.Files.NextSavePath = path;
+        try
+        {
+            await shell.ExportListCommand.ExecuteAsync(null);
+
+            var lines = await File.ReadAllLinesAsync(path, TestContext.Current.CancellationToken);
+            Assert.Equal("Name;Type;Description", lines[0]);
+            Assert.StartsWith("Łukasz Żółć;User", lines[1], StringComparison.Ordinal);
         }
         finally
         {
@@ -739,6 +924,15 @@ public class ShellViewModelTests
         }
 
         return (shell, harness);
+    }
+
+    /// <summary>A shell over the real Core engines and the fake DC with the sample company.</summary>
+    private static ShellViewModel CreateShell(B2Harness harness)
+    {
+        var tree = new NavigationTreeViewModel(harness.Sessions, harness.Settings, harness.Localizer, harness.Dispatcher, harness.Errors, harness.Views, harness.Changes);
+        return new ShellViewModel(
+            harness.Lists, tree, harness.Activities, harness.Coordinator, harness.Views, harness.Dialogs, harness.Files, harness.Clipboard,
+            harness.Notifications, new CsvCodec(), harness.Regional);
     }
 
     private static ObjectRowViewModel Select(ShellViewModel shell, string name)

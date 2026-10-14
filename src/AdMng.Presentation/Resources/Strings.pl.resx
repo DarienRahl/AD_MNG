@@ -723,7 +723,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}”?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
-    <value>Kontener zawiera inne obiekty. Jego usunięcie spowoduje również usunięcie całej zawartości.</value>
+    <value>Obiekt zawiera inne obiekty. Jego usunięcie spowoduje również usunięcie całej zawartości.</value>
   </data>
   <data name="Delete.TypeToConfirm" xml:space="preserve">
     <value>Wpisz „{0}”, aby potwierdzić.</value>

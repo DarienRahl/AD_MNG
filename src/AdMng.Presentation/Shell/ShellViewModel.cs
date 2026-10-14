@@ -36,6 +36,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IClipboardService _clipboard;
     private readonly INotificationService _notifications;
     private readonly ICsvCodec _csv;
+    private readonly IRegionalSettings _regional;
     private readonly Debouncer _detailsDebouncer;
     private ObjectListViewModel? _observedDocument;
     private IDirectorySession? _initializedFor;
@@ -53,7 +54,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IFileDialogService files,
         IClipboardService clipboard,
         INotificationService notifications,
-        ICsvCodec csv)
+        ICsvCodec csv,
+        IRegionalSettings regional)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -65,6 +67,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         _csv = csv ?? throw new ArgumentNullException(nameof(csv));
+        _regional = regional ?? throw new ArgumentNullException(nameof(regional));
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);
@@ -381,6 +384,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(IsBusy));
         UpdateDetailsAsync().Forget();
+
+        // The tree highlights what the active tab shows: with another tab's container still selected, a click on that
+        // node would change nothing (no navigation) and the tree's "New" would act on the wrong container.
+        if (value?.Location is { } location)
+        {
+            SyncTreeAsync(location).Forget();
+        }
     }
 
     private ObjectListViewModel AddDocument()
@@ -468,7 +478,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             if (location.Kind == ListLocationKind.Container)
             {
-                await Tree.ExpandToAsync(location.BaseDn).ConfigureAwait(true);
+                // Expanding may read levels from the DC: select only if the active tab still shows this location
+                // (fast tab switching must not end on the node of a tab that is no longer active).
+                var node = await Tree.ExpandToAsync(location.BaseDn, select: false).ConfigureAwait(true);
+                if (node is not null && ReferenceEquals(SelectedDocument?.Location, location))
+                {
+                    Tree.SelectSilently(node);
+                }
             }
             else if (location.ViewId is { } id)
             {
@@ -505,6 +521,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         var session = Sessions.Current;
         if (session is null)
         {
+            return;
+        }
+
+        if (node is ContainerNodeViewModel container
+            && SelectedDocument?.Location is { Kind: ListLocationKind.Container } shown
+            && Core.Ldap.DistinguishedName.AreEqual(shown.BaseDn, container.Dn))
+        {
+            // A click on the node of the container the tab already shows (F5 reloads).
             return;
         }
 

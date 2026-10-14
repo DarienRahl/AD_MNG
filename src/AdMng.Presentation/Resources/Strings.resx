@@ -723,7 +723,7 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>Are you sure you want to delete the {1} named '{0}'?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
-    <value>The container holds other objects. Deleting it also deletes everything inside it.</value>
+    <value>The object contains other objects. Deleting it also deletes everything inside it.</value>
   </data>
   <data name="Delete.TypeToConfirm" xml:space="preserve">
     <value>Type "{0}" to confirm.</value>
