@@ -129,6 +129,7 @@ public static class ServiceRegistration
         services.AddSingleton<ConfigSecretsApplier>();
         services.AddSingleton<ConfigValidationService>();
         services.AddSingleton<ConfigChangeNotifier>();
+        services.AddSingleton<WatchdogDomain>();
         services.TryAddSingleton<IConfigChangeNotificationPlanner, NoConfigChangeNotificationPlanner>();
         services.TryAddSingleton<IExclusionSuggestionSource, NoExclusionSuggestions>();
     }

@@ -28,7 +28,6 @@ public static class EventEndpoints
         HttpContext context,
         IEventStore events,
         IOptionsMonitor<ServiceOptions> options,
-        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var (query, issues) = EventQueryBinder.Bind(context.Request.Query);

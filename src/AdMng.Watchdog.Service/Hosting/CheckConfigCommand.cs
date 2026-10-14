@@ -10,7 +10,7 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// <summary>
 /// <c>--check-config</c> (spec 19.1): validates the bootstrap settings (<see cref="ServiceOptionsValidator"/>) and, when
 /// the database exists, the stored runtime configuration (validator + secret bindings), prints one line per issue and
-/// exits 0 (no errors) or 2. Nothing is changed: no migration runs, no listener starts.
+/// exits 0 (no errors) or 2. No migration runs and no listener starts (the data folder is created when missing).
 /// </summary>
 public static class CheckConfigCommand
 {

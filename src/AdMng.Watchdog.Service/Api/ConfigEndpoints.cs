@@ -47,7 +47,7 @@ public static class ConfigEndpoints
         ConfigChangeAuditor auditor,
         ConfigChangeNotifier notifier,
         IWatchdogSignals signals,
-        IOptionsMonitor<ServiceOptions> options,
+        WatchdogDomain domain,
         CancellationToken cancellationToken)
     {
         var (envelope, error) = await ApiResults.ReadJsonAsync<ConfigEnvelope>(context.Request, allowEmpty: false, cancellationToken).ConfigureAwait(false);
@@ -97,7 +97,7 @@ public static class ConfigEndpoints
             audit,
             caller,
             saved.Version,
-            options.CurrentValue.Directory.Domain,
+            await domain.GetAsync(cancellationToken).ConfigureAwait(false),
             context.Connection.RemoteIpAddress?.ToString(),
             previous,
             cancellationToken).ConfigureAwait(false);

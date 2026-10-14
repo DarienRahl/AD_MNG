@@ -142,7 +142,8 @@ public sealed partial class ServiceDirectorySessionProvider : IDirectorySessionP
         }
     }
 
-    private static async Task<string?> FindPdcAsync(IDirectorySession session, CancellationToken cancellationToken)
+    /// <summary>DNS host name of the PDC emulator: fSMORoleOwner of the domain head → its server object → dNSHostName.</summary>
+    internal static async Task<string?> FindPdcAsync(IDirectorySession session, CancellationToken cancellationToken)
     {
         var head = await session.GetAsync(session.Info.DefaultNamingContext, ["fSMORoleOwner"], cancellationToken).ConfigureAwait(false);
         var ntdsSettings = head?.GetString("fSMORoleOwner");

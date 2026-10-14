@@ -58,6 +58,7 @@ public static class StatusEndpoints
         IOutboxStore outbox,
         IStoreMaintenance maintenance,
         IExclusionSuggestionSource suggestions,
+        WatchdogDomain domain,
         ServiceStartTime started,
         TimeProvider timeProvider,
         IOptionsMonitor<ServiceOptions> options,
@@ -73,7 +74,7 @@ public static class StatusEndpoints
         {
             ServiceVersion = ServiceVersion.Current,
             InstanceName = config.General.InstanceName,
-            Domain = options.CurrentValue.Directory.Domain,
+            Domain = await domain.GetAsync(cancellationToken).ConfigureAwait(false),
             StartedAt = started.StartedAt,
             Now = now,
             Directory = directory,
