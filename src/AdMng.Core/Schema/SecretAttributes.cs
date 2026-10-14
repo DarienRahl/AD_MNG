@@ -22,6 +22,10 @@ public static class SecretAttributes
         "msFVE-RecoveryPassword", "msFVE-KeyPackage", "msTPM-OwnerInformation", "msTPM-OwnerInformationTemp",
         "msDS-ManagedPassword", "msPKIAccountCredentials", "msPKIDPAPIMasterKeys",
         "initialAuthIncoming", "initialAuthOutgoing", "trustAuthIncoming", "trustAuthOutgoing",
+
+        // The rest of the MS-DRSR secret set (schema entries not marked confidential): LSA secret objects incl. the
+        // DPAPI backup keys, and the SFU (Services for UNIX) password.
+        "currentValue", "priorValue", "msDS-ExecuteScriptPassword", "msSFU30Password",
     };
 
     /// <summary>Secret attributes known by name (whatever the schema says).</summary>

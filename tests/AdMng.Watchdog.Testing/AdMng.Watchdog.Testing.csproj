@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared watchdog test library (never shipped): store contract tests, the in-memory store, security-event and
+       metadata fixtures, SMTP/HTTP sinks, a fake watchdog client. Referenced by the watchdog test projects and by the
+       Presentation/UI tests. FrameworkReference to ASP.NET Core: never add packages the shared framework supplies
+       (Microsoft.Extensions.*, System.*) - .NET 10 package pruning reports them as NU1510. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Watchdog.Testing</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Core\AdMng.Watchdog.Core.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+    <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="SmtpServer" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+</Project>

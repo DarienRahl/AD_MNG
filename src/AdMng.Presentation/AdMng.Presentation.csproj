@@ -7,6 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />

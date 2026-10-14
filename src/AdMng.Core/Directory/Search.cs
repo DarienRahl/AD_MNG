@@ -46,6 +46,13 @@ public sealed record DirectorySearch
 
     /// <summary>Read nTSecurityDescriptor without SACL (SD flags control = OWNER|GROUP|DACL).</summary>
     public bool ReadSecurityDescriptor { get; init; }
+
+    /// <summary>
+    /// Extended DN control (1.2.840.113556.1.4.529, string form): values of DN-syntax attributes are returned as
+    /// <c>&lt;GUID=…&gt;;&lt;SID=…&gt;;dn</c> (SID only for security principals). Entry DNs stay plain.
+    /// Parse values with <see cref="Ldap.ExtendedDistinguishedName.TryParse"/>.
+    /// </summary>
+    public bool ExtendedDn { get; init; }
 }
 
 /// <summary>Request for one window of a virtual list view (VLV) - server sorted, random access scrolling.</summary>

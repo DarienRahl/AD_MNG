@@ -56,6 +56,15 @@ public interface IDirectorySession : IAsyncDisposable
     /// </summary>
     IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, CancellationToken cancellationToken);
 
+    /// <summary>Ranged retrieval with options. The default implementation supports only <see cref="AttributeReadOptions.Default"/>.</summary>
+    IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, AttributeReadOptions options, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.ExtendedDn || options.IncludeDeleted
+            ? throw new NotSupportedException("This session does not support extended DN / deleted-object value reads.")
+            : GetAllValuesAsync(distinguishedName, attribute, cancellationToken);
+    }
+
     /// <summary>Evaluates what the bound identity may do on the object (allowedAttributesEffective etc.).</summary>
     Task<EffectivePermissions> GetEffectivePermissionsAsync(string distinguishedName, CancellationToken cancellationToken);
 

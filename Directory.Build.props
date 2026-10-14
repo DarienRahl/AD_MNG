@@ -17,5 +17,9 @@
     <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
     <!-- WPF projects can be compiled (not run) on Linux/macOS for CI and agents. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Supply chain: audit direct AND transitive packages; with warnings-as-errors any NU190x advisory fails the build.
+         Sources and source mapping are fixed in nuget.config. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
   </PropertyGroup>
 </Project>

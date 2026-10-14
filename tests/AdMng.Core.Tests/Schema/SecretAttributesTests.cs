@@ -38,6 +38,28 @@ public class SecretAttributesTests
     }
 
     [Fact]
+    public void CoversDrsrSecretSet()
+    {
+        // MS-DRSR 4.1.10.3.11 (secret attributes): replicated encrypted, never readable over LDAP in clear - yet the
+        // schema does not mark most of them confidential, so the name list must cover all of them.
+        string[] drsrSecrets =
+        [
+            "unicodePwd", "dBCSPwd", "ntPwdHistory", "lmPwdHistory", "supplementalCredentials", "priorValue",
+            "currentValue", "trustAuthOutgoing", "trustAuthIncoming", "initialAuthOutgoing", "initialAuthIncoming",
+            "msDS-ExecuteScriptPassword",
+        ];
+
+        foreach (var attribute in drsrSecrets)
+        {
+            Assert.True(SecretAttributes.IsSecret(attribute), attribute);
+            Assert.True(SecretAttributes.IsSecret(attribute.ToUpperInvariant(), Schema), attribute);
+            Assert.Contains(attribute, SecretAttributes.WellKnown, StringComparer.OrdinalIgnoreCase);
+        }
+
+        Assert.True(SecretAttributes.IsSecret("msSFU30Password"));
+    }
+
+    [Fact]
     public void ConfidentialSchemaAttributes_AreSecret()
     {
         Assert.True(SecretAttributes.IsSecret("contoso-Pin", Schema));
