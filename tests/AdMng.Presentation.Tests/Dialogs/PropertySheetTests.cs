@@ -679,6 +679,35 @@ public class PropertySheetTests
     }
 
     [Fact]
+    public async Task AttributeEditor_RemovingSurroundingSpaces_IsAnEdit()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        harness.Session.SetValues(jan, Attr.Department, "Dział IT ");
+        var sheet = harness.Factory.CreatePropertySheet(jan);
+        await sheet.InitializeAsync();
+        var editor = Assert.IsType<AttributeEditorPageViewModel>(sheet.Pages[^1]);
+        await editor.ActivateAsync();
+        var row = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
+
+        // Confirmed without touching the text: nothing is staged.
+        editor.EditCommand.Execute(row);
+        Assert.Equal(AttributeEditorKind.Text, editor.Editor!.Kind);
+        Assert.Equal("Dział IT ", editor.Editor.Value);
+        editor.Editor.OkCommand.Execute(null);
+        Assert.False(row.IsDirty);
+
+        // The operator removes the trailing space: that is a change, not the text that was shown.
+        editor.EditCommand.Execute(row);
+        editor.Editor!.Value = "Dział IT";
+        editor.Editor.OkCommand.Execute(null);
+        Assert.Equal(["Dział IT"], row.PendingValues);
+
+        Assert.True(await sheet.ApplyChangesAsync());
+        Assert.Equal("Dział IT", harness.Value(jan, Attr.Department));
+    }
+
+    [Fact]
     public async Task MemberOf_ReloadCancelsTheRunningNestedQuery()
     {
         var (sheet, harness) = await OpenAsync(c => c.JanKowalski);

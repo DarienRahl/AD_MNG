@@ -341,10 +341,11 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
                 break;
             default:
                 var text = Value.Trim();
-                if (string.Equals(text, _shownValue.Trim(), StringComparison.Ordinal))
+                if (string.Equals(Value, _shownValue, StringComparison.Ordinal))
                 {
                     // Not edited: dates are shown in whole seconds of local time (and 0 / "never" as text), so parsing
                     // the shown text back would stage a different value (AD rejects most lockoutTime/pwdLastSet values).
+                    // Compared untrimmed: removing spaces around a value the DC returned is an edit.
                     Error = null;
                     _close(this, null);
                     return;
