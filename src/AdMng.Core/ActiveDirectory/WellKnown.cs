@@ -33,6 +33,12 @@ public static class Attr
     public const string IsRecycled = "isRecycled";
     public const string LastKnownParent = "lastKnownParent";
     public const string MsDsLastKnownRdn = "msDS-LastKnownRDN";
+
+    /// <summary>Days a deleted object stays restorable (Recycle Bin), on CN=Directory Service,CN=Windows NT,CN=Services in Configuration.</summary>
+    public const string MsDsDeletedObjectLifetime = "msDS-deletedObjectLifetime";
+
+    /// <summary>Days a tombstone (or recycled object) is kept before garbage collection removes it.</summary>
+    public const string TombstoneLifetime = "tombstoneLifetime";
     public const string GpLink = "gPLink";
     public const string ManagedBy = "managedBy";
 

@@ -67,6 +67,8 @@ public sealed class ServiceRegistrationTests : IDisposable
         using var newUser = factory.CreateNewObject(Core.Model.ObjectKind.User, "OU=IT,OU=Firma,DC=contoso,DC=test");
         using var find = factory.CreateFind(null);
         using var settings = factory.CreateSettings();
-        Assert.All<IWindowViewModel>([sheet, editor, reset, newUser, find, settings], vm => Assert.False(string.IsNullOrEmpty(vm.WindowTitle)));
+        using var recycleBin = factory.CreateRecycleBin();
+        Assert.NotNull(provider.GetRequiredService<RecycleBinViewModel>());
+        Assert.All<IWindowViewModel>([sheet, editor, reset, newUser, find, settings, recycleBin], vm => Assert.False(string.IsNullOrEmpty(vm.WindowTitle)));
     }
 }

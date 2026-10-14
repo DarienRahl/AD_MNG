@@ -68,6 +68,7 @@ public sealed partial class ShellViewModel
             new("tools.palette", L.Commands.CommandPalette, tools, "Ctrl+K", CommandPalette.OpenCommand),
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
+            new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),
         ];

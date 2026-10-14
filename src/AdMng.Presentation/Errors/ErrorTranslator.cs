@@ -56,13 +56,19 @@ public sealed class ErrorTranslator(ILocalizer localizer)
     /// <summary>Message for a failed step of a batch (<see cref="ChangeResult.ErrorKind"/> + <see cref="ChangeResult.ErrorMessage"/>).</summary>
     /// <remarks>
     /// A compare-and-swap failure (<see cref="BatchExecutor.ConflictMessagePrefix"/>: the value was changed by
-    /// somebody else after the preview) is reported as such, not as the raw LDAP error (noSuchAttribute...).
+    /// somebody else after the preview) is reported as such, not as the raw LDAP error (noSuchAttribute...); so is a
+    /// restore skipped because its parent container was not restored (<see cref="BatchExecutor.ParentNotRestoredMessage"/>).
     /// </remarks>
     public string TranslateFailure(DirectoryErrorKind? kind, string? errorMessage)
     {
         if (errorMessage is not null && errorMessage.StartsWith(BatchExecutor.ConflictMessagePrefix, StringComparison.Ordinal))
         {
             return localizer[L.Errors.Conflict];
+        }
+
+        if (string.Equals(errorMessage, BatchExecutor.ParentNotRestoredMessage, StringComparison.Ordinal))
+        {
+            return localizer[L.Errors.ParentNotRestored];
         }
 
         if (kind is null or DirectoryErrorKind.Unknown)

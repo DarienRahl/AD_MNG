@@ -46,6 +46,9 @@ public interface IDialogViewModelFactory
     /// <summary>PowerShell of the changes executed in this session (Tools menu; modeless).</summary>
     PowerShellHistoryViewModel CreatePowerShellHistory();
 
+    /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
+    RecycleBinViewModel CreateRecycleBin();
+
     /// <summary>
     /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). Pass the main window's
     /// <c>ShellViewModel.ToggleAdvancedFeaturesCommand</c> so that Advanced Features reloads the tree and lists.
@@ -83,6 +86,8 @@ public sealed class DialogViewModelFactory(
     public SessionLogViewModel CreateSessionLog() => new(services, auditLog, auditExporter);
 
     public PowerShellHistoryViewModel CreatePowerShellHistory() => new(services, powerShellHistory);
+
+    public RecycleBinViewModel CreateRecycleBin() => new(services);
 
     public SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null) =>
         new(services, theme) { ShellToggleAdvancedFeatures = toggleAdvancedFeatures };

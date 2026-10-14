@@ -50,6 +50,9 @@ public interface IDialogService
 
     Task ShowSessionLogAsync();
 
+    /// <summary>Opens the AD Recycle Bin window (modeless, one per application; an open one is activated).</summary>
+    Task ShowRecycleBinAsync();
+
     Task ShowSettingsAsync();
 
     /// <summary>Shows the connection window (used after Disconnect).</summary>

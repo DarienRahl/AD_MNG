@@ -134,6 +134,9 @@ public static class AppHost
         services.AddWindow<PowerShellHistoryViewModel, PowerShellHistoryWindow>();
         services.AddWindow<SettingsViewModel, SettingsWindow>();
         // ---- end C2b ----
+
+        // ---- AD Recycle Bin (opened through ToolWindows) ----
+        services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
         return services;
     }
 

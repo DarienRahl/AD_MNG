@@ -822,6 +822,27 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task RecycleBin_IsOfferedWhileConnected_InThePaletteAndAsAShortcut()
+    {
+        var (shell, harness) = await CreateShellAsync();
+        var descriptor = shell.CommandPalette.Find("tools.recycleBin");
+
+        Assert.NotNull(descriptor);
+        Assert.Equal("Ctrl+Shift+R", descriptor.Shortcut);
+        Assert.Same(shell.ShowRecycleBinCommand, descriptor.Command);
+        shell.CommandPalette.OpenCommand.Execute(null);
+        shell.CommandPalette.FilterText = "recycle";
+        Assert.Equal("tools.recycleBin", shell.CommandPalette.Results.First().Descriptor.Id);
+        Assert.Equal("AD Recycle Bin...", shell.CommandPalette.Results.First().Title);
+
+        await shell.ShowRecycleBinCommand.ExecuteAsync(null);
+        Assert.Contains("recycleBin", harness.Dialogs.Shown);
+
+        await shell.DisconnectCommand.ExecuteAsync(null);
+        Assert.False(shell.ShowRecycleBinCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task ToggleAdvancedFeatures_ReloadsTreeAndContainerTabs()
     {
         var (shell, _) = await CreateShellAsync();

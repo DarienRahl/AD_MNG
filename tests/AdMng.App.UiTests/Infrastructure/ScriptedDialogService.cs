@@ -48,6 +48,8 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
 
+    public Task ShowRecycleBinAsync() => Task.CompletedTask;
+
     public Task ShowSettingsAsync() => Task.CompletedTask;
 
     public Task ShowConnectAsync() => Task.CompletedTask;

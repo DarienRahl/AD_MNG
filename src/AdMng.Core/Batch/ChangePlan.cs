@@ -32,6 +32,13 @@ public enum ChangeAction
 
     /// <summary>Create the object at <see cref="ObjectPlan.DistinguishedName"/> with <see cref="PlannedChange.Attributes"/> as initial values.</summary>
     Create,
+
+    /// <summary>
+    /// Restore a deleted object from the AD Recycle Bin (or reanimate a tombstone): <see cref="ObjectPlan.DistinguishedName"/>
+    /// is the DN of the deleted object in CN=Deleted Objects, <see cref="PlannedChange.TargetDn"/> the full DN it gets back
+    /// (its original or a new name under its original or a new parent). See <see cref="RecycleBin.PlanRestoreAsync"/>.
+    /// </summary>
+    Restore,
 }
 
 /// <summary>How <see cref="AttributeChange.NewValues"/> relate to the current values.</summary>
@@ -123,6 +130,30 @@ public static class IssueCodes
 
     /// <summary>The object has child objects and the delete does not include the subtree.</summary>
     public const string HasChildren = "HasChildren";
+
+    /// <summary>
+    /// Restore: the original parent container of a deleted object is deleted as well (or does not exist any more) and is
+    /// not restored with it - select the parent too, or restore to another container.
+    /// </summary>
+    public const string ParentDeleted = "ParentDeleted";
+
+    /// <summary>Restore: the parent container is restored in the same plan but cannot be restored, so neither can the child.</summary>
+    public const string ParentNotRestored = "ParentNotRestored";
+
+    /// <summary>Restore: the chosen target container does not exist (any more) or is not a valid container.</summary>
+    public const string TargetNotFound = "TargetNotFound";
+
+    /// <summary>Restore: an object with the same name already exists in the target container.</summary>
+    public const string AlreadyExists = "AlreadyExists";
+
+    /// <summary>Restore: the deleted object was recycled (its deleted object lifetime expired) and cannot be restored.</summary>
+    public const string Recycled = "Recycled";
+
+    /// <summary>
+    /// Restore without the AD Recycle Bin: the object is reanimated from a tombstone and gets back only the few
+    /// attributes a tombstone keeps (group memberships and most other attributes are lost).
+    /// </summary>
+    public const string TombstoneReanimation = "TombstoneReanimation";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>
@@ -133,7 +164,7 @@ public sealed record PlannedChange
     /// <summary>Attribute changes for <see cref="ChangeAction.Modify"/> / <see cref="ChangeAction.Create"/>.</summary>
     public IReadOnlyList<AttributeChange> Attributes { get; init; } = [];
 
-    /// <summary>Group DN (membership), new parent DN (move) or new RDN (rename).</summary>
+    /// <summary>Group DN (membership), new parent DN (move), new RDN (rename) or the full new DN (restore).</summary>
     public string? TargetDn { get; init; }
 
     /// <summary>New password for <see cref="ChangeAction.ResetPassword"/>. Sensitive: never log, never persist.</summary>
@@ -163,6 +194,12 @@ public sealed record ObjectPlan
 
     /// <summary>objectClass values (needed by validators and executors), may be empty.</summary>
     public IReadOnlyList<string> ObjectClasses { get; init; } = [];
+
+    /// <summary>
+    /// objectGUID when the planner read it. Restore plans set it: a deleted object is best identified by its GUID (the
+    /// PowerShell export uses it), its DN in CN=Deleted Objects is mangled.
+    /// </summary>
+    public Guid? ObjectGuid { get; init; }
 
     /// <summary>Source row number when planned from CSV (1-based, header excluded).</summary>
     public int? SourceRow { get; init; }

@@ -186,8 +186,9 @@ internal static class SmokeTest
     // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
 
     /// <summary>
-    /// Settings, session log, PowerShell history, the CSV import with a parsed table and the batch editor with every
-    /// operation editor. None of them needs a directory: without a session the batch editor shows "not connected".
+    /// Settings, session log, PowerShell history, the AD Recycle Bin, the CSV import with a parsed table and the batch
+    /// editor with every operation editor. None of them needs a directory: without a session the batch editor and the
+    /// Recycle Bin show "not connected".
     /// </summary>
     private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
     {
@@ -195,6 +196,9 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSettings()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
+
+        // AD Recycle Bin, disconnected: the banner and the error say "not connected", the commands are disabled.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateRecycleBin()));
 
         var import = factory.CreateBatchEditor(new BatchEditorRequest([]));
         import.CsvImport!.Load(new CsvTable(
