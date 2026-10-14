@@ -10,7 +10,6 @@ using AdMng.Watchdog.Core.Formatting.AdaptiveCards;
 using AdMng.Watchdog.Core.Formatting.Webhooks;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
-using AdMng.Watchdog.Service.Notifications;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 
@@ -101,10 +100,11 @@ public static class SmokeTest
         var configuration = services.GetRequiredService<IWatchdogConfigProvider>().Current.Configuration;
         var now = services.GetRequiredService<TimeProvider>().GetUtcNow();
         var ok = true;
-        var email = TestMessages.Email(configuration);
+        var testContext = NotificationContext.Create(configuration, DetailLevel.Full);
+        var email = EmailAlertFormatter.Test(testContext, now);
         ok &= Report("test e-mail", email.HtmlBody.Length > 0 && email.TextBody.Length > 0);
-        ok &= Report("test Teams card", TestMessages.TeamsCard(configuration).Length > 0);
-        ok &= Report("test webhook", TestMessages.Webhook(configuration, Guid.CreateVersion7().ToString("N"), now).Length > 0);
+        ok &= Report("test Teams card", TeamsAlertCardFormatter.Test(testContext, now).Body.Length > 0);
+        ok &= Report("test webhook", WebhookPayloadFormatter.Test(testContext, now).Body.Length > 0);
 
         var sample = SampleEvent() with { Id = 1, DetectedAt = now };
         var second = SampleEvent() with { Id = 2, DetectedAt = now };

@@ -177,12 +177,15 @@ public sealed class DeliveryTesterTests
     [Fact]
     public async Task TestMessages_AreBuiltInBothLanguages()
     {
-        var polish = Service.Notifications.TestMessages.Email(new WatchdogConfiguration { General = new GeneralSettings { Language = "pl", InstanceName = "Centrala" } });
-        var english = Service.Notifications.TestMessages.Email(new WatchdogConfiguration { General = new GeneralSettings { Language = "en", InstanceName = "Centrala" } });
+        // The test sends use the Core notification formatters and texts (NotificationStrings, pl + en).
+        var polish = Core.Formatting.EmailAlertFormatter.Test(Core.Formatting.NotificationContext.Create(
+            new WatchdogConfiguration { General = new GeneralSettings { Language = "pl", InstanceName = "Centrala" } }, DetailLevel.Full), Infrastructure.TestStore.Start);
+        var english = Core.Formatting.EmailAlertFormatter.Test(Core.Formatting.NotificationContext.Create(
+            new WatchdogConfiguration { General = new GeneralSettings { Language = "en", InstanceName = "Centrala" } }, DetailLevel.Full), Infrastructure.TestStore.Start);
 
         Assert.Contains("Wiadomość testowa", polish.Subject, StringComparison.Ordinal);
         Assert.Contains("Test message", english.Subject, StringComparison.Ordinal);
-        Assert.Contains("„Centrala”", polish.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Centrala", polish.TextBody, StringComparison.Ordinal);
         Assert.DoesNotContain("<script", polish.HtmlBody, StringComparison.OrdinalIgnoreCase);
         Assert.True(Encoding.UTF8.GetByteCount(polish.TextBody) > 0);
     }

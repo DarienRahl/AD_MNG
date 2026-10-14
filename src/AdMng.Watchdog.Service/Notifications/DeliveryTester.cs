@@ -1,6 +1,9 @@
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Formatting;
+using AdMng.Watchdog.Core.Formatting.AdaptiveCards;
+using AdMng.Watchdog.Core.Formatting.Webhooks;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Service.Notifications;
@@ -10,8 +13,9 @@ namespace AdMng.Watchdog.Service.Notifications;
 /// (<see cref="DeliveryStageRecorder"/>), never queued in the outbox and never counted against the channel's rate limit
 /// or health. Unsaved settings use their own <see cref="SecretField.NewValue"/>s; a stored secret is used only when its
 /// binding matches (the API rejects a mismatch with 400 <c>secretRebindRequired</c> before calling the tester; the
-/// <see cref="DestinationGuard"/> refuses it here as well). Teams results always carry hint
-/// <see cref="DeliveryHints.AcceptedNotDelivered"/>.
+/// <see cref="DestinationGuard"/> refuses it here as well). The payloads are the Core test formatters' (e-mail
+/// "Wiadomość testowa", the Teams test card, the <c>watchdog.test</c> webhook), in the configured language. Teams results
+/// always carry hint <see cref="DeliveryHints.AcceptedNotDelivered"/>.
 /// </summary>
 public sealed class DeliveryTester(
     IWatchdogConfigProvider configuration,
@@ -35,7 +39,7 @@ public sealed class DeliveryTester(
             ChannelId = "email",
             Kind = DeliveryKind.Test,
             Recipients = request.Recipients,
-            Email = TestMessages.Email(current),
+            Email = EmailAlertFormatter.Test(NotificationContext.Create(current, DetailLevel.Full), now),
             CreatedAt = now,
             NextAttemptAt = now,
         };
@@ -56,14 +60,14 @@ public sealed class DeliveryTester(
         var recorder = new DeliveryStageRecorder(timeProvider);
         if (channel.Type == ChannelType.Teams)
         {
-            var body = TestMessages.TeamsCard(current, channel.Teams?.CardVersion ?? "1.4");
-            var result = await teams.SendAsync(channel, body, "application/json; charset=utf-8", recorder, cancellationToken).ConfigureAwait(false);
+            var card = TeamsAlertCardFormatter.Test(NotificationContext.Create(current, channel.DetailLevel), timeProvider.GetUtcNow(), channel.Teams?.CardVersion);
+            var result = await teams.SendAsync(channel, card.Body, card.ContentType, recorder, cancellationToken).ConfigureAwait(false);
             return Result(result, recorder, started, [DeliveryHints.AcceptedNotDelivered]);
         }
 
         var messageId = Guid.CreateVersion7(timeProvider.GetUtcNow()).ToString("N");
-        var payload = TestMessages.Webhook(current, messageId, timeProvider.GetUtcNow());
-        var sent = await webhook.SendAsync(channel, messageId, payload, "application/json; charset=utf-8", recorder, cancellationToken).ConfigureAwait(false);
+        var payload = WebhookPayloadFormatter.Test(NotificationContext.Create(current, channel.DetailLevel), timeProvider.GetUtcNow());
+        var sent = await webhook.SendAsync(channel, messageId, payload.Body, payload.ContentType, recorder, cancellationToken).ConfigureAwait(false);
         return Result(sent, recorder, started, []);
     }
 
