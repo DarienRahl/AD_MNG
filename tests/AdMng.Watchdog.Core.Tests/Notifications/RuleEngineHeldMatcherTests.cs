@@ -1,17 +1,25 @@
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Notifications;
+using AdMng.Watchdog.Core.Rules;
+using AdMng.Watchdog.Core.Tests.Notifications.Fakes;
+using Microsoft.Extensions.Time.Testing;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 using static AdMng.Watchdog.Core.Tests.Notifications.NotificationHarness;
 
 namespace AdMng.Watchdog.Core.Tests.Notifications;
 
-public sealed class AttributionDependentRecheckTests
+public sealed class RuleEngineHeldMatcherTests
 {
     private const string ServiceDeskSid = "S-1-5-21-1004336348-1177238915-682003330-3105";
 
-    private readonly AttributionDependentRecheck _matcher = new();
     private readonly WatchdogConfiguration _configuration = ConfigWith();
+    private readonly RuleEngineHeldMatcher _matcher;
+
+    public RuleEngineHeldMatcherTests()
+    {
+        _matcher = new RuleEngineHeldMatcher(new RuleEngine(new FakeConfigProvider(_configuration), new AdMng.Watchdog.Core.Tests.Rules.Fakes.FixedTokenSource(ConfigTokens.Unknown), new FakeTimeProvider(Now)));
+    }
 
     [Fact]
     public void StillMatching_UsesTheRuleOverrideOrTheReResolvedSeverity()

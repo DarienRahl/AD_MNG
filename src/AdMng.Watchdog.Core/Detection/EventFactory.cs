@@ -1,4 +1,5 @@
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Attribution;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 
 namespace AdMng.Watchdog.Core.Detection;
@@ -6,19 +7,10 @@ namespace AdMng.Watchdog.Core.Detection;
 /// <summary>
 /// <see cref="EventDraft"/> → <see cref="WatchEvent"/>: identity (Guid v7), change set, object, domain, detection
 /// source and times, originating time/DC from replication metadata (section 10.10), the default attribution
-/// (Pending, or NotApplicable for kinds without an actor) and the severity (<see cref="SeverityResolver"/>).
+/// (<see cref="DefaultAttribution"/>) and the severity (<see cref="SeverityResolver"/>).
 /// </summary>
 internal sealed class EventFactory
 {
-    /// <summary>Kinds that never get an actor (scanner results, bursts, health, disappearance).</summary>
-    private static readonly HashSet<WatchEventKind> NotAttributable =
-    [
-        WatchEventKind.AccountLockedOut, WatchEventKind.LockoutExpired, WatchEventKind.AccountExpiring,
-        WatchEventKind.AccountExpired, WatchEventKind.PasswordExpiring, WatchEventKind.MassLockout,
-        WatchEventKind.MassDeletion, WatchEventKind.PasswordSprayingSuspected, WatchEventKind.ObjectAppeared,
-        WatchEventKind.ObjectDisappeared,
-    ];
-
     private readonly TimeProvider _timeProvider;
     private readonly SeverityResolver _severity;
 
@@ -31,9 +23,14 @@ internal sealed class EventFactory
     /// <summary>A new change set id (Guid v7).</summary>
     public Guid NewChangeSetId() => Guid.CreateVersion7(_timeProvider.GetUtcNow());
 
-    /// <summary>The default attribution of a kind.</summary>
+    /// <summary>
+    /// The default attribution of a kind: Pending for every kind the attribution engine processes – the attributable
+    /// kinds of the security-event catalog (<see cref="SecurityEventCatalog.IsAttributable"/>, section 11.2) and
+    /// AccountLockedOut, whose bad-password sources it looks up before marking it NotApplicable (11.4 #6b) –
+    /// NotApplicable otherwise (scanner results, bursts, health, appeared/disappeared, lockout expiry).
+    /// </summary>
     public static EventAttribution DefaultAttribution(WatchEventKind kind) =>
-        NotAttributable.Contains(kind) || EventKindCatalog.Get(kind).IsHealth ? EventAttribution.NotApplicable : EventAttribution.Pending;
+        SecurityEventCatalog.IsAttributable(kind) || kind == WatchEventKind.AccountLockedOut ? EventAttribution.Pending : EventAttribution.NotApplicable;
 
     /// <summary>Creates the event.</summary>
     public WatchEvent Create(EventDraft draft, ObjectRef objectRef, EventContext context, IReadOnlyList<string> tags, Guid changeSetId)

@@ -3,6 +3,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
+using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Core.Tests.Notifications.Fakes;
 using AdMng.Watchdog.Testing.Stores;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +34,7 @@ internal sealed class NotificationHarness
         Rollout = new RolloutGate(Health, Store);
         Targets = new NotificationTargetResolver(Store);
         Planner = new NotificationPlanner(Store, Targets, Calendars, Rollout);
-        Matcher = new AttributionDependentRecheck();
+        Matcher = new RuleEngineHeldMatcher(new RuleEngine(Config, new AdMng.Watchdog.Core.Tests.Rules.Fakes.FixedTokenSource(ConfigTokens.Unknown), Clock));
         Dispatch = new NotificationDispatchJob(Store, Store, Store, Config, Matcher, Planner, Rollout, new ThrottlePolicy(Store), Signals, Clock,
             NullLogger<NotificationDispatchJob>.Instance);
         FollowUps = new FollowUpPlanner(Store, Config, Clock);

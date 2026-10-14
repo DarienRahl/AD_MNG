@@ -8,7 +8,9 @@ using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Scans;
+using AdMng.Watchdog.Testing.Stores;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
@@ -59,10 +61,30 @@ public sealed class DetectionScenario : IAsyncDisposable
         collection.AddSingleton<IHealthRegistry>(Health);
         collection.AddSingleton<IWatchdogSignals>(Signals);
         services?.Invoke(collection);
+        AddRestOfTheHost(collection, Time);
         _provider = collection.BuildServiceProvider();
     }
 
     public FakeTimeProvider Time { get; }
+
+    /// <summary>
+    /// What the service host registers besides the detection fakes, so every <see cref="IWatchdogJob"/> of
+    /// <c>AddWatchdogCore()</c> can be resolved: logging, the other stores (an <see cref="InMemoryWatchdogStore"/>) and an
+    /// unavailable Security-log source (the Linux host's). TryAdd – registrations of the test win.
+    /// </summary>
+    private static void AddRestOfTheHost(IServiceCollection collection, TimeProvider time)
+    {
+        collection.AddLogging();
+        var store = new InMemoryWatchdogStore(time);
+        collection.TryAddSingleton<INotificationQueueStore>(store);
+        collection.TryAddSingleton<IOutboxStore>(store);
+        collection.TryAddSingleton<ISecurityEventStore>(store);
+        collection.TryAddSingleton<IDigestRunStore>(store);
+        collection.TryAddSingleton<IConfigStore>(store);
+        collection.TryAddSingleton<ISecretStore>(store);
+        collection.TryAddSingleton<IStoreMaintenance>(store);
+        collection.TryAddSingleton<ISecurityEventSource>(new ScenarioSecurityEventSource { IsAvailable = false });
+    }
 
     public FakeDirectoryBuilder Builder { get; }
 

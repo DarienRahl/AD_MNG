@@ -10,7 +10,7 @@ namespace AdMng.Watchdog.Core.Detection;
 /// Re-subscribed when the session or the configured containers change; never a source of events – the RootDSE check
 /// every PollInterval stays the reliable trigger.
 /// </summary>
-public sealed class ChangeNotificationWaker : IAsyncDisposable
+public sealed class ChangeNotificationWaker : IAsyncDisposable, IDisposable
 {
     /// <summary>At most this many subscriptions (AD allows five notification requests per connection).</summary>
     public const int MaxContainers = 4;
@@ -20,6 +20,7 @@ public sealed class ChangeNotificationWaker : IAsyncDisposable
     private readonly List<IAsyncDisposable> _subscriptions = [];
     private IDirectorySession? _session;
     private string _key = string.Empty;
+    private int _disposed;
 
     public ChangeNotificationWaker(IWatchdogSignals signals)
     {
@@ -70,6 +71,11 @@ public sealed class ChangeNotificationWaker : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -84,6 +90,10 @@ public sealed class ChangeNotificationWaker : IAsyncDisposable
 
         _gate.Dispose();
     }
+
+    /// <summary>Synchronous disposal for containers disposed with <c>Dispose()</c> (the subscriptions only abandon their
+    /// LDAP requests, so waiting for them does not block for long).</summary>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 
     private async Task DisposeSubscriptionsAsync()
     {

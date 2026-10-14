@@ -411,6 +411,8 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         var now = _services.Time.GetUtcNow();
         _failingSince ??= now;
         Report(HealthConnection, HealthState.Error, now, "The domain controller is not reachable.", error.Kind.ToString());
+        // The status keeps the last known DC state (baseline time, USN) and shows the directory as failing.
+        _health.ReportDirectory(_health.Directory with { State = HealthState.Error });
         var failoverAfter = _configuration.Current.Configuration.Directory.FailoverAfter;
         if (!_unavailableReported && now - _failingSince >= failoverAfter)
         {
@@ -422,6 +424,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
     private async Task ReportPermissionGapAsync(CancellationToken cancellationToken)
     {
         Report(HealthSearchPermission, HealthState.Error, _services.Time.GetUtcNow(), "The change search was denied; the watermark was not moved.");
+        _health.ReportDirectory(_health.Directory with { State = HealthState.Error });
         if (!_permissionGapReported)
         {
             _permissionGapReported = true;

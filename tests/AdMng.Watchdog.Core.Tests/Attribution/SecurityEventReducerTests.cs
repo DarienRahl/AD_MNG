@@ -19,7 +19,7 @@ public class SecurityEventReducerTests
     private static SecurityEventReduction Reduction(ISchemaCatalog? schema = null, params string[] excluded) => new()
     {
         Schema = schema,
-        WatchedAttributes = new ConfiguredWatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration
+        WatchedAttributes = new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration
         {
             Directory = new DirectorySettings { AdditionalWatchedAttributes = ["extensionAttribute1"], IgnoredAttributes = ["scriptPath"] },
         })),
@@ -48,7 +48,8 @@ public class SecurityEventReducerTests
     [Theory]
     [InlineData("userAccountControl", "512", "512")]
     [InlineData("extensionAttribute1", "Dział Księgowości", "Dział Księgowości")]
-    [InlineData("department", "Kadry", null)]
+    [InlineData("department", "Kadry", "Kadry")]              // in the effective user set of 9.2
+    [InlineData("carLicense", "KR 12345", null)]               // in no watched set
     [InlineData("scriptPath", "logon.bat", null)]
     [InlineData("msDS-KeyCredentialLink", "B:828:00020000…", null)]
     [InlineData("unicodePwd", "\"Hasło-2026\"", SecretAttributes.Mask)]

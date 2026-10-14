@@ -5,8 +5,7 @@ namespace AdMng.Watchdog.Core.Notifications;
 
 /// <summary>
 /// Re-matches a held notification's rule against the event's final state before it is released (section 13.3: final
-/// severity, tags and actor). The rules area's <c>RuleEngine.Rematch</c> has exactly this purpose; without an adapter
-/// over it, <see cref="AttributionDependentRecheck"/> re-checks the conditions that attribution can change.
+/// severity, tags and actor). Implemented by <see cref="RuleEngineHeldMatcher"/> (the rules area's <c>RuleMatcher</c>).
 /// </summary>
 public interface IHeldNotificationMatcher
 {

@@ -2,6 +2,7 @@ using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Notifications;
@@ -11,9 +12,9 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// event that was sent with the actor pending and has severity ≥ High, a pending follow-up for the same target, due now
 /// and replying to that message (same e-mail thread, Teams "Uzupełnienie", webhook <c>ad.attribution.updated</c>) – only
 /// with <c>Notifications.FollowUpWhenAttributed</c>. The AttributionEngine adds the rows (<c>INotificationQueueStore.AddAsync</c>;
-/// duplicates are ignored); the method has the shape of the rules area's <c>IAttributionFollowUpPlanner</c>.
+/// duplicates are ignored) through <see cref="IAttributionFollowUpPlanner"/>.
 /// </summary>
-public sealed class FollowUpPlanner
+public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
 {
     private readonly IOutboxStore _outbox;
     private readonly IWatchdogConfigProvider _configProvider;

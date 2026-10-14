@@ -4,9 +4,9 @@ using AdMng.Watchdog.Core.Abstractions;
 namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
-/// Degraded <see cref="IDomainControllerCatalog"/> (not authoritative) used when the detection side's
-/// <c>DomainControllerDirectory</c> is not registered: the attribution sources are <c>Attribution.DomainControllers</c>
-/// or, when empty, the DC the directory session is pinned to (the PDC emulator by default); the known DCs are those
+/// Degraded <see cref="IDomainControllerCatalog"/> (not authoritative) that the detection side's
+/// <c>DomainControllerCatalog</c> falls back to while the forest's DC list could not be read: the attribution sources
+/// are <c>Attribution.DomainControllers</c> or, when empty, the DC the directory session is pinned to (the PDC emulator by default); the known DCs are those
 /// hosts; invocation ids are not resolved. Stricter, never looser, than the real directory: records of any other host
 /// are rejected by <see cref="EventSourceGuard"/>.
 /// </summary>

@@ -1,14 +1,15 @@
 using System.Runtime.CompilerServices;
 using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Core.Rules;
 
 namespace AdMng.Watchdog.Core.Notifications;
 
 /// <summary>
 /// The <see cref="BusinessCalendar"/> of a configuration, cached per configuration instance (the configuration
-/// provider hands out one instance per saved version). The business-time check of the rule preview
-/// (<c>IBusinessHoursCalendar</c> of the rules area) has exactly the shape of <see cref="IsBusinessTime"/>.
+/// provider hands out one instance per saved version). It is the rules area's <see cref="IBusinessHoursCalendar"/> (rule
+/// preview) and, through <c>ConfiguredBusinessDayCalendar</c>, the business-day calendar of the expiry scanners.
 /// </summary>
-public sealed class BusinessCalendarProvider
+public sealed class BusinessCalendarProvider : IBusinessHoursCalendar
 {
     private readonly ConditionalWeakTable<WatchdogConfiguration, BusinessCalendar> _calendars = [];
 

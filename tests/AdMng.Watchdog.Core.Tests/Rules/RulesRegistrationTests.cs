@@ -1,12 +1,17 @@
 using AdMng.Testing;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Configuration;
+using AdMng.Watchdog.Core.Detection;
+using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Core.Registration;
 using AdMng.Watchdog.Core.Rules;
+using AdMng.Watchdog.Core.Scans;
 using AdMng.Watchdog.Core.Tests.Attribution.Fakes;
 using AdMng.Watchdog.Core.Tests.Rules.Fakes;
 using AdMng.Watchdog.Testing.Attribution;
+using AdMng.Watchdog.Testing.Stores;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -43,10 +48,17 @@ public class RulesRegistrationTests
         return services;
     }
 
+    /// <summary>The extension points the detection area implements (RulesRegistration alone registers none).</summary>
+    private static IServiceCollection DetectionExtensionPoints(IServiceCollection services) => services
+        .AddSingleton<IDomainControllerCatalog>(new FakeDomainControllers("dc01.contoso.test"))
+        .AddSingleton<IWatchedAttributeCatalog>(new WatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration())))
+        .AddSingleton<ISyncAccountCatalog>(new FakeSyncAccounts())
+        .AddSingleton<ILockoutPolicySource>(new FixedLockoutPolicy(TimeSpan.FromMinutes(30)));
+
     [Fact]
     public void EveryRulesService_Resolves_AndValidatesOnBuild()
     {
-        var services = Host(new ServiceCollection());
+        var services = DetectionExtensionPoints(Host(new ServiceCollection()));
         RulesRegistration.Add(services);
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
@@ -62,24 +74,36 @@ public class RulesRegistrationTests
         Assert.Same(provider.GetRequiredService<AttributionEngine>(), jobs.OfType<AttributionEngine>().Single());
     }
 
-    [Fact]
-    public void TheFallbacks_AreUsedWithoutOtherRegistrations()
+    /// <summary><see cref="Host"/> plus the stores only the other areas use (the whole of <c>AddWatchdogCore()</c> resolves).</summary>
+    private static IServiceCollection FullHost(IServiceCollection services)
     {
-        var services = Host(new ServiceCollection());
-        RulesRegistration.Add(services);
-        using var provider = services.BuildServiceProvider();
+        var store = new InMemoryWatchdogStore(new FakeTimeProvider(TestEvents.Now));
+        return Host(services).AddSingleton<IOutboxStore>(store).AddSingleton<IExpiryNoticeStore>(store).AddSingleton<IDigestRunStore>(store)
+            .AddSingleton<IStoreMaintenance>(store).AddSingleton<ISecretStore>(store);
+    }
 
-        Assert.IsType<SessionDomainControllerCatalog>(provider.GetRequiredService<IDomainControllerCatalog>());
-        Assert.IsType<ConfiguredWatchedAttributeCatalog>(provider.GetRequiredService<IWatchedAttributeCatalog>());
-        Assert.IsType<NoSyncAccounts>(provider.GetRequiredService<ISyncAccountCatalog>());
-        Assert.IsType<DomainLockoutPolicySource>(provider.GetRequiredService<ILockoutPolicySource>());
+    [Fact]
+    public void AddWatchdogCore_WiresTheExtensionPoints_ToTheDetectionAndNotificationClasses()
+    {
+        using var provider = FullHost(new ServiceCollection()).AddWatchdogCore().AddWatchdogCore()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
+
+        Assert.IsType<DomainControllerCatalog>(provider.GetRequiredService<IDomainControllerCatalog>());
+        Assert.IsType<WatchedAttributeCatalog>(provider.GetRequiredService<IWatchedAttributeCatalog>());
+        Assert.Same(provider.GetRequiredService<SyncAccountDetector>(), provider.GetRequiredService<ISyncAccountCatalog>());
+        Assert.IsType<LockoutObservationWindowSource>(provider.GetRequiredService<ILockoutPolicySource>());
+        Assert.Same(provider.GetRequiredService<NotificationPlanner>(), Assert.Single(provider.GetServices<IRuleMatchPlanner>()));
+        Assert.Same(provider.GetRequiredService<FollowUpPlanner>(), Assert.Single(provider.GetServices<IAttributionFollowUpPlanner>()));
+        Assert.Same(provider.GetRequiredService<BusinessCalendarProvider>(), provider.GetRequiredService<IBusinessHoursCalendar>());
+        Assert.IsType<RuleEngineHeldMatcher>(provider.GetRequiredService<IHeldNotificationMatcher>());
+        Assert.IsType<ConfiguredBusinessDayCalendar>(provider.GetRequiredService<IBusinessDayCalendar>());
     }
 
     [Fact]
     public void EarlierRegistrations_Win()
     {
         var catalog = new FakeDomainControllers("dc01.contoso.test");
-        var services = Host(new ServiceCollection()).AddSingleton<IDomainControllerCatalog>(catalog);
+        var services = DetectionExtensionPoints(Host(new ServiceCollection())).AddSingleton<IDomainControllerCatalog>(catalog);
         RulesRegistration.Add(services);
         RulesRegistration.Add(services);
         using var provider = services.BuildServiceProvider();
@@ -91,7 +115,7 @@ public class RulesRegistrationTests
     [Fact]
     public void AddWatchdogCore_ProvidesThePublicRulesServices()
     {
-        using var provider = Host(new ServiceCollection().AddWatchdogCore()).BuildServiceProvider();
+        using var provider = FullHost(new ServiceCollection().AddWatchdogCore()).BuildServiceProvider();
 
         Assert.IsType<WatchdogConfigProvider>(provider.GetRequiredService<IWatchdogConfigProvider>());
         Assert.IsType<ConfigurationValidator>(provider.GetRequiredService<IConfigurationValidator>());
