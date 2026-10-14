@@ -75,6 +75,24 @@ public class DomainControllerChangeTests
     }
 
     [Fact]
+    public async Task ResyncOnAStaleDc_KeepsTheNewerSnapshotValue()
+    {
+        await using var scenario = new DetectionScenario(seed: b => b.AddDomainController(Dc02, Dc02Invocation));
+        await scenario.BaselineAsync();
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.Title, "Architekt");
+        Assert.Single(await scenario.CycleEventsAsync());
+
+        scenario.Directory.SwitchServer(Dc02);
+        scenario.Directory.SimulateStaleReplica(scenario.Company.JanKowalski, Attr.Title, "Administrator systemów");
+        var result = await scenario.RunCycleAsync();
+
+        Assert.Equal(DetectionMode.Resync, result.Mode);
+        Assert.Contains("staleDc", result.Warnings);
+        Assert.DoesNotContain(scenario.TakeEvents(), e => e.Kind == WatchEventKind.AttributesChanged);
+        Assert.Equal("Architekt", scenario.Snapshot(scenario.Company.JanKowalski)!.Attributes[Attr.Title].Values[0]);
+    }
+
+    [Fact]
     public async Task RestoredDc_IsResyncInvocationIdChanged()
     {
         await using var scenario = new DetectionScenario();

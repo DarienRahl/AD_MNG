@@ -521,6 +521,23 @@ public class FakeDirectoryWatchdogTests
         Assert.Equal(onDc1 + FakeDirectorySession.DomainControllerUsnSpacing, onDc2);
     }
 
+    [Fact]
+    public async Task StaleReplica_RestoresTheOldValueWithALowerVersionWithoutUsnBump()
+    {
+        var (builder, company, _) = Create();
+        var session = builder.Session;
+        await session.ModifyAsync(company.JanKowalski, [AttributeModification.Replace(Attr.Title, "Architekt")], null, Ct);
+        var usn = await UsnChangedAsync(session, company.JanKowalski);
+
+        session.SimulateStaleReplica(company.JanKowalski, Attr.Title, "Administrator systemów");
+
+        var jan = await session.GetAsync(company.JanKowalski, [Attr.Title, "msDS-ReplAttributeMetaData", Attr.UsnChanged], Ct);
+        Assert.Equal("Administrator systemów", jan!.GetString(Attr.Title));
+        Assert.Equal(usn, jan.GetInt64(Attr.UsnChanged));
+        var title = Assert.Single(jan.GetStrings("msDS-ReplAttributeMetaData"), v => v.Contains("<pszAttributeName>title<", StringComparison.Ordinal));
+        Assert.Contains("<dwVersion>1</dwVersion>", title, StringComparison.Ordinal);
+    }
+
     private static ExtendedDistinguishedName? ParseExtended(string value) =>
         ExtendedDistinguishedName.TryParse(value, out var parsed) ? parsed : null;
 }

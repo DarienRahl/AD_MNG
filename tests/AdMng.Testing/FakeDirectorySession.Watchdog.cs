@@ -309,6 +309,26 @@ public sealed partial class FakeDirectorySession
         }
     }
 
+    /// <summary>
+    /// Emulates a DC that has not received the latest originating write of <paramref name="attribute"/> yet: the value
+    /// goes back to <paramref name="values"/> and its replication metadata version one below the current one (no USN
+    /// bump). Used for the version-aware Resync on a stale DC (section 10.4).
+    /// </summary>
+    public void SimulateStaleReplica(string distinguishedName, string attribute, params object[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        lock (_gate)
+        {
+            var entry = FindExisting(distinguishedName);
+            var name = Canonical(attribute);
+            entry.Attributes[name] = [.. values.SelectMany(v => ToValues(name, v))];
+            if (_metadata.TryGetValue(entry, out var metadata) && metadata.TryGetValue(name, out var current))
+            {
+                metadata[name] = current with { Version = Math.Max(1, current.Version - 1) };
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- read restrictions
 
     /// <summary>
