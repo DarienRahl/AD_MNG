@@ -119,6 +119,6 @@ public sealed partial record ConfigTokens
     }
 
     /// <summary><c>^S-1-\d+(-\d+)+$</c> (section 8.3 <c>invalidSid</c>).</summary>
-    [GeneratedRegex(@"^S-1-\d+(-\d+)+$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    [GeneratedRegex(@"^S-1-\d+(-\d+)+\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     internal static partial Regex SidSyntax();
 }
