@@ -9,10 +9,10 @@ namespace AdMng.Watchdog.Service.Tests.Infrastructure;
 /// <summary>
 /// The <c>Test</c> scheme (spec 22.2): <c>X-Test-Account</c> (DOMAIN\name) authenticates, <c>X-Test-Sids</c>
 /// (comma-separated group SIDs), <c>X-Test-PrimaryGroupSid</c>, <c>X-Test-UserSid</c> and <c>X-Test-AuthType</c>
-/// (default "Kerberos") shape the identity. No header = anonymous.
+/// (default "Kerberos") shape the identity. No header = anonymous, or <see cref="TestAuthenticationOptions.DefaultAccount"/>.
 /// </summary>
-public sealed class TestAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
-    : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+public sealed class TestAuthenticationHandler(IOptionsMonitor<TestAuthenticationOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+    : AuthenticationHandler<TestAuthenticationOptions>(options, logger, encoder)
 {
     public const string AccountHeader = "X-Test-Account";
     public const string SidsHeader = "X-Test-Sids";
@@ -23,15 +23,22 @@ public sealed class TestAuthenticationHandler(IOptionsMonitor<AuthenticationSche
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var account = Request.Headers[AccountHeader].ToString();
+        var sids = Request.Headers[SidsHeader].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (string.IsNullOrEmpty(account))
         {
-            return Task.FromResult(AuthenticateResult.NoResult());
+            if (Options.DefaultAccount is null)
+            {
+                return Task.FromResult(AuthenticateResult.NoResult());
+            }
+
+            account = Uri.EscapeDataString(Options.DefaultAccount);
+            sids = [.. Options.DefaultSids];
         }
 
         var authType = Request.Headers[AuthTypeHeader].ToString() is { Length: > 0 } type ? type : "Kerberos";
         var identity = new ClaimsIdentity(authType, ClaimTypes.Name, ClaimTypes.Role);
         identity.AddClaim(new Claim(ClaimTypes.Name, Uri.UnescapeDataString(account)));
-        foreach (var sid in Request.Headers[SidsHeader].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var sid in sids)
         {
             identity.AddClaim(new Claim(ClaimTypes.GroupSid, sid));
         }

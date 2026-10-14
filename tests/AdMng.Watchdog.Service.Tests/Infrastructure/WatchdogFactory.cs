@@ -5,7 +5,6 @@ using AdMng.Watchdog.Service.Hosting;
 using AdMng.Watchdog.Service.Notifications;
 using AdMng.Watchdog.Service.Storage;
 using AdMng.Watchdog.Service.Tests.Fakes;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -73,6 +72,11 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
 
     public TestLog Log { get; } = new();
 
+    /// <summary>Identity of requests without test headers (client tests); null = anonymous.</summary>
+    public string? DefaultAccount { get; init; }
+
+    public IReadOnlyList<string> DefaultSids { get; init; } = [];
+
     public SqliteWatchdogStore Store => Services.GetRequiredService<SqliteWatchdogStore>();
 
     /// <summary>A client calling as <paramref name="account"/> with the group SIDs (no account = anonymous).</summary>
@@ -104,7 +108,11 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
         builder.UseEnvironment(_environment);
         builder.ConfigureTestServices(services =>
         {
-            services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, null);
+            services.AddAuthentication().AddScheme<TestAuthenticationOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, options =>
+            {
+                options.DefaultAccount = DefaultAccount;
+                options.DefaultSids = DefaultSids;
+            });
             services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             services.AddSingleton<TimeProvider>(Clock);
             services.AddSingleton<IProcessTerminator>(Terminator);

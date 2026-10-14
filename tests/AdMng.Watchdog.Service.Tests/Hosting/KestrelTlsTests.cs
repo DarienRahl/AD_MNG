@@ -7,7 +7,6 @@ using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
 using AdMng.Watchdog.Testing.Certificates;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -38,7 +37,7 @@ public sealed class KestrelTlsTests
             builder.Configuration.AddInMemoryCollection(settings);
             builder.Services.AddSingleton<ICertificateStore>(new SingleCertificateStore(TestCertificates.Localhost));
             builder.Services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
-            builder.Services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, null);
+            builder.Services.AddAuthentication().AddScheme<TestAuthenticationOptions, TestAuthenticationHandler>(AuthenticationSetup.TestScheme, null);
         });
         await app.StartAsync(Ct);
         try
