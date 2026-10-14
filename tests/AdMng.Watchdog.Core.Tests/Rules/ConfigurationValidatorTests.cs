@@ -686,6 +686,7 @@ public class ConfigurationValidatorTests
 
         Assert.False(result.IsValid);
         Assert.Contains(result.Issues, i => i.Code == ConfigValidationCodes.ExclusionReason);
+        AssertIssue(result, ConfigValidationCodes.InvalidSid, "rules[12].actors.excludeActors[0]");
     }
 
     [Fact]

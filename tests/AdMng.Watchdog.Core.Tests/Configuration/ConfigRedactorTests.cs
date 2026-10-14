@@ -9,10 +9,12 @@ namespace AdMng.Watchdog.Core.Tests.Configuration;
 
 public class ConfigRedactorTests
 {
+    private const string ActorFilterSid = "S-1-5-21-1004336348-1177238915-682003330-2244";
+
     private static readonly ConfigEnvelope Envelope = new()
     {
         Version = 42,
-        Configuration = SampleConfiguration.Create(),
+        Configuration = WithActorFilter(SampleConfiguration.Create()),
         UpdatedAt = SampleConfiguration.Created,
         UpdatedBy = "CONTOSO\\adm.jkowalska",
     };
@@ -105,13 +107,55 @@ public class ConfigRedactorTests
         string[] hidden =
         [
             "łukasz.wiśniewski", "zofia.żak", "helpdesk.łódź", "smtp.contoso.test", "svc-wd@", "nadzor@", "zespół.it",
-            "admng-wd.contoso.test\"", SampleConfiguration.TenantId, SampleConfiguration.ClientId, "A1B2C3D4", "00112233",
+            "admng-wd.contoso.test\"", "siem.contoso.test", ActorFilterSid, SampleConfiguration.TenantId, SampleConfiguration.ClientId, "A1B2C3D4", "00112233",
             "powerplatform", "siem.contoso.test/hooks", "whsec_", "…abcd", "…wxyz",
             SampleConfiguration.ExclusionReason, SampleConfiguration.ExclusionActorSid, "OU=Serwery", "konto-testowe", "adm.jkowalska\",\"createdAt",
         ];
         Assert.All(hidden, value => Assert.DoesNotContain(value, json, StringComparison.OrdinalIgnoreCase));
         Assert.Contains("\"isRedacted\":true", json, StringComparison.Ordinal);
         Assert.Contains("https://admng-wd.contoso.test:8443", json, StringComparison.Ordinal);   // PublicBaseUrl stays (event links)
+    }
+
+    /// <summary>The sample with actor exclusions on the Tier-0 rule (two SIDs).</summary>
+    private static WatchdogConfiguration WithActorFilter(WatchdogConfiguration source) => source with
+    {
+        Rules =
+        [
+            source.Rules[0] with { Actors = source.Rules[0].Actors with { ExcludeActors = [ActorFilterSid, SampleConfiguration.ExclusionActorSid] } },
+            .. source.Rules.Skip(1),
+        ],
+    };
+
+    [Fact]
+    public void ActorExclusions_AreReplacedByPlaceholders_SoOnlyTheCountRemains()
+    {
+        var rules = new ConfigRedactor().Redact(WithActorFilter(SampleConfiguration.Create())).Rules;
+
+        Assert.Equal(["redacted-1", "redacted-2"], rules[0].Actors.ExcludeActors);
+        Assert.True(rules[0].Actors.ExcludeSelfChanges);
+        Assert.Empty(rules[1].Actors.ExcludeActors);
+        Assert.All(rules.SelectMany(r => r.Actors.ExcludeActors), a => Assert.DoesNotContain("S-1-", a, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void WebhookAllowedHosts_AreRemovedLikeRecipients()
+    {
+        var siem = new ConfigRedactor().Redact(SampleConfiguration.Create()).Channels[1];
+
+        Assert.Empty(siem.Webhook!.AllowedHosts);
+        Assert.Equal(SampleConfiguration.Create().Channels[1].Webhook!.SendGitHubSignature, siem.Webhook.SendGitHubSignature);
+        Assert.Equal(SampleConfiguration.Create().Channels[1].Webhook!.Timeout, siem.Webhook.Timeout);
+    }
+
+    [Fact]
+    public void NullActorFilter_DoesNotBreakTheViewerResponse()
+    {
+        var source = SampleConfiguration.Create();
+        var broken = source with { Rules = [source.Rules[0] with { Actors = null! }] };
+
+        var redacted = new ConfigRedactor().Redact(broken);
+
+        Assert.Null(Assert.Single(redacted.Rules).Actors);
     }
 
     [Fact]
