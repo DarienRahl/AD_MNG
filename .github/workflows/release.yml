@@ -223,10 +223,25 @@ jobs:
           elif [ "$REF_TYPE" = tag ]; then
             gh release create "$TAG" dist/* --verify-tag --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
           else
-            # Creates the tag on the release commit.
-            gh release create "$TAG" dist/* --target "$TARGET" --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
+            # The workflow token may not create a tag on a commit that changes .github/workflows (it cannot get the
+            # "workflows" permission), so the release starts as a draft, which creates no tag, and is published below.
+            gh release create "$TAG" dist/* --draft --target "$TARGET" --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
           fi
-          gh release view "$TAG" --json url,tagName,isPrerelease,assets --jq '{url, tagName, isPrerelease, assets: [.assets[].name]}'
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
+            if gh release edit "$TAG" --draft=false 2> publish-error.txt; then
+              echo "Published $TAG; the tag was created on $TARGET."
+            else
+              cat publish-error.txt
+              echo "::warning::$TAG is ready as a draft release but the workflow token could not create the tag on $TARGET. Publish the draft on GitHub (Releases, $TAG, Edit, Publish release): the tag is then created on $TARGET."
+              {
+                echo "### $TAG is ready as a draft release"
+                echo
+                echo "The workflow token could not create the tag on \`$TARGET\`. Open **Releases → $TAG → Edit → Publish release**;"
+                echo "GitHub then creates the tag on that commit. All files and the release notes are already attached."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          gh release view "$TAG" --json url,tagName,isDraft,isPrerelease,assets --jq '{url, tagName, isDraft, isPrerelease, assets: [.assets[].name]}'
 
   notes:
     name: Update the release notes
