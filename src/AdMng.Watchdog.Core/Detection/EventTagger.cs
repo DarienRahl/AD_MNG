@@ -38,7 +38,9 @@ internal sealed class EventTagger
 
         if (subject is not null)
         {
-            TagSubject(tags, draft, subject, objectRef, context, privileged);
+            // adminCountOrphan is about the subject itself (for membership kinds the group, not the member).
+            var subjectPrivileged = context.IsPrivileged(subject.ObjectGuid.ToString("N")) || context.IsPrivilegedRoot(subject);
+            TagSubject(tags, draft, subject, objectRef, context, subjectPrivileged);
         }
 
         if (longDisabled && draft.Kind == WatchEventKind.AccountEnabled)

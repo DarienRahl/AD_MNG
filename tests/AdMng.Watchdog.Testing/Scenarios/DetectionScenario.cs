@@ -1,3 +1,4 @@
+using System.Globalization;
 using AdMng.Core.Directory;
 using AdMng.Testing;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -143,7 +144,7 @@ public sealed class DetectionScenario : IAsyncDisposable
 
     /// <summary>Replace modification through the LDAP write path (USN bump, metadata).</summary>
     public Task ReplaceAsync(string dn, string attribute, params object[] values) =>
-        Directory.ModifyAsync(dn, [AttributeModification.Replace(attribute, values)], null, Token);
+        Directory.ModifyAsync(dn, [AttributeModification.Replace(attribute, Wire(values))], null, Token);
 
     /// <summary>Clears an attribute.</summary>
     public Task ClearAsync(string dn, string attribute) =>
@@ -151,11 +152,11 @@ public sealed class DetectionScenario : IAsyncDisposable
 
     /// <summary>Adds values (e.g. members).</summary>
     public Task AddValuesAsync(string dn, string attribute, params object[] values) =>
-        Directory.ModifyAsync(dn, [AttributeModification.Add(attribute, values)], null, Token);
+        Directory.ModifyAsync(dn, [AttributeModification.Add(attribute, Wire(values))], null, Token);
 
     /// <summary>Removes values (e.g. members).</summary>
     public Task RemoveValuesAsync(string dn, string attribute, params object[] values) =>
-        Directory.ModifyAsync(dn, [AttributeModification.Delete(attribute, values)], null, Token);
+        Directory.ModifyAsync(dn, [AttributeModification.Delete(attribute, Wire(values))], null, Token);
 
     /// <summary>Deletes an object (tombstone).</summary>
     public Task DeleteAsync(string dn, bool subtree = false) => Directory.DeleteAsync(dn, subtree, Token);
@@ -173,4 +174,8 @@ public sealed class DetectionScenario : IAsyncDisposable
     public SnapshotObject? Snapshot(string dn) => Store.FindByDnAsync(dn, Token).GetAwaiter().GetResult();
 
     public ValueTask DisposeAsync() => _provider.DisposeAsync();
+
+    /// <summary>LDAP wire values: numbers as invariant strings, strings and byte arrays unchanged.</summary>
+    private static object[] Wire(object[] values) =>
+        [.. values.Select(v => v is IFormattable number and not DateTimeOffset ? number.ToString(null, CultureInfo.InvariantCulture) : v)];
 }

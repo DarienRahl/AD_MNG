@@ -38,6 +38,7 @@ internal sealed class ObjectProcessor
         _tagging = new TaggingContext
         {
             IsPrivileged = cycle.IsPrivileged,
+            IsPrivilegedRoot = s => s.Kind == WatchObjectKind.Group && cycle.Settings.Privileged.TierOf(s.Sid, s.SamAccountName, s.Dn) is not null,
             Containers = cycle.Dc.Containers,
             ServiceAccountSubtrees = cycle.Settings.ServiceAccountSubtrees,
             DisabledAccountsSubtrees = cycle.Settings.DisabledAccountsSubtrees,

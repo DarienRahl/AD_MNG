@@ -37,7 +37,7 @@ internal sealed class PrivilegeEvaluator
             Traverse(rootGuid, tier, edges, principals);
         }
 
-        var state = new PrivilegeState { Principals = [.. principals.Values], ComputedAt = cycle.Now };
+        var state = new PrivilegeState { Principals = [.. principals.Values], ComputedAt = _services.Time.GetUtcNow() };
         if (!emit || cycle.StoredPrivileges is not { } previous)
         {
             return new PrivilegeEvaluation(state, []);
