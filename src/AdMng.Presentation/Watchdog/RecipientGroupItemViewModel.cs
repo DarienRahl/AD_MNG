@@ -11,11 +11,10 @@ public sealed partial class RecipientGroupItemViewModel : ObservableObject
     private readonly Action _changed;
     private readonly bool _loading;
 
-    public RecipientGroupItemViewModel(RecipientGroup group, int index, IReadOnlyList<Option<DetailLevel>> detailLevels, Action changed)
+    public RecipientGroupItemViewModel(RecipientGroup group, IReadOnlyList<Option<DetailLevel>> detailLevels, Action changed)
     {
         _original = group ?? throw new ArgumentNullException(nameof(group));
         _changed = changed ?? throw new ArgumentNullException(nameof(changed));
-        Index = index;
         DetailLevels = detailLevels ?? throw new ArgumentNullException(nameof(detailLevels));
         _loading = true;
         Id = group.Id;
@@ -24,9 +23,6 @@ public sealed partial class RecipientGroupItemViewModel : ObservableObject
         DetailLevel = detailLevels.First(d => d.Value == group.DetailLevel);
         _loading = false;
     }
-
-    /// <summary>Position in <c>configuration.recipientGroups</c>.</summary>
-    public int Index { get; }
 
     public IReadOnlyList<Option<DetailLevel>> DetailLevels { get; }
 

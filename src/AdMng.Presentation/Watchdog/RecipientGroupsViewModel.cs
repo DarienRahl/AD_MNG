@@ -21,9 +21,9 @@ public sealed partial class RecipientGroupsViewModel : ObservableObject
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _detailLevels = [.. Enum.GetValues<DetailLevel>().Select(d => new Option<DetailLevel>(d, services.Localizer[WatchdogDisplay.DetailLevelKey(d)]))];
         var groups = session.Working?.RecipientGroups ?? [];
-        for (var i = 0; i < groups.Count; i++)
+        foreach (var group in groups)
         {
-            Groups.Add(new RecipientGroupItemViewModel(groups[i], i, _detailLevels, Commit));
+            Groups.Add(new RecipientGroupItemViewModel(group, _detailLevels, Commit));
         }
 
         SelectedGroup = Groups.FirstOrDefault();
@@ -38,12 +38,13 @@ public sealed partial class RecipientGroupsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RemoveGroupCommand))]
     public partial RecipientGroupItemViewModel? SelectedGroup { get; set; }
 
+    /// <summary>Shows the service's issues next to each group (by its current position: groups may have been removed).</summary>
     public void RefreshErrors()
     {
-        foreach (var group in Groups)
+        for (var i = 0; i < Groups.Count; i++)
         {
-            var prefix = string.Create(CultureInfo.InvariantCulture, $"recipientGroups[{group.Index}].");
-            group.Errors.Set(_session.IssuesFor(prefix), prefix);
+            var prefix = string.Create(CultureInfo.InvariantCulture, $"recipientGroups[{i}].");
+            Groups[i].Errors.Set(_session.IssuesFor(prefix), prefix);
         }
     }
 
@@ -57,7 +58,7 @@ public sealed partial class RecipientGroupsViewModel : ObservableObject
             id = string.Create(CultureInfo.InvariantCulture, $"nowa-grupa-{i}");
         }
 
-        var group = new RecipientGroupItemViewModel(new RecipientGroup { Id = id, Name = _services.Localizer[L.Watchdog.GroupsNewName] }, Groups.Count, _detailLevels, Commit);
+        var group = new RecipientGroupItemViewModel(new RecipientGroup { Id = id, Name = _services.Localizer[L.Watchdog.GroupsNewName] }, _detailLevels, Commit);
         Groups.Add(group);
         SelectedGroup = group;
         Commit();
