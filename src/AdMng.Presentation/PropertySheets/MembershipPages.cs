@@ -160,7 +160,11 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         Dn = obj.DistinguishedName;
         _all.Clear();
         Items.ReplaceAll([]);
+
+        // A running "All (nested)" query belongs to the previous read (possibly of another DN after a move).
+        _nestedLoads.Cancel();
         NestedItems.ReplaceAll([]);
+        IsNestedLoading = false;
         IsNestedLoaded = false;
         NestedError = null;
         Refresh();
@@ -270,6 +274,12 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
                     return list;
                 },
                 linked.Token).ConfigureAwait(true);
+            if (!_nestedLoads.IsCurrent(token))
+            {
+                // Superseded by a newer load or by a reload of the object: the results are stale.
+                return;
+            }
+
             var comparer = StringComparer.Create(Context.Culture, ignoreCase: true);
             NestedItems.ReplaceAll(items.OrderBy(i => i.Name, comparer));
             IsNestedLoaded = true;
@@ -278,13 +288,20 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         {
             // Superseded or cancelled by the operator.
         }
-        catch (DirectoryException ex)
+        catch (DirectoryException ex) when (_nestedLoads.IsCurrent(token))
         {
             NestedError = Context.Services.Errors.Translate(ex);
         }
+        catch (DirectoryException)
+        {
+            // A stale query failed: the newer state is kept.
+        }
         finally
         {
-            IsNestedLoading = false;
+            if (_nestedLoads.IsCurrent(token))
+            {
+                IsNestedLoading = false;
+            }
         }
     }
 

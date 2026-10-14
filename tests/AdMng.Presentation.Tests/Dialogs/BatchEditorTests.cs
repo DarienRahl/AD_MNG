@@ -726,6 +726,66 @@ public class BatchEditorTests
         Assert.Empty(editor.PreviewObjects);
         Assert.True(editor.IsDisposed);
     }
+
+    [Fact]
+    public async Task CsvLoadedAgainWithTheSameKeyColumn_MarksTheKeyColumn()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var csv = harness.Factory.CreateBatchEditor(new BatchEditorRequest([])).CsvImport!;
+        csv.Load(new CsvTable(["login", "title"], [["jan.kowalski", "A"]], ','));
+        Assert.True(csv.Mappings.Single(m => m.Column == "login").IsKey);
+
+        // Another file with the same header: new mapping rows, KeyColumn set to the value it already had.
+        csv.Load(new CsvTable(["login", "title"], [["lukasz.wisniewski", "B"]], ','));
+
+        Assert.Equal("login", csv.KeyColumn);
+        Assert.True(csv.Mappings.Single(m => m.Column == "login").IsKey);
+        Assert.False(csv.Mappings.Single(m => m.Column == "title").IsKey);
+    }
+
+    [Fact]
+    public async Task AutomaticPreview_CanBeStopped()
+    {
+        var harness = await B2Harness.CreateAsync();
+        using var planning = new SemaphoreSlim(0);
+        using var reads = new ManualResetEventSlim();
+        harness.Session.BeforeOperation = operation =>
+        {
+            // The planner reads every target; the targets themselves are resolved with a search before.
+            if (operation.Kind == FakeOperationKind.Get)
+            {
+                planning.Release();
+                reads.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+        var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([harness.Company.JanKowalski, harness.Company.LukaszWisniewski])
+        {
+            Operations = [new DeleteOperation()],
+            OpenPreview = true,
+        });
+
+        var initialization = editor.InitializeAsync();
+        try
+        {
+            Assert.True(await planning.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            Assert.True(editor.IsBusy);
+
+            // The footer's Stop button is bound to PreviewCancelCommand and collapsed while it cannot execute.
+            Assert.True(editor.PreviewCancelCommand.CanExecute(null));
+            editor.PreviewCancelCommand.Execute(null);
+        }
+        finally
+        {
+            reads.Set();
+        }
+
+        await initialization;
+        Assert.Equal(BatchEditorStep.Edit, editor.Step);
+        Assert.False(editor.IsBusy);
+        Assert.Null(editor.Error);
+        Assert.Empty(editor.PreviewObjects);
+        Assert.Empty(harness.Session.Writes);
+    }
 }
 
 /// <summary>Small helper for configuring view models inline.</summary>
