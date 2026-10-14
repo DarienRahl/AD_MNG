@@ -76,6 +76,10 @@ internal sealed class FakeEventStore : IEventStore
             var items = _events.Select(e => e.Event)
                 .Where(e => query.After is null || e.Id > query.After)
                 .Where(e => query.After is not null || query.Before is null || e.Id < query.Before)
+                .Where(e => query.Kinds.Count == 0 || query.Kinds.Contains(e.Kind))
+                .Where(e => query.ObjectGuid is null || e.Object.ObjectGuid == query.ObjectGuid)
+                .Where(e => query.From is null || e.DetectedAt >= query.From)
+                .Where(e => query.To is null || e.DetectedAt <= query.To)
                 .OrderBy(e => query.After is null ? -e.Id : e.Id)
                 .Take(query.Limit)
                 .ToList();
