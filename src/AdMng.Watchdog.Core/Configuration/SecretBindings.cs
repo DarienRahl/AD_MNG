@@ -13,7 +13,8 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// <remarks>
 /// Format: lower-case components separated by <c>|</c>; inside a component <c>%</c>, <c>|</c> and control characters
 /// are percent-escaped, so two different settings never produce the same binding. GUIDs (tenant, client) are
-/// normalized to the "D" form, host names are lower-case without a trailing dot (URL hosts in IDNA/punycode form).
+/// normalized to the "D" form, host names (the SMTP host, URL hosts and explicit <c>urlHost</c> arguments) are in
+/// lower-case IDNA/punycode form without a trailing dot.
 /// A binding never contains a secret value: channel URLs contribute only their host.
 /// <list type="table">
 /// <item><term><c>smtp.password</c></term><description><c>smtp|&lt;host&gt;|&lt;port&gt;|&lt;userName&gt;|basic</c></description></item>
@@ -218,10 +219,25 @@ public static class SecretBindings
     private static string Id(string? value) =>
         Guid.TryParse(value, out var guid) ? guid.ToString("D", CultureInfo.InvariantCulture) : Component(value);
 
+    // IDNA form for every host (SMTP host as typed, explicit URL hosts), so one destination has one binding: full-width
+    // letters, upper case, U+3002 dots and a trailing dot all collapse. A non-ASCII host that is not valid IDNA is kept
+    // as written (escaped); it contains non-ASCII characters and can therefore never equal an IDNA binding.
     private static string Host(string? host)
     {
-        var value = (host ?? string.Empty).Trim().TrimEnd('.');
-        return Component(value);
+        var value = (host ?? string.Empty).Trim();
+        if (!Ascii.IsValid(value))
+        {
+            try
+            {
+                value = new IdnMapping().GetAscii(value);
+            }
+            catch (ArgumentException)
+            {
+                // Not a valid IDN host: keep it (fail closed – it never matches a binding of a real host).
+            }
+        }
+
+        return Component(value.TrimEnd('.'));
     }
 
     private static string Component(string? value)

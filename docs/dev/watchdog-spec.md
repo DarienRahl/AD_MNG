@@ -2591,7 +2591,7 @@ Webhook `type` = `WebhookEventTypes.For(kind, objectKind)` (section 14.5).
 | HealthDeliveryFailing | Health | High | always | channel broken / dead letters | health (sent through every other working channel; e-mail falls back to the digest recipients) |
 | HealthStorage | Health | High | always | free space < 1 GiB or DB ≥ 80 % of `Retention.MaxDatabaseMb` | health |
 | HealthBaselineCompleted | Health | Info | always | first baseline committed | digest |
-| WatchdogConfigurationChanged | Health | Medium; High for recipients/channels/SMTP/attribution/exclusion changes; Critical for disabling or weakening tier0-* / health delivery, IgnoredAttributes, DisabledKinds, ExcludedSubtrees (ConfigChangeAuditor) | always | PUT /config saved | health – evaluated with the **previous** configuration as well (17.2) |
+| WatchdogConfigurationChanged | Health | Medium; High for recipients/channels/SMTP/attribution/exclusion changes; Critical for disabling or weakening tier0-* / health delivery, IgnoredAttributes, DisabledKinds, ExcludedSubtrees or a Tier-0 detection source (ConfigChangeAuditor, 25.6) | always | PUT /config saved | health – evaluated with the **previous** configuration as well (17.2) |
 | Test | Health | Info | always | test sends only (never stored) | – |
 
 ---
@@ -5140,8 +5140,10 @@ agents code against exactly these signatures. `RulesRegistration.Add` registers 
 Namespaces: `AdMng.Watchdog.Core.Configuration` and `AdMng.Watchdog.Core.Formatting.Webhooks`.
 
 `Configuration/SecretBindings.cs`, `Configuration/ConfiguredSecret.cs` – destination bindings of section 18
-(lower-case, `|`-separated, `%`/`|`/control characters percent-escaped, GUIDs in "D" form, hosts in IDNA form without a
-trailing dot; never a secret value – URLs contribute their host only):
+(lower-case, `|`-separated, `%`/`|`/control characters percent-escaped, GUIDs in "D" form, hosts – the SMTP host as
+typed, URL hosts and explicit `urlHost` arguments alike – in IDNA form without a trailing dot, a non-ASCII host that is not
+valid IDNA kept as written so it never equals a real host's binding; never a secret value – URLs contribute their host
+only):
 
 ```csharp
 public static class SecretBindings
@@ -5207,16 +5209,23 @@ public sealed class ConfigRedactor
 changes are covered automatically); rules, channels, recipient groups matched by id (`rules[tier0-security].enabled`);
 exclusions only as counts per rule (`rules[lockouts].exclusions +1 -0 ~1`); lists as case-insensitive counts
 (`recipientGroups[it-admins].addresses +0 -1`); secrets as `set` / `replaced` (NewValue) / `cleared` – pass the new
-configuration **as received**, before `ConfigSecretsApplier` strips NewValue/Clear. No values, secrets, addresses or
-exclusion contents ever appear. Severity = max over the items, at least Medium: **Critical** for disabling or weakening
+configuration **as received**, before `ConfigSecretsApplier` strips NewValue/Clear. A nested list stored as null
+counts as an empty list. No values, secrets, addresses or exclusion contents ever appear. Severity = max over the
+items, at least Medium: **Critical** for disabling or weakening
 a `tier0-*`/`health` rule (removed, disabled, kinds/object kinds/scope/attributes/tags narrowed, group filter,
 MinSeverity raised, Severity override other than Critical, actor exclusions or exclusions added/changed, immediate /
 digest / all-channels off, recipient groups or channels removed, hours weakened, aggregation window or repeat
-suppression set/increased, hourly cap set/lowered), `locked` cleared on any rule, additions to
-`directory.ignoredAttributes` / `disabledKinds` / `excludedSubtrees`, removals from `directory.criticalObjects` and the
-privileged-group lists (except `watchListDns`), configuration/schema partition watching off, `smtp.enabled` off, a
-channel or recipient group used by a `tier0-*`/`health` rule (incl. `AllEnabledChannels`) removed/disabled or emptied
-of addresses, a whole section removed; **High** for any other change of recipients (groups, rule and digest references),
+suppression set/increased, hourly cap set/lowered), the global defaults of those (`notifications.aggregationWindow` /
+`highSeverityFlushDelay` increased, `notifications.maxMessagesPerRulePerHour` lowered), `locked` cleared on any rule,
+additions to `directory.ignoredAttributes` / `disabledKinds` / `excludedSubtrees`, removals from
+`directory.criticalObjects` and the privileged-group lists (except `watchListDns`), a Tier-0 detection source switched
+off (configuration/schema partition watching, `directory.trackDeletedObjects` – deleted trusts/PSOs and MassDeletion –,
+`attribution.enabled` or `attribution.source` = None – the AuditLog kinds of 11.6 –, `scans.passwordSpray.enabled`) or
+a burst detector made less sensitive (`scans.massLockout` / `massDeletion` / `massComputerDeletion` threshold or
+percentage raised or window shortened, `scans.passwordSpray.distinctAccounts` raised or window shortened),
+`smtp.enabled` off, a channel or recipient group used by a `tier0-*`/`health` rule (incl. `AllEnabledChannels`)
+removed/disabled or emptied of addresses, a whole section removed; **High** for any other change of recipients (groups,
+rule and digest references, `notifyManager`, a whole rule added/removed that sends somewhere or carries exclusions),
 channels, SMTP, attribution, exclusions, `digest.enabled`; **Medium** otherwise.
 
 ```csharp
@@ -5258,7 +5267,7 @@ public sealed record ConfigChangeItem
 `https://<env>.environment.api.powerplatform.com[:443]/powerautomate/automations/direct/[…/]workflows/…` (incl.
 `/direct/cu/NN/workflows/`, any length). Order: missing → `required`; not an absolute URL / file URL → `teamsUrlFormat`
 (Malformed); `*.webhook.office.com`, `*.logic.azure.com`, `outlook.office(365).com/webhook…` → `retiredTeamsUrl` +
-hint `teams.retiredUrl` (also over http); non-http(s) scheme → `insecureUrl`; user info → Malformed; http →
+hint `teams.retiredUrl` (also over http, any case, also with a trailing dot); non-http(s) scheme → `insecureUrl`; user info → Malformed; http →
 `insecureUrl` unless loopback with `allowInsecureLoopback`; non-standard host/port/path → `teamsUrlFormat` (Warning for
 SAS, Error for EntraClientCredentials). The URL never appears in a result.
 
@@ -5267,7 +5276,7 @@ public static class TeamsUrlValidator
 {
     public const string PowerPlatformHostSuffix = ".environment.api.powerplatform.com";
     public static TeamsUrlValidationResult Validate(string? url, TeamsAuthMode authMode, bool allowInsecureLoopback = false);
-    public static bool IsPowerPlatformHost(string? host);   // host only; bearer-token gate = Validate(url, EntraClientCredentials).IsValid
+    public static bool IsPowerPlatformHost(string? host);   // host only (ASCII letters/digits/'-'/'.', pass Uri.IdnHost; anything else, incl. a trailing dot, is false); bearer-token gate = Validate(url, EntraClientCredentials).IsValid
 }
 
 public enum TeamsUrlProblem { None, Missing, Malformed, Insecure, Retired, NonStandard }

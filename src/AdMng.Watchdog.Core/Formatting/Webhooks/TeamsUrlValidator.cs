@@ -8,7 +8,8 @@ namespace AdMng.Watchdog.Core.Formatting.Webhooks;
 /// <c>https://&lt;env&gt;.environment.api.powerplatform.com[:443]/powerautomate/automations/direct/[…/]workflows/…</c>
 /// (any length – real URLs exceed 4 KB with their SAS query). Retired Office 365 connector URLs
 /// (<c>*.webhook.office.com</c>, <c>outlook.office(365).com/webhook…</c>) and Logic Apps URLs (<c>*.logic.azure.com</c>)
-/// are rejected with their own code. The URL itself never appears in a result, message or exception.
+/// are rejected with their own code (case-insensitive, also with a trailing dot). The URL itself never appears in a
+/// result, message or exception.
 /// </summary>
 public static class TeamsUrlValidator
 {
@@ -35,7 +36,10 @@ public static class TeamsUrlValidator
         }
 
         var host = uri.IdnHost.ToLowerInvariant();
-        if (IsRetired(host, uri.AbsolutePath))
+
+        // "host." names the same DNS host as "host" – a trailing dot must not dodge the retired check. (The Power Platform
+        // check below stays exact: a trailing dot there is non-standard, which fails closed for the bearer token.)
+        if (IsRetired(host.TrimEnd('.'), uri.AbsolutePath))
         {
             return Error(
                 TeamsUrlProblem.Retired,
@@ -89,12 +93,13 @@ public static class TeamsUrlValidator
     }
 
     /// <summary>True for <c>&lt;label(s)&gt;.environment.api.powerplatform.com</c> (case-insensitive; pass
-    /// <see cref="Uri.IdnHost"/>). Host only – before attaching a bearer token (section 15.7) use
+    /// <see cref="Uri.IdnHost"/>). Host only – anything that is not an ASCII host name (user info, port, path, query,
+    /// fragment, white space, non-ASCII, trailing dot) is false. Before attaching a bearer token (section 15.7) use
     /// <see cref="Validate"/>(url, <see cref="TeamsAuthMode.EntraClientCredentials"/>), which also requires https,
     /// port 443, no user info and the workflow path.</summary>
     public static bool IsPowerPlatformHost(string? host)
     {
-        if (string.IsNullOrEmpty(host))
+        if (string.IsNullOrEmpty(host) || !host.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '.'))
         {
             return false;
         }

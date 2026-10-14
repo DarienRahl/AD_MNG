@@ -19,21 +19,29 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// <see cref="SecretField.NewValue"/>/<see cref="SecretField.Clear"/>): a NewValue is reported as <c>replaced</c>
 /// (<c>set</c> when nothing was set), Clear as <c>cleared</c>; on stripped documents only IsSet transitions are visible.
 /// The comparison covers every serialized property (additive contract changes are picked up automatically); rules,
-/// channels and recipient groups are matched by id, exclusions are reported as counts per rule only.</para>
+/// channels and recipient groups are matched by id, exclusions are reported as counts per rule only. A nested list
+/// stored as null counts as an empty list.</para>
 /// <para>Severity (maximum over the changes, at least Medium):</para>
 /// <list type="bullet">
 /// <item><b>Critical</b> – disabling or weakening <c>tier0-*</c> / <c>health</c> delivery or matching (rule removed or
 /// disabled; kinds, object kinds, scope, attributes or tags narrowed; group filter, MinSeverity raised, Severity override
 /// changed to anything but Critical; actor exclusions added; exclusions added or changed; immediate/digest/all-channels
 /// switched off; recipient groups or channels removed from it; hours weakened; aggregation window or repeat suppression
-/// set/increased; hourly cap set/lowered; <c>locked</c> cleared on any rule); additions to
+/// set/increased; hourly cap set/lowered; <c>locked</c> cleared on any rule); the global defaults of those
+/// (<c>notifications.aggregationWindow</c> / <c>highSeverityFlushDelay</c> increased,
+/// <c>notifications.maxMessagesPerRulePerHour</c> lowered); additions to
 /// <c>directory.ignoredAttributes</c>, <c>directory.disabledKinds</c>, <c>directory.excludedSubtrees</c>; removals from
-/// <c>directory.criticalObjects</c> and from the privileged group lists (except <c>watchListDns</c>); configuration or
-/// schema partition watching switched off; <c>smtp.enabled</c> switched off; a channel or recipient group used by a
+/// <c>directory.criticalObjects</c> and from the privileged group lists (except <c>watchListDns</c>); a Tier-0 detection
+/// source switched off (configuration/schema partition watching, <c>directory.trackDeletedObjects</c>,
+/// <c>attribution.enabled</c> or <c>attribution.source</c> = None, <c>scans.passwordSpray.enabled</c>) or a burst
+/// detector made less sensitive (<c>scans.massLockout</c>/<c>massDeletion</c>/<c>massComputerDeletion</c> threshold or
+/// percentage raised or window shortened, <c>scans.passwordSpray.distinctAccounts</c> raised or window shortened);
+/// <c>smtp.enabled</c> switched off; a channel or recipient group used by a
 /// <c>tier0-*</c>/<c>health</c> rule removed or disabled, or addresses removed from such a group; a whole section
 /// removed.</item>
 /// <item><b>High</b> – any other change of recipients (<c>recipientGroups</c>, rule and digest recipient/channel
-/// references), <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>.</item>
+/// references, <c>notifyManager</c>, a whole rule added/removed that sends somewhere or carries exclusions),
+/// <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>.</item>
 /// <item><b>Medium</b> – everything else.</item>
 /// </list>
 /// </remarks>
@@ -213,6 +221,14 @@ public sealed class ConfigChangeAuditor
                 return;
             }
 
+            // A nested list stored as null means "empty" (every consumer reads it with ?? []): diff it as an empty list, so
+            // e.g. exclusions null → [x] on a tier0 rule is counted (+1) and classified like [] → [x], never hidden.
+            if (path.Length > 1 && (oldNode is JsonArray && newNode is null || oldNode is null && newNode is JsonArray))
+            {
+                DiffArray(path, oldNode as JsonArray ?? [], newNode as JsonArray ?? []);
+                return;
+            }
+
             if (JsonNode.DeepEquals(oldNode, newNode))
             {
                 return;
@@ -367,11 +383,36 @@ public sealed class ConfigChangeAuditor
                     {
                         "ignoredAttributes" or "disabledKinds" or "excludedSubtrees" when counts.Added > 0 || !IsCollection(oldNode, newNode) => Severity.Critical,
                         "criticalObjects" when counts.Removed > 0 || !IsCollection(oldNode, newNode) => Severity.Critical,
-                        "watchConfigurationPartition" or "watchSchemaPartition" when TurnedOff(oldNode, newNode) => Severity.Critical,
+                        // The deleted-objects pass finds deleted trusts/PSOs (Domain) and feeds MassDeletion (Security).
+                        "watchConfigurationPartition" or "watchSchemaPartition" or "trackDeletedObjects" when TurnedOff(oldNode, newNode) => Severity.Critical,
                         _ => Severity.Medium,
                     };
                 case "attribution":
-                    return Severity.High;
+                    // Without attribution no DC Security log is read: SecurityLogCleared, AuditPolicyChanged and
+                    // DsrmPasswordChanged (AuditLog, Tier-0) are never detected – like adding them to disabledKinds.
+                    return property switch
+                    {
+                        "enabled" => TurnedOff(oldNode, newNode),
+                        "source" => context.Current.Attribution?.Source == AttributionSourceKind.None
+                                    && context.Previous.Attribution?.Source != AttributionSourceKind.None,
+                        _ => false,
+                    }
+                        ? Severity.Critical
+                        : Severity.High;
+                case "scans":
+                    return ScanWeakensTier0Detection(path, kind, oldNode, newNode) ? Severity.Critical : Severity.Medium;
+                case "notifications":
+                    // Global defaults of every rule without its own value (tier0-*/health included): the same weakening as
+                    // the per-rule aggregation window / hourly cap.
+                    return property switch
+                    {
+                        "aggregationWindow" => Rose(c => c.Notifications?.AggregationWindow),
+                        "highSeverityFlushDelay" => Rose(c => c.Notifications?.HighSeverityFlushDelay),
+                        "maxMessagesPerRulePerHour" => Fell(c => c.Notifications?.MaxMessagesPerRulePerHour),
+                        _ => false,
+                    }
+                        ? Severity.Critical
+                        : Severity.Medium;
                 case "privilegedGroups":
                     return property != "watchListDns" && (counts.Removed > 0 || !IsCollection(oldNode, newNode)) ? Severity.Critical : Severity.Medium;
                 case "smtp":
@@ -405,7 +446,13 @@ public sealed class ConfigChangeAuditor
             var isProtected = Context.IsProtectedRule(key);
             if (path.Length == 1)
             {
-                return kind == ConfigChangeKind.Removed && isProtected ? Severity.Critical : Severity.Medium;
+                if (kind == ConfigChangeKind.Removed && isProtected)
+                {
+                    return Severity.Critical;
+                }
+
+                // A whole rule that sends somewhere or carries exclusions changes recipients / exclusions (High).
+                return HasRecipientsOrExclusions(kind == ConfigChangeKind.Removed ? oldNode : newNode) ? Severity.High : Severity.Medium;
             }
 
             var previous = Context.FindRule(context.Previous, key);
@@ -452,10 +499,63 @@ public sealed class ConfigChangeAuditor
             return property switch
             {
                 "exclusions" => Severity.High,
-                "delivery" when sub is "recipientGroupIds" or "channelIds" or "allEnabledChannels" => Severity.High,
+                "delivery" when sub is "recipientGroupIds" or "channelIds" or "allEnabledChannels" or "notifyManager" => Severity.High,
                 _ => Severity.Medium,
             };
         }
+
+        private static bool HasRecipientsOrExclusions(JsonNode? rule) =>
+            rule is JsonObject obj
+            && (obj["exclusions"] is JsonArray { Count: > 0 }
+                || obj["delivery"] is JsonObject delivery
+                   && (delivery["recipientGroupIds"] is JsonArray { Count: > 0 }
+                       || delivery["channelIds"] is JsonArray { Count: > 0 }
+                       || IsTrue(delivery["allEnabledChannels"])
+                       || IsTrue(delivery["notifyManager"])));
+
+        /// <summary>Burst detectors and the password-spray detector produce Security (Tier-0) kinds: switching one off,
+        /// raising a threshold or shortening a window weakens Tier-0 detection.</summary>
+        private bool ScanWeakensTier0Detection(Segment[] path, ConfigChangeKind kind, JsonNode? oldNode, JsonNode? newNode)
+        {
+            var detector = path.Length > 1 ? path[1].Name : null;
+            var setting = path.Length > 2 ? path[2].Name : null;
+            Func<WatchdogConfiguration, BurstSettings?>? burst = detector switch
+            {
+                "massLockout" => c => c.Scans?.MassLockout,
+                "massDeletion" => c => c.Scans?.MassDeletion,
+                "massComputerDeletion" => c => c.Scans?.MassComputerDeletion,
+                _ => null,
+            };
+
+            if (burst is not null)
+            {
+                return setting switch
+                {
+                    "threshold" => Rose(c => burst(c)?.Threshold),
+                    "percentOfEnabledUsers" => Rose(c => burst(c)?.PercentOfEnabledUsers),
+                    "window" => Fell(c => burst(c)?.Window),
+                    null => kind != ConfigChangeKind.Modified,
+                    _ => false,
+                };
+            }
+
+            return detector == "passwordSpray" && setting switch
+            {
+                "enabled" => TurnedOff(oldNode, newNode),
+                "distinctAccounts" => Rose(c => c.Scans?.PasswordSpray?.DistinctAccounts),
+                "window" => Fell(c => c.Scans?.PasswordSpray?.Window),
+                null => kind != ConfigChangeKind.Modified,
+                _ => false,
+            };
+        }
+
+        /// <summary>The typed value grew (or appeared) from the previous to the current configuration.</summary>
+        private bool Rose<T>(Func<WatchdogConfiguration, T?> value) where T : struct, IComparable<T> =>
+            value(context.Current) is { } now && (value(context.Previous) is not { } before || now.CompareTo(before) > 0);
+
+        /// <summary>The typed value shrank (or appeared) from the previous to the current configuration.</summary>
+        private bool Fell<T>(Func<WatchdogConfiguration, T?> value) where T : struct, IComparable<T> =>
+            value(context.Current) is { } now && (value(context.Previous) is not { } before || now.CompareTo(before) < 0);
 
         private static bool DeliveryWeakens(
             string? sub, ConfigChangeKind kind, Counts counts, JsonNode? oldNode, JsonNode? newNode, RuleDelivery? previous, RuleDelivery? current) => sub switch

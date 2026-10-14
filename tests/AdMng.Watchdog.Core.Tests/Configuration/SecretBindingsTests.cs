@@ -73,6 +73,35 @@ public class SecretBindingsTests
     }
 
     [Theory]
+    [InlineData("SMTP.Zażółć.Example.", "smtp.xn--za-6ja4f8n1l.example")]
+    [InlineData("smtp.xn--za-6ja4f8n1l.example", "smtp.xn--za-6ja4f8n1l.example")]
+    [InlineData("ｓｍｔｐ.contoso.test", "smtp.contoso.test")]   // full-width letters map to ASCII (IDNA)
+    [InlineData("smtp.contoso.test。", "smtp.contoso.test")]               // ideographic full stop = trailing dot
+    public void HostsGivenAsText_AreCanonicalIdna_LikeUrlHosts(string host, string expected)
+    {
+        // Section 18 / 25.6: hosts in IDNA form without a trailing dot – also the SMTP host and an explicit URL host,
+        // so the same destination always yields the same binding (and a Unicode spelling cannot dodge a comparison).
+        var smtp = new SmtpSettings { Host = host, Port = 587, UserName = "svc-wd" };
+        var siem = SampleConfiguration.Create().Channels[1];
+
+        Assert.Equal($"smtp|{expected}|587|svc-wd|basic", SecretBindings.ForSmtpPassword(smtp));
+        Assert.EndsWith("|" + expected, SecretBindings.ForSmtpOAuthClientSecret(smtp), StringComparison.Ordinal);
+        Assert.Equal($"webhook|siem|{expected}", SecretBindings.ForWebhookSigningSecret(siem, host));
+        Assert.Equal(SecretBindings.UrlHost($"https://{host}/hooks"), expected);
+    }
+
+    [Fact]
+    public void HostsThatAreNotValidIdna_StillNeverCollideWithAValidHost()
+    {
+        // GetAscii rejects an empty label; the host is kept as written (escaped), which never equals an IDNA host.
+        var broken = SecretBindings.ForSmtpPassword(new SmtpSettings { Host = "smtp..zażółć.example", UserName = "u" });
+        var valid = SecretBindings.ForSmtpPassword(new SmtpSettings { Host = "smtp.zażółć.example", UserName = "u" });
+
+        Assert.NotEqual(valid, broken);
+        Assert.StartsWith("smtp|smtp..zażółć.example|", broken, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData("https://Siem.Contoso.TEST./hooks/zdarzenia?sig=tajne", "siem.contoso.test")]
     [InlineData("https://siem.contoso.test:8443/hooks/…", "siem.contoso.test")]
     [InlineData("https://zażółć.example/hooks", "xn--za-6ja4f8n1l.example")]
@@ -210,6 +239,71 @@ public class SecretBindingsTests
             Find(With(teams with { Url = new SecretField { IsSet = true } }), "channel.teams-it.clientSecret"), stored));
         Assert.False(SecretBindings.RequiresRebind(
             Find(With(teams with { Teams = teams.Teams! with { AuthMode = TeamsAuthMode.Sas, TenantId = null } }), "channel.teams-it.clientSecret"), stored));
+    }
+
+    [Theory]
+    [InlineData("smtp.oauth.clientSecret", "cloud")]
+    [InlineData("smtp.oauth.clientSecret", "tenant")]
+    [InlineData("smtp.oauth.clientSecret", "client")]
+    [InlineData("smtp.oauth.clientSecret", "host")]
+    [InlineData("channel.teams-it.clientSecret", "cloud")]
+    [InlineData("channel.teams-it.clientSecret", "client")]
+    public void RequiresRebind_ForEveryBoundOAuthField(string secret, string field)
+    {
+        // Section 18 table: smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>, teams-oauth|<cloud>|<tenantId>|<clientId>|<scope>|<url host>.
+        var configuration = SampleConfiguration.Create() with
+        {
+            Smtp = SampleConfiguration.Create().Smtp with { Authentication = SmtpAuthentication.OAuth2ClientCredentials },
+        };
+        var stored = Stored(configuration);
+        const string Other = "99999999-8888-7777-6666-555555555555";
+        var oauth = configuration.Smtp.OAuth;
+        var teams = configuration.Channels[0];
+        var changed = (secret, field) switch
+        {
+            (SecretNames.SmtpOAuthClientSecret, "cloud") => configuration with { Smtp = configuration.Smtp with { OAuth = oauth with { Cloud = EntraCloud.China } } },
+            (SecretNames.SmtpOAuthClientSecret, "tenant") => configuration with { Smtp = configuration.Smtp with { OAuth = oauth with { TenantId = Other } } },
+            (SecretNames.SmtpOAuthClientSecret, "client") => configuration with { Smtp = configuration.Smtp with { OAuth = oauth with { ClientId = Other } } },
+            (SecretNames.SmtpOAuthClientSecret, _) => configuration with { Smtp = configuration.Smtp with { Host = "smtp.office365.com.atakujący.example" } },
+            (_, "cloud") => configuration with { Channels = [teams with { Teams = teams.Teams! with { Cloud = EntraCloud.UsGovernment } }, configuration.Channels[1]] },
+            _ => configuration with { Channels = [teams with { Teams = teams.Teams! with { ClientId = Other } }, configuration.Channels[1]] },
+        };
+
+        Assert.True(SecretBindings.RequiresRebind(Find(changed, secret), stored));
+    }
+
+    [Theory]
+    [InlineData("https://siem.contoso.test@odbiornik.atakujący.example/hooks")]          // user info: the host is the part after '@'
+    [InlineData("https://siem.contoso.test.atakujący.example/hooks")]                   // suffix trick
+    [InlineData("https://atakującysiem.contoso.test.example/hooks")]
+    [InlineData("https://ѕiem.contoso.test/hooks")]                                // Cyrillic 'ѕ' (homograph → punycode)
+    [InlineData("https://siem.contoso.test%2eatakujący.example/hooks")]                // not parseable → no host (fail closed)
+    public void RequiresRebind_ForTheSigningSecret_WhenAUrlTrickPointsElsewhere(string url)
+    {
+        var configuration = SampleConfiguration.Create();
+        var stored = Stored(configuration);
+        var siem = configuration.Channels[1];
+        var moved = configuration with { Channels = [configuration.Channels[0], siem with { Url = new SecretField { IsSet = true, NewValue = url } }] };
+
+        Assert.True(SecretBindings.RequiresRebind(Find(moved, "channel.siem.signingSecret"), stored));
+        Assert.True(SecretBindings.RequiresRebind(Find(moved, "channel.siem.previousSigningSecret"), Stored(configuration with
+        {
+            Channels = [configuration.Channels[0], siem with { Webhook = siem.Webhook! with { PreviousSigningSecret = new SecretField { IsSet = true } } }],
+        })));
+    }
+
+    [Theory]
+    [InlineData("https://SIEM.Contoso.Test./inna/ścieżka?sig=nowy")]
+    [InlineData("https://siem.contoso.test:8443/hooks")]                                // the binding is the host (section 18)
+    [InlineData("https://ｓiem.contoso.test/hooks")]                                // full-width 's' is the same IDNA host
+    public void RequiresRebind_IsFalse_WhenTheUrlStaysOnTheSameHost(string url)
+    {
+        var configuration = SampleConfiguration.Create();
+        var stored = Stored(configuration);
+        var siem = configuration.Channels[1];
+        var same = configuration with { Channels = [configuration.Channels[0], siem with { Url = new SecretField { IsSet = true, NewValue = url } }] };
+
+        Assert.False(SecretBindings.RequiresRebind(Find(same, "channel.siem.signingSecret"), stored));
     }
 
     [Fact]

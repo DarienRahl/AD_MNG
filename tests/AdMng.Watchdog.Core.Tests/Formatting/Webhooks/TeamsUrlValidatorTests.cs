@@ -58,6 +58,25 @@ public class TeamsUrlValidatorTests
         Assert.False(result.IsAccepted);
     }
 
+    [Theory]
+    [InlineData("https://contoso.webhook.office.com./webhookb2/1a2b3c4d@72f988bf/IncomingWebhook/5e6f/0a1b")]
+    [InlineData("https://CONTOSO.WEBHOOK.OFFICE.COM./webhookb2/x")]
+    [InlineData("https://prod-12.westeurope.logic.azure.com.:443/workflows/4f0b9a1c/triggers/manual/paths/invoke?sig=abc")]
+    [InlineData("https://outlook.office.com./webhook/1a2b3c4d@72f988bf/IncomingWebhook/5e6f/0a1b")]
+    [InlineData("https://outlook.office365.com。/webhook/1a2b3c4d@72f988bf/IncomingWebhook/5e6f/0a1b")]
+    public void RetiredUrls_WithATrailingDot_AreStillRetired(string url)
+    {
+        // "host." is the same DNS name as "host": a trailing dot must not turn a retired URL into an accepted warning.
+        foreach (var mode in new[] { TeamsAuthMode.Sas, TeamsAuthMode.EntraClientCredentials })
+        {
+            var result = TeamsUrlValidator.Validate(url, mode);
+
+            Assert.Equal(TeamsUrlProblem.Retired, result.Problem);
+            Assert.Equal("retiredTeamsUrl", result.Code);
+            Assert.False(result.IsAccepted);
+        }
+    }
+
     [Fact]
     public void Http_IsInsecure_EvenForAPowerPlatformHost()
     {
@@ -183,8 +202,18 @@ public class TeamsUrlValidatorTests
     [InlineData("x..environment.api.powerplatform.com", false)]
     [InlineData("x.environment.api.powerplatform.com.evil.test", false)]
     [InlineData("api.powerplatform.com", false)]
+    [InlineData("x.environment.api.powerplatform.com.", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
+    // Not a host name: user info, a path, a port, a fragment, white space or non-ASCII (pass Uri.IdnHost) never qualify.
+    [InlineData("evil.test@x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test:443@x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test/x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test#x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test?x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test x.environment.api.powerplatform.com", false)]
+    [InlineData("evil.test\\x.environment.api.powerplatform.com", false)]
+    [InlineData("zażółć.environment.api.powerplatform.com", false)]
     public void IsPowerPlatformHost(string? host, bool expected)
     {
         Assert.Equal(expected, TeamsUrlValidator.IsPowerPlatformHost(host));

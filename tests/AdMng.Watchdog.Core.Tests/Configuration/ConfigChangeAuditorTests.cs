@@ -288,13 +288,131 @@ public class ConfigChangeAuditorTests
         Assert.Equal(Severity.Critical, removed.Severity);
         Assert.Equal("rules[tier0-security] removed", removed.Summary);
 
+        // "lockouts" sends to the helpdesk group and carries an exclusion: removing it changes recipients (High).
         var removedOrdinary = _auditor.Compare(_old, _old with { Rules = [_old.Rules[0], _old.Rules[2]] });
-        Assert.Equal(Severity.Medium, removedOrdinary.Severity);
+        Assert.Equal(Severity.High, removedOrdinary.Severity);
 
         var added = _auditor.Compare(_old, _old with { Rules = [.. _old.Rules, new RuleSettings { Id = "tier0-nowa", Name = "Nowa reguła – Łódź" }] });
         Assert.Equal(Severity.Medium, added.Severity);
         Assert.Equal("rules[tier0-nowa] added", added.Summary);
     }
+
+    [Fact]
+    public void AddingOrRemovingARuleWithRecipientsChannelsOrExclusions_IsHigh()
+    {
+        // 25.6: High for any change of recipients (rule references) and of exclusions – also through a whole rule.
+        var exclusion = _old.Rules[1].Exclusions[0] with { Id = "nowy-wyjatek" };
+        RuleSettings[] withTargets =
+        [
+            new() { Id = "kopie-do-helpdesku", Name = "Kopie – Łódź", Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = ["helpdesk"] } },
+            new() { Id = "kopie-do-siem", Name = "SIEM", Delivery = new RuleDelivery { ChannelIds = ["siem"] } },
+            new() { Id = "kopie-wszedzie", Name = "Wszędzie", Delivery = new RuleDelivery { AllEnabledChannels = true } },
+            new() { Id = "kierownicy", Name = "Kierownicy", Delivery = new RuleDelivery { NotifyManager = true } },
+            new() { Id = "z-wyjatkiem", Name = "Z wyjątkiem", Exclusions = [exclusion] },
+        ];
+
+        foreach (var rule in withTargets)
+        {
+            var added = _auditor.Compare(_old, _old with { Rules = [.. _old.Rules, rule] });
+            Assert.Equal(Severity.High, added.Severity);
+            Assert.Equal($"rules[{rule.Id}] added", added.Summary);
+
+            var withRule = _old with { Rules = [.. _old.Rules, rule] };
+            Assert.Equal(Severity.High, _auditor.Compare(withRule, _old).Severity);
+        }
+
+        Assert.Equal(Severity.High, _auditor.Compare(_old, WithRule(1, r => r with { Delivery = r.Delivery with { NotifyManager = true } })).Severity);
+        Assert.DoesNotContain("nowy-wyjatek", _auditor.Compare(_old, _old with { Rules = [.. _old.Rules, withTargets[^1]] }).Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NullLists_CountAsEmpty_SoAWeakeningIsNeverHidden()
+    {
+        // A stored document can carry "exclusions": null (System.Text.Json keeps an explicit null); null means "none".
+        var exclusion = _old.Rules[1].Exclusions[0] with { Id = "nowy-wyjatek" };
+        var nullExclusions = WithRule(0, r => r with { Exclusions = null! });
+        var tier0Exclusion = _auditor.Compare(nullExclusions, WithRule(0, r => r with { Exclusions = [exclusion] }));
+        Assert.Equal(Severity.Critical, tier0Exclusion.Severity);
+        Assert.Equal("rules[tier0-security].exclusions +1 -0", tier0Exclusion.Summary);
+
+        var nullActors = WithRule(0, r => r with { Actors = r.Actors with { ExcludeActors = null! } });
+        var actorExcluded = _auditor.Compare(nullActors, WithRule(0, r => r with { Actors = r.Actors with { ExcludeActors = [SampleConfiguration.ExclusionActorSid] } }));
+        Assert.Equal(Severity.Critical, actorExcluded.Severity);
+        Assert.Equal("rules[tier0-security].actors.excludeActors +1 -0", actorExcluded.Summary);
+
+        var admins = _old.RecipientGroups[0];
+        var emptied = _auditor.Compare(_old, _old with { RecipientGroups = [admins with { Addresses = null! }, _old.RecipientGroups[1]] });
+        Assert.Equal(Severity.Critical, emptied.Severity);
+        Assert.Equal("recipientGroups[it-admins].addresses +0 -2", emptied.Summary);
+        Assert.DoesNotContain("@", emptied.Summary, StringComparison.Ordinal);
+
+        var nullIgnored = _old with { Directory = _old.Directory with { IgnoredAttributes = null! } };
+        Assert.False(_auditor.Compare(_old, nullIgnored).HasChanges);
+        Assert.Equal(Severity.Critical, _auditor.Compare(nullIgnored, _old with { Directory = _old.Directory with { IgnoredAttributes = ["adminCount"] } }).Severity);
+    }
+
+    [Fact]
+    public void SwitchingOffATier0DetectionSource_IsCritical()
+    {
+        // Attribution reads the DC Security logs: without it SecurityLogCleared / AuditPolicyChanged / DsrmPasswordChanged
+        // (AuditLog, Tier-0) are never detected – the same effect as putting them in disabledKinds.
+        var attributionOff = _auditor.Compare(_old, _old with { Attribution = _old.Attribution with { Enabled = false } });
+        Assert.Equal(Severity.Critical, attributionOff.Severity);
+        Assert.Equal("attribution.enabled changed", attributionOff.Summary);
+        Assert.Equal(Severity.High, _auditor.Compare(_old with { Attribution = _old.Attribution with { Enabled = false } }, _old).Severity);
+        var noSource = _old with { Attribution = _old.Attribution with { Source = AttributionSourceKind.None } };
+        Assert.Equal(Severity.Critical, _auditor.Compare(_old, noSource).Severity);
+        Assert.Equal(Severity.High, _auditor.Compare(noSource, _old).Severity);
+        Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Attribution = _old.Attribution with { Source = AttributionSourceKind.ForwardedEvents } }).Severity);
+
+        // The deleted-objects pass finds deleted trusts and PSOs (Domain, Tier-0) and feeds MassDeletion (Security).
+        Assert.Equal(Severity.Critical, _auditor.Compare(_old, _old with { Directory = _old.Directory with { TrackDeletedObjects = false } }).Severity);
+        Assert.Equal(Severity.Medium, _auditor.Compare(_old with { Directory = _old.Directory with { TrackDeletedObjects = false } }, _old).Severity);
+
+        var sprayOn = _old with { Scans = _old.Scans with { PasswordSpray = _old.Scans.PasswordSpray with { Enabled = true } } };
+        Assert.Equal(Severity.Critical, _auditor.Compare(sprayOn, _old).Severity);
+        Assert.Equal(Severity.Medium, _auditor.Compare(_old, sprayOn).Severity);
+    }
+
+    [Theory]
+    [MemberData(nameof(BurstDetectorWeakenings))]
+    public void MakingABurstDetectorLessSensitive_IsCritical(string expectedPath, Func<ScanSettings, ScanSettings> weaken, Func<ScanSettings, ScanSettings> strengthen)
+    {
+        var weaker = _auditor.Compare(_old, _old with { Scans = weaken(_old.Scans) });
+        Assert.Equal(Severity.Critical, weaker.Severity);
+        Assert.Equal(expectedPath, weaker.Items[0].Path);
+
+        Assert.Equal(Severity.Medium, _auditor.Compare(_old, _old with { Scans = strengthen(_old.Scans) }).Severity);
+    }
+
+    public static TheoryData<string, Func<ScanSettings, ScanSettings>, Func<ScanSettings, ScanSettings>> BurstDetectorWeakenings() => new()
+    {
+        { "scans.massDeletion.threshold", s => s with { MassDeletion = s.MassDeletion with { Threshold = 1000 } }, s => s with { MassDeletion = s.MassDeletion with { Threshold = 5 } } },
+        { "scans.massDeletion.window", s => s with { MassDeletion = s.MassDeletion with { Window = TimeSpan.FromMinutes(1) } }, s => s with { MassDeletion = s.MassDeletion with { Window = TimeSpan.FromMinutes(30) } } },
+        { "scans.massComputerDeletion.threshold", s => s with { MassComputerDeletion = s.MassComputerDeletion with { Threshold = 500 } }, s => s with { MassComputerDeletion = s.MassComputerDeletion with { Threshold = 20 } } },
+        { "scans.massLockout.percentOfEnabledUsers", s => s with { MassLockout = s.MassLockout with { PercentOfEnabledUsers = 50 } }, s => s with { MassLockout = s.MassLockout with { PercentOfEnabledUsers = 0.1 } } },
+        { "scans.passwordSpray.distinctAccounts", s => s with { PasswordSpray = s.PasswordSpray with { DistinctAccounts = 500 } }, s => s with { PasswordSpray = s.PasswordSpray with { DistinctAccounts = 10 } } },
+        { "scans.passwordSpray.window", s => s with { PasswordSpray = s.PasswordSpray with { Window = TimeSpan.FromMinutes(1) } }, s => s with { PasswordSpray = s.PasswordSpray with { Window = TimeSpan.FromMinutes(30) } } },
+    };
+
+    [Theory]
+    [MemberData(nameof(GlobalDeliveryWeakenings))]
+    public void DelayingOrThrottlingImmediateDeliveryGlobally_IsCritical(string expectedPath, Func<NotificationSettings, NotificationSettings> weaken, Func<NotificationSettings, NotificationSettings> strengthen)
+    {
+        // The global knobs apply to tier0-*/health rules without their own value – the same weakening as the per-rule ones.
+        var weaker = _auditor.Compare(_old, _old with { Notifications = weaken(_old.Notifications) });
+        Assert.Equal(Severity.Critical, weaker.Severity);
+        Assert.Equal(expectedPath, weaker.Items[0].Path);
+
+        Assert.Equal(Severity.Medium, _auditor.Compare(_old, _old with { Notifications = strengthen(_old.Notifications) }).Severity);
+    }
+
+    public static TheoryData<string, Func<NotificationSettings, NotificationSettings>, Func<NotificationSettings, NotificationSettings>> GlobalDeliveryWeakenings() => new()
+    {
+        { "notifications.highSeverityFlushDelay", n => n with { HighSeverityFlushDelay = TimeSpan.FromDays(1) }, n => n with { HighSeverityFlushDelay = TimeSpan.Zero } },
+        { "notifications.aggregationWindow", n => n with { AggregationWindow = TimeSpan.FromMinutes(60) }, n => n with { AggregationWindow = TimeSpan.FromMinutes(1) } },
+        { "notifications.maxMessagesPerRulePerHour", n => n with { MaxMessagesPerRulePerHour = 1 }, n => n with { MaxMessagesPerRulePerHour = 100 } },
+    };
 
     [Theory]
     [InlineData("ignoredAttributes")]
@@ -342,7 +460,9 @@ public class ConfigChangeAuditorTests
     [Fact]
     public void AttributionAndDigestRecipients_AreHigh()
     {
-        Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Attribution = _old.Attribution with { Enabled = false } }).Severity);
+        // (attribution.enabled switched off is Critical – SwitchingOffATier0DetectionSource_IsCritical)
+        Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Attribution = _old.Attribution with { PollInterval = TimeSpan.FromMinutes(2) } }).Severity);
+        Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Attribution = _old.Attribution with { DomainControllers = ["dc01.contoso.test"] } }).Severity);
         Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Digest = _old.Digest with { RecipientGroupIds = ["helpdesk"] } }).Severity);
         Assert.Equal(Severity.High, _auditor.Compare(_old, _old with { Digest = _old.Digest with { Enabled = false } }).Severity);
         Assert.Equal(Severity.Medium, _auditor.Compare(_old, _old with { Digest = _old.Digest with { Time = new TimeOnly(6, 45) } }).Severity);
