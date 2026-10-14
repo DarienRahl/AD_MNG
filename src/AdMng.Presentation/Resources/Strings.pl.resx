@@ -1429,6 +1429,9 @@ Nowoczesne zarządzanie użytkownikami, grupami, komputerami i jednostkami organ
   <data name="Ui.Searching" xml:space="preserve">
     <value>Wyszukiwanie…</value>
   </data>
+  <data name="Ui.SelectDate" xml:space="preserve">
+    <value>Wybierz datę</value>
+  </data>
   <data name="Ui.ShowFilters" xml:space="preserve">
     <value>Pokaż filtry</value>
   </data>

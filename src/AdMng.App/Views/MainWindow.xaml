@@ -700,7 +700,8 @@
                         <TextBlock Margin="0,0,10,0"
                                    VerticalAlignment="Top"
                                    Style="{StaticResource Ad.SecondaryText}"
-                                   Text="{Binding Label, Mode=OneWay}" />
+                                   Text="{Binding Label, Mode=OneWay}"
+                                   TextWrapping="Wrap" />
                         <TextBlock Grid.Column="1"
                                    Text="{Binding Value, Mode=OneWay}"
                                    TextWrapping="Wrap" />

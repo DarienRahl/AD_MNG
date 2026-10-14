@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
@@ -140,6 +142,23 @@ public sealed class RecycleBinWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Single(window.ItemsList.Items);
         Assert.Same(window.ViewModel.Kinds[1], window.KindBox.SelectedItem);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task RecycleBin_DatePickerPlaceholder_UsesTheApplicationLanguage() => WpfTestHost.RunAsync(async () =>
+    {
+        // WPF's own "Select a date" follows the .NET language resources, not the application language.
+        await using var context = await UiTestContext.CreateAsync("pl");
+        await context.Services.GetRequiredService<IDialogService>().ShowRecycleBinAsync();
+        await UiTestSupport.WaitForIdleAsync();
+        var window = Assert.Single(Application.Current.Windows.OfType<RecycleBinWindow>());
+        await UiWait.InitializedAsync(window.Initialization);
+        await UiTestSupport.WaitForIdleAsync();
+
+        var textBox = (DatePickerTextBox)window.DeletedAfterPicker.Template.FindName("PART_TextBox", window.DeletedAfterPicker);
+        var watermark = (ContentControl)textBox.Template.FindName("PART_Watermark", textBox);
+        Assert.Equal("Wybierz datę", watermark.Content);
         context.AssertHealthy();
     });
 }

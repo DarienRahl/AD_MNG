@@ -22,6 +22,7 @@ public static partial class L
         public const string PickContainer = "Ui.PickContainer";
         public const string PickObjects = "Ui.PickObjects";
         public const string Searching = "Ui.Searching";
+        public const string SelectDate = "Ui.SelectDate";
         public const string ShowFilters = "Ui.ShowFilters";
         public const string StartupFailed = "Ui.StartupFailed";
     }

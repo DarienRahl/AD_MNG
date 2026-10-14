@@ -7,6 +7,7 @@
 <Window x:Class="AdMng.App.Views.PropertiesWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:AdMng.App.Behaviors"
         xmlns:ad="clr-namespace:AdMng.Core.ActiveDirectory;assembly=AdMng.Core"
         xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:conv="clr-namespace:AdMng.App.Converters"
@@ -328,6 +329,7 @@
                       Margin="10,6,0,0"
                       HorizontalAlignment="Left"
                       AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                      b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
                       IsEnabled="{Binding IsNever, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
                       SelectedDate="{Binding EndOfDate}" />
         </Grid>

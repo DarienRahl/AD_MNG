@@ -1429,6 +1429,9 @@ Modern management of Active Directory users, groups, computers and organizationa
   <data name="Ui.Searching" xml:space="preserve">
     <value>Searching…</value>
   </data>
+  <data name="Ui.SelectDate" xml:space="preserve">
+    <value>Select a date</value>
+  </data>
   <data name="Ui.ShowFilters" xml:space="preserve">
     <value>Show filters</value>
   </data>

@@ -6,6 +6,7 @@
 <Window x:Class="AdMng.App.Views.RecycleBinWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:AdMng.App.Behaviors"
         xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
         xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:conv="clr-namespace:AdMng.App.Converters"
@@ -209,6 +210,7 @@
                   Grid.Column="4"
                   Width="170"
                   AutomationProperties.Name="{l:Tr RecycleBin.DeletedAfter}"
+                  b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
                   SelectedDate="{Binding DeletedAfter}" />
 
       <TextBlock Grid.Column="6"
