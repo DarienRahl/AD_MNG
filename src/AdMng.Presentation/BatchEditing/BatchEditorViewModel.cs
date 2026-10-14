@@ -273,7 +273,8 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
             if (_request.OpenPreview && Operations.Count > 0 && CanPreview())
             {
-                await PreviewAsync(CancellationToken.None).ConfigureAwait(true);
+                // Through the command, so that its Stop button (PreviewCancelCommand) can cancel planning thousands of objects.
+                await PreviewCommand.ExecuteAsync(null).ConfigureAwait(true);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)

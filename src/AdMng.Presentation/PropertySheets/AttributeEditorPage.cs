@@ -175,6 +175,9 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
     private readonly FieldContext _context;
     private readonly Action<AttributeValueEditorViewModel, IReadOnlyList<string>?> _close;
 
+    /// <summary>The text the single-value editor was opened with (formatted dates do not round-trip exactly).</summary>
+    private readonly string _shownValue = string.Empty;
+
     internal AttributeValueEditorViewModel(FieldContext context, AttributeRowViewModel row, Action<AttributeValueEditorViewModel, IReadOnlyList<string>?> close)
     {
         _context = context;
@@ -198,6 +201,7 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
                 break;
             default:
                 Value = values.Count > 0 ? values[0] : string.Empty;
+                _shownValue = Value;
                 break;
         }
     }
@@ -337,6 +341,16 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
                 break;
             default:
                 var text = Value.Trim();
+                if (string.Equals(Value, _shownValue, StringComparison.Ordinal))
+                {
+                    // Not edited: dates are shown in whole seconds of local time (and 0 / "never" as text), so parsing
+                    // the shown text back would stage a different value (AD rejects most lockoutTime/pwdLastSet values).
+                    // Compared untrimmed: removing spaces around a value the DC returned is an edit.
+                    Error = null;
+                    _close(this, null);
+                    return;
+                }
+
                 if (text.Length > 0)
                 {
                     if (!TryParse(text, out var parsed))
@@ -344,7 +358,7 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
                         return;
                     }
 
-                    wire.Add(parsed);
+                    wire.Add(NeverAsRead(parsed));
                 }
 
                 break;
@@ -362,6 +376,25 @@ public sealed partial class AttributeValueEditorViewModel : ObservableObject
 
     [RelayCommand]
     private void Cancel() => _close(this, null);
+
+    /// <summary>
+    /// "never" typed for a FILETIME that already means never keeps the value read from the DC: 0 and
+    /// <see cref="long.MaxValue"/> both show as "never", but parsing "never" yields only one of them.
+    /// </summary>
+    private string NeverAsRead(string wire)
+    {
+        if (Kind == AttributeEditorKind.FileTime
+            && IsNever(wire)
+            && Row.Values?.Strings is [var original]
+            && IsNever(original))
+        {
+            return original;
+        }
+
+        return wire;
+
+        static bool IsNever(string value) => AdConvert.ParseInt64(value) is 0 or AdConvert.FileTimeNever;
+    }
 
     private bool TryParse(string text, out string wire)
     {

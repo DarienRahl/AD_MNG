@@ -1,11 +1,11 @@
 using System.Windows;
 using AdMng.App.Views;
 using AdMng.Core.Directory;
-using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -114,14 +114,17 @@ public sealed class DialogService : IDialogService
         return result;
     }
 
-    /// <summary>One property sheet per object: a second request activates the open window.</summary>
+    /// <summary>
+    /// One property sheet per object: a second request activates the open window. Sheets are found by their CURRENT DN
+    /// (a sheet follows renames and moves of its object), not by the DN they were opened with, so the renamed object
+    /// does not get a second sheet and a new object at the old DN does not reuse the stale one.
+    /// </summary>
     public Task ShowPropertiesAsync(string distinguishedName)
     {
         ArgumentNullException.ThrowIfNull(distinguishedName);
         return OnUiThreadAsync(() =>
         {
-            var key = PropertiesWindowKey(distinguishedName);
-            if (_windows.FindOpen(key) is { } open)
+            if (FindPropertySheet(distinguishedName) is { } open)
             {
                 if (open.WindowState == WindowState.Minimized)
                 {
@@ -132,14 +135,14 @@ public sealed class DialogService : IDialogService
                 return true;
             }
 
-            ShowWindowModeless(Factory.CreatePropertySheet(distinguishedName), key);
+            ShowWindowModeless(Factory.CreatePropertySheet(distinguishedName), singletonKey: null);
             return true;
         });
     }
 
-    /// <summary>Singleton key of the property sheet of <paramref name="distinguishedName"/> (escaping and case ignored).</summary>
-    internal static string PropertiesWindowKey(string distinguishedName) =>
-        "properties:" + (DistinguishedName.TryParse(distinguishedName, out var dn) ? dn.ToString() : distinguishedName).ToUpperInvariant();
+    /// <summary>The open property sheet showing <paramref name="distinguishedName"/> (escaping and case ignored), or null.</summary>
+    internal Window? FindPropertySheet(string distinguishedName) =>
+        _windows.FindOpen(viewModel => viewModel is PropertySheetViewModel sheet && sheet.Shows(distinguishedName));
 
     // ---- C2b: batch editor / CSV import (modeless) ----
     public Task ShowBatchEditorAsync(BatchEditorRequest request)

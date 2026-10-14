@@ -318,7 +318,9 @@ public sealed partial class CsvImportViewModel : ObservableObject
             Mappings.Add(mapping);
         }
 
+        // Setting the same header as before does not run OnKeyColumnChanged, but the mapping rows are new.
         KeyColumn = ChooseKeyColumn();
+        MarkKeyColumn(KeyColumn);
         RaiseChanged();
     }
 
@@ -379,12 +381,16 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
     partial void OnKeyColumnChanged(string? value)
     {
+        MarkKeyColumn(value);
+        RaiseChanged();
+    }
+
+    private void MarkKeyColumn(string? keyColumn)
+    {
         foreach (var mapping in Mappings)
         {
-            mapping.IsKey = string.Equals(mapping.Column, value, StringComparison.Ordinal);
+            mapping.IsKey = string.Equals(mapping.Column, keyColumn, StringComparison.Ordinal);
         }
-
-        RaiseChanged();
     }
 
     partial void OnKeyAttributeChanged(Option<string> value) => RaiseChanged();

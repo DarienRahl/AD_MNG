@@ -7,7 +7,10 @@ using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Batch;
+using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -273,6 +276,53 @@ public sealed class ObjectDialogTests
         Assert.True(sheet.IsDisposed);
         Assert.Null(window.Result);
         Assert.Empty(context.Directory.Session.GetValues(jan, Attr.Description));
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task ShowProperties_FindsTheSheetByItsCurrentDn_AfterARename() => WpfTestHost.RunAsync(async () =>
+    {
+        var (created, dialogs) = await TestDialogService.CreateContextAsync();
+        await using var context = created;
+        await context.ConnectAsync();
+        var jan = context.Company.JanKowalski;
+
+        await dialogs.Inner.ShowPropertiesAsync(jan);
+        var window = Assert.Single(Application.Current.Windows.OfType<PropertiesWindow>());
+        window.Left = -10000;
+        window.Top = -10000;
+        await UiWait.InitializedAsync(window.Initialization);
+        await UiTestSupport.WaitForIdleAsync();
+
+        // Renamed elsewhere in the application: the open sheet follows the object.
+        var renamed = DistinguishedName.Parse(jan).WithLeafValue("Jan Nowak").ToString();
+        var outcome = await context.Services.GetRequiredService<IChangeCoordinator>()
+            .ApplyAsync(new ChangeRequest([jan], [new RenameOperation("Jan Nowak")], "Rename"));
+        Assert.Equal(ChangeOutcome.Executed, outcome);
+        await UiWait.UntilAsync(() => window.ViewModel.Shows(renamed) && !window.ViewModel.IsLoading, "the sheet follows the rename");
+
+        // Opening the renamed object activates its sheet instead of opening a second one.
+        await dialogs.Inner.ShowPropertiesAsync(renamed.ToUpperInvariant());
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Same(window, Assert.Single(Application.Current.Windows.OfType<PropertiesWindow>()));
+
+        // A new object created at the old DN gets its own sheet; the open one keeps showing the renamed object.
+        var newJan = context.Directory.AddUser("Jan", "Kowalski", context.Company.ItOu, new Dictionary<string, object?>
+        {
+            [Attr.SamAccountName] = "jan.kowalski2",
+            [Attr.UserPrincipalName] = "jan.kowalski2@contoso.test",
+        });
+        Assert.True(DistinguishedName.AreEqual(jan, newJan));
+        await dialogs.Inner.ShowPropertiesAsync(jan);
+        var second = Assert.Single(Application.Current.Windows.OfType<PropertiesWindow>(), w => !ReferenceEquals(w, window));
+        second.Left = -10000;
+        second.Top = -10000;
+        await UiWait.InitializedAsync(second.Initialization);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(second.ViewModel.Shows(jan));
+        Assert.Equal("jan.kowalski2", context.Directory.Session.GetValues(second.ViewModel.DistinguishedName, Attr.SamAccountName).Single());
+        Assert.True(window.ViewModel.Shows(renamed));
+        Assert.Equal(2, Application.Current.Windows.OfType<PropertiesWindow>().Count());
         context.AssertHealthy();
     });
 

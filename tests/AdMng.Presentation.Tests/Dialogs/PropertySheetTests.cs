@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
+using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Localization;
@@ -629,5 +630,176 @@ public class PropertySheetTests
         Assert.Contains(harness.Errors.Translate(DirectoryErrorKind.AccessDenied), sheet.ApplyError, StringComparison.Ordinal);
         Assert.Equal("Dyrektor", title.Value);
         Assert.True(sheet.HasChanges);
+    }
+
+    [Fact]
+    public async Task AttributeEditor_OkOnAnUnchangedDate_StagesNothing()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+
+        // Sub-second FILETIME (shown in whole seconds of local time) and 0 (shown as "never").
+        var lockedAt = AdConvert.ToFileTime(new DateTimeOffset(2026, 10, 13, 7, 30, 15, TimeSpan.Zero)) + 1_234_567;
+        harness.Session.SetValues(jan, Attr.LockoutTime, lockedAt.ToString(CultureInfo.InvariantCulture));
+        harness.Session.SetValues(jan, Attr.AccountExpires, "0");
+        var sheet = harness.Factory.CreatePropertySheet(jan);
+        await sheet.InitializeAsync();
+        var editor = Assert.IsType<AttributeEditorPageViewModel>(sheet.Pages[^1]);
+        await editor.ActivateAsync();
+        AttributeRowViewModel Row(string attribute) => Assert.Single(editor.Rows, r => r.Attribute == attribute);
+
+        foreach (var attribute in new[] { Attr.LockoutTime, Attr.AccountExpires, Attr.PwdLastSet })
+        {
+            editor.EditCommand.Execute(Row(attribute));
+            Assert.Equal(AttributeEditorKind.FileTime, editor.Editor!.Kind);
+            editor.Editor.OkCommand.Execute(null);
+            Assert.Null(editor.Editor);
+            Assert.False(Row(attribute).IsDirty, attribute);
+        }
+
+        // "never" typed for a value that already means never keeps the value read from the DC (0, not long.MaxValue).
+        editor.EditCommand.Execute(Row(Attr.AccountExpires));
+        editor.Editor!.Value = "never";
+        editor.Editor.OkCommand.Execute(null);
+        Assert.False(Row(Attr.AccountExpires).IsDirty);
+        Assert.False(sheet.HasChanges);
+
+        // A staged value survives reopening the editor and confirming it unchanged.
+        editor.EditCommand.Execute(Row(Attr.LockoutTime));
+        editor.Editor!.Value = "0";
+        editor.Editor.OkCommand.Execute(null);
+        Assert.Equal(["0"], Row(Attr.LockoutTime).PendingValues);
+        editor.EditCommand.Execute(Row(Attr.LockoutTime));
+        editor.Editor!.OkCommand.Execute(null);
+        Assert.Equal(["0"], Row(Attr.LockoutTime).PendingValues);
+
+        Assert.True(await sheet.ApplyChangesAsync());
+        Assert.Equal("0", harness.Value(jan, Attr.LockoutTime));
+        Assert.Equal("0", harness.Value(jan, Attr.AccountExpires));
+    }
+
+    [Fact]
+    public async Task AttributeEditor_RemovingSurroundingSpaces_IsAnEdit()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        harness.Session.SetValues(jan, Attr.Department, "Dział IT ");
+        var sheet = harness.Factory.CreatePropertySheet(jan);
+        await sheet.InitializeAsync();
+        var editor = Assert.IsType<AttributeEditorPageViewModel>(sheet.Pages[^1]);
+        await editor.ActivateAsync();
+        var row = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
+
+        // Confirmed without touching the text: nothing is staged.
+        editor.EditCommand.Execute(row);
+        Assert.Equal(AttributeEditorKind.Text, editor.Editor!.Kind);
+        Assert.Equal("Dział IT ", editor.Editor.Value);
+        editor.Editor.OkCommand.Execute(null);
+        Assert.False(row.IsDirty);
+
+        // The operator removes the trailing space: that is a change, not the text that was shown.
+        editor.EditCommand.Execute(row);
+        editor.Editor!.Value = "Dział IT";
+        editor.Editor.OkCommand.Execute(null);
+        Assert.Equal(["Dział IT"], row.PendingValues);
+
+        Assert.True(await sheet.ApplyChangesAsync());
+        Assert.Equal("Dział IT", harness.Value(jan, Attr.Department));
+    }
+
+    [Fact]
+    public async Task MemberOf_ReloadCancelsTheRunningNestedQuery()
+    {
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        var page = Assert.IsType<MemberOfPageViewModel>(Assert.Single(sheet.Pages, p => p.Key == L.Pages.MemberOf));
+        using var started = new SemaphoreSlim(0);
+        using var firstGate = new ManualResetEventSlim();
+        using var secondGate = new ManualResetEventSlim();
+        var nestedQueries = 0;
+        harness.Session.BeforeOperation = operation =>
+        {
+            // LDAP_MATCHING_RULE_IN_CHAIN: the "All (nested)" query.
+            if (operation.Kind == FakeOperationKind.Search && operation.Search?.Filter.Contains("1.2.840.113556.1.4.1941", StringComparison.Ordinal) == true)
+            {
+                var gate = Interlocked.Increment(ref nestedQueries) == 1 ? firstGate : secondGate;
+                started.Release();
+                gate.Wait(TestContext.Current.CancellationToken);
+            }
+        };
+
+        var first = page.LoadNestedCommand.ExecuteAsync(null);
+        try
+        {
+            Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            Assert.True(page.IsNestedLoading);
+
+            // The object is read again (Refresh, change made elsewhere): the running query belongs to the old read.
+            await sheet.LoadAsync();
+            Assert.False(page.IsNestedLoading);
+            Assert.False(page.IsNestedLoaded);
+
+            var second = page.LoadNestedCommand.ExecuteAsync(null);
+            Assert.True(await started.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
+            firstGate.Set();
+            await first;
+
+            // The stale query neither shows its results nor ends the newer load.
+            Assert.True(page.IsNestedLoading);
+            Assert.False(page.IsNestedLoaded);
+            Assert.Empty(page.NestedItems);
+
+            secondGate.Set();
+            await second;
+        }
+        finally
+        {
+            firstGate.Set();
+            secondGate.Set();
+        }
+
+        Assert.False(page.IsNestedLoading);
+        Assert.True(page.IsNestedLoaded);
+        Assert.Equal(["DL_Wszyscy", "GG_IT"], page.NestedItems.Select(i => i.Name));
+    }
+
+    [Fact]
+    public async Task ParentOuRenamedElsewhere_SheetFollowsTheObject()
+    {
+        var (sheet, harness) = await OpenAsync(c => c.JanKowalski);
+        var jan = harness.Company.JanKowalski;
+        var renamedOu = DistinguishedName.Parse(harness.Company.ItOu).WithLeafValue("Dział IT");
+        var moved = renamedOu.Child("CN", "Jan Kowalski").ToString();
+
+        var outcome = await harness.Coordinator.ApplyAsync(
+            new ChangeRequest([harness.Company.ItOu], [new RenameOperation("Dział IT")], "test"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ChangeOutcome.Executed, outcome);
+        Assert.True(harness.Session.Exists(moved));
+        await B2Harness.WaitUntilAsync(() => sheet.Shows(moved) && !sheet.IsLoading);
+        Assert.False(sheet.Shows(jan));
+        Assert.False(sheet.IsDeleted);
+        Assert.Null(sheet.LoadError);
+        Assert.EndsWith("/Dział IT", sheet.Path, StringComparison.Ordinal);
+
+        // Apply writes to the object at its new DN.
+        Text(sheet, L.Pages.Organization, Attr.Title).Value = "Kierownik";
+        Assert.True(await sheet.ApplyChangesAsync());
+        Assert.Equal("Kierownik", harness.Value(moved, Attr.Title));
+    }
+
+    [Fact]
+    public async Task ParentOuDeletedWithItsSubtree_MarksTheSheetDeleted()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var ou = harness.Builder.AddOu("Tymczasowe", harness.Company.EmployeesOu);
+        var user = harness.Builder.AddUser("Zofia", "Żółkiewska", ou);
+        var sheet = harness.Factory.CreatePropertySheet(user);
+        await sheet.InitializeAsync();
+        Assert.True(sheet.Shows(user));
+
+        harness.Changes.Publish([new DirectoryChange(DirectoryChangeKind.Deleted, ou, ObjectKind: ObjectKind.OrganizationalUnit)]);
+
+        await B2Harness.WaitUntilAsync(() => sheet.IsDeleted);
+        Assert.False(sheet.Shows(user));
     }
 }

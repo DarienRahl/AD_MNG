@@ -58,6 +58,13 @@ public interface IWindowService
     /// </summary>
     Window? FindOpen(string singletonKey);
 
+    /// <summary>
+    /// Finds an open window whose view model (DataContext) matches <paramref name="matchesViewModel"/>, for windows
+    /// whose identity can change while they are open (a property sheet follows renames and moves of its object). Like
+    /// <see cref="FindOpen(string)"/>, a window whose directory session ended is not reused.
+    /// </summary>
+    Window? FindOpen(Func<object?, bool> matchesViewModel);
+
     /// <summary>The window new dialogs should be owned by: the active window, else the main window (null when none is shown).</summary>
     Window? GetOwner();
 
@@ -165,6 +172,13 @@ public sealed class WindowService : IWindowService
         return Application.Current?.Windows.OfType<Window>()
             .FirstOrDefault(w => string.Equals((string?)w.GetValue(SingletonKeyProperty), singletonKey, StringComparison.Ordinal)
                 && w.DataContext is not WindowViewModelBase { IsSessionEnded: true });
+    }
+
+    public Window? FindOpen(Func<object?, bool> matchesViewModel)
+    {
+        ArgumentNullException.ThrowIfNull(matchesViewModel);
+        return Application.Current?.Windows.OfType<Window>()
+            .FirstOrDefault(w => w.DataContext is not WindowViewModelBase { IsSessionEnded: true } && matchesViewModel(w.DataContext));
     }
 
     public Window? GetOwner()

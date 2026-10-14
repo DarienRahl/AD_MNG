@@ -65,6 +65,14 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     /// <summary>DN of the object (follows renames/moves made elsewhere in the application).</summary>
     public string DistinguishedName { get; private set; }
 
+    /// <summary>
+    /// True when this sheet shows the object at <paramref name="distinguishedName"/>, compared with the sheet's current
+    /// DN (which follows renames and moves); escaping and case are ignored. A sheet whose object was deleted shows no
+    /// object any more (a new object at that DN gets its own sheet). Used to keep one sheet per object.
+    /// </summary>
+    public bool Shows(string distinguishedName) =>
+        !IsDeleted && Core.Ldap.DistinguishedName.AreEqual(DistinguishedName, distinguishedName);
+
     /// <summary>"Jan Kowalski Properties" / "Właściwości: Jan Kowalski".</summary>
     public override string WindowTitle => Localizer.Format(L.PropertySheet.WindowTitle, Name);
 
@@ -562,7 +570,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             return;
         }
 
-        var relevant = e.Changes.Where(c => Core.Ldap.DistinguishedName.AreEqual(c.DistinguishedName, DistinguishedName)).ToList();
+        var dn = DistinguishedName;
+        var relevant = e.Changes.Where(c => IsOwnChange(c, dn) || IsContainerChange(c, dn)).ToList();
         if (relevant.Count == 0)
         {
             return;
@@ -575,17 +584,33 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 return;
             }
 
+            var affected = false;
             foreach (var change in relevant)
             {
+                // Evaluated against the current DN: an earlier change of the batch may have moved the object already.
+                var ownObject = IsOwnChange(change, DistinguishedName);
+                if (!ownObject && !IsContainerChange(change, DistinguishedName))
+                {
+                    continue;
+                }
+
+                affected = true;
                 switch (change.Kind)
                 {
                     case DirectoryChangeKind.Deleted:
+                        // The object itself, or a container deleted with its subtree.
                         IsDeleted = true;
                         return;
                     case DirectoryChangeKind.Moved when change.NewDistinguishedName is { } newDn:
-                        DistinguishedName = newDn;
+                        // A parent OU renamed or moved takes the object along.
+                        DistinguishedName = ownObject ? newDn : Rebase(DistinguishedName, change.DistinguishedName, newDn);
                         break;
                 }
+            }
+
+            if (!affected)
+            {
+                return;
             }
 
             if (HasChanges)
@@ -597,5 +622,34 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
                 LoadAsync().Forget();
             }
         });
+    }
+
+    private static bool IsOwnChange(DirectoryChange change, string distinguishedName) =>
+        Core.Ldap.DistinguishedName.AreEqual(change.DistinguishedName, distinguishedName);
+
+    /// <summary>A container of the object was moved/renamed or deleted (with its subtree).</summary>
+    private static bool IsContainerChange(DirectoryChange change, string distinguishedName) =>
+        change.Kind is DirectoryChangeKind.Moved or DirectoryChangeKind.Deleted
+        && Core.Ldap.DistinguishedName.TryParse(distinguishedName, out var dn)
+        && Core.Ldap.DistinguishedName.TryParse(change.DistinguishedName, out var container)
+        && dn.IsDescendantOf(container);
+
+    /// <summary>Replaces the <paramref name="oldContainer"/> suffix of <paramref name="distinguishedName"/> with <paramref name="newContainer"/>.</summary>
+    private static string Rebase(string distinguishedName, string oldContainer, string newContainer)
+    {
+        if (!Core.Ldap.DistinguishedName.TryParse(distinguishedName, out var dn)
+            || !Core.Ldap.DistinguishedName.TryParse(oldContainer, out var oldParent)
+            || !Core.Ldap.DistinguishedName.TryParse(newContainer, out var rebased)
+            || !dn.IsDescendantOf(oldParent))
+        {
+            return distinguishedName;
+        }
+
+        for (var i = dn.Rdns.Count - oldParent.Rdns.Count - 1; i >= 0; i--)
+        {
+            rebased = rebased.Child(dn.Rdns[i].Type, dn.Rdns[i].Value);
+        }
+
+        return rebased.ToString();
     }
 }
