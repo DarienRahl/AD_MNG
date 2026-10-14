@@ -167,7 +167,7 @@ internal sealed class LdapDirectorySession : IDirectorySession
         var items = new List<DirectoryObject>(response.Entries.Count);
         foreach (SearchResultEntry entry in response.Entries)
         {
-            items.Add(EntryReader.ToDirectoryObject(entry, schema));
+            items.Add(EntryReader.ToDirectoryObject(entry, schema, search.ExtendedDn));
         }
 
         var offset = Math.Max(0, vlvResponse.TargetPosition - 1);
@@ -195,13 +195,33 @@ internal sealed class LdapDirectorySession : IDirectorySession
     }
 
     public IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, CancellationToken cancellationToken) =>
-        GetAllValuesAsync(distinguishedName, attribute, chunkSize: null, cancellationToken);
+        GetAllValuesAsync(distinguishedName, attribute, chunkSize: null, AttributeReadOptions.Default, cancellationToken);
+
+    /// <summary>Ranged retrieval with options: the Extended DN control (<see cref="AttributeReadOptions.ExtendedDn"/>)
+    /// and the Show Deleted control (<see cref="AttributeReadOptions.IncludeDeleted"/>) are sent with every ranged
+    /// request.</summary>
+    public IAsyncEnumerable<string> GetAllValuesAsync(
+        string distinguishedName,
+        string attribute,
+        AttributeReadOptions options,
+        CancellationToken cancellationToken) =>
+        GetAllValuesAsync(distinguishedName, attribute, chunkSize: null, options, cancellationToken);
 
     /// <summary>Ranged retrieval with an explicit chunk size (null = as many values as the server returns).</summary>
-    internal IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, int? chunkSize, CancellationToken cancellationToken)
+    internal IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, int? chunkSize, CancellationToken cancellationToken) =>
+        GetAllValuesAsync(distinguishedName, attribute, chunkSize, AttributeReadOptions.Default, cancellationToken);
+
+    /// <summary>Ranged retrieval with an explicit chunk size (null = as many values as the server returns) and options.</summary>
+    internal IAsyncEnumerable<string> GetAllValuesAsync(
+        string distinguishedName,
+        string attribute,
+        int? chunkSize,
+        AttributeReadOptions options,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(distinguishedName);
         ArgumentException.ThrowIfNullOrWhiteSpace(attribute);
+        ArgumentNullException.ThrowIfNull(options);
         if (chunkSize is { } size)
         {
             ArgumentOutOfRangeException.ThrowIfLessThan(size, 1, nameof(chunkSize));
@@ -210,7 +230,7 @@ internal sealed class LdapDirectorySession : IDirectorySession
         ThrowIfDisposed();
         var semicolon = attribute.IndexOf(';', StringComparison.Ordinal);
         var baseName = semicolon < 0 ? attribute : attribute[..semicolon];
-        return GetAllValuesCoreAsync(distinguishedName, baseName, chunkSize, cancellationToken);
+        return GetAllValuesCoreAsync(distinguishedName, baseName, chunkSize, options, cancellationToken);
     }
 
     public async Task<EffectivePermissions> GetEffectivePermissionsAsync(string distinguishedName, CancellationToken cancellationToken)
@@ -649,7 +669,7 @@ internal sealed class LdapDirectorySession : IDirectorySession
                 foreach (SearchResultEntry entry in response.Entries)
                 {
                     returned++;
-                    yield return EntryReader.ToDirectoryObject(entry, schema);
+                    yield return EntryReader.ToDirectoryObject(entry, schema, search.ExtendedDn);
                     if (search.SizeLimit > 0 && returned >= search.SizeLimit)
                     {
                         limitReached = true;
@@ -693,6 +713,7 @@ internal sealed class LdapDirectorySession : IDirectorySession
         string distinguishedName,
         string attribute,
         int? chunkSize,
+        AttributeReadOptions options,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var start = 0;
@@ -703,6 +724,16 @@ internal sealed class LdapDirectorySession : IDirectorySession
                 AllObjectsFilter,
                 SdsSearchScope.Base,
                 AttributeRange.Request(attribute, start, chunkSize));
+            if (options.IncludeDeleted)
+            {
+                request.Controls.Add(new ShowDeletedControl());
+            }
+
+            if (options.ExtendedDn)
+            {
+                request.Controls.Add(new ExtendedDNControl(ExtendedDNFlag.StandardString));
+            }
+
             var response = await ExecuteAsync(
                 OperationKind.RangedRead,
                 distinguishedName,
@@ -773,6 +804,13 @@ internal sealed class LdapDirectorySession : IDirectorySession
         if (search.AttributeScopedQuery is { } asq)
         {
             request.Controls.Add(new AsqRequestControl(asq));
+        }
+
+        if (search.ExtendedDn)
+        {
+            // String form (flag 1): <GUID=…>;<SID=…>;dn. The entry DN comes back extended too and is stripped by
+            // EntryReader; DN-syntax attribute values keep the extended form (parsed with ExtendedDistinguishedName).
+            request.Controls.Add(new ExtendedDNControl(ExtendedDNFlag.StandardString));
         }
 
         if (search.ReadSecurityDescriptor)
