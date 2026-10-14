@@ -32,14 +32,19 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     private readonly Dictionary<string, string?> _settings;
     private readonly Action<IServiceCollection>? _services;
     private readonly string _environment;
+    private readonly bool _ownsDataDirectory;
 
     public WatchdogFactory(
         IDictionary<string, string?>? settings = null,
         Action<IServiceCollection>? services = null,
         IDirectorySession? directory = null,
-        string environment = "Development")
+        string environment = "Development",
+        TestDataDirectory? dataDirectory = null,
+        TestClock? clock = null)
     {
-        DataDirectory = new TestDataDirectory();
+        _ownsDataDirectory = dataDirectory is null;
+        DataDirectory = dataDirectory ?? new TestDataDirectory();
+        Clock = clock ?? new TestClock(TestStore.Start);
         Directory = directory;
         _environment = environment;
         _services = services;
@@ -65,7 +70,8 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
 
     public IDirectorySession? Directory { get; }
 
-    public TestClock Clock { get; } = new(TestStore.Start);
+    /// <summary>The service's clock (shared with a restarted host in end-to-end tests).</summary>
+    public TestClock Clock { get; }
 
     public FakeProcessTerminator Terminator { get; } = new();
 
@@ -143,7 +149,7 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing)
+        if (disposing && _ownsDataDirectory)
         {
             DataDirectory.Dispose();
         }
@@ -152,6 +158,9 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        DataDirectory.Dispose();
+        if (_ownsDataDirectory)
+        {
+            DataDirectory.Dispose();
+        }
     }
 }
