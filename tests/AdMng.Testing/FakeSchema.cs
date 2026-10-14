@@ -6,14 +6,18 @@ namespace AdMng.Testing;
 /// A compact but realistic Active Directory schema: the common attributes of users, computers, groups, contacts and
 /// OUs with their real syntaxes, single-valued flags, ranges, link IDs and system-only / constructed flags.
 /// </summary>
-public static class FakeSchema
+public static partial class FakeSchema
 {
     public const string DefaultSchemaNamingContext = "CN=Schema,CN=Configuration,DC=contoso,DC=test";
 
     public static SchemaCatalog Create(string schemaNamingContext = DefaultSchemaNamingContext)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(schemaNamingContext);
-        return new SchemaCatalog(CreateAttributes(), CreateClasses(schemaNamingContext), CreateDisplayNames());
+        var attributes = CreateAttributes();
+        attributes.AddRange(CreateWatchdogAttributes());
+        var classes = CreateClasses(schemaNamingContext);
+        ExtendForWatchdog(classes, schemaNamingContext);
+        return new SchemaCatalog(attributes, classes, CreateDisplayNames());
     }
 
     private static List<AttributeDefinition> CreateAttributes() =>

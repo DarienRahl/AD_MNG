@@ -15,7 +15,7 @@ namespace AdMng.Testing;
 /// Extra attributes passed to the helpers override the defaults; a null value removes a default.
 /// Values may be strings, string arrays, byte[], numbers, booleans or DateTimeOffset.
 /// </remarks>
-public sealed class FakeDirectoryBuilder
+public sealed partial class FakeDirectoryBuilder
 {
     public const string DefaultDomain = "contoso.test";
 

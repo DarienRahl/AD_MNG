@@ -38,8 +38,10 @@ namespace AdMng.Testing;
 /// </list>
 /// Test hooks: <see cref="FailNext"/> (e.g. Busy twice for a DN), <see cref="BeforeOperation"/> (simulate a concurrent
 /// change or cancel a token), <see cref="SetPermissions"/>, <see cref="Latency"/> and the <see cref="Operations"/> log.
+/// The AdMng Watchdog emulation (RootDSE, domain controllers, USN spaces, replication metadata, Extended DN, lockout
+/// expiry, read restrictions) lives in <c>FakeDirectorySession.Watchdog.cs</c>; all of it is opt-in.
 /// </summary>
-public sealed class FakeDirectorySession : IDirectorySession
+public sealed partial class FakeDirectorySession : IDirectorySession
 {
     /// <summary>Domain SID used for security principals created through <see cref="AddAsync"/>.</summary>
     public const string DefaultDomainSid = "S-1-5-21-3623811015-3361044348-30300820";
@@ -119,7 +121,7 @@ public sealed class FakeDirectorySession : IDirectorySession
     /// <summary>
     /// Simulates AD's MaxValRange: reads (GetAsync, SearchAsync) return at most this many values of an attribute, under
     /// a ranged description such as <c>member;range=0-1</c>, like AD does beyond 1500 values. Only
-    /// <see cref="GetAllValuesAsync"/> returns everything. Null (default) returns all values.
+    /// <see cref="GetAllValuesAsync(string, string, CancellationToken)"/> returns everything. Null (default) returns all values.
     /// </summary>
     public int? MaxValueRange
     {
@@ -221,42 +223,49 @@ public sealed class FakeDirectorySession : IDirectorySession
         var dn = FakeDn.Parse(distinguishedName);
         lock (_gate)
         {
-            if (_entries.ContainsKey(dn))
-            {
-                throw new InvalidOperationException($"'{dn}' already exists.");
-            }
-
-            if (!IsNamingContextRoot(dn) && (dn.Parent is null || !_entries.ContainsKey(dn.Parent)))
-            {
-                throw new InvalidOperationException($"The parent of '{dn}' does not exist.");
-            }
-
-            var entry = new Entry(dn, ++_sequence);
-            foreach (var (name, value) in attributes)
-            {
-                if (value is null)
-                {
-                    continue;
-                }
-
-                var canonical = Canonical(name);
-                var values = ToValues(canonical, value);
-                if (values.Count > 0)
-                {
-                    entry.Attributes[canonical] = values;
-                }
-            }
-
-            ApplyCreationDefaults(entry);
-            _entries[dn] = entry;
-            if (IsNamingContextRoot(dn))
-            {
-                // Every naming context of AD has its (deleted, hidden) Deleted Objects container.
-                EnsureDeletedObjectsContainer(dn);
-            }
-
-            return dn.ToString();
+            return SeedCore(dn, attributes);
         }
+    }
+
+    /// <summary><see cref="Seed"/> with the lock already held.</summary>
+    private string SeedCore(DistinguishedName dn, IReadOnlyDictionary<string, object?> attributes)
+    {
+        if (_entries.ContainsKey(dn))
+        {
+            throw new InvalidOperationException($"'{dn}' already exists.");
+        }
+
+        if (!IsNamingContextRoot(dn) && (dn.Parent is null || !_entries.ContainsKey(dn.Parent)))
+        {
+            throw new InvalidOperationException($"The parent of '{dn}' does not exist.");
+        }
+
+        var entry = new Entry(dn, ++_sequence);
+        foreach (var (name, value) in attributes)
+        {
+            if (value is null)
+            {
+                continue;
+            }
+
+            var canonical = Canonical(name);
+            var values = ToValues(canonical, value);
+            if (values.Count > 0)
+            {
+                entry.Attributes[canonical] = values;
+            }
+        }
+
+        ApplyCreationDefaults(entry);
+        _entries[dn] = entry;
+        RecordCreationMetadata(entry, seeded: true);
+        if (IsNamingContextRoot(dn))
+        {
+            // Every naming context of AD has its (deleted, hidden) Deleted Objects container.
+            EnsureDeletedObjectsContainer(dn);
+        }
+
+        return dn.ToString();
     }
 
     /// <summary>
@@ -273,8 +282,8 @@ public sealed class FakeDirectorySession : IDirectorySession
                 throw new InvalidOperationException($"'{deletedObjectDn}' is not a deleted object.");
             }
 
-            StripToTombstone(entry);
-            Touch(entry);
+            var stripped = StripToTombstone(entry);
+            Touch(entry, [Attr.IsRecycled, .. stripped]);
         }
     }
 
@@ -313,7 +322,7 @@ public sealed class FakeDirectorySession : IDirectorySession
                 entry.Attributes[canonical] = list;
             }
 
-            Touch(entry);
+            Touch(entry, [canonical]);
         }
     }
 
@@ -451,9 +460,17 @@ public sealed class FakeDirectorySession : IDirectorySession
         ArgumentNullException.ThrowIfNull(attributes);
         var operation = new FakeOperation { Kind = FakeOperationKind.Get, DistinguishedName = distinguishedName, Attributes = attributes };
         return RunAsync(operation, cancellationToken, () =>
-            _entries.TryGetValue(FakeDn.Parse(distinguishedName), out var entry) && !entry.IsDeleted
+        {
+            var dn = FakeDn.Parse(distinguishedName);
+            if (dn.IsRoot)
+            {
+                return ReadRootDse(attributes);
+            }
+
+            return _entries.TryGetValue(dn, out var entry) && !entry.IsDeleted
                 ? ToDirectoryObject(entry, attributes)
-                : null);
+                : null;
+        });
     }
 
     public async IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -465,6 +482,29 @@ public sealed class FakeDirectorySession : IDirectorySession
         {
             var entry = FindExisting(distinguishedName);
             return ValuesOf(entry, Canonical(attribute)).Select(v => v as string ?? Encoding.UTF8.GetString((byte[])v)).ToList();
+        }).ConfigureAwait(false);
+        foreach (var value in values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return value;
+        }
+    }
+
+    /// <summary>Ranged retrieval with Extended DN values and/or of a deleted object (Show Deleted).</summary>
+    public async IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, AttributeReadOptions options, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(distinguishedName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(attribute);
+        ArgumentNullException.ThrowIfNull(options);
+        var operation = new FakeOperation { Kind = FakeOperationKind.GetAllValues, DistinguishedName = distinguishedName, Attributes = [attribute] };
+        var values = await RunAsync(operation, cancellationToken, () =>
+        {
+            var entry = options.IncludeDeleted ? FindIncludingDeleted(distinguishedName) : FindExisting(distinguishedName);
+            var name = Canonical(attribute);
+            return ValuesOf(entry, name)
+                .Select(v => options.ExtendedDn ? ToExtendedValue(name, v) : v)
+                .Select(v => v as string ?? Encoding.UTF8.GetString((byte[])v))
+                .ToList();
         }).ConfigureAwait(false);
         foreach (var value in values)
         {
@@ -699,6 +739,8 @@ public sealed class FakeDirectorySession : IDirectorySession
 
         var matches = candidates
             .Where(e => IsVisible(e, search))
+            .Where(e => search.Scope == SearchScope.Base || search.AttributeScopedQuery is not null || IsInSameNamingContext(e.Dn, baseDn))
+            .Where(e => !IsDeniedDeletedObject(e, search))
             .Where(e => Evaluate(filter, e))
             .OrderBy(e => e.Sequence)
             .ToList();
@@ -712,7 +754,10 @@ public sealed class FakeDirectorySession : IDirectorySession
             matches = matches.Take(search.SizeLimit).ToList();
         }
 
-        return matches.Select(e => ToDirectoryObject(e, search.Attributes)).ToList();
+        return matches.Select(e => IsDeniedDeletedObjectsContainer(e, search)
+                ? new DirectoryObject(e.Dn.ToString(), [])
+                : ToDirectoryObject(e, search.Attributes, extendedDn: search.ExtendedDn))
+            .ToList();
     }
 
     /// <summary>
@@ -1101,7 +1146,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         CheckPrimaryGroupMembers(entry, addedMembers);
         CheckObjectClass(entry.Dn, work, touched);
         entry.ReplaceAttributes(work);
-        Touch(entry);
+        Touch(entry, touched);
         return entry.Dn;
     }
 
@@ -1351,6 +1396,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         ValidateValues(dn, entry.Attributes, entry.Attributes.Keys.ToList());
         CheckObjectClass(dn, entry.Attributes, work.Keys.ToList());
         _entries[dn] = entry;
+        RecordCreationMetadata(entry, seeded: false);
         if (password is not null)
         {
             ApplyPassword(entry, password);
@@ -1424,7 +1470,7 @@ public sealed class FakeDirectorySession : IDirectorySession
     /// <summary>Moves a deleted object to CN=Deleted Objects (a deleted-object, or a tombstone without the Recycle Bin).</summary>
     private void Tombstone(Entry victim)
     {
-        var container = EnsureDeletedObjectsContainer(victim.Dn.DomainComponent);
+        var container = EnsureDeletedObjectsContainer(NamingContextRootOf(victim.Dn));
         var guid = victim.Attributes.TryGetValue(Attr.ObjectGuid, out var guidValues) && guidValues is [byte[] { Length: 16 } bytes]
             ? new Guid(bytes)
             : Guid.Empty;
@@ -1445,34 +1491,39 @@ public sealed class FakeDirectorySession : IDirectorySession
             }
         }
 
+        IReadOnlyList<string> stripped = [];
         if (Info.RecycleBinEnabled)
         {
             victim.Attributes[Attr.MsDsLastKnownRdn] = [originalDn.Name];
         }
         else
         {
-            StripToTombstone(victim);
+            stripped = StripToTombstone(victim);
         }
 
-        Touch(victim);
+        Touch(victim, [Attr.IsDeleted, Attr.LastKnownParent, Attr.Name, Canonical(originalDn.Leaf.Type), Attr.MsDsLastKnownRdn, .. stripped]);
         _entries[victim.Dn] = victim;
         UpdateReferences(originalDn, victim.Dn);
     }
 
     /// <summary>A tombstone / recycled object: isRecycled=TRUE, only the preserved attributes, no links to restore.</summary>
-    private void StripToTombstone(Entry entry)
+    /// <returns>The names of the attributes that were removed.</returns>
+    private List<string> StripToTombstone(Entry entry)
     {
         var rdnAttribute = Canonical(entry.Dn.Leaf.Type);
+        var removed = new List<string>();
         foreach (var name in entry.Attributes.Keys.ToList())
         {
             if (!TombstoneAttributes.Contains(name) && !string.Equals(name, rdnAttribute, StringComparison.OrdinalIgnoreCase))
             {
                 entry.Attributes.Remove(name);
+                removed.Add(name);
             }
         }
 
         entry.Attributes[Attr.IsRecycled] = ["TRUE"];
         entry.DeactivatedLinks.Clear();
+        return removed;
     }
 
     private DistinguishedName EnsureDeletedObjectsContainer(DistinguishedName domain)
@@ -1551,7 +1602,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         }
 
         entry.DeactivatedLinks.Clear();
-        Touch(entry);
+        Touch(entry, [Attr.IsDeleted, Attr.Name, Canonical(target.Leaf.Type), Attr.LastKnownParent]);
         return target;
     }
 
@@ -1611,7 +1662,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         entry.Attributes[Attr.Name] = [leaf.Value];
         entry.Attributes[Canonical(leaf.Type)] = [leaf.Value];
         UpdateReferences(oldDn, newDn);
-        Touch(entry);
+        Touch(entry, string.Equals(leaf.Value, oldDn.Leaf.Value, StringComparison.Ordinal) ? [Attr.Name] : [Attr.Name, Canonical(leaf.Type)]);
         return (oldDn, newDn);
     }
 
@@ -1685,7 +1736,7 @@ public sealed class FakeDirectorySession : IDirectorySession
 
         _passwordResets.Add(new FakePasswordReset(entry.Dn.ToString(), password));
         entry.Attributes[Attr.PwdLastSet] = [FileTimeNow()];
-        Touch(entry);
+        Touch(entry, [Attr.UnicodePwd, Attr.PwdLastSet]);
     }
 
     // ---------------------------------------------------------------- entries and values
@@ -1715,6 +1766,16 @@ public sealed class FakeDirectorySession : IDirectorySession
     /// <summary>Stored values plus computed attributes (back links, distinguishedName, canonicalName...).</summary>
     private IReadOnlyList<object> ValuesOf(Entry entry, string name)
     {
+        if (IsHidden(entry, name))
+        {
+            return [];
+        }
+
+        if (TryGetWatchdogValues(entry, name, out var watchdogValues))
+        {
+            return watchdogValues;
+        }
+
         switch (name)
         {
             case Attr.DistinguishedName:
@@ -1729,7 +1790,7 @@ public sealed class FakeDirectorySession : IDirectorySession
                     return [];
                 }
 
-                return [long.TryParse(entry.First(Attr.LockoutTime), NumberStyles.Integer, CultureInfo.InvariantCulture, out var lockout) && lockout > 0
+                return [IsLockedOut(entry)
                     ? ((int)UserAccountControl.Lockout).ToString(CultureInfo.InvariantCulture)
                     : "0"];
             case Attr.AllowedAttributesEffective:
@@ -1751,7 +1812,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         return entry.Attributes.TryGetValue(name, out var stored) ? stored : [];
     }
 
-    private DirectoryObject ToDirectoryObject(Entry entry, IReadOnlyList<string> requested, bool ranged = true)
+    private DirectoryObject ToDirectoryObject(Entry entry, IReadOnlyList<string> requested, bool ranged = true, bool extendedDn = false)
     {
         var names = new List<string>();
         foreach (var attribute in requested)
@@ -1774,6 +1835,11 @@ public sealed class FakeDirectorySession : IDirectorySession
             if (values.Count == 0)
             {
                 continue;
+            }
+
+            if (extendedDn)
+            {
+                values = values.Select(v => ToExtendedValue(name, v)).ToList();
             }
 
             if (ranged && _maxValueRange is { } max && values.Count > max)
@@ -1903,10 +1969,16 @@ public sealed class FakeDirectorySession : IDirectorySession
         }
     }
 
-    private void Touch(Entry entry)
+    /// <summary>
+    /// Records a write of <paramref name="entry"/>: new uSNChanged/whenChanged (only the written object - AD does not
+    /// bump referencing or descendant objects) and replication metadata for <paramref name="changedAttributes"/>.
+    /// </summary>
+    private void Touch(Entry entry, IEnumerable<string> changedAttributes)
     {
         entry.Attributes[Attr.WhenChanged] = [AdConvert.ToGeneralizedTime(_timeProvider.GetUtcNow())];
-        entry.Attributes[Attr.UsnChanged] = [(++_usn).ToString(CultureInfo.InvariantCulture)];
+        var usn = ++_usn;
+        entry.Attributes[Attr.UsnChanged] = [usn.ToString(CultureInfo.InvariantCulture)];
+        RecordMetadata(entry, changedAttributes, usn);
     }
 
     private string FileTimeNow() => AdConvert.ToFileTime(_timeProvider.GetUtcNow()).ToString(CultureInfo.InvariantCulture);
