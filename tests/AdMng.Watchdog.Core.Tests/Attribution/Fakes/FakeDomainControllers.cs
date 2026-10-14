@@ -15,8 +15,11 @@ internal sealed class FakeDomainControllers(params string[] writable) : IDomainC
 
     public bool IsAuthoritative { get; set; } = true;
 
+    /// <summary>Thrown by <see cref="GetAttributionSourcesAsync"/> when set (engine failure path).</summary>
+    public Exception? Failure { get; set; }
+
     public Task<IReadOnlyList<string>> GetAttributionSourcesAsync(CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<string>>([.. Writable]);
+        Failure is { } failure ? Task.FromException<IReadOnlyList<string>>(failure) : Task.FromResult<IReadOnlyList<string>>([.. Writable]);
 
     public Task<IReadOnlyList<string>> GetKnownDomainControllersAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([.. Writable, .. OtherDomainControllers]);
