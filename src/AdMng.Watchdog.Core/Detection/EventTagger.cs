@@ -1,3 +1,4 @@
+using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
 using AdMng.Watchdog.Contracts.Events;
@@ -83,7 +84,7 @@ internal sealed class EventTagger
             tags.Add(EventTags.ServiceAccount);
         }
 
-        var uac = long.TryParse(First(subject, Attr.UserAccountControl), out var value) ? value : 0;
+        var uac = long.TryParse(First(subject, Attr.UserAccountControl), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
         if (subject.Kind == WatchObjectKind.Computer)
         {
             if ((uac & (long)UserAccountControl.ServerTrustAccount) != 0)
