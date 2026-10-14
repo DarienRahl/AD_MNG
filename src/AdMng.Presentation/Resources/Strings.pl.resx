@@ -3881,7 +3881,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Domyślnie (zawsze dla wysokich i wyżej, inne w godzinach pracy)</value>
   </data>
   <data name="Watchdog.DeliveryKind.Alert" xml:space="preserve">
-    <value>Alert</value>
+    <value>Powiadomienie</value>
   </data>
   <data name="Watchdog.DeliveryKind.Digest" xml:space="preserve">
     <value>Raport dzienny</value>
@@ -3893,7 +3893,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Stan usługi</value>
   </data>
   <data name="Watchdog.DeliveryKind.Test" xml:space="preserve">
-    <value>Test</value>
+    <value>Wiadomość testowa</value>
   </data>
   <data name="Watchdog.Detail.LevelLabel" xml:space="preserve">
     <value>szczegółowość: {0}</value>
@@ -4430,7 +4430,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Zmieniono historię SID</value>
   </data>
   <data name="Watchdog.Kind.Test" xml:space="preserve">
-    <value>Test</value>
+    <value>Zdarzenie testowe</value>
   </data>
   <data name="Watchdog.Kind.TrustChanged" xml:space="preserve">
     <value>Zmieniono relację zaufania</value>
