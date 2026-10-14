@@ -185,7 +185,7 @@ public sealed partial class FakeDirectoryBuilder
     /// <summary>Adds a group policy container (needs <see cref="AddWatchdogInfrastructure"/>).</summary>
     public string AddGroupPolicy(string displayName, Guid? guid = null, IReadOnlyDictionary<string, object?>? attributes = null)
     {
-        var id = guid ?? Guid.NewGuid();
+        var id = guid ?? FakeDirectorySession.DeterministicGuid("gpo:" + displayName);
         return Seed(GroupPolicyDn(id), new Dictionary<string, object?>
         {
             [Attr.ObjectClass] = new[] { "top", "container", "groupPolicyContainer" },

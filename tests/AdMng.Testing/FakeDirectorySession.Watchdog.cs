@@ -639,7 +639,7 @@ public sealed partial class FakeDirectorySession
             .Child("CN", "Sites").Child("CN", "Default-First-Site-Name").Child("CN", "Servers")
             .Child("CN", hostName.Split('.')[0].ToUpperInvariant()).Child("CN", NtdsSettingsName);
 
-    private static Guid DeterministicGuid(string seed) => new(MD5.HashData(Encoding.UTF8.GetBytes(seed)));
+    internal static Guid DeterministicGuid(string seed) => new(MD5.HashData(Encoding.UTF8.GetBytes(seed)));
 
     /// <summary>One seeded DC: its NTDS Settings object, USN space and (changeable) invocationId.</summary>
     private sealed class DomainControllerState(string hostName, DistinguishedName ntdsSettingsDn, long usnOffset)

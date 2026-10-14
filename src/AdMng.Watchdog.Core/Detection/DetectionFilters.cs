@@ -29,8 +29,16 @@ public static class DetectionFilters
         LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.RidManager),
         LdapFilter.Equal(Attr.ObjectClass, ObjectClasses.InfrastructureUpdate));
 
+    /// <summary>
+    /// Objects of pass 2: not a container class – except group policy containers, which derive from
+    /// <c>container</c> but are leaf objects of their own kind.
+    /// </summary>
+    public static string NotContainer { get; } = LdapFilter.Or(
+        LdapFilter.Not(ContainerClasses),
+        LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.GroupPolicyContainer));
+
     /// <summary>Non-container objects of the scope classes (pass 2 of a full scan).</summary>
-    public static string NonContainerScope { get; } = LdapFilter.And(ScopeClasses, LdapFilter.Not(ContainerClasses));
+    public static string NonContainerScope { get; } = LdapFilter.And(ScopeClasses, NotContainer);
 
     /// <summary>Containers changed since <paramref name="searchFrom"/> (pass 1 of an incremental cycle).</summary>
     public static string ChangedContainers(long searchFrom) =>
@@ -38,7 +46,7 @@ public static class DetectionFilters
 
     /// <summary>Non-container objects changed since <paramref name="searchFrom"/> (pass 2 of an incremental cycle).</summary>
     public static string ChangedObjects(long searchFrom) =>
-        LdapFilter.And(LdapFilter.GreaterOrEqual(Attr.UsnChanged, searchFrom), ScopeClasses, LdapFilter.Not(ContainerClasses));
+        LdapFilter.And(LdapFilter.GreaterOrEqual(Attr.UsnChanged, searchFrom), ScopeClasses, NotContainer);
 
     /// <summary>Users (people incl. inetOrgPerson, without contacts): <c>(&amp;(objectCategory=person)(objectClass=user))</c>.</summary>
     public static string Users { get; } = LdapFilter.And(
