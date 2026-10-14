@@ -589,7 +589,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         }
 
         var sam = SamValue();
-        var maxLength = Kind == ObjectKind.Computer ? AccountNames.MaxComputerNameLength + 1 : AccountNames.MaxSamAccountNameLength;
+        var maxLength = Kind == ObjectKind.Computer ? AccountNames.MaxComputerNameLength + 1 : Kind.MaxSamAccountNameLength();
         if (sam.Length == 0)
         {
             _samCheck.Cancel();
@@ -598,7 +598,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
             return;
         }
 
-        if (!AccountNames.IsValidSamAccountName(sam, Kind == ObjectKind.Group ? 256 : maxLength))
+        if (!AccountNames.IsValidSamAccountName(sam, maxLength))
         {
             _samCheck.Cancel();
             SamAvailability = NameAvailability.Invalid;
@@ -687,9 +687,9 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
 
                 break;
             case ObjectKind.Group:
-                if (!AccountNames.IsValidSamAccountName(SamValue(), 256))
+                if (!AccountNames.IsValidSamAccountName(SamValue(), ObjectKind.Group.MaxSamAccountNameLength()))
                 {
-                    return Localizer.Format(L.NewObject.SamInvalid, 256);
+                    return Localizer.Format(L.NewObject.SamInvalid, ObjectKind.Group.MaxSamAccountNameLength());
                 }
 
                 break;

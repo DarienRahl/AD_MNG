@@ -10,7 +10,9 @@ namespace AdMng.Core.Batch;
 /// <summary>
 /// Default <see cref="ICsvImportPlanner"/>. Keys are resolved with batched OR-filter searches (at most
 /// <see cref="LookupBatchSize"/> keys per request; objectGUID keys as binary filters, distinguishedName keys by
-/// direct reads), then every resolved row goes through the same validation as <see cref="ChangePlanner"/>.
+/// direct reads), then the attribute changes of every resolved row go through the same validation as
+/// <see cref="ChangePlanner"/> (schema, permissions, uniqueness, and the userAccountControl guard: a row cannot disable
+/// the built-in Administrator, krbtgt or a domain controller account, nor change the account type bits).
 /// </summary>
 /// <remarks>
 /// Cell values are trimmed, and the apostrophe that CSV formula protection puts in front of values such as

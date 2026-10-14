@@ -960,7 +960,7 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>'{0}' was changed by someone else after the preview.</value>
   </data>
   <data name="Issue.CriticalSystemObject" xml:space="preserve">
-    <value>Critical system object.</value>
+    <value>Critical system object (isCriticalSystemObject): it cannot be deleted; rename or move it only deliberately.</value>
   </data>
   <data name="Issue.Duplicate" xml:space="preserve">
     <value>The value of '{0}' is already used by another object.</value>
