@@ -3,6 +3,7 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Testing.Client;
 
@@ -108,7 +109,7 @@ public sealed class WatchdogShellTests
     }
 
     [Fact]
-    public async Task HiddenTab_KeepsItsBadgeUpToDate()
+    public async Task HiddenTab_KeepsItsBadgeUpToDate_WithoutLongPolling()
     {
         using var h = await WatchdogHarness.CreateAsync();
         await h.Ui.RunAsync(async () =>
@@ -117,18 +118,29 @@ public sealed class WatchdogShellTests
             await shell.InitializeAsync();
             var watchdog = shell.OpenWatchdog()!;
             await watchdog.Connecting;
-            shell.SelectedTab = shell.ListDocuments.First();
+            await watchdog.Events.Loading;
             Assert.Equal("5", watchdog.BadgeText);
 
+            // In the background the tab only reads the status, every 60 s (the poller runs on its own; the clock decides).
+            shell.SelectedTab = shell.ListDocuments.First();
+            Assert.False(watchdog.IsVisible);
+            await h.Ui.IdleAsync();
             h.Client.Status = h.Client.Status with
             {
                 Last24Hours = h.Client.Status.Last24Hours with { UnacknowledgedHighOrAbove = 7 },
             };
-            h.Time.Advance(TimeSpan.FromSeconds(61));
-            await WatchdogTestWait.UntilAsync(h, () => watchdog.BadgeText == "7", "the hidden tab's status poll");
+            var statuses = h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync));
+            h.Time.Advance(WatchdogPoller.HiddenStatusInterval + TimeSpan.FromSeconds(1));
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), statuses + 1);
+            await WatchdogTestWait.UntilAsync(h, () => watchdog.BadgeText == "7", "the badge of the hidden tab");
 
-            Assert.False(watchdog.IsVisible);
-            Assert.DoesNotContain(h.Client.EventQueries, q => q.After is not null);
+            // No long-poll while hidden.
+            var longPolls = h.Client.EventQueries.Count(q => q.After is not null);
+            statuses = h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync));
+            h.Time.Advance(WatchdogPoller.HiddenStatusInterval + TimeSpan.FromSeconds(1));
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), statuses + 1);
+            await h.Ui.IdleAsync();
+            Assert.Equal(longPolls, h.Client.EventQueries.Count(q => q.After is not null));
         });
         h.AssertNoUiErrors();
     }
