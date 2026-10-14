@@ -1,0 +1,42 @@
+[
+  {
+    "file": "01-main-window.png",
+    "title_pl": "Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika",
+    "title_en": "Main window – the IT organizational unit with the details of the selected user"
+  },
+  {
+    "file": "02-main-window-dark.png",
+    "title_pl": "Okno główne w motywie ciemnym",
+    "title_en": "Main window in the dark theme"
+  },
+  {
+    "file": "03-user-properties-general.png",
+    "title_pl": "Właściwości użytkownika – karta Ogólne",
+    "title_en": "User properties – General tab"
+  },
+  {
+    "file": "04-user-properties-account.png",
+    "title_pl": "Właściwości użytkownika – karta Konto",
+    "title_en": "User properties – Account tab"
+  },
+  {
+    "file": "05-batch-editor-preview.png",
+    "title_pl": "Edytor zbiorczy – podgląd zmian (przed → po) przed wykonaniem",
+    "title_en": "Batch editor – preview of the changes (before → after) before running them"
+  },
+  {
+    "file": "06-recycle-bin.png",
+    "title_pl": "Kosz Active Directory – usunięte obiekty do przywrócenia",
+    "title_en": "Active Directory Recycle Bin – deleted objects to restore"
+  },
+  {
+    "file": "07-find.png",
+    "title_pl": "Wyszukiwanie – użytkownicy z Warszawy (warunek zaawansowany)",
+    "title_en": "Find – users in Warsaw (advanced condition)"
+  },
+  {
+    "file": "08-connect.png",
+    "title_pl": "Połączenie z domeną",
+    "title_en": "Connecting to a domain"
+  }
+]
