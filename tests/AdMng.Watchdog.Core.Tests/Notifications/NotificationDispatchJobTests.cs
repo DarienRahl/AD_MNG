@@ -228,4 +228,19 @@ public sealed class NotificationDispatchJobTests
         Assert.Empty(await harness.MessagesAsync(e));
         Assert.Empty(await harness.Store.GetAllAsync(Ct));
     }
+
+    [Fact]
+    public async Task RuleSeverityOverride_IsTheSeverityOfTheMessage()
+    {
+        var rule = Rule("watchlist-groups", "Grupy obserwowane") with { Severity = Severity.Critical };
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.GroupMemberAdded, Severity.Medium), new PlannedMatch(rule, Severity.Critical));
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var message = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal(Severity.Critical, message.Severity);
+        Assert.StartsWith("[AD Watchdog][KRYTYCZNE]", message.Email!.Subject, StringComparison.Ordinal);
+    }
 }

@@ -179,7 +179,8 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
             return (false, wakeAt);
         }
 
-        var ordered = ready.Select(r => r.Event).DistinctBy(e => e.Id).OrderBy(e => e.DetectedAt).ThenBy(e => e.Id).ToList();
+        // Rendered with the notification severity of the row (rule override or re-resolved event severity).
+        var ordered = ready.Select(r => r.Event with { Severity = r.Item.Severity }).DistinctBy(e => e.Id).OrderBy(e => e.DetectedAt).ThenBy(e => e.Id).ToList();
         var cap = AggregationPolicy.MaxItems(settings);
         var shown = ordered.Take(cap).ToList();
         var message = first.IsFollowUp
@@ -220,7 +221,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         {
             if (await _events.GetAsync(id, cancellationToken).ConfigureAwait(false) is { } e)
             {
-                originalEvents.Add(e);
+                originalEvents.Add(e with { Severity = original!.Severity });     // the severity the alert was sent with
             }
         }
 
