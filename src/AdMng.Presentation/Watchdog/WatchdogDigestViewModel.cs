@@ -25,7 +25,11 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
         _services = services ?? throw new ArgumentNullException(nameof(services));
         Session = session ?? throw new ArgumentNullException(nameof(session));
         Weekdays = CreateWeekdays();
+
+        // Not an edit: Load() fills every field from the working copy without writing back.
+        _loading = true;
         WeeklySectionsDay = Weekdays[1];
+        _loading = false;
         Session.Reloaded += OnReloaded;
         Session.IssuesChanged += OnIssuesChanged;
         Session.PropertyChanged += OnSessionPropertyChanged;
@@ -104,7 +108,7 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
         ChannelIds = WatchdogEditValues.KeepOrder(_original.ChannelIds, Channels.Where(c => c.IsChecked).Select(c => c.Value), StringComparer.Ordinal),
         SendWhenEmpty = SendWhenEmpty,
         MaxRowsPerSection = Number(MaxRowsPerSection, _original.MaxRowsPerSection),
-        WeeklySectionsDay = WeeklySectionsDay.Value,
+        WeeklySectionsDay = WeeklySectionsDay?.Value ?? _original.WeeklySectionsDay,
         UpcomingExpiryDays = Number(UpcomingExpiryDays, _original.UpcomingExpiryDays),
         CoverNonBusinessDays = CoverNonBusinessDays,
     };
@@ -112,8 +116,18 @@ public sealed partial class WatchdogDigestViewModel : ObservableObject, IDisposa
     /// <summary>Texts after a language switch.</summary>
     public void Relocalize()
     {
-        Weekdays = CreateWeekdays();
-        OnPropertyChanged(nameof(Weekdays));
+        // A combo box may clear its selection while its items are replaced; that is not an edit.
+        _loading = true;
+        try
+        {
+            Weekdays = CreateWeekdays();
+            OnPropertyChanged(nameof(Weekdays));
+        }
+        finally
+        {
+            _loading = false;
+        }
+
         Load();
     }
 

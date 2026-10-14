@@ -382,6 +382,10 @@ public sealed class WatchdogDocumentTests
             Assert.Equal("Administrator", tab.RoleText);
             Assert.Equal("Zablokowano konto", tab.Events.Items.Single(r => r.Id == SampleEvents.LockoutId).KindText);
             Assert.StartsWith("Zdarzeń: 30", tab.StatusText, StringComparison.Ordinal);
+            Assert.Equal("poniedziałek", tab.Digest.WeeklySectionsDay.Text);
+            Assert.Equal("Blokady kont", tab.Rules.Rules[12].Name);
+            Assert.Equal(h.Ad.Localizer[L.Watchdog.OutboxAllStatuses], tab.Status.DeliveryLog.Status.Text);
+            Assert.False(tab.Config.IsDirty);
         });
         h.AssertNoUiErrors();
     }

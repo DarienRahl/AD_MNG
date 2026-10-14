@@ -65,10 +65,15 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
     /// <summary>Texts after a language switch.</summary>
     public void Relocalize()
     {
-        var status = Status.Value;
+        var status = Status?.Value;
+        var initialized = _initialized;
+
+        // The filter does not change: no reload while the options are replaced.
+        _initialized = false;
         Statuses = CreateStatuses();
         OnPropertyChanged(nameof(Statuses));
         Status = Statuses.First(s => s.Value == status);
+        _initialized = initialized;
         foreach (var row in Items)
         {
             row.Refresh();
@@ -117,7 +122,8 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
 
     partial void OnStatusChanged(Option<OutboxStatus?> value)
     {
-        if (_initialized)
+        // A combo box clears its selection (null) while its items are replaced.
+        if (_initialized && value is not null)
         {
             LoadAsync().Forget();
         }
@@ -146,7 +152,7 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
         {
             var query = new OutboxQuery
             {
-                Status = Status.Value,
+                Status = Status?.Value,
                 ChannelId = string.IsNullOrWhiteSpace(ChannelId) ? null : ChannelId.Trim(),
                 Before = before,
                 Limit = PageSize,
