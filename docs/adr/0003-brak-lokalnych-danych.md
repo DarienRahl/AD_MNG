@@ -1,6 +1,7 @@
 # ADR-0003: Żadnych lokalnych kopii danych katalogu
 
-- Status: przyjęta
+- Status: przyjęta; częściowo zmieniona przez [ADR-0008](0008-watchdog-dane-w-osobnym-folderze.md) (tylko usługa AdMng
+  Watchdog)
 - Data: 2026-10-13
 
 ## Kontekst
