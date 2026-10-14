@@ -174,7 +174,7 @@ public sealed class TeamsCardFormatterTests
 
     /// <summary>Parses and validates a Workflows message; returns the card. The <c>msteams</c> host extension is not part of
     /// the vendored schema and is checked separately.</summary>
-    private static JsonObject AssertValidMessage(RenderedHttpMessage message)
+    internal static JsonObject AssertValidMessage(RenderedHttpMessage message)
     {
         Assert.Equal("application/json; charset=utf-8", message.ContentType);
         var root = JsonNode.Parse(message.Body)!.AsObject();
@@ -196,7 +196,7 @@ public sealed class TeamsCardFormatterTests
         return card;
     }
 
-    private static IEnumerable<JsonObject> Nodes(JsonNode node)
+    internal static IEnumerable<JsonObject> Nodes(JsonNode node)
     {
         switch (node)
         {
@@ -231,14 +231,14 @@ public sealed class TeamsCardFormatterTests
         }
     }
 
-    private static string? Type(JsonNode node) => node["type"] is JsonValue value && value.TryGetValue<string>(out var type) ? type : null;
+    internal static string? Type(JsonNode node) => node["type"] is JsonValue value && value.TryGetValue<string>(out var type) ? type : null;
 
     /// <summary>Texts rendered with Markdown: TextBlock texts and Fact titles/values.</summary>
-    private static IEnumerable<string> MarkdownTexts(JsonObject card) =>
+    internal static IEnumerable<string> MarkdownTexts(JsonObject card) =>
         Nodes(card).Where(n => Type(n) == "TextBlock").Select(n => n["text"]!.GetValue<string>())
             .Concat(Nodes(card).Where(n => Type(n) == "FactSet").SelectMany(n => n["facts"]!.AsArray())
                 .SelectMany(f => new[] { f!["title"]!.GetValue<string>(), f["value"]!.GetValue<string>() }));
 
-    private static string AllText(JsonObject card) => string.Join("\n",
+    internal static string AllText(JsonObject card) => string.Join("\n",
         Nodes(card).Where(n => Type(n) is "TextBlock" or "TextRun").Select(n => n["text"]!.GetValue<string>()).Concat(MarkdownTexts(card)));
 }

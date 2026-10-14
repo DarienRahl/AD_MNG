@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Formatting;
+using AdMng.Watchdog.Core.Notifications.Digest;
 
 namespace AdMng.Watchdog.Core.Tests.Formatting;
 
@@ -83,6 +84,43 @@ public sealed partial class NotificationStringsTests
             yield return plural + ".One";
             yield return plural + ".Few";
             yield return plural + ".Many";
+        }
+
+        foreach (var key in DigestKeys())
+        {
+            yield return key;
+        }
+    }
+
+    /// <summary>Keys the digest formatters build from enum values and counter names.</summary>
+    public static IEnumerable<string> DigestKeys()
+    {
+        foreach (var section in Enum.GetValues<DigestSectionKind>())
+        {
+            yield return "Digest.Section." + section;
+        }
+
+        foreach (var state in Enum.GetValues<HealthState>())
+        {
+            yield return "Digest.Health.State." + state;
+        }
+
+        foreach (var name in new DigestCounts().ToDictionary().Keys)
+        {
+            yield return "Digest.Count." + char.ToUpperInvariant(name[0]) + name[1..];
+        }
+
+        var facts = DigestSectionBuilder.Passwords([], 1).Facts
+            .Concat(DigestSectionBuilder.Inactive(null, 1).Facts)
+            .Concat(DigestSectionBuilder.Hygiene(null).Facts);
+        foreach (var fact in facts)
+        {
+            yield return "Digest.Fact." + fact.Key;
+        }
+
+        foreach (var kind in Enum.GetValues<ExpiryKind>())
+        {
+            yield return "Digest.Expiry." + kind;
         }
     }
 

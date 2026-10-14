@@ -31,31 +31,13 @@ public sealed class DeliveryFailureReporter
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrEmpty(channelId);
-        var id = Guid.CreateVersion7(now);
-        var watchEvent = new WatchEvent
-        {
-            EventId = id,
-            ChangeSetId = id,
-            Kind = WatchEventKind.HealthDeliveryFailing,
-            Severity = EventKindCatalog.DefaultSeverity(WatchEventKind.HealthDeliveryFailing, WatchObjectKind.Watchdog),
-            Object = new ObjectRef { Dn = string.Empty, Name = string.Empty, Kind = WatchObjectKind.Watchdog },
-            Changes =
-            [
-                Text("code", Code),
-                Text("channel", channelId),
-                Text("channelType", channelType.ToString()),
-                Text("errorCode", string.IsNullOrEmpty(errorCode) ? "unknown" : errorCode),
-            ],
-            DetectedAt = now,
-            Source = DetectionSource.Health,
-            Attribution = AdMng.Watchdog.Contracts.Events.Attribution.NotApplicable,
-        };
-
+        var watchEvent = HealthEvents.Create(WatchEventKind.HealthDeliveryFailing, now,
+            ("code", Code),
+            ("channel", channelId),
+            ("channelType", channelType.ToString()),
+            ("errorCode", string.IsNullOrEmpty(errorCode) ? "unknown" : errorCode));
         var stored = await _events.AppendAsync(watchEvent, cancellationToken).ConfigureAwait(false);
         _signals.Raise(WatchdogSignal.EventsStored);
         return stored;
     }
-
-    private static AttributeChange Text(string attribute, string value) =>
-        new() { Attribute = attribute, ValueKind = AttributeValueKind.Text, NewValues = [value], NewCount = 1 };
 }

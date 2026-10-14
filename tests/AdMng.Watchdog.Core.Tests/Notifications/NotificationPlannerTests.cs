@@ -179,4 +179,20 @@ public sealed class NotificationPlannerTests
 
         Assert.Equal(DeliveryChannelType.Teams, Assert.Single(planned).Target.ChannelType);
     }
+
+    [Fact]
+    public async Task ConfigurationChange_IsPlannedWithThePreviousConfiguration()
+    {
+        var health = Rule("health", "Stan usługi", groups: ["poprzedni-zespol"]);
+        var previous = ConfigWith(health) with
+        {
+            RecipientGroups = [new RecipientGroup { Id = "poprzedni-zespol", Name = "Poprzedni zespół", Addresses = ["poprzedni.zespol@contoso.test"] }],
+        };
+        var harness = new NotificationHarness(ConfigWith());     // the new configuration removed the group and the rule
+        var changed = await harness.StoreAsync(HealthEvents.Create(WatchEventKind.WatchdogConfigurationChanged, Now, ("code", "config.saved")));
+
+        var planned = await harness.Planner.PlanAsync(changed, [new PlannedMatch(health, Severity.High)], previous, Now, Ct);
+
+        Assert.Equal(["poprzedni.zespol@contoso.test"], Assert.Single(planned).Target.Recipients);
+    }
 }

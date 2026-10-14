@@ -115,6 +115,14 @@ public static class DetailLevelFilter
         };
     }
 
+    /// <summary>An object reference outside an event (digest rows: upcoming expiries, inactive accounts) with every
+    /// string made safe by <see cref="UntrustedText"/>.</summary>
+    public static ObjectRef SafeReference(ObjectRef reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return Safe(reference);
+    }
+
     private static AttributeChange FilterChange(AttributeChange change, DetailLevel level, int maxValueLength)
     {
         switch (Visibility(change, level))

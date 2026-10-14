@@ -36,13 +36,17 @@ public sealed class RolloutGate
             : baseline.AddDays(general.RolloutDays);
 
     /// <summary>True while rollout mode is active at <paramref name="now"/> for the watched <paramref name="domain"/>.</summary>
-    public async Task<bool> IsActiveAsync(WatchdogConfiguration configuration, string? domain, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<bool> IsActiveAsync(WatchdogConfiguration configuration, string? domain, DateTimeOffset now, CancellationToken cancellationToken) =>
+        await ActiveUntilAsync(configuration, domain, now, cancellationToken).ConfigureAwait(false) is not null;
+
+    /// <summary>The end of rollout mode when it is active at <paramref name="now"/> (digest header), else null.</summary>
+    public async Task<DateTimeOffset?> ActiveUntilAsync(WatchdogConfiguration configuration, string? domain, DateTimeOffset now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         var general = configuration.General;
         if (general is null || general.RolloutEnded || general.RolloutDays <= 0)
         {
-            return false;
+            return null;
         }
 
         var baseline = _health.Directory.BaselineCompletedAt;
@@ -51,6 +55,6 @@ public sealed class RolloutGate
             baseline = (await _detection.GetDcStateAsync(domain, cancellationToken).ConfigureAwait(false))?.BaselineCompletedAt;
         }
 
-        return Until(general, baseline) is { } until && now < until;
+        return Until(general, baseline) is { } until && now < until ? until : null;
     }
 }

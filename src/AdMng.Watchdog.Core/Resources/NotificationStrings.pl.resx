@@ -449,6 +449,300 @@
   <data name="DeliveryKind.Test" xml:space="preserve">
     <value>Test</value>
   </data>
+  <data name="Digest.Acknowledged" xml:space="preserve">
+    <value>potwierdzone przez {0}</value>
+  </data>
+  <data name="Digest.AttentionTitle" xml:space="preserve">
+    <value>Wymaga uwagi ({0})</value>
+  </data>
+  <data name="Digest.Column.Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="Digest.Column.CreatedBy" xml:space="preserve">
+    <value>Dodano przez</value>
+  </data>
+  <data name="Digest.Column.Exception" xml:space="preserve">
+    <value>Wyjątek</value>
+  </data>
+  <data name="Digest.Column.Expires" xml:space="preserve">
+    <value>Wygasa</value>
+  </data>
+  <data name="Digest.Column.LastLogon" xml:space="preserve">
+    <value>Ostatnie logowanie</value>
+  </data>
+  <data name="Digest.Column.Lockouts" xml:space="preserve">
+    <value>Blokady</value>
+  </data>
+  <data name="Digest.Column.Ou" xml:space="preserve">
+    <value>Jednostka (OU)</value>
+  </data>
+  <data name="Digest.Column.Rule" xml:space="preserve">
+    <value>Reguła</value>
+  </data>
+  <data name="Digest.Column.Sources" xml:space="preserve">
+    <value>Źródła błędnych haseł</value>
+  </data>
+  <data name="Digest.Column.State" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Digest.Count.Attention" xml:space="preserve">
+    <value>Wymagają uwagi</value>
+  </data>
+  <data name="Digest.Count.Critical" xml:space="preserve">
+    <value>Krytyczne</value>
+  </data>
+  <data name="Digest.Count.Deleted" xml:space="preserve">
+    <value>Usunięte obiekty</value>
+  </data>
+  <data name="Digest.Count.Disabled" xml:space="preserve">
+    <value>Wyłączone konta</value>
+  </data>
+  <data name="Digest.Count.DomainChanges" xml:space="preserve">
+    <value>Zmiany domeny, zasad i GPO</value>
+  </data>
+  <data name="Digest.Count.Enabled" xml:space="preserve">
+    <value>Włączone konta</value>
+  </data>
+  <data name="Digest.Count.High" xml:space="preserve">
+    <value>Wysokie</value>
+  </data>
+  <data name="Digest.Count.Lockouts" xml:space="preserve">
+    <value>Blokady kont</value>
+  </data>
+  <data name="Digest.Count.NewComputers" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Digest.Count.NewUsers" xml:space="preserve">
+    <value>Nowi użytkownicy</value>
+  </data>
+  <data name="Digest.Count.OtherPasswordChanges" xml:space="preserve">
+    <value>Zmiany haseł (wykonawca nieustalony)</value>
+  </data>
+  <data name="Digest.Count.OwnPasswordChanges" xml:space="preserve">
+    <value>Zmiany własnych haseł</value>
+  </data>
+  <data name="Digest.Count.PasswordAgeResets" xml:space="preserve">
+    <value>Odświeżenia wieku hasła</value>
+  </data>
+  <data name="Digest.Count.PasswordResets" xml:space="preserve">
+    <value>Resety haseł</value>
+  </data>
+  <data name="Digest.Count.PrivilegedChanges" xml:space="preserve">
+    <value>Zmiany dostępu uprzywilejowanego</value>
+  </data>
+  <data name="Digest.Count.Total" xml:space="preserve">
+    <value>Zdarzenia</value>
+  </data>
+  <data name="Digest.Count.Unacknowledged" xml:space="preserve">
+    <value>Niepotwierdzone</value>
+  </data>
+  <data name="Digest.CoversNonBusinessDays" xml:space="preserve">
+    <value>obejmuje dni wolne od ostatniego raportu w dniu roboczym</value>
+  </data>
+  <data name="Digest.Empty" xml:space="preserve">
+    <value>Brak zmian w okresie.</value>
+  </data>
+  <data name="Digest.Exception.Actor" xml:space="preserve">
+    <value>wykonawca {0}</value>
+  </data>
+  <data name="Digest.Exception.Attribute" xml:space="preserve">
+    <value>atrybut {0}</value>
+  </data>
+  <data name="Digest.Exception.NoExpiry" xml:space="preserve">
+    <value>bezterminowo</value>
+  </data>
+  <data name="Digest.Exception.Object" xml:space="preserve">
+    <value>obiekt {0}</value>
+  </data>
+  <data name="Digest.Exception.Subtree" xml:space="preserve">
+    <value>poddrzewo {0}</value>
+  </data>
+  <data name="Digest.Exception.Until" xml:space="preserve">
+    <value>do {0}</value>
+  </data>
+  <data name="Digest.Expiry.Account" xml:space="preserve">
+    <value>konto wygasa {0}</value>
+  </data>
+  <data name="Digest.Expiry.Password" xml:space="preserve">
+    <value>hasło wygasa {0}</value>
+  </data>
+  <data name="Digest.Fact.AdminCountOrphans" xml:space="preserve">
+    <value>adminCount=1 bez uprawnień</value>
+  </data>
+  <data name="Digest.Fact.AdministratorPasswordAgeDays" xml:space="preserve">
+    <value>Wiek hasła wbudowanego administratora (dni)</value>
+  </data>
+  <data name="Digest.Fact.InactiveComputers" xml:space="preserve">
+    <value>Nieaktywne komputery</value>
+  </data>
+  <data name="Digest.Fact.InactivePrivileged" xml:space="preserve">
+    <value>Nieaktywne konta uprzywilejowane</value>
+  </data>
+  <data name="Digest.Fact.InactiveUsers" xml:space="preserve">
+    <value>Nieaktywni użytkownicy</value>
+  </data>
+  <data name="Digest.Fact.KrbtgtPasswordAgeDays" xml:space="preserve">
+    <value>Wiek hasła krbtgt (dni)</value>
+  </data>
+  <data name="Digest.Fact.OtherPasswordChanges" xml:space="preserve">
+    <value>Wykonawca nieustalony</value>
+  </data>
+  <data name="Digest.Fact.OwnPasswordChanges" xml:space="preserve">
+    <value>Zmiany własne</value>
+  </data>
+  <data name="Digest.Fact.PasswordAgeResets" xml:space="preserve">
+    <value>Odświeżenia wieku hasła</value>
+  </data>
+  <data name="Digest.Fact.PasswordNeverExpires" xml:space="preserve">
+    <value>Hasło nigdy nie wygasa</value>
+  </data>
+  <data name="Digest.Fact.PasswordNotRequired" xml:space="preserve">
+    <value>Hasło niewymagane (PASSWD_NOTREQD)</value>
+  </data>
+  <data name="Digest.Fact.PasswordResets" xml:space="preserve">
+    <value>Reset przez inne konto</value>
+  </data>
+  <data name="Digest.Fact.UnconstrainedDelegation" xml:space="preserve">
+    <value>Delegowanie nieograniczone poza kontrolerami</value>
+  </data>
+  <data name="Digest.Footer" xml:space="preserve">
+    <value>Raport dzienny · usługa {0} · wiadomość automatyczna, nie odpowiadaj</value>
+  </data>
+  <data name="Digest.Health.BrokenChannels" xml:space="preserve">
+    <value>kanały bez dostarczania: {0}</value>
+  </data>
+  <data name="Digest.Health.Coverage" xml:space="preserve">
+    <value>pokrycie atrybucji {0}</value>
+  </data>
+  <data name="Digest.Health.Directory" xml:space="preserve">
+    <value>Kontroler domeny {0} ({1})</value>
+  </data>
+  <data name="Digest.Health.LastPoll" xml:space="preserve">
+    <value>ostatni odczyt {0}</value>
+  </data>
+  <data name="Digest.Health.LogGaps" xml:space="preserve">
+    <value>luki w dziennikach zdarzeń: {0}</value>
+  </data>
+  <data name="Digest.Health.NoDirectory" xml:space="preserve">
+    <value>Kontroler domeny: brak połączenia</value>
+  </data>
+  <data name="Digest.Health.Rollout" xml:space="preserve">
+    <value>tryb wdrożenia do {0}</value>
+  </data>
+  <data name="Digest.Health.State.Disabled" xml:space="preserve">
+    <value>wyłączony</value>
+  </data>
+  <data name="Digest.Health.State.Error" xml:space="preserve">
+    <value>błąd</value>
+  </data>
+  <data name="Digest.Health.State.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Digest.Health.State.Unknown" xml:space="preserve">
+    <value>stan nieznany</value>
+  </data>
+  <data name="Digest.Health.State.Warning" xml:space="preserve">
+    <value>ostrzeżenie</value>
+  </data>
+  <data name="Digest.LastLogon" xml:space="preserve">
+    <value>ostatnie logowanie {0}</value>
+  </data>
+  <data name="Digest.LockedOut" xml:space="preserve">
+    <value>zablokowane {0}× {1}, ostatnio {2}</value>
+  </data>
+  <data name="Digest.More" xml:space="preserve">
+    <value>… i {0} kolejnych – pełna lista w zakładce Watchdog</value>
+  </data>
+  <data name="Digest.NeverLoggedOn" xml:space="preserve">
+    <value>nigdy nie logowano</value>
+  </data>
+  <data name="Digest.Period" xml:space="preserve">
+    <value>Okres: {0} – {1}</value>
+  </data>
+  <data name="Digest.Privileged" xml:space="preserve">
+    <value>uprzywilejowane</value>
+  </data>
+  <data name="Digest.Section.AccountParameters" xml:space="preserve">
+    <value>Zmiany parametrów kont</value>
+  </data>
+  <data name="Digest.Section.ActiveExceptions" xml:space="preserve">
+    <value>Aktywne wyjątki</value>
+  </data>
+  <data name="Digest.Section.DeletedRestored" xml:space="preserve">
+    <value>Usunięte / przywrócone</value>
+  </data>
+  <data name="Digest.Section.DisabledEnabled" xml:space="preserve">
+    <value>Wyłączone / włączone</value>
+  </data>
+  <data name="Digest.Section.DomainPolicy" xml:space="preserve">
+    <value>Domena, zasady, GPO, PKI</value>
+  </data>
+  <data name="Digest.Section.GroupMembership" xml:space="preserve">
+    <value>Członkostwo w grupach</value>
+  </data>
+  <data name="Digest.Section.Health" xml:space="preserve">
+    <value>Stan usługi Watchdog</value>
+  </data>
+  <data name="Digest.Section.Hygiene" xml:space="preserve">
+    <value>Higiena</value>
+  </data>
+  <data name="Digest.Section.InactiveAccounts" xml:space="preserve">
+    <value>Nieaktywne konta</value>
+  </data>
+  <data name="Digest.Section.Lockouts" xml:space="preserve">
+    <value>Blokady</value>
+  </data>
+  <data name="Digest.Section.MovedRenamed" xml:space="preserve">
+    <value>Przeniesione / zmiany nazw</value>
+  </data>
+  <data name="Digest.Section.NewAccounts" xml:space="preserve">
+    <value>Nowe konta</value>
+  </data>
+  <data name="Digest.Section.NewComputers" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Digest.Section.Passwords" xml:space="preserve">
+    <value>Hasła</value>
+  </data>
+  <data name="Digest.Section.Privileged" xml:space="preserve">
+    <value>Dostęp uprzywilejowany</value>
+  </data>
+  <data name="Digest.Section.SecurityReview" xml:space="preserve">
+    <value>Zmiany bezpieczeństwa do przeglądu</value>
+  </data>
+  <data name="Digest.Section.UpcomingExpiry" xml:space="preserve">
+    <value>Nadchodzące terminy</value>
+  </data>
+  <data name="Digest.Section.WatchdogConfiguration" xml:space="preserve">
+    <value>Zmiany konfiguracji Watchdog</value>
+  </data>
+  <data name="Digest.SectionTitle" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Digest.Shown" xml:space="preserve">
+    <value>Pokazano {0} z {1} pozycji</value>
+  </data>
+  <data name="Digest.Title" xml:space="preserve">
+    <value>Raport dzienny</value>
+  </data>
+  <data name="Digest.Today" xml:space="preserve">
+    <value>dziś</value>
+  </data>
+  <data name="Digest.Unacknowledged" xml:space="preserve">
+    <value>niepotwierdzone</value>
+  </data>
+  <data name="Digest.Unknown" xml:space="preserve">
+    <value>brak danych (katalog niedostępny)</value>
+  </data>
+  <data name="Digest.Unlocked" xml:space="preserve">
+    <value>odblokowane {0}×</value>
+  </data>
+  <data name="Digest.Unusual" xml:space="preserve">
+    <value>nietypowe</value>
+  </data>
+  <data name="Digest.Weekly" xml:space="preserve">
+    <value>z sekcjami tygodniowymi</value>
+  </data>
   <data name="Email.ActorOfAll" xml:space="preserve">
     <value>wykonawca {0}</value>
   </data>
