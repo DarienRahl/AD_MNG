@@ -22,20 +22,25 @@ jobs:
   windows:
     name: Build, unit & UI smoke tests (Windows)
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          # The newest 10.0 SDK (>= 10.0.113, runtime 10.0.13); global.json (10.0.100, latestFeature) accepts it.
+          dotnet-version: "10.0.x"
       - name: Restore
+        # Uses the repository nuget.config (nuget.org only, source mapping) and NuGetAudit (mode all).
         run: dotnet restore AdMng.slnx
       - name: Build
         run: dotnet build AdMng.slnx -c Release --no-restore
       - name: Unit tests
+        # The whole solution, including the watchdog test projects (Windows-only tests such as the local Security-log
+        # reader and DPAPI-NG run here; the Samba-based watchdog integration tests skip without ADMNG_TEST_LDAP_*).
         run: dotnet test AdMng.slnx -c Release --no-build --logger "trx" --results-directory TestResults
         env:
           ADMNG_UI_TESTS: "1"
+          ADMNG_WINDOWS_EVENTLOG_TESTS: "1"
       - name: Publish (self-contained single file)
         run: dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
       - name: Smoke test published app
@@ -51,6 +56,22 @@ jobs:
         with:
           name: AdMng-win-x64
           path: publish/
+          retention-days: 14
+      - name: Publish AdMng Watchdog (framework-dependent)
+        # Framework-dependent, so Microsoft Update services the ASP.NET Core runtime on the server (spec 19.7).
+        run: dotnet publish src/AdMng.Watchdog.Service/AdMng.Watchdog.Service.csproj -c Release -r win-x64 --self-contained false -o publish-watchdog
+      - name: Smoke test published AdMng Watchdog
+        # Temporary data folder, loopback HTTP, Development authentication, directory and attribution disabled:
+        # migrations, /healthz, /api/v1/status and every formatter (spec 19.1).
+        shell: pwsh
+        run: |
+          & publish-watchdog/AdMng.Watchdog.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { throw "AdMng Watchdog smoke test failed with exit code $LASTEXITCODE" }
+          if (-not (Test-Path publish-watchdog/Deploy/Install-AdMngWatchdog.ps1)) { throw "Deploy/Install-AdMngWatchdog.ps1 is missing from the publish output" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AdMng-Watchdog-win-x64
+          path: publish-watchdog/
           retention-days: 14
       - name: Screenshots
         # Renders the Polish UI over the sample company (tests/AdMng.App.UiTests/ScreenshotTests.cs) into PNG files and
@@ -85,20 +106,52 @@ jobs:
   integration:
     name: Integration tests (Samba AD DC lab)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    env:
+      # Public test values of the throwaway lab (tools/testlab/README.md) – no secrets are needed.
+      ADMNG_TEST_LDAP_SERVER: 127.0.0.1
+      ADMNG_TEST_LDAP_USER: Administrator@contoso.test
+      ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
+      ADMNG_TEST_LDAP_READONLY_USER: odczyt.test@contoso.test
+      ADMNG_TEST_LDAP_READONLY_PASSWORD: Passw0rd!Lab2026
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: "10.0.x"
       - name: Set up Samba AD DC lab
         run: sudo LAB_USERS=400 LAB_COMPUTERS=250 tools/testlab/setup-samba-dc.sh
       - name: Integration tests
         run: dotnet test tests/AdMng.Directory.IntegrationTests -c Release
+      # One project per "dotnet test" call (VSTest mode accepts a single project or solution, MSB1008 otherwise):
+      # Linux coverage of the non-Windows code paths of the watchdog.
+      - name: Watchdog Core tests (Linux)
+        run: dotnet test tests/AdMng.Watchdog.Core.Tests -c Release
+      - name: Watchdog Service tests (Linux)
+        run: dotnet test tests/AdMng.Watchdog.Service.Tests -c Release
+      - name: Start Mailpit
+        run: tools/testlab/watchdog/start-mailpit.sh
+      - name: Watchdog integration tests (Samba lab + Mailpit)
+        run: dotnet test tests/AdMng.Watchdog.IntegrationTests -c Release
         env:
-          ADMNG_TEST_LDAP_SERVER: 127.0.0.1
-          ADMNG_TEST_LDAP_USER: Administrator@contoso.test
-          ADMNG_TEST_LDAP_PASSWORD: P@ssw0rd!2026
+          ADMNG_TEST_SMTP_HOST: 127.0.0.1
+          ADMNG_TEST_SMTP_PORT: "1025"
+          ADMNG_TEST_MAILPIT_API: http://127.0.0.1:8025
+      - name: Watchdog lab scenario (service, Mailpit, webhook sink)
+        # The lab scripts end to end, so they never rot: the Lab launch profile in the background, the API
+        # configuration, the scenario with its own verification (events, Polish e-mails, signed webhooks) and cleanup.
+        run: |
+          tools/testlab/watchdog/run-watchdog-lab.sh --reset --background
+          tools/testlab/watchdog/configure-lab.sh --test
+          tools/testlab/watchdog/lab-scenario.sh --verify
+      - name: Watchdog lab logs
+        if: failure()
+        run: tail -n 200 ~/.cache/admng/watchdog-lab/watchdog.log ~/.cache/admng/watchdog-lab/webhook-sink.log || true
+      - name: Stop the watchdog lab and Mailpit
+        if: always()
+        run: |
+          tools/testlab/watchdog/lab-scenario.sh --cleanup || true
+          tools/testlab/watchdog/run-watchdog-lab.sh --stop
 
   publish-screenshots:
     name: Publish screenshots (branch "screenshots")

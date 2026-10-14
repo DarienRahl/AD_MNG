@@ -41,6 +41,13 @@ podglądem zmian, raportem i cofaniem.
   pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
 - **Przejrzystość** – dziennik sesji, historia równoważnych poleceń PowerShell, centrum aktywności z postępem i
   anulowaniem, komunikaty błędów AD po polsku.
+- **AdMng Watchdog – monitor zmian w AD** – osobna usługa Windows (24/7, konto gMSA tylko do odczytu) wykrywa nowe i
+  usunięte obiekty, zmiany atrybutów (stara → nowa wartość), blokady, wygasające konta, zmiany członkostwa i
+  **uprzywilejowanego dostępu** (także przez grupy zagnieżdżone) oraz zmiany Tier 0; ustala wykonawcę z dzienników
+  zabezpieczeń kontrolerów domeny i powiadamia e-mailem (od razu i raportem dziennym), w Microsoft Teams (Workflows) i
+  podpisanym webhookiem (SIEM). W AD_MNG zakładka **Watchdog** (Narzędzia → Watchdog) pokazuje zdarzenia, reguły,
+  kanały i stan usługi. Usługa jako jedyna część rozwiązania przechowuje dane – we własnym, chronionym folderze
+  ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md)). Wdrożenie: [docs/WATCHDOG.md](docs/WATCHDOG.md).
 
 Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV, „Kopiuj użytkownika”): zob.
 [roadmapę](docs/ROADMAP.md#znane-ograniczenia).
@@ -59,6 +66,11 @@ Każdy przebieg CI publikuje jednoplikowy `AdMng.exe` (win-x64, self-contained):
 2. Sekcja *Artifacts* → **AdMng-win-x64** (archiwum ZIP, przechowywane 14 dni).
 3. Rozpakuj i uruchom `AdMng.exe`. Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub
    AppLocker/WDAC mogą go zablokować.
+
+Usługa **AdMng Watchdog** jest publikowana obok, jako artefakt **AdMng-Watchdog-win-x64** (zależna od środowiska
+uruchomieniowego: wymaga ASP.NET Core Runtime ≥ 10.0.13 x64 na serwerze, aktualizowanego przez Microsoft Update) – razem
+ze skryptami `Deploy\Install-AdMngWatchdog.ps1` / `Uninstall-AdMngWatchdog.ps1`. Instalacja krok po kroku (gMSA, SPN,
+certyfikat, uprawnienia, inspekcja): [docs/WATCHDOG.md](docs/WATCHDOG.md#4-wdrożenie-krok-po-kroku).
 
 Pierwsze uruchomienie: okno połączenia podpowiada domenę komputera i listę kontrolerów; wybierz bieżące konto Windows albo
 podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos z podpisywaniem i
@@ -81,6 +93,25 @@ Testy:
 dotnet test tests/AdMng.Core.Tests
 dotnet test tests/AdMng.Presentation.Tests
 # testy integracyjne na laboratorium Samba AD DC – zob. tools/testlab/README.md
+```
+
+AdMng Watchdog (każdy projekt testów osobnym wywołaniem `dotnet test`):
+
+```bash
+dotnet test tests/AdMng.Watchdog.Core.Tests        # silnik: wykrywanie, atrybucja, reguły, powiadomienia, formatery
+dotnet test tests/AdMng.Watchdog.Service.Tests     # usługa w procesie: API, SQLite, transporty, hosting
+dotnet test tests/AdMng.Watchdog.IntegrationTests  # laboratorium Samba + Mailpit (zob. tools/testlab/watchdog/README.md)
+# usługa przeciw laboratorium (Mailpit, odbiornik webhooków, scenariusz zmian):
+tools/testlab/watchdog/run-watchdog-lab.sh --reset --background
+tools/testlab/watchdog/configure-lab.sh --test
+tools/testlab/watchdog/lab-scenario.sh --verify
+```
+
+Publikacja usługi i jej test dymny (tymczasowy folder danych, pętla zwrotna, bez katalogu – jak w CI):
+
+```powershell
+dotnet publish src/AdMng.Watchdog.Service -c Release -r win-x64 --self-contained false -o publish-watchdog
+publish-watchdog\AdMng.Watchdog.exe --smoke-test
 ```
 
 Testy UI (tylko Windows, PowerShell):
@@ -108,5 +139,6 @@ działają na obu systemach.
 - [Roadmapa, fazy prac i znane ograniczenia](docs/ROADMAP.md)
 - [Architektura](docs/ARCHITECTURE.md) i [decyzje architektoniczne (ADR)](docs/adr/)
 - [Wyniki analizy: dsa.msc, ADAC, produkty konkurencyjne, techniki LDAP](docs/RESEARCH.md)
-- [Laboratorium testowe](tools/testlab/README.md)
+- [AdMng Watchdog – wdrożenie i konfiguracja usługi monitorującej](docs/WATCHDOG.md)
+- [Laboratorium testowe](tools/testlab/README.md) i [Watchdog w laboratorium](tools/testlab/watchdog/README.md)
 - [Notatki dla deweloperów](CLAUDE.md)

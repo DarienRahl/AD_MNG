@@ -692,9 +692,43 @@ uprawnienia folderu), 1004 braki uprawnień, 1005 problemy z atrybucją / luka w
 
 ## 11. Środowisko testowe
 
-Laboratorium Samba (`tools/testlab`) i katalog `tools/testlab/watchdog`: uruchomienie usługi w trybie konsolowym
-przeciw laboratorium (`run-watchdog-lab.sh`), serwer pocztowy Mailpit z podglądem wiadomości
-(http://127.0.0.1:8025), odbiornik webhooków weryfikujący podpisy, skrypt scenariusza zmian w jednorazowym OU (z
-automatycznym sprzątaniem) i opcjonalny test prawdziwego Kerberosa. Testy integracyjne:
-`dotnet test tests/AdMng.Watchdog.IntegrationTests` (wymagają zmiennych `ADMNG_TEST_LDAP_*`). CI publikuje usługę
-jako artefakt `AdMng-Watchdog-win-x64` oraz zrzuty ekranu zakładki Watchdog na gałęzi `screenshots`.
+Usługę można uruchomić na Linuksie przeciw laboratorium Samba AD DC z `tools/testlab` – skrypty i opis:
+[`tools/testlab/watchdog/README.md`](../tools/testlab/watchdog/README.md).
+
+```bash
+tools/testlab/watchdog/run-watchdog-lab.sh --reset --background   # usługa (profil Lab), Mailpit, odbiornik webhooków
+tools/testlab/watchdog/configure-lab.sh --test                    # SMTP → Mailpit, kanały → odbiornik (przez API)
+tools/testlab/watchdog/lab-scenario.sh --verify                   # zmiany w OU=WatchdogDemo i sprawdzenie powiadomień
+tools/testlab/watchdog/run-watchdog-lab.sh --stop
+```
+
+- Profil `Lab` (`appsettings.Lab.json`): uwierzytelnianie `Development` (tylko pętla zwrotna, nigdy jako usługa
+  Windows), API `http://127.0.0.1:5089`, odczyt katalogu jako `odczyt.test` prostym wiązaniem bez TLS
+  (`AllowInsecureLab` – odrzucane poza środowiskiem Development); hasło wyłącznie w zmiennej
+  `ADMNG_WATCHDOG_LDAP_PASSWORD`, dane w `~/.local/share/admng-watchdog-lab`. Na Linuksie klucze Data Protection nie są
+  szyfrowane (ostrzeżenie przy starcie), a atrybucja jest wyłączona (`SOURCE_DISABLED`) – laboratorium Samba nie ma
+  dzienników zabezpieczeń Windows.
+- Mailpit (http://127.0.0.1:8025) zbiera e-maile (STARTTLS, certyfikat przypinany przez `configure-lab.sh`), odbiornik
+  webhooków sprawdza podpisy Standard Webhooks i koperty Teams Workflows.
+- Konfiguracja laboratoryjna celowo skraca okna agregacji i kończy tryb wdrożenia; ustawienia produkcyjne opisują
+  rozdziały 4 i 5.
+- Konto `odczyt.test` nie widzi `CN=Deleted Objects`, więc usunięcia w laboratorium pojawiają się dopiero przy
+  uzgodnieniu dobowym (stan `permission.deletedObjects`) – zgodnie z rozdziałem 4.3.
+
+Testy integracyjne (`tests/AdMng.Watchdog.IntegrationTests`) uruchamiają prawdziwe silniki i całą usługę przeciw
+laboratorium:
+
+```bash
+tools/testlab/watchdog/start-mailpit.sh
+export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
+export ADMNG_TEST_LDAP_READONLY_USER='odczyt.test@contoso.test' ADMNG_TEST_LDAP_READONLY_PASSWORD='Passw0rd!Lab2026'
+export ADMNG_TEST_SMTP_HOST=127.0.0.1 ADMNG_TEST_SMTP_PORT=1025 ADMNG_TEST_MAILPIT_API=http://127.0.0.1:8025
+dotnet test tests/AdMng.Watchdog.IntegrationTests
+# opcjonalnie prawdziwy Kerberos (SPN HTTP/localhost, keytab): eval "$(sudo -E tools/testlab/watchdog/krb5-lab.sh)"
+# i ADMNG_TEST_KERBEROS=1 – na Linuksie sprawdzane jest tylko uwierzytelnienie (role po SID-ach: testy na Windows)
+```
+
+CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows: czytnik dziennika
+Security, DPAPI-NG), publikacja usługi, `AdMng.Watchdog.exe --smoke-test` i artefakt **AdMng-Watchdog-win-x64**
+(14 dni); na Ubuntu z Samba DC – testy silnika i usługi, testy integracyjne z Mailpit oraz skrypty laboratorium
+(`lab-scenario.sh --verify`). Zrzuty ekranu zakładki Watchdog trafiają na gałąź `screenshots`.

@@ -27,6 +27,7 @@ Legenda statusu: ✅ zrobione · 🟡 pierwsza wersja gotowa, wymaga dopracowani
 | 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
+| W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa Windows wykrywająca zmiany w AD z ustaleniem wykonawcy, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 zaimplementowane, czeka na laboratorium Windows Server i pilotaż |
 
 ---
 
@@ -255,6 +256,41 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 - Podpisany instalator MSI (certyfikat z firmowego AD CS), reguły WDAC/AppLocker, dystrybucja przez Intune/ConfigMgr/GPO.
 - Zatwierdzanie „cztery oczy”: operator A eksportuje podpisany plan zmian, operator B weryfikuje go na żywo i wykonuje.
 - Członkostwo czasowe (PAM/TTL), polityki i silosy uwierzytelniania (podgląd), logowanie kartą inteligentną.
+
+## AdMng Watchdog – monitor zmian w AD 🟡
+
+**Cel:** wiedzieć w ciągu minut, co zmieniło się w katalogu, kto i skąd to zrobił – bez czytania dzienników DC i bez
+alarmów o rutynie. Osobna usługa Windows ([WATCHDOG.md](WATCHDOG.md), [ADR-0008](adr/0008-watchdog-dane-w-osobnym-folderze.md),
+specyfikacja [dev/watchdog-spec.md](dev/watchdog-spec.md)); AD_MNG dostaje zakładkę Watchdog.
+
+- 🟡 **Wykrywanie:** odpytywanie `uSNChanged` jednego DC z migawką obserwowanych atrybutów (Extended DN, metadane
+  replikacji, watermark per DC, uzgodnienie dobowe), nowe/usunięte/przywrócone/przeniesione obiekty, zmiany atrybutów
+  stara → nowa wartość, flagi konta, blokady i odblokowania, członkostwo i **dostęp uprzywilejowany przez zagnieżdżenia**,
+  zmiany Tier 0 (delegowanie, SPN, KeyCredentialLink, sIDHistory, ACL obiektów krytycznych, DC, FSMO, PKI, schemat,
+  zasady domeny), wygasające konta i hasła, serie (masowe blokady i usunięcia), samokontrola uprawnień konta usługi.
+- 🟡 **Atrybucja:** dzienniki Security kontrolerów (47xx, 5136–5141, 4624 dla stacji źródłowej, 4771/4776 dla źródeł
+  blokad), poziom pewności i kody przyczyn, gdy wykonawcy nie da się ustalić; uzupełnienia wysyłane w tym samym wątku.
+- 🟡 **Powiadomienia:** reguły z zakresem, wyjątkami i godzinami pracy (polskie święta), agregacja i limity, e-mail
+  (relay, Basic, Exchange Online OAuth2), raport dzienny, Microsoft Teams (Workflows, Adaptive Card 1.4), webhook
+  podpisany Standard Webhooks, heartbeat; tryb wdrożenia przez pierwsze 7 dni.
+- 🟡 **Usługa:** API HTTPS tylko z Kerberosem, role wg grup AD, SQLite z retencją i kopiami, sekrety w Data Protection
+  (DPAPI-NG) powiązane z miejscem docelowym, skrypty instalacyjne, test dymny; artefakt CI `AdMng-Watchdog-win-x64`.
+- 🟡 **Zakładka Watchdog w AD_MNG** (w realizacji): zdarzenia z filtrami i szczegółami, reguły z podglądem, kanały i testowe wysyłki,
+  raport dzienny, stan usługi, dziennik wysyłek.
+- ✅ **Środowisko testowe:** testy silnika i usługi na Linuksie, testy integracyjne na laboratorium Samba (scenariusze
+  wykrywania z kontem tylko do odczytu, usługa end-to-end z Mailpit i podpisanym webhookiem, opcjonalnie prawdziwy
+  Kerberos), skrypty laboratoryjne (`tools/testlab/watchdog`: usługa, Mailpit, odbiornik webhooków, scenariusz
+  z weryfikacją) uruchamiane także w CI.
+
+**Do zrobienia przed wydaniem:** przebieg na laboratorium Windows Server 2022/2025 (odczyt `msDS-ReplAttributeMetaData`
+przez konto bez uprawnień administratora, zdarzenia 4624 dla zmian przez ADWS/PowerShell, 4740 na DC innych niż PDC,
+pokrycie SACL dla 5136/5137, czytnik dzienników przez „Event Log Readers”, HTTP.sys z klientem tylko-NTLM) z zapisem
+prawdziwych zdarzeń jako danych testowych; sprawdzenie Teams Workflows na żywej dzierżawie (wersja karty, SAS vs OAuth);
+akceptacja zakresu danych w powiadomieniach przez IOD (RODO); pilotaż w jednej domenie.
+
+**Faza 2 Watchdoga:** Microsoft Graph `sendMail`, uwierzytelnianie zintegrowane SMTP, strumień zdarzeń (SSE), korelacja
+z planami zmian AD_MNG (mniej szumu przy edycji zbiorczej), atrybucja z dziennika audytu Samba (JSON), więcej domen w
+jednej instancji, wartości czasowe członkostwa (PAM TTL).
 
 ---
 
