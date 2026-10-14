@@ -197,8 +197,11 @@ jobs:
             done
           }
 
-          # Replaces the folder of the source branch with the new pictures and commits; fails when nothing changed.
+          # Replaces the folder of the source branch with the new pictures and commits; committed=false when nothing
+          # changed. Always call it as a plain command: inside an if/!/|| condition bash ignores "set -e" in the whole
+          # function, so a failing cp/jq/git step would be skipped silently and a broken folder published.
           commit_folder() {
+            committed=false
             rm -rf -- "$folder"
             mkdir -p -- "$folder"
             cp -- "${images[@]}" "$folder/"
@@ -215,13 +218,15 @@ jobs:
             fi
             git add -A -- "$folder"
             if git diff --cached --quiet; then
-              return 1
+              return 0
             fi
             git commit -q -m "Screenshots $short_sha ($SOURCE_BRANCH)"
+            committed=true
           }
 
           checkout_tip
-          if ! commit_folder; then
+          commit_folder
+          if [ "$committed" != true ]; then
             echo "The screenshots of $SOURCE_BRANCH did not change: nothing to publish."
             exit 0
           fi
@@ -246,7 +251,8 @@ jobs:
               # Only possible when someone else changed the same folder: re-apply ours on the new tip.
               git rebase --abort || true
               checkout_tip
-              if ! commit_folder; then
+              commit_folder
+              if [ "$committed" != true ]; then
                 echo "The branch $branch already has these screenshots."
                 exit 0
               fi
