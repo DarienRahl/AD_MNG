@@ -82,6 +82,26 @@ public sealed class FakeSecurityEventSource : ISecurityEventSource
         return recordId;
     }
 
+    /// <summary>Adds a truncated (unparsable) record that the reader still returns for event id
+    /// <paramref name="eventCode"/> – the "malformed record" path of ingestion.</summary>
+    public void AddMalformed(string host, long recordId, DateTimeOffset timeCreated, int eventCode = 4738, string logName = "Security")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        var stub = new SecurityEvent { Source = host, Computer = host, RecordId = recordId, EventCode = eventCode, TimeCreated = timeCreated };
+        lock (_gate)
+        {
+            var key = Key(host, logName);
+            if (!_logs.TryGetValue(key, out var records))
+            {
+                records = [];
+                _logs[key] = records;
+            }
+
+            records.Add(new StoredRecord("<Event xmlns=\"http://schemas.microsoft.com/win/2004/08/events/event\"><System><EventID>", stub));
+            _nextRecordId[key] = Math.Max(_nextRecordId.GetValueOrDefault(key, 1), recordId + 1);
+        }
+    }
+
     /// <summary>Sets the next record id of a log (e.g. a long-running DC log starting at 175 000).</summary>
     public void SetNextRecordId(string host, long next, string logName = "Security")
     {
