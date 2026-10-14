@@ -58,6 +58,46 @@ public class RecycleBinViewModelTests
     }
 
     [Fact]
+    public async Task SelectObject_SelectsTheDeletedObjectOfAWatchdogEvent_EvenWhenFilteredOut()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var zaneta = (await harness.Session.GetAsync(harness.Company.ZanetaSzymanska, [Attr.ObjectGuid], Ct))!.ObjectGuid!.Value;
+        var jan = (await harness.Session.GetAsync(harness.Company.JanKowalski, [Attr.ObjectGuid], Ct))!.ObjectGuid!.Value;
+        await harness.Session.DeleteAsync(harness.Company.JanKowalski, subtree: false, Ct);
+        await harness.Session.DeleteAsync(harness.Company.ZanetaSzymanska, subtree: false, Ct);
+        using var bin = harness.Factory.CreateRecycleBin();
+
+        // Asked before the first load: selected once the list is there.
+        bin.SelectObject(zaneta);
+        await bin.InitializeAsync();
+        Assert.Equal("Żaneta Szymańska", bin.SelectedItem?.Name);
+
+        // Asked while a filter hides it: the filter is cleared and the object selected after the reload.
+        bin.NameFilter = "kowal";
+        await bin.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(["Jan Kowalski"], bin.Items.Select(r => r.Name));
+        bin.SelectObject(zaneta);
+        await bin.Loading;
+        Assert.Equal(string.Empty, bin.NameFilter);
+        Assert.Equal("Żaneta Szymańska", bin.SelectedItem?.Name);
+
+        // Listed: selected at once.
+        bin.SelectObject(jan);
+        Assert.Equal("Jan Kowalski", bin.SelectedItem?.Name);
+
+        // A typed filter that has not reloaded yet would drop the selection: the filters are cleared instead.
+        bin.NameFilter = "kowal";
+        bin.SelectObject(zaneta);
+        await bin.Loading;
+        Assert.Equal(string.Empty, bin.NameFilter);
+        Assert.Equal(2, bin.Items.Count);
+        Assert.Equal("Żaneta Szymańska", bin.SelectedItem?.Name);
+        harness.Time.Advance(TimeSpan.FromSeconds(5));
+        await bin.Loading;
+        Assert.Equal("Żaneta Szymańska", bin.SelectedItem?.Name);
+    }
+
+    [Fact]
     public async Task OriginalLocation_FollowsDeletedContainersThatAreNotListed()
     {
         var harness = await B2Harness.CreateAsync();

@@ -151,6 +151,9 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     private bool _initialized;
     private bool _settingFilters;
 
+    /// <summary>A name filter was typed and its debounced reload has not started yet (the list is about to change).</summary>
+    private bool _filterReloadPending;
+
     public RecycleBinViewModel(DialogServices services)
         : base(services)
     {
@@ -332,6 +335,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     public Task LoadAsync()
     {
         _reloadDebouncer.Cancel();
+        _filterReloadPending = false;
         _currentLoad = LoadCoreAsync();
         return _currentLoad;
     }
@@ -514,6 +518,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         if (_initialized && !_settingFilters)
         {
+            _filterReloadPending = true;
             _reloadDebouncer.RunAsync(_ => LoadAsync()).Forget();
         }
     }
@@ -722,17 +727,21 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     public void SelectObject(Guid objectGuid)
     {
         _pendingSelection = objectGuid;
-        if (_initialized && !IsLoading)
+        if (!_initialized)
         {
-            if (Items.Any(r => r.Info.ObjectGuid == objectGuid))
-            {
-                ApplyPendingSelection();
-            }
-            else
-            {
-                ClearFiltersCommand.Execute(null);
-            }
+            // The first load selects it.
+            return;
         }
+
+        if (!IsLoading && !_filterReloadPending && Items.Any(r => r.Info.ObjectGuid == objectGuid))
+        {
+            ApplyPendingSelection();
+            return;
+        }
+
+        // Not listed, or the list is about to change (a running load or a typed filter): reload without filters (a running
+        // load is cancelled); the load selects the object.
+        ClearFiltersCommand.Execute(null);
     }
 
     private void ApplyPendingSelection()
