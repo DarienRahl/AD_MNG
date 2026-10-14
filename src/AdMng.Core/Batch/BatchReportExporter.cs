@@ -67,7 +67,7 @@ public sealed class BatchReportExporter
 
             foreach (var change in objectPlan.Changes)
             {
-                foreach (var row in StepRows(change, status, objectPlan.DisplayName, objectPlan.DistinguishedName, objectMessage, null, includePasswords))
+                foreach (var row in StepRows(change, status, objectPlan, objectPlan.DistinguishedName, objectMessage, null, includePasswords))
                 {
                     yield return row;
                 }
@@ -94,7 +94,7 @@ public sealed class BatchReportExporter
             {
                 var executed = objectResult.Changes.FirstOrDefault(r => ReferenceEquals(r.Change, change));
                 var status = executed is null ? StatusNotExecuted : executed.Succeeded ? StatusSucceeded : StatusFailed;
-                foreach (var row in StepRows(change, status, objectPlan.DisplayName, objectResult.FinalDn, objectMessage, executed?.ErrorMessage, includePasswords))
+                foreach (var row in StepRows(change, status, objectPlan, objectResult.FinalDn, objectMessage, executed?.ErrorMessage, includePasswords))
                 {
                     yield return row;
                 }
@@ -105,12 +105,13 @@ public sealed class BatchReportExporter
     private static IEnumerable<IReadOnlyList<string>> StepRows(
         PlannedChange change,
         string status,
-        string name,
+        ObjectPlan objectPlan,
         string dn,
         string objectMessage,
         string? error,
         bool includePasswords)
     {
+        var name = objectPlan.DisplayName;
         var message = Join(objectMessage, Describe(change.Issues), error);
         var action = change.Action.ToString();
         switch (change.Action)
@@ -139,6 +140,10 @@ public sealed class BatchReportExporter
                 break;
             case ChangeAction.Rename or ChangeAction.Move:
                 yield return Row(includePasswords, status, name, dn, action, null, null, change.TargetDn, message, null);
+                break;
+            case ChangeAction.Restore:
+                // Old value: where the object was (CN=Deleted Objects); new value: the DN it is restored to.
+                yield return Row(includePasswords, status, name, dn, action, null, objectPlan.DistinguishedName, change.TargetDn, message, null);
                 break;
             case ChangeAction.ResetPassword:
                 yield return Row(includePasswords, status, name, dn, action, null, null, null, message, change.Password);

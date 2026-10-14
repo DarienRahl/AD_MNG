@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Opens the batch editor, the CSV import, the session log, the PowerShell history and the settings dialog: creates the
+/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin and the settings dialog: creates the
 /// view model through <see cref="IDialogViewModelFactory"/> and shows it with <see cref="IWindowService"/> (the windows
 /// host it with <see cref="Infrastructure.WindowViewModelLifecycle"/>). Used by <see cref="DialogService"/> and by the
 /// main window's Tools menu (PowerShell history has no <see cref="IDialogService"/> entry). UI thread only.
@@ -23,6 +23,9 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     /// <summary>Singleton key of the PowerShell history window (one per application).</summary>
     public const string PowerShellHistoryKey = "tools:powershell-history";
+
+    /// <summary>Singleton key of the AD Recycle Bin window (one per application).</summary>
+    public const string RecycleBinKey = "tools:recycle-bin";
 
     private readonly IServiceProvider _services = services ?? throw new ArgumentNullException(nameof(services));
     private readonly IWindowService _windows = windows ?? throw new ArgumentNullException(nameof(windows));
@@ -49,6 +52,9 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     /// <summary>The PowerShell history (modeless; an open one is activated).</summary>
     public Window ShowPowerShellHistory() => ShowSingleton(PowerShellHistoryKey, () => Factory.CreatePowerShellHistory());
+
+    /// <summary>The AD Recycle Bin (modeless; an open one is activated).</summary>
+    public Window ShowRecycleBin() => ShowSingleton(RecycleBinKey, () => Factory.CreateRecycleBin());
 
     /// <summary>
     /// The settings dialog (modal). Advanced Features is applied through the main window's shell, so the tree and the

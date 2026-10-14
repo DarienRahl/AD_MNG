@@ -72,8 +72,8 @@ public sealed class DirectoryChangeNotifier : IDirectoryChangeNotifier
 public static class DirectoryChanges
 {
     /// <summary>
-    /// One change per affected object: Created / Deleted / Moved (old -> final DN) or Modified; groups whose
-    /// membership changed are reported as Modified too.
+    /// One change per affected object: Created (also for objects restored from the Recycle Bin, at their final DN) /
+    /// Deleted / Moved (old -> final DN) or Modified; groups whose membership changed are reported as Modified too.
     /// </summary>
     public static IReadOnlyList<DirectoryChange> FromResult(BatchResult result)
     {
@@ -105,8 +105,9 @@ public static class DirectoryChanges
                 continue;
             }
 
-            if (succeeded.Any(c => c.Action == ChangeAction.Create))
+            if (succeeded.Any(c => c.Action is ChangeAction.Create or ChangeAction.Restore))
             {
+                // A restored object appears at its final DN like a new one (its DN in CN=Deleted Objects was never listed).
                 Add(new DirectoryChange(DirectoryChangeKind.Created, obj.FinalDn, ObjectKind: kind));
             }
             else if (!Dn.AreEqual(dn, obj.FinalDn))

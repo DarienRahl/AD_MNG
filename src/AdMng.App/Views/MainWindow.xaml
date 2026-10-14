@@ -346,6 +346,8 @@
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <MenuItem b:CommandMenu.Id="tools.importCsv" />
         <Separator />
+        <MenuItem b:CommandMenu.Id="tools.recycleBin" />
+        <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
                   Click="OnPowerShellHistoryClick"

@@ -3558,4 +3558,136 @@ Type {1} to confirm.</value>
   <data name="ToolsUi.Time" xml:space="preserve">
     <value>Time</value>
   </data>
+  <data name="Commands.RecycleBin" xml:space="preserve">
+    <value>AD Recycle Bin...</value>
+  </data>
+  <data name="ChangeAction.Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="Issue.ParentDeleted" xml:space="preserve">
+    <value>The original container is deleted as well. Restore it together with the object, or restore the object to another container.</value>
+  </data>
+  <data name="Issue.ParentNotRestored" xml:space="preserve">
+    <value>The parent container cannot be restored, so this object cannot be restored either.</value>
+  </data>
+  <data name="Issue.TargetNotFound" xml:space="preserve">
+    <value>The target container does not exist or has been deleted.</value>
+  </data>
+  <data name="Issue.AlreadyExists" xml:space="preserve">
+    <value>An object with the same name already exists in the target container.</value>
+  </data>
+  <data name="Issue.Recycled" xml:space="preserve">
+    <value>The object was recycled (its deleted object lifetime expired) and can no longer be restored.</value>
+  </data>
+  <data name="Issue.TombstoneReanimation" xml:space="preserve">
+    <value>The AD Recycle Bin is not enabled: the object comes back from a tombstone without most of its attributes and without group memberships.</value>
+  </data>
+  <data name="Errors.ParentNotRestored" xml:space="preserve">
+    <value>Not restored, because its parent container could not be restored.</value>
+  </data>
+  <data name="RecycleBin.WindowTitle" xml:space="preserve">
+    <value>AD Recycle Bin</value>
+  </data>
+  <data name="RecycleBin.WindowTitleDomain" xml:space="preserve">
+    <value>AD Recycle Bin – {0}</value>
+  </data>
+  <data name="RecycleBin.Enabled" xml:space="preserve">
+    <value>The AD Recycle Bin is enabled: deleted objects keep their attributes and group memberships and come back with them.</value>
+  </data>
+  <data name="RecycleBin.Disabled" xml:space="preserve">
+    <value>The AD Recycle Bin is not enabled in this forest. Deleted objects are tombstones: they can still be reanimated, but they come back without most of their attributes and without group memberships. Enabling the Recycle Bin (Enable-ADOptionalFeature) cannot be undone.</value>
+  </data>
+  <data name="RecycleBin.Lifetime" xml:space="preserve">
+    <value>Deleted objects can be restored for {0} days.</value>
+  </data>
+  <data name="RecycleBin.TombstoneLifetime" xml:space="preserve">
+    <value>Tombstones are kept for {0} days.</value>
+  </data>
+  <data name="RecycleBin.NoAccess" xml:space="preserve">
+    <value>The deleted objects cannot be read. Listing CN=Deleted Objects requires Domain Admins rights or permissions delegated on that container.</value>
+  </data>
+  <data name="RecycleBin.NameFilter" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="RecycleBin.NameFilterHint" xml:space="preserve">
+    <value>Name, display name or logon name</value>
+  </data>
+  <data name="RecycleBin.AllKinds" xml:space="preserve">
+    <value>All objects</value>
+  </data>
+  <data name="RecycleBin.DeletedAfter" xml:space="preserve">
+    <value>Deleted on or after</value>
+  </data>
+  <data name="RecycleBin.DeletedFrom" xml:space="preserve">
+    <value>Deleted from</value>
+  </data>
+  <data name="RecycleBin.AnyLocation" xml:space="preserve">
+    <value>Any location</value>
+  </data>
+  <data name="RecycleBin.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="RecycleBin.OriginalLocation" xml:space="preserve">
+    <value>Original location</value>
+  </data>
+  <data name="RecycleBin.Deleted" xml:space="preserve">
+    <value>Deleted</value>
+  </data>
+  <data name="RecycleBin.DeletedLocation" xml:space="preserve">
+    <value>{0} (deleted)</value>
+  </data>
+  <data name="RecycleBin.UnknownLocation" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="RecycleBin.Loading" xml:space="preserve">
+    <value>Loading… {0} deleted objects</value>
+  </data>
+  <data name="RecycleBin.Count" xml:space="preserve">
+    <value>{0} deleted objects</value>
+  </data>
+  <data name="RecycleBin.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="RecycleBin.Empty" xml:space="preserve">
+    <value>No deleted objects match the filters.</value>
+  </data>
+  <data name="RecycleBin.Restore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="RecycleBin.RestoreTo" xml:space="preserve">
+    <value>Restore to...</value>
+  </data>
+  <data name="RecycleBin.Planning" xml:space="preserve">
+    <value>Checking the selected objects…</value>
+  </data>
+  <data name="RecycleBin.PreviewTitle" xml:space="preserve">
+    <value>Restore preview</value>
+  </data>
+  <data name="RecycleBin.PreviewSummary" xml:space="preserve">
+    <value>{0} of {1} objects will be restored.</value>
+  </data>
+  <data name="RecycleBin.PreviewErrors" xml:space="preserve">
+    <value>{0} objects cannot be restored – see the findings.</value>
+  </data>
+  <data name="RecycleBin.ToOriginalLocation" xml:space="preserve">
+    <value>To the original location. Objects whose container is restored with them go back into it.</value>
+  </data>
+  <data name="RecycleBin.ToContainer" xml:space="preserve">
+    <value>To {0}. Objects whose container is restored with them go back into it.</value>
+  </data>
+  <data name="RecycleBin.RestoreTarget" xml:space="preserve">
+    <value>Restore to</value>
+  </data>
+  <data name="RecycleBin.ConfirmRestore" xml:space="preserve">
+    <value>Restore ({0})</value>
+  </data>
+  <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
+    <value>The AD Recycle Bin is not enabled. The objects will be reanimated from tombstones and will come back without most of their attributes (group memberships, contact details, profile…), so accounts must be completed and checked afterwards. Continue?</value>
+  </data>
+  <data name="RecycleBin.ActivityTitle" xml:space="preserve">
+    <value>Restore from the AD Recycle Bin ({0})</value>
+  </data>
+  <data name="RecycleBin.Restored" xml:space="preserve">
+    <value>Restored from the AD Recycle Bin: {0}.</value>
+  </data>
 </root>

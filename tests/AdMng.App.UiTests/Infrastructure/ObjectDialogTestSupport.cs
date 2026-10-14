@@ -76,6 +76,8 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
 
+    public Task ShowRecycleBinAsync() => Inner.ShowRecycleBinAsync();
+
     public Task ShowSettingsAsync() => Task.CompletedTask;
 
     public Task ShowConnectAsync() => Task.CompletedTask;

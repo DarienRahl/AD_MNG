@@ -29,6 +29,18 @@ public class FakeDirectorySessionTests
         return result;
     }
 
+    private static async Task<List<DirectoryObject>> SearchDeletedAsync(FakeDirectorySession session, string filter, string baseDn, SearchScope scope, params string[] attributes)
+    {
+        var result = new List<DirectoryObject>();
+        var search = new DirectorySearch { BaseDn = baseDn, Filter = filter, Scope = scope, Attributes = attributes, IncludeDeleted = true };
+        await foreach (var item in session.SearchAsync(search, Ct))
+        {
+            result.Add(item);
+        }
+
+        return result;
+    }
+
     [Fact]
     public async Task Builder_CreatesWellKnownObjects()
     {
@@ -351,6 +363,167 @@ public class FakeDirectorySessionTests
         await session.RestoreDeletedAsync(tombstone.DistinguishedName, company.JanKowalski, Ct);
         Assert.True(session.Exists(company.JanKowalski));
         Assert.Contains(company.JanKowalski, session.GetValues(company.GroupIt, Attr.Member));
+    }
+
+    [Fact]
+    public async Task DeletedObjectsContainer_ExistsAndIsHiddenWithoutShowDeleted()
+    {
+        var (builder, _) = Create();
+        var session = builder.Session;
+        var container = $"CN=Deleted Objects,{builder.DomainDn}";
+
+        var hidden = await Assert.ThrowsAsync<DirectoryException>(() => SearchAsync(session, "(objectClass=*)", container, SearchScope.OneLevel));
+        var empty = await SearchDeletedAsync(session, "(isDeleted=TRUE)", container, SearchScope.OneLevel);
+
+        Assert.Equal(DirectoryErrorKind.NoSuchObject, hidden.Kind);
+        Assert.Empty(empty);
+        Assert.Empty(session.DeletedDistinguishedNames);
+        Assert.DoesNotContain(container, session.DistinguishedNames);
+    }
+
+    [Fact]
+    public async Task Delete_MovesTheObjectToDeletedObjects_LikeAd()
+    {
+        var time = new ManualTimeProvider();
+        var builder = new FakeDirectoryBuilder(timeProvider: time);
+        var company = builder.AddSampleCompany();
+        var session = builder.Session;
+        var guid = (await session.GetAsync(company.JanKowalski, [Attr.ObjectGuid], Ct))!.ObjectGuid!.Value;
+        time.Advance(TimeSpan.FromHours(3));
+
+        await session.DeleteAsync(company.JanKowalski, subtree: false, Ct);
+        var deleted = Assert.Single(await SearchDeletedAsync(
+            session, "(isDeleted=TRUE)", $"CN=Deleted Objects,{builder.DomainDn}", SearchScope.OneLevel,
+            Attr.Name, Attr.IsDeleted, Attr.LastKnownParent, Attr.MsDsLastKnownRdn, Attr.ObjectCategory, Attr.SamAccountType,
+            Attr.Department, Attr.WhenChanged, Attr.ObjectGuid, Attr.IsRecycled));
+
+        Assert.Equal($@"CN=Jan Kowalski\0ADEL:{guid:D},CN=Deleted Objects,{builder.DomainDn}", deleted.DistinguishedName);
+        Assert.Equal($"Jan Kowalski\nDEL:{guid:D}", deleted.GetString(Attr.Name));
+        Assert.Equal(true, deleted.GetBoolean(Attr.IsDeleted));
+        Assert.Null(deleted.GetBoolean(Attr.IsRecycled));
+        Assert.Equal(company.ItOu, deleted.GetString(Attr.LastKnownParent));
+        Assert.Equal("Jan Kowalski", deleted.GetString(Attr.MsDsLastKnownRdn));
+        Assert.Equal("IT", deleted.GetString(Attr.Department));
+        Assert.Null(deleted.GetString(Attr.ObjectCategory));
+        Assert.Null(deleted.GetString(Attr.SamAccountType));
+        Assert.Equal(time.GetUtcNow(), deleted.GetGeneralizedTime(Attr.WhenChanged));
+        Assert.Null(await session.GetAsync(deleted.DistinguishedName, [Attr.Name], Ct));
+        Assert.Equal([deleted.DistinguishedName], session.DeletedDistinguishedNames);
+        Assert.Empty(await SearchAsync(session, "(isDeleted=TRUE)"));
+    }
+
+    [Fact]
+    public async Task DeleteSubtree_ChildrenPointAtTheDeletedParent_AndRestoreParentFirst()
+    {
+        var (builder, company) = Create();
+        var session = builder.Session;
+
+        await session.DeleteAsync(company.SalesOu, subtree: true, Ct);
+        var all = await SearchDeletedAsync(session, "(isDeleted=TRUE)", $"CN=Deleted Objects,{builder.DomainDn}", SearchScope.OneLevel,
+            Attr.LastKnownParent, Attr.MsDsLastKnownRdn);
+        var sales = Assert.Single(all, o => o.GetString(Attr.MsDsLastKnownRdn) == "Sprzedaż");
+        var pawel = Assert.Single(all, o => o.GetString(Attr.MsDsLastKnownRdn) == "Paweł Lewandowski");
+
+        Assert.Equal(4, all.Count);
+        Assert.Equal(company.EmployeesOu, sales.GetString(Attr.LastKnownParent));
+        Assert.Equal(sales.DistinguishedName, pawel.GetString(Attr.LastKnownParent));
+        Assert.StartsWith(@"OU=Sprzedaż\0ADEL:", sales.DistinguishedName, StringComparison.Ordinal);
+
+        // The child cannot come back before its container.
+        var early = await Assert.ThrowsAsync<DirectoryException>(() => session.RestoreDeletedAsync(pawel.DistinguishedName, company.PawelLewandowski, Ct));
+        Assert.Equal(DirectoryErrorKind.NoSuchObject, early.Kind);
+
+        await session.RestoreDeletedAsync(sales.DistinguishedName, company.SalesOu, Ct);
+        var child = Assert.Single(await SearchDeletedAsync(session, "(msDS-LastKnownRDN=Paweł Lewandowski)", $"CN=Deleted Objects,{builder.DomainDn}", SearchScope.OneLevel, Attr.LastKnownParent));
+        Assert.Equal(company.SalesOu, child.GetString(Attr.LastKnownParent));
+        await session.RestoreDeletedAsync(pawel.DistinguishedName, company.PawelLewandowski, Ct);
+
+        var restored = await session.GetAsync(company.PawelLewandowski, [Attr.ObjectCategory, Attr.SamAccountType, Attr.MemberOf, Attr.IsDeleted], Ct);
+        Assert.NotNull(restored);
+        Assert.Null(restored.GetString(Attr.IsDeleted));
+        Assert.NotNull(restored.GetString(Attr.ObjectCategory));
+        Assert.Equal(SamAccountType.UserObject.ToString(System.Globalization.CultureInfo.InvariantCulture), restored.GetString(Attr.SamAccountType));
+        Assert.Contains(company.GroupSales, restored.GetStrings(Attr.MemberOf));
+        Assert.Equal(2, session.DeletedDistinguishedNames.Count);
+    }
+
+    [Fact]
+    public async Task Delete_WithoutRecycleBin_LeavesATombstone_ThatCanBeReanimated()
+    {
+        var builder = new FakeDirectoryBuilder(info: FakeDirectorySession.CreateInfo() with { RecycleBinEnabled = false });
+        var company = builder.AddSampleCompany();
+        var session = builder.Session;
+
+        await session.DeleteAsync(company.JanKowalski, subtree: false, Ct);
+        var tombstone = Assert.Single(await SearchDeletedAsync(session, "(isDeleted=TRUE)", $"CN=Deleted Objects,{builder.DomainDn}", SearchScope.OneLevel,
+            Attr.IsRecycled, Attr.LastKnownParent, Attr.MsDsLastKnownRdn, Attr.Department, Attr.SamAccountName, Attr.ObjectSid, Attr.Name));
+
+        Assert.Equal(true, tombstone.GetBoolean(Attr.IsRecycled));
+        Assert.Equal(company.ItOu, tombstone.GetString(Attr.LastKnownParent));
+        Assert.Null(tombstone.GetString(Attr.MsDsLastKnownRdn));
+        Assert.Null(tombstone.GetString(Attr.Department));
+        Assert.Equal("jan.kowalski", tombstone.GetString(Attr.SamAccountName));
+        Assert.NotNull(tombstone.ObjectSid);
+        Assert.StartsWith("Jan Kowalski\nDEL:", tombstone.GetString(Attr.Name), StringComparison.Ordinal);
+
+        await session.RestoreDeletedAsync(tombstone.DistinguishedName, company.JanKowalski, Ct);
+        Assert.True(session.Exists(company.JanKowalski));
+        Assert.Empty(session.GetValues(company.JanKowalski, Attr.Department));
+        Assert.Empty(session.GetValues(company.JanKowalski, Attr.IsRecycled));
+        Assert.Empty(session.GetValues(company.JanKowalski, Attr.MemberOf));
+        Assert.NotEmpty(session.GetValues(company.JanKowalski, Attr.ObjectCategory));
+    }
+
+    [Fact]
+    public async Task Recycle_HidesTheObjectFromShowDeleted_AndPreventsRestore()
+    {
+        var (builder, company) = Create();
+        var session = builder.Session;
+        await session.DeleteAsync(company.JanKowalski, subtree: false, Ct);
+        var deletedDn = Assert.Single(session.DeletedDistinguishedNames);
+
+        session.Recycle(deletedDn);
+        var withShowDeleted = await SearchDeletedAsync(session, "(isDeleted=TRUE)", $"CN=Deleted Objects,{builder.DomainDn}", SearchScope.OneLevel);
+        var recycledSearch = new DirectorySearch
+        {
+            BaseDn = $"CN=Deleted Objects,{builder.DomainDn}",
+            Scope = SearchScope.OneLevel,
+            Filter = "(isRecycled=TRUE)",
+            Attributes = [Attr.Department],
+            IncludeDeleted = true,
+            IncludeRecycled = true,
+        };
+        var withShowRecycled = new List<DirectoryObject>();
+        await foreach (var item in session.SearchAsync(recycledSearch, Ct))
+        {
+            withShowRecycled.Add(item);
+        }
+
+        var restore = await Assert.ThrowsAsync<DirectoryException>(() => session.RestoreDeletedAsync(deletedDn, company.JanKowalski, Ct));
+
+        Assert.Empty(withShowDeleted);
+        var recycled = Assert.Single(withShowRecycled);
+        Assert.Null(recycled.GetString(Attr.Department));
+        Assert.Equal(DirectoryErrorKind.NoSuchObject, restore.Kind);
+        Assert.Throws<InvalidOperationException>(() => session.Recycle(company.LukaszWisniewski));
+    }
+
+    [Fact]
+    public async Task Restore_RejectsAnExistingNameAndAnotherNamingAttribute()
+    {
+        var (builder, company) = Create();
+        var session = builder.Session;
+        await session.DeleteAsync(company.JanKowalski, subtree: false, Ct);
+        var deletedDn = Assert.Single(session.DeletedDistinguishedNames);
+
+        var exists = await Assert.ThrowsAsync<DirectoryException>(() => session.RestoreDeletedAsync(deletedDn, company.LukaszWisniewski, Ct));
+        var namingAttribute = await Assert.ThrowsAsync<DirectoryException>(() => session.RestoreDeletedAsync(deletedDn, "OU=Jan Kowalski," + company.ItOu, Ct));
+        await session.RestoreDeletedAsync(deletedDn, "CN=Jan Kowalski (przywrócony)," + company.SalesOu, Ct);
+
+        Assert.Equal(DirectoryErrorKind.AlreadyExists, exists.Kind);
+        Assert.Equal(DirectoryErrorKind.ObjectClassViolation, namingAttribute.Kind);
+        Assert.Equal("Jan Kowalski (przywrócony)", session.GetValues("CN=Jan Kowalski (przywrócony)," + company.SalesOu, Attr.Cn).Single());
+        Assert.Empty(session.DeletedDistinguishedNames);
     }
 
     [Fact]

@@ -10,7 +10,7 @@ namespace AdMng.Core.Batch;
 /// </summary>
 /// <remarks>
 /// Not reversible (reported as <see cref="IssueCodes.NotReversible"/> warnings, the step is omitted): password resets,
-/// deletions and unlocks. Restoring "must change password" uses pwdLastSet=-1 (the password age restarts now), which
+/// deletions, restores from the AD Recycle Bin (deleting the object again is not an undo to offer automatically) and unlocks. Restoring "must change password" uses pwdLastSet=-1 (the password age restarts now), which
 /// is reported as a warning too. After a successful password reset pwdLastSet is never restored: the administrator-set
 /// password stays (it cannot be undone), so "must change password at next logon" must stay as well.
 /// A created object is rolled back by deleting it.
@@ -115,6 +115,10 @@ public sealed class RollbackPlanner : IRollbackPlanner
                     issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
                         "A deleted object cannot be restored by a rollback; use the AD Recycle Bin."));
                     break;
+                case ChangeAction.Restore:
+                    issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
+                        "A restored object is not deleted again by a rollback; delete it explicitly if it must go."));
+                    break;
             }
         }
 
@@ -145,6 +149,8 @@ public sealed class RollbackPlanner : IRollbackPlanner
                 return parent.Child(rdn.Leaf.Type, rdn.Leaf.Value).ToString();
             case ChangeAction.Move when DistinguishedName.TryParse(change.TargetDn, out var target):
                 return parsed.WithParent(target).ToString();
+            case ChangeAction.Restore when DistinguishedName.TryParse(change.TargetDn, out var restored) && !restored.IsRoot:
+                return restored.ToString();
             default:
                 return dn;
         }

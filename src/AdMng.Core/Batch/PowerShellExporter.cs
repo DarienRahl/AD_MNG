@@ -150,7 +150,29 @@ public sealed class PowerShellExporter : IPowerShellExporter
             case ChangeAction.Create:
                 WriteCreate(sb, objectPlan, change, server);
                 break;
+            case ChangeAction.Restore:
+                WriteRestore(sb, objectPlan, change, server);
+                break;
         }
+    }
+
+    /// <summary>
+    /// Restore-ADObject with the new name and parent. The deleted object is identified by its objectGUID when the plan knows
+    /// it; otherwise it is read by its DN in CN=Deleted Objects with Get-ADObject -IncludeDeletedObjects and piped on.
+    /// </summary>
+    private static void WriteRestore(StringBuilder sb, ObjectPlan objectPlan, PlannedChange change, string server)
+    {
+        if (!DistinguishedName.TryParse(change.TargetDn, out var target) || target.IsRoot || target.Parent is not { IsRoot: false } parent)
+        {
+            Line(sb, "# Cannot restore the object: its target DN is invalid.");
+            return;
+        }
+
+        var arguments = $"-NewName {Quote(target.Name)} -TargetPath {Quote(parent.ToString())}{server}";
+        Line(sb, objectPlan.ObjectGuid is { } guid
+            ? $"Restore-ADObject -Identity {Quote(guid.ToString("D"))} {arguments}"
+            : $"Get-ADObject -Identity $dn -IncludeDeletedObjects{server} | Restore-ADObject {arguments}");
+        Line(sb, $"$dn = {Quote(target.ToString())}");
     }
 
     private static void WriteModify(StringBuilder sb, PlannedChange change, string server)

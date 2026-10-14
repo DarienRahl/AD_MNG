@@ -22,8 +22,16 @@ namespace AdMng.Testing;
 /// <item>Linked attributes: back links (memberOf, directReports) are computed from forward links (member, manager);
 /// renames/moves update DN references; deletes remove them (and restore them on Recycle Bin restore).</item>
 /// <item>ModifyDN re-keys all descendants; delete fails with NotAllowedOnNonLeaf for non-leaf objects unless the
-/// subtree is deleted; with <see cref="SessionInfo.RecycleBinEnabled"/> deleted objects become tombstones under
-/// CN=Deleted Objects (visible with <see cref="DirectorySearch.IncludeDeleted"/>).</item>
+/// subtree is deleted.</item>
+/// <item>Deleted objects move to CN=Deleted Objects (which every naming context root gets when it is seeded) like in AD:
+/// mangled RDN <c>&lt;name&gt;\0ADEL:&lt;objectGUID&gt;</c>, isDeleted=TRUE, lastKnownParent (a DN reference, so the
+/// children of a deleted container point at the container's deleted DN), msDS-LastKnownRDN, whenChanged = deletion time;
+/// objectCategory and sAMAccountType are removed. With <see cref="SessionInfo.RecycleBinEnabled"/> they keep their other
+/// attributes and links (restored by <see cref="RestoreDeletedAsync"/>); without it they are tombstones (isRecycled=TRUE,
+/// only the attributes a tombstone keeps, no msDS-LastKnownRDN and no links - as Samba returns them). Searches return them
+/// only with <see cref="DirectorySearch.IncludeDeleted"/>; recycled objects of a Recycle Bin forest (<see cref="Recycle"/>)
+/// only with <see cref="DirectorySearch.IncludeRecycled"/>. Restore (reanimation) removes isDeleted, sets the new DN and
+/// makes DN references follow the object.</item>
 /// <item>Search supports Base/OneLevel/Subtree, attribute scoped queries and the filter grammar of RFC 4515 with
 /// &amp;, |, !, =, =*, substrings, &gt;=, &lt;=, ~=, the AD bit AND/OR and in-chain matching rules, (anr=...) and
 /// objectCategory short names. Server side sort and VLV are emulated.</item>
@@ -38,6 +46,21 @@ public sealed class FakeDirectorySession : IDirectorySession
 
     private const string DeletedObjectsName = "Deleted Objects";
     private const string AccountExpiresNever = "9223372036854775807";
+
+    /// <summary>objectGUID of the seeded CN=Deleted Objects containers (fixed, so seeding does not shift generated GUIDs).</summary>
+    private static readonly Guid DeletedObjectsGuid = new("18e2ea80-684f-11d2-b9aa-00c04f79f805");
+
+    /// <summary>Attributes removed from every deleted object and put back (recomputed by AD) when it is restored.</summary>
+    private static readonly string[] RecomputedOnRestore = [Attr.ObjectCategory, Attr.SamAccountType];
+
+    /// <summary>The attributes a tombstone (or recycled object) keeps; everything else is stripped.</summary>
+    private static readonly HashSet<string> TombstoneAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        Attr.ObjectClass, Attr.ObjectGuid, Attr.ObjectSid, Attr.SidHistory, Attr.SamAccountName, Attr.UserAccountControl,
+        Attr.GroupType, Attr.Name, Attr.IsDeleted, Attr.IsRecycled, Attr.LastKnownParent, Attr.MsDsLastKnownRdn, Attr.WhenCreated,
+        Attr.WhenChanged, Attr.UsnCreated, Attr.UsnChanged, "instanceType", Attr.IsCriticalSystemObject, Attr.SystemFlags,
+        Attr.NtSecurityDescriptor,
+    };
 
     private static readonly string[] AnrAttributes = [Attr.DisplayName, Attr.GivenName, Attr.Sn, Attr.SamAccountName, Attr.Name, Attr.Mail];
 
@@ -226,7 +249,49 @@ public sealed class FakeDirectorySession : IDirectorySession
 
             ApplyCreationDefaults(entry);
             _entries[dn] = entry;
+            if (IsNamingContextRoot(dn))
+            {
+                // Every naming context of AD has its (deleted, hidden) Deleted Objects container.
+                EnsureDeletedObjectsContainer(dn);
+            }
+
             return dn.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Recycles a deleted object (its deleted object lifetime expired): isRecycled=TRUE and only the attributes of a
+    /// tombstone are kept. In a Recycle Bin forest it can no longer be restored and searches need
+    /// <see cref="DirectorySearch.IncludeRecycled"/> to see it.
+    /// </summary>
+    public void Recycle(string deletedObjectDn)
+    {
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(FakeDn.Parse(deletedObjectDn), out var entry) || !entry.IsDeleted)
+            {
+                throw new InvalidOperationException($"'{deletedObjectDn}' is not a deleted object.");
+            }
+
+            StripToTombstone(entry);
+            Touch(entry);
+        }
+    }
+
+    /// <summary>DNs of the deleted objects in CN=Deleted Objects (including recycled ones), in deletion order.</summary>
+    public IReadOnlyList<string> DeletedDistinguishedNames
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _entries.Values
+                    .Where(e => e.IsDeleted && e.Dn.Parent is { } parent && !parent.IsRoot
+                        && string.Equals(parent.Leaf.Value, DeletedObjectsName, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(e => e.DeletedSequence)
+                    .Select(e => e.Dn.ToString())
+                    .ToList();
+            }
         }
     }
 
@@ -604,7 +669,7 @@ public sealed class FakeDirectorySession : IDirectorySession
     {
         var filter = FakeFilterParser.Parse(search.Filter);
         var baseDn = FakeDn.Parse(search.BaseDn);
-        if (!_entries.TryGetValue(baseDn, out var baseEntry) || (baseEntry.IsDeleted && !search.IncludeDeleted))
+        if (!_entries.TryGetValue(baseDn, out var baseEntry) || !IsVisible(baseEntry, search))
         {
             throw Error(32, $"The search base '{search.BaseDn}' does not exist.", search.BaseDn);
         }
@@ -633,7 +698,7 @@ public sealed class FakeDirectorySession : IDirectorySession
         }
 
         var matches = candidates
-            .Where(e => search.IncludeDeleted || !e.IsDeleted)
+            .Where(e => IsVisible(e, search))
             .Where(e => Evaluate(filter, e))
             .OrderBy(e => e.Sequence)
             .ToList();
@@ -649,6 +714,15 @@ public sealed class FakeDirectorySession : IDirectorySession
 
         return matches.Select(e => ToDirectoryObject(e, search.Attributes)).ToList();
     }
+
+    /// <summary>
+    /// Show Deleted makes deleted objects visible - in a Recycle Bin forest not the recycled ones (Show Recycled); without
+    /// the Recycle Bin every deleted object is a tombstone marked as recycled, and Show Deleted returns it.
+    /// </summary>
+    private bool IsVisible(Entry entry, DirectorySearch search) =>
+        !entry.IsDeleted
+        || search.IncludeRecycled
+        || (search.IncludeDeleted && (!entry.IsRecycled || !Info.RecycleBinEnabled));
 
     /// <summary>Server side sort per RFC 2891: entries without the attribute sort after all others.</summary>
     private int CompareForSort(Entry a, Entry b, AdMng.Core.Directory.SortKey sort)
@@ -1336,18 +1410,18 @@ public sealed class FakeDirectorySession : IDirectorySession
         }
 
         var deletedDn = entry.Dn;
+
+        // Deepest first: a child is moved while its parent still has its live DN; when the parent follows, the child's
+        // lastKnownParent follows it into CN=Deleted Objects (AD keeps DN references by object, not by name).
         foreach (var victim in victims)
         {
-            _entries.Remove(victim.Dn);
-            if (Info.RecycleBinEnabled)
-            {
-                Tombstone(victim);
-            }
+            Tombstone(victim);
         }
 
         return deletedDn;
     }
 
+    /// <summary>Moves a deleted object to CN=Deleted Objects (a deleted-object, or a tombstone without the Recycle Bin).</summary>
     private void Tombstone(Entry victim)
     {
         var container = EnsureDeletedObjectsContainer(victim.Dn.DomainComponent);
@@ -1356,14 +1430,49 @@ public sealed class FakeDirectorySession : IDirectorySession
             : Guid.Empty;
         var deletedName = $"{victim.Dn.Name}\nDEL:{guid:D}";
         var originalDn = victim.Dn;
+        _entries.Remove(originalDn);
         victim.Dn = container.Child(originalDn.Leaf.Type, deletedName);
+        victim.DeletedSequence = ++_sequence;
         victim.Attributes[Attr.IsDeleted] = ["TRUE"];
         victim.Attributes[Attr.LastKnownParent] = [originalDn.Parent!.ToString()];
-        victim.Attributes[Attr.MsDsLastKnownRdn] = [originalDn.Name];
         victim.Attributes[Attr.Name] = [deletedName];
         victim.Attributes[Canonical(originalDn.Leaf.Type)] = [deletedName];
+        foreach (var recomputed in RecomputedOnRestore)
+        {
+            if (victim.Attributes.Remove(recomputed, out var values))
+            {
+                victim.Recomputed[recomputed] = values;
+            }
+        }
+
+        if (Info.RecycleBinEnabled)
+        {
+            victim.Attributes[Attr.MsDsLastKnownRdn] = [originalDn.Name];
+        }
+        else
+        {
+            StripToTombstone(victim);
+        }
+
         Touch(victim);
         _entries[victim.Dn] = victim;
+        UpdateReferences(originalDn, victim.Dn);
+    }
+
+    /// <summary>A tombstone / recycled object: isRecycled=TRUE, only the preserved attributes, no links to restore.</summary>
+    private void StripToTombstone(Entry entry)
+    {
+        var rdnAttribute = Canonical(entry.Dn.Leaf.Type);
+        foreach (var name in entry.Attributes.Keys.ToList())
+        {
+            if (!TombstoneAttributes.Contains(name) && !string.Equals(name, rdnAttribute, StringComparison.OrdinalIgnoreCase))
+            {
+                entry.Attributes.Remove(name);
+            }
+        }
+
+        entry.Attributes[Attr.IsRecycled] = ["TRUE"];
+        entry.DeactivatedLinks.Clear();
     }
 
     private DistinguishedName EnsureDeletedObjectsContainer(DistinguishedName domain)
@@ -1373,8 +1482,10 @@ public sealed class FakeDirectorySession : IDirectorySession
         {
             var entry = new Entry(dn, ++_sequence);
             entry.Attributes[Attr.ObjectClass] = ["top", "container"];
+            entry.Attributes[Attr.ObjectGuid] = [DeletedObjectsGuid.ToByteArray()];
             entry.Attributes[Attr.IsDeleted] = ["TRUE"];
             entry.Attributes[Attr.IsCriticalSystemObject] = ["TRUE"];
+            entry.Attributes[Attr.ShowInAdvancedViewOnly] = ["TRUE"];
             ApplyCreationDefaults(entry);
             _entries[dn] = entry;
         }
@@ -1385,28 +1496,44 @@ public sealed class FakeDirectorySession : IDirectorySession
     private DistinguishedName ApplyRestore(string deletedObjectDn, string targetDn)
     {
         var deleted = FakeDn.Parse(deletedObjectDn);
-        if (!_entries.TryGetValue(deleted, out var entry) || !entry.IsDeleted)
+
+        // The request carries the Show Deleted control: a recycled object of a Recycle Bin forest is not visible to it.
+        if (!_entries.TryGetValue(deleted, out var entry) || !entry.IsDeleted || (entry.IsRecycled && Info.RecycleBinEnabled))
         {
             throw Error(32, $"The deleted object '{deletedObjectDn}' does not exist.", deletedObjectDn);
         }
 
         var target = FakeDn.Parse(targetDn);
+        if (target.IsRoot || target.Parent is not { } parent || !_entries.TryGetValue(parent, out var parentEntry) || parentEntry.IsDeleted)
+        {
+            throw Error(32, $"The parent of '{target}' does not exist.", targetDn);
+        }
+
         if (_entries.ContainsKey(target))
         {
             throw Error(68, $"'{target}' already exists.", targetDn);
         }
 
-        if (target.Parent is not { } parent || !_entries.TryGetValue(parent, out var parentEntry) || parentEntry.IsDeleted)
+        if (!string.Equals(target.Leaf.Type, entry.Dn.Leaf.Type, StringComparison.OrdinalIgnoreCase))
         {
-            throw Error(32, $"The parent of '{target}' does not exist.", targetDn);
+            throw Error(64, $"The naming attribute cannot change from '{entry.Dn.Leaf.Type}' to '{target.Leaf.Type}'.", targetDn);
         }
 
-        _entries.Remove(entry.Dn);
+        var oldDn = entry.Dn;
+        _entries.Remove(oldDn);
         entry.Dn = target;
         entry.Attributes.Remove(Attr.IsDeleted);
+        entry.Attributes.Remove(Attr.IsRecycled);
         entry.Attributes[Attr.Name] = [target.Name];
         entry.Attributes[Canonical(target.Leaf.Type)] = [target.Name];
+        foreach (var (name, values) in entry.Recomputed)
+        {
+            entry.Attributes[name] = values;
+        }
+
+        entry.Recomputed.Clear();
         _entries[target] = entry;
+        UpdateReferences(oldDn, target);
         foreach (var (source, attribute) in entry.DeactivatedLinks)
         {
             if (_entries.TryGetValue(source, out var sourceEntry) && !sourceEntry.IsDeleted)
@@ -1880,7 +2007,15 @@ public sealed class FakeDirectorySession : IDirectorySession
         /// <summary>Forward links that pointed to this object when it was deleted (restored by the Recycle Bin).</summary>
         public List<(DistinguishedName Source, string Attribute)> DeactivatedLinks { get; } = [];
 
+        /// <summary>Attributes AD removes on deletion and recomputes on restore (objectCategory, sAMAccountType).</summary>
+        public Dictionary<string, List<object>> Recomputed { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Order of deletion (0 for objects that were never deleted).</summary>
+        public long DeletedSequence { get; set; }
+
         public bool IsDeleted => First(Attr.IsDeleted) is { } value && value.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
+
+        public bool IsRecycled => First(Attr.IsRecycled) is { } value && value.Equals("TRUE", StringComparison.OrdinalIgnoreCase);
 
         public string? First(string attribute) =>
             Attributes.TryGetValue(attribute, out var values) && values.Count > 0 ? values[0] as string : null;

@@ -3558,4 +3558,136 @@ Wpisz {1}, aby potwierdzić.</value>
   <data name="ToolsUi.Time" xml:space="preserve">
     <value>Czas</value>
   </data>
+  <data name="Commands.RecycleBin" xml:space="preserve">
+    <value>Kosz Active Directory...</value>
+  </data>
+  <data name="ChangeAction.Restore" xml:space="preserve">
+    <value>Przywrócenie</value>
+  </data>
+  <data name="Issue.ParentDeleted" xml:space="preserve">
+    <value>Pierwotny kontener również został usunięty. Przywróć go razem z obiektem albo przywróć obiekt do innego kontenera.</value>
+  </data>
+  <data name="Issue.ParentNotRestored" xml:space="preserve">
+    <value>Nie można przywrócić kontenera nadrzędnego, więc nie można przywrócić także tego obiektu.</value>
+  </data>
+  <data name="Issue.TargetNotFound" xml:space="preserve">
+    <value>Kontener docelowy nie istnieje lub został usunięty.</value>
+  </data>
+  <data name="Issue.AlreadyExists" xml:space="preserve">
+    <value>W kontenerze docelowym istnieje już obiekt o tej samej nazwie.</value>
+  </data>
+  <data name="Issue.Recycled" xml:space="preserve">
+    <value>Obiekt został ostatecznie usunięty (minął okres przechowywania usuniętych obiektów) i nie można go już przywrócić.</value>
+  </data>
+  <data name="Issue.TombstoneReanimation" xml:space="preserve">
+    <value>Kosz Active Directory nie jest włączony: obiekt zostanie odtworzony z tombstone – bez większości atrybutów i bez członkostwa w grupach.</value>
+  </data>
+  <data name="Errors.ParentNotRestored" xml:space="preserve">
+    <value>Nie przywrócono, ponieważ nie udało się przywrócić kontenera nadrzędnego.</value>
+  </data>
+  <data name="RecycleBin.WindowTitle" xml:space="preserve">
+    <value>Kosz Active Directory</value>
+  </data>
+  <data name="RecycleBin.WindowTitleDomain" xml:space="preserve">
+    <value>Kosz Active Directory – {0}</value>
+  </data>
+  <data name="RecycleBin.Enabled" xml:space="preserve">
+    <value>Kosz Active Directory jest włączony: usunięte obiekty zachowują atrybuty i członkostwo w grupach i wracają z nimi po przywróceniu.</value>
+  </data>
+  <data name="RecycleBin.Disabled" xml:space="preserve">
+    <value>Kosz Active Directory nie jest włączony w tym lesie. Usunięte obiekty są przechowywane jako tombstone: można je odtworzyć, ale wracają bez większości atrybutów i bez członkostwa w grupach. Włączenia Kosza AD (Enable-ADOptionalFeature) nie można cofnąć.</value>
+  </data>
+  <data name="RecycleBin.Lifetime" xml:space="preserve">
+    <value>Usunięte obiekty można przywrócić przez {0} dni.</value>
+  </data>
+  <data name="RecycleBin.TombstoneLifetime" xml:space="preserve">
+    <value>Obiekty tombstone są przechowywane przez {0} dni.</value>
+  </data>
+  <data name="RecycleBin.NoAccess" xml:space="preserve">
+    <value>Nie można odczytać usuniętych obiektów. Wyświetlenie kontenera CN=Deleted Objects wymaga uprawnień Administratorów domeny albo uprawnień delegowanych na tym kontenerze.</value>
+  </data>
+  <data name="RecycleBin.NameFilter" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="RecycleBin.NameFilterHint" xml:space="preserve">
+    <value>Nazwa, nazwa wyświetlana lub nazwa logowania</value>
+  </data>
+  <data name="RecycleBin.AllKinds" xml:space="preserve">
+    <value>Wszystkie obiekty</value>
+  </data>
+  <data name="RecycleBin.DeletedAfter" xml:space="preserve">
+    <value>Usunięte od dnia</value>
+  </data>
+  <data name="RecycleBin.DeletedFrom" xml:space="preserve">
+    <value>Usunięte z</value>
+  </data>
+  <data name="RecycleBin.AnyLocation" xml:space="preserve">
+    <value>Dowolna lokalizacja</value>
+  </data>
+  <data name="RecycleBin.ClearFilters" xml:space="preserve">
+    <value>Wyczyść filtry</value>
+  </data>
+  <data name="RecycleBin.OriginalLocation" xml:space="preserve">
+    <value>Pierwotna lokalizacja</value>
+  </data>
+  <data name="RecycleBin.Deleted" xml:space="preserve">
+    <value>Usunięto</value>
+  </data>
+  <data name="RecycleBin.DeletedLocation" xml:space="preserve">
+    <value>{0} (w koszu)</value>
+  </data>
+  <data name="RecycleBin.UnknownLocation" xml:space="preserve">
+    <value>Nieznana</value>
+  </data>
+  <data name="RecycleBin.Loading" xml:space="preserve">
+    <value>Wczytywanie… usunięte obiekty: {0}</value>
+  </data>
+  <data name="RecycleBin.Count" xml:space="preserve">
+    <value>Usunięte obiekty: {0}</value>
+  </data>
+  <data name="RecycleBin.Selected" xml:space="preserve">
+    <value>Zaznaczono: {0}</value>
+  </data>
+  <data name="RecycleBin.Empty" xml:space="preserve">
+    <value>Brak usuniętych obiektów spełniających kryteria.</value>
+  </data>
+  <data name="RecycleBin.Restore" xml:space="preserve">
+    <value>Przywróć</value>
+  </data>
+  <data name="RecycleBin.RestoreTo" xml:space="preserve">
+    <value>Przywróć do...</value>
+  </data>
+  <data name="RecycleBin.Planning" xml:space="preserve">
+    <value>Sprawdzanie zaznaczonych obiektów…</value>
+  </data>
+  <data name="RecycleBin.PreviewTitle" xml:space="preserve">
+    <value>Podgląd przywracania</value>
+  </data>
+  <data name="RecycleBin.PreviewSummary" xml:space="preserve">
+    <value>Obiekty do przywrócenia: {0} z {1}.</value>
+  </data>
+  <data name="RecycleBin.PreviewErrors" xml:space="preserve">
+    <value>Obiekty, których nie można przywrócić: {0} – zobacz uwagi.</value>
+  </data>
+  <data name="RecycleBin.ToOriginalLocation" xml:space="preserve">
+    <value>Do pierwotnej lokalizacji. Obiekty, których kontener jest przywracany razem z nimi, wracają do niego.</value>
+  </data>
+  <data name="RecycleBin.ToContainer" xml:space="preserve">
+    <value>Do {0}. Obiekty, których kontener jest przywracany razem z nimi, wracają do niego.</value>
+  </data>
+  <data name="RecycleBin.RestoreTarget" xml:space="preserve">
+    <value>Miejsce przywrócenia</value>
+  </data>
+  <data name="RecycleBin.ConfirmRestore" xml:space="preserve">
+    <value>Przywróć ({0})</value>
+  </data>
+  <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
+    <value>Kosz Active Directory nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
+  </data>
+  <data name="RecycleBin.ActivityTitle" xml:space="preserve">
+    <value>Przywracanie z Kosza AD ({0})</value>
+  </data>
+  <data name="RecycleBin.Restored" xml:space="preserve">
+    <value>Przywrócono z Kosza AD: {0}.</value>
+  </data>
 </root>

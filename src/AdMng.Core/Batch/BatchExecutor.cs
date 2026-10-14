@@ -24,11 +24,20 @@ namespace AdMng.Core.Batch;
 /// (the object exists with the requested values) mean that the attempt that seemed to fail went through.
 /// Audit log failures (e.g. a throwing <see cref="IAuditLog.EntryRecorded"/> subscriber) are logged, never thrown.
 /// The diagnostic log contains counts, actions and error kinds only - never DNs or values.
+/// <see cref="ChangeAction.Restore"/>: an object restored into a container that an earlier object of the same plan restores
+/// (<see cref="RecycleBin.PlanRestoreAsync"/> orders parents first) starts only after that object finished; when the parent
+/// was not restored, the child fails with <see cref="ParentNotRestoredMessage"/> without a request to the DC.
 /// </remarks>
 public sealed partial class BatchExecutor : IBatchExecutor
 {
     /// <summary>Prefix of the error message of a step that failed because a value changed after the preview.</summary>
     public const string ConflictMessagePrefix = "Conflict: value changed since preview";
+
+    /// <summary>
+    /// Error message of a restore that was not attempted because its parent container (restored first in the same plan)
+    /// was not restored.
+    /// </summary>
+    public const string ParentNotRestoredMessage = "Not restored: the parent container was not restored.";
 
     private const int MaxParallelism = 16;
 
@@ -117,6 +126,15 @@ public sealed partial class BatchExecutor : IBatchExecutor
         private readonly IProgress<BatchProgress>? _progress;
         private readonly CancellationToken _cancellationToken;
         private readonly int _parallelism;
+
+        /// <summary>
+        /// Per object: the index of the earlier object whose restore creates the container this object is restored into,
+        /// or -1. Null when the plan has no such dependencies.
+        /// </summary>
+        private readonly int[]? _dependencies;
+
+        /// <summary>Per object (only with <see cref="_dependencies"/>): completes with "restored" when the object finished.</summary>
+        private readonly TaskCompletionSource<bool>[]? _restored;
         private int _completed;
         private int _failed;
         private volatile bool _stopRequested;
@@ -130,6 +148,11 @@ public sealed partial class BatchExecutor : IBatchExecutor
             _progress = progress;
             _cancellationToken = cancellationToken;
             _parallelism = Math.Clamp(options.MaxDegreeOfParallelism, 1, MaxParallelism);
+            _dependencies = RestoreDependencies(plan.Objects);
+            if (_dependencies is not null)
+            {
+                _restored = [.. plan.Objects.Select(_ => new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously))];
+            }
         }
 
         private DateTimeOffset Now => _owner._timeProvider.GetUtcNow();
@@ -188,10 +211,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     {
                         try
                         {
-                            Complete(results, index, await ExecuteObjectAsync(objectPlan).ConfigureAwait(false));
+                            Complete(results, index, await ExecuteObjectAsync(objectPlan, index).ConfigureAwait(false));
                         }
                         finally
                         {
+                            // Should the object fail unexpectedly, objects restored into it must not wait for it forever.
+                            _restored?[index].TrySetResult(false);
                             gate.Release();
                         }
                     },
@@ -235,9 +260,39 @@ public sealed partial class BatchExecutor : IBatchExecutor
             return new ObjectResult(objectPlan, status, [], objectPlan.DistinguishedName, now, now);
         }
 
+        /// <summary>
+        /// For each object with a <see cref="ChangeAction.Restore"/> step whose target container is the restore target of an
+        /// EARLIER object: that object's index. Only earlier ones count - objects are scheduled in plan order, so waiting for
+        /// them cannot dead-lock the bounded parallelism. Null when no object depends on another.
+        /// </summary>
+        private static int[]? RestoreDependencies(IReadOnlyList<ObjectPlan> objects)
+        {
+            int[]? dependencies = null;
+            Dictionary<DistinguishedName, int>? restoredTargets = null;
+            for (var i = 0; i < objects.Count; i++)
+            {
+                var restore = objects[i].Changes.FirstOrDefault(c => c.Action == ChangeAction.Restore);
+                if (restore is null || !DistinguishedName.TryParse(restore.TargetDn, out var target) || target.IsRoot)
+                {
+                    continue;
+                }
+
+                if (restoredTargets is not null && target.Parent is { } parent && restoredTargets.TryGetValue(parent, out var parentIndex))
+                {
+                    dependencies ??= [.. Enumerable.Repeat(-1, objects.Count)];
+                    dependencies[i] = parentIndex;
+                }
+
+                (restoredTargets ??= []).TryAdd(target, i);
+            }
+
+            return dependencies;
+        }
+
         private void Complete(ObjectResult[] results, int index, ObjectResult result)
         {
             results[index] = result;
+            _restored?[index].TrySetResult(result.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.Restore));
             var failed = result.Status is ObjectResultStatus.Failed or ObjectResultStatus.PartiallySucceeded
                 ? Interlocked.Increment(ref _failed)
                 : Volatile.Read(ref _failed);
@@ -245,8 +300,14 @@ public sealed partial class BatchExecutor : IBatchExecutor
             _progress?.Report(new BatchProgress(completed, _plan.Objects.Count, failed, result));
         }
 
-        private async Task<ObjectResult> ExecuteObjectAsync(ObjectPlan objectPlan)
+        private async Task<ObjectResult> ExecuteObjectAsync(ObjectPlan objectPlan, int index)
         {
+            if (_dependencies is { } dependencies && dependencies[index] >= 0
+                && !await _restored![dependencies[index]].Task.ConfigureAwait(false))
+            {
+                return ParentNotRestored(objectPlan);
+            }
+
             var startedAt = Now;
             var currentDn = objectPlan.DistinguishedName;
             var results = new List<ChangeResult>();
@@ -294,6 +355,20 @@ public sealed partial class BatchExecutor : IBatchExecutor
             }
 
             return new ObjectResult(objectPlan, status, results, currentDn, startedAt, Now);
+        }
+
+        /// <summary>The container this object is restored into was not restored by its (earlier) object: nothing is sent to the DC.</summary>
+        private ObjectResult ParentNotRestored(ObjectPlan objectPlan)
+        {
+            if (_cancellationToken.IsCancellationRequested)
+            {
+                return NotExecuted(objectPlan, ObjectResultStatus.Cancelled);
+            }
+
+            var now = Now;
+            var restore = objectPlan.Changes.First(c => c.Action == ChangeAction.Restore);
+            var failed = new ChangeResult(restore, false, DirectoryErrorKind.NoSuchObject, ParentNotRestoredMessage, 0);
+            return new ObjectResult(objectPlan, ObjectResultStatus.Failed, [failed], objectPlan.DistinguishedName, now, now);
         }
 
         private async Task<StepOutcome> ExecuteStepAsync(ObjectPlan objectPlan, PlannedChange change, string dn)
@@ -366,6 +441,22 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         return true;
                     }).ConfigureAwait(false);
                     return ToOutcome(change, await ConfirmCreateAsync(created, objectPlan.DistinguishedName, change).ConfigureAwait(false));
+                case ChangeAction.Restore:
+                    if (!DistinguishedName.TryParse(change.TargetDn, out var restoreTarget) || restoreTarget.IsRoot)
+                    {
+                        return Invalid(change, "The restore step has no valid target DN.");
+                    }
+
+                    var targetDn = change.TargetDn!;
+                    var restored = await InvokeAsync(change.Action, async () =>
+                    {
+                        await _session.RestoreDeletedAsync(dn, targetDn, CancellationToken.None).ConfigureAwait(false);
+                        return targetDn;
+                    }).ConfigureAwait(false);
+
+                    // noSuchObject on a retry: the attempt that timed out restored it (the deleted object is gone and the
+                    // object at the target DN is this one, not somebody else's object with the same name).
+                    return ToOutcome(change, await ConfirmRestoreAsync(restored, targetDn, objectPlan.ObjectGuid).ConfigureAwait(false), newDn: true);
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
@@ -393,6 +484,34 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     && await _session.GetAsync(expectedDn, [Attr.DistinguishedName], CancellationToken.None).ConfigureAwait(false) is { } moved)
                 {
                     return attempted with { Value = moved.DistinguishedName, Error = null };
+                }
+            }
+            catch (DirectoryException)
+            {
+                // Keep the original error.
+            }
+
+            return attempted;
+        }
+
+        /// <summary>
+        /// Confirms an ambiguous restore (noSuchObject on a retry): the object at the target DN is the restored one - it has
+        /// the plan's objectGUID (when the plan knows it). Unlike <see cref="ConfirmMoveAsync"/> the source is not read: a
+        /// DN in CN=Deleted Objects is never visible without the Show Deleted control, so its absence proves nothing.
+        /// </summary>
+        private async Task<Attempted<string>> ConfirmRestoreAsync(Attempted<string> attempted, string targetDn, Guid? objectGuid)
+        {
+            if (!IsAmbiguousNoSuchObject(attempted))
+            {
+                return attempted;
+            }
+
+            try
+            {
+                if (await _session.GetAsync(targetDn, [Attr.ObjectGuid], CancellationToken.None).ConfigureAwait(false) is { } restored
+                    && (objectGuid is null || restored.ObjectGuid == objectGuid))
+                {
+                    return attempted with { Value = restored.DistinguishedName, Error = null };
                 }
             }
             catch (DirectoryException)
@@ -723,6 +842,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     break;
                 case ChangeAction.Rename or ChangeAction.Move:
                     Record(change.Action, Entry(change.Action.ToString(), oldValue: dn, newValue: outcome.NewDn ?? change.TargetDn));
+                    break;
+                case ChangeAction.Restore:
+                    // Recorded under the restored DN (the DN in CN=Deleted Objects carries the mangled name): old value = the
+                    // DN in CN=Deleted Objects, new value = the DN the object got back.
+                    var restoredDn = outcome.NewDn ?? change.TargetDn ?? dn;
+                    Record(change.Action, new AuditEntry(now, info.BoundIdentity, info.Server, restoredDn, change.Action.ToString(), null, dn, restoredDn, succeeded, error));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).

@@ -170,6 +170,7 @@ public static partial class L
         public const string Disconnect = "Commands.Disconnect";
         public const string CancelLoad = "Commands.CancelLoad";
         public const string ImportCsv = "Commands.ImportCsv";
+        public const string RecycleBin = "Commands.RecycleBin";
     }
 
     public static class Tree
@@ -312,6 +313,7 @@ public static partial class L
         public const string MustChangePassword = "Errors.MustChangePassword";
         public const string InvalidLogonHours = "Errors.InvalidLogonHours";
         public const string InvalidWorkstation = "Errors.InvalidWorkstation";
+        public const string ParentNotRestored = "Errors.ParentNotRestored";
     }
 
     public static class Hints

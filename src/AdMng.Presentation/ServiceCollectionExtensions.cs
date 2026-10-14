@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<SavedViewEditorViewModel>();
         services.TryAddTransient<SessionLogViewModel>();
         services.TryAddTransient<PowerShellHistoryViewModel>();
+        services.TryAddTransient<RecycleBinViewModel>();
         services.TryAddTransient<SettingsViewModel>();
         services.TryAddTransient<CsvImportViewModel>();
         services.TryAddTransient(sp => sp.GetRequiredService<ObjectListServices>().CreateList());

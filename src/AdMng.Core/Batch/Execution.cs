@@ -137,8 +137,8 @@ public interface IRollbackPlanner
     /// <summary>
     /// For each successfully executed step: Modify -> restore old values (with optimistic concurrency, so
     /// values changed by somebody else in the meantime are reported as conflicts), AddMember and RemoveMember swap,
-    /// Rename/Move -> back to the original name/parent. ResetPassword and Delete are reported with
-    /// <see cref="IssueCodes.NotReversible"/>.
+    /// Rename/Move -> back to the original name/parent. ResetPassword, Delete and Restore (deleting the restored object again
+    /// is not an undo the tool offers automatically) are reported with <see cref="IssueCodes.NotReversible"/>.
     /// </summary>
     ChangePlan CreateRollbackPlan(BatchResult result);
 }
@@ -149,7 +149,7 @@ public interface IPowerShellExporter
     /// <summary>
     /// Produces a script using Set-ADObject/-Replace/-Clear/-Add/-Remove, Move-ADObject, Rename-ADObject,
     /// Add-ADGroupMember/Remove-ADGroupMember, Unlock-ADAccount, Set-ADAccountPassword (password read with
-    /// Read-Host -AsSecureString, never embedded) and Remove-ADObject, all with -Server pinned to the DC.
+    /// Read-Host -AsSecureString, never embedded), Remove-ADObject and Restore-ADObject, all with -Server pinned to the DC.
     /// Objects with errors are emitted as comments.
     /// </summary>
     string Export(ChangePlan plan, string? server);

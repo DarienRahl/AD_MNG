@@ -285,6 +285,9 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                 case ChangeAction.Move:
                     Add(action, localizer[L.Batch.Container], ParentPath(plan.DistinguishedName), PathOf(change.TargetDn), change.Issues, isChange: true);
                     break;
+                case ChangeAction.Restore:
+                    Add(action, localizer[L.Batch.Container], string.Empty, ParentPath(change.TargetDn ?? string.Empty), change.Issues, isChange: true);
+                    break;
                 case ChangeAction.ResetPassword:
                     Add(action, localizer[L.Batch.Password], string.Empty, change.Password is null ? string.Empty : HiddenPassword, change.Issues, isChange: true);
                     break;
