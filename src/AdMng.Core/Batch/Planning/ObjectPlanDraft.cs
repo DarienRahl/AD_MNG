@@ -140,7 +140,7 @@ internal sealed class ObjectPlanDraft
 
             if (AttributeChanges.Count > 0)
             {
-                changes.Add(new PlannedChange { Action = ChangeAction.Modify, Attributes = AttributeChanges, Issues = [.. AttributeIssues] });
+                changes.AddRange(ModifySteps());
             }
             else
             {
@@ -174,6 +174,29 @@ internal sealed class ObjectPlanDraft
             Changes = changes,
             Issues = objectIssues,
         };
+    }
+
+    /// <summary>
+    /// The Modify steps of the attribute changes. Replace/clear changes and value additions/removals are separate
+    /// steps because the executor sends them as separate requests (compare-and-swap vs. the permissive modify
+    /// control): when the second request fails after the first was applied, the applied changes are still reported,
+    /// audited and rolled back as succeeded. Findings go with the step that writes their attribute (otherwise the first).
+    /// </summary>
+    private IEnumerable<PlannedChange> ModifySteps()
+    {
+        var strict = AttributeChanges.Where(c => c.Kind is AttributeChangeKind.Replace or AttributeChangeKind.Clear).ToArray();
+        var permissive = AttributeChanges.Where(c => c.Kind is AttributeChangeKind.AddValues or AttributeChangeKind.RemoveValues).ToArray();
+        if (strict.Length == 0 || permissive.Length == 0)
+        {
+            yield return new PlannedChange { Action = ChangeAction.Modify, Attributes = AttributeChanges, Issues = [.. AttributeIssues] };
+            yield break;
+        }
+
+        bool IsPermissive(ValidationIssue issue) =>
+            issue.Attribute is not null && permissive.Any(c => string.Equals(c.Attribute, issue.Attribute, StringComparison.OrdinalIgnoreCase));
+
+        yield return new PlannedChange { Action = ChangeAction.Modify, Attributes = strict, Issues = [.. AttributeIssues.Where(i => !IsPermissive(i))] };
+        yield return new PlannedChange { Action = ChangeAction.Modify, Attributes = permissive, Issues = [.. AttributeIssues.Where(IsPermissive)] };
     }
 
     private static bool IsError(ValidationIssue issue) => issue.Severity == IssueSeverity.Error;

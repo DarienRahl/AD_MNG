@@ -5,7 +5,11 @@ namespace AdMng.Core.Batch;
 /// <summary>Kind of a single planned directory change.</summary>
 public enum ChangeAction
 {
-    /// <summary>Modify attributes of the object (one LDAP modify request for all <see cref="PlannedChange.Attributes"/>).</summary>
+    /// <summary>
+    /// Modify attributes of the object (one LDAP modify request for all <see cref="PlannedChange.Attributes"/>). The
+    /// planners put replace/clear changes and value additions/removals into separate steps, because the executor sends
+    /// them with different semantics (compare-and-swap vs. permissive) and each must report its own outcome.
+    /// </summary>
     Modify,
 
     /// <summary>Administrative password reset (unicodePwd). <see cref="PlannedChange.Password"/> holds the new password.</summary>

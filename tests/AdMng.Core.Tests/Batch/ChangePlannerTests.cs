@@ -391,6 +391,64 @@ public class ChangePlannerTests
         Assert.Equal(IssueSeverity.Warning, Issue(group, IssueCodes.NotApplicable).Severity);
     }
 
+    [Fact]
+    public async Task PasswordResetAndMustChange_DoNotApplyToComputerAccounts()
+    {
+        // A random machine password breaks the workstation's secure channel; ADUC has no "Reset password" for computers.
+        var reset = await PlanAsync([_company.JanKowalski, _company.Computer1], new ResetPasswordOperation(PasswordMode.GenerateUnique));
+        var mustChange = await PlanAsync([_company.JanKowalski, _company.Computer1], new RequirePasswordChangeOperation(true));
+
+        Assert.Equal([ChangeAction.ResetPassword, ChangeAction.Modify], reset.Objects[0].Changes.Select(c => c.Action));
+        Assert.Equal(["0"], Change(mustChange.Objects[0], Attr.PwdLastSet).NewValues);
+        foreach (var computer in new[] { reset.Objects[1], mustChange.Objects[1] })
+        {
+            Assert.Empty(computer.Changes);
+            Assert.True(computer.IsNoOp);
+            Assert.False(computer.HasErrors);
+            Assert.Equal(IssueSeverity.Warning, Issue(computer, IssueCodes.NotApplicable).Severity);
+        }
+    }
+
+    [Fact]
+    public async Task RawUserAccountControlWrites_CannotDisableProtectedAccounts()
+    {
+        var setAttribute = await PlanOneAsync(_builder.AdministratorDn, new SetAttributeOperation(Attr.UserAccountControl, "514"));
+        var setValues = await PlanOneAsync(_builder.AdministratorDn, new SetValuesOperation(Attr.UserAccountControl, ["66050"]));
+        var findReplace = await PlanOneAsync(_builder.AdministratorDn, new FindReplaceOperation(Attr.UserAccountControl, "66048", "66050"));
+        var domainController = await PlanOneAsync(_builder.DomainControllerDn,
+            new SetAttributeOperation(Attr.UserAccountControl, ((int)(UserAccountControl.ServerTrustAccount | UserAccountControl.TrustedForDelegation | UserAccountControl.AccountDisable)).ToString(CultureInfo.InvariantCulture)));
+        var disableOperation = await PlanOneAsync(_builder.AdministratorDn, new SetAccountEnabledOperation(false), new SetAttributeOperation(Attr.Description, "x"));
+        var ordinaryUser = await PlanOneAsync(_company.JanKowalski, new SetAttributeOperation(Attr.UserAccountControl, "514"));
+        var adminOtherFlag = await PlanOneAsync(_builder.AdministratorDn, new SetAttributeOperation(Attr.UserAccountControl, "512"));
+
+        foreach (var plan in new[] { setAttribute, setValues, findReplace, domainController })
+        {
+            var issue = Issue(plan, IssueCodes.ProtectedObject);
+            Assert.Equal(IssueSeverity.Error, issue.Severity);
+            Assert.Equal(Attr.UserAccountControl, issue.Attribute);
+        }
+
+        // Reported once, by the object checks of the disable operation.
+        Assert.Equal(IssueSeverity.Error, Issue(disableOperation, IssueCodes.ProtectedObject).Severity);
+        Assert.False(ordinaryUser.HasErrors);
+        Assert.Equal(["514"], Change(ordinaryUser, Attr.UserAccountControl).NewValues);
+        Assert.False(adminOtherFlag.HasErrors);
+    }
+
+    [Fact]
+    public async Task RawUserAccountControlWrites_CannotChangeTheAccountType()
+    {
+        var computerToDc = await PlanOneAsync(_company.Computer1, new SetAttributeOperation(Attr.UserAccountControl, "8192"));
+        var userToComputer = await PlanOneAsync(_company.JanKowalski, new SetValuesOperation(Attr.UserAccountControl, ["4096"]));
+        var settable = await PlanOneAsync(_company.JanKowalski, new SetAttributeOperation(Attr.UserAccountControl, "66048"));
+
+        Assert.Equal(IssueSeverity.Error, Issue(computerToDc, IssueCodes.InvalidValue).Severity);
+        Assert.Equal(Attr.UserAccountControl, Issue(computerToDc, IssueCodes.InvalidValue).Attribute);
+        Assert.Equal(IssueSeverity.Error, Issue(userToComputer, IssueCodes.InvalidValue).Severity);
+        Assert.False(settable.HasErrors);
+        Assert.Equal(["66048"], Change(settable, Attr.UserAccountControl).NewValues);
+    }
+
     // ------------------------------------------------------------------ membership
 
     [Fact]
@@ -593,10 +651,36 @@ public class ChangePlannerTests
         Assert.Equal(IssueSeverity.Warning, Issue(administrator, IssueCodes.AdminSdHolder).Severity);
         Assert.Equal(IssueSeverity.Error, Issue(domainController, IssueCodes.ProtectedObject).Severity);
         Assert.Equal(IssueSeverity.Error, Issue(krbtgt, IssueCodes.ProtectedObject).Severity);
-        Assert.Equal(IssueSeverity.Error, Issue(usersContainer, IssueCodes.CriticalSystemObject).Severity);
-        Assert.Equal(IssueSeverity.Error, Issue(adminRename, IssueCodes.CriticalSystemObject).Severity);
         Assert.False(adminDescription.HasErrors);
         Assert.True(adminDescription.HasWarnings);
+
+        // Renaming or moving critical system objects is allowed by AD (and ADUC); the DC enforces systemFlags itself.
+        Assert.Equal(IssueSeverity.Warning, Issue(usersContainer, IssueCodes.CriticalSystemObject).Severity);
+        Assert.Equal(IssueSeverity.Warning, Issue(adminRename, IssueCodes.CriticalSystemObject).Severity);
+        Assert.False(adminRename.HasErrors);
+        Assert.Equal("CN=Admin", Step(adminRename, ChangeAction.Rename).TargetDn);
+    }
+
+    [Fact]
+    public async Task CriticalSystemObjects_CanBeRenamedAndMovedWithAWarning()
+    {
+        var tier0 = _builder.AddOu("Tier0", _company.CompanyOu);
+
+        var renameAdministrator = await PlanOneAsync(_builder.AdministratorDn, new RenameOperation("adm-root"));
+        var moveDomainAdmins = await PlanOneAsync(_builder.DomainAdminsDn, new MoveOperation(tier0));
+        var moveAdministrator = await PlanOneAsync(_builder.AdministratorDn, new MoveOperation(tier0));
+        var deleteDomainAdmins = await PlanOneAsync(_builder.DomainAdminsDn, new DeleteOperation());
+
+        foreach (var plan in new[] { renameAdministrator, moveDomainAdmins, moveAdministrator })
+        {
+            Assert.False(plan.HasErrors);
+            Assert.Equal(IssueSeverity.Warning, Issue(plan, IssueCodes.CriticalSystemObject).Severity);
+        }
+
+        Assert.Equal("CN=adm-root", Step(renameAdministrator, ChangeAction.Rename).TargetDn);
+        Assert.Equal(tier0, Step(moveDomainAdmins, ChangeAction.Move).TargetDn);
+        Assert.Equal(IssueSeverity.Error, Issue(deleteDomainAdmins, IssueCodes.CriticalSystemObject).Severity);
+        Assert.True(deleteDomainAdmins.HasErrors);
     }
 
     // ------------------------------------------------------------------ schema validation
@@ -625,6 +709,24 @@ public class ChangePlannerTests
 
         Assert.True(plan.HasErrors);
         Assert.Contains(AllIssues(plan), i => i.Code == code && i.Severity == IssueSeverity.Error);
+    }
+
+    [Fact]
+    public async Task SamAccountNameLength_DependsOnTheObjectKind()
+    {
+        // The SAM limits users and computers to 20 characters; groups may use the schema's 256.
+        var group = await PlanOneAsync(_company.GroupAccounting, new SetAttributeOperation(Attr.SamAccountName, "Dzial-Ksiegowosci-Krakow"));
+        var builtinLike = await PlanOneAsync(_company.GroupIt, new SetAttributeOperation(Attr.SamAccountName, "Pre-Windows 2000 Compatible Access"));
+        var groupTooLong = await PlanOneAsync(_company.GroupSales, new SetAttributeOperation(Attr.SamAccountName, new string('g', 257)));
+        var user = await PlanOneAsync(_company.JanKowalski, new SetAttributeOperation(Attr.SamAccountName, "jan.kowalski.dlugi.21"));
+        var computer = await PlanOneAsync(_company.Computer1, new SetAttributeOperation(Attr.SamAccountName, "WAW-PC001-DLUGA-NAZW$"));
+
+        Assert.False(group.HasErrors);
+        Assert.Equal(["Dzial-Ksiegowosci-Krakow"], Change(group, Attr.SamAccountName).NewValues);
+        Assert.False(builtinLike.HasErrors);
+        Assert.Equal(IssueSeverity.Error, Issue(groupTooLong, IssueCodes.TooLong).Severity);
+        Assert.Equal(IssueSeverity.Error, Issue(user, IssueCodes.TooLong).Severity);
+        Assert.Equal(IssueSeverity.Error, Issue(computer, IssueCodes.TooLong).Severity);
     }
 
     [Fact]

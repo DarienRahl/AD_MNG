@@ -245,6 +245,34 @@ public class CsvImportPlannerTests
     }
 
     [Fact]
+    public async Task UserAccountControlColumns_CannotDisableProtectedAccountsOrChangeTheAccountType()
+    {
+        var table = Table("login;uac\nAdministrator;514\njan.kowalski;514\nWAW-PC001$;8192\n");
+
+        var plan = await PlanAsync(table, Mapping("login", Attr.SamAccountName, ("uac", Attr.UserAccountControl)));
+
+        var administrator = Assert.Single(AllIssues(plan.Objects[0]), i => i.Code == IssueCodes.ProtectedObject);
+        Assert.Equal(IssueSeverity.Error, administrator.Severity);
+        Assert.True(plan.Objects[0].HasErrors);
+        Assert.False(plan.Objects[1].HasErrors);
+        Assert.Equal(["514"], Change(plan.Objects[1], Attr.UserAccountControl).NewValues);
+        Assert.Contains(AllIssues(plan.Objects[2]), i => i is { Code: IssueCodes.InvalidValue, Severity: IssueSeverity.Error, Attribute: Attr.UserAccountControl });
+        Assert.Equal(1, plan.ExecutableCount);
+    }
+
+    [Fact]
+    public async Task GroupSamAccountNames_MayBeLongerThanTwentyCharacters()
+    {
+        var table = Table("login;nazwa\nGG_Ksiegowosc;Dzial-Ksiegowosci-Krakow\njan.kowalski;jan.kowalski.dlugi.21\n");
+
+        var plan = await PlanAsync(table, Mapping("login", Attr.SamAccountName, ("nazwa", Attr.SamAccountName)));
+
+        Assert.False(plan.Objects[0].HasErrors);
+        Assert.Equal(["Dzial-Ksiegowosci-Krakow"], Change(plan.Objects[0], Attr.SamAccountName).NewValues);
+        Assert.Contains(AllIssues(plan.Objects[1]), i => i is { Code: IssueCodes.TooLong, Severity: IssueSeverity.Error });
+    }
+
+    [Fact]
     public async Task Permissions_AreChecked()
     {
         Session.SetPermissions(_company.JanKowalski, new EffectivePermissions

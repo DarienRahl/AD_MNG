@@ -218,6 +218,166 @@ public class BatchExecutorTests
     }
 
     [Fact]
+    public async Task RejectedValueAddition_AfterAnAppliedReplace_IsReportedAuditedAndRolledBackSeparately()
+    {
+        // Property sheet of a global group: new description (strict replace) + a member the DC refuses (permissive add).
+        var plan = await PlanAsync([_company.GroupIt],
+            new SetAttributeOperation(Attr.Description, "Dział IT"),
+            new AddValuesOperation(Attr.Member, [_company.GroupAll]));
+        Session.ClearOperations();
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify && operation.ModifyOptions?.Permissive == true)
+            {
+                throw new DirectoryException(DirectoryErrorKind.ConstraintViolation, "A domain local group cannot be a member of a global group.")
+                {
+                    LdapResultCode = 19,
+                };
+            }
+        };
+
+        var result = await ExecuteAsync(plan);
+
+        var steps = Assert.Single(plan.Objects).Changes;
+        Assert.Equal([ChangeAction.Modify, ChangeAction.Modify], steps.Select(c => c.Action));
+        Assert.Equal([Attr.Description], steps[0].Attributes.Select(a => a.Attribute));
+        Assert.Equal([Attr.Member], steps[1].Attributes.Select(a => a.Attribute));
+        var group = Assert.Single(result.Objects);
+        Assert.Equal(ObjectResultStatus.PartiallySucceeded, group.Status);
+        Assert.Equal([true, false], group.Changes.Select(c => c.Succeeded));
+        Assert.Equal("Dział IT", Value(_company.GroupIt, Attr.Description));
+        Assert.Contains(_audit.Entries, e => e is { Attribute: Attr.Description, Succeeded: true, NewValue: "Dział IT" });
+        Assert.Contains(_audit.Entries, e => e is { Attribute: Attr.Member, Succeeded: false });
+
+        var rollback = Assert.Single(new RollbackPlanner().CreateRollbackPlan(result).Objects);
+        var undo = Assert.Single(rollback.Changes);
+        var restore = Assert.Single(undo.Attributes);
+        Assert.Equal(Attr.Description, restore.Attribute);
+        Assert.Equal(AttributeChangeKind.Clear, restore.Kind);
+    }
+
+    [Fact]
+    public async Task LostResponse_OfACompareAndSwapModify_IsConfirmedByReadingTheValuesBack()
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new SetAttributeOperation(Attr.Title, "Kierownik"), new SetAttributeOperation(Attr.Department, "Zarząd"));
+        Session.LoseNextResponse(FakeOperationKind.Modify, _company.JanKowalski);
+
+        var result = await ExecuteAsync(plan);
+
+        var jan = Assert.Single(result.Objects);
+        var change = Assert.Single(jan.Changes);
+        Assert.Equal(ObjectResultStatus.Succeeded, jan.Status);
+        Assert.True(change.Succeeded);
+        Assert.Null(change.ErrorMessage);
+        Assert.Equal(2, change.Attempts);
+        Assert.Equal("Kierownik", Value(_company.JanKowalski, Attr.Title));
+        Assert.All(_audit.Entries, e => Assert.True(e.Succeeded));
+    }
+
+    [Fact]
+    public async Task ConflictAfterATimeoutThatWasNotApplied_StaysAConflict()
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new SetAttributeOperation(Attr.Title, "Kierownik"));
+        Session.FailNext(FakeOperationKind.Modify, _company.JanKowalski, DirectoryErrorKind.Timeout);
+        var calls = 0;
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Modify && ++calls == 2)
+            {
+                // Somebody else changes the title between the timed-out attempt and the retry.
+                Session.SetValues(_company.JanKowalski, Attr.Title, "Zmienione przez kogoś innego");
+            }
+        };
+
+        var result = await ExecuteAsync(plan);
+
+        var change = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.False(change.Succeeded);
+        Assert.Equal(2, change.Attempts);
+        Assert.StartsWith(BatchExecutor.ConflictMessagePrefix, change.ErrorMessage, StringComparison.Ordinal);
+        Assert.Equal("Zmienione przez kogoś innego", Value(_company.JanKowalski, Attr.Title));
+    }
+
+    [Fact]
+    public async Task LostResponse_OfACreate_IsConfirmedAndTheFollowingStepsRun()
+    {
+        var dn = "CN=Anna Nowak," + _company.SalesOu;
+        var plan = NewUserPlan(dn, "anna.nowak");
+        Session.LoseNextResponse(FakeOperationKind.Add, dn);
+
+        var result = await ExecuteAsync(plan);
+
+        var anna = Assert.Single(result.Objects);
+        Assert.Equal(ObjectResultStatus.Succeeded, anna.Status);
+        Assert.Equal([2, 1, 1], anna.Changes.Select(c => c.Attempts));
+        Assert.All(anna.Changes, c => Assert.True(c.Succeeded));
+        Assert.Single(Session.PasswordResets);
+        Assert.Equal("512", Value(dn, Attr.UserAccountControl));
+        Assert.Equal(ChangeAction.Delete, Assert.Single(Assert.Single(new RollbackPlanner().CreateRollbackPlan(result).Objects).Changes).Action);
+    }
+
+    [Fact]
+    public async Task ExistingObjectAfterATimeoutThatWasNotApplied_IsNotTakenForTheCreatedOne()
+    {
+        var dn = "CN=Anna Nowak," + _company.SalesOu;
+        var plan = NewUserPlan(dn, "anna.nowak");
+        Session.FailNext(FakeOperationKind.Add, dn, DirectoryErrorKind.Timeout);
+        var adds = 0;
+        Session.BeforeOperation = operation =>
+        {
+            if (operation.Kind == FakeOperationKind.Add && ++adds == 2)
+            {
+                // Somebody else creates an object with the same name between the timed-out attempt and the retry.
+                _builder.AddUser("Anna", "Nowak", _company.SalesOu, new Dictionary<string, object?> { [Attr.SamAccountName] = "anna.nowak2" });
+            }
+        };
+
+        var result = await ExecuteAsync(plan);
+
+        var anna = Assert.Single(result.Objects);
+        Assert.Equal(ObjectResultStatus.Failed, anna.Status);
+        var create = Assert.Single(anna.Changes);
+        Assert.Equal(DirectoryErrorKind.AlreadyExists, create.ErrorKind);
+        Assert.Equal(2, create.Attempts);
+        Assert.Empty(Session.PasswordResets);
+        Assert.Equal("anna.nowak2", Value(dn, Attr.SamAccountName));
+    }
+
+    /// <summary>The steps of the New User wizard: create disabled, set the password, enable.</summary>
+    private ChangePlan NewUserPlan(string dn, string sam) => new()
+    {
+        Server = Session.Info.Server,
+        Objects =
+        [
+            new ObjectPlan
+            {
+                DistinguishedName = dn,
+                DisplayName = "Anna Nowak",
+                Changes =
+                [
+                    new PlannedChange
+                    {
+                        Action = ChangeAction.Create,
+                        Attributes =
+                        [
+                            new AttributeChange(Attr.ObjectClass, AttributeChangeKind.Replace, [], ["user"]),
+                            new AttributeChange(Attr.SamAccountName, AttributeChangeKind.Replace, [], [sam]),
+                            new AttributeChange(Attr.GivenName, AttributeChangeKind.Replace, [], ["Anna"]),
+                            new AttributeChange(Attr.UserAccountControl, AttributeChangeKind.Replace, [], ["514"]),
+                        ],
+                    },
+                    new PlannedChange { Action = ChangeAction.ResetPassword, Password = "Wi0sna!2026xyz" },
+                    new PlannedChange
+                    {
+                        Action = ChangeAction.Modify,
+                        Attributes = [new AttributeChange(Attr.UserAccountControl, AttributeChangeKind.Replace, ["514"], ["512"])],
+                    },
+                ],
+            },
+        ],
+    };
+
+    [Fact]
     public async Task SpecialAttributes_AreAlwaysReplaced()
     {
         var (plan, result) = await RunAsync([_company.ZanetaSzymanska], new ResetPasswordOperation(PasswordMode.GenerateUnique));

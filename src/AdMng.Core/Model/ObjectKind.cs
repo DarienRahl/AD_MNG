@@ -137,6 +137,12 @@ public static class ObjectKinds
         or ObjectKind.Computer or ObjectKind.ManagedServiceAccount or ObjectKind.GroupManagedServiceAccount;
 
     /// <summary>
+    /// The longest sAMAccountName the domain controller accepts for objects of this kind: 256 (the schema's rangeUpper)
+    /// for groups, the SAM limit of 20 for user and computer accounts.
+    /// </summary>
+    public static int MaxSamAccountNameLength(this ObjectKind kind) => kind == ObjectKind.Group ? 256 : 20;
+
+    /// <summary>
     /// LDAP filter selecting objects of the given kind using indexed attributes where possible
     /// (objectCategory / sAMAccountType) - important for performance on large directories.
     /// </summary>

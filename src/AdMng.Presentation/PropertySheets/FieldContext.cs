@@ -92,7 +92,7 @@ internal sealed class FieldContext(DialogServices services, IDirectorySession se
             }
         }
 
-        // Length limits differ per object type (users 20, computers 15 + '$'); the planner reports them.
+        // Length limits differ per object type (user and computer accounts 20, groups 256); the planner reports them.
         if (string.Equals(attribute, Attr.SamAccountName, StringComparison.OrdinalIgnoreCase)
             && !AccountNames.IsValidSamAccountName(input, int.MaxValue))
         {

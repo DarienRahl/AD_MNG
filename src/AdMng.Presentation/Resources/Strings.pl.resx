@@ -960,7 +960,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Atrybut „{0}” został zmieniony przez kogoś innego po podglądzie.</value>
   </data>
   <data name="Issue.CriticalSystemObject" xml:space="preserve">
-    <value>Krytyczny obiekt systemowy.</value>
+    <value>Krytyczny obiekt systemowy (isCriticalSystemObject): nie można go usunąć; zmieniaj jego nazwę lub przenoś go tylko świadomie.</value>
   </data>
   <data name="Issue.Duplicate" xml:space="preserve">
     <value>Wartość atrybutu „{0}” jest już używana przez inny obiekt.</value>

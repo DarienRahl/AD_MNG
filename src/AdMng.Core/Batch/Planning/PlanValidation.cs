@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Core.Templates;
 
@@ -16,8 +17,20 @@ internal static class PlanValidation
     /// <summary>Maximum values per batched OR-filter lookup.</summary>
     public const int LookupBatchSize = 50;
 
-    /// <summary>The SAM limit of sAMAccountName (the schema allows 256, the SAM only 20).</summary>
-    public const int MaxSamAccountNameLength = 20;
+    /// <summary>
+    /// userAccountControl bits an operator may change (with <see cref="SetAccountFlagOperation"/> or by writing the raw
+    /// value), besides ACCOUNTDISABLE. The others are the account type and flags maintained by the system.
+    /// </summary>
+    public const UserAccountControl SettableFlags = UserAccountControl.Script | UserAccountControl.HomeDirRequired
+        | UserAccountControl.PasswordNotRequired | UserAccountControl.PasswordCantChange
+        | UserAccountControl.EncryptedTextPasswordAllowed | UserAccountControl.DontExpirePassword
+        | UserAccountControl.MnsLogonAccount | UserAccountControl.SmartcardRequired | UserAccountControl.TrustedForDelegation
+        | UserAccountControl.NotDelegated | UserAccountControl.UseDesKeyOnly | UserAccountControl.DontRequirePreauth
+        | UserAccountControl.TrustedToAuthForDelegation;
+
+    /// <summary>The message of the <see cref="IssueCodes.ProtectedObject"/> error for disabling a protected account.</summary>
+    private const string ProtectedAccountMessage =
+        "Built-in Administrator, krbtgt and domain controller accounts cannot be deleted or disabled in a batch.";
 
     private static readonly HashSet<AttributeSyntax> LengthCheckedSyntaxes =
     [
@@ -33,6 +46,23 @@ internal static class PlanValidation
 
     public static ValidationIssue Info(string code, string message, string? attribute = null) =>
         new(IssueSeverity.Info, code, message, attribute);
+
+    /// <summary>The error raised when a request would delete or disable a <see cref="IsProtectedAccount">protected account</see>.</summary>
+    public static ValidationIssue ProtectedAccountError(string? attribute = null) =>
+        Error(IssueCodes.ProtectedObject, ProtectedAccountMessage, attribute);
+
+    /// <summary>Built-in Administrator (RID 500), krbtgt (RID 502) and domain controller (incl. RODC) accounts.</summary>
+    public static bool IsProtectedAccount(DirectoryObject current)
+    {
+        var rid = AdConvert.GetRid(current.ObjectSid);
+        if (rid is WellKnownRids.Administrator or WellKnownRids.Krbtgt)
+        {
+            return true;
+        }
+
+        var uac = (UserAccountControl)(current.GetInt32(Attr.UserAccountControl) ?? 0);
+        return (uac & (UserAccountControl.ServerTrustAccount | UserAccountControl.PartialSecretsAccount)) != 0;
+    }
 
     /// <summary>Normalizes a value to its wire form where it is unambiguous (booleans to TRUE/FALSE).</summary>
     public static string NormalizeValue(ISchemaCatalog schema, string attribute, string value)
@@ -200,12 +230,25 @@ internal static class PlanValidation
     {
         var attribute = change.Attribute;
         var writtenValues = change.Kind is AttributeChangeKind.Replace or AttributeChangeKind.AddValues ? change.NewValues : [];
+
+        // Values rejected by the stricter sAMAccountName rules are not reported a second time by the schema checks.
+        var rejectedValues = new HashSet<string>(StringComparer.Ordinal);
         if (string.Equals(attribute, Attr.SamAccountName, StringComparison.OrdinalIgnoreCase))
         {
-            foreach (var issue in writtenValues.Select(ValidateSamAccountName).OfType<ValidationIssue>())
+            foreach (var value in writtenValues)
             {
-                yield return issue;
+                if (ValidateSamAccountName(value, draft.Kind) is { } issue)
+                {
+                    rejectedValues.Add(value);
+                    yield return issue;
+                }
             }
+        }
+
+        if (string.Equals(attribute, Attr.UserAccountControl, StringComparison.OrdinalIgnoreCase)
+            && ValidateUserAccountControl(draft, change) is { } accountControlIssue)
+        {
+            yield return accountControlIssue;
         }
 
         if (!context.HasSchema)
@@ -257,7 +300,7 @@ internal static class PlanValidation
             yield return Error(IssueCodes.SingleValued, $"'{attribute}' is single-valued but would get {result.Count} values.", attribute);
         }
 
-        foreach (var issue in writtenValues.Select(v => ValidateValue(definition, v)).OfType<ValidationIssue>())
+        foreach (var issue in writtenValues.Where(v => !rejectedValues.Contains(v)).Select(v => ValidateValue(definition, v)).OfType<ValidationIssue>())
         {
             yield return issue;
         }
@@ -280,12 +323,14 @@ internal static class PlanValidation
         return dn is { IsRoot: false } && string.Equals(dn.Leaf.Type, attribute, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static ValidationIssue? ValidateSamAccountName(string value)
+    /// <summary>The domain controller's sAMAccountName rules; the length limit depends on the object kind (groups 256, accounts 20).</summary>
+    private static ValidationIssue? ValidateSamAccountName(string value, ObjectKind kind)
     {
-        if (value.Length > MaxSamAccountNameLength)
+        var maxLength = kind.MaxSamAccountNameLength();
+        if (value.Length > maxLength)
         {
             return Error(IssueCodes.TooLong,
-                $"sAMAccountName '{value}' is {value.Length} characters long; the maximum is {MaxSamAccountNameLength}.", Attr.SamAccountName);
+                $"sAMAccountName '{value}' is {value.Length} characters long; the maximum is {maxLength}.", Attr.SamAccountName);
         }
 
         if (value.Any(c => TemplateEngine.IsInvalidSamCharacter(c) || char.IsControl(c)))
@@ -298,6 +343,46 @@ internal static class PlanValidation
             ? Error(IssueCodes.InvalidValue, "sAMAccountName cannot consist only of periods and spaces.", Attr.SamAccountName)
             : null;
     }
+
+    /// <summary>
+    /// Checks the effect of a userAccountControl change, whichever operation produced it (account flag operations, a raw
+    /// value from the batch editor, the Attribute Editor, find/replace or a CSV column): a protected account must not be
+    /// disabled, and the account type and system maintained bits must not change.
+    /// </summary>
+    private static ValidationIssue? ValidateUserAccountControl(ObjectPlanDraft draft, AttributeChange change)
+    {
+        if (change.ResultValues is not [var written] || !TryParseInt32(written, out var updated))
+        {
+            // No single integer value: reported by the schema checks (or rejected by the DC).
+            return null;
+        }
+
+        if (change.OldValues is not [var read] || !TryParseInt32(read, out var original))
+        {
+            return Error(IssueCodes.InvalidValue,
+                "The current userAccountControl value could not be read, so account flags cannot be changed safely.", Attr.UserAccountControl);
+        }
+
+        var disables = ((UserAccountControl)original & UserAccountControl.AccountDisable) == 0
+            && ((UserAccountControl)updated & UserAccountControl.AccountDisable) != 0;
+
+        // A disable operation on a protected account was already reported by the change planner's object checks.
+        if (disables && draft.Current is { } current && IsProtectedAccount(current)
+            && !draft.Issues.Any(i => i.Code == IssueCodes.ProtectedObject))
+        {
+            return ProtectedAccountError(Attr.UserAccountControl);
+        }
+
+        var changed = (UserAccountControl)(original ^ updated) & ~(SettableFlags | UserAccountControl.AccountDisable);
+        return changed == UserAccountControl.None
+            ? null
+            : Error(IssueCodes.InvalidValue,
+                $"The userAccountControl bits {changed} cannot be changed (account type and computed flags are maintained by the system).",
+                Attr.UserAccountControl);
+    }
+
+    private static bool TryParseInt32(string value, out int result) =>
+        int.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out result);
 
     /// <summary>Validates one wire value (string form) against the attribute's syntax and range.</summary>
     private static ValidationIssue? ValidateValue(AttributeDefinition definition, string value)

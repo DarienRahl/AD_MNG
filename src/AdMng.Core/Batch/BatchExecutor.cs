@@ -1,7 +1,9 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
+using AdMng.Core.Batch.Planning;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Model;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Core.Batch;
@@ -14,9 +16,12 @@ namespace AdMng.Core.Batch;
 /// <remarks>
 /// A Modify step whose changes mix replace/clear (sent strictly, as compare-and-swap with
 /// <see cref="BatchOptions.OptimisticConcurrency"/>) and add/remove values (sent with the permissive modify control)
-/// is executed as two modify requests, because the permissive control would defeat the compare-and-swap.
-/// A rename, move or delete whose retry (after a timeout or a lost connection) fails with noSuchObject is confirmed
-/// by reading the directory, because the attempt that seemed to fail may have been applied.
+/// is executed as two modify requests, because the permissive control would defeat the compare-and-swap (the planners
+/// therefore emit them as two steps, so that each request has its own result).
+/// A transient error (timeout, lost connection) does not tell whether the DC applied the request, so a retry that
+/// then fails is confirmed by reading the directory: noSuchObject after a rename, move or delete (the source is gone),
+/// a conflict after a compare-and-swap modify (the new values are already there) and alreadyExists after a create
+/// (the object exists with the requested values) mean that the attempt that seemed to fail went through.
 /// Audit log failures (e.g. a throwing <see cref="IAuditLog.EntryRecorded"/> subscriber) are logged, never thrown.
 /// The diagnostic log contains counts, actions and error kinds only - never DNs or values.
 /// </remarks>
@@ -350,7 +355,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     // noSuchObject on a retry: the attempt that timed out has already deleted the object.
                     return ToOutcome(change, IsAmbiguousNoSuchObject(deleted) ? deleted with { Value = true, Error = null } : deleted);
                 case ChangeAction.Create:
-                    return ToOutcome(change, await InvokeAsync(change.Action, async () =>
+                    var created = await InvokeAsync(change.Action, async () =>
                     {
                         // Built inside the request so that an invalid step (e.g. an attribute listed twice) fails this
                         // object only instead of aborting the whole batch.
@@ -359,7 +364,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
                             .ToDictionary(a => a.Attribute, a => (IReadOnlyList<object>)[.. a.NewValues], StringComparer.OrdinalIgnoreCase);
                         await _session.AddAsync(objectPlan.DistinguishedName, attributes, CancellationToken.None).ConfigureAwait(false);
                         return true;
-                    }).ConfigureAwait(false));
+                    }).ConfigureAwait(false);
+                    return ToOutcome(change, await ConfirmCreateAsync(created, objectPlan.DistinguishedName, change).ConfigureAwait(false));
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
@@ -395,6 +401,87 @@ public sealed partial class BatchExecutor : IBatchExecutor
             }
 
             return attempted;
+        }
+
+        /// <summary>
+        /// Confirms an ambiguous create (alreadyExists on a retry): the object exists and holds every value the create
+        /// writes, so it is the one the timed-out attempt created and not somebody else's object with the same name.
+        /// </summary>
+        private async Task<Attempted<bool>> ConfirmCreateAsync(Attempted<bool> attempted, string dn, PlannedChange change)
+        {
+            if (attempted.Attempts <= 1 || attempted.Error is not DirectoryException { Kind: DirectoryErrorKind.AlreadyExists })
+            {
+                return attempted;
+            }
+
+            var written = change.Attributes.Where(a => a.NewValues.Count > 0 && !SecretAttributes.Contains(a.Attribute)).ToList();
+            try
+            {
+                var existing = await _session.GetAsync(dn, [.. written.Select(a => a.Attribute)], CancellationToken.None).ConfigureAwait(false);
+                if (existing is not null && written.All(a => string.Equals(a.Attribute, Attr.ObjectClass, StringComparison.OrdinalIgnoreCase)
+                        ? a.NewValues.All(c => existing.GetStrings(a.Attribute).Contains(c, StringComparer.OrdinalIgnoreCase))
+                        : HasExactly(existing, a.Attribute, a.NewValues)))
+                {
+                    return attempted with { Value = true, Error = null };
+                }
+            }
+            catch (DirectoryException)
+            {
+                // Keep the original error.
+            }
+
+            return attempted;
+        }
+
+        /// <summary>
+        /// Confirms an ambiguous compare-and-swap modify (a conflict on a retry): every attribute already holds the new
+        /// values, which the timed-out attempt wrote (a modify is atomic, so it applied the whole request).
+        /// </summary>
+        private async Task<Attempted<bool>> ConfirmModifyAsync(Attempted<bool> attempted, string dn, IReadOnlyList<AttributeChange> compared)
+        {
+            if (attempted.Attempts <= 1 || attempted.Error is not DirectoryException error || !IsConcurrentChange(error) || compared.Count == 0)
+            {
+                return attempted;
+            }
+
+            try
+            {
+                var current = await _session.GetAsync(dn, [.. compared.Select(a => a.Attribute)], CancellationToken.None).ConfigureAwait(false);
+                if (current is not null && compared.All(a => HasExactly(current, a.Attribute, a.Kind == AttributeChangeKind.Clear ? [] : a.NewValues)))
+                {
+                    return attempted with { Value = true, Error = null };
+                }
+            }
+            catch (DirectoryException)
+            {
+                // Keep the original error.
+            }
+
+            return attempted;
+        }
+
+        /// <summary>Whether the attribute holds exactly the expected values (order-insensitive, per the attribute's syntax).</summary>
+        private bool HasExactly(DirectoryObject obj, string attribute, IReadOnlyList<string> expected)
+        {
+            var remaining = obj.GetStrings(attribute).ToList();
+            if (remaining.Count != expected.Count)
+            {
+                return false;
+            }
+
+            var comparer = ValueComparers.ForIdentity(_session.Schema.FindAttribute(attribute));
+            foreach (var value in expected)
+            {
+                var index = remaining.FindIndex(r => comparer.Equals(r, value));
+                if (index < 0)
+                {
+                    return false;
+                }
+
+                remaining.RemoveAt(index);
+            }
+
+            return true;
         }
 
         /// <summary>The DN a rename (new RDN in TargetDn) or move (new parent in TargetDn) produces, or null.</summary>
@@ -440,6 +527,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
             var strict = new List<AttributeModification>();
             var permissive = new List<AttributeModification>();
             var compareAndSwap = false;
+            var compared = new List<AttributeChange>();
             foreach (var attribute in change.Attributes)
             {
                 switch (attribute.Kind)
@@ -454,6 +542,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         var newValues = attribute.Kind == AttributeChangeKind.Clear ? [] : attribute.NewValues;
                         if (_options.OptimisticConcurrency && !NonConcurrentAttributes.Contains(attribute.Attribute))
                         {
+                            compared.Add(attribute);
                             if (attribute.OldValues.Count > 0)
                             {
                                 strict.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Delete, [.. attribute.OldValues]));
@@ -485,6 +574,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     await _session.ModifyAsync(dn, strict, ModifyOptions.Default, CancellationToken.None).ConfigureAwait(false);
                     return true;
                 }).ConfigureAwait(false);
+                if (compareAndSwap)
+                {
+                    // A conflict on a retry may be the values written by the attempt that timed out.
+                    attempted = await ConfirmModifyAsync(attempted, dn, compared).ConfigureAwait(false);
+                }
+
                 attempts = attempted.Attempts;
                 if (attempted.Error is not null)
                 {

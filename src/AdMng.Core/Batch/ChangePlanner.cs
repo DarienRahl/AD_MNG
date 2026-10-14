@@ -26,14 +26,6 @@ public sealed class ChangePlanner : IChangePlanner
 
     private const string AccountExpiresNever = "9223372036854775807";
 
-    /// <summary>userAccountControl bits that may be changed with <see cref="SetAccountFlagOperation"/>.</summary>
-    private const UserAccountControl SettableFlags = UserAccountControl.Script | UserAccountControl.HomeDirRequired
-        | UserAccountControl.PasswordNotRequired | UserAccountControl.PasswordCantChange
-        | UserAccountControl.EncryptedTextPasswordAllowed | UserAccountControl.DontExpirePassword
-        | UserAccountControl.MnsLogonAccount | UserAccountControl.SmartcardRequired | UserAccountControl.TrustedForDelegation
-        | UserAccountControl.NotDelegated | UserAccountControl.UseDesKeyOnly | UserAccountControl.DontRequirePreauth
-        | UserAccountControl.TrustedToAuthForDelegation;
-
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>FILETIME 0; earlier dates cannot be converted.</summary>
@@ -167,29 +159,23 @@ public sealed class ChangePlanner : IChangePlanner
                 "its permissions are reset hourly; changes may require Domain Admin rights."));
         }
 
+        // isCriticalSystemObject only marks objects replicated during DC promotion (built-in Administrator, Domain Admins,
+        // DC accounts...). AD and ADUC allow renaming and moving them (e.g. into a Tier-0 OU); the DC itself enforces
+        // the systemFlags that forbid it for some objects. Deleting one is never what the operator wants.
         if (current.GetBoolean(Attr.IsCriticalSystemObject) == true && analysis.MovesDeletesOrRenames)
         {
-            draft.Issues.Add(PlanValidation.Error(IssueCodes.CriticalSystemObject,
-                "The object is a critical system object (isCriticalSystemObject=TRUE) and must not be moved, renamed or deleted."));
+            draft.Issues.Add(analysis.Delete is not null
+                ? PlanValidation.Error(IssueCodes.CriticalSystemObject,
+                    "The object is a critical system object (isCriticalSystemObject=TRUE) and must not be deleted.")
+                : PlanValidation.Warning(IssueCodes.CriticalSystemObject,
+                    "The object is a critical system object (isCriticalSystemObject=TRUE); renaming or moving it may affect " +
+                    "scripts, policies and applications that refer to its name or location."));
         }
 
-        if (analysis.DeletesOrDisables && IsProtectedAccount(current))
+        if (analysis.DeletesOrDisables && PlanValidation.IsProtectedAccount(current))
         {
-            draft.Issues.Add(PlanValidation.Error(IssueCodes.ProtectedObject,
-                "Built-in Administrator, krbtgt and domain controller accounts cannot be deleted or disabled in a batch."));
+            draft.Issues.Add(PlanValidation.ProtectedAccountError());
         }
-    }
-
-    private static bool IsProtectedAccount(DirectoryObject current)
-    {
-        var rid = AdConvert.GetRid(current.ObjectSid);
-        if (rid is WellKnownRids.Administrator or WellKnownRids.Krbtgt)
-        {
-            return true;
-        }
-
-        var uac = (UserAccountControl)(current.GetInt32(Attr.UserAccountControl) ?? 0);
-        return (uac & (UserAccountControl.ServerTrustAccount | UserAccountControl.PartialSecretsAccount)) != 0;
     }
 
     private static async Task PlanDeleteAsync(PlanningContext context, ObjectPlanDraft draft, DeleteOperation delete)
@@ -727,7 +713,11 @@ public sealed class ChangePlanner : IChangePlanner
             return false;
         }
 
-        private static bool IsPasswordAccount(ObjectKind kind) => kind is ObjectKind.User or ObjectKind.InetOrgPerson or ObjectKind.Computer;
+        /// <summary>
+        /// Password reset and "must change password" apply to user accounts only: a random password on a computer
+        /// account breaks the machine's secure channel (ADUC offers the separate "Reset Account" for computers).
+        /// </summary>
+        private static bool IsPasswordAccount(ObjectKind kind) => kind is ObjectKind.User or ObjectKind.InetOrgPerson;
 
         private static bool CanBeMember(ObjectKind kind) => kind.IsSecurityPrincipal() || kind == ObjectKind.Contact;
 
@@ -785,7 +775,7 @@ public sealed class ChangePlanner : IChangePlanner
                     return;
             }
 
-            if ((operation.Flag & ~SettableFlags) != 0)
+            if ((operation.Flag & ~PlanValidation.SettableFlags) != 0)
             {
                 _draft.AttributeIssues.Add(PlanValidation.Error(IssueCodes.InvalidValue,
                     $"The userAccountControl flag {operation.Flag} cannot be changed in a batch (account type and computed flags are maintained by the system).",
