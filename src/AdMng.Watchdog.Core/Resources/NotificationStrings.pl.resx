@@ -41,7 +41,1870 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Attr.AuditPolicyChanges" xml:space="preserve">
+    <value>Zmiany zasad inspekcji</value>
+  </data>
+  <data name="Attr.SubcategoryGuid" xml:space="preserve">
+    <value>Podkategoria inspekcji</value>
+  </data>
+  <data name="Attr.accountExpires" xml:space="preserve">
+    <value>Konto wygasa</value>
+  </data>
+  <data name="Attr.adminCount" xml:space="preserve">
+    <value>adminCount (ochrona AdminSDHolder)</value>
+  </data>
+  <data name="Attr.altSecurityIdentities" xml:space="preserve">
+    <value>Mapowania certyfikatów (altSecurityIdentities)</value>
+  </data>
+  <data name="Attr.attribution" xml:space="preserve">
+    <value>Ustalanie wykonawców</value>
+  </data>
+  <data name="Attr.cACertificate" xml:space="preserve">
+    <value>Certyfikat urzędu certyfikacji</value>
+  </data>
+  <data name="Attr.certificateTemplates" xml:space="preserve">
+    <value>Publikowane szablony certyfikatów</value>
+  </data>
+  <data name="Attr.channel" xml:space="preserve">
+    <value>Kanał</value>
+  </data>
+  <data name="Attr.cn" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Attr.code" xml:space="preserve">
+    <value>Kod</value>
+  </data>
+  <data name="Attr.company" xml:space="preserve">
+    <value>Firma</value>
+  </data>
+  <data name="Attr.dNSHostName" xml:space="preserve">
+    <value>Nazwa DNS</value>
+  </data>
+  <data name="Attr.dSHeuristics" xml:space="preserve">
+    <value>dSHeuristics</value>
+  </data>
+  <data name="Attr.department" xml:space="preserve">
+    <value>Dział</value>
+  </data>
+  <data name="Attr.description" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="Attr.displayName" xml:space="preserve">
+    <value>Nazwa wyświetlana</value>
+  </data>
+  <data name="Attr.employeeID" xml:space="preserve">
+    <value>Identyfikator pracownika</value>
+  </data>
+  <data name="Attr.employeeNumber" xml:space="preserve">
+    <value>Numer pracownika</value>
+  </data>
+  <data name="Attr.employeeType" xml:space="preserve">
+    <value>Typ pracownika</value>
+  </data>
+  <data name="Attr.errorCode" xml:space="preserve">
+    <value>Kod błędu</value>
+  </data>
+  <data name="Attr.eventLogGap" xml:space="preserve">
+    <value>Luka w dzienniku</value>
+  </data>
+  <data name="Attr.fSMORoleOwner" xml:space="preserve">
+    <value>Właściciel roli FSMO</value>
+  </data>
+  <data name="Attr.flags" xml:space="preserve">
+    <value>Flagi</value>
+  </data>
+  <data name="Attr.flatName" xml:space="preserve">
+    <value>Nazwa NetBIOS</value>
+  </data>
+  <data name="Attr.gPCFileSysPath" xml:space="preserve">
+    <value>Ścieżka w SYSVOL</value>
+  </data>
+  <data name="Attr.gPLink" xml:space="preserve">
+    <value>Połączone obiekty zasad grupy</value>
+  </data>
+  <data name="Attr.gPOptions" xml:space="preserve">
+    <value>Blokowanie dziedziczenia zasad</value>
+  </data>
+  <data name="Attr.givenName" xml:space="preserve">
+    <value>Imię</value>
+  </data>
+  <data name="Attr.groupType" xml:space="preserve">
+    <value>Typ i zakres grupy</value>
+  </data>
+  <data name="Attr.homeDirectory" xml:space="preserve">
+    <value>Folder macierzysty</value>
+  </data>
+  <data name="Attr.homeDrive" xml:space="preserve">
+    <value>Dysk folderu macierzystego</value>
+  </data>
+  <data name="Attr.info" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="Attr.initials" xml:space="preserve">
+    <value>Inicjały</value>
+  </data>
+  <data name="Attr.location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="Attr.lockOutObservationWindow" xml:space="preserve">
+    <value>Wyzeruj licznik blokady konta po</value>
+  </data>
+  <data name="Attr.lockoutDuration" xml:space="preserve">
+    <value>Czas trwania blokady konta</value>
+  </data>
+  <data name="Attr.lockoutThreshold" xml:space="preserve">
+    <value>Próg blokady konta</value>
+  </data>
+  <data name="Attr.lockoutTime" xml:space="preserve">
+    <value>Czas zablokowania konta</value>
+  </data>
+  <data name="Attr.logonHours" xml:space="preserve">
+    <value>Godziny logowania</value>
+  </data>
+  <data name="Attr.mS-DS-CreatorSID" xml:space="preserve">
+    <value>SID twórcy konta</value>
+  </data>
+  <data name="Attr.mail" xml:space="preserve">
+    <value>Adres e-mail</value>
+  </data>
+  <data name="Attr.managedBy" xml:space="preserve">
+    <value>Zarządzany przez</value>
+  </data>
+  <data name="Attr.manager" xml:space="preserve">
+    <value>Menedżer</value>
+  </data>
+  <data name="Attr.maxPwdAge" xml:space="preserve">
+    <value>Maksymalny okres ważności hasła</value>
+  </data>
+  <data name="Attr.member" xml:space="preserve">
+    <value>Członkowie</value>
+  </data>
+  <data name="Attr.minPwdAge" xml:space="preserve">
+    <value>Minimalny okres ważności hasła</value>
+  </data>
+  <data name="Attr.minPwdLength" xml:space="preserve">
+    <value>Minimalna długość hasła</value>
+  </data>
+  <data name="Attr.mobile" xml:space="preserve">
+    <value>Telefon komórkowy</value>
+  </data>
+  <data name="Attr.ms-DS-MachineAccountQuota" xml:space="preserve">
+    <value>Limit kont komputerów (MachineAccountQuota)</value>
+  </data>
+  <data name="Attr.msDS-AllowedToActOnBehalfOfOtherIdentity" xml:space="preserve">
+    <value>Delegowanie ograniczone oparte na zasobach (RBCD)</value>
+  </data>
+  <data name="Attr.msDS-AllowedToDelegateTo" xml:space="preserve">
+    <value>Delegowanie ograniczone (usługi)</value>
+  </data>
+  <data name="Attr.msDS-Behavior-Version" xml:space="preserve">
+    <value>Poziom funkcjonalności</value>
+  </data>
+  <data name="Attr.msDS-DelegatedMSAState" xml:space="preserve">
+    <value>Stan dMSA</value>
+  </data>
+  <data name="Attr.msDS-EnabledFeature" xml:space="preserve">
+    <value>Włączone funkcje opcjonalne</value>
+  </data>
+  <data name="Attr.msDS-GroupMSAMembership" xml:space="preserve">
+    <value>Konta mogące odczytać hasło zarządzane</value>
+  </data>
+  <data name="Attr.msDS-KeyCredentialLink" xml:space="preserve">
+    <value>Poświadczenia kluczy (Windows Hello for Business)</value>
+  </data>
+  <data name="Attr.msDS-LockoutDuration" xml:space="preserve">
+    <value>Czas trwania blokady konta</value>
+  </data>
+  <data name="Attr.msDS-LockoutObservationWindow" xml:space="preserve">
+    <value>Wyzeruj licznik blokady konta po</value>
+  </data>
+  <data name="Attr.msDS-LockoutThreshold" xml:space="preserve">
+    <value>Próg blokady konta</value>
+  </data>
+  <data name="Attr.msDS-ManagedAccountPrecededByLink" xml:space="preserve">
+    <value>Konto poprzedzające (dMSA)</value>
+  </data>
+  <data name="Attr.msDS-MaximumPasswordAge" xml:space="preserve">
+    <value>Maksymalny okres ważności hasła</value>
+  </data>
+  <data name="Attr.msDS-MinimumPasswordAge" xml:space="preserve">
+    <value>Minimalny okres ważności hasła</value>
+  </data>
+  <data name="Attr.msDS-MinimumPasswordLength" xml:space="preserve">
+    <value>Minimalna długość hasła</value>
+  </data>
+  <data name="Attr.msDS-PSOAppliesTo" xml:space="preserve">
+    <value>Dotyczy</value>
+  </data>
+  <data name="Attr.msDS-PasswordComplexityEnabled" xml:space="preserve">
+    <value>Wymagana złożoność hasła</value>
+  </data>
+  <data name="Attr.msDS-PasswordHistoryLength" xml:space="preserve">
+    <value>Historia haseł</value>
+  </data>
+  <data name="Attr.msDS-PasswordReversibleEncryptionEnabled" xml:space="preserve">
+    <value>Szyfrowanie odwracalne</value>
+  </data>
+  <data name="Attr.msDS-PasswordSettingsPrecedence" xml:space="preserve">
+    <value>Pierwszeństwo</value>
+  </data>
+  <data name="Attr.msDS-SupersededManagedAccountLink" xml:space="preserve">
+    <value>Konto zastąpione przez dMSA</value>
+  </data>
+  <data name="Attr.msDS-SupersededServiceAccountState" xml:space="preserve">
+    <value>Stan migracji do dMSA (konto zastępowane)</value>
+  </data>
+  <data name="Attr.msDS-SupportedEncryptionTypes" xml:space="preserve">
+    <value>Obsługiwane typy szyfrowania Kerberos</value>
+  </data>
+  <data name="Attr.msPKI-Certificate-Application-Policy" xml:space="preserve">
+    <value>Zasady aplikacji</value>
+  </data>
+  <data name="Attr.msPKI-Certificate-Name-Flag" xml:space="preserve">
+    <value>Flagi nazwy podmiotu</value>
+  </data>
+  <data name="Attr.msPKI-Enrollment-Flag" xml:space="preserve">
+    <value>Flagi rejestracji</value>
+  </data>
+  <data name="Attr.msPKI-RA-Signature" xml:space="preserve">
+    <value>Wymagane podpisy autoryzowane</value>
+  </data>
+  <data name="Attr.nTSecurityDescriptor" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="Attr.name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Attr.objects" xml:space="preserve">
+    <value>Obiekty</value>
+  </data>
+  <data name="Attr.operatingSystem" xml:space="preserve">
+    <value>System operacyjny</value>
+  </data>
+  <data name="Attr.operatingSystemVersion" xml:space="preserve">
+    <value>Wersja systemu operacyjnego</value>
+  </data>
+  <data name="Attr.ou" xml:space="preserve">
+    <value>Nazwa jednostki organizacyjnej</value>
+  </data>
+  <data name="Attr.pKIExtendedKeyUsage" xml:space="preserve">
+    <value>Rozszerzone użycie klucza</value>
+  </data>
+  <data name="Attr.physicalDeliveryOfficeName" xml:space="preserve">
+    <value>Biuro</value>
+  </data>
+  <data name="Attr.primaryGroupID" xml:space="preserve">
+    <value>Grupa podstawowa</value>
+  </data>
+  <data name="Attr.profilePath" xml:space="preserve">
+    <value>Ścieżka profilu</value>
+  </data>
+  <data name="Attr.proxyAddresses" xml:space="preserve">
+    <value>Adresy proxy</value>
+  </data>
+  <data name="Attr.pwdHistoryLength" xml:space="preserve">
+    <value>Historia haseł</value>
+  </data>
+  <data name="Attr.pwdLastSet" xml:space="preserve">
+    <value>Ostatnie ustawienie hasła</value>
+  </data>
+  <data name="Attr.pwdProperties" xml:space="preserve">
+    <value>Właściwości haseł (złożoność)</value>
+  </data>
+  <data name="Attr.sAMAccountName" xml:space="preserve">
+    <value>Nazwa logowania (sprzed Windows 2000)</value>
+  </data>
+  <data name="Attr.sIDHistory" xml:space="preserve">
+    <value>Historia SID</value>
+  </data>
+  <data name="Attr.scriptPath" xml:space="preserve">
+    <value>Skrypt logowania</value>
+  </data>
+  <data name="Attr.servicePrincipalName" xml:space="preserve">
+    <value>Nazwy główne usług (SPN)</value>
+  </data>
+  <data name="Attr.sn" xml:space="preserve">
+    <value>Nazwisko</value>
+  </data>
+  <data name="Attr.state" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Attr.telephoneNumber" xml:space="preserve">
+    <value>Numer telefonu</value>
+  </data>
+  <data name="Attr.title" xml:space="preserve">
+    <value>Stanowisko</value>
+  </data>
+  <data name="Attr.tombstoneLifetime" xml:space="preserve">
+    <value>Okres przechowywania usuniętych obiektów</value>
+  </data>
+  <data name="Attr.trustAttributes" xml:space="preserve">
+    <value>Atrybuty zaufania</value>
+  </data>
+  <data name="Attr.trustDirection" xml:space="preserve">
+    <value>Kierunek zaufania</value>
+  </data>
+  <data name="Attr.trustPartner" xml:space="preserve">
+    <value>Domena zaufana</value>
+  </data>
+  <data name="Attr.trustType" xml:space="preserve">
+    <value>Typ zaufania</value>
+  </data>
+  <data name="Attr.unicodePwd" xml:space="preserve">
+    <value>Hasło</value>
+  </data>
+  <data name="Attr.userAccountControl" xml:space="preserve">
+    <value>Opcje konta (userAccountControl)</value>
+  </data>
+  <data name="Attr.userCertificate" xml:space="preserve">
+    <value>Opublikowane certyfikaty</value>
+  </data>
+  <data name="Attr.userPrincipalName" xml:space="preserve">
+    <value>Nazwa logowania użytkownika</value>
+  </data>
+  <data name="Attr.userWorkstations" xml:space="preserve">
+    <value>Dozwolone stacje robocze</value>
+  </data>
+  <data name="Attr.versionNumber" xml:space="preserve">
+    <value>Wersja GPO</value>
+  </data>
+  <data name="Card.BurstTitle.Few" xml:space="preserve">
+    <value>{0} zdarzenia: {1}</value>
+  </data>
+  <data name="Card.BurstTitle.Many" xml:space="preserve">
+    <value>{0} zdarzeń: {1}</value>
+  </data>
+  <data name="Card.BurstTitle.One" xml:space="preserve">
+    <value>{0} zdarzenie: {1}</value>
+  </data>
+  <data name="Card.Changes" xml:space="preserve">
+    <value>Zmiany ({0})</value>
+  </data>
+  <data name="Card.FollowUpTitle" xml:space="preserve">
+    <value>Uzupełnienie: wykonawca ustalony</value>
+  </data>
+  <data name="Card.OpenInWatchdog" xml:space="preserve">
+    <value>Otwórz w AD Watchdog</value>
+  </data>
+  <data name="Card.Rule" xml:space="preserve">
+    <value>reguła: {0}</value>
+  </data>
+  <data name="Card.ShowAllChanges" xml:space="preserve">
+    <value>Pokaż wszystkie zmiany</value>
+  </data>
+  <data name="Card.Shown" xml:space="preserve">
+    <value>Pokazano {0} z {1}</value>
+  </data>
+  <data name="Card.TestBody" xml:space="preserve">
+    <value>Jeśli widzisz tę kartę, przepływ Teams działa.</value>
+  </data>
+  <data name="Card.TestTitle" xml:space="preserve">
+    <value>Wiadomość testowa AD Watchdog</value>
+  </data>
+  <data name="Confidence.High" xml:space="preserve">
+    <value>wysoka</value>
+  </data>
+  <data name="Confidence.Low" xml:space="preserve">
+    <value>niska</value>
+  </data>
+  <data name="Confidence.Medium" xml:space="preserve">
+    <value>średnia</value>
+  </data>
+  <data name="Confidence.None" xml:space="preserve">
+    <value>brak</value>
+  </data>
+  <data name="Day.Friday.Short" xml:space="preserve">
+    <value>pt</value>
+  </data>
+  <data name="Day.Monday.Short" xml:space="preserve">
+    <value>pon</value>
+  </data>
+  <data name="Day.Saturday.Short" xml:space="preserve">
+    <value>sob</value>
+  </data>
+  <data name="Day.Sunday.Short" xml:space="preserve">
+    <value>ndz</value>
+  </data>
+  <data name="Day.Thursday.Short" xml:space="preserve">
+    <value>czw</value>
+  </data>
+  <data name="Day.Tuesday.Short" xml:space="preserve">
+    <value>wt</value>
+  </data>
+  <data name="Day.Wednesday.Short" xml:space="preserve">
+    <value>śr</value>
+  </data>
+  <data name="DeliveryKind.Alert" xml:space="preserve">
+    <value>Alert</value>
+  </data>
+  <data name="DeliveryKind.Digest" xml:space="preserve">
+    <value>Raport dzienny</value>
+  </data>
+  <data name="DeliveryKind.FollowUp" xml:space="preserve">
+    <value>Uzupełnienie</value>
+  </data>
+  <data name="DeliveryKind.Health" xml:space="preserve">
+    <value>Stan usługi</value>
+  </data>
+  <data name="DeliveryKind.Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Digest.Acknowledged" xml:space="preserve">
+    <value>potwierdzone przez {0}</value>
+  </data>
+  <data name="Digest.AttentionTitle" xml:space="preserve">
+    <value>Wymaga uwagi ({0})</value>
+  </data>
+  <data name="Digest.Column.Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="Digest.Column.CreatedBy" xml:space="preserve">
+    <value>Dodano przez</value>
+  </data>
+  <data name="Digest.Column.Exception" xml:space="preserve">
+    <value>Wyjątek</value>
+  </data>
+  <data name="Digest.Column.Expires" xml:space="preserve">
+    <value>Wygasa</value>
+  </data>
+  <data name="Digest.Column.LastLogon" xml:space="preserve">
+    <value>Ostatnie logowanie</value>
+  </data>
+  <data name="Digest.Column.Lockouts" xml:space="preserve">
+    <value>Blokady</value>
+  </data>
+  <data name="Digest.Column.Ou" xml:space="preserve">
+    <value>Jednostka (OU)</value>
+  </data>
+  <data name="Digest.Column.Rule" xml:space="preserve">
+    <value>Reguła</value>
+  </data>
+  <data name="Digest.Column.Sources" xml:space="preserve">
+    <value>Źródła błędnych haseł</value>
+  </data>
+  <data name="Digest.Column.State" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Digest.Count.Attention" xml:space="preserve">
+    <value>Wymagają uwagi</value>
+  </data>
+  <data name="Digest.Count.Critical" xml:space="preserve">
+    <value>Krytyczne</value>
+  </data>
+  <data name="Digest.Count.Deleted" xml:space="preserve">
+    <value>Usunięte obiekty</value>
+  </data>
+  <data name="Digest.Count.Disabled" xml:space="preserve">
+    <value>Wyłączone konta</value>
+  </data>
+  <data name="Digest.Count.DomainChanges" xml:space="preserve">
+    <value>Zmiany domeny, zasad i GPO</value>
+  </data>
+  <data name="Digest.Count.Enabled" xml:space="preserve">
+    <value>Włączone konta</value>
+  </data>
+  <data name="Digest.Count.High" xml:space="preserve">
+    <value>Wysokie</value>
+  </data>
+  <data name="Digest.Count.Lockouts" xml:space="preserve">
+    <value>Blokady kont</value>
+  </data>
+  <data name="Digest.Count.NewComputers" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Digest.Count.NewUsers" xml:space="preserve">
+    <value>Nowi użytkownicy</value>
+  </data>
+  <data name="Digest.Count.OtherPasswordChanges" xml:space="preserve">
+    <value>Zmiany haseł (wykonawca nieustalony)</value>
+  </data>
+  <data name="Digest.Count.OwnPasswordChanges" xml:space="preserve">
+    <value>Zmiany własnych haseł</value>
+  </data>
+  <data name="Digest.Count.PasswordAgeResets" xml:space="preserve">
+    <value>Odświeżenia wieku hasła</value>
+  </data>
+  <data name="Digest.Count.PasswordResets" xml:space="preserve">
+    <value>Resety haseł</value>
+  </data>
+  <data name="Digest.Count.PrivilegedChanges" xml:space="preserve">
+    <value>Zmiany dostępu uprzywilejowanego</value>
+  </data>
+  <data name="Digest.Count.Total" xml:space="preserve">
+    <value>Zdarzenia</value>
+  </data>
+  <data name="Digest.Count.Unacknowledged" xml:space="preserve">
+    <value>Niepotwierdzone</value>
+  </data>
+  <data name="Digest.CoversNonBusinessDays" xml:space="preserve">
+    <value>obejmuje dni wolne od ostatniego raportu w dniu roboczym</value>
+  </data>
+  <data name="Digest.Empty" xml:space="preserve">
+    <value>Brak zmian w okresie.</value>
+  </data>
+  <data name="Digest.Exception.Actor" xml:space="preserve">
+    <value>wykonawca {0}</value>
+  </data>
+  <data name="Digest.Exception.Attribute" xml:space="preserve">
+    <value>atrybut {0}</value>
+  </data>
+  <data name="Digest.Exception.NoExpiry" xml:space="preserve">
+    <value>bezterminowo</value>
+  </data>
+  <data name="Digest.Exception.Object" xml:space="preserve">
+    <value>obiekt {0}</value>
+  </data>
+  <data name="Digest.Exception.Subtree" xml:space="preserve">
+    <value>poddrzewo {0}</value>
+  </data>
+  <data name="Digest.Exception.Until" xml:space="preserve">
+    <value>do {0}</value>
+  </data>
+  <data name="Digest.Expiry.Account" xml:space="preserve">
+    <value>konto wygasa {0}</value>
+  </data>
+  <data name="Digest.Expiry.Password" xml:space="preserve">
+    <value>hasło wygasa {0}</value>
+  </data>
+  <data name="Digest.Fact.AdminCountOrphans" xml:space="preserve">
+    <value>adminCount=1 bez uprawnień</value>
+  </data>
+  <data name="Digest.Fact.AdministratorPasswordAgeDays" xml:space="preserve">
+    <value>Wiek hasła wbudowanego administratora (dni)</value>
+  </data>
+  <data name="Digest.Fact.InactiveComputers" xml:space="preserve">
+    <value>Nieaktywne komputery</value>
+  </data>
+  <data name="Digest.Fact.InactivePrivileged" xml:space="preserve">
+    <value>Nieaktywne konta uprzywilejowane</value>
+  </data>
+  <data name="Digest.Fact.InactiveUsers" xml:space="preserve">
+    <value>Nieaktywni użytkownicy</value>
+  </data>
+  <data name="Digest.Fact.KrbtgtPasswordAgeDays" xml:space="preserve">
+    <value>Wiek hasła krbtgt (dni)</value>
+  </data>
+  <data name="Digest.Fact.OtherPasswordChanges" xml:space="preserve">
+    <value>Wykonawca nieustalony</value>
+  </data>
+  <data name="Digest.Fact.OwnPasswordChanges" xml:space="preserve">
+    <value>Zmiany własne</value>
+  </data>
+  <data name="Digest.Fact.PasswordAgeResets" xml:space="preserve">
+    <value>Odświeżenia wieku hasła</value>
+  </data>
+  <data name="Digest.Fact.PasswordNeverExpires" xml:space="preserve">
+    <value>Hasło nigdy nie wygasa</value>
+  </data>
+  <data name="Digest.Fact.PasswordNotRequired" xml:space="preserve">
+    <value>Hasło niewymagane (PASSWD_NOTREQD)</value>
+  </data>
+  <data name="Digest.Fact.PasswordResets" xml:space="preserve">
+    <value>Reset przez inne konto</value>
+  </data>
+  <data name="Digest.Fact.UnconstrainedDelegation" xml:space="preserve">
+    <value>Delegowanie nieograniczone poza kontrolerami</value>
+  </data>
+  <data name="Digest.Footer" xml:space="preserve">
+    <value>Raport dzienny · usługa {0} · wiadomość automatyczna, nie odpowiadaj</value>
+  </data>
+  <data name="Digest.Health.BrokenChannels" xml:space="preserve">
+    <value>kanały bez dostarczania: {0}</value>
+  </data>
+  <data name="Digest.Health.Coverage" xml:space="preserve">
+    <value>pokrycie atrybucji {0}</value>
+  </data>
+  <data name="Digest.Health.Directory" xml:space="preserve">
+    <value>Kontroler domeny {0} ({1})</value>
+  </data>
+  <data name="Digest.Health.LastPoll" xml:space="preserve">
+    <value>ostatni odczyt {0}</value>
+  </data>
+  <data name="Digest.Health.LogGaps" xml:space="preserve">
+    <value>luki w dziennikach zdarzeń: {0}</value>
+  </data>
+  <data name="Digest.Health.NoDirectory" xml:space="preserve">
+    <value>Kontroler domeny: brak połączenia</value>
+  </data>
+  <data name="Digest.Health.Rollout" xml:space="preserve">
+    <value>tryb wdrożenia do {0}</value>
+  </data>
+  <data name="Digest.Health.State.Disabled" xml:space="preserve">
+    <value>wyłączony</value>
+  </data>
+  <data name="Digest.Health.State.Error" xml:space="preserve">
+    <value>błąd</value>
+  </data>
+  <data name="Digest.Health.State.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Digest.Health.State.Unknown" xml:space="preserve">
+    <value>stan nieznany</value>
+  </data>
+  <data name="Digest.Health.State.Warning" xml:space="preserve">
+    <value>ostrzeżenie</value>
+  </data>
+  <data name="Digest.LastLogon" xml:space="preserve">
+    <value>ostatnie logowanie {0}</value>
+  </data>
+  <data name="Digest.LockedOut" xml:space="preserve">
+    <value>zablokowane {0}× {1}, ostatnio {2}</value>
+  </data>
+  <data name="Digest.More" xml:space="preserve">
+    <value>… i {0} kolejnych – pełna lista w zakładce Watchdog</value>
+  </data>
+  <data name="Digest.NeverLoggedOn" xml:space="preserve">
+    <value>nigdy nie logowano</value>
+  </data>
+  <data name="Digest.Period" xml:space="preserve">
+    <value>Okres: {0} – {1}</value>
+  </data>
+  <data name="Digest.Privileged" xml:space="preserve">
+    <value>uprzywilejowane</value>
+  </data>
+  <data name="Digest.Section.AccountParameters" xml:space="preserve">
+    <value>Zmiany parametrów kont</value>
+  </data>
+  <data name="Digest.Section.ActiveExceptions" xml:space="preserve">
+    <value>Aktywne wyjątki</value>
+  </data>
+  <data name="Digest.Section.DeletedRestored" xml:space="preserve">
+    <value>Usunięte / przywrócone</value>
+  </data>
+  <data name="Digest.Section.DisabledEnabled" xml:space="preserve">
+    <value>Wyłączone / włączone</value>
+  </data>
+  <data name="Digest.Section.DomainPolicy" xml:space="preserve">
+    <value>Domena, zasady, GPO, PKI</value>
+  </data>
+  <data name="Digest.Section.GroupMembership" xml:space="preserve">
+    <value>Członkostwo w grupach</value>
+  </data>
+  <data name="Digest.Section.Health" xml:space="preserve">
+    <value>Stan usługi Watchdog</value>
+  </data>
+  <data name="Digest.Section.Hygiene" xml:space="preserve">
+    <value>Higiena</value>
+  </data>
+  <data name="Digest.Section.InactiveAccounts" xml:space="preserve">
+    <value>Nieaktywne konta</value>
+  </data>
+  <data name="Digest.Section.Lockouts" xml:space="preserve">
+    <value>Blokady</value>
+  </data>
+  <data name="Digest.Section.MovedRenamed" xml:space="preserve">
+    <value>Przeniesione / zmiany nazw</value>
+  </data>
+  <data name="Digest.Section.NewAccounts" xml:space="preserve">
+    <value>Nowe konta</value>
+  </data>
+  <data name="Digest.Section.NewComputers" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Digest.Section.Passwords" xml:space="preserve">
+    <value>Hasła</value>
+  </data>
+  <data name="Digest.Section.Privileged" xml:space="preserve">
+    <value>Dostęp uprzywilejowany</value>
+  </data>
+  <data name="Digest.Section.SecurityReview" xml:space="preserve">
+    <value>Zmiany bezpieczeństwa do przeglądu</value>
+  </data>
+  <data name="Digest.Section.UpcomingExpiry" xml:space="preserve">
+    <value>Nadchodzące terminy</value>
+  </data>
+  <data name="Digest.Section.WatchdogConfiguration" xml:space="preserve">
+    <value>Zmiany konfiguracji Watchdog</value>
+  </data>
+  <data name="Digest.SectionTitle" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Digest.Shown" xml:space="preserve">
+    <value>Pokazano {0} z {1} pozycji</value>
+  </data>
+  <data name="Digest.Title" xml:space="preserve">
+    <value>Raport dzienny</value>
+  </data>
+  <data name="Digest.Today" xml:space="preserve">
+    <value>dziś</value>
+  </data>
+  <data name="Digest.Unacknowledged" xml:space="preserve">
+    <value>niepotwierdzone</value>
+  </data>
+  <data name="Digest.Unknown" xml:space="preserve">
+    <value>brak danych (katalog niedostępny)</value>
+  </data>
+  <data name="Digest.Unlocked" xml:space="preserve">
+    <value>odblokowane {0}×</value>
+  </data>
+  <data name="Digest.Unusual" xml:space="preserve">
+    <value>nietypowe</value>
+  </data>
+  <data name="Digest.Weekly" xml:space="preserve">
+    <value>z sekcjami tygodniowymi</value>
+  </data>
+  <data name="Email.ActorOfAll" xml:space="preserve">
+    <value>wykonawca {0}</value>
+  </data>
+  <data name="Email.FollowUpBanner" xml:space="preserve">
+    <value>Uzupełnienie: wykonawca ustalony</value>
+  </data>
+  <data name="Email.Footer" xml:space="preserve">
+    <value>Reguła {0} · zdarzenie {1} · usługa {2} · wiadomość automatyczna, nie odpowiadaj</value>
+  </data>
+  <data name="Email.FooterNoRule" xml:space="preserve">
+    <value>Zdarzenie {0} · usługa {1} · wiadomość automatyczna, nie odpowiadaj</value>
+  </data>
+  <data name="Email.FooterTest" xml:space="preserve">
+    <value>Usługa {0} · wiadomość automatyczna, nie odpowiadaj</value>
+  </data>
+  <data name="Email.InAdMng" xml:space="preserve">
+    <value>W AD_MNG: Narzędzia → Watchdog → zdarzenie nr {0}</value>
+  </data>
+  <data name="Email.InAdMngList" xml:space="preserve">
+    <value>W AD_MNG: Narzędzia → Watchdog</value>
+  </data>
+  <data name="Email.OpenInBrowser" xml:space="preserve">
+    <value>Otwórz w przeglądarce</value>
+  </data>
+  <data name="Email.TestBody" xml:space="preserve">
+    <value>To jest wiadomość testowa usługi {0}. Wysłano: {1}. Jeśli ją widzisz, dostarczanie poczty działa.</value>
+  </data>
+  <data name="Email.Via" xml:space="preserve">
+    <value>(członkostwo pośrednie: {0})</value>
+  </data>
+  <data name="Flag.ACCOUNTDISABLE" xml:space="preserve">
+    <value>Konto wyłączone</value>
+  </data>
+  <data name="Flag.APP_BASIC_GROUP" xml:space="preserve">
+    <value>Podstawowa grupa aplikacji</value>
+  </data>
+  <data name="Flag.APP_QUERY_GROUP" xml:space="preserve">
+    <value>Grupa aplikacji oparta na zapytaniu</value>
+  </data>
+  <data name="Flag.BUILTIN_LOCAL_GROUP" xml:space="preserve">
+    <value>Grupa wbudowana</value>
+  </data>
+  <data name="Flag.DOMAIN_LOCAL_GROUP" xml:space="preserve">
+    <value>Zakres lokalny domeny</value>
+  </data>
+  <data name="Flag.DONT_EXPIRE_PASSWORD" xml:space="preserve">
+    <value>Hasło nigdy nie wygasa</value>
+  </data>
+  <data name="Flag.DONT_REQ_PREAUTH" xml:space="preserve">
+    <value>Nie wymagaj wstępnego uwierzytelniania Kerberos</value>
+  </data>
+  <data name="Flag.ENCRYPTED_TEXT_PWD_ALLOWED" xml:space="preserve">
+    <value>Przechowuj hasło przy użyciu szyfrowania odwracalnego</value>
+  </data>
+  <data name="Flag.GLOBAL_GROUP" xml:space="preserve">
+    <value>Zakres globalny</value>
+  </data>
+  <data name="Flag.HOMEDIR_REQUIRED" xml:space="preserve">
+    <value>Wymagany folder macierzysty</value>
+  </data>
+  <data name="Flag.INTERDOMAIN_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Konto zaufania międzydomenowego</value>
+  </data>
+  <data name="Flag.LOCKOUT" xml:space="preserve">
+    <value>Konto zablokowane</value>
+  </data>
+  <data name="Flag.MNS_LOGON_ACCOUNT" xml:space="preserve">
+    <value>Konto logowania MNS</value>
+  </data>
+  <data name="Flag.NORMAL_ACCOUNT" xml:space="preserve">
+    <value>Zwykłe konto</value>
+  </data>
+  <data name="Flag.NOT_DELEGATED" xml:space="preserve">
+    <value>Konto jest poufne i nie może być delegowane</value>
+  </data>
+  <data name="Flag.PARTIAL_SECRETS_ACCOUNT" xml:space="preserve">
+    <value>Kontroler domeny tylko do odczytu</value>
+  </data>
+  <data name="Flag.PASSWD_CANT_CHANGE" xml:space="preserve">
+    <value>Użytkownik nie może zmienić hasła</value>
+  </data>
+  <data name="Flag.PASSWD_NOTREQD" xml:space="preserve">
+    <value>Hasło nie jest wymagane</value>
+  </data>
+  <data name="Flag.PASSWORD_EXPIRED" xml:space="preserve">
+    <value>Hasło wygasło</value>
+  </data>
+  <data name="Flag.SCRIPT" xml:space="preserve">
+    <value>Uruchamianie skryptu logowania</value>
+  </data>
+  <data name="Flag.SECURITY_ENABLED" xml:space="preserve">
+    <value>Grupa zabezpieczeń</value>
+  </data>
+  <data name="Flag.SERVER_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="Flag.SMARTCARD_REQUIRED" xml:space="preserve">
+    <value>Karta inteligentna jest wymagana</value>
+  </data>
+  <data name="Flag.TEMP_DUPLICATE_ACCOUNT" xml:space="preserve">
+    <value>Konto lokalne (duplikat)</value>
+  </data>
+  <data name="Flag.TRUSTED_FOR_DELEGATION" xml:space="preserve">
+    <value>Zaufane do delegowania (nieograniczonego)</value>
+  </data>
+  <data name="Flag.TRUSTED_TO_AUTH_FOR_DELEGATION" xml:space="preserve">
+    <value>Zaufane do uwierzytelniania na potrzeby delegowania</value>
+  </data>
+  <data name="Flag.UNIVERSAL_GROUP" xml:space="preserve">
+    <value>Zakres uniwersalny</value>
+  </data>
+  <data name="Flag.USE_DES_KEY_ONLY" xml:space="preserve">
+    <value>Używaj tylko szyfrowania DES</value>
+  </data>
+  <data name="Flag.WORKSTATION_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Stacja robocza lub serwer członkowski</value>
+  </data>
+  <data name="Kind.AccountDisabled.Sentence" xml:space="preserve">
+    <value>Konto {0} zostało wyłączone.</value>
+  </data>
+  <data name="Kind.AccountDisabled.Title" xml:space="preserve">
+    <value>Wyłączono konto</value>
+  </data>
+  <data name="Kind.AccountDisabled.TitlePlural" xml:space="preserve">
+    <value>Wyłączone konta</value>
+  </data>
+  <data name="Kind.AccountEnabled.Sentence" xml:space="preserve">
+    <value>Konto {0} zostało włączone.</value>
+  </data>
+  <data name="Kind.AccountEnabled.Title" xml:space="preserve">
+    <value>Włączono konto</value>
+  </data>
+  <data name="Kind.AccountEnabled.TitlePlural" xml:space="preserve">
+    <value>Włączone konta</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.Sentence" xml:space="preserve">
+    <value>Data wygaśnięcia konta {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.Title" xml:space="preserve">
+    <value>Zmieniono datę wygaśnięcia konta</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany dat wygaśnięcia kont</value>
+  </data>
+  <data name="Kind.AccountExpired.Sentence" xml:space="preserve">
+    <value>Konto {0} wygasło (ostatni dzień ważności: {2}).</value>
+  </data>
+  <data name="Kind.AccountExpired.Title" xml:space="preserve">
+    <value>Konto wygasło</value>
+  </data>
+  <data name="Kind.AccountExpired.TitlePlural" xml:space="preserve">
+    <value>Konta wygasły</value>
+  </data>
+  <data name="Kind.AccountExpiring.Sentence" xml:space="preserve">
+    <value>Konto {0} wygasa z końcem dnia {2} (pozostało dni: {3}).</value>
+  </data>
+  <data name="Kind.AccountExpiring.Title" xml:space="preserve">
+    <value>Konto wkrótce wygaśnie</value>
+  </data>
+  <data name="Kind.AccountExpiring.TitlePlural" xml:space="preserve">
+    <value>Konta wkrótce wygasną</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.Sentence" xml:space="preserve">
+    <value>Opcje konta {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.Title" xml:space="preserve">
+    <value>Zmieniono opcje konta</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany opcji kont</value>
+  </data>
+  <data name="Kind.AccountLockedOut.Sentence" xml:space="preserve">
+    <value>Konto {0} zostało zablokowane po błędnych hasłach (blokady dziś: {3}).</value>
+  </data>
+  <data name="Kind.AccountLockedOut.Title" xml:space="preserve">
+    <value>Zablokowano konto</value>
+  </data>
+  <data name="Kind.AccountLockedOut.TitlePlural" xml:space="preserve">
+    <value>Zablokowane konta</value>
+  </data>
+  <data name="Kind.AccountNameChanged.Sentence" xml:space="preserve">
+    <value>Nazwa logowania konta {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.AccountNameChanged.Title" xml:space="preserve">
+    <value>Zmieniono nazwę logowania</value>
+  </data>
+  <data name="Kind.AccountNameChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany nazw logowania</value>
+  </data>
+  <data name="Kind.AccountUnlocked.Sentence" xml:space="preserve">
+    <value>Konto {0} zostało odblokowane.</value>
+  </data>
+  <data name="Kind.AccountUnlocked.Title" xml:space="preserve">
+    <value>Odblokowano konto</value>
+  </data>
+  <data name="Kind.AccountUnlocked.TitlePlural" xml:space="preserve">
+    <value>Odblokowane konta</value>
+  </data>
+  <data name="Kind.AdminCountSet.Sentence" xml:space="preserve">
+    <value>Na obiekcie {0} ustawiono adminCount = 1.</value>
+  </data>
+  <data name="Kind.AdminCountSet.Title" xml:space="preserve">
+    <value>Ustawiono adminCount</value>
+  </data>
+  <data name="Kind.AdminCountSet.TitlePlural" xml:space="preserve">
+    <value>Ustawione adminCount</value>
+  </data>
+  <data name="Kind.AttributesChanged.Sentence" xml:space="preserve">
+    <value>Atrybuty obiektu {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.AttributesChanged.Title" xml:space="preserve">
+    <value>Zmiana parametrów konta</value>
+  </data>
+  <data name="Kind.AttributesChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany parametrów kont</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.Sentence" xml:space="preserve">
+    <value>Zasady inspekcji na {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.Title" xml:space="preserve">
+    <value>Zmieniono zasady inspekcji</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany zasad inspekcji</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.Sentence" xml:space="preserve">
+    <value>Jawne mapowanie certyfikatu (altSecurityIdentities) obiektu {0} zostało zmienione.</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.Title" xml:space="preserve">
+    <value>Zmieniono mapowanie certyfikatu</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany mapowań certyfikatów</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.Sentence" xml:space="preserve">
+    <value>Obiekt PKI {0} (szablon certyfikatu, usługa rejestracji lub urząd) został zmieniony.</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.Title" xml:space="preserve">
+    <value>Zmieniono obiekt PKI</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany obiektów PKI</value>
+  </data>
+  <data name="Kind.ComputerCreated.Sentence" xml:space="preserve">
+    <value>Konto komputera {0} zostało utworzone.</value>
+  </data>
+  <data name="Kind.ComputerCreated.Title" xml:space="preserve">
+    <value>Nowy komputer</value>
+  </data>
+  <data name="Kind.ComputerCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.Sentence" xml:space="preserve">
+    <value>Nazwa konta komputera {0} wygląda na podszywanie się (brak końcowego $ lub nazwa kontrolera domeny).</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.Title" xml:space="preserve">
+    <value>Podszywanie się pod nazwę komputera</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.TitlePlural" xml:space="preserve">
+    <value>Podszywanie się pod nazwy komputerów</value>
+  </data>
+  <data name="Kind.ContactCreated.Sentence" xml:space="preserve">
+    <value>Kontakt {0} został utworzony.</value>
+  </data>
+  <data name="Kind.ContactCreated.Title" xml:space="preserve">
+    <value>Nowy kontakt</value>
+  </data>
+  <data name="Kind.ContactCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe kontakty</value>
+  </data>
+  <data name="Kind.DelegationChanged.Sentence" xml:space="preserve">
+    <value>Ustawienia delegowania Kerberos obiektu {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.DelegationChanged.Title" xml:space="preserve">
+    <value>Zmieniono delegowanie</value>
+  </data>
+  <data name="Kind.DelegationChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany delegowania</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.Sentence" xml:space="preserve">
+    <value>Dodano kontroler domeny {0}.</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.Title" xml:space="preserve">
+    <value>Dodano kontroler domeny</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.TitlePlural" xml:space="preserve">
+    <value>Dodane kontrolery domeny</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.Sentence" xml:space="preserve">
+    <value>Usunięto kontroler domeny {0}.</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.Title" xml:space="preserve">
+    <value>Usunięto kontroler domeny</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.TitlePlural" xml:space="preserve">
+    <value>Usunięte kontrolery domeny</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.Sentence" xml:space="preserve">
+    <value>Zasady domeny lub lasu ({0}) zostały zmienione.</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.Title" xml:space="preserve">
+    <value>Zmieniono zasady domeny</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany zasad domeny</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.Sentence" xml:space="preserve">
+    <value>Hasło trybu przywracania usług katalogowych (DSRM) na {0} zostało zmienione.</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.Title" xml:space="preserve">
+    <value>Zmieniono hasło DSRM</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany haseł DSRM</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.Sentence" xml:space="preserve">
+    <value>Rola FSMO obiektu {0} została przeniesiona.</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.Title" xml:space="preserve">
+    <value>Przeniesiono rolę FSMO</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.TitlePlural" xml:space="preserve">
+    <value>Przeniesienia ról FSMO</value>
+  </data>
+  <data name="Kind.GroupCreated.Sentence" xml:space="preserve">
+    <value>Grupa {0} została utworzona.</value>
+  </data>
+  <data name="Kind.GroupCreated.Title" xml:space="preserve">
+    <value>Nowa grupa</value>
+  </data>
+  <data name="Kind.GroupCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe grupy</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.Sentence" xml:space="preserve">
+    <value>Do grupy {0} dodano: {1}.</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.Title" xml:space="preserve">
+    <value>Dodano członka grupy</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.TitlePlural" xml:space="preserve">
+    <value>Dodani członkowie grup</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.Sentence" xml:space="preserve">
+    <value>Z grupy {0} usunięto: {1}.</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.Title" xml:space="preserve">
+    <value>Usunięto członka grupy</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.TitlePlural" xml:space="preserve">
+    <value>Usunięci członkowie grup</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.Sentence" xml:space="preserve">
+    <value>Obiekt zasad grupy {0} został zmieniony.</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.Title" xml:space="preserve">
+    <value>Zmieniono obiekt zasad grupy</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany obiektów zasad grupy</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.Sentence" xml:space="preserve">
+    <value>Połączenia obiektów zasad grupy z {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.Title" xml:space="preserve">
+    <value>Zmieniono połączenia GPO</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany połączeń GPO</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.Sentence" xml:space="preserve">
+    <value>Typ lub zakres grupy {0} został zmieniony.</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.Title" xml:space="preserve">
+    <value>Zmieniono typ grupy</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany typów grup</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.Sentence" xml:space="preserve">
+    <value>Ustalanie wykonawców zmian działa tylko częściowo.</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.Title" xml:space="preserve">
+    <value>Ograniczone ustalanie wykonawców</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.TitlePlural" xml:space="preserve">
+    <value>Ograniczone ustalanie wykonawców</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.Sentence" xml:space="preserve">
+    <value>Usługa Watchdog ukończyła początkowy stan bazowy katalogu.</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.Title" xml:space="preserve">
+    <value>Stan bazowy gotowy</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.TitlePlural" xml:space="preserve">
+    <value>Stany bazowe gotowe</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.Sentence" xml:space="preserve">
+    <value>Nie można dostarczać powiadomień kanałem {1}.</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.Title" xml:space="preserve">
+    <value>Błąd dostarczania powiadomień</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.TitlePlural" xml:space="preserve">
+    <value>Błędy dostarczania powiadomień</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.Sentence" xml:space="preserve">
+    <value>Usługa Watchdog nie może połączyć się z kontrolerem domeny.</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.Title" xml:space="preserve">
+    <value>Kontroler domeny niedostępny</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.TitlePlural" xml:space="preserve">
+    <value>Kontroler domeny niedostępny</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.Sentence" xml:space="preserve">
+    <value>Wykryto lukę w dzienniku zabezpieczeń kontrolera domeny.</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.Title" xml:space="preserve">
+    <value>Luka w dzienniku zabezpieczeń</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.TitlePlural" xml:space="preserve">
+    <value>Luki w dziennikach zabezpieczeń</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.Sentence" xml:space="preserve">
+    <value>Konto usługi Watchdog nie ma wymaganych uprawnień odczytu.</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.Title" xml:space="preserve">
+    <value>Brak uprawnień odczytu</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.TitlePlural" xml:space="preserve">
+    <value>Braki uprawnień odczytu</value>
+  </data>
+  <data name="Kind.HealthResync.Sentence" xml:space="preserve">
+    <value>Usługa Watchdog wykonała pełną resynchronizację z kontrolerem domeny.</value>
+  </data>
+  <data name="Kind.HealthResync.Title" xml:space="preserve">
+    <value>Pełna resynchronizacja</value>
+  </data>
+  <data name="Kind.HealthResync.TitlePlural" xml:space="preserve">
+    <value>Pełne resynchronizacje</value>
+  </data>
+  <data name="Kind.HealthStorage.Sentence" xml:space="preserve">
+    <value>Brakuje miejsca na bazę danych usługi Watchdog lub osiągnęła ona limit rozmiaru.</value>
+  </data>
+  <data name="Kind.HealthStorage.Title" xml:space="preserve">
+    <value>Baza danych wymaga uwagi</value>
+  </data>
+  <data name="Kind.HealthStorage.TitlePlural" xml:space="preserve">
+    <value>Baza danych wymaga uwagi</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.Sentence" xml:space="preserve">
+    <value>Poświadczenia kluczy (msDS-KeyCredentialLink) obiektu {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.Title" xml:space="preserve">
+    <value>Zmieniono poświadczenia kluczy</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany poświadczeń kluczy</value>
+  </data>
+  <data name="Kind.LockoutExpired.Sentence" xml:space="preserve">
+    <value>Blokada konta {0} wygasła.</value>
+  </data>
+  <data name="Kind.LockoutExpired.Title" xml:space="preserve">
+    <value>Blokada wygasła</value>
+  </data>
+  <data name="Kind.LockoutExpired.TitlePlural" xml:space="preserve">
+    <value>Wygasłe blokady</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.Sentence" xml:space="preserve">
+    <value>Powiązanie migracji dMSA obiektu {0} zostało zmienione.</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.Title" xml:space="preserve">
+    <value>Zmieniono powiązanie migracji dMSA</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany powiązań migracji dMSA</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.Sentence" xml:space="preserve">
+    <value>Lista kont mogących odczytać hasło konta {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.Title" xml:space="preserve">
+    <value>Zmieniono uprawnionych do hasła gMSA</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany uprawnionych do haseł gMSA</value>
+  </data>
+  <data name="Kind.MassDeletion.Sentence" xml:space="preserve">
+    <value>Liczba obiektów usuniętych w ciągu {4} min: {3}.</value>
+  </data>
+  <data name="Kind.MassDeletion.Title" xml:space="preserve">
+    <value>Masowe usuwanie obiektów</value>
+  </data>
+  <data name="Kind.MassDeletion.TitlePlural" xml:space="preserve">
+    <value>Masowe usuwanie obiektów</value>
+  </data>
+  <data name="Kind.MassLockout.Sentence" xml:space="preserve">
+    <value>Liczba kont zablokowanych w ciągu {4} min: {3}.</value>
+  </data>
+  <data name="Kind.MassLockout.Title" xml:space="preserve">
+    <value>Masowe blokady kont</value>
+  </data>
+  <data name="Kind.MassLockout.TitlePlural" xml:space="preserve">
+    <value>Masowe blokady kont</value>
+  </data>
+  <data name="Kind.ObjectAppeared.Sentence" xml:space="preserve">
+    <value>Obiekt {0} pojawił się w obserwowanym zakresie.</value>
+  </data>
+  <data name="Kind.ObjectAppeared.Title" xml:space="preserve">
+    <value>Obiekt pojawił się w zakresie</value>
+  </data>
+  <data name="Kind.ObjectAppeared.TitlePlural" xml:space="preserve">
+    <value>Obiekty, które pojawiły się w zakresie</value>
+  </data>
+  <data name="Kind.ObjectDeleted.Sentence" xml:space="preserve">
+    <value>Obiekt {0} został usunięty.</value>
+  </data>
+  <data name="Kind.ObjectDeleted.Title" xml:space="preserve">
+    <value>Usunięto obiekt</value>
+  </data>
+  <data name="Kind.ObjectDeleted.TitlePlural" xml:space="preserve">
+    <value>Usunięte obiekty</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.Sentence" xml:space="preserve">
+    <value>Obiekt {0} zniknął z katalogu (nie znaleziono go wśród usuniętych obiektów).</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.Title" xml:space="preserve">
+    <value>Obiekt zniknął</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.TitlePlural" xml:space="preserve">
+    <value>Obiekty, które zniknęły</value>
+  </data>
+  <data name="Kind.ObjectMoved.Sentence" xml:space="preserve">
+    <value>Obiekt {0} został przeniesiony z {1} do {2}.</value>
+  </data>
+  <data name="Kind.ObjectMoved.Title" xml:space="preserve">
+    <value>Przeniesiono obiekt</value>
+  </data>
+  <data name="Kind.ObjectMoved.TitlePlural" xml:space="preserve">
+    <value>Przeniesione obiekty</value>
+  </data>
+  <data name="Kind.ObjectRenamed.Sentence" xml:space="preserve">
+    <value>Nazwa obiektu {1} została zmieniona na {0}.</value>
+  </data>
+  <data name="Kind.ObjectRenamed.Title" xml:space="preserve">
+    <value>Zmieniono nazwę obiektu</value>
+  </data>
+  <data name="Kind.ObjectRenamed.TitlePlural" xml:space="preserve">
+    <value>Zmiany nazw obiektów</value>
+  </data>
+  <data name="Kind.ObjectRestored.Sentence" xml:space="preserve">
+    <value>Obiekt {0} został przywrócony z Kosza usługi AD.</value>
+  </data>
+  <data name="Kind.ObjectRestored.Title" xml:space="preserve">
+    <value>Przywrócono obiekt</value>
+  </data>
+  <data name="Kind.ObjectRestored.TitlePlural" xml:space="preserve">
+    <value>Przywrócone obiekty</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.Sentence" xml:space="preserve">
+    <value>Jednostka organizacyjna {0} została utworzona.</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.Title" xml:space="preserve">
+    <value>Nowa jednostka organizacyjna</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe jednostki organizacyjne</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.Sentence" xml:space="preserve">
+    <value>Wiek hasła konta {0} został wyzerowany bez zmiany hasła.</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.Title" xml:space="preserve">
+    <value>Wyzerowano wiek hasła</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.TitlePlural" xml:space="preserve">
+    <value>Wyzerowane wieki haseł</value>
+  </data>
+  <data name="Kind.PasswordChanged.Sentence" xml:space="preserve">
+    <value>Hasło konta {0} zostało zmienione.</value>
+  </data>
+  <data name="Kind.PasswordChanged.Title" xml:space="preserve">
+    <value>Zmieniono hasło</value>
+  </data>
+  <data name="Kind.PasswordChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany haseł</value>
+  </data>
+  <data name="Kind.PasswordExpiring.Sentence" xml:space="preserve">
+    <value>Hasło konta {0} wygasa {2} (pozostało dni: {3}).</value>
+  </data>
+  <data name="Kind.PasswordExpiring.Title" xml:space="preserve">
+    <value>Hasło wkrótce wygaśnie</value>
+  </data>
+  <data name="Kind.PasswordExpiring.TitlePlural" xml:space="preserve">
+    <value>Hasła wkrótce wygasną</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.Sentence" xml:space="preserve">
+    <value>Dla konta {0} ustawiono wymóg zmiany hasła przy następnym logowaniu.</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.Title" xml:space="preserve">
+    <value>Wymagana zmiana hasła</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.TitlePlural" xml:space="preserve">
+    <value>Wymagane zmiany haseł</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.Sentence" xml:space="preserve">
+    <value>Szczegółowe zasady haseł {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.Title" xml:space="preserve">
+    <value>Zmieniono szczegółowe zasady haseł</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany szczegółowych zasad haseł</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.Sentence" xml:space="preserve">
+    <value>Możliwy atak password spraying ze źródła {1}: liczba kont z błędnym hasłem w ciągu {4} min: {3}.</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.Title" xml:space="preserve">
+    <value>Podejrzenie ataku password spraying</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.TitlePlural" xml:space="preserve">
+    <value>Podejrzenia ataków password spraying</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.Sentence" xml:space="preserve">
+    <value>Grupa podstawowa obiektu {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.Title" xml:space="preserve">
+    <value>Zmieniono grupę podstawową</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany grup podstawowych</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.Sentence" xml:space="preserve">
+    <value>Konto {0} uzyskało dostęp do grupy {1}.</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.Title" xml:space="preserve">
+    <value>Dodano do grupy uprzywilejowanej</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.TitlePlural" xml:space="preserve">
+    <value>Nadane dostępy uprzywilejowane</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.Sentence" xml:space="preserve">
+    <value>Konto {0} utraciło dostęp do grupy {1}.</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.Title" xml:space="preserve">
+    <value>Usunięto z grupy uprzywilejowanej</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.TitlePlural" xml:space="preserve">
+    <value>Odebrane dostępy uprzywilejowane</value>
+  </data>
+  <data name="Kind.SchemaChanged.Sentence" xml:space="preserve">
+    <value>Schemat katalogu został zmieniony.</value>
+  </data>
+  <data name="Kind.SchemaChanged.Title" xml:space="preserve">
+    <value>Zmieniono schemat</value>
+  </data>
+  <data name="Kind.SchemaChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany schematu</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.Sentence" xml:space="preserve">
+    <value>Uprawnienia (deskryptor zabezpieczeń) obiektu {0} zostały zmienione.</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.Title" xml:space="preserve">
+    <value>Zmieniono uprawnienia</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany uprawnień</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.Sentence" xml:space="preserve">
+    <value>Dziennik zabezpieczeń na {0} został wyczyszczony.</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.Title" xml:space="preserve">
+    <value>Wyczyszczono dziennik zabezpieczeń</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.TitlePlural" xml:space="preserve">
+    <value>Wyczyszczone dzienniki zabezpieczeń</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.Sentence" xml:space="preserve">
+    <value>Zarządzane konto usługi {0} zostało utworzone.</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.Title" xml:space="preserve">
+    <value>Nowe konto usługi</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe konta usług</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.Sentence" xml:space="preserve">
+    <value>Do konta użytkownika {0} dodano nazwę główną usługi (SPN).</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.Title" xml:space="preserve">
+    <value>Dodano SPN do konta użytkownika</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.TitlePlural" xml:space="preserve">
+    <value>Dodane nazwy SPN</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.Sentence" xml:space="preserve">
+    <value>Historia SID (sIDHistory) obiektu {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.Title" xml:space="preserve">
+    <value>Zmieniono historię SID</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany historii SID</value>
+  </data>
+  <data name="Kind.Test.Sentence" xml:space="preserve">
+    <value>To jest wiadomość testowa usługi AD Watchdog.</value>
+  </data>
+  <data name="Kind.Test.Title" xml:space="preserve">
+    <value>Wiadomość testowa</value>
+  </data>
+  <data name="Kind.Test.TitlePlural" xml:space="preserve">
+    <value>Wiadomości testowe</value>
+  </data>
+  <data name="Kind.TrustChanged.Sentence" xml:space="preserve">
+    <value>Relacja zaufania {0} została zmieniona.</value>
+  </data>
+  <data name="Kind.TrustChanged.Title" xml:space="preserve">
+    <value>Zmieniono relację zaufania</value>
+  </data>
+  <data name="Kind.TrustChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany relacji zaufania</value>
+  </data>
+  <data name="Kind.UserCreated.Sentence" xml:space="preserve">
+    <value>Konto użytkownika {0} zostało utworzone.</value>
+  </data>
+  <data name="Kind.UserCreated.Title" xml:space="preserve">
+    <value>Nowe konto</value>
+  </data>
+  <data name="Kind.UserCreated.TitlePlural" xml:space="preserve">
+    <value>Nowe konta</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.Sentence" xml:space="preserve">
+    <value>Konfiguracja usługi Watchdog została zmieniona.</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.Title" xml:space="preserve">
+    <value>Zmieniono konfigurację Watchdog</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany konfiguracji Watchdog</value>
+  </data>
+  <data name="Label.After" xml:space="preserve">
+    <value>Po</value>
+  </data>
+  <data name="Label.BadPasswordSources" xml:space="preserve">
+    <value>Źródło błędnych haseł</value>
+  </data>
+  <data name="Label.Before" xml:space="preserve">
+    <value>Przed</value>
+  </data>
+  <data name="Label.Burst" xml:space="preserve">
+    <value>Liczba</value>
+  </data>
+  <data name="Label.Candidates" xml:space="preserve">
+    <value>kandydaci</value>
+  </data>
+  <data name="Label.Change" xml:space="preserve">
+    <value>Zmiana</value>
+  </data>
+  <data name="Label.Changes" xml:space="preserve">
+    <value>Zmiany</value>
+  </data>
+  <data name="Label.Events" xml:space="preserve">
+    <value>Zdarzenia</value>
+  </data>
+  <data name="Label.Expiry" xml:space="preserve">
+    <value>Termin</value>
+  </data>
+  <data name="Label.From" xml:space="preserve">
+    <value>Skąd</value>
+  </data>
+  <data name="Label.Group" xml:space="preserve">
+    <value>Grupa</value>
+  </data>
+  <data name="Label.Lockout" xml:space="preserve">
+    <value>Blokada</value>
+  </data>
+  <data name="Label.Member" xml:space="preserve">
+    <value>Członek</value>
+  </data>
+  <data name="Label.Object" xml:space="preserve">
+    <value>Obiekt</value>
+  </data>
+  <data name="Label.Objects" xml:space="preserve">
+    <value>Obiekty</value>
+  </data>
+  <data name="Label.PreviousDn" xml:space="preserve">
+    <value>Poprzednio</value>
+  </data>
+  <data name="Label.Time" xml:space="preserve">
+    <value>Czas</value>
+  </data>
+  <data name="Label.Via" xml:space="preserve">
+    <value>Członkostwo pośrednie</value>
+  </data>
+  <data name="Label.What" xml:space="preserve">
+    <value>Co</value>
+  </data>
+  <data name="Label.When" xml:space="preserve">
+    <value>Kiedy</value>
+  </data>
+  <data name="Label.Where" xml:space="preserve">
+    <value>Gdzie</value>
+  </data>
+  <data name="Label.Who" xml:space="preserve">
+    <value>Kto</value>
+  </data>
+  <data name="OutboxStatus.Cancelled" xml:space="preserve">
+    <value>Anulowano</value>
+  </data>
+  <data name="OutboxStatus.Dead" xml:space="preserve">
+    <value>Niedostarczono</value>
+  </data>
+  <data name="OutboxStatus.Pending" xml:space="preserve">
+    <value>Oczekuje</value>
+  </data>
+  <data name="OutboxStatus.Retrying" xml:space="preserve">
+    <value>Ponawianie</value>
+  </data>
+  <data name="OutboxStatus.Sending" xml:space="preserve">
+    <value>Wysyłanie</value>
+  </data>
+  <data name="OutboxStatus.Sent" xml:space="preserve">
+    <value>Wysłano</value>
+  </data>
+  <data name="Page.Acknowledged" xml:space="preserve">
+    <value>Potwierdzono {0} przez {1}</value>
+  </data>
+  <data name="Page.Channel" xml:space="preserve">
+    <value>Kanał</value>
+  </data>
+  <data name="Page.Created" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="Page.Dc" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="Page.Deliveries" xml:space="preserve">
+    <value>Wysyłki</value>
+  </data>
+  <data name="Page.DeliveryKind" xml:space="preserve">
+    <value>Rodzaj</value>
+  </data>
+  <data name="Page.Error" xml:space="preserve">
+    <value>Błąd</value>
+  </data>
+  <data name="Page.EventCode" xml:space="preserve">
+    <value>Zdarzenie</value>
+  </data>
+  <data name="Page.Evidence" xml:space="preserve">
+    <value>Dowody (dzienniki zabezpieczeń)</value>
+  </data>
+  <data name="Page.Log" xml:space="preserve">
+    <value>Dziennik</value>
+  </data>
+  <data name="Page.RecordId" xml:space="preserve">
+    <value>Rekord</value>
+  </data>
+  <data name="Page.RelatedEvents" xml:space="preserve">
+    <value>Powiązane zdarzenia (ta sama zmiana)</value>
+  </data>
+  <data name="Page.Sent" xml:space="preserve">
+    <value>Wysłano</value>
+  </data>
+  <data name="Page.Status" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Reason.AMBIGUOUS" xml:space="preserve">
+    <value>Kilka możliwych wykonawców</value>
+  </data>
+  <data name="Reason.AMBIGUOUS.Remedy" xml:space="preserve">
+    <value>Kilka możliwych wykonawców – szczegóły w dowodach.</value>
+  </data>
+  <data name="Reason.AUDIT_POLICY_MISSING" xml:space="preserve">
+    <value>Brak zdarzeń inspekcji tego rodzaju na kontrolerze domeny</value>
+  </data>
+  <data name="Reason.AUDIT_POLICY_MISSING.Remedy" xml:space="preserve">
+    <value>Włącz zasady inspekcji (docs/WATCHDOG.md, rozdz. 4.5).</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE" xml:space="preserve">
+    <value>Nie można odczytać dziennika kontrolera domeny</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
+    <value>Sprawdź zaporę (Remote Event Log Management) i członkostwo konta usługi w Event Log Readers.</value>
+  </data>
+  <data name="Reason.LOG_OVERWRITTEN" xml:space="preserve">
+    <value>Dziennik zabezpieczeń został już nadpisany</value>
+  </data>
+  <data name="Reason.LOG_OVERWRITTEN.Remedy" xml:space="preserve">
+    <value>Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).</value>
+  </data>
+  <data name="Reason.NO_MATCH" xml:space="preserve">
+    <value>Nie znaleziono pasującego zdarzenia w oknie czasowym</value>
+  </data>
+  <data name="Reason.NO_MATCH.Remedy" xml:space="preserve">
+    <value>Nie znaleziono pasującego zdarzenia w oknie czasowym.</value>
+  </data>
+  <data name="Reason.PENDING" xml:space="preserve">
+    <value>Ustalanie w toku</value>
+  </data>
+  <data name="Reason.PENDING.Remedy" xml:space="preserve">
+    <value>Wykonawca jest jeszcze ustalany na podstawie dzienników kontrolerów domeny.</value>
+  </data>
+  <data name="Reason.SACL_MISSING" xml:space="preserve">
+    <value>Brak zdarzeń zmian usług katalogowych (SACL)</value>
+  </data>
+  <data name="Reason.SACL_MISSING.Remedy" xml:space="preserve">
+    <value>Dodaj SACL dla zmian usług katalogowych (docs/WATCHDOG.md, rozdz. 4.6).</value>
+  </data>
+  <data name="Reason.SELF_CHANGE" xml:space="preserve">
+    <value>Obiekt zmienił się sam</value>
+  </data>
+  <data name="Reason.SELF_CHANGE.Remedy" xml:space="preserve">
+    <value>Komputer zaktualizował własny obiekt – zwykle zachowanie oczekiwane.</value>
+  </data>
+  <data name="Reason.SOURCE_DISABLED" xml:space="preserve">
+    <value>Ustalanie wykonawców jest wyłączone</value>
+  </data>
+  <data name="Reason.SOURCE_DISABLED.Remedy" xml:space="preserve">
+    <value>Włącz atrybucję (konfiguracja) – usługa musi działać na Windows.</value>
+  </data>
+  <data name="Reason.SOURCE_LOGON_NOT_FOUND" xml:space="preserve">
+    <value>Nie znaleziono sesji logowania źródła</value>
+  </data>
+  <data name="Reason.SOURCE_LOGON_NOT_FOUND.Remedy" xml:space="preserve">
+    <value>Sesja logowania starsza niż okno wyszukiwania lub dziennik nadpisany – zwiększ dziennik Security.</value>
+  </data>
+  <data name="Reason.SOURCE_NOT_COLLECTED" xml:space="preserve">
+    <value>Zdarzenia źródła nie są zbierane</value>
+  </data>
+  <data name="Reason.SOURCE_NOT_COLLECTED.Remedy" xml:space="preserve">
+    <value>Dodaj 4624/4771/4776 do subskrypcji WEF (docs/WATCHDOG.md, rozdz. 4.4).</value>
+  </data>
+  <data name="Reason.SYSTEM" xml:space="preserve">
+    <value>Zmiana wykonana przez system</value>
+  </data>
+  <data name="Reason.SYSTEM.Remedy" xml:space="preserve">
+    <value>Zmianę wykonał sam kontroler domeny (np. SDProp) – działanie nie jest wymagane.</value>
+  </data>
+  <data name="Rule.account-attributes" xml:space="preserve">
+    <value>Zmiany parametrów kont</value>
+  </data>
+  <data name="Rule.account-flags" xml:space="preserve">
+    <value>Flagi konta</value>
+  </data>
+  <data name="Rule.account-names" xml:space="preserve">
+    <value>Zmiany nazw kont</value>
+  </data>
+  <data name="Rule.account-status" xml:space="preserve">
+    <value>Włączenia i wyłączenia kont</value>
+  </data>
+  <data name="Rule.bursts" xml:space="preserve">
+    <value>Zdarzenia masowe</value>
+  </data>
+  <data name="Rule.computers-unusual" xml:space="preserve">
+    <value>Komputery spoza procesu</value>
+  </data>
+  <data name="Rule.deletions" xml:space="preserve">
+    <value>Usunięcia i przywrócenia</value>
+  </data>
+  <data name="Rule.expiry" xml:space="preserve">
+    <value>Terminy ważności</value>
+  </data>
+  <data name="Rule.group-changes" xml:space="preserve">
+    <value>Grupy i członkostwo</value>
+  </data>
+  <data name="Rule.health" xml:space="preserve">
+    <value>Stan usługi Watchdog</value>
+  </data>
+  <data name="Rule.lockouts" xml:space="preserve">
+    <value>Blokady kont</value>
+  </data>
+  <data name="Rule.logon-settings" xml:space="preserve">
+    <value>Skrypty, profile, ograniczenia logowania</value>
+  </data>
+  <data name="Rule.new-accounts" xml:space="preserve">
+    <value>Nowe konta</value>
+  </data>
+  <data name="Rule.new-computers" xml:space="preserve">
+    <value>Nowe komputery</value>
+  </data>
+  <data name="Rule.ou-gpo" xml:space="preserve">
+    <value>OU i GPO</value>
+  </data>
+  <data name="Rule.passwords" xml:space="preserve">
+    <value>Hasła</value>
+  </data>
+  <data name="Rule.privileged-accounts" xml:space="preserve">
+    <value>Konta uprzywilejowane i serwisowe</value>
+  </data>
+  <data name="Rule.security-review" xml:space="preserve">
+    <value>Zmiany bezpieczeństwa do przeglądu</value>
+  </data>
+  <data name="Rule.tier0-domain" xml:space="preserve">
+    <value>Domena, zaufania, schemat, PKI, zasady</value>
+  </data>
+  <data name="Rule.tier0-eventlog" xml:space="preserve">
+    <value>Dzienniki zabezpieczeń DC</value>
+  </data>
+  <data name="Rule.tier0-privilege" xml:space="preserve">
+    <value>Dostęp uprzywilejowany</value>
+  </data>
+  <data name="Rule.tier0-security" xml:space="preserve">
+    <value>Atrybuty krytyczne dla bezpieczeństwa</value>
+  </data>
+  <data name="Rule.unlocks" xml:space="preserve">
+    <value>Odblokowania</value>
+  </data>
+  <data name="Rule.watchlist-groups" xml:space="preserve">
+    <value>Grupy obserwowane</value>
+  </data>
   <data name="Severity.Critical" xml:space="preserve">
     <value>Krytyczne</value>
+  </data>
+  <data name="Severity.High" xml:space="preserve">
+    <value>Wysoki</value>
+  </data>
+  <data name="Severity.Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Severity.Low" xml:space="preserve">
+    <value>Niski</value>
+  </data>
+  <data name="Severity.Medium" xml:space="preserve">
+    <value>Średni</value>
+  </data>
+  <data name="Source.ClientReported" xml:space="preserve">
+    <value>zgłoszona przez klienta</value>
+  </data>
+  <data name="Source.Dns" xml:space="preserve">
+    <value>DNS</value>
+  </data>
+  <data name="Source.Event" xml:space="preserve">
+    <value>zdarzenie {0}</value>
+  </data>
+  <data name="Source.Local" xml:space="preserve">
+    <value>lokalnie na DC – ADWS/PowerShell/konsola</value>
+  </data>
+  <data name="Source.LogonType.10" xml:space="preserve">
+    <value>pulpit zdalny</value>
+  </data>
+  <data name="Source.LogonType.2" xml:space="preserve">
+    <value>logowanie interaktywne</value>
+  </data>
+  <data name="Source.LogonType.3" xml:space="preserve">
+    <value>logowanie sieciowe</value>
+  </data>
+  <data name="Source.LogonType.8" xml:space="preserve">
+    <value>logowanie jawnym tekstem (simple bind)</value>
+  </data>
+  <data name="Subject.ActorPending" xml:space="preserve">
+    <value>wykonawca: ustalanie…</value>
+  </data>
+  <data name="Subject.ActorUnknown" xml:space="preserve">
+    <value>wykonawca: nieustalony</value>
+  </data>
+  <data name="Subject.Digest" xml:space="preserve">
+    <value>Raport dzienny {0} – {1}</value>
+  </data>
+  <data name="Subject.DigestAttention.Few" xml:space="preserve">
+    <value>{0} wymagają uwagi</value>
+  </data>
+  <data name="Subject.DigestAttention.Many" xml:space="preserve">
+    <value>{0} wymaga uwagi</value>
+  </data>
+  <data name="Subject.DigestAttention.One" xml:space="preserve">
+    <value>{0} wymaga uwagi</value>
+  </data>
+  <data name="Subject.DigestEvents.Few" xml:space="preserve">
+    <value>{0} zdarzenia</value>
+  </data>
+  <data name="Subject.DigestEvents.Many" xml:space="preserve">
+    <value>{0} zdarzeń</value>
+  </data>
+  <data name="Subject.DigestEvents.One" xml:space="preserve">
+    <value>{0} zdarzenie</value>
+  </data>
+  <data name="Subject.Events" xml:space="preserve">
+    <value>Zdarzenia</value>
+  </data>
+  <data name="Subject.Test" xml:space="preserve">
+    <value>Wiadomość testowa</value>
+  </data>
+  <data name="Value.AccountExpiresEndOfDay" xml:space="preserve">
+    <value>konto wygasa z końcem dnia {0} (pozostało dni: {1})</value>
+  </data>
+  <data name="Value.ActorPending" xml:space="preserve">
+    <value>ustalanie…</value>
+  </data>
+  <data name="Value.ActorPendingFollowUp" xml:space="preserve">
+    <value>ustalanie… (uzupełnienie zostanie wysłane)</value>
+  </data>
+  <data name="Value.ActorUnknown" xml:space="preserve">
+    <value>nieustalony – {0} ({1})</value>
+  </data>
+  <data name="Value.Binary" xml:space="preserve">
+    <value>wartość binarna</value>
+  </data>
+  <data name="Value.Burst" xml:space="preserve">
+    <value>liczba: {0} w ciągu {1} min</value>
+  </data>
+  <data name="Value.Changed" xml:space="preserve">
+    <value>zmieniono</value>
+  </data>
+  <data name="Value.ChangedHidden" xml:space="preserve">
+    <value>zmieniono (wartość ukryta)</value>
+  </data>
+  <data name="Value.Confidence" xml:space="preserve">
+    <value>pewność: {0}</value>
+  </data>
+  <data name="Value.EndOfDay" xml:space="preserve">
+    <value>z końcem dnia {0}</value>
+  </data>
+  <data name="Value.Entries" xml:space="preserve">
+    <value>liczba wpisów: {0} → {1}</value>
+  </data>
+  <data name="Value.Evidence" xml:space="preserve">
+    <value>zdarzenie {0}, rekord {1}</value>
+  </data>
+  <data name="Value.False" xml:space="preserve">
+    <value>nie</value>
+  </data>
+  <data name="Value.LockedUntil" xml:space="preserve">
+    <value>zablokowane do {0}</value>
+  </data>
+  <data name="Value.LockoutCaller" xml:space="preserve">
+    <value>zgłoszone przez {0} (zgłoszona przez klienta)</value>
+  </data>
+  <data name="Value.LockoutsToday" xml:space="preserve">
+    <value>zablokowane {0}× dziś, ostatnio {1}</value>
+  </data>
+  <data name="Value.LogonHoursAlways" xml:space="preserve">
+    <value>zawsze</value>
+  </data>
+  <data name="Value.LogonHoursNever" xml:space="preserve">
+    <value>nigdy (brak godzin logowania)</value>
+  </data>
+  <data name="Value.More" xml:space="preserve">
+    <value>(+{0} kolejnych)</value>
+  </data>
+  <data name="Value.Never" xml:space="preserve">
+    <value>nigdy</value>
+  </data>
+  <data name="Value.NotApplicable" xml:space="preserve">
+    <value>nie dotyczy</value>
+  </data>
+  <data name="Value.PasswordExpiresOn" xml:space="preserve">
+    <value>hasło wygasa {0} (pozostało dni: {1})</value>
+  </data>
+  <data name="Value.SourceUnknown" xml:space="preserve">
+    <value>nieustalone – {0} ({1})</value>
+  </data>
+  <data name="Value.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Value.True" xml:space="preserve">
+    <value>tak</value>
+  </data>
+  <data name="Value.Unknown" xml:space="preserve">
+    <value>nieustalony</value>
+  </data>
+  <data name="Value.UntilUnlocked" xml:space="preserve">
+    <value>odblokowania przez administratora</value>
+  </data>
+  <data name="Value.WhatWithRule" xml:space="preserve">
+    <value>{0} (reguła: {1})</value>
   </data>
 </root>

@@ -1,6 +1,8 @@
+using System.Text.Json;
+using AdMng.Core.Ldap;
+using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
-using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
 
@@ -8,211 +10,94 @@ namespace AdMng.Watchdog.Testing.Stores;
 
 /// <summary>
 /// In-memory implementation of every store interface of section 6.2 (Core tests, integration tests, Development
-/// runs). Scaffold shell with the final name and signature – replaced by W-notify; every member throws
-/// <see cref="NotImplementedException"/>.
+/// runs) with the semantics the SQLite store of the service has (section 16): AUTOINCREMENT ids that are never reused,
+/// contract types copied through <see cref="WatchdogJson.Options"/> (what the JSON payload columns store), Core model
+/// types deep-copied with their dictionaries rebuilt case-insensitively (what <c>BlobCodec</c> does), cascades of the
+/// foreign keys, and the transactions of the interface contracts (one lock per call). Nothing is written to disk.
+/// <see cref="WatchdogStoreContractTests{TStore}"/> pins the behaviour; the SQLite stores run the same suite.
 /// </summary>
-public sealed class InMemoryWatchdogStore :
+/// <remarks>Time ranges are half-open <c>[from, to)</c> (event queries, <see cref="GetRangeAsync"/>) except the
+/// correlation windows of <see cref="FindAsync"/>, which are closed <c>[From, To]</c>. Times written by the store itself
+/// (watermarks, configuration saves, audit entries, <c>MembershipsChangedAt</c>, <c>BaselineCompletedAt</c>, backups)
+/// come from the injected <see cref="TimeProvider"/>.</remarks>
+public sealed partial class InMemoryWatchdogStore :
     IDetectionStore, IEventStore, INotificationQueueStore, IOutboxStore, ISecurityEventStore, IExpiryNoticeStore,
     IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance
 {
+    private readonly TimeProvider _timeProvider;
+    private readonly Lock _gate = new();
+
     public InMemoryWatchdogStore(TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
+        _timeProvider = timeProvider;
     }
 
-    // IDetectionStore
-    public Task<DcState?> GetDcStateAsync(string domain, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<DcWatermark?> GetWatermarkAsync(string dsServiceName, Guid invocationId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<SnapshotObject>> GetPendingCreationsAsync(DateTimeOffset dueBefore, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<SnapshotObject>> GetByKindAsync(WatchObjectKind kind, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyDictionary<Guid, SnapshotObject>> GetSnapshotsAsync(IReadOnlyCollection<Guid> objectGuids, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<SnapshotObject?> FindByDnAsync(string distinguishedName, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<SnapshotObject?> FindBySidAsync(string sid, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public IAsyncEnumerable<SnapshotObject> GetDescendantsAsync(string ancestorDn, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public IAsyncEnumerable<Guid> GetLiveObjectGuidsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<long> CountLiveObjectsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyList<MemberReference>> GetMembersAsync(Guid groupGuid, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<Guid>> GetGroupsContainingAsync(string memberKey, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<(Guid GroupGuid, MemberReference Member)>> GetAllMembershipsAsync(CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<PrivilegeState?> GetPrivilegeStateAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyList<(string MemberKey, uint PrimaryGroupRid)>> GetNonDefaultPrimaryGroupsAsync(CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<WatchEvent>> CommitAsync(DetectionCommit commit, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    // IEventStore
-    public Task<long> AppendAsync(WatchEvent watchEvent, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<EventPage> QueryAsync(EventQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task WaitForNewerAsync(long afterId, TimeSpan timeout, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<WatchEvent?> GetAsync(long id, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<WatchEvent?> GetByEventIdAsync(Guid eventId, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyList<WatchEvent>> GetChangeSetAsync(Guid changeSetId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public IAsyncEnumerable<WatchEvent> GetRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<WatchEvent>> GetPendingAttributionAsync(DateTimeOffset dueBefore, int limit, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task UpdateAttributionAsync(long id, AttributionUpdate update, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<WatchEvent>> GetUnevaluatedAsync(int limit, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task CommitEvaluationAsync(
-        IReadOnlyList<EventEvaluation> evaluations,
-        IReadOnlyList<PendingNotification> notifications,
-        CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<bool> AcknowledgeAsync(long id, string by, string? comment, DateTimeOffset at, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<int> AcknowledgeManyAsync(IReadOnlyList<long> ids, string by, string? comment, DateTimeOffset at, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<int> CountForObjectAsync(Guid objectGuid, WatchEventKind kind, DateTimeOffset since, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<EventCountsDto> CountAsync(DateTimeOffset since, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<long> GetLatestIdAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    // INotificationQueueStore
-    public Task<IReadOnlyList<PendingNotification>> GetAllAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task AddAsync(IReadOnlyList<PendingNotification> notifications, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task CompleteAsync(IReadOnlyList<long> pendingIds, OutboxMessage? message, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    // IOutboxStore
-    public Task<long> EnqueueAsync(OutboxMessage message, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyList<OutboxMessage>> LeaseDueAsync(DateTimeOffset now, int limit, TimeSpan lease, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task MarkSentAsync(long id, DateTimeOffset at, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task MarkRetryAsync(long id, DateTimeOffset nextAttemptAt, string errorCode, string? error, bool countAttempt, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task MarkDeadAsync(long id, string errorCode, string? error, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<bool> RequeueAsync(long id, DateTimeOffset at, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<OutboxPage> QueryAsync(OutboxQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyList<EventDeliveryDto>> GetDeliveriesForEventAsync(long eventId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<OutboxMessage>> GetMessagesForEventAsync(long eventId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<bool> WasNotifiedAboutObjectAsync(string ruleId, Guid objectGuid, DateTimeOffset since, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<int> CountSentAsync(string channelId, string? ruleId, DateTimeOffset since, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyDictionary<string, int>> CountPendingByChannelAsync(CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    // ISecurityEventStore
-    public Task<EventLogCursor?> GetCursorAsync(string source, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task AppendAsync(IReadOnlyList<SecurityEvent> events, EventLogCursor cursor, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<SecurityEvent>> FindAsync(SecurityEventCriteria criteria, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<DateTimeOffset?> GetLastSeenAsync(string computer, int eventCode, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    // IExpiryNoticeStore
-    public Task<bool> TryRecordAsync(ExpiryNotice notice, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task ReplaceUpcomingAsync(ExpiryKind kind, IReadOnlyList<UpcomingExpiry> upcoming, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<IReadOnlyList<UpcomingExpiry>> GetUpcomingAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    // IDigestRunStore
-    public Task<DateTimeOffset?> GetLastPeriodEndAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task RecordAsync(
-        DateTimeOffset periodStart,
-        DateTimeOffset periodEnd,
-        int eventCount,
-        IReadOnlyList<long> outboxIds,
-        CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    // IConfigStore
-    public Task<ConfigEnvelope?> GetAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<ConfigEnvelope> SaveAsync(
-        WatchdogConfiguration configuration,
-        long expectedVersion,
-        PrincipalRef by,
-        string summary,
-        IReadOnlyList<SecretChange> secretChanges,
-        CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<ConfigAuditPage> GetAuditAsync(long? before, int limit, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    // ISecretStore
-    public Task<StoredSecret?> GetAsync(string name, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task SetAsync(string name, SecretValue value, string binding, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task RemoveAsync(string name, CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<IReadOnlyDictionary<string, string>> ListAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    // IStoreMaintenance
-    public Task<PurgeResult> PurgeAsync(RetentionSettings retention, DateTimeOffset now, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
-
-    public Task<string> BackupAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
-
-    public Task<StorageStatusDto> GetStatusAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+    private DateTimeOffset UtcNow => _timeProvider.GetUtcNow();
+
+    /// <summary>A copy of a contract type as the JSON payload column stores it.</summary>
+    private static T RoundTrip<T>(T value)
+    {
+        var json = JsonSerializer.SerializeToUtf8Bytes(value, WatchdogJson.Options);
+        return JsonSerializer.Deserialize<T>(json, WatchdogJson.Options)
+            ?? throw new InvalidOperationException("A stored payload could not be read back.");
+    }
+
+    /// <summary>Normalized DN for comparisons (the <c>*_dn_norm</c> columns); unparsable values compare case-insensitively.</summary>
+    private static string NormalizeDn(string? dn)
+    {
+        if (string.IsNullOrEmpty(dn))
+        {
+            return string.Empty;
+        }
+
+        return DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString().ToUpperInvariant() : dn.Trim().ToUpperInvariant();
+    }
+
+    private static SnapshotObject Copy(SnapshotObject snapshot)
+    {
+        var attributes = new Dictionary<string, SnapshotAttribute>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, attribute) in snapshot.Attributes)
+        {
+            attributes[name] = attribute with { Values = [.. attribute.Values], DisplayValues = [.. attribute.DisplayValues] };
+        }
+
+        return snapshot with { ObjectClasses = [.. snapshot.ObjectClasses], Attributes = attributes };
+    }
+
+    private static MemberReference Copy(MemberReference member) => member with { };
+
+    private static PrivilegeState Copy(PrivilegeState state) => state with
+    {
+        Principals = [.. state.Principals.Select(p => p with { Path = [.. p.Path] })],
+    };
+
+    private static NotificationTarget Copy(NotificationTarget target) => target with { Recipients = [.. target.Recipients] };
+
+    private static PendingNotification Copy(PendingNotification pending) => pending with { Target = Copy(pending.Target) };
+
+    private static OutboxMessage Copy(OutboxMessage message) => message with
+    {
+        Recipients = [.. message.Recipients],
+        EventIds = [.. message.EventIds],
+        Email = message.Email is null
+            ? null
+            : message.Email with { Headers = new Dictionary<string, string>(message.Email.Headers, StringComparer.OrdinalIgnoreCase) },
+        Http = message.Http is null ? null : message.Http with { Body = [.. message.Http.Body] },
+    };
+
+    private static SecurityEvent Copy(SecurityEvent securityEvent) => securityEvent with
+    {
+        Data = new Dictionary<string, string>(securityEvent.Data, StringComparer.Ordinal),
+    };
+
+    private static UpcomingExpiry Copy(UpcomingExpiry upcoming) => upcoming with
+    {
+        Object = RoundTrip(upcoming.Object),
+        Tags = [.. upcoming.Tags],
+    };
+
+    private static WatchdogConfiguration Copy(WatchdogConfiguration configuration) => RoundTrip(configuration);
+
+    private static ConfigEnvelope Copy(ConfigEnvelope envelope) => envelope with { Configuration = Copy(envelope.Configuration) };
 }

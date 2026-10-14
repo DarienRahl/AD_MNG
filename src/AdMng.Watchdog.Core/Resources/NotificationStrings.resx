@@ -41,7 +41,1870 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Attr.AuditPolicyChanges" xml:space="preserve">
+    <value>Audit policy changes</value>
+  </data>
+  <data name="Attr.SubcategoryGuid" xml:space="preserve">
+    <value>Audit subcategory</value>
+  </data>
+  <data name="Attr.accountExpires" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="Attr.adminCount" xml:space="preserve">
+    <value>adminCount (AdminSDHolder protection)</value>
+  </data>
+  <data name="Attr.altSecurityIdentities" xml:space="preserve">
+    <value>Certificate mappings (altSecurityIdentities)</value>
+  </data>
+  <data name="Attr.attribution" xml:space="preserve">
+    <value>Attribution</value>
+  </data>
+  <data name="Attr.cACertificate" xml:space="preserve">
+    <value>CA certificate</value>
+  </data>
+  <data name="Attr.certificateTemplates" xml:space="preserve">
+    <value>Published certificate templates</value>
+  </data>
+  <data name="Attr.channel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="Attr.cn" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Attr.code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Attr.company" xml:space="preserve">
+    <value>Company</value>
+  </data>
+  <data name="Attr.dNSHostName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="Attr.dSHeuristics" xml:space="preserve">
+    <value>dSHeuristics</value>
+  </data>
+  <data name="Attr.department" xml:space="preserve">
+    <value>Department</value>
+  </data>
+  <data name="Attr.description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Attr.displayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Attr.employeeID" xml:space="preserve">
+    <value>Employee ID</value>
+  </data>
+  <data name="Attr.employeeNumber" xml:space="preserve">
+    <value>Employee number</value>
+  </data>
+  <data name="Attr.employeeType" xml:space="preserve">
+    <value>Employee type</value>
+  </data>
+  <data name="Attr.errorCode" xml:space="preserve">
+    <value>Error code</value>
+  </data>
+  <data name="Attr.eventLogGap" xml:space="preserve">
+    <value>Log gap</value>
+  </data>
+  <data name="Attr.fSMORoleOwner" xml:space="preserve">
+    <value>FSMO role owner</value>
+  </data>
+  <data name="Attr.flags" xml:space="preserve">
+    <value>Flags</value>
+  </data>
+  <data name="Attr.flatName" xml:space="preserve">
+    <value>NetBIOS name</value>
+  </data>
+  <data name="Attr.gPCFileSysPath" xml:space="preserve">
+    <value>SYSVOL path</value>
+  </data>
+  <data name="Attr.gPLink" xml:space="preserve">
+    <value>Linked Group Policy objects</value>
+  </data>
+  <data name="Attr.gPOptions" xml:space="preserve">
+    <value>Block inheritance</value>
+  </data>
+  <data name="Attr.givenName" xml:space="preserve">
+    <value>First name</value>
+  </data>
+  <data name="Attr.groupType" xml:space="preserve">
+    <value>Group type and scope</value>
+  </data>
+  <data name="Attr.homeDirectory" xml:space="preserve">
+    <value>Home folder</value>
+  </data>
+  <data name="Attr.homeDrive" xml:space="preserve">
+    <value>Home drive</value>
+  </data>
+  <data name="Attr.info" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="Attr.initials" xml:space="preserve">
+    <value>Initials</value>
+  </data>
+  <data name="Attr.location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Attr.lockOutObservationWindow" xml:space="preserve">
+    <value>Reset lockout counter after</value>
+  </data>
+  <data name="Attr.lockoutDuration" xml:space="preserve">
+    <value>Account lockout duration</value>
+  </data>
+  <data name="Attr.lockoutThreshold" xml:space="preserve">
+    <value>Account lockout threshold</value>
+  </data>
+  <data name="Attr.lockoutTime" xml:space="preserve">
+    <value>Lockout time</value>
+  </data>
+  <data name="Attr.logonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
+  <data name="Attr.mS-DS-CreatorSID" xml:space="preserve">
+    <value>Creator SID</value>
+  </data>
+  <data name="Attr.mail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Attr.managedBy" xml:space="preserve">
+    <value>Managed by</value>
+  </data>
+  <data name="Attr.manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="Attr.maxPwdAge" xml:space="preserve">
+    <value>Maximum password age</value>
+  </data>
+  <data name="Attr.member" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Attr.minPwdAge" xml:space="preserve">
+    <value>Minimum password age</value>
+  </data>
+  <data name="Attr.minPwdLength" xml:space="preserve">
+    <value>Minimum password length</value>
+  </data>
+  <data name="Attr.mobile" xml:space="preserve">
+    <value>Mobile</value>
+  </data>
+  <data name="Attr.ms-DS-MachineAccountQuota" xml:space="preserve">
+    <value>Machine account quota</value>
+  </data>
+  <data name="Attr.msDS-AllowedToActOnBehalfOfOtherIdentity" xml:space="preserve">
+    <value>Resource-based constrained delegation</value>
+  </data>
+  <data name="Attr.msDS-AllowedToDelegateTo" xml:space="preserve">
+    <value>Constrained delegation (services)</value>
+  </data>
+  <data name="Attr.msDS-Behavior-Version" xml:space="preserve">
+    <value>Functional level</value>
+  </data>
+  <data name="Attr.msDS-DelegatedMSAState" xml:space="preserve">
+    <value>dMSA state</value>
+  </data>
+  <data name="Attr.msDS-EnabledFeature" xml:space="preserve">
+    <value>Enabled optional features</value>
+  </data>
+  <data name="Attr.msDS-GroupMSAMembership" xml:space="preserve">
+    <value>Allowed to retrieve the managed password</value>
+  </data>
+  <data name="Attr.msDS-KeyCredentialLink" xml:space="preserve">
+    <value>Key credentials (Windows Hello for Business)</value>
+  </data>
+  <data name="Attr.msDS-LockoutDuration" xml:space="preserve">
+    <value>Account lockout duration</value>
+  </data>
+  <data name="Attr.msDS-LockoutObservationWindow" xml:space="preserve">
+    <value>Reset lockout counter after</value>
+  </data>
+  <data name="Attr.msDS-LockoutThreshold" xml:space="preserve">
+    <value>Account lockout threshold</value>
+  </data>
+  <data name="Attr.msDS-ManagedAccountPrecededByLink" xml:space="preserve">
+    <value>Preceded by (dMSA)</value>
+  </data>
+  <data name="Attr.msDS-MaximumPasswordAge" xml:space="preserve">
+    <value>Maximum password age</value>
+  </data>
+  <data name="Attr.msDS-MinimumPasswordAge" xml:space="preserve">
+    <value>Minimum password age</value>
+  </data>
+  <data name="Attr.msDS-MinimumPasswordLength" xml:space="preserve">
+    <value>Minimum password length</value>
+  </data>
+  <data name="Attr.msDS-PSOAppliesTo" xml:space="preserve">
+    <value>Applies to</value>
+  </data>
+  <data name="Attr.msDS-PasswordComplexityEnabled" xml:space="preserve">
+    <value>Complexity required</value>
+  </data>
+  <data name="Attr.msDS-PasswordHistoryLength" xml:space="preserve">
+    <value>Password history</value>
+  </data>
+  <data name="Attr.msDS-PasswordReversibleEncryptionEnabled" xml:space="preserve">
+    <value>Reversible encryption</value>
+  </data>
+  <data name="Attr.msDS-PasswordSettingsPrecedence" xml:space="preserve">
+    <value>Precedence</value>
+  </data>
+  <data name="Attr.msDS-SupersededManagedAccountLink" xml:space="preserve">
+    <value>Superseded by dMSA</value>
+  </data>
+  <data name="Attr.msDS-SupersededServiceAccountState" xml:space="preserve">
+    <value>dMSA migration state (superseded account)</value>
+  </data>
+  <data name="Attr.msDS-SupportedEncryptionTypes" xml:space="preserve">
+    <value>Kerberos encryption types</value>
+  </data>
+  <data name="Attr.msPKI-Certificate-Application-Policy" xml:space="preserve">
+    <value>Application policies</value>
+  </data>
+  <data name="Attr.msPKI-Certificate-Name-Flag" xml:space="preserve">
+    <value>Subject name flags</value>
+  </data>
+  <data name="Attr.msPKI-Enrollment-Flag" xml:space="preserve">
+    <value>Enrollment flags</value>
+  </data>
+  <data name="Attr.msPKI-RA-Signature" xml:space="preserve">
+    <value>Required authorized signatures</value>
+  </data>
+  <data name="Attr.nTSecurityDescriptor" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="Attr.name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Attr.objects" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="Attr.operatingSystem" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="Attr.operatingSystemVersion" xml:space="preserve">
+    <value>Operating system version</value>
+  </data>
+  <data name="Attr.ou" xml:space="preserve">
+    <value>Organizational unit name</value>
+  </data>
+  <data name="Attr.pKIExtendedKeyUsage" xml:space="preserve">
+    <value>Extended key usage</value>
+  </data>
+  <data name="Attr.physicalDeliveryOfficeName" xml:space="preserve">
+    <value>Office</value>
+  </data>
+  <data name="Attr.primaryGroupID" xml:space="preserve">
+    <value>Primary group</value>
+  </data>
+  <data name="Attr.profilePath" xml:space="preserve">
+    <value>Profile path</value>
+  </data>
+  <data name="Attr.proxyAddresses" xml:space="preserve">
+    <value>Proxy addresses</value>
+  </data>
+  <data name="Attr.pwdHistoryLength" xml:space="preserve">
+    <value>Password history</value>
+  </data>
+  <data name="Attr.pwdLastSet" xml:space="preserve">
+    <value>Password last set</value>
+  </data>
+  <data name="Attr.pwdProperties" xml:space="preserve">
+    <value>Password properties (complexity)</value>
+  </data>
+  <data name="Attr.sAMAccountName" xml:space="preserve">
+    <value>User logon name (pre-Windows 2000)</value>
+  </data>
+  <data name="Attr.sIDHistory" xml:space="preserve">
+    <value>SID history</value>
+  </data>
+  <data name="Attr.scriptPath" xml:space="preserve">
+    <value>Logon script</value>
+  </data>
+  <data name="Attr.servicePrincipalName" xml:space="preserve">
+    <value>Service principal names (SPN)</value>
+  </data>
+  <data name="Attr.sn" xml:space="preserve">
+    <value>Last name</value>
+  </data>
+  <data name="Attr.state" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Attr.telephoneNumber" xml:space="preserve">
+    <value>Telephone number</value>
+  </data>
+  <data name="Attr.title" xml:space="preserve">
+    <value>Job title</value>
+  </data>
+  <data name="Attr.tombstoneLifetime" xml:space="preserve">
+    <value>Tombstone lifetime</value>
+  </data>
+  <data name="Attr.trustAttributes" xml:space="preserve">
+    <value>Trust attributes</value>
+  </data>
+  <data name="Attr.trustDirection" xml:space="preserve">
+    <value>Trust direction</value>
+  </data>
+  <data name="Attr.trustPartner" xml:space="preserve">
+    <value>Trusted domain</value>
+  </data>
+  <data name="Attr.trustType" xml:space="preserve">
+    <value>Trust type</value>
+  </data>
+  <data name="Attr.unicodePwd" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Attr.userAccountControl" xml:space="preserve">
+    <value>Account options (userAccountControl)</value>
+  </data>
+  <data name="Attr.userCertificate" xml:space="preserve">
+    <value>Published certificates</value>
+  </data>
+  <data name="Attr.userPrincipalName" xml:space="preserve">
+    <value>User logon name</value>
+  </data>
+  <data name="Attr.userWorkstations" xml:space="preserve">
+    <value>Log on to (workstations)</value>
+  </data>
+  <data name="Attr.versionNumber" xml:space="preserve">
+    <value>GPO version</value>
+  </data>
+  <data name="Card.BurstTitle.Few" xml:space="preserve">
+    <value>{0} events: {1}</value>
+  </data>
+  <data name="Card.BurstTitle.Many" xml:space="preserve">
+    <value>{0} events: {1}</value>
+  </data>
+  <data name="Card.BurstTitle.One" xml:space="preserve">
+    <value>{0} event: {1}</value>
+  </data>
+  <data name="Card.Changes" xml:space="preserve">
+    <value>Changes ({0})</value>
+  </data>
+  <data name="Card.FollowUpTitle" xml:space="preserve">
+    <value>Follow-up: actor determined</value>
+  </data>
+  <data name="Card.OpenInWatchdog" xml:space="preserve">
+    <value>Open in AD Watchdog</value>
+  </data>
+  <data name="Card.Rule" xml:space="preserve">
+    <value>rule: {0}</value>
+  </data>
+  <data name="Card.ShowAllChanges" xml:space="preserve">
+    <value>Show all changes</value>
+  </data>
+  <data name="Card.Shown" xml:space="preserve">
+    <value>Shown {0} of {1}</value>
+  </data>
+  <data name="Card.TestBody" xml:space="preserve">
+    <value>If you can see this card, the Teams workflow works.</value>
+  </data>
+  <data name="Card.TestTitle" xml:space="preserve">
+    <value>AD Watchdog test message</value>
+  </data>
+  <data name="Confidence.High" xml:space="preserve">
+    <value>high</value>
+  </data>
+  <data name="Confidence.Low" xml:space="preserve">
+    <value>low</value>
+  </data>
+  <data name="Confidence.Medium" xml:space="preserve">
+    <value>medium</value>
+  </data>
+  <data name="Confidence.None" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="Day.Friday.Short" xml:space="preserve">
+    <value>Fri</value>
+  </data>
+  <data name="Day.Monday.Short" xml:space="preserve">
+    <value>Mon</value>
+  </data>
+  <data name="Day.Saturday.Short" xml:space="preserve">
+    <value>Sat</value>
+  </data>
+  <data name="Day.Sunday.Short" xml:space="preserve">
+    <value>Sun</value>
+  </data>
+  <data name="Day.Thursday.Short" xml:space="preserve">
+    <value>Thu</value>
+  </data>
+  <data name="Day.Tuesday.Short" xml:space="preserve">
+    <value>Tue</value>
+  </data>
+  <data name="Day.Wednesday.Short" xml:space="preserve">
+    <value>Wed</value>
+  </data>
+  <data name="DeliveryKind.Alert" xml:space="preserve">
+    <value>Alert</value>
+  </data>
+  <data name="DeliveryKind.Digest" xml:space="preserve">
+    <value>Daily report</value>
+  </data>
+  <data name="DeliveryKind.FollowUp" xml:space="preserve">
+    <value>Follow-up</value>
+  </data>
+  <data name="DeliveryKind.Health" xml:space="preserve">
+    <value>Health</value>
+  </data>
+  <data name="DeliveryKind.Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Digest.Acknowledged" xml:space="preserve">
+    <value>acknowledged by {0}</value>
+  </data>
+  <data name="Digest.AttentionTitle" xml:space="preserve">
+    <value>Needs attention ({0})</value>
+  </data>
+  <data name="Digest.Column.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="Digest.Column.CreatedBy" xml:space="preserve">
+    <value>Added by</value>
+  </data>
+  <data name="Digest.Column.Exception" xml:space="preserve">
+    <value>Exception</value>
+  </data>
+  <data name="Digest.Column.Expires" xml:space="preserve">
+    <value>Expires</value>
+  </data>
+  <data name="Digest.Column.LastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="Digest.Column.Lockouts" xml:space="preserve">
+    <value>Lockouts</value>
+  </data>
+  <data name="Digest.Column.Ou" xml:space="preserve">
+    <value>OU</value>
+  </data>
+  <data name="Digest.Column.Rule" xml:space="preserve">
+    <value>Rule</value>
+  </data>
+  <data name="Digest.Column.Sources" xml:space="preserve">
+    <value>Bad password sources</value>
+  </data>
+  <data name="Digest.Column.State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Digest.Count.Attention" xml:space="preserve">
+    <value>Need attention</value>
+  </data>
+  <data name="Digest.Count.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="Digest.Count.Deleted" xml:space="preserve">
+    <value>Deleted objects</value>
+  </data>
+  <data name="Digest.Count.Disabled" xml:space="preserve">
+    <value>Disabled accounts</value>
+  </data>
+  <data name="Digest.Count.DomainChanges" xml:space="preserve">
+    <value>Domain, policy and GPO changes</value>
+  </data>
+  <data name="Digest.Count.Enabled" xml:space="preserve">
+    <value>Enabled accounts</value>
+  </data>
+  <data name="Digest.Count.High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Digest.Count.Lockouts" xml:space="preserve">
+    <value>Lockouts</value>
+  </data>
+  <data name="Digest.Count.NewComputers" xml:space="preserve">
+    <value>New computers</value>
+  </data>
+  <data name="Digest.Count.NewUsers" xml:space="preserve">
+    <value>New users</value>
+  </data>
+  <data name="Digest.Count.OtherPasswordChanges" xml:space="preserve">
+    <value>Password changes (actor unknown)</value>
+  </data>
+  <data name="Digest.Count.OwnPasswordChanges" xml:space="preserve">
+    <value>Own password changes</value>
+  </data>
+  <data name="Digest.Count.PasswordAgeResets" xml:space="preserve">
+    <value>Password age resets</value>
+  </data>
+  <data name="Digest.Count.PasswordResets" xml:space="preserve">
+    <value>Password resets</value>
+  </data>
+  <data name="Digest.Count.PrivilegedChanges" xml:space="preserve">
+    <value>Privileged access changes</value>
+  </data>
+  <data name="Digest.Count.Total" xml:space="preserve">
+    <value>Events</value>
+  </data>
+  <data name="Digest.Count.Unacknowledged" xml:space="preserve">
+    <value>Not acknowledged</value>
+  </data>
+  <data name="Digest.CoversNonBusinessDays" xml:space="preserve">
+    <value>includes the days off since the last business-day report</value>
+  </data>
+  <data name="Digest.Empty" xml:space="preserve">
+    <value>No changes in the period.</value>
+  </data>
+  <data name="Digest.Exception.Actor" xml:space="preserve">
+    <value>actor {0}</value>
+  </data>
+  <data name="Digest.Exception.Attribute" xml:space="preserve">
+    <value>attribute {0}</value>
+  </data>
+  <data name="Digest.Exception.NoExpiry" xml:space="preserve">
+    <value>no expiry</value>
+  </data>
+  <data name="Digest.Exception.Object" xml:space="preserve">
+    <value>object {0}</value>
+  </data>
+  <data name="Digest.Exception.Subtree" xml:space="preserve">
+    <value>subtree {0}</value>
+  </data>
+  <data name="Digest.Exception.Until" xml:space="preserve">
+    <value>until {0}</value>
+  </data>
+  <data name="Digest.Expiry.Account" xml:space="preserve">
+    <value>account expires {0}</value>
+  </data>
+  <data name="Digest.Expiry.Password" xml:space="preserve">
+    <value>password expires {0}</value>
+  </data>
+  <data name="Digest.Fact.AdminCountOrphans" xml:space="preserve">
+    <value>adminCount=1 without privileges</value>
+  </data>
+  <data name="Digest.Fact.AdministratorPasswordAgeDays" xml:space="preserve">
+    <value>Built-in administrator password age (days)</value>
+  </data>
+  <data name="Digest.Fact.InactiveComputers" xml:space="preserve">
+    <value>Inactive computers</value>
+  </data>
+  <data name="Digest.Fact.InactivePrivileged" xml:space="preserve">
+    <value>Inactive privileged accounts</value>
+  </data>
+  <data name="Digest.Fact.InactiveUsers" xml:space="preserve">
+    <value>Inactive users</value>
+  </data>
+  <data name="Digest.Fact.KrbtgtPasswordAgeDays" xml:space="preserve">
+    <value>krbtgt password age (days)</value>
+  </data>
+  <data name="Digest.Fact.OtherPasswordChanges" xml:space="preserve">
+    <value>Actor unknown</value>
+  </data>
+  <data name="Digest.Fact.OwnPasswordChanges" xml:space="preserve">
+    <value>Own changes</value>
+  </data>
+  <data name="Digest.Fact.PasswordAgeResets" xml:space="preserve">
+    <value>Password age resets</value>
+  </data>
+  <data name="Digest.Fact.PasswordNeverExpires" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="Digest.Fact.PasswordNotRequired" xml:space="preserve">
+    <value>Password not required (PASSWD_NOTREQD)</value>
+  </data>
+  <data name="Digest.Fact.PasswordResets" xml:space="preserve">
+    <value>Reset by another account</value>
+  </data>
+  <data name="Digest.Fact.UnconstrainedDelegation" xml:space="preserve">
+    <value>Unconstrained delegation outside DCs</value>
+  </data>
+  <data name="Digest.Footer" xml:space="preserve">
+    <value>Daily report · service {0} · automated message, do not reply</value>
+  </data>
+  <data name="Digest.Health.BrokenChannels" xml:space="preserve">
+    <value>channels not delivering: {0}</value>
+  </data>
+  <data name="Digest.Health.Coverage" xml:space="preserve">
+    <value>attribution coverage {0}</value>
+  </data>
+  <data name="Digest.Health.Directory" xml:space="preserve">
+    <value>Domain controller {0} ({1})</value>
+  </data>
+  <data name="Digest.Health.LastPoll" xml:space="preserve">
+    <value>last poll {0}</value>
+  </data>
+  <data name="Digest.Health.LogGaps" xml:space="preserve">
+    <value>event log gaps: {0}</value>
+  </data>
+  <data name="Digest.Health.NoDirectory" xml:space="preserve">
+    <value>Domain controller: not connected</value>
+  </data>
+  <data name="Digest.Health.Rollout" xml:space="preserve">
+    <value>rollout mode until {0}</value>
+  </data>
+  <data name="Digest.Health.State.Disabled" xml:space="preserve">
+    <value>disabled</value>
+  </data>
+  <data name="Digest.Health.State.Error" xml:space="preserve">
+    <value>error</value>
+  </data>
+  <data name="Digest.Health.State.Ok" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Digest.Health.State.Unknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="Digest.Health.State.Warning" xml:space="preserve">
+    <value>warning</value>
+  </data>
+  <data name="Digest.LastLogon" xml:space="preserve">
+    <value>last logon {0}</value>
+  </data>
+  <data name="Digest.LockedOut" xml:space="preserve">
+    <value>locked {0}× {1}, last at {2}</value>
+  </data>
+  <data name="Digest.More" xml:space="preserve">
+    <value>… and {0} more – full list in the Watchdog tab</value>
+  </data>
+  <data name="Digest.NeverLoggedOn" xml:space="preserve">
+    <value>never logged on</value>
+  </data>
+  <data name="Digest.Period" xml:space="preserve">
+    <value>Period: {0} – {1}</value>
+  </data>
+  <data name="Digest.Privileged" xml:space="preserve">
+    <value>privileged</value>
+  </data>
+  <data name="Digest.Section.AccountParameters" xml:space="preserve">
+    <value>Account parameter changes</value>
+  </data>
+  <data name="Digest.Section.ActiveExceptions" xml:space="preserve">
+    <value>Active exceptions</value>
+  </data>
+  <data name="Digest.Section.DeletedRestored" xml:space="preserve">
+    <value>Deleted / restored</value>
+  </data>
+  <data name="Digest.Section.DisabledEnabled" xml:space="preserve">
+    <value>Disabled / enabled</value>
+  </data>
+  <data name="Digest.Section.DomainPolicy" xml:space="preserve">
+    <value>Domain, policies, GPO, PKI</value>
+  </data>
+  <data name="Digest.Section.GroupMembership" xml:space="preserve">
+    <value>Group membership</value>
+  </data>
+  <data name="Digest.Section.Health" xml:space="preserve">
+    <value>Watchdog health</value>
+  </data>
+  <data name="Digest.Section.Hygiene" xml:space="preserve">
+    <value>Hygiene</value>
+  </data>
+  <data name="Digest.Section.InactiveAccounts" xml:space="preserve">
+    <value>Inactive accounts</value>
+  </data>
+  <data name="Digest.Section.Lockouts" xml:space="preserve">
+    <value>Lockouts</value>
+  </data>
+  <data name="Digest.Section.MovedRenamed" xml:space="preserve">
+    <value>Moved / renamed</value>
+  </data>
+  <data name="Digest.Section.NewAccounts" xml:space="preserve">
+    <value>New accounts</value>
+  </data>
+  <data name="Digest.Section.NewComputers" xml:space="preserve">
+    <value>New computers</value>
+  </data>
+  <data name="Digest.Section.Passwords" xml:space="preserve">
+    <value>Passwords</value>
+  </data>
+  <data name="Digest.Section.Privileged" xml:space="preserve">
+    <value>Privileged access</value>
+  </data>
+  <data name="Digest.Section.SecurityReview" xml:space="preserve">
+    <value>Security changes to review</value>
+  </data>
+  <data name="Digest.Section.UpcomingExpiry" xml:space="preserve">
+    <value>Upcoming deadlines</value>
+  </data>
+  <data name="Digest.Section.WatchdogConfiguration" xml:space="preserve">
+    <value>Watchdog configuration changes</value>
+  </data>
+  <data name="Digest.SectionTitle" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Digest.Shown" xml:space="preserve">
+    <value>Shown {0} of {1} rows</value>
+  </data>
+  <data name="Digest.Title" xml:space="preserve">
+    <value>Daily report</value>
+  </data>
+  <data name="Digest.Today" xml:space="preserve">
+    <value>today</value>
+  </data>
+  <data name="Digest.Unacknowledged" xml:space="preserve">
+    <value>not acknowledged</value>
+  </data>
+  <data name="Digest.Unknown" xml:space="preserve">
+    <value>no data (directory not available)</value>
+  </data>
+  <data name="Digest.Unlocked" xml:space="preserve">
+    <value>unlocked {0}×</value>
+  </data>
+  <data name="Digest.Unusual" xml:space="preserve">
+    <value>unusual</value>
+  </data>
+  <data name="Digest.Weekly" xml:space="preserve">
+    <value>with the weekly sections</value>
+  </data>
+  <data name="Email.ActorOfAll" xml:space="preserve">
+    <value>actor {0}</value>
+  </data>
+  <data name="Email.FollowUpBanner" xml:space="preserve">
+    <value>Follow-up: actor determined</value>
+  </data>
+  <data name="Email.Footer" xml:space="preserve">
+    <value>Rule {0} · event {1} · service {2} · automated message, do not reply</value>
+  </data>
+  <data name="Email.FooterNoRule" xml:space="preserve">
+    <value>Event {0} · service {1} · automated message, do not reply</value>
+  </data>
+  <data name="Email.FooterTest" xml:space="preserve">
+    <value>Service {0} · automated message, do not reply</value>
+  </data>
+  <data name="Email.InAdMng" xml:space="preserve">
+    <value>In AD_MNG: Tools → Watchdog → event no. {0}</value>
+  </data>
+  <data name="Email.InAdMngList" xml:space="preserve">
+    <value>In AD_MNG: Tools → Watchdog</value>
+  </data>
+  <data name="Email.OpenInBrowser" xml:space="preserve">
+    <value>Open in the browser</value>
+  </data>
+  <data name="Email.TestBody" xml:space="preserve">
+    <value>This is a test message of {0}. Sent: {1}. If you can read it, e-mail delivery works.</value>
+  </data>
+  <data name="Email.Via" xml:space="preserve">
+    <value>(nested: {0})</value>
+  </data>
+  <data name="Flag.ACCOUNTDISABLE" xml:space="preserve">
+    <value>Account disabled</value>
+  </data>
+  <data name="Flag.APP_BASIC_GROUP" xml:space="preserve">
+    <value>Application basic group</value>
+  </data>
+  <data name="Flag.APP_QUERY_GROUP" xml:space="preserve">
+    <value>Application query group</value>
+  </data>
+  <data name="Flag.BUILTIN_LOCAL_GROUP" xml:space="preserve">
+    <value>Built-in group</value>
+  </data>
+  <data name="Flag.DOMAIN_LOCAL_GROUP" xml:space="preserve">
+    <value>Domain local scope</value>
+  </data>
+  <data name="Flag.DONT_EXPIRE_PASSWORD" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="Flag.DONT_REQ_PREAUTH" xml:space="preserve">
+    <value>Kerberos preauthentication not required</value>
+  </data>
+  <data name="Flag.ENCRYPTED_TEXT_PWD_ALLOWED" xml:space="preserve">
+    <value>Store password using reversible encryption</value>
+  </data>
+  <data name="Flag.GLOBAL_GROUP" xml:space="preserve">
+    <value>Global scope</value>
+  </data>
+  <data name="Flag.HOMEDIR_REQUIRED" xml:space="preserve">
+    <value>Home folder required</value>
+  </data>
+  <data name="Flag.INTERDOMAIN_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Interdomain trust account</value>
+  </data>
+  <data name="Flag.LOCKOUT" xml:space="preserve">
+    <value>Locked out</value>
+  </data>
+  <data name="Flag.MNS_LOGON_ACCOUNT" xml:space="preserve">
+    <value>MNS logon account</value>
+  </data>
+  <data name="Flag.NORMAL_ACCOUNT" xml:space="preserve">
+    <value>Normal account</value>
+  </data>
+  <data name="Flag.NOT_DELEGATED" xml:space="preserve">
+    <value>Account is sensitive and cannot be delegated</value>
+  </data>
+  <data name="Flag.PARTIAL_SECRETS_ACCOUNT" xml:space="preserve">
+    <value>Read-only domain controller</value>
+  </data>
+  <data name="Flag.PASSWD_CANT_CHANGE" xml:space="preserve">
+    <value>User cannot change password</value>
+  </data>
+  <data name="Flag.PASSWD_NOTREQD" xml:space="preserve">
+    <value>Password not required</value>
+  </data>
+  <data name="Flag.PASSWORD_EXPIRED" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="Flag.SCRIPT" xml:space="preserve">
+    <value>Logon script runs</value>
+  </data>
+  <data name="Flag.SECURITY_ENABLED" xml:space="preserve">
+    <value>Security group</value>
+  </data>
+  <data name="Flag.SERVER_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Flag.SMARTCARD_REQUIRED" xml:space="preserve">
+    <value>Smart card required</value>
+  </data>
+  <data name="Flag.TEMP_DUPLICATE_ACCOUNT" xml:space="preserve">
+    <value>Local (duplicate) account</value>
+  </data>
+  <data name="Flag.TRUSTED_FOR_DELEGATION" xml:space="preserve">
+    <value>Trusted for (unconstrained) delegation</value>
+  </data>
+  <data name="Flag.TRUSTED_TO_AUTH_FOR_DELEGATION" xml:space="preserve">
+    <value>Trusted to authenticate for delegation</value>
+  </data>
+  <data name="Flag.UNIVERSAL_GROUP" xml:space="preserve">
+    <value>Universal scope</value>
+  </data>
+  <data name="Flag.USE_DES_KEY_ONLY" xml:space="preserve">
+    <value>Use only DES encryption</value>
+  </data>
+  <data name="Flag.WORKSTATION_TRUST_ACCOUNT" xml:space="preserve">
+    <value>Workstation or member server</value>
+  </data>
+  <data name="Kind.AccountDisabled.Sentence" xml:space="preserve">
+    <value>The account {0} was disabled.</value>
+  </data>
+  <data name="Kind.AccountDisabled.Title" xml:space="preserve">
+    <value>Account disabled</value>
+  </data>
+  <data name="Kind.AccountDisabled.TitlePlural" xml:space="preserve">
+    <value>Accounts disabled</value>
+  </data>
+  <data name="Kind.AccountEnabled.Sentence" xml:space="preserve">
+    <value>The account {0} was enabled.</value>
+  </data>
+  <data name="Kind.AccountEnabled.Title" xml:space="preserve">
+    <value>Account enabled</value>
+  </data>
+  <data name="Kind.AccountEnabled.TitlePlural" xml:space="preserve">
+    <value>Accounts enabled</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.Sentence" xml:space="preserve">
+    <value>The expiration date of the account {0} was changed.</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.Title" xml:space="preserve">
+    <value>Account expiration changed</value>
+  </data>
+  <data name="Kind.AccountExpirationChanged.TitlePlural" xml:space="preserve">
+    <value>Account expirations changed</value>
+  </data>
+  <data name="Kind.AccountExpired.Sentence" xml:space="preserve">
+    <value>The account {0} expired (last valid day: {2}).</value>
+  </data>
+  <data name="Kind.AccountExpired.Title" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="Kind.AccountExpired.TitlePlural" xml:space="preserve">
+    <value>Accounts expired</value>
+  </data>
+  <data name="Kind.AccountExpiring.Sentence" xml:space="preserve">
+    <value>The account {0} expires at the end of {2} (days left: {3}).</value>
+  </data>
+  <data name="Kind.AccountExpiring.Title" xml:space="preserve">
+    <value>Account expiring</value>
+  </data>
+  <data name="Kind.AccountExpiring.TitlePlural" xml:space="preserve">
+    <value>Accounts expiring</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.Sentence" xml:space="preserve">
+    <value>The account options of {0} were changed.</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.Title" xml:space="preserve">
+    <value>Account options changed</value>
+  </data>
+  <data name="Kind.AccountFlagsChanged.TitlePlural" xml:space="preserve">
+    <value>Account options changed</value>
+  </data>
+  <data name="Kind.AccountLockedOut.Sentence" xml:space="preserve">
+    <value>The account {0} was locked out after failed sign-ins (lockouts today: {3}).</value>
+  </data>
+  <data name="Kind.AccountLockedOut.Title" xml:space="preserve">
+    <value>Account locked out</value>
+  </data>
+  <data name="Kind.AccountLockedOut.TitlePlural" xml:space="preserve">
+    <value>Accounts locked out</value>
+  </data>
+  <data name="Kind.AccountNameChanged.Sentence" xml:space="preserve">
+    <value>The sign-in name of the account {0} was changed.</value>
+  </data>
+  <data name="Kind.AccountNameChanged.Title" xml:space="preserve">
+    <value>Account name changed</value>
+  </data>
+  <data name="Kind.AccountNameChanged.TitlePlural" xml:space="preserve">
+    <value>Account names changed</value>
+  </data>
+  <data name="Kind.AccountUnlocked.Sentence" xml:space="preserve">
+    <value>The account {0} was unlocked.</value>
+  </data>
+  <data name="Kind.AccountUnlocked.Title" xml:space="preserve">
+    <value>Account unlocked</value>
+  </data>
+  <data name="Kind.AccountUnlocked.TitlePlural" xml:space="preserve">
+    <value>Accounts unlocked</value>
+  </data>
+  <data name="Kind.AdminCountSet.Sentence" xml:space="preserve">
+    <value>adminCount = 1 was set on {0}.</value>
+  </data>
+  <data name="Kind.AdminCountSet.Title" xml:space="preserve">
+    <value>adminCount set</value>
+  </data>
+  <data name="Kind.AdminCountSet.TitlePlural" xml:space="preserve">
+    <value>adminCount set</value>
+  </data>
+  <data name="Kind.AttributesChanged.Sentence" xml:space="preserve">
+    <value>Attributes of {0} were changed.</value>
+  </data>
+  <data name="Kind.AttributesChanged.Title" xml:space="preserve">
+    <value>Account attributes changed</value>
+  </data>
+  <data name="Kind.AttributesChanged.TitlePlural" xml:space="preserve">
+    <value>Account attribute changes</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.Sentence" xml:space="preserve">
+    <value>The audit policy on {0} was changed.</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.Title" xml:space="preserve">
+    <value>Audit policy changed</value>
+  </data>
+  <data name="Kind.AuditPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Audit policy changes</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.Sentence" xml:space="preserve">
+    <value>The explicit certificate mapping (altSecurityIdentities) of {0} was changed.</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.Title" xml:space="preserve">
+    <value>Certificate mapping changed</value>
+  </data>
+  <data name="Kind.CertificateMappingChanged.TitlePlural" xml:space="preserve">
+    <value>Certificate mapping changes</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.Sentence" xml:space="preserve">
+    <value>The PKI object {0} (certificate template, enrollment service or CA) was changed.</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.Title" xml:space="preserve">
+    <value>PKI object changed</value>
+  </data>
+  <data name="Kind.CertificateTemplateChanged.TitlePlural" xml:space="preserve">
+    <value>PKI object changes</value>
+  </data>
+  <data name="Kind.ComputerCreated.Sentence" xml:space="preserve">
+    <value>The computer account {0} was created.</value>
+  </data>
+  <data name="Kind.ComputerCreated.Title" xml:space="preserve">
+    <value>New computer</value>
+  </data>
+  <data name="Kind.ComputerCreated.TitlePlural" xml:space="preserve">
+    <value>New computers</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.Sentence" xml:space="preserve">
+    <value>The computer account name of {0} looks like spoofing (no trailing $ or a domain controller name).</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.Title" xml:space="preserve">
+    <value>Computer name spoofing</value>
+  </data>
+  <data name="Kind.ComputerNameSpoofing.TitlePlural" xml:space="preserve">
+    <value>Computer name spoofing</value>
+  </data>
+  <data name="Kind.ContactCreated.Sentence" xml:space="preserve">
+    <value>The contact {0} was created.</value>
+  </data>
+  <data name="Kind.ContactCreated.Title" xml:space="preserve">
+    <value>New contact</value>
+  </data>
+  <data name="Kind.ContactCreated.TitlePlural" xml:space="preserve">
+    <value>New contacts</value>
+  </data>
+  <data name="Kind.DelegationChanged.Sentence" xml:space="preserve">
+    <value>The Kerberos delegation settings of {0} were changed.</value>
+  </data>
+  <data name="Kind.DelegationChanged.Title" xml:space="preserve">
+    <value>Delegation changed</value>
+  </data>
+  <data name="Kind.DelegationChanged.TitlePlural" xml:space="preserve">
+    <value>Delegation changes</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.Sentence" xml:space="preserve">
+    <value>The domain controller {0} was added.</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.Title" xml:space="preserve">
+    <value>Domain controller added</value>
+  </data>
+  <data name="Kind.DomainControllerAdded.TitlePlural" xml:space="preserve">
+    <value>Domain controllers added</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.Sentence" xml:space="preserve">
+    <value>The domain controller {0} was removed.</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.Title" xml:space="preserve">
+    <value>Domain controller removed</value>
+  </data>
+  <data name="Kind.DomainControllerRemoved.TitlePlural" xml:space="preserve">
+    <value>Domain controllers removed</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.Sentence" xml:space="preserve">
+    <value>The domain or forest policy of {0} was changed.</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.Title" xml:space="preserve">
+    <value>Domain policy changed</value>
+  </data>
+  <data name="Kind.DomainPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Domain policy changes</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.Sentence" xml:space="preserve">
+    <value>The Directory Services Restore Mode password on {0} was changed.</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.Title" xml:space="preserve">
+    <value>DSRM password changed</value>
+  </data>
+  <data name="Kind.DsrmPasswordChanged.TitlePlural" xml:space="preserve">
+    <value>DSRM password changes</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.Sentence" xml:space="preserve">
+    <value>The FSMO role held by {0} was moved.</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.Title" xml:space="preserve">
+    <value>FSMO role moved</value>
+  </data>
+  <data name="Kind.FsmoRoleChanged.TitlePlural" xml:space="preserve">
+    <value>FSMO role moves</value>
+  </data>
+  <data name="Kind.GroupCreated.Sentence" xml:space="preserve">
+    <value>The group {0} was created.</value>
+  </data>
+  <data name="Kind.GroupCreated.Title" xml:space="preserve">
+    <value>New group</value>
+  </data>
+  <data name="Kind.GroupCreated.TitlePlural" xml:space="preserve">
+    <value>New groups</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.Sentence" xml:space="preserve">
+    <value>{1} was added to the group {0}.</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.Title" xml:space="preserve">
+    <value>Member added to a group</value>
+  </data>
+  <data name="Kind.GroupMemberAdded.TitlePlural" xml:space="preserve">
+    <value>Members added to groups</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.Sentence" xml:space="preserve">
+    <value>{1} was removed from the group {0}.</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.Title" xml:space="preserve">
+    <value>Member removed from a group</value>
+  </data>
+  <data name="Kind.GroupMemberRemoved.TitlePlural" xml:space="preserve">
+    <value>Members removed from groups</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.Sentence" xml:space="preserve">
+    <value>The Group Policy object {0} was changed.</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.Title" xml:space="preserve">
+    <value>Group Policy changed</value>
+  </data>
+  <data name="Kind.GroupPolicyChanged.TitlePlural" xml:space="preserve">
+    <value>Group Policy changes</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.Sentence" xml:space="preserve">
+    <value>The Group Policy links of {0} were changed.</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.Title" xml:space="preserve">
+    <value>GPO links changed</value>
+  </data>
+  <data name="Kind.GroupPolicyLinkChanged.TitlePlural" xml:space="preserve">
+    <value>GPO link changes</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.Sentence" xml:space="preserve">
+    <value>The type or scope of the group {0} was changed.</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.Title" xml:space="preserve">
+    <value>Group type changed</value>
+  </data>
+  <data name="Kind.GroupTypeChanged.TitlePlural" xml:space="preserve">
+    <value>Group types changed</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.Sentence" xml:space="preserve">
+    <value>Determining who made changes works only partially.</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.Title" xml:space="preserve">
+    <value>Actor attribution degraded</value>
+  </data>
+  <data name="Kind.HealthAttributionDegraded.TitlePlural" xml:space="preserve">
+    <value>Actor attribution degraded</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.Sentence" xml:space="preserve">
+    <value>The watchdog completed the initial snapshot of the directory.</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.Title" xml:space="preserve">
+    <value>Baseline completed</value>
+  </data>
+  <data name="Kind.HealthBaselineCompleted.TitlePlural" xml:space="preserve">
+    <value>Baselines completed</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.Sentence" xml:space="preserve">
+    <value>Notifications cannot be delivered over the channel {1}.</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.Title" xml:space="preserve">
+    <value>Notification delivery failing</value>
+  </data>
+  <data name="Kind.HealthDeliveryFailing.TitlePlural" xml:space="preserve">
+    <value>Notification delivery failing</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.Sentence" xml:space="preserve">
+    <value>The watchdog cannot reach the domain controller.</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.Title" xml:space="preserve">
+    <value>Domain controller unavailable</value>
+  </data>
+  <data name="Kind.HealthDirectoryUnavailable.TitlePlural" xml:space="preserve">
+    <value>Domain controller unavailable</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.Sentence" xml:space="preserve">
+    <value>A gap was detected in the Security log of a domain controller.</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.Title" xml:space="preserve">
+    <value>Gap in a Security log</value>
+  </data>
+  <data name="Kind.HealthEventLogGap.TitlePlural" xml:space="preserve">
+    <value>Gaps in Security logs</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.Sentence" xml:space="preserve">
+    <value>The watchdog service account lacks required read permissions.</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.Title" xml:space="preserve">
+    <value>Missing read permissions</value>
+  </data>
+  <data name="Kind.HealthPermissionGap.TitlePlural" xml:space="preserve">
+    <value>Missing read permissions</value>
+  </data>
+  <data name="Kind.HealthResync.Sentence" xml:space="preserve">
+    <value>The watchdog performed a full resynchronization with the domain controller.</value>
+  </data>
+  <data name="Kind.HealthResync.Title" xml:space="preserve">
+    <value>Full resynchronization</value>
+  </data>
+  <data name="Kind.HealthResync.TitlePlural" xml:space="preserve">
+    <value>Full resynchronizations</value>
+  </data>
+  <data name="Kind.HealthStorage.Sentence" xml:space="preserve">
+    <value>The watchdog database is running out of space or reached its size limit.</value>
+  </data>
+  <data name="Kind.HealthStorage.Title" xml:space="preserve">
+    <value>Watchdog storage needs attention</value>
+  </data>
+  <data name="Kind.HealthStorage.TitlePlural" xml:space="preserve">
+    <value>Watchdog storage needs attention</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.Sentence" xml:space="preserve">
+    <value>The key credentials (msDS-KeyCredentialLink) of {0} were changed.</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.Title" xml:space="preserve">
+    <value>Key credentials changed</value>
+  </data>
+  <data name="Kind.KeyCredentialChanged.TitlePlural" xml:space="preserve">
+    <value>Key credential changes</value>
+  </data>
+  <data name="Kind.LockoutExpired.Sentence" xml:space="preserve">
+    <value>The lockout of the account {0} expired.</value>
+  </data>
+  <data name="Kind.LockoutExpired.Title" xml:space="preserve">
+    <value>Lockout expired</value>
+  </data>
+  <data name="Kind.LockoutExpired.TitlePlural" xml:space="preserve">
+    <value>Lockouts expired</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.Sentence" xml:space="preserve">
+    <value>A dMSA migration link of {0} was changed.</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.Title" xml:space="preserve">
+    <value>dMSA migration link changed</value>
+  </data>
+  <data name="Kind.ManagedAccountLinkChanged.TitlePlural" xml:space="preserve">
+    <value>dMSA migration link changes</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.Sentence" xml:space="preserve">
+    <value>The accounts allowed to read the password of {0} were changed.</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.Title" xml:space="preserve">
+    <value>gMSA password readers changed</value>
+  </data>
+  <data name="Kind.ManagedPasswordReadersChanged.TitlePlural" xml:space="preserve">
+    <value>gMSA password reader changes</value>
+  </data>
+  <data name="Kind.MassDeletion.Sentence" xml:space="preserve">
+    <value>Objects deleted within {4} min: {3}.</value>
+  </data>
+  <data name="Kind.MassDeletion.Title" xml:space="preserve">
+    <value>Mass deletion</value>
+  </data>
+  <data name="Kind.MassDeletion.TitlePlural" xml:space="preserve">
+    <value>Mass deletions</value>
+  </data>
+  <data name="Kind.MassLockout.Sentence" xml:space="preserve">
+    <value>Accounts locked out within {4} min: {3}.</value>
+  </data>
+  <data name="Kind.MassLockout.Title" xml:space="preserve">
+    <value>Mass lockout</value>
+  </data>
+  <data name="Kind.MassLockout.TitlePlural" xml:space="preserve">
+    <value>Mass lockouts</value>
+  </data>
+  <data name="Kind.ObjectAppeared.Sentence" xml:space="preserve">
+    <value>The object {0} appeared in the watched scope.</value>
+  </data>
+  <data name="Kind.ObjectAppeared.Title" xml:space="preserve">
+    <value>Object appeared</value>
+  </data>
+  <data name="Kind.ObjectAppeared.TitlePlural" xml:space="preserve">
+    <value>Objects appeared</value>
+  </data>
+  <data name="Kind.ObjectDeleted.Sentence" xml:space="preserve">
+    <value>The object {0} was deleted.</value>
+  </data>
+  <data name="Kind.ObjectDeleted.Title" xml:space="preserve">
+    <value>Object deleted</value>
+  </data>
+  <data name="Kind.ObjectDeleted.TitlePlural" xml:space="preserve">
+    <value>Objects deleted</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.Sentence" xml:space="preserve">
+    <value>The object {0} disappeared from the directory (not found among the deleted objects).</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.Title" xml:space="preserve">
+    <value>Object disappeared</value>
+  </data>
+  <data name="Kind.ObjectDisappeared.TitlePlural" xml:space="preserve">
+    <value>Objects disappeared</value>
+  </data>
+  <data name="Kind.ObjectMoved.Sentence" xml:space="preserve">
+    <value>The object {0} was moved from {1} to {2}.</value>
+  </data>
+  <data name="Kind.ObjectMoved.Title" xml:space="preserve">
+    <value>Object moved</value>
+  </data>
+  <data name="Kind.ObjectMoved.TitlePlural" xml:space="preserve">
+    <value>Objects moved</value>
+  </data>
+  <data name="Kind.ObjectRenamed.Sentence" xml:space="preserve">
+    <value>The object {1} was renamed to {0}.</value>
+  </data>
+  <data name="Kind.ObjectRenamed.Title" xml:space="preserve">
+    <value>Object renamed</value>
+  </data>
+  <data name="Kind.ObjectRenamed.TitlePlural" xml:space="preserve">
+    <value>Objects renamed</value>
+  </data>
+  <data name="Kind.ObjectRestored.Sentence" xml:space="preserve">
+    <value>The object {0} was restored from the Recycle Bin.</value>
+  </data>
+  <data name="Kind.ObjectRestored.Title" xml:space="preserve">
+    <value>Object restored</value>
+  </data>
+  <data name="Kind.ObjectRestored.TitlePlural" xml:space="preserve">
+    <value>Objects restored</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.Sentence" xml:space="preserve">
+    <value>The organizational unit {0} was created.</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.Title" xml:space="preserve">
+    <value>New organizational unit</value>
+  </data>
+  <data name="Kind.OrganizationalUnitCreated.TitlePlural" xml:space="preserve">
+    <value>New organizational units</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.Sentence" xml:space="preserve">
+    <value>The password age of the account {0} was reset without a password change.</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.Title" xml:space="preserve">
+    <value>Password age reset</value>
+  </data>
+  <data name="Kind.PasswordAgeReset.TitlePlural" xml:space="preserve">
+    <value>Password age resets</value>
+  </data>
+  <data name="Kind.PasswordChanged.Sentence" xml:space="preserve">
+    <value>The password of the account {0} was changed.</value>
+  </data>
+  <data name="Kind.PasswordChanged.Title" xml:space="preserve">
+    <value>Password changed</value>
+  </data>
+  <data name="Kind.PasswordChanged.TitlePlural" xml:space="preserve">
+    <value>Passwords changed</value>
+  </data>
+  <data name="Kind.PasswordExpiring.Sentence" xml:space="preserve">
+    <value>The password of the account {0} expires on {2} (days left: {3}).</value>
+  </data>
+  <data name="Kind.PasswordExpiring.Title" xml:space="preserve">
+    <value>Password expiring</value>
+  </data>
+  <data name="Kind.PasswordExpiring.TitlePlural" xml:space="preserve">
+    <value>Passwords expiring</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.Sentence" xml:space="preserve">
+    <value>The account {0} must change its password at the next sign-in.</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.Title" xml:space="preserve">
+    <value>Password change required</value>
+  </data>
+  <data name="Kind.PasswordMustChangeSet.TitlePlural" xml:space="preserve">
+    <value>Password changes required</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.Sentence" xml:space="preserve">
+    <value>The fine-grained password policy {0} was changed.</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.Title" xml:space="preserve">
+    <value>Fine-grained password policy changed</value>
+  </data>
+  <data name="Kind.PasswordSettingsChanged.TitlePlural" xml:space="preserve">
+    <value>Fine-grained password policy changes</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.Sentence" xml:space="preserve">
+    <value>Possible password spraying from {1}: accounts with failed passwords within {4} min: {3}.</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.Title" xml:space="preserve">
+    <value>Password spraying suspected</value>
+  </data>
+  <data name="Kind.PasswordSprayingSuspected.TitlePlural" xml:space="preserve">
+    <value>Password spraying suspected</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.Sentence" xml:space="preserve">
+    <value>The primary group of {0} was changed.</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.Title" xml:space="preserve">
+    <value>Primary group changed</value>
+  </data>
+  <data name="Kind.PrimaryGroupChanged.TitlePlural" xml:space="preserve">
+    <value>Primary group changes</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.Sentence" xml:space="preserve">
+    <value>The account {0} was granted membership of {1}.</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.Title" xml:space="preserve">
+    <value>Privileged access granted</value>
+  </data>
+  <data name="Kind.PrivilegeGranted.TitlePlural" xml:space="preserve">
+    <value>Privileged access granted</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.Sentence" xml:space="preserve">
+    <value>The account {0} lost its membership of {1}.</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.Title" xml:space="preserve">
+    <value>Privileged access revoked</value>
+  </data>
+  <data name="Kind.PrivilegeRevoked.TitlePlural" xml:space="preserve">
+    <value>Privileged access revoked</value>
+  </data>
+  <data name="Kind.SchemaChanged.Sentence" xml:space="preserve">
+    <value>The directory schema was changed.</value>
+  </data>
+  <data name="Kind.SchemaChanged.Title" xml:space="preserve">
+    <value>Schema changed</value>
+  </data>
+  <data name="Kind.SchemaChanged.TitlePlural" xml:space="preserve">
+    <value>Schema changes</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.Sentence" xml:space="preserve">
+    <value>The permissions (security descriptor) of {0} were changed.</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.Title" xml:space="preserve">
+    <value>Permissions changed</value>
+  </data>
+  <data name="Kind.SecurityDescriptorChanged.TitlePlural" xml:space="preserve">
+    <value>Permission changes</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.Sentence" xml:space="preserve">
+    <value>The Security log on {0} was cleared.</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.Title" xml:space="preserve">
+    <value>Security log cleared</value>
+  </data>
+  <data name="Kind.SecurityLogCleared.TitlePlural" xml:space="preserve">
+    <value>Security logs cleared</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.Sentence" xml:space="preserve">
+    <value>The managed service account {0} was created.</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.Title" xml:space="preserve">
+    <value>New service account</value>
+  </data>
+  <data name="Kind.ServiceAccountCreated.TitlePlural" xml:space="preserve">
+    <value>New service accounts</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.Sentence" xml:space="preserve">
+    <value>A service principal name was added to the user account {0}.</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.Title" xml:space="preserve">
+    <value>SPN added to a user</value>
+  </data>
+  <data name="Kind.ServicePrincipalNameAdded.TitlePlural" xml:space="preserve">
+    <value>SPNs added to users</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.Sentence" xml:space="preserve">
+    <value>The SID history (sIDHistory) of {0} was changed.</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.Title" xml:space="preserve">
+    <value>SID history changed</value>
+  </data>
+  <data name="Kind.SidHistoryChanged.TitlePlural" xml:space="preserve">
+    <value>SID history changes</value>
+  </data>
+  <data name="Kind.Test.Sentence" xml:space="preserve">
+    <value>This is a test message of AD Watchdog.</value>
+  </data>
+  <data name="Kind.Test.Title" xml:space="preserve">
+    <value>Test message</value>
+  </data>
+  <data name="Kind.Test.TitlePlural" xml:space="preserve">
+    <value>Test messages</value>
+  </data>
+  <data name="Kind.TrustChanged.Sentence" xml:space="preserve">
+    <value>The trust {0} was changed.</value>
+  </data>
+  <data name="Kind.TrustChanged.Title" xml:space="preserve">
+    <value>Trust changed</value>
+  </data>
+  <data name="Kind.TrustChanged.TitlePlural" xml:space="preserve">
+    <value>Trust changes</value>
+  </data>
+  <data name="Kind.UserCreated.Sentence" xml:space="preserve">
+    <value>The user account {0} was created.</value>
+  </data>
+  <data name="Kind.UserCreated.Title" xml:space="preserve">
+    <value>New account</value>
+  </data>
+  <data name="Kind.UserCreated.TitlePlural" xml:space="preserve">
+    <value>New accounts</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.Sentence" xml:space="preserve">
+    <value>The watchdog configuration was changed.</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.Title" xml:space="preserve">
+    <value>Watchdog configuration changed</value>
+  </data>
+  <data name="Kind.WatchdogConfigurationChanged.TitlePlural" xml:space="preserve">
+    <value>Watchdog configuration changes</value>
+  </data>
+  <data name="Label.After" xml:space="preserve">
+    <value>After</value>
+  </data>
+  <data name="Label.BadPasswordSources" xml:space="preserve">
+    <value>Bad password sources</value>
+  </data>
+  <data name="Label.Before" xml:space="preserve">
+    <value>Before</value>
+  </data>
+  <data name="Label.Burst" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="Label.Candidates" xml:space="preserve">
+    <value>candidates</value>
+  </data>
+  <data name="Label.Change" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="Label.Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="Label.Events" xml:space="preserve">
+    <value>Events</value>
+  </data>
+  <data name="Label.Expiry" xml:space="preserve">
+    <value>Deadline</value>
+  </data>
+  <data name="Label.From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="Label.Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="Label.Lockout" xml:space="preserve">
+    <value>Lockout</value>
+  </data>
+  <data name="Label.Member" xml:space="preserve">
+    <value>Member</value>
+  </data>
+  <data name="Label.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="Label.Objects" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="Label.PreviousDn" xml:space="preserve">
+    <value>Previously</value>
+  </data>
+  <data name="Label.Time" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="Label.Via" xml:space="preserve">
+    <value>Nesting</value>
+  </data>
+  <data name="Label.What" xml:space="preserve">
+    <value>What</value>
+  </data>
+  <data name="Label.When" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="Label.Where" xml:space="preserve">
+    <value>Where</value>
+  </data>
+  <data name="Label.Who" xml:space="preserve">
+    <value>Who</value>
+  </data>
+  <data name="OutboxStatus.Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="OutboxStatus.Dead" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="OutboxStatus.Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="OutboxStatus.Retrying" xml:space="preserve">
+    <value>Retrying</value>
+  </data>
+  <data name="OutboxStatus.Sending" xml:space="preserve">
+    <value>Sending</value>
+  </data>
+  <data name="OutboxStatus.Sent" xml:space="preserve">
+    <value>Sent</value>
+  </data>
+  <data name="Page.Acknowledged" xml:space="preserve">
+    <value>Acknowledged {0} by {1}</value>
+  </data>
+  <data name="Page.Channel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="Page.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Page.Dc" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Page.Deliveries" xml:space="preserve">
+    <value>Deliveries</value>
+  </data>
+  <data name="Page.DeliveryKind" xml:space="preserve">
+    <value>Kind</value>
+  </data>
+  <data name="Page.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Page.EventCode" xml:space="preserve">
+    <value>Event</value>
+  </data>
+  <data name="Page.Evidence" xml:space="preserve">
+    <value>Evidence (Security logs)</value>
+  </data>
+  <data name="Page.Log" xml:space="preserve">
+    <value>Log</value>
+  </data>
+  <data name="Page.RecordId" xml:space="preserve">
+    <value>Record</value>
+  </data>
+  <data name="Page.RelatedEvents" xml:space="preserve">
+    <value>Related events (same change)</value>
+  </data>
+  <data name="Page.Sent" xml:space="preserve">
+    <value>Sent</value>
+  </data>
+  <data name="Page.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Reason.AMBIGUOUS" xml:space="preserve">
+    <value>Several possible actors</value>
+  </data>
+  <data name="Reason.AMBIGUOUS.Remedy" xml:space="preserve">
+    <value>Several possible actors – see the evidence.</value>
+  </data>
+  <data name="Reason.AUDIT_POLICY_MISSING" xml:space="preserve">
+    <value>No audit events of this kind on the domain controller</value>
+  </data>
+  <data name="Reason.AUDIT_POLICY_MISSING.Remedy" xml:space="preserve">
+    <value>Enable the audit policies (docs/WATCHDOG.md, chapter 4.5).</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE" xml:space="preserve">
+    <value>The domain controller log could not be read</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
+    <value>Check the firewall (Remote Event Log Management) and the service account's membership of Event Log Readers.</value>
+  </data>
+  <data name="Reason.LOG_OVERWRITTEN" xml:space="preserve">
+    <value>The Security log was already overwritten</value>
+  </data>
+  <data name="Reason.LOG_OVERWRITTEN.Remedy" xml:space="preserve">
+    <value>Increase the Security log size on the domain controllers (≥ 1 GB).</value>
+  </data>
+  <data name="Reason.NO_MATCH" xml:space="preserve">
+    <value>No matching event found in the time window</value>
+  </data>
+  <data name="Reason.NO_MATCH.Remedy" xml:space="preserve">
+    <value>No matching event was found in the time window.</value>
+  </data>
+  <data name="Reason.PENDING" xml:space="preserve">
+    <value>Being determined</value>
+  </data>
+  <data name="Reason.PENDING.Remedy" xml:space="preserve">
+    <value>The actor is still being determined from the domain controller logs.</value>
+  </data>
+  <data name="Reason.SACL_MISSING" xml:space="preserve">
+    <value>No directory service change events (SACL)</value>
+  </data>
+  <data name="Reason.SACL_MISSING.Remedy" xml:space="preserve">
+    <value>Add the SACL for directory service changes (docs/WATCHDOG.md, chapter 4.6).</value>
+  </data>
+  <data name="Reason.SELF_CHANGE" xml:space="preserve">
+    <value>The object changed itself</value>
+  </data>
+  <data name="Reason.SELF_CHANGE.Remedy" xml:space="preserve">
+    <value>A computer updated its own object – usually expected.</value>
+  </data>
+  <data name="Reason.SOURCE_DISABLED" xml:space="preserve">
+    <value>Attribution is disabled</value>
+  </data>
+  <data name="Reason.SOURCE_DISABLED.Remedy" xml:space="preserve">
+    <value>Enable attribution in the configuration – the service must run on Windows.</value>
+  </data>
+  <data name="Reason.SOURCE_LOGON_NOT_FOUND" xml:space="preserve">
+    <value>Source logon not found</value>
+  </data>
+  <data name="Reason.SOURCE_LOGON_NOT_FOUND.Remedy" xml:space="preserve">
+    <value>The logon session is older than the search window or the log was overwritten – increase the Security log.</value>
+  </data>
+  <data name="Reason.SOURCE_NOT_COLLECTED" xml:space="preserve">
+    <value>Source events are not collected</value>
+  </data>
+  <data name="Reason.SOURCE_NOT_COLLECTED.Remedy" xml:space="preserve">
+    <value>Add 4624/4771/4776 to the WEF subscription (docs/WATCHDOG.md, chapter 4.4).</value>
+  </data>
+  <data name="Reason.SYSTEM" xml:space="preserve">
+    <value>Changed by the system</value>
+  </data>
+  <data name="Reason.SYSTEM.Remedy" xml:space="preserve">
+    <value>The change was made by the domain controller itself (e.g. SDProp) – no action is needed.</value>
+  </data>
+  <data name="Rule.account-attributes" xml:space="preserve">
+    <value>Account attribute changes</value>
+  </data>
+  <data name="Rule.account-flags" xml:space="preserve">
+    <value>Account options</value>
+  </data>
+  <data name="Rule.account-names" xml:space="preserve">
+    <value>Account name changes</value>
+  </data>
+  <data name="Rule.account-status" xml:space="preserve">
+    <value>Account enables and disables</value>
+  </data>
+  <data name="Rule.bursts" xml:space="preserve">
+    <value>Mass events</value>
+  </data>
+  <data name="Rule.computers-unusual" xml:space="preserve">
+    <value>Computers outside the process</value>
+  </data>
+  <data name="Rule.deletions" xml:space="preserve">
+    <value>Deletions and restores</value>
+  </data>
+  <data name="Rule.expiry" xml:space="preserve">
+    <value>Expirations</value>
+  </data>
+  <data name="Rule.group-changes" xml:space="preserve">
+    <value>Groups and membership</value>
+  </data>
+  <data name="Rule.health" xml:space="preserve">
+    <value>Watchdog health</value>
+  </data>
+  <data name="Rule.lockouts" xml:space="preserve">
+    <value>Account lockouts</value>
+  </data>
+  <data name="Rule.logon-settings" xml:space="preserve">
+    <value>Scripts, profiles, logon restrictions</value>
+  </data>
+  <data name="Rule.new-accounts" xml:space="preserve">
+    <value>New accounts</value>
+  </data>
+  <data name="Rule.new-computers" xml:space="preserve">
+    <value>New computers</value>
+  </data>
+  <data name="Rule.ou-gpo" xml:space="preserve">
+    <value>OUs and GPOs</value>
+  </data>
+  <data name="Rule.passwords" xml:space="preserve">
+    <value>Passwords</value>
+  </data>
+  <data name="Rule.privileged-accounts" xml:space="preserve">
+    <value>Privileged and service accounts</value>
+  </data>
+  <data name="Rule.security-review" xml:space="preserve">
+    <value>Security changes to review</value>
+  </data>
+  <data name="Rule.tier0-domain" xml:space="preserve">
+    <value>Domain, trusts, schema, PKI, policies</value>
+  </data>
+  <data name="Rule.tier0-eventlog" xml:space="preserve">
+    <value>Domain controller security logs</value>
+  </data>
+  <data name="Rule.tier0-privilege" xml:space="preserve">
+    <value>Privileged access</value>
+  </data>
+  <data name="Rule.tier0-security" xml:space="preserve">
+    <value>Security-critical attributes</value>
+  </data>
+  <data name="Rule.unlocks" xml:space="preserve">
+    <value>Unlocks</value>
+  </data>
+  <data name="Rule.watchlist-groups" xml:space="preserve">
+    <value>Watched groups</value>
+  </data>
   <data name="Severity.Critical" xml:space="preserve">
     <value>Critical</value>
+  </data>
+  <data name="Severity.High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="Severity.Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="Severity.Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="Severity.Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
+  <data name="Source.ClientReported" xml:space="preserve">
+    <value>client-reported</value>
+  </data>
+  <data name="Source.Dns" xml:space="preserve">
+    <value>DNS</value>
+  </data>
+  <data name="Source.Event" xml:space="preserve">
+    <value>event {0}</value>
+  </data>
+  <data name="Source.Local" xml:space="preserve">
+    <value>locally on the DC – ADWS/PowerShell/console</value>
+  </data>
+  <data name="Source.LogonType.10" xml:space="preserve">
+    <value>Remote Desktop</value>
+  </data>
+  <data name="Source.LogonType.2" xml:space="preserve">
+    <value>interactive logon</value>
+  </data>
+  <data name="Source.LogonType.3" xml:space="preserve">
+    <value>network logon</value>
+  </data>
+  <data name="Source.LogonType.8" xml:space="preserve">
+    <value>cleartext logon (simple bind)</value>
+  </data>
+  <data name="Subject.ActorPending" xml:space="preserve">
+    <value>actor: pending…</value>
+  </data>
+  <data name="Subject.ActorUnknown" xml:space="preserve">
+    <value>actor: unknown</value>
+  </data>
+  <data name="Subject.Digest" xml:space="preserve">
+    <value>Daily report {0} – {1}</value>
+  </data>
+  <data name="Subject.DigestAttention.Few" xml:space="preserve">
+    <value>{0} need attention</value>
+  </data>
+  <data name="Subject.DigestAttention.Many" xml:space="preserve">
+    <value>{0} need attention</value>
+  </data>
+  <data name="Subject.DigestAttention.One" xml:space="preserve">
+    <value>{0} needs attention</value>
+  </data>
+  <data name="Subject.DigestEvents.Few" xml:space="preserve">
+    <value>{0} events</value>
+  </data>
+  <data name="Subject.DigestEvents.Many" xml:space="preserve">
+    <value>{0} events</value>
+  </data>
+  <data name="Subject.DigestEvents.One" xml:space="preserve">
+    <value>{0} event</value>
+  </data>
+  <data name="Subject.Events" xml:space="preserve">
+    <value>Events</value>
+  </data>
+  <data name="Subject.Test" xml:space="preserve">
+    <value>Test message</value>
+  </data>
+  <data name="Value.AccountExpiresEndOfDay" xml:space="preserve">
+    <value>the account expires at the end of {0} (days left: {1})</value>
+  </data>
+  <data name="Value.ActorPending" xml:space="preserve">
+    <value>pending…</value>
+  </data>
+  <data name="Value.ActorPendingFollowUp" xml:space="preserve">
+    <value>pending… (a follow-up will be sent)</value>
+  </data>
+  <data name="Value.ActorUnknown" xml:space="preserve">
+    <value>unknown – {0} ({1})</value>
+  </data>
+  <data name="Value.Binary" xml:space="preserve">
+    <value>binary value</value>
+  </data>
+  <data name="Value.Burst" xml:space="preserve">
+    <value>count: {0} within {1} min</value>
+  </data>
+  <data name="Value.Changed" xml:space="preserve">
+    <value>changed</value>
+  </data>
+  <data name="Value.ChangedHidden" xml:space="preserve">
+    <value>changed (value hidden)</value>
+  </data>
+  <data name="Value.Confidence" xml:space="preserve">
+    <value>confidence: {0}</value>
+  </data>
+  <data name="Value.EndOfDay" xml:space="preserve">
+    <value>end of {0}</value>
+  </data>
+  <data name="Value.Entries" xml:space="preserve">
+    <value>entries: {0} → {1}</value>
+  </data>
+  <data name="Value.Evidence" xml:space="preserve">
+    <value>event {0}, record {1}</value>
+  </data>
+  <data name="Value.False" xml:space="preserve">
+    <value>no</value>
+  </data>
+  <data name="Value.LockedUntil" xml:space="preserve">
+    <value>locked until {0}</value>
+  </data>
+  <data name="Value.LockoutCaller" xml:space="preserve">
+    <value>reported by {0} (client-reported)</value>
+  </data>
+  <data name="Value.LockoutsToday" xml:space="preserve">
+    <value>locked {0}× today, last at {1}</value>
+  </data>
+  <data name="Value.LogonHoursAlways" xml:space="preserve">
+    <value>always</value>
+  </data>
+  <data name="Value.LogonHoursNever" xml:space="preserve">
+    <value>never (no logon hours)</value>
+  </data>
+  <data name="Value.More" xml:space="preserve">
+    <value>(+{0} more)</value>
+  </data>
+  <data name="Value.Never" xml:space="preserve">
+    <value>never</value>
+  </data>
+  <data name="Value.NotApplicable" xml:space="preserve">
+    <value>not applicable</value>
+  </data>
+  <data name="Value.PasswordExpiresOn" xml:space="preserve">
+    <value>the password expires on {0} (days left: {1})</value>
+  </data>
+  <data name="Value.SourceUnknown" xml:space="preserve">
+    <value>unknown – {0} ({1})</value>
+  </data>
+  <data name="Value.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Value.True" xml:space="preserve">
+    <value>yes</value>
+  </data>
+  <data name="Value.Unknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="Value.UntilUnlocked" xml:space="preserve">
+    <value>an administrator unlocks it</value>
+  </data>
+  <data name="Value.WhatWithRule" xml:space="preserve">
+    <value>{0} (rule: {1})</value>
   </data>
 </root>
