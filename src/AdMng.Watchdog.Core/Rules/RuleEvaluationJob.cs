@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Model;
@@ -12,29 +13,37 @@ namespace AdMng.Watchdog.Core.Rules;
 /// <see cref="WatchdogSignal.NotificationsQueued"/> when something was queued. Wakes on EventsStored,
 /// AttributionUpdated and ConfigChanged; runs again at once while a full batch was read.
 /// </summary>
+/// <remarks>Without a registered planner the events are still evaluated (matched rules, digest) but nothing is queued
+/// for immediate delivery – health check <see cref="PlannerCheckCode"/> is Error and a critical log entry is written,
+/// so a wiring mistake is visible instead of silently dropping alerts.</remarks>
 public sealed partial class RuleEvaluationJob : IWatchdogJob
 {
     /// <summary>Events per run (13.1).</summary>
     public const int BatchSize = 500;
+
+    /// <summary>Health check reporting whether a notification planner is registered.</summary>
+    public const string PlannerCheckCode = "rules.planner";
 
     private static readonly WatchdogSignal[] Signals =
         [WatchdogSignal.EventsStored, WatchdogSignal.AttributionUpdated, WatchdogSignal.ConfigChanged];
 
     private readonly IEventStore _events;
     private readonly RuleEngine _engine;
-    private readonly IRuleMatchPlanner _planner;
+    private readonly IReadOnlyList<IRuleMatchPlanner> _planners;
+    private readonly IHealthRegistry _health;
     private readonly IWatchdogConfigProvider _configProvider;
     private readonly IConfigTokenSource _tokens;
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<RuleEvaluationJob> _logger;
 
-    public RuleEvaluationJob(IEventStore events, RuleEngine engine, IRuleMatchPlanner planner, IWatchdogConfigProvider configProvider,
-        IConfigTokenSource tokens, IWatchdogSignals signals, TimeProvider timeProvider, ILogger<RuleEvaluationJob> logger)
+    public RuleEvaluationJob(IEventStore events, RuleEngine engine, IEnumerable<IRuleMatchPlanner> planners, IWatchdogConfigProvider configProvider,
+        IConfigTokenSource tokens, IWatchdogSignals signals, IHealthRegistry health, TimeProvider timeProvider, ILogger<RuleEvaluationJob> logger)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(engine);
-        ArgumentNullException.ThrowIfNull(planner);
+        ArgumentNullException.ThrowIfNull(planners);
+        ArgumentNullException.ThrowIfNull(health);
         ArgumentNullException.ThrowIfNull(configProvider);
         ArgumentNullException.ThrowIfNull(tokens);
         ArgumentNullException.ThrowIfNull(signals);
@@ -42,7 +51,8 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
         ArgumentNullException.ThrowIfNull(logger);
         _events = events;
         _engine = engine;
-        _planner = planner;
+        _planners = [.. planners];
+        _health = health;
         _configProvider = configProvider;
         _tokens = tokens;
         _signals = signals;
@@ -74,13 +84,17 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
             }
 
             var now = _timeProvider.GetUtcNow();
+            ReportPlanner(now);
             var evaluations = new List<EventEvaluation>(events.Count);
             var notifications = new List<PendingNotification>();
             foreach (var watchEvent in events)
             {
                 var result = RuleEngine.Evaluate(watchEvent, context, now);
                 evaluations.Add(result.ToEvaluation());
-                notifications.AddRange(await _planner.PlanAsync(result, context.Configuration, now, cancellationToken).ConfigureAwait(false));
+                foreach (var planner in _planners)
+                {
+                    notifications.AddRange(await planner.PlanAsync(result, context.Configuration, now, cancellationToken).ConfigureAwait(false));
+                }
             }
 
             await _events.CommitEvaluationAsync(evaluations, notifications, cancellationToken).ConfigureAwait(false);
@@ -98,6 +112,25 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
             return new JobResult(DefaultInterval, Failed: true, FailureCode: SafeExceptionLog.ErrorCode(ex));
         }
     }
+
+    private void ReportPlanner(DateTimeOffset now)
+    {
+        if (_planners.Count == 0)
+        {
+            LogNoPlanner();
+        }
+
+        _health.Report(new HealthCheckDto
+        {
+            Code = PlannerCheckCode,
+            State = _planners.Count == 0 ? HealthState.Error : HealthState.Ok,
+            Detail = _planners.Count == 0 ? "No notification planner is registered – events are evaluated but nothing is sent immediately." : null,
+            CheckedAt = now,
+        });
+    }
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "No notification planner is registered: rule matches are recorded but no immediate notification is queued.")]
+    private partial void LogNoPlanner();
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Evaluated {Events} events, queued {Notifications} notifications.")]
     private partial void LogEvaluated(int events, int notifications);

@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Rules;
@@ -16,9 +17,11 @@ public class RuleEvaluationJobTests
     private readonly FakeSignals _signals = new();
     private readonly RecordingPlanner _planner = new();
     private readonly FakeTimeProvider _clock = new(Now);
+    private readonly FakeHealthRegistry _health = new();
 
-    private RuleEvaluationJob CreateJob(IEventStore? store = null) =>
-        new(store ?? _store, new RuleEngine(_config, _tokens, _clock), _planner, _config, _tokens, _signals, _clock, NullLogger<RuleEvaluationJob>.Instance);
+    private RuleEvaluationJob CreateJob(IEventStore? store = null, bool withPlanner = true) =>
+        new(store ?? _store, new RuleEngine(_config, _tokens, _clock), withPlanner ? [_planner] : [], _config, _tokens, _signals, _health, _clock,
+            NullLogger<RuleEvaluationJob>.Instance);
 
     [Fact]
     public void JobDescription_FollowsSection13_1()
@@ -51,6 +54,29 @@ public class RuleEvaluationJobTests
         Assert.Same(_config.Current.Configuration, _planner.Calls[0].Configuration);
         Assert.Empty(_store.Get(already.Id).MatchedRules);
         Assert.Equal(1, _tokens.Calls);
+    }
+
+    [Fact]
+    public async Task RunOnce_WithoutAPlanner_EvaluatesAndReportsAHealthError()
+    {
+        _store.Add(Create(WatchEventKind.UserCreated));
+
+        var result = await CreateJob(withPlanner: false).RunOnceAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(result.Failed);
+        Assert.Equal([DefaultRules.NewAccounts], Assert.Single(_store.Evaluations).MatchedRules);
+        Assert.Empty(_store.Notifications);
+        Assert.Equal(HealthState.Error, _health.Find(RuleEvaluationJob.PlannerCheckCode)!.State);
+    }
+
+    [Fact]
+    public async Task RunOnce_WithAPlanner_ReportsThePlannerHealthOk()
+    {
+        _store.Add(Create(WatchEventKind.UserCreated));
+
+        await CreateJob().RunOnceAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HealthState.Ok, _health.Find(RuleEvaluationJob.PlannerCheckCode)!.State);
     }
 
     [Fact]
