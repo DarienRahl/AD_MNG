@@ -154,12 +154,11 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         _reloadDebouncer = new Debouncer(services.Time, FilterDelay);
         Kinds = CreateKinds();
         Kind = Kinds[0];
-        Services.Sessions.SessionChanged += OnSessionChanged;
         Services.Changes.Changed += OnDirectoryChanged;
         UpdateSessionState();
     }
 
-    public override string WindowTitle => Services.Sessions.Current is { } session
+    public override string WindowTitle => Session is { } session
         ? Localizer.Format(L.RecycleBin.WindowTitleDomain, session.Info.DomainDnsName)
         : Localizer[L.RecycleBin.WindowTitle];
 
@@ -167,7 +166,8 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BannerText), nameof(IsRecycleBinDisabled))]
-    [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(RestoreCommand), nameof(RestoreToCommand), nameof(BrowseDeletedFromCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshCommand), nameof(RestoreCommand), nameof(RestoreToCommand), nameof(BrowseDeletedFromCommand),
+        nameof(ConfirmRestoreCommand))]
     public partial bool IsConnected { get; private set; }
 
     /// <summary>The AD Recycle Bin optional feature is enabled in the forest of the session.</summary>
@@ -185,7 +185,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         {
             if (!IsConnected)
             {
-                return Localizer[L.Errors.NotConnected];
+                return NoSessionMessage;
             }
 
             var text = Localizer[IsRecycleBinEnabled ? L.RecycleBin.Enabled : L.RecycleBin.Disabled];
@@ -365,7 +365,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private async Task BrowseDeletedFromAsync()
     {
-        if (Services.Sessions.Current is not { } session)
+        if (Session is not { } session)
         {
             return;
         }
@@ -420,7 +420,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanRestore))]
     private async Task RestoreToAsync()
     {
-        if (Services.Sessions.Current is not { } session)
+        if (Session is not { } session)
         {
             return;
         }
@@ -458,7 +458,8 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         BatchResult? result = null;
         try
         {
-            result = await Services.Coordinator.ExecutePlanAsync(plan, plan.Title).ConfigureAwait(true);
+            // Only in the session the restore was planned in - never with the identity of a newer session.
+            result = await Services.Coordinator.ExecutePlanAsync(plan, plan.Title, RequireSession()).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
@@ -485,7 +486,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         }
     }
 
-    private bool CanConfirm() => IsPreviewing && !IsBusy && _plan is { ExecutableCount: > 0 };
+    private bool CanConfirm() => IsConnected && IsPreviewing && !IsBusy && _plan is { ExecutableCount: > 0 };
 
     /// <summary>Cancels the planning, or leaves the preview and returns to the list (not while the restore runs).</summary>
     [RelayCommand(CanExecute = nameof(CanGoBack))]
@@ -565,7 +566,6 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         if (disposing)
         {
-            Services.Sessions.SessionChanged -= OnSessionChanged;
             Services.Changes.Changed -= OnDirectoryChanged;
             _loads.Cancel();
             _planning.Cancel();
@@ -591,7 +591,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     private void UpdateSessionState()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         IsConnected = session is not null;
         IsRecycleBinEnabled = session?.Info.RecycleBinEnabled == true;
         if (!ReferenceEquals(session, _lifetimeSession))
@@ -605,13 +605,12 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         OnPropertyChanged(nameof(WindowTitle));
     }
 
-    private void OnSessionChanged(object? sender, EventArgs e) => _ = Services.Dispatcher.RunAsync(() =>
+    /// <summary>
+    /// The window does not follow a new session (possibly another identity): the list of the ended session goes,
+    /// restoring is disabled and the window says it must be reopened.
+    /// </summary>
+    protected override void OnSessionEnded()
     {
-        if (IsDisposed)
-        {
-            return;
-        }
-
         _loads.Cancel();
         _planning.Cancel();
         ClosePreview();
@@ -620,7 +619,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         {
             LoadAsync().Forget();
         }
-    });
+    }
 
     /// <summary>Objects deleted elsewhere in the application appear without F5 (debounced, not while a restore is reviewed).</summary>
     private void OnDirectoryChanged(object? sender, DirectoryChangesEventArgs e)
@@ -652,10 +651,10 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         Error = null;
         StatusText = string.Empty;
         NotifySelectionChanged();
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
-            Error = Localizer[L.Errors.NotConnected];
+            Error = NoSessionMessage;
             OnPropertyChanged(nameof(IsEmpty));
             return;
         }
@@ -668,7 +667,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
             if (!ReferenceEquals(session, _lifetimeSession))
             {
                 var lifetime = await Task.Run(() => RecycleBin.ReadLifetimeAsync(session, token), token).ConfigureAwait(true);
-                if (ReferenceEquals(session, Services.Sessions.Current))
+                if (ReferenceEquals(session, Session))
                 {
                     _lifetime = lifetime;
                     _lifetimeSession = session;
@@ -942,7 +941,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
     private async Task PreviewAsync(string? targetContainerDn)
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         var selection = Selection;
         if (session is null || selection.Count == 0)
         {
@@ -994,7 +993,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         _plan = plan;
         _planTarget = targetContainerDn;
-        var schema = Services.Sessions.Current?.Schema;
+        var schema = Session?.Schema;
         var levels = new Dictionary<string, int>(StringComparer.Ordinal);
         var items = new List<RestorePreviewItemViewModel>(plan.Objects.Count);
         foreach (var obj in plan.Objects)

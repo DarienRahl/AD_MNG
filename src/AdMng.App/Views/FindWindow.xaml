@@ -51,6 +51,16 @@
       </DockPanel>
     </Border>
 
+    <!-- The directory session this window was opened in ended: reopen the window to work in the current one. -->
+    <Border Margin="16,12,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding SessionEndedMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock AutomationProperties.LiveSetting="Assertive"
+                 Text="{Binding SessionEndedMessage, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </Border>
+
     <!-- Criteria | Find Now / Stop / Clear All -->
     <Grid Margin="16,12,16,8" DockPanel.Dock="Top">
       <Grid.ColumnDefinitions>

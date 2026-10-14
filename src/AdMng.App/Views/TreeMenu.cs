@@ -2,6 +2,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using AdMng.App.Behaviors;
 using AdMng.App.Localization;
+using AdMng.Core.Model;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -69,12 +71,21 @@ internal static class TreeMenu
         menu.SetBinding(HeaderedItemsControl.HeaderProperty, new TrBinding(L.Shell.MenuNew));
 
         // Creates in the right-clicked container itself, not in the current tab's (it may show another container).
-        menu.Items.Add(Item(L.Commands.NewUser, shell.NewUserCommand, container.Dn));
-        menu.Items.Add(Item(L.Commands.NewGroup, shell.NewGroupCommand, container.Dn));
-        menu.Items.Add(Item(L.Commands.NewOrganizationalUnit, shell.NewOrganizationalUnitCommand, container.Dn));
-        menu.Items.Add(Item(L.Commands.NewComputer, shell.NewComputerCommand, container.Dn));
-        menu.Items.Add(Item(L.Commands.NewContact, shell.NewContactCommand, container.Dn));
+        // Its permissions are read now: classes the operator may not create there are disabled, with the reason.
+        menu.Items.Add(NewItem(shell, L.Commands.NewUser, shell.NewUserCommand, ObjectKind.User, container.Dn));
+        menu.Items.Add(NewItem(shell, L.Commands.NewGroup, shell.NewGroupCommand, ObjectKind.Group, container.Dn));
+        menu.Items.Add(NewItem(shell, L.Commands.NewOrganizationalUnit, shell.NewOrganizationalUnitCommand, ObjectKind.OrganizationalUnit, container.Dn));
+        menu.Items.Add(NewItem(shell, L.Commands.NewComputer, shell.NewComputerCommand, ObjectKind.Computer, container.Dn));
+        menu.Items.Add(NewItem(shell, L.Commands.NewContact, shell.NewContactCommand, ObjectKind.Contact, container.Dn));
+        shell.LoadCreatePermissionsAsync(container.Dn).Forget();
         return menu;
+    }
+
+    private static MenuItem NewItem(ShellViewModel shell, string titleKey, ICommand command, ObjectKind kind, string containerDn)
+    {
+        var item = Item(titleKey, command, containerDn);
+        DisabledReasonToolTip.Apply(item, titleKey, shortcut: null, () => shell.CreateBlockedReason(kind, containerDn));
+        return item;
     }
 
     private static MenuItem CommandItem(string id, ShellViewModel shell)

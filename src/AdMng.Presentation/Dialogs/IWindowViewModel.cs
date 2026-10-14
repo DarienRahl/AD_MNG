@@ -1,6 +1,10 @@
 using System.ComponentModel;
+using AdMng.Core.Directory;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AdMng.Presentation.Dialogs;
@@ -36,13 +40,27 @@ public interface IWindowViewModel : INotifyPropertyChanged, IDisposable
     Task<bool> CanCloseAsync();
 }
 
-/// <summary>Base class of window view models: title refresh on language change, close request, disposal.</summary>
+/// <summary>
+/// Base class of window view models: title refresh on language change, close request, disposal, and the directory
+/// session the window belongs to.
+/// </summary>
+/// <remarks>
+/// A window is pinned to the session that was current when it was opened (<see cref="Session"/>). When that session
+/// ends - disconnect, or a new connection, possibly with another identity - the window does not follow the new
+/// session: <see cref="IsSessionEnded"/> becomes true, <see cref="OnSessionEnded"/> lets the window disable its
+/// commands, and reads and writes are refused. Otherwise a property sheet opened by a helpdesk operator would apply
+/// its changes as the administrator who connected next. Reopening the window uses the current session.
+/// </remarks>
 public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 {
+    private readonly IDirectorySession? _openedIn;
+
     protected WindowViewModelBase(DialogServices services)
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
+        _openedIn = services.Sessions.Current;
         Services.Localizer.CultureChanged += OnLocalizerCultureChanged;
+        Services.Sessions.SessionChanged += OnSessionsChanged;
     }
 
     public event EventHandler<bool?>? CloseRequested;
@@ -52,11 +70,47 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// <summary>True after <see cref="Dispose()"/> (the window closed).</summary>
     public bool IsDisposed { get; private set; }
 
+    /// <summary>
+    /// The session this window was opened in has ended: the window no longer reads or writes (Apply, Execute, Restore...
+    /// are disabled) and must be reopened. False for a window opened while disconnected.
+    /// </summary>
+    public bool IsSessionEnded { get; private set; }
+
+    /// <summary>Localized "session ended - reopen the window" while <see cref="IsSessionEnded"/>, else null.</summary>
+    public string? SessionEndedMessage => IsSessionEnded ? Localizer[L.WindowSession.Ended] : null;
+
     protected DialogServices Services { get; }
 
     protected ILocalizer Localizer => Services.Localizer;
 
     protected ErrorTranslator Errors => Services.Errors;
+
+    /// <summary>
+    /// The session this window was opened in, while it is still the current session; null once it ended (or when the
+    /// window was opened while disconnected). Never another session.
+    /// </summary>
+    protected IDirectorySession? Session => _openedIn is { } session && ReferenceEquals(session, Services.Sessions.Current) ? session : null;
+
+    /// <summary>
+    /// Schema of the session this window was opened in, also after that session ended: in-memory metadata used to
+    /// recognize secret attributes when exporting what the window already shows. Never used to talk to a DC.
+    /// </summary>
+    protected ISchemaCatalog? OpenedSessionSchema => _openedIn?.Schema;
+
+    /// <summary>
+    /// False for windows that never act in the directory session (e.g. the PowerShell history): they do not end with
+    /// it and are reused after a reconnect.
+    /// </summary>
+    protected virtual bool UsesSession => true;
+
+    /// <summary>Localized reason why <see cref="Session"/> is null: the session ended, or not connected.</summary>
+    protected string NoSessionMessage => Localizer[_openedIn is null ? L.Errors.NotConnected : L.WindowSession.Ended];
+
+    /// <summary><see cref="Session"/>, or an exception that <see cref="ErrorTranslator"/> explains.</summary>
+    /// <exception cref="SessionEndedException">The session of the window ended.</exception>
+    /// <exception cref="InvalidOperationException">The window was opened while disconnected.</exception>
+    protected IDirectorySession RequireSession() =>
+        Session ?? (_openedIn is null ? throw new InvalidOperationException("Not connected to a directory.") : throw new SessionEndedException());
 
     public virtual Task InitializeAsync() => Task.CompletedTask;
 
@@ -71,6 +125,7 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 
         IsDisposed = true;
         Services.Localizer.CultureChanged -= OnLocalizerCultureChanged;
+        Services.Sessions.SessionChanged -= OnSessionsChanged;
         Dispose(true);
         GC.SuppressFinalize(this);
     }
@@ -84,7 +139,32 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     protected void RequestClose(bool? dialogResult) => CloseRequested?.Invoke(this, dialogResult);
 
     /// <summary>Called after the UI language changed (on the thread that changed it). Refreshes the title by default.</summary>
-    protected virtual void OnCultureChanged() => OnPropertyChanged(nameof(WindowTitle));
+    protected virtual void OnCultureChanged()
+    {
+        OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(SessionEndedMessage));
+    }
+
+    /// <summary>
+    /// Called once on the UI thread after the session of the window ended (<see cref="IsSessionEnded"/> is already
+    /// true): stop running reads, show <see cref="SessionEndedMessage"/> and refresh the commands that write.
+    /// </summary>
+    protected virtual void OnSessionEnded()
+    {
+    }
 
     private void OnLocalizerCultureChanged(object? sender, EventArgs e) => OnCultureChanged();
+
+    private void OnSessionsChanged(object? sender, EventArgs e) => _ = Services.Dispatcher.RunAsync(() =>
+    {
+        if (IsDisposed || IsSessionEnded || !UsesSession || _openedIn is null || ReferenceEquals(_openedIn, Services.Sessions.Current))
+        {
+            return;
+        }
+
+        IsSessionEnded = true;
+        OnPropertyChanged(nameof(IsSessionEnded));
+        OnPropertyChanged(nameof(SessionEndedMessage));
+        OnSessionEnded();
+    });
 }

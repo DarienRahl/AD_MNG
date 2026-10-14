@@ -300,6 +300,33 @@ public class CsvImportPlannerTests
         Assert.Equal(IssueCodes.NotFound, Assert.Single(plan.Objects[1].Issues).Code);
     }
 
+    [Fact]
+    public async Task DistinguishedNameKeys_RespectSearchBaseAndKind()
+    {
+        // Rows: inside the base (user), outside the base (user), the base itself (an OU), a group inside the base.
+        var table = Table(
+            $"dn;title\n\"{_company.JanKowalski}\";Kierownik\n\"{_company.PawelLewandowski}\";Prezes\n\"{_company.ItOu}\";x\n\"{_company.GroupIt}\";x\n");
+        var mapping = Mapping("dn", Attr.DistinguishedName, ("title", Attr.Title)) with { SearchBaseDn = _company.ItOu, Kind = ObjectKind.User };
+        Session.SetValues(_company.GroupIt, Attr.Title, "x");
+
+        var restricted = await PlanAsync(table, mapping);
+        var kindOnly = await PlanAsync(table, mapping with { SearchBaseDn = _company.CompanyOu });
+
+        Assert.False(restricted.Objects[0].HasErrors);
+        Assert.Equal(["Kierownik"], Change(restricted.Objects[0], Attr.Title).NewValues);
+        var outside = Assert.Single(restricted.Objects[1].Issues);
+        Assert.Equal(IssueCodes.NotFound, outside.Code);
+        Assert.Contains("search base", outside.Message, StringComparison.Ordinal);
+        Assert.Empty(restricted.Objects[1].Changes);
+        Assert.Equal(IssueCodes.NotFound, Assert.Single(restricted.Objects[2].Issues).Code);
+        Assert.Equal(IssueCodes.NotFound, Assert.Single(restricted.Objects[3].Issues).Code);
+        Assert.Equal(1, restricted.ExecutableCount);
+        Assert.Equal(_company.PawelLewandowski, kindOnly.Objects[1].DistinguishedName);
+        Assert.False(kindOnly.Objects[1].HasErrors);
+        Assert.Equal(IssueCodes.NotFound, Assert.Single(kindOnly.Objects[3].Issues).Code);
+        Assert.Equal(2, kindOnly.ExecutableCount);
+    }
+
     [Theory]
     [InlineData("brak", Attr.SamAccountName, "title", Attr.Title)]
     [InlineData("login", Attr.SamAccountName, "brak", Attr.Title)]

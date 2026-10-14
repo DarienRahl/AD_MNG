@@ -19,6 +19,12 @@ public sealed record CommandDescriptor(string Id, string TitleKey, string Catego
 {
     /// <summary>Optional parameter passed to <see cref="Command"/>.</summary>
     public object? Parameter { get; init; }
+
+    /// <summary>
+    /// Optional localized reason why <see cref="Command"/> cannot execute with the given parameter (e.g. missing
+    /// permissions), shown as the tool tip of the disabled menu item or button; null = no specific reason.
+    /// </summary>
+    public Func<object?, string?>? DisabledReason { get; init; }
 }
 
 /// <summary>One palette entry (descriptor with localized texts).</summary>

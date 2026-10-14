@@ -124,10 +124,10 @@ public sealed partial class FindViewModel : WindowViewModelBase
         Kinds = [.. Enum.GetValues<FindKind>().Select(k => new Option<FindKind>(k, Localizer[DisplayNames.FindKindKey(k)]))];
         Kind = Kinds[0];
         Operators = [.. Enum.GetValues<FindOperator>().Select(o => new Option<FindOperator>(o, Localizer[DisplayNames.FindOperatorKey(o)]))];
-        var schema = services.Sessions.Current?.Schema;
+        var schema = Session?.Schema;
         Fields = [.. CommonFields.Select(a => new Option<string>(a, Localizer.AttributeName(a, schema)))];
         SearchBaseDn = startDn;
-        Results = services.Lists.CreateList();
+        Results = services.Lists.CreateList(() => Session);
         Conditions.CollectionChanged += (_, _) => RegenerateFilter();
         RegenerateFilter();
     }
@@ -186,7 +186,7 @@ public sealed partial class FindViewModel : WindowViewModelBase
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        var session = Services.Sessions.Current;
+        var session = Session;
         if (session is null)
         {
             return;
@@ -230,7 +230,8 @@ public sealed partial class FindViewModel : WindowViewModelBase
     [RelayCommand(CanExecute = nameof(CanFindNow))]
     private async Task FindNowAsync()
     {
-        var session = Services.Sessions.Current;
+        // Searches only in the session the window was opened in (the results open properties in it).
+        var session = Session;
         if (session is null || FilterError is not null)
         {
             return;
@@ -243,7 +244,7 @@ public sealed partial class FindViewModel : WindowViewModelBase
         await Results.NavigateAsync(location).ConfigureAwait(true);
     }
 
-    private bool CanFindNow() => FilterError is null && FilterText.Trim().Length > 0;
+    private bool CanFindNow() => FilterError is null && FilterText.Trim().Length > 0 && !IsSessionEnded;
 
     [RelayCommand]
     private void Stop() => Results.CancelLoad();
@@ -266,11 +267,22 @@ public sealed partial class FindViewModel : WindowViewModelBase
     }
 
     /// <summary>Opens the properties of the selected result (double click / Enter).</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsSessionActive))]
     private Task OpenAsync(ObjectRowViewModel? row)
     {
         row ??= Results.SelectedItem;
-        return row is null ? Task.CompletedTask : Services.Dialogs.ShowPropertiesAsync(row.Dn);
+        return row is null || IsSessionEnded ? Task.CompletedTask : Services.Dialogs.ShowPropertiesAsync(row.Dn);
+    }
+
+    private bool IsSessionActive(ObjectRowViewModel? row) => !IsSessionEnded;
+
+    /// <remarks>The results of the ended session stay visible, but are neither refreshed nor opened.</remarks>
+    protected override void OnSessionEnded()
+    {
+        Results.CancelLoad();
+        Results.Dispose();
+        FindNowCommand.NotifyCanExecuteChanged();
+        OpenCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnKindChanged(Option<FindKind> oldValue, Option<FindKind> newValue)

@@ -1247,6 +1247,12 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
     <value>Operacje w tle nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
   </data>
+  <data name="WindowSession.Ended" xml:space="preserve">
+    <value>Sesja, w której otwarto to okno, została zakończona (rozłączenie lub ponowne połączenie). Zamknij to okno i otwórz je ponownie.</value>
+  </data>
+  <data name="Permissions.CannotCreate" xml:space="preserve">
+    <value>Nie masz uprawnień do tworzenia obiektów typu „{0}” w tym kontenerze.</value>
+  </data>
   <data name="Shell.MenuAction" xml:space="preserve">
     <value>Akcja</value>
   </data>

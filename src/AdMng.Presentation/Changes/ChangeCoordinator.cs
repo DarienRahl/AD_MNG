@@ -1,5 +1,6 @@
 using System.Text;
 using AdMng.Core.Batch;
+using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
@@ -72,6 +73,19 @@ public interface IChangeCoordinator
     /// progress and cancel - other activities started meanwhile are not confused with it.
     /// </summary>
     Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, Action<ActivityViewModel>? started, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Like <see cref="ExecutePlanAsync(ChangePlan, string, Action{ActivityViewModel}?, CancellationToken)"/>, but only in
+    /// <paramref name="session"/> - the session a window was opened (and planned) in. When it is no longer the current
+    /// session (disconnected, or connected again - possibly as another identity) nothing is written and
+    /// <see cref="SessionEndedException"/> is thrown: a window never writes with the identity of a newer session.
+    /// </summary>
+    Task<BatchResult> ExecutePlanAsync(
+        ChangePlan plan,
+        string title,
+        IDirectorySession session,
+        Action<ActivityViewModel>? started = null,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>Default <see cref="IChangeCoordinator"/>.</summary>
@@ -213,7 +227,33 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     public async Task<BatchResult> ExecutePlanAsync(ChangePlan plan, string title, Action<ActivityViewModel>? started, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
-        var session = _sessions.RequireSession();
+        return await ExecuteCoreAsync(plan, title, _sessions.RequireSession(), started, cancellationToken).ConfigureAwait(true);
+    }
+
+    public async Task<BatchResult> ExecutePlanAsync(
+        ChangePlan plan,
+        string title,
+        IDirectorySession session,
+        Action<ActivityViewModel>? started = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(session);
+        if (!ReferenceEquals(_sessions.Current, session))
+        {
+            throw new SessionEndedException();
+        }
+
+        return await ExecuteCoreAsync(plan, title, session, started, cancellationToken).ConfigureAwait(true);
+    }
+
+    private async Task<BatchResult> ExecuteCoreAsync(
+        ChangePlan plan,
+        string title,
+        IDirectorySession session,
+        Action<ActivityViewModel>? started,
+        CancellationToken cancellationToken)
+    {
         var options = new BatchOptions { MaxDegreeOfParallelism = _settings.Current.BatchMaxParallelism };
         var (activity, execution) = _activities.Start(
             title, plan.ExecutableCount, (progress, token) => _executor.ExecuteAsync(session, plan, options, progress, token));

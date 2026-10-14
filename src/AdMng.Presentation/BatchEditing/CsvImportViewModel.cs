@@ -2,12 +2,14 @@ using System.Collections.ObjectModel;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
+using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -73,11 +75,19 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
     private readonly DialogServices _services;
     private readonly BatchEngines _engines;
+    private readonly Func<IDirectorySession?> _session;
 
-    public CsvImportViewModel(DialogServices services, BatchEngines engines)
+    /// <param name="services">Shared dialog services.</param>
+    /// <param name="engines">CSV planner and codec.</param>
+    /// <param name="session">
+    /// The session to plan in: the batch editor passes the session its window was opened in (null once it ended).
+    /// Default: the current session.
+    /// </param>
+    public CsvImportViewModel(DialogServices services, BatchEngines engines, Func<IDirectorySession?>? session = null)
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         _engines = engines ?? throw new ArgumentNullException(nameof(engines));
+        _session = session ?? (() => services.Sessions.Current);
         var localizer = services.Localizer;
         KeyAttributes = [.. KeyAttributeNames.Select(a => new Option<string>(a, AttributeText(a)))];
         KeyAttribute = KeyAttributes[0];
@@ -197,7 +207,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
     [RelayCommand]
     private async Task BrowseSearchBaseAsync()
     {
-        var session = _services.Sessions.Current;
+        var session = _session();
         if (session is null)
         {
             return;
@@ -341,7 +351,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
     /// </summary>
     public async Task<ChangePlan> PlanAsync(IProgress<int>? progress, CancellationToken cancellationToken, IReadOnlyCollection<int>? onlyRows = null)
     {
-        var session = _services.Sessions.RequireSession();
+        var session = _session() ?? throw new SessionEndedException();
         var mapping = BuildMapping();
         var table = Table!;
         IReadOnlyList<int> rowNumbers = onlyRows is null
@@ -419,14 +429,14 @@ public sealed partial class CsvImportViewModel : ObservableObject
             return _services.Localizer.Format(L.Csv.DuplicateMapping, duplicate.Key);
         }
 
-        var schema = _services.Sessions.Current?.Schema;
+        var schema = _session()?.Schema;
         var unknown = mapped.FirstOrDefault(m => schema is { Attributes.Count: > 0 } && schema.FindAttribute(AttributeName(m.Attribute)) is null);
         return unknown is null ? null : _services.Localizer.Format(L.Csv.UnknownAttribute, unknown.Attribute);
     }
 
     private void UpdateAttributeOptions()
     {
-        var schema = _services.Sessions.Current?.Schema;
+        var schema = _session()?.Schema;
         if (schema is null)
         {
             AttributeOptions = [];
@@ -454,7 +464,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
             return null;
         }
 
-        var schema = _services.Sessions.Current?.Schema;
+        var schema = _session()?.Schema;
         var bracketed = AttributeName(text);
         if (!string.Equals(bracketed, text, StringComparison.Ordinal) && (schema is null || schema.FindAttribute(bracketed) is not null))
         {
@@ -495,7 +505,7 @@ public sealed partial class CsvImportViewModel : ObservableObject
 
     private string AttributeText(string attribute)
     {
-        var name = _services.Localizer.AttributeName(attribute, _services.Sessions.Current?.Schema);
+        var name = _services.Localizer.AttributeName(attribute, _session()?.Schema);
         return string.Equals(name, attribute, StringComparison.OrdinalIgnoreCase) ? attribute : $"{name} [{attribute}]";
     }
 }

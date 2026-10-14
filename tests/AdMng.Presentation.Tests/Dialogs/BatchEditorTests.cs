@@ -200,6 +200,80 @@ public class BatchEditorTests
     }
 
     [Fact]
+    public async Task RetryFailed_RunsOnlyTheStepsThatFailedOrDidNotRun()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        var editor = harness.Factory.CreateBatchEditor(new BatchEditorRequest([jan])
+        {
+            // Not idempotent: applied twice, the find/replace would turn the company into "Contoso Polska Polska ...".
+            Operations = [new FindReplaceOperation(Attr.Company, "Contoso", "Contoso Polska"), new AddToGroupsOperation([harness.Company.GroupSales])],
+        });
+        await editor.InitializeAsync();
+        harness.Session.FailNext(FakeOperationKind.Modify, harness.Company.GroupSales, DirectoryErrorKind.AccessDenied);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(ObjectResultStatus.PartiallySucceeded, Assert.Single(editor.Result!.Objects).Status);
+        Assert.Equal("Contoso Polska Sp. z o.o.", harness.Value(jan, Attr.Company));
+
+        await editor.RetryFailedCommand.ExecuteAsync(null);
+
+        var retried = Assert.Single(editor.PreviewObjects).Plan;
+        Assert.Equal(ChangeAction.AddMember, Assert.Single(retried.Changes).Action);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(ObjectResultStatus.Succeeded, Assert.Single(editor.Result!.Objects).Status);
+        Assert.Equal("Contoso Polska Sp. z o.o.", harness.Value(jan, Attr.Company));
+        Assert.Contains(jan, harness.Values(harness.Company.GroupSales, Attr.Member));
+    }
+
+    [Fact]
+    public async Task RetryFailed_DoesNotResetThePasswordAgain_WhereTheResetSucceeded()
+    {
+        var (editor, harness) = await OpenAsync(
+            c => [c.JanKowalski, c.LukaszWisniewski, c.ZanetaSzymanska],
+            new ResetPasswordOperation(PasswordMode.GenerateUnique),
+            new SetAttributeOperation(Attr.Title, "Konsultant"));
+        var lukasz = harness.Company.LukaszWisniewski;
+        var zaneta = harness.Company.ZanetaSzymanska;
+
+        // Łukasz: the reset succeeds, the following modify (pwdLastSet = 0, title) fails. Żaneta: the reset itself fails.
+        harness.Session.FailNext(FakeOperationKind.Modify, lukasz, DirectoryErrorKind.AccessDenied);
+        harness.Session.FailNext(FakeOperationKind.ResetPassword, zaneta, DirectoryErrorKind.AccessDenied);
+        await editor.PreviewCommand.ExecuteAsync(null);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(ObjectResultStatus.PartiallySucceeded, editor.Result!.Objects.Single(o => o.Plan.DistinguishedName == lukasz).Status);
+        Assert.Equal(ObjectResultStatus.Failed, editor.Result!.Objects.Single(o => o.Plan.DistinguishedName == zaneta).Status);
+        var lukaszPassword = Assert.Single(harness.Session.PasswordResets, r => r.DistinguishedName == lukasz).Password;
+        Assert.Equal(2, harness.Session.PasswordResets.Count);
+
+        // Retry: Łukasz keeps the password he got (only the failed steps are planned again), Żaneta gets her reset.
+        await editor.RetryFailedCommand.ExecuteAsync(null);
+        Assert.Equal(BatchEditorStep.Preview, editor.Step);
+        var lukaszPlan = editor.PreviewObjects.Single(o => o.Plan.DistinguishedName == lukasz).Plan;
+        Assert.DoesNotContain(lukaszPlan.Changes, c => c.Action == ChangeAction.ResetPassword);
+        Assert.Contains(lukaszPlan.Changes.SelectMany(c => c.Attributes), a => a.Attribute == Attr.PwdLastSet && a.NewValues.SequenceEqual(["0"]));
+        Assert.Contains(editor.PreviewObjects.Single(o => o.Plan.DistinguishedName == zaneta).Plan.Changes, c => c.Action == ChangeAction.ResetPassword);
+
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(true);
+        harness.Session.FailNext(FakeOperationKind.Modify, lukasz, DirectoryErrorKind.AccessDenied);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(3, harness.Session.PasswordResets.Count);
+        Assert.Equal(lukaszPassword, harness.Session.PasswordResets.Last(r => r.DistinguishedName == lukasz).Password);
+
+        // Still failing for Łukasz: a second retry must not reset his password either.
+        await editor.RetryFailedCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(editor.PreviewObjects.SelectMany(o => o.Plan.Changes), c => c.Action == ChangeAction.ResetPassword);
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        await editor.ExecuteCommand.ExecuteAsync(null);
+        Assert.Equal(3, harness.Session.PasswordResets.Count);
+        Assert.Equal(ObjectResultStatus.Succeeded, Assert.Single(editor.Result!.Objects).Status);
+        Assert.Equal("Konsultant", harness.Value(lukasz, Attr.Title));
+        Assert.Equal("0", harness.Value(lukasz, Attr.PwdLastSet));
+    }
+
+    [Fact]
     public async Task ValueChangedAfterThePreview_IsReportedAsAConflict()
     {
         var harness = await B2Harness.CreateAsync();

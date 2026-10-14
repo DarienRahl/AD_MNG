@@ -324,22 +324,55 @@ public sealed class CsvImportPlanner : ICsvImportPlanner
             return IsDnKey ? PlanningContext.Key(key) : key;
         }
 
+        /// <summary>
+        /// DN keys are read directly, but match only what a search would match: objects in the search base (default:
+        /// the domain) of the requested kind. Other DNs become <see cref="IssueCodes.NotFound"/> row errors.
+        /// </summary>
         private async Task ResolveByDnAsync(IReadOnlyList<string> keys)
         {
-            var results = new DirectoryObject?[keys.Count];
+            var baseDn = _mapping.SearchBaseDn ?? _context.Session.Info.DefaultNamingContext;
+            if (!DistinguishedName.TryParse(baseDn, out var searchBase))
+            {
+                throw new ArgumentException($"The search base '{baseDn}' is not a valid distinguished name.", nameof(keys));
+            }
+
+            var inBase = new List<string>();
+            foreach (var key in keys)
+            {
+                var dn = DistinguishedName.Parse(key);
+                if (dn == searchBase || dn.IsDescendantOf(searchBase))
+                {
+                    inBase.Add(key);
+                }
+                else
+                {
+                    _errors[key] = PlanValidation.Error(IssueCodes.NotFound, $"'{key}' is outside the search base '{searchBase}'.");
+                }
+            }
+
+            var results = new DirectoryObject?[inBase.Count];
             await Parallel.ForEachAsync(
-                Enumerable.Range(0, keys.Count),
+                Enumerable.Range(0, inBase.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = _context.MaxDegreeOfParallelism, CancellationToken = _context.CancellationToken },
                 async (index, token) =>
                 {
-                    results[index] = await _context.Session.GetAsync(keys[index], _attributes, token).ConfigureAwait(false);
+                    results[index] = await _context.Session.GetAsync(inBase[index], _attributes, token).ConfigureAwait(false);
                 }).ConfigureAwait(false);
 
-            for (var i = 0; i < keys.Count; i++)
+            for (var i = 0; i < inBase.Count; i++)
             {
-                if (results[i] is { } found && MatchesKind(found))
+                if (results[i] is not { } found)
                 {
-                    _matches[keys[i]].Add(found);
+                    continue;
+                }
+
+                if (MatchesKind(found))
+                {
+                    _matches[inBase[i]].Add(found);
+                }
+                else
+                {
+                    _errors[inBase[i]] = PlanValidation.Error(IssueCodes.NotFound, $"'{inBase[i]}' is not an object of the kind {_mapping.Kind}.");
                 }
             }
         }

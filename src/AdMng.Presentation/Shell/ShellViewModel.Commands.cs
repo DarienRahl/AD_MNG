@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
@@ -21,6 +23,13 @@ public sealed partial class ShellViewModel
     /// <summary>Maximum length of an RDN value (cn/ou rangeUpper).</summary>
     public const int MaxNameLength = 64;
 
+    /// <summary>Containers whose create permissions are remembered (current container, tree context menus).</summary>
+    private const int MaxCreatePermissions = 32;
+
+    /// <summary>allowedChildClassesEffective of containers (DnKey) in <see cref="_createPermissionsSession"/>.</summary>
+    private readonly ConcurrentDictionary<string, EffectivePermissions> _createPermissions = new(StringComparer.Ordinal);
+    private IDirectorySession? _createPermissionsSession;
+    private string? _createPermissionsRequested;
     private IRelayCommand[]? _stateCommands;
 
     /// <summary>Raised by <see cref="BeginRenameCommand"/>: the view puts the row's name cell into edit mode and calls <see cref="RenameAsync"/>.</summary>
@@ -48,7 +57,67 @@ public sealed partial class ShellViewModel
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
     public void RefreshCommandStates()
     {
+        RequestCreatePermissions();
         foreach (var command in StateCommands)
+        {
+            command.NotifyCanExecuteChanged();
+        }
+    }
+
+    /// <summary>
+    /// Why the operator cannot create <paramref name="kind"/> in <paramref name="parentDn"/> (default: the current
+    /// container) - localized, from allowedChildClassesEffective (ADR-0006) - or null when it is allowed or the
+    /// permissions are not known (the DC decides then).
+    /// </summary>
+    public string? CreateBlockedReason(ObjectKind kind, string? parentDn = null)
+    {
+        if (CreateTarget(parentDn) is not { } parent
+            || Sessions.Current is not { } session
+            || !ReferenceEquals(session, _createPermissionsSession)
+            || !_createPermissions.TryGetValue(DnKey.For(parent), out var permissions)
+            || permissions.CanCreate(CreatedClass(kind)))
+        {
+            return null;
+        }
+
+        return Localizer.Format(L.Permissions.CannotCreate, Localizer.ObjectKindName(kind));
+    }
+
+    /// <summary>
+    /// Reads what the operator may create in <paramref name="containerDn"/> (e.g. when the tree's context menu opens
+    /// on it) and updates the New commands. Never throws: unreadable permissions count as unknown.
+    /// </summary>
+    public async Task LoadCreatePermissionsAsync(string containerDn)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(containerDn);
+        if (Sessions.Current is not { } session)
+        {
+            return;
+        }
+
+        UseCreatePermissionsOf(session);
+        EffectivePermissions permissions;
+        try
+        {
+            permissions = await Task.Run(() => session.GetEffectivePermissionsAsync(containerDn, CancellationToken.None)).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is DirectoryException or OperationCanceledException or ObjectDisposedException or InvalidOperationException)
+        {
+            permissions = EffectivePermissions.Unknown;
+        }
+
+        if (_disposed || !ReferenceEquals(session, _createPermissionsSession))
+        {
+            return;
+        }
+
+        if (_createPermissions.Count >= MaxCreatePermissions)
+        {
+            _createPermissions.Clear();
+        }
+
+        _createPermissions[DnKey.For(containerDn)] = permissions;
+        foreach (var command in new IRelayCommand[] { NewUserCommand, NewGroupCommand, NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand })
         {
             command.NotifyCanExecuteChanged();
         }
@@ -288,23 +357,75 @@ public sealed partial class ShellViewModel
         _dialogs.ShowBatchEditorAsync(new BatchEditorRequest(Dns(CurrentSelection)) { Title = Localizer[L.Commands.BatchEdit] });
 
     // The New commands take an optional parent DN: the tree's context menu passes the right-clicked container (which
-    // need not be the current tab's); menus, toolbar, shortcuts and the palette pass none (CurrentContainerDn).
-    [RelayCommand(CanExecute = nameof(CanCreate))]
+    // need not be the current tab's); menus, toolbar, shortcuts and the palette pass none (CurrentContainerDn). They
+    // are disabled where the operator's effective permissions do not allow the class (unknown permissions: enabled).
+    [RelayCommand(CanExecute = nameof(CanCreateUser))]
     private Task NewUserAsync(string? parentDn) => CreateObjectAsync(ObjectKind.User, parentDn);
 
-    [RelayCommand(CanExecute = nameof(CanCreate))]
+    [RelayCommand(CanExecute = nameof(CanCreateGroup))]
     private Task NewGroupAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Group, parentDn);
 
-    [RelayCommand(CanExecute = nameof(CanCreate))]
+    [RelayCommand(CanExecute = nameof(CanCreateOrganizationalUnit))]
     private Task NewOrganizationalUnitAsync(string? parentDn) => CreateObjectAsync(ObjectKind.OrganizationalUnit, parentDn);
 
-    [RelayCommand(CanExecute = nameof(CanCreate))]
+    [RelayCommand(CanExecute = nameof(CanCreateComputer))]
     private Task NewComputerAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Computer, parentDn);
 
-    [RelayCommand(CanExecute = nameof(CanCreate))]
+    [RelayCommand(CanExecute = nameof(CanCreateContact))]
     private Task NewContactAsync(string? parentDn) => CreateObjectAsync(ObjectKind.Contact, parentDn);
 
-    private bool CanCreate() => IsConnected && CurrentContainerDn is not null;
+    private bool CanCreateUser(string? parentDn) => CanCreate(ObjectKind.User, parentDn);
+
+    private bool CanCreateGroup(string? parentDn) => CanCreate(ObjectKind.Group, parentDn);
+
+    private bool CanCreateOrganizationalUnit(string? parentDn) => CanCreate(ObjectKind.OrganizationalUnit, parentDn);
+
+    private bool CanCreateComputer(string? parentDn) => CanCreate(ObjectKind.Computer, parentDn);
+
+    private bool CanCreateContact(string? parentDn) => CanCreate(ObjectKind.Contact, parentDn);
+
+    private bool CanCreate(ObjectKind kind, string? parentDn) =>
+        IsConnected && CreateTarget(parentDn) is not null && CreateBlockedReason(kind, parentDn) is null;
+
+    private string? CreateTarget(string? parentDn) => string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn;
+
+    private static string CreatedClass(ObjectKind kind) => kind switch
+    {
+        ObjectKind.Group => ObjectClasses.Group,
+        ObjectKind.OrganizationalUnit => ObjectClasses.OrganizationalUnit,
+        ObjectKind.Computer => ObjectClasses.Computer,
+        ObjectKind.Contact => ObjectClasses.Contact,
+        _ => ObjectClasses.User,
+    };
+
+    /// <summary>Forgets the permissions of another (closed) session.</summary>
+    private void UseCreatePermissionsOf(IDirectorySession? session)
+    {
+        if (!ReferenceEquals(session, _createPermissionsSession))
+        {
+            _createPermissions.Clear();
+            _createPermissionsRequested = null;
+            _createPermissionsSession = session;
+        }
+    }
+
+    /// <summary>Reads the create permissions of the current container once it changed (the New commands follow them).</summary>
+    private void RequestCreatePermissions()
+    {
+        var session = Sessions.Current;
+        UseCreatePermissionsOf(session);
+        if (session is null || _disposed || CurrentContainerDn is not { } container)
+        {
+            return;
+        }
+
+        var key = DnKey.For(container);
+        if (!string.Equals(key, _createPermissionsRequested, StringComparison.Ordinal))
+        {
+            _createPermissionsRequested = key;
+            LoadCreatePermissionsAsync(container).Forget();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task FindAsync() => _dialogs.ShowFindAsync(SelectedDocument?.Location is { Kind: ListLocationKind.Container } ? CurrentContainerDn : null);
@@ -573,10 +694,16 @@ public sealed partial class ShellViewModel
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private async Task DisconnectAsync()
     {
-        if (_activities.HasRunning
-            && !await _dialogs.ConfirmAsync(Localizer[L.Commands.Disconnect], Localizer[L.Shell.DisconnectWhileRunning], destructive: true).ConfigureAwait(true))
+        if (_activities.HasRunning)
         {
-            return;
+            if (!await _dialogs.ConfirmAsync(Localizer[L.Commands.Disconnect], Localizer[L.Shell.DisconnectWhileRunning], destructive: true).ConfigureAwait(true))
+            {
+                return;
+            }
+
+            // Cancel before the session closes: writes in flight complete and are reported, the rest is reported as
+            // cancelled - instead of failing on a closed connection with an unknown outcome (and no undo).
+            await _activities.CancelRunningAsync().ConfigureAwait(true);
         }
 
         await Sessions.DisconnectAsync().ConfigureAwait(true);

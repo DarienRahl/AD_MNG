@@ -603,6 +603,48 @@ public class ShellViewModelTests
     }
 
     [Fact]
+    public async Task NewCommands_FollowTheCreatePermissionsOfTheTargetContainer()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        harness.Directory.Permissions = dn => Core.Ldap.DistinguishedName.AreEqual(dn, It)
+            ? new EffectivePermissions
+            {
+                IsKnown = true,
+                CreatableChildClasses = new HashSet<string>(["user", "contact"], StringComparer.OrdinalIgnoreCase),
+            }
+            : null;
+        var shell = harness.CreateShell();
+        await shell.InitializeAsync();
+
+        await shell.NavigateAsync(ListLocation.ForContainer(It));
+        await ObjectListViewModelTests.WaitUntilAsync(() => !shell.NewGroupCommand.CanExecute(null));
+
+        Assert.True(shell.NewUserCommand.CanExecute(null));
+        Assert.True(shell.NewContactCommand.CanExecute(null));
+        Assert.False(shell.NewOrganizationalUnitCommand.CanExecute(null));
+        Assert.False(shell.NewComputerCommand.CanExecute(null));
+        Assert.Equal("You do not have permission to create objects of type 'Group' in this container.", shell.CreateBlockedReason(ObjectKind.Group));
+        Assert.Equal(shell.CreateBlockedReason(ObjectKind.Group), shell.CommandPalette.Find("new.group")!.DisabledReason!(null));
+        Assert.Null(shell.CreateBlockedReason(ObjectKind.User));
+        shell.CommandPalette.Refresh();
+        Assert.DoesNotContain(shell.CommandPalette.Results, r => r.Descriptor.Id == "new.group");
+        Assert.Contains(shell.CommandPalette.Results, r => r.Descriptor.Id == "new.user");
+
+        // Unknown permissions (Księgowość): everything stays enabled and the DC decides.
+        Assert.True(shell.NewGroupCommand.CanExecute(Ksiegowosc));
+        await shell.NavigateAsync(ListLocation.ForContainer(Ksiegowosc));
+        await ObjectListViewModelTests.WaitUntilAsync(() => shell.NewGroupCommand.CanExecute(null));
+        Assert.Null(shell.CreateBlockedReason(ObjectKind.Group));
+
+        // The tree's context menu on IT while the tab shows Księgowość: the clicked container's permissions count.
+        await shell.LoadCreatePermissionsAsync(It);
+        Assert.False(shell.NewGroupCommand.CanExecute(It));
+        Assert.True(shell.NewUserCommand.CanExecute(It));
+        Assert.True(shell.NewGroupCommand.CanExecute(null));
+        Assert.Contains(It, harness.Directory.PermissionReads);
+    }
+
+    [Fact]
     public async Task EditingTheShownSavedView_RunsItsNewDefinition()
     {
         var (shell, harness) = await CreateShellAsync();

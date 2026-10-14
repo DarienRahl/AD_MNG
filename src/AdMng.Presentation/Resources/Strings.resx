@@ -1247,6 +1247,12 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
     <value>Background operations are still running. Disconnect anyway? Running operations will be interrupted.</value>
   </data>
+  <data name="WindowSession.Ended" xml:space="preserve">
+    <value>The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.</value>
+  </data>
+  <data name="Permissions.CannotCreate" xml:space="preserve">
+    <value>You do not have permission to create objects of type '{0}' in this container.</value>
+  </data>
   <data name="Shell.MenuAction" xml:space="preserve">
     <value>Action</value>
   </data>

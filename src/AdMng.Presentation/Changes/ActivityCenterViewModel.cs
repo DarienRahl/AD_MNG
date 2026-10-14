@@ -70,6 +70,27 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
         return new ActivityRun(activity, RunAsync(activity, progress, work));
     }
 
+    /// <summary>
+    /// Cancels every running activity and waits until all of them have ended - also activities started meanwhile.
+    /// Steps already sent to the DC complete and are reported, objects not reached are reported as cancelled, so the
+    /// results stay complete (and undoable). Call before the session closes, on the UI thread. Never throws.
+    /// </summary>
+    public async Task CancelRunningAsync()
+    {
+        while (Activities.Where(a => a.IsRunning).ToList() is { Count: > 0 } running)
+        {
+            foreach (var activity in running)
+            {
+                if (activity.CancelCommand.CanExecute(null))
+                {
+                    activity.CancelCommand.Execute(null);
+                }
+            }
+
+            await Task.WhenAll(running.Select(a => a.Completion)).ConfigureAwait(true);
+        }
+    }
+
     [RelayCommand]
     private void ClearFinished() => RemoveFinished();
 

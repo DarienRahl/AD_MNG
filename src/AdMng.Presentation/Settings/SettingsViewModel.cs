@@ -54,6 +54,9 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     public override string WindowTitle => Localizer[L.Settings.Title];
 
+    /// <summary>Application-wide; never acts in the directory session, so it does not end with it.</summary>
+    protected override bool UsesSession => false;
+
     public IReadOnlyList<Option<string>> Languages { get; }
 
     [ObservableProperty]

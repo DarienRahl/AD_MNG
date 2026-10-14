@@ -1,3 +1,4 @@
+using AdMng.Core.Model;
 using AdMng.Presentation.Localization;
 using CommunityToolkit.Mvvm.Input;
 
@@ -43,11 +44,26 @@ public sealed partial class ShellViewModel
             new("object.addToGroup", L.Commands.AddToGroup, obj, string.Empty, AddToGroupCommand),
             new("object.batchEdit", L.Commands.BatchEdit, obj, "Ctrl+Shift+B", BatchEditCommand),
             new("object.copyDn", L.Commands.CopyDn, obj, "Ctrl+Shift+C", CopyDnCommand),
-            new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand),
-            new("new.group", L.Commands.NewGroup, create, "Ctrl+Shift+G", NewGroupCommand),
-            new("new.ou", L.Commands.NewOrganizationalUnit, create, "Ctrl+Shift+O", NewOrganizationalUnitCommand),
-            new("new.computer", L.Commands.NewComputer, create, string.Empty, NewComputerCommand),
-            new("new.contact", L.Commands.NewContact, create, string.Empty, NewContactCommand),
+            new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
+            {
+                DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),
+            },
+            new("new.group", L.Commands.NewGroup, create, "Ctrl+Shift+G", NewGroupCommand)
+            {
+                DisabledReason = p => CreateBlockedReason(ObjectKind.Group, p as string),
+            },
+            new("new.ou", L.Commands.NewOrganizationalUnit, create, "Ctrl+Shift+O", NewOrganizationalUnitCommand)
+            {
+                DisabledReason = p => CreateBlockedReason(ObjectKind.OrganizationalUnit, p as string),
+            },
+            new("new.computer", L.Commands.NewComputer, create, string.Empty, NewComputerCommand)
+            {
+                DisabledReason = p => CreateBlockedReason(ObjectKind.Computer, p as string),
+            },
+            new("new.contact", L.Commands.NewContact, create, string.Empty, NewContactCommand)
+            {
+                DisabledReason = p => CreateBlockedReason(ObjectKind.Contact, p as string),
+            },
             new("nav.find", L.Commands.Find, nav, "Ctrl+F", FindCommand),
             new("nav.search", L.Commands.QuickSearch, nav, "Ctrl+E", FocusSearchCommand),
             new("nav.back", L.Commands.Back, nav, "Alt+Left", GoBackCommand),

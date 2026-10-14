@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
+using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
@@ -44,9 +45,13 @@ public sealed record OperationTypeOption(OperationType Type, string Text, string
 internal sealed class OperationEditorContext(
     DialogServices services,
     ITemplateEngine templates,
-    Func<string, CancellationToken, Task<string?>> renderSample)
+    Func<string, CancellationToken, Task<string?>> renderSample,
+    Func<IDirectorySession?> session)
 {
     public DialogServices Services { get; } = services;
+
+    /// <summary>The session of the batch editor's window (null once it ended) - pickers and lookups never use a newer one.</summary>
+    public IDirectorySession? Session => session();
 
     public ILocalizer Localizer => Services.Localizer;
 
@@ -239,7 +244,7 @@ public abstract partial class AttributeOperationEditorViewModel : OperationEdito
             return Localizer[L.Batch.InvalidAttribute];
         }
 
-        var schema = Context.Services.Sessions.Current?.Schema;
+        var schema = Context.Session?.Schema;
         if (schema is { Attributes.Count: > 0 } && schema.FindAttribute(name) is null)
         {
             return Localizer[L.Batch.UnknownAttribute];
@@ -811,7 +816,7 @@ public sealed partial class MoveEditorViewModel : OperationEditorViewModel
     [RelayCommand]
     private async Task BrowseAsync()
     {
-        var session = Context.Services.Sessions.Current;
+        var session = Context.Session;
         if (session is null)
         {
             return;
@@ -910,7 +915,7 @@ public sealed partial class GroupsEditorViewModel : OperationEditorViewModel
     [RelayCommand]
     private async Task AddGroupsAsync()
     {
-        var session = Context.Services.Sessions.Current;
+        var session = Context.Session;
         if (session is null)
         {
             return;
@@ -961,7 +966,7 @@ public sealed partial class GroupsEditorViewModel : OperationEditorViewModel
 
     private async Task ResolveAsync(IReadOnlyList<string> dns)
     {
-        var session = Context.Services.Sessions.Current;
+        var session = Context.Session;
         if (session is null || dns.Count == 0)
         {
             return;

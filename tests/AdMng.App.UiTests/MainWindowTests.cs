@@ -6,6 +6,8 @@ using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.Core.Directory;
+using AdMng.Core.Model;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -200,6 +202,43 @@ public sealed class MainWindowTests
         // The built-in quick filter folder offers nothing (views are opened by clicking them).
         var quickFilters = window.Shell.Tree.ViewsNode.Children.OfType<FolderNodeViewModel>().First();
         Assert.Empty(TreeMenu.Create(quickFilters, window.Shell, views, dialogs));
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_NewCommands_SayWhyTheyAreDisabled_WhereCreatingIsNotPermitted() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync();
+        context.Directory.Session.SetPermissions(context.Company.ItOu, new EffectivePermissions
+        {
+            IsKnown = true,
+            CreatableChildClasses = new HashSet<string>(["user"], StringComparer.OrdinalIgnoreCase),
+        });
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(window);
+        await window.Shell.InitializeAsync();
+        await window.Shell.NavigateAsync(ListLocation.ForContainer(context.Company.ItOu));
+        await UiWait.UntilAsync(() => !window.Shell.NewGroupCommand.CanExecute(null), "New Group disabled in OU=IT");
+        await UiTestSupport.WaitForIdleAsync();
+
+        var localizer = context.Services.GetRequiredService<ILocalizer>();
+        var buttons = LogicalDescendants(window).OfType<Button>()
+            .Where(b => CommandMenu.GetId(b) is "new.user" or "new.group")
+            .ToDictionary(b => CommandMenu.GetId(b)!);
+        Assert.True(buttons["new.user"].IsEnabled);
+        Assert.Equal(ShortcutText.WithShortcut(localizer[L.Commands.NewUser], "Ctrl+Shift+U"), buttons["new.user"].ToolTip);
+        Assert.False(buttons["new.group"].IsEnabled);
+        Assert.Equal(localizer.Format(L.Permissions.CannotCreate, localizer[DisplayNames.ObjectKindKey(ObjectKind.Group)]), buttons["new.group"].ToolTip);
+
+        // The tree's context menu reads the permissions of the clicked container.
+        var it = await window.Shell.Tree.ExpandToAsync(context.Company.ItOu, select: false);
+        var views = context.Services.GetRequiredService<Presentation.Views.ViewLibrary>();
+        var dialogs = context.Services.GetRequiredService<IDialogService>();
+        var newMenu = Assert.Single(TreeMenu.Create(it!, window.Shell, views, dialogs).OfType<MenuItem>(), item => item.Items.Count == 5);
+        var items = newMenu.Items.OfType<MenuItem>().ToList();
+        await UiWait.UntilAsync(() => !items[1].Command.CanExecute(items[1].CommandParameter), "New Group disabled in the tree menu");
+        Assert.True(items[0].Command.CanExecute(items[0].CommandParameter));
         context.AssertHealthy();
     });
 

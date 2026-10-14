@@ -44,6 +44,9 @@ public sealed partial class PowerShellHistoryViewModel : WindowViewModelBase
 
     public override string WindowTitle => Localizer[L.PowerShellHistory.WindowTitle];
 
+    /// <summary>Application-wide; never acts in the directory session, so it does not end with it.</summary>
+    protected override bool UsesSession => false;
+
     /// <summary>Newest first.</summary>
     public BulkObservableCollection<PowerShellHistoryItemViewModel> Items { get; } = [];
 
