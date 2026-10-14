@@ -80,6 +80,9 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
         }
     }
 
+    /// <summary>An AD session was opened or closed (the editor's pickers).</summary>
+    public void NotifySessionChanged() => Editor?.NotifySessionChanged();
+
     /// <summary>Texts after a language switch.</summary>
     public void Relocalize()
     {

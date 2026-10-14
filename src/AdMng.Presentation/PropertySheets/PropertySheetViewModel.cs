@@ -66,6 +66,9 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     /// <summary>"Historia zmian (Watchdog)" of the shown object (set by the factory when the app has a watchdog client).</summary>
     public WatchdogObjectHistoryLauncher? HistoryLauncher { get; init; }
 
+    /// <summary>A watchdog service is configured: the sheet offers "Historia zmian (Watchdog)".</summary>
+    public bool IsWatchdogHistoryAvailable => HistoryLauncher?.IsAvailable == true;
+
     /// <summary>objectGUID of the shown object (after the load).</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ShowWatchdogHistoryCommand))]

@@ -192,6 +192,7 @@
             <MenuItem b:CommandMenu.Id="object.batchEdit" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.copyDn" />
+            <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
             <MenuItem b:CommandMenu.Id="view.pin" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.delete" />

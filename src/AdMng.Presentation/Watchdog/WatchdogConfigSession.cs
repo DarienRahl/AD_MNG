@@ -55,12 +55,15 @@ public sealed partial class WatchdogConfigSession : ObservableObject
 
     /// <summary>The caller has the Admin role (set by the tab from <c>GET /me</c>).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanEdit), nameof(ReadOnlyReason))]
+    [NotifyPropertyChangedFor(nameof(CanEdit), nameof(ReadOnlyReason), nameof(IsReadOnly))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(ValidateCommand))]
     public partial bool IsAdmin { get; set; }
 
     /// <summary>Editors are enabled: Admin, loaded, not redacted.</summary>
     public bool CanEdit => IsAdmin && IsLoaded && !IsRedacted;
+
+    /// <summary>A configuration is shown but cannot be edited (Viewer, redacted copy): the views say why.</summary>
+    public bool IsReadOnly => IsLoaded && !CanEdit;
 
     /// <summary>Tool tip of the disabled editors ("Wymaga roli administratora Watchdog").</summary>
     public string? ReadOnlyReason => IsAdmin ? null : _services.Localizer[L.Watchdog.RequiresAdmin];
@@ -264,6 +267,7 @@ public sealed partial class WatchdogConfigSession : ObservableObject
         _loadedJson = Serialize(envelope.Configuration);
         IsDirty = false;
         OnPropertyChanged(nameof(CanEdit));
+        OnPropertyChanged(nameof(IsReadOnly));
         OnPropertyChanged(nameof(Working));
         SaveCommand.NotifyCanExecuteChanged();
         ValidateCommand.NotifyCanExecuteChanged();

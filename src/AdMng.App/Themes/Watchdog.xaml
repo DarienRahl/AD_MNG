@@ -1,0 +1,134 @@
+<!--
+  Shared resources of the Watchdog tab (merged into App.Resources after Controls.xaml). Same rules as Controls.xaml:
+  string keys only (prefix "Wd."), theme brushes always DynamicResource.
+  Severity colours (spec 20.3): Critical/High SystemFillColorCriticalBrush, Medium SystemFillColorCautionBrush, Low
+  AccentFillColorDefaultBrush, Info TextFillColorSecondaryBrush. The severity and health styles read the value from
+  the element's Tag (bind Tag to the Severity / HealthState of the row), so one style serves every view model.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:api="clr-namespace:AdMng.Watchdog.Contracts.Api;assembly=AdMng.Watchdog.Contracts"
+                    xmlns:c="clr-namespace:AdMng.App.Controls"
+                    xmlns:ev="clr-namespace:AdMng.Watchdog.Contracts.Events;assembly=AdMng.Watchdog.Contracts">
+
+  <!-- Severity dot (Tag = Severity). -->
+  <Style x:Key="Wd.SeverityDot" TargetType="Ellipse">
+    <Setter Property="Width" Value="10" />
+    <Setter Property="Height" Value="10" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Fill" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Style.Triggers>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.Critical}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.High}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.Medium}">
+        <Setter Property="Fill" Value="{DynamicResource SystemFillColorCautionBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.Low}">
+        <Setter Property="Fill" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Severity text next to the dot: Critical is also bold (Tag = Severity). -->
+  <Style x:Key="Wd.SeverityText" TargetType="TextBlock">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Style.Triggers>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.Critical}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static ev:Severity.Info}">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Health state glyph (Tag = HealthState): ✓ ok, ⚠ warning, ⛔ error, ? unknown, – disabled. -->
+  <Style x:Key="Wd.HealthGlyph" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Text" Value="{x:Static c:Glyphs.Question}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Style.Triggers>
+      <Trigger Property="Tag" Value="{x:Static api:HealthState.Ok}">
+        <Setter Property="Text" Value="{x:Static c:Glyphs.Completed}" />
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static api:HealthState.Warning}">
+        <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static api:HealthState.Error}">
+        <Setter Property="Text" Value="{x:Static c:Glyphs.Error}" />
+        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="{x:Static api:HealthState.Disabled}">
+        <Setter Property="Text" Value="{x:Static c:Glyphs.Cancel}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Section of a sub-tab (card with a title). -->
+  <Style x:Key="Wd.Card" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
+    <Setter Property="Margin" Value="0,0,0,12" />
+  </Style>
+
+  <Style x:Key="Wd.CardTitle" TargetType="TextBlock" BasedOn="{StaticResource Ad.SectionHeader}">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="Margin" Value="0,0,0,8" />
+  </Style>
+
+  <!-- Label of a form field (left column of a two-column grid). -->
+  <Style x:Key="Wd.FormLabel" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,8,12,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Label above a multi-line field. -->
+  <Style x:Key="Wd.TopLabel" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,10,0,4" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Value text of a read-only field ("label: value" lists of the status cards and the event details). -->
+  <Style x:Key="Wd.Value" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- A validation message of one field: critical colour, collapsed while empty. -->
+  <Style x:Key="Wd.FieldError" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Visibility" Value="{Binding Text, RelativeSource={RelativeSource Self}, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+  </Style>
+
+  <!-- A hint under a field (secondary colour, wrapped). -->
+  <Style x:Key="Wd.Hint" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,2,0,0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Compact rows of the Watchdog lists. -->
+  <Style x:Key="Wd.ListRow" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="2,0" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
+  <!-- Toolbar button with a glyph and a text. -->
+  <Style x:Key="Wd.ToolButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Margin" Value="0,0,6,0" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+  </Style>
+</ResourceDictionary>

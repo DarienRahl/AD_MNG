@@ -109,6 +109,9 @@ public sealed partial class WatchdogExclusionViewModel : ObservableObject
     /// <summary>A directory session is open: the pickers are available.</summary>
     public bool CanPick => CanEdit && _services.Sessions.Current is not null;
 
+    /// <summary>An AD session was opened or closed.</summary>
+    public void NotifySessionChanged() => OnPropertyChanged(nameof(CanPick));
+
     /// <summary>The exclusion as stored in the rule (invalid GUID / SID texts are left out; the errors explain why).</summary>
     public RuleExclusion ToExclusion()
     {

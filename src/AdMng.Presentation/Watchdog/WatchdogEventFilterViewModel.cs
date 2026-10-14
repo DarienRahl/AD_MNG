@@ -136,6 +136,9 @@ public sealed partial class WatchdogEventFilterViewModel : ObservableObject
     /// <summary>A directory session is open: the subtree and actor pickers are available.</summary>
     public bool CanPick => _services.Sessions.Current is not null;
 
+    /// <summary>An AD session was opened or closed.</summary>
+    public void NotifySessionChanged() => OnPropertyChanged(nameof(CanPick));
+
     /// <summary>The filter as an <see cref="EventQuery"/> (no paging).</summary>
     public EventQuery ToQuery()
     {

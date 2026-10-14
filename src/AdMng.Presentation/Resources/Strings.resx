@@ -4939,8 +4939,683 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Title" xml:space="preserve">
     <value>Watchdog</value>
   </data>
+  <data name="Watchdog.Ui.Acknowledge" xml:space="preserve">
+    <value>Acknowledge</value>
+  </data>
+  <data name="Watchdog.Ui.AcknowledgeComment" xml:space="preserve">
+    <value>Acknowledgement comment (optional)</value>
+  </data>
+  <data name="Watchdog.Ui.AcknowledgeSelected" xml:space="preserve">
+    <value>Acknowledge selected</value>
+  </data>
+  <data name="Watchdog.Ui.AddExclusion" xml:space="preserve">
+    <value>Add exclusion</value>
+  </data>
+  <data name="Watchdog.Ui.AddGroup" xml:space="preserve">
+    <value>Add group</value>
+  </data>
+  <data name="Watchdog.Ui.AddTeams" xml:space="preserve">
+    <value>Add Teams channel</value>
+  </data>
+  <data name="Watchdog.Ui.AddWebhook" xml:space="preserve">
+    <value>Add webhook</value>
+  </data>
+  <data name="Watchdog.Ui.AddressHint" xml:space="preserve">
+    <value>The watchdog is a separate service that records the changes in the domain around the clock. Enter the https:// address of the service – the tab connects with Kerberos as the signed-in user. Only the address is stored.</value>
+  </data>
+  <data name="Watchdog.Ui.AddressLabel" xml:space="preserve">
+    <value>Watchdog service address</value>
+  </data>
+  <data name="Watchdog.Ui.AddressPlaceholder" xml:space="preserve">
+    <value>e.g. https://admng-wd.contoso.com:8443</value>
+  </data>
+  <data name="Watchdog.Ui.AddressTitle" xml:space="preserve">
+    <value>Connect to the watchdog service</value>
+  </data>
+  <data name="Watchdog.Ui.AggregationMinutes" xml:space="preserve">
+    <value>Aggregation window (min)</value>
+  </data>
+  <data name="Watchdog.Ui.AllEnabledChannels" xml:space="preserve">
+    <value>All enabled Teams and webhook channels</value>
+  </data>
+  <data name="Watchdog.Ui.AllowedHosts" xml:space="preserve">
+    <value>Allowed hosts (one per line; empty = any https host)</value>
+  </data>
+  <data name="Watchdog.Ui.AnyTags" xml:space="preserve">
+    <value>At least one of the tags</value>
+  </data>
+  <data name="Watchdog.Ui.Attempts" xml:space="preserve">
+    <value>Attempts</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionStatus" xml:space="preserve">
+    <value>Actor determination</value>
+  </data>
+  <data name="Watchdog.Ui.Baseline" xml:space="preserve">
+    <value>Baseline</value>
+  </data>
+  <data name="Watchdog.Ui.Burst" xml:space="preserve">
+    <value>Burst</value>
+  </data>
+  <data name="Watchdog.Ui.Candidates" xml:space="preserve">
+    <value>Possible actors</value>
+  </data>
+  <data name="Watchdog.Ui.CardAttribution" xml:space="preserve">
+    <value>Actor attribution (DC security logs)</value>
+  </data>
+  <data name="Watchdog.Ui.CardChannels" xml:space="preserve">
+    <value>Notification channels</value>
+  </data>
+  <data name="Watchdog.Ui.CardChecks" xml:space="preserve">
+    <value>Health checks</value>
+  </data>
+  <data name="Watchdog.Ui.CardDirectory" xml:space="preserve">
+    <value>Watched domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.CardLast24Hours" xml:space="preserve">
+    <value>Last 24 hours</value>
+  </data>
+  <data name="Watchdog.Ui.CardService" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Watchdog.Ui.CardStorage" xml:space="preserve">
+    <value>Service data</value>
+  </data>
+  <data name="Watchdog.Ui.CertificateThumbprint" xml:space="preserve">
+    <value>Certificate thumbprint</value>
+  </data>
+  <data name="Watchdog.Ui.ChangeAddress" xml:space="preserve">
+    <value>Change address</value>
+  </data>
+  <data name="Watchdog.Ui.ChangedBy" xml:space="preserve">
+    <value>Changed by</value>
+  </data>
+  <data name="Watchdog.Ui.Channel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
+  <data name="Watchdog.Ui.ChannelEnabled" xml:space="preserve">
+    <value>Channel enabled</value>
+  </data>
+  <data name="Watchdog.Ui.ChannelId" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="Watchdog.Ui.ChannelUrl" xml:space="preserve">
+    <value>URL</value>
+  </data>
+  <data name="Watchdog.Ui.Channels" xml:space="preserve">
+    <value>Teams and webhook channels</value>
+  </data>
+  <data name="Watchdog.Ui.CheckRevocation" xml:space="preserve">
+    <value>Check the revocation of the server certificate</value>
+  </data>
+  <data name="Watchdog.Ui.ClearFilters" xml:space="preserve">
+    <value>Clear filters</value>
+  </data>
+  <data name="Watchdog.Ui.ClearObject" xml:space="preserve">
+    <value>Show all objects</value>
+  </data>
+  <data name="Watchdog.Ui.ClientId" xml:space="preserve">
+    <value>Application (client) id</value>
+  </data>
+  <data name="Watchdog.Ui.ClientSecret" xml:space="preserve">
+    <value>Client secret</value>
+  </data>
+  <data name="Watchdog.Ui.ColumnLockouts" xml:space="preserve">
+    <value>Lockouts</value>
+  </data>
+  <data name="Watchdog.Ui.Confidence" xml:space="preserve">
+    <value>Confidence</value>
+  </data>
+  <data name="Watchdog.Ui.ConfigAudit" xml:space="preserve">
+    <value>Configuration change history</value>
+  </data>
+  <data name="Watchdog.Ui.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="Watchdog.Ui.ConnectionBanner" xml:space="preserve">
+    <value>Connection to the watchdog service</value>
+  </data>
+  <data name="Watchdog.Ui.CopyDetails" xml:space="preserve">
+    <value>Copy details</value>
+  </data>
+  <data name="Watchdog.Ui.CopySecret" xml:space="preserve">
+    <value>Copy the secret</value>
+  </data>
+  <data name="Watchdog.Ui.CoverNonBusinessDays" xml:space="preserve">
+    <value>After days off the digest covers the whole period since the previous one</value>
+  </data>
+  <data name="Watchdog.Ui.Coverage" xml:space="preserve">
+    <value>Coverage 24 h</value>
+  </data>
+  <data name="Watchdog.Ui.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Watchdog.Ui.DataDirectory" xml:space="preserve">
+    <value>Service data folder</value>
+  </data>
+  <data name="Watchdog.Ui.DeletePreset" xml:space="preserve">
+    <value>Delete filter</value>
+  </data>
+  <data name="Watchdog.Ui.DeliveryHours" xml:space="preserve">
+    <value>Delivery hours</value>
+  </data>
+  <data name="Watchdog.Ui.DeliveryLog" xml:space="preserve">
+    <value>Delivery log</value>
+  </data>
+  <data name="Watchdog.Ui.DeliveryStatus" xml:space="preserve">
+    <value>Delivery state</value>
+  </data>
+  <data name="Watchdog.Ui.DetailLevel" xml:space="preserve">
+    <value>Message detail level</value>
+  </data>
+  <data name="Watchdog.Ui.Details" xml:space="preserve">
+    <value>Event details</value>
+  </data>
+  <data name="Watchdog.Ui.DigestDays" xml:space="preserve">
+    <value>Days to send</value>
+  </data>
+  <data name="Watchdog.Ui.DigestEnabled" xml:space="preserve">
+    <value>Send the daily digest</value>
+  </data>
+  <data name="Watchdog.Ui.DigestPreview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Watchdog.Ui.DigestPreviewHint" xml:space="preserve">
+    <value>Click "Preview" to see the digest as it would be sent now. The preview is not stored anywhere.</value>
+  </data>
+  <data name="Watchdog.Ui.DigestSettings" xml:space="preserve">
+    <value>Daily digest settings</value>
+  </data>
+  <data name="Watchdog.Ui.DigestTime" xml:space="preserve">
+    <value>Time to send (HH:mm)</value>
+  </data>
+  <data name="Watchdog.Ui.DomainController" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.DuplicateRule" xml:space="preserve">
+    <value>Duplicate</value>
+  </data>
+  <data name="Watchdog.Ui.EmptyIsDefault" xml:space="preserve">
+    <value>An empty field uses the service default.</value>
+  </data>
+  <data name="Watchdog.Ui.EntraCloud" xml:space="preserve">
+    <value>Entra ID cloud</value>
+  </data>
+  <data name="Watchdog.Ui.Evidence" xml:space="preserve">
+    <value>Evidence (security log events)</value>
+  </data>
+  <data name="Watchdog.Ui.ExcludeActors" xml:space="preserve">
+    <value>Ignore changes made by (SIDs, one per line)</value>
+  </data>
+  <data name="Watchdog.Ui.ExcludeSelfChanges" xml:space="preserve">
+    <value>Ignore changes an object made to itself</value>
+  </data>
+  <data name="Watchdog.Ui.ExcludeSubtrees" xml:space="preserve">
+    <value>Except (DNs, one per line)</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionActor" xml:space="preserve">
+    <value>Actor (SID)</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionAttribute" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionExpires" xml:space="preserve">
+    <value>Valid until</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionObject" xml:space="preserve">
+    <value>Object (GUID)</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionReason" xml:space="preserve">
+    <value>Reason (required)</value>
+  </data>
+  <data name="Watchdog.Ui.ExclusionSubtree" xml:space="preserve">
+    <value>Subtree (DN)</value>
+  </data>
+  <data name="Watchdog.Ui.Exclusions" xml:space="preserve">
+    <value>Exclusions</value>
+  </data>
+  <data name="Watchdog.Ui.Expiry" xml:space="preserve">
+    <value>Expiry</value>
+  </data>
+  <data name="Watchdog.Ui.ExportCsv" xml:space="preserve">
+    <value>Export to CSV</value>
+  </data>
+  <data name="Watchdog.Ui.FilterActor" xml:space="preserve">
+    <value>Actor (SID or picked from AD)</value>
+  </data>
+  <data name="Watchdog.Ui.FilterAttribution" xml:space="preserve">
+    <value>Actor determination</value>
+  </data>
+  <data name="Watchdog.Ui.FilterCategories" xml:space="preserve">
+    <value>Categories</value>
+  </data>
+  <data name="Watchdog.Ui.FilterFrom" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="Watchdog.Ui.FilterKinds" xml:space="preserve">
+    <value>Event kinds</value>
+  </data>
+  <data name="Watchdog.Ui.FilterObjectKinds" xml:space="preserve">
+    <value>Object kinds</value>
+  </data>
+  <data name="Watchdog.Ui.FilterSeverity" xml:space="preserve">
+    <value>Minimum severity</value>
+  </data>
+  <data name="Watchdog.Ui.FilterSubtree" xml:space="preserve">
+    <value>Location (organizational unit)</value>
+  </data>
+  <data name="Watchdog.Ui.FilterTags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Watchdog.Ui.FilterText" xml:space="preserve">
+    <value>Search text</value>
+  </data>
+  <data name="Watchdog.Ui.FilterTextHint" xml:space="preserve">
+    <value>Search: name, logon, actor, workstation, IP…</value>
+  </data>
+  <data name="Watchdog.Ui.FilterTo" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="Watchdog.Ui.FilterUnacknowledged" xml:space="preserve">
+    <value>Unacknowledged</value>
+  </data>
+  <data name="Watchdog.Ui.FilterUnresolved" xml:space="preserve">
+    <value>Show undetermined</value>
+  </data>
+  <data name="Watchdog.Ui.FilterUnresolvedHint" xml:space="preserve">
+    <value>Only events whose actor could not be determined</value>
+  </data>
+  <data name="Watchdog.Ui.GenerateSecret" xml:space="preserve">
+    <value>Generate</value>
+  </data>
+  <data name="Watchdog.Ui.GeneratedSecretHint" xml:space="preserve">
+    <value>New signing secret – copy it into the webhook receiver now. It is not shown again once the configuration is saved.</value>
+  </data>
+  <data name="Watchdog.Ui.GitHubSignature" xml:space="preserve">
+    <value>Also send the X-Hub-Signature-256 header (GitHub compatible)</value>
+  </data>
+  <data name="Watchdog.Ui.GroupAddresses" xml:space="preserve">
+    <value>E-mail addresses (one per line)</value>
+  </data>
+  <data name="Watchdog.Ui.GroupDns" xml:space="preserve">
+    <value>Selected groups (DNs, one per line)</value>
+  </data>
+  <data name="Watchdog.Ui.GroupFilter" xml:space="preserve">
+    <value>Group membership</value>
+  </data>
+  <data name="Watchdog.Ui.GroupId" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="Watchdog.Ui.HeartbeatMinutes" xml:space="preserve">
+    <value>Heartbeat every (min, empty = off)</value>
+  </data>
+  <data name="Watchdog.Ui.HighestUsn" xml:space="preserve">
+    <value>Highest USN</value>
+  </data>
+  <data name="Watchdog.Ui.Immediate" xml:space="preserve">
+    <value>Notify immediately</value>
+  </data>
+  <data name="Watchdog.Ui.IncludeInDigest" xml:space="preserve">
+    <value>Include in the daily digest</value>
+  </data>
+  <data name="Watchdog.Ui.IncludeSubtrees" xml:space="preserve">
+    <value>Only in locations (DNs, one per line; empty = whole domain)</value>
+  </data>
+  <data name="Watchdog.Ui.Issues" xml:space="preserve">
+    <value>Configuration issues</value>
+  </data>
+  <data name="Watchdog.Ui.LastBackup" xml:space="preserve">
+    <value>Last backup</value>
+  </data>
+  <data name="Watchdog.Ui.LastChange" xml:space="preserve">
+    <value>Last change</value>
+  </data>
+  <data name="Watchdog.Ui.LastFailure" xml:space="preserve">
+    <value>Last failure</value>
+  </data>
+  <data name="Watchdog.Ui.LastFullSync" xml:space="preserve">
+    <value>Last full sync</value>
+  </data>
+  <data name="Watchdog.Ui.LastPoll" xml:space="preserve">
+    <value>Last poll</value>
+  </data>
+  <data name="Watchdog.Ui.LastRead" xml:space="preserve">
+    <value>Last read</value>
+  </data>
+  <data name="Watchdog.Ui.LastSuccess" xml:space="preserve">
+    <value>Last success</value>
+  </data>
+  <data name="Watchdog.Ui.LoadOlder" xml:space="preserve">
+    <value>Load older</value>
+  </data>
+  <data name="Watchdog.Ui.MatchedRules" xml:space="preserve">
+    <value>Matched rules</value>
+  </data>
+  <data name="Watchdog.Ui.MaxMessagesPerHour" xml:space="preserve">
+    <value>Max messages per hour</value>
+  </data>
+  <data name="Watchdog.Ui.MaxMessagesPerMinute" xml:space="preserve">
+    <value>Max messages/min</value>
+  </data>
+  <data name="Watchdog.Ui.MaxRecipients" xml:space="preserve">
+    <value>Max recipients</value>
+  </data>
+  <data name="Watchdog.Ui.MaxRowsPerSection" xml:space="preserve">
+    <value>Max rows per section</value>
+  </data>
+  <data name="Watchdog.Ui.Member" xml:space="preserve">
+    <value>Member / group</value>
+  </data>
+  <data name="Watchdog.Ui.MinSeverity" xml:space="preserve">
+    <value>Minimum severity</value>
+  </data>
+  <data name="Watchdog.Ui.MoreFilters" xml:space="preserve">
+    <value>More filters</value>
+  </data>
+  <data name="Watchdog.Ui.NeedsAdSession" xml:space="preserve">
+    <value>Picking from the directory needs a connection to the domain.</value>
+  </data>
+  <data name="Watchdog.Ui.NewRule" xml:space="preserve">
+    <value>New rule</value>
+  </data>
+  <data name="Watchdog.Ui.NextDigest" xml:space="preserve">
+    <value>Next digest</value>
+  </data>
+  <data name="Watchdog.Ui.NoChannels" xml:space="preserve">
+    <value>No Teams or webhook channels – notifications go by e-mail only.</value>
+  </data>
+  <data name="Watchdog.Ui.NoEventSelected" xml:space="preserve">
+    <value>Select an event to see what changed, who did it and from where.</value>
+  </data>
+  <data name="Watchdog.Ui.NoEvents" xml:space="preserve">
+    <value>No events match the filter.</value>
+  </data>
+  <data name="Watchdog.Ui.NoRuleSelected" xml:space="preserve">
+    <value>Select a rule to edit it.</value>
+  </data>
+  <data name="Watchdog.Ui.NotifyManager" xml:space="preserve">
+    <value>Also notify the manager (manager attribute)</value>
+  </data>
+  <data name="Watchdog.Ui.ObjectGuid" xml:space="preserve">
+    <value>Object GUID</value>
+  </data>
+  <data name="Watchdog.Ui.ObjectHistory" xml:space="preserve">
+    <value>History of:</value>
+  </data>
+  <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
+    <value>Open in AD_MNG</value>
+  </data>
+  <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
+    <value>Opens the object at its current location (needs a connection to that domain); a deleted object opens the AD Recycle Bin.</value>
+  </data>
+  <data name="Watchdog.Ui.Origin" xml:space="preserve">
+    <value>Origin (DC, time)</value>
+  </data>
+  <data name="Watchdog.Ui.PerHour" xml:space="preserve">
+    <value>Per hour</value>
+  </data>
+  <data name="Watchdog.Ui.PerMinute" xml:space="preserve">
+    <value>Per minute</value>
+  </data>
+  <data name="Watchdog.Ui.PerSecond" xml:space="preserve">
+    <value>Per second</value>
+  </data>
+  <data name="Watchdog.Ui.PinnedSha256" xml:space="preserve">
+    <value>SHA-256 of the server certificate (64 hex characters)</value>
+  </data>
+  <data name="Watchdog.Ui.PresetHint" xml:space="preserve">
+    <value>Only the filter is saved – never event data.</value>
+  </data>
+  <data name="Watchdog.Ui.PresetName" xml:space="preserve">
+    <value>Filter name</value>
+  </data>
+  <data name="Watchdog.Ui.Presets" xml:space="preserve">
+    <value>Saved filters</value>
+  </data>
+  <data name="Watchdog.Ui.PreviewDays" xml:space="preserve">
+    <value>Last days</value>
+  </data>
+  <data name="Watchdog.Ui.PreviousSigningSecret" xml:space="preserve">
+    <value>Previous signing secret (rotation)</value>
+  </data>
+  <data name="Watchdog.Ui.Queue" xml:space="preserve">
+    <value>Failures and queue</value>
+  </data>
+  <data name="Watchdog.Ui.RateLimits" xml:space="preserve">
+    <value>Rate limits</value>
+  </data>
+  <data name="Watchdog.Ui.Reason" xml:space="preserve">
+    <value>Reason</value>
+  </data>
+  <data name="Watchdog.Ui.RecipientGroups" xml:space="preserve">
+    <value>Recipient groups</value>
+  </data>
+  <data name="Watchdog.Ui.RedactedHint" xml:space="preserve">
+    <value>Exclusions, recipient addresses and credentials are hidden – only their number is shown.</value>
+  </data>
+  <data name="Watchdog.Ui.Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Watchdog.Ui.Remedy" xml:space="preserve">
+    <value>What to do</value>
+  </data>
+  <data name="Watchdog.Ui.RemoveExclusion" xml:space="preserve">
+    <value>Remove exclusion</value>
+  </data>
+  <data name="Watchdog.Ui.RepeatSuppression" xml:space="preserve">
+    <value>Suppress repeats for (min)</value>
+  </data>
+  <data name="Watchdog.Ui.RequiredTags" xml:space="preserve">
+    <value>All of the tags</value>
+  </data>
+  <data name="Watchdog.Ui.Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Watchdog.Ui.Revert" xml:space="preserve">
+    <value>Revert</value>
+  </data>
+  <data name="Watchdog.Ui.RuleActors" xml:space="preserve">
+    <value>Actors</value>
+  </data>
+  <data name="Watchdog.Ui.RuleAttributes" xml:space="preserve">
+    <value>Only changes of attributes (LDAP names, comma separated)</value>
+  </data>
+  <data name="Watchdog.Ui.RuleDelivery" xml:space="preserve">
+    <value>Notifications</value>
+  </data>
+  <data name="Watchdog.Ui.RuleDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Watchdog.Ui.RuleEditor" xml:space="preserve">
+    <value>Rule editor</value>
+  </data>
+  <data name="Watchdog.Ui.RuleEnabled" xml:space="preserve">
+    <value>Rule enabled</value>
+  </data>
+  <data name="Watchdog.Ui.RuleHasIssues" xml:space="preserve">
+    <value>The service reported issues for this rule</value>
+  </data>
+  <data name="Watchdog.Ui.RuleId" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="Watchdog.Ui.RuleKinds" xml:space="preserve">
+    <value>Events</value>
+  </data>
+  <data name="Watchdog.Ui.RuleKindsHint" xml:space="preserve">
+    <value>Nothing selected = every kind of event.</value>
+  </data>
+  <data name="Watchdog.Ui.RulePreview" xml:space="preserve">
+    <value>Rule preview</value>
+  </data>
+  <data name="Watchdog.Ui.RuleScope" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="Watchdog.Ui.RunPreview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Watchdog.Ui.SavePreset" xml:space="preserve">
+    <value>Save filter</value>
+  </data>
+  <data name="Watchdog.Ui.SecretClear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Watchdog.Ui.SecretUndo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Watchdog.Ui.SectionAttribution" xml:space="preserve">
+    <value>Who and from where</value>
+  </data>
+  <data name="Watchdog.Ui.SectionChanges" xml:space="preserve">
+    <value>Changes (before → after)</value>
+  </data>
+  <data name="Watchdog.Ui.SectionDeliveries" xml:space="preserve">
+    <value>Deliveries</value>
+  </data>
+  <data name="Watchdog.Ui.SectionLockout" xml:space="preserve">
+    <value>Source of the bad passwords</value>
+  </data>
+  <data name="Watchdog.Ui.SectionObject" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="Watchdog.Ui.SectionRelated" xml:space="preserve">
+    <value>Related events</value>
+  </data>
+  <data name="Watchdog.Ui.SendTest" xml:space="preserve">
+    <value>Send test</value>
+  </data>
+  <data name="Watchdog.Ui.SendWhenEmpty" xml:space="preserve">
+    <value>Send even when there were no events</value>
+  </data>
+  <data name="Watchdog.Ui.SentOrNext" xml:space="preserve">
+    <value>Sent / next attempt</value>
+  </data>
+  <data name="Watchdog.Ui.SeverityOverride" xml:space="preserve">
+    <value>Notify as</value>
+  </data>
+  <data name="Watchdog.Ui.SidOnlyHint" xml:space="preserve">
+    <value>SIDs only (S-1-5-21-…) – account names are never stored.</value>
+  </data>
+  <data name="Watchdog.Ui.SigningSecret" xml:space="preserve">
+    <value>Signing secret (whsec_…)</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpAuthentication" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpCertificate" xml:space="preserve">
+    <value>Server certificate check</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpEnabled" xml:space="preserve">
+    <value>Send e-mail</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpFrom" xml:space="preserve">
+    <value>Sender (From)</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpHost" xml:space="preserve">
+    <value>SMTP server</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpLocalDomain" xml:space="preserve">
+    <value>HELO/EHLO name</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpOAuth" xml:space="preserve">
+    <value>Exchange Online – Entra ID application</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpPassword" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpReplyTo" xml:space="preserve">
+    <value>Reply to (Reply-To)</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpSecurity" xml:space="preserve">
+    <value>Encryption</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpTitle" xml:space="preserve">
+    <value>E-mail (SMTP)</value>
+  </data>
+  <data name="Watchdog.Ui.SmtpUserName" xml:space="preserve">
+    <value>Account / sender mailbox</value>
+  </data>
+  <data name="Watchdog.Ui.SnapshotObjects" xml:space="preserve">
+    <value>Objects in the snapshot</value>
+  </data>
+  <data name="Watchdog.Ui.SourceConfidence" xml:space="preserve">
+    <value>Source confidence</value>
+  </data>
+  <data name="Watchdog.Ui.SourceLookups" xml:space="preserve">
+    <value>Source lookups (24 h)</value>
+  </data>
+  <data name="Watchdog.Ui.SourceReason" xml:space="preserve">
+    <value>Source missing – reason</value>
+  </data>
+  <data name="Watchdog.Ui.StartedAt" xml:space="preserve">
+    <value>Started</value>
+  </data>
+  <data name="Watchdog.Ui.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Watchdog.Ui.Suggestions" xml:space="preserve">
+    <value>Suggested exclusions</value>
+  </data>
+  <data name="Watchdog.Ui.Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
   <data name="Watchdog.Ui.TabBadge" xml:space="preserve">
     <value>Unacknowledged events with High or Critical severity</value>
+  </data>
+  <data name="Watchdog.Ui.Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Watchdog.Ui.TeamsAuthentication" xml:space="preserve">
+    <value>Teams authentication</value>
+  </data>
+  <data name="Watchdog.Ui.TeamsScope" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="Watchdog.Ui.TenantId" xml:space="preserve">
+    <value>Tenant id</value>
+  </data>
+  <data name="Watchdog.Ui.TestEmail" xml:space="preserve">
+    <value>Test e-mail</value>
+  </data>
+  <data name="Watchdog.Ui.TestHints" xml:space="preserve">
+    <value>Hints</value>
+  </data>
+  <data name="Watchdog.Ui.TestRecipients" xml:space="preserve">
+    <value>Test recipients (e-mail addresses)</value>
+  </data>
+  <data name="Watchdog.Ui.TestStages" xml:space="preserve">
+    <value>Test stages</value>
+  </data>
+  <data name="Watchdog.Ui.TestUsesUnsaved" xml:space="preserve">
+    <value>The test uses the unsaved settings.</value>
+  </data>
+  <data name="Watchdog.Ui.TimeoutSeconds" xml:space="preserve">
+    <value>Timeout (s)</value>
+  </data>
+  <data name="Watchdog.Ui.Unsaved" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+  <data name="Watchdog.Ui.UpcomingExpiryDays" xml:space="preserve">
+    <value>Expiring within (days)</value>
+  </data>
+  <data name="Watchdog.Ui.UrlIsSecret" xml:space="preserve">
+    <value>The URL is a secret (it carries an access signature) – after saving only its beginning is shown.</value>
+  </data>
+  <data name="Watchdog.Ui.Validate" xml:space="preserve">
+    <value>Validate</value>
+  </data>
+  <data name="Watchdog.Ui.Version" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="Watchdog.Ui.Via" xml:space="preserve">
+    <value>Nesting path</value>
+  </data>
+  <data name="Watchdog.Ui.WebhookDigest" xml:space="preserve">
+    <value>Also send the daily digest</value>
+  </data>
+  <data name="Watchdog.Ui.WeeklySectionsDay" xml:space="preserve">
+    <value>Weekly sections on</value>
   </data>
   <data name="Watchdog.Validation.acceptAnyNotAllowed" xml:space="preserve">
     <value>Accepting any certificate is allowed only in development.</value>

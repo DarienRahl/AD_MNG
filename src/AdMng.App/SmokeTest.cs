@@ -13,6 +13,7 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -20,9 +21,10 @@ namespace AdMng.App;
 
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
-/// the main window (disconnected) and the dialogs of this release off-screen in English and Polish, and fails on any
-/// exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed to stderr), 2 = did not finish within
-/// 30 seconds. Settings go to a temporary folder that is deleted afterwards; nothing touches a directory.
+/// the main window (disconnected) with the Watchdog tab (not configured) and the dialogs of this release off-screen in
+/// English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
+/// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
+/// nothing touches a directory or a watchdog service.
 /// </summary>
 internal static class SmokeTest
 {
@@ -136,6 +138,7 @@ internal static class SmokeTest
         var main = services.GetRequiredService<MainWindow>();
         UiTestSupport.ShowOffScreen(main);
         await main.Shell.InitializeAsync().ConfigureAwait(true);
+        await RenderWatchdogTabAsync(main).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         var dialog = windows.CreateWindow(MessageDialogViewModel.TypedConfirmation(
@@ -157,6 +160,40 @@ internal static class SmokeTest
         main.Shell.CommandPalette.CloseCommand.Execute(null);
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The Watchdog tab (Tools → Watchdog) of a fresh installation: no service address in the settings, so the tab shows
+    /// the connection banner and the address editor without any network call; "Change address" is exercised too.
+    /// </summary>
+    private static async Task RenderWatchdogTabAsync(MainWindow main)
+    {
+        var shell = main.Shell;
+        if (!shell.ShowWatchdogCommand.CanExecute(null))
+        {
+            throw new InvalidOperationException("Tools → Watchdog is not available.");
+        }
+
+        shell.ShowWatchdogCommand.Execute(null);
+        var watchdog = shell.Documents.OfType<WatchdogDocumentViewModel>().SingleOrDefault()
+            ?? throw new InvalidOperationException("Tools → Watchdog did not open the Watchdog tab.");
+        await watchdog.Connecting.ConfigureAwait(true);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+        if (watchdog.ConnectionState != WatchdogConnectionState.NotConfigured || !watchdog.ShowAddressEditor)
+        {
+            throw new InvalidOperationException($"The Watchdog tab should wait for an address, but is {watchdog.ConnectionState}.");
+        }
+
+        // An address that is not https:// is refused before anything is stored or sent.
+        watchdog.ServiceUrlInput = "http://admng-wd.contoso.com:8443";
+        await watchdog.ConnectCommand.ExecuteAsync(null).ConfigureAwait(true);
+        if (watchdog.ServiceUrlError is null || watchdog.ConnectionState != WatchdogConnectionState.NotConfigured)
+        {
+            throw new InvalidOperationException("The Watchdog tab accepted an http:// address.");
+        }
+
+        watchdog.ServiceUrlInput = string.Empty;
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
     }
 

@@ -127,10 +127,4 @@ public static partial class L
         public const string ValueHidden = "Watchdog.Value.Hidden";
         public const string ValueTruncated = "Watchdog.Value.Truncated";
     }
-
-    /// <summary>Labels, headers and hints of the Watchdog views that no view model owns (keys "Watchdog.Ui.*").</summary>
-    public static class WatchdogUi
-    {
-        public const string TabBadge = "Watchdog.Ui.TabBadge";
-    }
 }

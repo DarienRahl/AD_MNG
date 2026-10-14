@@ -1,0 +1,349 @@
+<!--
+  Details of the selected event (WatchdogEventDetailsViewModel), like the main window's details pane: what changed
+  (before → after), who and from where (actor, source with its origin and confidence, reason and remedy, evidence),
+  lockout sources, related events and deliveries, with acknowledge / open in AD_MNG / unlock / copy.
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogEventDetailsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+             AutomationProperties.Name="{l:Tr Watchdog.Ui.Details}">
+  <UserControl.Resources>
+    <Style x:Key="DetailLabel" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="DetailSection" TargetType="TextBlock" BasedOn="{StaticResource Ad.SectionHeader}">
+      <Setter Property="Margin" Value="0,16,0,2" />
+    </Style>
+
+    <!-- A label and its value, collapsed while the value is empty: <ContentControl Content="value" Tag="label" />. -->
+    <Style x:Key="Field" TargetType="ContentControl">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="IsTabStop" Value="False" />
+      <Setter Property="Visibility" Value="{Binding Content, RelativeSource={RelativeSource Self}, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContentControl">
+            <StackPanel>
+              <TextBlock Style="{StaticResource DetailLabel}" Text="{TemplateBinding Tag}" />
+              <TextBlock Style="{StaticResource Wd.Value}" Text="{TemplateBinding Content}" />
+            </StackPanel>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+          BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+          BorderThickness="1,1,0,0">
+    <Grid>
+      <TextBlock x:Name="NoSelectionHint"
+                 Margin="12"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr Watchdog.Ui.NoEventSelected}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding HasEvent, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+
+      <DockPanel Visibility="{Binding HasEvent, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <!-- Actions -->
+        <Border Padding="12,8"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0"
+                DockPanel.Dock="Bottom">
+          <StackPanel>
+            <Grid Margin="0,0,0,6">
+              <TextBox x:Name="AcknowledgeCommentBox"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.AcknowledgeComment}"
+                       MaxLength="500"
+                       Text="{Binding AcknowledgeComment, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr Watchdog.Ui.AcknowledgeComment}"
+                         Visibility="{Binding Text, ElementName=AcknowledgeCommentBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+            </Grid>
+            <WrapPanel>
+              <Button x:Name="AcknowledgeButton"
+                      Margin="0,0,6,6"
+                      Command="{Binding AcknowledgeCommand}"
+                      Content="{l:Tr Watchdog.Ui.Acknowledge}"
+                      Style="{StaticResource AccentButtonStyle}" />
+              <Button x:Name="OpenInAdMngButton"
+                      Margin="0,0,6,6"
+                      Command="{Binding OpenInAdMngCommand}"
+                      Content="{l:Tr Watchdog.Ui.OpenInAdMng}"
+                      ToolTip="{l:Tr Watchdog.Ui.OpenInAdMngHint}"
+                      ToolTipService.ShowOnDisabled="True" />
+              <Button x:Name="UnlockButton"
+                      Margin="0,0,6,6"
+                      Command="{Binding UnlockAccountCommand}"
+                      Content="{l:Tr Commands.Unlock}"
+                      Visibility="{Binding CanUnlock, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="CopyButton"
+                      Margin="0,0,6,6"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.CopyDetails}"
+                      Command="{Binding CopyDetailsCommand}"
+                      Content="{x:Static c:Glyphs.Copy}"
+                      Style="{StaticResource Ad.IconButton}"
+                      ToolTip="{l:Tr Watchdog.Ui.CopyDetails}" />
+            </WrapPanel>
+            <TextBlock x:Name="ActionMessage"
+                       AutomationProperties.LiveSetting="Polite"
+                       Style="{StaticResource Wd.Hint}"
+                       Text="{Binding ActionMessage, Mode=OneWay}"
+                       Visibility="{Binding ActionMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          </StackPanel>
+        </Border>
+
+        <ScrollViewer x:Name="DetailsScroll"
+                      Focusable="False"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="12,10,12,12">
+            <!-- Header -->
+            <DockPanel>
+              <Ellipse Margin="0,6,8,0"
+                       VerticalAlignment="Top"
+                       DockPanel.Dock="Left"
+                       Style="{StaticResource Wd.SeverityDot}"
+                       Tag="{Binding Severity, Mode=OneWay}" />
+              <StackPanel>
+                <TextBlock x:Name="TitleText"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource Ad.SecondaryText}">
+                  <Run Text="{Binding SeverityText, Mode=OneWay}" />
+                  <Run Text="·" />
+                  <Run Text="{Binding TimeText, Mode=OneWay}" />
+                </TextBlock>
+              </StackPanel>
+            </DockPanel>
+            <ProgressBar Height="3"
+                         Margin="0,6,0,0"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock x:Name="ErrorText"
+                       AutomationProperties.LiveSetting="Assertive"
+                       Style="{StaticResource Wd.FieldError}"
+                       Text="{Binding Error, Mode=OneWay}" />
+            <TextBlock x:Name="AcknowledgedText"
+                       Margin="0,6,0,0"
+                       Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                       Text="{Binding AcknowledgedText, Mode=OneWay}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding AcknowledgedText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+            <!-- Object -->
+            <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionObject}" />
+            <TextBlock x:Name="ObjectNameText"
+                       FontWeight="SemiBold"
+                       Text="{Binding ObjectName, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding ObjectKindText, Mode=OneWay}" />
+            <ContentControl Content="{Binding ObjectPath, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Details.Path}" />
+            <ContentControl Content="{Binding ObjectDn, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Details.DistinguishedName}" />
+            <ContentControl Content="{Binding PreviousDn, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Details.PreviousDn}" />
+            <ContentControl Content="{Binding ObjectGuidText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.ObjectGuid}" />
+            <ContentControl Content="{Binding MemberText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Member}" />
+            <ContentControl Content="{Binding ViaText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Via}" />
+            <ContentControl Content="{Binding ExpiryText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Expiry}" />
+            <ContentControl Content="{Binding BurstText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Burst}" />
+            <ContentControl Content="{Binding OriginText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Origin}" />
+            <ContentControl Content="{Binding TagsText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Tags}" />
+            <ContentControl Content="{Binding RulesText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.MatchedRules}" />
+
+            <!-- Changes: before → after -->
+            <StackPanel Visibility="{Binding Changes.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionChanges}" />
+              <ItemsControl x:Name="ChangesList"
+                            AutomationProperties.Name="{l:Tr Watchdog.Ui.SectionChanges}"
+                            Focusable="False"
+                            ItemsSource="{Binding Changes, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type wd:WatchdogChangeRowViewModel}">
+                    <StackPanel Margin="0,6,0,0">
+                      <TextBlock FontWeight="SemiBold"
+                                 Text="{Binding Attribute, Mode=OneWay}"
+                                 TextWrapping="Wrap"
+                                 ToolTip="{Binding LdapName, Mode=OneWay}" />
+                      <TextBlock TextWrapping="Wrap">
+                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding OldText, Mode=OneWay}" />
+                        <Run Text=" → " />
+                        <Run Text="{Binding NewText, Mode=OneWay}" />
+                      </TextBlock>
+                      <TextBlock Style="{StaticResource Wd.Hint}"
+                                 Text="{Binding ChangeText, Mode=OneWay}"
+                                 Visibility="{Binding ChangeText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Who and from where -->
+            <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionAttribution}" />
+            <ContentControl Content="{Binding AttributionStatusText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.AttributionStatus}" />
+            <ContentControl x:Name="ActorField"
+                            Content="{Binding ActorText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Column.Actor}" />
+            <ContentControl Content="{Binding ConfidenceText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Confidence}" />
+            <ContentControl Content="{Binding SourceText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Column.Source}" />
+            <ContentControl Content="{Binding SourceConfidenceText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.SourceConfidence}" />
+            <ContentControl Content="{Binding ReasonText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Reason}" />
+            <ContentControl Content="{Binding RemedyText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.Remedy}" />
+            <ContentControl Content="{Binding SourceReasonText, Mode=OneWay}"
+                            Style="{StaticResource Field}"
+                            Tag="{l:Tr Watchdog.Ui.SourceReason}" />
+            <StackPanel Visibility="{Binding Candidates.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock Style="{StaticResource DetailLabel}" Text="{l:Tr Watchdog.Ui.Candidates}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.Candidates}"
+                            Focusable="False"
+                            ItemsSource="{Binding Candidates, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Style="{StaticResource Wd.Value}" Text="{Binding Mode=OneWay}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+            <StackPanel Visibility="{Binding Evidence.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock Style="{StaticResource DetailLabel}" Text="{l:Tr Watchdog.Ui.Evidence}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.Evidence}"
+                            Focusable="False"
+                            ItemsSource="{Binding Evidence, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type wd:WatchdogEvidenceRowViewModel}">
+                    <TextBlock Style="{StaticResource Wd.Value}">
+                      <Run Text="{Binding Dc, Mode=OneWay}" />
+                      <Run Text="·" />
+                      <Run Text="{Binding Log, Mode=OneWay}" />
+                      <Run Text="{Binding EventCode, Mode=OneWay}" />
+                      <Run Text="#" /><Run Text="{Binding RecordText, Mode=OneWay}" />
+                      <Run Text="·" />
+                      <Run Text="{Binding TimeText, Mode=OneWay}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Lockout: where the bad passwords came from -->
+            <StackPanel Visibility="{Binding HasLockout, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionLockout}" />
+              <TextBlock x:Name="LockoutText"
+                         Style="{StaticResource Wd.Value}"
+                         Text="{Binding LockoutText, Mode=OneWay}" />
+              <ItemsControl x:Name="LockoutSourcesList"
+                            Margin="0,4,0,0"
+                            AutomationProperties.Name="{l:Tr Watchdog.Ui.SectionLockout}"
+                            Focusable="False"
+                            ItemsSource="{Binding LockoutSources, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type wd:WatchdogLockoutSourceRowViewModel}">
+                    <TextBlock Style="{StaticResource Wd.Value}">
+                      <Run FontWeight="SemiBold" Text="{Binding Count, Mode=OneWay}" /><Run Text="×" />
+                      <Run Text="{Binding Address, Mode=OneWay}" />
+                      <Run Text="{Binding Workstation, Mode=OneWay}" />
+                      <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding EventCode, Mode=OneWay}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Related events (same change set) -->
+            <StackPanel Visibility="{Binding RelatedEvents.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionRelated}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.SectionRelated}"
+                            Focusable="False"
+                            ItemsSource="{Binding RelatedEvents, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                    <DockPanel Margin="0,4,0,0">
+                      <Ellipse Margin="0,0,6,0"
+                               DockPanel.Dock="Left"
+                               Style="{StaticResource Wd.SeverityDot}"
+                               Tag="{Binding Severity, Mode=OneWay}" />
+                      <TextBlock TextWrapping="Wrap">
+                        <Run Text="{Binding KindText, Mode=OneWay}" />
+                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding TimeText, Mode=OneWay}" />
+                      </TextBlock>
+                    </DockPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+
+            <!-- Deliveries of this event -->
+            <StackPanel Visibility="{Binding Deliveries.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+              <TextBlock Style="{StaticResource DetailSection}" Text="{l:Tr Watchdog.Ui.SectionDeliveries}" />
+              <ItemsControl x:Name="DeliveriesList"
+                            AutomationProperties.Name="{l:Tr Watchdog.Ui.SectionDeliveries}"
+                            Focusable="False"
+                            ItemsSource="{Binding Deliveries, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type wd:WatchdogDeliveryRowViewModel}">
+                    <StackPanel Margin="0,4,0,0">
+                      <TextBlock TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="{Binding ChannelText, Mode=OneWay}" />
+                        <Run Text="·" />
+                        <Run Text="{Binding KindText, Mode=OneWay}" />
+                        <Run Text="·" />
+                        <Run Text="{Binding StatusText, Mode=OneWay}" />
+                      </TextBlock>
+                      <TextBlock Style="{StaticResource Wd.Hint}">
+                        <Run Text="{Binding CreatedText, Mode=OneWay}" />
+                        <Run Text="{Binding SentText, Mode=OneWay}" />
+                        <Run Foreground="{DynamicResource SystemFillColorCriticalBrush}" Text="{Binding ErrorCode, Mode=OneWay}" />
+                      </TextBlock>
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Grid>
+  </Border>
+</UserControl>

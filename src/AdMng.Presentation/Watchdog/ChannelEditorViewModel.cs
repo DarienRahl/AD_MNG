@@ -69,6 +69,9 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
         RefreshErrors();
     }
 
+    /// <summary>The channel was edited (the channel list follows).</summary>
+    public event EventHandler? Changed;
+
     /// <summary>Position in <c>configuration.channels</c>.</summary>
     public int Index { get; }
 
@@ -343,7 +346,4 @@ public sealed partial class ChannelEditorViewModel : ObservableObject
         _session.Update(c => c with { Channels = [.. c.Channels.Select((ch, i) => i == index ? channel : ch)] });
         Changed?.Invoke(this, EventArgs.Empty);
     }
-
-    /// <summary>The channel was edited (the channel list follows).</summary>
-    public event EventHandler? Changed;
 }

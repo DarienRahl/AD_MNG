@@ -122,6 +122,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>The object list tabs (without the Watchdog tab).</summary>
     public IEnumerable<ObjectListViewModel> ListDocuments => Documents.OfType<ObjectListViewModel>();
 
+    /// <summary>A watchdog service address is configured: "Historia zmian (Watchdog)" is offered for objects.</summary>
+    public bool IsWatchdogHistoryAvailable => _historyLauncher?.IsAvailable == true;
+
     // ---- Header -------------------------------------------------------------------------------------------
 
     /// <summary>"Active Directory Users and Computers – contoso.test".</summary>
@@ -556,8 +559,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     });
 
-    private void OnWatchdogAvailabilityChanged(object? sender, EventArgs e) =>
-        _ = _lists.Dispatcher.RunAsync(ShowWatchdogHistoryCommand.NotifyCanExecuteChanged);
+    private void OnWatchdogAvailabilityChanged(object? sender, EventArgs e) => _ = _lists.Dispatcher.RunAsync(() =>
+    {
+        ShowWatchdogHistoryCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsWatchdogHistoryAvailable));
+    });
 
     private void ObserveDocument(ObjectListViewModel? document)
     {

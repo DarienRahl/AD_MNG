@@ -99,6 +99,7 @@ public sealed partial class WatchdogSecretFieldViewModel : ObservableObject
         IsCleared = false;
         OnPropertyChanged(nameof(HasNewValue));
         OnPropertyChanged(nameof(StateText));
+        UndoCommand.NotifyCanExecuteChanged();
         _changed();
     }
 

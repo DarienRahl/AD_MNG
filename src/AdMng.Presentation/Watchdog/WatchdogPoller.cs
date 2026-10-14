@@ -183,9 +183,10 @@ public sealed class WatchdogPoller : IDisposable
                     Raise(() => Recovered?.Invoke(this, EventArgs.Empty));
                 }
             }
-            catch (OperationCanceledException) when (wake.IsCancellationRequested)
+            catch (Exception) when (wake.IsCancellationRequested)
             {
-                // Woken (filter or visibility changed) or stopped.
+                // Woken (filter or visibility changed) or stopped: the client may report the cancelled request as
+                // an OperationCanceledException or as a WatchdogClientException of kind Cancelled.
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {

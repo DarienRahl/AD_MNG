@@ -126,7 +126,11 @@ public sealed class WatchdogConnectionService
         return true;
     }
 
-    /// <summary>Validates and stores a new address and configures the client. Returns a localized error or null.</summary>
+    /// <summary>
+    /// Validates and stores a new address (https only, normalized without a trailing slash). Returns a localized error
+    /// or null. The client is configured with it by the next connection attempt (<see cref="EnsureConfigured"/>), which
+    /// also reports a client that refuses it.
+    /// </summary>
     public async Task<string?> SetAddressAsync(string text)
     {
         if (ValidateAddress(text) is { } error)
@@ -137,15 +141,7 @@ public sealed class WatchdogConnectionService
         TryParseAddress(text, out var address);
         var normalized = address.GetLeftPart(UriPartial.Path).TrimEnd('/');
         await _settings.UpdateAsync(s => s.Watchdog.ServiceUrl = normalized).ConfigureAwait(true);
-        try
-        {
-            EnsureConfigured();
-        }
-        finally
-        {
-            AddressChanged?.Invoke(this, EventArgs.Empty);
-        }
-
+        AddressChanged?.Invoke(this, EventArgs.Empty);
         return null;
     }
 

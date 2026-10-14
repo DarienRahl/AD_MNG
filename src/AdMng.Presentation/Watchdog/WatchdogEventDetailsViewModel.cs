@@ -207,6 +207,16 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         }
     }
 
+    /// <summary>An AD session was opened or closed: "Otwórz w AD_MNG" and the unlock offer are re-evaluated.</summary>
+    public void NotifySessionChanged()
+    {
+        OpenInAdMngCommand.NotifyCanExecuteChanged();
+        if (Event is { } shown && !_disposed)
+        {
+            Loading = CheckLockAsync(shown, CancellationToken.None);
+        }
+    }
+
     public void Dispose()
     {
         _disposed = true;
@@ -544,7 +554,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
 
     private void Clear()
     {
-        Title =SeverityText = TimeText = ObjectName = ObjectKindText = ObjectPath = ObjectDn = PreviousDn = ObjectGuidText = string.Empty;
+        Title = SeverityText = TimeText = ObjectName = ObjectKindText = ObjectPath = ObjectDn = PreviousDn = ObjectGuidText = string.Empty;
         OriginText = TagsText = RulesText = AcknowledgedText = MemberText = ViaText = ExpiryText = BurstText = string.Empty;
         AttributionStatusText = ActorText = SourceText = SourceConfidenceText = ConfidenceText = ReasonText = RemedyText = SourceReasonText = string.Empty;
         LockoutText = string.Empty;

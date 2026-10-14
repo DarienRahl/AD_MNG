@@ -49,6 +49,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Status.Failed += OnCallFailed;
         Status.StatusLoaded += OnStatusLoaded;
         services.Localizer.CultureChanged += OnCultureChanged;
+        services.Sessions.SessionChanged += OnSessionChanged;
         UpdateState(services.Connection.HasServiceUrl ? WatchdogConnectionState.Connecting : WatchdogConnectionState.NotConfigured, null);
     }
 
@@ -70,7 +71,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     // ---- Connection -------------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText), nameof(ShowRolloutBanner))]
     public partial WatchdogConnectionState ConnectionState { get; private set; }
 
     /// <summary>Localized explanation of the state (with the remedy for Kerberos / role problems).</summary>
@@ -169,10 +170,13 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     public string BadgeText => UnacknowledgedHighOrAbove > 99 ? "99+" : UnacknowledgedHighOrAbove.ToString(_services.Localizer.Culture);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRolloutActive), nameof(RolloutBannerText))]
+    [NotifyPropertyChangedFor(nameof(IsRolloutActive), nameof(RolloutBannerText), nameof(ShowRolloutBanner))]
     public partial DateTimeOffset? RolloutUntil { get; private set; }
 
     public bool IsRolloutActive => RolloutUntil is not null;
+
+    /// <summary>The rollout banner is shown (connected and rollout mode active).</summary>
+    public bool ShowRolloutBanner => IsConnected && IsRolloutActive;
 
     public string RolloutBannerText => Rules.RolloutBannerText;
 
@@ -228,6 +232,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         _disposed = true;
         _connects.Cancel();
         _services.Localizer.CultureChanged -= OnCultureChanged;
+        _services.Sessions.SessionChanged -= OnSessionChanged;
         _poller.StatusReceived -= OnStatusReceived;
         _poller.Failed -= OnPollFailed;
         _poller.Recovered -= OnPollRecovered;
@@ -464,6 +469,18 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     }
 
     private void OnLocateRequested(object? sender, string dn) => LocateRequested?.Invoke(this, dn);
+
+    /// <summary>An AD session was opened or closed: the pickers and "Otwórz w AD_MNG" re-evaluate their availability.</summary>
+    private void OnSessionChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Events.NotifySessionChanged();
+        Rules.NotifySessionChanged();
+    }).Forget();
 
     private void OnCultureChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
     {

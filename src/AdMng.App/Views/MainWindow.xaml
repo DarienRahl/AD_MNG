@@ -265,6 +265,7 @@
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />
         <MenuItem b:CommandMenu.Id="object.copyDn" />
+        <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
         <Separator />
@@ -796,6 +797,12 @@
                   <Button Margin="0,0,6,6"
                           b:CommandMenu.Id="object.move"
                           Content="{l:Tr Commands.Move}" />
+                  <!-- "What happened to this account?" – only offered when a watchdog service is configured. -->
+                  <Button x:Name="WatchdogHistoryButton"
+                          Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.watchdogHistory"
+                          Content="{l:Tr Commands.WatchdogHistory}"
+                          Visibility="{Binding Data.IsWatchdogHistoryAvailable, Mode=OneWay, Source={StaticResource ShellProxy}, Converter={StaticResource Ad.BoolToVisibility}}" />
                 </WrapPanel>
               </StackPanel>
             </ScrollViewer>

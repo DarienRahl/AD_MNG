@@ -41,6 +41,9 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
         RefreshErrors();
     }
 
+    /// <summary>The rule was edited (the list row follows).</summary>
+    public event EventHandler<RuleSettings>? RuleChanged;
+
     /// <summary>Position of the rule in <c>configuration.rules</c>.</summary>
     public int Index { get; }
 
@@ -165,7 +168,16 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
     /// <summary>"2 wyjątki" (Viewers see only the count).</summary>
     public string ExclusionsText => _services.Localizer.Format(L.Watchdog.RulesExclusionsCount, Exclusions.Count);
 
+    /// <summary>A directory session is open: the container and object pickers are available.</summary>
+    public bool CanPick => CanEdit && _services.Sessions.Current is not null;
+
+    /// <summary>The caller's account (<c>CreatedBy</c> of new exclusions).</summary>
+    public string? Account { get; set; }
+
     // ---- Preview ----------------------------------------------------------------------------------------------
+
+    /// <summary>Choices of <see cref="PreviewDays"/>.</summary>
+    public IReadOnlyList<int> PreviewDayOptions { get; } = [1, 7, 14, 30, 90];
 
     /// <summary>Days of stored events the preview scans (1–90).</summary>
     [ObservableProperty]
@@ -256,8 +268,15 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
         return exclusion;
     }
 
-    /// <summary>The caller's account (<c>CreatedBy</c> of new exclusions).</summary>
-    public string? Account { get; set; }
+    /// <summary>An AD session was opened or closed (pickers of the rule and its exclusions).</summary>
+    public void NotifySessionChanged()
+    {
+        OnPropertyChanged(nameof(CanPick));
+        foreach (var exclusion in Exclusions)
+        {
+            exclusion.NotifySessionChanged();
+        }
+    }
 
     [RelayCommand]
     private void NewExclusion() => AddExclusion();
@@ -543,7 +562,4 @@ public sealed partial class WatchdogRuleEditorViewModel : ObservableObject
         _session.Update(c => c with { Rules = [.. c.Rules.Select((r, i) => i == Index ? rule : r)] });
         RuleChanged?.Invoke(this, rule);
     }
-
-    /// <summary>The rule was edited (the list row follows).</summary>
-    public event EventHandler<RuleSettings>? RuleChanged;
 }
