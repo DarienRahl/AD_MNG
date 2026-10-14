@@ -1,11 +1,18 @@
 name: Release
 
-# Pushing a tag v<major>.<minor>.<patch>[-suffix] builds, tests and publishes AdMng.exe on Windows and creates the
-# GitHub release with the zip, its SHA-256 checksum and screenshots of exactly that commit. The release notes come from
-# docs/releases/<tag>.md (Polish). Tags v0.* and tags with a suffix are marked as pre-releases.
+# Releases of AD Manager. Two ways to start one:
+#  - push release notes docs/releases/v<major>.<minor>.<patch>[-suffix].md to a release branch (below). The first line
+#    may name the commit to release: <!-- release-commit: <sha> --> (default: the pushed commit; it must be in the
+#    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
+#    that already exists only updates the release description;
+#  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
+# The build job builds, tests and publishes AdMng.exe on Windows and renders screenshots of exactly that commit; the
+# release gets the zip, the screenshots and SHA256SUMS.txt. Tags v0.* and tags with a suffix are pre-releases.
 on:
   push:
     tags: ["v*"]
+    branches: ["claude/active-directory-manager-w9v9i8", "main"]
+    paths: ["docs/releases/v*.md"]
 
 permissions:
   contents: read
@@ -19,40 +26,111 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
 
 jobs:
-  build:
-    name: Build, test and package (Windows)
-    runs-on: windows-latest
-    timeout-minutes: 45
+  plan:
+    name: Plan the release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      mode: ${{ steps.plan.outputs.mode }}
+      tag: ${{ steps.plan.outputs.tag }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      notes: ${{ steps.plan.outputs.notes }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Plan
+        id: plan
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          PUSHED_SHA: ${{ github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" = tag ]; then
+            tag="$REF_NAME"
+            target="$PUSHED_SHA"
+            notes="docs/releases/$tag.md"
+          else
+            if [ -n "$BEFORE_SHA" ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+              mapfile -t changed < <(git diff --name-only --diff-filter=AM "$BEFORE_SHA" "$PUSHED_SHA" -- 'docs/releases/v*.md')
+            else
+              mapfile -t changed < <(git diff --name-only --diff-filter=AM "$PUSHED_SHA^" "$PUSHED_SHA" -- 'docs/releases/v*.md')
+            fi
+            if [ "${#changed[@]}" -eq 0 ]; then
+              echo "No release notes were added or changed by this push."
+              echo "mode=skip" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "${#changed[@]}" -gt 1 ]; then
+              echo "::error::One release per push: ${changed[*]} changed together."
+              exit 1
+            fi
+            notes="${changed[0]}"
+            tag="$(basename "$notes" .md)"
+            marker="$(sed -n '1s/^<!-- *release-commit: *\([0-9a-fA-F]\{7,40\}\) *-->.*$/\1/p' "$notes")"
+            target="$(git rev-parse --verify "${marker:-$PUSHED_SHA}^{commit}")"
+            if ! git merge-base --is-ancestor "$target" "$PUSHED_SHA"; then
+              echo "::error::Release commit $target is not in the history of $REF_NAME."
+              exit 1
+            fi
+          fi
+          if ! [[ "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+            echo "::error::'$tag' is not v<major>.<minor>.<patch>[-suffix]."
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          if [ ! -f "$notes" ]; then
+            echo "::error::Release notes $notes are missing."
+            exit 1
+          fi
+          mode=full
+          if [ "$REF_TYPE" != tag ] && git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            existing="$(git rev-parse "refs/tags/$tag^{commit}")"
+            if [ "$existing" != "$target" ]; then
+              echo "::error::Tag $tag already exists on $existing, not on $target."
+              exit 1
+            fi
+            mode=notes
+          fi
+          {
+            echo "mode=$mode"
+            echo "tag=$tag"
+            echo "version=$version"
+            echo "sha=$target"
+            echo "notes=$notes"
+          } >> "$GITHUB_OUTPUT"
+          echo "Release $tag ($version) of $target, notes $notes, mode $mode."
+
+  build:
+    name: Build, test and package (Windows)
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - name: Version from the tag
-        id: version
+      - name: Check the version
         shell: pwsh
         env:
-          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          if ($env:TAG -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') {
-            throw "Tag '$($env:TAG)' is not v<major>.<minor>.<patch>[-suffix]."
-          }
-          $version = $env:TAG.Substring(1)
           $prefix = (Select-Xml -Path Directory.Build.props -XPath '//VersionPrefix').Node.InnerText
-          if (-not $version.StartsWith($prefix)) {
-            throw "Tag version $version does not match VersionPrefix $prefix in Directory.Build.props."
+          if (-not $env:VERSION.StartsWith($prefix)) {
+            throw "Release version $($env:VERSION) does not match VersionPrefix $prefix in Directory.Build.props."
           }
-          if (-not (Test-Path "docs/releases/$($env:TAG).md")) {
-            throw "Release notes docs/releases/$($env:TAG).md are missing."
-          }
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "Releasing AD Manager $version"
+          "Releasing AD Manager $($env:VERSION) from $(git rev-parse HEAD)"
       - name: Restore
         run: dotnet restore AdMng.slnx
       - name: Build
-        run: dotnet build AdMng.slnx -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+        run: dotnet build AdMng.slnx -c Release --no-restore -p:Version=${{ needs.plan.outputs.version }}
       - name: Tests (unit and UI)
         run: dotnet test AdMng.slnx -c Release --no-build
         env:
@@ -60,9 +138,11 @@ jobs:
       - name: Publish (self-contained single file)
         run: >-
           dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained
-          -p:PublishSingleFile=true -p:Version=${{ steps.version.outputs.version }} -o publish
+          -p:PublishSingleFile=true -p:Version=${{ needs.plan.outputs.version }} -o publish
       - name: Smoke test published app
         shell: pwsh
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           # AdMng.exe is a GUI application: capture its report through redirected handles and print it.
           $p = Start-Process -FilePath publish/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait `
@@ -71,8 +151,8 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
           $info = (Get-Item publish/AdMng.exe).VersionInfo
           "AdMng.exe file version $($info.FileVersion), product version $($info.ProductVersion)"
-          if (-not "$($info.ProductVersion)".StartsWith('${{ steps.version.outputs.version }}')) {
-            "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected ${{ steps.version.outputs.version }}."
+          if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
+            "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
       - name: Screenshots
         shell: pwsh
@@ -86,8 +166,10 @@ jobs:
           ADMNG_SCREENSHOTS_DIR: ${{ github.workspace }}/screenshots
       - name: Package
         shell: pwsh
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          $version = '${{ steps.version.outputs.version }}'
+          $version = $env:VERSION
           New-Item -ItemType Directory -Path dist | Out-Null
           # Symbols are not shipped in the zip.
           $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
@@ -108,7 +190,7 @@ jobs:
 
   release:
     name: Create the GitHub release
-    needs: build
+    needs: [plan, build]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -123,11 +205,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-          VERSION: ${{ needs.build.outputs.version }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          TARGET: ${{ needs.plan.outputs.sha }}
+          NOTES: ${{ needs.plan.outputs.notes }}
         run: |
           set -euo pipefail
-          notes="docs/releases/${TAG}.md"
           title="AD Manager ${VERSION}"
           prerelease=()
           case "$TAG" in
@@ -135,8 +219,33 @@ jobs:
           esac
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/* --clobber
-            gh release edit "$TAG" --title "$title" --notes-file "$notes" "${prerelease[@]}"
+            gh release edit "$TAG" --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
+          elif [ "$REF_TYPE" = tag ]; then
+            gh release create "$TAG" dist/* --verify-tag --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
           else
-            gh release create "$TAG" dist/* --verify-tag --title "$title" --notes-file "$notes" "${prerelease[@]}"
+            # Creates the tag on the release commit.
+            gh release create "$TAG" dist/* --target "$TARGET" --title "$title" --notes-file "$NOTES" "${prerelease[@]}"
           fi
-          gh release view "$TAG" --json url,isPrerelease,assets --jq '{url, isPrerelease, assets: [.assets[].name]}'
+          gh release view "$TAG" --json url,tagName,isPrerelease,assets --jq '{url, tagName, isPrerelease, assets: [.assets[].name]}'
+
+  notes:
+    name: Update the release notes
+    needs: plan
+    if: needs.plan.outputs.mode == 'notes'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update the release description
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          NOTES: ${{ needs.plan.outputs.notes }}
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG" --title "AD Manager ${VERSION}" --notes-file "$NOTES"
+          gh release view "$TAG" --json url --jq .url

@@ -60,8 +60,10 @@ Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub
 Wersje rozwojowe między wydaniami: każdy przebieg CI publikuje artefakt **AdMng-win-x64** (zakładka **Actions** →
 workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14 dni).
 
-Wydanie tworzy workflow `.github/workflows/release.yml` po wypchnięciu tagu `v<wersja>` (np. `v0.1.0`); opis wydania
-pochodzi z `docs/releases/<tag>.md`.
+Wydanie tworzy workflow `.github/workflows/release.yml`, gdy na gałąź wydań trafi nowy opis
+`docs/releases/v<wersja>.md` (pierwsza linia może wskazać commit: `<!-- release-commit: <sha> -->`) albo gdy zostanie
+wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows, tworzy tag oraz wydanie z archiwum,
+zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu aktualizuje tylko opis wydania.
 
 Pierwsze uruchomienie: okno połączenia podpowiada domenę komputera i listę kontrolerów; wybierz bieżące konto Windows albo
 podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos z podpisywaniem i
