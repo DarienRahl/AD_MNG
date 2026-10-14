@@ -92,6 +92,10 @@ public class RecycleBinViewModelTests
         Assert.Contains("(objectClass=computer)", LastFilter(harness), StringComparison.Ordinal);
 
         bin.Kind = bin.Kinds[0];
+
+        // The test dispatcher runs flushes inline on pool threads, so a superseded load could interleave with the next
+        // load's reset here; in the app both run on the UI thread. Let each filter change finish its load.
+        await bin.Loading;
         bin.DeletedAfter = harness.Time.GetUtcNow().UtcDateTime.Date;
         await bin.Loading;
         Assert.Equal(["Łukasz Wiśniewski"], bin.Items.Select(r => r.Name));
