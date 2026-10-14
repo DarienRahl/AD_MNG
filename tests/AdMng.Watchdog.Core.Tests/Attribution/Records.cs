@@ -16,7 +16,7 @@ internal static class Records
 
     public static readonly IEnumerable<(string, string?)> Admin = SecurityEventXml.Subject(TestEvents.AdminSid, "adm.jkowalska", "CONTOSO", AdminLogonId);
     public static readonly IEnumerable<(string, string?)> OtherAdmin = SecurityEventXml.Subject(OtherAdminSid, "adm.zzak", "CONTOSO", "0x77aa1");
-    public static readonly IEnumerable<(string, string?)> System = SecurityEventXml.Subject("S-1-5-18", "DC01$", "CONTOSO", "0x3e7");
+    public static readonly IEnumerable<(string, string?)> LocalSystem = SecurityEventXml.Subject("S-1-5-18", "DC01$", "CONTOSO", "0x3e7");
 
     private static readonly SecurityEventParser Parser = new();
     private static long _recordId = 1000;
