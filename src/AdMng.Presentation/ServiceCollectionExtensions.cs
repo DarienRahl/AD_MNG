@@ -17,6 +17,7 @@ using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -33,7 +34,9 @@ public static class ServiceCollectionExtensions
     /// <see cref="Services.IThemeService"/>, <see cref="Services.IAppPaths"/>;</item>
     /// <item>Core/Directory implementations: <see cref="Core.Directory.IDirectoryConnector"/>, <see cref="Core.Batch.IChangePlanner"/>,
     /// <see cref="Core.Batch.IBatchExecutor"/>, <see cref="Core.Csv.ICsvCodec"/> and the attribute formatter
-    /// (<see cref="AddAttributeFormatter"/>).</item>
+    /// (<see cref="AddAttributeFormatter"/>);</item>
+    /// <item>the watchdog client <see cref="AdMng.Watchdog.Client.IWatchdogClient"/> (singleton; the app registers
+    /// <c>WatchdogHttpClient</c>).</item>
     /// </list>
     /// The pure AdMng.Core engines (planner, executor, CSV codec and import planner, rollback, PowerShell export,
     /// templates, password generator, report/audit exporters) are registered with their default implementations
@@ -87,6 +90,17 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<SettingsViewModel>();
         services.TryAddTransient<CsvImportViewModel>();
         services.TryAddTransient(sp => sp.GetRequiredService<ObjectListServices>().CreateList());
+
+        // Watchdog tab (the host registers IWatchdogClient). The factory creates tabs with "new": a transient resolved from
+        // the root provider would be kept alive by the container until exit.
+        services.TryAddSingleton<WatchdogConnectionService>();
+        services.TryAddSingleton<WatchdogServices>();
+        services.TryAddSingleton<WatchdogObjectHistoryLauncher>();
+        services.TryAddSingleton<Func<WatchdogDocumentViewModel>>(sp =>
+        {
+            var watchdog = sp.GetRequiredService<WatchdogServices>();
+            return () => new WatchdogDocumentViewModel(watchdog);
+        });
         return services;
     }
 

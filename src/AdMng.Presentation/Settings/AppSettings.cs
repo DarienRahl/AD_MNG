@@ -66,6 +66,9 @@ public sealed class AppSettings
     /// <summary>Most recently opened containers (DNs only), newest first.</summary>
     public List<string> RecentContainers { get; set; } = [];
 
+    /// <summary>The Watchdog tab: service address, last sub-tab and named filters (never watchdog data).</summary>
+    public WatchdogClientSettings Watchdog { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max 10).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -87,6 +90,8 @@ public sealed class AppSettings
         PinnedContainers ??= [];
         ColumnLayouts ??= new(StringComparer.Ordinal);
         RecentContainers ??= [];
+        Watchdog ??= new();
+        Watchdog.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

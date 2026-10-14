@@ -6,6 +6,7 @@
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:svc="clr-namespace:AdMng.App.Services"
         xmlns:v="clr-namespace:AdMng.App.Views"
+        xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
         xmlns:changes="clr-namespace:AdMng.Presentation.Changes;assembly=AdMng.Presentation"
         xmlns:lists="clr-namespace:AdMng.Presentation.Lists;assembly=AdMng.Presentation"
         xmlns:nav="clr-namespace:AdMng.Presentation.Navigation;assembly=AdMng.Presentation"
@@ -13,6 +14,7 @@
         xmlns:settings="clr-namespace:AdMng.Presentation.Settings;assembly=AdMng.Presentation"
         xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="1360"
         Height="840"
@@ -92,35 +94,6 @@
         </Setter.Value>
       </Setter>
     </Style>
-
-    <DataTemplate x:Key="DocumentTabHeaderTemplate" DataType="{x:Type lists:ObjectListViewModel}">
-      <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
-        <c:ObjectIconView Margin="0,0,6,0"
-                          VerticalAlignment="Center"
-                          Icon="{Binding Icon, Mode=OneWay}"
-                          Size="14" />
-        <TextBlock MaxWidth="220"
-                   VerticalAlignment="Center"
-                   Text="{Binding Title, Mode=OneWay}"
-                   TextTrimming="CharacterEllipsis" />
-        <TextBlock Margin="6,0,0,0"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{Binding LoadedCount, Mode=OneWay}" />
-        <TextBlock Margin="4,0,0,0"
-                   FontSize="10"
-                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                   Style="{StaticResource Ad.GlyphText}"
-                   Text="{x:Static c:Glyphs.Refresh}"
-                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button Margin="6,0,0,0"
-                AutomationProperties.Name="{l:Tr Commands.CloseTab}"
-                Click="OnCloseTabClick"
-                Content="{x:Static c:Glyphs.Close}"
-                Focusable="False"
-                Style="{StaticResource Ad.SmallIconButton}"
-                ToolTip="{l:Tr Commands.CloseTab}" />
-      </StackPanel>
-    </DataTemplate>
 
     <!-- Global search suggestions -->
     <DataTemplate x:Key="SuggestionTemplate" DataType="{x:Type shell:SearchSuggestionViewModel}">
@@ -347,6 +320,7 @@
         <MenuItem b:CommandMenu.Id="tools.importCsv" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.recycleBin" />
+        <MenuItem b:CommandMenu.Id="tools.watchdog" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />
         <MenuItem x:Name="PowerShellHistoryMenuItem"
@@ -552,10 +526,77 @@
 
         <TabControl x:Name="Tabs"
                     AutomationProperties.Name="{l:Tr Ui.OpenTabs}"
-                    ItemTemplate="{StaticResource DocumentTabHeaderTemplate}"
                     ItemsSource="{Binding Documents}"
-                    SelectedItem="{Binding SelectedDocument}"
+                    SelectedItem="{Binding SelectedTab}"
                     Style="{StaticResource TabStripStyle}">
+          <!-- Tab headers by document type (lists and the Watchdog tab). -->
+          <TabControl.Resources>
+            <DataTemplate DataType="{x:Type lists:ObjectListViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="6,0,0,0"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding LoadedCount, Mode=OneWay}" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogDocumentViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" />
+                <Border MinWidth="18"
+                        Margin="6,0,0,0"
+                        Padding="5,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{l:Tr Watchdog.Ui.TabBadge}"
+                        Background="{DynamicResource SystemFillColorCriticalBrush}"
+                        CornerRadius="9"
+                        ToolTip="{l:Tr Watchdog.Ui.TabBadge}"
+                        Visibility="{Binding HasBadge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock HorizontalAlignment="Center"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                             Text="{Binding BadgeText, Mode=OneWay}" />
+                </Border>
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+          </TabControl.Resources>
           <TabControl.ItemContainerStyle>
             <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
               <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
@@ -581,18 +622,22 @@
                   <MultiBinding Converter="{StaticResource Ad.SameInstanceToVisibility}">
                     <Binding Mode="OneWay" />
                     <Binding Mode="OneWay"
-                             Path="Data.SelectedDocument"
+                             Path="Data.SelectedTab"
                              Source="{StaticResource ShellProxy}" />
                   </MultiBinding>
                 </Setter.Value>
               </Setter>
             </Style>
           </ItemsControl.ItemContainerStyle>
-          <ItemsControl.ItemTemplate>
+          <!-- Document content by type. -->
+          <ItemsControl.Resources>
             <DataTemplate DataType="{x:Type lists:ObjectListViewModel}">
               <v:ObjectListView />
             </DataTemplate>
-          </ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogDocumentViewModel}">
+              <wdv:WatchdogView />
+            </DataTemplate>
+          </ItemsControl.Resources>
         </ItemsControl>
 
         <!-- Hints when no document is open -->

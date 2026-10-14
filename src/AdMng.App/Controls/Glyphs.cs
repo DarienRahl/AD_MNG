@@ -85,6 +85,14 @@ public static class Glyphs
     public const string Printer = "";
     public const string Unknown = "";
 
+    /// <summary>The AdMng Watchdog tab (an eye: the directory is being watched).</summary>
+    public const string Watchdog = "\uE890";
+    public const string History = "\uE81C";
+    public const string Send = "\uE724";
+    public const string Unlock = "\uE785";
+    public const string Accept = "\uE8FB";
+    public const string Health = "\uE95E";
+
     /// <summary>Base glyph of an object icon.</summary>
     public static string For(ObjectIcon icon) => icon switch
     {
@@ -104,6 +112,7 @@ public static class Glyphs
         ObjectIcon.QuickFilter => Filter,
         ObjectIcon.Pinned => Pin,
         ObjectIcon.Folder => Folder,
+        ObjectIcon.Watchdog => Watchdog,
         _ => Unknown,
     };
 
@@ -121,6 +130,7 @@ public static class Glyphs
         ObjectIcon.OrganizationalUnit or ObjectIcon.Container or ObjectIcon.Builtin or ObjectIcon.Domain
             or ObjectIcon.Folder or ObjectIcon.SharedFolder => IconTone.Container,
         ObjectIcon.Query or ObjectIcon.QuickFilter or ObjectIcon.Pinned => IconTone.Muted,
+        ObjectIcon.Watchdog => IconTone.Container,
         _ => IconTone.Neutral,
     };
 }

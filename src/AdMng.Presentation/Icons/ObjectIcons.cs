@@ -27,6 +27,9 @@ public enum ObjectIcon
     QuickFilter,
     Pinned,
     Folder,
+
+    /// <summary>The Watchdog document tab and the watchdog's own events.</summary>
+    Watchdog,
 }
 
 /// <summary>Chooses the icon of a directory object (ADUC conventions: down arrow for disabled accounts, padlock for locked).</summary>

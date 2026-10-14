@@ -20,6 +20,7 @@ using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
+using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -84,6 +85,9 @@ public static class AppHost
         // Directory access (System.DirectoryServices.Protocols).
         services.AddSingleton<IDirectoryConnector>(sp =>
             new LdapDirectoryConnector(sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<TimeProvider>()));
+
+        // AdMng Watchdog service (HTTPS + Kerberos; configured from the settings by WatchdogConnectionService).
+        services.AddSingleton<IWatchdogClient, WatchdogHttpClient>();
 
         // Presentation layer.
         services.AddAdMngPresentation();

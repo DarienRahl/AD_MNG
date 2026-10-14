@@ -8,6 +8,7 @@ using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Dialogs;
@@ -57,6 +58,7 @@ public interface IDialogViewModelFactory
 }
 
 /// <summary>Default <see cref="IDialogViewModelFactory"/> (singleton).</summary>
+/// <remarks>With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)".</remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
     BatchEngines engines,
@@ -64,9 +66,11 @@ public sealed class DialogViewModelFactory(
     IAuditLog auditLog,
     AuditLogExporter auditExporter,
     PowerShellHistory powerShellHistory,
-    IThemeService theme) : IDialogViewModelFactory
+    IThemeService theme,
+    WatchdogObjectHistoryLauncher? historyLauncher = null) : IDialogViewModelFactory
 {
-    public PropertySheetViewModel CreatePropertySheet(string distinguishedName) => new(services, engines.Planner, distinguishedName);
+    public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
+        new(services, engines.Planner, distinguishedName) { HistoryLauncher = historyLauncher };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
 

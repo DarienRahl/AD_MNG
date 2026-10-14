@@ -12,6 +12,9 @@ using AdMng.Presentation.Settings;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Client;
+using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.Presentation.Tests;
@@ -38,6 +41,7 @@ public sealed class ServiceRegistrationTests : IDisposable
         services.AddSingleton<IBatchExecutor, RecordingBatchExecutor>();
         services.AddSingleton<ICsvCodec, SimpleCsvCodec>();
         services.AddAttributeFormatter(_ => new PassThroughAttributeFormatter());
+        services.AddSingleton<IWatchdogClient>(new FakeWatchdogClient());
 
         services.AddAdMngPresentation();
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
@@ -70,5 +74,13 @@ public sealed class ServiceRegistrationTests : IDisposable
         using var recycleBin = factory.CreateRecycleBin();
         Assert.NotNull(provider.GetRequiredService<RecycleBinViewModel>());
         Assert.All<IWindowViewModel>([sheet, editor, reset, newUser, find, settings, recycleBin], vm => Assert.False(string.IsNullOrEmpty(vm.WindowTitle)));
+
+        // Watchdog tab: shared connection and history launcher, a new document per factory call.
+        Assert.Same(provider.GetRequiredService<WatchdogConnectionService>(), provider.GetRequiredService<WatchdogConnectionService>());
+        Assert.Same(provider.GetRequiredService<WatchdogObjectHistoryLauncher>(), sheet.HistoryLauncher);
+        var watchdogFactory = provider.GetRequiredService<Func<WatchdogDocumentViewModel>>();
+        using var first = watchdogFactory();
+        using var second = watchdogFactory();
+        Assert.NotSame(first, second);
     }
 }

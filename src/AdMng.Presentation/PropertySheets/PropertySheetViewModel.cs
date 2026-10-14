@@ -11,6 +11,7 @@ using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Watchdog;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -61,6 +62,26 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
 
     /// <summary>Raised after changes of this object were applied (the host may refresh other views).</summary>
     public event EventHandler<string>? ObjectChanged;
+
+    /// <summary>"Historia zmian (Watchdog)" of the shown object (set by the factory when the app has a watchdog client).</summary>
+    public WatchdogObjectHistoryLauncher? HistoryLauncher { get; init; }
+
+    /// <summary>objectGUID of the shown object (after the load).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ShowWatchdogHistoryCommand))]
+    public partial Guid? ObjectGuid { get; private set; }
+
+    /// <summary>The Watchdog tab shows the events of this object.</summary>
+    [RelayCommand(CanExecute = nameof(CanShowWatchdogHistory))]
+    private void ShowWatchdogHistory()
+    {
+        if (ObjectGuid is { } guid)
+        {
+            HistoryLauncher?.Show(guid, Name);
+        }
+    }
+
+    private bool CanShowWatchdogHistory() => HistoryLauncher?.CanShow(ObjectGuid) == true;
 
     /// <summary>DN of the object (follows renames/moves made elsewhere in the application).</summary>
     public string DistinguishedName { get; private set; }
@@ -387,6 +408,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             token.ThrowIfCancellationRequested();
 
             _loaded = obj;
+            ObjectGuid = obj.ObjectGuid;
             _loadedAttributes = new HashSet<string>(attributes, StringComparer.OrdinalIgnoreCase);
             DistinguishedName = obj.DistinguishedName;
             Name = obj.Name;

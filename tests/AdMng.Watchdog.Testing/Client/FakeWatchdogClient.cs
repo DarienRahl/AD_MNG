@@ -312,6 +312,10 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     public async Task<EventPage> GetEventsAsync(EventQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
+
+        // The long-poll deadline counts from the arrival of the request (before it is recorded), so a test that advances
+        // the clock as soon as it sees the call can never miss the timer.
+        var deadline = _time.GetUtcNow() + TimeSpan.FromSeconds(Math.Clamp(query.WaitSeconds, 0, 30));
         lock (_gate)
         {
             _eventQueries.Add(query);
@@ -320,7 +324,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         await EnterAsync(nameof(GetEventsAsync), cancellationToken).ConfigureAwait(false);
         if (query.After is { } after && query.WaitSeconds > 0)
         {
-            await WaitForNewerAsync(after, TimeSpan.FromSeconds(Math.Min(query.WaitSeconds, 30)), cancellationToken).ConfigureAwait(false);
+            await WaitForNewerAsync(after, deadline, cancellationToken).ConfigureAwait(false);
         }
 
         lock (_gate)
@@ -770,8 +774,8 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         }
     }
 
-    /// <summary>Long-poll: returns when an event newer than <paramref name="after"/> exists or <paramref name="wait"/> passed.</summary>
-    private async Task WaitForNewerAsync(long after, TimeSpan wait, CancellationToken cancellationToken)
+    /// <summary>Long-poll: returns when an event newer than <paramref name="after"/> exists or <paramref name="deadline"/> passed.</summary>
+    private async Task WaitForNewerAsync(long after, DateTimeOffset deadline, CancellationToken cancellationToken)
     {
         Task signal;
         lock (_gate)
@@ -782,6 +786,12 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             }
 
             signal = _newEvent.Task;
+        }
+
+        var wait = deadline - _time.GetUtcNow();
+        if (wait <= TimeSpan.Zero)
+        {
+            return;
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

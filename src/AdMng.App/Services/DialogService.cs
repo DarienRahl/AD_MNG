@@ -193,9 +193,9 @@ public sealed class DialogService : IDialogService
     public Task ShowSettingsAsync() => OnUiThreadAsync(_tools.ShowSettings);
 
     // ---- AD Recycle Bin (modeless, one window) ----
-    public Task ShowRecycleBinAsync() => OnUiThreadAsync(() =>
+    public Task ShowRecycleBinAsync(Guid? select = null) => OnUiThreadAsync(() =>
     {
-        _tools.ShowRecycleBin();
+        _tools.ShowRecycleBin(select);
         return true;
     });
 

@@ -141,6 +141,9 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     private string? _planTarget;
     private DeletedObjectLifetime? _lifetime;
 
+    /// <summary>Object to select after the next load (<see cref="SelectObject"/>).</summary>
+    private Guid? _pendingSelection;
+
     /// <summary>The session whose lifetimes were read (once per session).</summary>
     private IDirectorySession? _lifetimeSession;
     private Task _currentLoad = Task.CompletedTask;
@@ -707,7 +710,37 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
                 ApplySort();
                 UpdateStatus(stopped ? null : Services.Time.GetElapsedTime(started), stopped);
                 OnPropertyChanged(nameof(IsEmpty));
+                ApplyPendingSelection();
             }
+        }
+    }
+
+    /// <summary>
+    /// Selects the deleted object with <paramref name="objectGuid"/> once the list is loaded (the Watchdog tab opens a
+    /// deleted object this way). The name filter is cleared so that the object is part of the list.
+    /// </summary>
+    public void SelectObject(Guid objectGuid)
+    {
+        _pendingSelection = objectGuid;
+        if (_initialized && !IsLoading)
+        {
+            if (Items.Any(r => r.Info.ObjectGuid == objectGuid))
+            {
+                ApplyPendingSelection();
+            }
+            else
+            {
+                ClearFiltersCommand.Execute(null);
+            }
+        }
+    }
+
+    private void ApplyPendingSelection()
+    {
+        if (_pendingSelection is { } guid && Items.FirstOrDefault(r => r.Info.ObjectGuid == guid) is { } row)
+        {
+            _pendingSelection = null;
+            SelectedItem = row;
         }
     }
 

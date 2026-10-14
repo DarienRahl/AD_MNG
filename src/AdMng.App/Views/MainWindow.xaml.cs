@@ -179,8 +179,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var index = Shell.SelectedDocument is { } current ? Shell.Documents.IndexOf(current) : 0;
-        Shell.SelectedDocument = Shell.Documents[(((index + delta) % count) + count) % count];
+        var index = Shell.SelectedTab is { } current ? Shell.Documents.IndexOf(current) : 0;
+        Shell.SelectedTab = Shell.Documents[(((index + delta) % count) + count) % count];
     }
 
     private void OnFocusRequested(object? sender, ShellFocusTarget target)
@@ -219,7 +219,7 @@ public partial class MainWindow : Window
             case nameof(ShellViewModel.IsDetailsPaneVisible):
                 UpdateDetailsPane();
                 break;
-            case nameof(ShellViewModel.SelectedDocument):
+            case nameof(ShellViewModel.SelectedTab):
                 // Let the new tab's list take the keyboard once it is realized (unless the operator is typing).
                 _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
                 {
@@ -280,7 +280,7 @@ public partial class MainWindow : Window
 
     private void OnCloseTabClick(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: ObjectListViewModel document })
+        if (sender is FrameworkElement { DataContext: IShellDocument document })
         {
             Shell.CloseTabCommand.Execute(document);
             e.Handled = true;
@@ -289,7 +289,7 @@ public partial class MainWindow : Window
 
     private void OnTabMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ChangedButton == MouseButton.Middle && sender is TabItem { DataContext: ObjectListViewModel document })
+        if (e.ChangedButton == MouseButton.Middle && sender is TabItem { DataContext: IShellDocument document })
         {
             Shell.CloseTabCommand.Execute(document);
             e.Handled = true;

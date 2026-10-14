@@ -51,7 +51,7 @@ public sealed partial class ShellViewModel
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowWatchdogHistoryCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -186,11 +186,17 @@ public sealed partial class ShellViewModel
         return !distinguishedNames.All(dn => DistinguishedName.TryParse(dn, out var s) && s.Parent is { } p && p.Equals(target));
     }
 
-    [RelayCommand(CanExecute = nameof(HasDocument), AllowConcurrentExecutions = true)]
+    [RelayCommand(CanExecute = nameof(HasTab), AllowConcurrentExecutions = true)]
     private async Task RefreshAsync()
     {
         if (SelectedDocument is not { } document)
         {
+            // F5 on another tab (Watchdog) refreshes that tab.
+            if (SelectedTab is { } tab)
+            {
+                await tab.RefreshAsync().ConfigureAwait(true);
+            }
+
             return;
         }
 
@@ -671,7 +677,7 @@ public sealed partial class ShellViewModel
     {
         await Settings.UpdateAsync(s => s.ShowAdvancedFeatures = !s.ShowAdvancedFeatures).ConfigureAwait(true);
         await Tree.ReloadAsync().ConfigureAwait(true);
-        foreach (var document in Documents.Where(d => d.Location is { Kind: ListLocationKind.Container }))
+        foreach (var document in ListDocuments.Where(d => d.Location is { Kind: ListLocationKind.Container }))
         {
             document.LoadAsync().Forget();
         }
@@ -712,6 +718,36 @@ public sealed partial class ShellViewModel
 
     private bool HasDocument() => SelectedDocument is not null;
 
+    private bool HasTab() => SelectedTab is not null;
+
+    /// <summary>
+    /// "Historia zmian (Watchdog)" of the selected object: its objectGUID is read through the session and the Watchdog tab
+    /// shows the events of that object. Available when a watchdog service address is configured.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanShowWatchdogHistory))]
+    private async Task ShowWatchdogHistoryAsync()
+    {
+        if (_historyLauncher is null || CurrentSelection is not [var row] || Sessions.Current is not { } session)
+        {
+            return;
+        }
+
+        try
+        {
+            var obj = await Task.Run(() => session.GetAsync(row.Dn, [Attr.ObjectGuid, Attr.Name], CancellationToken.None)).ConfigureAwait(true);
+            if (obj?.ObjectGuid is { } guid)
+            {
+                _historyLauncher.Show(guid, row.Name);
+            }
+        }
+        catch (DirectoryException ex)
+        {
+            await _dialogs.ShowErrorAsync(Localizer[L.Commands.WatchdogHistory], Errors.Translate(ex)).ConfigureAwait(true);
+        }
+    }
+
+    private bool CanShowWatchdogHistory() => _historyLauncher?.IsAvailable == true && CurrentSelection.Count == 1 && IsConnected;
+
     private bool HasSelection() => CurrentSelection.Count > 0;
 
     private bool HasSingleSelection() => CurrentSelection.Count == 1;
@@ -746,7 +782,7 @@ public sealed partial class ShellViewModel
             if (Sessions.Current is { } session)
             {
                 var location = saved.ToLocation(session.Info.DefaultNamingContext);
-                foreach (var document in Documents.Where(d => string.Equals(d.Location?.ViewId, saved.Id, StringComparison.Ordinal)).ToList())
+                foreach (var document in ListDocuments.Where(d => string.Equals(d.Location?.ViewId, saved.Id, StringComparison.Ordinal)).ToList())
                 {
                     document.ReplaceLocationAsync(location).Forget();
                 }

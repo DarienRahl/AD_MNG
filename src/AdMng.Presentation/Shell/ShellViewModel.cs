@@ -14,6 +14,7 @@ using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -38,7 +39,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly ICsvCodec _csv;
     private readonly IRegionalSettings _regional;
     private readonly Debouncer _detailsDebouncer;
+    private readonly Func<WatchdogDocumentViewModel>? _watchdogFactory;
+    private readonly WatchdogObjectHistoryLauncher? _historyLauncher;
     private ObjectListViewModel? _observedDocument;
+    private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
     private Task? _initialization;
     private bool _detailsPaneVisible;
@@ -55,7 +59,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IClipboardService clipboard,
         INotificationService notifications,
         ICsvCodec csv,
-        IRegionalSettings regional)
+        IRegionalSettings regional,
+        Func<WatchdogDocumentViewModel>? watchdogFactory = null,
+        WatchdogObjectHistoryLauncher? historyLauncher = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -68,6 +74,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _notifications = notifications ?? throw new ArgumentNullException(nameof(notifications));
         _csv = csv ?? throw new ArgumentNullException(nameof(csv));
         _regional = regional ?? throw new ArgumentNullException(nameof(regional));
+        _watchdogFactory = watchdogFactory;
+        _historyLauncher = historyLauncher;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);
@@ -80,6 +88,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Localizer.CultureChanged += OnCultureChanged;
         _activities.PropertyChanged += OnActivitiesChanged;
         _views.Changed += OnViewsChanged;
+        if (_historyLauncher is not null)
+        {
+            _historyLauncher.Requested += OnWatchdogHistoryRequested;
+            _historyLauncher.AvailabilityChanged += OnWatchdogAvailabilityChanged;
+        }
     }
 
     public NavigationTreeViewModel Tree { get; }
@@ -88,11 +101,26 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     public ActivityCenterViewModel Activities => _activities;
 
-    /// <summary>Open documents (tabs).</summary>
-    public ObservableCollection<ObjectListViewModel> Documents { get; } = [];
+    /// <summary>Open documents (tabs): object lists and the Watchdog tab.</summary>
+    public ObservableCollection<IShellDocument> Documents { get; } = [];
 
+    /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    public partial ObjectListViewModel? SelectedDocument { get; set; }
+    [NotifyPropertyChangedFor(nameof(SelectedDocument))]
+    public partial IShellDocument? SelectedTab { get; set; }
+
+    /// <summary>
+    /// The selected object list, or null when no list tab is selected (the list commands disable themselves on the
+    /// Watchdog tab). Setting it selects that tab.
+    /// </summary>
+    public ObjectListViewModel? SelectedDocument
+    {
+        get => SelectedTab as ObjectListViewModel;
+        set => SelectedTab = value;
+    }
+
+    /// <summary>The object list tabs (without the Watchdog tab).</summary>
+    public IEnumerable<ObjectListViewModel> ListDocuments => Documents.OfType<ObjectListViewModel>();
 
     // ---- Header -------------------------------------------------------------------------------------------
 
@@ -137,12 +165,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     // ---- Status bar ---------------------------------------------------------------------------------------
 
-    public string StatusText => SelectedDocument?.StatusText ?? string.Empty;
+    public string StatusText => SelectedTab?.StatusText ?? string.Empty;
 
-    public string SelectionText => SelectedDocument?.SelectionText ?? string.Empty;
+    public string SelectionText => SelectedTab?.SelectionText ?? string.Empty;
 
-    /// <summary>A list is loading or a background operation runs.</summary>
-    public bool IsBusy => SelectedDocument?.IsLoading == true || _activities.HasRunning;
+    /// <summary>A tab is loading or a background operation runs.</summary>
+    public bool IsBusy => SelectedTab?.IsLoading == true || _activities.HasRunning;
 
     /// <summary>Recent containers (MRU) for the address bar drop-down.</summary>
     public IReadOnlyList<string> RecentContainers => [.. Settings.Current.RecentContainers.Select(AddressResolver.ToDisplayPath)];
@@ -165,7 +193,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The app calls this after the first connect while SessionChanged may already have started the same
         // initialization (shell created before connecting): join it instead of building a second tree and tab.
         if (Sessions.Current is { } current && ReferenceEquals(current, _initializedFor) && _initialization is { } running
-            && (!running.IsCompleted || Documents.Count > 0))
+            && (!running.IsCompleted || ListDocuments.Any()))
         {
             return running;
         }
@@ -178,13 +206,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         _initializedFor = Sessions.Current;
         RaiseHeaderChanged();
-        foreach (var existing in Documents)
-        {
-            existing.Dispose();
-        }
-
-        Documents.Clear();
-        SelectedDocument = null;
+        RemoveListDocuments();
         SelectedObject = null;
         IsPrivilegedIdentity = false;
         var session = Sessions.Current;
@@ -205,8 +227,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public Task NavigateAsync(ListLocation location)
     {
         ArgumentNullException.ThrowIfNull(location);
-        var document = SelectedDocument ?? AddDocument();
-        return document.NavigateAsync(location);
+        return ListForNavigation().NavigateAsync(location);
     }
 
     /// <summary>Opens a location in a new tab.</summary>
@@ -228,7 +249,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         var location = Sessions.Current is { } s && Core.Ldap.DistinguishedName.AreEqual(parent.ToString(), s.Info.DefaultNamingContext)
             ? ListLocation.ForContainer(s.Info.DefaultNamingContext, s.Info.DomainDnsName, ObjectIcon.Domain)
             : ListLocation.ForContainer(parent.ToString());
-        var document = SelectedDocument ?? AddDocument();
+        var document = ListForNavigation();
         if (document.Location is { Kind: ListLocationKind.Container } current
             && Core.Ldap.DistinguishedName.AreEqual(current.BaseDn, location.BaseDn)
             && !document.IsLoading)
@@ -250,9 +271,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private void CloseTab(ObjectListViewModel? document)
+    private void CloseTab(IShellDocument? document)
     {
-        document ??= SelectedDocument;
+        document ??= SelectedTab;
         if (document is null)
         {
             return;
@@ -260,12 +281,46 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         var index = Documents.IndexOf(document);
         Documents.Remove(document);
-        document.Dispose();
-        if (ReferenceEquals(SelectedDocument, document) || SelectedDocument is null)
+        if (document is WatchdogDocumentViewModel watchdog)
         {
-            SelectedDocument = Documents.Count == 0 ? null : Documents[Math.Clamp(index, 0, Documents.Count - 1)];
+            watchdog.LocateRequested -= OnWatchdogLocateRequested;
+        }
+
+        document.Dispose();
+        if (ReferenceEquals(SelectedTab, document) || SelectedTab is null)
+        {
+            SelectedTab = Documents.Count == 0 ? null : Documents[Math.Clamp(index, 0, Documents.Count - 1)];
         }
     }
+
+    /// <summary>
+    /// Opens the Watchdog tab (one per window) or selects it when it is open. Available without an AD session. Returns
+    /// null when the application has no watchdog client.
+    /// </summary>
+    public WatchdogDocumentViewModel? OpenWatchdog()
+    {
+        if (_watchdogFactory is null || _disposed)
+        {
+            return null;
+        }
+
+        var watchdog = Documents.OfType<WatchdogDocumentViewModel>().FirstOrDefault();
+        if (watchdog is null)
+        {
+            watchdog = _watchdogFactory();
+            watchdog.LocateRequested += OnWatchdogLocateRequested;
+            Documents.Add(watchdog);
+            watchdog.InitializeAsync().Forget();
+        }
+
+        SelectedTab = watchdog;
+        return watchdog;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanOpenWatchdog))]
+    private void ShowWatchdog() => OpenWatchdog();
+
+    private bool CanOpenWatchdog() => _watchdogFactory is not null;
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task NavigateToAddressAsync()
@@ -363,11 +418,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Sessions.SessionChanged -= OnSessionChanged;
         Settings.Changed -= OnSettingsChanged;
         Localizer.CultureChanged -= OnCultureChanged;
+        if (_historyLauncher is not null)
+        {
+            _historyLauncher.Requested -= OnWatchdogHistoryRequested;
+            _historyLauncher.AvailabilityChanged -= OnWatchdogAvailabilityChanged;
+        }
+
         _searchDebouncer.Cancel();
         _detailsDebouncer.Cancel();
         ObserveDocument(null);
+        ObserveTab(null);
         foreach (var document in Documents)
         {
+            if (document is WatchdogDocumentViewModel watchdog)
+            {
+                watchdog.LocateRequested -= OnWatchdogLocateRequested;
+            }
+
             document.Dispose();
         }
 
@@ -375,9 +442,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Tree.Dispose();
     }
 
-    partial void OnSelectedDocumentChanged(ObjectListViewModel? value)
+    partial void OnSelectedTabChanged(IShellDocument? value)
     {
-        ObserveDocument(value);
+        ObserveTab(value);
+        ObserveDocument(value as ObjectListViewModel);
+        foreach (var watchdog in Documents.OfType<WatchdogDocumentViewModel>())
+        {
+            // Live polling only for the visible tab; in the background the tab refreshes just its badge.
+            watchdog.IsVisible = ReferenceEquals(watchdog, value);
+        }
+
         UpdateAddress();
         RefreshCommandStates();
         OnPropertyChanged(nameof(StatusText));
@@ -387,7 +461,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The tree highlights what the active tab shows: with another tab's container still selected, a click on that
         // node would change nothing (no navigation) and the tree's "New" would act on the wrong container.
-        if (value?.Location is { } location)
+        if ((value as ObjectListViewModel)?.Location is { } location)
         {
             SyncTreeAsync(location).Forget();
         }
@@ -401,6 +475,89 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         SelectedDocument = document;
         return document;
     }
+
+    /// <summary>
+    /// The list a navigation (tree click, address, locate) goes to: the selected list, else the last list tab (selected),
+    /// else a new one – navigating from the Watchdog tab never replaces it.
+    /// </summary>
+    private ObjectListViewModel ListForNavigation()
+    {
+        if (SelectedDocument is { } selected)
+        {
+            return selected;
+        }
+
+        if (ListDocuments.LastOrDefault() is { } existing)
+        {
+            SelectedDocument = existing;
+            return existing;
+        }
+
+        return AddDocument();
+    }
+
+    /// <summary>Disposes and removes the object lists (a new session); the Watchdog tab stays.</summary>
+    private void RemoveListDocuments()
+    {
+        foreach (var list in ListDocuments.ToList())
+        {
+            Documents.Remove(list);
+            list.Dispose();
+        }
+
+        if (SelectedTab is not null && !Documents.Contains(SelectedTab))
+        {
+            SelectedTab = null;
+        }
+
+        SelectedTab ??= Documents.FirstOrDefault();
+    }
+
+    /// <summary>Watches the status texts of a selected tab that is not a list (lists are watched by ObserveDocument).</summary>
+    private void ObserveTab(IShellDocument? tab)
+    {
+        if (_observedTab is not null and not ObjectListViewModel)
+        {
+            _observedTab.PropertyChanged -= OnTabPropertyChanged;
+        }
+
+        _observedTab = tab;
+        if (tab is not null and not ObjectListViewModel)
+        {
+            tab.PropertyChanged += OnTabPropertyChanged;
+        }
+    }
+
+    private void OnTabPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(IShellDocument.StatusText):
+                OnPropertyChanged(nameof(StatusText));
+                break;
+            case nameof(IShellDocument.SelectionText):
+                OnPropertyChanged(nameof(SelectionText));
+                break;
+            case nameof(IShellDocument.IsLoading):
+                OnPropertyChanged(nameof(IsBusy));
+                break;
+        }
+    }
+
+    /// <summary>"Otwórz w AD_MNG" in the Watchdog tab: the object's current DN, located in a list tab.</summary>
+    private void OnWatchdogLocateRequested(object? sender, string distinguishedName) => LocateAsync(distinguishedName).Forget();
+
+    /// <summary>"Historia zmian (Watchdog)" from an object (list, details pane, property sheet).</summary>
+    private void OnWatchdogHistoryRequested(object? sender, WatchdogHistoryRequest request) => _ = _lists.Dispatcher.RunAsync(() =>
+    {
+        if (OpenWatchdog() is { } watchdog)
+        {
+            watchdog.ShowObjectHistoryAsync(request.ObjectGuid, request.Name).Forget();
+        }
+    });
+
+    private void OnWatchdogAvailabilityChanged(object? sender, EventArgs e) =>
+        _ = _lists.Dispatcher.RunAsync(ShowWatchdogHistoryCommand.NotifyCanExecuteChanged);
 
     private void ObserveDocument(ObjectListViewModel? document)
     {
@@ -575,13 +732,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             _initializedFor = null;
             _initialization = null;
-            foreach (var document in Documents)
-            {
-                document.Dispose();
-            }
-
-            Documents.Clear();
-            SelectedDocument = null;
+            RemoveListDocuments();
             SelectedObject = null;
             IsPrivilegedIdentity = false;
 
