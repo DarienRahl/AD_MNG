@@ -796,6 +796,14 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var delay = Task.Delay(wait, _time, timeout.Token);
+
+        // A test may advance the clock between reading it and starting the timer: the deadline still counts.
+        if (_time.GetUtcNow() >= deadline)
+        {
+            await timeout.CancelAsync().ConfigureAwait(false);
+            return;
+        }
+
         var winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
         await timeout.CancelAsync().ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();

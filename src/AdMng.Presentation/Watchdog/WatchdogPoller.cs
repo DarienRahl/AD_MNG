@@ -174,14 +174,12 @@ public sealed class WatchdogPoller : IDisposable
                 _wake = wake;
             }
 
+            // Back-off and status intervals count from the start of a round (before its requests), so a request that
+            // takes long never delays the next one further.
+            var roundStart = _time.GetUtcNow();
             try
             {
                 lastStatus = await RunRoundAsync(lastStatus, wake.Token).ConfigureAwait(false);
-                if (CurrentBackoff > TimeSpan.Zero)
-                {
-                    CurrentBackoff = TimeSpan.Zero;
-                    Raise(() => Recovered?.Invoke(this, EventArgs.Empty));
-                }
             }
             catch (Exception) when (wake.IsCancellationRequested)
             {
@@ -191,9 +189,8 @@ public sealed class WatchdogPoller : IDisposable
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 CurrentBackoff = CurrentBackoff == TimeSpan.Zero ? MinBackoff : TimeSpan.FromTicks(Math.Min(CurrentBackoff.Ticks * 2, MaxBackoff.Ticks));
-                var failedAt = _time.GetUtcNow();
                 Raise(() => Failed?.Invoke(this, ex));
-                await DelayUntilAsync(failedAt + CurrentBackoff, wake.Token).ConfigureAwait(false);
+                await DelayUntilAsync(roundStart + CurrentBackoff, wake.Token).ConfigureAwait(false);
             }
             finally
             {
@@ -212,8 +209,10 @@ public sealed class WatchdogPoller : IDisposable
         var interval = visible ? VisibleStatusInterval : HiddenStatusInterval;
         if (lastStatus is null || _time.GetUtcNow() - lastStatus >= interval)
         {
+            var requestedAt = _time.GetUtcNow();
             var status = await _client.GetStatusAsync(token).ConfigureAwait(false);
-            lastStatus = _time.GetUtcNow();
+            lastStatus = requestedAt;
+            Succeeded();
             Raise(() => StatusReceived?.Invoke(this, status));
         }
 
@@ -222,6 +221,7 @@ public sealed class WatchdogPoller : IDisposable
             var query = filter() with { After = cursor, Before = null, WaitSeconds = WaitSeconds, Limit = PageLimit };
             var page = await _client.GetEventsAsync(query, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
+            Succeeded();
             lock (_gate)
             {
                 if (_cursor != cursor)
@@ -246,19 +246,39 @@ public sealed class WatchdogPoller : IDisposable
         return lastStatus;
     }
 
+    /// <summary>A request succeeded: the back-off ends and a recovery after failures is reported at once.</summary>
+    private void Succeeded()
+    {
+        if (CurrentBackoff > TimeSpan.Zero)
+        {
+            CurrentBackoff = TimeSpan.Zero;
+            Raise(() => Recovered?.Invoke(this, EventArgs.Empty));
+        }
+    }
+
     private async Task DelayUntilAsync(DateTimeOffset due, CancellationToken token)
     {
         var remaining = due - _time.GetUtcNow();
-        if (remaining > TimeSpan.Zero)
+        if (remaining <= TimeSpan.Zero)
         {
-            try
-            {
-                await Task.Delay(remaining, _time, token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested)
-            {
-                // Woken or stopped: the loop decides.
-            }
+            return;
+        }
+
+        var delay = Task.Delay(remaining, _time, token);
+
+        // The clock may have moved on between reading it and starting the timer (a fake clock in tests).
+        if (_time.GetUtcNow() >= due)
+        {
+            return;
+        }
+
+        try
+        {
+            await delay.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Woken or stopped: the loop decides.
         }
     }
 
