@@ -231,6 +231,33 @@ public sealed class WatchdogShellTests
     }
 
     [Fact]
+    public async Task History_InAnOpenPropertySheet_FollowsTheServiceAddress()
+    {
+        using var h = await WatchdogHarness.CreateAsync(configured: false);
+        await h.Ui.RunAsync(async () =>
+        {
+            using var sheet = new PropertySheetViewModel(h.Ad.Services, h.Ad.Engines.Planner, h.Ad.Company.JanKowalski) { HistoryLauncher = h.Launcher };
+            await sheet.InitializeAsync();
+            var changed = new List<string?>();
+            sheet.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            Assert.False(sheet.IsWatchdogHistoryAvailable);
+            Assert.False(sheet.ShowWatchdogHistoryCommand.CanExecute(null));
+
+            await h.Connection.SetAddressAsync(WatchdogHarness.ServiceUrl);
+
+            Assert.Contains(nameof(PropertySheetViewModel.IsWatchdogHistoryAvailable), changed);
+            Assert.True(sheet.IsWatchdogHistoryAvailable);
+            Assert.True(sheet.ShowWatchdogHistoryCommand.CanExecute(null));
+
+            sheet.Dispose();
+            changed.Clear();
+            await h.Connection.ClearAddressAsync();
+            Assert.Empty(changed);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task OpenInAdMng_FromTheWatchdogTab_LocatesTheObjectInAListTab()
     {
         using var h = await WatchdogHarness.CreateAsync();

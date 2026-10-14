@@ -50,6 +50,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     private DirectoryObject? _loaded;
     private HashSet<string> _loadedAttributes = new(StringComparer.OrdinalIgnoreCase);
 
+    private readonly WatchdogObjectHistoryLauncher? _historyLauncher;
+
     public PropertySheetViewModel(DialogServices services, IChangePlanner planner, string distinguishedName)
         : base(services)
     {
@@ -64,7 +66,18 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     public event EventHandler<string>? ObjectChanged;
 
     /// <summary>"Historia zmian (Watchdog)" of the shown object (set by the factory when the app has a watchdog client).</summary>
-    public WatchdogObjectHistoryLauncher? HistoryLauncher { get; init; }
+    public WatchdogObjectHistoryLauncher? HistoryLauncher
+    {
+        get => _historyLauncher;
+        init
+        {
+            _historyLauncher = value;
+            if (value is not null)
+            {
+                value.AvailabilityChanged += OnHistoryAvailabilityChanged;
+            }
+        }
+    }
 
     /// <summary>A watchdog service is configured: the sheet offers "Historia zmian (Watchdog)".</summary>
     public bool IsWatchdogHistoryAvailable => HistoryLauncher?.IsAvailable == true;
@@ -85,6 +98,16 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     }
 
     private bool CanShowWatchdogHistory() => HistoryLauncher?.CanShow(ObjectGuid) == true;
+
+    /// <summary>The service address was set or removed while the sheet is open.</summary>
+    private void OnHistoryAvailabilityChanged(object? sender, EventArgs e) => _ = Services.Dispatcher.RunAsync(() =>
+    {
+        if (!IsDisposed)
+        {
+            OnPropertyChanged(nameof(IsWatchdogHistoryAvailable));
+            ShowWatchdogHistoryCommand.NotifyCanExecuteChanged();
+        }
+    });
 
     /// <summary>DN of the object (follows renames/moves made elsewhere in the application).</summary>
     public string DistinguishedName { get; private set; }
@@ -347,6 +370,11 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         {
             _loads.Cancel();
             Services.Changes.Changed -= OnDirectoryChanged;
+            if (_historyLauncher is not null)
+            {
+                _historyLauncher.AvailabilityChanged -= OnHistoryAvailabilityChanged;
+            }
+
             foreach (var page in Pages)
             {
                 page.StateChanged -= OnPageStateChanged;
