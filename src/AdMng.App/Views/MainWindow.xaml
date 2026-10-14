@@ -694,10 +694,12 @@
                     <DataTemplate DataType="{x:Type shell:SummaryField}">
                       <Grid Margin="0,2">
                         <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="Auto" MaxWidth="150" SharedSizeGroup="Label" />
+                          <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
                           <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Margin="0,0,10,0"
+                        <!-- An Auto column measures with unlimited width: the label itself must be bounded to wrap. -->
+                        <TextBlock MaxWidth="140"
+                                   Margin="0,0,10,0"
                                    VerticalAlignment="Top"
                                    Style="{StaticResource Ad.SecondaryText}"
                                    Text="{Binding Label, Mode=OneWay}"

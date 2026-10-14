@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
@@ -13,6 +14,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.Shell;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -93,6 +95,31 @@ public sealed class MainWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(Visibility.Collapsed, window.DetailsPane.Visibility);
 
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_DetailsPane_WrapsLongLabelsInsteadOfClippingThem() => WpfTestHost.RunAsync(async () =>
+    {
+        // Polish labels such as "Nazwa logowania użytkownika" are wider than the label column.
+        await using var context = await UiTestContext.CreateAsync("pl");
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(window);
+        await window.Shell.InitializeAsync();
+        await window.Shell.NavigateAsync(ListLocation.ForContainer(context.Company.ItOu));
+        await UiTestSupport.WaitForIdleAsync();
+        var document = window.Shell.SelectedDocument!;
+        window.SelectedListView!.ListControl.SelectedItem = document.Items[0];
+        await UiWait.UntilAsync(() => window.DetailsContent.Visibility == Visibility.Visible, "details pane shown");
+        await UiTestSupport.WaitForIdleAsync();
+
+        var labels = UiWait.Descendants<TextBlock>(window.DetailsContent)
+            .Where(t => t.DataContext is SummaryField field && t.Text == field.Label)
+            .ToList();
+        Assert.NotEmpty(labels);
+        Assert.Contains(labels, t => t.Text.Length > 20);
+        Assert.All(labels, t => Assert.Null(LayoutInformation.GetLayoutClip(t)));
         context.AssertHealthy();
     });
 
