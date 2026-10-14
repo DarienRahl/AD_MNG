@@ -53,12 +53,15 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 
 ## Pobranie gotowej wersji
 
-Każdy przebieg CI publikuje jednoplikowy `AdMng.exe` (win-x64, self-contained):
+Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z jednoplikowym `AdMng.exe`
+(win-x64, self-contained – bez instalacji, .NET i RSAT), sumy SHA-256 i zrzuty ekranu. Rozpakuj i uruchom `AdMng.exe`.
+Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub AppLocker/WDAC mogą go zablokować.
 
-1. Zakładka **Actions** repozytorium → workflow **CI** → najnowszy zielony przebieg.
-2. Sekcja *Artifacts* → **AdMng-win-x64** (archiwum ZIP, przechowywane 14 dni).
-3. Rozpakuj i uruchom `AdMng.exe`. Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub
-   AppLocker/WDAC mogą go zablokować.
+Wersje rozwojowe między wydaniami: każdy przebieg CI publikuje artefakt **AdMng-win-x64** (zakładka **Actions** →
+workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14 dni).
+
+Wydanie tworzy workflow `.github/workflows/release.yml` po wypchnięciu tagu `v<wersja>` (np. `v0.1.0`); opis wydania
+pochodzi z `docs/releases/<tag>.md`.
 
 Pierwsze uruchomienie: okno połączenia podpowiada domenę komputera i listę kontrolerów; wybierz bieżące konto Windows albo
 podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos z podpisywaniem i
