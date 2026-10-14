@@ -85,28 +85,28 @@ public sealed class ScreenshotTests
 
     private static readonly ScreenshotInfo WatchdogEvents = new(
         "09-watchdog-events.png",
-        "AD Watchdog – zdarzenia w katalogu (filtr, lista, szczegóły blokady konta)",
-        "AD Watchdog – directory events (filter, feed, details of an account lockout)");
+        "Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)",
+        "Watchdog – events (filter, feed and the details of an account lockout)");
 
     private static readonly ScreenshotInfo WatchdogEventDetails = new(
         "10-watchdog-event-details.png",
-        "AD Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd",
-        "AD Watchdog – event details: what changed, who and from where");
+        "Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd",
+        "Watchdog – event details: what changed, who and from where");
 
     private static readonly ScreenshotInfo WatchdogRules = new(
         "11-watchdog-rules.png",
-        "AD Watchdog – reguły powiadomień i edytor reguły",
-        "AD Watchdog – notification rules and the rule editor");
+        "Watchdog – reguły (lista i edytor reguły)",
+        "Watchdog – rules (list and rule editor)");
 
     private static readonly ScreenshotInfo WatchdogChannels = new(
         "12-watchdog-channels.png",
-        "AD Watchdog – kanały: SMTP, grupy odbiorców, Teams i webhook",
-        "AD Watchdog – channels: SMTP, recipient groups, Teams and webhook");
+        "Watchdog – kanały i SMTP",
+        "Watchdog – channels and SMTP");
 
     private static readonly ScreenshotInfo WatchdogStatus = new(
         "13-watchdog-status.png",
-        "AD Watchdog – stan usługi, kontrole i dziennik wysyłek",
-        "AD Watchdog – service status, health checks and delivery log");
+        "Watchdog – stan usługi",
+        "Watchdog – service status");
 
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
