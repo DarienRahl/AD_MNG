@@ -1,0 +1,142 @@
+name: Release
+
+# Pushing a tag v<major>.<minor>.<patch>[-suffix] builds, tests and publishes AdMng.exe on Windows and creates the
+# GitHub release with the zip, its SHA-256 checksum and screenshots of exactly that commit. The release notes come from
+# docs/releases/<tag>.md (Polish). Tags v0.* and tags with a suffix are marked as pre-releases.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  build:
+    name: Build, test and package (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Version from the tag
+        id: version
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ($env:TAG -notmatch '^v(\d+\.\d+\.\d+)(-[0-9A-Za-z.-]+)?$') {
+            throw "Tag '$($env:TAG)' is not v<major>.<minor>.<patch>[-suffix]."
+          }
+          $version = $env:TAG.Substring(1)
+          $prefix = (Select-Xml -Path Directory.Build.props -XPath '//VersionPrefix').Node.InnerText
+          if (-not $version.StartsWith($prefix)) {
+            throw "Tag version $version does not match VersionPrefix $prefix in Directory.Build.props."
+          }
+          if (-not (Test-Path "docs/releases/$($env:TAG).md")) {
+            throw "Release notes docs/releases/$($env:TAG).md are missing."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "Releasing AD Manager $version"
+      - name: Restore
+        run: dotnet restore AdMng.slnx
+      - name: Build
+        run: dotnet build AdMng.slnx -c Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+      - name: Tests (unit and UI)
+        run: dotnet test AdMng.slnx -c Release --no-build
+        env:
+          ADMNG_UI_TESTS: "1"
+      - name: Publish (self-contained single file)
+        run: >-
+          dotnet publish src/AdMng.App/AdMng.App.csproj -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true -p:Version=${{ steps.version.outputs.version }} -o publish
+      - name: Smoke test published app
+        shell: pwsh
+        run: |
+          # AdMng.exe is a GUI application: capture its report through redirected handles and print it.
+          $p = Start-Process -FilePath publish/AdMng.exe -ArgumentList '--smoke-test' -PassThru -Wait `
+            -RedirectStandardOutput smoke-out.txt -RedirectStandardError smoke-err.txt
+          Get-Content smoke-out.txt, smoke-err.txt -ErrorAction SilentlyContinue
+          if ($p.ExitCode -ne 0) { throw "Smoke test failed with exit code $($p.ExitCode)" }
+          $info = (Get-Item publish/AdMng.exe).VersionInfo
+          "AdMng.exe file version $($info.FileVersion), product version $($info.ProductVersion)"
+          if (-not "$($info.ProductVersion)".StartsWith('${{ steps.version.outputs.version }}')) {
+            "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected ${{ steps.version.outputs.version }}."
+          }
+      - name: Screenshots
+        shell: pwsh
+        run: |
+          dotnet test tests/AdMng.App.UiTests -c Release --no-build --filter "FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $shots = @(Get-ChildItem -Path $env:ADMNG_SCREENSHOTS_DIR -Filter *.png -ErrorAction SilentlyContinue)
+          if ($shots.Count -eq 0) { throw "No screenshots were written to $env:ADMNG_SCREENSHOTS_DIR." }
+        env:
+          ADMNG_UI_TESTS: "1"
+          ADMNG_SCREENSHOTS_DIR: ${{ github.workspace }}/screenshots
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          New-Item -ItemType Directory -Path dist | Out-Null
+          # Symbols are not shipped in the zip.
+          $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
+          Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
+          Get-ChildItem screenshots -Filter *.png | ForEach-Object {
+            Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"
+          }
+          $sums = Get-ChildItem dist -File | Sort-Object Name | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant(), $_.Name
+          }
+          $sums | Set-Content -Path dist/SHA256SUMS.txt -Encoding ascii
+          Get-ChildItem dist | ForEach-Object { "{0}  ({1:N0} bytes)" -f $_.Name, $_.Length }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/
+          retention-days: 7
+
+  release:
+    name: Create the GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
+      - name: Create or update the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          notes="docs/releases/${TAG}.md"
+          title="AD Manager ${VERSION}"
+          prerelease=()
+          case "$TAG" in
+            v0.*|*-*) prerelease=(--prerelease) ;;
+          esac
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+            gh release edit "$TAG" --title "$title" --notes-file "$notes" "${prerelease[@]}"
+          else
+            gh release create "$TAG" dist/* --verify-tag --title "$title" --notes-file "$notes" "${prerelease[@]}"
+          fi
+          gh release view "$TAG" --json url,isPrerelease,assets --jq '{url, isPrerelease, assets: [.assets[].name]}'
