@@ -1,0 +1,256 @@
+using AdMng.Core.ActiveDirectory;
+using AdMng.Presentation.Lists;
+using AdMng.Presentation.PropertySheets;
+using AdMng.Presentation.Shell;
+using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Testing.Client;
+
+namespace AdMng.Presentation.Tests.Watchdog;
+
+/// <summary>The Watchdog tab in the main window and "Historia zmian (Watchdog)" from objects.</summary>
+public sealed class WatchdogShellTests
+{
+    [Fact]
+    public async Task ToolsWatchdog_OpensOneTab_AndSelectsItAgain()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var list = shell.SelectedTab;
+            var command = Assert.Single(shell.CommandDescriptors, c => c.Id == "tools.watchdog");
+            Assert.Same(shell.ShowWatchdogCommand, command.Command);
+            Assert.Equal("Ctrl+Shift+A", command.Shortcut);
+            Assert.True(command.Command.CanExecute(null));
+
+            command.Command.Execute(null);
+            var watchdog = Assert.IsType<WatchdogDocumentViewModel>(shell.SelectedTab);
+            await watchdog.Connecting;
+            Assert.True(watchdog.IsConnected);
+            Assert.True(watchdog.IsVisible);
+            Assert.Null(shell.SelectedDocument);
+
+            shell.SelectedTab = list;
+            Assert.False(watchdog.IsVisible);
+
+            shell.ShowWatchdogCommand.Execute(null);
+            Assert.Same(watchdog, shell.SelectedTab);
+            Assert.Single(shell.Documents.OfType<WatchdogDocumentViewModel>());
+            Assert.True(watchdog.IsVisible);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task WatchdogTab_WorksWithoutAnAdSession_AndSurvivesReconnecting()
+    {
+        using var h = await WatchdogHarness.CreateAsync(adSession: false);
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            Assert.True(shell.ShowWatchdogCommand.CanExecute(null));
+
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            await watchdog.Events.Loading;
+            Assert.True(watchdog.IsConnected);
+            Assert.NotEmpty(watchdog.Events.Items);
+            Assert.False(watchdog.Events.Filter.CanPick);
+            Assert.Single(shell.Documents);
+
+            await h.Ad.ReconnectAsync(h.Ad.Session);
+            await shell.InitializeAsync();
+
+            Assert.Contains(watchdog, shell.Documents);
+            Assert.Single(shell.ListDocuments);
+            Assert.True(watchdog.Events.Filter.CanPick);
+            Assert.True(watchdog.IsConnected);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task F5_RefreshesTheWatchdogTab_CtrlW_ClosesItAndStopsPolling()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            await watchdog.Events.Loading;
+            var loads = FeedLoads(h);
+
+            await shell.RefreshCommand.ExecuteAsync(null);
+
+            Assert.Equal(loads + 1, FeedLoads(h));
+
+            Assert.Equal("Ctrl+W", Assert.Single(shell.CommandDescriptors, c => c.Id == "nav.closeTab").Shortcut);
+            Assert.Equal("F5", Assert.Single(shell.CommandDescriptors, c => c.Id == "object.refresh").Shortcut);
+            shell.CloseTabCommand.Execute(null);
+
+            Assert.DoesNotContain(watchdog, shell.Documents);
+            Assert.IsType<ObjectListViewModel>(shell.SelectedTab);
+            var calls = h.Client.Calls.All.Count;
+            h.Time.Advance(TimeSpan.FromMinutes(5));
+            await h.Ui.IdleAsync();
+            Assert.Equal(calls, h.Client.Calls.All.Count);
+
+            // Opening it again creates a fresh tab.
+            var reopened = shell.OpenWatchdog()!;
+            Assert.NotSame(watchdog, reopened);
+            await reopened.Connecting;
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task HiddenTab_KeepsItsBadgeUpToDate()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            shell.SelectedTab = shell.ListDocuments.First();
+            Assert.Equal("5", watchdog.BadgeText);
+
+            h.Client.Status = h.Client.Status with
+            {
+                Last24Hours = h.Client.Status.Last24Hours with { UnacknowledgedHighOrAbove = 7 },
+            };
+            h.Time.Advance(TimeSpan.FromSeconds(61));
+            await WatchdogTestWait.UntilAsync(h, () => watchdog.BadgeText == "7", "the hidden tab's status poll");
+
+            Assert.False(watchdog.IsVisible);
+            Assert.DoesNotContain(h.Client.EventQueries, q => q.After is not null);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task History_FromTheObjectList_ShowsTheEventsOfThatObject()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            Assert.True(shell.IsWatchdogHistoryAvailable);
+            Assert.False(shell.ShowWatchdogHistoryCommand.CanExecute(null));
+            await shell.NavigateAsync(ListLocation.ForContainer(h.Ad.Company.SalesOu));
+            var document = shell.SelectedDocument!;
+            document.SelectedItem = document.Items.Single(r => r.Name == "Żaneta Szymańska");
+            Assert.True(shell.ShowWatchdogHistoryCommand.CanExecute(null));
+            Assert.Same(shell.ShowWatchdogHistoryCommand, Assert.Single(shell.CommandDescriptors, c => c.Id == "object.watchdogHistory").Command);
+
+            await shell.ShowWatchdogHistoryCommand.ExecuteAsync(null);
+
+            var watchdog = Assert.IsType<WatchdogDocumentViewModel>(shell.SelectedTab);
+            await watchdog.Connecting;
+            await watchdog.Events.Loading;
+            var guid = (await h.Ad.Session.GetAsync(h.Ad.Company.ZanetaSzymanska, [Attr.ObjectGuid], TestContext.Current.CancellationToken))!.ObjectGuid;
+            Assert.Equal(WatchdogSubTab.Events, watchdog.SelectedSubTab);
+            Assert.Equal(guid, watchdog.Events.Filter.ObjectGuid);
+            Assert.Contains("Żaneta Szymańska", watchdog.Events.Filter.ObjectText, StringComparison.Ordinal);
+            Assert.Contains(h.Client.EventQueries, q => q.ObjectGuid == guid && q.After is null);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task History_IsOfferedOnlyWithAServiceAddress()
+    {
+        using var h = await WatchdogHarness.CreateAsync(configured: false);
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var changed = new List<string?>();
+            shell.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            await shell.NavigateAsync(ListLocation.ForContainer(h.Ad.Company.SalesOu));
+            shell.SelectedDocument!.SelectedItem = shell.SelectedDocument.Items.Single(r => r.Name == "Żaneta Szymańska");
+            Assert.False(shell.IsWatchdogHistoryAvailable);
+            Assert.False(shell.ShowWatchdogHistoryCommand.CanExecute(null));
+            Assert.False(h.Launcher.Show(Guid.NewGuid(), "Żaneta Szymańska"));
+
+            await h.Connection.SetAddressAsync(WatchdogHarness.ServiceUrl);
+
+            Assert.True(shell.IsWatchdogHistoryAvailable);
+            Assert.Contains(nameof(ShellViewModel.IsWatchdogHistoryAvailable), changed);
+            Assert.True(shell.ShowWatchdogHistoryCommand.CanExecute(null));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task History_FromThePropertySheet()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var sheet = new PropertySheetViewModel(h.Ad.Services, h.Ad.Engines.Planner, h.Ad.Company.JanKowalski) { HistoryLauncher = h.Launcher };
+            Assert.True(sheet.IsWatchdogHistoryAvailable);
+            Assert.False(sheet.ShowWatchdogHistoryCommand.CanExecute(null));
+            await sheet.InitializeAsync();
+            Assert.True(sheet.ShowWatchdogHistoryCommand.CanExecute(null));
+
+            sheet.ShowWatchdogHistoryCommand.Execute(null);
+
+            var watchdog = Assert.IsType<WatchdogDocumentViewModel>(shell.SelectedTab);
+            await watchdog.Connecting;
+            Assert.Equal(sheet.ObjectGuid, watchdog.Events.Filter.ObjectGuid);
+            Assert.Contains("Jan Kowalski", watchdog.Events.Filter.ObjectText, StringComparison.Ordinal);
+
+            // Without a launcher (no watchdog client in the application) nothing is offered.
+            var plain = new PropertySheetViewModel(h.Ad.Services, h.Ad.Engines.Planner, h.Ad.Company.JanKowalski);
+            await plain.InitializeAsync();
+            Assert.False(plain.IsWatchdogHistoryAvailable);
+            Assert.False(plain.ShowWatchdogHistoryCommand.CanExecute(null));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task OpenInAdMng_FromTheWatchdogTab_LocatesTheObjectInAListTab()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        var zaneta = await h.Ad.Session.GetAsync(h.Ad.Company.ZanetaSzymanska, [Attr.ObjectGuid], TestContext.Current.CancellationToken);
+        var stored = h.Client.AddEvent(SampleEvents.NewUser("Żaneta Szymańska", SampleEvents.Now) with
+        {
+            Object = new ObjectRef
+            {
+                ObjectGuid = zaneta!.ObjectGuid,
+                Dn = "CN=Żaneta Szymańska,OU=Wrocław,OU=Firma,DC=contoso,DC=test",
+                Name = "Żaneta Szymańska",
+                Kind = WatchObjectKind.User,
+            },
+        });
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            await watchdog.Events.Loading;
+            watchdog.Events.SelectedItem = watchdog.Events.Items.Single(r => r.Id == stored.Id);
+            await watchdog.Events.Details.Loading;
+
+            await watchdog.Events.Details.OpenInAdMngCommand.ExecuteAsync(null);
+            await WatchdogTestWait.UntilAsync(h, () => shell.SelectedDocument?.SelectedItem?.Dn == h.Ad.Company.ZanetaSzymanska, "the located object");
+
+            Assert.Contains(watchdog, shell.Documents);
+            Assert.Equal(h.Ad.Company.SalesOu, shell.SelectedDocument!.Location!.BaseDn, ignoreCase: true);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    private static int FeedLoads(WatchdogHarness h) => h.Client.EventQueries.Count(q => q.After is null && q.Before is null);
+}
