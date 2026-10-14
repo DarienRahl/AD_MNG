@@ -17,7 +17,10 @@ public static class CsvFiles
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
-    /// <summary>Delimiter Excel uses for the culture (';' for Polish, ',' for English) - never a space.</summary>
+    /// <summary>
+    /// Delimiter Excel uses for the culture (';' for Polish, ',' for English) - never a space. Pass the regional
+    /// culture (<see cref="Services.IRegionalSettings.Culture"/>), not the UI language.
+    /// </summary>
     public static char ListSeparator(CultureInfo culture)
     {
         ArgumentNullException.ThrowIfNull(culture);
@@ -41,22 +44,21 @@ public static class CsvFiles
 
     /// <summary>
     /// Reads a text file chosen by the operator. UTF-8 (with or without BOM) and UTF-16 with BOM are detected;
-    /// anything else is decoded with the ANSI code page of <paramref name="culture"/> (Windows-1250 for Polish),
-    /// which is what Excel writes for "CSV (comma delimited)".
+    /// anything else is decoded with <paramref name="ansiCodePage"/> - the system's ANSI code page
+    /// (<see cref="Services.IRegionalSettings.AnsiCodePage"/>, Windows-1250 on Polish Windows), which is what Excel
+    /// writes for "CSV (comma delimited)" whatever the UI language of this app.
     /// </summary>
-    public static async Task<string> ReadTextAsync(string path, CultureInfo culture, CancellationToken cancellationToken = default)
+    public static async Task<string> ReadTextAsync(string path, int ansiCodePage, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        ArgumentNullException.ThrowIfNull(culture);
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-        return Decode(bytes, culture);
+        return Decode(bytes, ansiCodePage);
     }
 
     /// <summary>Decodes file content (see <see cref="ReadTextAsync"/>).</summary>
-    public static string Decode(byte[] bytes, CultureInfo culture)
+    public static string Decode(byte[] bytes, int ansiCodePage)
     {
         ArgumentNullException.ThrowIfNull(bytes);
-        ArgumentNullException.ThrowIfNull(culture);
         if (bytes is [0xEF, 0xBB, 0xBF, ..])
         {
             return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
@@ -78,7 +80,7 @@ public static class CsvFiles
         }
         catch (DecoderFallbackException)
         {
-            var codePage = culture.TextInfo.ANSICodePage is > 0 and not 65001 ? culture.TextInfo.ANSICodePage : 1252;
+            var codePage = ansiCodePage is > 0 and not 65001 ? ansiCodePage : 1252;
             return Encoding.GetEncoding(codePage).GetString(bytes);
         }
     }

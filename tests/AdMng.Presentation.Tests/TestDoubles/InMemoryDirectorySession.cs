@@ -76,6 +76,12 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
 
     public bool SupportsWatch { get; set; }
 
+    /// <summary>
+    /// When set, disposing a watch waits for this task first (the real watcher abandons its notification search,
+    /// which can take a while) - lets tests start new loads while the previous watch is still being disposed.
+    /// </summary>
+    public Task? WatchDisposeGate { get; set; }
+
     /// <summary>What a search with more matches than <see cref="DirectorySearch.SizeLimit"/> does.</summary>
     public SizeLimitBehavior SizeLimitBehavior { get; set; } = SizeLimitBehavior.Truncate;
 
@@ -219,8 +225,13 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
             _watchers.Add(entry);
         }
 
-        return Task.FromResult<IAsyncDisposable?>(new Subscription(() =>
+        return Task.FromResult<IAsyncDisposable?>(new Subscription(async () =>
         {
+            if (WatchDisposeGate is { } gate)
+            {
+                await gate;
+            }
+
             lock (_watchers)
             {
                 _watchers.Remove(entry);
@@ -235,6 +246,18 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
             lock (_watchers)
             {
                 return _watchers.Count;
+            }
+        }
+    }
+
+    /// <summary>Containers of the active watches.</summary>
+    public IReadOnlyList<string> WatchedContainers
+    {
+        get
+        {
+            lock (_watchers)
+            {
+                return [.. _watchers.Select(w => w.Container)];
             }
         }
     }
@@ -298,13 +321,9 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
     private static string DnKey(string dn) =>
         (DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
 
-    private sealed class Subscription(Action dispose) : IAsyncDisposable
+    private sealed class Subscription(Func<Task> dispose) : IAsyncDisposable
     {
-        public ValueTask DisposeAsync()
-        {
-            dispose();
-            return ValueTask.CompletedTask;
-        }
+        public ValueTask DisposeAsync() => new(dispose());
     }
 }
 

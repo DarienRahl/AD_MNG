@@ -942,12 +942,21 @@ public sealed class ChangePlanner : IChangePlanner
                 return;
             }
 
-            if (operation.AlsoSetDisplayName)
+            if (operation.AlsoSetDisplayName && (!operation.KeepCustomDisplayName || DisplayNameFollowsName()))
             {
                 Edit(Attr.DisplayName).Replace([value]);
             }
 
             _newName = string.Equals(value, _current.Dn.Name, StringComparison.Ordinal) ? null : value;
+        }
+
+        /// <summary>The current display name is empty or the current name (RDN value) - not maintained separately.</summary>
+        private bool DisplayNameFollowsName()
+        {
+            var current = _draft.CurrentValues(Attr.DisplayName);
+            return current.Count == 0
+                || string.IsNullOrWhiteSpace(current[0])
+                || string.Equals(current[0].Trim(), _current.Dn.Name, StringComparison.OrdinalIgnoreCase);
         }
 
         private void ApplyMove()

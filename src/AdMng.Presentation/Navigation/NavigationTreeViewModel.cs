@@ -198,6 +198,19 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         }
     }
 
+    /// <summary>
+    /// Raises <see cref="NodeActivated"/> for the selected node again: the view calls it when the operator clicks the
+    /// node that is already selected (no selection change, so no activation otherwise) - e.g. the current tab shows
+    /// search results or an edited view while the tree still highlights the node.
+    /// </summary>
+    public void ActivateSelected()
+    {
+        if (SelectedNode is { } node and not PlaceholderNodeViewModel)
+        {
+            NodeActivated?.Invoke(this, node);
+        }
+    }
+
     /// <summary>Reloads every loaded container (e.g. after toggling Advanced Features).</summary>
     public async Task ReloadAsync()
     {

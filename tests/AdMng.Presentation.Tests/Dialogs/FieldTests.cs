@@ -5,6 +5,7 @@ using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.PropertySheets;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Tests.TestDoubles;
 using AdMng.Testing;
 using ManualTimeProvider = AdMng.Testing.ManualTimeProvider;
@@ -77,7 +78,7 @@ public class FieldTests
         var services = new Presentation.Dialogs.DialogServices(
             harness.Sessions, harness.Localizer, harness.Dispatcher, harness.Settings, harness.Errors, harness.Changes,
             new ManualTimeProvider(localTimeZone: warsaw), harness.Dialogs, harness.Files, harness.Clipboard, harness.Notifications,
-            harness.Coordinator, harness.Activities, harness.Lists);
+            harness.Coordinator, harness.Activities, harness.Lists, harness.Regional);
         var field = new ExpiryFieldViewModel(new FieldContext(services, harness.Session));
 
         // 2026-07-16 00:00 in Warsaw (CEST, UTC+2) is the end of 2026-07-15.
@@ -205,11 +206,29 @@ public class FieldTests
         var polish = System.Globalization.CultureInfo.GetCultureInfo("pl-PL");
         const string text = "Imię;Nazwisko\r\nŁukasz;Żółć\r\n";
 
-        Assert.Equal(text, CsvFiles.Decode([.. new byte[] { 0xEF, 0xBB, 0xBF }, .. Encoding.UTF8.GetBytes(text)], polish));
-        Assert.Equal(text, CsvFiles.Decode(Encoding.UTF8.GetBytes(text), polish));
-        Assert.Equal(text, CsvFiles.Decode(Encoding.GetEncoding(1250).GetBytes(text), polish));
-        Assert.Equal(text, CsvFiles.Decode(Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(text)).ToArray(), polish));
+        Assert.Equal(text, CsvFiles.Decode([.. new byte[] { 0xEF, 0xBB, 0xBF }, .. Encoding.UTF8.GetBytes(text)], 1250));
+        Assert.Equal(text, CsvFiles.Decode(Encoding.UTF8.GetBytes(text), 1250));
+        Assert.Equal(text, CsvFiles.Decode(Encoding.GetEncoding(1250).GetBytes(text), 1250));
+        Assert.Equal(text, CsvFiles.Decode(Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(text)).ToArray(), 1250));
         Assert.Equal(';', CsvFiles.ListSeparator(polish));
+    }
+
+    [Fact]
+    public void RegionalSettings_AreIndependentOfTheUiLanguage()
+    {
+        // Polish region, English UI: Excel's ANSI files are Windows-1250 and its delimiter is ';'.
+        var english = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+        var regional = new SystemRegionalSettings(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"), 1250);
+        var bytes = Encoding.GetEncoding(1250).GetBytes("Łukasz Żółć;Księgowość");
+
+        Assert.Equal("Łukasz Żółć;Księgowość", CsvFiles.Decode(bytes, regional.AnsiCodePage));
+        Assert.NotEqual("Łukasz Żółć;Księgowość", CsvFiles.Decode(bytes, english.TextInfo.ANSICodePage));
+        Assert.Equal(';', CsvFiles.ListSeparator(regional.Culture));
+        if (!OperatingSystem.IsWindows())
+        {
+            // No system ANSI code page outside Windows (GetACP): the regional culture's one.
+            Assert.Equal(1250, new SystemRegionalSettings(System.Globalization.CultureInfo.GetCultureInfo("pl-PL")).AnsiCodePage);
+        }
     }
 
     [Fact]

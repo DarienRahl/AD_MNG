@@ -30,21 +30,22 @@ namespace AdMng.Presentation.Tests.Dialogs;
 /// </summary>
 internal sealed class B2Harness
 {
-    private B2Harness(CultureInfo culture)
+    private B2Harness(CultureInfo culture, CultureInfo regional)
     {
         Builder = new FakeDirectoryBuilder(timeProvider: Time);
         Company = Builder.AddSampleCompany();
         Localizer = new ResxLocalizer(culture);
+        Regional = new SystemRegionalSettings(regional, regional.TextInfo.ANSICodePage);
         Errors = new ErrorTranslator(Localizer);
         Sessions = new SessionManager(new SessionConnector(Session), new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)), Localizer);
         Lists = new ObjectListServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time);
-        Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time);
+        Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time, Sessions);
         var templates = new TemplateEngine();
         Planner = new ChangePlanner(templates, new PasswordGenerator(), Time);
         Executor = new BatchExecutor(AuditLog, Time);
         PowerShell = new PowerShellHistory(new PowerShellExporter());
         Coordinator = new ChangeCoordinator(Sessions, Planner, Executor, Dialogs, Notifications, Settings, Activities, Changes, Errors, Localizer, PowerShell);
-        Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists);
+        Services = new DialogServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time, Dialogs, Files, Clipboard, Notifications, Coordinator, Activities, Lists, Regional);
         var csv = new CsvCodec();
         Engines = new BatchEngines(Planner, new CsvImportPlanner(Time), new RollbackPlanner(), new PowerShellExporter(), csv, templates, new BatchReportExporter(csv));
         Views = new ViewLibrary(Settings);
@@ -60,6 +61,9 @@ internal sealed class B2Harness
     public SampleCompany Company { get; }
 
     public ResxLocalizer Localizer { get; }
+
+    /// <summary>Regional settings of the "machine" (by default those of the UI culture).</summary>
+    public SystemRegionalSettings Regional { get; }
 
     public ErrorTranslator Errors { get; }
 
@@ -103,9 +107,12 @@ internal sealed class B2Harness
 
     public DialogViewModelFactory Factory { get; }
 
-    public static async Task<B2Harness> CreateAsync(CultureInfo? culture = null)
+    /// <param name="culture">UI language (default en-US).</param>
+    /// <param name="regional">Regional format of the system (default: the UI culture).</param>
+    public static async Task<B2Harness> CreateAsync(CultureInfo? culture = null, CultureInfo? regional = null)
     {
-        var harness = new B2Harness(culture ?? CultureInfo.GetCultureInfo("en-US"));
+        culture ??= CultureInfo.GetCultureInfo("en-US");
+        var harness = new B2Harness(culture, regional ?? culture);
         await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
         return harness;
     }

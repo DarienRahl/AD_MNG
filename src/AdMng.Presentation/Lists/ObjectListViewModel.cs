@@ -54,6 +54,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
     private readonly Lock _liveGate = new();
     private readonly CancellationTokenSource _lifetime = new();
     private int _generation;
+
+    // Incremented whenever rows are added to or removed from _allRows: a background sort of a snapshot is stale when
+    // it changed meanwhile (a rename removes one row and adds another - the count alone stays the same).
+    private int _rowsVersion;
     private RowContext? _rowContext;
     private DirectorySearch? _lastSearch;
     private SortKey? _serverSort;
@@ -281,6 +285,17 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         return ShowLocationAsync(location);
     }
 
+    /// <summary>
+    /// Shows a new definition of the current location (e.g. the edited saved view) in its place: loads it without a
+    /// new history entry, so Back does not return to the outdated definition.
+    /// </summary>
+    public Task ReplaceLocationAsync(ListLocation location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+        _history.ReplaceCurrent(location);
+        return ShowLocationAsync(location);
+    }
+
     /// <summary>Selects the row with this DN as soon as it is loaded (navigation to an object).</summary>
     public void SelectAfterLoad(string distinguishedName)
     {
@@ -500,12 +515,16 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         _lastSearch = null;
         _rowContext = null;
         await StopWatchingAsync().ConfigureAwait(true);
-        _allRows.Clear();
-        _rowsByDn.Clear();
-        Items.ReplaceAll([]);
+        if (generation != _generation || token.IsCancellationRequested)
+        {
+            // Disposing the old watch yields: a newer load (or Dispose) started meanwhile and owns rows, status,
+            // search and watch now - touching them here would empty its list or watch the wrong container.
+            return;
+        }
+
+        ClearRows();
         Error = null;
         Partial = false;
-        LoadedCount = 0;
         IsLoading = true;
         OnPropertyChanged(nameof(TotalCount));
         var started = _services.Time.GetTimestamp();
@@ -521,6 +540,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         try
         {
             var policy = await _services.Sessions.GetDomainPolicyAsync(token).ConfigureAwait(true);
+
+            // WaitAsync returns an already read (cached) policy even for a cancelled token: a superseded load must not
+            // publish its row context and search over the newer load's.
+            token.ThrowIfCancellationRequested();
             var context = new RowContext(_services.Localizer, _services.Sessions.Formatter, policy, _services.Time.GetUtcNow());
             _rowContext = context;
             var search = BuildSearch(location, session.Info.DefaultNamingContext);
@@ -555,7 +578,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
                 await ApplyLocalSortAsync().ConfigureAwait(true);
             }
 
-            await StartWatchingAsync(session, location, generation).ConfigureAwait(true);
+            await StartWatchingAsync(session, location, search.BaseDn, generation).ConfigureAwait(true);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -683,6 +706,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             }
         }
 
+        if (added.Count > 0)
+        {
+            _rowsVersion++;
+        }
+
         var filter = TextFolding.Fold(QuickFilterText);
         Items.AddRange(filter.Length == 0 ? added : added.Where(r => r.SearchKey.Contains(filter, StringComparison.Ordinal)));
         LoadedCount = _allRows.Count;
@@ -692,6 +720,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
     private void ClearRows()
     {
+        _rowsVersion++;
         _allRows.Clear();
         _rowsByDn.Clear();
         Items.ReplaceAll([]);
@@ -705,33 +734,51 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(QuickFilterStatus));
     }
 
+    /// <summary>Runs a sort of large lists off the UI thread (a test seam: tests hold it while the rows change).</summary>
+    internal Func<Func<IReadOnlyList<ObjectRowViewModel>>, Task<IReadOnlyList<ObjectRowViewModel>>> BackgroundSort { get; set; } =
+        sort => Task.Run(sort);
+
     private async Task ApplyLocalSortAsync()
     {
-        if (_localSortAttribute is null || _allRows.Count < 2)
+        while (_localSortAttribute is { } attribute && _allRows.Count >= 2)
         {
-            return;
-        }
+            var descending = _localSortDescending;
+            var culture = _services.Localizer.Culture;
+            var schema = _services.Sessions.Current?.Schema;
+            var snapshot = _allRows.ToArray();
+            var generation = _generation;
+            var version = _rowsVersion;
+            var sorted = snapshot.Length >= BackgroundSortThreshold
+                ? await BackgroundSort(() => RowSorting.Sort(snapshot, attribute, descending, culture, schema)).ConfigureAwait(true)
+                : RowSorting.Sort(snapshot, attribute, descending, culture, schema);
+            var rowsChanged = false;
+            await _services.Dispatcher.RunAsync(() =>
+            {
+                if (generation != _generation
+                    || !string.Equals(attribute, _localSortAttribute, StringComparison.OrdinalIgnoreCase)
+                    || descending != _localSortDescending)
+                {
+                    // A new load or another column click: that one sorts its own rows.
+                    return;
+                }
 
-        var attribute = _localSortAttribute;
-        var descending = _localSortDescending;
-        var culture = _services.Localizer.Culture;
-        var schema = _services.Sessions.Current?.Schema;
-        var snapshot = _allRows.ToArray();
-        var generation = _generation;
-        var sorted = snapshot.Length >= BackgroundSortThreshold
-            ? await Task.Run(() => RowSorting.Sort(snapshot, attribute, descending, culture, schema)).ConfigureAwait(true)
-            : RowSorting.Sort(snapshot, attribute, descending, culture, schema);
-        await _services.Dispatcher.RunAsync(() =>
-        {
-            if (generation != _generation || _allRows.Count != snapshot.Length)
+                if (version != _rowsVersion)
+                {
+                    // Rows were added or removed while the snapshot was sorted (live update, rename, delete): applying
+                    // it would bring back removed rows and drop new ones - sort the current rows again.
+                    rowsChanged = true;
+                    return;
+                }
+
+                _allRows.Clear();
+                _allRows.AddRange(sorted);
+                ApplyLocalView();
+            }).ConfigureAwait(true);
+            if (!rowsChanged)
             {
                 return;
             }
-
-            _allRows.Clear();
-            _allRows.AddRange(sorted);
-            ApplyLocalView();
-        }).ConfigureAwait(true);
+        }
     }
 
     private void SetSortIndicator(string? attribute, bool descending)
@@ -832,6 +879,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
 
         if (structureChanged)
         {
+            _rowsVersion++;
             LoadedCount = _allRows.Count;
             OnPropertyChanged(nameof(TotalCount));
             if (_localSortAttribute is not null)
@@ -996,21 +1044,25 @@ public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
             return false;
         }
 
+        _rowsVersion++;
         _allRows.Remove(row);
         ForgetSelected(row);
         return true;
     }
 
-    private async Task StartWatchingAsync(IDirectorySession session, ListLocation location, int generation)
+    /// <param name="session">Session of the load.</param>
+    /// <param name="location">The loaded location.</param>
+    /// <param name="baseDn">Resolved base of the load's own search (never the shared last search: a newer load may have replaced it).</param>
+    /// <param name="generation">The load's generation; a stale watch is disposed right away.</param>
+    private async Task StartWatchingAsync(IDirectorySession session, ListLocation location, string baseDn, int generation)
     {
-        if (location.Kind != ListLocationKind.Container || !_services.Settings.Current.LiveUpdates || _disposed)
+        if (location.Kind != ListLocationKind.Container || !_services.Settings.Current.LiveUpdates || _disposed || generation != _generation)
         {
             return;
         }
 
         try
         {
-            var baseDn = _lastSearch?.BaseDn ?? location.BaseDn;
             var watch = await Task.Run(() => session.WatchAsync(baseDn, OnServerChange, CancellationToken.None)).ConfigureAwait(true);
             if (generation == _generation && !_disposed)
             {

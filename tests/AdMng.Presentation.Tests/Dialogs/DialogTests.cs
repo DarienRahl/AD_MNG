@@ -498,7 +498,8 @@ public class SessionLogAndHistoryTests
         var harness = await B2Harness.CreateAsync();
         var dispatcher = new QueuedUiDispatcher();
         var services = new DialogServices(harness.Sessions, harness.Localizer, dispatcher, harness.Settings, harness.Errors, harness.Changes,
-            harness.Time, harness.Dialogs, harness.Files, harness.Clipboard, harness.Notifications, harness.Coordinator, harness.Activities, harness.Lists);
+            harness.Time, harness.Dialogs, harness.Files, harness.Clipboard, harness.Notifications, harness.Coordinator, harness.Activities, harness.Lists,
+            harness.Regional);
         harness.AuditLog.Record(Entry(0));
         using var log = new SessionLogViewModel(services, harness.AuditLog, new AuditLogExporter(new CsvCodec()));
         Assert.Single(log.Entries);

@@ -187,7 +187,14 @@ public sealed class MainWindowTests
         var dialogs = context.Services.GetRequiredService<Presentation.Services.IDialogService>();
         var domain = window.Shell.Tree.DomainNode!;
         var containerMenu = TreeMenu.Create(domain, window.Shell, views, dialogs);
-        Assert.Contains(containerMenu.OfType<MenuItem>(), item => item.Items.Count == 5);
+        var newMenu = Assert.Single(containerMenu.OfType<MenuItem>(), item => item.Items.Count == 5);
+
+        // "New" creates in the right-clicked container, not in the current tab's.
+        Assert.All(newMenu.Items.OfType<MenuItem>(), item =>
+        {
+            Assert.Equal(domain.Dn, item.CommandParameter);
+            Assert.True(item.Command.CanExecute(item.CommandParameter));
+        });
         Assert.NotEmpty(TreeMenu.Create(window.Shell.Tree.ViewsNode, window.Shell, views, dialogs));
 
         // The built-in quick filter folder offers nothing (views are opened by clicking them).
@@ -241,7 +248,7 @@ public sealed class MainWindowTests
         var window = context.Services.GetRequiredService<MainWindow>();
         UiTestSupport.ShowOffScreen(window);
         await window.Shell.InitializeAsync();
-        var activity = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
+        var (activity, execution) = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
         {
             await Task.Delay(Timeout.Infinite, token);
             throw new InvalidOperationException("unreachable");
@@ -256,7 +263,8 @@ public sealed class MainWindowTests
         Assert.Single(dialogs.Confirmations);
         Assert.False(window.IsVisible);
         activity.CancelCommand.Execute(null);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => activity.Completion);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
+        await activity.Completion;
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
@@ -270,7 +278,7 @@ public sealed class MainWindowTests
         var window = context.Services.GetRequiredService<MainWindow>();
         UiTestSupport.ShowOffScreen(window);
         await window.Shell.InitializeAsync();
-        var activity = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
+        var (activity, execution) = window.Shell.Activities.Start("Zmiana nazw", 1, async (_, token) =>
         {
             await Task.Delay(Timeout.Infinite, token);
             throw new InvalidOperationException("unreachable");
@@ -285,7 +293,8 @@ public sealed class MainWindowTests
         Assert.Equal(2, dialogs.Confirmations.Count);
         Assert.True(window.IsVisible);
         activity.CancelCommand.Execute(null);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => activity.Completion);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
+        await activity.Completion;
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
