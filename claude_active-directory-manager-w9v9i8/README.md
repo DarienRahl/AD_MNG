@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`2cd78b6`](https://github.com/DarienRahl/AD_MNG/commit/2cd78b68158f054388a3c546cbc3e44fc987cde8) (`2cd78b68158f054388a3c546cbc3e44fc987cde8`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/38582215640
+- Commit: [`52e8f1f`](https://github.com/DarienRahl/AD_MNG/commit/52e8f1fc4720f8c75bf5eab743a1300ae268b630) (`52e8f1fc4720f8c75bf5eab743a1300ae268b630`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/38662662606
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -35,4 +35,24 @@
 ## Połączenie z domeną
 
 ![Połączenie z domeną](08-connect.png)
+
+## Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)
+
+![Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)](09-watchdog-events.png)
+
+## Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd
+
+![Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd](10-watchdog-event-details.png)
+
+## Watchdog – reguły (lista i edytor reguły)
+
+![Watchdog – reguły (lista i edytor reguły)](11-watchdog-rules.png)
+
+## Watchdog – kanały i SMTP
+
+![Watchdog – kanały i SMTP](12-watchdog-channels.png)
+
+## Watchdog – stan usługi
+
+![Watchdog – stan usługi](13-watchdog-status.png)
 

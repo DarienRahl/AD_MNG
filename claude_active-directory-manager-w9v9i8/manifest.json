@@ -38,5 +38,30 @@
     "file": "08-connect.png",
     "title_pl": "Połączenie z domeną",
     "title_en": "Connecting to a domain"
+  },
+  {
+    "file": "09-watchdog-events.png",
+    "title_pl": "Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)",
+    "title_en": "Watchdog – events (filter, feed and the details of an account lockout)"
+  },
+  {
+    "file": "10-watchdog-event-details.png",
+    "title_pl": "Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd",
+    "title_en": "Watchdog – event details: what changed, who and from where"
+  },
+  {
+    "file": "11-watchdog-rules.png",
+    "title_pl": "Watchdog – reguły (lista i edytor reguły)",
+    "title_en": "Watchdog – rules (list and rule editor)"
+  },
+  {
+    "file": "12-watchdog-channels.png",
+    "title_pl": "Watchdog – kanały i SMTP",
+    "title_en": "Watchdog – channels and SMTP"
+  },
+  {
+    "file": "13-watchdog-status.png",
+    "title_pl": "Watchdog – stan usługi",
+    "title_en": "Watchdog – service status"
   }
 ]
