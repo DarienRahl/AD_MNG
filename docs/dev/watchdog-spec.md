@@ -4604,7 +4604,8 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   | `channel.{id}.signingSecret`, `…previousSigningSecret` | `webhook|<id>|<url host>` |
 
   `<tls>` is the TLS trust of the SMTP server: empty for `certificateValidation = System` with `checkRevocation`
-  (the default – bindings stored before the component existed stay valid), otherwise `tls-<mode>` (`tls-pinnedsha256:<pin>`
+  (the default – bindings stored before the component existed stay valid; a credential stored earlier with a pinned
+  certificate or with revocation checks off must be entered once more after the update), otherwise `tls-<mode>` (`tls-pinnedsha256:<pin>`
   with the lower-case pin) followed by `revocation-off` when revocation checks are off. An Admin who pins his own
   certificate therefore cannot get the stored password or the XOAUTH2 token released to it.
   Changing any bound field requires entering the secret again (`NewValue`); a test send with unsaved settings uses a
