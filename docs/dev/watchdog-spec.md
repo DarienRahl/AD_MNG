@@ -2754,7 +2754,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `invalidDn` | every DN parses with `DistinguishedName.TryParse` after token expansion with placeholder values |
 | `invalidSid` | SIDs match `^S-1-\d+(-\d+)+$` after token expansion – includes `ActorFilter.ExcludeActors` and `RuleExclusion.Actor` (SIDs only) |
 | `invalidAttribute` | `additionalWatchedAttributes` / `ignoredAttributes` / rule `attributes`: `^[A-Za-z][A-Za-z0-9-]{0,63}$` (no `*`, `+`, `1.1`, `;options`), ≤ 20 additional attributes, not secret (`SecretAttributes.IsSecret`), not a noise attribute (9.3). The Service additionally validates `additionalWatchedAttributes` against the live session schema on PUT (exists, not confidential, not constructed, not a back link); without a session the change is rejected (`schemaUnavailable`) |
-| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, `{domain}`, `OU=Domain Controllers,{domain}` or `CN=System,{domain}` – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
+| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
 | `invalidAddress` | every e-mail address parses (`MailboxAddress.TryParse` semantics: implemented in Core with `System.Net.Mail.MailAddress` parsing rules + no CR/LF); `from` likewise |
 | `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces) |
 | `insecureCredentials` | `smtp.authentication` ≠ None requires `security` StartTls or SslOnConnect |
@@ -2764,7 +2764,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `retiredTeamsUrl` | Teams URL host ends with `.webhook.office.com` or `.logic.azure.com` |
 | `teamsUrlFormat` | Teams URL must match `^https://[^/]+\.environment\.api\.powerplatform\.com(:443)?/powerautomate/automations/direct/(.*/)?workflows/` – an error for `EntraClientCredentials` (the bearer token is sent only to Power Platform hosts), a warning for SAS with a custom host |
 | `hostNotAllowed` | webhook URL host not in `allowedHosts` (when non-empty) |
-| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed |
+| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed; for the shipped locked rule (`health`) also a weakened delivery: `immediate`, `includeInDigest` or `allEnabledChannels` turned off, `hours` narrower than shipped (Always), no recipient group and no channel left, `repeatSuppression` > 0, `maxMessagesPerHour` below `notifications.maxMessagesPerRulePerHour`, `aggregationWindow` above `notifications.aggregationWindow`, or a `severity` override below Critical (re-targeting and strengthening stay allowed) |
 | `acceptAnyNotAllowed` | `certificateValidation = AcceptAnyDevelopmentOnly` outside Development |
 | `pinnedHash` | `pinnedSha256` must be 64 hex chars when mode PinnedSha256 |
 | `timeZone` | `general.timeZone` resolvable by `TimeZoneResolver` (as given; IANA ↔ Windows conversion; built-in map for NLS hosts: Europe/Warsaw ↔ Central European Standard Time, Europe/Berlin ↔ W. Europe Standard Time, Europe/London ↔ GMT Standard Time, UTC ↔ UTC) |
@@ -3839,8 +3839,10 @@ and AuditLog, plus PrivilegeGranted/PrivilegeRevoked, AccountFlagsChanged and De
 consumed by them in the ChangeClassifier table (10.6): `userAccountControl`, `member`, `primaryGroupID`, `sIDHistory`,
 `adminCount`, `servicePrincipalName`, `msDS-KeyCredentialLink`, `msDS-AllowedToDelegateTo`,
 `msDS-AllowedToActOnBehalfOfOtherIdentity`, the dMSA link attributes, `altSecurityIdentities`,
-`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `gPLink`, `gPOptions`, `fSMORoleOwner`, the domain
-policy, PSO, trust and PKI attributes of 9.2.
+`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `dNSHostName` (ComputerNameSpoofing), `gPLink`,
+`gPOptions`, the GPO content attributes `versionNumber` and `gPCFileSysPath` (GroupPolicyChanged), `fSMORoleOwner`, the
+domain policy, PSO, trust and PKI attributes of 9.2 – every attribute of the 9.2 sets of the Tier-0 object kinds except
+`displayName` (a test guards against drift).
 
 ---
 
@@ -4538,12 +4540,16 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 
   | Secret | Binding (lower-case, `|`-separated) |
   |---|---|
-  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic` |
-  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>` (host must also be in `Notifications.OAuthSmtpHosts`) |
+  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic[|<tls>]` |
+  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>[|<tls>]` (host must also be in `Notifications.OAuthSmtpHosts`) |
   | `channel.{id}.url` | `channel|<id>|<type>` (the URL is its own destination; Teams OAuth additionally requires a Power Platform host) |
   | `channel.{id}.clientSecret` | `teams-oauth|<cloud>|<tenantId>|<clientId>|<scope>|<url host>` |
   | `channel.{id}.signingSecret`, `…previousSigningSecret` | `webhook|<id>|<url host>` |
 
+  `<tls>` is the TLS trust of the SMTP server: empty for `certificateValidation = System` with `checkRevocation`
+  (the default – bindings stored before the component existed stay valid), otherwise `tls-<mode>` (`tls-pinnedsha256:<pin>`
+  with the lower-case pin) followed by `revocation-off` when revocation checks are off. An Admin who pins his own
+  certificate therefore cannot get the stored password or the XOAUTH2 token released to it.
   Changing any bound field requires entering the secret again (`NewValue`); a test send with unsaved settings uses a
   stored secret only when the binding matches. Tests: host changed without `NewValue` → 400 and the SMTP sink sees no
   `AUTH`; OAuth settings with a foreign host → no token request.

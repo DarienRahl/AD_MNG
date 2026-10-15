@@ -416,6 +416,58 @@ public class ConfigurationValidatorTests
         AssertNoIssue(Validate(c, new ConfigValidationContext { AllowTier0Suppression = true }), ConfigValidationCodes.Tier0Suppression);
     }
 
+    [Theory]
+    [InlineData("CN=Users,{domain}")]
+    [InlineData("CN=Builtin,{domain}")]
+    [InlineData("cn=users,DC=contoso,DC=test")]
+    [InlineData("CN=Builtin,DC=contoso,DC=test")]
+    public void Tier0Suppression_TheContainersOfTheBuiltInPrivilegedGroupsKrbtgtAndAdministrator(string subtree)
+    {
+        // Domain Admins, Enterprise Admins, Schema Admins, krbtgt and RID-500 live in CN=Users, Administrators and the
+        // operator groups in CN=Builtin: excluding either container would silence Tier-0 privilege detection.
+        var c = Valid();
+        c = c with { Directory = c.Directory with { ExcludedSubtrees = ["OU=Archiwum,{domain}", subtree] } };
+
+        AssertIssue(Validate(c), ConfigValidationCodes.Tier0Suppression, "directory.excludedSubtrees[1]");
+        AssertNoIssue(Validate(c, new ConfigValidationContext { AllowTier0Suppression = true }), ConfigValidationCodes.Tier0Suppression);
+    }
+
+    [Fact]
+    public void Tier0Suppression_SubtreesHoldingTheAdditionalPrivilegedGroups()
+    {
+        var c = Valid();
+        c = c with
+        {
+            PrivilegedGroups = c.PrivilegedGroups with
+            {
+                AdditionalCriticalDns = ["CN=Administratorzy serwerów Łódź,OU=Grupy,OU=Łódź,{domain}"],
+                AdditionalHighDns = ["CN=Operatorzy kopii,OU=Kraków,DC=contoso,DC=test"],
+            },
+            Directory = c.Directory with
+            {
+                ExcludedSubtrees = ["OU=Łódź,{domain}", "OU=Kraków,{domain}", "OU=Gdańsk,{domain}"],
+            },
+        };
+
+        var result = Validate(c);
+
+        AssertIssue(result, ConfigValidationCodes.Tier0Suppression, "directory.excludedSubtrees[0]");
+        AssertIssue(result, ConfigValidationCodes.Tier0Suppression, "directory.excludedSubtrees[1]");
+        Assert.Equal(2, result.Issues.Count(i => i.Code == ConfigValidationCodes.Tier0Suppression));
+    }
+
+    [Theory]
+    [InlineData("dNSHostName")]
+    [InlineData("gPCFileSysPath")]
+    [InlineData("versionNumber")]
+    public void Tier0Suppression_AttributesOfComputerNameSpoofingAndGroupPolicyContent(string attribute)
+    {
+        var c = Valid();
+        c = c with { Directory = c.Directory with { IgnoredAttributes = ["department", attribute] } };
+
+        AssertIssue(Validate(c), ConfigValidationCodes.Tier0Suppression, "directory.ignoredAttributes[1]");
+    }
+
     [Fact]
     public void Tier0Suppression_HealthKindsCanNeverBeDisabled()
     {
@@ -570,6 +622,36 @@ public class ConfigurationValidatorTests
         var ownLocked = new RuleSettings { Id = "moja-zablokowana", Name = "Własna", Locked = true, Enabled = false };
         AssertIssue(Validate(c with { Rules = [.. c.Rules, ownLocked] }), ConfigValidationCodes.LockedRule, $"rules[{c.Rules.Count}].enabled");
         Assert.True(Validate(WithRule(c, DefaultRules.Health, r => r with { Kinds = [.. r.Kinds.Reverse()], Name = "Zdrowie usługi" })).IsValid);
+    }
+
+    [Fact]
+    public void LockedRule_TheDeliveryOfTheHealthRuleCannotBeWeakened()
+    {
+        var c = Valid();
+        string Path(string property) => $"rules[23].{property}";
+        WatchdogConfiguration Delivery(Func<RuleDelivery, RuleDelivery> change) =>
+            WithRule(c, DefaultRules.Health, r => r with { Delivery = change(r.Delivery) });
+
+        AssertIssue(Validate(Delivery(d => d with { Immediate = false })), ConfigValidationCodes.LockedRule, Path("delivery.immediate"));
+        AssertIssue(Validate(Delivery(d => d with { IncludeInDigest = false })), ConfigValidationCodes.LockedRule, Path("delivery.includeInDigest"));
+        AssertIssue(Validate(Delivery(d => d with { AllEnabledChannels = false })), ConfigValidationCodes.LockedRule, Path("delivery.allEnabledChannels"));
+        AssertIssue(Validate(Delivery(d => d with { Hours = DeliveryHours.BusinessHours })), ConfigValidationCodes.LockedRule, Path("delivery.hours"));
+        AssertIssue(Validate(Delivery(d => d with { Hours = DeliveryHours.Default })), ConfigValidationCodes.LockedRule, Path("delivery.hours"));
+        AssertIssue(Validate(Delivery(d => d with { RecipientGroupIds = [], ChannelIds = [] })), ConfigValidationCodes.LockedRule, Path("delivery.recipientGroupIds"));
+        AssertIssue(Validate(Delivery(d => d with { RepeatSuppression = TimeSpan.FromHours(24) })), ConfigValidationCodes.LockedRule, Path("delivery.repeatSuppression"));
+        AssertIssue(Validate(Delivery(d => d with { MaxMessagesPerHour = 1 })), ConfigValidationCodes.LockedRule, Path("delivery.maxMessagesPerHour"));
+        AssertIssue(Validate(Delivery(d => d with { AggregationWindow = TimeSpan.FromMinutes(60) })), ConfigValidationCodes.LockedRule, Path("delivery.aggregationWindow"));
+        AssertIssue(Validate(WithRule(c, DefaultRules.Health, r => r with { Severity = Severity.Info })), ConfigValidationCodes.LockedRule, Path("severity"));
+
+        // The probe of the review: everything off at once.
+        var neutered = Validate(Delivery(d => d with { Immediate = false, RecipientGroupIds = [], AllEnabledChannels = false, IncludeInDigest = false }));
+        Assert.False(neutered.IsValid);
+        Assert.Equal(4, neutered.Issues.Count(i => i.Code == ConfigValidationCodes.LockedRule));
+
+        // Strengthening or re-targeting stays allowed.
+        Assert.True(Validate(Delivery(d => d with { RecipientGroupIds = [DefaultRules.HelpdeskGroup] })).IsValid);
+        Assert.True(Validate(Delivery(d => d with { MaxMessagesPerHour = 100, AggregationWindow = TimeSpan.FromMinutes(1), RepeatSuppression = TimeSpan.Zero })).IsValid);
+        Assert.True(Validate(WithRule(c, DefaultRules.Health, r => r with { Severity = Severity.Critical })).IsValid);
     }
 
     [Fact]
