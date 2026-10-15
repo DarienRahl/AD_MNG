@@ -94,6 +94,31 @@ public class ScopeTests
     }
 
     [Fact]
+    public async Task OuMovedIntoAnUnreadableExcludedSubtree_StillTakesItsDescendantsAlong()
+    {
+        string? archive = null;
+        string? department = null;
+        string? user = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            archive = b.AddOu("Archiwum", b.DomainDn);
+            department = b.AddOu("Dział", b.DomainDn);
+            user = b.AddUser("Żaneta", "Ślęzak", department);
+        });
+        scenario.Config.Update(c => c with { Directory = c.Directory with { ExcludedSubtrees = [archive!] } });
+        await scenario.BaselineAsync();
+        var guid = scenario.Snapshot(user!)!.ObjectGuid;
+
+        var moved = await scenario.MoveAsync(department!, archive);
+        scenario.Directory.FailNext(AdMng.Testing.FakeOperationKind.Search, moved, AdMng.Core.Directory.DirectoryErrorKind.AccessDenied);
+        var result = await scenario.RunCycleAsync();
+
+        Assert.Contains("outOfScopeSubtreeUnreadable", result.Warnings);
+        Assert.Equal(WatchEventKind.ObjectMoved, Assert.Single(scenario.TakeEvents()).Kind);
+        Assert.DoesNotContain(scenario.Store.Snapshots, s => s.ObjectGuid == guid);
+    }
+
+    [Fact]
     public async Task OuMovedIntoAnExcludedSubtree_AChildMovedAwayFirstIsAnOrdinaryMove()
     {
         string? archive = null;

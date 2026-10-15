@@ -298,7 +298,8 @@ internal sealed class ObjectProcessor
     /// <summary>
     /// Removes the stored descendants of <paramref name="storedDn"/> (the container's DN at the start of the cycle) that
     /// live below <paramref name="liveDn"/> now. Descendants found elsewhere (moved away or deleted in the same poll)
-    /// keep their rows for pass 2 and the deletion pass.
+    /// keep their rows for pass 2 and the deletion pass. When the new location cannot be read, every stored descendant
+    /// is taken to have gone with the container.
     /// </summary>
     private async Task RemoveDescendantsAsync(string storedDn, string liveDn, CancellationToken cancellationToken)
     {
@@ -313,22 +314,30 @@ internal sealed class ObjectProcessor
             return;
         }
 
-        var below = new HashSet<Guid>();
-        await foreach (var live in _cycle.Session.SearchAsync(new DirectorySearch
+        HashSet<Guid>? below = [];
+        try
         {
-            BaseDn = liveDn,
-            Filter = DetectionFilters.ScopeClasses,
-            Attributes = [Attr.ObjectGuid],
-            PageSize = ChangeDetectionEngine.PageSize,
-        }, cancellationToken).ConfigureAwait(false))
-        {
-            if (live.ObjectGuid is { } guid)
+            await foreach (var live in _cycle.Session.SearchAsync(new DirectorySearch
             {
-                below.Add(guid);
+                BaseDn = liveDn,
+                Filter = DetectionFilters.ScopeClasses,
+                Attributes = [Attr.ObjectGuid],
+                PageSize = ChangeDetectionEngine.PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (live.ObjectGuid is { } guid)
+                {
+                    below.Add(guid);
+                }
             }
         }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.AccessDenied or DirectoryErrorKind.NoSuchObject)
+        {
+            _cycle.Warnings.Add("outOfScopeSubtreeUnreadable");
+            below = null;
+        }
 
-        foreach (var descendant in stored.Where(d => below.Contains(d.ObjectGuid)))
+        foreach (var descendant in stored.Where(d => below is null || below.Contains(d.ObjectGuid)))
         {
             _cycle.Chunk.Remove(descendant.ObjectGuid);
             _cycle.HandledWithContainer.Add(descendant.ObjectGuid);
@@ -348,25 +357,34 @@ internal sealed class ObjectProcessor
     private async Task AdoptDescendantsAsync(DirectoryObject container, CancellationToken cancellationToken)
     {
         var page = new List<DirectoryObject>(ChangeDetectionEngine.PageSize);
-        await foreach (var entry in _cycle.Session.SearchAsync(new DirectorySearch
+        try
         {
-            BaseDn = container.DistinguishedName,
-            Filter = DetectionFilters.ScopeClasses,
-            Attributes = _cycle.Settings.RequestAttributes,
-            ExtendedDn = true,
-            PageSize = ChangeDetectionEngine.PageSize,
-        }, cancellationToken).ConfigureAwait(false))
-        {
-            if (entry.ObjectGuid is { } guid && guid != container.ObjectGuid)
+            await foreach (var entry in _cycle.Session.SearchAsync(new DirectorySearch
             {
-                page.Add(entry);
-            }
+                BaseDn = container.DistinguishedName,
+                Filter = DetectionFilters.ScopeClasses,
+                Attributes = _cycle.Settings.RequestAttributes,
+                ExtendedDn = true,
+                PageSize = ChangeDetectionEngine.PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (entry.ObjectGuid is { } guid && guid != container.ObjectGuid)
+                {
+                    page.Add(entry);
+                }
 
-            if (page.Count == ChangeDetectionEngine.PageSize)
-            {
-                await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
-                page.Clear();
+                if (page.Count == ChangeDetectionEngine.PageSize)
+                {
+                    await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
+                    page.Clear();
+                }
             }
+        }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.AccessDenied or DirectoryErrorKind.NoSuchObject)
+        {
+            // The reconciliation finds what could not be read now.
+            _cycle.Warnings.Add("appearedSubtreeUnreadable");
+            return;
         }
 
         await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
