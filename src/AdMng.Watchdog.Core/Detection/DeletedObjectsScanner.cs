@@ -215,7 +215,6 @@ internal sealed class DeletedObjectsScanner
             Name = rdn,
             UsnCreated = tombstone.GetInt64(Attr.UsnCreated) ?? 0,
             UsnChanged = tombstone.GetInt64(Attr.UsnChanged) ?? 0,
-            WhenCreated = tombstone.GetGeneralizedTime(Attr.WhenCreated),
             IsDeleted = true,
             DeletedAt = deletedAt,
         });
