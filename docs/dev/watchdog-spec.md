@@ -3925,11 +3925,23 @@ layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-u
 - Schedule: `Schedule.NextOccurrence(Digest.Time, Digest.Days, tz, now)`; DST: a non-existent local time moves to
   the next valid minute, an ambiguous one uses the first occurrence. After a downtime the missed digest is sent at
   start-up when it is less than 12 h late, otherwise skipped. `IDigestRunStore` (`digest_runs`) stores the period
-  and the outbox ids.
-- Period: from the previous digest's end (first run: now − 24 h) to now. With `CoverNonBusinessDays` (default), the
+  and the outbox ids. Once the first message of a digest is enqueued, the remaining messages and the `digest_runs`
+  row are written without cancellation (a service stop in between would make the start-up catch-up send the digest
+  again); when recording fails after an enqueue, the error is logged and the schedule moves on anyway (the next digest
+  then starts at the previous end instead of this digest being enqueued every minute).
+- Period: from the previous digest's end (first run: now − 24 h) to now – or to just before the oldest event the
+  rule evaluation has not processed yet, when it was detected within the last 10 min (`DigestBuilder.MaxEvaluationLag`;
+  sections list only rule-matched events, so such an event goes to the next digest instead of being counted but never
+  listed; an older backlog does not hold the period back). With `CoverNonBusinessDays` (default), the
   digest of the **first business day after non-business days** (Monday after a weekend, the day after a holiday)
   covers everything since the end of the last business-day digest's period (e.g. Friday 07:30 → Monday 07:30) in every
-  section; the weekend digests are still sent (heartbeat) with their own 24 h periods.
+  section; the weekend digests are still sent (heartbeat) with their own 24 h periods. The extension applies only while
+  the previous digest ended on a non-business day (or there was none): a send-now after the Monday digest, or a
+  weekday-only schedule, simply starts where the previous digest ended. The end of the last business-day digest is
+  the one the job remembers (e.g. a late Friday catch-up at 10:00), after a restart the scheduled time of that day.
+- Preview (`IDigestService.PreviewAsync`, served to Viewers): "Aktywne wyjątki" shows only the number of active
+  exceptions (`Digest.Fact.ActiveExceptionsHidden`) – exclusions are Admin configuration (17.2) and the API passes only
+  the caller's detail level; the sent digest lists them for its recipients.
 - Content (`DigestModel`): header (instance, domain, period, health line: DC, last poll, attribution coverage,
   log gaps, broken channels, rollout mode); counts (critical/high, new users, new computers, deleted, disabled/enabled,
   lockouts, password resets (tag passwordReset), own password changes, password age resets, privileged changes,
@@ -4498,7 +4510,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | POST | `/api/v1/test/email` | Admin | `TestEmailRequest` | `DeliveryTestResult` | ≤ 60 s; never queued; stored secrets only with a matching binding (else 400 `secretRebindRequired`, nothing sent) |
 | POST | `/api/v1/test/channels/{channelId}` | Admin | `TestChannelRequest` | `DeliveryTestResult` | ≤ 45 s; same binding rule |
 | POST | `/api/v1/rules/preview` | Admin | `RulePreviewRequest` | `RulePreviewResult` | scans stored events of the last N days (≤ 100 000) |
-| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel) |
+| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel); active exceptions only as a number (13.4) |
 | POST | `/api/v1/digest/send` | Admin | – | 202 | `IDigestService.SendNowAsync` |
 | GET | `/api/v1/outbox` | Admin | `OutboxQuery` | `OutboxPage` | delivery log |
 | POST | `/api/v1/outbox/{id}/retry` | Admin | – | 204 / 404 / 409 (not Dead) | requeue now |

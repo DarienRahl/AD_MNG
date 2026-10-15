@@ -149,6 +149,14 @@ public static class DigestSectionBuilder
         return new DigestSection { Kind = DigestSectionKind.ActiveExceptions, Total = rows.Count, Rows = [.. rows.Take(maxRows)] };
     }
 
+    /// <summary>"Aktywne wyjątki" without the exclusions – only their number (fact <c>ActiveExceptionsHidden</c>): the
+    /// digest preview is served to Viewers, who never see exclusions (they reveal monitoring blind spots, 17.2).</summary>
+    public static DigestSection ExceptionCount(DigestSection exceptions)
+    {
+        ArgumentNullException.ThrowIfNull(exceptions);
+        return new DigestSection { Kind = DigestSectionKind.ActiveExceptions, Facts = [new DigestFact("ActiveExceptionsHidden", exceptions.Total)] };
+    }
+
     /// <summary>The time an event is shown and sorted by (originating time when known).</summary>
     public static DateTimeOffset Time(WatchEvent e) => e.OriginatingTime ?? e.DetectedAt;
 
