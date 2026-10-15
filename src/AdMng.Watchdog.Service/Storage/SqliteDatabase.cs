@@ -73,6 +73,21 @@ public sealed class SqliteDatabase : IAsyncDisposable
     }
 
     /// <summary>
+    /// Runs <paramref name="read"/> on its own connection inside one deferred (read) transaction, so every statement it
+    /// executes sees the same WAL snapshot – use it whenever two statements must agree (a page and its latest id). Not
+    /// behind the writer gate: writers keep committing, the snapshot simply does not see them.
+    /// </summary>
+    public T ReadSnapshot<T>(Func<SqliteConnection, SqliteTransaction, T> read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        using var connection = Open();
+        using var transaction = connection.BeginTransaction(deferred: true);
+        var result = read(connection, transaction);
+        transaction.Commit();
+        return result;
+    }
+
+    /// <summary>
     /// Runs <paramref name="write"/> inside one <c>BEGIN IMMEDIATE</c> transaction behind the single-writer gate and
     /// commits it; an exception rolls everything back.
     /// </summary>

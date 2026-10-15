@@ -39,10 +39,13 @@ public sealed class SqliteEventStore : IEventStore
     {
         ArgumentNullException.ThrowIfNull(query);
         var sql = new EventQuerySql(query);
-        var page = _database.Read(connection =>
+
+        // One snapshot for the page and LatestId: the live feed advances its cursor to LatestId when HasMore is false,
+        // so an event committed between two autocommit statements would be skipped for good.
+        var page = _database.ReadSnapshot((connection, transaction) =>
         {
-            var rows = SqliteValues.Query(connection, null, sql.Sql, EventRows.Read, [.. sql.Parameters]);
-            var latest = SqliteValues.Scalar<long>(connection, null, "SELECT coalesce(max(id), 0) FROM events;");
+            var rows = SqliteValues.Query(connection, transaction, sql.Sql, EventRows.Read, [.. sql.Parameters]);
+            var latest = SqliteValues.Scalar<long>(connection, transaction, "SELECT coalesce(max(id), 0) FROM events;");
             return new EventPage { Items = [.. rows.Take(sql.Limit)], HasMore = rows.Count > sql.Limit, LatestId = latest };
         });
         return Task.FromResult(page);
