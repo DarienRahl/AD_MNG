@@ -3675,7 +3675,9 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    for 4624 with `TargetLogonId = <id>`, **From = max(evidence time − LogonLookback, the log's oldest record time)**,
    To = evidence time, NewestFirst, MaxRecords 1; **at most one such query per DC at a time**, per-query timeout
    `SourceQueryTimeout` (cancels via `CancelCurrentOperations`), positive and **negative** cache of (dc, logonId) for
-   24 h (no ingestion). Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
+   at most 24 h (no ingestion) – logon ids are unique per boot only, so a found session is reused only for evidence
+   between its 4624 and `LogonLookback` later and only while no 1100 (event log service shut down – a reboot) of that
+   DC was ingested after the logon; a negative result only for evidence inside the window already searched. Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
    against the collector's ForwardedEvents log – when the subscription does not carry 4624, `SOURCE_NOT_COLLECTED`.
    LogonType 3 + IpAddress → IpAddress is the primary source, Workstation = WorkstationName if present else reverse
    DNS (2 s timeout, SourceMethod "dns"); IpAddress `-`, `::1`, `127.0.0.1` → SourceMethod "local" ("lokalnie na DC –

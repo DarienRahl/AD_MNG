@@ -312,6 +312,10 @@ public sealed partial class SecurityLogIngestor(
                 {
                     tracker.RecordOverwritten(computer, record.Event.TimeCreated);
                 }
+                else if (reason == EventLogGapDetector.ServiceShutdown)
+                {
+                    tracker.RecordShutdown(computer, record.Event.TimeCreated);   // logon ids restart (LogonSourceResolver cache)
+                }
 
                 await AddAsync(pass, gaps.Gap(computer, reason, context.Domain, record.Event), cancellationToken).ConfigureAwait(false);
             }

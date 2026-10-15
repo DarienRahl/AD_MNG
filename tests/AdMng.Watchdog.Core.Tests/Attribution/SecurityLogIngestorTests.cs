@@ -322,6 +322,16 @@ public class SecurityLogIngestorTests
         Assert.False(_tracker.WasOverwrittenSince(Dc1, Now.AddMinutes(-9)));   // a change after the clear: its evidence is there
     }
 
+    [Fact]
+    public async Task AServiceShutdown_IsRecordedForTheLogonSourceCache()
+    {
+        _source.Add(Dc1, id => SecurityEventXml.EventLogServiceRecord(1100, id, Now.AddMinutes(-4), Dc1));
+
+        await IngestAsync();
+
+        Assert.Equal(Now.AddMinutes(-4), _tracker.LastShutdown(Dc1));
+    }
+
     private static readonly IngestionSource Collector = new("wec01.contoso.test", SecurityLogIngestor.ForwardedEventsLog);
 
     private Task<IngestionResult> IngestCollectorAsync() => _ingestor.IngestAsync(Collector, Context(), Ct);

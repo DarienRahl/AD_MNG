@@ -61,6 +61,29 @@ public sealed class DcLogHealthTracker(TimeProvider timeProvider)
         }
     }
 
+    /// <summary>The event log service of <paramref name="host"/> shut down at <paramref name="at"/> (1100 – usually a
+    /// reboot, after which logon ids are reused). The latest time is kept.</summary>
+    public void RecordShutdown(string host, DateTimeOffset at)
+    {
+        lock (_gate)
+        {
+            var state = State(host);
+            if (state.ShutdownAt is not { } known || at > known)
+            {
+                state.ShutdownAt = at;
+            }
+        }
+    }
+
+    /// <summary>The latest recorded shutdown of <paramref name="host"/>; null when none was seen.</summary>
+    public DateTimeOffset? LastShutdown(string host)
+    {
+        lock (_gate)
+        {
+            return _hosts.TryGetValue(Key(host), out var state) ? state.ShutdownAt : null;
+        }
+    }
+
     /// <summary>Remembers how the DC names itself in System/Computer.</summary>
     public void RecordComputerName(string host, string computer)
     {

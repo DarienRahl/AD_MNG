@@ -22,7 +22,7 @@ internal sealed class AttributionHarness : IDisposable
         Processor = new PendingAttributionProcessor(
             new AttributionCorrelator(SecurityStore),
             Actors,
-            new LogonSourceResolver(Source, Gate, Dns, Time),
+            new LogonSourceResolver(Source, Gate, Dns, Time, Tracker),
             new LockoutSourceResolver(SecurityStore, Source, Gate, DomainControllers, new FixedLockoutPolicy(TimeSpan.FromMinutes(30))),
             new UnresolvedReasonResolver(SecurityStore, Tracker, Time),
             new PrivilegeAttributionInheritor(Events),
