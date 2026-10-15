@@ -4604,6 +4604,10 @@ StartupChecks (before Run – .NET 10 runs BackgroundService.ExecuteAsync fully 
 ApiSetup.Map(app); app.Run()
 ```
 
+- A host that cannot be built at all (malformed bootstrap JSON, an invalid setting value, an unusable data folder –
+  any exception from `Build` except OOM) is reported by `StartupFailureLog` before any logging provider exists: stderr
+  and, on Windows, Application-log event 1010 written directly with source "AdMng Watchdog" (type and code only, no
+  values, a hint to `--check-config`); exit code 2 – never an unhandled crash.
 - `--smoke-test` (CI): temporary data directory, loopback HTTP on an ephemeral port, `Development` auth,
   directory and attribution disabled, runs migrations, GETs `/healthz` and `/api/v1/status`, renders a sample alert
   with every formatter, exits 0/1. `--check-config`: validates bootstrap + stored config, prints issues, exits.
