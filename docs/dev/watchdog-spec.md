@@ -3797,6 +3797,14 @@ A rule matches an event when **all** hold:
    this attribute are empty (the exclusion removes only that attribute from consideration). Expired exclusions
    (`ExpiresAt` < now) are ignored.
 
+DN-based settings compare DN strings, so a renamed or moved OU/group makes them match nothing. Health check
+`rules.configuredDns` (Warning, `ConfiguredDnMonitor`, run by the rules job at most every 10 min per configuration):
+every configured DN – rule scopes, `GroupDns`, exclusion subtrees, `privilegedGroups.additionalCriticalDns` /
+`additionalHighDns` / `watchListDns`, `directory.criticalObjects`, service-account and disabled-account subtrees,
+wake-up containers – is resolved against the snapshot; the ones that no longer exist are listed (Args, as configured).
+DNs outside the default NC, under `CN=System` or under an excluded subtree are not snapshotted and not checked; nothing
+is reported before the baseline; the service never rewrites the configuration.
+
 `RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
 matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
 deliberately lower its notifications). Health events always match the locked `health` rule.
