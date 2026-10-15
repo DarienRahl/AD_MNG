@@ -4257,8 +4257,8 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 
 `System.Threading.RateLimiting.TokenBucketRateLimiter` (shared framework): e-mail `MaxMessagesPerMinute` (default 20,
 under Exchange Online's 30/min) – one token per SMTP message, i.e. per recipient chunk (a denied token after some
-chunks were sent returns `Deferred`; the retry does not resend them); per Teams/webhook channel three chained limiters PerSecond/PerMinute/PerHour (Teams
-default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
+chunks were sent returns `Deferred`; the retry does not resend them); per Teams/webhook channel three chained
+limiters PerSecond/PerMinute/PerHour (Teams default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
 `RetryAfter` = the limiter's retry hint (no attempt counted). Limiters use `AutoReplenishment = false`;
 `ChannelRateLimiters` calls `TryReplenish()` from a `TimeProvider` timer (deterministic under `FakeTimeProvider`).
 
