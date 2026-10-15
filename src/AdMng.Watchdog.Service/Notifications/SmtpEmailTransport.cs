@@ -167,13 +167,11 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
                     }
                 }
 
-                foreach (var (status, reply) in part.Rejected)
-                {
-                    var classified = SmtpErrorClassifier.ClassifyCommand(status, reply);
-                    (classified.Result.Outcome == DeliveryOutcome.Transient ? temporary : permanent).Add(classified);
-                }
-
-                if (part.Accepted.Count == 0 && permanent.FirstOrDefault(p => p.Result.Outcome is DeliveryOutcome.ChannelBroken or DeliveryOutcome.AuthenticationFailed) is { } channel)
+                var rejections = part.Rejected.Select(r => SmtpErrorClassifier.ClassifyCommand(r.Status, r.Reply)).ToList();
+                temporary.AddRange(rejections.Where(r => r.Result.Outcome == DeliveryOutcome.Transient));
+                permanent.AddRange(rejections.Where(r => r.Result.Outcome != DeliveryOutcome.Transient));
+                if (part.Accepted.Count == 0
+                    && rejections.FirstOrDefault(r => r.Result.Outcome is DeliveryOutcome.ChannelBroken or DeliveryOutcome.AuthenticationFailed) is { } channel)
                 {
                     recorder?.AddHints(channel.Hints);
                     return new SmtpAttempt(channel, accepted, temporary.Count, permanent.Count);    // e.g. 5.7.68: the other chunks would fail alike
