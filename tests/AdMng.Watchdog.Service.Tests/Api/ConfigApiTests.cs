@@ -194,6 +194,61 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.Contains(_factory.Log.Entries, e => e.EventId.Id == 1006 && e.Message.Contains(TestRoles.AdminAccount, StringComparison.Ordinal));
     }
 
+    /// <summary>Exclusion hygiene (12.3) shows who created an exclusion and when – in every digest. The service records
+    /// the caller and its clock for new or changed exclusions and keeps the stored values for unchanged ones, whatever
+    /// the client sends.</summary>
+    [Fact]
+    public async Task ExclusionCreator_AndCreationTime_AreSetByTheService()
+    {
+        using var admin = _factory.Admin();
+        var forged = new RuleExclusion
+        {
+            Id = "konto-synchronizacji",
+            Actor = "S-1-5-21-3623811015-3361044348-30300820-1150",
+            Reason = "Konto synchronizacji Entra Connect – zgłoszenie ŁÓDŹ-17",
+            CreatedBy = @"CONTOSO\kolega",
+            CreatedAt = TestStore.Start.AddYears(-1),
+        };
+        var first = await PutAsync(admin, WithExclusion(TestData.Configuration(), forged), version: 0);
+        var stored = Exclusion(first.Configuration);
+        Assert.Equal(TestRoles.AdminAccount, stored.CreatedBy);
+        Assert.Equal(TestStore.Start, stored.CreatedAt);
+
+        _factory.Clock.Advance(TimeSpan.FromDays(3));
+        using var other = _factory.Client(@"CONTOSO\łucja.admin", TestRoles.AdminGroup);
+        var unchanged = await PutAsync(other, WithExclusion(first.Configuration, stored with { CreatedBy = @"CONTOSO\kolega", CreatedAt = TestStore.Start.AddYears(-2) }), version: 1);
+        Assert.Equal(TestRoles.AdminAccount, Exclusion(unchanged.Configuration).CreatedBy);
+        Assert.Equal(TestStore.Start, Exclusion(unchanged.Configuration).CreatedAt);
+
+        var changed = await PutAsync(other, WithExclusion(unchanged.Configuration, stored with { Reason = "Inny powód – zgłoszenie ŁÓDŹ-18" }), version: 2);
+        Assert.Equal(@"CONTOSO\łucja.admin", Exclusion(changed.Configuration).CreatedBy);
+        Assert.Equal(TestStore.Start.AddDays(3), Exclusion(changed.Configuration).CreatedAt);
+    }
+
+    /// <summary>A built-in rule added by a newer version exists only in the effective configuration (GET), not in the
+    /// stored document; disabling it must be audited as "rule disabled" (Critical for Tier-0), not as "rule added".</summary>
+    [Fact]
+    public async Task DisablingABuiltInRuleMissingFromTheStoredDocument_IsAuditedAsDisabled()
+    {
+        using var admin = _factory.Admin();
+        var withoutRule = TestData.Configuration() with { Rules = [.. TestData.Configuration().Rules.Where(r => r.Id != "tier0-privilege")] };
+        await _factory.Store.SaveAsync(withoutRule, 0, new PrincipalRef { Account = @"CONTOSO\instalator" }, "starsza wersja", [], Ct);
+        var effective = await _factory.Services.GetRequiredService<IWatchdogConfigProvider>().ReloadAsync(Ct);
+        Assert.Contains(effective.Configuration.Rules, r => r.Id == "tier0-privilege");
+
+        var disabled = effective.Configuration with
+        {
+            Rules = [.. effective.Configuration.Rules.Select(r => r.Id == "tier0-privilege" ? r with { Enabled = false } : r)],
+        };
+        await PutAsync(admin, disabled, version: 1);
+
+        var page = await _factory.Store.QueryAsync(new EventQuery { Kinds = [WatchEventKind.WatchdogConfigurationChanged] }, Ct);
+        var audit = Assert.Single(page.Items);
+        Assert.Equal(Severity.Critical, audit.Severity);
+        Assert.Contains(audit.Changes, c => c.Attribute == "rules[tier0-privilege].enabled");
+        Assert.DoesNotContain(audit.Changes, c => c.Attribute == "rules[tier0-privilege]");
+    }
+
     [Fact]
     public async Task InvalidConfiguration_Is400_WithIssues()
     {
@@ -268,6 +323,14 @@ public sealed class ConfigApiTests : IAsyncLifetime
             },
         ],
     };
+
+    private static WatchdogConfiguration WithExclusion(WatchdogConfiguration configuration, RuleExclusion exclusion) => configuration with
+    {
+        Rules = [.. configuration.Rules.Select(r => r.Id == "new-accounts" ? r with { Exclusions = [exclusion] } : r)],
+    };
+
+    private static RuleExclusion Exclusion(WatchdogConfiguration configuration) =>
+        Assert.Single(configuration.Rules.Single(r => r.Id == "new-accounts").Exclusions);
 
     private static async Task<ConfigEnvelope> PutAsync(HttpClient client, WatchdogConfiguration configuration, long version)
     {

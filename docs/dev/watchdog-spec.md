@@ -4483,6 +4483,9 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 1. Parse; reject a redacted envelope (`redactedConfig`).
 2. Validate with `ConfigValidationContext` (stored secret names + bindings from `ISecretStore.ListAsync`, environment,
    bootstrap flags) and, for `additionalWatchedAttributes`, the live session schema (8.3 `invalidAttribute`).
+   Then `ExclusionProvenance` sets `CreatedBy`/`CreatedAt` of every new or changed exclusion to the caller and the
+   service clock and keeps the stored values of unchanged ones (same rule id, exclusion id and content) – the client's
+   values are ignored (12.3 shows them in every digest).
 3. `ConfigSecretsApplier` builds `SecretChange`s: `Clear` → remove; `NewValue` → set with the binding of the **new**
    settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host[:port]/…` – `SecretHints`: never a path
    segment, query or user info, because services such as webhook.site or ntfy.sh carry the credential in the first
@@ -4494,7 +4497,9 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
    hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core).
 4. `IConfigStore.SaveAsync(config, expectedVersion, by, summary, secretChanges)` – config row, secrets and the
    `config_audit` entry in **one SQLite transaction** (412 on conflict leaves secrets untouched).
-5. `ConfigChangeAuditor` (Core) diffs old vs new → `WatchdogConfigurationChanged` (Health; severity per section 7,
+5. `ConfigChangeAuditor` (Core) diffs the **effective** forms (`WatchdogConfigProvider.Effective`) of old and new – GET
+   returns the effective document, so disabling a built-in rule the stored document lacks is audited as disabled, not
+   added – → `WatchdogConfigurationChanged` (Health; severity per section 7,
    Changes: changed sections/rules, never secret values; attribution Resolved = caller). `ConfigChangeNotifier`
    appends it and plans its notifications **synchronously with the previous configuration** (so the old recipients
    learn that they were removed), then leaves it unevaluated so `RuleEvaluationJob` also plans it with the new one.
