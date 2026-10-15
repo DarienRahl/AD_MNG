@@ -4528,7 +4528,9 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   (the Negotiate handler throws `NotSupportedException` under TestServer – it needs `IConnectionItemsFeature`), so the
   Negotiate handler is registered only when `Watchdog:Authentication = Negotiate`.
 - `RemoteAddressFilter`: `AllowedRemoteSubnets` (when non-empty) → 403 for other remote addresses (defense in depth);
-  `/healthz` → loopback, own addresses and `MonitoringSubnets` only.
+  `/healthz` → loopback, own addresses and `MonitoringSubnets` only. The filter runs after `UseRouting` and applies the
+  health rule to whatever routing matched to the health endpoint (`/healthz/`, `/HEALTHZ` too), with the path without
+  trailing slashes as the fallback.
 - Linux: the Negotiate handler emits no SID claims (only role names via `EnableLdap`), so on Linux the real-Kerberos
   test proves **authentication only** (expects 403 with `AuthenticationType` "Kerberos", 22.4).
 

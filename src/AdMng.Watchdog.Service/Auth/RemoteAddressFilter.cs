@@ -25,7 +25,7 @@ public sealed class RemoteAddressFilter(RequestDelegate next, IOptionsMonitor<Se
         var address = Normalize(remote);
         var hosting = options.CurrentValue.Hosting;
         bool allowed;
-        if (context.Request.Path.Equals(WatchdogRoutes.Health, StringComparison.OrdinalIgnoreCase))
+        if (IsHealthRequest(context))
         {
             allowed = machine.IsOwnAddress(address) || InSubnets(address, hosting.MonitoringSubnets);
         }
@@ -73,4 +73,18 @@ public sealed class RemoteAddressFilter(RequestDelegate next, IOptionsMonitor<Se
     }
 
     private static IPAddress Normalize(IPAddress address) => address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
+
+    /// <summary>The health rule follows the endpoint routing matched (it also maps "/healthz/" and any letter case), with
+    /// the path – without trailing slashes, case-insensitive – as the fallback before routing.</summary>
+    private static bool IsHealthRequest(HttpContext context)
+    {
+        if (context.GetEndpoint() is RouteEndpoint endpoint
+            && string.Equals(endpoint.RoutePattern.RawText, WatchdogRoutes.Health, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var path = context.Request.Path.Value?.TrimEnd('/');
+        return string.Equals(path, WatchdogRoutes.Health, StringComparison.OrdinalIgnoreCase);
+    }
 }

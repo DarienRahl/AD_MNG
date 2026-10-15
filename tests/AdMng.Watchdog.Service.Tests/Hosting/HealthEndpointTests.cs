@@ -47,6 +47,27 @@ public sealed class HealthEndpointTests : IAsyncLifetime
         Assert.Equal(expected, response.StatusCode);
     }
 
+    /// <summary>Routing also maps "/healthz/" and "/HEALTHZ/" to the health endpoint – the network rule must follow the
+    /// endpoint, not the literal path (here without AllowedRemoteSubnets, which would otherwise let everyone in).</summary>
+    [Theory]
+    [InlineData("/healthz/")]
+    [InlineData("/HEALTHZ/")]
+    [InlineData("/Healthz")]
+    public async Task Healthz_PathVariants_FollowTheMonitoringRule(string path)
+    {
+        await using var factory = new WatchdogFactory(new Dictionary<string, string?> { ["Watchdog:Hosting:MonitoringSubnets:0"] = "10.20.30.0/24" });
+        using var outsider = factory.Client(account: null);
+        outsider.DefaultRequestHeaders.Add(RemoteAddressStartupFilter.Header, "203.0.113.9");
+        using var monitoring = factory.Client(account: null);
+        monitoring.DefaultRequestHeaders.Add(RemoteAddressStartupFilter.Header, "10.20.30.40");
+
+        using var refused = await outsider.GetAsync(path, Ct);
+        using var allowed = await monitoring.GetAsync(path, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+    }
+
     [Theory]
     [InlineData("10.10.200.1", HttpStatusCode.OK)]
     [InlineData("10.20.30.40", HttpStatusCode.Forbidden)]

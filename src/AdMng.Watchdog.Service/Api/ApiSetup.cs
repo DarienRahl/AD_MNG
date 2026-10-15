@@ -4,7 +4,7 @@ namespace AdMng.Watchdog.Service.Api;
 
 /// <summary>
 /// The HTTP pipeline and every endpoint group (spec 17): exception handler (problem details without exception text),
-/// API version header, request log, remote-address filter, routing, authentication, the Kerberos-only check,
+/// API version header, request log, routing, remote-address filter (on the matched endpoint), authentication, the Kerberos-only check,
 /// authorization (fallback policy Viewer), per-caller concurrency limit, then the endpoints. No CORS, no forwarded
 /// headers, no static files.
 /// </summary>
@@ -16,8 +16,8 @@ public static class ApiSetup
         app.UseExceptionHandler();
         app.UseMiddleware<ApiVersionMiddleware>();
         app.UseMiddleware<RequestLogMiddleware>();
-        app.UseMiddleware<RemoteAddressFilter>();
         app.UseRouting();
+        app.UseMiddleware<RemoteAddressFilter>();   // after routing: decides on the matched endpoint (/healthz/ too)
         app.UseAuthentication();
         app.UseMiddleware<KerberosOnlyMiddleware>();
         app.UseAuthorization();
