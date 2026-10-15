@@ -27,10 +27,12 @@ public sealed class LabFixture : IAsyncLifetime
     private IDirectorySession? _adminTls;
     private LabWriter? _writer;
 
+    /// <summary>Name of this run's OU: <c>WatchdogIT-&lt;UTC time&gt;-&lt;random&gt;</c>.</summary>
+    public string RunOuName { get; } =
+        OuPrefix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N")[..6];
+
     /// <summary>DN of this run's OU.</summary>
-    public string RunOu { get; } = DistinguishedName.Parse(WatchdogLab.DomainDn)
-        .Child("OU", OuPrefix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N")[..6])
-        .ToString();
+    public string RunOu => DistinguishedName.Parse(WatchdogLab.DomainDn).Child("OU", RunOuName).ToString();
 
     /// <summary>Administrator writes (plain LDAP; passwords over LDAPS).</summary>
     public LabWriter Writer => _writer ?? throw new InvalidOperationException(WatchdogLab.SkipReason);
@@ -49,8 +51,7 @@ public sealed class LabFixture : IAsyncLifetime
         _adminTls = await ConnectAsync(WatchdogLab.Tls(WatchdogLab.AdminUser), WatchdogLab.AdminPassword, CancellationToken.None);
         _writer = new LabWriter(_admin, _adminTls);
         await RemoveStaleRunsAsync(CancellationToken.None);
-        await _writer.CreateOuAsync(WatchdogLab.DomainDn, RunOu[3..RunOu.IndexOf(',', StringComparison.Ordinal)],
-            "AdMng Watchdog integration tests – safe to delete", CancellationToken.None);
+        await _writer.CreateOuAsync(WatchdogLab.DomainDn, RunOuName, "AdMng Watchdog integration tests – safe to delete", CancellationToken.None);
     }
 
     public async ValueTask DisposeAsync()

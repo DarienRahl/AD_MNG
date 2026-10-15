@@ -170,28 +170,28 @@ public sealed class EngineHost : IAsyncDisposable
     public Task<long> MarkAsync(CancellationToken cancellationToken) => Events.GetLatestIdAsync(cancellationToken);
 
     /// <summary>Events after <paramref name="mark"/> whose object (or previous DN) is <paramref name="subtree"/> or below it.</summary>
-    public async Task<IReadOnlyList<WatchEvent>> EventsAsync(string subtree, long mark, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<WatchEvent>> EventsAsync(string subtree, long mark, CancellationToken cancellationToken) =>
+        QueryAllAsync(new EventQuery { After = mark, Subtree = subtree, Limit = 500 }, cancellationToken);
+
+    /// <summary>All events after <paramref name="mark"/> (health events have no DN).</summary>
+    public Task<IReadOnlyList<WatchEvent>> AllEventsAsync(long mark, CancellationToken cancellationToken) =>
+        QueryAllAsync(new EventQuery { After = mark, Limit = 500 }, cancellationToken);
+
+    /// <summary>Every page of an ascending (<see cref="EventQuery.After"/>) query.</summary>
+    private async Task<IReadOnlyList<WatchEvent>> QueryAllAsync(EventQuery query, CancellationToken cancellationToken)
     {
         var events = new List<WatchEvent>();
-        var after = mark;
         while (true)
         {
-            var page = await Events.QueryAsync(new EventQuery { After = after, Subtree = subtree, Limit = 500 }, cancellationToken);
+            var page = await Events.QueryAsync(query, cancellationToken);
             events.AddRange(page.Items);
-            if (page.Items.Count < 500)
+            if (page.Items.Count < query.Limit)
             {
                 return events;
             }
 
-            after = page.Items.Max(e => e.Id);
+            query = query with { After = page.Items.Max(e => e.Id) };
         }
-    }
-
-    /// <summary>All events after <paramref name="mark"/> (health events have no DN).</summary>
-    public async Task<IReadOnlyList<WatchEvent>> AllEventsAsync(long mark, CancellationToken cancellationToken)
-    {
-        var page = await Events.QueryAsync(new EventQuery { After = mark, Limit = 500 }, cancellationToken);
-        return page.Items;
     }
 
     public async ValueTask DisposeAsync()

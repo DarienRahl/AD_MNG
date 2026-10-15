@@ -157,8 +157,17 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
         var cursor = after;
         while (true)
         {
-            deadline.Token.ThrowIfCancellationRequested();
-            var page = await client.GetEventsAsync(new EventQuery { After = cursor, Subtree = subtree, Limit = 500, WaitSeconds = 25 }, deadline.Token);
+            EventPage page;
+            try
+            {
+                page = await client.GetEventsAsync(new EventQuery { After = cursor, Subtree = subtree, Limit = 500, WaitSeconds = 25 }, deadline.Token);
+            }
+            catch (OperationCanceledException) when (!Ct.IsCancellationRequested)
+            {
+                Assert.Fail($"No {kind} event for {dn} within {Timeout}.");
+                throw;
+            }
+
             if (page.Items.FirstOrDefault(e => e.Kind == kind && DistinguishedName.AreEqual(e.Object.Dn, dn)) is { } found)
             {
                 return found;
