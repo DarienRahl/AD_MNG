@@ -2756,7 +2756,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `invalidAttribute` | `additionalWatchedAttributes` / `ignoredAttributes` / rule `attributes`: `^[A-Za-z][A-Za-z0-9-]{0,63}$` (no `*`, `+`, `1.1`, `;options`), ≤ 20 additional attributes, not secret (`SecretAttributes.IsSecret`), not a noise attribute (9.3). The Service additionally validates `additionalWatchedAttributes` against the live session schema on PUT (exists, not confidential, not constructed, not a back link); without a session the change is rejected (`schemaUnavailable`) |
 | `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
 | `invalidAddress` | every e-mail address parses (`MailboxAddress.TryParse` semantics: implemented in Core with `System.Net.Mail.MailAddress` parsing rules + no CR/LF); `from` likewise |
-| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces) |
+| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces); `attribution.collector` and every `attribution.domainControllers` entry likewise and are not an IP literal (`HostNames.IsHostName`) – the service identity authenticates to them with Kerberos only |
 | `insecureCredentials` | `smtp.authentication` ≠ None requires `security` StartTls or SslOnConnect |
 | `oauthHostNotAllowed` | `smtp.authentication = OAuth2ClientCredentials` and `smtp.host` is not in the bootstrap `Notifications.OAuthSmtpHosts` (default `smtp.office365.com`) |
 | `invalidScope` | Teams `scope` not one of the documented Power Automate scopes of the selected cloud |
@@ -3546,8 +3546,11 @@ report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, s
 `TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; values are
 XML-escaped and restricted to `[0-9A-Za-z.\-_:{}$ ]` (anything else rejected – no injection into XPath).
 
-`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host)` per host
-(process identity = gMSA, `SessionAuthentication.Kerberos`), `EventLogQuery(logName, PathType.LogName, queryXml)
+`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host, null, null,
+null, SessionAuthentication.Kerberos)` per host (process identity = gMSA; never `Default`/Negotiate, which falls back to
+NTLM towards whatever host is configured); a host that is not a host name (IP literal, `HostNames.IsHostName`) is
+refused before connecting (Win32 123), and `AttributionSourceResolver` skips such a collector or DC with health Error
+`invalidHostName`; `EventLogQuery(logName, PathType.LogName, queryXml)
 { Session, ReverseDirection = NewestFirst, TolerateQueryErrors = true }`, `EventLogReader { BatchSize = 256 }`,
 `record.ToXml()` only (never `FormatDescription()` or `*DisplayName`), all blocking calls on `Task.Run` with
 `session.CancelCurrentOperations()` on cancellation; `EventLogException`/`UnauthorizedAccessException` →

@@ -511,6 +511,29 @@ public class ConfigurationValidatorTests
     }
 
     [Theory]
+    [InlineData("10.66.6.6")]
+    [InlineData("0x7f000001")]
+    [InlineData("fe80::1")]
+    [InlineData("wec 01.contoso.test")]
+    [InlineData("wec01.contoso.test\r\n")]
+    public void InvalidHostName_AttributionCollectorAndDomainControllers(string host)
+    {
+        // The gMSA authenticates to these hosts (Event Log Readers on every DC): IP literals and garbage are refused.
+        var c = Valid();
+        var result = Validate(c with
+        {
+            Attribution = c.Attribution with { Source = AttributionSourceKind.ForwardedEvents, Collector = host, DomainControllers = ["dc01.contoso.test", host] },
+        });
+
+        AssertIssue(result, ConfigValidationCodes.InvalidHostName, "attribution.collector");
+        AssertIssue(result, ConfigValidationCodes.InvalidHostName, "attribution.domainControllers[1]");
+        Assert.True(Validate(c with
+        {
+            Attribution = c.Attribution with { Source = AttributionSourceKind.ForwardedEvents, Collector = "WEC01", DomainControllers = ["dc01.contoso.test"] },
+        }).IsValid);
+    }
+
+    [Theory]
     [InlineData(SmtpSecurity.None)]
     [InlineData(SmtpSecurity.StartTlsWhenAvailable)]
     public void InsecureCredentials_CredentialsOnlyOverTls(SmtpSecurity security)
