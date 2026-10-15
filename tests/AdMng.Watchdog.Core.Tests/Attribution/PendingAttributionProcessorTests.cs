@@ -111,6 +111,45 @@ public sealed class PendingAttributionProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task ALockoutWhose4740HasNotArrivedYet_IsRetried_ThenGetsItsCallerAndSources()
+    {
+        // attribution-rules-9: WEF delivers the 4740 and the 4771s about 30 s after the lockout woke the engine.
+        var lockedAt = Now.AddSeconds(-5);
+        var lockout = _h.Events.Add(Create(WatchEventKind.AccountLockedOut) with { Lockout = new LockoutInfo { LockedAt = lockedAt } });
+
+        var first = await _h.Processor.ProcessAsync(lockout, Sources, Settings, Ct);
+
+        Assert.False(first.IsFinal);
+        Assert.Equal(Now.AddSeconds(30), first.Update.NextAttemptAt);
+        Assert.Equal(AttributionStatus.Pending, first.Update.Attribution.Status);
+        Assert.Null(first.Update.Lockout);
+
+        _h.SecurityStore.Add(Parse(SecurityEventXml.Create(4740, NextId(), lockedAt, Dc1,
+            [("TargetUserName", "lwisniewski"), ("TargetDomainName", "PC-KRAKOW-07"), ("TargetSid", UserSid), .. LocalSystem])));
+        _h.Time.Advance(TimeSpan.FromSeconds(30));
+        var second = await _h.Processor.ProcessAsync(lockout, Sources, Settings, Ct);
+
+        Assert.True(second.IsFinal);
+        Assert.Equal(AttributionStatus.NotApplicable, second.Update.Attribution.Status);
+        Assert.Equal("PC-KRAKOW-07", second.Update.Lockout!.CallerComputer);
+    }
+
+    [Fact]
+    public async Task ALockoutWithoutA4740_IsFinalAfterTheLastRetry()
+    {
+        var lockout = _h.Events.Add(Create(WatchEventKind.AccountLockedOut, detectedAt: Now.AddMinutes(-31)) with
+        {
+            Lockout = new LockoutInfo { LockedAt = Now.AddMinutes(-31) },
+        });
+
+        var processed = await _h.Processor.ProcessAsync(lockout, Sources, Settings, Ct);
+
+        Assert.True(processed.IsFinal);
+        Assert.Equal(AttributionStatus.NotApplicable, processed.Update.Attribution.Status);
+        Assert.Null(processed.Update.Lockout!.CallerComputer);
+    }
+
+    [Fact]
     public async Task KindsWithoutAnActor_AreNotApplicable()
     {
         var processed = await ProcessAsync(Create(WatchEventKind.PasswordExpiring));

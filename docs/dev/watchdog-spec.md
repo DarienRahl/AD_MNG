@@ -3558,8 +3558,11 @@ report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, s
 <Select Path="Security">*[System[(EventID=4720 or …) and EventRecordID &gt; 12345]]</Select>…<Suppress Path="Security">
 *[System[EventID=5136] and EventData[Data[@Name='AttributeLDAPDisplayName']='dSCorePropagationData']]</Suppress>
 </Query></QueryList>`) with **at most 20 EventID expressions per Select** (several Selects OR-ed), time filters as
-`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; values are
-XML-escaped and restricted to `[0-9A-Za-z.\-_:{}$ ]` (anything else rejected – no injection into XPath).
+`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; log names,
+data names and suppressed attributes are restricted to `[0-9A-Za-z.\-_:{}$ ]`, a data value is one XPath string literal
+(single-quoted, double-quoted when it contains an apostrophe – `o'neill`; rejected when it contains both quote
+characters or a control character), so `józef.żak` is queried and no value can change the query; everything is
+XML-escaped.
 
 `WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host, null, null,
 null, SessionAuthentication.Kerberos)` per host (process identity = gMSA; never `Default`/Negotiate, which falls back to
@@ -3685,6 +3688,9 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    `[lockoutTime − lockOutObservationWindow (effective), lockoutTime]`; results are aggregated into
    `LockoutInfo.Sources` (IP / workstation × count, top 10) and written with `AttributionUpdate.Lockout`. The lockout's
    attribution status is NotApplicable (there is no "actor"); the GUI and e-mail label the row "Źródło błędnych haseł".
+   While no 4740 is found or a source query did not finish (WEF delivers the 4740 and the 4771/4776 in ~30 s batches;
+   the PDC unreachable), the lockout stays Pending and is retried at the `PendingRetries` steps; after the last step it
+   is final with what was found.
 7. **Operation grouping**: events with the same ChangeSetId resolved from candidates with the same (Computer,
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the

@@ -12,6 +12,8 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// queried (bounded like 11.4 #6 through <see cref="SourceQueryGate"/>) for 4771 Status 0x18, 4776 Status 0xC000006A
 /// and 4625 with <c>TargetUserName</c> = sAMAccountName in <c>[lockoutTime − effective observation window,
 /// lockoutTime]</c>; results are aggregated per address/workstation and event id, top <see cref="MaxSources"/> by count.
+/// Account names with diacritics or an apostrophe are queried too (an XPath literal holds them). The resolution is
+/// incomplete (<see cref="LockoutResolution.Complete"/>) while no 4740 was found or a query did not finish.
 /// </summary>
 /// <remarks>The "known server" caller case of the specification (tag <c>server</c> in the snapshot) is not detected –
 /// the snapshot cannot be searched by computer name through the store abstraction; such callers are reported as is.</remarks>
@@ -36,6 +38,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
         var record = await Find4740Async(lockoutEvent, lockedAt, settings, cancellationToken).ConfigureAwait(false);
         var caller = record?.Get(SecurityEventParser.CallerComputerName);
         var sources = new List<LockoutSource>();
+        var complete = record is not null;
         if (caller is not null)
         {
             sources.Add(new LockoutSource(null, caller, 1, SecurityEventCatalog.AccountLockedOut));
@@ -45,8 +48,9 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             && await NeedsLookupAsync(caller, cancellationToken).ConfigureAwait(false))
         {
             var window = await lockoutPolicy.GetObservationWindowAsync(lockoutEvent.Object, cancellationToken).ConfigureAwait(false);
-            var failures = await QueryFailuresAsync(record, sam, lockedAt - window, lockedAt, settings, cancellationToken).ConfigureAwait(false);
+            var (failures, finished) = await QueryFailuresAsync(record, sam, lockedAt - window, lockedAt, settings, cancellationToken).ConfigureAwait(false);
             sources.AddRange(Aggregate(failures));
+            complete &= finished;
         }
 
         var lockout = (lockoutEvent.Lockout ?? new LockoutInfo { LockedAt = lockedAt }) with
@@ -57,7 +61,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
         IReadOnlyList<EvidenceRef> evidence = record is null
             ? []
             : [new EvidenceRef { Dc = record.Computer, EventCode = record.EventCode, RecordId = record.RecordId, TimeCreated = record.TimeCreated }];
-        return new LockoutResolution(lockout, evidence);
+        return new LockoutResolution(lockout, evidence, complete);
     }
 
     private async Task<SecurityEvent?> Find4740Async(WatchEvent lockoutEvent, DateTimeOffset lockedAt, AttributionSettings settings, CancellationToken cancellationToken)
@@ -90,7 +94,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             || HostNames.AreEqual(dc, caller));
     }
 
-    private async Task<List<SecurityEvent>> QueryFailuresAsync(SecurityEvent? lockoutRecord, string sam, DateTimeOffset from, DateTimeOffset to,
+    private async Task<(List<SecurityEvent> Failures, bool Finished)> QueryFailuresAsync(SecurityEvent? lockoutRecord, string sam, DateTimeOffset from, DateTimeOffset to,
         AttributionSettings settings, CancellationToken cancellationToken)
     {
         var dcs = new List<string>();
@@ -117,6 +121,7 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
         };
 
         var failures = new List<SecurityEvent>();
+        var finished = hosts.Count > 0;
         foreach (var host in hosts)
         {
             var result = await gate.RunAsync(host, settings.SourceQueryTimeout, token => ReadAsync(host, query, token), cancellationToken).ConfigureAwait(false);
@@ -124,9 +129,13 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             {
                 failures.AddRange(records.Where(r => !forwarded || dcs.Any(dc => HostNames.AreEqual(dc, r.Computer))));
             }
+            else
+            {
+                finished = false;
+            }
         }
 
-        return failures;
+        return (failures, finished);
     }
 
     private async Task<List<SecurityEvent>> ReadAsync(string host, SecurityEventQuery query, CancellationToken cancellationToken)
