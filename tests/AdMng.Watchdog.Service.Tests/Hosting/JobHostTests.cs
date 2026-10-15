@@ -97,6 +97,34 @@ public sealed class JobHostTests : IDisposable
         Assert.DoesNotContain("Zofia", text, StringComparison.Ordinal);
     }
 
+    /// <summary>A DC outage over a weekend: the detection job fails every cycle. Warning 2300 is written when the failure
+    /// starts, repeated at most every <see cref="JobHost.FailureLogRepeat"/>, and the recovery is noted once.</summary>
+    [Fact]
+    public async Task RepeatedFailedIterations_AreLoggedOnTransitionsOnly()
+    {
+        var job = new ScriptedJob("detection", TimeSpan.FromSeconds(15), [])
+        {
+            Script = i => i <= 300 ? new JobResult(null, Failed: true, FailureCode: "ServerDown") : new JobResult(null),
+        };
+        var waiting = _clock.WaitForTimerAsync(TimeSpan.FromSeconds(15));
+        await StartAsync(job);
+
+        for (var i = 1; i <= 301; i++)
+        {
+            Assert.Equal(i, await job.NextIterationAsync(Ct));
+            await waiting.WaitAsync(Ct);
+            waiting = _clock.WaitForTimerAsync(TimeSpan.FromSeconds(15));
+            _clock.Advance(TimeSpan.FromSeconds(15));
+        }
+
+        // 300 failures over 75 minutes: the first one and one reminder after an hour.
+        var failures = _log.Entries.Where(e => e.EventId.Id == 2300).ToList();
+        Assert.Equal(2, failures.Count);
+        Assert.All(failures, e => Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, e.Level));
+        Assert.Contains("ServerDown", failures[0].Values, StringComparison.Ordinal);
+        Assert.Single(_log.Entries, e => e.EventId.Id == 2301);
+    }
+
     [Fact]
     public void Backoff_IsCappedAtFiveMinutes()
     {

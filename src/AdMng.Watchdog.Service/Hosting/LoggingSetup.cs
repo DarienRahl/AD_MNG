@@ -1,10 +1,12 @@
 using System.Runtime.Versioning;
+using Microsoft.Extensions.Logging.EventLog;
 
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
 /// Logging of the service (spec 19.1): console only when interactive (or <c>--console</c>), the Windows Application log
-/// (source <see cref="EventLogSource"/>, Warning and above) on Windows, both wrapped by
+/// (source <see cref="EventLogSource"/>, <see cref="EventLogFilter"/>, identical entries throttled by
+/// <see cref="ThrottlingLoggerProvider"/>) on Windows, both wrapped by
 /// <see cref="RedactingLoggerProvider"/>. No file logs, no request/response body logging.
 /// </summary>
 public static class LoggingSetup
@@ -68,12 +70,13 @@ public static class LoggingSetup
         level is >= LogLevel.Warning and < LogLevel.None
         || (level == LogLevel.Information && category is not null && EventLogInformationCategories.Contains(category, StringComparer.Ordinal));
 
+    /// <summary>The Application log, behind <see cref="ThrottlingLoggerProvider"/> (identical warnings once per window).</summary>
     [SupportedOSPlatform("windows")]
-    private static void AddEventLog(ILoggingBuilder logging) =>
-        logging.AddEventLog(settings =>
-        {
-            settings.SourceName = EventLogSource;
-            settings.LogName = "Application";
-            settings.Filter = EventLogFilter;
-        });
+    private static void AddEventLog(ILoggingBuilder logging)
+    {
+        var settings = new EventLogSettings { SourceName = EventLogSource, LogName = "Application", Filter = EventLogFilter };
+        logging.Services.AddSingleton<ILoggerProvider>(provider => new ThrottlingLoggerProvider(
+            new EventLogLoggerProvider(settings),
+            provider.GetService<TimeProvider>() ?? TimeProvider.System));
+    }
 }

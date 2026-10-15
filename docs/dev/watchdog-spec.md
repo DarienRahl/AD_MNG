@@ -4617,7 +4617,9 @@ ApiSetup.Map(app); app.Run()
   loop `RunOnceAsync` → `subscription.WaitAsync(NextRunIn ?? DefaultInterval)`; unexpected exception →
   `SafeExceptionLog`, exponential backoff 1 s → 5 min; repeated fatal errors in the detection job for > 1 h →
   `FatalErrorHandler` → `IProcessTerminator.Exit(1)` so SCM recovery restarts the service (a clean stop never
-  triggers recovery). Tests replace `IProcessTerminator`.
+  triggers recovery). Tests replace `IProcessTerminator`. A `Failed` result logs warning 2300 when the failure starts
+  or its code changes, then at most hourly while it lasts (the condition itself is in the health registry), and
+  Information 2301 on recovery.
 - `TimeProvider.System` everywhere; tests swap `FakeTimeProvider`.
 - Crash dumps: the install script calls `WerAddExcludedApplication` for `AdMng.Watchdog.exe` (WER dumps could contain
   decrypted secrets and directory values); the service never enables `DOTNET_DbgEnableMiniDump`.
@@ -4718,7 +4720,11 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 
 As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
 Warning and above plus the Information entries of this table (categories `StartupChecks`, `ConfigChangeNotifier`,
-`EventAccessLog`); other Information diagnostics (e.g. the per-request line 2700) stay console-only.
+`EventAccessLog`); other Information diagnostics (e.g. the per-request line 2700) stay console-only. The log is shared
+with every application on the server, so `ThrottlingLoggerProvider` writes a Warning/Error whose category, event id and
+text equal one written within the last 15 minutes only once, the next one carrying the number of suppressed repeats
+(a DC outage would otherwise repeat the same per-cycle warnings thousands of times a day); distinct entries, Critical
+and Information always pass.
 
 Docs recommend forwarding these and the SCM events 7036/7040 for `AdMngWatchdog` to the SIEM, plus external
 monitoring of `/healthz` from `MonitoringSubnets` and, optionally, the webhook heartbeat (13.6).
