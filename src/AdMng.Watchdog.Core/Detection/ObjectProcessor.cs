@@ -4,6 +4,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications;
 
 namespace AdMng.Watchdog.Core.Detection;
 
@@ -430,8 +431,9 @@ internal sealed class ObjectProcessor
         if (diff.Get(Attr.LockoutTime) is not null)
         {
             lockout = await _services.LockoutPolicies.ResolveAsync(_cycle.Session, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
-            var local = TimeZoneInfo.ConvertTime(_cycle.Now, _cycle.Settings.TimeZone);
-            var midnight = new DateTimeOffset(local.Date, local.Offset);
+            // The local midnight with the offset valid at midnight, not now's (a DST change day is 23 or 25 hours long).
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(_cycle.Now, _cycle.Settings.TimeZone).DateTime);
+            var midnight = Schedule.OnDate(today, TimeOnly.MinValue, _cycle.Settings.TimeZone);
             lockoutsToday = await _services.Events.CountForObjectAsync(diff.New.ObjectGuid, WatchEventKind.AccountLockedOut, midnight, cancellationToken)
                 .ConfigureAwait(false);
         }

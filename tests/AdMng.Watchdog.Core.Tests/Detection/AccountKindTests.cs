@@ -73,6 +73,24 @@ public class AccountKindTests
     }
 
     [Fact]
+    public async Task LockoutsToday_CountsFromTheRealLocalMidnightOnADstChangeDay()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+
+        // 25 Oct 2026 in Warsaw: the day starts at 00:00 CEST (22:00Z on the 24th) and ends in CET.
+        scenario.Advance(new DateTimeOffset(2026, 10, 24, 22, 30, 0, TimeSpan.Zero) - scenario.Time.GetUtcNow());
+        scenario.Directory.SimulateLockout(scenario.Company.PawelLewandowski);
+        var early = Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.AccountLockedOut);
+        scenario.Advance(new DateTimeOffset(2026, 10, 25, 9, 0, 0, TimeSpan.Zero) - scenario.Time.GetUtcNow());
+        scenario.Directory.SimulateLockout(scenario.Company.PawelLewandowski);
+        var later = Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.AccountLockedOut);
+
+        Assert.Equal(1, early.Lockout!.LockoutsToday);
+        Assert.Equal(2, later.Lockout!.LockoutsToday);
+    }
+
+    [Fact]
     public async Task AccountLockedOut_UsesTheResultantPsoLockoutDuration()
     {
         string? pso = null;
