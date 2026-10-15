@@ -30,9 +30,27 @@ public sealed class SecretStorageTests
         var stored = await store.Store.GetAsync(SecretNames.SmtpPassword, Ct);
         Assert.Equal(Password, stored?.Value.Reveal());
         Assert.Equal("smtp|mail.contoso.test|587|watchdog|basic", stored?.Binding);
-        var bytes = await File.ReadAllBytesAsync(store.Database.DatabasePath, Ct);
-        Assert.True(bytes.AsSpan().IndexOf(Encoding.UTF8.GetBytes(Password)) < 0, "the password must not be on disk in plain text");
-        Assert.True(bytes.AsSpan().IndexOf(Encoding.Unicode.GetBytes(Password)) < 0);
+        foreach (var path in new[] { store.Database.DatabasePath, store.Database.DatabasePath + "-wal", store.Database.DatabasePath + "-journal" })
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var bytes = await ReadSharedAsync(path);
+            Assert.True(bytes.AsSpan().IndexOf(Encoding.UTF8.GetBytes(Password)) < 0, $"the password must not be on disk in plain text ({Path.GetFileName(path)})");
+            Assert.True(bytes.AsSpan().IndexOf(Encoding.Unicode.GetBytes(Password)) < 0, Path.GetFileName(path));
+        }
+    }
+
+    /// <summary>Reads a file the store still has open: pooled SQLite connections keep it open, and on Windows a plain
+    /// File.ReadAllBytes then fails with a sharing violation.</summary>
+    private static async Task<byte[]> ReadSharedAsync(string path)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, Ct);
+        return buffer.ToArray();
     }
 
     [Fact]
