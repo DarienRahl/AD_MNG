@@ -175,5 +175,8 @@ public sealed class SqliteDatabase : IAsyncDisposable
             "wd_at_or_below",
             static (dn, ancestor) => SqliteValues.IsAtOrBelow(dn, ancestor),
             isDeterministic: true);
+
+        // The text search of Minimal viewers: search_text without workstation and IP.
+        connection.CreateFunction<string?, string?>("wd_search_visible", static text => SqliteValues.WithoutSources(text), isDeterministic: true);
     }
 }

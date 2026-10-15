@@ -555,7 +555,7 @@ zmian w okresie”) – jego brak oznacza problem z usługą.
 
 | Poziom | Co zawiera |
 |---|---|
-| Minimalny | rodzaj zdarzenia, obiekt, priorytet, wykonawca (konto), łącze – bez wartości atrybutów i adresów IP |
+| Minimalny | rodzaj zdarzenia, obiekt, priorytet, wykonawca (konto), łącze – bez wartości atrybutów i adresów IP (wyszukiwanie tekstu w zakładce też nie uwzględnia wtedy stacji ani IP) |
 | Standardowy | jak wyżej + wartości atrybutów poza danymi osobowymi (telefony, numer pracownika, uwagi, biuro, katalog domowy, godziny logowania) |
 | Pełny | wszystkie wartości z wyjątkiem tajnych (hasła, LAPS, BitLocker, atrybuty poufne – nigdy) |
 

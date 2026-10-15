@@ -4461,7 +4461,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | GET | `/api/v1/me` | Viewer | – | `MeDto` | roles from SID claims, detail level |
 | GET | `/api/v1/status` | Viewer | – | `StatusDto` | health registry + storage + counts + rollout + suggestions |
 | GET | `/api/v1/catalog` | Viewer | – | `EventKindInfo[]` | |
-| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel` |
+| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel`; for Minimal callers `text` does not match workstation and IP (`IViewerEventSearch`, SQL `wd_search_visible`), else hit/miss would reveal the hidden source; page and `LatestId` come from one read snapshot (`SqliteDatabase.ReadSnapshot`) |
 | GET | `/api/v1/events/{id}` | Viewer | – | `EventDetails` | 404 when purged; detail level as above; access logged |
 | POST | `/api/v1/events/{id}/ack` | Viewer | `AcknowledgeRequest` | 204 | idempotent; stores caller account |
 | POST | `/api/v1/events/ack` | Viewer | `BulkAcknowledgeRequest` (1–500 ids) | 204 | bulk acknowledge (lockout-heavy feeds) |

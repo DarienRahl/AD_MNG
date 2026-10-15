@@ -35,10 +35,14 @@ public sealed class SqliteEventStore : IEventStore
         return stored.Id;
     }
 
-    public Task<EventPage> QueryAsync(EventQuery query, CancellationToken cancellationToken)
+    public Task<EventPage> QueryAsync(EventQuery query, CancellationToken cancellationToken) => QueryAsync(query, textMatchesSources: true, cancellationToken);
+
+    /// <summary><see cref="QueryAsync(EventQuery, CancellationToken)"/>; with <paramref name="textMatchesSources"/> false the
+    /// text filter ignores workstation and IP (Minimal viewers).</summary>
+    public Task<EventPage> QueryAsync(EventQuery query, bool textMatchesSources, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        var sql = new EventQuerySql(query);
+        var sql = new EventQuerySql(query, textMatchesSources);
 
         // One snapshot for the page and LatestId: the live feed advances its cursor to LatestId when HasMore is false,
         // so an event committed between two autocommit statements would be skipped for good.

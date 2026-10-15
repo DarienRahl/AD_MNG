@@ -1,5 +1,6 @@
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
@@ -36,13 +37,23 @@ public static class EventEndpoints
             return ApiResults.Invalid(issues);
         }
 
+        // Minimal viewers do not see workstation and IP: their text search must not match them either.
+        var level = CallerIdentity.DetailLevel(context.User, options.CurrentValue);
+        var hideSources = level == DetailLevel.Minimal && !string.IsNullOrWhiteSpace(query.Text);
+        if (hideSources && events is not IViewerEventSearch)
+        {
+            return ApiResults.Invalid("text", "textSearchUnavailable", "The text search is not available at the configured detail level.");
+        }
+
         if (query.After is { } after && query.WaitSeconds > 0)
         {
             await events.WaitForNewerAsync(after, TimeSpan.FromSeconds(query.WaitSeconds), cancellationToken).ConfigureAwait(false);
         }
 
-        var page = await events.QueryAsync(query, cancellationToken).ConfigureAwait(false);
-        return ApiResults.Json(ViewerEventFilter.Apply(page, CallerIdentity.DetailLevel(context.User, options.CurrentValue)));
+        var page = hideSources
+            ? await ((IViewerEventSearch)events).QueryWithoutSourcesAsync(query, cancellationToken).ConfigureAwait(false)
+            : await events.QueryAsync(query, cancellationToken).ConfigureAwait(false);
+        return ApiResults.Json(ViewerEventFilter.Apply(page, level));
     }
 
     private static async Task<IResult> GetAsync(
