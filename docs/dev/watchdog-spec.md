@@ -4465,9 +4465,15 @@ Pending/Retrying/Dead), deleted snapshot rows older than `DeletedSnapshotDays` (
 whose expiry passed more than 30 days ago, `config_audit` older than `ConfigAuditDays`, `digest_runs` older than 365
 days. Size cap: when the database exceeds `MaxDatabaseMb`, `security_events` are purged oldest-first (then outbox
 Dead) until it is below 90 % – also checked hourly, not only at maintenance time; `HealthStorage` at ≥ 80 %. Then
-`PRAGMA incremental_vacuum; PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
+`PRAGMA incremental_vacuum(2048)` in steps (the writer gate is released between the steps, so deliveries are not held
+up by a large freelist), `PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
 pages and the truncated WAL no longer contain purged values), then `VACUUM INTO
-'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` and delete backups beyond `BackupsToKeep`; pre-migration backups: keep the
+'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` – on its own connection **outside** the single-writer gate (in WAL mode a
+read transaction on a consistent snapshot; only the `LastBackupAt` update takes the gate, so lease/sent/retry and
+detection writes go on while a multi-GB database is copied) – and delete backups beyond `BackupsToKeep`. The health
+checks `storage.size` (database file + WAL against the cap: Warning from 80 %, Error above it) and `storage.free`
+(Error below 1 GiB) have one definition (`StorageHealth`), reported by the retention job and the hourly
+`StorageGuardJob` from the same `GetStatusAsync`; pre-migration backups: keep the
 newest, delete the rest after `PreMigrationBackupDays`. A backup is only useful together with `<data>\keys\` and the
 same gMSA (DPAPI-NG) – documented; backups carry the folder ACL and should be encrypted by the backup system
 (BitLocker on the data volume recommended).
