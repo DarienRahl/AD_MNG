@@ -50,7 +50,7 @@ public static class WatchdogHost
             KestrelSetup.Configure(builder, context.Endpoints);
         }
 
-        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context);
+        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context, options);
         var app = builder.Build();
         ApiSetup.Map(app);
         return app;

@@ -2848,6 +2848,14 @@ Warnings (save allowed):
 | `Directory.Domain/Server` | null = computer's domain / PDC emulator (`PreferPdc`) located via `IDirectoryConnector` |
 | `Directory.Authentication` | `CurrentUser` (gMSA) in production; lab: `SimpleBind` with `LabSimpleBindUser`, password ONLY from env `ADMNG_WATCHDOG_LDAP_PASSWORD`, and `AllowInsecureLab=true` (maps to `ConnectionOptions.AllowInsecureSimpleBind`, refused outside Development) |
 
+**Reload.** The bootstrap file is added with `reloadOnChange` (when `config\` exists; the gMSA cannot write it, 19.5).
+`ServiceOptionsFactory` builds the `IOptionsMonitor<ServiceOptions>` value from the live configuration but pins what the
+host consumed when it was built – `DataDirectory`, `AllowInsecureDataDirectoryAcl`, `Authentication`, `Hosting` (except
+`AllowedRemoteSubnets`/`MonitoringSubnets`), `Directory`, `Development` – to the start-up values. So `Authorization`
+(above all `DeniedSids`: revocation must not wait for a restart), `Notifications` and the two subnet lists apply within
+seconds; everything else needs a service restart (documented). `DetectionHostOptions` (role groups as privileged roots)
+is read once at start.
+
 ---
 
 ## 9. Snapshot model
@@ -4568,7 +4576,7 @@ args: [--console] [--smoke-test] [--check-config] [--health] [--environment <nam
 options = new WebApplicationOptions { Args = args, ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null }
 builder = WebApplication.CreateBuilder(options)
 builder.Services.AddWindowsService(o => o.ServiceName = "AdMngWatchdog")  // no-op on Linux / console
-builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional), the file
+builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional, watched – 8.4), the file
     named by env ADMNG_WATCHDOG_CONFIG (optional, lab/dev, refused when running as a Windows service), env
     ADMNG_WATCHDOG__* (section "Watchdog")
 LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+), both wrapped

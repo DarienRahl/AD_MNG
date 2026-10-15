@@ -16,12 +16,32 @@ public static class ConfigurationSetup
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData, Environment.SpecialFolderOption.DoNotVerify),
             "AdMng", "Watchdog", "config", "appsettings.json");
 
-    /// <summary>Adds the sources; returns the extra configuration file when <see cref="ConfigFileVariable"/> is set.</summary>
-    public static string? AddSources(ConfigurationManager configuration, IReadOnlyList<string> args, bool isWindowsService)
+    /// <summary>
+    /// Adds the sources; returns the extra configuration file when <see cref="ConfigFileVariable"/> is set. The bootstrap
+    /// file is watched, so the settings the service reads live (<c>Authorization</c> – <c>DeniedSids</c> is the emergency
+    /// revocation –, <c>Notifications</c>, the subnet lists) apply without a restart; <see cref="ServiceOptionsFactory"/>
+    /// pins everything the host consumed when it was built.
+    /// </summary>
+    public static string? AddSources(ConfigurationManager configuration, IReadOnlyList<string> args, bool isWindowsService) =>
+        AddSources(configuration, args, isWindowsService, BootstrapFilePath, reloadBootstrapFile: true);
+
+    /// <summary><see cref="AddSources(ConfigurationManager, IReadOnlyList{string}, bool)"/> with an explicit bootstrap file
+    /// (tests) and optionally without watching it (one-shot commands).</summary>
+    internal static string? AddSources(
+        ConfigurationManager configuration,
+        IReadOnlyList<string> args,
+        bool isWindowsService,
+        string bootstrapFilePath,
+        bool reloadBootstrapFile)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(args);
-        configuration.AddJsonFile(BootstrapFilePath, optional: true, reloadOnChange: false);
+        ArgumentException.ThrowIfNullOrWhiteSpace(bootstrapFilePath);
+
+        // Watched only when config\ exists (the install script creates it): for a missing folder the file provider would
+        // watch the nearest existing ancestor (%ProgramData%) recursively.
+        var watch = reloadBootstrapFile && System.IO.Directory.Exists(Path.GetDirectoryName(bootstrapFilePath));
+        configuration.AddJsonFile(bootstrapFilePath, optional: true, reloadOnChange: watch);
         var extra = Environment.GetEnvironmentVariable(ConfigFileVariable);
         string? extraPath = null;
         if (!string.IsNullOrWhiteSpace(extra))

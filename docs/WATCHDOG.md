@@ -403,7 +403,12 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
   przyjmuje wyłącznie Kerberos.
 - `RequireKerberos: true` odrzuca NTLM w obu trybach (ochrona przed przekazywaniem NTLM; .NET 10 nie ma tu powiązania
   kanału).
-- `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu.
+- `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu i
+  bez restartu usługi.
+- Usługa obserwuje ten plik: zmiany w `Authorization`, `Notifications` oraz w listach `AllowedRemoteSubnets` i
+  `MonitoringSubnets` działają w ciągu kilku sekund. Pozostałe ustawienia (`Urls`, `Server`, `Certificate`,
+  `RequireKerberos`, `DataDirectory`, `Authentication`, `Directory`) wymagają restartu usługi
+  (`Restart-Service AdMngWatchdog`).
 - `ViewerDetailLevel` – ile danych widzi rola Viewer w zakładce i na stronie zdarzenia (5.6).
 - `AllowTier0Suppression` – tylko lokalnie można zezwolić na wyłączenie krytycznych zdarzeń przez API (domyślnie nie).
 - `MonitoringSubnets` – adresy systemu monitorowania, które mogą anonimowo pytać `/healthz` (zwraca tylko „ok” albo

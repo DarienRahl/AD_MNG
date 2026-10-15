@@ -22,14 +22,24 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// </summary>
 public static class ServiceRegistration
 {
-    public static void Add(IServiceCollection services, IConfiguration configuration, DataDirectory dataDirectory, StartupContext context)
+    public static void Add(IServiceCollection services, IConfiguration configuration, DataDirectory dataDirectory, StartupContext context) =>
+        Add(
+            services,
+            configuration,
+            dataDirectory,
+            context,
+            configuration?.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>() ?? new ServiceOptions());
+
+    /// <summary>The registrations; <paramref name="startupOptions"/> are the bootstrap settings the host was built with.</summary>
+    public static void Add(IServiceCollection services, IConfiguration configuration, DataDirectory dataDirectory, StartupContext context, ServiceOptions startupOptions)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(dataDirectory);
         ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(startupOptions);
 
-        services.AddOptions<ServiceOptions>().Bind(configuration.GetSection(ServiceOptions.SectionName));
+        AddServiceOptions(services, configuration, startupOptions);
         services.Configure<HostOptions>(o =>
         {
             o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
@@ -57,6 +67,21 @@ public static class ServiceRegistration
         services.AddHostedService<StartupChecks>();
         services.AddSingleton<JobHostService>();
         services.AddHostedService(provider => provider.GetRequiredService<JobHostService>());
+    }
+
+    /// <summary>
+    /// <see cref="ServiceOptions"/> bound to the (watched) "Watchdog" section; <see cref="ServiceOptionsFactory"/> keeps the
+    /// settings the host was built with (listeners, server, Kerberos, certificate, data folder, directory, authentication)
+    /// at <paramref name="startupOptions"/>, so <c>IOptionsMonitor</c> consumers see live changes only where they are safe.
+    /// </summary>
+    public static void AddServiceOptions(IServiceCollection services, IConfiguration configuration, ServiceOptions startupOptions)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(startupOptions);
+        services.AddOptions<ServiceOptions>().Bind(configuration.GetSection(ServiceOptions.SectionName));
+        services.AddSingleton(new StartupServiceOptions(startupOptions));
+        services.AddSingleton<IOptionsFactory<ServiceOptions>, ServiceOptionsFactory>();
     }
 
     private static void AddStorage(IServiceCollection services, DataDirectory dataDirectory)
