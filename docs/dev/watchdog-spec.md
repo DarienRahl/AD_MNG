@@ -3232,7 +3232,13 @@ Reading (groups in the increment or full scan):
 2. Each value → `ExtendedDistinguishedName.TryParse` → `MemberReference { Key = GUID "N" | "sid:…" | "dn:…" }`.
 3. `MembershipTracking.PrivilegedAndWatchListOnly`: store members only for privileged groups (by SID/name/DN),
    watch-list groups and groups that are members of those (one level is enough because nested groups are tracked
-   anyway when they are reachable – the evaluator reads unknown nested groups on demand).
+   anyway when they are reachable – the evaluator reads unknown nested groups on demand). A group read while it is
+   not tracked gets the reserved snapshot marker `$members = untracked` (an empty stored list and "never stored" look
+   the same in `snapshot_members`) and its stored list, if any, is **dropped** (replaced by an empty one) – a list kept
+   while nobody re-reads it would go stale and the evaluator trusts stored lists. The **first tracked read** of a group
+   whose old snapshot carries the marker stores its list **silently** (no GroupMemberAdded for members that were there
+   all along; `MembershipRelevant`, so the evaluator reports new privileges). The same applies after switching
+   `MembershipTracking` to `AllGroups`. The restore re-insertion (10.9) only touches groups whose list is stored.
 
 Diffing: old = `store.GetMembersAsync(groupGuid)`, new = read set, by `Key`. Added → `GroupMemberAdded` (Object =
 group, Member = member ref resolved from the snapshot by GUID, else from the DN), removed → `GroupMemberRemoved`.

@@ -240,7 +240,7 @@ internal sealed class ConfigurationPartitionWatcher
             if (reportNew)
             {
                 var changes = new List<AttributeChange> { processor.Changes.Text("operation", ["created"]) };
-                changes.AddRange(current.Attributes.Where(a => a.Key != WatchSignature.Key)
+                changes.AddRange(current.Attributes.Where(a => !WatchSignature.IsReserved(a.Key))
                     .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase)
                     .Select(a => processor.Changes.Build(a.Key, null, a.Value)));
                 var draft = new EventDraft { Kind = WatchEventKind.CertificateTemplateChanged, Changes = changes, MetadataAttributes = [Attr.ObjectClass] };

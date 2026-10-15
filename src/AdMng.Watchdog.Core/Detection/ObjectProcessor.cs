@@ -115,6 +115,11 @@ internal sealed class ObjectProcessor
             return;
         }
 
+        if (kind == WatchObjectKind.Group)
+        {
+            current = MemberListState.With(current, await TracksMembersAsync(current, cancellationToken).ConfigureAwait(false));
+        }
+
         if (old is null)
         {
             await AddNewAsync(entry, current, cancellationToken).ConfigureAwait(false);
@@ -337,9 +342,16 @@ internal sealed class ObjectProcessor
         }
 
         var reference = new MemberReference { Key = restored.ObjectGuid.ToString("N"), ObjectGuid = restored.ObjectGuid, Sid = restored.Sid, Dn = restored.Dn };
-        foreach (var group in values.Select(ValueCanonicalizer.ToMemberReference))
+        var groupGuids = values.Select(ValueCanonicalizer.ToMemberReference).Select(g => g.ObjectGuid).OfType<Guid>().Distinct().ToList();
+        var groups = groupGuids.Count == 0
+            ? new Dictionary<Guid, SnapshotObject>()
+            : await _services.Store.GetSnapshotsAsync(groupGuids, cancellationToken).ConfigureAwait(false);
+        foreach (var groupGuid in groupGuids)
         {
-            if (group.ObjectGuid is not { } groupGuid)
+            // Only stored lists: a list started with the restored member alone would hide the group's other members from
+            // the PrivilegeEvaluator, which reads groups without a stored list live (10.8).
+            var group = _cycle.Chunk.PendingUpsert(groupGuid) ?? groups.GetValueOrDefault(groupGuid);
+            if (group is null || group.IsDeleted || MemberListState.IsUntracked(group))
             {
                 continue;
             }
@@ -358,7 +370,8 @@ internal sealed class ObjectProcessor
         var memberDrafts = await UpdateMembersAsync(entry, current, old, emit: _cycle.EmitEvents, cancellationToken).ConfigureAwait(false);
         if (diff.IsEmpty && memberDrafts.Count == 0)
         {
-            if (!SameDnLiteral(old.Dn, current.Dn) && !SameDnLiteral(oldDn, current.Dn))
+            if ((!SameDnLiteral(old.Dn, current.Dn) && !SameDnLiteral(oldDn, current.Dn))
+                || MemberListState.IsUntracked(old) != MemberListState.IsUntracked(current))
             {
                 _cycle.Chunk.Upsert(current);
             }
@@ -463,31 +476,46 @@ internal sealed class ObjectProcessor
     }
 
     /// <summary>
-    /// Reads and stores a group's members when its membership is tracked; returns the member drafts (only when
-    /// <paramref name="emit"/> and an old list exists).
+    /// Reads and stores a group's members when its membership is tracked (<see cref="MemberListState"/> of
+    /// <paramref name="current"/>); returns the member drafts (only when <paramref name="emit"/> and a stored old list
+    /// exists). The first tracked read of a group whose list was not stored stores it silently – every member would
+    /// otherwise look added; the PrivilegeEvaluator reports the privileges that matter. A group that is no longer
+    /// tracked drops its stored list.
     /// </summary>
     private async Task<IReadOnlyList<EventDraft>> UpdateMembersAsync(DirectoryObject entry, SnapshotObject current, SnapshotObject? old, bool emit, CancellationToken cancellationToken)
     {
-        if (current.Kind != WatchObjectKind.Group || !await TracksMembersAsync(current, cancellationToken).ConfigureAwait(false))
+        if (current.Kind != WatchObjectKind.Group)
         {
             return [];
         }
 
+        if (MemberListState.IsUntracked(current))
+        {
+            if (old is not null && !MemberListState.IsUntracked(old)
+                && (await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false)).Count > 0)
+            {
+                _cycle.Chunk.ReplaceMembers(current.ObjectGuid, []);
+            }
+
+            return [];
+        }
+
+        var stored = old is not null && !MemberListState.IsUntracked(old);
         var members = await _services.Members.ReadAsync(_cycle.Session, entry, cancellationToken).ConfigureAwait(false);
-        var before = old is null ? [] : await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false);
-        if (old is null || !MembershipReader.AreSame(before, members))
+        var before = stored ? await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false) : [];
+        if (!stored || !MembershipReader.AreSame(before, members))
         {
             _cycle.Chunk.ReplaceMembers(current.ObjectGuid, members);
         }
 
-        if (MembershipReader.HaveSameKeys(before, members) && old is not null)
+        if (stored && MembershipReader.HaveSameKeys(before, members))
         {
             return [];
         }
 
         _cycle.Chunk.MembershipRelevant = true;
         _cycle.PrivilegeRelevant = true;
-        if (!emit || old is null)
+        if (!emit || !stored)
         {
             return [];
         }

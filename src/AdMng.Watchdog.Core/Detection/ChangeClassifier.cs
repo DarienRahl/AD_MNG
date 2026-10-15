@@ -130,7 +130,7 @@ internal sealed class ChangeClassifier
     {
         ArgumentNullException.ThrowIfNull(created);
         var changes = created.Attributes
-            .Where(a => a.Key != WatchSignature.Key && a.Value.Values.Count > 0)
+            .Where(a => !WatchSignature.IsReserved(a.Key) && a.Value.Values.Count > 0)
             .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase)
             .Select(a => _changes.Build(a.Key, null, a.Value))
             .ToList();
