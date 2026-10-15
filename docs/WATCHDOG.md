@@ -18,7 +18,7 @@ Specyfikacja implementacyjna (dla programistów, po angielsku) powstała razem z
 | Nietypowe komputery | komputer dodany do domeny przez zwykłego użytkownika (MachineAccountQuota), utworzony w `CN=Computers` mimo przekierowania kontenera domyślnego (`redircmp`), nowy serwer | średni | e-mail w godzinach pracy |
 | Usunięcia | usunięte / przywrócone konto, grupa, komputer, OU; masowe usuwanie (≥ 10 kont, grup lub OU w 10 min – krytyczny; ≥ 50 komputerów w 10 min – wysoki) | średni (OU – wysoki) | e-mail |
 | Stan konta | wyłączenie, włączenie (włączenie konta wyłączonego lub nieużywanego > 30 dni – wysoki), zmiana flag (np. „hasło nigdy nie wygasa”, „hasło niewymagane”) | informacja … wysoki | flagi ryzykowne: e-mail; pozostałe: raport dzienny |
-| Blokady | zablokowanie konta ze **źródłem błędnych haseł** (adres IP / komputer z liczbą prób), odblokowanie przez administratora, wiele blokad w krótkim czasie (≥ 5 kont lub 0,5 % kont w 10 min), opcjonalnie wykrywanie ataku „password spraying” z dzienników DC (≥ 20 kont z jednego adresu w 10 min) | niski (masowe blokady – średni, spraying – wysoki) | blokady: e-mail do helpdesku w godzinach pracy, najwyżej jeden na konto na godzinę; spraying: e-mail zawsze |
+| Blokady | zablokowanie konta ze **źródłem błędnych haseł** (adres IP / komputer z liczbą prób), odblokowanie przez administratora, wiele blokad w krótkim czasie (≥ 5 kont lub 0,5 % kont w 10 min), opcjonalnie wykrywanie ataku „password spraying” z dzienników DC (≥ 20 kont z jednego adresu w 10 min; nazwy nieistniejących kont są maskowane – pierwszy znak i długość – bo bywają hasłem wpisanym w polu nazwy użytkownika) | niski (masowe blokady – średni, spraying – wysoki) | blokady: e-mail do helpdesku w godzinach pracy, najwyżej jeden na konto na godzinę; spraying: e-mail zawsze |
 | Hasła | reset hasła przez administratora, zmiana hasła przez użytkownika, „użytkownik musi zmienić hasło”, przedłużenie ważności hasła bez jego zmiany (sztuczka `pwdLastSet` 0 → -1) | informacja (przedłużenie – średni; reset hasła konta uprzywilejowanego lub serwisowego – wysoki) | raport dzienny; reset hasła konta uprzywilejowanego i przedłużenie ważności: e-mail |
 | Parametry kont | każda obserwowana zmiana atrybutu: stara → nowa wartość (dział, stanowisko, przełożony, telefon, UPN, skrypt logowania, profil, ograniczenia logowania …) | informacja (skrypty/profile/ograniczenia – średni) | raport dzienny; skrypty i profile: e-mail |
 | Grupy | dodanie / usunięcie członka, zmiana typu grupy | informacja | raport dzienny; grupy obserwowane: e-mail |
@@ -47,6 +47,11 @@ Watchdog celowo **nie hałasuje**:
   nadaniu uprawnień, zmiany działu czy telefonu z nocnej synchronizacji kadrowej, rejestracja klucza urządzenia
   (Windows Hello / dołączenie hybrydowe), usuwanie obiektów podrzędnych (klucze BitLocker, rekordy DNS, urządzenia) i
   wyzerowanie blokady przy pierwszym logowaniu po jej wygaśnięciu **nie** generują pilnych powiadomień.
+- Dodanie poddrzewa do wykluczeń usuwa jego obiekty z migawki bez zdarzeń; przeniesienie OU do wykluczonego
+  poddrzewa to jedno zdarzenie „przeniesiono poza zakres” dla OU (nie dla każdego obiektu w środku), a OU
+  przeniesiona z powrotem przynosi swoje obiekty po cichu.
+- Masowe usunięcia i blokady są liczone według czasu samej zmiany: usunięcia rozłożone na wiele godzin, wykryte
+  razem po przerwie w pracy usługi, zmianie DC lub przy dobowym uzgodnieniu, nie są „zdarzeniem masowym”.
 
 ---
 
