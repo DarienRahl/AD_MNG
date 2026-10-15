@@ -237,6 +237,25 @@ public class DomainKindTests
         Assert.Equal(["contosoKodOddziału"], SchemaNames([.. crashed, .. repeated]));
     }
 
+    [Fact]
+    public async Task SchemaChanged_WithUsnOverlap_IsNotRepeatedByTheNextCycle()
+    {
+        await using var scenario = new DetectionScenario(configuration: new AdMng.Watchdog.Contracts.Configuration.WatchdogConfiguration
+        {
+            Directory = new AdMng.Watchdog.Contracts.Configuration.DirectorySettings { UsnOverlap = 50 },
+        });
+        await scenario.BaselineAsync();
+        scenario.Builder.AddSchemaObject("contosoNumerPokoju");
+        var first = await scenario.CycleEventsAsync();
+
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.Title, "Architekt");
+        var second = await scenario.CycleEventsAsync();
+
+        Assert.Equal(["contosoNumerPokoju"], SchemaNames(first));
+        Assert.Empty(SchemaNames(second));
+        Assert.Single(second);
+    }
+
     private static List<string> SchemaNames(IEnumerable<WatchEvent> events) =>
         [.. events.Where(e => e.Kind == WatchEventKind.SchemaChanged).SelectMany(e => e.Changes.Single(c => c.Attribute == WatchdogAttributes.LdapDisplayName).NewValues)];
 }

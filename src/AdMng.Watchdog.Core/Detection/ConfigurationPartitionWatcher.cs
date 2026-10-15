@@ -291,12 +291,19 @@ internal sealed class ConfigurationPartitionWatcher
                 Filter = LdapFilter.And(
                     Changed(cycle),
                     LdapFilter.Or(LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.AttributeSchema), LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.ClassSchema))),
-                Attributes = [WatchdogAttributes.LdapDisplayName, Attr.UsnCreated, Attr.ObjectClass],
+                Attributes = [WatchdogAttributes.LdapDisplayName, Attr.UsnCreated, Attr.UsnChanged, Attr.ObjectClass],
                 PageSize = 1000,
             }, cancellationToken).ConfigureAwait(false))
             {
+                // The UsnOverlap re-read (W' ≤ uSNChanged ≤ W) was reported by the previous cycle: no snapshot row makes
+                // a second look harmless here.
+                if ((entry.GetInt64(Attr.UsnChanged) ?? long.MaxValue) <= cycle.Decision.Watermark)
+                {
+                    continue;
+                }
+
                 var name = entry.GetString(WatchdogAttributes.LdapDisplayName) ?? entry.Dn.Name;
-                ((entry.GetInt64(Attr.UsnCreated) ?? 0) >= cycle.SearchFrom ? created : modified).Add(name);
+                ((entry.GetInt64(Attr.UsnCreated) ?? 0) > cycle.Decision.Watermark ? created : modified).Add(name);
             }
         }
         catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.NoSuchObject or DirectoryErrorKind.AccessDenied)

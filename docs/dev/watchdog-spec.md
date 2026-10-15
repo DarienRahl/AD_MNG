@@ -3441,7 +3441,8 @@ Baseline):
   counts created/modified and up to 50 lDAPDisplayNames; Exchange `/PrepareSchema` = one event, not thousands).
   Baseline/Resync: no events. Schema objects are not snapshotted, so the event is emitted in the cycle's **final
   commit** (with W): a cycle that fails after its chunk commits repeats the range without a duplicate, and writes after
-  H are reported by the next cycle only.
+  H are reported by the next cycle only. Entries of the `UsnOverlap` re-read (`uSNChanged ≤ W`) were reported by the
+  previous cycle and are skipped; "created" means `uSNCreated > W`.
 - The incremental nTDSDSA and PKI searches use the same range `(uSNChanged>=W')(uSNChanged<=H)`.
 
 ### 10.12 Permission self-check (`PermissionSelfCheck`) – at startup after baseline and every `PermissionSelfCheckInterval`
