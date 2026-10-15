@@ -3945,7 +3945,8 @@ anonymous Gregorian algorithm (tests: 2026-04-05, 2027-03-28). `ExtraHolidays` a
 
 For every enabled webhook channel with `HeartbeatInterval`: every interval a `watchdog.heartbeat` payload (instance,
 service version, directory state, last poll, pending outbox count – no directory values) is enqueued as
-`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat.
+`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat. A heartbeat is
+never retried past its interval – the next one supersedes it (15.1, `heartbeat.superseded`).
 
 ---
 
@@ -4169,9 +4170,22 @@ for each msg (sequential per channel, parallel across channels, max 4):
                            else MarkRetry(next, countAttempt: true)
     Permanent            → MarkDead (message-specific, e.g. 552 too large, 5.1.1 unknown recipient); health Warning
     ChannelBroken /
-    AuthenticationFailed → MarkRetry(now + 1 h) until 24 h old, then MarkDead; channel health Error;
-                           HealthDeliveryFailing once per Ok→Error transition (sent through other working channels)
+    AuthenticationFailed → MarkRetry(now + 1 h, countAttempt: false) until 24 h old, then MarkDead; channel health Error;
+                           HealthDeliveryFailing once per transition into Error (sent through other working channels)
 ```
+
+- Broken-channel retries do not count as attempts: a Teams flow switched off for ten hours must not leave the message
+  with an exhausted transient schedule, so the first 429/503/421 after the recovery is retried after the first step;
+  the 24 h age limit ends a broken period.
+- Withdrawn channel: before sending (and when the transport answers `channel.disabled` / `channel.unknown` /
+  `smtp.disabled`), a message whose Teams/webhook channel was disabled or removed, or an e-mail while `Smtp.Enabled` is
+  false, is marked Dead with that code – no channel health failure, no `HealthDeliveryFailing`, nothing delivered to a
+  re-enabled channel later (an Admin can still retry it manually until `OutboxDeadDays`).
+- Heartbeats (`DeliveryKind.Health`, 13.6) are not sent or retried once the next heartbeat of their channel is due
+  (`CreatedAt + max(HeartbeatInterval, 1 min)`): such a message is marked Dead with `heartbeat.superseded` instead of a
+  retry (a stale backlog would arrive with old timestamps and use the channel's rate limit); the failure itself still
+  counts for the channel health as usual.
+- Every run first lets an expired channel Error decay (15.8), also when nothing is due.
 
 ### 15.2 `RetryPolicy` (±20 % jitter; `Retry-After` honored up to 1 h when longer than the step)
 
@@ -4252,7 +4266,11 @@ host) the same way.
 ### 15.8 Channel health
 
 `IHealthRegistry.ReportChannel` after every attempt: Ok (last success), Warning (transient failures ≥ 3 in a row),
-Error (ChannelBroken / AuthenticationFailed / Dead in the last hour). Shown in the GUI status and the digest header.
+Error (ChannelBroken / AuthenticationFailed / Dead in the last **two hours** – longer than the hourly broken-channel
+retry, so a channel that stays broken neither flaps nor is reported again). Without another error-level failure the
+Error decays to Warning (until the next success) – also without any traffic, `ChannelHealthTracker.Refresh` runs with
+every outbox run – and the next error-level failure enters Error again and is reported again (`HealthDeliveryFailing`).
+Shown in the GUI status and the digest header.
 `DeliveryTester` (test buttons) runs the same transport code path with stage reporting (`DeliveryTestResult`) and never
 writes to the outbox; Teams test card says "Wiadomość testowa AD Watchdog" and the result always includes hint
 `teams.acceptedNotDelivered`.

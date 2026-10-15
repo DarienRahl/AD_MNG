@@ -144,7 +144,8 @@ public sealed class OutboxSenderJobTests
 
         Assert.Equal((OutboxStatus.Dead, 1), Status(await _harness.OutboxItemAsync(old)));
         var retrying = await _harness.OutboxItemAsync(fresh);
-        Assert.Equal((OutboxStatus.Retrying, 1, Time.AddHours(1)), (retrying.Status, retrying.Attempts, retrying.NextAttemptAt));
+        // Broken-channel retries do not use up the transient retry budget (only the 24 h age limit ends them).
+        Assert.Equal((OutboxStatus.Retrying, 0, Time.AddHours(1), errorCode), (retrying.Status, retrying.Attempts, retrying.NextAttemptAt, retrying.LastErrorCode));
         Assert.Equal(HealthState.Error, _harness.Health.GetChannel(TeamsChannel)!.State);
         var health = Assert.Single(await HealthEventsAsync());
         Assert.Equal(TeamsChannel, health.Changes.Single(c => c.Attribute == "channel").NewValues.Single());
@@ -256,11 +257,158 @@ public sealed class OutboxSenderJobTests
         Assert.Equal(OutboxSenderJob.BatchSize + 2, _harness.Health.GetChannel("email")!.Pending);
     }
 
+    [Fact]
+    public async Task BrokenChannelRetries_DoNotUseUpTheTransientRetryBudget()
+    {
+        // A Teams flow switched off for ten hours: hourly ChannelBroken answers, then one 429 when the flow is back.
+        var id = await EnqueueAsync(DeliveryChannelType.Teams, TeamsChannel);
+        for (var hour = 0; hour < 10; hour++)
+        {
+            _teams.Answer(new DeliveryResult { Outcome = DeliveryOutcome.ChannelBroken, ErrorCode = "teams.workflowDisabled" });
+            await _job.RunOnceAsync(Ct);
+            _harness.Clock.Advance(OutboxSenderJob.BrokenChannelRetry);
+        }
+
+        _teams.Answer(new DeliveryResult { Outcome = DeliveryOutcome.Transient, ErrorCode = "http.429" });
+        await _job.RunOnceAsync(Ct);
+
+        var item = await _harness.OutboxItemAsync(id);
+        Assert.Equal((OutboxStatus.Retrying, 1, Time.AddSeconds(5), "http.429"), (item.Status, item.Attempts, item.NextAttemptAt, item.LastErrorCode));
+        Assert.Equal(11, _teams.Sent.Count);
+    }
+
+    [Fact]
+    public async Task DisabledChannel_GivesUpItsQueuedMessages_WithoutAFalseChannelAlert()
+    {
+        var id = await EnqueueAsync(DeliveryChannelType.Teams, TeamsChannel);
+        _harness.Config.Set(_harness.Current with
+        {
+            Channels = [.. _harness.Current.Channels.Select(c => c.Id == TeamsChannel ? c with { Enabled = false } : c)],
+        });
+
+        await _job.RunOnceAsync(Ct);
+
+        var item = await _harness.OutboxItemAsync(id);
+        Assert.Equal((OutboxStatus.Dead, "channel.disabled"), (item.Status, item.LastErrorCode));
+        Assert.Empty(_teams.Sent);
+        Assert.NotEqual(HealthState.Error, _harness.Health.GetChannel(TeamsChannel)?.State);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task RemovedChannel_AndDisabledSmtp_GiveUpTheirQueuedMessages_WithoutAFalseChannelAlert()
+    {
+        var webhook = await EnqueueAsync(DeliveryChannelType.Webhook, SiemChannel);
+        var email = await EnqueueAsync(DeliveryChannelType.Email);
+        _harness.Config.Set(_harness.Current with
+        {
+            Smtp = _harness.Current.Smtp with { Enabled = false },
+            Channels = [.. _harness.Current.Channels.Where(c => c.Id != SiemChannel)],
+        });
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, "channel.unknown"), StatusAndCode(await _harness.OutboxItemAsync(webhook)));
+        Assert.Equal((OutboxStatus.Dead, "smtp.disabled"), StatusAndCode(await _harness.OutboxItemAsync(email)));
+        Assert.Empty(_webhook.Sent);
+        Assert.Empty(_email.Sent);
+        Assert.Null(_harness.Health.GetChannel(SiemChannel)?.LastFailureAt);
+        Assert.Null(_harness.Health.GetChannel("email")?.LastFailureAt);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task ChannelDisabledWhileSending_IsGivenUpWithoutAFalseChannelAlert()
+    {
+        var id = await EnqueueAsync(DeliveryChannelType.Teams, TeamsChannel);
+        _teams.Answer(new DeliveryResult { Outcome = DeliveryOutcome.ChannelBroken, ErrorCode = "channel.disabled" });
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, "channel.disabled"), StatusAndCode(await _harness.OutboxItemAsync(id)));
+        Assert.Null(_harness.Health.GetChannel(TeamsChannel)?.LastFailureAt);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task Heartbeat_IsNotRetriedPastItsInterval()
+    {
+        // SIEM heartbeat every 15 minutes; the webhook schedule would retry it after 5 s, 5 min, 30 min, … for days.
+        var id = await EnqueueAsync(DeliveryChannelType.Webhook, SiemChannel, kind: DeliveryKind.Health);
+        _webhook.Default = (_, _) => Task.FromResult(new DeliveryResult { Outcome = DeliveryOutcome.Transient, ErrorCode = "http.503" });
+
+        await _job.RunOnceAsync(Ct);
+        Assert.Equal((OutboxStatus.Retrying, Time.AddSeconds(5)), ((await _harness.OutboxItemAsync(id)).Status, (await _harness.OutboxItemAsync(id)).NextAttemptAt));
+        _harness.Clock.Advance(TimeSpan.FromSeconds(5));
+        await _job.RunOnceAsync(Ct);
+        Assert.Equal((OutboxStatus.Retrying, Time.AddMinutes(5)), ((await _harness.OutboxItemAsync(id)).Status, (await _harness.OutboxItemAsync(id)).NextAttemptAt));
+        _harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await _job.RunOnceAsync(Ct);                              // the next step (30 min) is after the next heartbeat
+
+        var item = await _harness.OutboxItemAsync(id);
+        Assert.Equal((OutboxStatus.Dead, "heartbeat.superseded"), StatusAndCode(item));
+        Assert.Equal(3, _webhook.Sent.Count);
+        Assert.Equal((HealthState.Warning, 3, "http.503"), Channel(SiemChannel));
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task StaleHeartbeat_IsNotSentAfterADowntime()
+    {
+        var stale = await EnqueueAsync(DeliveryChannelType.Webhook, SiemChannel, createdAt: Time.AddMinutes(-20), kind: DeliveryKind.Health);
+        var fresh = await EnqueueAsync(DeliveryChannelType.Webhook, SiemChannel, createdAt: Time.AddMinutes(-1), kind: DeliveryKind.Health);
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, "heartbeat.superseded"), StatusAndCode(await _harness.OutboxItemAsync(stale)));
+        Assert.Equal(OutboxStatus.Sent, (await _harness.OutboxItemAsync(fresh)).Status);
+        Assert.Equal([fresh], _webhook.Sent.Select(m => m.Id));
+        Assert.Equal(HealthState.Ok, _harness.Health.GetChannel(SiemChannel)!.State);
+    }
+
+    [Fact]
+    public async Task RateLimitedHeartbeat_IsDroppedOnceTheNextOneIsDue()
+    {
+        var id = await EnqueueAsync(DeliveryChannelType.Webhook, SiemChannel, createdAt: Time.AddMinutes(-14), kind: DeliveryKind.Health);
+        _webhook.Answer(new DeliveryResult { Outcome = DeliveryOutcome.Deferred, ErrorCode = "rateLimit", RetryAfter = TimeSpan.FromMinutes(2) });
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, "heartbeat.superseded"), StatusAndCode(await _harness.OutboxItemAsync(id)));
+        Assert.Null(_harness.Health.GetChannel(SiemChannel)?.LastFailureAt);
+    }
+
+    [Fact]
+    public async Task ChannelError_DecaysWithoutTraffic_SoTheNextOutageIsReportedAgain()
+    {
+        await EnqueueAsync(DeliveryChannelType.Teams, TeamsChannel, createdAt: Time.AddHours(-25));
+        _teams.Answer(new DeliveryResult { Outcome = DeliveryOutcome.ChannelBroken, ErrorCode = "http.404" });
+        await _job.RunOnceAsync(Ct);                              // dead letter: Error, reported once
+        Assert.Equal(HealthState.Error, _harness.Health.GetChannel(TeamsChannel)!.State);
+
+        _harness.Clock.Advance(TimeSpan.FromDays(3));
+        await _job.RunOnceAsync(Ct);                              // nothing to send – the old Error expires
+        Assert.Equal(HealthState.Warning, _harness.Health.GetChannel(TeamsChannel)!.State);
+
+        await EnqueueAsync(DeliveryChannelType.Teams, TeamsChannel);
+        _teams.Answer(new DeliveryResult { Outcome = DeliveryOutcome.ChannelBroken, ErrorCode = "http.410" });
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal(HealthState.Error, _harness.Health.GetChannel(TeamsChannel)!.State);
+        Assert.Equal(["http.404", "http.410"], (await HealthEventsAsync()).Select(e => e.Changes.Single(c => c.Attribute == "errorCode").NewValues.Single()));
+    }
+
     private OutboxSenderJob Job(params FakeTransport[] transports) =>
         new(_harness.Store, transports, new RetryPolicy(new FixedRandom()), new ChannelHealthTracker(_harness.Health),
             new DeliveryFailureReporter(_harness.Store, _harness.Signals), _harness.Config, _harness.Clock, _logger);
 
-    private async Task<long> EnqueueAsync(DeliveryChannelType type, string channelId = "email", DateTimeOffset? createdAt = null)
+    private (HealthState, int, string?) Channel(string channelId)
+    {
+        var channel = _harness.Health.GetChannel(channelId)!;
+        return (channel.State, channel.ConsecutiveFailures, channel.LastErrorCode);
+    }
+
+    private async Task<long> EnqueueAsync(DeliveryChannelType type, string channelId = "email", DateTimeOffset? createdAt = null, DeliveryKind kind = DeliveryKind.Alert)
     {
         var at = createdAt ?? Time;
         return await _harness.Store.EnqueueAsync(new OutboxMessage
@@ -268,7 +416,7 @@ public sealed class OutboxSenderJobTests
             MessageId = Guid.CreateVersion7(at).ToString("N"),
             ChannelType = type,
             ChannelId = channelId,
-            Kind = DeliveryKind.Alert,
+            Kind = kind,
             Recipients = type == DeliveryChannelType.Email ? ["łucja.nowak@contoso.test"] : [],
             Email = type == DeliveryChannelType.Email
                 ? new RenderedEmail { Subject = "[AD Watchdog] Nowe konto: Zażółć Gęślą", HtmlBody = "<p>Zażółć gęślą jaźń</p>", TextBody = "Zażółć gęślą jaźń" }
@@ -292,6 +440,8 @@ public sealed class OutboxSenderJobTests
     }
 
     private static (OutboxStatus, int) Status(OutboxItemDto item) => (item.Status, item.Attempts);
+
+    private static (OutboxStatus, string?) StatusAndCode(OutboxItemDto item) => (item.Status, item.LastErrorCode);
 
     private static void InterlockedMax(ref int target, int value)
     {
