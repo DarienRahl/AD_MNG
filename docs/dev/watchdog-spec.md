@@ -3622,7 +3622,9 @@ DnsHostName→dNSHostName, ServicePrincipalNames→servicePrincipalName.
 - Namespace `http://schemas.microsoft.com/win/2004/08/events/event`; read `System/EventID`, `Version`,
   `TimeCreated/@SystemTime` (UTC), `EventRecordID`, `Computer`; `EventData/Data[@Name]` **by name, never by
   position**; for 1102 read `UserData/*/*` child elements as data. Unknown names and higher versions are kept/ignored
-  silently. `XmlReader` with `DtdProcessing.Prohibit`.
+  silently. `XmlReader` with `DtdProcessing.Prohibit` and `CheckCharacters = false`: characters invalid in XML 1.0
+  (control characters of attacker-written values, raw or as `&#x1;`) are replaced by U+FFFD instead of dropping the
+  record – one value must not hide a change from attribution.
 - `-` and empty values are omitted. Logon ids (`0x30dc2`) are normalized to lower-case `0x…` and compared
   numerically. SIDs are strings `S-1-…`; GUIDs `{…}` parse with `Guid.Parse`.
 - `%%` codes: 1792 `<value changed, but not displayed>`, 1793 `<value not set>`, 1794 `<never>`, 1797 All,
