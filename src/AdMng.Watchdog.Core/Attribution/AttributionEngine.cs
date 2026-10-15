@@ -21,6 +21,19 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// With attribution off, source None or an unavailable reader (non-Windows host), pending events older than
 /// <see cref="DisabledGrace"/> end Unknown(SOURCE_DISABLED) (NotApplicable kinds NotApplicable).
 /// </summary>
+/// <remarks>
+/// <para>Re-evaluation (11.4 #9): rules are matched once, when the event is stored. A final attribution that raises
+/// the severity or adds tags (passwordReset, selfChange, syncAccount) can make further rules match – shadow credentials
+/// on a user written by another account become High (10.6.4) and must reach <c>tier0-security</c>. Such an event is
+/// matched again with its final state; rules that are not yet among its stored matched rules are planned
+/// (<see cref="IRuleMatchPlanner"/>) and added to the matched rules in one <c>CommitEvaluationAsync</c>, before the
+/// attribution update – a pass interrupted in between leaves the event pending and the next pass finds the rules
+/// already stored (no duplicate). Rules that already matched are never planned again (their rows may be delivered and
+/// gone).</para>
+/// <para>The store phase of a pass (re-evaluations, attribution updates, follow-ups) runs without the stop token, and
+/// the follow-ups collected so far are queued even when a later write fails, so an attribution that became final never
+/// loses its follow-up.</para>
+/// </remarks>
 /// <remarks>Inside <c>AdMng.Watchdog.Core.*</c> the simple name <c>Attribution</c> binds to this namespace, not to
 /// <c>AdMng.Watchdog.Contracts.Events.Attribution</c> – qualify the record or use an alias.</remarks>
 public sealed partial class AttributionEngine(
@@ -40,6 +53,8 @@ public sealed partial class AttributionEngine(
     IHealthRegistry health,
     IWatchdogSignals signals,
     IEnumerable<IAttributionFollowUpPlanner> followUpPlanners,
+    RuleEngine ruleEngine,
+    IEnumerable<IRuleMatchPlanner> ruleMatchPlanners,
     TimeProvider timeProvider,
     ILogger<AttributionEngine> logger) : IWatchdogJob
 {
@@ -55,6 +70,7 @@ public sealed partial class AttributionEngine(
     private static readonly WatchdogSignal[] Signals = [WatchdogSignal.EventsStored];
 
     private readonly IReadOnlyList<IAttributionFollowUpPlanner> _followUpPlanners = [.. followUpPlanners];
+    private readonly IReadOnlyList<IRuleMatchPlanner> _ruleMatchPlanners = [.. ruleMatchPlanners];
 
     /// <inheritdoc/>
     public string Name => "attribution";
@@ -167,18 +183,8 @@ public sealed partial class AttributionEngine(
             processed[processed.IndexOf(ambiguous)] = resolved;
         }
 
-        var followUps = new List<PendingNotification>();
-        foreach (var result in processed)
-        {
-            await events.UpdateAttributionAsync(result.Event.Id, result.Update, cancellationToken).ConfigureAwait(false);
-            if (result.IsFinal)
-            {
-                actorConditions.Record(result.Event.Kind, result.Update.Attribution.Reason);
-                followUps.AddRange(await PlanFollowUpsAsync(result.Updated, cancellationToken).ConfigureAwait(false));
-            }
-        }
-
-        await QueueFollowUpsAsync(followUps, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        await StoreAsync(processed, recordOutcomes: true).ConfigureAwait(false);
 
         LogCorrelated(processed.Count, processed.Count(p => p.IsFinal));
         return (processed.Count, pending.Count >= CorrelationBatchSize);
@@ -188,17 +194,11 @@ public sealed partial class AttributionEngine(
     {
         var now = timeProvider.GetUtcNow();
         var pending = await events.GetPendingAttributionAsync(now, CorrelationBatchSize, cancellationToken).ConfigureAwait(false);
-        var updated = 0;
-        var followUps = new List<PendingNotification>();
-        foreach (var watchEvent in pending.Where(e => now - e.DetectedAt >= DisabledGrace))
-        {
-            var update = PendingAttributionProcessor.Disabled(watchEvent, now);
-            await events.UpdateAttributionAsync(watchEvent.Id, update, cancellationToken).ConfigureAwait(false);
-            followUps.AddRange(await PlanFollowUpsAsync(new ProcessedAttribution(watchEvent, update).Updated, cancellationToken).ConfigureAwait(false));
-            updated++;
-        }
-
-        await QueueFollowUpsAsync(followUps, cancellationToken).ConfigureAwait(false);
+        var processed = pending.Where(e => now - e.DetectedAt >= DisabledGrace)
+            .Select(e => new ProcessedAttribution(e, PendingAttributionProcessor.Disabled(e, now)))
+            .ToList();
+        await StoreAsync(processed, recordOutcomes: false).ConfigureAwait(false);
+        var updated = processed.Count;
 
         health.Report(new HealthCheckDto
         {
@@ -212,6 +212,100 @@ public sealed partial class AttributionEngine(
         {
             signals.Raise(WatchdogSignal.AttributionUpdated);
         }
+    }
+
+    /// <summary>
+    /// The store phase of a pass, without the stop token (a few short writes – a stop in the middle would leave final
+    /// attributions without their follow-ups): per event the re-evaluation of a final attribution that raised the
+    /// severity or added tags, the attribution update, and the follow-ups of a final attribution; the follow-ups collected
+    /// so far are queued (in one call, 13.2 #6) also when a later write fails.
+    /// </summary>
+    private async Task StoreAsync(IReadOnlyList<ProcessedAttribution> processed, bool recordOutcomes)
+    {
+        var followUps = new List<PendingNotification>();
+        RuleMatchContext? rules = null;
+        try
+        {
+            foreach (var result in processed)
+            {
+                var update = result.Update;
+                if (result.IsFinal && ChangesRuleInputs(result))
+                {
+                    rules ??= ruleEngine.CreateContext(configProvider.Current.Configuration);
+                    if (await ReevaluateAsync(result, rules).ConfigureAwait(false) is { } severity)
+                    {
+                        update = update with { Severity = severity };
+                    }
+                }
+
+                await events.UpdateAttributionAsync(result.Event.Id, update, CancellationToken.None).ConfigureAwait(false);
+                if (result.IsFinal)
+                {
+                    if (recordOutcomes)
+                    {
+                        actorConditions.Record(result.Event.Kind, update.Attribution.Reason);
+                    }
+
+                    followUps.AddRange(await PlanFollowUpsAsync((result with { Update = update }).Updated, CancellationToken.None).ConfigureAwait(false));
+                }
+            }
+        }
+        finally
+        {
+            await QueueFollowUpsAsync(followUps, CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>True when a final update can make further rules match: it raises the severity or adds a tag the event
+    /// does not carry yet.</summary>
+    private static bool ChangesRuleInputs(ProcessedAttribution result) =>
+        (result.Update.Severity is { } severity && severity > result.Event.Severity)
+        || result.Update.AddedTags.Any(tag => !(result.Event.Tags ?? []).Contains(tag, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Matches the event with its final state against the rules; plans and stores the rules that are not yet among its
+    /// stored matched rules (an event the rules job has not evaluated yet has none, so every match is planned and the job
+    /// skips it afterwards). Returns the evaluated severity (rule overrides included) to store with the attribution, or
+    /// null when nothing new matched.
+    /// </summary>
+    private async Task<Severity?> ReevaluateAsync(ProcessedAttribution result, RuleMatchContext rules)
+    {
+        if (await events.GetAsync(result.Event.Id, CancellationToken.None).ConfigureAwait(false) is not { } current)
+        {
+            return null;
+        }
+
+        var final = (result with { Event = current }).Updated;
+        var now = timeProvider.GetUtcNow();
+        var evaluation = RuleEngine.Evaluate(final, rules, now);
+        var stored = (current.MatchedRules ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = evaluation.Matches.Where(m => !stored.Contains(m.Rule.Id)).ToList();
+        if (added.Count == 0)
+        {
+            return null;
+        }
+
+        var newMatches = evaluation with { Matches = added };
+        var notifications = new List<PendingNotification>();
+        foreach (var planner in _ruleMatchPlanners)
+        {
+            notifications.AddRange(await planner.PlanAsync(newMatches, rules.Configuration, now, CancellationToken.None).ConfigureAwait(false));
+        }
+
+        var record = new EventEvaluation
+        {
+            EventId = current.Id,
+            Severity = evaluation.Severity,
+            MatchedRules = [.. (current.MatchedRules ?? []).Concat(added.Select(m => m.Rule.Id))],
+        };
+        await events.CommitEvaluationAsync([record], notifications, CancellationToken.None).ConfigureAwait(false);
+        LogReevaluated(current.Id, added.Count, notifications.Count);
+        if (notifications.Count > 0)
+        {
+            signals.Raise(WatchdogSignal.NotificationsQueued);
+        }
+
+        return evaluation.Severity;
     }
 
     private async Task<IReadOnlyList<PendingNotification>> PlanFollowUpsAsync(WatchEvent attributed, CancellationToken cancellationToken)
@@ -244,4 +338,7 @@ public sealed partial class AttributionEngine(
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Attribution: {Processed} pending events processed, {Final} final.")]
     private partial void LogCorrelated(int processed, int final);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Event {EventId} re-evaluated after attribution: {Rules} further rules matched, {Notifications} notifications queued.")]
+    private partial void LogReevaluated(long eventId, int rules, int notifications);
 }

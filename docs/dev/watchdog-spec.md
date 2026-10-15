@@ -3674,8 +3674,19 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the
    `SeverityResolver` re-resolves the severity with the final attribution and the added tags.
-9. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
+9. **Re-evaluation**: a final attribution that raises the severity (#8) or adds a tag (`passwordReset`, `selfChange`,
+   `syncAccount`) can make further rules match (shadow credentials on a user written by another account become High
+   and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
+   with its final state (`RuleEngine.Evaluate`), plans only the rules that are not yet in the stored `matched_rules`
+   (`IRuleMatchPlanner` – rules that already matched are never planned again, their rows may be delivered and deleted)
+   and stores matched rules ∪ new rules, the evaluated severity and the new pending rows in one
+   `CommitEvaluationAsync`, **before** the attribution update: a pass interrupted in between leaves the event pending and
+   the next pass finds the rules stored. An event the rules job has not evaluated yet has no matched rules, so all its
+   final matches are planned and the job skips it afterwards. `rules_state` is never reset.
+10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
    `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
+   The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
+   pass) also when a later write of the pass fails.
 
 ### 11.5 Late enrichment and notifications
 
@@ -3865,6 +3876,9 @@ events = eventStore.GetUnevaluatedAsync(500)
 for each: matches = RuleEngine.Evaluate(e); pendings += NotificationPlanner.Plan(e, matches, now)
 eventStore.CommitEvaluationAsync(evaluations, pendings); signals.Raise(NotificationsQueued)
 ```
+
+Rules matched only after a final attribution (raised severity, added tags) are planned by the AttributionEngine
+(11.4 #9).
 
 ### 13.2 `NotificationPlanner`
 

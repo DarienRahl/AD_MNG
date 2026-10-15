@@ -4,6 +4,7 @@ using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Core.Diagnostics;
+using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Testing.Attribution;
 using AdMng.Watchdog.Testing.Fixtures.SecurityEvents;
 using static AdMng.Watchdog.Core.Tests.Attribution.Records;
@@ -152,6 +153,141 @@ public sealed class AttributionEngineTests : IDisposable
 
         Assert.Equal(2, _h.Queue.Added.Count);
         Assert.Equal(1, _h.Queue.AddCalls);
+    }
+
+    private WatchEvent ShadowCredentials(bool evaluated) => _h.Events.Add(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.Medium) with
+    {
+        OriginatingTime = T,
+        OriginatingDc = Dc1,
+        Changes = [new AttributeChange { Attribute = "msDS-KeyCredentialLink", Redacted = true }],
+        MatchedRules = evaluated ? [DefaultRules.SecurityReview] : [],
+    }, evaluated);
+
+    [Fact]
+    public async Task ASeverityRaisedByAttribution_IsMatchedAgainstTheRulesAgain()
+    {
+        // Shadow credentials on an ordinary user: the provisional Medium matched only security-review (digest); written by
+        // another account the final severity is High (10.6.4) and tier0-security must alert immediately.
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        var attributed = _h.Events.Get(pending.Id);
+        Assert.Equal(Severity.High, attributed.Severity);
+        Assert.Equal([DefaultRules.SecurityReview, DefaultRules.Tier0Security], attributed.MatchedRules);
+        var (evaluation, _) = Assert.Single(_h.Planner.Calls);
+        Assert.Equal([DefaultRules.Tier0Security], evaluation.Matches.Select(m => m.Rule.Id));   // never the rules that already matched
+        Assert.Equal(AttributionStatus.Resolved, evaluation.Event.Attribution.Status);
+        var notification = Assert.Single(_h.Events.Notifications);
+        Assert.Equal((pending.Id, DefaultRules.Tier0Security), (notification.EventId, notification.RuleId));
+        Assert.Contains(WatchdogSignal.NotificationsQueued, _h.Signals.Raised);
+    }
+
+    [Fact]
+    public async Task TagsAddedByAttribution_AreMatchedAgainstTheRulesAgain()
+    {
+        var resets = new RuleSettings
+        {
+            Id = "resety-hasel",
+            Name = "Resety haseł przez helpdesk",
+            Kinds = [WatchEventKind.PasswordChanged],
+            RequiredTags = [EventTags.PasswordReset],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        var defaults = new DefaultConfigurationFactory().Create();
+        _h.Config.Set(defaults with { Rules = [.. defaults.Rules, resets] });
+        AddRecord(4724, T, Admin);
+        var pending = _h.Events.Add(Create(WatchEventKind.PasswordChanged) with { OriginatingTime = T, OriginatingDc = Dc1, MatchedRules = [DefaultRules.Passwords] }, evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Contains(EventTags.PasswordReset, _h.Events.Get(pending.Id).Tags);
+        Assert.Equal([DefaultRules.Passwords, "resety-hasel"], _h.Events.Get(pending.Id).MatchedRules);
+        Assert.Equal("resety-hasel", Assert.Single(_h.Events.Notifications).RuleId);
+    }
+
+    [Fact]
+    public async Task AnEventNotEvaluatedYet_IsEvaluatedOnceWithItsFinalState()
+    {
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: false);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Equal([DefaultRules.Tier0Security, DefaultRules.SecurityReview], _h.Events.Get(pending.Id).MatchedRules);
+        Assert.Empty(await _h.Events.GetUnevaluatedAsync(10, Ct));
+        Assert.Equal(DefaultRules.Tier0Security, Assert.Single(_h.Events.Notifications).RuleId);
+    }
+
+    [Fact]
+    public async Task AnUnchangedSeverity_IsNotEvaluatedAgain()
+    {
+        AddRecord(4725, T, Admin);
+        _h.Events.Add(Disabled(), evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Empty(_h.Planner.Calls);
+        Assert.Equal(0, _h.Events.CommitCalls);
+    }
+
+    [Fact]
+    public async Task APassInterruptedAfterTheReevaluation_DoesNotPlanTheRuleTwice()
+    {
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: true);
+        _h.Events.UpdateAttributionFailure = _ => new InvalidOperationException("SQLite Error 5: database is locked");
+
+        var failed = await _h.Engine.RunOnceAsync(Ct);
+        _h.Events.UpdateAttributionFailure = null;
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.True(failed.Failed);
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(pending.Id).Attribution.Status);
+        Assert.Equal(Severity.High, _h.Events.Get(pending.Id).Severity);
+        Assert.Single(_h.Events.Notifications);
+        Assert.Single(_h.Planner.Calls);
+    }
+
+    [Fact]
+    public async Task APassInterruptedByAStoreError_StillQueuesTheFollowUpsOfEventsAlreadyAttributed()
+    {
+        // notifications-6: the first event is final in the store; its follow-up must not be lost with the pass.
+        AddRecord(4725, T, Admin);
+        var first = _h.Events.Add(Disabled());
+        var second = _h.Events.Add(Disabled());
+        _h.Events.UpdateAttributionFailure = id => id == second.Id ? new InvalidOperationException("SQLite Error 13: disk full") : null;
+
+        var result = await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.True(result.Failed);
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(first.Id).Attribution.Status);
+        Assert.Equal(first.Id, Assert.Single(_h.Queue.Added).EventId);
+        Assert.Equal(AttributionStatus.Pending, _h.Events.Get(second.Id).Attribution.Status);
+    }
+
+    [Fact]
+    public async Task AStopDuringTheStorePhase_DoesNotInterruptIt()
+    {
+        AddRecord(4725, T, Admin);
+        var first = _h.Events.Add(Disabled());
+        var second = _h.Events.Add(Disabled());
+        using var stop = new CancellationTokenSource();
+        _h.Events.UpdateAttributionFailure = id =>
+        {
+            if (id == first.Id)
+            {
+                stop.Cancel();   // the service stops while the pass stores its results
+            }
+
+            return null;
+        };
+
+        await _h.Engine.RunOnceAsync(stop.Token);
+
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(second.Id).Attribution.Status);
+        Assert.Equal(2, _h.Queue.Added.Count);
     }
 
     [Fact]

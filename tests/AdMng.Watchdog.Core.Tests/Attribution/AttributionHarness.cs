@@ -47,9 +47,14 @@ internal sealed class AttributionHarness : IDisposable
             Health,
             Signals,
             [FollowUps],
+            new AdMng.Watchdog.Core.Rules.RuleEngine(Config, Tokens, Time),
+            [Planner],
             Time,
             NullLogger<AttributionEngine>.Instance);
     }
+
+    /// <summary>Stands in for the NotificationPlanner of the re-evaluation after attribution.</summary>
+    public RecordingPlanner Planner { get; } = new();
 
     public FakeTimeProvider Time { get; } = new(TestEvents.Now);
 
