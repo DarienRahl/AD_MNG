@@ -3309,7 +3309,10 @@ ObjectRestored).
 attribution resolved, otherwise overall): users, groups, OUs and service accounts against `Scans.MassDeletion`
 (≥ 10 in 10 min → **Critical**); computers and contacts against `Scans.MassComputerDeletion` (≥ 50 in 10 min →
 **High** – stale-computer clean-ups are routine). One MassDeletion event per burst (BurstInfo with up to 50 objects);
-cooldown = window. After a computer MassDeletion attributed to one actor, that actor is offered as an
+cooldown = window. The candidates are the ObjectDeleted events **detected** within the window, but they count as a
+burst only when the deletions themselves (`LocalChangeTime` = the tombstone's whenChanged, else `OriginatingTime`,
+else `DetectedAt`) fall within one window: deletions spread over hours that are found together – the catch-up cycle
+after an outage, a Resync, the reconciliation – are no burst; a real burst found late is reported once. After a computer MassDeletion attributed to one actor, that actor is offered as an
 `ExclusionSuggestionDto` (`computerCleanupAccount`, rule `bursts`) – applied only by an admin.
 
 ### 10.10 Replication metadata (`ReplicationMetadataXmlParser`, `ReplicationMetadataDecoder`, `AttrTypResolver`, `OriginatingDcResolver`)
@@ -3463,7 +3466,8 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
 
 ### 10.15 Bursts (`BurstDetector`, `PasswordSprayDetector`, inside ScheduledScanJob, every minute)
 
-- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` in the last `MassLockout.Window` ≥
+- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` detected in the last `MassLockout.Window`
+  whose lockout times (`Lockout.LockedAt`) fall within one window (as for MassDeletion, 10.9) ≥
   `max(Threshold, ceil(PercentOfEnabledUsers × enabled users / 100))` (enabled users counted at reconciliation) →
   `MassLockout` (Medium, BurstInfo), cooldown = window (restart-safe: skip when such an event exists in the store within
   the window). This is *not* a password-spraying detector – spraying deliberately stays below the lockout threshold.
