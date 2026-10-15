@@ -8,6 +8,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>AdMng.Watchdog.Service</RootNamespace>
     <AssemblyName>AdMng.Watchdog</AssemblyName>
+    <!-- LibraryImport (the logon package of HTTP.sys callers, WindowsLogonPackageResolver). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AdMng.Watchdog.Core\AdMng.Watchdog.Core.csproj" />

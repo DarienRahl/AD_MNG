@@ -4504,13 +4504,18 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   `KerberosOnlyEvents.OnAuthenticated`: when `Hosting.RequireKerberos` and `AuthenticationType` ≠ `"Kerberos"` →
   `Fail("NTLM is not accepted")`. `OnAuthenticationFailed`: respond 401, `HandleResponse()`, log a hint ("check SPN
   HTTP/<host> on the service account and that clients use the A record") – never a 500.
-- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity whose
-  `AuthenticationType` is not `"Kerberos"` → 401 (Development/Test schemes exempt). This is the enforcement point for
-  HTTP.sys, where `NegotiateEvents` do not run.
+- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity that was not
+  authenticated by Kerberos → 401 + log 2500 (Development/Test schemes exempt). This is the enforcement point for
+  HTTP.sys, where `NegotiateEvents` do not run. Kestrel reports `AuthenticationType` `Kerberos`/`NTLM` directly;
+  HTTP.sys reports every SPNEGO logon as `Negotiate`, so `ILogonPackageResolver` (`WindowsLogonPackageResolver`)
+  reads the real package from the caller's logon token – the token source (`Kerberos` / `NtLmSsp`), else the logon
+  session (`LsaGetLogonSessionData`) – and an undeterminable package is refused (fail closed).
 - Kestrel endpoint `HttpProtocols.Http1` (Negotiate does not work on HTTP/2).
-- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Kerberos` when
-  `RequireKerberos` (else Negotiate plus the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening`
-  = true), `AllowAnonymous = true` (for `/healthz`), scheme `HttpSysDefaults.AuthenticationScheme`; same authorization.
+- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Negotiate` always, plus
+  the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` = true (the scheme `Kerberos` sends
+  `WWW-Authenticate: Kerberos`, which neither browsers nor `SocketsHttpHandler` answer – every call would get 401);
+  `RequireKerberos` is enforced by `KerberosOnlyMiddleware` as above. `AllowAnonymous = true` (for `/healthz`), scheme
+  `HttpSysDefaults.AuthenticationScheme`; same authorization.
 - Authorization: requirement `SidRoleRequirement(role)`; handler **first** denies when any user/group SID claim is in
   `Authorization.DeniedSids` (emergency revocation – Kerberos tickets keep group SIDs for up to 10 h), then grants when
   any `ClaimTypes.GroupSid` **or** `ClaimTypes.PrimaryGroupSid` claim value is in the configured SIDs (Admin SIDs also
@@ -4615,7 +4620,7 @@ ApiSetup.Map(app); app.Run()
 | | Kestrel + Negotiate (default) | HTTP.sys (option) |
 |---|---|---|
 | Kerberos | user mode, SPN `HTTP/<A record>` **on the gMSA** | kernel mode, machine account – no SPN work (HOST/ covers HTTP/<server FQDN>) |
-| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme `Kerberos` only (`RequireKerberos`) + `KerberosOnlyMiddleware`; Negotiate only with `EnableCBTHardening` |
+| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme Negotiate with `EnableCBTHardening`; NTLM rejected by `KerberosOnlyMiddleware` from the logon token's package (`RequireKerberos`) |
 | TLS cert | selected in app config; key ACL for the gMSA; hot selection by thumbprint/subject | `netsh http add sslcert` per hash – rebind on every renewal |
 | URL ACL | none | `netsh http add urlacl url=https://+:8443/ user=CONTOSO\svc-admngwd$` |
 | Channel binding (EPA) | none on .NET 10 → NTLM rejected | opt-in `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` (10.0.1+, off by default) |
@@ -5351,8 +5356,8 @@ public static class StandardWebhookSigner
    Security channel ACL for Event Log Readers, `lockoutTime` reset to 0 at the first logon after expiry (Samba source
    confirms it; assumed identical on Windows), Recycle Bin restore re-activating links without a group USN bump,
    4771/4776 visibility on the PDC for lockout sources and spraying, 5136/5137 coverage of the extended SACL script
-   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), what an NTLM-only client gets from HTTP.sys with
-   scheme Kerberos. Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
+   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), whether the token source / logon session of an HTTP.sys
+   Kerberos logon reads `Kerberos` for the gMSA (fail closed otherwise). Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
 5. **Teams**: the Adaptive Card version accepted by Workflows (1.4 assumed), rendering of ToggleVisibility/`msteams.width`,
    tenant policy on SAS triggers, OAuth trigger availability, flow owner licensing (90-day suspension → weekly digest
    heartbeat). Needs a live tenant check.

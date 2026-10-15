@@ -399,8 +399,9 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
 
 - `Server: "HttpSys"` – alternatywa bez SPN na gMSA; wymaga `netsh http add urlacl url=https://+:8443/
   user=CONTOSO\svc-admngwd$` i `netsh http add sslcert ipport=0.0.0.0:8443 certhash=<odcisk>
-  appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). Przy `RequireKerberos` HTTP.sys
-  przyjmuje wyłącznie Kerberos.
+  appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). HTTP.sys negocjuje schematem
+  Negotiate (z ochroną powiązania kanału); przy `RequireKerberos` usługa odrzuca każde logowanie, które nie odbyło
+  się przez Kerberos (dziennik Application, zdarzenie 2500).
 - `RequireKerberos: true` odrzuca NTLM w obu trybach (ochrona przed przekazywaniem NTLM; .NET 10 nie ma tu powiązania
   kanału).
 - `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu i
