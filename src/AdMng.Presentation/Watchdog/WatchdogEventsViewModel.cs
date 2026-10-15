@@ -211,9 +211,10 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             HasMore = page.HasMore;
             Error = null;
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Superseded by a reload.
+            // Superseded by a reload (the client reports a cancelled request as OperationCanceledException or as a
+            // WatchdogClientException of kind Cancelled): never an error.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -257,7 +258,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             AcknowledgeComment = string.Empty;
             _services.Ui.Notifications.Show(NotificationSeverity.Success, _services.Localizer.Format(L.Watchdog.EventsAcknowledged, rows.Count));
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && _lifetime.IsCancellationRequested)
         {
             // Tab closed.
         }
@@ -372,10 +373,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             SelectedItem = selectedId is { } id ? Items.FirstOrDefault(r => r.Id == id) : null;
             _poller.Cursor = Math.Max(page.LatestId, page.Items.Count == 0 ? 0 : page.Items.Max(e => e.Id));
             _poller.Wake();
+            Error = null;
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Superseded by a newer load.
+            // Superseded by a newer load (the client reports a cancelled request as OperationCanceledException or as a
+            // WatchdogClientException of kind Cancelled): the newer load owns the list and the error bar.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

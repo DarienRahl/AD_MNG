@@ -363,9 +363,10 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             await Task.WhenAll(loads).ConfigureAwait(true);
             Rules.LoadRolloutCountsAsync().Forget();
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // A newer attempt or the tab was closed.
+            // A newer attempt or the tab was closed (the client reports the cancelled request as an
+            // OperationCanceledException or a WatchdogClientException of kind Cancelled): no error state.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

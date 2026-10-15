@@ -307,4 +307,29 @@ public sealed class WatchdogEventsTests
             Assert.Equal(string.Empty, tab.Events.StatusText);
         });
     }
+    [Fact]
+    public async Task SupersededLoad_LeavesNoErrorOverTheReloadedFeed()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            var feed = tab.Events;
+            h.Client.Hold(nameof(IWatchdogClient.GetEventsAsync));
+
+            // Two quick filter changes: the second load cancels the first one, which the client reports as a
+            // WatchdogClientException of kind Cancelled (like the real HTTP client).
+            var first = feed.LoadAsync();
+            var second = feed.LoadAsync();
+            await first;
+            h.Client.Release(nameof(IWatchdogClient.GetEventsAsync));
+            await second;
+
+            Assert.Null(feed.Error);
+            Assert.Equal(30, feed.Items.Count);
+            Assert.False(feed.IsLoading);
+            Assert.True(tab.IsConnected);
+        });
+        h.AssertNoUiErrors();
+    }
 }

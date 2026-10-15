@@ -10,7 +10,8 @@ namespace AdMng.Watchdog.Testing.Client;
 /// In-memory <see cref="IWatchdogClient"/> with the API semantics of the service (filters and paging of the event feed,
 /// long-poll with <see cref="EventQuery.WaitSeconds"/> on the injected <see cref="TimeProvider"/>, acknowledgements,
 /// optimistic concurrency of the configuration, redacted configuration for Viewers, write-only secrets, role checks,
-/// test sends with the destination-binding rule, delivery log and retry), pre-filled with the Polish sample data of
+/// test sends with the destination-binding rule, delivery log and retry; a cancelled call throws a
+/// <see cref="WatchdogClientException"/> of kind Cancelled like the real client), pre-filled with the Polish sample data of
 /// <see cref="SampleEvents"/>, <see cref="SampleConfiguration"/> and <see cref="SampleStatus"/>. Tests script failures
 /// per method (<see cref="FailWith"/>, <see cref="FailNext"/>), hold calls (<see cref="Hold"/>) and await calls
 /// (<see cref="Calls"/>). Never touches a network or a disk.
@@ -747,10 +748,21 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         if (hold is not null)
         {
-            await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+            {
+                throw Cancelled(ex);
+            }
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw Cancelled(null);
+        }
+
         Exception? failure = null;
         lock (_gate)
         {
@@ -806,10 +818,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         var winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
         await timeout.CancelAsync().ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (winner == delay && delay.IsCanceled)
+        if (cancellationToken.IsCancellationRequested || (winner == delay && delay.IsCanceled))
         {
-            throw new OperationCanceledException(cancellationToken);
+            throw Cancelled(null);
         }
     }
+
+    /// <summary>
+    /// The caller cancelled the request: like <see cref="WatchdogHttpClient"/> (<c>WatchdogClientErrors.FromException</c>)
+    /// the fake reports it as a <see cref="WatchdogClientException"/> of kind Cancelled, not as an
+    /// <see cref="OperationCanceledException"/> – view models must treat both as "superseded", never as an error.
+    /// </summary>
+    private static WatchdogClientException Cancelled(Exception? inner) =>
+        new(WatchdogClientErrorKind.Cancelled, "The request was cancelled.", inner);
 }

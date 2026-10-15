@@ -407,4 +407,34 @@ public sealed class WatchdogDocumentTests
         });
         h.AssertNoUiErrors();
     }
+    [Fact]
+    public async Task SupersededConnect_NeverShowsAnErrorState()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = h.CreateDocument();
+            var states = new List<WatchdogConnectionState>();
+            tab.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(WatchdogDocumentViewModel.ConnectionState))
+                {
+                    states.Add(tab.ConnectionState);
+                }
+            };
+            h.Client.Hold(nameof(IWatchdogClient.GetMeAsync));
+
+            var first = tab.InitializeAsync();
+            var second = tab.InitializeAsync();
+            await first;
+            h.Client.Release(nameof(IWatchdogClient.GetMeAsync));
+            await second;
+            await tab.Config.Loading;
+
+            Assert.Equal(WatchdogConnectionState.Connected, tab.ConnectionState);
+            Assert.DoesNotContain(WatchdogConnectionState.Error, states);
+            Assert.False(tab.HasConnectionProblem);
+        });
+        h.AssertNoUiErrors();
+    }
 }

@@ -18,6 +18,7 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
 {
     private readonly WatchdogServices _services;
     private readonly SerialCancellation _runs = new();
+    private CancellationToken _latest;
 
     public DeliveryTestViewModel(WatchdogServices services)
     {
@@ -55,6 +56,7 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(send);
         var token = _runs.Next();
+        _latest = token;
         IsRunning = true;
         Error = null;
         Success = null;
@@ -67,9 +69,14 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
             token.ThrowIfCancellationRequested();
             Show(result);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            SummaryText = _services.Localizer[L.Errors.Cancelled];
+            // Cancel or a newer test (the client reports the cancelled request as an OperationCanceledException or
+            // a WatchdogClientException of kind Cancelled): not a failed test. A newer test owns the texts.
+            if (_latest == token)
+            {
+                SummaryText = _services.Localizer[L.Errors.Cancelled];
+            }
         }
         catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Validation)
         {
@@ -95,7 +102,7 @@ public sealed partial class DeliveryTestViewModel : ObservableObject
         }
         finally
         {
-            if (_runs.IsCurrent(token) || token.IsCancellationRequested)
+            if (_latest == token)
             {
                 IsRunning = false;
             }
