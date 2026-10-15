@@ -3878,7 +3878,9 @@ For every match with `Delivery.Immediate`:
 6. Follow-ups (`FollowUpPlanner`, called by the AttributionEngine when an attribution becomes final, 11.4 #9): for
    every message from `outbox.GetMessagesForEventAsync(eventId)` with `SentWithPendingAttribution`, severity ≥ High and
    `FollowUpWhenAttributed`, add a pending row for the original `TargetKey` with `IsFollowUp`, `ReplyToMessageId` =
-   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored).
+   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored). The dispatch job
+   also plans them right after it stored an alert whose events turned final while it was rendered (13.3), and sends a
+   follow-up only after its original was Sent (none for a Dead/Cancelled original).
 
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
@@ -3893,14 +3895,27 @@ for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
     re-match held items with the event's final state (severity, tags, actor): RuleMatcher for that rule, delivery
         hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
+    other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
+        the end of business hours) dropped – the digest reports them
+    follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original
+        message (ReplyToMessageId) Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min)
+        (a follow-up never overtakes its original); Sent or unknown (purged) → rendered
     if ready is empty: continue
-    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // sent in the last hour ≥ cap
+    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
         TargetKey, SentWithPendingAttribution = any rendered event still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
+    ThrottlePolicy.RecordEnqueued(rule, channel, now)
+    alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
+        FollowUpPlanner rows for this message → queueStore.AddAsync (the AttributionEngine planned before the message
+        existed; whichever side plans second is ignored by the uniqueness or dropped as a duplicate at flush)
 signals.Raise(OutboxEnqueued)
 ```
+
+The hourly cap counts the larger of the messages **sent** in the last hour (`CountSentAsync`, survives a restart) and
+the messages **enqueued** in the last hour (kept in memory by the `ThrottlePolicy` singleton), so a channel that cannot
+deliver does not let a burst queue one message per flush that floods the recipients after the recovery.
 
 Rendering choice: e-mail 1 item → alert, > 1 → aggregated alert; Teams 1 → alert card, > 1 → burst card (digest
 layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template.
