@@ -229,9 +229,13 @@ na DC:
    4720 4722 4723 4724 4725 4726 4738 4740 4767 4781 4765 4766 4794 4741 4742 4743 4727–4737 4744–4764 4719 5136 5137
    5138 5139 5141 1102 1104 1100 oraz – jeśli ma być ustalany komputer źródłowy – 4624 (tylko LogonType 3 i 10; duży
    wolumen, zwiększ dziennik kolektora) i 4771/4776 (tylko niepowodzenia).
-3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa serwera; gMSA w lokalnej grupie
-   „Event Log Readers” kolektora. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę
-   „SOURCE_NOT_COLLECTED”.
+3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa DNS serwera (nie adres IP –
+   usługa łączy się z kolektorem i z DC wyłącznie przez Kerberos); gMSA w lokalnej grupie „Event Log Readers”
+   kolektora. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę „SOURCE_NOT_COLLECTED”.
+   Zdarzenia przekazane przez WEF zachowują numery rekordów swoich DC, dlatego usługa czyta kolektor według czasu
+   zdarzeń: przy każdym odczycie ponownie przegląda ostatnie 15 minut (ustawienie „replicationLatencyBound”), aby nie
+   pominąć zdarzeń dostarczonych z opóźnieniem. Zdarzenia dostarczone później (np. po dłuższej przerwie łączności DC
+   z kolektorem) nie zostaną uwzględnione w atrybucji – w razie potrzeby zwiększ to ustawienie.
 
 W obu wariantach ustaw rozmiar dziennika Security na DC na co najmniej **1 GB** (GPO: Konfiguracja komputera →
 Zasady → Ustawienia systemu Windows → Ustawienia zabezpieczeń → Dziennik zdarzeń) – mały dziennik nadpisuje zdarzenia,
