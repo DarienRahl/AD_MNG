@@ -13,8 +13,9 @@ namespace AdMng.Watchdog.Core.Detection;
 /// domain controllers (nTDSDSA – added / removed, other-domain DCs tagged), the forest singletons (Partitions,
 /// Directory Service, schema head – FSMO owners, Recycle Bin, dSHeuristics, tombstoneLifetime), PKI objects
 /// (templates, enrollment services, CAs/NTAuth) and schema increments (one SchemaChanged per cycle with counts and up
-/// to 50 names). Incremental: changes since W'; full sync: everything, plus deletions of known DCs and PKI objects. No
-/// events at Baseline.
+/// to 50 names). Incremental: changes with <c>W' ≤ uSNChanged ≤ H</c> (later writes belong to the next cycle); full sync:
+/// everything, plus deletions of known DCs and PKI objects. No events at Baseline. SchemaChanged has no snapshot row that
+/// would make a repeated cycle harmless, so it is emitted in the cycle's final commit, together with W.
 /// </summary>
 internal sealed class ConfigurationPartitionWatcher
 {
@@ -58,7 +59,7 @@ internal sealed class ConfigurationPartitionWatcher
         var sites = DistinguishedName.Parse(cycle.Settings.Facts.ConfigurationDn).Child("CN", "Sites").ToString();
         var filter = fullSync
             ? LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.NtdsDsa)
-            : LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.NtdsDsa), LdapFilter.GreaterOrEqual(Attr.UsnChanged, cycle.SearchFrom));
+            : LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.NtdsDsa), Changed(cycle));
         var changed = new List<DirectoryObject>();
         await foreach (var entry in cycle.Session.SearchAsync(new DirectorySearch
         {
@@ -194,7 +195,7 @@ internal sealed class ConfigurationPartitionWatcher
             await foreach (var entry in cycle.Session.SearchAsync(new DirectorySearch
             {
                 BaseDn = services,
-                Filter = fullSync ? classes : LdapFilter.And(LdapFilter.GreaterOrEqual(Attr.UsnChanged, cycle.SearchFrom), classes),
+                Filter = fullSync ? classes : LdapFilter.And(Changed(cycle), classes),
                 Attributes = [.. WatchedAttributes.Identity, .. watched],
                 ReadSecurityDescriptor = true,
                 ExtendedDn = true,
@@ -288,7 +289,7 @@ internal sealed class ConfigurationPartitionWatcher
                 BaseDn = cycle.Settings.Facts.SchemaDn,
                 Scope = SearchScope.OneLevel,
                 Filter = LdapFilter.And(
-                    LdapFilter.GreaterOrEqual(Attr.UsnChanged, cycle.SearchFrom),
+                    Changed(cycle),
                     LdapFilter.Or(LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.AttributeSchema), LdapFilter.Equal(Attr.ObjectClass, WatchdogObjectClasses.ClassSchema))),
                 Attributes = [WatchdogAttributes.LdapDisplayName, Attr.UsnCreated, Attr.ObjectClass],
                 PageSize = 1000,
@@ -320,8 +321,12 @@ internal sealed class ConfigurationPartitionWatcher
             ],
         };
         var schema = new ObjectRef { Dn = cycle.Settings.Facts.SchemaDn, Name = "Schema", Kind = WatchObjectKind.Schema };
-        processor.Emit([draft], null, schema, ReplicationMetadata.Empty, null);
+        cycle.FinalDrafts.Add((draft, schema));
     }
+
+    /// <summary><c>(&amp;(uSNChanged&gt;=W')(uSNChanged&lt;=H))</c>: the USN range of this cycle.</summary>
+    private static string Changed(DetectionCycle cycle) =>
+        LdapFilter.And(LdapFilter.GreaterOrEqual(Attr.UsnChanged, cycle.SearchFrom), LdapFilter.LessOrEqual(Attr.UsnChanged, cycle.Dc.HighestUsn));
 
     private static async Task<DirectoryObject?> TryGetAsync(DetectionCycle cycle, string dn, IReadOnlyList<string> attributes, CancellationToken cancellationToken)
     {

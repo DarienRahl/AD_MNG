@@ -196,4 +196,47 @@ public class DomainKindTests
         Assert.Equal(Severity.High, schema.Severity);
         Assert.Contains(schema.Changes.SelectMany(c => c.NewValues), v => v.Contains("contosoCostCenter", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task SchemaWritesDuringACycle_AreReportedOnceInTheNextCycle()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        scenario.Builder.AddSchemaObject("contosoNrIdentyfikatora");
+        var injected = false;
+        // Exchange /PrepareSchema keeps writing while the cycle runs: an object written after H was read.
+        scenario.Directory.BeforeOperation = operation =>
+        {
+            if (!injected && operation.Kind == FakeOperationKind.Search && operation.Search?.Filter?.Contains(Attr.UsnChanged, StringComparison.OrdinalIgnoreCase) == true)
+            {
+                injected = true;
+                scenario.Builder.AddSchemaObject("contosoMiejscePracy");
+            }
+        };
+
+        var first = await scenario.CycleEventsAsync();
+        scenario.Directory.BeforeOperation = null;
+        var second = await scenario.CycleEventsAsync();
+
+        Assert.Equal(["contosoNrIdentyfikatora"], SchemaNames(first));
+        Assert.Equal(["contosoMiejscePracy"], SchemaNames(second));
+    }
+
+    [Fact]
+    public async Task SchemaChanged_IsNotDuplicatedWhenTheCycleRepeats()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        scenario.Builder.AddSchemaObject("contosoKodOddziału");
+        scenario.Store.FailNextFinalCommit();
+
+        await Assert.ThrowsAsync<IOException>(() => scenario.RunCycleAsync());
+        var crashed = scenario.TakeEvents();
+        var repeated = await scenario.CycleEventsAsync();
+
+        Assert.Equal(["contosoKodOddziału"], SchemaNames([.. crashed, .. repeated]));
+    }
+
+    private static List<string> SchemaNames(IEnumerable<WatchEvent> events) =>
+        [.. events.Where(e => e.Kind == WatchEventKind.SchemaChanged).SelectMany(e => e.Changes.Single(c => c.Attribute == WatchdogAttributes.LdapDisplayName).NewValues)];
 }

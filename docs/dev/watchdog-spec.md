@@ -3273,19 +3273,22 @@ Time-bound (PAM TTL) memberships expire without bumping the group; their expiry 
 Precondition: `Directory.TrackDeletedObjects` and the self-check `permission.deletedObjects` is Ok (LCRP on
 `CN=Deleted Objects`). Query: base `CN=Deleted Objects,{domain}`, OneLevel, `IncludeDeleted = true`
 (`IncludeRecycled = true` when `SessionInfo.RecycleBinEnabled`), filter
-`(&(isDeleted=TRUE)(uSNChanged>=W')(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+`(&(isDeleted=TRUE)(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+(tombstones written after H was read belong to the next cycle)
 – only the watched classes (`objectClass` survives on tombstones, objectCategory is stripped; computers, MSAs and
 inetOrgPerson are `user`). Children removed by tree-delete or system churn (msFVE-RecoveryInformation, msTPM-*,
 printQueue, serviceConnectionPoint, msDS-Device in CN=RegisteredDevices, dnsNode in legacy domain-partition DNS zones,
 foreignSecurityPrincipal clean-up) therefore never produce events. Attributes `objectGUID`, `objectSid`,
-`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`.
+`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`,
+`uSNCreated`.
 
 | Tombstone GUID in snapshot | Result |
 |---|---|
 | live | `ObjectDeleted` (Object = last live snapshot ref, PreviousDn = last live DN, context memberOf), `Deletions` entry |
 | live, `CreationPendingUntil` set | the deferred Created event first (10.6.3), then `ObjectDeleted` |
 | already deleted (Recycle Bin: deleted → recycled) | nothing |
-| unknown (created and deleted between two polls) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = `msDS-LastKnownRDN` under the resolved parent |
+| absent, Recycle Bin enabled, `isRecycled = TRUE` and `uSNCreated < W'` (a deleted object recycled after its deleted row was purged by retention) | nothing – deleted → recycled is never a new deletion (without the Recycle Bin every tombstone is `isRecycled = TRUE`, so the check applies to Recycle Bin forests only) |
+| unknown (created and deleted between two polls; with the Recycle Bin also deleted **and** purged) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = the RDN under the resolved parent: `msDS-LastKnownRDN` (set on the Recycle Bin path only), else the tombstone's own RDN cut at the `\0ADEL:<guid>` mangling (tombstones without the Recycle Bin – Samba, Windows without the feature – have no `msDS-LastKnownRDN`, lab-verified). In the same chunk a **deleted marker row** (identity only, no attributes, `IsDeleted`) is upserted, so a repeated cycle, the later recycling and a restore know the object (a restore is ObjectRestored without context changes) |
 
 The original location is always taken from the snapshot (lastKnownParent can point into Deleted Objects when the
 parent was deleted too). Restores are detected by the increment (10.6: a tombstone-marked snapshot GUID appears live).
@@ -3400,10 +3403,13 @@ Baseline):
   (Changes: flags decoded – e.g. `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, EKUs added/removed, RA signature count, ACEs
   added/removed with enroll/write rights named; enrollment services: published templates added/removed; CAs/NTAuth:
   certificate thumbprints added/removed).
-- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(|(objectClass=attributeSchema)(objectClass=classSchema)))`
+- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=attributeSchema)(objectClass=classSchema)))`
   attributes `lDAPDisplayName`, `uSNCreated`, `objectClass` → **one** `SchemaChanged` event per cycle (Changes:
   counts created/modified and up to 50 lDAPDisplayNames; Exchange `/PrepareSchema` = one event, not thousands).
-  Baseline/Resync: no events.
+  Baseline/Resync: no events. Schema objects are not snapshotted, so the event is emitted in the cycle's **final
+  commit** (with W): a cycle that fails after its chunk commits repeats the range without a duplicate, and writes after
+  H are reported by the next cycle only.
+- The incremental nTDSDSA and PKI searches use the same range `(uSNChanged>=W')(uSNChanged<=H)`.
 
 ### 10.12 Permission self-check (`PermissionSelfCheck`) – at startup after baseline and every `PermissionSelfCheckInterval`
 

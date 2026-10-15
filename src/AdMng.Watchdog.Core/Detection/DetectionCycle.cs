@@ -78,6 +78,12 @@ internal sealed class DetectionCycle
 
     public List<string> Warnings { get; } = [];
 
+    /// <summary>
+    /// Drafts without a snapshot row (SchemaChanged) emitted only into the final commit, together with W – a cycle that
+    /// fails before it is repeated over the same USN range without a duplicate.
+    /// </summary>
+    public List<(EventDraft Draft, ObjectRef Object)> FinalDrafts { get; } = [];
+
     public bool MembershipRelevant { get; set; }
 
     /// <summary>Anything membership- or privilege-relevant happened (PrivilegeEvaluator trigger).</summary>

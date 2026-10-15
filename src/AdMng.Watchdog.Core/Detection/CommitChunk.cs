@@ -37,6 +37,16 @@ internal sealed class CommitChunk
         _deletions.Add((guid, deletedAt));
     }
 
+    /// <summary>
+    /// Upserts <paramref name="marker"/> (IsDeleted) and adds its Deletions entry: the row exists afterwards even when the
+    /// GUID had none (an unknown tombstone), and the key leaves every member list.
+    /// </summary>
+    public void UpsertDeleted(SnapshotObject marker)
+    {
+        _upserts[marker.ObjectGuid] = marker;
+        _deletions.Add((marker.ObjectGuid, marker.DeletedAt ?? DateTimeOffset.MinValue));
+    }
+
     public void Remove(Guid guid)
     {
         _upserts.Remove(guid);

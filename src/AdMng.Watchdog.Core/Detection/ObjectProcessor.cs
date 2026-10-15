@@ -292,12 +292,14 @@ internal sealed class ObjectProcessor
     private async Task RestoreAsync(DirectoryObject entry, SnapshotObject old, SnapshotObject current, IReadOnlySet<string> watched, CancellationToken cancellationToken)
     {
         var changeSet = Factory.NewChangeSetId();
-        var context = _services.Differ.Diff(old, old.Dn, current, watched);
+
+        // The marker row of an object created and deleted between two polls has no last live state to compare with.
+        var context = DeletedObjectsScanner.IsDeletedMarker(old) ? [] : _services.Differ.Diff(old, old.Dn, current, watched).Attributes;
         var draft = new EventDraft
         {
             Kind = WatchEventKind.ObjectRestored,
             PreviousDn = old.Dn,
-            Changes = context.Attributes.Select(Changes.FromDelta).ToList(),
+            Changes = context.Select(Changes.FromDelta).ToList(),
             ChangeSetId = changeSet,
             MetadataAttributes = [Attr.IsDeleted, Attr.Name],
         };
