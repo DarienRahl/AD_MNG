@@ -3601,7 +3601,7 @@ Candidates per watch-event kind (strong key in brackets):
 | GroupMemberAdded | 4728/4732/4756/4751/4746/4761 [TargetSid = group SID and MemberSid = member SID]; 5136 member Value Added [ObjectGUID = group] |
 | GroupMemberRemoved | 4729/4733/4757/4752/4747/4762 [same]; 5136 member Value Deleted |
 | GroupTypeChanged | 4764 [TargetSid] |
-| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it (same ChangeSetId, or the membership event on the path's first edge) |
+| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it: same ChangeSetId; otherwise the newest membership change on **any edge** of the nesting path (root ← Via… ← principal – the path is listed from the root down, so Via[0] is the group nested directly in the root) or a PrimaryGroupChanged of the principal, detected at most 15 min before the privilege event (`PrivilegeAttributionInheritor.CauseWindow`); an older change is never taken – nesting IT-Ops into Domain Admins today is the cause, not yesterday's addition of Bob to IT-Ops |
 | everything else (attribute kinds, GPO, trust, PSO, SD, schema, FSMO, PKI, Configuration) | 5136 / 5137 / 5141 [ObjectGUID] |
 | DomainControllerAdded / DomainControllerRemoved | 5137 / 5141 nTDSDSA [ObjectGUID] |
 | WatchdogConfigurationChanged | Resolved at creation from the API caller (Kerberos identity) |
