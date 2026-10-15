@@ -4595,7 +4595,8 @@ IDirectorySessionProvider (ServiceDirectorySessionProvider over LdapDirectoryCon
 app = builder.Build()
 StartupChecks (before Run – .NET 10 runs BackgroundService.ExecuteAsync fully in the background, so nothing may serve
     an un-migrated DB): BootstrapFileGuard (exit 6), data-directory ACL (exit 5), migrations (exit 3 for a newer DB),
-    certificate key access (only for Kestrel with HTTPS; exit 4), Development-auth guard (refused as a Windows service
+    plain http only on loopback listeners (both servers; exit 4), certificate key access (only for Kestrel with HTTPS;
+    exit 4), Development-auth guard (refused as a Windows service
     or with a non-loopback listener; exit 7), secrets readable, runtime version (`Environment.Version` < 10.0.13 →
     Event Log warning + health Warning `runtime.outdated`) → Event Log hints
 ApiSetup.Map(app); app.Run()

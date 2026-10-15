@@ -186,17 +186,14 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             throw new StartupCheckException(StartupExitCodes.Certificate, error);
         }
 
-        if (!IsKestrel())
-        {
-            return;
-        }
-
+        // For every server: HTTP.sys would otherwise serve the API and the event pages in clear text to the network.
         if (_context.Endpoints.Any(e => !e.Https && !e.IsLoopback))
         {
             throw new StartupCheckException(StartupExitCodes.Certificate, "Plain http is allowed only on loopback listeners (Hosting.Urls).");
         }
 
-        if (!_context.Endpoints.Any(e => e.Https))
+        // The certificate checks apply to Kestrel only (HTTP.sys uses the netsh sslcert binding).
+        if (!IsKestrel() || !_context.Endpoints.Any(e => e.Https))
         {
             return;
         }
