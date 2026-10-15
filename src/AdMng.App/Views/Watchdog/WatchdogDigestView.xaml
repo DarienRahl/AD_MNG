@@ -13,7 +13,7 @@
     <DataTemplate x:Key="CheckOptionTemplate">
       <CheckBox Margin="0,0,12,2"
                 MinWidth="0"
-                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay, TargetNullValue=''}"
                 Content="{Binding Text, Mode=OneWay}"
                 IsChecked="{Binding IsChecked}" />
     </DataTemplate>

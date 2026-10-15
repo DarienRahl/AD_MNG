@@ -18,7 +18,7 @@
 
     <Style x:Key="RuleRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource Wd.ListRow}">
       <Setter Property="Height" Value="44" />
-      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay, TargetNullValue=''}" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsEnabled, Mode=OneWay}" Value="False">
           <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />

@@ -10,7 +10,7 @@
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
-             AutomationProperties.Name="{Binding DisplayText, Mode=OneWay}">
+             AutomationProperties.Name="{Binding DisplayText, Mode=OneWay, TargetNullValue=''}">
   <UserControl.Resources>
     <Style x:Key="NumberBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
       <Setter Property="Width" Value="110" />

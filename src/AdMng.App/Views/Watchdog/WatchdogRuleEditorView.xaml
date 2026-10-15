@@ -15,7 +15,7 @@
     <DataTemplate x:Key="CheckOptionTemplate">
       <CheckBox Margin="0,0,12,2"
                 MinWidth="0"
-                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay, TargetNullValue=''}"
                 Content="{Binding Text, Mode=OneWay}"
                 IsChecked="{Binding IsChecked}" />
     </DataTemplate>
@@ -122,7 +122,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Expander Margin="0,0,0,2"
-                          AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                          AutomationProperties.Name="{Binding Title, Mode=OneWay, TargetNullValue=''}"
                           Header="{Binding Title, Mode=OneWay}">
                   <ItemsControl Margin="8,0,0,4"
                                 Focusable="False"

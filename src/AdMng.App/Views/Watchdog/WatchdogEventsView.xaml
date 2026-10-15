@@ -17,7 +17,7 @@
     <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
 
     <Style x:Key="EventRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource Wd.ListRow}">
-      <Setter Property="AutomationProperties.Name" Value="{Binding KindText, Mode=OneWay}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding KindText, Mode=OneWay, TargetNullValue=''}" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding IsAcknowledged, Mode=OneWay}" Value="True">
           <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -42,7 +42,7 @@
     <DataTemplate x:Key="CheckOptionTemplate">
       <CheckBox Margin="0,0,12,2"
                 MinWidth="0"
-                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay, TargetNullValue=''}"
                 Content="{Binding Text, Mode=OneWay}"
                 IsChecked="{Binding IsChecked}" />
     </DataTemplate>
@@ -262,7 +262,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <Expander Margin="0,0,0,2"
-                              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                              AutomationProperties.Name="{Binding Title, Mode=OneWay, TargetNullValue=''}"
                               Header="{Binding Title, Mode=OneWay}">
                       <ItemsControl Margin="8,0,0,4"
                                     Focusable="False"

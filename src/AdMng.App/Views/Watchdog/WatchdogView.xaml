@@ -10,7 +10,7 @@
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
              xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
-             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+             AutomationProperties.Name="{Binding Title, Mode=OneWay, TargetNullValue=''}">
   <UserControl.Resources>
     <!-- Info card while connected or connecting, warning colours for every problem. -->
     <Style x:Key="ConnectionBannerStyle" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
@@ -43,7 +43,7 @@
     </Style>
 
     <Style x:Key="SubTabStyle" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
-      <Setter Property="AutomationProperties.Name" Value="{Binding Header, RelativeSource={RelativeSource Self}}" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Header, RelativeSource={RelativeSource Self}, TargetNullValue=''}" />
     </Style>
   </UserControl.Resources>
 
@@ -172,7 +172,7 @@
     <!-- Sub-tabs (the selection is remembered in the settings). -->
     <TabControl x:Name="SubTabs"
                 Margin="8,8,8,8"
-                AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                AutomationProperties.Name="{Binding Title, Mode=OneWay, TargetNullValue=''}"
                 SelectedIndex="{Binding SelectedSubTabIndex}"
                 Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
       <TabItem x:Name="EventsTab"
