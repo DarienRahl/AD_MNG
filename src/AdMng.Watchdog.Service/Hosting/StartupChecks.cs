@@ -214,13 +214,7 @@ public sealed partial class StartupChecks : IHostedLifecycleService
                 "Grant the service account Read on the private key of the TLS certificate (certlm.msc → Manage Private Keys).");
         }
 
-        var remaining = new DateTimeOffset(certificate.NotAfter.ToUniversalTime(), TimeSpan.Zero) - _timeProvider.GetUtcNow();
-        if (remaining < TimeSpan.FromDays(30))
-        {
-            var days = Math.Max(0, (int)remaining.TotalDays).ToString(CultureInfo.InvariantCulture);
-            Log.CertificateExpiring(_logger, days);
-            Report("certificate.expiry", HealthState.Warning, "The TLS certificate expires within 30 days.", days);
-        }
+        // The 30-day expiry warning is (re-)evaluated by CertificateSelector.Reload on every reload.
     }
 
     private void CheckDevelopmentAuthentication()
@@ -281,9 +275,6 @@ public sealed partial class StartupChecks : IHostedLifecycleService
 
         [LoggerMessage(EventId = EventLogIds.RuntimeOrCertificate, Level = LogLevel.Warning, Message = "ASP.NET Core runtime {Version} is older than {Minimum}; install the current servicing update.")]
         public static partial void RuntimeOutdated(ILogger logger, string version, string minimum);
-
-        [LoggerMessage(EventId = EventLogIds.RuntimeOrCertificate, Level = LogLevel.Warning, Message = "The TLS certificate expires in {Days} day(s).")]
-        public static partial void CertificateExpiring(ILogger logger, string days);
 
         [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Error, Message = "{Count} stored secret(s) cannot be decrypted; re-enter them in the configuration.")]
         public static partial void SecretsUnreadable(ILogger logger, int count);

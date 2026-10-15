@@ -309,8 +309,8 @@ Wystaw certyfikat serwera (EKU „Uwierzytelnianie serwera”) z nazwą `admng-w
 certyfikat → Wszystkie zadania → Zarządzaj kluczami prywatnymi… → dodaj `CONTOSO\svc-admngwd$` (Odczyt). Skrypt
 instalacyjny robi to automatycznie. Po automatycznym odnowieniu certyfikatu nowy klucz dostaje domyślne ACL – w
 szablonie AD CS zaznacz „Autoryzuj dodatkowe konta usług w celu uzyskania dostępu do klucza prywatnego” albo ponów
-nadanie uprawnień (usługa zgłosi problem w dzienniku Application i w stanie usługi). Usługa przyjmuje tylko TLS 1.2 i
-1.3.
+nadanie uprawnień (usługa zgłosi problem w dzienniku Application – zdarzenie 1007 – i w stanie usługi, a do czasu
+nadania uprawnień używa poprzedniego, jeszcze ważnego certyfikatu). Usługa przyjmuje tylko TLS 1.2 i 1.3.
 
 ### 4.8 Foldery usługi
 

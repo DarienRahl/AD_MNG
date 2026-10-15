@@ -4636,6 +4636,12 @@ SslProtocols.Tls13; h.ServerCertificateSelector = (_, _) => CertificateSelector.
 Selector: LocalMachine\My by `Thumbprint`, else by `Subject` (newest valid NotAfter with serverAuth EKU and private
 key); reloaded every 10 min (renewals). Startup self-check signs test data with the private key; failure → Event Log
 error "grant the service account Read on the private key (certlm.msc → Manage Private Keys)" and exit code 4.
+The reload applies the same signing check before it switches to a newly found certificate (an AD CS renewal gives the
+new key the default ACL): when it fails, the previous certificate stays in use while it is valid, health
+`certificate.key` Warning (Error when no valid alternative remains – the unusable one is then served, so fixing the key
+ACL takes effect at the next handshake) and event 1007 once per thumbprint; `certificate.key` returns to Ok when the key
+becomes usable. Every reload also re-evaluates `certificate.expiry` (Warning < 30 days, event 1007 once per thumbprint).
+A failure to read the store keeps the current certificate.
 
 ### 19.4 Windows service registration
 
