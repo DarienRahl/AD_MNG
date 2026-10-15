@@ -122,6 +122,70 @@ public class PrivilegeEvaluatorTests
     }
 
     [Fact]
+    public async Task DeletedPrivilegedPrincipal_IsNotRevokedWhenTheCycleRepeats()
+    {
+        string? admin = null;
+        await using var scenario = new DetectionScenario(seed: b => admin = b.AddUser("Adam", "Admiński", b.UsersDn));
+        await scenario.BaselineAsync();
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, admin!);
+        await scenario.CycleEventsAsync();
+        scenario.Advance(TimeSpan.FromSeconds(15));
+
+        await scenario.DeleteAsync(admin!);
+        scenario.Store.FailNextFinalCommit();
+        await Assert.ThrowsAsync<IOException>(scenario.RunCycleAsync);
+        var crashed = scenario.TakeEvents();
+        scenario.Advance(TimeSpan.FromSeconds(15));
+        var repeated = await scenario.CycleEventsAsync();
+
+        Assert.Single(crashed.Concat(repeated), e => e.Kind == WatchEventKind.ObjectDeleted);
+        Assert.DoesNotContain(repeated, e => e.Kind == WatchEventKind.PrivilegeRevoked);
+        Assert.DoesNotContain(scenario.Store.Privileges!.Principals, p => p.PrincipalKey == scenario.Store.Snapshots.Single(s => s.Dn == admin).ObjectGuid.ToString("N"));
+    }
+
+    [Fact]
+    public async Task DisappearedPrivilegedPrincipal_IsNotRevokedWhenTheReconciliationRepeats()
+    {
+        string? admin = null;
+        await using var scenario = new DetectionScenario(seed: b => admin = b.AddUser("Adam", "Admiński", b.UsersDn));
+        await scenario.BaselineAsync();
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, admin!);
+        await scenario.CycleEventsAsync();
+        scenario.Directory.DenyDeletedObjects = true;
+        await scenario.DeleteAsync(admin!);
+        await scenario.CycleEventsAsync();
+
+        scenario.Advance(TimeSpan.FromHours(17));
+        scenario.Store.FailNextFinalCommit();
+        await Assert.ThrowsAsync<IOException>(scenario.RunCycleAsync);
+        var crashed = scenario.TakeEvents();
+        var repeated = await scenario.CycleEventsAsync();
+
+        Assert.Single(crashed.Concat(repeated), e => e.Kind == WatchEventKind.ObjectDisappeared);
+        Assert.DoesNotContain(crashed.Concat(repeated), e => e.Kind == WatchEventKind.PrivilegeRevoked);
+    }
+
+    [Fact]
+    public async Task RemovedMemberOutsideTheSnapshot_IsStillRevoked()
+    {
+        string? archive = null;
+        string? admin = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            archive = b.AddOu("Archiwum", b.DomainDn);
+            admin = b.AddUser("Stary", "Administrator", archive);
+        });
+        scenario.Config.Update(c => c with { Directory = c.Directory with { ExcludedSubtrees = [archive!] } });
+        await scenario.BaselineAsync();
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, admin!);
+        Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.PrivilegeGranted);
+
+        await scenario.RemoveValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, admin!);
+
+        Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.PrivilegeRevoked);
+    }
+
+    [Fact]
     public async Task RestoredPrivilegedPrincipal_IsGrantedWithTagRestored()
     {
         await using var scenario = new DetectionScenario();

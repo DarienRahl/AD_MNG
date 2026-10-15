@@ -3259,7 +3259,10 @@ replacements and before the final commit would otherwise lose the PrivilegeGrant
    the shortest path and the highest tier reached.
 4. Diff vs the stored `PrivilegeState` by (PrincipalKey, GroupGuid): new pairs → `PrivilegeGranted` (Object =
    principal, Member = privileged group, Via = path refs, severity = tier), removed pairs → `PrivilegeRevoked`
-   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event. Pairs that came back with a
+   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event – nor pairs whose principal's
+   snapshot row is marked deleted, or has no row and is not found live by objectGUID (a cycle repeated after a crash
+   between the deletion chunk and the final commit; a repeated reconciliation after ObjectDisappeared). Members outside
+   the snapshot that still exist (excluded subtrees, FSPs) are revoked normally. Pairs that came back with a
    restored object (10.9) get tag `restored` and the ObjectRestored event's ChangeSetId (they inherit its 5138
    attribution).
 5. Commit the new state. Domain Controllers (RID 516 via primary group) and krbtgt etc. are part of the baseline state

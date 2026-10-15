@@ -14,8 +14,9 @@ namespace AdMng.Watchdog.Core.Detection;
 /// virtual primary-group edges; a BFS from every root (cycle-safe) gives every reached member key – users, computers,
 /// service accounts, FSPs and nested groups – with its shortest path and the root's tier. The diff against the stored
 /// state by (principal, privileged group) yields PrivilegeGranted (severity = tier) and PrivilegeRevoked (Medium);
-/// principals deleted in the cycle produce no revocation, privileges of a restored object carry tag restored and the
-/// ObjectRestored change set. Idempotent – safe to rerun after a crash.
+/// principals deleted in the cycle produce no revocation – nor do principals whose snapshot row is marked deleted or that
+/// no longer exist live (a cycle repeated after a crash, when the deletion is no longer "in this cycle") –, privileges of
+/// a restored object carry tag restored and the ObjectRestored change set. Idempotent – safe to rerun after a crash.
 /// </summary>
 internal sealed class PrivilegeEvaluator
 {
@@ -58,10 +59,69 @@ internal sealed class PrivilegeEvaluator
             .Distinct()
             .ToList();
         var snapshots = await _services.Store.GetSnapshotsAsync(guids, cancellationToken).ConfigureAwait(false);
+        revoked = await WithoutGonePrincipalsAsync(cycle, revoked, snapshots, cancellationToken).ConfigureAwait(false);
         var drafts = new List<EventDraft>();
         drafts.AddRange(granted.Select(p => Draft(WatchEventKind.PrivilegeGranted, p, snapshots, cycle, edges)));
         drafts.AddRange(revoked.Select(p => Draft(WatchEventKind.PrivilegeRevoked, p, snapshots, cycle, edges)));
         return new PrivilegeEvaluation(state, drafts);
+    }
+
+    /// <summary>
+    /// Drops revocations of principals that are gone: the snapshot row is marked deleted, or there is no row and the
+    /// GUID is not found live (deleted or disappeared). Members outside the snapshot that still exist (excluded subtrees,
+    /// foreign security principals) and keys without a GUID keep their revocation.
+    /// </summary>
+    private static async Task<List<PrivilegedPrincipal>> WithoutGonePrincipalsAsync(DetectionCycle cycle, List<PrivilegedPrincipal> revoked,
+        IReadOnlyDictionary<Guid, SnapshotObject> snapshots, CancellationToken cancellationToken)
+    {
+        var result = new List<PrivilegedPrincipal>(revoked.Count);
+        var exists = new Dictionary<Guid, bool>();
+        foreach (var principal in revoked)
+        {
+            if (KeyGuid(principal.PrincipalKey) is not { } guid)
+            {
+                result.Add(principal);
+                continue;
+            }
+
+            if (snapshots.TryGetValue(guid, out var snapshot))
+            {
+                if (!snapshot.IsDeleted)
+                {
+                    result.Add(principal);
+                }
+
+                continue;
+            }
+
+            if (!exists.TryGetValue(guid, out var found))
+            {
+                exists[guid] = found = await ExistsAsync(cycle, guid, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (found)
+            {
+                result.Add(principal);
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<bool> ExistsAsync(DetectionCycle cycle, Guid guid, CancellationToken cancellationToken)
+    {
+        await foreach (var _ in cycle.Session.SearchAsync(new DirectorySearch
+        {
+            BaseDn = cycle.Settings.Facts.DomainDn,
+            Filter = LdapFilter.EqualGuid(Attr.ObjectGuid, guid),
+            Attributes = [Attr.ObjectGuid],
+            SizeLimit = 1,
+        }, cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static void Traverse(Guid root, PrivilegeTier tier, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges,
