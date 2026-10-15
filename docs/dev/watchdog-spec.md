@@ -3086,14 +3086,21 @@ objects, CN=LostAndFound). The order of returned entries is arbitrary (lab-verif
 ```
 new = SnapshotBuilder.Build(entry, previous: old)      // canonical values (9.4), carries old Version/ChangedAt
 if entry is out of scope:
-    if old is live → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope"), DetectionCommit.Removals += guid
+    if old is live and its DN changed → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope")
+         (an object that did not move – an ExcludedSubtrees entry was added – is removed silently)
+    if old exists → DetectionCommit.Removals += guid; a container also removes, silently, its stored descendants that
+         now live below its new DN (10.7)
     continue
 if old is null:
     if Baseline → upsert, no event
-    elif entry.uSNCreated > W → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
+    elif entry.uSNCreated > W (Resync, where W belongs to another DC: whenCreated > (LastPollAt ?? LastFullSyncAt) − 3 h,
+         the margin covers objects created on another DC shortly before the last poll and not yet replicated to the
+         old DC, and clock skew) → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
          no event yet (the CreationSettler emits the Created event, 10.6.3); with a zero window the Created event is
          emitted at once
-    else → ObjectAppeared (Info; tag outOfScope when the parent chain is in scope and the object was moved in)
+    else → ObjectAppeared (Info; tag outOfScope when the object was moved in: the `name` metadata – a move or rename
+         stamps it – has usnLocal > W; without metadata or W, whenChanged > LastPollAt. Never decided from the
+         configuration); a container also adopts, silently, the descendants without a row (10.7)
 elif old.IsDeleted → ObjectRestored (+ diff vs the last live snapshot for context, not as separate events) and
          RestoredMembershipReader (10.9)
 elif old.CreationPendingUntil is set → upsert the new state, no events (still settling)
@@ -3213,15 +3220,32 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
 
 ### 10.7 Moves and renames (`DnRewriter`)
 
-- Containers (pass 1) are processed in ascending depth of their old DN. For each container whose DN changed, add
-  `DnRewrite(old DN, new DN)` to the cycle and rewrite later old DNs through the list before diffing (so a child of a
-  renamed OU is not reported as moved).
-- The commit applies every rewrite to all stored descendants (DN suffix replace, case-insensitive on the normalized
-  DN) and to `snapshot_members.member_dn`. Descendants keep their USN – AD does not bump them.
+- Containers (pass 1) are processed in ascending depth of their old DN. For each in-scope container whose DN changed,
+  the cycle records (its stored DN at the start of the cycle, its new DN). A DN of the start of the cycle is rewritten
+  **once**, onto the new DN of its **deepest** recorded ancestor – never through a chain, so a shift (B→C, then A→B) or
+  a swap of names in one poll puts A's children under the new B whatever order the server returned the containers in
+  (so a child of a renamed OU is not reported as moved).
+- The commit applies the rewrites to all stored descendants (DN suffix replace, case-insensitive on the normalized
+  DN) and to `snapshot_members.member_dn`, one after the other: deepest old DN first; when a new DN lies at or below
+  another rewrite's old DN (shift, swap), in two phases through unique temporary DNs below
+  `DC=admng-rewrite,DC=invalid` – the result equals the deepest-ancestor rule. Descendants keep their USN – AD does
+  not bump them.
+- Pass 2 runs after the container chunk committed the rewrites, so its stored DNs are already rewritten. The
+  PreviousDn of an object that left a container renamed in the same poll is mapped back to the DN of the start of
+  the cycle (deepest recorded new DN → its old DN) – unless another object held that new DN at the start of the cycle
+  and did not move (deleted, left the scope): then the stored DN is kept (its former children were never rewritten).
 - ObjectMoved: parent changed. ObjectRenamed: RDN value changed. Both when both changed.
 - A move **out of** scope (`ExcludedSubtrees`) is an ObjectMoved with tag `outOfScope` and a `Removals` entry (hard
-  delete of the row; other groups' member lists keep the key). A move **into** scope finds no snapshot → ObjectAppeared
-  with tag `outOfScope` (no Created event, no ObjectRestored – only tombstone-marked rows are restores).
+  delete of the row; other groups' member lists keep the key). A container moved out takes its subtree along: no
+  rewrite is recorded for it, and its stored descendants that a subtree search finds below its new DN get `Removals`
+  entries in the same chunk without events (the container's ObjectMoved covers them; AD does not bump them, so no
+  later pass would see them); descendants found elsewhere (moved away or deleted in the same poll) keep their rows for
+  pass 2 and the deletion pass. An object outside the scope whose DN did not change (an `ExcludedSubtrees` entry was
+  added) is removed **silently** – the configuration change is audited as WatchdogConfigurationChanged.
+- A move **into** scope finds no snapshot → ObjectAppeared with tag `outOfScope` (no Created event, no ObjectRestored –
+  only tombstone-marked rows are restores). A container moved in (or found again after an exclusion was removed) adopts
+  its subtree in the same cycle: descendants without a row are snapshotted silently (members read as for 10.8),
+  instead of staying unknown until the reconciliation reports each of them.
 
 ### 10.8 Membership (`MembershipReader`, `MembershipDiffer`, `PrivilegeEvaluator`)
 
@@ -3312,10 +3336,10 @@ values are gone and `memberOf` is empty. The Windows link/USN behaviour is confi
 
 Without Deleted-Objects access, deletions are found by the daily reconciliation: a live snapshot GUID under the
 default NC not seen in the full scan is looked up with `(objectGUID=<LdapFilter.EqualGuid>)` subtree from `{domain}`
-with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live outside
-scope → ObjectMoved `outOfScope` and a `Removals` entry; not found → `ObjectDisappeared` (Low; deleted, moved out of
-read scope, or permissions lost) and a `Removals` entry (if it reappears later it is ObjectAppeared, never
-ObjectRestored).
+with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live at another
+DN outside scope → ObjectMoved `outOfScope` and a `Removals` entry; not found, or found live at its old DN but invisible
+to the scan → `ObjectDisappeared` (Low; deleted, moved out of read scope, or permissions lost) and a `Removals` entry
+(if it reappears later it is ObjectAppeared, never ObjectRestored).
 
 `MassDeletion` (BurstDetector) counts ObjectDeleted events by object class within the window (grouped by actor once
 attribution resolved, otherwise overall): users, groups, OUs and service accounts against `Scans.MassDeletion`

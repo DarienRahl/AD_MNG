@@ -19,6 +19,12 @@ internal sealed class ObjectProcessor
     private static readonly TimeSpan LongDisabledAge = TimeSpan.FromDays(30);
     private static readonly TimeSpan LastLogonLag = TimeSpan.FromDays(44);
 
+    /// <summary>
+    /// Resync: an unknown object created up to this long before the last poll is still a creation – it may have been
+    /// created on another DC and not yet replicated to the old one (inter-site replication, clock skew).
+    /// </summary>
+    internal static readonly TimeSpan ResyncCreationMargin = TimeSpan.FromHours(3);
+
     private readonly DetectionServices _services;
     private readonly DetectionCycle _cycle;
     private readonly SnapshotBuilder _builder;
@@ -75,7 +81,29 @@ internal sealed class ObjectProcessor
             await ProcessEntryAsync(entry, snapshots, containerPass, cancellationToken).ConfigureAwait(false);
         }
 
+        if (containerPass)
+        {
+            await MarkOccupiedRewritesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         await _cycle.CommitChunkAsync(_services.Store, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Before the container rewrites are committed: a new container DN that another object held at the start of the
+    /// cycle and that object did not move (deleted, left the scope) makes <see cref="DnRewriter.Original"/> ambiguous
+    /// below it – that object's former children were never rewritten.
+    /// </summary>
+    private async Task MarkOccupiedRewritesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var (newDn, container) in _cycle.Rewriter.NewDns)
+        {
+            if (await _services.Store.FindByDnAsync(newDn, cancellationToken).ConfigureAwait(false) is { } occupant
+                && occupant.ObjectGuid != container && !_cycle.Rewriter.IsRecorded(occupant.ObjectGuid))
+            {
+                _cycle.Rewriter.MarkOccupied(newDn);
+            }
+        }
     }
 
     /// <summary>Processes one returned object (section 10.6).</summary>
@@ -88,7 +116,7 @@ internal sealed class ObjectProcessor
 
         _cycle.Seen.Add(guid);
         _cycle.ObjectsExamined++;
-        if (WatchObjectKinds.IsContainer(kind) != containerPass)
+        if (WatchObjectKinds.IsContainer(kind) != containerPass || _cycle.HandledWithContainer.Contains(guid))
         {
             return;
         }
@@ -103,16 +131,21 @@ internal sealed class ObjectProcessor
         snapshots.TryGetValue(guid, out var old);
         var watched = settings.Watched(kind, critical);
         var current = _builder.Build(entry, kind, watched, old, _cycle.Now)!;
-        var oldDn = old is null ? null : _cycle.Rewriter.Rewrite(old.Dn);
-        if (containerPass && old is { IsDeleted: false } && oldDn is not null && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
-        {
-            _cycle.Rewriter.Add(oldDn, entry.DistinguishedName);
-        }
 
+        // Containers (pass 1) see the stored DNs of the start of the cycle: their DN after this cycle's container moves
+        // is compared. Pass 2 runs after the container chunk committed the rewrites: the stored DN is already the
+        // rewritten one, and the DN of the start of the cycle (PreviousDn) is mapped back.
+        var oldDn = old is null ? null : containerPass ? _cycle.Rewriter.Rewrite(old.Dn) : old.Dn;
+        var previousDn = old is null ? null : containerPass ? old.Dn : _cycle.Rewriter.Original(old.Dn);
         if (!_cycle.Scope.IsInScope(entry.DistinguishedName, kind))
         {
-            await LeaveScopeAsync(old, current, cancellationToken).ConfigureAwait(false);
+            await LeaveScopeAsync(entry, old, oldDn, previousDn, current, cancellationToken).ConfigureAwait(false);
             return;
+        }
+
+        if (containerPass && old is { IsDeleted: false } && oldDn is not null && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
+        {
+            _cycle.Rewriter.Add(old.Dn, entry.DistinguishedName, guid);
         }
 
         if (kind == WatchObjectKind.Group)
@@ -128,7 +161,7 @@ internal sealed class ObjectProcessor
 
         if (old.IsDeleted)
         {
-            await RestoreAsync(entry, old, current, watched, cancellationToken).ConfigureAwait(false);
+            await RestoreAsync(entry, old with { Dn = previousDn! }, current, watched, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -139,7 +172,7 @@ internal sealed class ObjectProcessor
             return;
         }
 
-        await DiffAsync(entry, old, oldDn!, current, watched, cancellationToken).ConfigureAwait(false);
+        await DiffAsync(entry, old, oldDn!, previousDn!, current, watched, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -228,16 +261,24 @@ internal sealed class ObjectProcessor
         return metadata;
     }
 
-    private async Task LeaveScopeAsync(SnapshotObject? old, SnapshotObject current, CancellationToken cancellationToken)
+    /// <summary>
+    /// An object outside the scope with a stored row (10.6, 10.7): ObjectMoved (tag outOfScope) only when its DN really
+    /// changed – an object that stays where it was while an ExcludedSubtrees entry was added is removed silently – and
+    /// the row is removed. A container takes its descendants along: the stored descendants that are now below its new
+    /// DN are removed silently with it (its ObjectMoved covers the subtree; AD does not bump them, so no later pass would
+    /// see them), and no DN rewrite is recorded for it.
+    /// </summary>
+    private async Task LeaveScopeAsync(DirectoryObject entry, SnapshotObject? old, string? oldDn, string? previousDn, SnapshotObject current,
+        CancellationToken cancellationToken)
     {
         if (old is null)
         {
             return;
         }
 
-        if (!old.IsDeleted)
+        if (!old.IsDeleted && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
         {
-            var draft = new EventDraft { Kind = WatchEventKind.ObjectMoved, PreviousDn = old.Dn, ExtraTags = [EventTags.OutOfScope], MetadataAttributes = [Attr.Name] };
+            var draft = new EventDraft { Kind = WatchEventKind.ObjectMoved, PreviousDn = previousDn, ExtraTags = [EventTags.OutOfScope], MetadataAttributes = [Attr.Name] };
             Emit([draft], current, current.ToRef(), ReplicationMetadata.Empty, null);
         }
 
@@ -248,7 +289,129 @@ internal sealed class ObjectProcessor
             _cycle.PrivilegeRelevant = true;
         }
 
-        await Task.CompletedTask.ConfigureAwait(false);
+        if (WatchObjectKinds.IsContainer(current.Kind) && !old.IsDeleted)
+        {
+            await RemoveDescendantsAsync(old.Dn, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Removes the stored descendants of <paramref name="storedDn"/> (the container's DN at the start of the cycle) that
+    /// live below <paramref name="liveDn"/> now. Descendants found elsewhere (moved away or deleted in the same poll)
+    /// keep their rows for pass 2 and the deletion pass.
+    /// </summary>
+    private async Task RemoveDescendantsAsync(string storedDn, string liveDn, CancellationToken cancellationToken)
+    {
+        var stored = new List<SnapshotObject>();
+        await foreach (var descendant in _services.Store.GetDescendantsAsync(storedDn, cancellationToken).ConfigureAwait(false))
+        {
+            stored.Add(descendant);
+        }
+
+        if (stored.Count == 0)
+        {
+            return;
+        }
+
+        var below = new HashSet<Guid>();
+        await foreach (var live in _cycle.Session.SearchAsync(new DirectorySearch
+        {
+            BaseDn = liveDn,
+            Filter = DetectionFilters.ScopeClasses,
+            Attributes = [Attr.ObjectGuid],
+            PageSize = ChangeDetectionEngine.PageSize,
+        }, cancellationToken).ConfigureAwait(false))
+        {
+            if (live.ObjectGuid is { } guid)
+            {
+                below.Add(guid);
+            }
+        }
+
+        foreach (var descendant in stored.Where(d => below.Contains(d.ObjectGuid)))
+        {
+            _cycle.Chunk.Remove(descendant.ObjectGuid);
+            _cycle.HandledWithContainer.Add(descendant.ObjectGuid);
+            if (WatchObjectKinds.IsPrincipal(descendant.Kind))
+            {
+                _cycle.Chunk.MembershipRelevant = true;
+                _cycle.PrivilegeRelevant = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A container that appeared (moved in from outside the scope, an exclusion removed) brings its subtree: the
+    /// descendants without a stored row are adopted silently (the container's ObjectAppeared covers them) instead of
+    /// staying unknown until the reconciliation reports each of them.
+    /// </summary>
+    private async Task AdoptDescendantsAsync(DirectoryObject container, CancellationToken cancellationToken)
+    {
+        var page = new List<DirectoryObject>(ChangeDetectionEngine.PageSize);
+        await foreach (var entry in _cycle.Session.SearchAsync(new DirectorySearch
+        {
+            BaseDn = container.DistinguishedName,
+            Filter = DetectionFilters.ScopeClasses,
+            Attributes = _cycle.Settings.RequestAttributes,
+            ExtendedDn = true,
+            PageSize = ChangeDetectionEngine.PageSize,
+        }, cancellationToken).ConfigureAwait(false))
+        {
+            if (entry.ObjectGuid is { } guid && guid != container.ObjectGuid)
+            {
+                page.Add(entry);
+            }
+
+            if (page.Count == ChangeDetectionEngine.PageSize)
+            {
+                await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
+                page.Clear();
+            }
+        }
+
+        await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task AdoptAsync(IReadOnlyList<DirectoryObject> entries, CancellationToken cancellationToken)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var known = await _services.Store.GetSnapshotsAsync(entries.Select(e => e.ObjectGuid!.Value).ToList(), cancellationToken).ConfigureAwait(false);
+        foreach (var found in entries)
+        {
+            var entry = found;
+            var guid = entry.ObjectGuid!.Value;
+            if (known.ContainsKey(guid) || _cycle.Chunk.PendingUpsert(guid) is not null || _cycle.HandledWithContainer.Contains(guid)
+                || WatchObjectKinds.FromObjectClasses(entry.GetStrings(Attr.ObjectClass)) is not { } kind
+                || !_cycle.Scope.IsInScope(entry.DistinguishedName, kind))
+            {
+                continue;
+            }
+
+            var critical = _cycle.Settings.IsCritical(entry.DistinguishedName);
+            if (critical)
+            {
+                entry = await WithSecurityDescriptorAsync(entry, cancellationToken).ConfigureAwait(false);
+            }
+
+            var adopted = _builder.Build(entry, kind, _cycle.Settings.Watched(kind, critical), null, _cycle.Now)!;
+            if (kind == WatchObjectKind.Group)
+            {
+                adopted = MemberListState.With(adopted, await TracksMembersAsync(adopted, cancellationToken).ConfigureAwait(false));
+            }
+
+            _cycle.Chunk.Upsert(adopted);
+            await UpdateMembersAsync(entry, adopted, null, emit: false, cancellationToken).ConfigureAwait(false);
+            _cycle.HandledWithContainer.Add(guid);
+            _cycle.Seen.Add(guid);
+            if (WatchObjectKinds.IsPrincipal(kind))
+            {
+                _cycle.PrivilegeRelevant = true;
+            }
+        }
     }
 
     private async Task AddNewAsync(DirectoryObject entry, SnapshotObject current, CancellationToken cancellationToken)
@@ -268,27 +431,54 @@ internal sealed class ObjectProcessor
             return;
         }
 
+        var metadata = _cycle.EmitEvents ? await ReadMetadataAsync(entry.DistinguishedName, cancellationToken).ConfigureAwait(false) : ReplicationMetadata.Empty;
+        var movedIn = WasMovedIn(entry, metadata);
         var draft = new EventDraft
         {
             Kind = WatchEventKind.ObjectAppeared,
-            ExtraTags = _cycle.Settings.ExcludedSubtrees.Count > 0 ? [EventTags.OutOfScope] : [],
+            ExtraTags = movedIn ? [EventTags.OutOfScope] : [],
+            MetadataAttributes = movedIn ? [Attr.Name] : [],
         };
-        Emit([draft], current, current.ToRef(), ReplicationMetadata.Empty, entry.GetGeneralizedTime(Attr.WhenChanged));
+        Emit([draft], current, current.ToRef(), metadata, entry.GetGeneralizedTime(Attr.WhenChanged));
         _cycle.Chunk.Upsert(current);
         await UpdateMembersAsync(entry, current, null, emit: false, cancellationToken).ConfigureAwait(false);
         if (WatchObjectKinds.IsPrincipal(current.Kind))
         {
             _cycle.PrivilegeRelevant = true;
         }
+
+        if (WatchObjectKinds.IsContainer(current.Kind))
+        {
+            await AdoptDescendantsAsync(entry, cancellationToken).ConfigureAwait(false);
+        }
     }
 
-    /// <summary>A new GUID is a creation when uSNCreated &gt; W on this DC (Resync: created after the last poll).</summary>
+    /// <summary>
+    /// Tag outOfScope of ObjectAppeared (10.6): the object was moved in – the move or rename stamp of <c>name</c> is
+    /// above W (a move is replicated through the <c>name</c> metadata); without metadata or W, it changed after the
+    /// last poll. Never decided from the configuration.
+    /// </summary>
+    private bool WasMovedIn(DirectoryObject entry, ReplicationMetadata metadata)
+    {
+        if (!metadata.IsEmpty && _cycle.MetadataWatermark is { } watermark)
+        {
+            return metadata.Get(Attr.Name) is { } name && name.UsnLocal > watermark;
+        }
+
+        return _cycle.State?.LastPollAt is { } lastPoll && entry.GetGeneralizedTime(Attr.WhenChanged) is { } changed && changed > lastPoll;
+    }
+
+    /// <summary>
+    /// A new GUID is a creation when uSNCreated &gt; W on this DC. Resync (W belongs to another DC): created after the
+    /// last poll minus <see cref="ResyncCreationMargin"/> – an object created on another DC shortly before the last poll
+    /// may not have reached the old DC.
+    /// </summary>
     private bool IsCreatedSinceLastPoll(SnapshotObject current)
     {
         if (_cycle.Mode == DetectionMode.Resync)
         {
             var since = _cycle.State?.LastPollAt ?? _cycle.State?.LastFullSyncAt;
-            return since is not null && current.WhenCreated > since;
+            return since is not null && current.WhenCreated > since - ResyncCreationMargin;
         }
 
         return current.UsnCreated > _cycle.Decision.Watermark;
@@ -364,9 +554,11 @@ internal sealed class ObjectProcessor
         }
     }
 
-    private async Task DiffAsync(DirectoryObject entry, SnapshotObject old, string oldDn, SnapshotObject current, IReadOnlySet<string> watched, CancellationToken cancellationToken)
+    private async Task DiffAsync(DirectoryObject entry, SnapshotObject old, string oldDn, string previousDn, SnapshotObject current, IReadOnlySet<string> watched,
+        CancellationToken cancellationToken)
     {
-        var diff = _services.Differ.Diff(old, oldDn, current, watched);
+        // The diff's old side carries the DN of the start of the cycle: ObjectMoved/ObjectRenamed take it as PreviousDn.
+        var diff = _services.Differ.Diff(SameDnLiteral(previousDn, old.Dn) ? old : old with { Dn = previousDn }, oldDn, current, watched);
         var memberDrafts = await UpdateMembersAsync(entry, current, old, emit: _cycle.EmitEvents, cancellationToken).ConfigureAwait(false);
         if (diff.IsEmpty && memberDrafts.Count == 0)
         {

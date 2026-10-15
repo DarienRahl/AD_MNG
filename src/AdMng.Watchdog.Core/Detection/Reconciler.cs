@@ -9,9 +9,9 @@ namespace AdMng.Watchdog.Core.Detection;
 
 /// <summary>
 /// Disappeared handling of a full scan (section 10.9): every live snapshot row under the default NC that the scan did
-/// not return is looked up by objectGUID with Show Deleted – deleted → ObjectDeleted (Deletions), live outside scope →
-/// ObjectMoved outOfScope (Removals), not found → ObjectDisappeared (Removals; a later re-appearance is ObjectAppeared,
-/// never ObjectRestored). Configuration-NC rows (DCs, PKI, forest singletons) are reconciled by the
+/// not return is looked up by objectGUID with Show Deleted – deleted → ObjectDeleted (Deletions), live at another DN →
+/// ObjectMoved outOfScope (Removals), not found or live at its old DN but invisible to the scan → ObjectDisappeared
+/// (Removals; a later re-appearance is ObjectAppeared, never ObjectRestored). Configuration-NC rows (DCs, PKI, forest singletons) are reconciled by the
 /// ConfigurationPartitionWatcher.
 /// </summary>
 internal sealed class Reconciler
@@ -67,7 +67,7 @@ internal sealed class Reconciler
             return;
         }
 
-        if (found is not null)
+        if (found is not null && !DistinguishedName.AreEqual(found.DistinguishedName, snapshot.Dn))
         {
             var moved = snapshot with { Dn = found.DistinguishedName };
             var draft = new EventDraft
