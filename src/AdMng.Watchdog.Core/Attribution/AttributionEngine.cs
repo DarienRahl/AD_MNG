@@ -33,9 +33,9 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// <para>The store phase of a pass (re-evaluations, attribution updates, follow-ups) runs without the stop token, and
 /// the follow-ups collected so far are queued even when a later write fails, so an attribution that became final never
 /// loses its follow-up.</para>
+/// <para>Inside <c>AdMng.Watchdog.Core.*</c> the simple name <c>Attribution</c> binds to this namespace, not to
+/// <c>AdMng.Watchdog.Contracts.Events.Attribution</c> – qualify the record or use an alias.</para>
 /// </remarks>
-/// <remarks>Inside <c>AdMng.Watchdog.Core.*</c> the simple name <c>Attribution</c> binds to this namespace, not to
-/// <c>AdMng.Watchdog.Contracts.Events.Attribution</c> – qualify the record or use an alias.</remarks>
 public sealed partial class AttributionEngine(
     IWatchdogConfigProvider configProvider,
     ISecurityEventSource source,

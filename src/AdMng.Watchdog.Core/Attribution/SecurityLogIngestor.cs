@@ -185,7 +185,7 @@ public sealed partial class SecurityLogIngestor(
             var cursorId = complete
                 ? Math.Max(last ?? 0, EventLogGapDetector.NewestRecordId(info) ?? 0)   // nothing of the ingestion set up to the newest record
                 : last ?? 0;
-            if (page.Count > 0 || rebased || cursorId != stored)
+            if (page.Count > 0 || rebased || (cursorId != stored && cursorId > 0))   // no cursor 0 for a log without numbers
             {
                 var newCursor = new EventLogCursor { Source = host, LastRecordId = cursorId, OldestRecordSeen = info.OldestRecordNumber, UpdatedAt = pass.Now };
                 await store.AppendAsync(processed.Batch, newCursor, cancellationToken).ConfigureAwait(false);
