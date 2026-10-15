@@ -24,8 +24,9 @@
     <PackageReference Include="Microsoft.Identity.Client" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The install/uninstall scripts ship next to AdMng.Watchdog.exe (spec 19.6, 19.7). -->
-    <None Include="Deploy\*.ps1" CopyToPublishDirectory="PreserveNewest" />
+    <!-- The install/uninstall scripts and the install helper module ship next to AdMng.Watchdog.exe (spec 19.6, 19.7).
+         Pure ASCII: Windows PowerShell 5.1 reads them in the ANSI code page (DeployScriptTests). -->
+    <None Include="Deploy\*.ps1;Deploy\*.psm1" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Watchdog.Service.Tests" />

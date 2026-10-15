@@ -354,7 +354,14 @@ Skrypt: kopiuje pliki do `C:\Program Files\AdMng\Watchdog`, tworzy foldery `conf
 uprawnienie do klucza certyfikatu, wyłącza zrzuty awaryjne WER dla `AdMng.Watchdog.exe` (mogłyby zawierać sekrety),
 rejestruje usługę `AdMngWatchdog` (start „automatyczny – opóźniony”, konto gMSA bez hasła, automatyczny restart po
 awarii), dodaje regułę zapory dla wskazanych podsieci, sprawdza SPN, uruchamia usługę i sprawdza ją poleceniem
-`AdMng.Watchdog.exe --health`. Odpowiednik ręczny:
+`AdMng.Watchdog.exe --health`. Skrypt działa w Windows PowerShell 5.1 i PowerShell 7.
+
+Aktualizacja to ponowne uruchomienie skryptu: istniejący `config\appsettings.json` jest **scalany** – zmieniają się
+tylko ustawienia podane w parametrach (`-Url`, `-AdminGroupSid` zawsze), a ręczne wpisy (np. `DeniedSids`,
+`ViewerDetailLevel`, `Notifications`, `Directory`, `Server: "HttpSys"`) zostają; skrypt wypisuje zmienione ustawienia.
+Bez `-CertificateThumbprint` skrypt sam znajduje certyfikat po nazwie hosta (ta sama reguła co usługa) i nadaje gMSA
+odczyt jego klucza. Właścicielem folderów `%ProgramData%\AdMng\…` zostają Administratorzy, a ich ACL są zastępowane w
+całości – nikt, kto utworzył te foldery lub plik przed instalacją, nie zachowuje do nich praw. Odpowiednik ręczny:
 
 ```powershell
 sc.exe create AdMngWatchdog binPath= "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" start= delayed-auto obj= "CONTOSO\svc-admngwd$" DisplayName= "AdMng Watchdog"

@@ -4705,6 +4705,23 @@ monitoring subnets>` → `setspn -Q HTTP/<host>` must return only the gMSA (warn
 `-WhatIf` supported. `Uninstall-AdMngWatchdog.ps1` stops/deletes the service and the firewall rule and keeps `data\`
 unless `-RemoveData`.
 
+Details (helper module `Deploy/AdMngWatchdog.Install.psm1`, shipped with the scripts):
+- **Pure ASCII** (`.ps1`, `.psm1`; `DeployScriptTests`): Windows PowerShell 5.1 reads a script without BOM in the ANSI
+  code page, where the UTF-8 bytes of "–" contain a typographic quote that ends a double-quoted string early. On
+  Windows CI the scripts are parsed by `powershell.exe`.
+- **Update = merge**: an existing `config\appsettings.json` is read and only the settings given as parameters
+  (`$PSBoundParameters`; `-Url` and `-AdminGroupSid` always) are written; defaults (`Server=Kestrel`,
+  `RequireKerberos=true`, empty lists, `Certificate.Subject=<host>` when no thumbprint exists) fill only missing values;
+  everything else – `DeniedSids`, `ViewerDetailLevel`, `Notifications`, `Directory`, `Server=HttpSys`, certificate
+  store – is kept. The changed settings are printed. The file is written as a new file (UTF-8 without BOM).
+- **ACLs**: `%ProgramData%\AdMng`, `Watchdog\`, `config\` and the data folder get owner Administrators (recursively,
+  `icacls /setowner /T`) and a protected DACL that replaces every other ACE (`Set-Acl` with a new
+  `DirectorySecurity`) – a local user who created the folders or the bootstrap file before the installation keeps
+  neither ownership nor an ACE.
+- **Private key**: the gMSA gets Read on the key of the certificate the service will select – by thumbprint, else by
+  the selector's subject rule (serverAuth, valid, private key, newest NotAfter) – also without
+  `-CertificateThumbprint`; no matching certificate stops the script. Skipped for `Server=HttpSys` (netsh sslcert).
+
 ### 19.7 Publishing
 
 Framework-dependent `win-x64` (`dotnet publish src/AdMng.Watchdog.Service -c Release -r win-x64 --self-contained false`)
