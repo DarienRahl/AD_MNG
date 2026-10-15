@@ -1,0 +1,495 @@
+<!--
+  Inline editor of one rule (WatchdogRuleEditorViewModel): every RuleSettings field, the exclusions and the preview of
+  what the (unsaved) rule would have matched. Every edit goes to the shared configuration session; the service's
+  validation messages are shown next to the fields. Read-only for Viewers (tool tip says why).
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogRuleEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+             AutomationProperties.Name="{l:Tr Watchdog.Ui.RuleEditor}">
+  <UserControl.Resources>
+    <DataTemplate x:Key="CheckOptionTemplate">
+      <CheckBox Margin="0,0,12,2"
+                MinWidth="0"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                Content="{Binding Text, Mode=OneWay}"
+                IsChecked="{Binding IsChecked}" />
+    </DataTemplate>
+
+    <ItemsPanelTemplate x:Key="WrapPanelTemplate">
+      <WrapPanel />
+    </ItemsPanelTemplate>
+
+    <Style x:Key="EditorSection" TargetType="TextBlock" BasedOn="{StaticResource Ad.SectionHeader}">
+      <Setter Property="Margin" Value="0,18,0,2" />
+      <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style x:Key="MultiLineBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="AcceptsReturn" Value="True" />
+      <Setter Property="MinHeight" Value="56" />
+      <Setter Property="MaxHeight" Value="120" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+      <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+    </Style>
+
+    <Style x:Key="NumberBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="Width" Value="110" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+  </UserControl.Resources>
+
+  <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+          BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+          BorderThickness="1,1,0,0">
+    <ScrollViewer x:Name="EditorScroll"
+                  Focusable="False"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12,10,12,16">
+        <!-- Editable part (Viewer: disabled, the tool tip says why) -->
+        <StackPanel x:Name="EditorFields"
+                    IsEnabled="{Binding CanEdit, Mode=OneWay}"
+                    ToolTip="{Binding ReadOnlyReason, Mode=OneWay}"
+                    ToolTipService.IsEnabled="{Binding CanEdit, Mode=OneWay, Converter={StaticResource Ad.InverseBool}}"
+                    ToolTipService.ShowOnDisabled="True">
+          <!-- General -->
+          <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{Binding Name, Mode=OneWay}" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" MinWidth="130" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Common.Name}" />
+            <StackPanel Grid.Column="1">
+              <TextBox x:Name="NameBox"
+                       Margin="0,8,0,0"
+                       AutomationProperties.Name="{l:Tr Common.Name}"
+                       Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[name], Mode=OneWay}" />
+            </StackPanel>
+            <TextBlock Grid.Row="1"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.RuleId}" />
+            <StackPanel Grid.Row="1" Grid.Column="1">
+              <TextBox x:Name="IdBox"
+                       Margin="0,8,0,0"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.RuleId}"
+                       IsEnabled="{Binding CanEditId, Mode=OneWay}"
+                       Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[id], Mode=OneWay}" />
+            </StackPanel>
+            <TextBlock Grid.Row="2"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.RuleDescription}" />
+            <TextBox Grid.Row="2"
+                     Grid.Column="1"
+                     Margin="0,8,0,0"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.RuleDescription}"
+                     Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="Wrap" />
+            <CheckBox x:Name="EnabledBox"
+                      Grid.Row="3"
+                      Grid.Column="1"
+                      Margin="0,8,0,0"
+                      Content="{l:Tr Watchdog.Ui.RuleEnabled}"
+                      IsChecked="{Binding IsEnabled}"
+                      IsEnabled="{Binding CanDisable, Mode=OneWay}" />
+          </Grid>
+
+          <!-- Which events -->
+          <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.RuleKinds}" />
+          <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.RuleKindsHint}" />
+          <ItemsControl x:Name="KindGroupsList"
+                        Margin="0,4,0,0"
+                        AutomationProperties.Name="{l:Tr Watchdog.Ui.RuleKinds}"
+                        Focusable="False"
+                        IsEnabled="{Binding CanEditKinds, Mode=OneWay}"
+                        ItemsSource="{Binding KindGroups, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Expander Margin="0,0,0,2"
+                          AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                          Header="{Binding Title, Mode=OneWay}">
+                  <ItemsControl Margin="8,0,0,4"
+                                Focusable="False"
+                                ItemTemplate="{StaticResource CheckOptionTemplate}"
+                                ItemsPanel="{StaticResource WrapPanelTemplate}"
+                                ItemsSource="{Binding Options, Mode=OneWay}" />
+                </Expander>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[kinds], Mode=OneWay}" />
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.FilterObjectKinds}" />
+          <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterObjectKinds}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource CheckOptionTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}"
+                        ItemsSource="{Binding ObjectKinds, Mode=OneWay}" />
+
+          <!-- Where -->
+          <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.RuleScope}" />
+          <DockPanel Margin="0,10,0,4">
+            <Button Command="{Binding BrowseIncludeSubtreeCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    DockPanel.Dock="Right"
+                    IsEnabled="{Binding CanPick, Mode=OneWay}"
+                    ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                    ToolTipService.ShowOnDisabled="True" />
+            <TextBlock VerticalAlignment="Bottom" Text="{l:Tr Watchdog.Ui.IncludeSubtrees}" />
+          </DockPanel>
+          <TextBox x:Name="IncludeSubtreesBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.IncludeSubtrees}"
+                   Style="{StaticResource MultiLineBox}"
+                   Text="{Binding IncludeSubtrees, UpdateSourceTrigger=PropertyChanged}" />
+          <DockPanel Margin="0,10,0,4">
+            <Button Command="{Binding BrowseExcludeSubtreeCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    DockPanel.Dock="Right"
+                    IsEnabled="{Binding CanPick, Mode=OneWay}"
+                    ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                    ToolTipService.ShowOnDisabled="True" />
+            <TextBlock VerticalAlignment="Bottom" Text="{l:Tr Watchdog.Ui.ExcludeSubtrees}" />
+          </DockPanel>
+          <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.ExcludeSubtrees}"
+                   Style="{StaticResource MultiLineBox}"
+                   Text="{Binding ExcludeSubtrees, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding ScopeError, Mode=OneWay}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[scope], Mode=OneWay}" />
+
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.RuleAttributes}" />
+          <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.RuleAttributes}" Text="{Binding Attributes, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[attributes], Mode=OneWay}" />
+
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.RequiredTags}" />
+          <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.RequiredTags}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource CheckOptionTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}"
+                        ItemsSource="{Binding RequiredTags, Mode=OneWay}" />
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.AnyTags}" />
+          <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.AnyTags}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource CheckOptionTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}"
+                        ItemsSource="{Binding AnyTags, Mode=OneWay}" />
+
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.GroupFilter}" />
+          <ComboBox AutomationProperties.Name="{l:Tr Watchdog.Ui.GroupFilter}"
+                    DisplayMemberPath="Text"
+                    ItemsSource="{Binding GroupFilters, Mode=OneWay}"
+                    SelectedItem="{Binding Groups}" />
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.GroupDns}" />
+          <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.GroupDns}"
+                   Style="{StaticResource MultiLineBox}"
+                   Text="{Binding GroupDns, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[groupDns], Mode=OneWay}" />
+
+          <!-- Who -->
+          <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.RuleActors}" />
+          <DockPanel Margin="0,10,0,4">
+            <Button Command="{Binding PickExcludedActorCommand}"
+                    Content="{l:Tr Common.Browse}"
+                    DockPanel.Dock="Right"
+                    IsEnabled="{Binding CanPick, Mode=OneWay}"
+                    ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                    ToolTipService.ShowOnDisabled="True" />
+            <TextBlock VerticalAlignment="Bottom" Text="{l:Tr Watchdog.Ui.ExcludeActors}" />
+          </DockPanel>
+          <TextBox x:Name="ExcludeActorsBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.ExcludeActors}"
+                   Style="{StaticResource MultiLineBox}"
+                   Text="{Binding ExcludeActors, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.SidOnlyHint}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding ActorsError, Mode=OneWay}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[actors], Mode=OneWay}" />
+          <CheckBox Margin="0,8,0,0"
+                    Content="{l:Tr Watchdog.Ui.ExcludeSelfChanges}"
+                    IsChecked="{Binding ExcludeSelfChanges}" />
+
+          <!-- Severity -->
+          <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Column.Severity}" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" MinWidth="130" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.MinSeverity}" />
+            <ComboBox Grid.Column="1"
+                      Margin="0,8,0,0"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.MinSeverity}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding Severities, Mode=OneWay}"
+                      SelectedItem="{Binding MinSeverity}" />
+            <TextBlock Grid.Row="1"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.SeverityOverride}" />
+            <ComboBox Grid.Row="1"
+                      Grid.Column="1"
+                      Margin="0,8,0,0"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.SeverityOverride}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding Severities, Mode=OneWay}"
+                      SelectedItem="{Binding SeverityOverride}" />
+          </Grid>
+
+          <!-- Delivery -->
+          <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.RuleDelivery}" />
+          <CheckBox x:Name="ImmediateBox"
+                    Margin="0,8,0,0"
+                    Content="{l:Tr Watchdog.Ui.Immediate}"
+                    IsChecked="{Binding Immediate}" />
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.RecipientGroups}" />
+          <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.RecipientGroups}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource CheckOptionTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}"
+                        ItemsSource="{Binding RecipientGroups, Mode=OneWay}" />
+          <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.Channels}" />
+          <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.Channels}"
+                        Focusable="False"
+                        ItemTemplate="{StaticResource CheckOptionTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}"
+                        ItemsSource="{Binding Channels, Mode=OneWay}" />
+          <CheckBox Margin="0,6,0,0"
+                    Content="{l:Tr Watchdog.Ui.AllEnabledChannels}"
+                    IsChecked="{Binding AllEnabledChannels}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[delivery], Mode=OneWay}" />
+          <CheckBox Margin="0,10,0,0"
+                    Content="{l:Tr Watchdog.Ui.IncludeInDigest}"
+                    IsChecked="{Binding IncludeInDigest}" />
+          <CheckBox Margin="0,6,0,0"
+                    Content="{l:Tr Watchdog.Ui.NotifyManager}"
+                    IsChecked="{Binding NotifyManager}" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" MinWidth="130" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.DeliveryHours}" />
+            <ComboBox Grid.Column="1"
+                      Margin="0,8,0,0"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.DeliveryHours}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding HoursOptions, Mode=OneWay}"
+                      SelectedItem="{Binding Hours}" />
+            <TextBlock Grid.Row="1"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.AggregationMinutes}" />
+            <TextBox Grid.Row="1"
+                     Grid.Column="1"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.AggregationMinutes}"
+                     Style="{StaticResource NumberBox}"
+                     Text="{Binding AggregationMinutes, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Grid.Row="2"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.MaxMessagesPerHour}" />
+            <TextBox Grid.Row="2"
+                     Grid.Column="1"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.MaxMessagesPerHour}"
+                     Style="{StaticResource NumberBox}"
+                     Text="{Binding MaxMessagesPerHour, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Grid.Row="3"
+                       Style="{StaticResource Wd.FormLabel}"
+                       Text="{l:Tr Watchdog.Ui.RepeatSuppression}" />
+            <TextBox Grid.Row="3"
+                     Grid.Column="1"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.RepeatSuppression}"
+                     Style="{StaticResource NumberBox}"
+                     Text="{Binding RepeatSuppressionMinutes, UpdateSourceTrigger=PropertyChanged}" />
+          </Grid>
+          <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.EmptyIsDefault}" />
+          <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding NumbersError, Mode=OneWay}" />
+        </StackPanel>
+
+        <!-- Exclusions (Viewers: only how many there are) -->
+        <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.Exclusions}" />
+        <TextBlock x:Name="ExclusionsCount"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ExclusionsText, Mode=OneWay}" />
+        <DockPanel Margin="0,6,0,0">
+          <StackPanel Margin="0,0,8,0"
+                      DockPanel.Dock="Right"
+                      IsEnabled="{Binding CanEdit, Mode=OneWay}">
+            <Button Margin="0,0,0,6"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding NewExclusionCommand}"
+                    Content="{l:Tr Watchdog.Ui.AddExclusion}" />
+            <Button HorizontalAlignment="Stretch"
+                    Command="{Binding RemoveExclusionCommand}"
+                    Content="{l:Tr Watchdog.Ui.RemoveExclusion}" />
+          </StackPanel>
+          <ListBox x:Name="ExclusionsList"
+                   MaxHeight="140"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.Exclusions}"
+                   DisplayMemberPath="Summary"
+                   ItemsSource="{Binding Exclusions, Mode=OneWay}"
+                   SelectedItem="{Binding SelectedExclusion}" />
+        </DockPanel>
+        <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[exclusions], Mode=OneWay}" />
+
+        <!-- The selected exclusion -->
+        <Border Margin="0,8,0,0"
+                Padding="10"
+                DataContext="{Binding SelectedExclusion, Mode=OneWay}"
+                Style="{StaticResource Ad.Card}"
+                Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+          <StackPanel IsEnabled="{Binding CanEdit, Mode=OneWay}">
+            <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding CreatedText, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.ExclusionReason}" />
+            <TextBox x:Name="ExclusionReasonBox"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionReason}"
+                     MaxLength="500"
+                     Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}"
+                     TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding ReasonError, Mode=OneWay}" />
+
+            <DockPanel Margin="0,10,0,4">
+              <Button Command="{Binding PickObjectCommand}"
+                      Content="{l:Tr Common.Browse}"
+                      DockPanel.Dock="Right"
+                      IsEnabled="{Binding CanPick, Mode=OneWay}"
+                      ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                      ToolTipService.ShowOnDisabled="True" />
+              <TextBlock VerticalAlignment="Bottom">
+                <Run Text="{l:Tr Watchdog.Ui.ExclusionObject}" />
+                <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding ObjectName, Mode=OneWay}" />
+              </TextBlock>
+            </DockPanel>
+            <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionObject}" Text="{Binding ObjectGuidText, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding ObjectError, Mode=OneWay}" />
+
+            <DockPanel Margin="0,10,0,4">
+              <Button Command="{Binding BrowseSubtreeCommand}"
+                      Content="{l:Tr Common.Browse}"
+                      DockPanel.Dock="Right"
+                      IsEnabled="{Binding CanPick, Mode=OneWay}"
+                      ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                      ToolTipService.ShowOnDisabled="True" />
+              <TextBlock VerticalAlignment="Bottom" Text="{l:Tr Watchdog.Ui.ExclusionSubtree}" />
+            </DockPanel>
+            <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionSubtree}" Text="{Binding SubtreeDn, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding SubtreeError, Mode=OneWay}" />
+
+            <DockPanel Margin="0,10,0,4">
+              <Button Command="{Binding PickActorCommand}"
+                      Content="{l:Tr Common.Browse}"
+                      DockPanel.Dock="Right"
+                      IsEnabled="{Binding CanPick, Mode=OneWay}"
+                      ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                      ToolTipService.ShowOnDisabled="True" />
+              <TextBlock VerticalAlignment="Bottom">
+                <Run Text="{l:Tr Watchdog.Ui.ExclusionActor}" />
+                <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding ActorName, Mode=OneWay}" />
+              </TextBlock>
+            </DockPanel>
+            <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionActor}" Text="{Binding Actor, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding ActorError, Mode=OneWay}" />
+
+            <Grid Margin="0,10,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Margin="0,0,0,4" Text="{l:Tr Watchdog.Ui.ExclusionAttribute}" />
+                <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionAttribute}" Text="{Binding Attribute, UpdateSourceTrigger=PropertyChanged}" />
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Margin="0,0,0,4" Text="{l:Tr Watchdog.Ui.ExclusionExpires}" />
+                <DatePicker Width="160"
+                            AutomationProperties.Name="{l:Tr Watchdog.Ui.ExclusionExpires}"
+                            b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
+                            SelectedDate="{Binding ExpiresAt}" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <!-- Preview: what the (unsaved) rule would have matched -->
+        <TextBlock Style="{StaticResource EditorSection}" Text="{l:Tr Watchdog.Ui.RulePreview}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Margin="0,0,8,0"
+                     VerticalAlignment="Center"
+                     Text="{l:Tr Watchdog.Ui.PreviewDays}" />
+          <ComboBox x:Name="PreviewDaysBox"
+                    MinWidth="90"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.PreviewDays}"
+                    ItemsSource="{Binding PreviewDayOptions, Mode=OneWay}"
+                    SelectedItem="{Binding PreviewDays}" />
+          <Button x:Name="PreviewButton"
+                  Margin="8,0,0,0"
+                  Command="{Binding PreviewCommand}"
+                  Content="{l:Tr Watchdog.Ui.RunPreview}" />
+          <ProgressBar Width="60"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+        <TextBlock x:Name="PreviewText"
+                   Margin="0,8,0,0"
+                   AutomationProperties.LiveSetting="Polite"
+                   FontWeight="SemiBold"
+                   Text="{Binding PreviewText, Mode=OneWay}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding PreviewText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding PreviewError, Mode=OneWay}" />
+        <ItemsControl Focusable="False" ItemsSource="{Binding PreviewDaysList, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{Binding Mode=OneWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl Margin="0,6,0,0"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.RulePreview}"
+                      Focusable="False"
+                      ItemsSource="{Binding PreviewSamples, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+              <DockPanel Margin="0,3,0,0">
+                <Ellipse Margin="0,0,6,0"
+                         DockPanel.Dock="Left"
+                         Style="{StaticResource Wd.SeverityDot}"
+                         Tag="{Binding Severity, Mode=OneWay}" />
+                <TextBlock TextTrimming="CharacterEllipsis">
+                  <Run Text="{Binding TimeText, Mode=OneWay}" />
+                  <Run Text="·" />
+                  <Run Text="{Binding KindText, Mode=OneWay}" />
+                  <Run Text="·" />
+                  <Run Text="{Binding ObjectName, Mode=OneWay}" />
+                </TextBlock>
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

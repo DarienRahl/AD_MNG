@@ -76,7 +76,7 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task ShowSessionLogAsync() => Task.CompletedTask;
 
-    public Task ShowRecycleBinAsync() => Inner.ShowRecycleBinAsync();
+    public Task ShowRecycleBinAsync(Guid? select = null) => Inner.ShowRecycleBinAsync(select);
 
     public Task ShowSettingsAsync() => Task.CompletedTask;
 
@@ -87,12 +87,15 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
 
     /// <summary>A UI test context whose IDialogService is a <see cref="TestDialogService"/> over the real one.</summary>
-    public static async Task<(UiTestContext Context, TestDialogService Dialogs)> CreateContextAsync(string language = "en")
+    /// <param name="language">UI language ("en" / "pl").</param>
+    /// <param name="configure">Further replacements of services (e.g. the sample watchdog client).</param>
+    public static async Task<(UiTestContext Context, TestDialogService Dialogs)> CreateContextAsync(string language = "en", Action<IServiceCollection>? configure = null)
     {
         var context = await UiTestContext.CreateAsync(language, services =>
         {
             services.AddSingleton<DialogService>();
             services.Replace(ServiceDescriptor.Singleton<IDialogService>(sp => new TestDialogService(sp.GetRequiredService<DialogService>())));
+            configure?.Invoke(services);
         });
         return (context, (TestDialogService)context.Services.GetRequiredService<IDialogService>());
     }

@@ -4,6 +4,7 @@ using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
@@ -14,6 +15,8 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.UiTests;
@@ -79,6 +82,31 @@ public sealed class ScreenshotTests
         "08-connect.png",
         "Połączenie z domeną",
         "Connecting to a domain");
+
+    private static readonly ScreenshotInfo WatchdogEvents = new(
+        "09-watchdog-events.png",
+        "Watchdog – zdarzenia (filtr, lista i szczegóły blokady konta)",
+        "Watchdog – events (filter, feed and the details of an account lockout)");
+
+    private static readonly ScreenshotInfo WatchdogEventDetails = new(
+        "10-watchdog-event-details.png",
+        "Watchdog – szczegóły zdarzenia: co się zmieniło, kto i skąd",
+        "Watchdog – event details: what changed, who and from where");
+
+    private static readonly ScreenshotInfo WatchdogRules = new(
+        "11-watchdog-rules.png",
+        "Watchdog – reguły (lista i edytor reguły)",
+        "Watchdog – rules (list and rule editor)");
+
+    private static readonly ScreenshotInfo WatchdogChannels = new(
+        "12-watchdog-channels.png",
+        "Watchdog – kanały i SMTP",
+        "Watchdog – channels and SMTP");
+
+    private static readonly ScreenshotInfo WatchdogStatus = new(
+        "13-watchdog-status.png",
+        "Watchdog – stan usługi",
+        "Watchdog – service status");
 
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
@@ -176,17 +204,77 @@ public sealed class ScreenshotTests
         await ScreenshotWriter.SaveAsync(window, Connect, dark: false);
     });
 
+    [Fact]
+    public Task Screenshot09_Watchdog_Events() => ShootWatchdogAsync(WatchdogEvents, async (tab, view) =>
+    {
+        view.EventsView.EventsList.SelectedItem = tab.Events.Items.Single(r => r.Id == SampleEvents.LockoutId);
+        await UiWait.UntilAsync(() => tab.Events.Details.Event?.Id == SampleEvents.LockoutId, "the details of the lockout");
+        await tab.Events.Details.Loading;
+    });
+
+    [Fact]
+    public Task Screenshot10_Watchdog_EventDetails() => ShootWatchdogAsync(WatchdogEventDetails, async (tab, view) =>
+    {
+        view.EventsView.EventsList.SelectedItem = tab.Events.Items.Single(r => r.Id == SampleEvents.PrivilegeGrantedId);
+        await UiWait.UntilAsync(() => tab.Events.Details.Event?.Id == SampleEvents.PrivilegeGrantedId, "the details of the privileged access");
+        await tab.Events.Details.Loading;
+        Assert.NotEmpty(tab.Events.Details.Deliveries);
+    });
+
+    [Fact]
+    public Task Screenshot11_Watchdog_Rules() => ShootWatchdogAsync(WatchdogRules, async (tab, view) =>
+    {
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
+        tab.Rules.SelectedRule = tab.Rules.Rules.Single(r => r.Id == "lockouts");
+        await UiWait.UntilAsync(() => view.RulesView.EditorView.ViewModel?.Id == "lockouts", "the editor of the lockout rule");
+    });
+
+    [Fact]
+    public Task Screenshot12_Watchdog_Channels() => ShootWatchdogAsync(WatchdogChannels, async (tab, _) =>
+    {
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Channels);
+        tab.Channels.SelectedChannel = tab.Channels.Channels.Single(c => c.Id == "siem");
+    });
+
+    [Fact]
+    public Task Screenshot13_Watchdog_Status() => ShootWatchdogAsync(WatchdogStatus, async (tab, _) =>
+    {
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0 && tab.Status.Audit.Count > 0, "the status");
+    });
+
+    /// <summary>
+    /// The main window with the Watchdog tab over the sample watchdog client (Polish data, Admin), the AD session of the
+    /// sample company open; <paramref name="arrange"/> picks the sub-tab and the selection.
+    /// </summary>
+    private static Task ShootWatchdogAsync(ScreenshotInfo shot, Func<WatchdogDocumentViewModel, WatchdogView, Task> arrange)
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        return ShootAsync(ThemePreference.Light, configure: WatchdogUiSupport.Use(client), shoot: async context =>
+        {
+            await WatchdogUiSupport.ConfigureAddressAsync(context);
+            var window = context.Services.GetRequiredService<MainWindow>();
+            await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+            await window.Shell.InitializeAsync();
+            var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+            await arrange(tab, view);
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+            await ScreenshotWriter.SaveAsync(window, shot, dark: false);
+        });
+    }
+
     /// <summary>
     /// Runs one screenshot on the UI thread: a fresh host in Polish (dialogs scripted, see <see cref="TestDialogService"/>)
     /// with the sample company and a few more IT staff, optionally connected, in <paramref name="theme"/>. The theme is
     /// process wide, so it is reset to the system theme afterwards.
     /// </summary>
-    private static Task ShootAsync(ThemePreference theme, Func<UiTestContext, Task> shoot, bool connect = true)
+    private static Task ShootAsync(ThemePreference theme, Func<UiTestContext, Task> shoot, bool connect = true, Action<IServiceCollection>? configure = null)
     {
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var (created, _) = await TestDialogService.CreateContextAsync(Language);
+            var (created, _) = await TestDialogService.CreateContextAsync(Language, configure);
             await using var context = created;
             AddSampleData(context);
             if (connect)

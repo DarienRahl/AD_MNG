@@ -141,12 +141,18 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     private string? _planTarget;
     private DeletedObjectLifetime? _lifetime;
 
+    /// <summary>Object to select after the next load (<see cref="SelectObject"/>).</summary>
+    private Guid? _pendingSelection;
+
     /// <summary>The session whose lifetimes were read (once per session).</summary>
     private IDirectorySession? _lifetimeSession;
     private Task _currentLoad = Task.CompletedTask;
     private int _generation;
     private bool _initialized;
     private bool _settingFilters;
+
+    /// <summary>A name filter was typed and its debounced reload has not started yet (the list is about to change).</summary>
+    private bool _filterReloadPending;
 
     public RecycleBinViewModel(DialogServices services)
         : base(services)
@@ -329,6 +335,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     public Task LoadAsync()
     {
         _reloadDebouncer.Cancel();
+        _filterReloadPending = false;
         _currentLoad = LoadCoreAsync();
         return _currentLoad;
     }
@@ -511,6 +518,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
     {
         if (_initialized && !_settingFilters)
         {
+            _filterReloadPending = true;
             _reloadDebouncer.RunAsync(_ => LoadAsync()).Forget();
         }
     }
@@ -707,7 +715,41 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
                 ApplySort();
                 UpdateStatus(stopped ? null : Services.Time.GetElapsedTime(started), stopped);
                 OnPropertyChanged(nameof(IsEmpty));
+                ApplyPendingSelection();
             }
+        }
+    }
+
+    /// <summary>
+    /// Selects the deleted object with <paramref name="objectGuid"/> once the list is loaded (the Watchdog tab opens a
+    /// deleted object this way). The name filter is cleared so that the object is part of the list.
+    /// </summary>
+    public void SelectObject(Guid objectGuid)
+    {
+        _pendingSelection = objectGuid;
+        if (!_initialized)
+        {
+            // The first load selects it.
+            return;
+        }
+
+        if (!IsLoading && !_filterReloadPending && Items.Any(r => r.Info.ObjectGuid == objectGuid))
+        {
+            ApplyPendingSelection();
+            return;
+        }
+
+        // Not listed, or the list is about to change (a running load or a typed filter): reload without filters (a running
+        // load is cancelled); the load selects the object.
+        ClearFiltersCommand.Execute(null);
+    }
+
+    private void ApplyPendingSelection()
+    {
+        if (_pendingSelection is { } guid && Items.FirstOrDefault(r => r.Info.ObjectGuid == guid) is { } row)
+        {
+            _pendingSelection = null;
+            SelectedItem = row;
         }
     }
 

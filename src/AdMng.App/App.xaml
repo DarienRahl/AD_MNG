@@ -11,6 +11,7 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="/AdMng;component/Themes/Controls.xaml" />
+        <ResourceDictionary Source="/AdMng;component/Themes/Watchdog.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

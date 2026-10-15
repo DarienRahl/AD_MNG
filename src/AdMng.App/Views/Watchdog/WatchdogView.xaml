@@ -1,0 +1,205 @@
+<!--
+  The Watchdog document tab (WatchdogDocumentViewModel): the connection banner (state, the host the tab talks to, the
+  caller's role, live-update errors, retry / change address), the rollout banner, the address editor (https only) while
+  no service is configured, and the sub-tabs Events / Rules / Channels / Digest / Status once connected.
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+             xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <!-- Info card while connected or connecting, warning colours for every problem. -->
+    <Style x:Key="ConnectionBannerStyle" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
+      <Setter Property="Padding" Value="12,8" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding HasConnectionProblem, Mode=OneWay}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+          <Setter Property="CornerRadius" Value="4" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ConnectionGlyphStyle" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="Text" Value="{x:Static c:Glyphs.Watchdog}" />
+      <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ConnectionState, Mode=OneWay}" Value="{x:Static wd:WatchdogConnectionState.Connected}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Completed}" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding ConnectionState, Mode=OneWay}" Value="{x:Static wd:WatchdogConnectionState.NotConfigured}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding HasConnectionProblem, Mode=OneWay}" Value="True">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="SubTabStyle" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+      <Setter Property="AutomationProperties.Name" Value="{Binding Header, RelativeSource={RelativeSource Self}}" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Connection banner: always shows the host the tab talks to (credentials go only there). -->
+    <Border x:Name="ConnectionBanner"
+            Margin="8,6,8,0"
+            AutomationProperties.Name="{l:Tr Watchdog.Ui.ConnectionBanner}"
+            DockPanel.Dock="Top"
+            Style="{StaticResource ConnectionBannerStyle}">
+      <DockPanel>
+        <TextBlock Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   Style="{StaticResource ConnectionGlyphStyle}" />
+        <StackPanel Margin="12,0,0,0"
+                    VerticalAlignment="Center"
+                    DockPanel.Dock="Right"
+                    Orientation="Horizontal">
+          <Button x:Name="RetryButton"
+                  Margin="0,0,6,0"
+                  Command="{Binding RefreshNowCommand}"
+                  Content="{l:Tr Common.Retry}"
+                  Visibility="{Binding HasConnectionProblem, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button x:Name="ChangeAddressButton"
+                  Command="{Binding ChangeAddressCommand}"
+                  Content="{l:Tr Watchdog.Ui.ChangeAddress}"
+                  Visibility="{Binding ShowAddressEditor, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock x:Name="StateText" TextWrapping="Wrap">
+            <Run FontWeight="SemiBold" Text="{Binding StateText, Mode=OneWay}" />
+            <Run Text="{Binding HostText, Mode=OneWay}" />
+          </TextBlock>
+          <TextBlock x:Name="ConnectionMessage"
+                     Margin="0,2,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding ConnectionMessage, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock x:Name="AccountText"
+                     Margin="0,2,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding AccountText, Mode=OneWay}"
+                     Visibility="{Binding AccountText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock x:Name="LiveError"
+                     Margin="0,2,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                     Text="{Binding LiveError, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding LiveError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Rollout mode (12.5): only Tier-0, bursts and health notify immediately until it ends. -->
+    <Border x:Name="RolloutBanner"
+            Margin="8,6,8,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding ShowRolloutBanner, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,10,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Info}" />
+        <Button x:Name="EndRolloutButton"
+                Margin="10,0,0,0"
+                Command="{Binding Rules.EndRolloutCommand}"
+                Content="{l:Tr Watchdog.Rollout.End}"
+                DockPanel.Dock="Right"
+                ToolTip="{Binding Config.ReadOnlyReason, Mode=OneWay}"
+                ToolTipService.ShowOnDisabled="True" />
+        <TextBlock x:Name="RolloutText"
+                   VerticalAlignment="Center"
+                   Text="{Binding RolloutBannerText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- Address editor: before the first connection and after "Change address". -->
+    <Border x:Name="AddressEditor"
+            Margin="8,12,8,0"
+            HorizontalAlignment="Left"
+            DockPanel.Dock="Top"
+            MaxWidth="720"
+            Style="{StaticResource Ad.Card}"
+            Visibility="{Binding ShowAddressEditor, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel>
+        <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.AddressTitle}" />
+        <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.AddressHint}" />
+        <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.AddressLabel}" />
+        <Grid>
+          <TextBox x:Name="AddressBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.AddressLabel}"
+                   Text="{Binding ServiceUrlInput, UpdateSourceTrigger=PropertyChanged}">
+            <TextBox.InputBindings>
+              <KeyBinding Key="Enter" Command="{Binding ConnectCommand}" />
+            </TextBox.InputBindings>
+          </TextBox>
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.AddressPlaceholder}"
+                     Visibility="{Binding Text, ElementName=AddressBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <TextBlock x:Name="AddressError"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Style="{StaticResource Wd.FieldError}"
+                   Text="{Binding ServiceUrlError, Mode=OneWay}" />
+        <StackPanel Margin="0,12,0,0"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
+          <Button x:Name="CancelAddressButton"
+                  Command="{Binding CancelChangeAddressCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  Style="{StaticResource Ad.DialogButton}"
+                  Visibility="{Binding IsEditingAddress, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button x:Name="ConnectButton"
+                  Command="{Binding ConnectCommand}"
+                  Content="{l:Tr Watchdog.Ui.Connect}"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- Sub-tabs (the selection is remembered in the settings). -->
+    <TabControl x:Name="SubTabs"
+                Margin="8,8,8,8"
+                AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                SelectedIndex="{Binding SelectedSubTabIndex}"
+                Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TabItem x:Name="EventsTab"
+               Header="{l:Tr Watchdog.Tab.Events}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogEventsView x:Name="EventsView" DataContext="{Binding Events}" />
+      </TabItem>
+      <TabItem x:Name="RulesTab"
+               Header="{l:Tr Watchdog.Tab.Rules}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogRulesView x:Name="RulesView" DataContext="{Binding Rules}" />
+      </TabItem>
+      <TabItem x:Name="ChannelsTab"
+               Header="{l:Tr Watchdog.Tab.Channels}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogChannelsView x:Name="ChannelsView" DataContext="{Binding Channels}" />
+      </TabItem>
+      <TabItem x:Name="DigestTab"
+               Header="{l:Tr Watchdog.Tab.Digest}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogDigestView x:Name="DigestView" DataContext="{Binding Digest}" />
+      </TabItem>
+      <TabItem x:Name="StatusTab"
+               Header="{l:Tr Watchdog.Tab.Status}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogStatusView x:Name="StatusView" DataContext="{Binding Status}" />
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

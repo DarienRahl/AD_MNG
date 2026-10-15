@@ -53,8 +53,29 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
     /// <summary>The PowerShell history (modeless; an open one is activated).</summary>
     public Window ShowPowerShellHistory() => ShowSingleton(PowerShellHistoryKey, () => Factory.CreatePowerShellHistory());
 
-    /// <summary>The AD Recycle Bin (modeless; an open one is activated).</summary>
-    public Window ShowRecycleBin() => ShowSingleton(RecycleBinKey, () => Factory.CreateRecycleBin());
+    /// <summary>
+    /// The AD Recycle Bin (modeless; an open one is activated). <paramref name="select"/>: the deleted object to select once
+    /// the list is loaded.
+    /// </summary>
+    public Window ShowRecycleBin(Guid? select = null)
+    {
+        var window = ShowSingleton(RecycleBinKey, () =>
+        {
+            var bin = Factory.CreateRecycleBin();
+            if (select is { } guid)
+            {
+                bin.SelectObject(guid);
+            }
+
+            return bin;
+        });
+        if (select is { } selected && window is RecycleBinWindow { ViewModel: { } open } && !open.IsDisposed)
+        {
+            open.SelectObject(selected);
+        }
+
+        return window;
+    }
 
     /// <summary>
     /// The settings dialog (modal). Advanced Features is applied through the main window's shell, so the tree and the

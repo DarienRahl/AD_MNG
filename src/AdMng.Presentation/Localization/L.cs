@@ -171,6 +171,8 @@ public static partial class L
         public const string CancelLoad = "Commands.CancelLoad";
         public const string ImportCsv = "Commands.ImportCsv";
         public const string RecycleBin = "Commands.RecycleBin";
+        public const string Watchdog = "Commands.Watchdog";
+        public const string WatchdogHistory = "Commands.WatchdogHistory";
     }
 
     public static class Tree

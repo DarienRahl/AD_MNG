@@ -1325,6 +1325,13 @@
                 Content="{l:Tr PropertySheet.Refresh}"
                 DockPanel.Dock="Left"
                 Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="WatchdogHistoryButton"
+                Margin="8,0,0,0"
+                Command="{Binding ShowWatchdogHistoryCommand}"
+                Content="{l:Tr Commands.WatchdogHistory}"
+                DockPanel.Dock="Left"
+                Style="{StaticResource Ad.DialogButton}"
+                Visibility="{Binding IsWatchdogHistoryAvailable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <ProgressBar Width="72"
                      Margin="12,0,0,0"
                      VerticalAlignment="Center"

@@ -1,0 +1,538 @@
+<!--
+  The event feed (WatchdogEventsViewModel): filter bar (text, minimum severity, "unresolved", "unacknowledged", dates,
+  more filters in a pop-up, named presets), the object history chip, the toolbar (refresh, acknowledge with a comment,
+  CSV export, "N new"), the virtualized list newest first with severity badges, "load older" and the details pane.
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogEventsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+             xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
+             AutomationProperties.Name="{l:Tr Watchdog.Tab.Events}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <Style x:Key="EventRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource Wd.ListRow}">
+      <Setter Property="AutomationProperties.Name" Value="{Binding KindText, Mode=OneWay}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsAcknowledged, Mode=OneWay}" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsNew, Mode=OneWay}" Value="True">
+          <Setter Property="FontWeight" Value="SemiBold" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ActorTextStyle" TargetType="TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsActorPending, Mode=OneWay}" Value="True">
+          <Setter Property="FontStyle" Value="Italic" />
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Check boxes of a filter list (categories, object kinds, tags...). -->
+    <DataTemplate x:Key="CheckOptionTemplate">
+      <CheckBox Margin="0,0,12,2"
+                MinWidth="0"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                Content="{Binding Text, Mode=OneWay}"
+                IsChecked="{Binding IsChecked}" />
+    </DataTemplate>
+
+    <ItemsPanelTemplate x:Key="WrapPanelTemplate">
+      <WrapPanel />
+    </ItemsPanelTemplate>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Filter bar -->
+    <WrapPanel Margin="0,4,0,0" DockPanel.Dock="Top">
+      <Grid Width="240" Margin="0,0,8,6">
+        <TextBox x:Name="FilterTextBox"
+                 AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterText}"
+                 Text="{Binding Filter.Text, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Watchdog.Ui.FilterTextHint}"
+                   Visibility="{Binding Text, ElementName=FilterTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+      <ComboBox x:Name="SeverityBox"
+                MinWidth="160"
+                Margin="0,0,8,6"
+                AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSeverity}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding Filter.Severities, Mode=OneWay}"
+                SelectedItem="{Binding Filter.MinSeverity}" />
+      <ToggleButton x:Name="UnresolvedToggle"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                    Content="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                    IsChecked="{Binding Filter.UnresolvedOnly}"
+                    Style="{StaticResource Ad.ChipToggleButton}"
+                    ToolTip="{l:Tr Watchdog.Ui.FilterUnresolvedHint}" />
+      <ToggleButton x:Name="UnacknowledgedToggle"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                    Content="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                    IsChecked="{Binding Filter.UnacknowledgedOnly}"
+                    Style="{StaticResource Ad.ChipToggleButton}" />
+      <DatePicker x:Name="FromPicker"
+                  Width="150"
+                  Margin="0,0,6,6"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterFrom}"
+                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterFrom}"
+                  SelectedDate="{Binding Filter.From}" />
+      <DatePicker x:Name="ToPicker"
+                  Width="150"
+                  Margin="0,0,8,6"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTo}"
+                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterTo}"
+                  SelectedDate="{Binding Filter.To}" />
+      <ToggleButton x:Name="MoreFiltersToggle"
+                    Margin="0,0,6,6"
+                    Padding="10,4"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.MoreFilters}"
+                    IsHitTestVisible="{Binding IsOpen, ElementName=MoreFiltersPopup, Converter={StaticResource Ad.InverseBool}}">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock FontSize="12"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Filter}" />
+          <TextBlock Margin="6,0,0,0"
+                     VerticalAlignment="Center"
+                     Text="{l:Tr Watchdog.Ui.MoreFilters}" />
+          <TextBlock Margin="6,0,0,0"
+                     VerticalAlignment="Center"
+                     FontWeight="SemiBold"
+                     Text="{Binding Filter.ActiveCount, Mode=OneWay}"
+                     Visibility="{Binding Filter.HasActiveFilter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </ToggleButton>
+      <Button x:Name="ClearFiltersButton"
+              Margin="0,0,8,6"
+              AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearFilters}"
+              Command="{Binding Filter.ClearCommand}"
+              Content="{x:Static c:Glyphs.Cancel}"
+              Style="{StaticResource Ad.IconButton}"
+              ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
+      <ComboBox x:Name="PresetBox"
+                MinWidth="170"
+                Margin="0,0,0,6"
+                AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
+                DisplayMemberPath="Name"
+                ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
+                SelectedItem="{Binding Filter.SelectedPreset}"
+                ToolTip="{l:Tr Watchdog.Ui.Presets}" />
+    </WrapPanel>
+
+    <!-- More filters -->
+    <Popup x:Name="MoreFiltersPopup"
+           AllowsTransparency="True"
+           IsOpen="{Binding IsChecked, ElementName=MoreFiltersToggle, Mode=TwoWay}"
+           Placement="Bottom"
+           PlacementTarget="{Binding ElementName=MoreFiltersToggle}"
+           PopupAnimation="None"
+           StaysOpen="False">
+      <Border Width="780"
+              MaxHeight="560"
+              Style="{StaticResource Ad.Overlay}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="16" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel>
+              <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Watchdog.Ui.FilterCategories}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterCategories}"
+                            Focusable="False"
+                            ItemTemplate="{StaticResource CheckOptionTemplate}"
+                            ItemsPanel="{StaticResource WrapPanelTemplate}"
+                            ItemsSource="{Binding Filter.Categories, Mode=OneWay}" />
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.FilterObjectKinds}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterObjectKinds}"
+                            Focusable="False"
+                            ItemTemplate="{StaticResource CheckOptionTemplate}"
+                            ItemsPanel="{StaticResource WrapPanelTemplate}"
+                            ItemsSource="{Binding Filter.ObjectKinds, Mode=OneWay}" />
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.FilterTags}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTags}"
+                            Focusable="False"
+                            ItemTemplate="{StaticResource CheckOptionTemplate}"
+                            ItemsPanel="{StaticResource WrapPanelTemplate}"
+                            ItemsSource="{Binding Filter.Tags, Mode=OneWay}" />
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.FilterAttribution}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterAttribution}"
+                            Focusable="False"
+                            ItemTemplate="{StaticResource CheckOptionTemplate}"
+                            ItemsPanel="{StaticResource WrapPanelTemplate}"
+                            ItemsSource="{Binding Filter.AttributionStatuses, Mode=OneWay}" />
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.FilterSubtree}" />
+              <DockPanel>
+                <Button Margin="4,0,0,0"
+                        AutomationProperties.Name="{l:Tr Common.Clear}"
+                        Command="{Binding Filter.ClearSubtreeCommand}"
+                        Content="{x:Static c:Glyphs.Cancel}"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource Ad.IconButton}"
+                        ToolTip="{l:Tr Common.Clear}" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding Filter.BrowseSubtreeCommand}"
+                        Content="{l:Tr Common.Browse}"
+                        DockPanel.Dock="Right"
+                        IsEnabled="{Binding Filter.CanPick, Mode=OneWay}"
+                        ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                        ToolTipService.ShowOnDisabled="True" />
+                <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSubtree}"
+                         IsReadOnly="True"
+                         Text="{Binding Filter.SubtreeText, Mode=OneWay}" />
+              </DockPanel>
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.FilterActor}" />
+              <DockPanel>
+                <Button Margin="4,0,0,0"
+                        AutomationProperties.Name="{l:Tr Common.Clear}"
+                        Command="{Binding Filter.ClearActorCommand}"
+                        Content="{x:Static c:Glyphs.Cancel}"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource Ad.IconButton}"
+                        ToolTip="{l:Tr Common.Clear}" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding Filter.PickActorCommand}"
+                        Content="{l:Tr Common.Browse}"
+                        DockPanel.Dock="Right"
+                        IsEnabled="{Binding Filter.CanPick, Mode=OneWay}"
+                        ToolTip="{l:Tr Watchdog.Ui.NeedsAdSession}"
+                        ToolTipService.ShowOnDisabled="True" />
+                <TextBox x:Name="ActorBox"
+                         AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterActor}"
+                         Text="{Binding Filter.ActorText, UpdateSourceTrigger=PropertyChanged, Delay=300}" />
+              </DockPanel>
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Filter.ActorError, Mode=OneWay}" />
+
+              <TextBlock Margin="0,12,0,4"
+                         Style="{StaticResource Ad.SectionHeader}"
+                         Text="{l:Tr Watchdog.Ui.SavePreset}" />
+              <DockPanel>
+                <Button Margin="6,0,0,0"
+                        Command="{Binding Filter.DeletePresetCommand}"
+                        Content="{l:Tr Watchdog.Ui.DeletePreset}"
+                        DockPanel.Dock="Right" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding Filter.SavePresetCommand}"
+                        Content="{l:Tr Common.Save}"
+                        DockPanel.Dock="Right" />
+                <Grid>
+                  <TextBox x:Name="PresetNameBox"
+                           AutomationProperties.Name="{l:Tr Watchdog.Ui.PresetName}"
+                           Text="{Binding Filter.PresetName, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Style="{StaticResource Ad.HintText}"
+                             Text="{l:Tr Watchdog.Ui.PresetName}"
+                             Visibility="{Binding Text, ElementName=PresetNameBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+                </Grid>
+              </DockPanel>
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.PresetHint}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+              <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr Watchdog.Ui.FilterKinds}" />
+              <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterKinds}"
+                            Focusable="False"
+                            ItemsSource="{Binding Filter.KindGroups, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Expander Margin="0,0,0,2"
+                              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                              Header="{Binding Title, Mode=OneWay}">
+                      <ItemsControl Margin="8,0,0,4"
+                                    Focusable="False"
+                                    ItemTemplate="{StaticResource CheckOptionTemplate}"
+                                    ItemsSource="{Binding Options, Mode=OneWay}" />
+                    </Expander>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Grid>
+        </ScrollViewer>
+      </Border>
+    </Popup>
+
+    <!-- History of one object ("Historia zmian (Watchdog)") -->
+    <Border x:Name="ObjectChip"
+            Margin="0,0,0,6"
+            Padding="10,4"
+            HorizontalAlignment="Left"
+            Background="{DynamicResource AccentFillColorDefaultBrush}"
+            CornerRadius="13"
+            DockPanel.Dock="Top"
+            Visibility="{Binding Filter.HasObject, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                   Text="{l:Tr Watchdog.Ui.ObjectHistory}" />
+        <TextBlock x:Name="ObjectChipText"
+                   Margin="6,0,0,0"
+                   VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                   Text="{Binding Filter.ObjectText, Mode=OneWay}" />
+        <Button Margin="8,0,0,0"
+                AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearObject}"
+                Command="{Binding Filter.ClearObjectCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                Style="{StaticResource Ad.SmallIconButton}"
+                ToolTip="{l:Tr Watchdog.Ui.ClearObject}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Toolbar -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Button x:Name="NewEventsButton"
+              Padding="10,4"
+              Command="{Binding ShowNewCommand}"
+              Content="{Binding NewEventsText, Mode=OneWay}"
+              DockPanel.Dock="Right"
+              Style="{StaticResource AccentButtonStyle}"
+              Visibility="{Binding HasNewEvents, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <StackPanel Orientation="Horizontal">
+        <Button x:Name="RefreshButton"
+                Margin="0,0,6,0"
+                AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Commands.Refresh}" />
+        <Grid Width="260" Margin="0,0,6,0">
+          <TextBox x:Name="AcknowledgeCommentBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.AcknowledgeComment}"
+                   MaxLength="500"
+                   Text="{Binding AcknowledgeComment, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.AcknowledgeComment}"
+                     Visibility="{Binding Text, ElementName=AcknowledgeCommentBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <Button x:Name="AcknowledgeButton"
+                Command="{Binding AcknowledgeSelectedCommand}"
+                Style="{StaticResource Wd.ToolButton}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="12"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Accept}" />
+            <TextBlock Margin="6,0,0,0" Text="{l:Tr Watchdog.Ui.AcknowledgeSelected}" />
+          </StackPanel>
+        </Button>
+        <Button x:Name="ExportButton"
+                Command="{Binding ExportCsvCommand}"
+                Style="{StaticResource Wd.ToolButton}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="12"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Export}" />
+            <TextBlock Margin="6,0,0,0" Text="{l:Tr Watchdog.Ui.ExportCsv}" />
+          </StackPanel>
+        </Button>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Load error (inline, never modal) -->
+    <Border x:Name="ErrorBar"
+            Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <Button Margin="10,0,0,0"
+                Command="{Binding RefreshCommand}"
+                Content="{l:Tr Common.Retry}"
+                DockPanel.Dock="Right" />
+        <TextBlock x:Name="ErrorText"
+                   VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="320" />
+        <ColumnDefinition Width="5" />
+        <ColumnDefinition Width="430" MinWidth="260" />
+      </Grid.ColumnDefinitions>
+
+      <DockPanel>
+        <Button x:Name="LoadOlderButton"
+                Margin="0,6,0,0"
+                HorizontalAlignment="Center"
+                Command="{Binding LoadOlderCommand}"
+                Content="{l:Tr Watchdog.Ui.LoadOlder}"
+                DockPanel.Dock="Bottom"
+                Visibility="{Binding HasMore, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Grid>
+          <ListView x:Name="EventsList"
+                    AutomationProperties.Name="{l:Tr Watchdog.Tab.Events}"
+                    BorderThickness="0,1,0,0"
+                    ItemContainerStyle="{StaticResource EventRowStyle}"
+                    ItemsSource="{Binding Items, Mode=OneWay}"
+                    ScrollViewer.CanContentScroll="True"
+                    SelectedItem="{Binding SelectedItem}"
+                    SelectionChanged="OnSelectionChanged"
+                    SelectionMode="Extended"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.ScrollUnit="Item"
+                    VirtualizingPanel.VirtualizationMode="Recycling">
+            <ListView.ItemsPanel>
+              <ItemsPanelTemplate>
+                <VirtualizingStackPanel />
+              </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="118" Header="{l:Tr Watchdog.Column.Severity}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <StackPanel Orientation="Horizontal">
+                        <Ellipse Style="{StaticResource Wd.SeverityDot}" Tag="{Binding Severity, Mode=OneWay}" />
+                        <TextBlock Margin="6,0,0,0"
+                                   Style="{StaticResource Wd.SeverityText}"
+                                   Tag="{Binding Severity, Mode=OneWay}"
+                                   Text="{Binding SeverityText, Mode=OneWay}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="150" Header="{l:Tr Watchdog.Column.Time}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Text="{Binding TimeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Kind}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Text="{Binding KindText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding KindText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="210" Header="{l:Tr Watchdog.Column.Object}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <DockPanel ToolTip="{Binding ObjectPath, Mode=OneWay}">
+                        <c:ObjectIconView Margin="0,0,6,0"
+                                          VerticalAlignment="Center"
+                                          DockPanel.Dock="Left"
+                                          Icon="{Binding Icon, Mode=OneWay}"
+                                          Size="16" />
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{Binding ObjectName, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis" />
+                      </DockPanel>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Path}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding ObjectPath, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Actor}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Style="{StaticResource ActorTextStyle}"
+                                 Text="{Binding ActorText, Mode=OneWay}"
+                                 ToolTip="{Binding ActorText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Source}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Text="{Binding SourceText, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis"
+                                 ToolTip="{Binding SourceText, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="80" Header="{l:Tr Watchdog.Ui.ColumnLockouts}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock Text="{Binding LockoutText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="44">
+                  <GridViewColumn.Header>
+                    <TextBlock FontSize="12"
+                               Style="{StaticResource Ad.GlyphText}"
+                               Text="{x:Static c:Glyphs.Accept}"
+                               ToolTip="{l:Tr Watchdog.Column.Acknowledged}" />
+                  </GridViewColumn.Header>
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
+                      <TextBlock FontSize="12"
+                                 Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{x:Static c:Glyphs.Accept}"
+                                 ToolTip="{l:Tr Watchdog.Column.Acknowledged}"
+                                 Visibility="{Binding IsAcknowledged, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+          <ProgressBar Height="3"
+                       VerticalAlignment="Top"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock x:Name="EmptyHint"
+                     Margin="0,60,0,0"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Watchdog.Ui.NoEvents}"
+                     Visibility="{Binding IsEmpty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </Grid>
+      </DockPanel>
+
+      <GridSplitter Grid.Column="1"
+                    Width="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns" />
+
+      <wdv:WatchdogEventDetailsView x:Name="DetailsView"
+                                    Grid.Column="2"
+                                    DataContext="{Binding Details}" />
+    </Grid>
+  </DockPanel>
+</UserControl>

@@ -44,6 +44,7 @@ public sealed partial class ShellViewModel
             new("object.addToGroup", L.Commands.AddToGroup, obj, string.Empty, AddToGroupCommand),
             new("object.batchEdit", L.Commands.BatchEdit, obj, "Ctrl+Shift+B", BatchEditCommand),
             new("object.copyDn", L.Commands.CopyDn, obj, "Ctrl+Shift+C", CopyDnCommand),
+            new("object.watchdogHistory", L.Commands.WatchdogHistory, obj, string.Empty, ShowWatchdogHistoryCommand),
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),
@@ -85,6 +86,7 @@ public sealed partial class ShellViewModel
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),
+            new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),
         ];

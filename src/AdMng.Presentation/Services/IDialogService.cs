@@ -50,8 +50,12 @@ public interface IDialogService
 
     Task ShowSessionLogAsync();
 
-    /// <summary>Opens the AD Recycle Bin window (modeless, one per application; an open one is activated).</summary>
-    Task ShowRecycleBinAsync();
+    /// <summary>
+    /// Opens the AD Recycle Bin window (modeless, one per application; an open one is activated). With
+    /// <paramref name="select"/> the deleted object with that objectGUID is selected once the list is loaded (the
+    /// Watchdog tab opens a deleted object this way).
+    /// </summary>
+    Task ShowRecycleBinAsync(Guid? select = null);
 
     Task ShowSettingsAsync();
 

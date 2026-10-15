@@ -56,7 +56,7 @@ public sealed class MainWindowTests
         Assert.True(shell.IsConnected);
         Assert.NotNull(shell.Tree.DomainNode);
         Assert.True(shell.Tree.DomainNode!.ChildrenLoaded);
-        var document = Assert.Single(shell.Documents);
+        var document = Assert.IsType<ObjectListViewModel>(Assert.Single(shell.Documents));
         Assert.NotEmpty(document.Items);
         Assert.NotNull(window.SelectedListView);
         Assert.Equal(Visibility.Collapsed, window.DetailsContent.Visibility);

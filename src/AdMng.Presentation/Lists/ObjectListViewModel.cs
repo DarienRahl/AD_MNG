@@ -15,6 +15,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.Shell;
 using AdMng.Presentation.Views;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,7 +28,7 @@ namespace AdMng.Presentation.Lists;
 /// results. Results stream in page by page (one dispatcher call per batch), a new load cancels the previous one,
 /// and edits refresh only the affected rows. Public members are UI-thread members.
 /// </summary>
-public sealed partial class ObjectListViewModel : ObservableObject, IDisposable
+public sealed partial class ObjectListViewModel : ObservableObject, IShellDocument
 {
     /// <summary>Rows of the first batch - small so the first objects appear almost immediately.</summary>
     internal const int FirstBatchSize = 50;
