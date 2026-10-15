@@ -307,6 +307,7 @@ public sealed class WatchdogEventsTests
             Assert.Equal(string.Empty, tab.Events.StatusText);
         });
     }
+
     [Fact]
     public async Task SupersededLoad_LeavesNoErrorOverTheReloadedFeed()
     {

@@ -294,6 +294,7 @@ public sealed class WatchdogStatusTests
             Assert.NotNull(log.Error);
         });
     }
+
     [Fact]
     public async Task DeliveryLog_SupersededLoad_ShowsNoError()
     {
