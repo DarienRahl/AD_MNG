@@ -39,7 +39,7 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.Null(saved.Configuration.Smtp.Password.NewValue);
         Assert.Null(saved.Configuration.Smtp.Password.Hint);
         var channel = Assert.Single(saved.Configuration.Channels);
-        Assert.Equal("https://siem.contoso.test/hooks/…", channel.Url.Hint);
+        Assert.Equal("https://siem.contoso.test/…", channel.Url.Hint);
         Assert.Equal("whsec_…Mw==", channel.Webhook!.SigningSecret.Hint);
         Assert.Equal(Password, (await _factory.Store.GetAsync(SecretNames.SmtpPassword, Ct))!.Value.Reveal());
         Assert.Equal(SecretBindings.ForSmtpPassword(saved.Configuration.Smtp), (await _factory.Store.ListAsync(Ct))[SecretNames.SmtpPassword]);

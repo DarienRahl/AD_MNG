@@ -4484,9 +4484,14 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 2. Validate with `ConfigValidationContext` (stored secret names + bindings from `ISecretStore.ListAsync`, environment,
    bootstrap flags) and, for `additionalWatchedAttributes`, the live session schema (8.3 `invalidAttribute`).
 3. `ConfigSecretsApplier` builds `SecretChange`s: `Clear` → remove; `NewValue` → set with the binding of the **new**
-   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host/first-segment/…`, webhook secrets →
-   `whsec_…` + last 4 chars, passwords → null); a removed channel removes its secrets; strip `NewValue`/`Clear`, set
-   `IsSet`.
+   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host[:port]/…` – `SecretHints`: never a path
+   segment, query or user info, because services such as webhook.site or ntfy.sh carry the credential in the first
+   segment; the host stays because the validator reads the declared host from the hint; webhook secrets →
+   `whsec_…` + last 4 chars, passwords → null); a kept secret keeps its stored hint in that safe form; a removed
+   channel removes its secrets; strip `NewValue`/`Clear`, set `IsSet`. `SqliteConfigStore` stores hints only in the
+   safe form and repairs a document written by an earlier version in place on its first read (same version, no audit
+   entry). Known limit: a service whose host itself is the credential (e.g. `*.m.pipedream.net`) still shows it in the
+   hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core).
 4. `IConfigStore.SaveAsync(config, expectedVersion, by, summary, secretChanges)` – config row, secrets and the
    `config_audit` entry in **one SQLite transaction** (412 on conflict leaves secrets untouched).
 5. `ConfigChangeAuditor` (Core) diffs old vs new → `WatchdogConfigurationChanged` (Health; severity per section 7,
