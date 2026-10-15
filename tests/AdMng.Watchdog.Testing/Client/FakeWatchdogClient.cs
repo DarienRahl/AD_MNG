@@ -39,6 +39,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     private readonly List<RulePreviewRequest> _rulePreviews = [];
     private readonly List<OutboxQuery> _outboxQueries = [];
     private TaskCompletionSource _newEvent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private (Func<EventQuery, bool> Match, TaskCompletionSource Release)? _eventHold;
     private WatchdogClientOptions? _options;
     private ConfigEnvelope _config;
     private long _nextId;
@@ -239,6 +240,32 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         hold?.TrySetResult();
     }
 
+    /// <summary>
+    /// Calls of <see cref="GetEventsAsync"/> whose query matches <paramref name="match"/> wait (after being recorded) until
+    /// <see cref="ReleaseEvents"/> – e.g. only the "load older" pages while the live long-poll keeps running.
+    /// </summary>
+    public void HoldEvents(Func<EventQuery, bool> match)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        lock (_gate)
+        {
+            _eventHold = (match, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        }
+    }
+
+    /// <summary>Lets the calls held by <see cref="HoldEvents"/> continue.</summary>
+    public void ReleaseEvents()
+    {
+        TaskCompletionSource? release;
+        lock (_gate)
+        {
+            release = _eventHold?.Release;
+            _eventHold = null;
+        }
+
+        release?.TrySetResult();
+    }
+
     /// <summary>Appends an event (id assigned) and wakes long-polls. Returns the stored event.</summary>
     public WatchEvent AddEvent(WatchEvent watchEvent)
     {
@@ -323,6 +350,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         }
 
         await EnterAsync(nameof(GetEventsAsync), cancellationToken).ConfigureAwait(false);
+        Task? held;
+        lock (_gate)
+        {
+            held = _eventHold is { } hold && hold.Match(query) ? hold.Release.Task : null;
+        }
+
+        if (held is not null)
+        {
+            await WaitHeldAsync(held, cancellationToken).ConfigureAwait(false);
+        }
+
         if (query.After is { } after && query.WaitSeconds > 0)
         {
             await WaitForNewerAsync(after, deadline, cancellationToken).ConfigureAwait(false);
@@ -748,14 +786,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         if (hold is not null)
         {
-            try
-            {
-                await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
-            {
-                throw Cancelled(ex);
-            }
+            await WaitHeldAsync(hold, cancellationToken).ConfigureAwait(false);
         }
 
         if (cancellationToken.IsCancellationRequested)
@@ -831,4 +862,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     /// </summary>
     private static WatchdogClientException Cancelled(Exception? inner) =>
         new(WatchdogClientErrorKind.Cancelled, "The request was cancelled.", inner);
+
+    /// <summary>Waits for a held call to be released; the caller's cancellation is reported like the real client does.</summary>
+    private static async Task WaitHeldAsync(Task hold, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            throw Cancelled(ex);
+        }
+    }
 }
