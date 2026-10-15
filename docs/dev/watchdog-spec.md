@@ -3474,8 +3474,11 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
   0x18 / 0x6 and 4776 with Status 0xC000006A / 0xC0000064 in the last `Window` (bounded like 11.4 #6: timeout, one query
   per DC, `MaxRecords` 20 000); group by IpAddress (4771) / Workstation (4776); a source with failures for ≥
   `DistinctAccounts` distinct TargetUserNames → `PasswordSprayingSuspected` (High, BurstInfo with up to 50 account
-  names as ObjectRefs resolved from the snapshot, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
-  source = window. Nothing is ingested or stored except the event.
+  names as ObjectRefs resolved live by sAMAccountName, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
+  source = window. Nothing is ingested or stored except the event. A name that resolves to no account (4776
+  0xC0000064, 4771 0x6) is **masked** to its first character and length (`L…(9)`, `ObjectRef.Name` only): such names
+  are often passwords typed into the user name field, so the raw TargetUserName never reaches the store, a digest
+  or a notification (the distinct-name count stays exact).
 - Mass deletion: see 10.9.
 
 ### 10.16 Change-notification wake-up (`ChangeNotificationWaker`)
