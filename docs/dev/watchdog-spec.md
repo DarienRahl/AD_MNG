@@ -4579,7 +4579,8 @@ builder.Services.AddWindowsService(o => o.ServiceName = "AdMngWatchdog")  // no-
 builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional, watched – 8.4), the file
     named by env ADMNG_WATCHDOG_CONFIG (optional, lab/dev, refused when running as a Windows service), env
     ADMNG_WATCHDOG__* (section "Watchdog")
-LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+), both wrapped
+LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+ plus the
+    Information entries 1000, 1006 and the access log 2600/2601 – `LoggingSetup.EventLogFilter`), both wrapped
     by RedactingLoggerProvider; no file logs; HostOptions.BackgroundServiceExceptionBehavior = Ignore (JobHost catches
     everything and logs via SafeExceptionLog); AddExceptionHandler<ApiExceptionHandler>()
 DataDirectory.Ensure(); DataProtectionSetup; AuthenticationSetup; KestrelSetup | HttpSysSetup
@@ -4695,6 +4696,11 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 | 1006 | Information | configuration changed (version, caller account) |
 | 1007 | Warning | runtime outdated / certificate expiring within 30 days |
 | 1010 | Error | fatal start-up check failed (exit code in the message) |
+| 2600 / 2601 | Information | single event viewed through `/api/v1/events/{id}` / `/events/{eventId}` (numeric id / event GUID, caller account) – the RODO access log of 17.1 |
+
+As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
+Warning and above plus the Information entries of this table (categories `StartupChecks`, `ConfigChangeNotifier`,
+`EventAccessLog`); other Information diagnostics (e.g. the per-request line 2700) stay console-only.
 
 Docs recommend forwarding these and the SCM events 7036/7040 for `AdMngWatchdog` to the SIEM, plus external
 monitoring of `/healthz` from `MonitoringSubnets` and, optionally, the webhook heartbeat (13.6).

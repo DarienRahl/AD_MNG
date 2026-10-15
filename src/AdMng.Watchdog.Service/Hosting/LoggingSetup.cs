@@ -50,12 +50,30 @@ public static class LoggingSetup
         "System.Net.Http.HttpClient",
     ];
 
+    /// <summary>
+    /// Categories whose Information entries belong in the Application log: 1000 service started (<see cref="StartupChecks"/>,
+    /// whose only Information entry it is), 1006 configuration changed (<see cref="Api.ConfigChangeNotifier"/>) and the
+    /// RODO access log of single events 2600/2601 (<see cref="Api.EventAccessLog"/>) – as a Windows service the Application
+    /// log is the only sink, so a Warning+ filter would silently drop them.
+    /// </summary>
+    public static IReadOnlyList<string> EventLogInformationCategories { get; } =
+    [
+        typeof(StartupChecks).FullName!,
+        typeof(Api.ConfigChangeNotifier).FullName!,
+        typeof(Api.EventAccessLog).FullName!,
+    ];
+
+    /// <summary>The Application-log filter: Warning and above, plus Information of <see cref="EventLogInformationCategories"/>.</summary>
+    public static bool EventLogFilter(string? category, LogLevel level) =>
+        level is >= LogLevel.Warning and < LogLevel.None
+        || (level == LogLevel.Information && category is not null && EventLogInformationCategories.Contains(category, StringComparer.Ordinal));
+
     [SupportedOSPlatform("windows")]
     private static void AddEventLog(ILoggingBuilder logging) =>
         logging.AddEventLog(settings =>
         {
             settings.SourceName = EventLogSource;
             settings.LogName = "Application";
-            settings.Filter = (_, level) => level >= LogLevel.Warning;
+            settings.Filter = EventLogFilter;
         });
 }

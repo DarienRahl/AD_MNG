@@ -616,7 +616,8 @@ migawki.
   Uzgodnij z IOD cele, okres retencji, krąg odbiorców i kanały (Teams i Power Automate przechowują kopie poza
   folderem – historia przepływu 30 dni). Wpisz przetwarzanie do rejestru czynności. Obowiązki z ustawy o KSC
   (NIS2) dotyczące monitorowania i dowodów incydentów mogą przemawiać za dłuższą retencją zdarzeń. Odczyt
-  pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia).
+  pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia) w dzienniku Application – zdarzenia 2600
+  (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu).
 - **Zero sekretów.** Wartości haseł, LAPS, BitLockera, TPM, gMSA, sekretów LSA (`currentValue`, `priorValue`) i
   atrybutów oznaczonych w schemacie jako poufne nie są odczytywane, zapisywane ani wysyłane.
 - **Serwer Watchdog to zasób Tier 0** (rozdział 3). Konto usługi ma tylko odczyt AD i dzienników; nie ma uprawnień
@@ -691,7 +692,8 @@ migawki.
 Zdarzenia dziennika Application (źródło „AdMng Watchdog”) do monitoringu (SCOM, Zabbix, SIEM): 1000 start usługi,
 1001 brak połączenia z DC / przełączenie na inny DC, 1002 nieudane wysyłki, 1003 problem z magazynem (miejsce, limit,
 uprawnienia folderu), 1004 braki uprawnień, 1005 problemy z atrybucją / luka w dzienniku DC, 1006 zmiana konfiguracji,
-1007 przestarzałe środowisko .NET / wygasający certyfikat, 1010 nieudana kontrola startowa.
+1007 przestarzałe środowisko .NET / wygasający certyfikat, 1010 nieudana kontrola startowa; do rozliczalności (RODO)
+2600/2601 odczyt pojedynczego zdarzenia (kto, numer zdarzenia).
 
 ---
 
