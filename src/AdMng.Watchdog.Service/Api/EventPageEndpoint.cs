@@ -28,18 +28,13 @@ public static class EventPageEndpoint
         HttpContext context,
         IEventStore events,
         IOutboxStore outbox,
+        IEventHtmlRenderer renderer,
         EventAccessLog access,
         IOptionsMonitor<ServiceOptions> options,
         CancellationToken cancellationToken)
     {
         SetSecurityHeaders(context.Response);
         access.Viewed(eventId, CallerIdentity.Account(context.User));
-        var renderer = context.RequestServices.GetService<IEventHtmlRenderer>();
-        if (renderer is null)
-        {
-            return Results.Text("The event page is not available.", "text/plain; charset=utf-8", statusCode: StatusCodes.Status503ServiceUnavailable);
-        }
-
         var watchEvent = await events.GetByEventIdAsync(eventId, cancellationToken).ConfigureAwait(false);
         var details = await EventEndpoints.LoadDetailsAsync(events, outbox, watchEvent, cancellationToken).ConfigureAwait(false);
         if (details is null)
@@ -47,7 +42,8 @@ public static class EventPageEndpoint
             return Results.Text("The event does not exist (it may have been purged).", "text/plain; charset=utf-8", statusCode: StatusCodes.Status404NotFound);
         }
 
-        var html = renderer.Render(ViewerEventFilter.Apply(details, CallerIdentity.DetailLevel(context.User, options.CurrentValue)));
+        var level = CallerIdentity.DetailLevel(context.User, options.CurrentValue);
+        var html = renderer.Render(ViewerEventFilter.Apply(details, level), level);
         return Results.Content(html, "text/html; charset=utf-8");
     }
 

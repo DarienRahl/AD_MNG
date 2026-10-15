@@ -1,4 +1,5 @@
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Core.Scans;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,8 +12,11 @@ namespace AdMng.Watchdog.Core.Registration;
 /// <summary>Registrations of Detection/ and Scans/ (owner W-detect): ChangeDetectionEngine, ScheduledScanJob and the
 /// classes they use. The stores, <see cref="IDirectorySessionProvider"/>, <see cref="IWatchdogConfigProvider"/>,
 /// <see cref="IHealthRegistry"/>, <see cref="IWatchdogSignals"/> and the optional <see cref="ISecurityEventSource"/>
-/// are resolved lazily (registered by the service and the other Core areas). Everything is TryAdd, so a host may
-/// register its own <see cref="DetectionHostOptions"/> or <see cref="IBusinessDayCalendar"/> first.</summary>
+/// are resolved lazily (registered by the service and the other Core areas). The detection classes are also the
+/// attribution area's extension points (<see cref="IDomainControllerCatalog"/>, <see cref="IWatchedAttributeCatalog"/>,
+/// <see cref="ISyncAccountCatalog"/>, <see cref="ILockoutPolicySource"/>); the business-day calendar of the scanners is
+/// the notification area's <c>BusinessCalendar</c>. Everything is TryAdd, so a host may register its own
+/// <see cref="DetectionHostOptions"/> or <see cref="IBusinessDayCalendar"/> first.</summary>
 internal static class DetectionRegistration
 {
     internal static void Add(IServiceCollection services)
@@ -28,6 +32,7 @@ internal static class DetectionRegistration
         services.TryAddSingleton<ChangeNotificationWaker>();
         services.TryAddSingleton<IBusinessDayCalendar, ConfiguredBusinessDayCalendar>();
         services.TryAddSingleton<InactiveAccountsReport>();
+        AddAttributionAdapters(services);
         services.TryAddSingleton(sp => new PermissionSelfCheck(
             sp.GetRequiredService<IHealthRegistry>(),
             sp.GetRequiredService<IEventStore>(),
@@ -35,10 +40,29 @@ internal static class DetectionRegistration
             sp.GetRequiredService<TimeProvider>(),
             Logger<PermissionSelfCheck>(sp)));
 
-        services.TryAddSingleton(CreateEngine);
-        services.AddSingleton<IWatchdogJob>(sp => sp.GetRequiredService<ChangeDetectionEngine>());
-        services.TryAddSingleton(CreateScanJob);
-        services.AddSingleton<IWatchdogJob>(sp => sp.GetRequiredService<ScheduledScanJob>());
+        // Each job once, also when AddWatchdogCore() is called again (the job host would run it twice).
+        if (!services.Any(d => d.ServiceType == typeof(ChangeDetectionEngine)))
+        {
+            services.AddSingleton(CreateEngine);
+            services.AddSingleton<IWatchdogJob>(sp => sp.GetRequiredService<ChangeDetectionEngine>());
+        }
+
+        if (!services.Any(d => d.ServiceType == typeof(ScheduledScanJob)))
+        {
+            services.AddSingleton(CreateScanJob);
+            services.AddSingleton<IWatchdogJob>(sp => sp.GetRequiredService<ScheduledScanJob>());
+        }
+    }
+
+    /// <summary>The detection classes as the attribution area's extension points (registered before
+    /// <c>RulesRegistration</c>, TryAdd so a test or host registration made earlier wins).</summary>
+    private static void AddAttributionAdapters(IServiceCollection services)
+    {
+        services.TryAddSingleton<SessionDomainControllerCatalog>();
+        services.TryAddSingleton<IDomainControllerCatalog, DomainControllerCatalog>();
+        services.TryAddSingleton<IWatchedAttributeCatalog, WatchedAttributeCatalog>();
+        services.TryAddSingleton<ISyncAccountCatalog>(sp => sp.GetRequiredService<SyncAccountDetector>());
+        services.TryAddSingleton<ILockoutPolicySource, LockoutObservationWindowSource>();
     }
 
     private static ChangeDetectionEngine CreateEngine(IServiceProvider services) => new(

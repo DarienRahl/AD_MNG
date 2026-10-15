@@ -22,6 +22,10 @@
     <PackageReference Include="Microsoft.Identity.Client" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The install/uninstall scripts ship next to AdMng.Watchdog.exe (spec 19.6, 19.7). -->
+    <None Include="Deploy\*.ps1" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Watchdog.Service.Tests" />
     <InternalsVisibleTo Include="AdMng.Watchdog.IntegrationTests" />
   </ItemGroup>

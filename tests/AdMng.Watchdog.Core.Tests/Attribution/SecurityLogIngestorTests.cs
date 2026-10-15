@@ -38,7 +38,7 @@ public class SecurityLogIngestorTests
     private static IngestionContext Context(AttributionSettings? settings = null, IReadOnlyCollection<WatchEventKind>? disabledKinds = null) => new()
     {
         Settings = settings ?? new AttributionSettings(),
-        Reduction = new SecurityEventReduction { WatchedAttributes = new ConfiguredWatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration())) },
+        Reduction = new SecurityEventReduction { WatchedAttributes = new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(new FakeConfigProvider(new WatchdogConfiguration())) },
         IsKnownDomainController = computer => HostNames.AreEqual(computer, Dc1) || HostNames.AreEqual(computer, Dc2),
         Domain = "contoso.test",
         DisabledKinds = disabledKinds ?? [],

@@ -1,40 +1,30 @@
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Notifications;
 
 namespace AdMng.Watchdog.Core.Scans;
 
 /// <summary>
-/// <see cref="IBusinessDayCalendar"/> from the configuration: a business day is one of <c>BusinessHours.Days</c> and
-/// not in <c>BusinessHours.ExtraHolidays</c>. Statutory holidays (<c>HolidayCalendar</c> "PL") are added by the
-/// notification area's calendar when it registers one.
+/// <see cref="IBusinessDayCalendar"/> of the current configuration: the notification area's <see cref="BusinessCalendar"/>
+/// (section 13.5) – a business day is one of <c>BusinessHours.Days</c>, not in <c>BusinessHours.ExtraHolidays</c> and,
+/// with <c>HolidayCalendar</c> "PL", not a Polish statutory holiday (<see cref="PolishHolidays"/>). The same calendar
+/// decides quiet hours and digest coverage, so the expiry scanners and the notifications never disagree about a day.
 /// </summary>
 public sealed class ConfiguredBusinessDayCalendar : IBusinessDayCalendar
 {
-    /// <summary>Upper bound of the backwards search (a configuration without any business day).</summary>
-    private const int MaxLookBackDays = 366;
-
     private readonly IWatchdogConfigProvider _configuration;
+    private readonly BusinessCalendarProvider _calendars;
 
-    public ConfiguredBusinessDayCalendar(IWatchdogConfigProvider configuration)
+    public ConfiguredBusinessDayCalendar(IWatchdogConfigProvider configuration, BusinessCalendarProvider calendars)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(calendars);
         _configuration = configuration;
+        _calendars = calendars;
     }
 
-    public bool IsBusinessDay(DateOnly date)
-    {
-        var hours = _configuration.Current.Configuration.BusinessHours;
-        return hours.Days.Contains(date.DayOfWeek) && !hours.ExtraHolidays.Contains(date);
-    }
+    public bool IsBusinessDay(DateOnly date) => Calendar().IsBusinessDay(date);
 
-    public DateOnly LastBusinessDayOnOrBefore(DateOnly date)
-    {
-        for (var day = date; day.DayNumber > date.DayNumber - MaxLookBackDays; day = day.AddDays(-1))
-        {
-            if (IsBusinessDay(day))
-            {
-                return day;
-            }
-        }
+    public DateOnly LastBusinessDayOnOrBefore(DateOnly date) => Calendar().LastBusinessDayOnOrBefore(date);
 
-        return date;
-    }
+    private BusinessCalendar Calendar() => _calendars.For(_configuration.Current.Configuration);
 }

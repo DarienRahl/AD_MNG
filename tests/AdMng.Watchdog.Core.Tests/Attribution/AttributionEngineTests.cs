@@ -140,6 +140,21 @@ public sealed class AttributionEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task FollowUpsOfOnePass_AreQueuedTogether()
+    {
+        // Two events of one alert attributed in the same pass: their follow-ups share a bucket and must reach the queue
+        // in one call, or the dispatch job (woken by the first) sends two follow-ups for one alert (live lab run).
+        AddRecord(4725, T, Admin);
+        _h.Events.Add(Disabled());
+        _h.Events.Add(Disabled());
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Equal(2, _h.Queue.Added.Count);
+        Assert.Equal(1, _h.Queue.AddCalls);
+    }
+
+    [Fact]
     public async Task WithoutAReader_PendingEventsEndSourceDisabled()
     {
         _h.Source.IsAvailable = false;

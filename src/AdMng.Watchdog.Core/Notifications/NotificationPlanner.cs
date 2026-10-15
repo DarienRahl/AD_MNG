@@ -1,7 +1,9 @@
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Rules;
 
 namespace AdMng.Watchdog.Core.Notifications;
 
@@ -13,15 +15,14 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// reports the event; (3) repeat suppression per object; (4) attribution hold for severity &lt; High, attribution-dependent
 /// kinds and provisional actor matches while the actor is pending; (5) aggregation bucket and due time.
 /// </summary>
-/// <remarks>The rules area's <c>IRuleMatchPlanner.PlanAsync(RuleEvaluationResult, configuration, now, ct)</c> maps 1:1
-/// onto <see cref="PlanAsync"/> (event, matches as <see cref="PlannedMatch"/>). <c>WatchdogConfigurationChanged</c> is
-/// planned with the previous configuration by passing it explicitly (17.2).</remarks>
-public sealed class NotificationPlanner
+/// <remarks>The rule evaluation job calls it as <see cref="IRuleMatchPlanner"/> (the <see cref="RuleMatch"/>es map 1:1 onto
+/// <see cref="PlannedMatch"/>). <c>WatchdogConfigurationChanged</c> is planned with the previous configuration by passing
+/// it explicitly (17.2).</remarks>
+public sealed class NotificationPlanner : IRuleMatchPlanner
 {
     /// <summary>Kinds whose severity is re-resolved once the attribution is final (12.2 step 3): always held while the
-    /// actor is pending.</summary>
-    public static IReadOnlySet<WatchEventKind> AttributionDependentKinds { get; } =
-        new HashSet<WatchEventKind> { WatchEventKind.PasswordChanged, WatchEventKind.AdminCountSet, WatchEventKind.KeyCredentialChanged };
+    /// actor is pending. The one source is <see cref="SeverityResolver.AttributionDependentKinds"/>.</summary>
+    public static IReadOnlySet<WatchEventKind> AttributionDependentKinds => SeverityResolver.AttributionDependentKinds;
 
     private readonly IOutboxStore _outbox;
     private readonly NotificationTargetResolver _targets;
@@ -116,6 +117,15 @@ public sealed class NotificationPlanner
         }
 
         return planned;
+    }
+
+    /// <inheritdoc/>
+    ValueTask<IReadOnlyList<PendingNotification>> IRuleMatchPlanner.PlanAsync(RuleEvaluationResult evaluation, WatchdogConfiguration configuration,
+        DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evaluation);
+        var matches = evaluation.Matches.Select(m => new PlannedMatch(m.Rule, m.NotificationSeverity, m.IsProvisional)).ToList();
+        return PlanAsync(evaluation.Event, matches, configuration, now, cancellationToken);
     }
 
     private async Task<bool> IsRepeatAsync(WatchEvent watchEvent, RuleSettings rule, DateTimeOffset now, CancellationToken cancellationToken) =>

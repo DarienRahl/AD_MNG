@@ -13,7 +13,8 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// Everything that must hold before the service serves a request or runs a job (spec 19.1) – runs in
 /// <see cref="IHostedLifecycleService.StartingAsync"/>, i.e. before any hosted service (Kestrel, job hosts) starts:
 /// bootstrap file guard (exit 6), data-folder ACL and key protection (exit 5), migrations (exit 3), listeners and the
-/// TLS certificate (exit 4), Development-authentication guard (exit 7), readable secrets, runtime version. A failure is
+/// TLS certificate (exit 4), Development-authentication guard (exit 7), readable secrets, the stored runtime
+/// configuration loaded into <see cref="IWatchdogConfigProvider"/> (exit 3 when unreadable), runtime version. A failure is
 /// logged as Application-log event 1010 and thrown as <see cref="StartupCheckException"/>.
 /// </summary>
 public sealed partial class StartupChecks : IHostedLifecycleService
@@ -57,6 +58,7 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             CheckListeners();
             CheckDevelopmentAuthentication();
             await CheckSecretsAsync(cancellationToken).ConfigureAwait(false);
+            await LoadConfigurationAsync(cancellationToken).ConfigureAwait(false);
             CheckRuntime(Environment.Version);
         }
         catch (StartupCheckException failure)
@@ -158,6 +160,22 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         {
             SafeExceptionLog.LogError(_logger, ex, "database migration", new EventId(EventLogIds.StorageProblem));
             throw new StartupCheckException(StartupExitCodes.Migration, "The database could not be opened or migrated.");
+        }
+    }
+
+    /// <summary>Loads the stored runtime configuration before any job runs (otherwise the jobs would start with the
+    /// defaults – SMTP off, no recipients – until the next save). An unreadable document stops the start: running with
+    /// the defaults would silently mute every notification.</summary>
+    private async Task LoadConfigurationAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _services.GetRequiredService<IWatchdogConfigProvider>().ReloadAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            SafeExceptionLog.LogError(_logger, ex, "configuration load", new EventId(EventLogIds.StorageProblem));
+            throw new StartupCheckException(StartupExitCodes.Migration, "The stored configuration could not be read.");
         }
     }
 

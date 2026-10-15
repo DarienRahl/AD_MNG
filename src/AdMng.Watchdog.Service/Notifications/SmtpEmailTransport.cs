@@ -25,7 +25,6 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
     private readonly DestinationGuard _guard;
     private readonly SmtpOAuthTokenProvider _tokens;
     private readonly ChannelRateLimiters _limiters;
-    private readonly ChannelHealthTracker _health;
     private readonly IHostEnvironment _environment;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SmtpEmailTransport> _logger;
@@ -35,7 +34,6 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         DestinationGuard guard,
         SmtpOAuthTokenProvider tokens,
         ChannelRateLimiters limiters,
-        ChannelHealthTracker health,
         IHostEnvironment environment,
         TimeProvider timeProvider,
         ILogger<SmtpEmailTransport> logger)
@@ -44,7 +42,6 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         _guard = guard;
         _tokens = tokens;
         _limiters = limiters;
-        _health = health;
         _environment = environment;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -343,7 +340,6 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
 
     private DeliveryResult Finish(OutboxMessage message, ClassifiedDelivery classified)
     {
-        _health.Record(DeliveryChannelType.Email, "email", classified.Result);
         if (classified.Result.Outcome == DeliveryOutcome.Delivered)
         {
             Log.Delivered(_logger, message.MessageId, message.Recipients.Count);

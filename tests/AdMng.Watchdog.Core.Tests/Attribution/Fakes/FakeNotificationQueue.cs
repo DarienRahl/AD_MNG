@@ -9,6 +9,9 @@ internal sealed class FakeNotificationQueue : INotificationQueueStore
     private readonly Lock _gate = new();
     private readonly List<PendingNotification> _added = [];
 
+    /// <summary>Number of <see cref="AddAsync"/> calls.</summary>
+    public int AddCalls { get; private set; }
+
     public IReadOnlyList<PendingNotification> Added
     {
         get
@@ -25,6 +28,7 @@ internal sealed class FakeNotificationQueue : INotificationQueueStore
         lock (_gate)
         {
             _added.AddRange(notifications);
+            AddCalls++;
         }
 
         return Task.CompletedTask;

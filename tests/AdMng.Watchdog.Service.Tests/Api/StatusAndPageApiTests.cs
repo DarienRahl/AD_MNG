@@ -64,25 +64,34 @@ public sealed class StatusAndPageApiTests
     }
 
     [Fact]
-    public async Task EventPage_WithoutARenderer_Is503_AndUnknownEvents_404()
+    public async Task EventPage_UsesTheCoreRenderer_AtTheCallersLevel_AndUnknownEvents_404()
     {
         await using var factory = new WatchdogFactory();
+        var change = new AttributeChange { Attribute = "mobile", OldValues = ["+48 601 234 567"], NewValues = ["+48 602 765 432"], OldCount = 1, NewCount = 1 };
+        var watchEvent = TestData.Event(WatchEventKind.AttributesChanged, changes: [change]);
+        await factory.Store.AppendAsync(watchEvent, Ct);
         using var viewer = factory.Viewer();
+        using var admin = factory.Admin();
 
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await viewer.GetAsync(WatchdogRoutes.EventPagePath(Guid.NewGuid()), Ct)).StatusCode);
+        using var missing = await viewer.GetAsync(WatchdogRoutes.EventPagePath(Guid.NewGuid()), Ct);
+        var viewerPage = await (await viewer.GetAsync(WatchdogRoutes.EventPagePath(watchEvent.EventId), Ct)).Content.ReadAsStringAsync(Ct);
+        var adminPage = await (await admin.GetAsync(WatchdogRoutes.EventPagePath(watchEvent.EventId), Ct)).Content.ReadAsStringAsync(Ct);
 
-        await using var withRenderer = new WatchdogFactory(services: s => s.AddSingleton<IEventHtmlRenderer>(new CapturingRenderer()));
-        using var client = withRenderer.Viewer();
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(WatchdogRoutes.EventPagePath(Guid.NewGuid()), Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Contains("Zofia Żak", viewerPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("+48 602 765 432", viewerPage, StringComparison.Ordinal);   // personal data: Standard hides it
+        Assert.Contains("+48 602 765 432", adminPage, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task DigestAndRulePreview_AreUnavailableWithoutTheirServices_AndUseThemOtherwise()
+    public async Task DigestAndRulePreview_UseTheCoreServices_OrRegisteredOnes()
     {
-        await using var bare = new WatchdogFactory();
-        using var bareAdmin = bare.Admin();
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await bareAdmin.GetAsync(WatchdogRoutes.DigestPreview, Ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await bareAdmin.PostAsync(WatchdogRoutes.DigestSend, null, Ct)).StatusCode);
+        await using var core = new WatchdogFactory();
+        using var coreAdmin = core.Admin();
+        var corePreview = await ApiJson.ReadAsync<DigestPreviewDto>(await coreAdmin.GetAsync(WatchdogRoutes.DigestPreview, Ct));
+        Assert.NotEmpty(corePreview.Subject);
+        Assert.Contains("<html", corePreview.Html, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Accepted, (await coreAdmin.PostAsync(WatchdogRoutes.DigestSend, null, Ct)).StatusCode);
 
         var digest = new FakeDigestService();
         await using var factory = new WatchdogFactory(services: s => s.AddSingleton<IDigestService>(digest));
@@ -94,6 +103,7 @@ public sealed class StatusAndPageApiTests
         using var forbidden = await viewer.PostAsync(WatchdogRoutes.DigestSend, null, Ct);
 
         Assert.Equal("Podsumowanie dnia", preview.Subject);
+        Assert.Equal(Contracts.Configuration.DetailLevel.Standard, digest.PreviewLevel);   // the viewer's level
         Assert.Equal(HttpStatusCode.Accepted, sent.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
         Assert.Equal(1, digest.Sent);
@@ -115,6 +125,14 @@ public sealed class StatusAndPageApiTests
         public int Sent { get; private set; }
 
         public DateTimeOffset? NextScheduledAt => TestStore.Start.AddHours(1);
+
+        public Contracts.Configuration.DetailLevel? PreviewLevel { get; private set; }
+
+        public Task<DigestPreviewDto> PreviewAsync(Contracts.Configuration.DetailLevel callerLevel, CancellationToken cancellationToken)
+        {
+            PreviewLevel = callerLevel;
+            return PreviewAsync(cancellationToken);
+        }
 
         public Task<DigestPreviewDto> PreviewAsync(CancellationToken cancellationToken) => Task.FromResult(new DigestPreviewDto
         {

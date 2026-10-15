@@ -1,8 +1,10 @@
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Core.Formatting;
 using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Core.Notifications.Digest;
 using AdMng.Watchdog.Core.Retention;
+using AdMng.Watchdog.Core.Rules;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -15,7 +17,10 @@ namespace AdMng.Watchdog.Core.Registration;
 /// wins (tests, the service, adapters of other areas). The jobs are registered once as themselves and once as
 /// <see cref="IWatchdogJob"/>; <see cref="DigestJob"/> is also the <see cref="IDigestService"/>. Stores, transports
 /// (<see cref="INotificationTransport"/>, one per channel type) and <see cref="IDirectorySessionProvider"/> come from
-/// the service. <see cref="IHeldNotificationMatcher"/> defaults to <see cref="AttributionDependentRecheck"/>.
+/// the service. The planners are the rules area's extension points: <see cref="NotificationPlanner"/> is the
+/// <see cref="IRuleMatchPlanner"/>, <see cref="FollowUpPlanner"/> the <see cref="IAttributionFollowUpPlanner"/>,
+/// <see cref="BusinessCalendarProvider"/> the <see cref="IBusinessHoursCalendar"/>; held notifications are re-matched by
+/// <see cref="RuleEngineHeldMatcher"/> (the rules area's <c>RuleMatcher</c>).
 /// </remarks>
 internal static class NotificationRegistration
 {
@@ -34,11 +39,16 @@ internal static class NotificationRegistration
     private static void AddPlanning(IServiceCollection services)
     {
         services.TryAddSingleton<BusinessCalendarProvider>();
+        services.TryAddSingleton<IBusinessHoursCalendar>(provider => provider.GetRequiredService<BusinessCalendarProvider>());
         services.TryAddSingleton<RolloutGate>();
         services.TryAddSingleton<NotificationTargetResolver>();
         services.TryAddSingleton<NotificationPlanner>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IRuleMatchPlanner, NotificationPlanner>(
+            provider => provider.GetRequiredService<NotificationPlanner>()));
         services.TryAddSingleton<FollowUpPlanner>();
-        services.TryAddSingleton<IHeldNotificationMatcher, AttributionDependentRecheck>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IAttributionFollowUpPlanner, FollowUpPlanner>(
+            provider => provider.GetRequiredService<FollowUpPlanner>()));
+        services.TryAddSingleton<IHeldNotificationMatcher, RuleEngineHeldMatcher>();
         services.TryAddSingleton<ThrottlePolicy>();
         AddJob<NotificationDispatchJob>(services);
     }

@@ -24,7 +24,10 @@ public sealed class WatchdogClientServer : IAsyncDisposable
 
     public Uri Address { get; }
 
-    public static WatchdogClientServer Start(string? account, params string[] sids)
+    public static WatchdogClientServer Start(string? account, params string[] sids) => Start(null, account, sids);
+
+    /// <summary>The server with extra service registrations (after the service's, so they win).</summary>
+    public static WatchdogClientServer Start(Action<IServiceCollection>? configure, string? account, params string[] sids)
     {
         var factory = new WatchdogFactory(
             new Dictionary<string, string?>
@@ -32,7 +35,11 @@ public sealed class WatchdogClientServer : IAsyncDisposable
                 ["Watchdog:Hosting:Urls"] = "https://127.0.0.1:0",
                 ["Watchdog:Hosting:Certificate:Thumbprint"] = TestCertificates.Localhost.Thumbprint,
             },
-            services => services.AddSingleton<ICertificateStore>(new SingleCertificateStore()))
+            services =>
+            {
+                services.AddSingleton<ICertificateStore>(new SingleCertificateStore());
+                configure?.Invoke(services);
+            })
         {
             DefaultAccount = account,
             DefaultSids = sids,

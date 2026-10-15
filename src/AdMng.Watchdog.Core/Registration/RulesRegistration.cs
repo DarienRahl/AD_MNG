@@ -11,12 +11,12 @@ namespace AdMng.Watchdog.Core.Registration;
 /// RuleEvaluationJob, the configuration provider/validator/defaults, rule preview and the classes they use.</summary>
 /// <remarks>
 /// Everything is a singleton and registered with <c>TryAdd</c>, so a registration made before
-/// <c>AddWatchdogCore()</c> wins – in particular the extension points whose real implementations belong to the
-/// detection and notification areas (<see cref="IDomainControllerCatalog"/>, <see cref="IWatchedAttributeCatalog"/>,
-/// <see cref="ISyncAccountCatalog"/>, <see cref="ILockoutPolicySource"/>) get conservative fallbacks here
-/// (<see cref="DetectionRegistration"/> runs first and can register adapters). <see cref="IRuleMatchPlanner"/>,
-/// <see cref="IAttributionFollowUpPlanner"/> and <see cref="IBusinessHoursCalendar"/> are optional and registered by
-/// the notification area. The two jobs are registered once as themselves and once as <see cref="IWatchdogJob"/>.
+/// <c>AddWatchdogCore()</c> wins. The extension points are implemented by the other areas:
+/// <see cref="IDomainControllerCatalog"/>, <see cref="IWatchedAttributeCatalog"/>, <see cref="ISyncAccountCatalog"/> and
+/// <see cref="ILockoutPolicySource"/> by detection (<see cref="DetectionRegistration"/>, which runs first);
+/// <see cref="IRuleMatchPlanner"/>, <see cref="IAttributionFollowUpPlanner"/> and <see cref="IBusinessHoursCalendar"/> by
+/// the notification area (<see cref="NotificationRegistration"/>). The two jobs are registered once as themselves and
+/// once as <see cref="IWatchdogJob"/>.
 /// </remarks>
 internal static class RulesRegistration
 {
@@ -49,11 +49,8 @@ internal static class RulesRegistration
 
     private static void AddAttribution(IServiceCollection services)
     {
-        // Extension points with fallbacks (see remarks).
-        services.TryAddSingleton<IDomainControllerCatalog, SessionDomainControllerCatalog>();
-        services.TryAddSingleton<IWatchedAttributeCatalog, ConfiguredWatchedAttributeCatalog>();
-        services.TryAddSingleton<ISyncAccountCatalog, NoSyncAccounts>();
-        services.TryAddSingleton<ILockoutPolicySource, DomainLockoutPolicySource>();
+        // IDomainControllerCatalog, IWatchedAttributeCatalog, ISyncAccountCatalog and ILockoutPolicySource are the
+        // detection classes (DetectionRegistration, see remarks).
         services.TryAddSingleton<IReverseDnsResolver, SystemReverseDnsResolver>();
 
         services.TryAddSingleton<SecurityEventParser>();

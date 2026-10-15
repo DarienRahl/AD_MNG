@@ -173,9 +173,9 @@ public sealed partial class RetentionJob : IWatchdogJob
     [LoggerMessage(Level = LogLevel.Information, Message = "Database backup written: {File}.")]
     private partial void LogBackup(string file);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "The database ({SizeMb} MB) exceeds Retention.MaxDatabaseMb ({LimitMb} MB); purging now.")]
+    [LoggerMessage(EventId = WatchdogEventIds.StorageProblem, Level = LogLevel.Warning, Message = "The database ({SizeMb} MB) exceeds Retention.MaxDatabaseMb ({LimitMb} MB); purging now.")]
     private partial void LogOverCap(string sizeMb, int limitMb);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Storage needs attention ({Code}).")]
+    [LoggerMessage(EventId = WatchdogEventIds.StorageProblem, Level = LogLevel.Error, Message = "Storage needs attention ({Code}).")]
     private partial void LogStorageProblem(string code);
 }

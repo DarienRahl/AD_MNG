@@ -15,7 +15,8 @@ namespace AdMng.Watchdog.Core.Detection;
 /// </summary>
 public sealed class SeverityResolver
 {
-    /// <summary>Kinds whose severity depends on the final attribution (held by the planner, 13.2).</summary>
+    /// <summary>Kinds whose severity depends on the final attribution (held by the planner, 13.2). The one source of this
+    /// set: the attribution engine and the notification planner refer to it.</summary>
     public static IReadOnlySet<WatchEventKind> AttributionDependentKinds { get; } = new HashSet<WatchEventKind>
     {
         WatchEventKind.PasswordChanged, WatchEventKind.AdminCountSet, WatchEventKind.KeyCredentialChanged,
@@ -85,6 +86,19 @@ public sealed class SeverityResolver
 
         var tags = watchEvent.Tags.Concat(addedTags ?? []).Distinct(StringComparer.Ordinal).ToList();
         return ResolveCore(watchEvent, tags, attribution, context ?? SeverityContext.Empty, null);
+    }
+
+    /// <summary>
+    /// Steps 3 and 4 alone, applied to a stored severity (the result of steps 1–2 at detection): the attribution engine's
+    /// re-resolution when an attribution becomes final (11.4 #8). Kinds without a step-3 rule keep
+    /// <paramref name="severity"/> apart from the explicit overrides of step 4.
+    /// </summary>
+    public static Severity ApplyAttribution(WatchEvent watchEvent, Severity severity, IReadOnlyList<string> tags, EventAttribution attribution)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        ArgumentNullException.ThrowIfNull(tags);
+        ArgumentNullException.ThrowIfNull(attribution);
+        return Overrides(watchEvent, AttributionDependent(watchEvent, severity, tags, attribution), tags);
     }
 
     /// <summary>Step 1 computed from the event data (catalog default, bit tables, patterns).</summary>

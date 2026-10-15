@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -22,21 +23,28 @@ namespace AdMng.Watchdog.Service.Tests.Infrastructure;
 /// terminator, a fake token client and a delivery HTTP client that trusts the test certificate, the remote address from
 /// <c>X-Test-Remote-Ip</c>, every log line captured in <see cref="Log"/> (through the production redaction wrapper).
 /// Settings go in as host configuration, i.e. as command-line arguments the composition root reads before it registers
-/// anything.
+/// anything. The service's own jobs (detection, attribution, rules, dispatch, outbox, …) are not hosted unless
+/// <see cref="RunServiceJobs"/> is set, so API tests see exactly the store state they arrange; jobs added through the
+/// <c>services</c> callback are hosted.
 /// </summary>
 public sealed class WatchdogFactory : WebApplicationFactory<Program>
 {
     private readonly Dictionary<string, string?> _settings;
     private readonly Action<IServiceCollection>? _services;
     private readonly string _environment;
+    private readonly bool _ownsDataDirectory;
 
     public WatchdogFactory(
         IDictionary<string, string?>? settings = null,
         Action<IServiceCollection>? services = null,
         IDirectorySession? directory = null,
-        string environment = "Development")
+        string environment = "Development",
+        TestDataDirectory? dataDirectory = null,
+        TestClock? clock = null)
     {
-        DataDirectory = new TestDataDirectory();
+        _ownsDataDirectory = dataDirectory is null;
+        DataDirectory = dataDirectory ?? new TestDataDirectory();
+        Clock = clock ?? new TestClock(TestStore.Start);
         Directory = directory;
         _environment = environment;
         _services = services;
@@ -62,7 +70,8 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
 
     public IDirectorySession? Directory { get; }
 
-    public TestClock Clock { get; } = new(TestStore.Start);
+    /// <summary>The service's clock (shared with a restarted host in end-to-end tests).</summary>
+    public TestClock Clock { get; }
 
     public FakeProcessTerminator Terminator { get; } = new();
 
@@ -76,6 +85,9 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     public string? DefaultAccount { get; init; }
 
     public IReadOnlyList<string> DefaultSids { get; init; } = [];
+
+    /// <summary>Host the service's registered jobs in the background (as in production).</summary>
+    public bool RunServiceJobs { get; init; }
 
     public SqliteWatchdogStore Store => Services.GetRequiredService<SqliteWatchdogStore>();
 
@@ -125,6 +137,11 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
                 services.AddSingleton<IDirectorySessionProvider>(new FakeDirectorySessionProvider(Directory));
             }
 
+            if (!RunServiceJobs)
+            {
+                services.RemoveAll<IWatchdogJob>();
+            }
+
             _services?.Invoke(services);
         });
     }
@@ -132,7 +149,7 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
-        if (disposing)
+        if (disposing && _ownsDataDirectory)
         {
             DataDirectory.Dispose();
         }
@@ -141,6 +158,9 @@ public sealed class WatchdogFactory : WebApplicationFactory<Program>
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        DataDirectory.Dispose();
+        if (_ownsDataDirectory)
+        {
+            DataDirectory.Dispose();
+        }
     }
 }

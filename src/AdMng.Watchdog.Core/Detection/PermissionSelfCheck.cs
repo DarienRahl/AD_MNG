@@ -17,7 +17,7 @@ namespace AdMng.Watchdog.Core.Detection;
 /// go to <see cref="IHealthRegistry"/>; a transition from Ok to Warning/Error appends one
 /// <see cref="WatchEventKind.HealthPermissionGap"/> (not repeated while the state stays bad).
 /// </summary>
-public sealed class PermissionSelfCheck
+public sealed partial class PermissionSelfCheck
 {
     public const string UsnChanged = "permission.uSNChanged";
     public const string AccountRestrictions = "permission.accountRestrictions";
@@ -257,6 +257,7 @@ public sealed class PermissionSelfCheck
             Source = DetectionSource.Health,
             Attribution = AdMng.Watchdog.Contracts.Events.Attribution.NotApplicable,
         };
+        LogPermissionGap(check.Code);
         try
         {
             await _events.AppendAsync(watchEvent, cancellationToken).ConfigureAwait(false);
@@ -267,6 +268,9 @@ public sealed class PermissionSelfCheck
             SafeExceptionLog.LogError(_logger, ex, "permission gap event append");
         }
     }
+
+    [LoggerMessage(EventId = WatchdogEventIds.PermissionGap, Level = LogLevel.Warning, Message = "Permission self-check: {Code} is not readable by the service account.")]
+    private partial void LogPermissionGap(string code);
 
     private static string DetailOf(string code) => code switch
     {

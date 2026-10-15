@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AdMng.Core.Schema;
+using AdMng.Watchdog.Core.Detection;
 
 namespace AdMng.Watchdog.Core.Rules.Validation;
 
@@ -52,7 +53,7 @@ internal static partial class AttributeNameValidator
         attribute is not null
         && Syntax().IsMatch(attribute)
         && !SecretAttributes.IsSecret(attribute)
-        && !NoiseAttributeNames.IsNoise(attribute);
+        && !NoiseAttributes.IsNoise(attribute);
 
     private static void Names(ValidationRun run, string listPath, IReadOnlyList<string> values)
     {
@@ -72,7 +73,7 @@ internal static partial class AttributeNameValidator
         {
             run.Error(path, ConfigValidationCodes.InvalidAttribute, "Secret attributes can never be watched or used in rules.");
         }
-        else if (NoiseAttributeNames.IsNoise(value))
+        else if (NoiseAttributes.IsNoise(value))
         {
             run.Error(path, ConfigValidationCodes.InvalidAttribute, "Noise attributes (logon times, replication data, back links) are never diffed.");
         }

@@ -1,6 +1,6 @@
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Hosting;
-using AdMng.Watchdog.Service.Hosting.Fallbacks;
+using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Service.Tests.Fakes;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
 
@@ -10,7 +10,7 @@ namespace AdMng.Watchdog.Service.Tests.Hosting;
 public sealed class JobHostTests : IDisposable
 {
     private readonly TestClock _clock = new(TestStore.Start);
-    private readonly FallbackWatchdogSignals _signals;
+    private readonly WatchdogSignals _signals;
     private readonly FakeProcessTerminator _terminator = new();
     private readonly TestLog _log = new();
     private readonly FatalErrorHandler _fatal;
@@ -18,7 +18,7 @@ public sealed class JobHostTests : IDisposable
 
     public JobHostTests()
     {
-        _signals = new FallbackWatchdogSignals(_clock);
+        _signals = new WatchdogSignals(_clock);
         _fatal = new FatalErrorHandler(_terminator, _clock, _log.For<FatalErrorHandler>());
     }
 

@@ -3,11 +3,13 @@ using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Tests.Fakes;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
 using AdMng.Watchdog.Testing.Certificates;
 using AdMng.Watchdog.Testing.Http;
 using AdMng.Watchdog.Testing.Net;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AdMng.Watchdog.Service.Tests.Client;
@@ -60,15 +62,17 @@ public sealed class WatchdogHttpClientTests
     [Fact]
     public async Task ServerErrors_AreClassified()
     {
-        await using var server = WatchdogClientServer.Start(TestRoles.AdminAccount, TestRoles.AdminGroup);
+        // The directory is down while the digest preview runs: 503 ApiProblem.Unavailable (spec 5.3).
+        await using var server = WatchdogClientServer.Start(
+            services => services.AddSingleton<IDigestService>(new DirectoryDownDigest()), TestRoles.AdminAccount, TestRoles.AdminGroup);
         using var client = server.Client();
-        await client.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration() }, Ct);
+        await client.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() }, Ct);
         var channel = new ChannelSettings { Id = "siem", Type = ChannelType.Webhook, Name = "SIEM" };
 
         var conflict = await Assert.ThrowsAsync<WatchdogClientException>(() =>
-            client.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration() }, Ct));
+            client.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() }, Ct));
         var invalid = await Assert.ThrowsAsync<WatchdogClientException>(() =>
-            client.SaveConfigAsync(new ConfigEnvelope { Version = 1, Configuration = new WatchdogConfiguration { Channels = [channel, channel] } }, Ct));
+            client.SaveConfigAsync(new ConfigEnvelope { Version = 1, Configuration = TestData.Configuration() with { Channels = [channel, channel] } }, Ct));
         var missing = await Assert.ThrowsAsync<WatchdogClientException>(() => client.GetEventAsync(424242, Ct));
         var unavailable = await Assert.ThrowsAsync<WatchdogClientException>(() => client.PreviewDigestAsync(Ct));
         var noChannel = await Assert.ThrowsAsync<WatchdogClientException>(() => client.SendTestChannelAsync("brak", new TestChannelRequest(), Ct));
@@ -93,7 +97,7 @@ public sealed class WatchdogHttpClientTests
 
         var unauthorized = await Assert.ThrowsAsync<WatchdogClientException>(() => anonymousClient.GetMeAsync(Ct));
         var forbidden = await Assert.ThrowsAsync<WatchdogClientException>(() =>
-            viewerClient.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = new WatchdogConfiguration() }, Ct));
+            viewerClient.SaveConfigAsync(new ConfigEnvelope { Version = 0, Configuration = TestData.Configuration() }, Ct));
 
         Assert.Equal(WatchdogClientErrorKind.Unauthorized, unauthorized.Kind);
         Assert.Equal(WatchdogClientErrorKind.Forbidden, forbidden.Kind);
@@ -279,5 +283,15 @@ public sealed class WatchdogHttpClientTests
             BaseAddress = new Uri("https://admng-wd.contoso.com:8443/"),
             PinnedCertificateSha256 = "ABCD",
         }));
+    }
+
+    private sealed class DirectoryDownDigest : IDigestService
+    {
+        public DateTimeOffset? NextScheduledAt => null;
+
+        public Task<DigestPreviewDto> PreviewAsync(CancellationToken cancellationToken) =>
+            throw new AdMng.Core.Directory.DirectoryException(AdMng.Core.Directory.DirectoryErrorKind.ServerUnavailable, "dc01.contoso.test is not reachable");
+
+        public Task SendNowAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

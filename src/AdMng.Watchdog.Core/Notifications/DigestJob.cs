@@ -122,16 +122,20 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
     }
 
     /// <inheritdoc/>
-    public async Task<DigestPreviewDto> PreviewAsync(CancellationToken cancellationToken)
+    public Task<DigestPreviewDto> PreviewAsync(CancellationToken cancellationToken) => PreviewAsync(DetailLevel.Full, cancellationToken);
+
+    /// <inheritdoc/>
+    public async Task<DigestPreviewDto> PreviewAsync(DetailLevel callerLevel, CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
         var configuration = _configProvider.Current.Configuration;
         var last = await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false);
         var (start, covers) = DigestBuilder.ResolvePeriodStart(configuration, _calendars.For(configuration), last, now);
         var model = await _builder.BuildAsync(configuration, start, now, covers, cancellationToken).ConfigureAwait(false);
-        var level = (configuration.Digest?.RecipientGroupIds ?? [])
+        var recipientLevel = (configuration.Digest?.RecipientGroupIds ?? [])
             .Select(id => NotificationTargetResolver.EmailTarget(configuration, id))
             .FirstOrDefault(t => t is not null)?.DetailLevel ?? DetailLevel.Full;
+        var level = callerLevel < recipientLevel ? callerLevel : recipientLevel;
         var email = EmailDigestFormatter.Format(model, NotificationContext.Create(configuration, level));
         return new DigestPreviewDto
         {

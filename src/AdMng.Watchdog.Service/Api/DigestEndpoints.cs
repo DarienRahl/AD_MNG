@@ -1,11 +1,14 @@
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Auth;
+using AdMng.Watchdog.Service.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace AdMng.Watchdog.Service.Api;
 
 /// <summary><c>GET /api/v1/digest/preview</c> (Viewer) and <c>POST /api/v1/digest/send</c> (Admin, 202) over
-/// <see cref="IDigestService"/> (503 when this build has none).</summary>
+/// <see cref="IDigestService"/>. The preview is rendered at the caller's detail level (Admin: Full, Viewer:
+/// <c>Authorization.ViewerDetailLevel</c>).</summary>
 public static class DigestEndpoints
 {
     public static void Map(IEndpointRouteBuilder api)
@@ -15,22 +18,12 @@ public static class DigestEndpoints
         api.MapPost(WatchdogRoutes.DigestSend, SendAsync).RequireAuthorization(WatchdogPolicies.Admin).AddEndpointFilter<ClientHeaderFilter>();
     }
 
-    private static async Task<IResult> PreviewAsync(HttpContext context, CancellationToken cancellationToken)
-    {
-        var digest = context.RequestServices.GetService<IDigestService>();
-        return digest is null
-            ? ApiResults.Unavailable("The digest is not available.")
-            : ApiResults.Json(await digest.PreviewAsync(cancellationToken).ConfigureAwait(false));
-    }
+    private static async Task<IResult> PreviewAsync(HttpContext context, IDigestService digest, IOptionsMonitor<ServiceOptions> options,
+        CancellationToken cancellationToken) =>
+        ApiResults.Json(await digest.PreviewAsync(CallerIdentity.DetailLevel(context.User, options.CurrentValue), cancellationToken).ConfigureAwait(false));
 
-    private static async Task<IResult> SendAsync(HttpContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> SendAsync(IDigestService digest, CancellationToken cancellationToken)
     {
-        var digest = context.RequestServices.GetService<IDigestService>();
-        if (digest is null)
-        {
-            return ApiResults.Unavailable("The digest is not available.");
-        }
-
         await digest.SendNowAsync(cancellationToken).ConfigureAwait(false);
         return Results.Accepted();
     }

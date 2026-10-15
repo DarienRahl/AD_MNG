@@ -20,7 +20,6 @@ public sealed class WebhookTransport(
     DestinationGuard guard,
     HttpChannelSender sender,
     ChannelRateLimiters limiters,
-    ChannelHealthTracker health,
     IHostEnvironment environment,
     TimeProvider timeProvider) : INotificationTransport
 {
@@ -52,7 +51,6 @@ public sealed class WebhookTransport(
                 .ConfigureAwait(false);
         }
 
-        health.Record(DeliveryChannelType.Webhook, message.ChannelId, result.Result);
         return result.Result;
     }
 

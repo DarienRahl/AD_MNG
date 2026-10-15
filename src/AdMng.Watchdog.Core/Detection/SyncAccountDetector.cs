@@ -9,9 +9,10 @@ namespace AdMng.Watchdog.Core.Detection;
 /// Recognizes Entra Connect / sync accounts (section 10.6.4): sAMAccountName <c>MSOL_*</c> or <c>Sync_*</c>, or a
 /// description containing "Azure Active Directory Connect", "Microsoft Entra Connect" or "Azure AD Connect". Run at
 /// baseline, reconciliation and the first cycle after start; their SIDs are kept in memory (tag syncAccount on
-/// attribution) and offered as <c>tier0-security</c> exclusion suggestions – never applied automatically.
+/// attribution – this class is the attribution side's <see cref="Attribution.ISyncAccountCatalog"/>) and offered as
+/// <c>tier0-security</c> exclusion suggestions – never applied automatically.
 /// </summary>
-public sealed class SyncAccountDetector
+public sealed class SyncAccountDetector : Attribution.ISyncAccountCatalog
 {
     /// <summary>The built-in rule the suggestions target.</summary>
     public const string SuggestedRuleId = "tier0-security";

@@ -87,6 +87,7 @@ public sealed partial class AttributionEngine(
             foreach (var degraded in degradedMonitor.Check(hosts.Concat(sources.Select(s => s.Host)), domain))
             {
                 await events.AppendAsync(degraded, cancellationToken).ConfigureAwait(false);
+                LogDegraded(degraded.Object.Name ?? "-");
                 appended++;
             }
 
@@ -166,15 +167,18 @@ public sealed partial class AttributionEngine(
             processed[processed.IndexOf(ambiguous)] = resolved;
         }
 
+        var followUps = new List<PendingNotification>();
         foreach (var result in processed)
         {
             await events.UpdateAttributionAsync(result.Event.Id, result.Update, cancellationToken).ConfigureAwait(false);
             if (result.IsFinal)
             {
                 actorConditions.Record(result.Event.Kind, result.Update.Attribution.Reason);
-                await PlanFollowUpsAsync(result.Updated, cancellationToken).ConfigureAwait(false);
+                followUps.AddRange(await PlanFollowUpsAsync(result.Updated, cancellationToken).ConfigureAwait(false));
             }
         }
+
+        await QueueFollowUpsAsync(followUps, cancellationToken).ConfigureAwait(false);
 
         LogCorrelated(processed.Count, processed.Count(p => p.IsFinal));
         return (processed.Count, pending.Count >= CorrelationBatchSize);
@@ -185,13 +189,16 @@ public sealed partial class AttributionEngine(
         var now = timeProvider.GetUtcNow();
         var pending = await events.GetPendingAttributionAsync(now, CorrelationBatchSize, cancellationToken).ConfigureAwait(false);
         var updated = 0;
+        var followUps = new List<PendingNotification>();
         foreach (var watchEvent in pending.Where(e => now - e.DetectedAt >= DisabledGrace))
         {
             var update = PendingAttributionProcessor.Disabled(watchEvent, now);
             await events.UpdateAttributionAsync(watchEvent.Id, update, cancellationToken).ConfigureAwait(false);
-            await PlanFollowUpsAsync(new ProcessedAttribution(watchEvent, update).Updated, cancellationToken).ConfigureAwait(false);
+            followUps.AddRange(await PlanFollowUpsAsync(new ProcessedAttribution(watchEvent, update).Updated, cancellationToken).ConfigureAwait(false));
             updated++;
         }
+
+        await QueueFollowUpsAsync(followUps, cancellationToken).ConfigureAwait(false);
 
         health.Report(new HealthCheckDto
         {
@@ -207,19 +214,21 @@ public sealed partial class AttributionEngine(
         }
     }
 
-    private async Task PlanFollowUpsAsync(WatchEvent attributed, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<PendingNotification>> PlanFollowUpsAsync(WatchEvent attributed, CancellationToken cancellationToken)
     {
-        if (_followUpPlanners.Count == 0)
-        {
-            return;
-        }
-
         var rows = new List<PendingNotification>();
         foreach (var planner in _followUpPlanners)
         {
             rows.AddRange(await planner.PlanAsync(attributed, cancellationToken).ConfigureAwait(false));
         }
 
+        return rows;
+    }
+
+    /// <summary>Adds the follow-ups of one pass in one call, so the follow-ups of events that shared an alert (same
+    /// message, same bucket) are released together as one follow-up message instead of racing the dispatch job.</summary>
+    private async Task QueueFollowUpsAsync(IReadOnlyList<PendingNotification> rows, CancellationToken cancellationToken)
+    {
         if (rows.Count > 0)
         {
             await notificationQueue.AddAsync(rows, cancellationToken).ConfigureAwait(false);
@@ -229,6 +238,9 @@ public sealed partial class AttributionEngine(
 
     private string? Domain() =>
         DistinguishedName.TryParse(tokens.Current.DomainDn, out var dn) && !dn.IsRoot ? dn.DnsDomain : null;
+
+    [LoggerMessage(EventId = WatchdogEventIds.AttributionDegraded, Level = LogLevel.Warning, Message = "Attribution from the Security log of {Host} is degraded.")]
+    private partial void LogDegraded(string host);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Attribution: {Processed} pending events processed, {Final} final.")]
     private partial void LogCorrelated(int processed, int final);

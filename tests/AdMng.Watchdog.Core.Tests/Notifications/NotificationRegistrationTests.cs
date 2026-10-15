@@ -23,7 +23,9 @@ public sealed class NotificationRegistrationTests
 
         var jobs = provider.GetServices<IWatchdogJob>().ToList();
 
-        Assert.Equal(["digest", "dispatch", "heartbeat", "outbox", "retention"], jobs.Select(j => j.Name).Order());
+        // Every job of AddWatchdogCore once (the notification jobs and the other areas' detection, scans, rules and
+        // attribution), although it was called twice.
+        Assert.Equal(["attribution", "detection", "digest", "dispatch", "heartbeat", "outbox", "retention", "rules", "scans"], jobs.Select(j => j.Name).Order());
         Assert.Same(provider.GetRequiredService<DigestJob>(), provider.GetRequiredService<IDigestService>());
         Assert.Same(provider.GetRequiredService<NotificationDispatchJob>(), jobs.OfType<NotificationDispatchJob>().Single());
         Assert.IsType<RetentionJob>(jobs.Single(j => j.Name == "retention"));
@@ -37,7 +39,7 @@ public sealed class NotificationRegistrationTests
         Assert.IsType<WatchdogSignals>(provider.GetRequiredService<IWatchdogSignals>());
         Assert.IsType<HealthRegistry>(provider.GetRequiredService<IHealthRegistry>());
         Assert.IsType<AdMng.Watchdog.Core.Formatting.EventHtmlRenderer>(provider.GetRequiredService<IEventHtmlRenderer>());
-        Assert.IsType<AttributionDependentRecheck>(provider.GetRequiredService<IHeldNotificationMatcher>());
+        Assert.IsType<RuleEngineHeldMatcher>(provider.GetRequiredService<IHeldNotificationMatcher>());
         Assert.IsType<LiveDirectoryReports>(provider.GetRequiredService<IDigestDirectoryReports>());
         Assert.NotNull(provider.GetRequiredService<NotificationPlanner>());
         Assert.NotNull(provider.GetRequiredService<FollowUpPlanner>());
@@ -71,6 +73,10 @@ public sealed class NotificationRegistrationTests
         services.AddSingleton<IDigestRunStore>(store);
         services.AddSingleton<IExpiryNoticeStore>(store);
         services.AddSingleton<IStoreMaintenance>(store);
+        services.AddSingleton<ISecurityEventStore>(store);
+        services.AddSingleton<IConfigStore>(store);
+        services.AddSingleton<ISecretStore>(store);
+        services.AddSingleton<ISecurityEventSource>(new AdMng.Watchdog.Testing.Attribution.FakeSecurityEventSource());
         services.AddSingleton<IWatchdogConfigProvider>(new FakeConfigProvider(NotificationHarness.ConfigWith()));
         services.AddSingleton<IDirectorySessionProvider>(new FakeSessionProvider(null));
         services.AddSingleton<INotificationTransport>(new FakeTransport(DeliveryChannelType.Email));

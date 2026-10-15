@@ -18,12 +18,11 @@ public sealed class DeliveryFixture : IAsyncDisposable
         Environment = new FakeHostEnvironment(environment);
         Guard = new DestinationGuard(store.Store, Options);
         Limiters = new ChannelRateLimiters(store.Clock);
-        HealthTracker = new ChannelHealthTracker(Health, store.Clock, Log.For<ChannelHealthTracker>());
         var sender = new HttpChannelSender(HttpClients, store.Clock, Log.For<HttpChannelSender>());
-        Smtp = new SmtpEmailTransport(Config, Guard, new SmtpOAuthTokenProvider(Tokens, Guard), Limiters, HealthTracker, Environment, store.Clock,
+        Smtp = new SmtpEmailTransport(Config, Guard, new SmtpOAuthTokenProvider(Tokens, Guard), Limiters, Environment, store.Clock,
             Log.For<SmtpEmailTransport>());
-        Teams = new TeamsWorkflowTransport(Config, Guard, new TeamsTokenProvider(Tokens, Guard), sender, Limiters, HealthTracker, Environment);
-        Webhook = new WebhookTransport(Config, Guard, sender, Limiters, HealthTracker, Environment, store.Clock);
+        Teams = new TeamsWorkflowTransport(Config, Guard, new TeamsTokenProvider(Tokens, Guard), sender, Limiters, Environment);
+        Webhook = new WebhookTransport(Config, Guard, sender, Limiters, Environment, store.Clock);
         Tester = new DeliveryTester(Config, Smtp, Teams, Webhook, store.Clock);
     }
 
@@ -48,8 +47,6 @@ public sealed class DeliveryFixture : IAsyncDisposable
     public DestinationGuard Guard { get; }
 
     public ChannelRateLimiters Limiters { get; }
-
-    public ChannelHealthTracker HealthTracker { get; }
 
     public SmtpEmailTransport Smtp { get; }
 

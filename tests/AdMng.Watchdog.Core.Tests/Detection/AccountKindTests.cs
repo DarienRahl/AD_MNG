@@ -62,7 +62,9 @@ public class AccountKindTests
         var second = Assert.Single(await scenario.CycleEventsAsync());
 
         Assert.Equal(WatchEventKind.AccountLockedOut, first.Kind);
-        Assert.Equal(AttributionStatus.NotApplicable, first.Attribution.Status);
+        // Stored Pending: the attribution engine looks up the bad-password sources (4740 caller, 4771/4776/4625) and
+        // then marks the lockout NotApplicable (11.4 #6b) – a lockout stored NotApplicable would never get sources.
+        Assert.Equal(AttributionStatus.Pending, first.Attribution.Status);
         var lockout = Assert.IsType<LockoutInfo>(first.Lockout);
         Assert.Equal(DetectionScenario.Start, lockout.LockedAt);
         Assert.Equal(DetectionScenario.Start.AddMinutes(30), lockout.LockedUntil);
