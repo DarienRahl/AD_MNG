@@ -4,12 +4,13 @@ using AdMng.Core.Directory;
 namespace AdMng.Watchdog.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Connection data of the Samba lab (tools/testlab/README.md). Tests are skipped unless ADMNG_TEST_LDAP_SERVER is set.
-/// The watchdog reads with the read-only account (ADMNG_TEST_LDAP_READONLY_*), changes are made as Administrator.
+/// Connection data of the Samba lab (tools/testlab/README.md, tools/testlab/watchdog/README.md). Tests are skipped
+/// unless ADMNG_TEST_LDAP_SERVER is set. The watchdog reads with the read-only account (ADMNG_TEST_LDAP_READONLY_*),
+/// changes are made as Administrator. ADMNG_TEST_SMTP_* / ADMNG_TEST_MAILPIT_API point the end-to-end test at Mailpit.
 /// </summary>
 internal static class WatchdogLab
 {
-    public const string SkipReason = "ADMNG_TEST_LDAP_SERVER is not set - see tools/testlab/README.md.";
+    public const string SkipReason = "ADMNG_TEST_LDAP_SERVER is not set - see tools/testlab/watchdog/README.md.";
 
     public static string? Server => Environment.GetEnvironmentVariable("ADMNG_TEST_LDAP_SERVER") is { Length: > 0 } s ? s : null;
 
@@ -25,6 +26,22 @@ internal static class WatchdogLab
 
     public static string DomainDns => Env("ADMNG_TEST_LDAP_DOMAIN", "contoso.test");
 
+    public static string DomainDn => "DC=" + DomainDns.Replace(".", ",DC=", StringComparison.Ordinal);
+
+    /// <summary>NetBIOS name of the lab domain (the first label of the DNS name, upper case).</summary>
+    public static string NetBiosName => DomainDns.Split('.')[0].ToUpperInvariant();
+
+    /// <summary>SMTP sink of the end-to-end test (Mailpit); null = an in-process sink.</summary>
+    public static string? SmtpHost => Environment.GetEnvironmentVariable("ADMNG_TEST_SMTP_HOST") is { Length: > 0 } h ? h : null;
+
+    public static int SmtpPort => int.TryParse(Environment.GetEnvironmentVariable("ADMNG_TEST_SMTP_PORT"), out var port) ? port : 1025;
+
+    /// <summary>Mailpit REST API (GET /api/v1/messages) when <see cref="SmtpHost"/> is Mailpit.</summary>
+    public static Uri? MailpitApi => Environment.GetEnvironmentVariable("ADMNG_TEST_MAILPIT_API") is { Length: > 0 } a ? new Uri(a) : null;
+
+    /// <summary>The optional real-Kerberos tests (tools/testlab/watchdog/krb5-lab.sh).</summary>
+    public static bool KerberosEnabled => Environment.GetEnvironmentVariable("ADMNG_TEST_KERBEROS") == "1";
+
     /// <summary>Skips the calling test when no lab is configured.</summary>
     public static void RequireLab() => Assert.SkipUnless(IsConfigured, SkipReason);
 
@@ -39,6 +56,14 @@ internal static class WatchdogLab
         UserName = userName,
         RequestTimeout = TimeSpan.FromSeconds(60),
         ConnectTimeout = TimeSpan.FromSeconds(5),
+    };
+
+    /// <summary>Simple bind over LDAPS with the lab's self-signed certificate (password operations).</summary>
+    public static ConnectionOptions Tls(string userName) => Plain(userName) with
+    {
+        Security = TransportSecurity.Tls,
+        AllowInsecureSimpleBind = false,
+        AllowUntrustedCertificate = true,
     };
 
     public static NetworkCredential Password(string password) => new(string.Empty, password);
