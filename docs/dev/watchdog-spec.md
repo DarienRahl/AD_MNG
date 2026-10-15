@@ -3575,7 +3575,7 @@ Candidates per watch-event kind (strong key in brackets):
 | AccountDisabled / AccountEnabled | 4725 / 4722 [TargetSid]; 4738/4742 with the UAC bit; 5136 userAccountControl |
 | AccountLockedOut | 4740 [TargetSid] (preferably from the PDC) – evidence only: the actor is NotApplicable (the 4740 subject is the DC); the **source of the bad passwords** comes from `LockoutSourceResolver` (11.4 #6b) |
 | AccountUnlocked | 4767 [TargetSid] (the subject is the person who unlocked) |
-| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
+| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange when the subject is the account itself or ANONYMOUS LOGON S-1-5-7 – an expired password changed at logon; a 4723 by another account gets no selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
 | PasswordMustChangeSet, AccountExpirationChanged, AccountNameChanged(UPN), AttributesChanged (SAM fields) | 4738 / 4742 with the field ≠ '-' [TargetSid]; 5136 [ObjectGUID + AttributeLDAPDisplayName] |
 | AccountNameChanged (sAMAccountName) | 4781 [TargetSid] |
 | AccountFlagsChanged, DelegationChanged (UAC) | 4738/4742 Old/NewUacValue [TargetSid]; 5136 |
@@ -3643,10 +3643,11 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    retry; after the last retry → Unknown with a reason (11.7).
 5. **Actor**: SubjectUserSid → snapshot `FindBySidAsync` → display name/DN; fallback `SubjectDomainName\SubjectUserName`.
    S-1-5-18 or `<DC>$` → Resolved, Reason SYSTEM (shown "System (DC01)"). Subject SID = object SID (a computer
-   updating itself, a user changing their own password via 4723) → tag `selfChange`, Reason SELF_CHANGE for
-   computers; with `SuppressComputerSelfChanges` the event is kept but rules default to `ExcludeSelfChanges` for
-   computer-noise kinds. 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account (10.6.4)
-   → tag `syncAccount`.
+   updating itself, a user changing their own password via 4723; for a 4723 also ANONYMOUS LOGON) → tag `selfChange`,
+   Reason SELF_CHANGE for computers; with `SuppressComputerSelfChanges` the event is kept but every rule behaves as if
+   `ExcludeSelfChanges` were set for changes of a computer that touch only computer-noise attributes (9.3; SPN values
+   naming the computer itself). 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account
+   (10.6.4) → tag `syncAccount`.
 6. **Source** (`LogonSourceResolver`), when `LookupLogonSource` and SubjectLogonId ≠ 0x3e7: query on the evidence DC
    for 4624 with `TargetLogonId = <id>`, **From = max(evidence time − LogonLookback, the log's oldest record time)**,
    To = evidence time, NewestFirst, MaxRecords 1; **at most one such query per DC at a time**, per-query timeout
@@ -3742,7 +3743,13 @@ A rule matches an event when **all** hold:
    Explicit = DN in `GroupDns`. For other kinds the filter is ignored.
 7. `MinSeverity` ≤ event severity (after SeverityResolver).
 8. Actors: when attribution is Resolved and the actor's **SID** equals an `ExcludeActors` entry (SIDs only) → no
-   match; `ExcludeSelfChanges` and tag `selfChange` → no match. While attribution is Pending and the rule has actor
+   match; an entry with a `{domainSid}`/`{rootDomainSid}` token whose value is unknown matches nothing (the
+   any-domain relative-id fallback of 8.1 applies to privileged roots only – an exclusion fails closed).
+   `ExcludeSelfChanges` and tag `selfChange` → no match – but never for a Tier-0 kind (12.6) written by the object
+   itself (a relayed computer writing RBCD, SID history, SPNs or a primary group on itself is the attack): of the Tier-0
+   kinds only KeyCredentialChanged of a computer (key rotation) and ServicePrincipalNameAdded of a service account (SPN
+   self-registration) may be hidden, and not for a domain controller or a privileged object; such a non-excludable
+   self-change does not make the match provisional either. While attribution is Pending and the rule has actor
    conditions, the match is **provisional**: the planner holds the notification until attribution is final or the
    grace period ends (also for High/Critical), then re-checks. After the grace period an unresolved actor excludes
    nothing (the notification is sent). Workstation names / IPs are never matching inputs.
@@ -3794,7 +3801,7 @@ Suggestions (`ExclusionSuggestionDto`: detected sync accounts for `tier0-securit
 | Id | Name (pl) | Kinds | Other conditions | Delivery |
 |---|---|---|---|---|
 | `tier0-privilege` | Dostęp uprzywilejowany | PrivilegeGranted, PrivilegeRevoked | – | immediate → it-admins, Always; digest |
-| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true | immediate → it-admins, Always; digest |
+| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true (hides only computer key rotation and service-account SPN self-registration, 12.1 #8) | immediate → it-admins, Always; digest |
 | `security-review` | Zmiany bezpieczeństwa do przeglądu | the tier0-security kinds | – (catches Low/Medium, e.g. device key self-registration) | digest only |
 | `tier0-domain` | Domena, zaufania, schemat, PKI, zasady | DomainPolicyChanged, PasswordSettingsChanged, TrustChanged, DomainControllerAdded, DomainControllerRemoved, FsmoRoleChanged, CertificateTemplateChanged, SchemaChanged, GroupPolicyLinkChanged | MinSeverity High | immediate → it-admins, Always; digest |
 | `tier0-eventlog` | Dzienniki zabezpieczeń DC | SecurityLogCleared, AuditPolicyChanged, DsrmPasswordChanged | – | immediate → it-admins, Always; digest |

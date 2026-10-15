@@ -10,6 +10,7 @@ internal static class TestEvents
     public const string DomainDn = "DC=contoso,DC=test";
     public const string DomainSid = "S-1-5-21-1004336348-1177238915-682003330";
     public const string UserDn = "CN=Łukasz Wiśniewski,OU=Kraków,DC=contoso,DC=test";
+    public const string ComputerDn = "CN=KRK-WS01,OU=Komputery,OU=Kraków,DC=contoso,DC=test";
     public const string AdminSid = DomainSid + "-1104";
     public const string SyncSid = DomainSid + "-1601";
 

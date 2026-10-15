@@ -9,8 +9,9 @@ namespace AdMng.Watchdog.Core.Rules;
 /// <c>Attribute</c>: the event's relevant changes without this attribute are empty – the exclusion removes only that
 /// attribute from consideration (relevant = the changes the rule's <c>Attributes</c> select, every change when the rule
 /// has none). Expired exclusions (<c>ExpiresAt</c> &lt; now) and exclusions that set no condition never apply. An
-/// unresolved actor (Unknown, Ambiguous, NotApplicable or the grace period over) excludes nothing; workstation names
-/// and IP addresses are never matching inputs.
+/// unresolved actor (Unknown, Ambiguous, NotApplicable or the grace period over) excludes nothing, and so does an
+/// actor SID whose domain token is unknown (<see cref="RuleMatchContext.ResolveActorSid"/>); workstation names and IP
+/// addresses are never matching inputs.
 /// </summary>
 public static class ExclusionMatcher
 {
@@ -59,7 +60,7 @@ public static class ExclusionMatcher
             return ExclusionOutcome.Applies;
         }
 
-        return ActorCondition.Evaluate(watchEvent.Attribution, context.ResolveSid(exclusion.Actor), attributionGraceExpired) switch
+        return ActorCondition.Evaluate(watchEvent.Attribution, context.ResolveActorSid(exclusion.Actor), attributionGraceExpired) switch
         {
             ActorConditionState.Matches => ExclusionOutcome.Applies,
             ActorConditionState.Pending => ExclusionOutcome.AwaitingActor,
