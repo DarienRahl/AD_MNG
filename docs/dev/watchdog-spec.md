@@ -3511,18 +3511,33 @@ sources = Source == ForwardedEvents ? [Collector] (log "ForwardedEvents")
         : Attribution.DomainControllers (config; every entry must be a writable DC of this domain known to
           DomainControllerDirectory – unknown hosts are skipped with health Error eventlog.<host> "notADomainController")
           or the DomainControllerDirectory attribution sources (10.11) (log "Security")
-for each source (in parallel, max 4):
+for each source (in parallel, max 4; a source failing with a store error is reported as health Error
+                 eventlog.<host> and does not stop or discard the others):
     info = GetLogInfoAsync(host, log)                      → health eventlog.<host> (Ok / Error with Win32 code)
     cursor = store.GetCursorAsync(host)
+  Security log of a DC (cursor = the DC's EventRecordID):
     if cursor null: query From = now − ReplicationLatencyBound (do not ingest history)
     else: AfterRecordId = cursor.LastRecordId
           if info.OldestRecordNumber > cursor.LastRecordId + 1 → HealthEventLogGap (records overwritten unread)
     loop: ReadAsync(host, query{ EventCodes = SecurityEventCatalog.IngestionSet, AfterRecordId, SuppressAttributes = noise,
                                  MaxRecords = 1000 }) → parse → EventSourceGuard → reduce + mask (below)
           → AppendAsync(events, newCursor) until < 1000 returned or Attribution.MaxRecordsPerPoll records were read
+          after the last (short) page newCursor = max(last record read, newest record of info) – the filtered query
+          proves no ingestion-set record exists up to it, so a busy DC whose log wraps between account changes raises no
+          false "overwritten" gap and no LOG_OVERWRITTEN
           budget exceeded → HealthEventLogGap (reason "flooding"); the cursor keeps moving (next poll continues)
     newest record id < cursor (log cleared / recreated) → HealthEventLogGap + rebase cursor to the newest record
-    1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6)
+  ForwardedEvents log of a WEF collector (records keep their source DC's EventRecordID – not comparable across DCs nor
+  with the collector's numbering): the cursor is time based – the newest TimeCreated read (capped at now) is kept in
+  EventLogCursor.BookmarkXml as <TimeCursor SystemTime="…"/>; every poll reads the ingestion set from that time −
+  ReplicationLatencyBound (late WEF deliveries) in one read of at most MaxRecordsPerPoll records, stored in pages of
+  1000; the collector's record numbers are never checked for overwrites or regressions. Records read again are
+  ignored by the store (computer, record id) and by the detections (stable ids, below).
+  1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6) and record gaps, appended to the event store before
+    the cursor of their page is committed, under an id derived from the record (RecordEventIds: Guid v7 layout,
+    timestamp = TimeCreated, rest = SHA-256 of what|computer|record id|time|event id) and only when that id is not
+    stored yet – an interrupted pass re-reads the page and neither loses nor repeats a SecurityLogCleared
+  1102 / 1104 (and a cursor regression) mark the DC's log overwritten from the record's time (11.7 LOG_OVERWRITTEN)
 then correlate (11.4) every pending event whose next retry is due
 report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, source lookups)
 ```
@@ -3716,7 +3731,7 @@ Attribution of these events is Resolved at creation (the record itself is the ev
 |---|---|---|
 | SOURCE_DISABLED | attribution disabled or non-Windows host | „Włącz atrybucję (konfiguracja) – usługa musi działać na Windows.” |
 | DC_UNREACHABLE | the originating DC's log could not be read during the window | „Sprawdź zaporę (Remote Event Log Management) i członkostwo konta usługi w Event Log Readers.” |
-| LOG_OVERWRITTEN | oldest record time of the DC log > window end | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
+| LOG_OVERWRITTEN | oldest record time of the DC log > window end: records overwritten unread, a cursor regression, or a 1102/1104 of that DC at or after the window start | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
 | AUDIT_POLICY_MISSING | no event of the kind's family from that DC in 7 days (`GetLastSeenAsync`) | „Włącz zasady inspekcji (docs/WATCHDOG.md, rozdz. 4.5).” |
 | SACL_MISSING | the kind is only coverable by 5136/5137/5139/5141 and no such event was seen from that DC in 7 days | „Dodaj SACL dla zmian usług katalogowych (docs/WATCHDOG.md, rozdz. 4.6).” |
 | AMBIGUOUS | two candidates within 5 points | „Kilka możliwych wykonawców – szczegóły w dowodach.” |

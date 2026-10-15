@@ -45,11 +45,19 @@ public sealed class DcLogHealthTracker(TimeProvider timeProvider)
     }
 
     /// <summary>Records of <paramref name="host"/> were overwritten before they were read.</summary>
-    public void RecordOverwritten(string host)
+    public void RecordOverwritten(string host) => RecordOverwritten(host, timeProvider.GetUtcNow());
+
+    /// <summary>Records of <paramref name="host"/> logged before <paramref name="at"/> are gone (the log was cleared or
+    /// recreated at that time – 1102, 1104, a cursor regression). The latest time is kept.</summary>
+    public void RecordOverwritten(string host, DateTimeOffset at)
     {
         lock (_gate)
         {
-            State(host).OverwrittenAt = timeProvider.GetUtcNow();
+            var state = State(host);
+            if (state.OverwrittenAt is not { } known || at > known)
+            {
+                state.OverwrittenAt = at;
+            }
         }
     }
 

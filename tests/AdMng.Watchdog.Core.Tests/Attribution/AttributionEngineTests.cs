@@ -96,6 +96,24 @@ public sealed class AttributionEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task OneSourceFailingToStore_DoesNotDiscardTheOthers()
+    {
+        // attribution-rules-8: a store error on DC02 must not drop DC01's Critical detection, nor stop correlation.
+        _h.Source.Add(Dc1, id => SecurityEventXml.LogCleared(id, Now.AddMinutes(-1), Dc1, AdminSid, "adm.jkowalska", "CONTOSO", AdminLogonId));
+        AddRecord(4725, T, Admin, Dc2);
+        _h.SecurityStore.AppendFailure = cursor => cursor.Source == Dc2 ? new InvalidOperationException("SQLite Error 13: database or disk is full") : null;
+        var pending = _h.Events.Add(Disabled());
+
+        var result = await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.False(result.Failed);
+        Assert.Single(_h.Events.All, e => e.Kind == WatchEventKind.SecurityLogCleared);
+        Assert.Equal(HealthState.Error, _h.Health.Find("eventlog." + Dc2)!.State);
+        Assert.Equal(Now.AddSeconds(30), _h.Events.NextAttributionAt(pending.Id));   // correlated (and retried later)
+        Assert.Contains(WatchdogSignal.EventsStored, _h.Signals.Raised);
+    }
+
+    [Fact]
     public async Task AnOperationDisambiguatesItsSiblings()
     {
         var changeSet = Guid.NewGuid();

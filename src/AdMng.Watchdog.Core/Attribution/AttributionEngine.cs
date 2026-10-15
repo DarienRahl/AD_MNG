@@ -152,19 +152,37 @@ public sealed partial class AttributionEngine(
             DisabledKinds = configuration.Directory?.DisabledKinds ?? [],
         };
 
+        // The ingestor appends its detections itself, before the cursor of their page is committed. One source failing
+        // (a store error) neither stops nor discards the others.
         var results = new IngestionResult[sources.Count];
         await Parallel.ForEachAsync(Enumerable.Range(0, sources.Count),
             new ParallelOptions { MaxDegreeOfParallelism = MaxParallelSources, CancellationToken = cancellationToken },
-            async (i, token) => results[i] = await ingestor.IngestAsync(sources[i], context, token).ConfigureAwait(false)).ConfigureAwait(false);
+            async (i, token) => results[i] = await IngestOneAsync(sources[i], context, token).ConfigureAwait(false)).ConfigureAwait(false);
 
-        var appended = 0;
-        foreach (var watchEvent in results.SelectMany(r => r.Events))
+        return results.Sum(r => r.Events.Count);
+    }
+
+    private async Task<IngestionResult> IngestOneAsync(IngestionSource ingestion, IngestionContext context, CancellationToken cancellationToken)
+    {
+        try
         {
-            await events.AppendAsync(watchEvent, cancellationToken).ConfigureAwait(false);
-            appended++;
+            return await ingestor.IngestAsync(ingestion, context, cancellationToken).ConfigureAwait(false);
         }
-
-        return appended;
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            var code = SafeExceptionLog.ErrorCode(ex);
+            SafeExceptionLog.LogError(logger, ex, "security log ingestion");
+            tracker.RecordFailure(ingestion.Host, code);
+            health.Report(new HealthCheckDto
+            {
+                Code = "eventlog." + ingestion.Host,
+                State = HealthState.Error,
+                Detail = "The records of the Security log could not be stored.",
+                Args = [ingestion.Host, code],
+                CheckedAt = timeProvider.GetUtcNow(),
+            });
+            return new IngestionResult { Failed = true };
+        }
     }
 
     private async Task<(int Updated, bool Full)> CorrelateAsync(AttributionSettings settings, IReadOnlyList<string> hosts, CancellationToken cancellationToken)

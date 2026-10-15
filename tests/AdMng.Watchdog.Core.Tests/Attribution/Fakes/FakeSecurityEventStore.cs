@@ -57,8 +57,17 @@ internal sealed class FakeSecurityEventStore : ISecurityEventStore
         }
     }
 
+    /// <summary>Fault injection: an exception returned for a cursor is thrown before anything is stored (the page
+    /// transaction fails – SQLite busy, disk full, or the process stops before the commit).</summary>
+    public Func<EventLogCursor, Exception?>? AppendFailure { get; set; }
+
     public Task AppendAsync(IReadOnlyList<SecurityEvent> events, EventLogCursor cursor, CancellationToken cancellationToken)
     {
+        if (AppendFailure?.Invoke(cursor) is { } failure)
+        {
+            return Task.FromException(failure);
+        }
+
         lock (_gate)
         {
             AppendCalls++;

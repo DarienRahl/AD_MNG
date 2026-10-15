@@ -37,7 +37,7 @@ internal sealed class AttributionHarness : IDisposable
             DomainControllers,
             new AttributionSourceResolver(DomainControllers, Health, Time),
             new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), Tokens, new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(Config)),
-            new SecurityLogIngestor(Source, SecurityStore, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
+            new SecurityLogIngestor(Source, SecurityStore, Events, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
                 NullLogger<SecurityLogIngestor>.Instance),
             Processor,
             Tracker,
