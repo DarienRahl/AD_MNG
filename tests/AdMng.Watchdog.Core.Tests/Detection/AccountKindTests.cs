@@ -175,6 +175,39 @@ public class AccountKindTests
     }
 
     [Fact]
+    public async Task ResetWithMustChangeAtNextLogon_IsAPasswordWriteAndMustChange()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        scenario.Advance(TimeSpan.FromMinutes(1));
+
+        // ADUC "Reset password" with "User must change password at next logon": unicodePwd, then pwdLastSet = 0.
+        await scenario.ResetPasswordAsync(scenario.Company.JanKowalski);
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.PwdLastSet, "0");
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.Single(events, e => e.Kind == WatchEventKind.PasswordMustChangeSet);
+        var changed = Assert.Single(events, e => e.Kind == WatchEventKind.PasswordChanged);
+        Assert.Equal(scenario.Company.JanKowalski, changed.Object.Dn);
+        Assert.Equal(2, events.Count);
+        Assert.Single(events.Select(e => e.ChangeSetId).Distinct());
+    }
+
+    [Fact]
+    public async Task MustChangeAtNextLogonAlone_IsNoPasswordWrite()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        await scenario.ResetPasswordAsync(scenario.Company.JanKowalski);
+        Assert.Equal(WatchEventKind.PasswordChanged, Assert.Single(await scenario.CycleEventsAsync()).Kind);
+        scenario.Advance(TimeSpan.FromMinutes(1));
+
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.PwdLastSet, "0");
+
+        Assert.Equal(WatchEventKind.PasswordMustChangeSet, Assert.Single(await scenario.CycleEventsAsync()).Kind);
+    }
+
+    [Fact]
     public async Task AccountFlagsChanged_SeverityIsTheMaximumOfTheBits()
     {
         await using var scenario = new DetectionScenario();

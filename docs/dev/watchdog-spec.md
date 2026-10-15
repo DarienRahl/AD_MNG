@@ -3116,7 +3116,7 @@ kinds in Directory.DisabledKinds or optional kinds not enabled are dropped here 
 | `userAccountControl` | `UacFlagClassifier` (10.6.1) |
 | `lockoutTime` 0/absent → t>0, or t1 → t2 > t1 | AccountLockedOut (LockoutInfo: LockedAt = t2, LockedUntil = t2 + **effective** lockout duration from `LockoutPolicyResolver` – the user's PSO (`msDS-ResultantPSO` base read → `msDS-LockoutDuration`) when readable, else the domain `lockoutDuration` (absolute value); 0x8000000000000000 / 0 ("until an admin unlocks") → null; `LockoutsToday` = `IEventStore.CountForObjectAsync(guid, AccountLockedOut, local midnight)` + 1) |
 | `lockoutTime` t>0 → 0 | `t0` = originating time of the lockoutTime write (metadata, else DetectedAt): **AccountUnlocked** when LockedUntil is null or `t0 < t + effective duration` (an admin/helpdesk unlock); otherwise **no event** – the DC resets `lockoutTime` to 0 at the first successful logon after the lockout expired (Samba `authsam_logon_success_accounting`, Windows likewise), which is not an unlock (LockoutMonitor reports the expiry when `LockoutExpired` is enabled). A 4767 matched later for a "no event" reset is ignored |
-| `pwdLastSet` → 0 | PasswordMustChangeSet |
+| `pwdLastSet` → 0 | PasswordMustChangeSet; additionally **PasswordChanged** (same change set, same computer / ServiceAccount suppression as below) when metadata is available and `unicodePwd` `usnLocal > W` – the usual helpdesk reset with "must change at next logon" writes both in one poll. Without metadata (or without a W of this DC) must-change alone is reported |
 | `pwdLastSet` → value > old, `unicodePwd` metadata `usnLocal > W` (or no metadata available) | PasswordChanged (computers: dropped unless TrackComputerPasswordChanges; ServiceAccount kind: dropped unless TrackManagedPasswordRollover) |
 | `pwdLastSet` → value > old, metadata available and `unicodePwd` `usnLocal ≤ W` | **PasswordAgeReset** (password age extended without a new password) |
 | `accountExpires` | AccountExpirationChanged |
@@ -3148,7 +3148,7 @@ Decode old/new `userAccountControl` (enum `UserAccountControl` from AdMng.Core).
 | Bit | Set → | Cleared → |
 |---|---|---|
 | 0x0002 ACCOUNTDISABLE | AccountDisabled | AccountEnabled |
-| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController → no event) | DelegationChanged (Medium) |
+| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController, i.e. 0x2000 in the **new** value – also a one-step promotion that sets both bits – → no event) | DelegationChanged (Medium) |
 | 0x1000000 TRUSTED_TO_AUTH_FOR_DELEGATION | DelegationChanged (High) | DelegationChanged (Medium) |
 | 0x2000 SERVER_TRUST_ACCOUNT | DomainControllerAdded (Critical) | AccountFlagsChanged (High) |
 | 0x0020 PASSWD_NOTREQD, 0x400000 DONT_REQ_PREAUTH, 0x0080 ENCRYPTED_TEXT_PWD_ALLOWED, 0x200000 USE_DES_KEY_ONLY | AccountFlagsChanged (High) | AccountFlagsChanged (Low) |
