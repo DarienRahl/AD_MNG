@@ -4243,7 +4243,8 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 | Error | Result |
 |---|---|
 | `SmtpCommandException` 4xx (incl. 421, 451, 452) | Transient |
-| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed |
+| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed (a chunk whose recipients were all rejected does not stop the other chunks); warning log 2203 with the count |
+| `SmtpCommandException` 4xx on RCPT for some recipients (greylisting, 452 too many recipients) | the others get it; Transient – the retry goes only to the recipients that did not get the message yet; warning log 2202 with the count |
 | 552 / `SenderNotAccepted` + ExceededStorageAllocation | Permanent (message too large – digest splits by MaxRowsPerSection) |
 | 535 5.7.139, 550 5.7.30 | AuthenticationFailed + hint `smtp.basicAuthDisabled` / `smtp.smtpAuthDisabled` |
 | 550 5.7.68 | ChannelBroken + hint `smtp.directSendRejected` |
@@ -4255,7 +4256,8 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 ### 15.5 Rate limits (`ChannelRateLimiters`, W-service)
 
 `System.Threading.RateLimiting.TokenBucketRateLimiter` (shared framework): e-mail `MaxMessagesPerMinute` (default 20,
-under Exchange Online's 30/min); per Teams/webhook channel three chained limiters PerSecond/PerMinute/PerHour (Teams
+under Exchange Online's 30/min) – one token per SMTP message, i.e. per recipient chunk (a denied token after some
+chunks were sent returns `Deferred`; the retry does not resend them); per Teams/webhook channel three chained limiters PerSecond/PerMinute/PerHour (Teams
 default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
 `RetryAfter` = the limiter's retry hint (no attempt counted). Limiters use `AutoReplenishment = false`;
 `ChannelRateLimiters` calls `TryReplenish()` from a `TimeProvider` timer (deterministic under `FakeTimeProvider`).
@@ -4277,7 +4279,13 @@ default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied leas
   `AcquireTokenForClient([EntraCloudInfo.SmtpScope(cloud)])` → `new SaslMechanismOAuth2(UserName /*sender mailbox*/,
   token)`. Authority and scope are fixed per cloud (`EntraCloud`) – never free text.
 - Each recipient group gets its own message (one pending target per group); its addresses go in `To:`, split into
-  messages of ≤ `MaxRecipientsPerMessage` recipients.
+  messages of ≤ `MaxRecipientsPerMessage` recipients – sorted first, so the same recipient set always gives the same
+  chunks: chunk n has `Message-ID: <{MessageId}.{n}@…>` (the first `<{MessageId}@…>`) and chunk n of a follow-up (sent
+  to the original's recipients) replies to chunk n of the original (`In-Reply-To`/`References`).
+- Recipient progress (`SmtpRecipientProgress`, in memory in the singleton transport): the addresses that accepted an
+  outbox e-mail are remembered until the message is complete (at most 14 days), so a retry after a temporary RCPT
+  rejection, a failed later chunk, a timeout or a rate-limit deferral goes only to the recipients that did not get it.
+  After a service restart a retry reaches everybody again (a duplicate, never a loss). Addresses are never logged.
 - MailKit `ProtocolLogger` is never enabled (it would log DATA = directory values).
 
 ### 15.7 Teams transport (`TeamsWorkflowTransport`, `TeamsTokenProvider`)
