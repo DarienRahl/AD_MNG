@@ -14,6 +14,17 @@ namespace AdMng.Watchdog.Service.Tests.Client;
 /// <see cref="WatchdogHttpClient"/> pinned to that certificate.</summary>
 public sealed class WatchdogClientServer : IAsyncDisposable
 {
+    /// <summary>The server certificate. The service selects it with its fake clock (<see cref="TestStore.Start"/>),
+    /// the client checks it at the real time, so it is valid at both – unlike <see cref="TestCertificates.Localhost"/>,
+    /// which starts a day before the real time.</summary>
+    private static readonly Lazy<X509Certificate2> LazyCertificate = new(() =>
+    {
+        var now = DateTimeOffset.UtcNow;
+        var first = TestStore.Start < now ? TestStore.Start : now;
+        var last = TestStore.Start > now ? TestStore.Start : now;
+        return TestCertificates.Create("localhost", first.AddDays(-1), last.AddDays(30));
+    });
+
     private WatchdogClientServer(WatchdogFactory factory, Uri address)
     {
         Factory = factory;
@@ -24,6 +35,8 @@ public sealed class WatchdogClientServer : IAsyncDisposable
 
     public Uri Address { get; }
 
+    private static X509Certificate2 Certificate => LazyCertificate.Value;
+
     public static WatchdogClientServer Start(string? account, params string[] sids) => Start(null, account, sids);
 
     /// <summary>The server with extra service registrations (after the service's, so they win).</summary>
@@ -33,7 +46,7 @@ public sealed class WatchdogClientServer : IAsyncDisposable
             new Dictionary<string, string?>
             {
                 ["Watchdog:Hosting:Urls"] = "https://127.0.0.1:0",
-                ["Watchdog:Hosting:Certificate:Thumbprint"] = TestCertificates.Localhost.Thumbprint,
+                ["Watchdog:Hosting:Certificate:Thumbprint"] = Certificate.Thumbprint,
             },
             services =>
             {
@@ -56,7 +69,7 @@ public sealed class WatchdogClientServer : IAsyncDisposable
         client.Configure(new WatchdogClientOptions
         {
             BaseAddress = Address,
-            PinnedCertificateSha256 = pinned ? TestCertificates.Sha256(TestCertificates.Localhost) : null,
+            PinnedCertificateSha256 = pinned ? TestCertificates.Sha256(Certificate) : null,
             RequestTimeout = timeout ?? TimeSpan.FromSeconds(30),
         });
         return client;
@@ -66,6 +79,6 @@ public sealed class WatchdogClientServer : IAsyncDisposable
 
     private sealed class SingleCertificateStore : ICertificateStore
     {
-        public IReadOnlyList<X509Certificate2> GetCertificates(StoreName storeName, StoreLocation location) => [TestCertificates.Localhost];
+        public IReadOnlyList<X509Certificate2> GetCertificates(StoreName storeName, StoreLocation location) => [Certificate];
     }
 }
