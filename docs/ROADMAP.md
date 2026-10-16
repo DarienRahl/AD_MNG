@@ -28,6 +28,7 @@ Legenda statusu: ✅ zrobione · 🟡 pierwsza wersja gotowa, wymaga dopracowani
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa Windows wykrywająca zmiany w AD z ustaleniem wykonawcy, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 zaimplementowane, czeka na laboratorium Windows Server i pilotaż |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | ⬜ |
 
 ---
 
@@ -225,6 +226,8 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 - Kreator zapytań (warunki ↔ LDAP), zapisane zapytania jako foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
+  Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników-).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
@@ -235,7 +238,8 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   WhoAmI), Kerberos-only z opcjonalnym NTLM, obsługa Protected Users, blokada sesji po bezczynności.
 - Pola oparte o ACL: „Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer może
   aktualizować listę członków”; karta Zabezpieczenia (podgląd), znaczniki Tier 0.
-- Ostatnie logowanie i stan blokady na **wszystkich** DC (zamiennik LockoutStatus.exe).
+- Ostatnie logowanie i stan blokady na **wszystkich** DC (zamiennik LockoutStatus.exe) – korzysta z nich także przegląd
+  kont ze ścieżki U.
 - Karta Historia: kiedy i na którym DC zmieniono każdy atrybut (`msDS-ReplAttributeMetaData`) i członka grupy.
 - ✅ Odświeżanie list na żywo przez powiadomienia LDAP o zmianach (osobne połączenie do tego samego DC, odświeżane są
   tylko zmienione obiekty); ⬜ zapasowe odpytywanie USN, gdy DC odmawia powiadomień.
@@ -292,6 +296,119 @@ akceptacja zakresu danych w powiadomieniach przez IOD (RODO); pilotaż w jednej 
 z planami zmian AD_MNG (mniej szumu przy edycji zbiorczej), atrybucja z dziennika audytu Samba (JSON), więcej domen w
 jednej instancji, wartości czasowe członkostwa (PAM TTL).
 
+## Ścieżka U – Przegląd kont i wiadomości do użytkowników ⬜
+
+**Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
+i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
+przeglądu – z takim samym podglądem, raportem i zabezpieczeniami jak w edycji zbiorczej. Ścieżka równoległa: korzysta
+z chipów filtrów (faza 1), silnika szablonów (faza 2) i transportu SMTP Watchdoga ([WATCHDOG.md](WATCHDOG.md#52-smtp)).
+U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog.
+
+### U1 – Wiadomości e-mail do użytkowników (SMTP)
+
+- **Skąd wysłać:**
+  - **jeden użytkownik** – przycisk *Wyślij wiadomość…* w oknie właściwości (także w menu kontekstowym i palecie
+    poleceń); okno wysyłki otwiera się z danymi tego konta, a przez okno wyboru obiektów można dopisać kolejnych
+    odbiorców;
+  - **wielu użytkowników** – zaznaczenie na liście, wynik wyszukiwania, szybki filtr, zapisany widok, członkowie grupy
+    (także zagnieżdżeni), plik CSV, lista z przeglądu kont (U2) – te same źródła co w edycji zbiorczej.
+- **Szablony wiadomości:** temat i treść (tekst oraz HTML w prostym edytorze), wersje PL/EN wybierane wg
+  `preferredLanguage` odbiorcy (domyślny język w ustawieniach), biblioteka szablonów z eksportem i importem dla zespołu
+  (jak zapisane widoki – sam tekst z polami, bez danych katalogu). Pola z silnika szablonów edycji zbiorczej
+  (`{givenName}`, `{sAMAccountName|lower}` …) rozszerzone o wartości wyliczane, z datami w języku wiadomości i w strefie
+  Europe/Warsaw: `{$passwordExpires:d MMMM yyyy}`, `{$passwordExpiresInDays}`, `{$accountExpires:dd.MM.yyyy}`,
+  `{$lastLogon}`, dane przełożonego (`{$manager:displayName}`) i pola wpisywane przez operatora przy wysyłce
+  (`{$input:termin}`). Przykład: *„Dzień dobry {givenName}, hasło do konta {sAMAccountName} wygaśnie
+  {$passwordExpires:d MMMM yyyy} (za {$passwordExpiresInDays} dni).”*
+- **Szablony wbudowane:** hasło wygasa za N dni (dnia …), hasło wygasło dnia …, konto wygasa / wygasło, konto
+  zablokowane / odblokowane, wymagana zmiana hasła przy następnym logowaniu, konto zostanie wyłączone z powodu braku
+  aktywności, wiadomość dowolna.
+- **Warunek z parametrem:** szablon może mieć warunek wysyłki (np. „hasło wygasa w ciągu N dni”, N podawane przy
+  wysyłce). Kto w chwili planu go nie spełnia (np. zmienił hasło po wczytaniu listy), jest pomijany z uwagą w podglądzie.
+  Data wygaśnięcia hasła zawsze z `msDS-UserPasswordExpiryTimeComputed` (uwzględnia FGPP); „hasło nigdy nie wygasa”
+  i „musi zmienić hasło” rozpoznawane osobno.
+- **Adresaci:** `mail` konta (zapasowo główny adres `SMTP:` z `proxyAddresses`), dodatkowo lub zamiast niego przełożony
+  (`manager`) – np. dla kont bez skrzynki i kont kontrahentów; DW do helpdesku, adres odpowiedzi. **Zawsze osobna
+  wiadomość dla każdego użytkownika** – nigdy wspólna lista adresów w polach Do/DW.
+- **Potok jak w edycji zbiorczej:**
+  1. **Plan** – świeży odczyt z przypiętego DC, wyrenderowanie każdej wiadomości.
+  2. **Walidacja** – brak adresu, konto wyłączone, puste pole w treści, niespełniony warunek, powtórzony odbiorca, zbyt
+     długi temat.
+  3. **Podgląd** – gotowa wiadomość każdego odbiorcy (przełączanie odbiorców, filtr ostrzeżeń i błędów, wykluczanie
+     pojedynczych osób), wiadomość testowa do siebie.
+  4. **Wysyłka** – w tle, z postępem i anulowaniem; limit tempa (domyślne limity Exchange Online: 30 wiadomości na
+     minutę i 10 000 odbiorców dziennie na skrzynkę), ponawianie błędów przejściowych SMTP (4xx); powyżej progu
+     z ustawień potwierdzenie przez wpisanie liczby odbiorców.
+  5. **Raport** – status każdego odbiorcy (przyjęta przez serwer / odrzucona z kodem SMTP i podpowiedzią, jak w testach
+     kanałów Watchdoga), „ponów nieudane”, eksport CSV na żądanie, wpis w dzienniku sesji (szablon i liczba odbiorców –
+     bez treści).
+- **Transport:** SMTP z wymaganym STARTTLS, TLS 1.2+ i weryfikacją certyfikatu. Zalecane: **wysyłka przez usługę AdMng
+  Watchdog** – ta sama konfiguracja SMTP (przekaźnik, Basic, Exchange Online OAuth2 – Basic SMTP AUTH w Exchange Online
+  jest wyłączane), sekrety zaszyfrowane po stronie usługi, kolejka z ponawianiem, dziennik wysyłek i nowa rola
+  „Wysyłający” wg grupy AD. Wariant bez usługi: wysyłka bezpośrednio z AD_MNG przez przekaźnik bez logowania albo
+  z logowaniem bieżącym kontem Windows; hasło SMTP, jeśli jest potrzebne, tylko w pamięci na czas sesji (zasada
+  „nigdy nie zapisujemy haseł”).
+- **Bezpieczeństwo i RODO:** w szablonie nie da się umieścić hasła (nie ma takiego pola – wysyłanie nowego hasła
+  e-mailem jest zablokowane); łącza tylko do domen z listy dozwolonych, stała stopka „nigdy nie prosimy o podanie
+  hasła”, bez załączników; wartości z AD są kodowane w HTML, a z tematu i nagłówków usuwane są znaki nowej linii
+  (ochrona przed wstrzyknięciem nagłówków); nagłówek `Auto-Submitted: auto-generated` (bez pętli autoodpowiedzi);
+  polskie znaki w temacie i treści (UTF-8, RFC 2047). Wyrenderowane wiadomości i listy odbiorców istnieją tylko
+  w pamięci; na dysku są wyłącznie szablony i ustawienia (zasada „brak danych katalogu na dysku”).
+
+### U2 – Przegląd stanu kont
+
+**Okno *Przegląd kont*** (menu Narzędzia, paleta poleceń): zakres (domena, OU z poddrzewem, zapisany widok, członkowie
+grupy), parametry (N dni dla każdego sprawdzenia, zapamiętywane w ustawieniach) i jeden przycisk *Sprawdź*. Jedno
+stronicowane zapytanie z potrzebnymi atrybutami, wyniki strumieniowane, z możliwością przerwania i „stanem na godz.”;
+kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami właściwymi dla danego sprawdzenia.
+
+| Sprawdzenie | Skąd dane | Co dalej |
+|---|---|---|
+| Zablokowane teraz | `lockoutTime` + bit 0x10 w `msDS-User-Account-Control-Computed`; na żądanie stan na wszystkich DC (liczba błędnych haseł, ostatnia próba, DC – faza 5) | odblokuj, wiadomość „konto zablokowane / odblokowane” |
+| Hasło wygasło / wygasa w ≤ N dni | `msDS-UserPasswordExpiryTimeComputed` | wiadomość „hasło wygasa dnia …”, wymuszenie zmiany hasła |
+| Konto wygasło / wygasa w ≤ N dni | `accountExpires` („koniec dnia”, jak na karcie Konto) | przedłuż (data wygaśnięcia), wiadomość do użytkownika lub przełożonego |
+| Wyłączone | UAC 0x2 | kreator nieaktywnych kont (faza 3) |
+| Musi zmienić hasło | `pwdLastSet = 0` | wiadomość |
+| Nieaktywne > N dni, nigdy nie logowane | `lastLogonTimestamp` (opóźnienie 9–14 dni), na żądanie dokładny `lastLogon` ze wszystkich DC; „nigdy”: brak logowania i `whenCreated` starsze niż N dni | wyłącz, kreator nieaktywnych kont, wiadomość „konto zostanie wyłączone” |
+| Higiena haseł | hasło nigdy nie wygasa, hasło niewymagane (PASSWD_NOTREQD), szyfrowanie odwracalne, hasło starsze niż N dni (`pwdLastSet`) | edycja zbiorcza flag, wymuszenie zmiany hasła |
+| Gotowość do powiadomień | brak `mail`, brak przełożonego, przełożony wyłączony | uzupełnij atrybuty (edycja zbiorcza) |
+| Pozostałości wyłączonych kont | wyłączone, ale nadal w grupach (poza podstawową) lub widoczne w GAL | usuń z grup, ukryj w GAL |
+| Konta uprzywilejowane z problemem | `adminCount = 1` lub członkostwo (zagnieżdżone) w grupach chronionych + któreś z powyższych | raport dla bezpieczeństwa |
+
+- Z każdej listy: otwórz właściwości, przekaż do edycji zbiorczej, **przekaż do wysyłki wiadomości z pasującym
+  szablonem**, eksport CSV na żądanie. Zestawy sprawdzeń można zapisać pod nazwą (np. „Poranny przegląd helpdesku”).
+- **Pojedyncze konto:** na karcie Konto okna właściwości podsumowanie stanu – blokada (także na innych DC), data
+  wygaśnięcia hasła i liczba dni do niej, wygaśnięcie konta, ostatnie logowanie – z przyciskiem *Wyślij wiadomość…*.
+- Atrybutów konstruowanych nie da się użyć w filtrze, więc przegląd filtruje wstępnie na serwerze, gdzie się da (jak
+  chipy z fazy 1, [RESEARCH.md 4.5](RESEARCH.md#45-szybkie-filtry-w-stylu-search-adaccount)), a resztę liczy po stronie
+  klienta; wyniki istnieją tylko w pamięci.
+
+### U3 – Automatyczne przypomnienia (usługa Watchdog)
+
+- Rozszerzenie „Terminów” Watchdoga o wiadomości **do samych użytkowników**: hasło wygasa za 14 / 7 / 3 / 1 dni (progi
+  konfigurowalne), konto wygasa (do użytkownika lub przełożonego) – z szablonów U1, w godzinach wysyłki, z przesunięciem
+  na poprzedni dzień roboczy, gdy termin wypada w weekend lub święto.
+- Każdy próg wysyłany raz (klucz: konto + `pwdLastSet` + próg) – zmiana hasła kończy serię; zakres (OU, grupy)
+  i wyjątki (konta serwisowe, konta bez skrzynki); konta, do których nie da się wysłać wiadomości, trafiają do raportu
+  dziennego helpdesku.
+- Pierwsze 7 dni w trybie na sucho (tylko raport, kto dostałby wiadomość) – jak tryb wdrożenia reguł.
+- Uzasadnienie: monit Windows przy logowaniu nie dociera do osób pracujących przez VPN, OWA i na urządzeniach
+  mobilnych; przypomnienia zastępują skrypty z przestarzałym `Send-MailMessage` uruchamiane z Harmonogramu zadań.
+- Wymaga uzupełnienia [ADR-0008](adr/0008-watchdog-dane-w-osobnym-folderze.md): kolejka wysyłek usługi przechowuje
+  wtedy także wiadomości do użytkowników (retencja, ACL).
+
+**Kryteria ukończenia**
+- Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
+  wiadomości, raport per odbiorca, „ponów nieudane”; testy automatyczne z Mailpit na laboratorium Samba (polskie znaki
+  w temacie i treści, odrzucenia, limit tempa).
+- Data wygaśnięcia hasła w wiadomości i stan kont w przeglądzie zgodne z `Get-ADUser` (`LockedOut`, `PasswordExpired`,
+  `msDS-UserPasswordExpiryTimeComputed`, `AccountExpirationDate`, `LastLogonDate`) na laboratorium Windows Server, także
+  dla kont objętych FGPP.
+- Przegląd 10 000 kont w czasie porównywalnym z jednym `Get-ADUser -Filter *` o tych samych atrybutach, bez zamrożeń UI.
+- Test „żadnych danych katalogu na dysku” zaliczony także po przeglądzie i wysyłce (wiadomości są tylko na serwerze
+  poczty, a przy wysyłce przez usługę – w jej kolejce zgodnie z ADR).
+- Przypomnienia automatyczne: każdy próg dokładnie raz, zmiana hasła przerywa serię, święta przesuwają wysyłkę.
+
 ---
 
 ## Znane ograniczenia
@@ -334,6 +451,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 | Kosz AD | F4 | F4 | F4 | F4 | F4 (poddrzewo) |
 | LAPS, BitLocker | – | F5 | – | – | – |
 | Delegacja, ACL | F5–F6 | F5–F6 | F5–F6 | F5–F6 | F6 |
+| Przegląd stanu kont | U | – | – | – | – |
+| Wiadomości e-mail do użytkowników | U | – | U (członkowie jako odbiorcy) | – | – |
 
 ---
 
@@ -354,3 +473,7 @@ Pełna lista pytań: [RESEARCH.md](RESEARCH.md#11-pytania-otwarte-do-zespołu). 
 6. **Źródło danych CSV** (system kadrowy?): format, kodowanie, unikalność `employeeID`.
 7. **Exchange:** lokalny, hybrydowy czy tylko Entra/Exchange Online; czy zmiany adresów mają iść przez AD.
 8. **Używane rzadkie karty ADUC** (RDS, Dial-in, certyfikaty) – decyduje o zakresie fazy 6.
+9. **Wiadomości do użytkowników (ścieżka U):** wysyłka przez usługę Watchdog (zalecane) czy bezpośrednio z AD_MNG;
+   skrzynka nadawcy (np. współdzielona skrzynka helpdesku) i adres odpowiedzi; kto może wysyłać i do ilu osób naraz;
+   treść i stopka szablonów zaakceptowane przez bezpieczeństwo (ochrona przed phishingiem) i IOD (RODO); czy kopie
+   zostają w Elementach wysłanych; czy automatyczne przypomnienia mają zastąpić obecne skrypty i z jakimi progami.
