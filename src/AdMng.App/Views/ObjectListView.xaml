@@ -1,0 +1,244 @@
+<UserControl x:Class="AdMng.App.Views.ObjectListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <!-- Compact density for the list (ADUC-like): Fluent reads these keys as dynamic resources. -->
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <Style x:Key="ObjectRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick" />
+      <Style.Triggers>
+        <!-- Disabled accounts are dimmed (the icon also carries the ADUC down-arrow badge). -->
+        <DataTrigger Binding="{Binding IsDisabled, Mode=OneWay}" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <Style x:Key="ChipsRowStyle" TargetType="DockPanel">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <Trigger Property="b:ViewState.ShowFilterChips" Value="True">
+          <Setter Property="Visibility" Value="Visible" />
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- "No items" hint: only when nothing is loading, there is no error and the list is empty. -->
+    <Style x:Key="EmptyHintStyle" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding Items.Count, Mode=OneWay}" Value="0" />
+            <Condition Binding="{Binding IsLoading, Mode=OneWay}" Value="False" />
+            <Condition Binding="{Binding Error, Mode=OneWay}" Value="{x:Null}" />
+          </MultiDataTrigger.Conditions>
+          <Setter Property="Visibility" Value="Visible" />
+        </MultiDataTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Header: location, quick filter -->
+    <DockPanel Margin="8,6,8,4" LastChildFill="True">
+      <Grid Width="260"
+            DockPanel.Dock="Right">
+        <TextBox x:Name="QuickFilterBox"
+                 Padding="8,4,28,4"
+                 AutomationProperties.Name="{l:Tr List.QuickFilterPlaceholder}"
+                 PreviewKeyDown="OnQuickFilterKeyDown"
+                 Text="{Binding QuickFilterText, UpdateSourceTrigger=PropertyChanged, Delay=120}" />
+        <TextBlock Margin="9,0,28,0"
+                   Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr List.QuickFilterPlaceholder}"
+                   Visibility="{Binding Text, ElementName=QuickFilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        <Button Margin="0,0,3,0"
+                HorizontalAlignment="Right"
+                AutomationProperties.Name="{l:Tr Common.Clear}"
+                Command="{Binding ClearQuickFilterCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                Style="{StaticResource Ad.SmallIconButton}"
+                ToolTip="{l:Tr Common.Clear}"
+                Visibility="{Binding Text, ElementName=QuickFilterBox, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </Grid>
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="18" />
+        <TextBlock VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock Margin="12,0,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding QuickFilterStatus, Mode=OneWay}" />
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Server side quick filters (chips) -->
+    <DockPanel Grid.Row="1"
+               Margin="8,0,8,2"
+               Style="{StaticResource ChipsRowStyle}">
+      <TextBlock Margin="0,4,8,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr List.ServerFilters}" />
+      <ItemsControl Focusable="False" ItemsSource="{Binding FilterChips}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <ToggleButton AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                          Content="{Binding Title, Mode=OneWay}"
+                          IsChecked="{Binding IsActive}"
+                          Style="{StaticResource Ad.ChipToggleButton}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </DockPanel>
+
+    <!-- Loading indicator with "stop" -->
+    <DockPanel Grid.Row="2"
+               Margin="8,0,8,2"
+               Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <Button Margin="8,0,0,0"
+              Command="{Binding CancelLoadCommand}"
+              Content="{l:Tr Commands.CancelLoad}"
+              DockPanel.Dock="Right"
+              Padding="8,2" />
+      <ProgressBar VerticalAlignment="Center" IsIndeterminate="{Binding IsLoading, Mode=OneWay}" />
+    </DockPanel>
+
+    <Grid Grid.Row="3">
+      <ListView x:Name="List"
+                b:DynamicColumns.SortCommand="{Binding SortCommand}"
+                b:DynamicColumns.Source="{Binding Columns}"
+                AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                BorderThickness="0,1,0,0"
+                ItemContainerStyle="{StaticResource ObjectRowStyle}"
+                ItemsSource="{Binding Items}"
+                PreviewKeyDown="OnListKeyDown"
+                PreviewMouseLeftButtonDown="OnListMouseDown"
+                PreviewMouseLeftButtonUp="OnListMouseUp"
+                PreviewMouseMove="OnListMouseMove"
+                ScrollViewer.CanContentScroll="True"
+                ScrollViewer.IsDeferredScrollingEnabled="False"
+                SelectedItem="{Binding SelectedItem}"
+                SelectionMode="Extended"
+                VirtualizingPanel.IsContainerVirtualizable="True"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.ScrollUnit="Item"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <ListView.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ListView.ItemsPanel>
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridView.ColumnHeaderContextMenu>
+              <ContextMenu>
+                <MenuItem b:CommandMenu.Id="view.columns" />
+                <MenuItem b:CommandMenu.Id="view.export" />
+              </ContextMenu>
+            </GridView.ColumnHeaderContextMenu>
+          </GridView>
+        </ListView.View>
+        <ListView.ContextMenu>
+          <!-- ADUC "Action" menu of the selection. -->
+          <ContextMenu>
+            <MenuItem b:CommandMenu.Id="object.properties" FontWeight="SemiBold" />
+            <MenuItem b:CommandMenu.Id="nav.openInNewTab" />
+            <Separator />
+            <MenuItem Header="{l:Tr Shell.MenuNew}">
+              <MenuItem b:CommandMenu.Id="new.user" />
+              <MenuItem b:CommandMenu.Id="new.group" />
+              <MenuItem b:CommandMenu.Id="new.ou" />
+              <MenuItem b:CommandMenu.Id="new.computer" />
+              <MenuItem b:CommandMenu.Id="new.contact" />
+            </MenuItem>
+            <Separator />
+            <MenuItem b:CommandMenu.Id="object.addToGroup" />
+            <MenuItem b:CommandMenu.Id="object.disable" />
+            <MenuItem b:CommandMenu.Id="object.enable" />
+            <MenuItem b:CommandMenu.Id="object.unlock" />
+            <MenuItem b:CommandMenu.Id="object.resetPassword" />
+            <MenuItem b:CommandMenu.Id="object.move" />
+            <MenuItem b:CommandMenu.Id="object.batchEdit" />
+            <Separator />
+            <MenuItem b:CommandMenu.Id="object.copyDn" />
+            <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
+            <MenuItem b:CommandMenu.Id="view.pin" />
+            <Separator />
+            <MenuItem b:CommandMenu.Id="object.delete" />
+            <MenuItem b:CommandMenu.Id="object.rename" />
+            <Separator />
+            <MenuItem b:CommandMenu.Id="object.refresh" />
+          </ContextMenu>
+        </ListView.ContextMenu>
+      </ListView>
+
+      <!-- Load error with retry -->
+      <Border Margin="16,40,16,0"
+              VerticalAlignment="Top"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,0,10,0"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <Button Margin="10,0,0,0"
+                  Command="{Binding RefreshCommand}"
+                  Content="{l:Tr Common.Retry}"
+                  DockPanel.Dock="Right" />
+          <TextBlock VerticalAlignment="Center"
+                     AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+
+      <TextBlock Margin="0,60,0,0"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Top"
+                 Style="{StaticResource EmptyHintStyle}"
+                 Text="{l:Tr List.Empty}" />
+
+      <!-- Inline rename (F2): an editor placed over the name cell of the row. -->
+      <Canvas x:Name="EditorLayer" ClipToBounds="True">
+        <TextBox x:Name="RenameEditor"
+                 AutomationProperties.Name="{l:Tr Commands.Rename}"
+                 LostKeyboardFocus="OnRenameEditorLostFocus"
+                 PreviewKeyDown="OnRenameEditorKeyDown"
+                 Visibility="Collapsed" />
+      </Canvas>
+    </Grid>
+  </Grid>
+</UserControl>

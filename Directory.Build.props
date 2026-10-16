@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML comment for publicly visible type or member -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Deterministic>true</Deterministic>
+    <Product>AD Manager</Product>
+    <Company>AD_MNG</Company>
+    <Copyright>AD_MNG contributors</Copyright>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <NeutralLanguage>en</NeutralLanguage>
+    <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
+    <!-- WPF projects can be compiled (not run) on Linux/macOS for CI and agents. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Supply chain: audit direct AND transitive packages; with warnings-as-errors any NU190x advisory fails the build.
+         Sources and source mapping are fixed in nuget.config. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+  </PropertyGroup>
+</Project>

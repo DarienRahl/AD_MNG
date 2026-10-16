@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+artifacts/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.DotSettings.user
+TestResults/
+coverage*/
+*.trx
+
+# Never commit exported directory data or session logs
+*.ldif
+exports/
+
+# Agent worktrees
+.claude/worktrees/

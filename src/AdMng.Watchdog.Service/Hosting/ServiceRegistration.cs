@@ -1,0 +1,167 @@
+using System.Threading.RateLimiting;
+using AdMng.Core.Directory;
+using AdMng.Directory;
+using AdMng.Watchdog.Core;
+using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Detection;
+using AdMng.Watchdog.Service.Api;
+using AdMng.Watchdog.Service.Attribution;
+using AdMng.Watchdog.Service.Directory;
+using AdMng.Watchdog.Service.Notifications;
+using AdMng.Watchdog.Service.Storage;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+
+namespace AdMng.Watchdog.Service.Hosting;
+
+/// <summary>
+/// The service's DI registrations (spec 19.1): bootstrap options, the SQLite stores (one <see cref="SqliteWatchdogStore"/>
+/// behind every store interface), transports and the delivery tester, directory session and Security-log source, the
+/// detection host options, API helpers – all registered BEFORE <c>AddWatchdogCore()</c>, whose TryAdd registrations then
+/// only fill what the host leaves open – followed by the job hosts and start-up checks.
+/// </summary>
+public static class ServiceRegistration
+{
+    public static void Add(IServiceCollection services, IConfiguration configuration, DataDirectory dataDirectory, StartupContext context)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(dataDirectory);
+        ArgumentNullException.ThrowIfNull(context);
+
+        services.AddOptions<ServiceOptions>().Bind(configuration.GetSection(ServiceOptions.SectionName));
+        services.Configure<HostOptions>(o =>
+        {
+            o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore;
+            o.ShutdownTimeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddSingleton(dataDirectory);
+        services.AddSingleton(context);
+        services.AddSingleton<ServiceStartTime>();
+        services.AddProblemDetails();
+        services.AddExceptionHandler<ApiExceptionHandler>();
+        services.AddRateLimiter(ConfigureRateLimiter);
+
+        AddStorage(services, dataDirectory);
+        AddDelivery(services);
+        AddDirectory(services, configuration);
+        AddApi(services);
+        services.AddWatchdogCore();
+
+        services.TryAddSingleton<IProcessTerminator, EnvironmentProcessTerminator>();
+        services.AddSingleton<FatalErrorHandler>();
+        services.AddSingleton<StorageGuardJob>();
+        services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<StorageGuardJob>());
+
+        // Start-up checks first (their StartingAsync runs before any StartAsync), then the job hosts.
+        services.AddHostedService<StartupChecks>();
+        services.AddSingleton<JobHostService>();
+        services.AddHostedService(provider => provider.GetRequiredService<JobHostService>());
+    }
+
+    private static void AddStorage(IServiceCollection services, DataDirectory dataDirectory)
+    {
+        services.AddSingleton(_ => new SqliteDatabase(dataDirectory.Path));
+        services.AddSingleton<MigrationRunner>();
+        services.AddSingleton<SqliteWatchdogStore>();
+        services.AddSingleton<IDetectionStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IEventStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<INotificationQueueStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IOutboxStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<ISecurityEventStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IExpiryNoticeStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IDigestRunStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IConfigStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<ISecretStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IStoreMaintenance>(p => p.GetRequiredService<SqliteWatchdogStore>());
+    }
+
+    private static void AddDelivery(IServiceCollection services)
+    {
+        services.AddDeliveryHttpClient();
+        services.TryAddSingleton<ICertificateStore, SystemCertificateStore>();
+        services.TryAddSingleton<IEntraTokenClient, MsalEntraTokenClient>();
+        services.AddSingleton<CertificateSelector>();
+        services.AddSingleton<DestinationGuard>();
+        services.AddSingleton<ChannelRateLimiters>();
+        services.AddSingleton<SmtpOAuthTokenProvider>();
+        services.AddSingleton<TeamsTokenProvider>();
+        services.AddSingleton<HttpChannelSender>();
+        services.AddSingleton<SmtpEmailTransport>();
+        services.AddSingleton<TeamsWorkflowTransport>();
+        services.AddSingleton<WebhookTransport>();
+        services.AddSingleton<INotificationTransport>(p => p.GetRequiredService<SmtpEmailTransport>());
+        services.AddSingleton<INotificationTransport>(p => p.GetRequiredService<TeamsWorkflowTransport>());
+        services.AddSingleton<INotificationTransport>(p => p.GetRequiredService<WebhookTransport>());
+        services.TryAddSingleton<IDeliveryTester, DeliveryTester>();
+    }
+
+    private static void AddDirectory(IServiceCollection services, IConfiguration configuration)
+    {
+        var disabled = configuration.GetValue<bool>($"{ServiceOptions.SectionName}:Directory:Disabled");
+        services.TryAddSingleton<IDirectoryConnector>(provider => new LdapDirectoryConnector(
+            provider.GetRequiredService<ILoggerFactory>(), provider.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<DirectoryConnectionOptionsFactory>();
+        if (disabled)
+        {
+            services.TryAddSingleton<IDirectorySessionProvider, DisabledDirectorySessionProvider>();
+        }
+        else
+        {
+            services.TryAddSingleton<IDirectorySessionProvider, ServiceDirectorySessionProvider>();
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            services.TryAddSingleton<ISecurityEventSource, WindowsSecurityEventSource>();
+        }
+        else
+        {
+            services.TryAddSingleton<ISecurityEventSource, NullSecurityEventSource>();
+        }
+
+        // The watchdog's own role and host groups are High-tier privileged roots (spec 10.8 step 1).
+        services.TryAddSingleton(provider => DetectionHostOptionsFrom(provider.GetRequiredService<IOptions<ServiceOptions>>().Value));
+    }
+
+    /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and watchdog host group SIDs.</summary>
+    public static DetectionHostOptions DetectionHostOptionsFrom(ServiceOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var authorization = options.Authorization ?? new AuthorizationOptions();
+        return new DetectionHostOptions
+        {
+            RoleGroupSids = [.. (authorization.ViewerSids ?? []).Concat(authorization.AdminSids ?? []).Concat(authorization.WatchdogHostGroupSids ?? [])
+                .Where(sid => !string.IsNullOrWhiteSpace(sid)).Select(sid => sid.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)],
+        };
+    }
+
+    private static void AddApi(IServiceCollection services)
+    {
+        services.AddSingleton<Auth.MachineAddresses>();
+        services.AddSingleton<EventAccessLog>();
+        services.AddSingleton<ConfigSecretsApplier>();
+        services.AddSingleton<ConfigValidationService>();
+        services.AddSingleton<ConfigChangeNotifier>();
+        services.AddSingleton<WatchdogDomain>();
+        services.TryAddSingleton<IConfigChangeNotificationPlanner, RuleEngineConfigChangePlanner>();
+        services.TryAddSingleton<IExclusionSuggestionSource, DetectionExclusionSuggestions>();
+    }
+
+    private static void ConfigureRateLimiter(Microsoft.AspNetCore.RateLimiting.RateLimiterOptions options)
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        {
+            var key = context.User.Identity?.IsAuthenticated == true
+                ? "user:" + context.User.Identity.Name
+                : "address:" + context.Connection.RemoteIpAddress;
+            return RateLimitPartition.GetConcurrencyLimiter(key, _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = ApiLimits.ConcurrentRequestsPerCaller,
+                QueueLimit = 16,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            });
+        });
+    }
+}

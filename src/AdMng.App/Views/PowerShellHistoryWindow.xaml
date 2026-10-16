@@ -1,0 +1,117 @@
+<!-- PowerShell history (PowerShellHistoryViewModel): the equivalent script of every change of this session. -->
+<Window x:Class="AdMng.App.Views.PowerShellHistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:dialogs="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1040"
+        Height="640"
+        MinWidth="720"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+
+    <DataTemplate x:Key="HistoryItemTemplate" DataType="{x:Type dialogs:PowerShellHistoryItemViewModel}">
+      <StackPanel Margin="0,3">
+        <TextBlock FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+        <TextBlock FontSize="11" Style="{StaticResource Ad.SecondaryText}">
+          <TextBlock.Text>
+            <MultiBinding Converter="{StaticResource Ad.Format}">
+              <l:TrBinding Key="ToolsUi.HistoryDetails" />
+              <Binding Mode="OneWay" Path="Time" />
+              <Binding Mode="OneWay" Path="Server" />
+              <Binding Mode="OneWay" Path="ObjectCount" />
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+      </StackPanel>
+    </DataTemplate>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="CopyButton"
+                Command="{Binding CopyCommand}"
+                Content="{l:Tr Common.Copy}"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="SaveButton"
+                Command="{Binding SaveCommand}"
+                Content="{l:Tr ToolsUi.SaveScript}"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
+    </Border>
+
+    <Grid Margin="16,12,16,12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="320" MinWidth="200" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="300" />
+      </Grid.ColumnDefinitions>
+
+      <Grid>
+        <ListBox x:Name="ItemsList"
+                 AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+                 ItemTemplate="{StaticResource HistoryItemTemplate}"
+                 ItemsSource="{Binding Items}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 SelectedItem="{Binding SelectedItem}">
+          <ListBox.Resources>
+            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+            </Style>
+          </ListBox.Resources>
+        </ListBox>
+        <TextBlock x:Name="EmptyHint"
+                   Margin="16,40,16,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr PowerShellHistory.Empty}"
+                   TextAlignment="Center"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding Items.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+
+      <GridSplitter Grid.Column="1"
+                    Width="5"
+                    Margin="6,0"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns" />
+
+      <!-- Script of the selected change (null DataContext when nothing is selected). -->
+      <DockPanel Grid.Column="2" DataContext="{Binding SelectedItem, Mode=OneWay}">
+        <TextBlock Margin="0,0,0,6"
+                   DockPanel.Dock="Top"
+                   Style="{StaticResource Ad.SectionHeader}"
+                   Text="{l:Tr ToolsUi.Script}" />
+        <TextBox x:Name="ScriptBox"
+                 AcceptsReturn="True"
+                 AutomationProperties.Name="{l:Tr ToolsUi.Script}"
+                 FontFamily="Cascadia Mono, Consolas"
+                 FontSize="12"
+                 HorizontalScrollBarVisibility="Auto"
+                 IsReadOnly="True"
+                 IsReadOnlyCaretVisible="True"
+                 Text="{Binding Script, Mode=OneWay}"
+                 TextWrapping="NoWrap"
+                 VerticalContentAlignment="Top"
+                 VerticalScrollBarVisibility="Auto" />
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

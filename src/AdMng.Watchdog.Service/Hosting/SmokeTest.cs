@@ -1,0 +1,170 @@
+using System.Text.Json;
+using AdMng.Watchdog.Contracts;
+using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Core.Diagnostics;
+using AdMng.Watchdog.Core.Formatting;
+using AdMng.Watchdog.Core.Formatting.AdaptiveCards;
+using AdMng.Watchdog.Core.Formatting.Webhooks;
+using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+
+namespace AdMng.Watchdog.Service.Hosting;
+
+/// <summary>
+/// <c>--smoke-test</c> (CI, spec 19.1): a temporary data folder, loopback HTTP on an ephemeral port, the Development
+/// scheme with a smoke-test Viewer SID, directory and attribution disabled; runs the start-up checks (migrations),
+/// GETs <c>/healthz</c> and <c>/api/v1/status</c>, renders a sample event and a digest through every formatter and the
+/// test messages of every channel type; exit code 0/1. The temporary folder is deleted afterwards.
+/// </summary>
+public static class SmokeTest
+{
+    private const string SmokeSid = "S-1-5-21-1000000000-1000000000-1000000000-1001";
+
+    public static async Task<int> RunAsync(string[] args)
+    {
+        var dataDirectory = Path.Combine(Path.GetTempPath(), "admng-watchdog-smoke-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            return await RunCoreAsync(args, dataDirectory).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            await Console.Error.WriteLineAsync("Smoke test failed: " + SafeExceptionLog.Describe(ex)).ConfigureAwait(false);
+            return WatchdogHost.ExitCodeOf(ex);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try
+            {
+                System.IO.Directory.Delete(dataDirectory, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    private static async Task<int> RunCoreAsync(string[] args, string dataDirectory)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["Watchdog:DataDirectory"] = dataDirectory,
+            ["Watchdog:Authentication"] = nameof(WatchdogAuthenticationMode.Development),
+            ["Watchdog:Hosting:Server"] = nameof(WatchdogServer.Kestrel),
+            ["Watchdog:Hosting:Urls"] = "http://127.0.0.1:0",
+            ["Watchdog:Directory:Disabled"] = "true",
+            ["Watchdog:Authorization:ViewerSids:0"] = SmokeSid,
+            ["Watchdog:Development:Sids:0"] = SmokeSid,
+            ["Watchdog:Development:Account"] = @"SMOKE\test",
+        };
+        await using var app = WatchdogHost.Build(
+            [.. args, "--environment", Environments.Development],
+            builder => builder.Configuration.AddInMemoryCollection(settings),
+            console: true);
+        await app.StartAsync().ConfigureAwait(false);
+        try
+        {
+            var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses.FirstOrDefault()
+                ?? throw new InvalidOperationException("The server reported no listening address.");
+            using var http = new HttpClient { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(10) };
+            var health = await http.GetStringAsync(WatchdogRoutes.Health).ConfigureAwait(false);
+            Report(WatchdogRoutes.Health, health == "ok");
+
+            var statusJson = await http.GetStringAsync(WatchdogRoutes.Status).ConfigureAwait(false);
+            var status = JsonSerializer.Deserialize<StatusDto>(statusJson, WatchdogJson.Options);
+            Report(WatchdogRoutes.Status, status is not null && status.ApiVersion == WatchdogRoutes.ApiVersion);
+
+            var rendered = await RenderAsync(app.Services, CancellationToken.None).ConfigureAwait(false);
+            return health == "ok" && status is not null && rendered ? 0 : 1;
+        }
+        finally
+        {
+            await app.StopAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Renders a sample event and a digest through every formatter of the notification pipeline (e-mail alert
+    /// and aggregated alert, Teams alert and burst cards, webhook event, follow-ups, digest e-mail / card / webhook,
+    /// heartbeat, the HTML event page, the digest preview) and the test messages of every channel type.</summary>
+    private static async Task<bool> RenderAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var configuration = services.GetRequiredService<IWatchdogConfigProvider>().Current.Configuration;
+        var now = services.GetRequiredService<TimeProvider>().GetUtcNow();
+        var ok = true;
+        var testContext = NotificationContext.Create(configuration, DetailLevel.Full);
+        var email = EmailAlertFormatter.Test(testContext, now);
+        ok &= Report("test e-mail", email.HtmlBody.Length > 0 && email.TextBody.Length > 0);
+        ok &= Report("test Teams card", TeamsAlertCardFormatter.Test(testContext, now).Body.Length > 0);
+        ok &= Report("test webhook", WebhookPayloadFormatter.Test(testContext, now).Body.Length > 0);
+
+        var sample = SampleEvent() with { Id = 1, DetectedAt = now };
+        var second = SampleEvent() with { Id = 2, DetectedAt = now };
+        var rule = configuration.Rules.FirstOrDefault(r => r is not null && r.Kinds.Contains(sample.Kind));
+        NotificationTarget[] targets =
+        [
+            new() { ChannelType = DeliveryChannelType.Email, ChannelId = "email", Recipients = ["smoke@contoso.test"], DetailLevel = DetailLevel.Full },
+            new() { ChannelType = DeliveryChannelType.Teams, ChannelId = "teams", DetailLevel = DetailLevel.Standard },
+            new() { ChannelType = DeliveryChannelType.Webhook, ChannelId = "webhook", DetailLevel = DetailLevel.Minimal },
+        ];
+        foreach (var target in targets)
+        {
+            var single = NotificationRenderer.Alert(target, rule, [sample], 0, [sample.Id], configuration, now);
+            var aggregated = NotificationRenderer.Alert(target, rule, [sample, second], 3, [sample.Id, second.Id], configuration, now);
+            var followUp = NotificationRenderer.FollowUp(target, rule, [sample with { Attribution = Contracts.Events.Attribution.NotApplicable }], single.MessageId,
+                NotificationRenderer.OriginalSubject([sample], rule, configuration, target.DetailLevel), configuration, now);
+            ok &= Report($"{target.ChannelType} alert, aggregated alert and follow-up", Rendered(single) && Rendered(aggregated) && Rendered(followUp));
+        }
+
+        var model = await services.GetRequiredService<DigestBuilder>().BuildAsync(configuration, now.AddDays(-1), now, coversNonBusinessDays: false, cancellationToken).ConfigureAwait(false);
+        var digestContext = NotificationContext.Create(configuration, DetailLevel.Standard);
+        var digestEmail = EmailDigestFormatter.Format(model, digestContext);
+        var digestCard = TeamsDigestCardFormatter.Format(model, digestContext);
+        var digestHook = WebhookPayloadFormatter.Digest(model.PeriodStart, model.PeriodEnd, sample.Domain, model.Counts.ToDictionary(), [], digestContext);
+        var heartbeat = WebhookPayloadFormatter.Heartbeat(new HeartbeatPayload(now, ServiceVersion.Current, "Ok", now, 0), digestContext);
+        ok &= Report("digest e-mail, Teams card and webhook", digestEmail.HtmlBody.Length > 0 && digestCard.Body.Length > 0 && digestHook.Body.Length > 0);
+        ok &= Report("heartbeat webhook", heartbeat.Body.Length > 0);
+
+        var preview = await services.GetRequiredService<IDigestService>().PreviewAsync(DetailLevel.Standard, cancellationToken).ConfigureAwait(false);
+        ok &= Report("digest preview", preview.Html.Length > 0 && preview.Subject.Length > 0);
+
+        var html = services.GetRequiredService<IEventHtmlRenderer>().Render(new EventDetails { Event = sample }, DetailLevel.Standard);
+        ok &= Report("HTML event page", html.Contains("<html", StringComparison.OrdinalIgnoreCase));
+        return ok;
+    }
+
+    private static bool Rendered(OutboxMessage message) =>
+        message.Email is { } email ? email.HtmlBody.Length > 0 && email.TextBody.Length > 0 && email.Subject.Length > 0 : message.Http is { Body.Length: > 0 };
+
+    private static WatchEvent SampleEvent() => new()
+    {
+        EventId = Guid.CreateVersion7(),
+        Kind = WatchEventKind.UserCreated,
+        Severity = Severity.Low,
+        Object = new ObjectRef
+        {
+            Dn = "CN=Zofia Żak,OU=Księgowość,DC=contoso,DC=test",
+            Name = "Zofia Żak",
+            SamAccountName = "zofia.zak",
+            Kind = WatchObjectKind.User,
+        },
+        DetectedAt = DateTimeOffset.UtcNow,
+        Source = DetectionSource.Test,
+        Domain = "contoso.test",
+        Attribution = Contracts.Events.Attribution.Pending,
+    };
+
+    private static bool Report(string check, bool ok)
+    {
+        Console.WriteLine($"Smoke test: {check} {(ok ? "ok" : "FAILED")}");
+        return ok;
+    }
+}

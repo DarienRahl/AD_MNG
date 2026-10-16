@@ -1,0 +1,317 @@
+<!--
+  "New Object" for users, groups, OUs, computers and contacts (modal). The sections are shown by object kind; the
+  password boxes are handed to the view model as IPasswordInput adapters and never bound.
+-->
+<Window x:Class="AdMng.App.Views.NewObjectWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="560"
+        MinWidth="460"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+
+    <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource Ad.FieldLabel}">
+      <Setter Property="Margin" Value="0,8,0,3" />
+    </Style>
+
+    <!-- First name, initials, last name, full name: users and contacts. -->
+    <Style x:Key="PersonSection" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsUser, Mode=OneWay}" Value="True">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsContact, Mode=OneWay}" Value="True">
+          <Setter Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Live sAMAccountName check: glyph by availability. -->
+    <Style x:Key="AvailabilityGlyph" TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Margin" Value="0,0,6,0" />
+      <Setter Property="Text" Value="" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding SamAvailability, Mode=OneWay}" Value="{x:Static dlg:NameAvailability.Available}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Completed}" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding SamAvailability, Mode=OneWay}" Value="{x:Static dlg:NameAvailability.Taken}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Error}" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding SamAvailability, Mode=OneWay}" Value="{x:Static dlg:NameAvailability.Invalid}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+          <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding SamAvailability, Mode=OneWay}" Value="{x:Static dlg:NameAvailability.Checking}">
+          <Setter Property="Text" Value="{x:Static c:Glyphs.Refresh}" />
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- Radio button look for an option list (selection = the bound value). -->
+    <Style x:Key="RadioOptionItem" TargetType="ListBoxItem">
+      <Setter Property="Focusable" Value="True" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Text, Mode=OneWay}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ListBoxItem">
+            <RadioButton Margin="0,2"
+                         Content="{Binding Text, Mode=OneWay}"
+                         Focusable="False"
+                         IsChecked="{Binding IsSelected, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <ProgressBar Width="72"
+                     VerticalAlignment="Center"
+                     DockPanel.Dock="Left"
+                     IsIndeterminate="{Binding IsBusy, Mode=OneWay}"
+                     Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+          <Button x:Name="CreateButton"
+                  Command="{Binding CreateCommand}"
+                  Content="{l:Tr Common.Ok}"
+                  IsDefault="True"
+                  Style="{StaticResource Ad.AccentDialogButton}" />
+          <Button Command="{Binding CancelCommand}"
+                  Content="{l:Tr Common.Cancel}"
+                  IsCancel="True"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <StackPanel Margin="24,14,24,16">
+      <!-- Where the object is created -->
+      <DockPanel>
+        <c:ObjectIconView x:Name="KindIcon"
+                          Margin="0,0,10,0"
+                          VerticalAlignment="Center"
+                          DockPanel.Dock="Left"
+                          Size="24" />
+        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
+          <Run Text="{l:Tr NewObject.CreateIn}" /><Run Text=" " /><Run FontWeight="SemiBold" Text="{Binding ParentPath, Mode=OneWay}" />
+        </TextBlock>
+      </DockPanel>
+
+      <!-- ===== Users and contacts ===== -->
+      <StackPanel Style="{StaticResource PersonSection}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="80" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr Attribute.givenName}" />
+            <TextBox x:Name="FirstNameBox"
+                     AutomationProperties.Name="{l:Tr Attribute.givenName}"
+                     Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr Attribute.initials}" />
+            <TextBox AutomationProperties.Name="{l:Tr Attribute.initials}" Text="{Binding Initials, UpdateSourceTrigger=PropertyChanged}" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Attribute.sn}" />
+        <TextBox AutomationProperties.Name="{l:Tr Attribute.sn}" Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr NewObject.FullName}" />
+        <TextBox AutomationProperties.Name="{l:Tr NewObject.FullName}" Text="{Binding FullName, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+
+      <!-- Contact: display name -->
+      <StackPanel Visibility="{Binding IsContact, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Attribute.displayName}" />
+        <TextBox AutomationProperties.Name="{l:Tr Attribute.displayName}" Text="{Binding DisplayName, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+
+      <!-- ===== User: logon names, password, account options ===== -->
+      <StackPanel Visibility="{Binding IsUser, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Labels.UserLogonName}" />
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <TextBox AutomationProperties.Name="{l:Tr Labels.UserLogonName}" Text="{Binding UpnPrefix, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Grid.Column="1"
+                     Margin="6,0"
+                     VerticalAlignment="Center"
+                     Text="@" />
+          <ComboBox Grid.Column="2"
+                    MinWidth="150"
+                    AutomationProperties.Name="{l:Tr Labels.UserLogonName}"
+                    ItemsSource="{Binding UpnSuffixes, Mode=OneWay}"
+                    SelectedItem="{Binding UpnSuffix}" />
+        </Grid>
+      </StackPanel>
+
+      <!-- sAMAccountName: users, groups, computers -->
+      <StackPanel x:Name="SamSection">
+        <TextBlock x:Name="SamLabel"
+                   Style="{StaticResource Label}"
+                   Text="{l:Tr Attribute.sAMAccountName}" />
+        <TextBox x:Name="SamBox"
+                 AutomationProperties.Name="{Binding Text, ElementName=SamLabel}"
+                 Text="{Binding SamAccountName, UpdateSourceTrigger=PropertyChanged}" />
+        <DockPanel Margin="0,4,0,0" Visibility="{Binding SamAvailabilityText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock DockPanel.Dock="Left" Style="{StaticResource AvailabilityGlyph}" />
+          <TextBlock AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding SamAvailabilityText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </StackPanel>
+
+      <StackPanel Visibility="{Binding IsUser, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Expander Margin="0,8,0,0" Header="{l:Tr ObjectDialogs.SamTemplate}">
+          <TextBox Margin="0,4,0,0"
+                   AutomationProperties.Name="{l:Tr ObjectDialogs.SamTemplate}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   Text="{Binding SamTemplate, UpdateSourceTrigger=PropertyChanged}" />
+        </Expander>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr Batch.Password}" />
+            <PasswordBox x:Name="PasswordBox" AutomationProperties.Name="{l:Tr Batch.Password}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr ResetPassword.ConfirmPassword}" />
+            <PasswordBox x:Name="ConfirmPasswordBox" AutomationProperties.Name="{l:Tr ResetPassword.ConfirmPassword}" />
+          </StackPanel>
+        </Grid>
+
+        <CheckBox Margin="0,12,0,0"
+                  Content="{l:Tr Labels.MustChangePassword}"
+                  IsChecked="{Binding MustChangePassword}" />
+        <CheckBox Margin="0,6,0,0"
+                  Content="{l:Tr NewObject.CannotChangePassword}"
+                  IsChecked="{Binding CannotChangePassword, Mode=OneWay}"
+                  IsEnabled="{Binding IsCannotChangePasswordSupported, Mode=OneWay}" />
+        <CheckBox Margin="0,6,0,0"
+                  Content="{l:Tr Uac.DontExpirePassword}"
+                  IsChecked="{Binding PasswordNeverExpires}" />
+        <CheckBox Margin="0,6,0,0"
+                  Content="{l:Tr Uac.AccountDisable}"
+                  IsChecked="{Binding AccountDisabled}" />
+        <Border Margin="0,8,0,0"
+                Style="{StaticResource Ad.WarningBar}"
+                Visibility="{Binding PasswordOptionsWarning, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding PasswordOptionsWarning, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </Border>
+      </StackPanel>
+
+      <!-- ===== Group ===== -->
+      <StackPanel Visibility="{Binding IsGroup, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Labels.GroupName}" />
+        <TextBox x:Name="GroupNameBox"
+                 AutomationProperties.Name="{l:Tr Labels.GroupName}"
+                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+        <Grid Margin="0,4,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr Labels.GroupScope}" />
+            <ListBox Background="Transparent"
+                     BorderThickness="0"
+                     AutomationProperties.Name="{l:Tr Labels.GroupScope}"
+                     ItemContainerStyle="{StaticResource RadioOptionItem}"
+                     ItemsSource="{Binding GroupScopes, Mode=OneWay}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectedValue="{Binding GroupScope}"
+                     SelectedValuePath="Value" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <TextBlock Style="{StaticResource Label}" Text="{l:Tr Labels.GroupType}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr Labels.Security}"
+                         IsChecked="{Binding IsSecurityGroup}" />
+            <RadioButton Margin="0,2"
+                         Content="{l:Tr Labels.Distribution}"
+                         IsChecked="{Binding IsSecurityGroup, Converter={StaticResource Ad.InverseBool}}" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+
+      <!-- ===== Organizational unit ===== -->
+      <StackPanel Visibility="{Binding IsOrganizationalUnit, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Common.Name}" />
+        <TextBox x:Name="OuNameBox"
+                 AutomationProperties.Name="{l:Tr Common.Name}"
+                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+        <CheckBox Margin="0,12,0,0"
+                  Content="{l:Tr NewObject.ProtectFromDeletion}"
+                  IsChecked="False"
+                  IsEnabled="{Binding IsProtectionSupported, Mode=OneWay}" />
+        <TextBlock Margin="28,2,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ProtectionNote, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </StackPanel>
+
+      <!-- ===== Computer ===== -->
+      <StackPanel Visibility="{Binding IsComputer, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Labels.ComputerName}" />
+        <TextBox x:Name="ComputerNameBox"
+                 AutomationProperties.Name="{l:Tr Labels.ComputerName}"
+                 CharacterCasing="Upper"
+                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+
+      <!-- Description: groups, OUs, computers -->
+      <StackPanel x:Name="DescriptionSection">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr Common.Description}" />
+        <TextBox AutomationProperties.Name="{l:Tr Common.Description}" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+      </StackPanel>
+
+      <!-- Validation / creation error -->
+      <Border Margin="0,14,0,0"
+              Style="{StaticResource Ad.ErrorBar}"
+              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <DockPanel>
+          <TextBlock Margin="0,1,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{x:Static c:Glyphs.Error}" />
+          <TextBlock x:Name="ErrorTextBlock"
+                     AutomationProperties.LiveSetting="Assertive"
+                     Text="{Binding Error, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+    </StackPanel>
+  </DockPanel>
+</Window>

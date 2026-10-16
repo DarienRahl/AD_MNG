@@ -1,0 +1,481 @@
+<!--
+  AD Recycle Bin (RecycleBinViewModel, modeless, one window): the deleted objects of the domain, read live with server side
+  filters, restored to their original location or to another container (a container with its children, parent first)
+  after a preview of the plan. Without the Recycle Bin the banner explains that only tombstone reanimation is possible.
+-->
+<Window x:Class="AdMng.App.Views.RecycleBinWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:AdMng.App.Behaviors"
+        xmlns:batch="clr-namespace:AdMng.Presentation.BatchEditing;assembly=AdMng.Presentation"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:conv="clr-namespace:AdMng.App.Converters"
+        xmlns:dialogs="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1100"
+        Height="660"
+        MinWidth="760"
+        MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <!-- Commands for the context menu, the column headers and key bindings, independent of their DataContext. -->
+    <c:BindingProxy x:Key="BinProxy" Data="{Binding}" />
+
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+
+    <conv:RowSeverityToGlyphConverter x:Key="RowSeverityGlyph" />
+    <conv:NotEmptyToBooleanConverter x:Key="NotEmpty" />
+
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,0,8,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="DeletedRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnItemDoubleClick" />
+    </Style>
+
+    <Style x:Key="PreviewRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+    </Style>
+
+    <!-- Info card while the Recycle Bin is enabled (or disconnected), warning bar without it. -->
+    <Style x:Key="BannerStyle" TargetType="Border" BasedOn="{StaticResource Ad.Card}">
+      <Setter Property="Padding" Value="12,8" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsRecycleBinDisabled, Mode=OneWay}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+          <Setter Property="CornerRadius" Value="4" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Window.InputBindings>
+    <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
+  </Window.InputBindings>
+
+  <DockPanel>
+    <!-- Footer: status and the actions of the current step (list / preview). -->
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+            <Button x:Name="RestoreToButton"
+                    Command="{Binding RestoreToCommand}"
+                    Content="{l:Tr RecycleBin.RestoreTo}"
+                    Style="{StaticResource Ad.DialogButton}" />
+            <Button x:Name="RestoreButton"
+                    Command="{Binding RestoreCommand}"
+                    Content="{l:Tr RecycleBin.Restore}"
+                    Style="{StaticResource Ad.AccentDialogButton}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Button x:Name="BackButton"
+                    Command="{Binding BackCommand}"
+                    Content="{l:Tr Common.Back}"
+                    Style="{StaticResource Ad.DialogButton}" />
+            <Button x:Name="ConfirmButton"
+                    Command="{Binding ConfirmRestoreCommand}"
+                    Content="{Binding ConfirmText, Mode=OneWay}"
+                    Style="{StaticResource Ad.AccentDialogButton}" />
+          </StackPanel>
+          <Button x:Name="CloseButton"
+                  Command="{Binding CloseCommand}"
+                  Content="{l:Tr Common.Close}"
+                  IsCancel="True"
+                  Style="{StaticResource Ad.DialogButton}" />
+        </StackPanel>
+        <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+          <ProgressBar Width="60"
+                       Margin="0,0,8,0"
+                       VerticalAlignment="Center"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock x:Name="StatusText"
+                     AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding StatusText, Mode=OneWay}"
+                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock x:Name="SelectionText"
+                     Margin="16,0,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding SelectionText, Mode=OneWay}"
+                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock x:Name="PreviewSummaryText"
+                     AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding PreviewSummary, Mode=OneWay}"
+                     Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Recycle Bin state (enabled / tombstones only / not connected) with the lifetime when known. -->
+    <Border x:Name="Banner"
+            Margin="16,12,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource BannerStyle}">
+      <DockPanel>
+        <TextBlock x:Name="BannerGlyph"
+                   Margin="0,1,10,0"
+                   VerticalAlignment="Top"
+                   DockPanel.Dock="Left"
+                   FontSize="14">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+              <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
+              <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsRecycleBinDisabled, Mode=OneWay}" Value="True">
+                  <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+                  <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+        <TextBlock x:Name="BannerText"
+                   AutomationProperties.LiveSetting="Polite"
+                   Text="{Binding BannerText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <!-- Server side filters (list step only). -->
+    <Grid Margin="16,10,16,0"
+          DockPanel.Dock="Top"
+          Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" MinWidth="180" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="3*" MinWidth="220" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <TextBlock Margin="0,0,0,4" Text="{l:Tr RecycleBin.NameFilter}" />
+      <Grid Grid.Row="1">
+        <TextBox x:Name="NameFilterBox"
+                 AutomationProperties.Name="{l:Tr RecycleBin.NameFilter}"
+                 Text="{Binding NameFilter, UpdateSourceTrigger=PropertyChanged}">
+          <TextBox.InputBindings>
+            <KeyBinding Key="Enter" Command="{Binding Data.RefreshCommand, Source={StaticResource BinProxy}}" />
+          </TextBox.InputBindings>
+        </TextBox>
+        <TextBlock Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr RecycleBin.NameFilterHint}"
+                   Visibility="{Binding Text, ElementName=NameFilterBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
+
+      <TextBlock Grid.Column="2"
+                 Margin="0,0,0,4"
+                 Text="{l:Tr Columns.Type}" />
+      <ComboBox x:Name="KindBox"
+                Grid.Row="1"
+                Grid.Column="2"
+                MinWidth="190"
+                AutomationProperties.Name="{l:Tr Columns.Type}"
+                DisplayMemberPath="Text"
+                ItemsSource="{Binding Kinds, Mode=OneWay}"
+                SelectedItem="{Binding Kind}" />
+
+      <TextBlock Grid.Column="4"
+                 Margin="0,0,0,4"
+                 Text="{l:Tr RecycleBin.DeletedAfter}" />
+      <DatePicker x:Name="DeletedAfterPicker"
+                  Grid.Row="1"
+                  Grid.Column="4"
+                  Width="170"
+                  AutomationProperties.Name="{l:Tr RecycleBin.DeletedAfter}"
+                  b:DatePickerWatermark.Text="{l:Tr Ui.SelectDate}"
+                  SelectedDate="{Binding DeletedAfter}" />
+
+      <TextBlock Grid.Column="6"
+                 Margin="0,0,0,4"
+                 Text="{l:Tr RecycleBin.DeletedFrom}" />
+      <DockPanel Grid.Row="1" Grid.Column="6">
+        <Button Margin="4,0,0,0"
+                AutomationProperties.Name="{l:Tr Common.Clear}"
+                Command="{Binding ClearDeletedFromCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                DockPanel.Dock="Right"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.Clear}" />
+        <Button Margin="6,0,0,0"
+                Command="{Binding BrowseDeletedFromCommand}"
+                Content="{l:Tr Common.Browse}"
+                DockPanel.Dock="Right" />
+        <TextBox x:Name="DeletedFromBox"
+                 AutomationProperties.Name="{l:Tr RecycleBin.DeletedFrom}"
+                 IsReadOnly="True"
+                 Text="{Binding DeletedFromText, Mode=OneWay}" />
+      </DockPanel>
+
+      <StackPanel Grid.Row="1"
+                  Grid.Column="7"
+                  Margin="8,0,0,0"
+                  Orientation="Horizontal">
+        <Button x:Name="RefreshButton"
+                AutomationProperties.Name="{l:Tr Commands.Refresh}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Commands.Refresh}" />
+        <Button x:Name="StopButton"
+                AutomationProperties.Name="{l:Tr Common.Stop}"
+                Command="{Binding StopCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Common.Stop}" />
+        <Button x:Name="ClearFiltersButton"
+                AutomationProperties.Name="{l:Tr RecycleBin.ClearFilters}"
+                Command="{Binding ClearFiltersCommand}"
+                Content="{x:Static c:Glyphs.Filter}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr RecycleBin.ClearFilters}" />
+      </StackPanel>
+    </Grid>
+
+    <!-- Load error (no access to CN=Deleted Objects, DC unavailable...). -->
+    <Border x:Name="ErrorBar"
+            Margin="16,10,16,0"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <TextBlock x:Name="ErrorText"
+                 AutomationProperties.LiveSetting="Assertive"
+                 Text="{Binding Error, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+    </Border>
+
+    <Grid Margin="16,10,16,12">
+      <!-- Step 1: the deleted objects -->
+      <Grid Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}">
+        <ListView x:Name="ItemsList"
+                  AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+                  ItemContainerStyle="{StaticResource DeletedRowStyle}"
+                  ItemsSource="{Binding Items, Mode=OneWay}"
+                  SelectedItem="{Binding SelectedItem}"
+                  SelectionChanged="OnItemsSelectionChanged"
+                  SelectionMode="Extended"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.InputBindings>
+            <KeyBinding Key="Enter" Command="{Binding Data.RestoreCommand, Source={StaticResource BinProxy}}" />
+            <KeyBinding Key="C"
+                        Command="{Binding Data.CopyDnCommand, Source={StaticResource BinProxy}}"
+                        Modifiers="Control" />
+          </ListView.InputBindings>
+          <ListView.ContextMenu>
+            <ContextMenu>
+              <MenuItem Command="{Binding Data.RestoreCommand, Source={StaticResource BinProxy}}"
+                        FontWeight="SemiBold"
+                        Header="{l:Tr RecycleBin.Restore}"
+                        InputGestureText="Enter" />
+              <MenuItem Command="{Binding Data.RestoreToCommand, Source={StaticResource BinProxy}}" Header="{l:Tr RecycleBin.RestoreTo}" />
+              <Separator />
+              <MenuItem Command="{Binding Data.CopyDnCommand, Source={StaticResource BinProxy}}"
+                        Header="{l:Tr Commands.CopyDn}"
+                        InputGestureText="Ctrl+C" />
+              <MenuItem Command="{Binding Data.RefreshCommand, Source={StaticResource BinProxy}}"
+                        Header="{l:Tr Commands.Refresh}"
+                        InputGestureText="F5" />
+            </ContextMenu>
+          </ListView.ContextMenu>
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="280">
+                <GridViewColumn.Header>
+                  <GridViewColumnHeader Command="{Binding Data.SortCommand, Source={StaticResource BinProxy}}"
+                                        CommandParameter="{x:Static dialogs:DeletedObjectSort.Name}"
+                                        Content="{l:Tr Common.Name}" />
+                </GridViewColumn.Header>
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:DeletedObjectRowViewModel}">
+                    <DockPanel ToolTip="{Binding Dn, Mode=OneWay}">
+                      <c:ObjectIconView Margin="0,0,6,0"
+                                        VerticalAlignment="Center"
+                                        DockPanel.Dock="Left"
+                                        Icon="{Binding Icon, Mode=OneWay}"
+                                        Size="16" />
+                      <TextBlock VerticalAlignment="Center"
+                                 Text="{Binding Name, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="170">
+                <GridViewColumn.Header>
+                  <GridViewColumnHeader Command="{Binding Data.SortCommand, Source={StaticResource BinProxy}}"
+                                        CommandParameter="{x:Static dialogs:DeletedObjectSort.Type}"
+                                        Content="{l:Tr Columns.Type}" />
+                </GridViewColumn.Header>
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:DeletedObjectRowViewModel}">
+                    <TextBlock Text="{Binding TypeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="380">
+                <GridViewColumn.Header>
+                  <GridViewColumnHeader Command="{Binding Data.SortCommand, Source={StaticResource BinProxy}}"
+                                        CommandParameter="{x:Static dialogs:DeletedObjectSort.OriginalLocation}"
+                                        Content="{l:Tr RecycleBin.OriginalLocation}" />
+                </GridViewColumn.Header>
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:DeletedObjectRowViewModel}">
+                    <TextBlock Text="{Binding OriginalLocation, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding LastKnownParent, Mode=OneWay}"
+                               ToolTipService.IsEnabled="{Binding LastKnownParent, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="160">
+                <GridViewColumn.Header>
+                  <GridViewColumnHeader Command="{Binding Data.SortCommand, Source={StaticResource BinProxy}}"
+                                        CommandParameter="{x:Static dialogs:DeletedObjectSort.Deleted}"
+                                        Content="{l:Tr RecycleBin.Deleted}" />
+                </GridViewColumn.Header>
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:DeletedObjectRowViewModel}">
+                    <TextBlock Text="{Binding DeletedText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+        <ProgressBar Height="3"
+                     VerticalAlignment="Top"
+                     IsIndeterminate="True"
+                     Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <TextBlock x:Name="EmptyHint"
+                   Margin="0,60,0,0"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{l:Tr RecycleBin.Empty}"
+                   Visibility="{Binding IsEmpty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      </Grid>
+
+      <!-- Step 2: the restore preview (parent → child structure, findings), confirmed in the footer. -->
+      <DockPanel Visibility="{Binding IsPreviewing, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <StackPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+          <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr RecycleBin.PreviewTitle}" />
+          <TextBlock x:Name="PreviewTargetText"
+                     Text="{Binding PreviewTargetText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock x:Name="PreviewErrorsText"
+                     Margin="0,4,0,0"
+                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                     Text="{Binding PreviewErrorsText, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding PreviewErrorsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </StackPanel>
+        <ListView x:Name="PreviewList"
+                  AutomationProperties.Name="{l:Tr RecycleBin.PreviewTitle}"
+                  ItemContainerStyle="{StaticResource PreviewRowStyle}"
+                  ItemsSource="{Binding PreviewItems, Mode=OneWay}"
+                  SelectionMode="Single"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling">
+          <ListView.View>
+            <GridView AllowsColumnReorder="False">
+              <GridViewColumn Width="34">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:RestorePreviewItemViewModel}">
+                    <TextBlock x:Name="SeverityGlyph"
+                               FontSize="13"
+                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                               Style="{StaticResource Ad.GlyphText}"
+                               Text="{Binding Severity, Mode=OneWay, Converter={StaticResource RowSeverityGlyph}}"
+                               ToolTip="{Binding Findings, Mode=OneWay}"
+                               ToolTipService.IsEnabled="{Binding Findings, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                    <DataTemplate.Triggers>
+                      <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Warning}">
+                        <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                      </DataTrigger>
+                      <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static batch:RowSeverity.Error}">
+                        <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                      </DataTrigger>
+                    </DataTemplate.Triggers>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="260" Header="{l:Tr Common.Name}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:RestorePreviewItemViewModel}">
+                    <DockPanel>
+                      <!-- Indentation: objects restored into a container restored by the same plan. -->
+                      <Border Width="{Binding Indent, Mode=OneWay}" DockPanel.Dock="Left" />
+                      <c:ObjectIconView Margin="0,0,6,0"
+                                        VerticalAlignment="Center"
+                                        DockPanel.Dock="Left"
+                                        Icon="{Binding Icon, Mode=OneWay}"
+                                        Size="16" />
+                      <TextBlock VerticalAlignment="Center"
+                                 Text="{Binding Name, Mode=OneWay}"
+                                 TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="150" Header="{l:Tr Columns.Type}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:RestorePreviewItemViewModel}">
+                    <TextBlock Text="{Binding TypeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="300" Header="{l:Tr RecycleBin.RestoreTarget}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:RestorePreviewItemViewModel}">
+                    <TextBlock Text="{Binding TargetText, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding TargetDn, Mode=OneWay}"
+                               ToolTipService.IsEnabled="{Binding TargetDn, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+              <GridViewColumn Width="320" Header="{l:Tr BatchUi.Findings}">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate DataType="{x:Type dialogs:RestorePreviewItemViewModel}">
+                    <TextBlock Text="{Binding Findings, Mode=OneWay}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Findings, Mode=OneWay}"
+                               ToolTipService.IsEnabled="{Binding Findings, Mode=OneWay, Converter={StaticResource NotEmpty}}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
+            </GridView>
+          </ListView.View>
+        </ListView>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

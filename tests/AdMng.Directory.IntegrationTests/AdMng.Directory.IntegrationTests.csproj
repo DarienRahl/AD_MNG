@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs against a real directory (Samba AD DC test lab or a lab AD).
+       Configure with ADMNG_TEST_LDAP_SERVER / ADMNG_TEST_LDAP_USER / ADMNG_TEST_LDAP_PASSWORD;
+       tests are skipped when the variables are not set. See tools/testlab/README.md. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.Directory\AdMng.Directory.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

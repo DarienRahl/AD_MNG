@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Live LDAP access to Active Directory (System.DirectoryServices.Protocols).
+       Implements the AdMng.Core.Directory contracts. Never persists directory data. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Directory</RootNamespace>
+    <!-- LibraryImport stubs (netapi32 DC locator on Windows, libldap TLS options on Linux). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.DirectoryServices.Protocols" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Directory.IntegrationTests" />
+  </ItemGroup>
+</Project>

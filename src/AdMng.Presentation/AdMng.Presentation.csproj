@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- View models, UI services contracts, localization and settings.
+       Deliberately free of WPF types so that it can be unit-tested on any OS. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Presentation</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Presentation.Tests" />
+  </ItemGroup>
+</Project>

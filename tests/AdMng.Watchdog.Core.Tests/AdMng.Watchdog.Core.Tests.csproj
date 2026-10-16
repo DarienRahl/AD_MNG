@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Unit tests of the watchdog engine and contracts (Linux and Windows): FakeDirectorySession, XML fixtures,
+       FakeTimeProvider. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Core\AdMng.Watchdog.Core.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Testing\AdMng.Watchdog.Testing.csproj" />
+    <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

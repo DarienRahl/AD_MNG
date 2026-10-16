@@ -1,0 +1,211 @@
+<!--
+  Application-wide resources of the WPF shell (merged into App.Resources after the Fluent theme).
+  Rules:
+  * Only string keys here. Implicit (type keyed) styles that are BasedOn a Fluent style must live in window or element
+    resources: a type keyed entry in this dictionary would hide the Fluent style it is based on.
+  * Theme brushes are always DynamicResource (light/dark/high contrast switch at runtime).
+  * Keys are prefixed "Ad." so they never collide with Fluent theme keys.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:c="clr-namespace:AdMng.App.Controls"
+                    xmlns:conv="clr-namespace:AdMng.App.Converters"
+                    xmlns:l="clr-namespace:AdMng.App.Localization"
+                    xmlns:lists="clr-namespace:AdMng.Presentation.Lists;assembly=AdMng.Presentation">
+
+  <!-- Converters -->
+  <conv:BooleanToVisibilityConverter x:Key="Ad.BoolToVisibility" />
+  <conv:BooleanToVisibilityConverter x:Key="Ad.InverseBoolToVisibility" Invert="True" />
+  <conv:InverseBooleanConverter x:Key="Ad.InverseBool" />
+  <conv:EmptyToVisibilityConverter x:Key="Ad.EmptyToCollapsed" />
+  <conv:EmptyToVisibilityConverter x:Key="Ad.EmptyToVisible" Invert="True" />
+  <conv:EqualsConverter x:Key="Ad.Equals" />
+  <conv:SameInstanceToVisibilityConverter x:Key="Ad.SameInstanceToVisibility" />
+  <conv:FormatConverter x:Key="Ad.Format" />
+  <conv:SortDirectionToGlyphConverter x:Key="Ad.SortGlyph" />
+  <conv:SeverityToGlyphConverter x:Key="Ad.SeverityGlyph" />
+  <conv:ShortcutTextConverter x:Key="Ad.Shortcut" />
+  <l:TrConverter x:Key="Ad.Tr" />
+
+  <!-- Icon font: Segoe Fluent Icons (Windows 11) with Segoe MDL2 Assets fallback (Windows 10 / Server). -->
+  <FontFamily x:Key="Ad.IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+  <!-- Text -->
+  <Style x:Key="Ad.GlyphText" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource Ad.IconFont}" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="TextOptions.TextRenderingMode" Value="Grayscale" />
+  </Style>
+
+  <Style x:Key="Ad.SecondaryText" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style x:Key="Ad.SectionHeader" TargetType="TextBlock">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Margin" Value="0,0,0,4" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style x:Key="Ad.Title" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style x:Key="Ad.FieldLabel" TargetType="TextBlock">
+    <Setter Property="Margin" Value="0,10,0,4" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <!-- Watermark laid over an input; bind its Visibility to the input text with Ad.EmptyToVisible. -->
+  <Style x:Key="Ad.HintText" TargetType="TextBlock">
+    <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+    <Setter Property="Margin" Value="11,0,8,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <!-- Buttons -->
+  <Style x:Key="Ad.IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="MinWidth" Value="32" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="FontFamily" Value="{StaticResource Ad.IconFont}" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+  </Style>
+
+  <Style x:Key="Ad.SmallIconButton" TargetType="Button" BasedOn="{StaticResource Ad.IconButton}">
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="MinWidth" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="FontSize" Value="10" />
+  </Style>
+
+  <Style x:Key="Ad.IconToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+    <Setter Property="Padding" Value="6,4" />
+    <Setter Property="MinWidth" Value="32" />
+    <Setter Property="Height" Value="30" />
+    <Setter Property="FontFamily" Value="{StaticResource Ad.IconFont}" />
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+  </Style>
+
+  <!-- Filter chip: a compact toggle with text. -->
+  <Style x:Key="Ad.ChipToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
+    <Setter Property="Padding" Value="10,2" />
+    <Setter Property="Margin" Value="0,0,6,4" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="Border.CornerRadius" Value="13" />
+  </Style>
+
+  <Style x:Key="Ad.DialogButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <Style x:Key="Ad.AccentDialogButton" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+  </Style>
+
+  <!-- Confirm button of destructive actions (delete...): critical colour, never the default button. -->
+  <Style x:Key="Ad.DangerDialogButton" TargetType="Button" BasedOn="{StaticResource Ad.DialogButton}">
+    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+  </Style>
+
+  <!-- Hide a button while its command cannot execute (e.g. "Cancel" only during an operation). -->
+  <Style x:Key="Ad.CollapsedWhenDisabledButton" TargetType="Button" BasedOn="{StaticResource Ad.DialogButton}">
+    <Style.Triggers>
+      <Trigger Property="IsEnabled" Value="False">
+        <Setter Property="Visibility" Value="Collapsed" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- Panels -->
+  <Style x:Key="Ad.VerticalDivider" TargetType="Rectangle">
+    <Setter Property="Width" Value="1" />
+    <Setter Property="Margin" Value="6,6" />
+    <Setter Property="Fill" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+  </Style>
+
+  <Style x:Key="Ad.HorizontalDivider" TargetType="Rectangle">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Fill" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+  </Style>
+
+  <Style x:Key="Ad.ErrorBar" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="12,8" />
+  </Style>
+
+  <Style x:Key="Ad.WarningBar" TargetType="Border" BasedOn="{StaticResource Ad.ErrorBar}">
+    <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+  </Style>
+
+  <Style x:Key="Ad.Card" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12" />
+  </Style>
+
+  <Style x:Key="Ad.DialogFooter" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DividerStrokeColorDefaultBrush}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Padding" Value="16,12" />
+  </Style>
+
+  <Style x:Key="Ad.Overlay" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource SurfaceStrokeColorFlyoutBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8" />
+  </Style>
+
+  <!-- Object list templates (used by b:DynamicColumns; reusable by any ListView over ObjectRowViewModel). -->
+  <DataTemplate x:Key="Ad.ColumnHeaderTemplate" DataType="{x:Type lists:ColumnViewModel}">
+    <DockPanel LastChildFill="True">
+      <TextBlock DockPanel.Dock="Right"
+                 Margin="6,0,0,0"
+                 FontSize="10"
+                 Style="{StaticResource Ad.GlyphText}"
+                 Text="{Binding SortDirection, Mode=OneWay, Converter={StaticResource Ad.SortGlyph}}" />
+      <TextBlock VerticalAlignment="Center"
+                 Text="{Binding Header, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+  </DataTemplate>
+
+  <DataTemplate x:Key="Ad.NameCellTemplate" DataType="{x:Type lists:ObjectRowViewModel}">
+    <DockPanel LastChildFill="True">
+      <c:ObjectIconView DockPanel.Dock="Left"
+                        Margin="0,0,6,0"
+                        VerticalAlignment="Center"
+                        Icon="{Binding Icon, Mode=OneWay}"
+                        Size="16" />
+      <TextBlock Tag="NameCell"
+                 VerticalAlignment="Center"
+                 Text="{Binding Name, Mode=OneWay}"
+                 TextTrimming="CharacterEllipsis" />
+    </DockPanel>
+  </DataTemplate>
+</ResourceDictionary>

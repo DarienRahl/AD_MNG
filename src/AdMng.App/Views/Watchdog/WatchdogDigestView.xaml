@@ -1,0 +1,209 @@
+<!--
+  The "Daily digest" sub-tab (WatchdogDigestViewModel): digest settings and the preview (subject and plain text in a
+  read-only box, in memory only, never written to disk) with "Send now" for Admins, plus the save bar.
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogDigestView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
+             AutomationProperties.Name="{l:Tr Watchdog.Tab.Digest}">
+  <UserControl.Resources>
+    <DataTemplate x:Key="CheckOptionTemplate">
+      <CheckBox Margin="0,0,12,2"
+                MinWidth="0"
+                AutomationProperties.Name="{Binding Text, Mode=OneWay, TargetNullValue=''}"
+                Content="{Binding Text, Mode=OneWay}"
+                IsChecked="{Binding IsChecked}" />
+    </DataTemplate>
+
+    <ItemsPanelTemplate x:Key="WrapPanelTemplate">
+      <WrapPanel />
+    </ItemsPanelTemplate>
+
+    <Style x:Key="NumberBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="Width" Value="110" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <wdv:WatchdogConfigBar x:Name="ConfigBar"
+                           DataContext="{Binding Session}"
+                           DockPanel.Dock="Bottom" />
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*" MinWidth="340" />
+        <ColumnDefinition Width="12" />
+        <ColumnDefinition Width="3*" MinWidth="360" />
+      </Grid.ColumnDefinitions>
+
+      <!-- Settings -->
+      <ScrollViewer Focusable="False"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <Border x:Name="SettingsCard" Style="{StaticResource Wd.Card}">
+          <StackPanel IsEnabled="{Binding CanEdit, Mode=OneWay}">
+            <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.DigestSettings}" />
+            <CheckBox x:Name="DigestEnabledBox"
+                      Content="{l:Tr Watchdog.Ui.DigestEnabled}"
+                      IsChecked="{Binding Enabled}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="170" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.DigestTime}" />
+              <StackPanel Grid.Column="1">
+                <TextBox x:Name="DigestTimeBox"
+                         AutomationProperties.Name="{l:Tr Watchdog.Ui.DigestTime}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding Time, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding TimeError, Mode=OneWay}" />
+                <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[time], Mode=OneWay}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.DigestDays}" />
+            <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.DigestDays}"
+                          Focusable="False"
+                          ItemTemplate="{StaticResource CheckOptionTemplate}"
+                          ItemsPanel="{StaticResource WrapPanelTemplate}"
+                          ItemsSource="{Binding Days, Mode=OneWay}" />
+            <CheckBox Margin="0,8,0,0"
+                      Content="{l:Tr Watchdog.Ui.CoverNonBusinessDays}"
+                      IsChecked="{Binding CoverNonBusinessDays}" />
+            <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.RecipientGroups}" />
+            <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.RecipientGroups}"
+                          Focusable="False"
+                          ItemTemplate="{StaticResource CheckOptionTemplate}"
+                          ItemsPanel="{StaticResource WrapPanelTemplate}"
+                          ItemsSource="{Binding RecipientGroups, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.Channels}" />
+            <ItemsControl AutomationProperties.Name="{l:Tr Watchdog.Ui.Channels}"
+                          Focusable="False"
+                          ItemTemplate="{StaticResource CheckOptionTemplate}"
+                          ItemsPanel="{StaticResource WrapPanelTemplate}"
+                          ItemsSource="{Binding Channels, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[recipientGroupIds], Mode=OneWay}" />
+            <CheckBox Margin="0,10,0,0"
+                      Content="{l:Tr Watchdog.Ui.SendWhenEmpty}"
+                      IsChecked="{Binding SendWhenEmpty}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="170" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.MaxRowsPerSection}" />
+              <TextBox Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.MaxRowsPerSection}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding MaxRowsPerSection, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.WeeklySectionsDay}" />
+              <ComboBox Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="0,8,0,0"
+                        AutomationProperties.Name="{l:Tr Watchdog.Ui.WeeklySectionsDay}"
+                        DisplayMemberPath="Text"
+                        ItemsSource="{Binding Weekdays, Mode=OneWay}"
+                        SelectedItem="{Binding WeeklySectionsDay}" />
+              <TextBlock Grid.Row="2"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.UpcomingExpiryDays}" />
+              <TextBox Grid.Row="2"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.UpcomingExpiryDays}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding UpcomingExpiryDays, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </ScrollViewer>
+
+      <!-- Preview (kept in memory only) -->
+      <Border x:Name="PreviewCard"
+              Grid.Column="2"
+              Style="{StaticResource Wd.Card}">
+        <DockPanel>
+          <DockPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+              <Button x:Name="PreviewButton"
+                      Command="{Binding PreviewCommand}"
+                      Content="{l:Tr Watchdog.Ui.DigestPreview}"
+                      Style="{StaticResource Wd.ToolButton}" />
+              <Button x:Name="SendNowButton"
+                      Command="{Binding SendNowCommand}"
+                      Style="{StaticResource Wd.ToolButton}"
+                      ToolTip="{Binding Session.ReadOnlyReason, Mode=OneWay}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock FontSize="12"
+                             Style="{StaticResource Ad.GlyphText}"
+                             Text="{x:Static c:Glyphs.Send}" />
+                  <TextBlock Margin="6,0,0,0" Text="{l:Tr Watchdog.Digest.SendNow}" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Wd.CardTitle}"
+                       Text="{l:Tr Watchdog.Ui.DigestPreview}" />
+          </DockPanel>
+          <ProgressBar Height="3"
+                       DockPanel.Dock="Top"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsBusy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock x:Name="ErrorText"
+                     AutomationProperties.LiveSetting="Assertive"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource Wd.FieldError}"
+                     Text="{Binding Error, Mode=OneWay}" />
+          <TextBlock x:Name="MessageText"
+                     AutomationProperties.LiveSetting="Polite"
+                     DockPanel.Dock="Top"
+                     Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                     Text="{Binding Message, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding Message, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock x:Name="PreviewInfo"
+                     Margin="0,4,0,0"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource Wd.Hint}"
+                     Text="{Binding PreviewInfo, Mode=OneWay}"
+                     Visibility="{Binding PreviewInfo, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <TextBlock x:Name="PreviewSubject"
+                     Margin="0,6,0,6"
+                     DockPanel.Dock="Top"
+                     FontWeight="SemiBold"
+                     Text="{Binding PreviewSubject, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding PreviewSubject, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <Grid>
+            <TextBox x:Name="PreviewTextBox"
+                     AutomationProperties.Name="{l:Tr Watchdog.Ui.DigestPreview}"
+                     FontFamily="Consolas"
+                     HorizontalScrollBarVisibility="Auto"
+                     IsReadOnly="True"
+                     Text="{Binding PreviewText, Mode=OneWay}"
+                     TextWrapping="NoWrap"
+                     VerticalScrollBarVisibility="Auto" />
+            <TextBlock Margin="12"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr Watchdog.Ui.DigestPreviewHint}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding Text, ElementName=PreviewTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

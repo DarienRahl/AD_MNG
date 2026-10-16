@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Shared test utilities: an honest in-memory IDirectorySession, a builder for sample directories with
+       Polish names and a manual clock. Referenced by test projects only; never shipped. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Testing</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AdMng.Core\AdMng.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<!--
+  ThemeMode must stay an attribute (it is applied before Application.Resources is set, so the Fluent dictionary is
+  merged first and the "Ad." styles of Themes/Controls.xaml can be BasedOn Fluent styles).
+-->
+<Application x:Class="AdMng.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown"
+             ThemeMode="System">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/AdMng;component/Themes/Controls.xaml" />
+        <ResourceDictionary Source="/AdMng;component/Themes/Watchdog.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

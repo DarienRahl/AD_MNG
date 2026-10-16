@@ -1,0 +1,984 @@
+<Window x:Class="AdMng.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:b="clr-namespace:AdMng.App.Behaviors"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        xmlns:svc="clr-namespace:AdMng.App.Services"
+        xmlns:v="clr-namespace:AdMng.App.Views"
+        xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
+        xmlns:changes="clr-namespace:AdMng.Presentation.Changes;assembly=AdMng.Presentation"
+        xmlns:lists="clr-namespace:AdMng.Presentation.Lists;assembly=AdMng.Presentation"
+        xmlns:nav="clr-namespace:AdMng.Presentation.Navigation;assembly=AdMng.Presentation"
+        xmlns:pres="clr-namespace:AdMng.Presentation.Services;assembly=AdMng.Presentation"
+        xmlns:settings="clr-namespace:AdMng.Presentation.Settings;assembly=AdMng.Presentation"
+        xmlns:shell="clr-namespace:AdMng.Presentation.Shell;assembly=AdMng.Presentation"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        xmlns:wd="clr-namespace:AdMng.Presentation.Watchdog;assembly=AdMng.Presentation"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        Width="1360"
+        Height="840"
+        MinWidth="820"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <!-- The shell view model for places outside the visual tree (item container styles, popups). -->
+    <c:BindingProxy x:Key="ShellProxy" Data="{Binding}" />
+
+    <!-- Compact input density in the main window (Fluent reads these keys as dynamic resources). -->
+    <sys:Double x:Key="TextControlThemeMinHeight">30</sys:Double>
+    <Thickness x:Key="TextControlThemePadding">10,4,6,5</Thickness>
+
+    <!-- Navigation tree nodes -->
+    <HierarchicalDataTemplate DataType="{x:Type nav:ContainerNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding Description, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <TextBlock Margin="6,0,0,0"
+                   FontSize="10"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Refresh}"
+                   Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <TextBlock Margin="6,0,0,0"
+                   FontSize="12"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}"
+                   ToolTip="{Binding LoadError, Mode=OneWay}"
+                   Visibility="{Binding LoadError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
+
+    <HierarchicalDataTemplate DataType="{x:Type nav:FolderNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Text="{Binding Name, Mode=OneWay}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
+
+    <HierarchicalDataTemplate DataType="{x:Type nav:ViewNodeViewModel}" ItemsSource="{Binding Children}">
+      <StackPanel Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+      </StackPanel>
+    </HierarchicalDataTemplate>
+
+    <DataTemplate DataType="{x:Type nav:PlaceholderNodeViewModel}">
+      <TextBlock FontStyle="Italic"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding Name, Mode=OneWay}" />
+    </DataTemplate>
+
+    <!-- Document tabs: header only; the documents are hosted below so every tab keeps its list, scroll and selection. -->
+    <Style x:Key="TabStripStyle" TargetType="TabControl" BasedOn="{StaticResource {x:Type TabControl}}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="TabControl">
+            <TabPanel Margin="4,4,4,0"
+                      Background="Transparent"
+                      IsItemsHost="True"
+                      KeyboardNavigation.TabIndex="1" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Global search suggestions -->
+    <DataTemplate x:Key="SuggestionTemplate" DataType="{x:Type shell:SearchSuggestionViewModel}">
+      <DockPanel Margin="0,2">
+        <c:ObjectIconView Margin="0,0,10,0"
+                          VerticalAlignment="Center"
+                          DockPanel.Dock="Left"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="20" />
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold"
+                     Text="{Binding Name, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}">
+            <Run Text="{Binding TypeText, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding Location, Mode=OneWay}" />
+          </TextBlock>
+        </StackPanel>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- Command palette entries -->
+    <DataTemplate x:Key="PaletteItemTemplate" DataType="{x:Type shell:CommandPaletteItem}">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1"
+                   Margin="16,0,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding Category, Mode=OneWay}" />
+        <TextBlock Grid.Column="2"
+                   MinWidth="90"
+                   Margin="16,0,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding Shortcut, Mode=OneWay, Converter={StaticResource Ad.Shortcut}}"
+                   TextAlignment="Right" />
+      </Grid>
+    </DataTemplate>
+
+    <!-- Background operations -->
+    <DataTemplate x:Key="ActivityTemplate" DataType="{x:Type changes:ActivityViewModel}">
+      <DockPanel Margin="0,4,0,8">
+        <Button Margin="8,0,0,0"
+                VerticalAlignment="Top"
+                Command="{Binding CancelCommand}"
+                Content="{l:Tr Common.Cancel}"
+                DockPanel.Dock="Right"
+                Padding="8,2"
+                Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold"
+                     Text="{Binding Title, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+          <ProgressBar Margin="0,4,0,2"
+                       Maximum="1"
+                       Minimum="0"
+                       Value="{Binding Fraction, Mode=OneWay}"
+                       Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding StatusText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- Toasts -->
+    <DataTemplate x:Key="ToastTemplate" DataType="{x:Type svc:ToastViewModel}">
+      <Border Width="380"
+              Margin="0,8,0,0"
+              Style="{StaticResource Ad.Overlay}">
+        <DockPanel>
+          <Button VerticalAlignment="Top"
+                  AutomationProperties.Name="{l:Tr Common.Close}"
+                  Command="{Binding DismissCommand}"
+                  Content="{x:Static c:Glyphs.Close}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource Ad.SmallIconButton}"
+                  ToolTip="{l:Tr Common.Close}" />
+          <TextBlock x:Name="SeverityGlyph"
+                     Margin="4,0,10,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                     Style="{StaticResource Ad.GlyphText}"
+                     Text="{Binding Severity, Mode=OneWay, Converter={StaticResource Ad.SeverityGlyph}}" />
+          <TextBlock Margin="0,0,6,0"
+                     VerticalAlignment="Center"
+                     AutomationProperties.LiveSetting="Polite"
+                     Text="{Binding Message, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static pres:NotificationSeverity.Success}">
+          <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static pres:NotificationSeverity.Warning}">
+          <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Severity, Mode=OneWay}" Value="{x:Static pres:NotificationSeverity.Error}">
+          <Setter TargetName="SeverityGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!-- Identity banner: amber for privileged (Tier 0) identities. -->
+    <Style x:Key="IdentityBannerStyle" TargetType="Border">
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="Transparent" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding IsPrivilegedIdentity, Mode=OneWay}" Value="True">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+          <Setter Property="ToolTip" Value="{l:Tr Shell.PrivilegedIdentity}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <!-- ===== Menu (ADUC layout) ===== -->
+    <Menu x:Name="MainMenu" Grid.Row="0">
+      <MenuItem Header="{l:Tr Shell.MenuFile}">
+        <MenuItem x:Name="ConnectMenuItem"
+                  Click="OnConnectClick"
+                  Header="{l:Tr Ui.Connect}"
+                  Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <MenuItem b:CommandMenu.Id="session.disconnect" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="nav.newTab" />
+        <MenuItem b:CommandMenu.Id="nav.closeTab" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="view.export" />
+        <MenuItem b:CommandMenu.Id="view.importViews" />
+        <MenuItem b:CommandMenu.Id="view.exportViews" />
+        <Separator />
+        <MenuItem Click="OnExitClick"
+                  Header="{l:Tr Ui.Exit}"
+                  InputGestureText="Alt+F4" />
+      </MenuItem>
+      <MenuItem Header="{l:Tr Shell.MenuAction}">
+        <MenuItem b:CommandMenu.Id="object.properties" />
+        <MenuItem b:CommandMenu.Id="nav.openInNewTab" />
+        <Separator />
+        <MenuItem Header="{l:Tr Shell.MenuNew}">
+          <MenuItem b:CommandMenu.Id="new.user" />
+          <MenuItem b:CommandMenu.Id="new.group" />
+          <MenuItem b:CommandMenu.Id="new.ou" />
+          <MenuItem b:CommandMenu.Id="new.computer" />
+          <MenuItem b:CommandMenu.Id="new.contact" />
+        </MenuItem>
+        <Separator />
+        <MenuItem b:CommandMenu.Id="object.addToGroup" />
+        <MenuItem b:CommandMenu.Id="object.disable" />
+        <MenuItem b:CommandMenu.Id="object.enable" />
+        <MenuItem b:CommandMenu.Id="object.unlock" />
+        <MenuItem b:CommandMenu.Id="object.resetPassword" />
+        <MenuItem b:CommandMenu.Id="object.move" />
+        <MenuItem b:CommandMenu.Id="object.batchEdit" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="object.copyDn" />
+        <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
+        <MenuItem b:CommandMenu.Id="object.delete" />
+        <MenuItem b:CommandMenu.Id="object.rename" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="object.refresh" />
+      </MenuItem>
+      <MenuItem Header="{l:Tr Shell.MenuView}">
+        <MenuItem b:CommandMenu.Id="view.advanced" IsChecked="{Binding ShowAdvancedFeatures, Mode=OneWay}" />
+        <MenuItem b:CommandMenu.Id="view.details" IsChecked="{Binding IsDetailsPaneVisible, Mode=OneWay}" />
+        <MenuItem x:Name="FiltersMenuItem"
+                  Click="OnFiltersMenuClick"
+                  Header="{l:Tr Ui.ShowFilters}" />
+        <MenuItem b:CommandMenu.Id="view.columns" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="view.saveAsView" />
+        <MenuItem b:CommandMenu.Id="view.pin" />
+        <Separator />
+        <MenuItem x:Name="ThemeMenu" Header="{l:Tr Settings.Theme}">
+          <MenuItem Command="{Binding SetThemeCommand}"
+                    CommandParameter="{x:Static settings:ThemePreference.System}"
+                    Header="{l:Tr Theme.System}"
+                    IsChecked="{Binding Theme, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter={x:Static settings:ThemePreference.System}}" />
+          <MenuItem Command="{Binding SetThemeCommand}"
+                    CommandParameter="{x:Static settings:ThemePreference.Light}"
+                    Header="{l:Tr Theme.Light}"
+                    IsChecked="{Binding Theme, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter={x:Static settings:ThemePreference.Light}}" />
+          <MenuItem Command="{Binding SetThemeCommand}"
+                    CommandParameter="{x:Static settings:ThemePreference.Dark}"
+                    Header="{l:Tr Theme.Dark}"
+                    IsChecked="{Binding Theme, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter={x:Static settings:ThemePreference.Dark}}" />
+        </MenuItem>
+        <MenuItem x:Name="LanguageMenu" Header="{l:Tr Settings.Language}">
+          <MenuItem Command="{Binding SetLanguageCommand}"
+                    CommandParameter=""
+                    Header="{l:Tr Settings.LanguageSystem}"
+                    IsChecked="{Binding Language, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter=''}" />
+          <MenuItem Command="{Binding SetLanguageCommand}"
+                    CommandParameter="pl"
+                    Header="{l:Tr Settings.LanguagePolish}"
+                    IsChecked="{Binding Language, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter=pl}" />
+          <MenuItem Command="{Binding SetLanguageCommand}"
+                    CommandParameter="en"
+                    Header="{l:Tr Settings.LanguageEnglish}"
+                    IsChecked="{Binding Language, Mode=OneWay, Converter={StaticResource Ad.Equals}, ConverterParameter=en}" />
+        </MenuItem>
+        <Separator />
+        <MenuItem b:CommandMenu.Id="object.refresh" />
+      </MenuItem>
+      <MenuItem Header="{l:Tr Shell.MenuTools}">
+        <MenuItem b:CommandMenu.Id="nav.find" />
+        <MenuItem b:CommandMenu.Id="nav.search" />
+        <MenuItem b:CommandMenu.Id="nav.address" />
+        <MenuItem b:CommandMenu.Id="object.batchEdit" />
+        <MenuItem b:CommandMenu.Id="tools.importCsv" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="tools.recycleBin" />
+        <MenuItem b:CommandMenu.Id="tools.watchdog" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="tools.sessionLog" />
+        <MenuItem x:Name="PowerShellHistoryMenuItem"
+                  Click="OnPowerShellHistoryClick"
+                  Header="{l:Tr PowerShellHistory.WindowTitle}" />
+        <MenuItem b:CommandMenu.Id="tools.palette" />
+        <Separator />
+        <MenuItem b:CommandMenu.Id="tools.settings" />
+      </MenuItem>
+      <MenuItem Header="{l:Tr Shell.MenuHelp}">
+        <MenuItem b:CommandMenu.Id="tools.palette" />
+        <Separator />
+        <MenuItem Click="OnAboutClick" Header="{l:Tr Ui.About}" />
+      </MenuItem>
+    </Menu>
+
+    <!-- ===== Toolbar, address bar, global search ===== -->
+    <Grid Grid.Row="1" Margin="6,0,8,6">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <StackPanel x:Name="Toolbar"
+                  KeyboardNavigation.TabNavigation="Once"
+                  Orientation="Horizontal">
+        <Button b:CommandMenu.Id="nav.back" Content="{x:Static c:Glyphs.Back}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="nav.forward" Content="{x:Static c:Glyphs.Forward}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="nav.up" Content="{x:Static c:Glyphs.Up}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="object.refresh" Content="{x:Static c:Glyphs.Refresh}" Style="{StaticResource Ad.IconButton}" />
+        <Rectangle Style="{StaticResource Ad.VerticalDivider}" />
+        <Button b:CommandMenu.Id="new.user" Content="{x:Static c:Glyphs.NewUser}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="new.group" Content="{x:Static c:Glyphs.Group}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="new.ou" Content="{x:Static c:Glyphs.NewFolder}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="new.computer" Content="{x:Static c:Glyphs.Computer}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="new.contact" Content="{x:Static c:Glyphs.Contact}" Style="{StaticResource Ad.IconButton}" />
+        <Rectangle Style="{StaticResource Ad.VerticalDivider}" />
+        <Button b:CommandMenu.Id="nav.find" Content="{x:Static c:Glyphs.Search}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="object.batchEdit" Content="{x:Static c:Glyphs.Batch}" Style="{StaticResource Ad.IconButton}" />
+        <Button b:CommandMenu.Id="view.export" Content="{x:Static c:Glyphs.Export}" Style="{StaticResource Ad.IconButton}" />
+        <Rectangle Style="{StaticResource Ad.VerticalDivider}" />
+        <ToggleButton x:Name="FilterToggle"
+                      AutomationProperties.Name="{l:Tr Ui.ShowFilters}"
+                      Checked="OnFilterToggleChanged"
+                      Content="{x:Static c:Glyphs.Filter}"
+                      IsChecked="True"
+                      Style="{StaticResource Ad.IconToggleButton}"
+                      ToolTip="{l:Tr Ui.ShowFilters}"
+                      Unchecked="OnFilterToggleChanged" />
+      </StackPanel>
+
+      <!-- Address bar: canonical path or DN, recent containers in the drop-down. -->
+      <Grid Grid.Column="1" Margin="8,0,8,0">
+        <ComboBox x:Name="AddressBox"
+                  VerticalAlignment="Center"
+                  AutomationProperties.Name="{l:Tr Ui.Address}"
+                  DropDownClosed="OnAddressDropDownClosed"
+                  IsEditable="True"
+                  IsTextSearchEnabled="False"
+                  ItemsSource="{Binding RecentContainers, Mode=OneWay}"
+                  PreviewKeyDown="OnAddressKeyDown"
+                  SelectionChanged="OnAddressSelectionChanged"
+                  Text="{Binding AddressText, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="{Binding AddressError, Mode=OneWay}" />
+        <TextBlock Margin="11,0,64,0"
+                   Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Shell.AddressPlaceholder}"
+                   Visibility="{Binding Text, ElementName=AddressBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        <TextBlock Margin="0,0,40,0"
+                   HorizontalAlignment="Right"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}"
+                   ToolTip="{Binding AddressError, Mode=OneWay}"
+                   Visibility="{Binding AddressError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+      </Grid>
+
+      <!-- Global quick search (ANR) with suggestions -->
+      <Grid Grid.Column="2" Width="340">
+        <TextBox x:Name="SearchBox"
+                 VerticalAlignment="Center"
+                 Padding="30,4,10,5"
+                 AutomationProperties.Name="{l:Tr Commands.QuickSearch}"
+                 PreviewKeyDown="OnSearchKeyDown"
+                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Margin="10,0,0,0"
+                   HorizontalAlignment="Left"
+                   FontSize="13"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   IsHitTestVisible="False"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Search}" />
+        <TextBlock Margin="30,0,10,0"
+                   Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Shell.SearchPlaceholder}"
+                   Visibility="{Binding Text, ElementName=SearchBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        <ProgressBar Height="2"
+                     Margin="6,0,6,2"
+                     VerticalAlignment="Bottom"
+                     AutomationProperties.Name="{l:Tr Ui.Searching}"
+                     IsIndeterminate="{Binding IsSearching, Mode=OneWay}"
+                     Visibility="{Binding IsSearching, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Popup x:Name="SuggestionsPopup"
+               Width="460"
+               AllowsTransparency="True"
+               IsOpen="{Binding IsSuggestionsOpen, Mode=TwoWay}"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=SearchBox}"
+               PopupAnimation="None"
+               StaysOpen="False">
+          <Border MaxHeight="460" Style="{StaticResource Ad.Overlay}">
+            <DockPanel>
+              <Button Margin="0,6,0,0"
+                      HorizontalAlignment="Stretch"
+                      Command="{Binding ShowAllSearchResultsCommand}"
+                      Content="{l:Tr Shell.ShowAllResults}"
+                      DockPanel.Dock="Bottom" />
+              <TextBlock Margin="8,6"
+                         DockPanel.Dock="Top"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Shell.NoResults}"
+                         Visibility="{Binding SearchSuggestions.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+              <ListBox x:Name="SuggestionsList"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       AutomationProperties.Name="{l:Tr Commands.QuickSearch}"
+                       Focusable="False"
+                       ItemTemplate="{StaticResource SuggestionTemplate}"
+                       ItemsSource="{Binding SearchSuggestions}"
+                       PreviewMouseLeftButtonUp="OnSuggestionClick"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                       SelectedItem="{Binding SelectedSuggestion}">
+                <ListBox.Resources>
+                  <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+                  </Style>
+                </ListBox.Resources>
+              </ListBox>
+            </DockPanel>
+          </Border>
+        </Popup>
+      </Grid>
+    </Grid>
+
+    <!-- ===== Tree | documents | details ===== -->
+    <Grid x:Name="Workspace" Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="280" MinWidth="160" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" MinWidth="320" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition x:Name="DetailsColumn" Width="300" />
+      </Grid.ColumnDefinitions>
+
+      <TreeView x:Name="NavigationTree"
+                AllowDrop="True"
+                AutomationProperties.Name="{l:Tr Ui.NavigationTree}"
+                BorderThickness="0"
+                ContextMenuOpening="OnTreeContextMenuOpening"
+                DragLeave="OnTreeDragLeave"
+                DragOver="OnTreeDragOver"
+                Drop="OnTreeDrop"
+                ItemsSource="{Binding Tree.Roots}"
+                PreviewMouseLeftButtonDown="OnTreeLeftButtonDown"
+                PreviewMouseRightButtonDown="OnTreeRightButtonDown"
+                VirtualizingPanel.IsVirtualizing="True"
+                VirtualizingPanel.VirtualizationMode="Recycling">
+        <TreeView.Resources>
+          <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="2" />
+            <Style.Triggers>
+              <Trigger Property="b:ViewState.IsDropTarget" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </TreeView.Resources>
+        <!-- Replaced on opening by the actions of the clicked node (see OnTreeContextMenuOpening). -->
+        <TreeView.ContextMenu>
+          <ContextMenu />
+        </TreeView.ContextMenu>
+      </TreeView>
+
+      <GridSplitter Grid.Column="1"
+                    Width="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns" />
+
+      <Grid Grid.Column="2">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TabControl x:Name="Tabs"
+                    AutomationProperties.Name="{l:Tr Ui.OpenTabs}"
+                    ItemsSource="{Binding Documents}"
+                    SelectedItem="{Binding SelectedTab}"
+                    Style="{StaticResource TabStripStyle}">
+          <!-- Tab headers by document type (lists and the Watchdog tab). -->
+          <TabControl.Resources>
+            <DataTemplate DataType="{x:Type lists:ObjectListViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock MaxWidth="220"
+                           VerticalAlignment="Center"
+                           Text="{Binding Title, Mode=OneWay}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Margin="6,0,0,0"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding LoadedCount, Mode=OneWay}" />
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogDocumentViewModel}">
+              <StackPanel Orientation="Horizontal" ToolTip="{Binding Title, Mode=OneWay}">
+                <c:ObjectIconView Margin="0,0,6,0"
+                                  VerticalAlignment="Center"
+                                  Icon="{Binding Icon, Mode=OneWay}"
+                                  Size="14" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Title, Mode=OneWay}" />
+                <Border MinWidth="18"
+                        Margin="6,0,0,0"
+                        Padding="5,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.Name="{l:Tr Watchdog.Ui.TabBadge}"
+                        Background="{DynamicResource SystemFillColorCriticalBrush}"
+                        CornerRadius="9"
+                        ToolTip="{l:Tr Watchdog.Ui.TabBadge}"
+                        Visibility="{Binding HasBadge, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock HorizontalAlignment="Center"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                             Text="{Binding BadgeText, Mode=OneWay}" />
+                </Border>
+                <TextBlock Margin="4,0,0,0"
+                           FontSize="10"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Style="{StaticResource Ad.GlyphText}"
+                           Text="{x:Static c:Glyphs.Refresh}"
+                           Visibility="{Binding IsLoading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <Button Margin="6,0,0,0"
+                        AutomationProperties.Name="{l:Tr Commands.CloseTab}"
+                        Click="OnCloseTabClick"
+                        Content="{x:Static c:Glyphs.Close}"
+                        Focusable="False"
+                        Style="{StaticResource Ad.SmallIconButton}"
+                        ToolTip="{l:Tr Commands.CloseTab}" />
+              </StackPanel>
+            </DataTemplate>
+          </TabControl.Resources>
+          <TabControl.ItemContainerStyle>
+            <Style TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+              <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+              <Setter Property="Padding" Value="2,0" />
+              <EventSetter Event="PreviewMouseDown" Handler="OnTabMouseDown" />
+            </Style>
+          </TabControl.ItemContainerStyle>
+        </TabControl>
+
+        <ItemsControl x:Name="DocumentHost"
+                      Grid.Row="1"
+                      Focusable="False"
+                      ItemsSource="{Binding Documents}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <Grid />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerStyle>
+            <Style TargetType="ContentPresenter">
+              <Setter Property="Visibility">
+                <Setter.Value>
+                  <MultiBinding Converter="{StaticResource Ad.SameInstanceToVisibility}">
+                    <Binding Mode="OneWay" />
+                    <Binding Mode="OneWay"
+                             Path="Data.SelectedTab"
+                             Source="{StaticResource ShellProxy}" />
+                  </MultiBinding>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ItemsControl.ItemContainerStyle>
+          <!-- Document content by type. -->
+          <ItemsControl.Resources>
+            <DataTemplate DataType="{x:Type lists:ObjectListViewModel}">
+              <v:ObjectListView />
+            </DataTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogDocumentViewModel}">
+              <wdv:WatchdogView />
+            </DataTemplate>
+          </ItemsControl.Resources>
+        </ItemsControl>
+
+        <!-- Hints when no document is open -->
+        <StackPanel Grid.Row="1"
+                    Margin="24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding Documents.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}">
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Ui.NotConnectedHint}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Ui.NoTabsHint}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </StackPanel>
+      </Grid>
+
+      <GridSplitter x:Name="DetailsSplitter"
+                    Grid.Column="3"
+                    Width="5"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    Background="Transparent"
+                    ResizeBehavior="PreviousAndNext"
+                    ResizeDirection="Columns" />
+
+      <!-- Details pane -->
+      <Border x:Name="DetailsPane"
+              Grid.Column="4"
+              AutomationProperties.Name="{l:Tr Shell.DetailsPane}"
+              Background="{DynamicResource LayerFillColorDefaultBrush}"
+              BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+              BorderThickness="1,0,0,0">
+        <DockPanel>
+          <DockPanel Margin="12,8,6,4" DockPanel.Dock="Top">
+            <Button b:CommandMenu.Id="view.details"
+                    Content="{x:Static c:Glyphs.Close}"
+                    DockPanel.Dock="Right"
+                    Style="{StaticResource Ad.SmallIconButton}" />
+            <TextBlock VerticalAlignment="Center"
+                       Style="{StaticResource Ad.SectionHeader}"
+                       Text="{l:Tr Shell.DetailsPane}" />
+          </DockPanel>
+          <Grid>
+            <TextBlock Margin="12"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Shell.NoSelection}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding SelectedObject, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+            <!-- FallbackValue: while the DataContext is null WPF does not call the converter (the binding falls back
+                 to the default, Visible), so without it an empty summary would show before the first selection. -->
+            <ScrollViewer x:Name="DetailsContent"
+                          DataContext="{Binding SelectedObject, Mode=OneWay}"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+              <StackPanel Margin="12,4,12,12">
+                <DockPanel>
+                  <c:ObjectIconView Margin="0,2,10,0"
+                                    VerticalAlignment="Top"
+                                    DockPanel.Dock="Left"
+                                    Icon="{Binding Icon, Mode=OneWay}"
+                                    Size="32" />
+                  <StackPanel>
+                    <TextBlock FontSize="15"
+                               FontWeight="SemiBold"
+                               Text="{Binding Name, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding TypeText, Mode=OneWay}" />
+                  </StackPanel>
+                </DockPanel>
+
+                <Border Margin="0,10,0,0"
+                        Padding="8,6"
+                        Style="{StaticResource Ad.WarningBar}"
+                        Visibility="{Binding IsProtected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <DockPanel>
+                    <TextBlock Margin="0,0,8,0"
+                               DockPanel.Dock="Left"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               Style="{StaticResource Ad.GlyphText}"
+                               Text="{x:Static c:Glyphs.Shield}" />
+                    <TextBlock Text="{l:Tr Details.ProtectedObject}" TextWrapping="Wrap" />
+                  </DockPanel>
+                </Border>
+
+                <TextBlock Margin="0,10,0,0"
+                           Text="{Binding Description, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding Description, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+                <ItemsControl Margin="0,10,0,0"
+                              Focusable="False"
+                              Grid.IsSharedSizeScope="True"
+                              ItemsSource="{Binding Fields, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type shell:SummaryField}">
+                      <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
+                          <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <!-- An Auto column measures with unlimited width: the label itself must be bounded to wrap. -->
+                        <TextBlock MaxWidth="140"
+                                   Margin="0,0,10,0"
+                                   VerticalAlignment="Top"
+                                   Style="{StaticResource Ad.SecondaryText}"
+                                   Text="{Binding Label, Mode=OneWay}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Value, Mode=OneWay}"
+                                   TextWrapping="Wrap" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Visibility="{Binding DistinguishedName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                  <TextBlock Margin="0,12,0,2"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr Details.Path}" />
+                  <TextBlock Text="{Binding Path, Mode=OneWay}" TextWrapping="Wrap" />
+                  <DockPanel Margin="0,10,0,2">
+                    <Button b:CommandMenu.Id="object.copyDn"
+                            Content="{x:Static c:Glyphs.Copy}"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource Ad.SmallIconButton}" />
+                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.DistinguishedName}" />
+                  </DockPanel>
+                  <TextBlock FontSize="11"
+                             Text="{Binding DistinguishedName, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+
+                <TextBlock Margin="0,14,0,6"
+                           Style="{StaticResource Ad.SectionHeader}"
+                           Text="{l:Tr Details.QuickActions}" />
+                <WrapPanel>
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.properties"
+                          Content="{l:Tr Commands.Properties}" />
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.resetPassword"
+                          Content="{l:Tr Commands.ResetPassword}" />
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.disable"
+                          Content="{l:Tr Commands.Disable}" />
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.enable"
+                          Content="{l:Tr Commands.Enable}" />
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.unlock"
+                          Content="{l:Tr Commands.Unlock}" />
+                  <Button Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.move"
+                          Content="{l:Tr Commands.Move}" />
+                  <!-- "What happened to this account?" – only offered when a watchdog service is configured. -->
+                  <Button x:Name="WatchdogHistoryButton"
+                          Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.watchdogHistory"
+                          Content="{l:Tr Commands.WatchdogHistory}"
+                          Visibility="{Binding Data.IsWatchdogHistoryAvailable, Mode=OneWay, Source={StaticResource ShellProxy}, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </WrapPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </DockPanel>
+      </Border>
+    </Grid>
+
+    <!-- ===== Status bar ===== -->
+    <StatusBar Grid.Row="3">
+      <StatusBar.ItemsPanel>
+        <ItemsPanelTemplate>
+          <DockPanel LastChildFill="True" />
+        </ItemsPanelTemplate>
+      </StatusBar.ItemsPanel>
+
+      <StatusBarItem DockPanel.Dock="Right">
+        <Grid>
+          <ToggleButton x:Name="ActivityToggle"
+                        Padding="8,2"
+                        AutomationProperties.Name="{l:Tr Activity.Title}"
+                        IsHitTestVisible="{Binding IsOpen, ElementName=ActivityPopup, Converter={StaticResource Ad.InverseBool}}"
+                        ToolTip="{l:Tr Activity.Title}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock FontSize="13"
+                         Style="{StaticResource Ad.GlyphText}"
+                         Text="{x:Static c:Glyphs.Activity}" />
+              <ProgressBar Width="60"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           IsIndeterminate="{Binding Activities.HasRunning, Mode=OneWay}"
+                           Visibility="{Binding Activities.HasRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <TextBlock Margin="8,0,0,0"
+                         VerticalAlignment="Center"
+                         Text="{Binding Activities.Summary, Mode=OneWay}"
+                         Visibility="{Binding Activities.Summary, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            </StackPanel>
+          </ToggleButton>
+          <Popup x:Name="ActivityPopup"
+                 AllowsTransparency="True"
+                 IsOpen="{Binding IsChecked, ElementName=ActivityToggle, Mode=TwoWay}"
+                 Placement="Top"
+                 PlacementTarget="{Binding ElementName=ActivityToggle}"
+                 PopupAnimation="None"
+                 StaysOpen="False">
+            <Border Width="400"
+                    MaxHeight="420"
+                    Style="{StaticResource Ad.Overlay}">
+              <DockPanel>
+                <DockPanel Margin="4,0,0,6" DockPanel.Dock="Top">
+                  <Button Command="{Binding Activities.ClearFinishedCommand}"
+                          Content="{l:Tr Activity.ClearFinished}"
+                          DockPanel.Dock="Right"
+                          Padding="8,2" />
+                  <TextBlock VerticalAlignment="Center"
+                             Style="{StaticResource Ad.SectionHeader}"
+                             Text="{l:Tr Activity.Title}" />
+                </DockPanel>
+                <TextBlock Margin="4"
+                           DockPanel.Dock="Top"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr Activity.None}"
+                           Visibility="{Binding Activities.Activities.Count, Mode=OneWay, Converter={StaticResource Ad.EmptyToVisible}}" />
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl Margin="4,0"
+                                ItemTemplate="{StaticResource ActivityTemplate}"
+                                ItemsSource="{Binding Activities.Activities}" />
+                </ScrollViewer>
+              </DockPanel>
+            </Border>
+          </Popup>
+        </Grid>
+      </StatusBarItem>
+
+      <StatusBarItem DockPanel.Dock="Left">
+        <Border Style="{StaticResource IdentityBannerStyle}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,6,0"
+                       FontSize="12"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Shield}"
+                       Visibility="{Binding IsPrivilegedIdentity, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock VerticalAlignment="Center"
+                       Text="{l:Tr Errors.NotConnected}"
+                       Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            <TextBlock VerticalAlignment="Center" Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource Ad.Format}">
+                  <l:TrBinding Key="Shell.BoundAs" />
+                  <Binding Mode="OneWay" Path="IdentityText" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
+          </StackPanel>
+        </Border>
+      </StatusBarItem>
+
+      <StatusBarItem DockPanel.Dock="Left" Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock>
+          <TextBlock.Text>
+            <MultiBinding Converter="{StaticResource Ad.Format}">
+              <l:TrBinding Key="Shell.ConnectedTo" />
+              <Binding Mode="OneWay" Path="ServerText" />
+            </MultiBinding>
+          </TextBlock.Text>
+        </TextBlock>
+      </StatusBarItem>
+
+      <StatusBarItem DockPanel.Dock="Left" Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SecurityText, Mode=OneWay}" />
+      </StatusBarItem>
+
+      <StatusBarItem DockPanel.Dock="Left">
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Margin="12,0,0,0"
+                     Text="{Binding StatusText, Mode=OneWay}"
+                     TextTrimming="CharacterEllipsis" />
+          <TextBlock Margin="12,0,0,0"
+                     FontWeight="SemiBold"
+                     Text="{Binding SelectionText, Mode=OneWay}" />
+        </StackPanel>
+      </StatusBarItem>
+    </StatusBar>
+
+    <!-- ===== Toasts (bottom right) ===== -->
+    <ItemsControl x:Name="ToastHost"
+                  Grid.RowSpan="4"
+                  Margin="0,0,16,40"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Panel.ZIndex="10"
+                  Focusable="False"
+                  ItemTemplate="{StaticResource ToastTemplate}" />
+
+    <!-- ===== Command palette (Ctrl+K) ===== -->
+    <Grid x:Name="PaletteLayer"
+          Grid.RowSpan="4"
+          Panel.ZIndex="20"
+          Background="{DynamicResource SmokeFillColorDefaultBrush}"
+          MouseLeftButtonDown="OnPaletteBackdropMouseDown"
+          Visibility="{Binding CommandPalette.IsOpen, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <Border Width="620"
+              Margin="0,72,0,0"
+              VerticalAlignment="Top"
+              DataContext="{Binding CommandPalette, Mode=OneWay}"
+              Style="{StaticResource Ad.Overlay}">
+        <DockPanel>
+          <Grid DockPanel.Dock="Top">
+            <TextBox x:Name="PaletteInput"
+                     AutomationProperties.Name="{l:Tr Commands.CommandPalette}"
+                     PreviewKeyDown="OnPaletteKeyDown"
+                     Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Style="{StaticResource Ad.HintText}"
+                       Text="{l:Tr Shell.CommandPalettePlaceholder}"
+                       Visibility="{Binding Text, ElementName=PaletteInput, Converter={StaticResource Ad.EmptyToVisible}}" />
+          </Grid>
+          <ListBox x:Name="PaletteList"
+                   MaxHeight="400"
+                   Margin="0,6,0,0"
+                   Background="Transparent"
+                   BorderThickness="0"
+                   AutomationProperties.Name="{l:Tr Commands.CommandPalette}"
+                   ItemTemplate="{StaticResource PaletteItemTemplate}"
+                   ItemsSource="{Binding Results}"
+                   PreviewMouseLeftButtonUp="OnPaletteItemClick"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   SelectedItem="{Binding SelectedResult}">
+            <ListBox.Resources>
+              <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+              </Style>
+            </ListBox.Resources>
+          </ListBox>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>
