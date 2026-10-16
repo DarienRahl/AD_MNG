@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="title desc">
+  <title id="title">AD Manager</title>
+  <desc id="desc">Nowoczesna konsola Active Directory: edycja zbiorcza, Kosz AD, AdMng Watchdog, interfejs PL i EN.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1b2d"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b88d8"/>
+      <stop offset="1" stop-color="#7b7fe0"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="1278" height="318" rx="24" fill="url(#bg)" stroke="#30363d" stroke-width="2"/>
+
+  <g stroke="#58a6ff" stroke-width="2" fill="none" opacity="0.22">
+    <path d="M1010 84 L1104 58 L1190 118 L1070 172 L1010 84 M1070 172 L1158 232 L1236 196 L1190 118 M1070 172 L992 246 M1158 232 L1222 284"/>
+  </g>
+  <g fill="#58a6ff" opacity="0.28">
+    <circle cx="1010" cy="84" r="9"/><circle cx="1104" cy="58" r="7"/><circle cx="1190" cy="118" r="10"/>
+    <circle cx="1070" cy="172" r="12"/><circle cx="1158" cy="232" r="9"/><circle cx="1236" cy="196" r="7"/>
+    <circle cx="992" cy="246" r="7"/><circle cx="1222" cy="284" r="6"/>
+  </g>
+
+  <rect x="64" y="72" width="176" height="176" rx="40" fill="url(#tile)"/>
+  <g fill="#ffffff">
+    <rect x="128" y="110" width="48" height="34" rx="9"/>
+    <rect x="80" y="180" width="40" height="30" rx="8" opacity="0.92"/>
+    <rect x="132" y="180" width="40" height="30" rx="8" opacity="0.92"/>
+    <rect x="184" y="180" width="40" height="30" rx="8" opacity="0.92"/>
+  </g>
+  <path d="M152 144 V162 M100 180 V162 H204 V180 M152 162 V180" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <g font-family="'Segoe UI Variable Display','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif">
+    <text x="288" y="146" font-size="72" font-weight="700" fill="#e6edf3">AD Manager</text>
+    <text x="290" y="194" font-size="28" fill="#9198a1">Nowoczesna konsola Active Directory</text>
+    <g font-size="18" font-weight="600" text-anchor="middle">
+      <rect x="290" y="222" width="190" height="40" rx="20" fill="#0c2d6b" stroke="#1f6feb"/>
+      <text x="385" y="248" fill="#79c0ff">Edycja zbiorcza</text>
+      <rect x="494" y="222" width="120" height="40" rx="20" fill="#04260f" stroke="#238636"/>
+      <text x="554" y="248" fill="#56d364">Kosz AD</text>
+      <rect x="628" y="222" width="190" height="40" rx="20" fill="#271052" stroke="#8957e5"/>
+      <text x="723" y="248" fill="#d2a8ff">AdMng Watchdog</text>
+      <rect x="832" y="222" width="100" height="40" rx="20" fill="#341a00" stroke="#9e6a03"/>
+      <text x="882" y="248" fill="#e3b341">PL · EN</text>
+    </g>
+  </g>
+</svg>
