@@ -41,8 +41,9 @@ public static class DigestRowFormatter
         return [.. Headers(DigestSectionKind.Health, context), context.Text.Get("Digest.Column.State")];
     }
 
-    /// <summary>The cells of one "Wymaga uwagi" event (with its acknowledgement state).</summary>
-    public static IReadOnlyList<string> AttentionCells(WatchEvent watchEvent, NotificationContext context)
+    /// <summary>The cells of one "Wymaga uwagi" event (with its acknowledgement state); <paramref name="previousSeverity"/>
+    /// – the severity its alert showed before an escalation (13.2 #7) – adds "(priorytet: Średni → Wysoki)" to the change.</summary>
+    public static IReadOnlyList<string> AttentionCells(WatchEvent watchEvent, NotificationContext context, Severity? previousSeverity = null)
     {
         ArgumentNullException.ThrowIfNull(watchEvent);
         ArgumentNullException.ThrowIfNull(context);
@@ -50,7 +51,13 @@ public static class DigestRowFormatter
         var state = e.AcknowledgedAt is null
             ? context.Text.Get("Digest.Unacknowledged")
             : context.Text.Format("Digest.Acknowledged", e.AcknowledgedBy ?? string.Empty);
-        return [.. EventCells(e, context, false), state];
+        var cells = EventCells(e, context, false).ToList();
+        if (previousSeverity is { } previous && previous != e.Severity)
+        {
+            cells[2] += " (" + context.Text.Format("Digest.SeverityChanged", context.Text.SeverityName(previous), context.Text.SeverityName(e.Severity)) + ")";
+        }
+
+        return [.. cells, state];
     }
 
     /// <summary>The cells of <paramref name="row"/> (same count as <see cref="Headers"/> of its section);

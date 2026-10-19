@@ -1,4 +1,5 @@
 using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Formatting;
 using AdMng.Watchdog.Core.Notifications.Digest;
 
@@ -47,6 +48,21 @@ public sealed class EmailDigestFormatterTests
         Assert.Contains("Firma › Księgowość", text, StringComparison.Ordinal);
         Assert.Contains("Synchronizacja kadr (HR) · wykonawca S-1-5-21-1004336348-1177238915-682003330-3105 · atrybut department", email.HtmlBody, StringComparison.Ordinal);
         Assert.Contains("brak danych (katalog niedostępny)", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Attention_SaysWhenTheSeverityWasRaisedAfterTheAlert()
+    {
+        // The acknowledged grant (High now) was alerted as Medium, then escalated (13.2 #7).
+        var model = DigestSamples.Full() with { SeverityChanges = new Dictionary<long, Severity> { [18350] = Severity.Medium } };
+
+        var polish = EmailDigestFormatter.Format(model, FormattingSamples.Context());
+        var english = EmailDigestFormatter.Format(model, FormattingSamples.Context("en"));
+
+        Assert.Contains("(priorytet: Średni → Wysoki)", polish.TextBody, StringComparison.Ordinal);
+        Assert.Contains("(priorytet: Średni → Wysoki)", polish.HtmlBody, StringComparison.Ordinal);
+        Assert.Equal(1, polish.TextBody.Split("priorytet:").Length - 1);
+        Assert.Contains("(severity: Medium → High)", english.TextBody, StringComparison.Ordinal);
     }
 
     [Fact]

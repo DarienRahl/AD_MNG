@@ -84,6 +84,25 @@ public sealed class EventNotices
             && messages.Any(m => m.Kind == DeliveryKind.Alert && PendingIn(m) && FollowUpPlanner.GetsFollowUp(m, configuration));
     }
 
+    /// <summary>The severity an alert showed the event with when a later follow-up of the same target – an escalation or
+    /// the attribution follow-up with the final severity (13.2 #6–#7) – told its recipients another one; null when no
+    /// recipient was told about a change. The first such change counts.</summary>
+    public Severity? ChangedFrom()
+    {
+        foreach (var followUp in _kept.Where(m => m.Kind == DeliveryKind.FollowUp && m.EventStates.Any(s => s.EventId == _eventId)).OrderBy(m => m.Id))
+        {
+            var alert = _kept
+                .Where(m => m.Kind == DeliveryKind.Alert && m.Id < followUp.Id && string.Equals(m.TargetKey, followUp.TargetKey, StringComparison.Ordinal))
+                .MaxBy(m => m.Id);
+            if (alert is not null && ShownSeverity(alert, _eventId) is var shown && shown != ShownSeverity(followUp, _eventId))
+            {
+                return shown;
+            }
+        }
+
+        return null;
+    }
+
     private bool PendingIn(OutboxMessage alert) =>
         alert.EventStates.FirstOrDefault(s => s.EventId == _eventId)?.PendingAttribution ?? alert.SentWithPendingAttribution;
 

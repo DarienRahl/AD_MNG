@@ -43,7 +43,7 @@ public static class TeamsDigestCardFormatter
         var total = 0;
         if (model.Attention.Count > 0)
         {
-            var rows = model.Attention.Select(e => DigestRowFormatter.AttentionCells(e, context)).Select(c => (IReadOnlyList<string>)[c[0], c[1], c[2] + " · " + c[4], c[3]]);
+            var rows = model.Attention.Select(e => DigestRowFormatter.AttentionCells(e, context, model.PreviousSeverity(e.Id))).Select(c => (IReadOnlyList<string>)[c[0], c[1], c[2] + " · " + c[4], c[3]]);
             layout.Sections.Add(Section(text.Format("Digest.AttentionTitle", text.Number(model.Counts.Attention)), [], rows, model.Counts.Attention, context));
             total += model.Counts.Attention;
         }

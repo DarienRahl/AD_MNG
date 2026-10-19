@@ -9,8 +9,10 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// <summary>
 /// <see cref="DigestModel"/> from the events of a period, the upcoming expiries, the health registry and – on the
 /// weekly day – the live directory reports (section 13.4). Counters and "Wymaga uwagi" use every event of the period;
-/// sections only the events matched by a rule with <c>IncludeInDigest</c>, health and configuration changes. The period
-/// itself comes from <see cref="ResolvePeriodStart"/> (weekend / holiday catch-up).
+/// sections only the events matched by a rule with <c>IncludeInDigest</c>, health and configuration changes; an attention
+/// event whose severity an escalation changed after its alert carries that change (<see cref="DigestModel.SeverityChanges"/>,
+/// read from the outbox – metadata only). The period itself comes from <see cref="ResolvePeriodStart"/> (weekend / holiday
+/// catch-up).
 /// </summary>
 public sealed class DigestBuilder
 {
@@ -26,9 +28,10 @@ public sealed class DigestBuilder
     private readonly RolloutGate _rollout;
     private readonly IDigestDirectoryReports _reports;
     private readonly BusinessCalendarProvider _calendars;
+    private readonly IOutboxStore _outbox;
 
     public DigestBuilder(IEventStore events, IExpiryNoticeStore expiry, IHealthRegistry health, RolloutGate rollout, IDigestDirectoryReports reports,
-        BusinessCalendarProvider calendars)
+        BusinessCalendarProvider calendars, IOutboxStore outbox)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(expiry);
@@ -36,12 +39,14 @@ public sealed class DigestBuilder
         ArgumentNullException.ThrowIfNull(rollout);
         ArgumentNullException.ThrowIfNull(reports);
         ArgumentNullException.ThrowIfNull(calendars);
+        ArgumentNullException.ThrowIfNull(outbox);
         _events = events;
         _expiry = expiry;
         _health = health;
         _rollout = rollout;
         _reports = reports;
         _calendars = calendars;
+        _outbox = outbox;
     }
 
     /// <summary>Unevaluated events at most this old hold the period end back (<see cref="ResolvePeriodEndAsync"/>); the
@@ -154,6 +159,16 @@ public sealed class DigestBuilder
             .ThenBy(e => e.Id)
             .ToList();
         var shownAttention = attention.Take(maxRows).ToList();
+        var severityChanges = new Dictionary<long, Severity>();
+        foreach (var e in shownAttention)
+        {
+            // What the alert recipients were told first, when an escalation (13.2 #7) told them another severity later.
+            if ((await EventNotices.LoadAsync(_outbox, e.Id, cancellationToken).ConfigureAwait(false)).ChangedFrom() is { } from && from != e.Severity)
+            {
+                severityChanges[e.Id] = from;
+            }
+        }
+
         return new DigestModel
         {
             PeriodStart = periodStart,
@@ -164,6 +179,7 @@ public sealed class DigestBuilder
             Health = await HealthAsync(configuration, events, periodEnd, cancellationToken).ConfigureAwait(false),
             Counts = DigestCountsBuilder.Count(events),
             Attention = shownAttention,
+            SeverityChanges = severityChanges,
             Sections = sections,
             EventIds = [.. reported.Concat(attention).DistinctBy(e => e.Id).OrderBy(e => e.Id).Take(MaxEventIds).Select(e => e.EventId)],
             ShownEventIds = [.. sections.SelectMany(s => s.Rows).SelectMany(r => r.EventIds).Concat(shownAttention.Select(e => e.Id)).Distinct().Order()],

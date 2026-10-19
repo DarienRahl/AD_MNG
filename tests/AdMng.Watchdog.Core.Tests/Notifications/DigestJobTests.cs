@@ -352,7 +352,7 @@ public sealed class DigestJobTests
     };
 
     private static DigestJob Job(NotificationHarness harness, IOutboxStore? outbox = null, IDigestRunStore? runs = null) => new(
-        new DigestBuilder(harness.Store, harness.Store, harness.Health, harness.Rollout, new FakeDigestReports(), harness.Calendars),
+        new DigestBuilder(harness.Store, harness.Store, harness.Health, harness.Rollout, new FakeDigestReports(), harness.Calendars, harness.Store),
         runs ?? harness.Store, outbox ?? harness.Store, harness.Config, harness.Calendars, harness.Signals, harness.Clock, NullLogger<DigestJob>.Instance);
 
     /// <summary>The digest run store, recording the period starts and optionally failing one RecordAsync.</summary>

@@ -156,6 +156,31 @@ public sealed class DigestBuilderTests
     }
 
     [Fact]
+    public async Task Attention_SaysWhenAnEscalationRaisedTheSeverityAfterTheAlert()
+    {
+        // Shadow credentials on Zofia's account went out as Medium, the escalation said High (13.2 #7); Jędrzej's privilege
+        // grant was High from the start – its follow-up only brought the actor; Anna's escalation never reached anybody.
+        var harness = new NotificationHarness(ConfigWith(NewAccounts));
+        var zofia = await StoreAsync(harness, Event(WatchEventKind.KeyCredentialChanged, Severity.High, name: "Zofia Ćwiklińska", detectedAt: Now.AddHours(-3)));
+        var jedrzej = await StoreAsync(harness, Event(WatchEventKind.PrivilegeGranted, Severity.High, name: "Jędrzej Łęcki", detectedAt: Now.AddHours(-2)));
+        var anna = await StoreAsync(harness, Event(WatchEventKind.KeyCredentialChanged, Severity.High, name: "Anna Zając", detectedAt: Now.AddHours(-1)));
+        await EnqueueAsync(harness, zofia, DeliveryKind.Alert, Severity.Medium);
+        await EnqueueAsync(harness, zofia, DeliveryKind.FollowUp, Severity.High);
+        await EnqueueAsync(harness, jedrzej, DeliveryKind.Alert, Severity.High);
+        await EnqueueAsync(harness, jedrzej, DeliveryKind.FollowUp, Severity.High);
+        await EnqueueAsync(harness, anna, DeliveryKind.Alert, Severity.Medium);
+        var lost = await EnqueueAsync(harness, anna, DeliveryKind.FollowUp, Severity.High);
+        await harness.Store.LeaseDueAsync(Now, 100, TimeSpan.FromMinutes(5), Ct);
+        await harness.Store.MarkDeadAsync(lost, "smtp.550.5.1.1", null, Ct);
+
+        var model = await BuildAsync(harness);
+
+        Assert.Equal([zofia.Id, jedrzej.Id, anna.Id], model.Attention.Select(e => e.Id));
+        Assert.Equal(Severity.Medium, Assert.Single(model.SeverityChanges).Value);
+        Assert.Equal(zofia.Id, model.SeverityChanges.Single().Key);
+    }
+
+    [Fact]
     public async Task Lockouts_AreRolledUpPerAccountAndDay_WithTopSourcesAndUnlocks()
     {
         var harness = new NotificationHarness(ConfigWith(Lockouts));
@@ -341,7 +366,30 @@ public sealed class DigestBuilderTests
         Assert.Equal("x1", Assert.IsType<DigestExceptionRow>(Assert.Single(model.Section(DigestSectionKind.ActiveExceptions)!.Rows)).Exclusion.Id);
     }
 
-    private DigestBuilder Builder(NotificationHarness harness) => new(harness.Store, harness.Store, harness.Health, harness.Rollout, _reports, harness.Calendars);
+    private DigestBuilder Builder(NotificationHarness harness) =>
+        new(harness.Store, harness.Store, harness.Health, harness.Rollout, _reports, harness.Calendars, harness.Store);
+
+    /// <summary>An alert or follow-up of <paramref name="e"/> to the it-admins mailbox that showed it with
+    /// <paramref name="severity"/>; returns the outbox id.</summary>
+    private static Task<long> EnqueueAsync(NotificationHarness harness, WatchEvent e, DeliveryKind kind, Severity severity)
+    {
+        var target = AdminsTarget(harness.Current);
+        return harness.Store.EnqueueAsync(new OutboxMessage
+        {
+            MessageId = Guid.CreateVersion7().ToString("N"),
+            ChannelType = target.ChannelType,
+            ChannelId = target.ChannelId,
+            TargetKey = target.Key,
+            Kind = kind,
+            Recipients = target.Recipients,
+            EventIds = [e.Id],
+            EventStates = [new OutboxEventState(e.Id, severity, kind == DeliveryKind.Alert)],
+            Severity = severity,
+            SentWithPendingAttribution = kind == DeliveryKind.Alert,
+            CreatedAt = Now,
+            NextAttemptAt = Now,
+        }, Ct);
+    }
 
     /// <summary>Builds [start, end); by default the 24 hours up to one minute after <see cref="NotificationHarness.Now"/>
     /// (events default to <c>Now</c>).</summary>
