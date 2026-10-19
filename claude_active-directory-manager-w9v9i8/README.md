@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`6e28262`](https://github.com/DarienRahl/AD_MNG/commit/6e28262fae3e47ae11b7d3e8b5d09420ef928f88) (`6e28262fae3e47ae11b7d3e8b5d09420ef928f88`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/39260153976
+- Commit: [`6dd0f1c`](https://github.com/DarienRahl/AD_MNG/commit/6dd0f1c8e93c612accf995f1d50a5ebd98b35455) (`6dd0f1c8e93c612accf995f1d50a5ebd98b35455`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/39262711836
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
