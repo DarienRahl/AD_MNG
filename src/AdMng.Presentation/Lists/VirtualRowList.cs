@@ -109,6 +109,13 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
 
     public int MaxCachedPages { get; }
 
+    /// <summary>
+    /// Placeholders handed out at most: beyond it, those of pages that are neither among the recently shown nor the
+    /// pending pages are forgotten (a fast drag of the scroll thumb over a slow DC realizes rows of pages that are never
+    /// read). The view no longer shows them; asked again, the index gets a new placeholder.
+    /// </summary>
+    public int MaxPlaceholders => Math.Max(MaxCachedPages, MaxPendingPages + RefreshPages + 1) * PageSize;
+
     /// <summary>Number of objects in the list (the server's content count).</summary>
     public int Count
     {
@@ -196,6 +203,11 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
 
                 if (!_placeholders.TryGetValue(index, out var placeholder))
                 {
+                    if (_placeholders.Count >= MaxPlaceholders)
+                    {
+                        ForgetPlaceholders(page);
+                    }
+
                     placeholder = _createPlaceholder();
                     _placeholders[index] = placeholder;
                     _placeholderIndexes[placeholder] = index;
@@ -518,6 +530,22 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
         if (_shown.Count > RefreshPages)
         {
             _shown.RemoveAt(0);
+        }
+    }
+
+    /// <summary>
+    /// Forgets the placeholders of pages that are neither <paramref name="current"/>, recently shown nor pending (see
+    /// <see cref="MaxPlaceholders"/>); at most (1 + shown + pending) pages of placeholders remain.
+    /// </summary>
+    private void ForgetPlaceholders(int current)
+    {
+        var stale = _placeholders
+            .Where(p => p.Key / PageSize is var page && page != current && !_shown.Contains(page) && !_wanted.Contains(page))
+            .ToList();
+        foreach (var (index, placeholder) in stale)
+        {
+            _placeholders.Remove(index);
+            _placeholderIndexes.Remove(placeholder);
         }
     }
 

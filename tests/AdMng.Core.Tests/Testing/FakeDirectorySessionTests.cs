@@ -208,10 +208,15 @@ public class FakeDirectorySessionTests
         var first = await builder.Session.GetVirtualListPageAsync(search, new VirtualListRequest { Offset = 0, Count = 3 }, Ct);
         var seek = await builder.Session.GetVirtualListPageAsync(search, new VirtualListRequest { SeekValue = "L", Count = 2 }, Ct);
 
+        // Descending: the seek lands on the first entry at or below the value ("Lewandowski" sorts above "L").
+        var down = await builder.Session.GetVirtualListPageAsync(search with { Sort = new SortKey(Attr.Sn, Descending: true) }, new VirtualListRequest { SeekValue = "L", Count = 1 }, Ct);
+
         Assert.Equal(8, first.TotalCount);
         Assert.Equal(["Dąbrowska", "Kaźmierczak", "Kowalski"], first.Items.Select(i => i.GetString(Attr.Sn)));
         Assert.Equal(["Lewandowski", "Szymańska"], seek.Items.Select(i => i.GetString(Attr.Sn)));
         Assert.Equal(4, seek.Offset);
+        Assert.Equal(4, down.Offset);
+        Assert.Equal("Kozłowski", down.Items.Single().GetString(Attr.Sn));
         await Assert.ThrowsAsync<ArgumentException>(() => builder.Session.GetVirtualListPageAsync(search with { Sort = null }, new VirtualListRequest(), Ct));
     }
 

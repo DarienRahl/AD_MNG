@@ -63,7 +63,9 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   the page (200 rows). Fetches run one at a time, newest wanted page first, at most 4 pending (an enumeration of the
   whole list – UI Automation, a text search – cannot queue the whole directory). Loaded rows replace their
   placeholders with Replace notifications; a changed count raises Reset. The cache holds at most 12 pages (LRU);
-  evicted pages are fetched again when shown. The server context id of the last response is sent with the next
+  evicted pages are fetched again when shown. Placeholders are bounded as well: beyond 12 × 200 handed out
+  (a fast drag of the scroll thumb over a slow DC), those of pages that are neither recently shown nor pending are
+  forgotten (the view no longer shows them; asked again, the index gets a new placeholder). The server context id of the last response is sent with the next
   request (AD keeps the sorted result set); the content count estimate is not sent, so offsets are never rescaled.
 - Sorting is always on the server: the current server sort, or the clicked column; without one, `name` ascending.
   Columns the server cannot sort on (Type, Location) are ignored in the virtual mode. A sort the DC refuses falls back
@@ -86,7 +88,7 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   text) and a badge in the main window status bar with a tooltip. Ctrl+A is not offered in the virtual mode (it would
   select placeholders); placeholders are never part of `Selection`. Export of a virtual list is disabled (the
   operator exports with a Find query or a saved view).
-- Memory: at most 12 × 200 rows plus the selected rows; nothing is written to disk (rule 1).
+- Memory: at most 12 × 200 rows and 12 × 200 placeholders plus the selected rows; nothing is written to disk (rule 1).
 
 ### Edge cases
 

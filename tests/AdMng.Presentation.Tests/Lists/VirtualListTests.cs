@@ -144,6 +144,41 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task Memory_IsBounded_PlaceholdersOfPagesScrolledPastAreForgotten()
+    {
+        var (harness, list) = await OpenAsync();
+        var rows = list.VirtualRows!;
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = _ => gate.Task;
+        var events = new List<NotifyCollectionChangedEventArgs>();
+        rows.CollectionChanged += (_, e) => events.Add(e);
+
+        // Dragging the scroll thumb over the whole list while the DC is slow: every row the view realizes is a placeholder.
+        var early = rows[20];
+        var shown = new ObjectRowViewModel[Users];
+        for (var i = 10; i < Users; i++)
+        {
+            shown[i] = rows[i];
+            Assert.True(rows.PlaceholderCount <= rows.MaxPlaceholders, $"{rows.PlaceholderCount} placeholders");
+        }
+
+        // The placeholders the view may still show (recently shown and pending pages) keep their identity.
+        Assert.Equal(-1, rows.IndexOf(early));
+        Assert.Same(shown[115], rows[115]);
+        Assert.Equal(115, rows.IndexOf(shown[115]));
+
+        gate.SetResult();
+        await TestWait.UntilAsync(() => rows.Idle.IsCompleted && rows.PendingPages.Count == 0);
+        await rows.Idle;
+
+        // The shown page replaced its placeholders in place; forgotten placeholders got no notification.
+        var replaced = Assert.Single(events, e => e.Action == NotifyCollectionChangedAction.Replace && ReferenceEquals(e.OldItems![0], shown[115]));
+        Assert.Equal(UserName(115), Assert.IsType<ObjectRowViewModel>(replaced.NewItems![0]).Name);
+        Assert.DoesNotContain(events, e => e.Action == NotifyCollectionChangedAction.Replace && ReferenceEquals(e.OldItems![0], early));
+        Assert.True(rows.PlaceholderCount <= rows.MaxPlaceholders);
+    }
+
+    [Fact]
     public async Task HeaderClick_SortsOnTheServer_TypeIsNotSortable()
     {
         var (harness, list) = await OpenAsync();
