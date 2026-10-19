@@ -107,6 +107,82 @@ public sealed class DeployScriptTests
         Assert.Equal("dc01.contoso.test", watchdog.GetProperty("Directory").GetProperty("Server").GetString());
     }
 
+    /// <summary>On an update the certificate subject the script derived from the previous -Url follows a new -Url (the
+    /// merge would otherwise keep the old host's subject); a subject set by hand stays.</summary>
+    [Theory]
+    [InlineData("https://stary.contoso.test:8443", "stary.contoso.test", true)]
+    [InlineData("https://STARY.contoso.test:8443;https://localhost:8444", "stary.contoso.test", true)]
+    [InlineData("https://stary.contoso.test:8443", "CN=certyfikat-łódź", false)]
+    [SupportedOSPlatform("windows")]
+    public async Task CertificateSubject_FollowsTheUrl_OnlyWhenTheScriptDerivedIt(string urls, string subject, bool follows)
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) exists on Windows only.");
+        using var directory = new TestDataDirectory();
+        var file = directory.File("appsettings.json");
+        await File.WriteAllTextAsync(
+            file,
+            JsonSerializer.Serialize(new { Watchdog = new { Hosting = new { Urls = urls, Certificate = new { Subject = subject } } } }),
+            Ct);
+
+        var output = await PowerShellAsync(
+            "Import-Module $args[0] -Force; 'FOLLOWS=' + (Test-AdMngSubjectFollowsUrl -Tree (Read-AdMngBootstrap -Path $args[1]))",
+            Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"),
+            file);
+
+        Assert.Contains(follows ? "FOLLOWS=True" : "FOLLOWS=False", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>A local user may create %ProgramData%\AdMng before the installation and plant a bootstrap file (e.g. with
+    /// their own SID in ViewerSids): the install script must find out who could have written an existing file before it
+    /// merges a single setting of it, and merge an untrusted one only when told to.</summary>
+    [Fact]
+    public void Install_ChecksWhoCouldHaveWrittenTheBootstrapFile_BeforeMergingIt()
+    {
+        var script = File.ReadAllText(Path.Combine(DeployFolder(), "Install-AdMngWatchdog.ps1"));
+
+        var check = script.IndexOf("Get-AdMngUntrustedWriters -Path $ConfigFile", StringComparison.Ordinal);
+        var firstRead = script.IndexOf("Read-AdMngBootstrap -Path $ConfigFile", StringComparison.Ordinal);
+        Assert.True(check >= 0, "The install script never checks who could have written an existing bootstrap file.");
+        Assert.True(firstRead > check, "The install script reads the bootstrap file before the trust check.");
+        Assert.Contains("[switch] $TrustExistingConfig", script, StringComparison.Ordinal);
+    }
+
+    /// <summary>The trust check: nothing for a file only SYSTEM, Administrators and the current administrator can change;
+    /// one line per foreign owner or ACE that could change the file or replace it in a folder above it – but not for the
+    /// right to create files, which %ProgramData% gives Users and which cannot replace an existing file.</summary>
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task UntrustedWriters_NameEveryAccountThatCouldHaveChangedTheBootstrapFile()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) and Windows ACLs exist on Windows only.");
+        using var directory = new TestDataDirectory();
+        var config = Path.Combine(directory.Path, "Watchdog", "config");
+        System.IO.Directory.CreateDirectory(config);
+        var file = Path.Combine(config, "appsettings.json");
+        await File.WriteAllTextAsync(file, """{ "Watchdog": { "Authorization": { "ViewerSids": [ "S-1-5-21-1-2-3-1301" ] } } }""", Ct);
+
+        var output = await PowerShellAsync(
+            "Import-Module $args[0] -Force; " +
+            "$trusted = @('S-1-5-18', 'S-1-5-32-544', [Security.Principal.WindowsIdentity]::GetCurrent().User.Value); " +
+            "'BEFORE=' + @(Get-AdMngUntrustedWriters -Path $args[1] -Top $args[2] -TrustedSids $trusted).Count; " +
+            "& icacls.exe $args[2] /grant '*S-1-5-32-545:(CI)(WD,AD,WEA,WA)' /Q | Out-Null; " +
+            "'CREATE=' + @(Get-AdMngUntrustedWriters -Path $args[1] -Top $args[2] -TrustedSids $trusted).Count; " +
+            "& icacls.exe $args[1] /grant '*S-1-1-0:M' /Q | Out-Null; " +
+            "& icacls.exe $args[3] /grant '*S-1-5-11:(DC)' /Q | Out-Null; " +
+            "@(Get-AdMngUntrustedWriters -Path $args[1] -Top $args[2] -TrustedSids $trusted) | ForEach-Object { 'PROBLEM=' + $_ }",
+            Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"),
+            file,
+            directory.Path,
+            config);
+
+        Assert.Contains("BEFORE=0", output, StringComparison.Ordinal);
+        Assert.Contains("CREATE=0", output, StringComparison.Ordinal);
+        var problems = output.Split('\n').Where(l => l.StartsWith("PROBLEM=", StringComparison.Ordinal)).ToList();
+        Assert.Equal(2, problems.Count);
+        Assert.Contains(problems, p => p.Contains(file, StringComparison.OrdinalIgnoreCase) && p.Contains("S-1-1-0", StringComparison.Ordinal));
+        Assert.Contains(problems, p => p.Contains(config, StringComparison.OrdinalIgnoreCase) && p.Contains("S-1-5-11", StringComparison.Ordinal));
+    }
+
     private static IEnumerable<string> DeployFiles() =>
         System.IO.Directory.EnumerateFiles(DeployFolder()).Where(f => f.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psm1", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal);
 

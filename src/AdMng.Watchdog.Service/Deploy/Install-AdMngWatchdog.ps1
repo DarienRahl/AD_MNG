@@ -13,7 +13,10 @@
          created there before), protected DACLs by SID (no localized names) that replace every other ACE,
       4. writes config\appsettings.json: an existing file is MERGED - only the settings given as parameters change,
          everything else (DeniedSids, ViewerDetailLevel, Notifications, Directory, Server=HttpSys, ...) is kept; the
-         file is written as a new file, so it carries only the ACEs of the protected config\ folder,
+         file is written as a new file owned by Administrators, so it carries only the ACEs of the protected config\
+         folder. An existing file that accounts other than SYSTEM and Administrators could have written (owner or ACE
+         on the file or a folder above it, up to %ProgramData%\AdMng) stops the script before any change, unless
+         -TrustExistingConfig is given,
       5. creates the Application log source "AdMng Watchdog",
       6. grants "Log on as a service" (SeServiceLogonRight) to the gMSA,
       7. grants the gMSA Read on the private key of the TLS certificate the service will select (by thumbprint, else
@@ -59,6 +62,10 @@ param(
 
     [string[]] $MonitoringSubnets = @(),
 
+    # Merge an existing config\appsettings.json even when accounts other than SYSTEM and Administrators could have
+    # written it (review the file first); without this switch the script stops and names those accounts.
+    [switch] $TrustExistingConfig,
+
     # The published service (the folder that contains AdMng.Watchdog.exe); default: the parent of this script.
     [string] $SourcePath = (Split-Path -Parent $PSScriptRoot)
 )
@@ -78,6 +85,7 @@ $ConfigFile = Join-Path $ConfigDir 'appsettings.json'
 $SystemSid = 'S-1-5-18'
 $AdminsSid = 'S-1-5-32-544'
 $UsersSid = 'S-1-5-32-545'
+$TrustedInstallerSid = 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464'
 
 function Write-Step([string] $Text) { Write-Host "==> $Text" -ForegroundColor Cyan }
 
@@ -165,6 +173,24 @@ else {
 }
 $serviceSid = Get-AccountSid $ServiceAccount
 
+# An existing bootstrap file is merged only when nobody but SYSTEM, Administrators (or this administrator) could have
+# written it: Users may create %ProgramData%\AdMng before the installation and plant a file whose settings (ViewerSids,
+# DataDirectory, ...) would otherwise be taken over. Checked before the file is read.
+if (Test-Path -LiteralPath $ConfigFile) {
+    $trustedSids = @($SystemSid, $AdminsSid, $TrustedInstallerSid, [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+    $untrusted = @(Get-AdMngUntrustedWriters -Path $ConfigFile -Top $Parent -TrustedSids $trustedSids)
+    if ($untrusted.Count -gt 0) {
+        $reasons = ($untrusted | ForEach-Object { "    $_" }) -join [Environment]::NewLine
+        if (-not $TrustExistingConfig) {
+            throw ("$ConfigFile exists, but accounts other than SYSTEM and Administrators could have written it:" + [Environment]::NewLine + $reasons +
+                [Environment]::NewLine + 'Review the file: delete it to start from the parameters, or run the script again with -TrustExistingConfig to merge it.')
+        }
+
+        Write-Warning ("Merging $ConfigFile although accounts other than SYSTEM and Administrators could have written it (-TrustExistingConfig):" +
+            [Environment]::NewLine + $reasons)
+    }
+}
+
 # The bootstrap settings: the existing file merged with the parameters given (re-running the script is the update path,
 # so nothing an administrator set by hand - DeniedSids above all - may disappear).
 $before = Read-AdMngBootstrap -Path $ConfigFile
@@ -191,6 +217,9 @@ $defaults = [ordered]@{
 }
 if (-not (Test-AdMngSetting -Tree $before -Path 'Watchdog.Hosting.Certificate.Thumbprint') -and -not $set.Contains('Watchdog.Hosting.Certificate.Thumbprint')) {
     $defaults['Watchdog.Hosting.Certificate.Subject'] = $hostName
+
+    # A subject this script derived from the previous -Url follows a new -Url; a subject set by hand stays.
+    if (Test-AdMngSubjectFollowsUrl -Tree $before) { $set['Watchdog.Hosting.Certificate.Subject'] = $hostName }
 }
 $bootstrap = Merge-AdMngBootstrap -Tree (Read-AdMngBootstrap -Path $ConfigFile) -Set $set -Defaults $defaults
 $effectiveDataDirectory = [Environment]::ExpandEnvironmentVariables([string] $bootstrap['Watchdog']['DataDirectory'])

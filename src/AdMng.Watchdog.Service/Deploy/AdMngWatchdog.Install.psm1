@@ -121,6 +121,24 @@ function Merge-AdMngBootstrap {
     return $Tree
 }
 
+function Test-AdMngSubjectFollowsUrl {
+    <#
+    .SYNOPSIS
+        True when the certificate subject of the existing tree is the host of its (first) Hosting.Urls entry - the
+        install script derived it from -Url, so it follows a new -Url on an update; a subject set by hand stays.
+    #>
+    param([Parameter(Mandatory = $true)] $Tree)
+
+    if (-not (Test-AdMngSetting -Tree $Tree -Path 'Watchdog.Hosting.Urls') -or -not (Test-AdMngSetting -Tree $Tree -Path 'Watchdog.Hosting.Certificate.Subject')) {
+        return $false
+    }
+
+    $subject = [string] $Tree['Watchdog']['Hosting']['Certificate']['Subject']
+    $first = ([string] $Tree['Watchdog']['Hosting']['Urls'] -split ';')[0].Trim()
+    $uri = $null
+    return [bool] ($subject -and [Uri]::TryCreate($first, [UriKind]::Absolute, [ref] $uri) -and $uri.Host -ieq $subject.Trim())
+}
+
 function Get-AdMngSettingLines {
     <#
     .SYNOPSIS
@@ -174,17 +192,81 @@ function Set-AdMngProtectedAcl {
     Set-Acl -LiteralPath $Path -AclObject $security
 }
 
+function Get-AdMngUntrustedWriters {
+    <#
+    .SYNOPSIS
+        Why an existing bootstrap file may hold content that nobody but SYSTEM and Administrators wrote: one line per
+        object - the file and every folder above it up to and including $Top - whose owner is not one of $TrustedSids,
+        and per Allow ACE that lets another account change the file (write, delete, re-permission, take ownership) or
+        replace it in a folder (delete children, delete, re-permission, take ownership). Inherit-only ACEs do not apply
+        to the object itself and are skipped. Empty when the file can be trusted.
+    .NOTES
+        A local user may create %ProgramData%\AdMng before the installation (Users may create folders there) and plant
+        a bootstrap file; its settings (ViewerSids, DataDirectory, ...) must not be merged. Windows only (Get-Acl).
+    #>
+    param(
+        [Parameter(Mandatory = $true)] [string] $Path,
+        [Parameter(Mandatory = $true)] [string] $Top,
+        [Parameter(Mandatory = $true)] [string[]] $TrustedSids
+    )
+
+    # WriteData, AppendData, Delete, WRITE_DAC, WRITE_OWNER, GENERIC_ALL, GENERIC_WRITE.
+    $fileMask = 0x2 -bor 0x4 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000 -bor 0x40000000
+    # DeleteSubdirectoriesAndFiles, Delete, WRITE_DAC, WRITE_OWNER, GENERIC_ALL (creating files cannot replace an existing one).
+    $folderMask = 0x40 -bor 0x10000 -bor 0x40000 -bor 0x80000 -bor 0x10000000
+    $top = [System.IO.Path]::GetFullPath($Top).TrimEnd('\', '/')
+    $problems = New-Object System.Collections.Generic.List[string]
+    $item = [System.IO.Path]::GetFullPath($Path)
+    $mask = $fileMask
+    while ($item) {
+        if (Test-Path -LiteralPath $item) {
+            try {
+                $acl = Get-Acl -LiteralPath $item
+            }
+            catch {
+                # A DACL that does not even let Administrators read it was not set by them.
+                $problems.Add("$item cannot be inspected ($($_.Exception.GetType().Name))")
+                break
+            }
+
+            $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
+            if ($TrustedSids -notcontains $owner) { $problems.Add("$item is owned by $owner") }
+            foreach ($rule in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
+                $sid = $rule.IdentityReference.Value
+                $inheritOnly = ($rule.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0
+                if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $inheritOnly -or $TrustedSids -contains $sid) {
+                    continue
+                }
+
+                if ((([int] $rule.FileSystemRights) -band $mask) -ne 0) { $problems.Add("$item lets $sid change it ($($rule.FileSystemRights))") }
+            }
+        }
+
+        if ($item.TrimEnd('\', '/') -ieq $top) { break }
+        $parent = Split-Path -Parent $item
+        if (-not $parent -or $parent -eq $item) { break }
+        $item = $parent
+        $mask = $folderMask
+    }
+
+    # One string per problem on the pipeline (wrap the call in @()).
+    $problems.ToArray()
+}
+
 function Write-AdMngBootstrap {
     <#
     .SYNOPSIS
         Writes the bootstrap file as a NEW file (UTF-8 without BOM), so it carries only the ACEs it inherits from the
-        protected config folder - never the owner or ACL of a file someone created there before.
+        protected config folder - never the owner or ACL of a file someone created there before - and makes
+        Administrators its owner (so the next update by any administrator trusts it, Get-AdMngUntrustedWriters).
     #>
     param([Parameter(Mandatory = $true)] [string] $Path, [Parameter(Mandatory = $true)] $Tree)
 
     $json = $Tree | ConvertTo-Json -Depth 10
     if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Force }
     [System.IO.File]::WriteAllText($Path, $json, (New-Object System.Text.UTF8Encoding $false))
+    & icacls.exe $Path /setowner '*S-1-5-32-544' /C /Q | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "icacls /setowner failed on $Path with exit code $LASTEXITCODE." }
 }
 
 function Find-AdMngCertificate {
@@ -251,4 +333,5 @@ function Grant-AdMngPrivateKeyRead {
 }
 
 Export-ModuleMember -Function ConvertTo-AdMngTree, Read-AdMngBootstrap, Test-AdMngSetting, Set-AdMngSetting, Merge-AdMngBootstrap,
-    Get-AdMngSettingLines, Set-AdMngProtectedAcl, Write-AdMngBootstrap, Find-AdMngCertificate, Grant-AdMngPrivateKeyRead
+    Test-AdMngSubjectFollowsUrl, Get-AdMngSettingLines, Get-AdMngUntrustedWriters, Set-AdMngProtectedAcl, Write-AdMngBootstrap,
+    Find-AdMngCertificate, Grant-AdMngPrivateKeyRead

@@ -4693,7 +4693,7 @@ with the same ACL; BitLocker on the volume is recommended (docs).
 
 Parameters: `-ServiceAccount CONTOSO\svc-admngwd$`, `-InstallPath "C:\Program Files\AdMng\Watchdog"`,
 `-DataDirectory`, `-Url https://admng-wd.contoso.com:8443`, `-CertificateThumbprint`, `-ViewerGroupSid`,
-`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`. Steps: `Test-ADServiceAccount` (when the
+`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`, `-TrustExistingConfig` (see below). Steps: `Test-ADServiceAccount` (when the
 AD module exists) → copy files → create `config\` and `data\` with the ACLs of 19.5 → write
 `config\appsettings.json` (role, host-group and monitoring settings) → event source
 (`[System.Diagnostics.EventLog]::CreateEventSource('AdMng Watchdog','Application')`; `New-EventLog` does not exist in
@@ -4713,7 +4713,19 @@ Details (helper module `Deploy/AdMngWatchdog.Install.psm1`, shipped with the scr
   (`$PSBoundParameters`; `-Url` and `-AdminGroupSid` always) are written; defaults (`Server=Kestrel`,
   `RequireKerberos=true`, empty lists, `Certificate.Subject=<host>` when no thumbprint exists) fill only missing values;
   everything else – `DeniedSids`, `ViewerDetailLevel`, `Notifications`, `Directory`, `Server=HttpSys`, certificate
-  store – is kept. The changed settings are printed. The file is written as a new file (UTF-8 without BOM).
+  store – is kept. A `Certificate.Subject` equal to the host of the stored `Urls` (derived by the script,
+  `Test-AdMngSubjectFollowsUrl`) follows a new `-Url`; a subject set by hand stays. The changed settings are printed.
+  The file is written as a new file (UTF-8 without BOM) owned by Administrators.
+- **Trust before merge**: Users may create folders in `%ProgramData%`, so a local user could create
+  `AdMng\Watchdog\config\appsettings.json` before the first installation and plant settings the merge would take over
+  (`ViewerSids` when `-ViewerGroupSid` is omitted, `DataDirectory` – which the script then takes ownership of recursively –,
+  `ViewerDetailLevel`, `AllowTier0Suppression`, …). Before the file is read, `Get-AdMngUntrustedWriters` lists every
+  owner other than SYSTEM, Administrators, TrustedInstaller and the administrator running the script, and every Allow
+  ACE (not inherit-only) of another account that can change the file (write, delete, `WRITE_DAC`, `WRITE_OWNER`,
+  generic all/write) or replace it in `config\`, `Watchdog\` or `AdMng\` (delete child, delete, `WRITE_DAC`,
+  `WRITE_OWNER`, generic all) – the right to create files, which `%ProgramData%` passes on to Users, cannot replace an
+  existing file and is ignored. Any entry stops the script before the first change and names the accounts; the
+  administrator reviews the file and deletes it or re-runs with `-TrustExistingConfig` (then a warning lists them).
 - **ACLs**: `%ProgramData%\AdMng`, `Watchdog\`, `config\` and the data folder get owner Administrators (recursively,
   `icacls /setowner /T`) and a protected DACL that replaces every other ACE (`Set-Acl` with a new
   `DirectorySecurity`) – a local user who created the folders or the bootstrap file before the installation keeps
