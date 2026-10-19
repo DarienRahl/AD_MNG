@@ -5,6 +5,7 @@ using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -19,7 +20,8 @@ namespace AdMng.Watchdog.Service.Notifications;
 /// XOAUTH2 only over TLS. A rejected recipient does not stop the others (nor does a chunk whose recipients were all
 /// rejected stop the other chunks): recipients rejected permanently (5xx) are dropped with a warning – the message fails
 /// only when nobody got it –, recipients rejected temporarily (4xx) make the attempt Transient and the retry goes only to
-/// the recipients that did not get the message yet (<see cref="SmtpRecipientProgress"/>, also after a failed chunk).
+/// the recipients that did not get the message yet (<see cref="SmtpRecipientProgress"/>, also after a failed chunk); once
+/// somebody got the message, a transient code carries <see cref="OutboxSenderJob.PartialDeliveryPrefix"/>.
 /// Rate limit: <c>MaxMessagesPerMinute</c>, one token per SMTP message (chunk); a denial is
 /// <see cref="DeliveryOutcome.Deferred"/> and the chunks already sent are not sent again.
 /// </summary>
@@ -186,7 +188,7 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         {
             var classified = SmtpErrorClassifier.Classify(ex, certificateHint: validation.FailureHint);
             recorder?.AddHints(classified.Hints);
-            return new SmtpAttempt(classified, accepted, temporary.Count, permanent.Count);
+            return new SmtpAttempt(MarkPartial(classified, outbox && (accepted > 0 || delivered.Count > 0)), accepted, temporary.Count, permanent.Count);
         }
         finally
         {
@@ -197,7 +199,7 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         {
             // 4xx for some recipients (greylisting, 452 too many recipients): retried later – for them only.
             recorder?.AddHints(temporary[0].Hints);
-            return new SmtpAttempt(temporary[0], accepted, temporary.Count, permanent.Count);
+            return new SmtpAttempt(MarkPartial(temporary[0], outbox && (accepted > 0 || delivered.Count > 0)), accepted, temporary.Count, permanent.Count);
         }
 
         if (permanent.Count > 0 && accepted == 0 && delivered.Count == 0)
@@ -438,6 +440,14 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
 
         return result;
     }
+
+    /// <summary>A transient failure after some recipients already got the message carries
+    /// <see cref="OutboxSenderJob.PartialDeliveryPrefix"/>: exhausted retries are then a message-specific failure, not a
+    /// failing channel (the others accept – e.g. one mailbox answering 452 4.2.2 or 450 4.1.1 for days).</summary>
+    private static ClassifiedDelivery MarkPartial(ClassifiedDelivery failure, bool partial) =>
+        partial && failure.Result.Outcome == DeliveryOutcome.Transient && failure.Result.ErrorCode is { } code
+            ? failure with { Result = failure.Result with { ErrorCode = OutboxSenderJob.PartialDeliveryPrefix + code } }
+            : failure;
 
     private static DeliveryResult Deferred(RateLimitDecision decision) =>
         new() { Outcome = DeliveryOutcome.Deferred, ErrorCode = RateLimitCode, RetryAfter = decision.RetryAfter };

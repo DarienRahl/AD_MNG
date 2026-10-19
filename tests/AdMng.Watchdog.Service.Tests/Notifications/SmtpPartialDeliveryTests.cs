@@ -29,7 +29,8 @@ public sealed class SmtpPartialDeliveryTests
 
         var first = await fixture.Smtp.SendAsync(message, Ct);
 
-        Assert.Equal((DeliveryOutcome.Transient, "smtp.450.4.2.0"), (first.Outcome, first.ErrorCode));
+        // Jan has it: exhausted retries would be message-specific, not a failing e-mail channel.
+        Assert.Equal((DeliveryOutcome.Transient, "partial.smtp.450.4.2.0"), (first.Outcome, first.ErrorCode));
         Assert.Single(server.Messages);
         Assert.Equal((1, 1), (Rcpt(server, Jan), Rcpt(server, Soc)));
         Assert.Contains(fixture.Log.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("1 recipient(s) rejected temporarily", StringComparison.Ordinal));
@@ -70,7 +71,7 @@ public sealed class SmtpPartialDeliveryTests
         var first = await fixture.Smtp.SendAsync(message, Ct);
         var second = await fixture.Smtp.SendAsync(message, Ct);
 
-        Assert.Equal((DeliveryOutcome.Transient, "smtp.451.4.3.0"), (first.Outcome, first.ErrorCode));
+        Assert.Equal((DeliveryOutcome.Transient, "partial.smtp.451.4.3.0"), (first.Outcome, first.ErrorCode));
         Assert.Equal(DeliveryOutcome.Delivered, second.Outcome);
         Assert.Equal([["a.nowak@contoso.test"], ["b.zak@contoso.test"]], Recipients(server));
         Assert.Equal(

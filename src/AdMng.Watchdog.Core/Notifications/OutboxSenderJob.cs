@@ -11,7 +11,8 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// <see cref="IWatchdogJob"/> "outbox" (section 15.1): leases due messages (20, lease 5 min – a crash lets the lease
 /// expire and the message comes back), sends them through the transport of their channel type – sequentially per
 /// channel, up to 4 channels in parallel – and records the result: Delivered → Sent (payload dropped); Deferred (rate
-/// limit) → retry without counting an attempt; Transient → <see cref="RetryPolicy"/> or Dead when exhausted; Permanent →
+/// limit) → retry without counting an attempt; Transient → <see cref="RetryPolicy"/> or Dead when exhausted (after a
+/// partial delivery, <see cref="PartialDeliveryPrefix"/>, only with health Warning); Permanent →
 /// Dead (message-specific); ChannelBroken / AuthenticationFailed → retry in 1 h until the message is 24 h old, then Dead
 /// (these retries do not count as attempts, so a broken period does not use up the transient retry budget).
 /// Channel health goes to <see cref="ChannelHealthTracker"/>; a channel entering Error stores one
@@ -43,6 +44,12 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
 
     /// <summary>Error code of a heartbeat given up because the next heartbeat of its channel is due.</summary>
     public const string HeartbeatSupersededCode = "heartbeat.superseded";
+
+    /// <summary>Prefix a transport puts before the error code of a transient failure after some recipients already got
+    /// the message (e-mail: a recipient rejected temporarily while the others accepted, a later recipient chunk failed).
+    /// When the retries are exhausted such a message is a message-specific failure – Dead with channel health Warning and
+    /// no <c>HealthDeliveryFailing</c>: the channel delivers, one recipient does not accept.</summary>
+    public const string PartialDeliveryPrefix = "partial.";
 
     private const string ChannelDisabledCode = "channel.disabled";
     private const string ChannelUnknownCode = "channel.unknown";
@@ -179,7 +186,9 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
                 }
                 else
                 {
-                    await DeadAsync(message, errorCode, result.Detail, HealthState.Error, now, cancellationToken).ConfigureAwait(false);
+                    // Exhausted after some recipients got it (partial.*): message-specific like a permanent failure.
+                    var level = errorCode.StartsWith(PartialDeliveryPrefix, StringComparison.Ordinal) ? HealthState.Warning : HealthState.Error;
+                    await DeadAsync(message, errorCode, result.Detail, level, now, cancellationToken).ConfigureAwait(false);
                 }
 
                 break;

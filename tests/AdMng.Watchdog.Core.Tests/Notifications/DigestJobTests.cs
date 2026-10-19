@@ -271,6 +271,24 @@ public sealed class DigestJobTests
     }
 
     [Fact]
+    public async Task DigestWhosePeriodEndWasHeldBack_IsNotSentAgainAfterARestart()
+    {
+        await _job.RunOnceAsync(Ct);
+        await _harness.StoreAsync(Event(WatchEventKind.UserCreated, Severity.Low, detectedAt: NextMorning.AddSeconds(-2)));
+        _harness.Clock.SetUtcNow(NextMorning);
+        await _job.RunOnceAsync(Ct);                              // ends at 07:29:58: the event is not rule-evaluated yet
+        Assert.Equal(NextMorning.AddSeconds(-2), await _harness.Store.GetLastPeriodEndAsync(Ct));
+        Assert.Equal(3, (await OutboxAsync()).Count);
+
+        _harness.Clock.Advance(TimeSpan.FromHours(1));           // the service restarts at 08:30
+        var restarted = Job(_harness);
+        await restarted.RunOnceAsync(Ct);
+
+        Assert.Equal(3, (await OutboxAsync()).Count);              // 07:29:58 is not "before 07:30": no catch-up digest
+        Assert.Equal(NextMorning.AddDays(1), restarted.NextScheduledAt);
+    }
+
+    [Fact]
     public async Task OldUnevaluatedEvents_DoNotHoldThePeriodBack()
     {
         await _job.RunOnceAsync(Ct);

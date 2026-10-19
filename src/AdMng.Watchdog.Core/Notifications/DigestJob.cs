@@ -194,11 +194,14 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
             _started = true;
         }
 
+        // Missed during a downtime: send now. The digest of that occurrence may have ended up to MaxEvaluationLag before it
+        // (period end held back for an event the rule evaluation had not processed yet) – that one was sent.
         DateTimeOffset? due = null;
         if (!started && Schedule.PreviousOccurrence(digest.Time, days, timeZone, now) is { } previous && now - previous < MaxCatchUpDelay
-            && await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false) is { } lastEnd && lastEnd < previous)
+            && await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false) is { } lastEnd
+            && lastEnd < previous - DigestBuilder.MaxEvaluationLag)
         {
-            due = previous;     // missed during a downtime: send now
+            due = previous;
         }
 
         due ??= Schedule.NextOccurrence(digest.Time, days, timeZone, now);

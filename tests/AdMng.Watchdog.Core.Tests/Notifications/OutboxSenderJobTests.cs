@@ -117,6 +117,25 @@ public sealed class OutboxSenderJobTests
     }
 
     [Fact]
+    public async Task ExhaustedRetries_AfterAPartialDelivery_AreDeadWithAWarningButNoHealthEvent()
+    {
+        // One mailbox of the group answers 452 4.2.2 for days while the others got the alert: the e-mail channel works.
+        var id = await EnqueueAsync(DeliveryChannelType.Email);
+        _email.Default = (_, _) => Task.FromResult(new DeliveryResult { Outcome = DeliveryOutcome.Transient, ErrorCode = "partial.smtp.452.4.2.2" });
+
+        for (var attempt = 1; attempt <= 10; attempt++)
+        {
+            await _job.RunOnceAsync(Ct);
+            _harness.Clock.Advance(TimeSpan.FromHours(9));
+        }
+
+        var item = await _harness.OutboxItemAsync(id);
+        Assert.Equal((OutboxStatus.Dead, 10, "partial.smtp.452.4.2.2"), (item.Status, item.Attempts, item.LastErrorCode));
+        Assert.Equal(HealthState.Warning, _harness.Health.GetChannel("email")!.State);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
     public async Task Permanent_IsDeadWithAWarningButNoHealthEvent()
     {
         var id = await EnqueueAsync(DeliveryChannelType.Email);

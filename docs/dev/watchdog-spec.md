@@ -3924,11 +3924,13 @@ layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-u
 
 - Schedule: `Schedule.NextOccurrence(Digest.Time, Digest.Days, tz, now)`; DST: a non-existent local time moves to
   the next valid minute, an ambiguous one uses the first occurrence. After a downtime the missed digest is sent at
-  start-up when it is less than 12 h late, otherwise skipped. `IDigestRunStore` (`digest_runs`) stores the period
-  and the outbox ids. Once the first message of a digest is enqueued, the remaining messages and the `digest_runs`
-  row are written without cancellation (a service stop in between would make the start-up catch-up send the digest
-  again); when recording fails after an enqueue, the error is logged and the schedule moves on anyway (the next digest
-  then starts at the previous end instead of this digest being enqueued every minute).
+  start-up when it is less than 12 h late, otherwise skipped; a digest counts as missed only when the last recorded
+  period ended more than `MaxEvaluationLag` (10 min) before the scheduled time (a digest whose end was held back for an
+  unevaluated event, see Period, was sent – a restart must not send it again). `IDigestRunStore` (`digest_runs`)
+  stores the period and the outbox ids. Once the first message of a digest is enqueued, the remaining messages and the
+  `digest_runs` row are written without cancellation (a service stop in between would make the start-up catch-up send
+  the digest again); when recording fails after an enqueue, the error is logged and the schedule moves on anyway (the
+  next digest then starts at the previous end instead of this digest being enqueued every minute).
 - Period: from the previous digest's end (first run: now − 24 h) to now – or to just before the oldest event the
   rule evaluation has not processed yet, when it was detected within the last 10 min (`DigestBuilder.MaxEvaluationLag`;
   sections list only rule-matched events, so such an event goes to the next digest instead of being counted but never
@@ -4201,6 +4203,10 @@ for each msg (sequential per channel, parallel across channels, max 4):
                            HealthDeliveryFailing once per transition into Error (sent through other working channels)
 ```
 
+- Partial delivery: a transport puts `partial.` before the code of a transient failure after some recipients already got
+  the message (e-mail: a recipient rejected temporarily while the others accepted, a later recipient chunk failed). Its
+  exhausted retries are message-specific – Dead with channel health Warning, no `HealthDeliveryFailing` (one mailbox
+  answering `452 4.2.2` or `450 4.1.1` for days must not report the working e-mail channel as failing with every alert).
 - Broken-channel retries do not count as attempts: a Teams flow switched off for ten hours must not leave the message
   with an exhausted transient schedule, so the first 429/503/421 after the recovery is retried after the first step;
   the 24 h age limit ends a broken period.
@@ -4244,7 +4250,7 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 |---|---|
 | `SmtpCommandException` 4xx (incl. 421, 451, 452) | Transient |
 | `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed (a chunk whose recipients were all rejected does not stop the other chunks); warning log 2203 with the count |
-| `SmtpCommandException` 4xx on RCPT for some recipients (greylisting, 452 too many recipients) | the others get it; Transient – the retry goes only to the recipients that did not get the message yet; warning log 2202 with the count |
+| `SmtpCommandException` 4xx on RCPT for some recipients (greylisting, 452 too many recipients) | the others get it; Transient with code `partial.smtp.4xx…` (15.1) – the retry goes only to the recipients that did not get the message yet; warning log 2202 with the count |
 | 552 / `SenderNotAccepted` + ExceededStorageAllocation | Permanent (message too large – digest splits by MaxRowsPerSection) |
 | 535 5.7.139, 550 5.7.30 | AuthenticationFailed + hint `smtp.basicAuthDisabled` / `smtp.smtpAuthDisabled` |
 | 550 5.7.68 | ChannelBroken + hint `smtp.directSendRejected` |
