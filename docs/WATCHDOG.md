@@ -797,7 +797,12 @@ filtry.
 - **Lista zdarzeń**: „ustalanie…” jest zastępowane automatycznie (w wierszu i w panelu szczegółów) około 30 s po
   ustaleniu wykonawcy, dopóki zakładka jest widoczna. Przy filtrze po tym, co usługa uzupełnia po zapisaniu zdarzenia
   (priorytet, tagi, status atrybucji, wykonawca, reguła, tekst), zdarzenie, które zaczyna pasować dopiero po atrybucji,
-  pojawia się na liście na swoim miejscu w ciągu około 30 s. Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
+  pojawia się na liście na swoim miejscu w ciągu około 30 s – także wiele naraz (np. operacja masowa) i także wtedy,
+  gdy usługa ustala wykonawcę dłużej niż domyślne 30 minut: lista sprawdza zdarzenia z okresu ostatniej próby atrybucji
+  z konfiguracji usługi (`attribution.pendingRetries`, co najmniej 2 godziny wstecz). Wiersz, który przestał pasować do
+  filtru (np. obniżony priorytet albo inny wykonawca), znika z listy; zaznaczony wiersz zostaje przyciemniony z
+  podpowiedzią „Nie pasuje już do filtru” i znika po odznaczeniu. Zdarzenie potwierdzone w innej konsoli pozostaje na
+  liście jako potwierdzone (jak potwierdzone przez operatora). Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
   jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”.
 
 | Podzakładka | Zawartość |

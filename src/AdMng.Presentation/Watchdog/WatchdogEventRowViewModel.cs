@@ -72,6 +72,13 @@ public sealed partial class WatchdogEventRowViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsNew { get; set; }
 
+    /// <summary>
+    /// The event no longer matches the feed's filter (the service changed its severity, tags, actor or rules) but the row is
+    /// selected: it stays, dimmed, until it is deselected (the next status round removes it).
+    /// </summary>
+    [ObservableProperty]
+    public partial bool NoLongerMatches { get; set; }
+
     /// <summary>Replaces the event with a newer version (acknowledged, late attribution).</summary>
     public void Update(WatchEvent watchEvent)
     {

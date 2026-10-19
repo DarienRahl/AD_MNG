@@ -4,6 +4,7 @@ using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -33,22 +34,30 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>Most rows with a pending attribution read again per status round (newest first).</summary>
     public const int PendingRefreshLimit = 20;
 
-    /// <summary>Most events of the late-match page read per status round (<see cref="MergeLateMatchesAsync"/>).</summary>
-    public const int LateMatchLimit = 50;
+    /// <summary>Events per request of the late-match merge (<see cref="MergeLateMatchesAsync"/>; the service's limit).</summary>
+    public const int LateMatchPageSize = 500;
 
     /// <summary>
-    /// How far back an event can still start to match a filter (detection time): the service evaluates an event at once
-    /// and attributes it within the attribution retries (30 min by default); older events are final.
+    /// The late-match window without the service's configuration (not loaded yet, not readable) and its lower bound: the
+    /// default attribution retries end 30 minutes after detection, the rule evaluation lags at most 10 minutes.
     /// </summary>
-    public static readonly TimeSpan LateMatchWindow = TimeSpan.FromHours(2);
+    public static readonly TimeSpan DefaultLateMatchWindow = TimeSpan.FromHours(2);
+
+    /// <summary>
+    /// Added to the last attribution retry (<see cref="LateMatchWindowFor"/>): the rules job's evaluation lag (10 min) and
+    /// a slow attribution pass.
+    /// </summary>
+    public static readonly TimeSpan LateMatchAllowance = TimeSpan.FromMinutes(15);
 
     private readonly WatchdogServices _services;
     private readonly WatchdogPoller _poller;
     private readonly SerialCancellation _loads = new();
+    private readonly SerialCancellation _merges = new();
     private readonly CancellationTokenSource _lifetime = new();
     private IList? _selectedItems;
     private Task _loading = Task.CompletedTask;
     private volatile EventQuery _liveQuery = new();
+    private int _rangeVersion;
     private bool _refreshingPending;
     private bool _disposed;
 
@@ -151,6 +160,39 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>The current load (tests and the view await it).</summary>
     public Task Loading => _loading;
 
+    /// <summary>
+    /// How far back (detection time) an event can still start or stop to match a filter on what the service fills in
+    /// later: from the service's attribution settings (<see cref="ApplyConfiguration"/>), else
+    /// <see cref="DefaultLateMatchWindow"/>.
+    /// </summary>
+    public TimeSpan LateMatchWindow { get; private set; } = DefaultLateMatchWindow;
+
+    /// <summary>Status-round refreshes (pending attributions, late matches) completed so far (tests wait for the next one).</summary>
+    internal int CompletedLateRefreshes { get; private set; }
+
+    /// <summary>
+    /// The late-match window for <paramref name="configuration"/>: an event is final once its last attribution retry
+    /// (<c>Attribution.PendingRetries</c>, counted from detection) ran – plus the attribution job's poll interval and
+    /// <see cref="LateMatchAllowance"/> – and never less than <see cref="DefaultLateMatchWindow"/>. With attribution off
+    /// (or no retries) events are final at once: the default applies.
+    /// </summary>
+    public static TimeSpan LateMatchWindowFor(WatchdogConfiguration? configuration)
+    {
+        // A stored document may lack sections or list entries (redacted copies keep the attribution settings).
+        var attribution = configuration?.Attribution;
+        if (attribution is null || !attribution.Enabled || attribution.Source == AttributionSourceKind.None || attribution.PendingRetries is not { Count: > 0 } retries)
+        {
+            return DefaultLateMatchWindow;
+        }
+
+        var last = retries.Max();
+        var window = last + (attribution.PollInterval > TimeSpan.Zero ? attribution.PollInterval : TimeSpan.Zero) + LateMatchAllowance;
+        return window > DefaultLateMatchWindow ? window : DefaultLateMatchWindow;
+    }
+
+    /// <summary>The configuration the service runs (loaded or saved by the tab): sets <see cref="LateMatchWindow"/>.</summary>
+    public void ApplyConfiguration(WatchdogConfiguration? configuration) => LateMatchWindow = LateMatchWindowFor(configuration);
+
     /// <summary>Call after the view's multi-selection changed.</summary>
     public void NotifySelectionChanged()
     {
@@ -208,6 +250,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         _poller.EventsReceived -= OnEventsReceived;
         _poller.StatusReceived -= OnStatusReceived;
         _loads.Cancel();
+        _merges.Cancel();
         _lifetime.Cancel();
         Details.Dispose();
     }
@@ -226,6 +269,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
 
         var token = _loads.Next();
+        StartNewRange();
         IsLoading = true;
         try
         {
@@ -384,6 +428,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     private async Task LoadCoreAsync()
     {
         var token = _loads.Next();
+        StartNewRange();
         _poller.Cursor = null;
         _liveQuery = Filter.ToQuery();
         IsLoading = true;
@@ -507,6 +552,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         finally
         {
             _refreshingPending = false;
+            CompletedLateRefreshes++;
         }
     }
 
@@ -528,66 +574,308 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
 
             if (Items.FirstOrDefault(r => r.Id == id) is { } row)
             {
-                row.Update(details.Event);
+                UpdateRow(row, details.Event);
             }
-
-            Details.UpdateEvent(details.Event);
+            else
+            {
+                Details.UpdateEvent(details.Event);
+            }
         }
     }
 
     /// <summary>
     /// The service fills in severity and tags (attribution, re-evaluation), the attribution status and actor (and with
     /// them the text on actor, workstation and IP) and the matched rules after it stored an event under its id. With a
-    /// filter on any of them the live long-poll skips an event that matches only later – its id is behind the cursor – so
-    /// the newest events of the filter detected within <see cref="LateMatchWindow"/> are read again and such events are
-    /// inserted at their place (descending ids) within the loaded range. Not while a reload or "Wczytaj starsze" runs
-    /// (they own the list).
+    /// filter on any of them the live long-poll skips an event that matches only later (its id is behind the cursor) and
+    /// never drops a row that stops matching. So every status round reads the filter's events detected within
+    /// <see cref="LateMatchWindow"/> again – page by page, newest first, down to the oldest loaded row (the whole window
+    /// while everything of the filter is loaded) – and merges each page: events that match only since are inserted at
+    /// their place in id order (one collection notification per page; the live cap applies, trimmed rows stay reachable
+    /// with "Wczytaj starsze"), rows whose event changed show the new version (row and details pane). Once the whole range
+    /// was read, rows of the window the service no longer returns are removed; a selected one is only marked
+    /// (<see cref="WatchdogEventRowViewModel.NoLongerMatches"/>) and removed in the first round after it was deselected.
+    /// Memory: one page plus the ids of the range. A reload or "Wczytaj starsze" cancels the merge (they own the list);
+    /// nothing is removed after an incomplete read. Acknowledgements are the operators': a row acknowledged meanwhile stays
+    /// (shown acknowledged, like the operator's own), an already acknowledged late match is not inserted into an
+    /// "unacknowledged only" feed.
     /// </summary>
     private async Task MergeLateMatchesAsync()
     {
         var query = _liveQuery;
+        if (!MatchesLate(query) || IsLoading || _disposed || _poller.Cursor is null)
+        {
+            return;
+        }
+
         var since = _services.Time.GetUtcNow() - LateMatchWindow;
-        if (!MatchesLate(query) || IsLoading || _disposed || query.To < since)
+        var from = WholeMilliseconds(query.From is { } start && start > since ? start : since);
+        if (query.To is { } to && to < from)
+        {
+            // Everything the filter can show is final.
+            return;
+        }
+
+        var range = _rangeVersion;
+        var token = _merges.Next();
+        var read = query with { From = from, After = null, Before = null, WaitSeconds = 0, Limit = LateMatchPageSize, UnacknowledgedOnly = false };
+
+        // The rows a complete read can prove to no longer match: loaded before the first request (rows the poller adds
+        // meanwhile are newer than the read), detected within the window – or marked by an earlier round.
+        var candidates = Items.Where(r => r.Event.DetectedAt >= from || r.NoLongerMatches).Select(r => r.Id).ToHashSet();
+        var seen = new HashSet<long>();
+        var limit = Math.Max(MaxLiveItems, Items.Count);
+        long? before = null;
+        while (true)
+        {
+            var page = await _services.Client.GetEventsAsync(read with { Before = before }, token).ConfigureAwait(true);
+            if (_disposed || token.IsCancellationRequested || range != _rangeVersion || IsLoading || !ReferenceEquals(query, _liveQuery))
+            {
+                return;
+            }
+
+            // While older events exist below the oldest loaded row, they are not loaded ("Wczytaj starsze" reads them with
+            // the filter): the read covers the loaded range only.
+            var floor = Floor();
+            MergePage([.. page.Items.Where(e => floor is not { } oldest || e.Id >= oldest)], query.UnacknowledgedOnly, seen, limit);
+            if (!page.HasMore || page.Items.Count == 0 || (Floor() is { } reached && page.Items.Min(e => e.Id) <= reached))
+            {
+                break;
+            }
+
+            before = page.Items.Min(e => e.Id);
+        }
+
+        var marked = RemoveNoLongerMatching(candidates, seen);
+
+        // The marked (selected) rows show why they no longer match: their current version, read one by one.
+        foreach (var row in marked.Take(PendingRefreshLimit))
+        {
+            var details = await _services.Client.GetEventAsync(row.Id, token).ConfigureAwait(true);
+            if (_disposed || token.IsCancellationRequested || range != _rangeVersion)
+            {
+                return;
+            }
+
+            UpdateRow(row, details.Event);
+        }
+    }
+
+    /// <summary>The oldest loaded row's id while older events of the filter exist, else null (everything is loaded).</summary>
+    private long? Floor() => HasMore && Items.Count > 0 ? Items[^1].Id : null;
+
+    /// <summary>One page of the late-match read: existing rows updated, missing ones inserted in id order, cap applied.</summary>
+    private void MergePage(IReadOnlyList<WatchEvent> events, bool unacknowledgedOnly, HashSet<long> seen, int limit)
+    {
+        if (events.Count == 0)
         {
             return;
         }
 
-        var recent = query with { Limit = LateMatchLimit, From = query.From > since ? query.From : since };
-        var page = await _services.Client.GetEventsAsync(recent, _lifetime.Token).ConfigureAwait(true);
-        if (_disposed || IsLoading || _poller.Cursor is null || !ReferenceEquals(query, _liveQuery))
+        var rows = Items.ToDictionary(r => r.Id);
+        var late = new List<WatchdogEventRowViewModel>();
+        foreach (var watchEvent in events)
         {
-            return;
+            seen.Add(watchEvent.Id);
+            if (rows.TryGetValue(watchEvent.Id, out var row))
+            {
+                row.NoLongerMatches = false;
+                UpdateRow(row, watchEvent);
+            }
+            else if (!unacknowledgedOnly || watchEvent.AcknowledgedAt is null)
+            {
+                var created = CreateRow(watchEvent);
+                created.IsNew = IsScrolledAway;
+                late.Add(created);
+            }
         }
 
-        var known = Items.Select(r => r.Id).ToHashSet();
-        long? oldest = Items.Count == 0 ? null : Items[^1].Id;
-        var late = page.Items.Where(e => !known.Contains(e.Id) && (oldest is null || e.Id > oldest)).OrderByDescending(e => e.Id).ToList();
         if (late.Count == 0)
         {
             return;
         }
 
-        foreach (var watchEvent in late)
+        late.Sort((a, b) => b.Id.CompareTo(a.Id));
+        if (late.Count == 1)
         {
-            var row = CreateRow(watchEvent);
-            row.IsNew = IsScrolledAway;
-            var index = 0;
-            while (index < Items.Count && Items[index].Id > watchEvent.Id)
-            {
-                index++;
-            }
+            Items.Insert(IndexFor(late[0].Id), late[0]);
+        }
+        else
+        {
+            // One Reset notification for the whole page (its rows may fill several gaps); the selection is kept (same row
+            // objects).
+            Items.ReplaceAll(MergeDescending(Items, late));
+        }
 
-            Items.Insert(index, row);
+        if (Items.TrimTo(limit) > 0)
+        {
+            HasMore = true;
         }
 
         if (IsScrolledAway)
         {
-            NewCount += late.Count;
+            var oldest = Items.Count == 0 ? long.MaxValue : Items[^1].Id;
+            NewCount += late.Count(r => r.Id >= oldest);
         }
 
         UpdateStatus();
         ExportCsvCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>
+    /// After a complete read: the candidates the read did not return no longer match. Unselected rows are removed (one
+    /// notification), selected ones are marked so that the operator keeps what they are looking at. Returns the marked rows.
+    /// </summary>
+    private List<WatchdogEventRowViewModel> RemoveNoLongerMatching(HashSet<long> candidates, HashSet<long> seen)
+    {
+        var selected = new HashSet<WatchdogEventRowViewModel>(Selection);
+        if (SelectedItem is { } single)
+        {
+            selected.Add(single);
+        }
+
+        var removed = new HashSet<WatchdogEventRowViewModel>();
+        var marked = new List<WatchdogEventRowViewModel>();
+        foreach (var row in Items.Where(r => candidates.Contains(r.Id) && !seen.Contains(r.Id)))
+        {
+            if (selected.Contains(row))
+            {
+                row.NoLongerMatches = true;
+                marked.Add(row);
+            }
+            else
+            {
+                removed.Add(row);
+            }
+        }
+
+        if (removed.Count == 0)
+        {
+            return marked;
+        }
+
+        Items.RemoveWhere(removed.Contains);
+        NewCount = Math.Max(0, NewCount - removed.Count(r => r.IsNew));
+        UpdateStatus();
+        ExportCsvCommand.NotifyCanExecuteChanged();
+        AcknowledgeSelectedCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsEmpty));
+        return marked;
+    }
+
+    /// <summary>
+    /// Shows a newer version of a row's event (row and details pane) when anything the service changes later differs.
+    /// An acknowledgement is never undone: the service never removes one, so a version without it was read before it.
+    /// </summary>
+    private void UpdateRow(WatchdogEventRowViewModel row, WatchEvent fresh)
+    {
+        var current = row.Event;
+        if (current.AcknowledgedAt is not null && fresh.AcknowledgedAt is null)
+        {
+            fresh = fresh with { AcknowledgedAt = current.AcknowledgedAt, AcknowledgedBy = current.AcknowledgedBy, AcknowledgeComment = current.AcknowledgeComment };
+        }
+
+        if (!LateStateDiffers(current, fresh))
+        {
+            return;
+        }
+
+        var acknowledged = row.IsAcknowledged;
+        row.Update(fresh);
+        Details.UpdateEvent(fresh);
+        if (row.IsAcknowledged != acknowledged)
+        {
+            AcknowledgeSelectedCommand.NotifyCanExecuteChanged();
+            UpdateStatus();
+        }
+    }
+
+    /// <summary>
+    /// True when what the service changes after storing an event differs: severity, tags, matched rules, attribution,
+    /// lockout sources and the acknowledgement (the rest of an event is fixed once stored).
+    /// </summary>
+    private static bool LateStateDiffers(WatchEvent a, WatchEvent b) =>
+        a.Severity != b.Severity
+        || a.AcknowledgedAt != b.AcknowledgedAt
+        || !string.Equals(a.AcknowledgedBy, b.AcknowledgedBy, StringComparison.Ordinal)
+        || !string.Equals(a.AcknowledgeComment, b.AcknowledgeComment, StringComparison.Ordinal)
+        || !(a.Tags ?? []).SequenceEqual(b.Tags ?? [], StringComparer.Ordinal)
+        || !(a.MatchedRules ?? []).SequenceEqual(b.MatchedRules ?? [], StringComparer.Ordinal)
+        || AttributionDiffers(a.Attribution, b.Attribution)
+        || a.Lockout?.LockoutsToday != b.Lockout?.LockoutsToday
+        || a.Lockout?.Sources?.Count != b.Lockout?.Sources?.Count
+        || !string.Equals(a.Lockout?.CallerComputer, b.Lockout?.CallerComputer, StringComparison.Ordinal);
+
+    private static bool AttributionDiffers(Attribution? a, Attribution? b)
+    {
+        if (ReferenceEquals(a, b))
+        {
+            return false;
+        }
+
+        if (a is null || b is null)
+        {
+            return true;
+        }
+
+        return a.Status != b.Status
+            || a.Confidence != b.Confidence
+            || a.SourceConfidence != b.SourceConfidence
+            || a.ResolvedAt != b.ResolvedAt
+            || !string.Equals(a.Reason, b.Reason, StringComparison.Ordinal)
+            || !string.Equals(a.Actor?.Sid, b.Actor?.Sid, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(a.Actor?.Account, b.Actor?.Account, StringComparison.Ordinal)
+            || !string.Equals(a.Actor?.DisplayName, b.Actor?.DisplayName, StringComparison.Ordinal)
+            || !string.Equals(a.Workstation, b.Workstation, StringComparison.Ordinal)
+            || !string.Equals(a.IpAddress, b.IpAddress, StringComparison.Ordinal)
+            || !string.Equals(a.SourceMethod, b.SourceMethod, StringComparison.Ordinal)
+            || !string.Equals(a.SourceReason, b.SourceReason, StringComparison.Ordinal)
+            || a.Candidates?.Count != b.Candidates?.Count
+            || a.Evidence?.Count != b.Evidence?.Count;
+    }
+
+    /// <summary>Index of the first row older than <paramref name="id"/> (rows are in descending id order).</summary>
+    private int IndexFor(long id)
+    {
+        int low = 0, high = Items.Count;
+        while (low < high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (Items[middle].Id > id)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
+    }
+
+    /// <summary>Both lists in descending id order (no common ids) merged into one.</summary>
+    private static List<WatchdogEventRowViewModel> MergeDescending(IReadOnlyList<WatchdogEventRowViewModel> rows, List<WatchdogEventRowViewModel> late)
+    {
+        var merged = new List<WatchdogEventRowViewModel>(rows.Count + late.Count);
+        int i = 0, j = 0;
+        while (i < rows.Count || j < late.Count)
+        {
+            merged.Add(j >= late.Count || (i < rows.Count && rows[i].Id > late[j].Id) ? rows[i++] : late[j++]);
+        }
+
+        return merged;
+    }
+
+    /// <summary>The service stores detection times in whole milliseconds: the window starts on one, like its query.</summary>
+    private static DateTimeOffset WholeMilliseconds(DateTimeOffset value) =>
+        new(value.Ticks - (value.Ticks % TimeSpan.TicksPerMillisecond), value.Offset);
+
+    /// <summary>A reload or "Wczytaj starsze" replaces or extends the loaded range: a running late-match merge stops.</summary>
+    private void StartNewRange()
+    {
+        _rangeVersion++;
+        _merges.Cancel();
     }
 
     /// <summary>True when <paramref name="query"/> filters on something the service fills in after storing the event.</summary>

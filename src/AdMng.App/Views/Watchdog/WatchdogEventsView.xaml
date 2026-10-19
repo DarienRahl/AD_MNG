@@ -25,6 +25,11 @@
         <DataTrigger Binding="{Binding IsNew, Mode=OneWay}" Value="True">
           <Setter Property="FontWeight" Value="SemiBold" />
         </DataTrigger>
+        <!-- Selected while the service changed it so that it no longer matches the filter: dimmed until deselected. -->
+        <DataTrigger Binding="{Binding NoLongerMatches, Mode=OneWay}" Value="True">
+          <Setter Property="Opacity" Value="0.55" />
+          <Setter Property="ToolTip" Value="{l:Tr Watchdog.Ui.EventNoLongerMatches}" />
+        </DataTrigger>
       </Style.Triggers>
     </Style>
 
