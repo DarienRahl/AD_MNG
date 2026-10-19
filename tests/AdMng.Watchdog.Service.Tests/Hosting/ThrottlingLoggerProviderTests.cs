@@ -54,4 +54,23 @@ public sealed class ThrottlingLoggerProviderTests
 
         Assert.Equal(7, sink.Entries.Count);
     }
+
+    /// <summary>Warning 2002 answers an administrator's edit of the bootstrap file: a second malformed edit within the
+    /// window (the same text) must reach the log too – otherwise the latest entry predates the edit and silence reads as
+    /// "the edit was loaded".</summary>
+    [Fact]
+    public void ABootstrapEditThatCannotBeLoaded_IsNeverSuppressed()
+    {
+        var clock = new FakeTimeProvider(Start);
+        var sink = new TestLog();
+        using var provider = new ThrottlingLoggerProvider(sink, clock);
+        var logger = provider.CreateLogger(typeof(ConfigurationSetup).FullName!);
+
+        logger.LogWarning(new EventId(ConfigurationSetup.ReloadFailedEventId), "The edited bootstrap file could not be loaded ({ErrorCode}).", "InvalidDataException");
+        clock.Advance(TimeSpan.FromMinutes(5));
+        logger.LogWarning(new EventId(ConfigurationSetup.ReloadFailedEventId), "The edited bootstrap file could not be loaded ({ErrorCode}).", "InvalidDataException");
+
+        Assert.Equal(2, sink.Entries.Count(e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId));
+        Assert.All(sink.Entries, e => Assert.DoesNotContain("repeated", e.Message, StringComparison.Ordinal));
+    }
 }

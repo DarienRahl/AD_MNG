@@ -7,12 +7,21 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// within the last <see cref="Window"/> is suppressed, and the next one written carries the number of suppressed
 /// repeats. The Application log is shared with every application on the server – a DC outage would otherwise write the
 /// same per-cycle warnings thousands of times a day and push other entries (1001, 1010, other products) out of it.
-/// Distinct entries, Critical entries and Information (the access log) always pass.
+/// Distinct entries, Critical entries, Information (the access log) and the answers to an administrator's action
+/// (<see cref="NeverThrottledEventIds"/>) always pass.
 /// </summary>
 public sealed class ThrottlingLoggerProvider : ILoggerProvider
 {
     /// <summary>Minimum distance between two identical entries.</summary>
     public static readonly TimeSpan Window = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Warnings that answer an administrator's action and are never suppressed: 2002 – an edit of the bootstrap file
+    /// could not be loaded. A second malformed edit within the window (say a corrected emergency <c>DeniedSids</c> entry
+    /// with another syntax error) yields the same text; suppressing it would leave only the entry of the first attempt,
+    /// older than the edit, and the administrator would take the silence for success.
+    /// </summary>
+    public static IReadOnlySet<int> NeverThrottledEventIds { get; } = new HashSet<int> { ConfigurationSetup.ReloadFailedEventId };
 
     private const int MaxTrackedEntries = 512;
 
@@ -80,7 +89,7 @@ public sealed class ThrottlingLoggerProvider : ILoggerProvider
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
-            if (logLevel is not (LogLevel.Warning or LogLevel.Error) || !inner.IsEnabled(logLevel))
+            if (logLevel is not (LogLevel.Warning or LogLevel.Error) || NeverThrottledEventIds.Contains(eventId.Id) || !inner.IsEnabled(logLevel))
             {
                 inner.Log(logLevel, eventId, state, exception, formatter);
                 return;

@@ -8,6 +8,7 @@ using AdMng.Watchdog.Service.Tests.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace AdMng.Watchdog.Service.Tests.Hosting;
@@ -93,6 +94,56 @@ public sealed class BootstrapReloadTests
         Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
         var warning = Assert.Single(log.Entries, e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId);
         Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        Assert.DoesNotContain(ŁukaszSid, log.Text, StringComparison.Ordinal);
+
+        var reloaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = monitor.OnChange((options, _) =>
+        {
+            if (options.Authorization.DeniedSids.Contains(ŁukaszSid, StringComparer.OrdinalIgnoreCase))
+            {
+                reloaded.TrySetResult();
+            }
+        });
+        await File.WriteAllTextAsync(file, Bootstrap(denied: [ŁukaszSid], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
+        await reloaded.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        Assert.False(await IsAdminAsync(handler));
+    }
+
+    /// <summary>Valid JSON with a value that cannot be bound (a Polish level name, "tak" for a flag) must not take the
+    /// running service down: the options keep the previous settings – every request, the jobs and /healthz read them –
+    /// and warning 2002 (no value of the file) tells the administrator; the corrected file applies as usual.</summary>
+    [Fact]
+    public async Task AnEditWithAValueThatCannotBeBound_KeepsThePreviousSettings_AndIsReported()
+    {
+        using var directory = new TestDataDirectory();
+        var file = Path.Combine(directory.Path, "config", "appsettings.json");
+        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        await File.WriteAllTextAsync(file, Bootstrap(denied: [], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
+
+        using var configuration = new ConfigurationManager();
+        ConfigurationSetup.AddSources(configuration, [], isWindowsService: false, file, reloadBootstrapFile: true);
+        var startup = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>()!;
+        var log = new TestLog();
+        var services = new ServiceCollection();
+        services.AddLogging(logging => logging.AddProvider(log));
+        ServiceRegistration.AddServiceOptions(services, configuration, startup);
+        await using var provider = services.BuildServiceProvider();
+        var monitor = provider.GetRequiredService<IOptionsMonitor<ServiceOptions>>();
+        var handler = new SidRoleHandler(monitor);
+        Assert.True(await IsAdminAsync(handler));
+
+        await File.WriteAllTextAsync(
+            file,
+            $$"""{ "Watchdog": { "Authorization": { "AdminSids": [ "{{TestRoles.AdminGroup}}" ], "DeniedSids": [ "{{ŁukaszSid}}" ], "ViewerDetailLevel": "Minimalny" } } }""",
+            Ct);
+        await WaitUntilAsync(() => log.Entries.Any(e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId));
+
+        Assert.True(await IsAdminAsync(handler));
+        Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
+        var warning = Assert.Single(log.Entries, e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        Assert.DoesNotContain("Minimalny", log.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(ŁukaszSid, log.Text, StringComparison.Ordinal);
 
         var reloaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
