@@ -89,6 +89,12 @@ internal static class GridViewColumnFit
     /// <summary>Kept free for layout rounding.</summary>
     private const double RoundingReserve = 1;
 
+    /// <summary>
+    /// The header and every row end with WPF's padding column, which is never narrower than this
+    /// (GridViewRowPresenterBase.c_PaddingHeaderMinWidth): columns that fill the viewport exactly still scroll sideways.
+    /// </summary>
+    private const double PaddingColumnMinWidth = 2;
+
     private static readonly ScrollChangedEventHandler ScrollChangedHandler = OnScrollChanged;
     private static readonly DragStartedEventHandler DragStartedHandler = OnGripperDragStarted;
     private static readonly DragCompletedEventHandler DragCompletedHandler = OnGripperDragCompleted;
@@ -252,7 +258,8 @@ internal static class GridViewColumnFit
             return;
         }
 
-        var available = viewport - RowChrome(viewer) - OverlayScrollBarWidth(viewer) - RoundingReserve;
+        var chrome = Math.Max(RowChrome(viewer), HeaderMargin(list)) + PaddingColumnMinWidth;
+        var available = viewport - chrome - OverlayScrollBarWidth(viewer) - RoundingReserve;
         MarkUserSized(view.Columns);
         var widths = ColumnFit.Fit(available, [.. all.Select(Spec)]);
         Show(view, all, widths);
@@ -361,6 +368,10 @@ internal static class GridViewColumnFit
 
         return row.Margin.Left + row.Margin.Right + row.BorderThickness.Left + row.BorderThickness.Right + row.Padding.Left + row.Padding.Right;
     }
+
+    /// <summary>Left and right margin of the column header row (the list template may indent it like the rows).</summary>
+    private static double HeaderMargin(ListView list) =>
+        FindDescendant<GridViewHeaderRowPresenter>(list) is { } header ? header.Margin.Left + header.Margin.Right : 0;
 
     /// <summary>
     /// The width of the vertical scroll bar while it is shown over the rows (the Fluent template lays it over the last
