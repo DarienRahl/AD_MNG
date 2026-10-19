@@ -24,6 +24,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private readonly SerialCancellation _connects = new();
     private Exception? _lastError;
     private Uri? _configAddress;
+    private Uri? _connectedAddress;
     private bool _eventsLoaded;
     private bool _confirmingClose;
     private bool _disposed;
@@ -384,6 +385,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             SetCaller(me);
             Events.Filter.SetCatalog(catalog);
             ApplyStatus(status);
+            _connectedAddress = client.BaseAddress;
             UpdateState(WatchdogConnectionState.Connected, null);
             _poller.IsVisible = IsVisible;
             _poller.Start();
@@ -481,10 +483,14 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         RestoreConnection();
     }
 
-    /// <summary>A call reached the service after a connection problem: the tab is usable again without Retry.</summary>
+    /// <summary>
+    /// A call reached the service after a connection problem: the tab is usable again without Retry – only for the service
+    /// the tab last connected to. After a failed connection to another address the caller, catalog, configuration and
+    /// feed shown are still those of the previous service (a save would send its configuration to the new one): Retry.
+    /// </summary>
     private void RestoreConnection()
     {
-        if (HasConnectionProblem && Me is not null)
+        if (HasConnectionProblem && Me is not null && _connectedAddress is not null && _connectedAddress == _services.Client.BaseAddress)
         {
             UpdateState(WatchdogConnectionState.Connected, null);
         }

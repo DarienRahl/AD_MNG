@@ -439,6 +439,51 @@ public sealed class WatchdogEventsTests
     }
 
     [Fact]
+    public async Task LiveEvents_AtTheCap_WhileOlderEventsLoad_LeaveNoGapInTheFeed()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
+            tab.IsVisible = false;
+            WatchEvent last = null!;
+            for (var i = 0; i < 2100; i++)
+            {
+                last = h.Client.AddEvent(SampleEvents.NewUser($"Konto {i:D4}", SampleEvents.Now.AddSeconds(i)));
+            }
+
+            tab.IsVisible = true;
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count > 0 && feed.Items[0].Id == last.Id, "the catch-up");
+            Assert.Equal(WatchdogEventsViewModel.MaxLiveItems, feed.Items.Count);
+            var oldest = feed.Items[^1].Id;
+
+            // "Wczytaj starsze" asks for the events before the oldest row while a live event arrives: the feed is full,
+            // but the oldest row must not be trimmed under the running request (the page continues below it).
+            h.Client.HoldEvents(q => q.Before is not null);
+            var older = feed.LoadOlderCommand.ExecuteAsync(null);
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.Any(q => q.Before == oldest), "the older page request");
+            var added = h.Client.AddEvent(SampleEvents.NewUser("Józef Łęcki", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items[0].Id == added.Id, "the live event");
+            h.Client.ReleaseEvents();
+            await older;
+
+            var ids = feed.Items.Select(r => r.Id).ToList();
+            Assert.Contains(oldest, ids);
+            Assert.Equal(Enumerable.Range(0, ids.Count).Select(i => ids[0] - i), ids);
+            Assert.Equal(WatchdogEventsViewModel.MaxLiveItems + 1 + WatchdogEventsViewModel.PageSize, ids.Count);
+
+            // The next live page trims the feed back to what it held before (the oldest rows go, "Wczytaj starsze" offers them).
+            var next = h.Client.AddEvent(SampleEvents.NewUser("Marianna Śląska", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items[0].Id == next.Id, "the next live event");
+            Assert.Equal(ids.Count, feed.Items.Count);
+            Assert.True(feed.HasMore);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task LateAttribution_ReplacesThePendingActor_InTheFeedAndTheDetails()
     {
         using var h = await WatchdogHarness.CreateAsync();

@@ -556,6 +556,43 @@ public sealed class WatchdogDocumentTests
     }
 
     [Fact]
+    public async Task FailedConnectToAnotherService_IsNotRestored_ByItsStatus()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            tab.Config.Update(c => c with { Digest = c.Digest with { SendWhenEmpty = !c.Digest.SendWhenEmpty } });
+            var firstAddress = h.Client.BaseAddress;
+
+            // "Zmień adres" to another service: the caller is read, its catalog times out.
+            h.Client.FailNext(nameof(IWatchdogClient.GetCatalogAsync), new WatchdogClientException(WatchdogClientErrorKind.Timeout, "slow"));
+            tab.ChangeAddressCommand.Execute(null);
+            tab.ServiceUrlInput = "https://admng-wd2.contoso.com:8443";
+            await tab.ConnectCommand.ExecuteAsync(null);
+            Assert.Equal(WatchdogConnectionState.Unreachable, tab.ConnectionState);
+            Assert.NotEqual(firstAddress, h.Client.BaseAddress);
+
+            // The poller (still running) reads the status of the new service: the tab must not come back "connected"
+            // with the caller, configuration and feed of the first service (a save would PUT it to the new one).
+            var calls = h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync));
+            h.Time.Advance(WatchdogPoller.HiddenStatusInterval);
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), calls + 1);
+            await h.Ui.IdleAsync();
+            await tab.Status.LoadAsync();
+            Assert.Equal(WatchdogConnectionState.Unreachable, tab.ConnectionState);
+            Assert.False(tab.IsConnected);
+
+            // Retry connects to the new service properly (its own configuration).
+            await tab.RefreshAsync();
+            await tab.Config.Loading;
+            Assert.True(tab.IsConnected);
+            Assert.False(tab.Config.IsDirty);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task ConnectionProblemOfACall_ClearsWithTheNextSuccessfulStatus()
     {
         using var h = await WatchdogHarness.CreateAsync();

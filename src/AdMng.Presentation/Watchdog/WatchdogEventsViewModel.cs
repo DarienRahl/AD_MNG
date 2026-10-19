@@ -419,9 +419,10 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>
     /// New events from the poller (ascending ids, filtered by the service): prepended newest first with one collection
     /// notification per page; the feed then keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded
-    /// with "Wczytaj starsze"), the oldest are dropped and stay reachable through <see cref="LoadOlderCommand"/>. Pages
-    /// are dropped only while a full reload runs (the poller has no cursor then; the reload reads them itself) – never
-    /// while an older page loads, because the poller's cursor has already moved past them.
+    /// with "Wczytaj starsze"), the oldest are dropped and stay reachable through <see cref="LoadOlderCommand"/> (not
+    /// while an older page loads: that page continues below the oldest row). Pages are dropped only while a full reload
+    /// runs (the poller has no cursor then; the reload reads them itself) – never while an older page loads, because the
+    /// poller's cursor has already moved past them.
     /// </summary>
     private void OnEventsReceived(object? sender, EventPage page)
     {
@@ -446,9 +447,11 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
+        // While "Wczytaj starsze" runs (IsLoading with a cursor) nothing is trimmed: its page continues below the oldest
+        // row, so trimming that row now would leave a gap no later page fills. The next page after it trims instead.
         var limit = Math.Max(MaxLiveItems, Items.Count);
         Items.InsertRange(0, rows);
-        if (Items.TrimTo(limit) > 0)
+        if (!IsLoading && Items.TrimTo(limit) > 0)
         {
             HasMore = true;
         }
