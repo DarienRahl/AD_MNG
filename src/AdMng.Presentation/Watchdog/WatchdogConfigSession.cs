@@ -207,6 +207,63 @@ public sealed partial class WatchdogConfigSession : ObservableObject
     [RelayCommand(CanExecute = nameof(CanSave))]
     private Task Save() => SaveAsync();
 
+    /// <summary>
+    /// Saves <paramref name="change"/> alone (PUT with If-Match): it is applied to the configuration as last loaded or
+    /// saved, so unsaved edits of the working copy (and typed secrets) are not sent with it. They stay unsaved, with the
+    /// same change applied, on top of the new version – a later save is a normal save of that version. Used by actions
+    /// whose confirmation names only their own change ("Zakończ tryb wdrożenia"). Returns true when saved.
+    /// </summary>
+    public async Task<bool> SaveChangeAsync(Func<WatchdogConfiguration, WatchdogConfiguration> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        if (Working is null || Envelope is not { } envelope || !CanEdit)
+        {
+            return false;
+        }
+
+        IsBusy = true;
+        Error = null;
+        Message = null;
+        HasConflict = false;
+        try
+        {
+            var saved = await _services.Client.SaveConfigAsync(envelope with { Configuration = change(envelope.Configuration) }, CancellationToken.None).ConfigureAwait(true);
+
+            // The working copy as it is now (edits made while the request ran included); unchanged → the saved version.
+            var pending = Working is { } working && !string.Equals(Serialize(working), _loadedJson, StringComparison.Ordinal) ? change(working) : null;
+            SetLoaded(saved, pending);
+            if (pending is null)
+            {
+                SetIssues([]);
+            }
+
+            Message = _services.Localizer.Format(L.Watchdog.ConfigSaved, saved.Version);
+            _services.Ui.Notifications.Show(NotificationSeverity.Success, Message);
+            return true;
+        }
+        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Validation)
+        {
+            SetIssues(ex.Issues);
+            Error = _services.Localizer[L.Watchdog.ConfigInvalid];
+            return false;
+        }
+        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.VersionConflict)
+        {
+            HasConflict = true;
+            Error = _services.Localizer[L.Watchdog.ErrorVersionConflict];
+            return false;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            ReportFailure(ex);
+            return false;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private bool CanSave() => CanEdit && IsDirty && !IsBusy;
 
     /// <summary>Discards the unsaved changes (and typed secrets).</summary>
@@ -260,12 +317,14 @@ public sealed partial class WatchdogConfigSession : ObservableObject
         }
     }
 
-    private void SetLoaded(ConfigEnvelope envelope)
+    /// <param name="envelope">The configuration as loaded or saved.</param>
+    /// <param name="pending">Unsaved edits to keep as the working copy on top of <paramref name="envelope"/> (null: none).</param>
+    private void SetLoaded(ConfigEnvelope envelope, WatchdogConfiguration? pending = null)
     {
         Envelope = envelope;
-        Working = envelope.Configuration;
         _loadedJson = Serialize(envelope.Configuration);
-        IsDirty = false;
+        Working = pending ?? envelope.Configuration;
+        IsDirty = pending is not null && !string.Equals(Serialize(pending), _loadedJson, StringComparison.Ordinal);
         OnPropertyChanged(nameof(CanEdit));
         OnPropertyChanged(nameof(IsReadOnly));
         OnPropertyChanged(nameof(Working));
