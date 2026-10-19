@@ -82,6 +82,7 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     public BulkObservableCollection<AuditEntryViewModel> Entries { get; } = [];
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CopyEntryCommand))]
     public partial AuditEntryViewModel? SelectedEntry { get; set; }
 
     /// <summary>Filter on object name/DN, attribute, values and operator (case- and diacritics-insensitive).</summary>
@@ -129,6 +130,44 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
             Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Fields.Copied]);
         }
     }
+
+    /// <summary>
+    /// Ctrl+C: the entry as labelled lines (time, operator, DC, object, action, attribute, before → after, result, error)
+    /// for a ticket or a chat. The log never holds passwords or secret values, so neither does the copy.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasEntry))]
+    private void CopyEntry(AuditEntryViewModel? entry)
+    {
+        if ((entry ?? SelectedEntry) is not { } target)
+        {
+            return;
+        }
+
+        var lines = new List<string>
+        {
+            $"{Localizer[L.ToolsUi.Time]}: {target.Timestamp}",
+            $"{Localizer[L.ToolsUi.Operator]}: {target.Operator}",
+            $"{Localizer[L.ToolsUi.Server]}: {target.Server}",
+            $"{Localizer[L.BatchUi.Object]}: {target.Name} ({target.Dn})",
+            $"{Localizer[L.Batch.Action]}: {target.Action}",
+        };
+        if (target.Attribute.Length > 0)
+        {
+            lines.Add($"{Localizer[L.Labels.Attribute]}: {target.Attribute}");
+            lines.Add($"{Localizer[L.Batch.Before]}: {target.OldValue}");
+            lines.Add($"{Localizer[L.Batch.After]}: {target.NewValue}");
+        }
+
+        lines.Add($"{Localizer[L.Batch.Status]}: {target.ResultText}");
+        if (target.Error.Length > 0)
+        {
+            lines.Add($"{Localizer[L.Common.Error]}: {target.Error}");
+        }
+
+        ClipboardCopy.Value(Services.Clipboard, Services.Notifications, Localizer, string.Join(Environment.NewLine, lines), Localizer[L.Copy.Entry]);
+    }
+
+    private bool HasEntry(AuditEntryViewModel? entry) => (entry ?? SelectedEntry) is not null;
 
     /// <summary>Opens the properties of the entry's object - not any more once the window's session ended.</summary>
     [RelayCommand(CanExecute = nameof(IsSessionActive))]

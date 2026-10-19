@@ -8,7 +8,6 @@ using AdMng.Presentation.Changes;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
-using AdMng.Presentation.Services;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -362,8 +361,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             text.AppendLine($"{change.Attribute}: {change.OldText} → {change.NewText} {change.ChangeText}".TrimEnd());
         }
 
-        _services.Ui.Clipboard.SetText(text.ToString().TrimEnd());
-        _services.Ui.Notifications.Show(NotificationSeverity.Info, localizer[L.Fields.Copied]);
+        // Confirmed like every other copy in the application ("Copied: Event details"), not when the clipboard was busy.
+        ClipboardCopy.Value(_services.Ui.Clipboard, _services.Ui.Notifications, localizer, text.ToString().TrimEnd(), localizer[L.Copy.EventDetails]);
     }
 
     private async Task ShowCoreAsync(WatchEvent? summary)

@@ -267,6 +267,15 @@ internal sealed class RecordingNotificationService : INotificationService
             _items.Add((severity, message));
         }
     }
+
+    /// <summary>Forgets the toasts shown so far (e.g. those of the setup).</summary>
+    public void Clear()
+    {
+        lock (_items)
+        {
+            _items.Clear();
+        }
+    }
 }
 
 internal sealed class FakeClipboard : IClipboardService
@@ -279,13 +288,16 @@ internal sealed class FakeClipboard : IClipboardService
     /// <summary>Simulates a clipboard held by another process: writes fail.</summary>
     public bool IsBusy { get; set; }
 
-    public void SetText(string text)
+    public bool SetText(string text)
     {
-        if (!IsBusy)
+        if (IsBusy)
         {
-            Text = text;
-            IsSecret = false;
+            return false;
         }
+
+        Text = text;
+        IsSecret = false;
+        return true;
     }
 
     public bool SetSecret(string secret)

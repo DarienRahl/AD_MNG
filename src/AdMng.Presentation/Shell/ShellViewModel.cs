@@ -880,7 +880,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 {
                     SelectedObject = obj is null
                         ? null
-                        : ObjectSummaryViewModel.Create(obj, Localizer, Sessions.Formatter, session.Schema, policy, _lists.Time.GetUtcNow());
+                        : ObjectSummaryViewModel.Create(obj, Localizer, Sessions.Formatter, session.Schema, policy, _lists.Time.GetUtcNow(), session.Info.DomainNetBiosName);
                 }
             }
             catch (DirectoryException) when (!token.IsCancellationRequested)

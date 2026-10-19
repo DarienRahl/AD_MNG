@@ -389,6 +389,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Columns.Type" xml:space="preserve">
     <value>Typ</value>
   </data>
+  <data name="CommandCategories.CopyAs" xml:space="preserve">
+    <value>Kopiuj jako</value>
+  </data>
   <data name="CommandCategories.Navigation" xml:space="preserve">
     <value>Nawigacja</value>
   </data>
@@ -430,6 +433,96 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Kopiuj nazwę wyróżniającą</value>
+  </data>
+  <data name="Copy.CanonicalPath" xml:space="preserve">
+    <value>Ścieżka kanoniczna</value>
+  </data>
+  <data name="Copy.CopiedMail" xml:space="preserve">
+    <value>Skopiowano adresy e-mail: {0}.</value>
+  </data>
+  <data name="Copy.CopiedRows" xml:space="preserve">
+    <value>Skopiowano wiersze: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValue" xml:space="preserve">
+    <value>Skopiowano: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValues" xml:space="preserve">
+    <value>Skopiowano wartości ({1}): {0}.</value>
+  </data>
+  <data name="Copy.CopyAddress" xml:space="preserve">
+    <value>Kopiuj adres</value>
+  </data>
+  <data name="Copy.CopyAllMail" xml:space="preserve">
+    <value>Kopiuj adresy e-mail członków</value>
+  </data>
+  <data name="Copy.CopyEntry" xml:space="preserve">
+    <value>Kopiuj wpis</value>
+  </data>
+  <data name="Copy.CopyMail" xml:space="preserve">
+    <value>Kopiuj adres e-mail</value>
+  </data>
+  <data name="Copy.CopyName" xml:space="preserve">
+    <value>Kopiuj nazwę</value>
+  </data>
+  <data name="Copy.CopyValue" xml:space="preserve">
+    <value>Kopiuj: {0}</value>
+  </data>
+  <data name="Copy.DisplayName" xml:space="preserve">
+    <value>Nazwa wyświetlana</value>
+  </data>
+  <data name="Copy.DistinguishedName" xml:space="preserve">
+    <value>Nazwa wyróżniająca (DN)</value>
+  </data>
+  <data name="Copy.DomainLogin" xml:space="preserve">
+    <value>DOMENA\nazwa logowania</value>
+  </data>
+  <data name="Copy.DomainLogon" xml:space="preserve">
+    <value>Nazwa logowania w domenie</value>
+  </data>
+  <data name="Copy.Entry" xml:space="preserve">
+    <value>Wpis dziennika sesji</value>
+  </data>
+  <data name="Copy.EventDetails" xml:space="preserve">
+    <value>Szczegóły zdarzenia</value>
+  </data>
+  <data name="Copy.Guid" xml:space="preserve">
+    <value>GUID (objectGUID)</value>
+  </data>
+  <data name="Copy.Login" xml:space="preserve">
+    <value>Nazwa logowania (sAMAccountName)</value>
+  </data>
+  <data name="Copy.Mail" xml:space="preserve">
+    <value>Adres e-mail</value>
+  </data>
+  <data name="Copy.Name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Copy.NoMail" xml:space="preserve">
+    <value>Żaden z obiektów nie ma adresu e-mail.</value>
+  </data>
+  <data name="Copy.NoValue" xml:space="preserve">
+    <value>Żaden z obiektów nie ma wartości: {0}.</value>
+  </data>
+  <data name="Copy.Rows" xml:space="preserve">
+    <value>Kopiuj wiersze</value>
+  </data>
+  <data name="Copy.RowsWithHeaders" xml:space="preserve">
+    <value>Kopiuj wiersze z nagłówkami</value>
+  </data>
+  <data name="Copy.SecretColumnsLeftOut" xml:space="preserve">
+    <value>Nie skopiowano kolumn z wartościami poufnymi: {0}.</value>
+  </data>
+  <data name="Copy.Sid" xml:space="preserve">
+    <value>SID (objectSid)</value>
+  </data>
+  <data name="Copy.SkippedNoMail" xml:space="preserve">
+    <value>Pominięto obiekty bez adresu e-mail: {0}.</value>
+  </data>
+  <data name="Copy.SkippedNoValue" xml:space="preserve">
+    <value>Pominięto obiekty bez wartości: {0}.</value>
+  </data>
+  <data name="Copy.Upn" xml:space="preserve">
+    <value>Nazwa UPN</value>
   </data>
   <data name="Commands.Delete" xml:space="preserve">
     <value>Usuń</value>

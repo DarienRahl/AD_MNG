@@ -249,15 +249,24 @@ public sealed partial class UpnFieldViewModel : PropertyFieldViewModel
     /// <summary>The complete UPN as it will be written ("" when the prefix is empty).</summary>
     public string FullName => Prefix.Trim().Length == 0 ? string.Empty : $"{Prefix.Trim()}@{Suffix}";
 
+    /// <summary>Copies the UPN as it will be written (prefix@suffix), confirmed with the field's label.</summary>
+    [RelayCommand(CanExecute = nameof(HasFullName))]
+    private void Copy() =>
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, FullName, Label);
+
+    private bool HasFullName() => FullName.Length > 0;
+
     partial void OnPrefixChanged(string value)
     {
         OnPropertyChanged(nameof(FullName));
+        CopyCommand.NotifyCanExecuteChanged();
         OnEdited();
     }
 
     partial void OnSuffixChanged(string value)
     {
         OnPropertyChanged(nameof(FullName));
+        CopyCommand.NotifyCanExecuteChanged();
         OnEdited();
     }
 
