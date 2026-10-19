@@ -505,6 +505,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(IsBusy));
+        OnPropertyChanged(nameof(IsVirtualListShown));
         UpdateDetailsAsync().Forget();
 
         // The tree highlights what the active tab shows: with another tab's container still selected, a click on that
@@ -656,6 +657,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 break;
             case nameof(ObjectListViewModel.Location):
                 RefreshCommandStates();
+                break;
+            case nameof(ObjectListViewModel.IsVirtual):
+                OnPropertyChanged(nameof(IsVirtualListShown));
                 break;
         }
     }

@@ -1052,6 +1052,18 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="List.ServerFilters" xml:space="preserve">
     <value>Filtry</value>
   </data>
+  <data name="List.Virtual.Badge" xml:space="preserve">
+    <value>Lista wirtualna (VLV)</value>
+  </data>
+  <data name="List.Virtual.BadgeToolTip" xml:space="preserve">
+    <value>Bardzo duży kontener: wiersze są pobierane z kontrolera domeny w trakcie przewijania (VLV). Sortowanie, szybkie wyszukiwanie po wpisaniu i szybki filtr działają na serwerze; „Zaznacz wszystko” i eksport są niedostępne – do eksportu użyj okna Znajdź (Ctrl+F) lub zapisanego widoku.</value>
+  </data>
+  <data name="List.Virtual.FilterMatches" xml:space="preserve">
+    <value>Pasujące obiekty: {0} (filtr po stronie serwera)</value>
+  </data>
+  <data name="List.Virtual.Summary" xml:space="preserve">
+    <value>Obiektów: {0} · lista wirtualna (VLV), sortowanie na serwerze: {1} · stan na {2}</value>
+  </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
     <value>Przenieść obiekty ({0}) do {1}?</value>
   </data>

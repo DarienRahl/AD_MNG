@@ -1052,6 +1052,18 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="List.ServerFilters" xml:space="preserve">
     <value>Filters</value>
   </data>
+  <data name="List.Virtual.Badge" xml:space="preserve">
+    <value>Virtual list (VLV)</value>
+  </data>
+  <data name="List.Virtual.BadgeToolTip" xml:space="preserve">
+    <value>Very large container: rows are read from the domain controller while you scroll (VLV). Sorting, type-to-find and the quick filter run on the server; Select all and Export are not available - use Find (Ctrl+F) or a saved view to export.</value>
+  </data>
+  <data name="List.Virtual.FilterMatches" xml:space="preserve">
+    <value>{0} objects match (filtered on the server)</value>
+  </data>
+  <data name="List.Virtual.Summary" xml:space="preserve">
+    <value>{0} objects · virtual list (VLV), sorted on the server by {1} · as of {2}</value>
+  </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
     <value>Move {0} object(s) to {1}?</value>
   </data>

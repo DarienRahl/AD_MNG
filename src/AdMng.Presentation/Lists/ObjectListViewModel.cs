@@ -165,7 +165,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     public partial ObjectRowViewModel? SelectedItem { get; set; }
 
     /// <summary>True when every result of the current location is loaded (local sorting is exact).</summary>
-    public bool IsFullyLoaded => !IsLoading && !Partial && Error is null && Location is not null;
+    public bool IsFullyLoaded => !IsLoading && !Partial && Error is null && Location is not null && !IsVirtual;
 
     /// <summary>Number of loaded rows (before the quick filter).</summary>
     public int TotalCount => _allRows.Count;
@@ -199,6 +199,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                 return string.Empty;
             }
 
+            if (IsVirtual)
+            {
+                return VirtualStatusText();
+            }
+
             var seconds = (Elapsed ?? TimeSpan.Zero).TotalSeconds.ToString("0.00", l.Culture);
             return l.Format(L.List.LoadSummary, LoadedCount, seconds, LoadedAt.Value.ToString("T", l.Culture));
         }
@@ -212,6 +217,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             if (string.IsNullOrWhiteSpace(QuickFilterText))
             {
                 return string.Empty;
+            }
+
+            if (IsVirtual)
+            {
+                return _services.Localizer.Format(L.ListVirtual.FilterMatches, LoadedCount);
             }
 
             return IsLoading
@@ -265,12 +275,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     {
         get
         {
+            // Placeholders of a virtual list ("Loading…") are never acted on.
             if (_selectedItems is { Count: > 0 })
             {
-                return [.. _selectedItems.OfType<ObjectRowViewModel>()];
+                return [.. _selectedItems.OfType<ObjectRowViewModel>().Where(r => !r.IsPlaceholder)];
             }
 
-            return SelectedItem is null ? [] : [SelectedItem];
+            return SelectedItem is null or { IsPlaceholder: true } ? [] : [SelectedItem];
         }
     }
 
@@ -321,6 +332,10 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         _pendingSelectionKey = key;
+        if (IsVirtual && !IsLoading)
+        {
+            SelectPendingVirtualAsync().Forget();
+        }
     }
 
     /// <summary>Reloads the location from the directory (cancels a running load).</summary>
@@ -346,6 +361,13 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     public async Task RefreshObjectsAsync(IEnumerable<string> distinguishedNames, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(distinguishedNames);
+        if (IsVirtual)
+        {
+            // Rows of a virtual list are positions in the server's sort order: re-read the shown pages and the count.
+            await RefreshVirtualAsync().ConfigureAwait(true);
+            return;
+        }
+
         var session = _session();
         var search = _lastSearch;
         var location = Location;
@@ -383,6 +405,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         var descending = column.SortDirection == SortDirection.Ascending;
+        if (IsVirtual && !ColumnSets.IsServerSortable(column.Attribute))
+        {
+            // A virtual list is sorted by the server only (Type and Location are computed by the client).
+            return;
+        }
+
         SetSortIndicator(column.Attribute, descending);
         if (!IsFullyLoaded && ColumnSets.IsServerSortable(column.Attribute) && Location is not null)
         {
@@ -481,6 +509,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
 
         _services.Settings.Changed -= OnSettingsChanged;
+        _serverFilter?.Cancel();
+        DisposeVirtual();
         SelectedItems = null;
         StopWatchingAsync().Forget();
     }
@@ -489,6 +519,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     {
         ApplyLocalView();
         OnPropertyChanged(nameof(QuickFilterStatus));
+        if (_virtualLocation && !_disposed)
+        {
+            // Rows of a very large container are not all loaded: the text filters on the server.
+            ScheduleServerFilter();
+        }
     }
 
     partial void OnSelectedItemChanged(ObjectRowViewModel? value) => RaiseSelectionChanged();
@@ -514,6 +549,9 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         _localSortAttribute = null;
         SetSortIndicator(location.Sort?.Attribute, location.Sort?.Descending ?? false);
         SetChipsSilently(location.QuickFilters);
+        _virtualLocation = false;
+        _virtualRefusedSort = null;
+        _serverFilter?.Cancel();
         QuickFilterText = string.Empty;
         NotifyNavigationCommands();
         Navigated?.Invoke(this, EventArgs.Empty);
@@ -543,6 +581,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             return;
         }
 
+        DisposeVirtual();
         ClearRows();
         Error = null;
         Partial = false;
@@ -569,9 +608,22 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             _rowContext = context;
             var search = BuildSearch(location, session.Info.DefaultNamingContext, policy.DomainSid);
             _lastSearch = search;
+
+            // Very large containers: a location known to be large goes to the virtual list (VLV) right away; any other
+            // container listing streams and asks for a virtual list once it reaches the threshold.
+            var canVirtualize = CanVirtualize(location, session);
+            var virtualSearch = canVirtualize ? VirtualSearch(search) : null;
+            var isVirtual = virtualSearch is not null && _virtualLocation && !IsVirtualRefused(virtualSearch)
+                && await TryShowVirtualAsync(session, virtualSearch, context, generation, token).ConfigureAwait(true);
+            Func<Task<bool>>? onLarge = virtualSearch is not null && !IsVirtualRefused(virtualSearch)
+                ? () => ProbeVirtualAsync(session, virtualSearch, context, generation, token)
+                : null;
             try
             {
-                await StreamAsync(session, search, location.PostFilter, context, generation, token).ConfigureAwait(true);
+                if (!isVirtual)
+                {
+                    isVirtual = await StreamAsync(session, search, location.PostFilter, context, generation, token, onLarge).ConfigureAwait(true);
+                }
             }
             catch (DirectoryException ex) when (search.Sort is not null
                 && ex.Kind is DirectoryErrorKind.UnsupportedControl or DirectoryErrorKind.UnwillingToPerform)
@@ -583,7 +635,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                 search = search with { Sort = null };
                 _lastSearch = search;
                 ClearRows();
-                await StreamAsync(session, search, location.PostFilter, context, generation, token).ConfigureAwait(true);
+                isVirtual = await StreamAsync(session, search, location.PostFilter, context, generation, token, onLarge).ConfigureAwait(true);
             }
 
             if (generation != _generation)
@@ -594,12 +646,16 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             LoadedAt = _services.Time.GetLocalNow();
             Elapsed = _services.Time.GetElapsedTime(started);
             IsLoading = false;
-            if (_localSortAttribute is not null)
+            if (_localSortAttribute is not null && !isVirtual)
             {
                 await ApplyLocalSortAsync().ConfigureAwait(true);
             }
 
             await StartWatchingAsync(session, location, search.BaseDn, generation).ConfigureAwait(true);
+            if (isVirtual && generation == _generation)
+            {
+                await SelectPendingVirtualAsync().ConfigureAwait(true);
+            }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -642,6 +698,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             filter = QuickFilters.Combine(filter, chips, _services.Time.GetUtcNow(), settings.InactiveDays, domainSid);
         }
 
+        if (ServerTextFilter() is { } text)
+        {
+            filter = LdapFilter.And(filter, text);
+        }
+
         var attributes = ColumnSets.BaseAttributes
             .Concat(Columns.Where(c => c.IsVisible).Select(c => c.Attribute))
             .Concat(_serverSort is null ? [] : [_serverSort.Attribute])
@@ -665,24 +726,49 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
     private bool ChipsRequireLockedPostFilter => FilterChips.Any(c => c.IsActive && c.Kind == QuickFilterKind.Locked);
 
-    private Task StreamAsync(
+    /// <summary>Streams the search into the rows (background thread, one dispatcher call per batch).</summary>
+    /// <param name="session">Session of the load.</param>
+    /// <param name="search">The search to stream.</param>
+    /// <param name="postFilter">Client side refinement of the location.</param>
+    /// <param name="context">Formatting context of the rows.</param>
+    /// <param name="generation">The load's generation (stale batches are dropped).</param>
+    /// <param name="token">Cancels the load.</param>
+    /// <param name="onLarge">
+    /// Called once when <see cref="VirtualThreshold"/> objects were read (on the background thread, with the stream
+    /// paused): true stops the stream - the list switched to the virtual mode.
+    /// </param>
+    /// <returns>True when <paramref name="onLarge"/> took over.</returns>
+    private Task<bool> StreamAsync(
         IDirectorySession session,
         DirectorySearch search,
         ListPostFilter postFilter,
         RowContext context,
         int generation,
-        CancellationToken token)
+        CancellationToken token,
+        Func<Task<bool>>? onLarge = null)
     {
         var lockedOnly = postFilter == ListPostFilter.LockedOnly || ChipsRequireLockedPostFilter;
         var time = _services.Time;
+        var largeAt = VirtualThreshold;
         return Task.Run(
             async () =>
             {
                 var threshold = FirstBatchSize;
                 var buffer = new List<ObjectRowViewModel>(threshold);
                 var lastFlush = time.GetTimestamp();
+                var read = 0;
                 await foreach (var obj in session.SearchAsync(search, token).WithCancellation(token).ConfigureAwait(false))
                 {
+                    if (++read == largeAt && onLarge is not null)
+                    {
+                        if (await onLarge().ConfigureAwait(false))
+                        {
+                            return true;
+                        }
+
+                        onLarge = null;
+                    }
+
                     var row = new ObjectRowViewModel(obj, context);
                     if (lockedOnly && row.LockState == LockState.NotLocked)
                     {
@@ -703,6 +789,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                 {
                     await FlushAsync(buffer, generation).ConfigureAwait(false);
                 }
+
+                return false;
             },
             token);
     }
@@ -1066,6 +1154,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
         if (await HandleLocationChangeAsync(changes, location, search.BaseDn).ConfigureAwait(true))
         {
+            return;
+        }
+
+        if (IsVirtual)
+        {
+            await HandleVirtualChangesAsync(changes, search.BaseDn).ConfigureAwait(true);
             return;
         }
 
@@ -1572,7 +1666,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             var updated = new RowContext(_services.Localizer, _services.Sessions.Formatter, context.Policy, context.Now);
             _rowContext = updated;
-            foreach (var row in _allRows)
+            foreach (var row in _allRows.Concat(_virtualRows?.LoadedRows ?? []))
             {
                 row.Reformat(updated);
             }

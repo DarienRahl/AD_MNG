@@ -41,7 +41,22 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
         Evaluate();
     }
 
+    /// <summary>A "Loading…" row of a virtual list whose page is being read (no DN, no commands).</summary>
+    private ObjectRowViewModel(RowContext context)
+    {
+        _context = context;
+        IsPlaceholder = true;
+        Object = new DirectoryObject(string.Empty, [new AttributeValues(Attr.Name, [context.Localizer[L.Common.Loading]])]);
+        Icon = ObjectIcon.Unknown;
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>
+    /// True for the stand-in of a row a virtual list is still reading: it shows "Loading…", is never part of a
+    /// selection the commands act on and is replaced by the real row when its page arrives.
+    /// </summary>
+    public bool IsPlaceholder { get; }
 
     public DirectoryObject Object { get; private set; }
 
@@ -100,6 +115,11 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
     public string FormatUncached(string attribute)
     {
         ArgumentNullException.ThrowIfNull(attribute);
+        if (IsPlaceholder)
+        {
+            return string.Equals(attribute, Attr.Name, StringComparison.OrdinalIgnoreCase) ? Name : string.Empty;
+        }
+
         if (string.Equals(attribute, ColumnSets.TypeColumn, StringComparison.OrdinalIgnoreCase))
         {
             return TypeText;
@@ -142,9 +162,18 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
     public void Reformat(RowContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        if (IsPlaceholder)
+        {
+            return;
+        }
+
         Evaluate();
         RaiseAllChanged();
     }
+
+    /// <summary>A "Loading…" row (see <see cref="IsPlaceholder"/>).</summary>
+    public static ObjectRowViewModel CreatePlaceholder(RowContext context) =>
+        new(context ?? throw new ArgumentNullException(nameof(context)));
 
     public override string ToString() => Dn;
 

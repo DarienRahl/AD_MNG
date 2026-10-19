@@ -926,6 +926,27 @@
         <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SecurityText, Mode=OneWay}" />
       </StatusBarItem>
 
+      <!-- Very large container shown as a virtual list (VLV): rows are read while scrolling. -->
+      <StatusBarItem x:Name="VirtualListBadge"
+                     DockPanel.Dock="Left"
+                     AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
+                     ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
+                     Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="3">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,4,0"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Columns}" />
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Text="{l:Tr List.Virtual.Badge}" />
+          </StackPanel>
+        </Border>
+      </StatusBarItem>
+
       <StatusBarItem DockPanel.Dock="Left">
         <StackPanel Orientation="Horizontal">
           <TextBlock Margin="12,0,0,0"
