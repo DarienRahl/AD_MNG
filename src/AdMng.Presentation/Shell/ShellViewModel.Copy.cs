@@ -105,11 +105,11 @@ public sealed partial class ShellViewModel
 
     /// <summary>Ctrl+C: the selected rows with the visible columns as tab-separated text (Excel, Teams, tickets).</summary>
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void CopyRows() => CopySelectedRows(includeHeaders: false);
+    private Task CopyRowsAsync() => CopySelectedRowsAsync(includeHeaders: false);
 
     /// <summary>The selected rows with the column headers as the first line.</summary>
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void CopyRowsWithHeaders() => CopySelectedRows(includeHeaders: true);
+    private Task CopyRowsWithHeadersAsync() => CopySelectedRowsAsync(includeHeaders: true);
 
     /// <summary>A copy button of the details pane: the line's value, confirmed with its label.</summary>
     [RelayCommand(CanExecute = nameof(CanCopyDetailsValue))]
@@ -126,9 +126,10 @@ public sealed partial class ShellViewModel
     /// <remarks>
     /// Columns with secret values (passwords, LAPS, BitLocker, attributes the schema marks confidential - added in the
     /// column chooser or by a saved view) are left out: a secret is copied only after the explicit reveal of the Attribute
-    /// Editor, which keeps it out of the clipboard history.
+    /// Editor, which keeps it out of the clipboard history. The cells are formatted off the UI thread (a selection of a
+    /// large list); the clipboard is written on it.
     /// </remarks>
-    private void CopySelectedRows(bool includeHeaders)
+    private async Task CopySelectedRowsAsync(bool includeHeaders)
     {
         var rows = OrderedSelection();
         if (SelectedDocument is not { } document || rows.Count == 0)
@@ -151,10 +152,12 @@ public sealed partial class ShellViewModel
             return;
         }
 
-        var text = ListClipboardText.Format(
-            [.. copied.Select(c => c.Header)],
-            rows.Select(r => (IReadOnlyList<string>)[.. copied.Select(c => r[c.Attribute])]),
-            includeHeaders);
+        var headers = copied.Select(c => c.Header).ToList();
+        var attributes = copied.Select(c => c.Attribute).ToList();
+        var text = await Task.Run(() => ListClipboardText.Format(
+            headers,
+            rows.Select(r => (IReadOnlyList<string>)[.. attributes.Select(r.FormatUncached)]),
+            includeHeaders)).ConfigureAwait(true);
         if (!_clipboard.SetText(text))
         {
             return;

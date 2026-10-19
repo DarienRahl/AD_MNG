@@ -149,7 +149,7 @@ public class CopyTests
         harness.Clipboard.IsBusy = true;
 
         await shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
-        shell.CopyRowsCommand.Execute(null);
+        await shell.CopyRowsCommand.ExecuteAsync(null);
 
         Assert.Null(harness.Clipboard.Text);
         Assert.Empty(harness.Notifications.Items);
@@ -199,14 +199,14 @@ public class CopyTests
         var rows = SelectReversed(shell);
         var columns = document.VisibleColumns.ToList();
 
-        shell.CopyRowsCommand.Execute(null);
+        await shell.CopyRowsCommand.ExecuteAsync(null);
 
         var expected = rows.Select(r => string.Join('\t', columns.Select(c => r[c.Attribute])));
         Assert.Equal(string.Join(Nl, expected), harness.Clipboard.Text);
         Assert.Contains("Jan Kowalski\tUser", harness.Clipboard.Text, StringComparison.Ordinal);
         Assert.Equal("Copied rows: 2.", Assert.Single(harness.Notifications.Items).Message);
 
-        shell.CopyRowsWithHeadersCommand.Execute(null);
+        await shell.CopyRowsWithHeadersCommand.ExecuteAsync(null);
 
         var lines = harness.Clipboard.Text!.Split(Nl);
         Assert.Equal(string.Join('\t', columns.Select(c => c.Header)), lines[0]);
@@ -225,7 +225,7 @@ public class CopyTests
         SelectByName(shell, "WAW-PC001");
         Assert.Equal("Tajne!Hasło-2026", document.Selection[0]["msLAPS-Password"]);
 
-        shell.CopyRowsWithHeadersCommand.Execute(null);
+        await shell.CopyRowsWithHeadersCommand.ExecuteAsync(null);
 
         Assert.Equal($"Name{Nl}WAW-PC001", harness.Clipboard.Text);
         Assert.False(harness.Clipboard.IsSecret);
@@ -236,7 +236,7 @@ public class CopyTests
         // Only confidential columns: nothing is copied.
         await document.ApplyColumnsAsync(["msLAPS-Password"]);
         SelectByName(shell, "WAW-PC001");
-        shell.CopyRowsCommand.Execute(null);
+        await shell.CopyRowsCommand.ExecuteAsync(null);
         Assert.Equal($"Name{Nl}WAW-PC001", harness.Clipboard.Text);
         Assert.Equal("Columns with confidential values were not copied: msLAPS-Password.", harness.Notifications.Items[^1].Message);
     }

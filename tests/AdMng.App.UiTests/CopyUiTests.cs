@@ -101,7 +101,7 @@ public sealed class CopyUiTests
         Assert.Contains(window.DocumentHost.InputBindings.OfType<KeyBinding>(), k =>
             k.Key == Key.M && k.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && ReferenceEquals(k.Command, shell.CopyAsCommand)
             && Equals(k.CommandParameter, CopyFormat.Mail));
-        shell.CopyRowsCommand.Execute(null);
+        await shell.CopyRowsCommand.ExecuteAsync(null);
         Assert.StartsWith("Jan Kowalski\tUser", clipboard.Text, StringComparison.Ordinal);
 
         // Context menu: "Copy as" submenu bound to the palette's descriptors.
