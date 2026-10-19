@@ -4674,20 +4674,22 @@ GPO-managed environments add the gMSA to that GPO).
 ### 19.5 Folders (`DataDirectory`, `BootstrapFileGuard`)
 
 ```
-%ProgramData%\AdMng\Watchdog\            SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
-  config\appsettings.json                SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
-  data\                                  SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
-    watchdog.db, -wal, -shm, keys\, backup\
+%ProgramData%\AdMng\                     SYSTEM F, Administrators F, Users RX + gMSA RX (this folder only), inheritance off
+  Watchdog\                             SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
+    config\appsettings.json              SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
+    data\                                SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
+      watchdog.db, -wal, -shm, keys\, backup\
 ```
 
-The install script sets the ACLs with SIDs (`icacls … /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F"
-"*S-1-5-32-544:(OI)(CI)F" "<gMSA>:(OI)(CI)M"` on `data\`, `R` on `config\`) – SIDs avoid localized names such as
-"Administratorzy". When the service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same
-protected DACL. On every start (Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm` are compared with the
-allow-list {SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or
-Administrators: a deviation → Event Log error 1003 and exit code 5, unless the bootstrap flag
-`AllowInsecureDataDirectoryAcl` (then health Warning `storage.acl`). Backups made by the service land in `data\backup\`
-with the same ACL; BitLocker on the volume is recommended (docs).
+The install script sets the ACLs with SIDs (`Set-AdMngProtectedAcl`: owner Administrators recursively, then a new
+protected `DirectorySecurity` that replaces every ACE – `(OI)(CI)` Full for SYSTEM and Administrators, `(OI)(CI)` Modify
+for the gMSA on `data\`, Read on `config\`; 19.6) – SIDs avoid localized names such as "Administratorzy". When the
+service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same protected DACL. On every start
+(Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm` are compared with the allow-list {SYSTEM, Administrators,
+service identity} for **any** access mask, and the owner must be SYSTEM or Administrators: a deviation → Event Log
+error 1003 and exit code 5, unless the bootstrap flag `AllowInsecureDataDirectoryAcl` (then health Warning
+`storage.acl`). Backups made by the service land in `data\backup\` with the same ACL; BitLocker on the volume is
+recommended (docs).
 
 ### 19.6 Install script (`Deploy/Install-AdMngWatchdog.ps1`, PowerShell 5.1+/7, elevated)
 
