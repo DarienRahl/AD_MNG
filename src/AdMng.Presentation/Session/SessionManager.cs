@@ -162,6 +162,7 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
             if (beforeSwitch is not null)
             {
                 await beforeSwitch().ConfigureAwait(true);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             var entry = new SessionEntry(session, new LocalizedAttributeFormatter(_formatterFactory.Create(session.Schema), _localizer));

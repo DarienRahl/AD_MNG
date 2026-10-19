@@ -159,6 +159,22 @@ public class DomainControllerSwitchTests
     }
 
     [Fact]
+    public async Task Switch_CancelledWhileTheHookRuns_ReplacesNothing()
+    {
+        var harness = await B2Harness.CreateOnDomainControllerAsync();
+        var previous = harness.Sessions.Current!;
+        using var cancellation = new CancellationTokenSource();
+        FakeDomainControllerSession? opened = null;
+        harness.ConnectToServer = (_, server, _) => Task.FromResult<IDirectorySession>(opened = new FakeDomainControllerSession(harness.Session, server));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            harness.Sessions.SwitchDomainControllerAsync("dc02.contoso.test", () => cancellation.CancelAsync(), cancellation.Token));
+
+        Assert.Same(previous, harness.Sessions.Current);
+        Assert.True(opened!.IsDisposed);
+    }
+
+    [Fact]
     public async Task Switch_WhileTheSessionWasClosedMeanwhile_ReplacesNothing()
     {
         var harness = await B2Harness.CreateOnDomainControllerAsync();
