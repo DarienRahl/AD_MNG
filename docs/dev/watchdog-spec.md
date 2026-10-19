@@ -3086,14 +3086,22 @@ objects, CN=LostAndFound). The order of returned entries is arbitrary (lab-verif
 ```
 new = SnapshotBuilder.Build(entry, previous: old)      // canonical values (9.4), carries old Version/ChangedAt
 if entry is out of scope:
-    if old is live → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope"), DetectionCommit.Removals += guid
+    if old is live and its DN changed → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope")
+         (an object that did not move – an ExcludedSubtrees entry was added – is removed silently)
+    if old exists → DetectionCommit.Removals += guid; a container also removes, silently, its stored descendants that
+         now live below its new DN (10.7)
     continue
 if old is null:
     if Baseline → upsert, no event
-    elif entry.uSNCreated > W → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
+    elif entry.uSNCreated > W (Resync, where W belongs to another DC: whenCreated > (LastPollAt ?? LastFullSyncAt) − 3 h,
+         the margin covers objects created on another DC shortly before the last poll and not yet replicated to the
+         old DC, and clock skew) → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
          no event yet (the CreationSettler emits the Created event, 10.6.3); with a zero window the Created event is
          emitted at once
-    else → ObjectAppeared (Info; tag outOfScope when the parent chain is in scope and the object was moved in)
+    else → ObjectAppeared (Info; tag outOfScope when the object was moved in: the `name` metadata – a move or rename
+         stamps it – has usnLocal > W; without metadata or W, whenChanged > LastPollAt. Never decided from the
+         configuration); a container also adopts, silently, the descendants without a row that were not created
+         since the last poll (10.7)
 elif old.IsDeleted → ObjectRestored (+ diff vs the last live snapshot for context, not as separate events) and
          RestoredMembershipReader (10.9)
 elif old.CreationPendingUntil is set → upsert the new state, no events (still settling)
@@ -3116,7 +3124,7 @@ kinds in Directory.DisabledKinds or optional kinds not enabled are dropped here 
 | `userAccountControl` | `UacFlagClassifier` (10.6.1) |
 | `lockoutTime` 0/absent → t>0, or t1 → t2 > t1 | AccountLockedOut (LockoutInfo: LockedAt = t2, LockedUntil = t2 + **effective** lockout duration from `LockoutPolicyResolver` – the user's PSO (`msDS-ResultantPSO` base read → `msDS-LockoutDuration`) when readable, else the domain `lockoutDuration` (absolute value); 0x8000000000000000 / 0 ("until an admin unlocks") → null; `LockoutsToday` = `IEventStore.CountForObjectAsync(guid, AccountLockedOut, local midnight)` + 1) |
 | `lockoutTime` t>0 → 0 | `t0` = originating time of the lockoutTime write (metadata, else DetectedAt): **AccountUnlocked** when LockedUntil is null or `t0 < t + effective duration` (an admin/helpdesk unlock); otherwise **no event** – the DC resets `lockoutTime` to 0 at the first successful logon after the lockout expired (Samba `authsam_logon_success_accounting`, Windows likewise), which is not an unlock (LockoutMonitor reports the expiry when `LockoutExpired` is enabled). A 4767 matched later for a "no event" reset is ignored |
-| `pwdLastSet` → 0 | PasswordMustChangeSet |
+| `pwdLastSet` → 0 | PasswordMustChangeSet; additionally **PasswordChanged** (same change set, same computer / ServiceAccount suppression as below) when metadata is available and `unicodePwd` `usnLocal > W` – the usual helpdesk reset with "must change at next logon" writes both in one poll. Without metadata (or without a W of this DC) must-change alone is reported |
 | `pwdLastSet` → value > old, `unicodePwd` metadata `usnLocal > W` (or no metadata available) | PasswordChanged (computers: dropped unless TrackComputerPasswordChanges; ServiceAccount kind: dropped unless TrackManagedPasswordRollover) |
 | `pwdLastSet` → value > old, metadata available and `unicodePwd` `usnLocal ≤ W` | **PasswordAgeReset** (password age extended without a new password) |
 | `accountExpires` | AccountExpirationChanged |
@@ -3148,7 +3156,7 @@ Decode old/new `userAccountControl` (enum `UserAccountControl` from AdMng.Core).
 | Bit | Set → | Cleared → |
 |---|---|---|
 | 0x0002 ACCOUNTDISABLE | AccountDisabled | AccountEnabled |
-| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController → no event) | DelegationChanged (Medium) |
+| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController, i.e. 0x2000 in the **new** value – also a one-step promotion that sets both bits – → no event) | DelegationChanged (Medium) |
 | 0x1000000 TRUSTED_TO_AUTH_FOR_DELEGATION | DelegationChanged (High) | DelegationChanged (Medium) |
 | 0x2000 SERVER_TRUST_ACCOUNT | DomainControllerAdded (Critical) | AccountFlagsChanged (High) |
 | 0x0020 PASSWD_NOTREQD, 0x400000 DONT_REQ_PREAUTH, 0x0080 ENCRYPTED_TEXT_PWD_ALLOWED, 0x200000 USE_DES_KEY_ONLY | AccountFlagsChanged (High) | AccountFlagsChanged (Low) |
@@ -3213,15 +3221,37 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
 
 ### 10.7 Moves and renames (`DnRewriter`)
 
-- Containers (pass 1) are processed in ascending depth of their old DN. For each container whose DN changed, add
-  `DnRewrite(old DN, new DN)` to the cycle and rewrite later old DNs through the list before diffing (so a child of a
-  renamed OU is not reported as moved).
-- The commit applies every rewrite to all stored descendants (DN suffix replace, case-insensitive on the normalized
-  DN) and to `snapshot_members.member_dn`. Descendants keep their USN – AD does not bump them.
+- Containers (pass 1) are processed in ascending depth of their old DN. For each in-scope container whose DN changed,
+  the cycle records (its stored DN at the start of the cycle, its new DN). A DN of the start of the cycle is rewritten
+  **once**, onto the new DN of its **deepest** recorded ancestor – never through a chain, so a shift (B→C, then A→B) or
+  a swap of names in one poll puts A's children under the new B whatever order the server returned the containers in
+  (so a child of a renamed OU is not reported as moved).
+- The commit applies the rewrites to all stored descendants (DN suffix replace, case-insensitive on the normalized
+  DN) and to `snapshot_members.member_dn`, one after the other: deepest old DN first; when a new DN lies at, below or
+  above another rewrite's old DN (shift, swap, a container moved onto the name of a removed one whose child moved away),
+  in two phases through unique temporary DNs below `DC=admng-rewrite,DC=invalid` – the result equals the
+  deepest-ancestor rule. Descendants keep their USN – AD does
+  not bump them.
+- Pass 2 runs after the container chunk committed the rewrites, so its stored DNs are already rewritten. The
+  PreviousDn of an object that left a container renamed in the same poll is mapped back to the DN of the start of
+  the cycle (deepest recorded new DN → its old DN) – unless another object held that new DN at the start of the cycle
+  and did not move (deleted, left the scope): then the stored DN is kept (its former children were never rewritten).
 - ObjectMoved: parent changed. ObjectRenamed: RDN value changed. Both when both changed.
 - A move **out of** scope (`ExcludedSubtrees`) is an ObjectMoved with tag `outOfScope` and a `Removals` entry (hard
-  delete of the row; other groups' member lists keep the key). A move **into** scope finds no snapshot → ObjectAppeared
-  with tag `outOfScope` (no Created event, no ObjectRestored – only tombstone-marked rows are restores).
+  delete of the row; other groups' member lists keep the key). A container moved out takes its subtree along: no
+  rewrite is recorded for it, and its stored descendants that a subtree search finds below its new DN get `Removals`
+  entries in the same chunk without events (the container's ObjectMoved covers them; AD does not bump them, so no
+  later pass would see them); descendants found elsewhere (moved away or deleted in the same poll) keep their rows for
+  pass 2 and the deletion pass. When the new location cannot be read (warning `outOfScopeSubtreeUnreadable`), every
+  stored descendant is removed; one that moved away in the same poll is then found without a row by pass 2
+  (ObjectAppeared) instead of being lost. An object outside the scope whose DN did not change (an `ExcludedSubtrees` entry was
+  added) is removed **silently** – the configuration change is audited as WatchdogConfigurationChanged.
+- A move **into** scope finds no snapshot → ObjectAppeared with tag `outOfScope` (no Created event, no ObjectRestored –
+  only tombstone-marked rows are restores). A container moved in (or found again after an exclusion was removed) adopts
+  its subtree in the same cycle: descendants without a row are snapshotted silently (members read as for 10.8),
+  instead of staying unknown until the reconciliation reports each of them. Descendants **created since the last poll**
+  (`uSNCreated > W`; Resync: the whenCreated rule of 10.6) are not adopted – the cycle's own search (or the next one)
+  returns them and they get the creation settle window and their Created event like any new object.
 
 ### 10.8 Membership (`MembershipReader`, `MembershipDiffer`, `PrivilegeEvaluator`)
 
@@ -3232,7 +3262,19 @@ Reading (groups in the increment or full scan):
 2. Each value → `ExtendedDistinguishedName.TryParse` → `MemberReference { Key = GUID "N" | "sid:…" | "dn:…" }`.
 3. `MembershipTracking.PrivilegedAndWatchListOnly`: store members only for privileged groups (by SID/name/DN),
    watch-list groups and groups that are members of those (one level is enough because nested groups are tracked
-   anyway when they are reachable – the evaluator reads unknown nested groups on demand).
+   anyway when they are reachable – the evaluator reads unknown nested groups on demand). A group read while it is
+   not tracked gets the reserved snapshot marker `$members = untracked` (an empty stored list and "never stored" look
+   the same in `snapshot_members`) and its stored list, if any, is **dropped** (replaced by an empty one) – a list kept
+   while nobody re-reads it would go stale and the evaluator trusts stored lists. The **first tracked read** of a group
+   whose old snapshot carries the marker stores its list **silently** (no GroupMemberAdded for members that were there
+   all along; `MembershipRelevant`, so the evaluator reports new privileges). The same applies after switching
+   `MembershipTracking` to `AllGroups`. The restore re-insertion (10.9) only touches groups whose list is stored.
+   Because a page's member lists are committed together, a group read in the same page as the list that contains it
+   (every nested group at the baseline, a group nested in the same poll) is still untracked when read; the evaluator's
+   on-demand read of such a group (a member of a stored list without a list of its own) therefore **stores** what it
+   read and clears the marker in the final commit – unless the group's `uSNChanged > H` (the next cycle reads and
+   diffs it). Its next change is then diffed normally (GroupMemberAdded/Removed) – important for groups nested in a
+   watch-list group, where no PrivilegeGranted would stand in for a silent first read.
 
 Diffing: old = `store.GetMembersAsync(groupGuid)`, new = read set, by `Key`. Added → `GroupMemberAdded` (Object =
 group, Member = member ref resolved from the snapshot by GUID, else from the DN), removed → `GroupMemberRemoved`.
@@ -3242,7 +3284,10 @@ replacements, deletions/removals of principals or primaryGroupID changes sets `M
 
 Deleted members: when the DeletedObjectsScanner reports a deletion, the store removes the key from every group
 (`DetectionCommit.Deletions`) – **no** GroupMemberRemoved events (the ObjectDeleted event lists the former groups in
-an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context).
+an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context). A removed member that a search of
+this domain by objectGUID no longer finds counts as deleted too – except a member whose DN lies in another naming
+context (another domain of the forest, also a child domain lexically below this one: a `DC=` RDN below the domain root,
+or outside it), which such a search can never see: its removal is a GroupMemberRemoved.
 
 `PrivilegeEvaluator` – runs when the cycle changed memberships, primaryGroupIDs, created/deleted/restored groups or
 principals; always at baseline/resync/failback; on the **first cycle after process start**; and whenever the stored
@@ -3259,7 +3304,12 @@ replacements and before the final commit would otherwise lose the PrivilegeGrant
    the shortest path and the highest tier reached.
 4. Diff vs the stored `PrivilegeState` by (PrincipalKey, GroupGuid): new pairs → `PrivilegeGranted` (Object =
    principal, Member = privileged group, Via = path refs, severity = tier), removed pairs → `PrivilegeRevoked`
-   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event. Pairs that came back with a
+   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event – nor pairs whose principal's
+   snapshot row is marked deleted, or has no row and is not found live by objectGUID (a cycle repeated after a crash
+   between the deletion chunk and the final commit; a repeated reconciliation after ObjectDisappeared). Members outside
+   the snapshot that still exist (excluded subtrees, FSPs) are revoked normally, and so are members of another domain
+   of the forest – told by the DN of a member list of this cycle (stored, read live or just removed), as for
+   GroupMemberRemoved; the revoked principal's ObjectRef takes that DN when there is no row. Pairs that came back with a
    restored object (10.9) get tag `restored` and the ObjectRestored event's ChangeSetId (they inherit its 5138
    attribution).
 5. Commit the new state. Domain Controllers (RID 516 via primary group) and krbtgt etc. are part of the baseline state
@@ -3273,19 +3323,22 @@ Time-bound (PAM TTL) memberships expire without bumping the group; their expiry 
 Precondition: `Directory.TrackDeletedObjects` and the self-check `permission.deletedObjects` is Ok (LCRP on
 `CN=Deleted Objects`). Query: base `CN=Deleted Objects,{domain}`, OneLevel, `IncludeDeleted = true`
 (`IncludeRecycled = true` when `SessionInfo.RecycleBinEnabled`), filter
-`(&(isDeleted=TRUE)(uSNChanged>=W')(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+`(&(isDeleted=TRUE)(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+(tombstones written after H was read belong to the next cycle)
 – only the watched classes (`objectClass` survives on tombstones, objectCategory is stripped; computers, MSAs and
 inetOrgPerson are `user`). Children removed by tree-delete or system churn (msFVE-RecoveryInformation, msTPM-*,
 printQueue, serviceConnectionPoint, msDS-Device in CN=RegisteredDevices, dnsNode in legacy domain-partition DNS zones,
 foreignSecurityPrincipal clean-up) therefore never produce events. Attributes `objectGUID`, `objectSid`,
-`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`.
+`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`,
+`uSNCreated`.
 
 | Tombstone GUID in snapshot | Result |
 |---|---|
 | live | `ObjectDeleted` (Object = last live snapshot ref, PreviousDn = last live DN, context memberOf), `Deletions` entry |
 | live, `CreationPendingUntil` set | the deferred Created event first (10.6.3), then `ObjectDeleted` |
 | already deleted (Recycle Bin: deleted → recycled) | nothing |
-| unknown (created and deleted between two polls) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = `msDS-LastKnownRDN` under the resolved parent |
+| absent, Recycle Bin enabled, `isRecycled = TRUE` and `uSNCreated < W'` (a deleted object recycled after its deleted row was purged by retention) | nothing – deleted → recycled is never a new deletion (without the Recycle Bin every tombstone is `isRecycled = TRUE`, so the check applies to Recycle Bin forests only) |
+| unknown (created and deleted between two polls; with the Recycle Bin also deleted **and** purged) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = the RDN under the resolved parent: `msDS-LastKnownRDN` (set on the Recycle Bin path only), else the tombstone's own RDN cut at the `\0ADEL:<guid>` mangling (tombstones without the Recycle Bin – Samba, Windows without the feature – have no `msDS-LastKnownRDN`, lab-verified). In the same chunk a **deleted marker row** (identity only, no attributes, `IsDeleted`) is upserted, so a repeated cycle, the later recycling and a restore know the object (a restore is ObjectRestored without context changes) |
 
 The original location is always taken from the snapshot (lastKnownParent can point into Deleted Objects when the
 parent was deleted too). Restores are detected by the increment (10.6: a tombstone-marked snapshot GUID appears live).
@@ -3300,16 +3353,19 @@ values are gone and `memberOf` is empty. The Windows link/USN behaviour is confi
 
 Without Deleted-Objects access, deletions are found by the daily reconciliation: a live snapshot GUID under the
 default NC not seen in the full scan is looked up with `(objectGUID=<LdapFilter.EqualGuid>)` subtree from `{domain}`
-with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live outside
-scope → ObjectMoved `outOfScope` and a `Removals` entry; not found → `ObjectDisappeared` (Low; deleted, moved out of
-read scope, or permissions lost) and a `Removals` entry (if it reappears later it is ObjectAppeared, never
-ObjectRestored).
+with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live at another
+DN outside scope → ObjectMoved `outOfScope` and a `Removals` entry; not found, or found live at its old DN but invisible
+to the scan → `ObjectDisappeared` (Low; deleted, moved out of read scope, or permissions lost) and a `Removals` entry
+(if it reappears later it is ObjectAppeared, never ObjectRestored).
 
 `MassDeletion` (BurstDetector) counts ObjectDeleted events by object class within the window (grouped by actor once
 attribution resolved, otherwise overall): users, groups, OUs and service accounts against `Scans.MassDeletion`
 (≥ 10 in 10 min → **Critical**); computers and contacts against `Scans.MassComputerDeletion` (≥ 50 in 10 min →
 **High** – stale-computer clean-ups are routine). One MassDeletion event per burst (BurstInfo with up to 50 objects);
-cooldown = window. After a computer MassDeletion attributed to one actor, that actor is offered as an
+cooldown = window. The candidates are the ObjectDeleted events **detected** within the window, but they count as a
+burst only when the deletions themselves (`LocalChangeTime` = the tombstone's whenChanged, else `OriginatingTime`,
+else `DetectedAt`) fall within one window: deletions spread over hours that are found together – the catch-up cycle
+after an outage, a Resync, the reconciliation – are no burst; a real burst found late is reported once. After a computer MassDeletion attributed to one actor, that actor is offered as an
 `ExclusionSuggestionDto` (`computerCleanupAccount`, rule `bursts`) – applied only by an admin.
 
 ### 10.10 Replication metadata (`ReplicationMetadataXmlParser`, `ReplicationMetadataDecoder`, `AttrTypResolver`, `OriginatingDcResolver`)
@@ -3397,10 +3453,14 @@ Baseline):
   (Changes: flags decoded – e.g. `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, EKUs added/removed, RA signature count, ACEs
   added/removed with enroll/write rights named; enrollment services: published templates added/removed; CAs/NTAuth:
   certificate thumbprints added/removed).
-- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(|(objectClass=attributeSchema)(objectClass=classSchema)))`
+- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=attributeSchema)(objectClass=classSchema)))`
   attributes `lDAPDisplayName`, `uSNCreated`, `objectClass` → **one** `SchemaChanged` event per cycle (Changes:
   counts created/modified and up to 50 lDAPDisplayNames; Exchange `/PrepareSchema` = one event, not thousands).
-  Baseline/Resync: no events.
+  Baseline/Resync: no events. Schema objects are not snapshotted, so the event is emitted in the cycle's **final
+  commit** (with W): a cycle that fails after its chunk commits repeats the range without a duplicate, and writes after
+  H are reported by the next cycle only. Entries of the `UsnOverlap` re-read (`uSNChanged ≤ W`) were reported by the
+  previous cycle and are skipped; "created" means `uSNCreated > W`.
+- The incremental nTDSDSA and PKI searches use the same range `(uSNChanged>=W')(uSNChanged<=H)`.
 
 ### 10.12 Permission self-check (`PermissionSelfCheck`) – at startup after baseline and every `PermissionSelfCheckInterval`
 
@@ -3463,7 +3523,8 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
 
 ### 10.15 Bursts (`BurstDetector`, `PasswordSprayDetector`, inside ScheduledScanJob, every minute)
 
-- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` in the last `MassLockout.Window` ≥
+- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` detected in the last `MassLockout.Window`
+  whose lockout times (`Lockout.LockedAt`) fall within one window (as for MassDeletion, 10.9) ≥
   `max(Threshold, ceil(PercentOfEnabledUsers × enabled users / 100))` (enabled users counted at reconciliation) →
   `MassLockout` (Medium, BurstInfo), cooldown = window (restart-safe: skip when such an event exists in the store within
   the window). This is *not* a password-spraying detector – spraying deliberately stays below the lockout threshold.
@@ -3474,8 +3535,11 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
   0x18 / 0x6 and 4776 with Status 0xC000006A / 0xC0000064 in the last `Window` (bounded like 11.4 #6: timeout, one query
   per DC, `MaxRecords` 20 000); group by IpAddress (4771) / Workstation (4776); a source with failures for ≥
   `DistinctAccounts` distinct TargetUserNames → `PasswordSprayingSuspected` (High, BurstInfo with up to 50 account
-  names as ObjectRefs resolved from the snapshot, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
-  source = window. Nothing is ingested or stored except the event.
+  names as ObjectRefs resolved live by sAMAccountName, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
+  source = window. Nothing is ingested or stored except the event. A name that resolves to no account (4776
+  0xC0000064, 4771 0x6) is **masked** to its first character and length (`L…(9)`, `ObjectRef.Name` only): such names
+  are often passwords typed into the user name field, so the raw TargetUserName never reaches the store, a digest
+  or a notification (the distinct-name count stays exact).
 - Mass deletion: see 10.9.
 
 ### 10.16 Change-notification wake-up (`ChangeNotificationWaker`)

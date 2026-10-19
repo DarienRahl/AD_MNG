@@ -283,6 +283,75 @@ public abstract partial class WatchdogStoreContractTests<TStore>
     });
 
     [Fact]
+    public Task DnRewrite_SwapOfNamesThroughTemporaryDns_RebasesEachSubtreeOnce() => WithStoreAsync(async store =>
+    {
+        // The two-phase sequence the detection engine sends for OU=Alfa ↔ OU=Beta in one poll (spec 10.7).
+        var alfa = Snapshot("OU=Alfa,DC=contoso,DC=test", WatchObjectKind.OrganizationalUnit);
+        var beta = Snapshot("OU=Beta,DC=contoso,DC=test", WatchObjectKind.OrganizationalUnit);
+        var anna = Snapshot("CN=Anna Alfowska,OU=Zespół,OU=Alfa,DC=contoso,DC=test");
+        var bogdan = Snapshot("CN=Bogdan Betowski,OU=Beta,DC=contoso,DC=test");
+        var group = Snapshot("CN=Wszyscy,DC=contoso,DC=test", WatchObjectKind.Group);
+        await store.CommitAsync(new DetectionCommit
+        {
+            Upserts = [alfa, beta, anna, bogdan, group],
+            Memberships = new Dictionary<Guid, IReadOnlyList<MemberReference>> { [group.ObjectGuid] = [Member(anna), Member(bogdan)] },
+        }, Ct);
+
+        await store.CommitAsync(new DetectionCommit
+        {
+            Upserts = [alfa with { Dn = beta.Dn }, beta with { Dn = alfa.Dn }],
+            DnRewrites =
+            [
+                new DnRewrite(alfa.Dn, "OU=t0,DC=admng-rewrite,DC=invalid"),
+                new DnRewrite(beta.Dn, "OU=t1,DC=admng-rewrite,DC=invalid"),
+                new DnRewrite("OU=t0,DC=admng-rewrite,DC=invalid", beta.Dn),
+                new DnRewrite("OU=t1,DC=admng-rewrite,DC=invalid", alfa.Dn),
+            ],
+        }, Ct);
+
+        var rows = await store.GetSnapshotsAsync([alfa.ObjectGuid, beta.ObjectGuid, anna.ObjectGuid, bogdan.ObjectGuid], Ct);
+        Assert.Equal(beta.Dn, rows[alfa.ObjectGuid].Dn);
+        Assert.Equal(alfa.Dn, rows[beta.ObjectGuid].Dn);
+        Assert.Equal("CN=Anna Alfowska,OU=Zespół,OU=Beta,DC=contoso,DC=test", rows[anna.ObjectGuid].Dn);
+        Assert.Equal("CN=Bogdan Betowski,OU=Alfa,DC=contoso,DC=test", rows[bogdan.ObjectGuid].Dn);
+        Assert.Equal(
+            ["CN=Anna Alfowska,OU=Zespół,OU=Beta,DC=contoso,DC=test", "CN=Bogdan Betowski,OU=Alfa,DC=contoso,DC=test"],
+            (await store.GetMembersAsync(group.ObjectGuid, Ct)).Select(m => m.Dn).Order(StringComparer.Ordinal));
+        Assert.Empty(await ToListAsync(store.GetDescendantsAsync("DC=admng-rewrite,DC=invalid", Ct)));
+    });
+
+    [Fact]
+    public Task DeletedMarkerRow_OfAnUnknownGuid_IsStoredAsDeletedIdentityOnly() => WithStoreAsync(async store =>
+    {
+        // An object created and deleted between two polls (spec 10.9): upsert of a deleted identity row plus its
+        // Deletions entry in one commit – the row must exist afterwards (an UPDATE alone would find nothing).
+        var deletedAt = Now.AddMinutes(-1);
+        var marker = Snapshot("CN=Krótko Żyjący,OU=Sprzedaż,DC=contoso,DC=test") with
+        {
+            Attributes = new Dictionary<string, SnapshotAttribute>(StringComparer.OrdinalIgnoreCase),
+            IsDeleted = true,
+            DeletedAt = deletedAt,
+        };
+        var group = Snapshot("CN=Handlowcy,OU=Grupy,DC=contoso,DC=test", WatchObjectKind.Group);
+        await store.CommitAsync(new DetectionCommit
+        {
+            Upserts = [group],
+            Memberships = new Dictionary<Guid, IReadOnlyList<MemberReference>> { [group.ObjectGuid] = [Member(marker)] },
+        }, Ct);
+
+        await store.CommitAsync(new DetectionCommit { Upserts = [marker], Deletions = [(marker.ObjectGuid, deletedAt)] }, Ct);
+
+        var row = (await store.GetSnapshotsAsync([marker.ObjectGuid], Ct))[marker.ObjectGuid];
+        Assert.True(row.IsDeleted);
+        Assert.Equal(deletedAt, row.DeletedAt);
+        Assert.Equal(marker.Dn, row.Dn);
+        Assert.Empty(row.Attributes);
+        Assert.Null(await store.FindByDnAsync(marker.Dn, Ct));
+        Assert.DoesNotContain(marker.ObjectGuid, await ToListAsync(store.GetLiveObjectGuidsAsync(Ct)));
+        Assert.Empty(await store.GetMembersAsync(group.ObjectGuid, Ct));
+    });
+
+    [Fact]
     public Task Descendants_AreLiveObjectsStrictlyBelowTheAncestor() => WithStoreAsync(async store =>
     {
         var ou = Snapshot("OU=Księgowość,OU=Pracownicy,DC=contoso,DC=test", WatchObjectKind.OrganizationalUnit);

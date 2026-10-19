@@ -143,7 +143,11 @@ internal sealed class PasswordSprayDetector
         return sources;
     }
 
-    /// <summary>Accounts by sAMAccountName (live search); unknown names keep only the name.</summary>
+    /// <summary>
+    /// Accounts by sAMAccountName (live search). A name that resolves to no account is masked
+    /// (<see cref="MaskUnknownName"/>): failures for unknown accounts (4776 0xC0000064, 4771 0x6) are often a password
+    /// typed into the user name field, and the raw name must never reach the store or a notification.
+    /// </summary>
     private static async Task<IReadOnlyList<ObjectRef>> ResolveAsync(ScanContext context, IReadOnlyList<string> names, CancellationToken cancellationToken)
     {
         var found = new Dictionary<string, ObjectRef>(StringComparer.OrdinalIgnoreCase);
@@ -159,6 +163,19 @@ internal sealed class PasswordSprayDetector
             }
         }
 
-        return [.. names.Select(n => found.TryGetValue(n, out var reference) ? reference : new ObjectRef { Dn = string.Empty, SamAccountName = n, Name = n })];
+        return [.. names.Select(n => found.TryGetValue(n, out var reference) ? reference : new ObjectRef { Dn = string.Empty, Name = MaskUnknownName(n) })];
+    }
+
+    /// <summary>An unresolved TargetUserName as its first character (text element) and length, e.g. <c>L…(9)</c>.</summary>
+    public static string MaskUnknownName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (name.Length == 0)
+        {
+            return "…(0)";
+        }
+
+        var first = System.Globalization.StringInfo.GetNextTextElementLength(name);
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{name[..first]}…({name.Length})");
     }
 }

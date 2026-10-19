@@ -182,6 +182,11 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         await _settler.SettleDueAsync(processor, cycle, cancellationToken).ConfigureAwait(false);
         await cycle.CommitChunkAsync(_services.Store, cancellationToken).ConfigureAwait(false);
         var privileges = await EvaluatePrivilegesAsync(processor, cycle, cancellationToken).ConfigureAwait(false);
+        foreach (var (draft, objectRef) in cycle.FinalDrafts)
+        {
+            processor.Emit([draft], null, objectRef, ReplicationMetadata.Empty, null);
+        }
+
         AddFinalHealthEvents(processor, cycle, decision);
         var newState = NewState(cycle, state, dc, now);
         var final = cycle.Chunk.ToCommit(cycle.PendingRewrites) with

@@ -130,7 +130,7 @@ internal sealed class ChangeClassifier
     {
         ArgumentNullException.ThrowIfNull(created);
         var changes = created.Attributes
-            .Where(a => a.Key != WatchSignature.Key && a.Value.Values.Count > 0)
+            .Where(a => !WatchSignature.IsReserved(a.Key) && a.Value.Values.Count > 0)
             .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase)
             .Select(a => _changes.Build(a.Key, null, a.Value))
             .ToList();
@@ -223,10 +223,27 @@ internal sealed class ChangeClassifier
 
         var before = Number(pwd.OldValue) ?? 0;
         var after = Number(pwd.NewValue) ?? 0;
+        var kind = diff.New.Kind;
+        var suppressed = (kind == WatchObjectKind.Computer && !input.Directory.TrackComputerPasswordChanges)
+            || (kind == WatchObjectKind.ServiceAccount && !input.Directory.TrackManagedPasswordRollover);
         if (after == 0 && before != 0)
         {
             consumed.Add(Attr.PwdLastSet);
             drafts.Add(Single(WatchEventKind.PasswordMustChangeSet, pwd));
+
+            // A reset with "must change at next logon" (unicodePwd, then pwdLastSet = 0 – the usual helpdesk reset) is
+            // also a password write; only the metadata can tell (must-change alone must never look like one).
+            if (!suppressed && !input.Metadata.IsEmpty && input.Watermark is { } since
+                && input.Metadata.Get(Attr.UnicodePwd) is { } reset && reset.UsnLocal > since)
+            {
+                drafts.Add(new EventDraft
+                {
+                    Kind = WatchEventKind.PasswordChanged,
+                    Changes = [_changes.FromDelta(pwd)],
+                    MetadataAttributes = [Attr.UnicodePwd, Attr.PwdLastSet],
+                });
+            }
+
             return;
         }
 
@@ -236,9 +253,7 @@ internal sealed class ChangeClassifier
         }
 
         consumed.Add(Attr.PwdLastSet);
-        var kind = diff.New.Kind;
-        if ((kind == WatchObjectKind.Computer && !input.Directory.TrackComputerPasswordChanges)
-            || (kind == WatchObjectKind.ServiceAccount && !input.Directory.TrackManagedPasswordRollover))
+        if (suppressed)
         {
             return;
         }

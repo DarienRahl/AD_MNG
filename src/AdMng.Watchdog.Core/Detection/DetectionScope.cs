@@ -76,5 +76,21 @@ internal sealed class DetectionScope
     public bool IsInDomainPartition(string dn) =>
         DistinguishedName.TryParse(dn, out var parsed) && Within(parsed, _domain) && !Within(parsed, _configuration);
 
+    /// <summary>
+    /// True when <paramref name="dn"/> names an object of another naming context than this domain's – a member from
+    /// another domain of the forest (also a child domain, lexically below this one): a search of this domain cannot tell
+    /// whether it still exists. False for DNs that do not parse.
+    /// </summary>
+    public bool IsOtherDomain(string dn)
+    {
+        if (!DistinguishedName.TryParse(dn, out var parsed) || parsed.IsRoot)
+        {
+            return false;
+        }
+
+        return !Within(parsed, _domain)
+            || parsed.Rdns.Take(parsed.Rdns.Count - _domain.Rdns.Count).Any(r => string.Equals(r.Type, "DC", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool Within(DistinguishedName dn, DistinguishedName ancestor) => dn == ancestor || dn.IsDescendantOf(ancestor);
 }
