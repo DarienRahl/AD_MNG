@@ -5215,6 +5215,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Ui.EntraCloud" xml:space="preserve">
     <value>Chmura Entra ID</value>
   </data>
+  <data name="Watchdog.Ui.EventNoLongerMatches" xml:space="preserve">
+    <value>Nie pasuje już do filtru – zniknie z listy po odznaczeniu</value>
+  </data>
   <data name="Watchdog.Ui.Evidence" xml:space="preserve">
     <value>Dowody (zdarzenia dziennika zabezpieczeń)</value>
   </data>

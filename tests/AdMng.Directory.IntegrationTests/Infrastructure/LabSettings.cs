@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Net;
 using AdMng.Core.Directory;
+using AdMng.Core.Ldap;
 
 namespace AdMng.Directory.IntegrationTests.Infrastructure;
 
@@ -38,8 +40,18 @@ internal static class LabSettings
 
     public static string EmployeesOu => $"OU=Pracownicy,{CompanyOu}";
 
-    /// <summary>The only place where tests create, change and delete objects.</summary>
-    public static string TestOu => $"OU=AdMngIntegration,{DomainDn}";
+    /// <summary>Prefix of the run OUs (<see cref="RunOuName"/>).</summary>
+    public const string RunOuPrefix = "AdMngIntegration-";
+
+    /// <summary>The fixed test OU of earlier versions (shared by all runs); removed once it is older than the stale limit.</summary>
+    public const string LegacyTestOuName = "AdMngIntegration";
+
+    /// <summary>This run's OU name: <c>AdMngIntegration-&lt;UTC time&gt;-&lt;random&gt;</c> (concurrent runs never share one).</summary>
+    public static string RunOuName { get; } =
+        RunOuPrefix + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + "-" + Guid.NewGuid().ToString("N")[..6];
+
+    /// <summary>The only place where tests create, change and delete objects: this run's OU.</summary>
+    public static string TestOu => DistinguishedName.Parse(DomainDn).Child("OU", RunOuName).ToString();
 
     /// <summary>Skips the calling test when no lab is configured.</summary>
     public static void RequireLab() => Assert.SkipUnless(IsConfigured, SkipReason);

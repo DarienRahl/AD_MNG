@@ -49,6 +49,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Events.PropertyChanged += OnEventsPropertyChanged;
         Events.Details.LocateRequested += OnLocateRequested;
         Config.Failed += OnCallFailed;
+        Config.PropertyChanged += OnConfigPropertyChanged;
         Status.Failed += OnCallFailed;
         Status.StatusLoaded += OnStatusLoaded;
         services.Localizer.CultureChanged += OnCultureChanged;
@@ -281,6 +282,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Events.PropertyChanged -= OnEventsPropertyChanged;
         Events.Details.LocateRequested -= OnLocateRequested;
         Config.Failed -= OnCallFailed;
+        Config.PropertyChanged -= OnConfigPropertyChanged;
         Status.Failed -= OnCallFailed;
         Status.StatusLoaded -= OnStatusLoaded;
         Events.Dispose();
@@ -549,6 +551,15 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     }
 
     private void OnLocateRequested(object? sender, string dn) => LocateRequested?.Invoke(this, dn);
+
+    /// <summary>The configuration the service runs was loaded or saved: the feed's late-match window follows its retries.</summary>
+    private void OnConfigPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(WatchdogConfigSession.Envelope))
+        {
+            Events.ApplyConfiguration(Config.Envelope?.Configuration);
+        }
+    }
 
     /// <summary>An AD session was opened or closed: the pickers and "Pokaż w AD Manager" re-evaluate their availability.</summary>
     private void OnSessionChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>

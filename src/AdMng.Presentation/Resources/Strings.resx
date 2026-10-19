@@ -5215,6 +5215,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.EntraCloud" xml:space="preserve">
     <value>Entra ID cloud</value>
   </data>
+  <data name="Watchdog.Ui.EventNoLongerMatches" xml:space="preserve">
+    <value>No longer matches the filter – leaves the list once it is deselected</value>
+  </data>
   <data name="Watchdog.Ui.Evidence" xml:space="preserve">
     <value>Evidence (security log events)</value>
   </data>
