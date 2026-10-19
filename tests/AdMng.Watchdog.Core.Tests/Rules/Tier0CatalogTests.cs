@@ -1,10 +1,15 @@
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Core.Rules;
 
 namespace AdMng.Watchdog.Core.Tests.Rules;
 
 public class Tier0CatalogTests
 {
+    /// <summary>Display names of GPOs and certificate templates: a rename keeps the content, and users' displayName is a
+    /// plausible HR-noise attribute to ignore – the only watched attribute of the Tier-0 object kinds left out on purpose.</summary>
+    private static readonly string[] DeliberatelyIgnorable = ["displayName"];
+
     [Fact]
     public void Kinds_AreEverySecurityDomainAndAuditLogKind_PlusPrivilegeFlagsAndDelegation()
     {
@@ -32,6 +37,9 @@ public class Tier0CatalogTests
     [InlineData("nTSecurityDescriptor", true)]
     [InlineData("msDS-LockoutDuration", true)]
     [InlineData("gPLink", true)]
+    [InlineData("dNSHostName", true)]
+    [InlineData("gPCFileSysPath", true)]
+    [InlineData("versionNumber", true)]
     [InlineData("department", false)]
     [InlineData("extensionAttribute1", false)]
     [InlineData("", false)]
@@ -48,6 +56,29 @@ public class Tier0CatalogTests
     public void IsTier0Rule(string? id, bool expected) => Assert.Equal(expected, Tier0Catalog.IsTier0Rule(id));
 
     [Fact]
-    public void ProtectedSubtrees_AreTheDomainHeadDomainControllersAndSystem() =>
-        Assert.Equal(["{domain}", "OU=Domain Controllers,{domain}", "CN=System,{domain}"], Tier0Catalog.ProtectedSubtrees);
+    public void Attributes_CoverEveryWatchedAttributeOfTheTier0ObjectKinds()
+    {
+        // Drift guard (12.6): an attribute the snapshot diffs for a Tier-0 kind cannot be switched off through
+        // directory.ignoredAttributes without Authorization.AllowTier0Suppression.
+        var tier0Sets = new[]
+        {
+            WatchedAttributes.DomainPolicy, WatchedAttributes.Configuration, WatchedAttributes.PublicKeyInfrastructure,
+            WatchedAttributes.GroupPolicy, WatchedAttributes.Trust, WatchedAttributes.PasswordSettings,
+            WatchedAttributes.ServiceAccountExtra,
+        };
+
+        var missing = tier0Sets.SelectMany(s => s)
+            .Where(a => !DeliberatelyIgnorable.Contains(a, StringComparer.OrdinalIgnoreCase))
+            .Where(a => !Tier0Catalog.IsTier0Attribute(a))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void ProtectedSubtrees_AreTheDomainHeadDomainControllersSystemUsersAndBuiltin() =>
+        Assert.Equal(
+            ["{domain}", "OU=Domain Controllers,{domain}", "CN=System,{domain}", "CN=Users,{domain}", "CN=Builtin,{domain}"],
+            Tier0Catalog.ProtectedSubtrees);
 }

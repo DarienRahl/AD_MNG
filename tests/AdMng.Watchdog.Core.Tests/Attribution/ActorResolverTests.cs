@@ -67,6 +67,27 @@ public class ActorResolverTests
     }
 
     [Fact]
+    public async Task PasswordChangeByAnotherAccount_IsNotASelfChange()
+    {
+        // 11.4 #5: selfChange needs Subject SID = object SID. "Change password" is granted to Everyone: Y who knows X's
+        // current password changes it while bound as Y – the privileged PasswordChanged must stay High, not Info.
+        var resolved = await Resolver().ResolveAsync(Account(4723, T, OtherAdmin), Create(WatchEventKind.PasswordChanged, tags: [EventTags.Privileged]), Ct);
+
+        Assert.DoesNotContain(EventTags.SelfChange, resolved.AddedTags);
+        Assert.Equal(OtherAdminSid, resolved.Actor.Sid);
+    }
+
+    [Fact]
+    public async Task ExpiredPasswordChangedAtLogon_ByAnonymousLogon_IsASelfChange()
+    {
+        var anonymous = SecurityEventXml.Subject("S-1-5-7", "ANONYMOUS LOGON", "NT AUTHORITY", "0x3e6");
+
+        var resolved = await Resolver().ResolveAsync(Account(4723, T, anonymous), Create(WatchEventKind.PasswordChanged), Ct);
+
+        Assert.Equal([EventTags.SelfChange], resolved.AddedTags);
+    }
+
+    [Fact]
     public async Task AComputerUpdatingItself_IsSelfChange()
     {
         var computerSid = DomainSid + "-3101";

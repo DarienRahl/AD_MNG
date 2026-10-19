@@ -62,7 +62,8 @@ public class RuleEngineTests
     [Fact]
     public void Tier0Security_IsProvisionalWhileTheActorIsPending()
     {
-        var pending = Create(WatchEventKind.KeyCredentialChanged, severity: Severity.High);
+        // Key rotation of a computer: the only KeyCredentialChanged a self-change may hide (12.4).
+        var pending = Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High);
 
         var result = _engine.Evaluate(pending);
 
@@ -75,15 +76,15 @@ public class RuleEngineTests
     [Fact]
     public void Rematch_UsesTheFinalAttributionAndTags()
     {
-        var selfChange = Create(WatchEventKind.KeyCredentialChanged, severity: Severity.High, attribution: Resolved(DomainSid + "-6609"), tags: [EventTags.SelfChange]);
-        var byAdmin = Create(WatchEventKind.KeyCredentialChanged, severity: Severity.High, attribution: Resolved(AdminSid));
+        var selfChange = Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High, Resolved(DomainSid + "-6609"), [EventTags.SelfChange]);
+        var byAdmin = Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High, Resolved(AdminSid));
 
         Assert.Null(_engine.Rematch(selfChange, DefaultRules.Tier0Security, attributionGraceExpired: false));
         var match = _engine.Rematch(byAdmin, DefaultRules.Tier0Security, attributionGraceExpired: false);
         Assert.NotNull(match);
         Assert.False(match.IsProvisional);
         Assert.Null(_engine.Rematch(byAdmin, "nie-istnieje", attributionGraceExpired: false));
-        Assert.False(_engine.Rematch(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.High), DefaultRules.Tier0Security, attributionGraceExpired: true)!.IsProvisional);
+        Assert.False(_engine.Rematch(Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High), DefaultRules.Tier0Security, attributionGraceExpired: true)!.IsProvisional);
     }
 
     [Fact]

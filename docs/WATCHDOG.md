@@ -27,7 +27,7 @@ Specyfikacja implementacyjna (dla programistów, po angielsku) powstała razem z
 | Domena i las | zasady haseł i blokad, zasady szczegółowe (PSO), powiązania GPO z domeną i OU kontrolerów, relacje zaufania, nowy lub usunięty kontroler domeny, przeniesienie ról FSMO, szablony certyfikatów i usługi PKI (NTAuth), włączenie Kosza AD, `dSHeuristics`, `tombstoneLifetime`, zmiany schematu (jedno zdarzenie na cykl) | wysoki / krytyczny | e-mail natychmiast |
 | Dzienniki DC | wyczyszczenie dziennika zabezpieczeń (1102), zmiana zasad inspekcji (4719), zmiana hasła DSRM (4794) | krytyczny / wysoki | e-mail natychmiast |
 | Terminy | konto wygasa za 14 / 7 / 1 dzień (dni kalendarzowe do ostatniego dnia ważności; gdy termin wypada w weekend lub święto – w poprzedzającym dniu roboczym), konto wygasło, hasło konta uprzywilejowanego lub serwisowego wygasa | informacja (uprzywilejowane ≤ 7 dni – wysoki) | helpdesk: e-mail w godzinach pracy; raport dzienny; opcjonalnie przełożony konta |
-| Stan usługi | brak połączenia z DC, ponowna synchronizacja, braki uprawnień, problemy z dziennikami DC, nieudane wysyłki, mało miejsca, przestarzałe środowisko .NET, **zmiana konfiguracji Watchdoga** | wysoki / średni | e-mail i wszystkie kanały Teams/webhook zawsze (reguła zablokowana – nie da się jej wyłączyć) |
+| Stan usługi | brak połączenia z DC, ponowna synchronizacja, braki uprawnień, problemy z dziennikami DC, nieudane wysyłki, mało miejsca, przestarzałe środowisko .NET, **zmiana konfiguracji Watchdoga** | wysoki / średni | e-mail i wszystkie kanały Teams/webhook zawsze (reguła zablokowana – nie da się jej wyłączyć ani osłabić jej doręczania) |
 
 Każde zdarzenie zawiera: **co** się zmieniło (stara → nowa wartość), **kiedy** i **na którym DC**, a gdy pozwalają na
 to dzienniki kontrolerów – **kto** to zrobił i **skąd** (adres IP, nazwa komputera z oznaczeniem pochodzenia – nazwa
@@ -229,9 +229,13 @@ na DC:
    4720 4722 4723 4724 4725 4726 4738 4740 4767 4781 4765 4766 4794 4741 4742 4743 4727–4737 4744–4764 4719 5136 5137
    5138 5139 5141 1102 1104 1100 oraz – jeśli ma być ustalany komputer źródłowy – 4624 (tylko LogonType 3 i 10; duży
    wolumen, zwiększ dziennik kolektora) i 4771/4776 (tylko niepowodzenia).
-3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa serwera; gMSA w lokalnej grupie
-   „Event Log Readers” kolektora. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę
-   „SOURCE_NOT_COLLECTED”.
+3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa DNS serwera (nie adres IP –
+   usługa łączy się z kolektorem i z DC wyłącznie przez Kerberos); gMSA w lokalnej grupie „Event Log Readers”
+   kolektora. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę „SOURCE_NOT_COLLECTED”.
+   Zdarzenia przekazane przez WEF zachowują numery rekordów swoich DC, dlatego usługa czyta kolektor według czasu
+   zdarzeń: przy każdym odczycie ponownie przegląda ostatnie 15 minut (ustawienie „replicationLatencyBound”), aby nie
+   pominąć zdarzeń dostarczonych z opóźnieniem. Zdarzenia dostarczone później (np. po dłuższej przerwie łączności DC
+   z kolektorem) nie zostaną uwzględnione w atrybucji – w razie potrzeby zwiększ to ustawienie.
 
 W obu wariantach ustaw rozmiar dziennika Security na DC na co najmniej **1 GB** (GPO: Konfiguracja komputera →
 Zasady → Ustawienia systemu Windows → Ustawienia zabezpieczeń → Dziennik zdarzeń) – mały dziennik nadpisuje zdarzenia,
@@ -406,6 +410,9 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
 - `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu.
 - `ViewerDetailLevel` – ile danych widzi rola Viewer w zakładce i na stronie zdarzenia (5.6).
 - `AllowTier0Suppression` – tylko lokalnie można zezwolić na wyłączenie krytycznych zdarzeń przez API (domyślnie nie).
+  Bez tej zgody API odrzuca m.in. wykluczenie kontenerów `CN=Users` i `CN=Builtin` (grupy Domain Admins,
+  Administrators, konto krbtgt), poddrzew z dodatkowymi grupami uprzywilejowanymi oraz pominięcie atrybutów
+  `dNSHostName`, `versionNumber` i `gPCFileSysPath`.
 - `MonitoringSubnets` – adresy systemu monitorowania, które mogą anonimowo pytać `/healthz` (zwraca tylko „ok” albo
   błąd 503).
 - `Directory.Server` pozwala wskazać konkretny DC; domyślnie usługa wybiera emulator PDC.
@@ -621,7 +628,8 @@ migawki.
   (`DeniedSids`), dodatkowy nagłówek wymagany przy zmianach (ochrona przed CSRF z przeglądarki), zapora ograniczona do
   podsieci administratorów i monitoringu, bez serwerów pośredniczących.
 - **Sekrety kanałów** są tylko do zapisu i powiązane z miejscem docelowym: API i zakładka nigdy ich nie zwracają,
-  administrator Watchdoga nie może przekierować zapisanego hasła lub tokenu OAuth na inny serwer; w dziennikach usługi
+  administrator Watchdoga nie może przekierować zapisanego hasła lub tokenu OAuth na inny serwer (także przez zmianę
+  weryfikacji certyfikatu SMTP – przypięcie innego certyfikatu wymaga ponownego wpisania hasła); w dziennikach usługi
   widać wyłącznie `schemat://host/ścieżka` adresów.
 - **Zmiany konfiguracji** są audytowane i zgłaszane (także dotychczasowym odbiorcom); krytycznych detekcji nie da się
   wyłączyć przez API bez lokalnej zgody.

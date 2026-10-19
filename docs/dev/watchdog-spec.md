@@ -2754,9 +2754,9 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `invalidDn` | every DN parses with `DistinguishedName.TryParse` after token expansion with placeholder values |
 | `invalidSid` | SIDs match `^S-1-\d+(-\d+)+$` after token expansion – includes `ActorFilter.ExcludeActors` and `RuleExclusion.Actor` (SIDs only) |
 | `invalidAttribute` | `additionalWatchedAttributes` / `ignoredAttributes` / rule `attributes`: `^[A-Za-z][A-Za-z0-9-]{0,63}$` (no `*`, `+`, `1.1`, `;options`), ≤ 20 additional attributes, not secret (`SecretAttributes.IsSecret`), not a noise attribute (9.3). The Service additionally validates `additionalWatchedAttributes` against the live session schema on PUT (exists, not confidential, not constructed, not a back link); without a session the change is rejected (`schemaUnavailable`) |
-| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, `{domain}`, `OU=Domain Controllers,{domain}` or `CN=System,{domain}` – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
+| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true. The service (`ConfigValidationService`, PUT and validate) also rejects a newly added `excludedSubtrees` entry that equals or contains a privileged object of the snapshot – a privileged root group (critical/high SIDs, the watchdog's role and host groups), a group on a path to one, a principal of the current privilege state, krbtgt or the built-in Administrator – so privileged groups and admin accounts moved into tiered OUs stay protected; entries already stored are not re-checked |
 | `invalidAddress` | every e-mail address parses (`MailboxAddress.TryParse` semantics: implemented in Core with `System.Net.Mail.MailAddress` parsing rules + no CR/LF); `from` likewise |
-| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces) |
+| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces); `attribution.collector` and every `attribution.domainControllers` entry likewise and are not an IP literal (`HostNames.IsHostName`) – the service identity authenticates to them with Kerberos only |
 | `insecureCredentials` | `smtp.authentication` ≠ None requires `security` StartTls or SslOnConnect |
 | `oauthHostNotAllowed` | `smtp.authentication = OAuth2ClientCredentials` and `smtp.host` is not in the bootstrap `Notifications.OAuthSmtpHosts` (default `smtp.office365.com`) |
 | `invalidScope` | Teams `scope` not one of the documented Power Automate scopes of the selected cloud |
@@ -2764,7 +2764,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `retiredTeamsUrl` | Teams URL host ends with `.webhook.office.com` or `.logic.azure.com` |
 | `teamsUrlFormat` | Teams URL must match `^https://[^/]+\.environment\.api\.powerplatform\.com(:443)?/powerautomate/automations/direct/(.*/)?workflows/` – an error for `EntraClientCredentials` (the bearer token is sent only to Power Platform hosts), a warning for SAS with a custom host |
 | `hostNotAllowed` | webhook URL host not in `allowedHosts` (when non-empty) |
-| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed |
+| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed; for the shipped locked rule (`health`) also a weakened delivery: `immediate`, `includeInDigest` or `allEnabledChannels` turned off, `hours` narrower than shipped (Always), no recipient group and no channel left, `repeatSuppression` > 0, `maxMessagesPerHour` below `notifications.maxMessagesPerRulePerHour`, `aggregationWindow` above `notifications.aggregationWindow`, or a `severity` override below Critical (re-targeting and strengthening stay allowed) |
 | `acceptAnyNotAllowed` | `certificateValidation = AcceptAnyDevelopmentOnly` outside Development |
 | `pinnedHash` | `pinnedSha256` must be 64 hex chars when mode PinnedSha256 |
 | `timeZone` | `general.timeZone` resolvable by `TimeZoneResolver` (as given; IANA ↔ Windows conversion; built-in map for NLS hosts: Europe/Warsaw ↔ Central European Standard Time, Europe/Berlin ↔ W. Europe Standard Time, Europe/London ↔ GMT Standard Time, UTC ↔ UTC) |
@@ -3575,18 +3575,37 @@ sources = Source == ForwardedEvents ? [Collector] (log "ForwardedEvents")
         : Attribution.DomainControllers (config; every entry must be a writable DC of this domain known to
           DomainControllerDirectory – unknown hosts are skipped with health Error eventlog.<host> "notADomainController")
           or the DomainControllerDirectory attribution sources (10.11) (log "Security")
-for each source (in parallel, max 4):
+for each source (in parallel, max 4; a source failing with a store error is reported as health Error
+                 eventlog.<host> and does not stop or discard the others):
     info = GetLogInfoAsync(host, log)                      → health eventlog.<host> (Ok / Error with Win32 code)
     cursor = store.GetCursorAsync(host)
+  Security log of a DC (cursor = the DC's EventRecordID):
     if cursor null: query From = now − ReplicationLatencyBound (do not ingest history)
     else: AfterRecordId = cursor.LastRecordId
           if info.OldestRecordNumber > cursor.LastRecordId + 1 → HealthEventLogGap (records overwritten unread)
     loop: ReadAsync(host, query{ EventCodes = SecurityEventCatalog.IngestionSet, AfterRecordId, SuppressAttributes = noise,
                                  MaxRecords = 1000 }) → parse → EventSourceGuard → reduce + mask (below)
           → AppendAsync(events, newCursor) until < 1000 returned or Attribution.MaxRecordsPerPoll records were read
+          after the last (short) page newCursor = max(last record read, newest record of info) – the filtered query
+          proves no ingestion-set record exists up to it, so a busy DC whose log wraps between account changes raises no
+          false "overwritten" gap and no LOG_OVERWRITTEN
           budget exceeded → HealthEventLogGap (reason "flooding"); the cursor keeps moving (next poll continues)
     newest record id < cursor (log cleared / recreated) → HealthEventLogGap + rebase cursor to the newest record
-    1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6)
+  ForwardedEvents log of a WEF collector (records keep their source DC's EventRecordID – not comparable across DCs nor
+  with the collector's numbering): the cursor is time based – the newest TimeCreated read (capped at now) is kept in
+  EventLogCursor.BookmarkXml as <TimeCursor SystemTime="…"/>; every poll reads the ingestion set from that time −
+  ReplicationLatencyBound (late WEF deliveries) in one read of at most MaxRecordsPerPoll records, stored in pages of
+  1000; the collector's record numbers are never checked for overwrites or regressions. A read cut by
+  MaxRecordsPerPoll (HealthEventLogGap "flooding") stores the newest TimeCreated read as the cursor's Floor
+  (<TimeCursor SystemTime="…" Floor="…"/>, at least one tick after the read's start): later reads start at
+  max(cursor − ReplicationLatencyBound, Floor), so a window holding more records than the budget (a bulk import) cannot
+  make every poll re-read its oldest records and stall the cursor. Records read again are
+  ignored by the store (computer, record id) and by the detections (stable ids, below).
+  1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6) and record gaps, appended to the event store before
+    the cursor of their page is committed, under an id derived from the record (RecordEventIds: Guid v7 layout,
+    timestamp = TimeCreated, rest = SHA-256 of what|computer|record id|time|event id) and only when that id is not
+    stored yet – an interrupted pass re-reads the page and neither loses nor repeats a SecurityLogCleared
+  1102 / 1104 (and a cursor regression) mark the DC's log overwritten from the record's time (11.7 LOG_OVERWRITTEN)
 then correlate (11.4) every pending event whose next retry is due
 report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, source lookups)
 ```
@@ -3607,11 +3626,17 @@ report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, s
 <Select Path="Security">*[System[(EventID=4720 or …) and EventRecordID &gt; 12345]]</Select>…<Suppress Path="Security">
 *[System[EventID=5136] and EventData[Data[@Name='AttributeLDAPDisplayName']='dSCorePropagationData']]</Suppress>
 </Query></QueryList>`) with **at most 20 EventID expressions per Select** (several Selects OR-ed), time filters as
-`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; values are
-XML-escaped and restricted to `[0-9A-Za-z.\-_:{}$ ]` (anything else rejected – no injection into XPath).
+`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; log names,
+data names and suppressed attributes are restricted to `[0-9A-Za-z.\-_:{}$ ]`, a data value is one XPath string literal
+(single-quoted, double-quoted when it contains an apostrophe – `o'neill`; rejected when it contains both quote
+characters or a control character), so `józef.żak` is queried and no value can change the query; everything is
+XML-escaped.
 
-`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host)` per host
-(process identity = gMSA, `SessionAuthentication.Kerberos`), `EventLogQuery(logName, PathType.LogName, queryXml)
+`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host, null, null,
+null, SessionAuthentication.Kerberos)` per host (process identity = gMSA; never `Default`/Negotiate, which falls back to
+NTLM towards whatever host is configured); a host that is not a host name (IP literal, `HostNames.IsHostName`) is
+refused before connecting (Win32 123), and `AttributionSourceResolver` skips such a collector or DC with health Error
+`invalidHostName`; `EventLogQuery(logName, PathType.LogName, queryXml)
 { Session, ReverseDirection = NewestFirst, TolerateQueryErrors = true }`, `EventLogReader { BatchSize = 256 }`,
 `record.ToXml()` only (never `FormatDescription()` or `*DisplayName`), all blocking calls on `Task.Run` with
 `session.CancelCurrentOperations()` on cancellation; `EventLogException`/`UnauthorizedAccessException` →
@@ -3639,7 +3664,7 @@ Candidates per watch-event kind (strong key in brackets):
 | AccountDisabled / AccountEnabled | 4725 / 4722 [TargetSid]; 4738/4742 with the UAC bit; 5136 userAccountControl |
 | AccountLockedOut | 4740 [TargetSid] (preferably from the PDC) – evidence only: the actor is NotApplicable (the 4740 subject is the DC); the **source of the bad passwords** comes from `LockoutSourceResolver` (11.4 #6b) |
 | AccountUnlocked | 4767 [TargetSid] (the subject is the person who unlocked) |
-| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
+| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange when the subject is the account itself or ANONYMOUS LOGON S-1-5-7 – an expired password changed at logon; a 4723 by another account gets no selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
 | PasswordMustChangeSet, AccountExpirationChanged, AccountNameChanged(UPN), AttributesChanged (SAM fields) | 4738 / 4742 with the field ≠ '-' [TargetSid]; 5136 [ObjectGUID + AttributeLDAPDisplayName] |
 | AccountNameChanged (sAMAccountName) | 4781 [TargetSid] |
 | AccountFlagsChanged, DelegationChanged (UAC) | 4738/4742 Old/NewUacValue [TargetSid]; 5136 |
@@ -3647,7 +3672,7 @@ Candidates per watch-event kind (strong key in brackets):
 | GroupMemberAdded | 4728/4732/4756/4751/4746/4761 [TargetSid = group SID and MemberSid = member SID]; 5136 member Value Added [ObjectGUID = group] |
 | GroupMemberRemoved | 4729/4733/4757/4752/4747/4762 [same]; 5136 member Value Deleted |
 | GroupTypeChanged | 4764 [TargetSid] |
-| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it (same ChangeSetId, or the membership event on the path's first edge) |
+| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it: same ChangeSetId; otherwise the newest membership change on **any edge** of the nesting path (root ← Via… ← principal – the path is listed from the root down, so Via[0] is the group nested directly in the root) or a PrimaryGroupChanged of the principal, detected at most 15 min before the privilege event (`PrivilegeAttributionInheritor.CauseWindow`); an older change is never taken – nesting IT-Ops into Domain Admins today is the cause, not yesterday's addition of Bob to IT-Ops |
 | everything else (attribute kinds, GPO, trust, PSO, SD, schema, FSMO, PKI, Configuration) | 5136 / 5137 / 5141 [ObjectGUID] |
 | DomainControllerAdded / DomainControllerRemoved | 5137 / 5141 nTDSDSA [ObjectGUID] |
 | WatchdogConfigurationChanged | Resolved at creation from the API caller (Kerberos identity) |
@@ -3665,7 +3690,9 @@ DnsHostName→dNSHostName, ServicePrincipalNames→servicePrincipalName.
 - Namespace `http://schemas.microsoft.com/win/2004/08/events/event`; read `System/EventID`, `Version`,
   `TimeCreated/@SystemTime` (UTC), `EventRecordID`, `Computer`; `EventData/Data[@Name]` **by name, never by
   position**; for 1102 read `UserData/*/*` child elements as data. Unknown names and higher versions are kept/ignored
-  silently. `XmlReader` with `DtdProcessing.Prohibit`.
+  silently. `XmlReader` with `DtdProcessing.Prohibit` and `CheckCharacters = false`: characters invalid in XML 1.0
+  (control characters of attacker-written values, raw or as `&#x1;`) are replaced by U+FFFD instead of dropping the
+  record – one value must not hide a change from attribution.
 - `-` and empty values are omitted. Logon ids (`0x30dc2`) are normalized to lower-case `0x…` and compared
   numerically. SIDs are strings `S-1-…`; GUIDs `{…}` parse with `Guid.Parse`.
 - `%%` codes: 1792 `<value changed, but not displayed>`, 1793 `<value not set>`, 1794 `<never>`, 1797 All,
@@ -3707,15 +3734,18 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    retry; after the last retry → Unknown with a reason (11.7).
 5. **Actor**: SubjectUserSid → snapshot `FindBySidAsync` → display name/DN; fallback `SubjectDomainName\SubjectUserName`.
    S-1-5-18 or `<DC>$` → Resolved, Reason SYSTEM (shown "System (DC01)"). Subject SID = object SID (a computer
-   updating itself, a user changing their own password via 4723) → tag `selfChange`, Reason SELF_CHANGE for
-   computers; with `SuppressComputerSelfChanges` the event is kept but rules default to `ExcludeSelfChanges` for
-   computer-noise kinds. 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account (10.6.4)
-   → tag `syncAccount`.
+   updating itself, a user changing their own password via 4723; for a 4723 also ANONYMOUS LOGON) → tag `selfChange`,
+   Reason SELF_CHANGE for computers; with `SuppressComputerSelfChanges` the event is kept but every rule behaves as if
+   `ExcludeSelfChanges` were set for changes of a computer that touch only computer-noise attributes (9.3; SPN values
+   naming the computer itself). 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account
+   (10.6.4) → tag `syncAccount`.
 6. **Source** (`LogonSourceResolver`), when `LookupLogonSource` and SubjectLogonId ≠ 0x3e7: query on the evidence DC
    for 4624 with `TargetLogonId = <id>`, **From = max(evidence time − LogonLookback, the log's oldest record time)**,
    To = evidence time, NewestFirst, MaxRecords 1; **at most one such query per DC at a time**, per-query timeout
    `SourceQueryTimeout` (cancels via `CancelCurrentOperations`), positive and **negative** cache of (dc, logonId) for
-   24 h (no ingestion). Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
+   at most 24 h (no ingestion) – logon ids are unique per boot only, so a found session is reused only for evidence
+   between its 4624 and `LogonLookback` later and only while no 1100 (event log service shut down – a reboot) of that
+   DC was ingested after the logon; a negative result only for evidence inside the window already searched. Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
    against the collector's ForwardedEvents log – when the subscription does not carry 4624, `SOURCE_NOT_COLLECTED`.
    LogonType 3 + IpAddress → IpAddress is the primary source, Workstation = WorkstationName if present else reverse
    DNS (2 s timeout, SourceMethod "dns"); IpAddress `-`, `::1`, `127.0.0.1` → SourceMethod "local" ("lokalnie na DC –
@@ -3730,12 +3760,30 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    `[lockoutTime − lockOutObservationWindow (effective), lockoutTime]`; results are aggregated into
    `LockoutInfo.Sources` (IP / workstation × count, top 10) and written with `AttributionUpdate.Lockout`. The lockout's
    attribution status is NotApplicable (there is no "actor"); the GUI and e-mail label the row "Źródło błędnych haseł".
+   While no 4740 is found or a source query did not finish (WEF delivers the 4740 and the 4771/4776 in ~30 s batches;
+   the PDC unreachable), the lockout stays Pending and is retried at the `PendingRetries` steps; after the last step it
+   is final with what was found.
 7. **Operation grouping**: events with the same ChangeSetId resolved from candidates with the same (Computer,
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the
    `SeverityResolver` re-resolves the severity with the final attribution and the added tags.
-9. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
+9. **Re-evaluation**: a final attribution that raises the severity (#8) or adds a tag (`passwordReset`, `selfChange`,
+   `syncAccount`) can make further rules match (shadow credentials on a user written by another account become High
+   and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
+   with its final state (`RuleEngine.Evaluate`), plans only the rules that are not yet in the stored `matched_rules`
+   (`IRuleMatchPlanner` – rules that already matched are never planned again, their rows may be delivered and deleted)
+   and stores matched rules ∪ new rules, the evaluated severity and the new pending rows in one
+   `CommitEvaluationAsync`, **before** the attribution update: a pass interrupted in between leaves the event pending and
+   the next pass finds the rules stored. An event the rules job has not evaluated yet has no matched rules, so all its
+   final matches are planned and the job skips it afterwards. `rules_state` is never reset. The re-evaluation and the
+   attribution update of one event and the rules job's read → match → plan → commit run in one in-process section
+   (`RuleEngine.EnterEvaluationAsync`): both jobs wake on EventsStored, and without it the job could commit a match
+   made with the pending attribution after the final one was stored (stale severity and matched rules, a rule planned
+   twice).
+10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
    `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
+   The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
+   pass) also when a later write of the pass fails.
 
 ### 11.5 Late enrichment and notifications
 
@@ -3765,7 +3813,7 @@ Attribution of these events is Resolved at creation (the record itself is the ev
 |---|---|---|
 | SOURCE_DISABLED | attribution disabled or non-Windows host | „Włącz atrybucję (konfiguracja) – usługa musi działać na Windows.” |
 | DC_UNREACHABLE | the originating DC's log could not be read during the window | „Sprawdź zaporę (Remote Event Log Management) i członkostwo konta usługi w Event Log Readers.” |
-| LOG_OVERWRITTEN | oldest record time of the DC log > window end | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
+| LOG_OVERWRITTEN | oldest record time of the DC log > window end: records overwritten unread, a cursor regression, or a 1102/1104 of that DC at or after the window start | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
 | AUDIT_POLICY_MISSING | no event of the kind's family from that DC in 7 days (`GetLastSeenAsync`) | „Włącz zasady inspekcji (docs/WATCHDOG.md, rozdz. 4.5).” |
 | SACL_MISSING | the kind is only coverable by 5136/5137/5139/5141 and no such event was seen from that DC in 7 days | „Dodaj SACL dla zmian usług katalogowych (docs/WATCHDOG.md, rozdz. 4.6).” |
 | AMBIGUOUS | two candidates within 5 points | „Kilka możliwych wykonawców – szczegóły w dowodach.” |
@@ -3806,7 +3854,13 @@ A rule matches an event when **all** hold:
    Explicit = DN in `GroupDns`. For other kinds the filter is ignored.
 7. `MinSeverity` ≤ event severity (after SeverityResolver).
 8. Actors: when attribution is Resolved and the actor's **SID** equals an `ExcludeActors` entry (SIDs only) → no
-   match; `ExcludeSelfChanges` and tag `selfChange` → no match. While attribution is Pending and the rule has actor
+   match; an entry with a `{domainSid}`/`{rootDomainSid}` token whose value is unknown matches nothing (the
+   any-domain relative-id fallback of 8.1 applies to privileged roots only – an exclusion fails closed).
+   `ExcludeSelfChanges` and tag `selfChange` → no match – but never for a Tier-0 kind (12.6) written by the object
+   itself (a relayed computer writing RBCD, SID history, SPNs or a primary group on itself is the attack): of the Tier-0
+   kinds only KeyCredentialChanged of a computer (key rotation) and ServicePrincipalNameAdded of a service account (SPN
+   self-registration) may be hidden, and not for a domain controller or a privileged object; such a non-excludable
+   self-change does not make the match provisional either. While attribution is Pending and the rule has actor
    conditions, the match is **provisional**: the planner holds the notification until attribution is final or the
    grace period ends (also for High/Critical), then re-checks. After the grace period an unresolved actor excludes
    nothing (the notification is sent). Workstation names / IPs are never matching inputs.
@@ -3814,6 +3868,16 @@ A rule matches an event when **all** hold:
    member GUID; `SubtreeDn` contains the object; `Actor` (SID) = actor SID; `Attribute`: the event's changes **without**
    this attribute are empty (the exclusion removes only that attribute from consideration). Expired exclusions
    (`ExpiresAt` < now) are ignored.
+
+DN-based settings compare DN strings, so a renamed or moved OU/group makes them match nothing. Health check
+`rules.configuredDns` (Warning, `ConfiguredDnMonitor`, run by the rules job at most every 10 min per configuration):
+every configured DN – rule scopes, `GroupDns`, exclusion subtrees, `privilegedGroups.additionalCriticalDns` /
+`additionalHighDns` / `watchListDns`, `directory.criticalObjects`, service-account and disabled-account subtrees,
+wake-up containers – is resolved against the snapshot; the ones that no longer exist are listed (Args, as configured).
+DNs outside the default NC, under `CN=System` or under an excluded subtree, and `CN=Builtin` itself (a builtinDomain
+object, not a container – its groups are snapshotted) are not snapshotted and not checked; nothing is reported before
+the baseline; the service never rewrites the configuration. The GUI shows the check as „Nieistniejące DN w
+konfiguracji” (health codes `rules.configuredDns` and `attribution.collector` are localized).
 
 `RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
 matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
@@ -3858,7 +3922,7 @@ Suggestions (`ExclusionSuggestionDto`: detected sync accounts for `tier0-securit
 | Id | Name (pl) | Kinds | Other conditions | Delivery |
 |---|---|---|---|---|
 | `tier0-privilege` | Dostęp uprzywilejowany | PrivilegeGranted, PrivilegeRevoked | – | immediate → it-admins, Always; digest |
-| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true | immediate → it-admins, Always; digest |
+| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true (hides only computer key rotation and service-account SPN self-registration, 12.1 #8) | immediate → it-admins, Always; digest |
 | `security-review` | Zmiany bezpieczeństwa do przeglądu | the tier0-security kinds | – (catches Low/Medium, e.g. device key self-registration) | digest only |
 | `tier0-domain` | Domena, zaufania, schemat, PKI, zasady | DomainPolicyChanged, PasswordSettingsChanged, TrustChanged, DomainControllerAdded, DomainControllerRemoved, FsmoRoleChanged, CertificateTemplateChanged, SchemaChanged, GroupPolicyLinkChanged | MinSeverity High | immediate → it-admins, Always; digest |
 | `tier0-eventlog` | Dzienniki zabezpieczeń DC | SecurityLogCleared, AuditPolicyChanged, DsrmPasswordChanged | – | immediate → it-admins, Always; digest |
@@ -3903,8 +3967,10 @@ and AuditLog, plus PrivilegeGranted/PrivilegeRevoked, AccountFlagsChanged and De
 consumed by them in the ChangeClassifier table (10.6): `userAccountControl`, `member`, `primaryGroupID`, `sIDHistory`,
 `adminCount`, `servicePrincipalName`, `msDS-KeyCredentialLink`, `msDS-AllowedToDelegateTo`,
 `msDS-AllowedToActOnBehalfOfOtherIdentity`, the dMSA link attributes, `altSecurityIdentities`,
-`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `gPLink`, `gPOptions`, `fSMORoleOwner`, the domain
-policy, PSO, trust and PKI attributes of 9.2.
+`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `dNSHostName` (ComputerNameSpoofing), `gPLink`,
+`gPOptions`, the GPO content attributes `versionNumber` and `gPCFileSysPath` (GroupPolicyChanged), `fSMORoleOwner`, the
+domain policy, PSO, trust and PKI attributes of 9.2 – every attribute of the 9.2 sets of the Tier-0 object kinds except
+`displayName` (a test guards against drift).
 
 ---
 
@@ -3913,10 +3979,14 @@ policy, PSO, trust and PKI attributes of 9.2.
 ### 13.1 `RuleEvaluationJob` (wake: EventsStored, AttributionUpdated, ConfigChanged; interval 30 s)
 
 ```
+enter RuleEngine.EnterEvaluationAsync (shared with the AttributionEngine's re-evaluation, 11.4 #9)
 events = eventStore.GetUnevaluatedAsync(500)
 for each: matches = RuleEngine.Evaluate(e); pendings += NotificationPlanner.Plan(e, matches, now)
-eventStore.CommitEvaluationAsync(evaluations, pendings); signals.Raise(NotificationsQueued)
+eventStore.CommitEvaluationAsync(evaluations, pendings); leave; signals.Raise(NotificationsQueued)
 ```
+
+Rules matched only after a final attribution (raised severity, added tags) are planned by the AttributionEngine
+(11.4 #9).
 
 ### 13.2 `NotificationPlanner`
 
@@ -4602,12 +4672,17 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 
   | Secret | Binding (lower-case, `|`-separated) |
   |---|---|
-  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic` |
-  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>` (host must also be in `Notifications.OAuthSmtpHosts`) |
+  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic[|<tls>]` |
+  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>[|<tls>]` (host must also be in `Notifications.OAuthSmtpHosts`) |
   | `channel.{id}.url` | `channel|<id>|<type>` (the URL is its own destination; Teams OAuth additionally requires a Power Platform host) |
   | `channel.{id}.clientSecret` | `teams-oauth|<cloud>|<tenantId>|<clientId>|<scope>|<url host>` |
   | `channel.{id}.signingSecret`, `…previousSigningSecret` | `webhook|<id>|<url host>` |
 
+  `<tls>` is the TLS trust of the SMTP server: empty for `certificateValidation = System` with `checkRevocation`
+  (the default – bindings stored before the component existed stay valid; a credential stored earlier with a pinned
+  certificate or with revocation checks off must be entered once more after the update), otherwise `tls-<mode>` (`tls-pinnedsha256:<pin>`
+  with the lower-case pin) followed by `revocation-off` when revocation checks are off. An Admin who pins his own
+  certificate therefore cannot get the stored password or the XOAUTH2 token released to it.
   Changing any bound field requires entering the secret again (`NewValue`); a test send with unsaved settings uses a
   stored secret only when the binding matches. Tests: host changed without `NewValue` → 400 and the SMTP sink sees no
   `AUTH`; OAuth settings with a foreign host → no token request.

@@ -7,7 +7,8 @@ namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
 /// One correlation attempt for one pending event (section 11.4): kinds without an actor become NotApplicable (lockouts
-/// with their bad-password sources, 6b); privilege events inherit their cause's attribution; everything else is
+/// with their bad-password sources, 6b – retried at the <c>PendingRetries</c> steps while the 4740 is missing or a
+/// source query did not finish); privilege events inherit their cause's attribution; everything else is
 /// correlated – resolved (actor, tags, logon source, attribution-dependent severity), ambiguous (candidates listed, no
 /// actor), or retried at <c>DetectedAt + PendingRetries[i]</c> and after the last retry ended Unknown with a reason
 /// (11.7).
@@ -36,6 +37,12 @@ public sealed class PendingAttributionProcessor(
         if (watchEvent.Kind == WatchEventKind.AccountLockedOut)
         {
             var lockout = await lockoutSources.ResolveAsync(watchEvent, settings, cancellationToken).ConfigureAwait(false);
+            if (!lockout.Complete && NextAttempt(watchEvent.DetectedAt, settings.PendingRetries, timeProvider.GetUtcNow()) is { } retry)
+            {
+                // The 4740 (and the 4771/4776) may not be on the collector yet (WEF batches) or the PDC was unreachable.
+                return new ProcessedAttribution(watchEvent, new AttributionUpdate { Attribution = watchEvent.Attribution, NextAttemptAt = retry });
+            }
+
             return new ProcessedAttribution(watchEvent, new AttributionUpdate
             {
                 Attribution = EventAttribution.NotApplicable with { Evidence = lockout.Evidence },

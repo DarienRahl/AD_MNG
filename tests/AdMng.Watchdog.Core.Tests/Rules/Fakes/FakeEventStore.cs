@@ -24,6 +24,10 @@ internal sealed class FakeEventStore : IEventStore
 
     public int CommitCalls { get; private set; }
 
+    /// <summary>Fault injection: an exception returned for an event id is thrown by <see cref="UpdateAttributionAsync"/>
+    /// before anything is stored (a store error or a stop in the middle of an attribution pass).</summary>
+    public Func<long, Exception?>? UpdateAttributionFailure { get; set; }
+
     public IReadOnlyList<WatchEvent> All
     {
         get
@@ -143,6 +147,14 @@ internal sealed class FakeEventStore : IEventStore
 
     public Task UpdateAttributionAsync(long id, AttributionUpdate update, CancellationToken cancellationToken)
     {
+        if (UpdateAttributionFailure?.Invoke(id) is { } failure)
+        {
+            return Task.FromException(failure);
+        }
+
+        // As SqliteDatabase.WriteAsync: a cancelled token fails the write.
+        cancellationToken.ThrowIfCancellationRequested();
+
         lock (_gate)
         {
             var stored = _events.Single(e => e.Event.Id == id);

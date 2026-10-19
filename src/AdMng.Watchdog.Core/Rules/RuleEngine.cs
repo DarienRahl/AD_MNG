@@ -17,6 +17,7 @@ public sealed class RuleEngine
     private readonly TimeProvider _timeProvider;
     private readonly IReadOnlyList<string> _roleGroupSids;
     private readonly Lock _cacheGate = new();
+    private readonly SemaphoreSlim _evaluationGate = new(1, 1);
     private (WatchdogConfiguration Configuration, ConfigTokens Tokens, RuleMatchContext Context)? _cached;
 
     /// <param name="configProvider">The configuration.</param>
@@ -103,6 +104,19 @@ public sealed class RuleEngine
             : new RuleMatch { Rule = rule, NotificationSeverity = rule.Severity ?? watchEvent.Severity, IsProvisional = outcome == RuleMatchOutcome.Provisional };
     }
 
+    /// <summary>
+    /// Enters the section in which an event's stored evaluation is read, matched, planned and committed (13.1, 11.4 #9);
+    /// dispose the result to leave it. The rules job holds it from reading the unevaluated events until their evaluations
+    /// are committed, the attribution engine for the re-evaluation and the attribution update of one event. Both jobs wake
+    /// on EventsStored: without the section the rules job could commit a match made with the pending attribution after
+    /// the engine had stored the final one (stale severity and matched rules, a rule planned twice).
+    /// </summary>
+    public async Task<IDisposable> EnterEvaluationAsync(CancellationToken cancellationToken)
+    {
+        await _evaluationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new EvaluationSection(_evaluationGate);
+    }
+
     /// <summary>The prepared form of <paramref name="configuration"/> with the current token values (the last one is
     /// cached; the provider's current configuration is used as is, any other document in its effective form).</summary>
     public RuleMatchContext CreateContext(WatchdogConfiguration configuration)
@@ -127,5 +141,18 @@ public sealed class RuleEngine
         }
 
         return context;
+    }
+
+    private sealed class EvaluationSection(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                gate.Release();
+            }
+        }
     }
 }

@@ -120,6 +120,25 @@ public class SecurityEventParserTests
     }
 
     [Theory]
+    [InlineData("x&#x1;")]
+    [InlineData("x\u0001")]
+    [InlineData("x&#x1F;")]
+    public void ControlCharactersInAValue_DoNotDropTheRecord(string displayName)
+    {
+        // attribution-rules-10: an attacker writes displayName "x\u0001" in the same modify as AllowedToDelegateTo;
+        // EventRecord.ToXml() renders it – the one 4742 must still attribute the delegation change.
+        var xml = SecurityEventXml.Create(4742, 9, DateTimeOffset.UnixEpoch, "dc01.contoso.test",
+            [("TargetSid", "S-1-5-21-1-2-3-3101"), ("DisplayName", "ZASTĘPCZA"), ("AllowedToDelegateTo", "cifs/dc01.contoso.test")])
+            .Replace("ZASTĘPCZA", displayName, StringComparison.Ordinal);
+
+        var e = _parser.Parse(xml, "dc01")!.Event;
+
+        Assert.Equal("cifs/dc01.contoso.test", e.Get("AllowedToDelegateTo"));
+        Assert.Equal("x�", e.Get("DisplayName"));   // invalid XML 1.0 characters are replaced before storing
+        Assert.DoesNotContain(e.Data.Values, v => v.Any(c => char.IsControl(c) && c is not ('\t' or '\n' or '\r')));
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("<Event")]
     [InlineData("<Event xmlns=\"http://schemas.microsoft.com/win/2004/08/events/event\"><System><EventID>4720</EventID></System></Event>")]

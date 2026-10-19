@@ -1,4 +1,5 @@
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Model;
@@ -36,9 +37,13 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<RuleEvaluationJob> _logger;
+    private readonly ConfiguredDnMonitor? _configuredDns;
 
+    /// <summary>Creates the job; with a snapshot (<see cref="IDetectionStore"/>) every run also reports configured DNs that
+    /// no longer exist (<see cref="ConfiguredDnMonitor"/>, at most every <see cref="ConfiguredDnMonitor.Interval"/>).</summary>
     public RuleEvaluationJob(IEventStore events, RuleEngine engine, IEnumerable<IRuleMatchPlanner> planners, IWatchdogConfigProvider configProvider,
-        IConfigTokenSource tokens, IWatchdogSignals signals, IHealthRegistry health, TimeProvider timeProvider, ILogger<RuleEvaluationJob> logger)
+        IConfigTokenSource tokens, IWatchdogSignals signals, IHealthRegistry health, TimeProvider timeProvider, ILogger<RuleEvaluationJob> logger,
+        IDetectionStore? snapshot = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(engine);
@@ -58,6 +63,7 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
         _signals = signals;
         _timeProvider = timeProvider;
         _logger = logger;
+        _configuredDns = snapshot is null ? null : new ConfiguredDnMonitor(snapshot, health, timeProvider);
     }
 
     /// <inheritdoc/>
@@ -74,9 +80,13 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
     {
         try
         {
-            await _tokens.GetAsync(cancellationToken).ConfigureAwait(false);
+            var tokens = await _tokens.GetAsync(cancellationToken).ConfigureAwait(false);
             var configuration = _configProvider.Current.Configuration;
             var context = _engine.CreateContext(configuration);
+            await CheckConfiguredDnsAsync(configuration, tokens, cancellationToken).ConfigureAwait(false);
+
+            // Read → match → plan → commit in one section with the attribution engine's re-evaluation (RuleEngine).
+            using var section = await _engine.EnterEvaluationAsync(cancellationToken).ConfigureAwait(false);
             var events = await _events.GetUnevaluatedAsync(BatchSize, cancellationToken).ConfigureAwait(false);
             if (events.Count == 0)
             {
@@ -110,6 +120,23 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
         {
             SafeExceptionLog.LogError(_logger, ex, "rule evaluation");
             return new JobResult(DefaultInterval, Failed: true, FailureCode: SafeExceptionLog.ErrorCode(ex));
+        }
+    }
+
+    private async Task CheckConfiguredDnsAsync(WatchdogConfiguration configuration, ConfigTokens tokens, CancellationToken cancellationToken)
+    {
+        if (_configuredDns is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _configuredDns.CheckAsync(configuration, tokens, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            SafeExceptionLog.LogWarning(_logger, ex, "configured DN check");   // never blocks rule evaluation
         }
     }
 

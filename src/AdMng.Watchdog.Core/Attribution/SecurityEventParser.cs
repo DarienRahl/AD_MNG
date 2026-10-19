@@ -14,7 +14,8 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// omitted, <c>%%</c> codes decoded (<see cref="InsertionStringDecoder"/>); for 4740 <c>TargetDomainName</c> (the caller
 /// computer) is also exposed as <see cref="CallerComputerName"/>. Unknown names and higher versions are kept silently;
 /// DTDs are prohibited and malformed records yield null (the exception text, which can contain directory values, is
-/// never surfaced).
+/// never surfaced). Characters that are invalid in XML 1.0 (an attacker-written <c>displayName</c> "x\u0001", rendered
+/// raw or as <c>&amp;#x1;</c>) do not drop the record: they are replaced by U+FFFD in the stored values.
 /// </summary>
 public sealed class SecurityEventParser
 {
@@ -26,14 +27,22 @@ public sealed class SecurityEventParser
 
     private static readonly XNamespace Ns = EventNamespace;
 
+    // CheckCharacters off: EventRecord.ToXml() renders control characters of attacker-written values (displayName
+    // "x\u0001") as &#x1; or raw – rejecting the record would let one value hide the whole change from attribution. Such
+    // characters are replaced in the values (Clean). DTDs stay prohibited, no resolver.
     private static readonly XmlReaderSettings ReaderSettings = new()
     {
         DtdProcessing = DtdProcessing.Prohibit,
         XmlResolver = null,
         IgnoreComments = true,
         IgnoreProcessingInstructions = true,
+        CheckCharacters = false,
         MaxCharactersInDocument = 4 * 1024 * 1024,
     };
+
+    /// <summary>Replacement of characters that are not allowed in XML 1.0 (control characters other than tab, line feed and
+    /// carriage return, lone surrogates, U+FFFE/U+FFFF).</summary>
+    public const char InvalidCharacterReplacement = '�';
 
     /// <summary>Parses one record; null when the XML is malformed or misses EventID, EventRecordID, TimeCreated or
     /// Computer.</summary>
@@ -54,7 +63,7 @@ public sealed class SecurityEventParser
         XElement root;
         try
         {
-            using var reader = XmlReader.Create(new StringReader(xml), ReaderSettings);
+            using var reader = XmlReader.Create(new StringReader(Clean(xml)!), ReaderSettings);   // raw invalid characters too
             root = XElement.Load(reader);
         }
         catch (XmlException)
@@ -67,7 +76,7 @@ public sealed class SecurityEventParser
             || !int.TryParse(system.Element(Ns + "EventID")?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var eventCode)
             || !long.TryParse(system.Element(Ns + "EventRecordID")?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var recordId)
             || !TryParseSystemTime(system.Element(Ns + "TimeCreated")?.Attribute("SystemTime")?.Value, out var timeCreated)
-            || system.Element(Ns + "Computer")?.Value.Trim() is not { Length: > 0 } computer)
+            || Clean(system.Element(Ns + "Computer")?.Value)?.Trim() is not { Length: > 0 } computer)
         {
             return false;
         }
@@ -150,12 +159,43 @@ public sealed class SecurityEventParser
 
     private static void Add(Dictionary<string, string> data, string name, string? raw)
     {
-        var value = raw?.Trim();
+        var value = Clean(raw)?.Trim();
         if (string.IsNullOrEmpty(value) || value == "-")
         {
             return;
         }
 
-        data[name] = InsertionStringDecoder.Decode(value)!;
+        data[Clean(name)!] = InsertionStringDecoder.Decode(value)!;
+    }
+
+    /// <summary><paramref name="value"/> with every character that is invalid in XML 1.0 replaced by
+    /// <see cref="InvalidCharacterReplacement"/> (stored values stay printable and serializable).</summary>
+    private static string? Clean(string? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        char[]? chars = null;
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (XmlConvert.IsXmlChar(c))
+            {
+                continue;
+            }
+
+            if (char.IsHighSurrogate(c) && i + 1 < value.Length && XmlConvert.IsXmlSurrogatePair(value[i + 1], c))
+            {
+                i++;
+                continue;
+            }
+
+            chars ??= value.ToCharArray();
+            chars[i] = InvalidCharacterReplacement;
+        }
+
+        return chars is null ? value : new string(chars);
     }
 }
