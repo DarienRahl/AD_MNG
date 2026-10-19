@@ -23,10 +23,11 @@ public sealed partial class ShellViewModel
     /// <summary>
     /// "Kopiuj jako…": the value of <paramref name="format"/> for every selected object, in list order. Formats other than
     /// name, DN and canonical path read the objects again (in batches) - the rows only hold the visible columns. Objects
-    /// without the value are skipped and counted in the confirmation.
+    /// without the value are skipped and counted in the confirmation. The read is cancelled when the session changes
+    /// (disconnect, another connection) or the window closes; nothing is copied then.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanCopyAs))]
-    private async Task CopyAsAsync(CopyFormat format)
+    private async Task CopyAsAsync(CopyFormat format, CancellationToken cancellationToken)
     {
         var rows = OrderedSelection();
         var session = Sessions.Current;
@@ -47,12 +48,28 @@ public sealed partial class ShellViewModel
             try
             {
                 var dns = rows.Select(r => r.Dn).ToList();
-                var found = await Task.Run(() => DirectoryLookup.ReadManyAsync(session!, dns, attributes, CancellationToken.None)).ConfigureAwait(true);
+                var found = await Task.Run(() => DirectoryLookup.ReadManyAsync(session!, dns, attributes, cancellationToken), cancellationToken)
+                    .ConfigureAwait(true);
                 objects = [.. rows.Select(r => found.GetValueOrDefault(DnKey.For(r.Dn)))];
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // The session changed or the window closed meanwhile: the values would belong to a list that is gone.
+                return;
             }
             catch (Exception ex) when (ex is DirectoryException or OperationCanceledException or ObjectDisposedException)
             {
-                await _dialogs.ShowErrorAsync(label, Errors.Translate(ex)).ConfigureAwait(true);
+                // A session closed meanwhile may fail the read before the cancellation (posted to the UI thread) lands.
+                if (!cancellationToken.IsCancellationRequested && ReferenceEquals(Sessions.Current, session))
+                {
+                    await _dialogs.ShowErrorAsync(label, Errors.Translate(ex)).ConfigureAwait(true);
+                }
+
+                return;
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
                 return;
             }
         }

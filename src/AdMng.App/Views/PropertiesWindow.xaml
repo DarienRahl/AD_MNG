@@ -190,7 +190,11 @@
                       IsTabStop="False"
                       Template="{StaticResource FieldChrome}">
         <StackPanel>
-          <DockPanel>
+          <!--
+            Docked elements come first in the markup but not on screen: the tab order follows the screen
+            ([CONTOSO\] value [Other...] [copy]), not the markup.
+          -->
+          <DockPanel KeyboardNavigation.TabNavigation="Local">
             <!-- One-click copy (e-mail, phones, logon name, Object page...): "Copy: <label>", check mark after the click. -->
             <Button x:Name="CopyButton"
                     Margin="4,0,0,0"
@@ -199,6 +203,7 @@
                     Command="{Binding CopyCommand}"
                     Content="{x:Static c:Glyphs.Copy}"
                     DockPanel.Dock="Right"
+                    KeyboardNavigation.TabIndex="3"
                     Style="{StaticResource Ad.IconButton}"
                     Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
               <Button.ToolTip>
@@ -220,6 +225,7 @@
                           VerticalAlignment="Top"
                           Content="{l:Tr Fields.Other}"
                           DockPanel.Dock="Right"
+                          KeyboardNavigation.TabIndex="2"
                           Visibility="{Binding Others, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
             <!-- ADUC's "CONTOSO\" in front of the pre-Windows 2000 logon name: copies CONTOSO\login. -->
             <Button x:Name="QualifiedCopyButton"
@@ -229,6 +235,7 @@
                     Command="{Binding CopyQualifiedCommand}"
                     Content="{Binding QualifiedPrefix, Mode=OneWay}"
                     DockPanel.Dock="Left"
+                    KeyboardNavigation.TabIndex="0"
                     Visibility="{Binding QualifiedPrefix, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
               <Button.ToolTip>
                 <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
@@ -246,6 +253,7 @@
             <TextBox x:Name="ValueBox"
                      AutomationProperties.Name="{Binding Label, Mode=OneWay}"
                      IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                     KeyboardNavigation.TabIndex="1"
                      MaxLength="{Binding MaxLength, Mode=OneWay}"
                      Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
           </DockPanel>
@@ -378,7 +386,8 @@
                       IsTabStop="False"
                       Template="{StaticResource FieldChrome}">
         <StackPanel>
-          <DockPanel>
+          <!-- Tab order as on screen: the name, then its copy button (docked first in the markup). -->
+          <DockPanel KeyboardNavigation.TabNavigation="Local">
             <!-- Copies the referenced object's name (the manager's name for a ticket or an e-mail). -->
             <Button x:Name="CopyReferenceButton"
                     Margin="4,0,0,0"
@@ -387,6 +396,7 @@
                     Command="{Binding CopyCommand}"
                     Content="{x:Static c:Glyphs.Copy}"
                     DockPanel.Dock="Right"
+                    KeyboardNavigation.TabIndex="1"
                     Style="{StaticResource Ad.IconButton}">
               <Button.ToolTip>
                 <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
@@ -404,6 +414,7 @@
             <Grid>
               <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
                        IsReadOnly="True"
+                       KeyboardNavigation.TabIndex="0"
                        Text="{Binding DisplayName, Mode=OneWay}"
                        ToolTip="{Binding Value, Mode=OneWay}" />
               <TextBlock Style="{StaticResource Ad.HintText}"

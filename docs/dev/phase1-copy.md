@@ -24,11 +24,14 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
   left of the box, like ADUC's pre-Windows 2000 prefix, that copies `NETBIOS\login`), all phone numbers, title,
   department, company and office; on the UPN field (`prefix@suffix` as it will be written) and the Manager field (the
   manager's name). The Object page already had copy buttons (canonical name, GUID, SID, DN...). Employee ID / number
-  have no field on ADUC's pages; they are copied from the details pane or the Attribute Editor.
+  have no field on ADUC's pages; they are copied from the details pane or the Attribute Editor. The tab order follows
+  the screen, not the markup (the copy button is docked first): `NETBIOS\` button, value, "Other...", copy button.
 * Confirmation: a short non-modal toast **"Skopiowano: <label>" / "Copied: <label>"** (Info, auto-dismissed, read by
   screen readers – the toast host is a polite live region) and the button's glyph turns into a check mark for 1.5 s
-  (`CopyFeedback` behaviour, view only). When the clipboard is held by another process, `IClipboardService.SetText`
-  now returns false: no "Copied" toast, only the existing warning.
+  (`CopyFeedback` behaviour, view only) – only when the copy reached the clipboard (`ClipboardCopy.ConfirmedCount`
+  changed while the button's command ran). When the clipboard is held by another process, `IClipboardService.SetText`
+  now returns false: no "Copied" toast and no check mark, only the existing warning. This holds for every copy command
+  (also the DN copies of the session log and the Recycle Bin, the Attribute Editor and the PowerShell copies).
 
 ### 2. Ctrl+C on the object list
 
@@ -68,10 +71,14 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
 
 * Works for one or many selected objects. Name, path and DN come from the rows; the other formats read the selected
   objects **fresh** from the session's DC in batches (`DirectoryLookup.ReadManyAsync`, 100 DNs per OR filter, off the
-  UI thread, cancellable) – list rows only hold the attributes of the visible columns.
+  UI thread) – list rows only hold the attributes of the visible columns. The read is cancelled when the session
+  changes (disconnect, another connection) or the main window closes: nothing is copied and no error is shown.
 * Objects without the value (no mail, deleted meanwhile, a computer without UPN...) are **skipped and counted**:
   "Skopiowano adresy e-mail: 5. Pominięto obiekty bez adresu e-mail: 2." (warning severity when something was
-  skipped). Nothing found → warning, clipboard untouched. A directory error → error dialog.
+  skipped); a single value is confirmed with its label also when objects were skipped ("Skopiowano: Nazwa UPN.
+  Pominięto obiekty bez wartości: 1."). Nothing found → warning, clipboard untouched. A directory error → error dialog.
+* `object.copyDn` keeps its own confirmation ("Skopiowano do schowka nazwy wyróżniające: 2.") but, like the other
+  formats, emits the DNs in the list's order.
 * Shown in the list context menu and the Action menu as the submenu **"Kopiuj jako"**, in the toolbar as a copy button
   that opens the same menu, and in the palette (Ctrl+K).
 

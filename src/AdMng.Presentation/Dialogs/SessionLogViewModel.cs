@@ -126,8 +126,7 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
     {
         if ((entry ?? SelectedEntry) is { } target)
         {
-            Services.Clipboard.SetText(target.Dn);
-            Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Fields.Copied]);
+            ClipboardCopy.Value(Services.Clipboard, Services.Notifications, Localizer, target.Dn, Localizer[L.Copy.DistinguishedName]);
         }
     }
 

@@ -5,6 +5,7 @@ using System.Windows.Automation.Provider;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using AdMng.App.Behaviors;
 using AdMng.App.Controls;
 using AdMng.App.Infrastructure;
@@ -83,6 +84,13 @@ public sealed class CopyUiTests
         // Status lines have no copy button.
         var state = UiWait.Descendants<Button>(window.DetailsContent).Single(b => b.CommandParameter is SummaryField { Label: "Status" });
         Assert.Equal(Visibility.Collapsed, state.Visibility);
+
+        // A clipboard held by another process: no check mark (the clipboard service warns instead).
+        clipboard.IsBusy = true;
+        var copyLogon = UiWait.Descendants<Button>(window.DetailsContent).Single(b => b.CommandParameter is SummaryField { Label: "Domain logon name" });
+        await ClickAsync(copyLogon);
+        Assert.False(CopyFeedback.GetIsShowing(copyLogon));
+        Assert.Equal(Glyphs.Copy, copyLogon.Content);
         context.AssertHealthy();
     });
 
@@ -158,6 +166,13 @@ public sealed class CopyUiTests
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         var mailButton = UiWait.Descendants<Button>(window).Single(b => b.Name == "CopyButton" && b.DataContext is FieldViewModel { Attribute: Attr.Mail });
         Assert.Equal(Visibility.Visible, mailButton.Visibility);
+
+        // Tab order follows the screen, not the markup (the copy button is docked first): the value, then its copy button.
+        var mailBox = UiWait.Descendants<TextBox>(window).Single(t => t.Name == "ValueBox" && t.DataContext is FieldViewModel { Attribute: Attr.Mail });
+        var row = (DependencyObject)VisualTreeHelper.GetParent(mailButton);
+        Assert.Same(row, VisualTreeHelper.GetParent(mailBox));
+        Assert.Equal(KeyboardNavigationMode.Local, KeyboardNavigation.GetTabNavigation(row));
+        Assert.True(KeyboardNavigation.GetTabIndex(mailBox) < KeyboardNavigation.GetTabIndex(mailButton));
         await ClickAsync(mailButton);
         Assert.Equal("lukasz.wisniewski@contoso.test", clipboard.Text);
         Assert.True(CopyFeedback.GetIsShowing(mailButton));
@@ -293,14 +308,27 @@ public sealed class CopyUiTests
     {
         public string? Text { get; private set; }
 
+        /// <summary>Simulates a clipboard held by another process: writes fail.</summary>
+        public bool IsBusy { get; set; }
+
         public bool SetText(string text)
         {
+            if (IsBusy)
+            {
+                return false;
+            }
+
             Text = text;
             return true;
         }
 
         public bool SetSecret(string secret)
         {
+            if (IsBusy)
+            {
+                return false;
+            }
+
             Text = secret;
             return true;
         }

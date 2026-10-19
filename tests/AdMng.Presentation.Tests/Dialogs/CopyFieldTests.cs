@@ -228,6 +228,56 @@ public class CopyFieldTests
         Assert.Equal(harness.Company.JanKowalski, harness.Clipboard.Text);
     }
 
+    [Fact]
+    public async Task CopyCommands_OfOtherWindows_AreNotConfirmed_WhenTheClipboardIsBusy()
+    {
+        var harness = await B2Harness.CreateAsync();
+
+        // Attribute Editor.
+        var sheet = harness.Factory.CreatePropertySheet(harness.Company.JanKowalski);
+        await sheet.InitializeAsync();
+        var editor = Assert.IsType<AttributeEditorPageViewModel>(sheet.Pages[^1]);
+        sheet.SelectedPage = editor;
+        await B2Harness.WaitUntilAsync(() => editor.Rows.Count > 0);
+
+        // Session log (Ctrl+Shift+C) and PowerShell history.
+        using var log = harness.Factory.CreateSessionLog();
+        using var history = harness.Factory.CreatePowerShellHistory();
+        await harness.Coordinator.ApplyAsync(
+            new ChangeRequest([harness.Company.JanKowalski], [new SetAttributeOperation(Attr.Title, "Analityk")], "test"),
+            TestContext.Current.CancellationToken);
+        log.SelectedEntry = Assert.Single(log.Entries);
+        history.SelectedItem = Assert.Single(history.Items);
+
+        // Recycle Bin.
+        await harness.Session.DeleteAsync(harness.Company.SalesOu, subtree: true, TestContext.Current.CancellationToken);
+        using var bin = harness.Factory.CreateRecycleBin();
+        await bin.InitializeAsync();
+        bin.SelectedItem = bin.Items.Single(r => r.Name == "Sprzedaż");
+
+        // Selected last: the change above reloads the editor's rows.
+        await B2Harness.WaitUntilAsync(() => editor.Rows.Any(r => r.Attribute == Attr.Title && r.ValueText == "Analityk"));
+        editor.SelectedRow = Assert.Single(editor.Rows, r => r.Attribute == Attr.Department);
+
+        void CopyAll()
+        {
+            editor.CopyValueCommand.Execute(null);
+            log.CopyDnCommand.Execute(null);
+            history.CopyCommand.Execute(null);
+            bin.CopyDnCommand.Execute(null);
+        }
+
+        harness.Notifications.Clear();
+        CopyAll();
+        Assert.Equal(4, harness.Notifications.Items.Count);
+        Assert.Equal("Copied: Distinguished name (DN).", harness.Notifications.Items[1].Message);
+
+        harness.Notifications.Clear();
+        harness.Clipboard.IsBusy = true;
+        CopyAll();
+        Assert.Empty(harness.Notifications.Items);
+    }
+
     private static async Task<(PropertySheetViewModel Sheet, B2Harness Harness)> OpenAsync(Func<SampleCompany, string> target, CultureInfo? culture = null)
     {
         var harness = await B2Harness.CreateAsync(culture);

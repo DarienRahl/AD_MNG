@@ -9,6 +9,15 @@ namespace AdMng.Presentation.Infrastructure;
 /// </summary>
 public static class ClipboardCopy
 {
+    [ThreadStatic]
+    private static int _confirmed;
+
+    /// <summary>
+    /// Copies confirmed on the calling thread so far. The view's check-mark feedback compares it before and after a copy
+    /// button's command ran: a copy that did not reach the clipboard (busy, nothing to copy) shows no check mark.
+    /// </summary>
+    public static int ConfirmedCount => _confirmed;
+
     /// <summary>
     /// Copies one value and confirms it with its label. Empty values are not copied. Returns false when nothing was
     /// copied (empty value, or the clipboard was busy - the clipboard service warned then).
@@ -50,7 +59,8 @@ public static class ClipboardCopy
             return false;
         }
 
-        var message = values.Count == 1 && skipped == 0 ? localizer.Format(L.Copy.CopiedValue, label)
+        // One value: "Copied: E-mail address." (also with skipped objects - never "Copied 1 values").
+        var message = values.Count == 1 ? localizer.Format(L.Copy.CopiedValue, label)
             : isMail ? localizer.Format(L.Copy.CopiedMail, values.Count)
             : localizer.Format(L.Copy.CopiedValues, label, values.Count);
         if (skipped > 0)
@@ -59,6 +69,7 @@ public static class ClipboardCopy
         }
 
         notifications.Show(skipped > 0 ? NotificationSeverity.Warning : NotificationSeverity.Info, message);
+        _confirmed++;
         return true;
     }
 
@@ -73,6 +84,25 @@ public static class ClipboardCopy
         }
 
         notifications.Show(NotificationSeverity.Info, confirmation);
+        _confirmed++;
+        return true;
+    }
+
+    /// <summary>
+    /// Copies a secret the protected way (<see cref="IClipboardService.SetSecret"/>: kept out of clipboard history and
+    /// cleared after a while) and shows <paramref name="confirmation"/> once it is on the clipboard.
+    /// </summary>
+    public static bool Secret(IClipboardService clipboard, INotificationService notifications, string? secret, string confirmation)
+    {
+        ArgumentNullException.ThrowIfNull(clipboard);
+        ArgumentNullException.ThrowIfNull(notifications);
+        if (string.IsNullOrEmpty(secret) || !clipboard.SetSecret(secret))
+        {
+            return false;
+        }
+
+        notifications.Show(NotificationSeverity.Info, confirmation);
+        _confirmed++;
         return true;
     }
 

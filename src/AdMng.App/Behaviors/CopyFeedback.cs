@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using AdMng.App.Controls;
+using AdMng.Presentation.Infrastructure;
 
 namespace AdMng.App.Behaviors;
 
@@ -10,7 +11,8 @@ namespace AdMng.App.Behaviors;
 /// Visual confirmation of a one-click copy button: after the click its glyph turns into a check mark for
 /// <see cref="Duration"/> (the toast "Skopiowano: …" confirms the copy as well, also for screen readers). Set by the
 /// <c>Ad.CopyButton</c> style; <c>&lt;Button b:CopyFeedback.IsEnabled="True"/&gt;</c> on other glyph buttons. View only:
-/// nothing is copied here, the button's command does that.
+/// nothing is copied here, the button's command does that - through <see cref="ClipboardCopy"/>, and only a copy it
+/// confirmed shows the check mark (a busy clipboard gets the warning toast, not a check mark).
 /// </summary>
 public static class CopyFeedback
 {
@@ -61,10 +63,25 @@ public static class CopyFeedback
         }
     }
 
-    // Click is raised before the button executes its command (and only while the command can execute).
+    // Click is raised before the button executes its command (and only while the command can execute): the check mark
+    // is decided once the (synchronous) copy command ran.
     private static void OnClick(object sender, RoutedEventArgs e)
     {
         var button = (ButtonBase)sender;
+        var confirmed = ClipboardCopy.ConfirmedCount;
+        _ = button.Dispatcher.InvokeAsync(
+            () =>
+            {
+                if (ClipboardCopy.ConfirmedCount != confirmed)
+                {
+                    Show(button);
+                }
+            },
+            DispatcherPriority.Normal);
+    }
+
+    private static void Show(ButtonBase button)
+    {
         if (button.GetValue(StateProperty) is FeedbackState running)
         {
             // Clicked again while the check mark shows: keep it a little longer.

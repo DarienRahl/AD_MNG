@@ -406,8 +406,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
         var session = Session;
         var script = _engines.PowerShell.Export(IncludedPlan(_plan), session?.Info.Server ?? _plan.Server, session?.Schema);
-        Services.Clipboard.SetText(script);
-        Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.PowerShellCopied]);
+        ClipboardCopy.Text(Services.Clipboard, Services.Notifications, script, Localizer[L.Batch.PowerShellCopied]);
     }
 
     /// <summary>Executes the included objects (typed confirmation for large or risky batches).</summary>

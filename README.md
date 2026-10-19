@@ -677,7 +677,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
 - **Kopiowanie** – identyfikator i numer pracownika nie mają pola na kartach właściwości (jak w ADUC): kopiuje się je
   z panelu szczegółów albo z Edytora atrybutów. „Kopiuj jako…” dla wielu tysięcy obiektów czyta je ponownie z kontrolera
-  (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę. Ctrl+C na liście obiektów kopiuje teraz wiersze;
+  (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę i nie ma wskaźnika postępu (rozłączenie sesji
+  przerywa odczyt). Ctrl+C na liście obiektów kopiuje teraz wiersze;
   DN zaznaczonych obiektów kopiuje Ctrl+Shift+C.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.

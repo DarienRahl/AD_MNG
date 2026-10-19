@@ -7,7 +7,6 @@ using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
-using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -256,11 +255,7 @@ public sealed partial class FieldViewModel : PropertyFieldViewModel
         if (SecretAttributes.IsSecret(Attribute, Context.Schema))
         {
             // Never the case on the standard pages; a secret would only go the protected way (no history, cleared).
-            if (Context.Services.Clipboard.SetSecret(Value))
-            {
-                Context.Services.Notifications.Show(NotificationSeverity.Info, Localizer.Format(L.Copy.CopiedValue, Label));
-            }
-
+            ClipboardCopy.Secret(Context.Services.Clipboard, Context.Services.Notifications, Value, Localizer.Format(L.Copy.CopiedValue, Label));
             return;
         }
 

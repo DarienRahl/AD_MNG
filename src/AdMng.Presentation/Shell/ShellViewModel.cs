@@ -472,6 +472,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _searchDebouncer.Cancel();
         _detailsDebouncer.Cancel();
+        CopyAsCommand.Cancel();
         ObserveDocument(null);
         ObserveTab(null);
         foreach (var document in Documents)
@@ -770,6 +771,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private void OnSessionChanged(object? sender, EventArgs e) => _ = _lists.Dispatcher.RunAsync(() =>
     {
+        // A "Copy as" read of the previous session's objects is abandoned (its list goes away).
+        CopyAsCommand.Cancel();
         RaiseHeaderChanged();
         if (Sessions.Current is { } session && !ReferenceEquals(session, _initializedFor))
         {

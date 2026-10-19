@@ -1,11 +1,13 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Model;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
+using AdMng.Presentation.Tests.TestDoubles;
 
 namespace AdMng.Presentation.Tests.Shell;
 
@@ -153,6 +155,81 @@ public class CopyTests
 
         Assert.Null(harness.Clipboard.Text);
         Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task CopyAs_OneValueAndSkippedObjects_NamesTheValue_NotOneValues()
+    {
+        var harness = await B2Harness.CreateAsync();
+        harness.Session.SetValues(harness.Company.LukaszWisniewski, Attr.UserPrincipalName);
+        var shell = await OpenAsync(harness, harness.Company.ItOu);
+        SelectReversed(shell);
+
+        await shell.CopyAsCommand.ExecuteAsync(CopyFormat.UserPrincipalName);
+
+        Assert.Equal("jan.kowalski@contoso.test", harness.Clipboard.Text);
+        var toast = Assert.Single(harness.Notifications.Items);
+        Assert.Equal(NotificationSeverity.Warning, toast.Severity);
+        Assert.Equal("Copied: User principal name (UPN). Skipped objects without a value: 1.", toast.Message);
+    }
+
+    [Fact]
+    public async Task CopyAs_SessionChangesDuringTheRead_CopiesNothing_AndShowsNoError()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var shell = await OpenAsync(harness, harness.Company.ItOu);
+        SelectReversed(shell);
+
+        // A slow DC: the operator disconnects while the selected objects are being read.
+        harness.Session.Latency = TimeSpan.FromSeconds(30);
+        var copy = shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
+        await harness.Sessions.DisconnectAsync();
+        await copy.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        Assert.Null(harness.Clipboard.Text);
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task CopyDn_FollowsTheListOrder_AndIsNotConfirmedWhenTheClipboardIsBusy()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var shell = await OpenAsync(harness, harness.Company.ItOu);
+        var rows = SelectReversed(shell);
+
+        shell.CopyDnCommand.Execute(null);
+
+        Assert.Equal(string.Join(Nl, rows.Select(r => r.Dn)), harness.Clipboard.Text);
+        Assert.Equal("Copied distinguished names to the clipboard: 2.", Assert.Single(harness.Notifications.Items).Message);
+
+        harness.Clipboard.IsBusy = true;
+        shell.CopyDnCommand.Execute(null);
+        Assert.Single(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public void ClipboardCopy_CountsOnlyCopiesThatReachedTheClipboard()
+    {
+        // The view's check mark (CopyFeedback) follows this count: no check mark for a busy clipboard or an empty value.
+        var clipboard = new FakeClipboard();
+        var notifications = new RecordingNotificationService();
+        var localizer = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var before = ClipboardCopy.ConfirmedCount;
+
+        Assert.True(ClipboardCopy.Value(clipboard, notifications, localizer, "jan.kowalski@contoso.test", "E-mail"));
+        Assert.True(ClipboardCopy.Secret(clipboard, notifications, "Tajne!Hasło-2026", localizer[L.Fields.Copied]));
+        Assert.True(clipboard.IsSecret);
+        Assert.Equal(before + 2, ClipboardCopy.ConfirmedCount);
+
+        Assert.False(ClipboardCopy.Value(clipboard, notifications, localizer, string.Empty, "E-mail"));
+        clipboard.IsBusy = true;
+        Assert.False(ClipboardCopy.Value(clipboard, notifications, localizer, "jan.kowalski@contoso.test", "E-mail"));
+        Assert.False(ClipboardCopy.Values(clipboard, notifications, localizer, ["a@contoso.test", "b@contoso.test"], 0, "; ", "E-mail", isMail: true));
+        Assert.False(ClipboardCopy.Secret(clipboard, notifications, "Tajne!Hasło-2026", localizer[L.Fields.Copied]));
+
+        Assert.Equal(before + 2, ClipboardCopy.ConfirmedCount);
+        Assert.Equal(["Skopiowano: E-mail.", "Skopiowano do schowka."], notifications.Items.Select(n => n.Message));
     }
 
     [Fact]
