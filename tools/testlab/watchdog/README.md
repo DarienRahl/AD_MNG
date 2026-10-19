@@ -102,8 +102,11 @@ dotnet test tests/AdMng.Watchdog.IntegrationTests
 tools/testlab/watchdog/stop-mailpit.sh
 ```
 
-Testy tworzą własne OU `OU=WatchdogIT-<identyfikator przebiegu>` (pozostałości przerwanych przebiegów usuwają na
-starcie) i patrzą wyłącznie na zdarzenia obiektów z tego OU – laboratorium bywa współdzielone. Bez
+Testy tworzą własne OU `OU=WatchdogIT-<identyfikator przebiegu>` i patrzą wyłącznie na zdarzenia obiektów z tego OU –
+laboratorium bywa współdzielone. Opis OU wskazuje proces testów; na starcie usuwane są OU przebiegów, które się
+skończyły (proces na tym hoście już nie działa albo OU jest starsze niż 2 godziny), a OU trwających przebiegów
+zostają. Usuwanie odbywa się po stronie klienta, obiekt po obiekcie (zob. „Sprzątanie po testach” w
+[`tools/testlab/README.md`](../README.md)). Bez
 `ADMNG_TEST_LDAP_SERVER` są pomijane; test end-to-end bez `ADMNG_TEST_SMTP_HOST` uruchamia własny serwer SMTP w procesie
 zamiast Mailpit.
 

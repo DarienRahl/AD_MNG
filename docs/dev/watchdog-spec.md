@@ -5272,8 +5272,11 @@ localization completeness for every `Watchdog.*` family, language switch.
 
 ### 22.4 `tests/AdMng.Watchdog.IntegrationTests` (W-testenv) – Samba lab, skipped without `ADMNG_TEST_LDAP_*`
 
-Fixture: Administrator session creates `OU=WatchdogIT-<run id>` (throwaway; tree-deleted at the end; leftovers of
-aborted runs removed first), a read-only session as `odczyt.test` (`ADMNG_TEST_LDAP_READONLY_*`), the real engines
+Fixture: Administrator session creates `OU=WatchdogIT-<run id>` (throwaway, its description names the test process;
+removed at the end; first the OUs of runs that are over are removed – owner process on this host ended, or older than
+2 h – while OUs of runs in progress stay; trees are deleted client-side in short requests, `LabCleanup` shared with
+`AdMng.Directory.IntegrationTests`, because a Samba tree delete of the 1600-member group exceeds its 300-s request
+limit and blocks the shared lab), a read-only session as `odczyt.test` (`ADMNG_TEST_LDAP_READONLY_*`), the real engines
 resolved from `services.AddWatchdogCore()` (interfaces only, never constructors) + `InMemoryWatchdogStore` +
 `LdapDirectoryConnector`, `CreationSettleWindow = 0` unless a test exercises the window. The engine watches the whole lab
 domain (the baseline over ~3 000 objects is part of the fixture and must finish in < 60 s); assertions only look at

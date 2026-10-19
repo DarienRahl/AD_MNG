@@ -22,4 +22,10 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Lab cleanup shared with AdMng.Directory.IntegrationTests (unit-tested there): client-side tree deletes, run OUs
+         that name their owner process. -->
+    <Compile Include="..\AdMng.Directory.IntegrationTests\Infrastructure\LabCleanup.cs" Link="Infrastructure\LabCleanup.cs" />
+    <Compile Include="..\AdMng.Directory.IntegrationTests\Infrastructure\LabRuns.cs" Link="Infrastructure\LabRuns.cs" />
+  </ItemGroup>
 </Project>

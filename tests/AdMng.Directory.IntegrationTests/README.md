@@ -19,9 +19,21 @@ Optional overrides (defaults match `tools/testlab`): `ADMNG_TEST_LDAP_HELPDESK_U
 
 ## Rules
 
-- Tests write **only** below `OU=AdMngIntegration,<domain>`. The assembly fixture creates it (removing leftovers
-  of an aborted run first) and removes it with a tree delete at the end. Seeded data is only read; the access
-  denied test writes the current value back so that even a wrongly permitted write changes nothing.
+- Tests write **only** below this run's own OU, `OU=AdMngIntegration-<UTC time>-<random>,<domain>`
+  (`LabSettings.TestOu`), so concurrent runs on the shared lab (worktrees, CI jobs) never collide. Its description
+  names the test process (`[run <host> pid <id> started <time>]`, `Infrastructure/LabRuns.cs`). The assembly fixture
+  creates it and removes it at the end. Before that it removes the OUs of runs that are over: the owning process on
+  this host ended (an aborted run), or – owner on another host, or the fixed `OU=AdMngIntegration` of earlier
+  versions – older than 2 hours; OUs of runs still in progress are left alone. A leftover that cannot be removed is
+  reported as a diagnostic message and does not stop the run. Seeded data is only read; the access denied test writes
+  the current value back so that even a wrongly permitted write changes nothing.
+- Test trees are deleted **client-side** (`Infrastructure/LabCleanup.cs`, also used by
+  `AdMng.Watchdog.IntegrationTests`): groups lose their members in one modify each, then every object is deleted on its
+  own, deepest first, with a 10-minute request timeout. Samba runs one write transaction at a time (~0.1 s per deleted
+  object on the lab) and ends a request after 300 s, so a server-side tree delete of a run OU (two 1600-member groups
+  and their 3200 contacts, ~5 minutes) failed with timeLimitExceeded, left the objects behind and blocked every other
+  suite meanwhile. A busy lab (timeout, LDAP busy) or a stopped one makes the fixture fail with an explanation.
+  Diagnostic messages (removed leftovers, cleanup time): `dotnet test ... -- xUnit.DiagnosticMessages=true`.
 - Reads/writes use simple bind over plain LDAP (`AllowInsecureSimpleBind`, lab only); password resets use LDAPS
   with `AllowUntrustedCertificate` (the lab certificate is self-signed).
 - Latency assertions live in the non-parallel `Timing` collection.
