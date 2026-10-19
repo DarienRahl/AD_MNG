@@ -141,6 +141,12 @@ public sealed partial class LogonHoursViewModel : ObservableObject
     /// <summary>Localized reason why the hours cannot be changed, or null.</summary>
     public string? ReadOnlyReason { get; }
 
+    /// <summary>
+    /// Localized note when the stored value is invalid (not 21 bytes): the grid cannot show it and starts with every hour
+    /// permitted - without it a read-only dialog would present a broken value as "all hours". Null otherwise.
+    /// </summary>
+    public string? InvalidValueNote => _original is null ? Localizer[L.LogonHours.InvalidStored] : null;
+
     public bool IsReadOnly => ReadOnlyReason is not null;
 
     public bool IsEditable => !IsReadOnly;

@@ -197,6 +197,15 @@ public class LogonHoursTests
         Assert.True(dialog.HasChanges);
         Assert.Equal(LogonHours.All, dialog.Result);
         Assert.Equal("Wszystkie godziny", dialog.Summary);
+
+        // The grid cannot show a broken value: the dialog says so (a read-only one would otherwise present it as "all
+        // hours"); a valid value - also an absent one - has no note.
+        Assert.Equal(
+            "Zapisana wartość jest nieprawidłowa (nie ma 21 bajtów), więc siatka nie może jej pokazać – wszystkie godziny są w niej oznaczone jako dozwolone.",
+            dialog.InvalidValueNote);
+        Assert.NotNull(Dialog(null, readOnlyReason: "Brak uprawnień.").InvalidValueNote);
+        Assert.Null(Dialog(LogonHours.All).InvalidValueNote);
+        Assert.Null(Dialog(OfficeUtc).InvalidValueNote);
     }
 
     [Fact]
@@ -395,8 +404,14 @@ public class LogonHoursTests
         Assert.Equal("Invalid value (3 bytes)", field.Summary);
         Assert.False(field.IsDirty);
         Assert.Empty(field.GetOperations());
-        harness.Dialogs.LogonHoursHandler = _ => true;
+        LogonHoursViewModel? shown = null;
+        harness.Dialogs.LogonHoursHandler = dialog =>
+        {
+            shown = dialog;
+            return true;
+        };
         await field.EditCommand.ExecuteAsync(null);
+        Assert.Equal("The stored value is invalid (it is not 21 bytes long), so the grid cannot show it – every hour is marked as permitted.", shown?.InvalidValueNote);
         Assert.True(field.IsDirty);
         Assert.Equal(LogonHours.All, Assert.IsType<SetLogonHoursOperation>(Assert.Single(field.GetOperations())).Hours);
     }

@@ -259,6 +259,17 @@ internal static class PlanValidation
             yield return accountControlIssue;
         }
 
+        // Binary values written from their hex form (logonHours: exactly 21 bytes). Checked without schema metadata too
+        // (the session's schema read is optional): the executor writes whatever bytes the text holds.
+        var hexEncoded = PipelineValues.IsHexEncoded(attribute);
+        if (hexEncoded)
+        {
+            foreach (var value in writtenValues.Where(v => !PipelineValues.IsValidHex(attribute, v)))
+            {
+                yield return Error(IssueCodes.InvalidValue, $"'{value}' is not a valid hexadecimal value for '{attribute}'.", attribute);
+            }
+        }
+
         if (!context.HasSchema)
         {
             yield break;
@@ -288,7 +299,6 @@ internal static class PlanValidation
             yield break;
         }
 
-        var hexEncoded = PipelineValues.IsHexEncoded(attribute);
         if (schema.IsBinary(attribute) && !hexEncoded)
         {
             yield return Error(IssueCodes.BinaryNotSupported, $"'{attribute}' holds binary data, which cannot be edited in a batch.", attribute);
@@ -309,15 +319,7 @@ internal static class PlanValidation
             yield return Error(IssueCodes.SingleValued, $"'{attribute}' is single-valued but would get {result.Count} values.", attribute);
         }
 
-        if (hexEncoded)
-        {
-            // Binary values written from their hex form (logonHours: exactly 21 bytes).
-            foreach (var value in writtenValues.Where(v => !PipelineValues.IsValidHex(attribute, v)))
-            {
-                yield return Error(IssueCodes.InvalidValue, $"'{value}' is not a valid hexadecimal value for '{attribute}'.", attribute);
-            }
-        }
-        else
+        if (!hexEncoded)
         {
             foreach (var issue in writtenValues.Where(v => !rejectedValues.Contains(v)).Select(v => ValidateValue(definition, v)).OfType<ValidationIssue>())
             {

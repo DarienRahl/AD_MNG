@@ -122,6 +122,16 @@
         <TextBlock Text="{Binding ReadOnlyReason, Mode=OneWay}" TextWrapping="Wrap" />
       </Border>
 
+      <!-- The stored value is not 21 bytes: the grid cannot show it (it starts with every hour permitted). -->
+      <Border MaxWidth="720"
+              Margin="0,0,0,10"
+              Style="{StaticResource Ad.WarningBar}"
+              Visibility="{Binding InvalidValueNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock x:Name="InvalidValueText"
+                   Text="{Binding InvalidValueNote, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </Border>
+
       <!-- A header click (bubbling Click) hands the keyboard focus to the grid, so the keys continue from there. -->
       <Grid HorizontalAlignment="Left" ButtonBase.Click="OnHeaderClick">
         <Grid.ColumnDefinitions>
@@ -275,7 +285,9 @@
               Margin="0,10,0,0"
               Style="{StaticResource Ad.WarningBar}"
               Visibility="{Binding IsNonePermitted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <TextBlock AutomationProperties.LiveSetting="Assertive"
+        <!-- Announced by the code-behind when it appears (WPF raises no live region event by itself). -->
+        <TextBlock x:Name="NoneWarningText"
+                   AutomationProperties.LiveSetting="Assertive"
                    Text="{l:Tr LogonHours.NoneWarning}"
                    TextWrapping="Wrap" />
       </Border>

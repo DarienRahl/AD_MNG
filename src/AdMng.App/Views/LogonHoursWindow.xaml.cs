@@ -50,13 +50,27 @@ public partial class LogonHoursWindow : Window, IDialogResultWindow
         return ViewModel.Days[row].Cells[hour];
     }
 
-    /// <summary>Announces the new selection (after the binding updated the text).</summary>
+    /// <summary>
+    /// The live region a screen reader must hear after <paramref name="propertyName"/> of the view model changed: the
+    /// selection line after every move or switch, the "no hours" warning when it appears; null otherwise.
+    /// </summary>
+    internal FrameworkElement? LiveRegionFor(string? propertyName) => propertyName switch
+    {
+        nameof(LogonHoursViewModel.SelectionText) => SelectionLine,
+        nameof(LogonHoursViewModel.IsNonePermitted) when ViewModel.IsNonePermitted => NoneWarningText,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Announces a live region (WPF raises no live region event by itself) after the binding updated its text and
+    /// visibility.
+    /// </summary>
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(LogonHoursViewModel.SelectionText) && AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
+        if (LiveRegionFor(e.PropertyName) is { } region && AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged))
         {
             Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
-                UIElementAutomationPeer.CreatePeerForElement(SelectionLine)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged));
+                UIElementAutomationPeer.CreatePeerForElement(region)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged));
         }
     }
 

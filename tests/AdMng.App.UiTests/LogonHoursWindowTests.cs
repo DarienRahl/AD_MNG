@@ -37,6 +37,7 @@ public sealed class LogonHoursWindowTests
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
 
         Assert.Equal("Godziny logowania dla: Jan Kowalski", window.Title);
+        Assert.False(window.InvalidValueText.IsVisible);
         var cells = UiWait.Descendants<Grid>(window.HourGrid).Where(g => g.DataContext is LogonHoursCellViewModel).ToList();
         Assert.Equal(LogonHours.HoursPerWeek, cells.Count);
         Assert.All(cells, c => Assert.False(string.IsNullOrEmpty(AutomationProperties.GetName(c))));
@@ -68,11 +69,20 @@ public sealed class LogonHoursWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(dialog.Days.Single(d => d.Day == DayOfWeek.Saturday).Cells.All(c => c.IsPermitted));
         Assert.Contains("Sobota", window.SelectionLine.Text, StringComparison.Ordinal);
+        // Live regions: the selection line after every change; the "no hours" warning only when it appears (WPF raises
+        // no live region event by itself, so the window announces both).
+        Assert.Same(window.SelectionLine, window.LiveRegionFor(nameof(LogonHoursViewModel.SelectionText)));
+        Assert.Null(window.LiveRegionFor(nameof(LogonHoursViewModel.IsNonePermitted)));
+        Assert.Null(window.LiveRegionFor(nameof(LogonHoursViewModel.Summary)));
         window.SelectAllButton.Command.Execute(null);
         window.DeniedRadio.IsChecked = true;
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(dialog.IsNonePermitted);
         Assert.Contains(UiWait.Descendants<TextBlock>(window), t => t.IsVisible && t.Text == localizer[L.LogonHours.NoneWarning]);
+        Assert.Same(window.NoneWarningText, window.LiveRegionFor(nameof(LogonHoursViewModel.IsNonePermitted)));
+        Assert.True(window.NoneWarningText.IsVisible);
+        Assert.Equal(AutomationLiveSetting.Assertive, AutomationProperties.GetLiveSetting(window.NoneWarningText));
+        Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(window.SelectionLine));
 
         window.OkButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
         await UiTestSupport.WaitForIdleAsync();
@@ -164,6 +174,10 @@ public sealed class LogonHoursWindowTests
         Assert.False(window.PermittedRadio.IsEnabled);
         Assert.False(window.DeniedRadio.IsEnabled);
         Assert.Contains(UiWait.Descendants<TextBlock>(window), t => t.IsVisible && t.Text == localizer[L.Fields.ReadOnlyPermission]);
+
+        // An invalid stored value (null) cannot be shown: the note says so instead of presenting it as "all hours".
+        Assert.True(window.InvalidValueText.IsVisible);
+        Assert.Equal(localizer[L.LogonHours.InvalidStored], window.InvalidValueText.Text);
         window.HourGrid.Focus();
         Press(window.HourGrid, Key.Space);
         Assert.True(dialog.FocusedCell.IsPermitted);

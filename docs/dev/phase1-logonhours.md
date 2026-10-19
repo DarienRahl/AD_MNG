@@ -50,7 +50,8 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
   exception: attributes in `PipelineValues.HexEncodedAttributes` (only `logonHours`) travel as lowercase hex strings.
   `Read` (directory object → pipeline strings), `Normalize` (operator/plan value → canonical hex) and `ToWire`
   (pipeline string → `byte[]` for the session) are used by `ObjectPlanDraft` (original values), `PlanValidation`
-  (instead of `BinaryNotSupported`: the value must be 21 bytes of hex), `BatchExecutor` (modify/create values and the
+  (instead of `BinaryNotSupported`: the value must be 21 bytes of hex - checked also when the session has no schema
+  metadata, since the schema read is optional), `BatchExecutor` (modify/create values and the
   read-back confirmation after an ambiguous retry) and `PowerShellExporter` (`[byte[]](0x..,…)` literals). Every other
   binary attribute is still `BinaryNotSupported`.
 - `SetLogonHoursOperation(LogonHours Hours)` – user and inetOrgPerson accounts only (others: `NotApplicable` warning,
@@ -93,7 +94,8 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
   `BindingProxy`; not focusable, and a click hands the keyboard focus to the grid - otherwise arrows would stop working
   and Space would click the header again), radio buttons *Logowanie dozwolone* / *Logowanie zabronione* with the
   legend swatches (permitted = accent fill, denied = plain cell), selection text (a live region announced after every
-  change), summary, "no hours" warning, time-zone note, keyboard hint, OK/Cancel. Mouse: press on a cell starts a
+  change), summary, "no hours" warning (a live region announced when it appears - WPF raises no live region event by
+  itself, so the code-behind raises both), time-zone note, keyboard hint, OK/Cancel. Mouse: press on a cell starts a
   selection, moving with the button pressed extends it (mouse capture on the grid; the cell is computed from the
   position, clamped to the grid), Shift+click extends. Keyboard on the focusable grid as in 4. Every automation name is
   null-safe. The window sizes to its content, so every text line is capped at 720 px (a long summary of a fragmented
@@ -104,12 +106,17 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
 
 ## 6. Edge cases
 
-- Attribute absent / all ones / all zeros / wrong length (summary "Nieprawidłowa wartość", OK writes a valid value).
+- Attribute absent / all ones / all zeros / wrong length (summary "Nieprawidłowa wartość"; the dialog notes that it
+  cannot show the stored value - otherwise a read-only dialog would present it as "all hours" - and OK writes a valid
+  value).
 - Non-user objects (computers inherit `logonHours` but ADUC does not offer it): no field; the batch operation skips them.
 - Schema without `logonHours` (never in AD, possible in tests): no field.
 - Half-hour time zones (truncation), offsets across DST switches, wrap-around of the rotation across Saturday/Sunday.
 - Concurrent change by another admin: the compare-and-swap of the executor reports the conflict (bytes compared).
 - Read-only (no permission): dialog read-only, nothing staged.
+- The Watchdog's notification summary (`LogonHoursSummary`, binding Watchdog spec) uses the configured zone's
+  *standard* time, the app the *current* offset like ADUC: in summer the same value reads one hour apart (e.g. Watchdog
+  "pon–pt 8–16", Account tab "pon–pt 9–17" in Warsaw for 07–15 UTC).
 
 ## 7. Tests
 

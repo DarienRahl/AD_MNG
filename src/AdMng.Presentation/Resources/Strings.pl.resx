@@ -3037,6 +3037,9 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
   <data name="LogonHours.Invalid" xml:space="preserve">
     <value>Nieprawidłowa wartość ({0} B)</value>
   </data>
+  <data name="LogonHours.InvalidStored" xml:space="preserve">
+    <value>Zapisana wartość jest nieprawidłowa (nie ma 21 bajtów), więc siatka nie może jej pokazać – wszystkie godziny są w niej oznaczone jako dozwolone.</value>
+  </data>
   <data name="LogonHours.KeyboardHint" xml:space="preserve">
     <value>Zaznacz godziny, przeciągając myszą po siatce albo klikając dzień lub godzinę. Z klawiatury: strzałki przesuwają kursor, Shift ze strzałką rozszerza zaznaczenie, Home i End przechodzą na początek i koniec dnia, Ctrl+A zaznacza cały tydzień, a spacja przełącza zaznaczone godziny między dozwolonymi a zabronionymi.</value>
   </data>

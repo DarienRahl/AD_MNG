@@ -3,6 +3,7 @@ using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Testing;
@@ -183,6 +184,31 @@ public class LogonHoursPipelineTests
         Assert.Equal([Office.ToHex()], LogonHoursChange(valid).NewValues);
         Assert.Contains(AllIssues(invalid), i => i.Code == IssueCodes.InvalidValue && i.Attribute == Attr.LogonHours && i.Severity == IssueSeverity.Error);
         Assert.Contains(AllIssues(photo), i => i.Code == IssueCodes.BinaryNotSupported);
+    }
+
+    [Fact]
+    public async Task Planner_ChecksTheHexValue_AlsoWithoutSchemaMetadata()
+    {
+        // The session's schema read is optional (an empty catalog when it fails): the 21-byte rule must not depend on
+        // it, or "ffff" would reach the executor and be written as two bytes.
+        var info = FakeDirectorySession.CreateInfo();
+        var session = new FakeDirectorySession(info, SchemaCatalog.Empty, _time);
+        session.Seed(info.DefaultNamingContext, new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "domain", "domainDNS" } });
+        var dn = $"CN=Halina Żółkiewska,{info.DefaultNamingContext}";
+        session.Seed(dn, new Dictionary<string, object?>
+        {
+            [Attr.ObjectClass] = new[] { "top", "person", "organizationalPerson", "user" },
+            [Attr.SamAccountName] = "halina.zolkiewska",
+        });
+        var planner = new ChangePlanner(new TemplateEngine(), new PasswordGenerator(), _time);
+
+        var invalid = Assert.Single((await planner.PlanAsync(session, new BatchRequest([dn], [new SetValuesOperation(Attr.LogonHours, ["ffff"])]), null, null, Ct)).Objects);
+        var valid = Assert.Single((await planner.PlanAsync(session, new BatchRequest([dn], [new SetLogonHoursOperation(Office)]), null, null, Ct)).Objects);
+
+        Assert.True(invalid.HasErrors);
+        Assert.Contains(AllIssues(invalid), i => i.Code == IssueCodes.InvalidValue && i.Attribute == Attr.LogonHours && i.Severity == IssueSeverity.Error);
+        Assert.False(valid.HasErrors);
+        Assert.Equal([Office.ToHex()], LogonHoursChange(valid).NewValues);
     }
 
     // ------------------------------------------------------------------ executor, audit, rollback

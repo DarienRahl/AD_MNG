@@ -26,5 +26,6 @@ public static partial class L
         public const string Always = "LogonHours.Always";
         public const string Never = "LogonHours.Never";
         public const string Invalid = "LogonHours.Invalid";
+        public const string InvalidStored = "LogonHours.InvalidStored";
     }
 }

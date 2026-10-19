@@ -3037,6 +3037,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="LogonHours.Invalid" xml:space="preserve">
     <value>Invalid value ({0} bytes)</value>
   </data>
+  <data name="LogonHours.InvalidStored" xml:space="preserve">
+    <value>The stored value is invalid (it is not 21 bytes long), so the grid cannot show it – every hour is marked as permitted.</value>
+  </data>
   <data name="LogonHours.KeyboardHint" xml:space="preserve">
     <value>Select hours by dragging over the grid or by clicking a day or an hour. With the keyboard: arrow keys move the cursor, Shift with an arrow key extends the selection, Home and End go to the start and end of the day, Ctrl+A selects the whole week, and Space switches the selected hours between permitted and denied.</value>
   </data>
