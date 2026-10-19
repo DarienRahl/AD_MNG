@@ -183,6 +183,58 @@ public sealed class DeployScriptTests
         Assert.Contains(problems, p => p.Contains(config, StringComparison.OrdinalIgnoreCase) && p.Contains("S-1-5-11", StringComparison.Ordinal));
     }
 
+    /// <summary>A new folder DACL leaves the explicit ACEs of existing children in place: a local user who created
+    /// data\backup (the database copies) or data\keys before the installation and granted himself access would keep it.
+    /// The install script resets everything inside config\ and the data folder to the inherited ACEs.</summary>
+    [Fact]
+    public void Install_ResetsTheChildrenOfConfigAndData_ToTheInheritedAces()
+    {
+        var script = File.ReadAllText(Path.Combine(DeployFolder(), "Install-AdMngWatchdog.ps1"));
+        var module = File.ReadAllText(Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"));
+
+        Assert.Contains("Set-AdMngProtectedAcl -Path $ConfigDir -ResetChildren", script, StringComparison.Ordinal);
+        Assert.Contains("Set-AdMngProtectedAcl -Path $effectiveDataDirectory -ResetChildren", script, StringComparison.Ordinal);
+        Assert.Contains("/reset /T", module, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task ProtectedAcl_WithResetChildren_RemovesExplicitAcesBelowTheFolder()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) and Windows ACLs exist on Windows only.");
+        Assert.SkipUnless(IsElevated(), "Making Administrators the owner (icacls /setowner) needs an elevated process.");
+        using var directory = new TestDataDirectory();
+        var data = Path.Combine(directory.Path, "dane");
+        var backup = Path.Combine(data, "backup");
+        System.IO.Directory.CreateDirectory(backup);
+        var copy = Path.Combine(backup, "kopia-łódź.db");
+        await File.WriteAllTextAsync(copy, "x", Ct);
+
+        // Paths go in as arguments: the probe script itself is ASCII.
+        var output = await PowerShellAsync(
+            "Import-Module $args[0] -Force; " +
+            "function Get-UsersAces([string] $Item) { @((Get-Acl -LiteralPath $Item).Access | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-545' }).Count }; " +
+            "& icacls.exe $args[2] /grant '*S-1-5-32-545:(OI)(CI)F' /Q | Out-Null; " +
+            "'BEFORE=' + (Get-UsersAces $args[3]); " +
+            "Set-AdMngProtectedAcl -Path $args[1] -ResetChildren -Grants @('S-1-5-18|FullControl|true', 'S-1-5-32-544|FullControl|true'); " +
+            "'AFTER=' + (Get-UsersAces $args[2]); " +
+            "'AFTER=' + (Get-UsersAces $args[3])",
+            Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"),
+            data,
+            backup,
+            copy);
+
+        Assert.DoesNotContain("BEFORE=0", output, StringComparison.Ordinal);
+        Assert.Equal(2, output.Split('\n').Count(l => l.Trim() == "AFTER=0"));
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static bool IsElevated()
+    {
+        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+        return new System.Security.Principal.WindowsPrincipal(identity).IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+    }
+
     private static IEnumerable<string> DeployFiles() =>
         System.IO.Directory.EnumerateFiles(DeployFolder()).Where(f => f.EndsWith(".ps1", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".psm1", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal);
 

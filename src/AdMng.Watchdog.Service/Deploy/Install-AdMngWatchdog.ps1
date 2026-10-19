@@ -234,14 +234,15 @@ if ($PSCmdlet.ShouldProcess($InstallPath, 'Copy service files')) {
     Copy-Item -Path (Join-Path $SourcePath '*') -Destination $InstallPath -Recurse -Force
 }
 
-# 3. Folders and ACLs: owner Administrators recursively, protected DACLs that replace every other ACE - a local user
-# who created %ProgramData%\AdMng (Users may create folders there) before the installation keeps no rights.
+# 3. Folders and ACLs: owner Administrators recursively, protected DACLs that replace every other ACE, and everything
+# inside config\ and the data folder reset to the inherited ACEs - a local user who created %ProgramData%\AdMng (Users
+# may create folders there) or a data\backup / data\keys folder before the installation keeps no rights.
 Write-Step "Creating $Root with protected ACLs"
 if ($PSCmdlet.ShouldProcess($Root, 'Create folders and set ACLs')) {
     Set-AdMngProtectedAcl -Path $Parent -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${UsersSid}|ReadAndExecute|false", "${serviceSid}|ReadAndExecute|false")
     Set-AdMngProtectedAcl -Path $Root -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${serviceSid}|ReadAndExecute|false")
-    Set-AdMngProtectedAcl -Path $ConfigDir -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${serviceSid}|Read|true")
-    Set-AdMngProtectedAcl -Path $effectiveDataDirectory -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${serviceSid}|Modify|true")
+    Set-AdMngProtectedAcl -Path $ConfigDir -ResetChildren -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${serviceSid}|Read|true")
+    Set-AdMngProtectedAcl -Path $effectiveDataDirectory -ResetChildren -Grants @("${SystemSid}|FullControl|true", "${AdminsSid}|FullControl|true", "${serviceSid}|Modify|true")
 }
 
 # 4. Bootstrap configuration (read-only for the service), merged with the existing file.

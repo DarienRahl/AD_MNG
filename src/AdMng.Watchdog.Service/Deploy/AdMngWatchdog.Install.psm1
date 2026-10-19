@@ -167,8 +167,16 @@ function Set-AdMngProtectedAcl {
         in it before the installation keeps the owner's implicit right to change permissions.
     .PARAMETER Grants
         Entries "SID|Rights|Inherit", e.g. "S-1-5-18|FullControl|true".
+    .PARAMETER ResetChildren
+        Also reset everything below the folder to the inherited ACEs only: a new folder DACL leaves the explicit ACEs of
+        its files and subfolders in place, so a data\backup or data\keys folder a local user created before the
+        installation (and granted himself) would stay readable or writable for him.
     #>
-    param([Parameter(Mandatory = $true)] [string] $Path, [Parameter(Mandatory = $true)] [string[]] $Grants)
+    param(
+        [Parameter(Mandatory = $true)] [string] $Path,
+        [Parameter(Mandatory = $true)] [string[]] $Grants,
+        [switch] $ResetChildren
+    )
 
     if (-not (Test-Path -LiteralPath $Path)) { New-Item -ItemType Directory -Path $Path -Force | Out-Null }
     & icacls.exe $Path /setowner '*S-1-5-32-544' /T /C /Q | Out-Host
@@ -190,6 +198,11 @@ function Set-AdMngProtectedAcl {
     }
 
     Set-Acl -LiteralPath $Path -AclObject $security
+
+    if ($ResetChildren -and @(Get-ChildItem -LiteralPath $Path -Force).Count -gt 0) {
+        & icacls.exe (Join-Path $Path '*') /reset /T /C /Q | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "icacls /reset failed below $Path with exit code $LASTEXITCODE." }
+    }
 }
 
 function Get-AdMngUntrustedWriters {

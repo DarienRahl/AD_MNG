@@ -4699,8 +4699,8 @@ The install script sets the ACLs with SIDs (`Set-AdMngProtectedAcl`: owner Admin
 protected `DirectorySecurity` that replaces every ACE – `(OI)(CI)` Full for SYSTEM and Administrators, `(OI)(CI)` Modify
 for the gMSA on `data\`, Read on `config\`; 19.6) – SIDs avoid localized names such as "Administratorzy". When the
 service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same protected DACL. On every start
-(Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm` are compared with the allow-list {SYSTEM, Administrators,
-service identity} for **any** access mask, and the owner must be SYSTEM or Administrators: a deviation → Event Log
+(Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm`, `keys\` and `backup\` are compared with the allow-list
+{SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or Administrators: a deviation → Event Log
 error 1003 and exit code 5, unless the bootstrap flag `AllowInsecureDataDirectoryAcl` (then health Warning
 `storage.acl`). Backups made by the service land in `data\backup\` with the same ACL; BitLocker on the volume is
 recommended (docs).
@@ -4744,8 +4744,10 @@ Details (helper module `Deploy/AdMngWatchdog.Install.psm1`, shipped with the scr
   administrator reviews the file and deletes it or re-runs with `-TrustExistingConfig` (then a warning lists them).
 - **ACLs**: `%ProgramData%\AdMng`, `Watchdog\`, `config\` and the data folder get owner Administrators (recursively,
   `icacls /setowner /T`) and a protected DACL that replaces every other ACE (`Set-Acl` with a new
-  `DirectorySecurity`) – a local user who created the folders or the bootstrap file before the installation keeps
-  neither ownership nor an ACE.
+  `DirectorySecurity`); everything inside `config\` and the data folder is reset to the inherited ACEs
+  (`icacls <folder>\* /reset /T`, `-ResetChildren`) – a new folder DACL leaves the explicit ACEs of existing children in
+  place. So a local user who created the folders, the bootstrap file or e.g. `data\backup` / `data\keys` before the
+  installation keeps neither ownership nor an ACE.
 - **Private key**: the gMSA gets Read on the key of the certificate the service will select – by thumbprint, else by
   the selector's subject rule (serverAuth, valid, private key, newest NotAfter) – also without
   `-CertificateThumbprint`; no matching certificate stops the script. Skipped for `Server=HttpSys` (netsh sslcert).
