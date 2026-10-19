@@ -14,9 +14,10 @@ namespace AdMng.App.Behaviors;
 /// order while their minimum fits, hidden – removed from the view – otherwise). The column's XAML <c>Width</c> is its
 /// preferred width. The fit follows the list's visible width: window resized, a neighbouring <see cref="GridSplitter"/>
 /// dragged, the vertical scroll bar shown or hidden (it overlays the last column in the Fluent theme, so its width is kept
-/// free). A column whose header gripper the operator dragged keeps the operator's width from then on: the fit waits while
-/// the gripper is dragged (refitting under the pointer would move the gripper away from it) and the star columns give way
-/// once it is released.
+/// free). A column whose header gripper the operator dragged (or double-clicked: sized to its content) keeps the operator's
+/// width from then on: the fit waits while the gripper is dragged (refitting under the pointer would move the gripper away
+/// from it) and the star columns give way once it is released – or once the double-clicked column has its content width,
+/// and again whenever that width grows.
 /// </summary>
 internal static class GridViewColumnFit
 {
@@ -192,14 +193,31 @@ internal static class GridViewColumnFit
     private static void OnScrollChanged(object sender, ScrollChangedEventArgs e)
     {
         // The visible width changed, or rows came or went (the vertical scroll bar may have appeared or disappeared, the
-        // first realized row tells the row chrome). Column widths changing the extent width are the fit's own doing.
+        // first realized row tells the row chrome). Column widths changing the extent width are the fit's own doing –
+        // unless a column's width changed without a gripper drag (a double click on the gripper sizes the column to its
+        // content: no drag starts or completes) or an auto-sized column grew with the rows scrolled into view.
         var list = (ListView)sender;
-        if ((e.ViewportWidthChange != 0 || e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0)
+        if ((e.ViewportWidthChange != 0 || e.ExtentHeightChange != 0 || e.ViewportHeightChange != 0
+                || (e.ExtentWidthChange != 0 && NeedsRefit(list)))
             && ReferenceEquals(e.OriginalSource, FindScrollViewer(list)))
         {
             Apply(list);
         }
     }
+
+    /// <summary>
+    /// A shown column's width is not the one the last fit saw: resized by the operator outside a gripper drag, or an
+    /// operator's auto-sized column (gripper double click) whose content width changed.
+    /// </summary>
+    private static bool NeedsRefit(ListView list) =>
+        list.View is GridView view
+        && !(bool)list.GetValue(IsDraggingProperty)
+        && view.Columns.Any(column => column.GetValue(AppliedWidthProperty) is double applied
+            && !double.IsNaN(applied)
+            && Math.Abs(CurrentWidth(column) - applied) > 0.5);
+
+    /// <summary>The column's width as the operator set it: its <c>Width</c>, or its actual width while it sizes to content.</summary>
+    private static double CurrentWidth(GridViewColumn column) => double.IsNaN(column.Width) ? column.ActualWidth : column.Width;
 
     private static void OnGripperDragStarted(object sender, DragStartedEventArgs e)
     {
@@ -241,12 +259,18 @@ internal static class GridViewColumnFit
         for (var i = 0; i < all.Count; i++)
         {
             var column = all[i];
-            if (widths[i] is not { } width || (bool)column.GetValue(IsUserSizedProperty))
+            if (widths[i] is not { } width)
             {
                 continue;
             }
 
+            // For an operator's column: its width as this fit saw it (an auto-sized one that grows refits the rest).
             column.SetValue(AppliedWidthProperty, width);
+            if ((bool)column.GetValue(IsUserSizedProperty))
+            {
+                continue;
+            }
+
             if (double.IsNaN(column.Width) || Math.Abs(column.Width - width) > 0.5)
             {
                 column.Width = width;

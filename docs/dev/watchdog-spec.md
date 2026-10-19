@@ -5161,7 +5161,7 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 | `ChannelEditorViewModel` | name/id, type, enabled, URL (write-only, hint shown), detail level, Teams auth mode + OAuth fields, webhook signing secret ("Generuj" creates `whsec_` + 32 random bytes client-side and shows it once for copying into the receiver), previous secret (rotation), GitHub signature, allowed hosts, timeout, rate limits |
 | `DeliveryTestViewModel` | runs `SendTestEmailAsync` / `SendTestChannelAsync` with the unsaved settings; shows stages (✓/✗, detail, status codes, duration) and localized hints (`Watchdog.Hint.*`); a `secretRebindRequired` issue focuses the secret field ("adres docelowy się zmienił – wpisz hasło/sekret ponownie") |
 | `WatchdogDigestViewModel` | digest settings; `PreviewCommand` shows Subject + text alternative in a read-only text box (never written to disk); `SendNowCommand` (Admin) |
-| `WatchdogStatusViewModel` | cards: service, directory, attribution per DC, health checks (localized code, state, remedy), channels, storage, last 24 h counts; delivery log (`WatchdogDeliveryLogViewModel`, Admin: filter by status/channel, Retry for Dead); config audit (Admin) |
+| `WatchdogStatusViewModel` | cards: service, directory, attribution per DC, health checks (localized code, state, remedy), channels, storage, last 24 h counts; delivery log (`WatchdogDeliveryLogViewModel`, Admin: filter by status/channel, Retry for Dead; older pages are appended row by row – no Reset – so the list keeps its scroll position and selection); config audit (Admin) |
 | `WatchdogDisplay` | localized names: kinds, categories, severities, object kinds, reasons + remedies, health codes, hints, validation codes, delivery stages, outbox statuses (key families below) |
 
 Viewer role: everything read-only (editors disabled with tooltip "Wymaga roli administratora Watchdog"); Admin:
@@ -5185,20 +5185,22 @@ choice `IsDetailsPaneVisible` is kept for the object lists); the feed and its de
 separated by a `GridSplitter`; while the operator is scrolled away from the newest events the feed keeps its first
 visible row in place when rows come or go above it (the list scrolls by items, so an insert above would push the rows
 being read down) and after a full reload shows the same event first again (else the selection, else the newest events);
-the columns of the feed and of the rule list fit the list's visible width
+the columns of the feed, of the rule list and of the Status tab's delivery log fit the list's visible width
 (`Behaviors/GridViewColumnFit` over the pure `Infrastructure/ColumnFit`, recomputed when the window, the splitter or the
 vertical scroll bar changes that width – the Fluent scroll bar lies over the rows, so its width stays free – and never
 scrolling sideways at 1440 × 900): the feed always shows severity (min 100 px), time (140), the event title (star, at least
 260 px, takes what the others leave) and object (140), and ✓, actor, source, location and lockouts in this order while
 their minimum width (40/120/130/160/80) fits – the first that does not fit hides the rest, so columns only appear as the
 list widens; their values are in the details pane; the rule list shares its width 4 : 3 : 3 between name, kinds and
-delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); other columns give up width
-before a star column drops below its minimum, and a column the operator resized keeps its width (the star columns give
-way); the filter bar wraps its filters on the left and keeps the saved filters, "Więcej filtrów" and the reset button
-(automation name and tool tip "Wyczyść filtry") together at the end of its first row, so the reset button is never alone
-on a row (at 1440 × 900 the whole bar is one row; the search box shows its hint as tool tip, the acknowledgement comment
-box is wide enough for its placeholder); the saved-filter list (`Filter.HasPresets`) is shown only when presets exist,
-with the placeholder "Zapisane filtry"; the details button is
+delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); the delivery log's subject and
+error share what its other columns leave 3 : 2 (at least 160/120 px); other columns give up width before a star column
+drops below its minimum, and a column the operator resized keeps its width – a gripper dragged or double-clicked (sized
+to its content, without a drag: the fit follows the extent width change, and again when that column grows) – and the
+star columns give way at once; the filter bar wraps its filters on the left and keeps the saved filters, "Więcej
+filtrów" and the reset button (automation name and tool tip "Wyczyść filtry") together at the end of its first row, so
+the reset button is never alone on a row (at 1440 × 900 the whole bar is one row; the search box shows its hint as
+tool tip, the acknowledgement comment box is wide enough for its placeholder); the saved-filter list
+(`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
 "Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
 column at least 250 px wide.
 

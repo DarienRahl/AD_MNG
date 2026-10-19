@@ -206,6 +206,77 @@ public sealed class WatchdogLateMatchTests
     }
 
     [Fact]
+    public async Task RepeatedRounds_WithLiveEventsAndRowsLeavingTheFilter_ChangeTheFeedRowByRow_TheSelectedRowStays()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var (feed, resolved) = await OpenFilteredByActorAsync(h);
+
+            // Events of Jan Kowalski (shown at once) between events whose actor is still being determined.
+            var current = new List<WatchEvent>();
+            var late = new List<WatchEvent>();
+            for (var i = 0; i < 6; i++)
+            {
+                current.Add(h.Client.AddEvent(SampleEvents.NewUser($"Bieżąca Łucja {i}", h.Time.GetUtcNow()) with { Attribution = resolved }));
+                late.Add(h.Client.AddEvent(SampleEvents.NewUser($"Późny Zdzisław {i}", h.Time.GetUtcNow())));
+            }
+
+            await WaitForCursorAsync(h, late[^1].Id);
+            await WatchdogTestWait.UntilAsync(h, () => current.All(e => feed.Items.Any(r => r.Id == e.Id)), "the matching events");
+            var selected = feed.Items.Single(r => r.Id == current[2].Id);
+            feed.SelectedItem = selected;
+            feed.SelectedItems = new List<object> { selected };
+            var changes = WatchdogEventsTests.Record(feed);
+
+            // Round 1: two late matches, and a live event of Jan Kowalski on top.
+            h.Client.UpdateEvent(late[1].Id, e => e with { Attribution = resolved });
+            h.Client.UpdateEvent(late[4].Id, e => e with { Attribution = resolved });
+            var live = h.Client.AddEvent(SampleEvents.NewUser("Nowa Żaneta", h.Time.GetUtcNow()) with { Attribution = resolved });
+            await WaitForCursorAsync(h, live.Id);
+            await NextStatusRoundAsync(h, feed);
+
+            // Round 2: two shown events turn out to be Anna Nowak's – the selected one stays (marked), the other leaves – and
+            // one more late match.
+            var other = resolved with
+            {
+                Actor = resolved.Actor! with { Sid = resolved.Actor.Sid + "9", Account = @"CONTOSO\anna.nowak", DisplayName = "Anna Nowak" },
+            };
+            h.Client.UpdateEvent(current[4].Id, e => e with { Attribution = other });
+            h.Client.UpdateEvent(current[2].Id, e => e with { Attribution = other });
+            h.Client.UpdateEvent(late[0].Id, e => e with { Attribution = resolved });
+            await NextStatusRoundAsync(h, feed);
+
+            // Round 3: nothing changed – nothing moves.
+            var settled = changes.Count;
+            await NextStatusRoundAsync(h, feed);
+            Assert.Equal(settled, changes.Count);
+            Assert.Same(selected, feed.SelectedItem);
+            Assert.Same(selected, feed.Items.Single(r => r.Id == current[2].Id));
+            Assert.True(selected.NoLongerMatches);
+
+            // Round 4, after the operator deselected it: the marked row leaves too.
+            feed.SelectedItem = null;
+            feed.SelectedItems = new List<object>();
+            await NextStatusRoundAsync(h, feed);
+
+            Assert.All(changes, c => Assert.True(c.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove, $"{c.Action}"));
+            Assert.Equal(
+                new[] { live.Id, late[0].Id, late[1].Id, late[4].Id }.Order(),
+                changes.Where(c => c.Action == NotifyCollectionChangedAction.Add).Select(c => Assert.IsType<WatchdogEventRowViewModel>(Assert.Single(c.NewItems!.Cast<object>())).Id).Order());
+            Assert.Equal(
+                [current[4].Id, current[2].Id],
+                changes.Where(c => c.Action == NotifyCollectionChangedAction.Remove).Select(c => Assert.IsType<WatchdogEventRowViewModel>(Assert.Single(c.OldItems!.Cast<object>())).Id));
+            var ids = feed.Items.Select(r => r.Id).ToList();
+            Assert.Equal(ids.OrderDescending(), ids);
+            Assert.Equal(ids.Count, ids.Distinct().Count());
+            Assert.DoesNotContain(current[2].Id, ids);
+            Assert.DoesNotContain(current[4].Id, ids);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task RowsThatNoLongerMatch_LeaveTheList_ChangedRowsShowTheirNewState()
     {
         using var h = await WatchdogHarness.CreateAsync();

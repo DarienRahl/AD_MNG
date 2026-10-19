@@ -806,12 +806,14 @@ filtry.
   Lista „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw. „Zapisane
   filtry”, „Więcej filtrów” i przycisk ✕ „Wyczyść filtry” są zawsze razem na końcu pierwszego wiersza filtrów; w wąskim
   oknie pozostałe filtry przechodzą do kolejnego wiersza.
-- **Kolumny list** zdarzeń i reguł mieszczą się w szerokości listy – lista nie przewija się w bok. Na liście zdarzeń
-  zawsze widać ważność, czas, zdarzenie i obiekt; tytuł zdarzenia zajmuje miejsce, które zostaje po pozostałych
-  kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady pojawiają się w tej kolejności, gdy
-  lista ma na nie miejsce (szersze okno, węższy panel szczegółów) – ich wartości są zawsze w panelu szczegółów
-  zdarzenia. Na liście reguł nazwa, rodzaje zdarzeń i powiadomienia dzielą szerokość w proporcji 4 : 3 : 3; skróconą
-  nazwę reguły pokazuje podpowiedź. Szerokość kolumny zmieniona przez operatora (przeciągnięcie nagłówka) zostaje.
+- **Kolumny list** zdarzeń, reguł i dziennika dostarczeń (podzakładka Stan) mieszczą się w szerokości listy – lista nie
+  przewija się w bok. Na liście zdarzeń zawsze widać ważność, czas, zdarzenie i obiekt; tytuł zdarzenia zajmuje
+  miejsce, które zostaje po pozostałych kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady
+  pojawiają się w tej kolejności, gdy lista ma na nie miejsce (szersze okno, węższy panel szczegółów) – ich wartości są
+  zawsze w panelu szczegółów zdarzenia. Na liście reguł nazwa, rodzaje zdarzeń i powiadomienia dzielą szerokość w
+  proporcji 4 : 3 : 3; skróconą nazwę reguły pokazuje podpowiedź. W dzienniku dostarczeń temat i błąd dzielą miejsce po
+  pozostałych kolumnach (3 : 2). Szerokość kolumny zmieniona przez operatora (przeciągnięcie krawędzi nagłówka albo
+  dwuklik na niej, który dopasowuje kolumnę do zawartości) zostaje, a pozostałe kolumny od razu robią jej miejsce.
 - **Problemy z połączeniem**: pojedyncze żądanie, które przekroczyło czas albo nie dotarło do usługi (np. powolny zapis
   lub wyszukiwanie tekstu), pokazuje błąd w swojej podzakładce, a zakładka zostaje otwarta. Zakładka chowa się za
   banerem „Ponów” dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu

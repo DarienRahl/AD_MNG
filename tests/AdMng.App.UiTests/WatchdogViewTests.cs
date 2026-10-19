@@ -355,11 +355,54 @@ public sealed class WatchdogViewTests
         Assert.True(((GridView)list.View).Columns.Sum(c => c.ActualWidth) >= before + 90, "The feed's columns did not follow the splitter.");
         Assert.Superset(shown.ToHashSet(), Headers(list).ToHashSet());
 
+        // A width the operator set without dragging a gripper (a double click on it sizes the column to its content, no
+        // drag starts or completes): kept, and the other columns give way at once – no sideways scrolling.
+        var title = Column(list, "Zdarzenie");
+        var objectColumn = Column(list, "Obiekt");
+        var operatorWidth = Math.Floor(objectColumn.ActualWidth) + 100;
+        objectColumn.Width = operatorWidth;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(operatorWidth, objectColumn.Width);
+        Assert.True(title.ActualWidth >= 260, $"The title column is {title.ActualWidth} px wide.");
+        objectColumn.Width = double.NaN;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.True(double.IsNaN(objectColumn.Width), "The operator's auto width was replaced.");
+        Assert.True(title.ActualWidth >= 260, $"The title column is {title.ActualWidth} px wide.");
+
         // The rules next to the editor: the delivery column ends inside the list.
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
         var rules = view.RulesView.RulesList;
         AssertColumnsFit(rules);
         Assert.Equal(4, ((GridView)rules.View).Columns.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The lists of the Status tab at 1440 × 900 do not scroll sideways: the delivery log (its eight columns are wider than
+    /// the card at their XAML widths) fits the card, subject and error take what the others leave; the audit fits as well.
+    /// </summary>
+    [Fact]
+    public Task StatusLists_FitTheirCards_At1440() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var log = view.StatusView.DeliveryLogList;
+        AssertColumnsFit(log);
+        Assert.Equal(8, ((GridView)log.View).Columns.Count);
+        Assert.True(Column(log, "Temat").ActualWidth >= 160, $"The subject column is {Column(log, "Temat").ActualWidth} px wide.");
+        AssertColumnsFit(view.StatusView.AuditList);
         context.AssertHealthy();
     });
 

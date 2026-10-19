@@ -533,6 +533,30 @@ public sealed class WatchdogEventsTests
         h.AssertNoUiErrors();
     }
 
+    [Fact]
+    public async Task Refresh_ReplacesTheRowsWithOneReset_AndSelectsTheSameEventAgain()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            var selected = feed.Items[5];
+            feed.SelectedItem = selected;
+            var changes = Record(feed);
+
+            // Only a full load replaces the rows (the list view then finds the same event again by its id).
+            await feed.RefreshCommand.ExecuteAsync(null);
+
+            var change = Assert.Single(changes);
+            Assert.Equal(NotifyCollectionChangedAction.Reset, change.Action);
+            Assert.NotSame(selected, feed.SelectedItem);
+            Assert.Equal(selected.Id, feed.SelectedItem?.Id);
+            Assert.Same(feed.SelectedItem, feed.Items[5]);
+        });
+        h.AssertNoUiErrors();
+    }
+
     /// <summary>Records the collection notifications of the feed from now on.</summary>
     internal static List<NotifyCollectionChangedEventArgs> Record(WatchdogEventsViewModel feed)
     {

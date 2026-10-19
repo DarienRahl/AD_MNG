@@ -18,6 +18,10 @@ public sealed class WatchdogColumnFitTests
     // Width left for the columns of the rule list at 1440 × 900 (5/9 of the tab next to the editor).
     private const double RulesAt1440 = 606;
 
+    // Width left for the columns of the delivery log on the Status tab at 1440 × 900 (the card's 1109 px inside its border
+    // and padding, minus the list border, the row's border and padding, the vertical scroll bar and a pixel for rounding).
+    private const double DeliveryLogAt1440 = 1088;
+
     private const int Severity = 0, Time = 1, Title = 2, Object = 3, Path = 4, Actor = 5, Source = 6, Lockouts = 7, Acknowledged = 8;
 
     /// <summary>The feed: severity, time, the title (star), object, then the optional location, actor, source, lockouts and ✓.</summary>
@@ -41,6 +45,22 @@ public sealed class WatchdogColumnFitTests
         new(250, 200, Star: 4),
         new(210, 140, Star: 3),
         new(260, 150, Star: 3),
+    ];
+
+    /// <summary>
+    /// The delivery log (<c>WatchdogStatusView.xaml</c>): created, channel, state, attempts, sent / next, subject and error
+    /// (stars 3 : 2) and the retry button.
+    /// </summary>
+    private static readonly FitColumn[] DeliveryLogColumns =
+    [
+        new(150, 140),
+        new(150, 120),
+        new(140, 130),
+        new(60, 56),
+        new(180, 170),
+        new(260, 160, Star: 3),
+        new(220, 120, Star: 2),
+        new(100, 90),
     ];
 
     [Fact]
@@ -161,6 +181,22 @@ public sealed class WatchdogColumnFitTests
         var widths = ColumnFit.Fit(500, RuleColumns);
 
         Assert.Equal([40d, 200, 140, 150], widths);
+    }
+
+    [Fact]
+    public void DeliveryLog_At1440_FitsTheStatusCard_SubjectAndErrorShareTheRest()
+    {
+        // The XAML widths alone (1260 px) are wider than the card.
+        Assert.True(DeliveryLogColumns.Sum(c => c.Width) > DeliveryLogAt1440);
+
+        var widths = ColumnFit.Fit(DeliveryLogAt1440, DeliveryLogColumns);
+
+        AssertFits(DeliveryLogAt1440, DeliveryLogColumns, widths);
+        Assert.All(widths, w => Assert.NotNull(w));
+        Assert.Equal(DeliveryLogAt1440, Shown(widths).Sum());
+        Assert.All(Enumerable.Range(0, DeliveryLogColumns.Length).Where(i => DeliveryLogColumns[i].Star == 0), i => Assert.Equal(DeliveryLogColumns[i].Width, widths[i]));
+        Assert.InRange(widths[5]!.Value, 184, 186);
+        Assert.InRange(widths[6]!.Value, 123, 124);
     }
 
     [Fact]
