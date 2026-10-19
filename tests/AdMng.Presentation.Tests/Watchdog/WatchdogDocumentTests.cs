@@ -155,6 +155,53 @@ public sealed class WatchdogDocumentTests
     }
 
     [Fact]
+    public async Task Banner_ShowsStateAndHostOnce_AndASecondLineOnlyToExplain()
+    {
+        using var h = await WatchdogHarness.CreateAsync(culture: Polish);
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var changed = new List<string?>();
+            tab.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            // Connected: "Połączono admng-wd.contoso.com:8443" – the message repeats it, so no second line.
+            Assert.Equal("Połączono", tab.StateText);
+            Assert.Equal("admng-wd.contoso.com:8443", tab.HostText);
+            Assert.Equal("Połączono z admng-wd.contoso.com:8443", tab.ConnectionMessage);
+            Assert.Equal(string.Empty, tab.BannerMessage);
+
+            // A problem: the second line explains it (with the remedy); Retry clears it again.
+            var failed = h.CreateDocument();
+            failed.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            h.Client.FailWith(WatchdogClientErrorKind.Forbidden, nameof(IWatchdogClient.GetMeAsync));
+            await failed.InitializeAsync();
+            Assert.Equal("Brak uprawnień", failed.StateText);
+            Assert.Equal("Brak uprawnień – poproś o dodanie do grupy AD z rolą Watchdog.", failed.BannerMessage);
+            Assert.Contains(nameof(WatchdogDocumentViewModel.BannerMessage), changed);
+
+            h.Client.ClearFailures();
+            await failed.RefreshAsync();
+            Assert.True(failed.IsConnected);
+            Assert.Equal(string.Empty, failed.BannerMessage);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task Banner_NotConfigured_ExplainsWhatToDo()
+    {
+        using var h = await WatchdogHarness.CreateAsync(configured: false);
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = h.CreateDocument();
+            await tab.InitializeAsync();
+
+            Assert.Equal(h.Ad.Localizer[L.Watchdog.ConnectionNotConfigured], tab.BannerMessage);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task Retry_AfterAFailure_Connects()
     {
         using var h = await WatchdogHarness.CreateAsync();

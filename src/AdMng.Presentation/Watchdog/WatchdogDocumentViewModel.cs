@@ -55,7 +55,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         UpdateState(services.Connection.HasServiceUrl ? WatchdogConnectionState.Connecting : WatchdogConnectionState.NotConfigured, null);
     }
 
-    /// <summary>Open the object with this DN in an object list of the main window ("Otwórz w AD_MNG").</summary>
+    /// <summary>Open the object with this DN in an object list of the main window ("Pokaż w AD Manager").</summary>
     public event EventHandler<string>? LocateRequested;
 
     // ---- IShellDocument ---------------------------------------------------------------------------------------
@@ -73,13 +73,19 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     // ---- Connection -------------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText), nameof(ShowRolloutBanner))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText), nameof(ShowRolloutBanner), nameof(BannerMessage))]
     public partial WatchdogConnectionState ConnectionState { get; private set; }
 
-    /// <summary>Localized explanation of the state (with the remedy for Kerberos / role problems).</summary>
+    /// <summary>Localized explanation of the state (with the remedy for Kerberos / role problems); the status bar text.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(BannerMessage))]
     public partial string ConnectionMessage { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The banner's second line under "<see cref="StateText"/> <see cref="HostText"/>": the explanation of a problem or
+    /// of the missing address; empty while connected or connecting ("Połączono z …" would only repeat the first line).
+    /// </summary>
+    public string BannerMessage => ConnectionState is WatchdogConnectionState.Connected or WatchdogConnectionState.Connecting ? string.Empty : ConnectionMessage;
 
     /// <summary>Short state name for the banner ("Połączono", "Brak uprawnień").</summary>
     [ObservableProperty]
@@ -538,7 +544,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void OnLocateRequested(object? sender, string dn) => LocateRequested?.Invoke(this, dn);
 
-    /// <summary>An AD session was opened or closed: the pickers and "Otwórz w AD_MNG" re-evaluate their availability.</summary>
+    /// <summary>An AD session was opened or closed: the pickers and "Pokaż w AD Manager" re-evaluate their availability.</summary>
     private void OnSessionChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
     {
         if (_disposed)
