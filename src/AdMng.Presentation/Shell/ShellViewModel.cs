@@ -106,7 +106,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedDocument))]
+    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown))]
     public partial IShellDocument? SelectedTab { get; set; }
 
     /// <summary>
@@ -162,7 +162,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial ObjectSummaryViewModel? SelectedObject { get; private set; }
 
+    /// <summary>The operator's choice (Ctrl+D, View → Details pane), kept in the settings.</summary>
     public bool IsDetailsPaneVisible => Settings.Current.ShowDetailsPane;
+
+    /// <summary>
+    /// The window shows the object details pane: the operator's choice while an object list (or no tab) is selected;
+    /// never on a tab that shows no directory objects (the Watchdog tab has its own details pane) – the choice is
+    /// kept for the lists.
+    /// </summary>
+    public bool IsDetailsPaneShown => IsDetailsPaneVisible && (SelectedTab is null or ObjectListViewModel);
 
     public bool ShowAdvancedFeatures => Settings.Current.ShowAdvancedFeatures;
 
@@ -785,6 +793,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(IsDetailsPaneVisible));
+        OnPropertyChanged(nameof(IsDetailsPaneShown));
         OnPropertyChanged(nameof(ShowAdvancedFeatures));
         OnPropertyChanged(nameof(RecentContainers));
         if (_detailsPaneVisible != IsDetailsPaneVisible)

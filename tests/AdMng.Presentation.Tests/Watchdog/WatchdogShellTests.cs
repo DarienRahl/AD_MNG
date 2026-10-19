@@ -110,6 +110,43 @@ public sealed class WatchdogShellTests
     }
 
     [Fact]
+    public async Task DetailsPane_IsHiddenOnTheWatchdogTab_AndKeepsTheOperatorsChoiceForLists()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var list = shell.SelectedTab;
+            Assert.True(shell.IsDetailsPaneVisible);
+            Assert.True(shell.IsDetailsPaneShown);
+            var changed = new List<string?>();
+            shell.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            // The Watchdog tab has its own details pane: the main window's object pane would stay empty.
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            Assert.False(shell.IsDetailsPaneShown);
+            Assert.True(shell.IsDetailsPaneVisible);
+            Assert.Contains(nameof(ShellViewModel.IsDetailsPaneShown), changed);
+            Assert.True(h.Ad.Settings.Current.ShowDetailsPane);
+
+            // Back on a list: the operator's choice again – shown, or hidden after Ctrl+D.
+            shell.SelectedTab = list;
+            Assert.True(shell.IsDetailsPaneShown);
+            await shell.ToggleDetailsPaneCommand.ExecuteAsync(null);
+            Assert.False(shell.IsDetailsPaneShown);
+            shell.SelectedTab = watchdog;
+            Assert.False(shell.IsDetailsPaneShown);
+            shell.SelectedTab = list;
+            Assert.False(shell.IsDetailsPaneShown);
+            await shell.ToggleDetailsPaneCommand.ExecuteAsync(null);
+            Assert.True(shell.IsDetailsPaneShown);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task CtrlW_OnUnsavedWatchdogConfiguration_AsksBeforeDiscardingIt()
     {
         using var h = await WatchdogHarness.CreateAsync();

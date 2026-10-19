@@ -219,7 +219,7 @@ public partial class MainWindow : Window
 
         switch (e.PropertyName)
         {
-            case nameof(ShellViewModel.IsDetailsPaneVisible):
+            case nameof(ShellViewModel.IsDetailsPaneShown):
                 UpdateDetailsPane();
                 break;
             case nameof(ShellViewModel.SelectedTab):
@@ -235,9 +235,13 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Shows or collapses the details pane and its column (hidden by Ctrl+D and on tabs without directory objects such
+    /// as the Watchdog tab); the width the operator dragged it to comes back with it.
+    /// </summary>
     private void UpdateDetailsPane()
     {
-        var visible = Shell.IsDetailsPaneVisible;
+        var visible = Shell.IsDetailsPaneShown;
         if (!visible && DetailsColumn.Width.Value > 0)
         {
             _detailsWidth = DetailsColumn.Width;
