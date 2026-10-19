@@ -1,14 +1,20 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
+using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -195,6 +201,100 @@ public sealed class WatchdogViewTests
         context.AssertHealthy();
     });
 
+    /// <summary>
+    /// The Events sub-tab at 1440 × 900 (the screenshot size): the state and host once in the banner, no empty object
+    /// details pane, no empty saved-filter list, event titles not cut off, Critical told apart from High, and the
+    /// product name on the details button.
+    /// </summary>
+    [Fact]
+    public Task EventsLayout_At1440_ShowsTitlesAndNoEmptyOrRepeatedParts() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        // The main window's object details pane would stay empty next to the Watchdog tab.
+        Assert.Equal(Visibility.Collapsed, window.DetailsPane.Visibility);
+        Assert.Equal(0, window.DetailsColumn.ActualWidth);
+
+        // "Połączono admng-wd.contoso.com:8443" once – no second "Połączono z admng-wd.contoso.com:8443".
+        var bannerTexts = UiWait.Descendants<TextBlock>(view.ConnectionBanner).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+        Assert.Single(bannerTexts, t => t.Contains("admng-wd.contoso.com:8443", StringComparison.Ordinal));
+        Assert.Equal(Visibility.Collapsed, view.ConnectionMessage.Visibility);
+
+        // No saved filters: no empty, unlabeled list next to the reset button.
+        var events = view.EventsView;
+        Assert.Equal(Visibility.Collapsed, events.PresetPanel.Visibility);
+
+        // The title column fills what the feed has left, so the titles are readable.
+        var list = events.EventsList;
+        var columns = ((GridView)list.View).Columns;
+        var viewer = UiWait.Descendants<ScrollViewer>(list).First();
+        Assert.True(columns[2].ActualWidth >= 300, $"The title column is {columns[2].ActualWidth} px wide.");
+        Assert.True(columns.Take(3).Sum(c => c.ActualWidth) <= viewer.ViewportWidth + 0.5, "The title column ends outside the visible feed.");
+        var titles = UiWait.Descendants<TextBlock>(list)
+            .Where(t => t.IsVisible && t.DataContext is WatchdogEventRowViewModel row && t.Text == row.KindText)
+            .ToList();
+        Assert.NotEmpty(titles);
+        Assert.All(titles, t => Assert.True(t.ActualWidth + 0.5 >= TextWidth(t), $"'{t.Text}' is cut off."));
+
+        // Critical and High: both red, Critical with a ring (and its semibold text).
+        var dots = UiWait.Descendants<Ellipse>(list).Where(e => e.IsVisible).ToList();
+        var critical = dots.First(e => Equals(e.Tag, Severity.Critical));
+        var high = dots.First(e => Equals(e.Tag, Severity.High));
+        Assert.True(critical.StrokeThickness > 0);
+        var ring = Assert.IsType<SolidColorBrush>(critical.Stroke, exactMatch: false);
+        Assert.NotEqual(Assert.IsType<SolidColorBrush>(critical.Fill, exactMatch: false).Color, ring.Color);
+        Assert.True(high.Stroke is null || high.StrokeThickness == 0);
+
+        // The product name, without an underscore WPF would take for an access key.
+        Assert.Equal("Pokaż w AD Manager", events.DetailsView.OpenInAdMngButton.Content);
+
+        // Back on a list tab the operator's details pane returns.
+        window.Shell.SelectedTab = window.Shell.ListDocuments.First();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
+        Assert.True(window.DetailsColumn.ActualWidth > 0);
+        context.AssertHealthy();
+    });
+
+    /// <summary>Channels at 1440 × 900: the SMTP authentication and the sender are shown in full.</summary>
+    [Fact]
+    public Task ChannelsLayout_At1440_ShowsTheSmtpValuesInFull() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Channels);
+        tab.Channels.SelectedChannel = tab.Channels.Channels.Single(c => c.Id == "siem");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var channels = view.ChannelsView;
+        var authentication = channels.SmtpAuthenticationBox;
+        var selected = Assert.IsType<Option<SmtpAuthentication>>(authentication.SelectedItem);
+        Assert.Equal("Nazwa użytkownika i hasło", selected.Text);
+        var shown = UiWait.Descendants<TextBlock>(authentication).Single(t => t.IsVisible && t.Text == selected.Text);
+        Assert.True(shown.ActualWidth + 0.5 >= TextWidth(shown), $"'{shown.Text}' is cut off ({shown.ActualWidth} px).");
+
+        var from = channels.SmtpFromBox;
+        Assert.Equal("AD Watchdog <watchdog@contoso.com>", from.Text);
+        Assert.True(from.ExtentWidth <= from.ViewportWidth + 0.5, $"The sender is cut off ({from.ViewportWidth} of {from.ExtentWidth} px).");
+        context.AssertHealthy();
+    });
+
     [Fact]
     public Task MainWindow_AsksBeforeClosing_WhenTheWatchdogConfigurationIsUnsaved() => WpfTestHost.RunAsync(async () =>
     {
@@ -226,6 +326,17 @@ public sealed class WatchdogViewTests
         Assert.Equal(2, dialogs.Confirmations.Count);
         context.AssertHealthy();
     });
+
+    /// <summary>Width of <paramref name="text"/>'s whole text in its font (what it needs to be shown uncut).</summary>
+    private static double TextWidth(TextBlock text) =>
+        new FormattedText(
+            text.Text,
+            CultureInfo.CurrentUICulture,
+            text.FlowDirection,
+            new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch),
+            text.FontSize,
+            Brushes.Black,
+            VisualTreeHelper.GetDpi(text).PixelsPerDip).WidthIncludingTrailingWhitespace;
 
     private static async Task<MainWindow> ShowMainWindowAsync(UiTestContext context, bool connect)
     {

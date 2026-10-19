@@ -4777,8 +4777,18 @@ progress in the tab; errors are shown inline (never modal for polling errors). A
 `WatchdogRulesView` (list + inline editor), `WatchdogChannelsView`, `WatchdogDigestView`, `WatchdogStatusView`.
 Fluent theme resources only (severity colours mapped to theme brushes: Critical/High
 `SystemFillColorCriticalBrush`, Medium `SystemFillColorCautionBrush`, Low `AccentFillColorDefaultBrush`, Info
-`TextFillColorSecondaryBrush`), automation names on every input, keyboard navigation, no binding errors (UI test
-listener).
+`TextFillColorSecondaryBrush`; Critical is told apart from High by a 2 px ring in `TextFillColorPrimaryBrush` – dark on
+light, light on dark, the window text colour in high contrast – and keeps its semibold critical-coloured severity text),
+automation names on every input, keyboard navigation, no binding errors (UI test listener).
+Layout (checked by UI tests at the screenshot size 1440 × 900): the connection banner shows "state host" once and a
+second line (`BannerMessage`) only to explain a problem or the missing address; the main window's object details pane
+(and its column) is hidden while the Watchdog tab is selected (`ShellViewModel.IsDetailsPaneShown`; the operator's
+choice `IsDetailsPaneVisible` is kept for the object lists); the feed and its details pane (400 px, min 300) are
+separated by a `GridSplitter`, and the event title column fills the width the feed has left right of severity and
+time (`GridViewFill`, 230–380 px; a column the operator resized keeps its width); the saved-filter list
+(`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
+"Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
+column at least 250 px wide.
 
 ### 20.4 Localization keys (both `Strings.resx` and `Strings.pl.resx`)
 

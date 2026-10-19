@@ -116,6 +116,9 @@ public sealed partial class WatchdogEventFilterViewModel : ObservableObject
 
     public ObservableCollection<WatchdogFilterPreset> Presets { get; } = [];
 
+    /// <summary>Named filters exist: the view offers the "Zapisane filtry" list only then.</summary>
+    public bool HasPresets => Presets.Count > 0;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DeletePresetCommand))]
     public partial WatchdogFilterPreset? SelectedPreset { get; set; }
@@ -514,6 +517,8 @@ public sealed partial class WatchdogEventFilterViewModel : ObservableObject
         {
             SelectedPreset = null;
         }
+
+        OnPropertyChanged(nameof(HasPresets));
     }
 
     private void OnOptionChanged<T>(WatchdogCheckOption<T> option) => RaiseChanged();
