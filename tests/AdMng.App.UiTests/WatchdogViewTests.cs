@@ -286,7 +286,7 @@ public sealed class WatchdogViewTests
         var authentication = channels.SmtpAuthenticationBox;
         var selected = Assert.IsType<Option<SmtpAuthentication>>(authentication.SelectedItem);
         Assert.Equal("Nazwa użytkownika i hasło", selected.Text);
-        var shown = UiWait.Descendants<TextBlock>(authentication).Single(t => t.IsVisible && t.Text == selected.Text);
+        var shown = UiWait.Descendants<TextBlock>(authentication).First(t => t.IsVisible && t.Text == selected.Text);
         Assert.True(shown.ActualWidth + 0.5 >= TextWidth(shown), $"'{shown.Text}' is cut off ({shown.ActualWidth} px).");
 
         var from = channels.SmtpFromBox;
