@@ -85,8 +85,11 @@ Członkostwo w trybie `MembershipTracking: PrivilegedAndWatchListOnly` (tylko gr
 zapisywane są także listy członków grup zagnieżdżonych w grupach uprzywilejowanych lub obserwowanych, więc ich
 kolejne zmiany są zgłaszane jako dodanie / usunięcie członka – również zaraz po zrzucie bazowym. Pierwszy odczyt po
 zmianie trybu jest cichy (bez zdarzeń dla istniejących członków), a grupa, która przestaje być zagnieżdżona, traci
-zapisaną listę. Usunięcie z grupy członka z innej domeny lasu (także z domeny podrzędnej) jest zgłaszane (usunięcie
-członka, a dla grup uprzywilejowanych także odebranie dostępu uprzywilejowanego).
+zapisaną listę.
+
+Członkowie z innej domeny lasu (także z domeny podrzędnej): ich usunięcie z grupy jest zgłaszane jako usunięcie
+członka, a dla grup uprzywilejowanych także jako odebranie dostępu uprzywilejowanego – usługa nie widzi obiektów innej
+domeny, więc nie traktuje ich jako usuniętych.
 
 ---
 
