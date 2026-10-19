@@ -419,6 +419,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Commands.CancelLoad" xml:space="preserve">
     <value>Zatrzymaj ładowanie</value>
   </data>
+  <data name="Commands.ChangeDomainController" xml:space="preserve">
+    <value>Zmień kontroler domeny...</value>
+  </data>
   <data name="Commands.ChooseColumns" xml:space="preserve">
     <value>Dodaj/usuń kolumny...</value>
   </data>
@@ -715,6 +718,93 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   </data>
   <data name="Connect.UserNameRequired" xml:space="preserve">
     <value>Wprowadź nazwę użytkownika.</value>
+  </data>
+  <data name="ChangeDc.WindowTitle" xml:space="preserve">
+    <value>Zmień kontroler domeny</value>
+  </data>
+  <data name="ChangeDc.Domain" xml:space="preserve">
+    <value>Domena: {0}</value>
+  </data>
+  <data name="ChangeDc.Current" xml:space="preserve">
+    <value>Bieżący kontroler domeny: {0}</value>
+  </data>
+  <data name="ChangeDc.ListLabel" xml:space="preserve">
+    <value>Kontrolery domeny</value>
+  </data>
+  <data name="ChangeDc.ColumnYourSite" xml:space="preserve">
+    <value>Twoja lokacja</value>
+  </data>
+  <data name="ChangeDc.ColumnRoles" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="ChangeDc.RoleCurrent" xml:space="preserve">
+    <value>Bieżący</value>
+  </data>
+  <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
+    <value>Emulator PDC</value>
+  </data>
+  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
+    <value>Nie udało się odczytać listy kontrolerów domeny. Wpisz nazwę kontrolera domeny.</value>
+  </data>
+  <data name="ChangeDc.ThisDomainController" xml:space="preserve">
+    <value>Ten kontroler domeny:</value>
+  </data>
+  <data name="ChangeDc.ServerPlaceholder" xml:space="preserve">
+    <value>Nazwa lub adres, np. dc02.contoso.com</value>
+  </data>
+  <data name="ChangeDc.AnyWritableInSite" xml:space="preserve">
+    <value>Dowolny zapisywalny kontroler domeny w mojej lokacji</value>
+  </data>
+  <data name="ChangeDc.AnyWritableTarget" xml:space="preserve">
+    <value>Połączenie z {0} w Twojej lokacji {1}.</value>
+  </data>
+  <data name="ChangeDc.AnyWritableIsCurrent" xml:space="preserve">
+    <value>Bieżący kontroler {0} jest już zapisywalnym kontrolerem domeny w Twojej lokacji.</value>
+  </data>
+  <data name="ChangeDc.ClientSiteUnknown" xml:space="preserve">
+    <value>Lokacja tego komputera jest nieznana (brak lokalizatora kontrolerów domeny). Wybierz kontroler domeny z listy.</value>
+  </data>
+  <data name="ChangeDc.NoWritableInSite" xml:space="preserve">
+    <value>Nie znaleziono zapisywalnego kontrolera domeny w Twojej lokacji {0}.</value>
+  </data>
+  <data name="ChangeDc.InvalidName" xml:space="preserve">
+    <value>Wpisz nazwę hosta lub adres IP kontrolera domeny, bez portu i ldap://.</value>
+  </data>
+  <data name="ChangeDc.IsCurrent" xml:space="preserve">
+    <value>To jest bieżący kontroler domeny.</value>
+  </data>
+  <data name="ChangeDc.ReadOnlyWarning" xml:space="preserve">
+    <value>{0} jest kontrolerem domeny tylko do odczytu (RODC): możesz przeglądać, ale zmiany zostaną odrzucone.</value>
+  </data>
+  <data name="ChangeDc.UpdateProfile" xml:space="preserve">
+    <value>Zapamiętaj wybór w profilu połączenia „{0}”</value>
+  </data>
+  <data name="ChangeDc.ChangeButton" xml:space="preserve">
+    <value>Zmień</value>
+  </data>
+  <data name="ChangeDc.Changed" xml:space="preserve">
+    <value>Połączono z kontrolerem domeny {0}.</value>
+  </data>
+  <data name="ChangeDc.AlreadyConnected" xml:space="preserve">
+    <value>Sesja jest już połączona z {0}.</value>
+  </data>
+  <data name="ChangeDc.OtherDomain" xml:space="preserve">
+    <value>{0} jest kontrolerem domeny {1}, a nie {2}.</value>
+  </data>
+  <data name="ChangeDc.NotSupported" xml:space="preserve">
+    <value>Tego połączenia nie można przenieść na inny kontroler domeny. Rozłącz się i połącz z wybranym kontrolerem.</value>
+  </data>
+  <data name="ChangeDc.StaysOn" xml:space="preserve">
+    <value>Sesja pozostaje połączona z {0}.</value>
+  </data>
+  <data name="ChangeDc.RunningOperations" xml:space="preserve">
+    <value>Operacje w tle nadal trwają. Zostaną anulowane, gdy sesja przejdzie na inny kontroler domeny. Kontynuować?</value>
+  </data>
+  <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
+    <value>Kontroler domeny został zmieniony, ale nie udało się zapisać profilu połączenia: {0}</value>
+  </data>
+  <data name="ChangeDc.SessionLogAction" xml:space="preserve">
+    <value>Zmiana kontrolera domeny</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
     <value>Czy na pewno chcesz usunąć te obiekty ({0})?</value>
@@ -1249,6 +1339,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   </data>
   <data name="WindowSession.Ended" xml:space="preserve">
     <value>Sesja, w której otwarto to okno, została zakończona (rozłączenie lub ponowne połączenie). Zamknij to okno i otwórz je ponownie.</value>
+  </data>
+  <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
+    <value>To okno należy do poprzedniego kontrolera domeny {0}. Sesja pracuje teraz z {1} – zamknij to okno i otwórz je ponownie.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>Nie masz uprawnień do tworzenia obiektów typu „{0}” w tym kontenerze.</value>

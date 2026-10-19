@@ -82,6 +82,8 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task ShowConnectAsync() => Task.CompletedTask;
 
+    public Task<bool> ShowChangeDomainControllerAsync() => Inner.ShowChangeDomainControllerAsync();
+
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) => Task.FromResult(false);
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);

@@ -1,7 +1,9 @@
 using System.Net;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
+using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Connection;
 using AdMng.Presentation.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -31,6 +33,22 @@ public interface ISessionManager
 
     /// <summary>Closes the current session (no-op when disconnected).</summary>
     Task DisconnectAsync();
+
+    /// <summary>
+    /// "Change domain controller" (one DC per session): opens a NEW session on <paramref name="server"/> with the
+    /// connection options and in-memory credential of <see cref="Current"/>
+    /// (<see cref="IDirectoryConnector.ConnectToServerAsync"/>), verifies it (bind, RootDSE, same domain, another DC),
+    /// runs <paramref name="beforeSwitch"/> (e.g. cancel the background operations of the current session), then makes
+    /// the new session current in the same place, raises <see cref="SessionChanged"/> and closes the previous session.
+    /// On any failure or cancellation before the replacement the new session is closed and the current one stays
+    /// current and open. Windows pinned to the previous session see it end.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Not connected.</exception>
+    /// <exception cref="DomainControllerMismatchException">The server belongs to another domain.</exception>
+    /// <exception cref="SameDomainControllerException">The server is the current DC (an alias or address).</exception>
+    /// <exception cref="SessionEndedException">The current session was closed or replaced meanwhile.</exception>
+    /// <exception cref="DirectoryException">The DC is unreachable or refused the bind.</exception>
+    Task<DomainControllerSwitch> SwitchDomainControllerAsync(string server, Func<Task>? beforeSwitch, CancellationToken cancellationToken);
 
     /// <summary>The domain account policy of the current session, read once per session (never throws; Unknown on failure).</summary>
     Task<DomainPolicy> GetDomainPolicyAsync(CancellationToken cancellationToken);
@@ -116,14 +134,58 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
         }
 
         SessionChanged?.Invoke(this, EventArgs.Empty);
+        await CloseAsync(closing.Session).ConfigureAwait(true);
+    }
+
+    public async Task<DomainControllerSwitch> SwitchDomainControllerAsync(string server, Func<Task>? beforeSwitch, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(server);
+        var from = _current ?? throw new InvalidOperationException("Not connected to a directory.");
+        var previous = from.Session;
+
+        // Locating, binding and reading the schema may block (DNS, Kerberos) - never on the UI thread.
+        var session = await Task.Run(() => _connector.ConnectToServerAsync(previous, server.Trim(), cancellationToken), cancellationToken)
+            .ConfigureAwait(true);
         try
         {
-            await Task.Run(() => closing.Session.DisposeAsync().AsTask()).ConfigureAwait(true);
+            if (!DistinguishedName.AreEqual(session.Info.DefaultNamingContext, previous.Info.DefaultNamingContext))
+            {
+                throw new DomainControllerMismatchException(session.Info.Server, session.Info.DomainDnsName, previous.Info.DomainDnsName);
+            }
+
+            if (string.Equals(session.Info.Server, previous.Info.Server, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new SameDomainControllerException(previous.Info.Server);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (beforeSwitch is not null)
+            {
+                await beforeSwitch().ConfigureAwait(true);
+            }
+
+            var entry = new SessionEntry(session, new LocalizedAttributeFormatter(_formatterFactory.Create(session.Schema), _localizer));
+            lock (_gate)
+            {
+                var index = _sessions.IndexOf(from);
+                if (!ReferenceEquals(_current, from) || index < 0)
+                {
+                    throw new SessionEndedException("The session was closed while the domain controller was being changed.");
+                }
+
+                _sessions[index] = entry;
+                _current = entry;
+            }
         }
-        catch (Exception ex) when (ex is DirectoryException or ObjectDisposedException or InvalidOperationException)
+        catch
         {
-            _logger.LogWarning("Closing the directory session failed ({ErrorType}).", ex.GetType().Name);
+            await CloseAsync(session).ConfigureAwait(true);
+            throw;
         }
+
+        SessionChanged?.Invoke(this, EventArgs.Empty);
+        await CloseAsync(previous).ConfigureAwait(true);
+        return new DomainControllerSwitch(previous.Info.Server, session);
     }
 
     public Task<DomainPolicy> GetDomainPolicyAsync(CancellationToken cancellationToken)
@@ -163,6 +225,19 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
 
     /// <summary>Synchronous disposal for hosts that dispose the container synchronously (closes all sessions).</summary>
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <summary>Closes a session off the UI thread; failures are logged (type only), never thrown.</summary>
+    private async Task CloseAsync(IDirectorySession session)
+    {
+        try
+        {
+            await Task.Run(() => session.DisposeAsync().AsTask()).ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is DirectoryException or ObjectDisposedException or InvalidOperationException)
+        {
+            _logger.LogWarning("Closing the directory session failed ({ErrorType}).", ex.GetType().Name);
+        }
+    }
 
     private async Task<DomainPolicy> ReadPolicyAsync(IDirectorySession session)
     {

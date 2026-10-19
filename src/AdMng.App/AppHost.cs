@@ -130,6 +130,7 @@ public static class AppHost
         services.AddWindow<ObjectPickerViewModel, ObjectPickerWindow>();
         services.AddWindow<ContainerPickerViewModel, ContainerPickerWindow>();
         services.AddWindow<FindViewModel, FindWindow>();
+        services.AddWindow<ChangeDomainControllerViewModel, ChangeDomainControllerWindow>();
 
         // ---- C2b: batch and tool windows (opened through ToolWindows) ----
         services.AddSingleton<ToolWindows>();

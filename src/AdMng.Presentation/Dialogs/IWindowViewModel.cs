@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using AdMng.Core.Directory;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Connection;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -55,6 +56,9 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
 {
     private readonly IDirectorySession? _openedIn;
 
+    /// <summary>The DC of the session that replaced the window's session by "Change domain controller", else null.</summary>
+    private string? _movedTo;
+
     protected WindowViewModelBase(DialogServices services)
     {
         Services = services ?? throw new ArgumentNullException(nameof(services));
@@ -76,8 +80,11 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     /// </summary>
     public bool IsSessionEnded { get; private set; }
 
-    /// <summary>Localized "session ended - reopen the window" while <see cref="IsSessionEnded"/>, else null.</summary>
-    public string? SessionEndedMessage => IsSessionEnded ? Localizer[L.WindowSession.Ended] : null;
+    /// <summary>
+    /// Localized "session ended - reopen the window" while <see cref="IsSessionEnded"/> (after "Change domain controller":
+    /// the window belongs to the previous DC), else null.
+    /// </summary>
+    public string? SessionEndedMessage => IsSessionEnded ? EndedMessage : null;
 
     protected DialogServices Services { get; }
 
@@ -104,7 +111,11 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     protected virtual bool UsesSession => true;
 
     /// <summary>Localized reason why <see cref="Session"/> is null: the session ended, or not connected.</summary>
-    protected string NoSessionMessage => Localizer[_openedIn is null ? L.Errors.NotConnected : L.WindowSession.Ended];
+    protected string NoSessionMessage => _openedIn is null ? Localizer[L.Errors.NotConnected] : EndedMessage;
+
+    private string EndedMessage => _movedTo is { } server && _openedIn is { } openedIn
+        ? Localizer.Format(L.WindowSession.EndedOnPreviousDc, openedIn.Info.Server, server)
+        : Localizer[L.WindowSession.Ended];
 
     /// <summary><see cref="Session"/>, or an exception that <see cref="ErrorTranslator"/> explains.</summary>
     /// <exception cref="SessionEndedException">The session of the window ended.</exception>
@@ -162,6 +173,8 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
             return;
         }
 
+        var current = Services.Sessions.Current;
+        _movedTo = DomainControllerSwitch.IsSwitch(_openedIn, current) ? current!.Info.Server : null;
         IsSessionEnded = true;
         OnPropertyChanged(nameof(IsSessionEnded));
         OnPropertyChanged(nameof(SessionEndedMessage));

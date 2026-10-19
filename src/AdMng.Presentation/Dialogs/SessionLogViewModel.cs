@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Ldap;
+using AdMng.Presentation.Connection;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -18,7 +19,9 @@ public sealed class AuditEntryViewModel
         Entry = entry;
         Timestamp = TimeZoneInfo.ConvertTime(entry.Timestamp, timeZone).ToString("G", localizer.Culture);
         Name = DistinguishedName.TryParse(entry.DistinguishedName, out var dn) && !dn.IsRoot ? dn.Name : entry.DistinguishedName;
-        Action = Enum.TryParse<ChangeAction>(entry.Action, out var action) ? localizer[DisplayNames.ChangeActionKey(action)] : entry.Action;
+        Action = entry.Action == DomainControllerSwitch.SessionLogAction
+            ? localizer[L.ChangeDc.SessionLogAction]
+            : Enum.TryParse<ChangeAction>(entry.Action, out var action) ? localizer[DisplayNames.ChangeActionKey(action)] : entry.Action;
         Attribute = string.IsNullOrEmpty(entry.Attribute) ? string.Empty : localizer.AttributeName(entry.Attribute, null);
         ResultText = localizer[entry.Succeeded ? L.SessionLog.Succeeded : L.SessionLog.Failed];
     }

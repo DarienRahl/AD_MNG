@@ -82,6 +82,10 @@ public sealed class DialogService : IDialogService
         return true;
     });
 
+    /// <summary>"Change Domain Controller" (modal). True when the session moved to another DC.</summary>
+    public Task<bool> ShowChangeDomainControllerAsync() =>
+        OnUiThreadAsync(() => ShowWindowModal(Factory.CreateChangeDomainController()));
+
     // ---- Dialogs of the next wave (property sheets, wizards, pickers) ----------------------------------------
 
     // ---- C2a: object dialogs (property sheets, New Object, Reset Password, pickers, Find) ----------------------
