@@ -82,7 +82,7 @@ public sealed partial class ServiceOptionsFactory : IOptionsFactory<ServiceOptio
     private static partial class Log
     {
         [LoggerMessage(EventId = ConfigurationSetup.ReloadFailedEventId, Level = LogLevel.Warning,
-            Message = "The edited bootstrap file config\\appsettings.json has a setting value that cannot be applied ({ErrorCode}); the previous settings stay in effect until it is fixed (check the setting names and values, AdMng.Watchdog.exe --check-config).")]
+            Message = "The edited bootstrap file (appsettings.json in the config folder) has a setting value that cannot be applied ({ErrorCode}); the previous settings stay in effect until it is fixed (check the setting names and values, AdMng.Watchdog.exe --check-config).")]
         public static partial void CannotBind(ILogger logger, string errorCode);
     }
 }

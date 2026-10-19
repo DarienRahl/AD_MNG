@@ -28,7 +28,7 @@ public sealed class LongPollShutdownTests
     public async Task Stop_EndsAPendingLongPoll_AtOnce()
     {
         using var directory = new TestDataDirectory();
-        var clock = new TestClock(TestStore.Start);   // never advanced: only the stop can end the 30 s wait
+        var clock = new TestClock(TestStore.Start);   // never advanced: only the stop can end the 27 s wait
         var settings = new Dictionary<string, string?>
         {
             ["Watchdog:DataDirectory"] = directory.Path,
@@ -50,8 +50,10 @@ public sealed class LongPollShutdownTests
         using var client = new HttpClient { BaseAddress = address };
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.AccountHeader, Uri.EscapeDataString(TestRoles.ViewerAccount));
         client.DefaultRequestHeaders.Add(TestAuthenticationHandler.SidsHeader, TestRoles.ViewerGroup);
-        var waiting = clock.WaitForTimerAsync(TimeSpan.FromSeconds(30));
-        var polling = client.GetAsync($"{WatchdogRoutes.Events}?after={first}&wait=30", Ct);
+        // A wait no job uses as its interval (jobs use 15 s, 30 s, ...): the timer then proves the request is inside the
+        // long-poll – otherwise, on a busy machine, a job's 30 s timer could release the stop before the request connected.
+        var waiting = clock.WaitForTimerAsync(TimeSpan.FromSeconds(27));
+        var polling = client.GetAsync($"{WatchdogRoutes.Events}?after={first}&wait=27", Ct);
         await waiting.WaitAsync(Ct);
 
         await app.StopAsync(Ct).WaitAsync(TimeSpan.FromSeconds(15), Ct);

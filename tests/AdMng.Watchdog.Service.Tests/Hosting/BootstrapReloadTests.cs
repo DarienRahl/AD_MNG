@@ -92,8 +92,7 @@ public sealed class BootstrapReloadTests
 
         Assert.True(await IsAdminAsync(handler));
         Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
-        var warning = Assert.Single(log.Entries, e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId);
-        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        AssertReloadWarnings(log);
         Assert.DoesNotContain(ŁukaszSid, log.Text, StringComparison.Ordinal);
 
         var reloaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -141,8 +140,7 @@ public sealed class BootstrapReloadTests
 
         Assert.True(await IsAdminAsync(handler));
         Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
-        var warning = Assert.Single(log.Entries, e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId);
-        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        AssertReloadWarnings(log);
         Assert.DoesNotContain("Minimalny", log.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(ŁukaszSid, log.Text, StringComparison.Ordinal);
 
@@ -196,6 +194,20 @@ public sealed class BootstrapReloadTests
         Assert.Equal([ŁukaszSid], effective.Authorization.DeniedSids);
         Assert.Equal(Contracts.Configuration.DetailLevel.Minimal, effective.Authorization.ViewerDetailLevel);
         Assert.Equal(["smtp.office365.us"], effective.Notifications.OAuthSmtpHosts);
+    }
+
+    /// <summary>Warning 2002 – once per reload the watcher saw (one save may fire it twice: truncate, then write), readable
+    /// text (no control characters from an escape sequence in the template) naming the file.</summary>
+    private static void AssertReloadWarnings(TestLog log)
+    {
+        var warnings = log.Entries.Where(e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId).ToList();
+        Assert.NotEmpty(warnings);
+        Assert.All(warnings, w =>
+        {
+            Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, w.Level);
+            Assert.Contains("appsettings.json", w.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(w.Message, char.IsControl);
+        });
     }
 
     /// <summary>Waits (real time – the file watcher) until <paramref name="condition"/> holds, at most 30 s.</summary>

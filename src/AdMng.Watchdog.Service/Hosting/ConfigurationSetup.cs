@@ -102,7 +102,7 @@ public static partial class ConfigurationSetup
     private static partial class Log
     {
         [LoggerMessage(EventId = ReloadFailedEventId, Level = LogLevel.Warning,
-            Message = "The edited bootstrap file config\\appsettings.json could not be loaded ({ErrorCode}); the previous settings stay in effect until it is fixed (check the JSON syntax, AdMng.Watchdog.exe --check-config).")]
+            Message = "The edited bootstrap file (appsettings.json in the config folder) could not be loaded ({ErrorCode}); the previous settings stay in effect until it is fixed (check the JSON syntax, AdMng.Watchdog.exe --check-config).")]
         public static partial void ReloadFailed(ILogger logger, string errorCode);
     }
 }
