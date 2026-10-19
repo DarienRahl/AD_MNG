@@ -64,9 +64,17 @@ internal static class PlanValidation
         return (uac & (UserAccountControl.ServerTrustAccount | UserAccountControl.PartialSecretsAccount)) != 0;
     }
 
-    /// <summary>Normalizes a value to its wire form where it is unambiguous (booleans to TRUE/FALSE).</summary>
+    /// <summary>
+    /// Normalizes a value to its wire form where it is unambiguous (booleans to TRUE/FALSE, hex-encoded binary values
+    /// such as logonHours to lowercase hex without whitespace - see <see cref="PipelineValues"/>).
+    /// </summary>
     public static string NormalizeValue(ISchemaCatalog schema, string attribute, string value)
     {
+        if (PipelineValues.IsHexEncoded(attribute))
+        {
+            return PipelineValues.Normalize(attribute, value);
+        }
+
         if (schema.FindAttribute(attribute)?.Syntax != AttributeSyntax.Boolean)
         {
             return value;
@@ -280,7 +288,8 @@ internal static class PlanValidation
             yield break;
         }
 
-        if (schema.IsBinary(attribute))
+        var hexEncoded = PipelineValues.IsHexEncoded(attribute);
+        if (schema.IsBinary(attribute) && !hexEncoded)
         {
             yield return Error(IssueCodes.BinaryNotSupported, $"'{attribute}' holds binary data, which cannot be edited in a batch.", attribute);
             yield break;
@@ -300,9 +309,20 @@ internal static class PlanValidation
             yield return Error(IssueCodes.SingleValued, $"'{attribute}' is single-valued but would get {result.Count} values.", attribute);
         }
 
-        foreach (var issue in writtenValues.Where(v => !rejectedValues.Contains(v)).Select(v => ValidateValue(definition, v)).OfType<ValidationIssue>())
+        if (hexEncoded)
         {
-            yield return issue;
+            // Binary values written from their hex form (logonHours: exactly 21 bytes).
+            foreach (var value in writtenValues.Where(v => !PipelineValues.IsValidHex(attribute, v)))
+            {
+                yield return Error(IssueCodes.InvalidValue, $"'{value}' is not a valid hexadecimal value for '{attribute}'.", attribute);
+            }
+        }
+        else
+        {
+            foreach (var issue in writtenValues.Where(v => !rejectedValues.Contains(v)).Select(v => ValidateValue(definition, v)).OfType<ValidationIssue>())
+            {
+                yield return issue;
+            }
         }
 
         if (result.Count == 0 && sets is not null && sets.Mandatory.Contains(attribute))

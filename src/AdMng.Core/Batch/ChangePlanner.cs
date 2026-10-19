@@ -354,6 +354,14 @@ public sealed class ChangePlanner : IChangePlanner
                 case ResetPasswordOperation:
                     AddAttributes(Attr.SamAccountName, Attr.GivenName, Attr.Sn);
                     break;
+                case SetLogonHoursOperation logonHours:
+                    AddAttributes(Attr.LogonHours);
+                    if (logonHours.Hours is null)
+                    {
+                        OperationErrors[index] ??= PlanValidation.Error(IssueCodes.InvalidValue, "No logon hours were given.", Attr.LogonHours);
+                    }
+
+                    break;
                 case RenameOperation rename:
                     MovesDeletesOrRenames = true;
                     CheckTemplate(index, rename.NameTemplate, templates);
@@ -577,6 +585,9 @@ public sealed class ChangePlanner : IChangePlanner
                     break;
                 case SetAccountExpirationOperation expiration:
                     ApplyExpiration(expiration);
+                    break;
+                case SetLogonHoursOperation logonHours:
+                    ApplyLogonHours(logonHours.Hours);
                     break;
                 case ResetPasswordOperation reset:
                     ApplyResetPassword(reset);
@@ -848,6 +859,28 @@ public sealed class ChangePlanner : IChangePlanner
             }
 
             Edit(Attr.AccountExpires).Replace([AdConvert.ToFileTime(operation.ExpiresAt.Value).ToString(CultureInfo.InvariantCulture)]);
+        }
+
+        /// <summary>
+        /// Like ADUC: the schedule is written as 21 bytes (never cleared); an absent attribute and all ones are the same
+        /// schedule ("all hours"), so nothing is written when the effective schedule is already the requested one. An
+        /// invalid stored value (not 21 bytes) is always replaced.
+        /// </summary>
+        private void ApplyLogonHours(LogonHours hours)
+        {
+            if (!RequireKind(IsPasswordAccount, "Logon hours"))
+            {
+                return;
+            }
+
+            var current = _draft.CurrentValues(Attr.LogonHours);
+            var effective = current.Count == 0 ? LogonHours.All : LogonHours.TryParseHex(current[0], out var stored) ? stored : null;
+            if (current.Count <= 1 && hours.Equals(effective))
+            {
+                return;
+            }
+
+            Edit(Attr.LogonHours).Replace([hours.ToHex()]);
         }
 
         private void ApplyResetPassword(ResetPasswordOperation operation)
