@@ -31,6 +31,8 @@ public class DialogLocalizationTests
         keys.AddRange(Enum.GetValues<FindOperator>().Select(DisplayNames.FindOperatorKey));
         keys.AddRange(DisplayNames.PluralKinds.Select(DisplayNames.KindPluralKey));
         keys.AddRange(DisplayNames.PropertySheetAttributes.Select(DisplayNames.AttributeKey));
+        keys.AddRange(Enum.GetValues<DayOfWeek>().Select(DisplayNames.LogonHoursDayKey));
+        keys.AddRange(Enum.GetValues<DayOfWeek>().Select(DisplayNames.LogonHoursShortDayKey));
 
         var en = Load(CultureInfo.InvariantCulture);
         var pl = Load(CultureInfo.GetCultureInfo("pl"));

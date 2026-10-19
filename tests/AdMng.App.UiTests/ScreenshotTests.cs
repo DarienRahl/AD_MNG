@@ -63,6 +63,11 @@ public sealed class ScreenshotTests
         "Właściwości użytkownika – karta Konto",
         "User properties – Account tab");
 
+    private static readonly ScreenshotInfo LogonHoursDialog = new(
+        "14-logon-hours.png",
+        "Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy",
+        "Logon hours – the weekly schedule of an account in local time, office hours selected");
+
     private static readonly ScreenshotInfo BatchPreview = new(
         "05-batch-editor-preview.png",
         "Edytor zbiorczy – podgląd zmian (przed → po) przed wykonaniem",
@@ -123,6 +128,28 @@ public sealed class ScreenshotTests
     [Fact]
     public Task Screenshot04_UserProperties_AccountTab() =>
         ShootAsync(ThemePreference.Light, context => ShootUserPropertiesAsync(context, L.Pages.Account, PropertiesAccount));
+
+    [Fact]
+    public Task Screenshot14_LogonHours() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Warsaw in winter (UTC+1), so the time-zone note does not depend on the build agent.
+        var warsaw = TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw");
+        var winter = new DateTimeOffset(2026, 1, 15, 9, 0, 0, TimeSpan.Zero);
+        var hours = LogonHours.FromLocalGrid(
+            LogonHoursGrid.Create((day, hour) =>
+                (day is >= DayOfWeek.Monday and <= DayOfWeek.Friday && hour is >= 7 and < 18) || (day == DayOfWeek.Saturday && hour is >= 8 and < 13)),
+            LogonHours.OffsetHours(warsaw, winter));
+        var dialog = new LogonHoursViewModel(context.Services.GetRequiredService<ILocalizer>(), hours, warsaw, winter, "Jan Kowalski");
+        dialog.BeginSelection(dialog.Days[0].Cells[7], extend: false);
+        dialog.ExtendSelection(dialog.Days[4].Cells[17]);
+        Assert.Equal("pon–pt 7–18; sob 8–13", dialog.Summary);
+
+        var window = (LogonHoursWindow)Windows(context).CreateWindow(dialog);
+        await ScreenshotWriter.ShowAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        await ScreenshotWriter.SaveAsync(window, LogonHoursDialog, dark: false);
+    });
 
     [Fact]
     public Task Screenshot05_BatchEditor_Preview() => ShootAsync(ThemePreference.Light, async context =>

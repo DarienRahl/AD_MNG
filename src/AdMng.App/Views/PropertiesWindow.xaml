@@ -660,6 +660,28 @@
       </ContentControl>
     </DataTemplate>
 
+    <!-- Logon hours: summary in local time and the Logon Hours dialog (read-only without permission to write logonHours). -->
+    <DataTemplate DataType="{x:Type ps:LogonHoursFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <DockPanel>
+          <!-- The summary is not focusable: the button's help text gives it to a screen reader. -->
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.HelpText="{Binding Summary, Mode=OneWay, TargetNullValue=''}"
+                  Command="{Binding EditCommand}"
+                  Content="{l:Tr Labels.LogonHoursButton}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource SmallButton}" />
+          <TextBlock Margin="0,6,0,0"
+                     VerticalAlignment="Top"
+                     Text="{Binding Summary, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+      </ContentControl>
+    </DataTemplate>
+
     <!-- Group scope and type with ADUC's conversion rules (disabled scopes cannot be reached directly). -->
     <DataTemplate DataType="{x:Type ps:GroupTypeFieldViewModel}">
       <ContentControl Focusable="False"

@@ -139,6 +139,9 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Func<ColumnChooserViewModel, bool>? ColumnChooserHandler { get; set; }
 
+    /// <summary>Plays the Logon Hours dialog (null: Cancel).</summary>
+    public Func<Presentation.Dialogs.LogonHoursViewModel, bool>? LogonHoursHandler { get; set; }
+
     public string? NewObjectResult { get; set; }
 
     public Task ShowInfoAsync(string title, string message)
@@ -236,4 +239,7 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) =>
         Task.FromResult(ColumnChooserHandler?.Invoke(chooser) ?? false);
+
+    public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) =>
+        Task.FromResult(LogonHoursHandler?.Invoke(editor) ?? false);
 }

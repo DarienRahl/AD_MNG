@@ -55,6 +55,13 @@ public sealed record RequirePasswordChangeOperation(bool Required) : BatchOperat
 /// <summary>Sets accountExpires. Null = never expires.</summary>
 public sealed record SetAccountExpirationOperation(DateTimeOffset? ExpiresAt) : BatchOperation;
 
+/// <summary>
+/// Sets logonHours of user accounts to <paramref name="Hours"/> (UTC, see <see cref="LogonHours"/>). Like ADUC the
+/// attribute is never cleared: "all hours" is written as 21 × 0xFF, but only when the account has a restriction - an
+/// absent attribute already means all hours, so it is left alone. Other object kinds are skipped with a warning.
+/// </summary>
+public sealed record SetLogonHoursOperation(LogonHours Hours) : BatchOperation;
+
 /// <summary>How new passwords are produced by <see cref="ResetPasswordOperation"/>.</summary>
 public enum PasswordMode
 {

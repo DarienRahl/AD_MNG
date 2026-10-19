@@ -89,6 +89,9 @@ testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tyl
 
 Kolejność kroków na obiekcie: reset hasła → modyfikacja atrybutów → członkostwo w grupach → zmiana nazwy →
 przeniesienie (usuwanie zawsze osobno). Zmiana jednej wartości w oknie właściwości korzysta z tego samego potoku.
+Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo – wyjątkiem jest `logonHours` (okno „Godziny
+logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
+(`PipelineValues`).
 
 ## Interfejs użytkownika
 

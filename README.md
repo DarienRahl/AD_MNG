@@ -229,7 +229,8 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 - ✅ **Wyszukiwanie:** ANR w trakcie pisania (Ctrl+E), Znajdź (Ctrl+F) z kategoriami i własnym filtrem LDAP, okno wyboru
   obiektów, paleta poleceń (Ctrl+K).
 - ✅ **Właściwości:** wszystkie karty z tabeli poniżej, okna niemodalne, pola niedozwolone dla operatora tylko do odczytu
-  (`allowedAttributesEffective`), członkostwo bezpośrednie **i pełne (zagnieżdżone)**, grupy z > 1500 członkami.
+  (`allowedAttributesEffective`), członkostwo bezpośrednie **i pełne (zagnieżdżone)**, grupy z > 1500 członkami,
+  **„Godziny logowania…”** (siatka tygodnia w czasie lokalnym jak w ADUC; także zbiorczo w edytorze).
 - ✅ **Akcje:** wszystkie z listy poniżej, a także nowy `inetOrgPerson`, historia poleceń PowerShell i dziennik sesji.
   Pojedyncze zmiany przechodzą przez ten sam silnik zmian (walidacja, dziennik, PowerShell), ale **cofanie jest na razie
   dostępne tylko w edytorze zbiorczym** – cofanie pojedynczej zmiany z dziennika sesji jest w planach.
@@ -239,7 +240,7 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów (widoczne kolumny, tabulatory), „Kopiuj jako…”
   dla wielu obiektów naraz (adresy e-mail jako lista dla Outlooka, Ctrl+Shift+M) – szczegóły w sekcji
   [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
-- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID, „Godzin logowania”,
+- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID,
   „Kopiuj użytkownika” (faza 3), VLV na listach bardzo dużych OU (sesja już go obsługuje), pól opartych o ACL (na razie
   wyświetlane jako tylko do odczytu – faza 5).
 - 🟡 **Do weryfikacji na Windows Server:** pilotaż, pomiar 100 000 obiektów, Kerberos z wymuszonym channel binding,
@@ -266,7 +267,7 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 
 | Typ obiektu | Karty |
 |---|---|
-| Użytkownik | Ogólne, Adres (c + co + countryCode), Konto (flagi, wygasanie „koniec dnia”, UPN z sufiksami), Profil, Telefony, Organizacja, Członek grup (z grupą podstawową), Adresy e-mail, Obiekt, Edytor atrybutów |
+| Użytkownik | Ogólne, Adres (c + co + countryCode), Konto (flagi, wygasanie „koniec dnia”, UPN z sufiksami, godziny logowania), Profil, Telefony, Organizacja, Członek grup (z grupą podstawową), Adresy e-mail, Obiekt, Edytor atrybutów |
 | Komputer | Ogólne (rola), System operacyjny, Członek grup, Delegowanie (podgląd), Lokalizacja, Zarządzany przez, Obiekt, Edytor atrybutów |
 | Grupa | Ogólne (zakres/typ z regułami konwersji), Członkowie (> 1500 przez ranged retrieval), Członek grup, Zarządzany przez, Obiekt, Edytor atrybutów |
 | Kontakt | Ogólne, Adres, Telefony, Organizacja, Członek grup, Adresy e-mail, Obiekt, Edytor atrybutów |
@@ -354,7 +355,7 @@ Wartość kopiuje się jednym kliknięciem albo skrótem – bez zaznaczania tek
 | Wyczyść atrybut | Z kontrolą atrybutów obowiązkowych |
 | Dodaj / usuń wartości | Atrybuty wielowartościowe (np. `proxyAddresses`, `otherTelephone`) – idempotentnie |
 | Znajdź i zamień | Tekst lub wyrażenie regularne |
-| Konto | Włącz/wyłącz, odblokuj, flagi (hasło nigdy nie wygasa, karta inteligentna…), wymuszenie zmiany hasła, data wygaśnięcia |
+| Konto | Włącz/wyłącz, odblokuj, flagi (hasło nigdy nie wygasa, karta inteligentna…), wymuszenie zmiany hasła, data wygaśnięcia, godziny logowania (ta sama siatka co na karcie Konto) |
 | Reset haseł | Unikalne hasła generowane kryptograficznie lub jedno hasło; eksport wyników tylko za wyraźną zgodą |
 | Przenieś / zmień nazwę | Do wskazanego OU; nowa nazwa z szablonu |
 | Grupy | Dodaj do grup / usuń z grup (wiele-do-wielu) |
@@ -672,7 +673,11 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 - **Bardzo duże OU** są wczytywane strumieniowo w całości (bez VLV) – lista działa płynnie, ale zajmuje pamięć
   proporcjonalną do liczby obiektów.
 - **Pola oparte o ACL** („Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer
-  może aktualizować listę członków”) są pokazywane tylko do odczytu; brak karty Zabezpieczenia i „Godzin logowania”.
+  może aktualizować listę członków”) są pokazywane tylko do odczytu; brak karty Zabezpieczenia.
+- **Godziny logowania** są pokazywane w czasie lokalnym komputera operatora z **bieżącym** przesunięciem względem UTC –
+  tak jak w ADUC. Kontroler domeny stosuje je w UTC, więc godziny wpisane zimą (UTC+1) latem (UTC+2) wyświetlają się i
+  obowiązują o godzinę później (okno podaje użyte przesunięcie). Strefy z niepełną godziną (np. UTC+5:30) są zaokrąglane
+  w stronę zera do pełnej godziny. „Wszystkie godziny” zapisujemy jak ADUC (21 bajtów `FF`) – atrybut nie jest czyszczony.
 - **Cofanie** działa w edytorze zbiorczym (cała paczka); pojedynczych zmian z kart właściwości i menu nie da się jeszcze
   cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
 - **Kopiowanie** – identyfikator i numer pracownika nie mają pola na kartach właściwości (jak w ADUC): kopiuje się je

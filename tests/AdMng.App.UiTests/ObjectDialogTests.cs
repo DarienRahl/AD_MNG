@@ -33,7 +33,7 @@ public sealed class ObjectDialogTests
         typeof(FieldViewModel), typeof(MultiValueFieldViewModel), typeof(CheckFieldViewModel), typeof(FlagFieldViewModel),
         typeof(ExpiryFieldViewModel), typeof(DnFieldViewModel), typeof(ReferenceListFieldViewModel), typeof(CountryFieldViewModel),
         typeof(HomeFolderFieldViewModel), typeof(UpnFieldViewModel), typeof(WorkstationsFieldViewModel),
-        typeof(EncryptionTypesFieldViewModel), typeof(ProxyAddressesFieldViewModel),
+        typeof(EncryptionTypesFieldViewModel), typeof(ProxyAddressesFieldViewModel), typeof(LogonHoursFieldViewModel),
     ];
 
     // ---- Property sheets ----------------------------------------------------------------------------------------
