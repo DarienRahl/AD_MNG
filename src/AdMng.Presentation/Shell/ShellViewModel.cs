@@ -106,7 +106,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedDocument))]
+    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown))]
     public partial IShellDocument? SelectedTab { get; set; }
 
     /// <summary>
@@ -162,7 +162,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial ObjectSummaryViewModel? SelectedObject { get; private set; }
 
+    /// <summary>The operator's choice (Ctrl+D, View → Details pane), kept in the settings.</summary>
     public bool IsDetailsPaneVisible => Settings.Current.ShowDetailsPane;
+
+    /// <summary>
+    /// The window shows the object details pane: the operator's choice while an object list (or no tab) is selected;
+    /// never on a tab that shows no directory objects (the Watchdog tab has its own details pane) – the choice is
+    /// kept for the lists.
+    /// </summary>
+    public bool IsDetailsPaneShown => IsDetailsPaneVisible && (SelectedTab is null or ObjectListViewModel);
 
     public bool ShowAdvancedFeatures => Settings.Current.ShowAdvancedFeatures;
 
@@ -273,11 +281,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         return location is null ? Task.CompletedTask : OpenLocationInNewTabAsync(location);
     }
 
-    [RelayCommand]
-    private void CloseTab(IShellDocument? document)
+    /// <summary>
+    /// Ctrl+W, the tab's close button: a tab with unsaved changes asks first (<see cref="IShellDocument.CanCloseAsync"/>),
+    /// then the tab is removed and disposed.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task CloseTabAsync(IShellDocument? document)
     {
         document ??= SelectedTab;
-        if (document is null)
+        if (document is null || !Documents.Contains(document))
+        {
+            return;
+        }
+
+        if (document.HasUnsavedChanges && (!await document.CanCloseAsync().ConfigureAwait(true) || !Documents.Contains(document)))
         {
             return;
         }
@@ -294,6 +311,32 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             SelectedTab = Documents.Count == 0 ? null : Documents[Math.Clamp(index, 0, Documents.Count - 1)];
         }
+    }
+
+    /// <summary>An open tab holds unsaved changes (the main window asks before it closes).</summary>
+    public bool HasUnsavedDocuments => Documents.Any(d => d.HasUnsavedChanges);
+
+    /// <summary>
+    /// The main window is closing: every tab with unsaved changes is selected and asked in turn. False when one of them
+    /// keeps its changes (the window stays open); nothing is disposed here.
+    /// </summary>
+    public async Task<bool> CanCloseDocumentsAsync()
+    {
+        foreach (var document in Documents.Where(d => d.HasUnsavedChanges).ToList())
+        {
+            if (!Documents.Contains(document))
+            {
+                continue;
+            }
+
+            SelectedTab = document;
+            if (!await document.CanCloseAsync().ConfigureAwait(true))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -547,7 +590,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>"Otwórz w AD_MNG" in the Watchdog tab: the object's current DN, located in a list tab.</summary>
+    /// <summary>"Pokaż w AD Manager" in the Watchdog tab: the object's current DN, located in a list tab.</summary>
     private void OnWatchdogLocateRequested(object? sender, string distinguishedName) => LocateAsync(distinguishedName).Forget();
 
     /// <summary>"Historia zmian (Watchdog)" from an object (list, details pane, property sheet).</summary>
@@ -750,6 +793,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(IsDetailsPaneVisible));
+        OnPropertyChanged(nameof(IsDetailsPaneShown));
         OnPropertyChanged(nameof(ShowAdvancedFeatures));
         OnPropertyChanged(nameof(RecentContainers));
         if (_detailsPaneVisible != IsDetailsPaneVisible)

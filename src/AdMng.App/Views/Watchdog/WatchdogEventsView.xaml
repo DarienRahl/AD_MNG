@@ -119,14 +119,22 @@
               Content="{x:Static c:Glyphs.Cancel}"
               Style="{StaticResource Ad.IconButton}"
               ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
-      <ComboBox x:Name="PresetBox"
-                MinWidth="170"
-                Margin="0,0,0,6"
-                AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
-                DisplayMemberPath="Name"
-                ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
-                SelectedItem="{Binding Filter.SelectedPreset}"
-                ToolTip="{l:Tr Watchdog.Ui.Presets}" />
+      <!-- Saved filters: only when there are some (saved under "Więcej filtrów"); the placeholder names the list. -->
+      <Grid x:Name="PresetPanel"
+            Margin="0,0,0,6"
+            Visibility="{Binding Filter.HasPresets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <ComboBox x:Name="PresetBox"
+                  MinWidth="170"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
+                  DisplayMemberPath="Name"
+                  ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
+                  SelectedItem="{Binding Filter.SelectedPreset}"
+                  ToolTip="{l:Tr Watchdog.Ui.Presets}" />
+        <TextBlock x:Name="PresetPlaceholder"
+                   Style="{StaticResource Ad.HintText}"
+                   Text="{l:Tr Watchdog.Ui.Presets}"
+                   Visibility="{Binding SelectedItem, ElementName=PresetBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+      </Grid>
     </WrapPanel>
 
     <!-- More filters -->
@@ -375,11 +383,12 @@
       </DockPanel>
     </Border>
 
+    <!-- Feed | splitter | details: the feed takes the rest; the event title column fills what the feed has left. -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" MinWidth="320" />
+        <ColumnDefinition Width="*" MinWidth="360" />
         <ColumnDefinition Width="5" />
-        <ColumnDefinition Width="430" MinWidth="260" />
+        <ColumnDefinition Width="400" MinWidth="300" />
       </Grid.ColumnDefinitions>
 
       <DockPanel>
@@ -392,6 +401,9 @@
                 Visibility="{Binding HasMore, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Grid>
           <ListView x:Name="EventsList"
+                    b:GridViewFill.Column="2"
+                    b:GridViewFill.MaxWidth="380"
+                    b:GridViewFill.MinWidth="230"
                     AutomationProperties.Name="{l:Tr Watchdog.Tab.Events}"
                     BorderThickness="0,1,0,0"
                     ItemContainerStyle="{StaticResource EventRowStyle}"
@@ -522,7 +534,8 @@
         </Grid>
       </DockPanel>
 
-      <GridSplitter Grid.Column="1"
+      <GridSplitter x:Name="DetailsSplitter"
+                    Grid.Column="1"
                     Width="5"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"

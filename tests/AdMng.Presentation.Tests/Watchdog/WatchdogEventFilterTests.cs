@@ -255,6 +255,33 @@ public sealed class WatchdogEventFilterTests
     }
 
     [Fact]
+    public async Task Presets_TheListIsOfferedOnlyWhenThereAreSavedFilters()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var filter = tab.Events.Filter;
+            var changed = new List<string?>();
+            filter.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            Assert.False(filter.HasPresets);
+
+            filter.PresetName = "Blokady w Gdańsku";
+            await filter.SavePresetCommand.ExecuteAsync(null);
+            Assert.True(filter.HasPresets);
+            Assert.Contains(nameof(WatchdogEventFilterViewModel.HasPresets), changed);
+
+            filter.SelectedPreset = filter.Presets[0];
+            await tab.Events.Loading;
+            changed.Clear();
+            await filter.DeletePresetCommand.ExecuteAsync(null);
+            Assert.False(filter.HasPresets);
+            Assert.Contains(nameof(WatchdogEventFilterViewModel.HasPresets), changed);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task Presets_FromHandEditedSettings_AreNormalized()
     {
         using var h = await WatchdogHarness.CreateAsync();

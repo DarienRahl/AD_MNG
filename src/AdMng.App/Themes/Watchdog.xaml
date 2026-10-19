@@ -2,8 +2,10 @@
   Shared resources of the Watchdog tab (merged into App.Resources after Controls.xaml). Same rules as Controls.xaml:
   string keys only (prefix "Wd."), theme brushes always DynamicResource.
   Severity colours (spec 20.3): Critical/High SystemFillColorCriticalBrush, Medium SystemFillColorCautionBrush, Low
-  AccentFillColorDefaultBrush, Info TextFillColorSecondaryBrush. The severity and health styles read the value from
-  the element's Tag (bind Tag to the Severity / HealthState of the row), so one style serves every view model.
+  AccentFillColorDefaultBrush, Info TextFillColorSecondaryBrush; Critical is told apart from High by a ring in
+  TextFillColorPrimaryBrush (dark on light, light on dark, the window text colour in high contrast) and by its
+  semibold critical-coloured text. The severity and health styles read the value from the element's Tag (bind Tag to
+  the Severity / HealthState of the row), so one style serves every view model.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -18,8 +20,14 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Fill" Value="{DynamicResource TextFillColorSecondaryBrush}" />
     <Style.Triggers>
+      <!-- Critical: the critical fill inside a ring, 2 px larger (the negative margin keeps the row layout). -->
       <Trigger Property="Tag" Value="{x:Static ev:Severity.Critical}">
+        <Setter Property="Width" Value="12" />
+        <Setter Property="Height" Value="12" />
+        <Setter Property="Margin" Value="-1" />
         <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        <Setter Property="Stroke" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+        <Setter Property="StrokeThickness" Value="2" />
       </Trigger>
       <Trigger Property="Tag" Value="{x:Static ev:Severity.High}">
         <Setter Property="Fill" Value="{DynamicResource SystemFillColorCriticalBrush}" />

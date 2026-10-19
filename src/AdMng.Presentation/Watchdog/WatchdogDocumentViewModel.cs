@@ -23,7 +23,10 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private readonly WatchdogPoller _poller;
     private readonly SerialCancellation _connects = new();
     private Exception? _lastError;
+    private Uri? _configAddress;
+    private Uri? _connectedAddress;
     private bool _eventsLoaded;
+    private bool _confirmingClose;
     private bool _disposed;
 
     public WatchdogDocumentViewModel(WatchdogServices services)
@@ -53,7 +56,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         UpdateState(services.Connection.HasServiceUrl ? WatchdogConnectionState.Connecting : WatchdogConnectionState.NotConfigured, null);
     }
 
-    /// <summary>Open the object with this DN in an object list of the main window ("Otwórz w AD_MNG").</summary>
+    /// <summary>Open the object with this DN in an object list of the main window ("Pokaż w AD Manager").</summary>
     public event EventHandler<string>? LocateRequested;
 
     // ---- IShellDocument ---------------------------------------------------------------------------------------
@@ -71,13 +74,19 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     // ---- Connection -------------------------------------------------------------------------------------------
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText), nameof(ShowRolloutBanner))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(IsNotConfigured), nameof(ShowAddressEditor), nameof(HasConnectionProblem), nameof(IsLoading), nameof(StatusText), nameof(ShowRolloutBanner), nameof(BannerMessage))]
     public partial WatchdogConnectionState ConnectionState { get; private set; }
 
-    /// <summary>Localized explanation of the state (with the remedy for Kerberos / role problems).</summary>
+    /// <summary>Localized explanation of the state (with the remedy for Kerberos / role problems); the status bar text.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusText))]
+    [NotifyPropertyChangedFor(nameof(StatusText), nameof(BannerMessage))]
     public partial string ConnectionMessage { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// The banner's second line under "<see cref="StateText"/> <see cref="HostText"/>": the explanation of a problem or
+    /// of the missing address; empty while connected or connecting ("Połączono z …" would only repeat the first line).
+    /// </summary>
+    public string BannerMessage => ConnectionState is WatchdogConnectionState.Connected or WatchdogConnectionState.Connecting ? string.Empty : ConnectionMessage;
 
     /// <summary>Short state name for the banner ("Połączono", "Brak uprawnień").</summary>
     [ObservableProperty]
@@ -204,6 +213,37 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             WatchdogSubTab.Status => Status.LoadAsync(),
             _ => Config.IsDirty ? Task.CompletedTask : Config.LoadAsync(),
         };
+    }
+
+    /// <summary>The configuration has unsaved Admin edits (typed secrets included) that closing the tab would discard.</summary>
+    public bool HasUnsavedChanges => Config.IsDirty;
+
+    /// <summary>
+    /// Closing the tab (Ctrl+W, its close button, the main window): asks before unsaved configuration edits and typed
+    /// secrets are discarded, like the property sheets and the batch editor. True when the tab may close.
+    /// </summary>
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!Config.IsDirty || _disposed)
+        {
+            return true;
+        }
+
+        if (_confirmingClose)
+        {
+            // A second Ctrl+W while the question is open.
+            return false;
+        }
+
+        _confirmingClose = true;
+        try
+        {
+            return await _services.Dialogs.ConfirmAsync(Title, _services.Localizer[L.Watchdog.ConfigDiscard], destructive: true).ConfigureAwait(true);
+        }
+        finally
+        {
+            _confirmingClose = false;
+        }
     }
 
     /// <summary>"Historia zmian (Watchdog)": the events of one object.</summary>
@@ -345,11 +385,22 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             SetCaller(me);
             Events.Filter.SetCatalog(catalog);
             ApplyStatus(status);
+            _connectedAddress = client.BaseAddress;
             UpdateState(WatchdogConnectionState.Connected, null);
             _poller.IsVisible = IsVisible;
             _poller.Start();
             _eventsLoaded = IsVisible;
-            var loads = new List<Task> { Config.LoadAsync() };
+            var loads = new List<Task>();
+
+            // Retry / F5 after a connection problem reconnects to the same service: the Admin's unsaved edits (and typed
+            // secrets) stay; a different service or a lost Admin role loads its own configuration.
+            var address = client.BaseAddress;
+            if (!(Config.IsDirty && IsAdmin && _configAddress is not null && _configAddress == address))
+            {
+                _configAddress = address;
+                loads.Add(Config.LoadAsync());
+            }
+
             if (IsVisible)
             {
                 loads.Add(Events.LoadAsync());
@@ -363,9 +414,10 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             await Task.WhenAll(loads).ConfigureAwait(true);
             Rules.LoadRolloutCountsAsync().Forget();
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // A newer attempt or the tab was closed.
+            // A newer attempt or the tab was closed (the client reports the cancelled request as an
+            // OperationCanceledException or a WatchdogClientException of kind Cancelled): no error state.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -416,7 +468,11 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         OnPropertyChanged(nameof(IsLoading));
     }
 
-    private void OnStatusReceived(object? sender, StatusDto status) => ApplyStatus(status);
+    private void OnStatusReceived(object? sender, StatusDto status)
+    {
+        ApplyStatus(status);
+        RestoreConnection();
+    }
 
     private void OnStatusLoaded(object? sender, StatusDto status)
     {
@@ -424,6 +480,20 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         RolloutUntil = status.RolloutModeUntil;
         Rules.ApplyStatus(status);
         OnPropertyChanged(nameof(RolloutBannerText));
+        RestoreConnection();
+    }
+
+    /// <summary>
+    /// A call reached the service after a connection problem: the tab is usable again without Retry – only for the service
+    /// the tab last connected to. After a failed connection to another address the caller, catalog, configuration and
+    /// feed shown are still those of the previous service (a save would send its configuration to the new one): Retry.
+    /// </summary>
+    private void RestoreConnection()
+    {
+        if (HasConnectionProblem && Me is not null && _connectedAddress is not null && _connectedAddress == _services.Client.BaseAddress)
+        {
+            UpdateState(WatchdogConnectionState.Connected, null);
+        }
     }
 
     private void OnPollFailed(object? sender, Exception error)
@@ -438,18 +508,28 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private void OnPollRecovered(object? sender, EventArgs e)
     {
         LiveError = null;
-        if (HasConnectionProblem && Me is not null)
-        {
-            UpdateState(WatchdogConnectionState.Connected, null);
-        }
+        RestoreConnection();
     }
 
+    /// <summary>
+    /// A single request of a sub-tab failed (its error is shown inline there). Authentication, role, certificate and API
+    /// version problems concern the connection and change the banner. A timeout or a network failure of one request
+    /// does not hide the tab while the poller still reaches the service – only when live updates fail too
+    /// (the poller is backing off), and the next successful poll or status restores the tab.
+    /// </summary>
     private void OnCallFailed(object? sender, Exception error)
     {
-        if (WatchdogConnectionService.IsConnectionFailure(error) && error is WatchdogClientException { Kind: not WatchdogClientErrorKind.NotConfigured })
+        if (!WatchdogConnectionService.IsConnectionFailure(error) || error is not WatchdogClientException { Kind: not WatchdogClientErrorKind.NotConfigured } failure)
         {
-            UpdateState(WatchdogConnectionService.StateFor(error), error);
+            return;
         }
+
+        if ((failure.Kind is WatchdogClientErrorKind.Timeout or WatchdogClientErrorKind.Unreachable) && _poller.CurrentBackoff == TimeSpan.Zero)
+        {
+            return;
+        }
+
+        UpdateState(WatchdogConnectionService.StateFor(error), error);
     }
 
     private void OnEventsPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -470,7 +550,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void OnLocateRequested(object? sender, string dn) => LocateRequested?.Invoke(this, dn);
 
-    /// <summary>An AD session was opened or closed: the pickers and "Otwórz w AD_MNG" re-evaluate their availability.</summary>
+    /// <summary>An AD session was opened or closed: the pickers and "Pokaż w AD Manager" re-evaluate their availability.</summary>
     private void OnSessionChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
     {
         if (_disposed)

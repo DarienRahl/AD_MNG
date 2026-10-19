@@ -28,8 +28,9 @@
                   HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
       <Grid Margin="0,0,8,8">
+        <!-- The SMTP card needs a label column and values of at least 250 px ("Nazwa użytkownika i hasło", the sender). -->
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" MinWidth="360" />
+          <ColumnDefinition Width="*" MinWidth="450" />
           <ColumnDefinition Width="12" />
           <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
@@ -49,7 +50,7 @@
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" MinWidth="170" />
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" MinWidth="250" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto" />
@@ -130,7 +131,8 @@
                            Style="{StaticResource Wd.FormLabel}"
                            Text="{l:Tr Watchdog.Ui.SmtpFrom}" />
                 <StackPanel Grid.Row="6" Grid.Column="1">
-                  <TextBox Margin="0,8,0,0"
+                  <TextBox x:Name="SmtpFromBox"
+                           Margin="0,8,0,0"
                            AutomationProperties.Name="{l:Tr Watchdog.Ui.SmtpFrom}"
                            Text="{Binding From, UpdateSourceTrigger=PropertyChanged}" />
                   <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[from], Mode=OneWay}" />
@@ -161,7 +163,7 @@
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" MinWidth="170" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="250" />
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

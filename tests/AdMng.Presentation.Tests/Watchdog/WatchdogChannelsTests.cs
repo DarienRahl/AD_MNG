@@ -308,6 +308,7 @@ public sealed class WatchdogChannelsTests
             Assert.False(teams.Test.IsRunning);
             Assert.Null(teams.Test.Success);
             Assert.Equal(h.Ad.Localizer[L.Errors.Cancelled], teams.Test.SummaryText);
+            Assert.Null(teams.Test.Error);
         });
     }
 

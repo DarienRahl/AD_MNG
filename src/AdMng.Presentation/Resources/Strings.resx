@@ -3832,6 +3832,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>none</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>The Watchdog configuration has unsaved changes (typed passwords and secrets included). Discard them?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>The configuration was not saved – correct the marked fields.</value>
   </data>
@@ -3869,7 +3872,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The service {0} cannot be reached – check the address, the firewall and whether the service is running.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>The service uses another API version – update AD_MNG or the watchdog service.</value>
+    <value>The service uses another API version – update AD Manager or the watchdog service.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Always</value>
@@ -4052,7 +4055,37 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Event collector (WEF)</value>
   </data>
   <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
-    <value>Enter the collector by its DNS host name, not an IP address – the service connects to it with Kerberos only.</value>
+    <value>ForwardedEvents mode needs a collector – enter it in the attribution settings by its DNS host name (FQDN recommended), not an IP address: the service connects to it with Kerberos only.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory" xml:space="preserve">
+    <value>Domain controller discovery</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory.Remedy" xml:space="preserve">
+    <value>Only the configured DCs are read – list every writable DC in the attribution settings or grant read access to CN=Sites in the configuration partition.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source" xml:space="preserve">
+    <value>Attribution source</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source.Remedy" xml:space="preserve">
+    <value>Attribution is off or the event log reader is unavailable – enable it in the configuration (Windows service only).</value>
+  </data>
+  <data name="Watchdog.Health.certificate" xml:space="preserve">
+    <value>TLS certificate</value>
+  </data>
+  <data name="Watchdog.Health.certificate.Remedy" xml:space="preserve">
+    <value>Check the TLS certificate of the watchdog service (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry" xml:space="preserve">
+    <value>TLS certificate expires soon</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry.Remedy" xml:space="preserve">
+    <value>Renew the service's TLS certificate before it expires – with an expired certificate the Watchdog tab cannot connect.</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key" xml:space="preserve">
+    <value>TLS certificate private key unusable</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key.Remedy" xml:space="preserve">
+    <value>Grant the service account read access to the certificate's private key (certlm.msc → Manage Private Keys).</value>
   </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Channel delivery</value>
@@ -4138,17 +4171,35 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.permission.replicationMetadata.Remedy" xml:space="preserve">
     <value>Without replication metadata the originating DC and time are unknown – check the read permissions.</value>
   </data>
+  <data name="Watchdog.Health.permission.search" xml:space="preserve">
+    <value>Change search in the directory</value>
+  </data>
+  <data name="Watchdog.Health.permission.search.Remedy" xml:space="preserve">
+    <value>The domain controller refused the change search – check that the service account is enabled and can read the domain (docs/WATCHDOG.md).</value>
+  </data>
   <data name="Watchdog.Health.permission.uSNChanged" xml:space="preserve">
     <value>uSNChanged readable on all accounts</value>
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Some objects are invisible to change tracking – delegate GenericRead to the service account.</value>
   </data>
+  <data name="Watchdog.Health.rules" xml:space="preserve">
+    <value>Rules</value>
+  </data>
+  <data name="Watchdog.Health.rules.Remedy" xml:space="preserve">
+    <value>Check the rule configuration on the Rules tab.</value>
+  </data>
   <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
     <value>Configured DNs that no longer exist</value>
   </data>
   <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
-    <value>An OU or group named in the configuration was renamed or moved – rules, privileged groups and subtrees that use the old DN match nothing. Update the DNs listed.</value>
+    <value>An OU or group named in the configuration was renamed, moved or deleted – rules, privileged groups and subtrees that use the old DN match nothing. Correct the distinguished names listed in the details.</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner" xml:space="preserve">
+    <value>Notification planning</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner.Remedy" xml:space="preserve">
+    <value>The service is installed incompletely – events are recorded but no notifications are sent; reinstall the service.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Runtime</value>
@@ -4197,6 +4248,18 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Health.storage.free.Remedy" xml:space="preserve">
     <value>Free space on the data disk or lower the retention.</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance" xml:space="preserve">
+    <value>Database maintenance</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance.Remedy" xml:space="preserve">
+    <value>Retention or database maintenance failed – check the Application log on the service host.</value>
+  </data>
+  <data name="Watchdog.Health.storage.size" xml:space="preserve">
+    <value>Database size</value>
+  </data>
+  <data name="Watchdog.Health.storage.size.Remedy" xml:space="preserve">
+    <value>The database approaches Retention.MaxDatabaseMb – shorten the retention or raise the limit.</value>
   </data>
   <data name="Watchdog.HealthState.Disabled" xml:space="preserve">
     <value>Disabled</value>
@@ -5354,7 +5417,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>History of:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Open in AD_MNG</value>
+    <value>Show in AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Opens the object at its current location (needs a connection to that domain); a deleted object opens the AD Recycle Bin.</value>

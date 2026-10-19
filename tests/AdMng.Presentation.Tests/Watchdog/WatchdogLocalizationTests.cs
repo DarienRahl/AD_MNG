@@ -107,6 +107,21 @@ public sealed class WatchdogLocalizationTests
         Assert.Equal(expected, localizer[key]);
     }
 
+    /// <summary>
+    /// The product is "AD Manager" (App.ShortTitle). "AD_MNG" also rendered wrong on buttons: WPF takes the underscore
+    /// for an access key, "Pokaż w AD Manager" showed as "Otwórz w ADMNG".
+    /// </summary>
+    [Fact]
+    public void Texts_NameTheProductAsAdManager()
+    {
+        var en = Load(CultureInfo.InvariantCulture);
+        var pl = Load(CultureInfo.GetCultureInfo("pl"));
+
+        Assert.Equal([], en.Concat(pl).Where(e => e.Value.Contains("AD_MNG", StringComparison.Ordinal)).Select(e => e.Key));
+        Assert.Equal("Pokaż w AD Manager", pl[L.WatchdogUi.OpenInAdMng]);
+        Assert.Equal("Show in AD Manager", en[L.WatchdogUi.OpenInAdMng]);
+    }
+
     [Fact]
     public void Texts_FallBackToTheCode_ForCodesOfANewerService()
     {

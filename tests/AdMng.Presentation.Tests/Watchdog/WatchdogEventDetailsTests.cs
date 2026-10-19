@@ -11,7 +11,7 @@ namespace AdMng.Presentation.Tests.Watchdog;
 
 /// <summary>
 /// Event details: before → after, who and from where, lockout sources, related events and deliveries, acknowledge,
-/// "open in AD_MNG" by objectGUID (moved and deleted objects), unlock through the change pipeline, copy.
+/// "Pokaż w AD Manager" by objectGUID (moved and deleted objects), unlock through the change pipeline, copy.
 /// </summary>
 public sealed class WatchdogEventDetailsTests
 {

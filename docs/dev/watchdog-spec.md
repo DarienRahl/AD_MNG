@@ -5011,6 +5011,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
     string SelectionText { get; }
     /// <summary>F5 on this tab.</summary>
     Task RefreshAsync();
+    /// <summary>Unsaved changes that closing the tab would discard (default false).</summary>
+    bool HasUnsavedChanges => false;
+    /// <summary>Asks before discarding them; true when the tab may close (default true).</summary>
+    Task<bool> CanCloseAsync() => Task.FromResult(true);
 }
 ```
 
@@ -5024,7 +5028,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 - Command `tools.watchdog` – `L.Commands.Watchdog` ("Watchdog" / "Watchdog – monitor zmian"), category Tools,
   shortcut **Ctrl+Shift+A**, available without an AD session; opens the single Watchdog tab or selects it if open.
   Menu **Narzędzia → Watchdog** (after "Kosz AD"), listed in the command palette (Ctrl+K). F5 on the tab calls
-  `RefreshAsync`; Ctrl+W closes it.
+  `RefreshAsync`; Ctrl+W closes it. Closing a tab (Ctrl+W, its close button) or the main window with unsaved Watchdog
+  configuration edits (typed secrets included, `HasUnsavedChanges` = `Config.IsDirty`) asks first
+  (`Watchdog.Config.Discard`, like the property sheets and the batch editor); the window selects each such tab and
+  stays open when the operator keeps the changes (`ShellViewModel.CanCloseDocumentsAsync`).
 - `MainWindow.xaml`: tab header and content templates per document type (implicit `DataTemplate`s for
   `ObjectListViewModel` and `WatchdogDocumentViewModel`); a new `ObjectIcon.Watchdog` value with its glyph; the tab
   header shows a badge with `UnacknowledgedHighOrAbove` (refreshed by the poller's `/status` call every 60 s even while
@@ -5043,14 +5050,14 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 
 | VM | Responsibilities |
 |---|---|
-| `WatchdogDocumentViewModel` | `ConnectionState` {NotConfigured, Connecting, Connected, Unauthorized, Forbidden, Unreachable, CertificateInvalid, VersionMismatch, Error}; `Me` (roles → `IsAdmin`, detail level); `ServiceUrl` editor when not configured ("Adres usługi Watchdog", e.g. `https://admng-wd.contoso.com:8443`; only `https://` accepted); the connection banner always shows the host the tab talks to; `ConnectCommand`, `ChangeAddressCommand`, `RefreshCommand`; sub-tabs Events / Rules / Channels / Digest / Status (`SelectedSubTab`, remembered in settings); `IsVisible` (set by the view) switches polling mode; `ShowObjectHistory(Guid)` (used by the launcher); rollout banner from `StatusDto.RolloutModeUntil` |
+| `WatchdogDocumentViewModel` | `ConnectionState` {NotConfigured, Connecting, Connected, Unauthorized, Forbidden, Unreachable, CertificateInvalid, VersionMismatch, Error}; `Me` (roles → `IsAdmin`, detail level); `ServiceUrl` editor when not configured ("Adres usługi Watchdog", e.g. `https://admng-wd.contoso.com:8443`; only `https://` accepted); the connection banner always shows the host the tab talks to; `ConnectCommand`, `ChangeAddressCommand`, `RefreshCommand`; sub-tabs Events / Rules / Channels / Digest / Status (`SelectedSubTab`, remembered in settings); `IsVisible` (set by the view) switches polling mode; `ShowObjectHistory(Guid)` (used by the launcher); rollout banner from `StatusDto.RolloutModeUntil`; connection failures of single calls: Unauthorized / Forbidden / CertificateInvalid / API version change the state, a timeout or network failure of one request stays inline in its sub-tab unless the poller is failing too (backing off); the next successful poll or status restores Connected – only while the client still talks to the address of the last successful connection (after a failed connection to another address the caller, catalog, configuration and feed shown are the previous service's, so only Retry connects); Retry/F5 reconnects without reloading the configuration while it has unsaved Admin edits for the same service address |
 | `WatchdogConnectionService` | builds `WatchdogClientOptions` from settings (process identity; `runas /netonly` works), `Configure` (rejects non-https), maps `WatchdogClientException.Kind` to state + localized message |
-| `WatchdogPoller` | while visible: `GetEventsAsync(after = newestId, wait = 25)` loop, exponential backoff on errors (2 s → 60 s), status refresh every 30 s; while hidden (tab open in the background): only `/status` every 60 s for the header badge; stops on dispose |
-| `WatchdogEventsViewModel` | `Items` (BulkObservableCollection of rows), filters (`WatchdogEventFilterViewModel`: min severity, categories, kinds grouped by category, object kinds, **subtree/OU** (container picker when an AD session is open), **tags** (privileged, serviceAccount, …), **attribution status** ("pokaż nieustalone"), actor (picker resolving a SID via the AD session, else SID text), text incl. workstation/IP debounced 300 ms, from/to, unacknowledged only; named presets saved in settings), `LoadOlderCommand` (`before`), new events prepended when they match the filter, "N nowych" badge while scrolled away, multi-select + `AcknowledgeSelectedCommand` (`AcknowledgeManyAsync`, comment), `ExportCsvCommand` (operator-initiated export via `IFileDialogService` + `ICsvCodec`, formula-injection safe – the only way watchdog data reaches the operator's disk) |
+| `WatchdogPoller` | while visible: `GetEventsAsync(after = newestId, wait = 25)` loop, exponential backoff on errors (2 s → 60 s), status refresh every 30 s; while hidden (tab open in the background): only `/status` every 60 s for the header badge; the filter of a round is an immutable `EventQuery` snapshot taken on the UI thread by the last full load of the feed (never the filter view model's collections); stops on dispose |
+| `WatchdogEventsViewModel` | `Items` (BulkObservableCollection of rows), filters (`WatchdogEventFilterViewModel`: min severity, categories, kinds grouped by category, object kinds, **subtree/OU** (container picker when an AD session is open), **tags** (privileged, serviceAccount, …), **attribution status** ("pokaż nieustalone"), actor (picker resolving a SID via the AD session, else SID text), text incl. workstation/IP debounced 300 ms, from/to, unacknowledged only; named presets saved in settings), `LoadOlderCommand` (`before`), new events prepended when they match the filter (one collection notification per poll page; dropped only while a full reload runs, never while an older page loads), the live feed keeps at most 2000 rows (`MaxLiveItems`, or what the operator loaded with "Wczytaj starsze"; older rows are dropped from memory and `HasMore` offers them again; nothing is trimmed while "Wczytaj starsze" runs – its page continues below the oldest row), every status round of the visible tab re-reads up to 20 rows whose attribution is still Pending (`GetEventAsync`) and updates them and the details pane, "N nowych" badge while scrolled away, multi-select + `AcknowledgeSelectedCommand` (`AcknowledgeManyAsync`, comment), `ExportCsvCommand` (operator-initiated export via `IFileDialogService` + `ICsvCodec`, formula-injection safe – the only way watchdog data reaches the operator's disk) |
 | `WatchdogEventRowViewModel` | local time, severity, kind title, object name, canonical path, actor text ("ustalanie…", "nieustalony"), source (IP first, name with origin), lockout count ("5× dziś"), acknowledged flag |
 | `WatchdogEventDetailsViewModel` | loads `EventDetails`; changes table (attribute display name from the session schema when connected, else LDAP name; old → new; flags added/removed; "wartość ukryta"), attribution (actor, source IP / workstation with origin and source confidence, method, confidence, reason + remedy, evidence list; lockouts: "Źródło błędnych haseł" with counts), related events, deliveries; `AcknowledgeCommand` (comment), `OpenInAdMngCommand` (resolves the **current** DN by an `(objectGUID=…)` search through `LdapFilter.EqualGuid` – the stored DN may be stale after a move/rename; a deleted object opens the Recycle Bin window preselected on that GUID (`IDialogService.ShowRecycleBinAsync(Guid? select)`); requires an AD session to the same domain), `UnlockAccountCommand` (AccountLockedOut, AD session to the same domain open, object still locked: plans the unlock through `IChangePlanner`/`IBatchExecutor` with the normal preview – CLAUDE.md rule 5), `CopyDetailsCommand` |
-| `WatchdogConfigSession` | holds the loaded `ConfigEnvelope`, working copy, dirty flag (compares serialized JSON), `ValidateAsync`, `SaveAsync` (412 → "Konfiguracja zmieniona przez innego administratora – wczytaj ponownie"), `RevertCommand`; shared by Rules/Channels/Digest |
-| `WatchdogRulesViewModel` | rule rows (enabled toggle, name, built-in/locked badge, kinds summary, severity override, delivery summary, "wysłałaby N" during rollout); New / Duplicate / Delete (not built-in) / Reset to default (built-in, from `GetDefaultConfigAsync`) / Preview; exclusion suggestions from `StatusDto.Suggestions` ("Dodaj wyjątek" → editor prefilled, saved through the normal PUT); rollout banner with "Zakończ tryb wdrożenia" (Admin, sets `General.RolloutEnded`); for Viewers the redacted configuration (exclusions shown as a count) |
+| `WatchdogConfigSession` | holds the loaded `ConfigEnvelope`, working copy, dirty flag (compares serialized JSON), `ValidateAsync`, `SaveAsync` (412 → "Konfiguracja zmieniona przez innego administratora – wczytaj ponownie"), `SaveChangeAsync(change)` (saves one change applied to the configuration as last saved; unsaved edits and typed secrets are not sent and stay unsaved on top of the new version), `RevertCommand`; shared by Rules/Channels/Digest |
+| `WatchdogRulesViewModel` | rule rows (enabled toggle, name, built-in/locked badge, kinds summary, severity override, delivery summary, "wysłałaby N" during rollout); New / Duplicate / Delete (not built-in) / Reset to default (built-in, from `GetDefaultConfigAsync`) / Preview; exclusion suggestions from `StatusDto.Suggestions` ("Dodaj wyjątek" → editor prefilled, saved through the normal PUT); rollout banner with "Zakończ tryb wdrożenia" (Admin, saves `General.RolloutEnded` alone through `SaveChangeAsync` – the confirmation names only that, other unsaved edits stay unsaved); for Viewers the redacted configuration (exclusions shown as a count) |
 | `WatchdogRuleEditorViewModel` | inline pane editing every `RuleSettings` field: kinds picker (catalog grouped by category), object kinds, scope DNs (container picker via `IDialogService` when an AD session is open, else text validated with `DistinguishedName.TryParse`), attributes, tags, group filter + DNs, actor exclusions, min severity / severity override, delivery (immediate, recipient groups, channels, digest, hours, aggregation, max/h); preview result (per-day counts, samples) |
 | `WatchdogExclusionViewModel` | add/edit exclusions: object (picker or GUID), subtree, actor (picker resolving to a **SID** through the AD session, else SID text – names are never stored), attribute, reason (required), expiry; `CreatedBy` = `Me.Account` |
 | `WatchdogChannelsViewModel` | SMTP (`SmtpSettingsViewModel`), recipient groups (`RecipientGroupsViewModel`), Teams/webhook channels (`ChannelEditorViewModel`), test buttons (`DeliveryTestViewModel`) |
@@ -5063,7 +5070,7 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 
 Viewer role: everything read-only (editors disabled with tooltip "Wymaga roli administratora Watchdog"); Admin:
 editing, tests, digest send, outbox retry. All service calls are async with cancellation; long operations show
-progress in the tab; errors are shown inline (never modal for polling errors).
+progress in the tab; errors are shown inline (never modal for polling errors). A request cancelled because a newer one superseded it (or the operator cancelled it) is never an error – the client reports it as `WatchdogClientException(Cancelled)`, view models treat any failure after their token was cancelled as superseded.
 
 ### 20.3 Views (`AdMng.App/Views/Watchdog`)
 
@@ -5072,8 +5079,18 @@ progress in the tab; errors are shown inline (never modal for polling errors).
 `WatchdogRulesView` (list + inline editor), `WatchdogChannelsView`, `WatchdogDigestView`, `WatchdogStatusView`.
 Fluent theme resources only (severity colours mapped to theme brushes: Critical/High
 `SystemFillColorCriticalBrush`, Medium `SystemFillColorCautionBrush`, Low `AccentFillColorDefaultBrush`, Info
-`TextFillColorSecondaryBrush`), automation names on every input, keyboard navigation, no binding errors (UI test
-listener).
+`TextFillColorSecondaryBrush`; Critical is told apart from High by a 2 px ring in `TextFillColorPrimaryBrush` – dark on
+light, light on dark, the window text colour in high contrast – and keeps its semibold critical-coloured severity text),
+automation names on every input, keyboard navigation, no binding errors (UI test listener).
+Layout (checked by UI tests at the screenshot size 1440 × 900): the connection banner shows "state host" once and a
+second line (`BannerMessage`) only to explain a problem or the missing address; the main window's object details pane
+(and its column) is hidden while the Watchdog tab is selected (`ShellViewModel.IsDetailsPaneShown`; the operator's
+choice `IsDetailsPaneVisible` is kept for the object lists); the feed and its details pane (400 px, min 300) are
+separated by a `GridSplitter`, and the event title column fills the width the feed has left right of severity and
+time (`GridViewFill`, 230–380 px; a column the operator resized keeps its width); the saved-filter list
+(`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
+"Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
+column at least 250 px wide.
 
 ### 20.4 Localization keys (both `Strings.resx` and `Strings.pl.resx`)
 
@@ -5085,7 +5102,9 @@ Kerberos – sprawdź SPN i rekord DNS (docs/WATCHDOG.md)"), `Watchdog.Connectio
 o dodanie do grupy AD z rolą Watchdog"), `Commands.Watchdog`.
 Dynamic families (tested for completeness against the enums/constants like `DisplayNames`):
 `Watchdog.Kind.{WatchEventKind}`, `Watchdog.Category.{EventCategory}`, `Watchdog.Severity.{Severity}`,
-`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}`,
+`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}` + `.Remedy`
+(every health code the service and the engine report – e.g. `certificate.expiry`, `storage.size`, `rules.planner`,
+`attribution.collector` – resolves to a prefix with its own text; a Presentation test scans their sources),
 `Watchdog.Hint.{hint}`, `Watchdog.Validation.{code}`, `Watchdog.Stage.{DeliveryStage}`,
 `Watchdog.Outbox.{OutboxStatus}`, `Watchdog.State.{ConnectionState}`, `Watchdog.DetailLevel.{DetailLevel}`,
 `Watchdog.DeliveryHours.{DeliveryHours}`, `Watchdog.SmtpSecurity.{…}`, `Watchdog.SmtpAuthentication.{…}`,

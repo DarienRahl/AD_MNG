@@ -3832,6 +3832,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>brak</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>Konfiguracja Watchdog ma niezapisane zmiany (także wpisane hasła i sekrety). Odrzucić je?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>Konfiguracja nie została zapisana – popraw zaznaczone pola.</value>
   </data>
@@ -3869,7 +3872,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Nie można połączyć się z usługą {0} – sprawdź adres, zaporę i czy usługa działa.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>Usługa używa innej wersji API – zaktualizuj AD_MNG lub usługę Watchdog.</value>
+    <value>Usługa używa innej wersji API – zaktualizuj AD Manager lub usługę Watchdog.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Zawsze</value>
@@ -4052,7 +4055,37 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Kolektor zdarzeń (WEF)</value>
   </data>
   <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
-    <value>Podaj kolektor jako nazwę DNS, nie adres IP – usługa łączy się z nim wyłącznie przez Kerberos.</value>
+    <value>Tryb ForwardedEvents wymaga kolektora – wpisz go w ustawieniach atrybucji jako nazwę DNS (zalecana pełna nazwa FQDN), nie adres IP: usługa łączy się z nim wyłącznie przez Kerberos.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory" xml:space="preserve">
+    <value>Wykrywanie kontrolerów domeny</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory.Remedy" xml:space="preserve">
+    <value>Czytane są tylko skonfigurowane DC – wpisz wszystkie zapisywalne kontrolery w ustawieniach atrybucji lub nadaj odczyt CN=Sites w partycji konfiguracji.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source" xml:space="preserve">
+    <value>Źródło atrybucji</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source.Remedy" xml:space="preserve">
+    <value>Atrybucja jest wyłączona lub czytnik dziennika zdarzeń jest niedostępny – włącz ją w konfiguracji (tylko usługa na Windows).</value>
+  </data>
+  <data name="Watchdog.Health.certificate" xml:space="preserve">
+    <value>Certyfikat TLS</value>
+  </data>
+  <data name="Watchdog.Health.certificate.Remedy" xml:space="preserve">
+    <value>Sprawdź certyfikat TLS usługi Watchdog (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry" xml:space="preserve">
+    <value>Certyfikat TLS wkrótce wygaśnie</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry.Remedy" xml:space="preserve">
+    <value>Odnów certyfikat TLS usługi przed wygaśnięciem – z wygasłym certyfikatem karta Watchdog nie połączy się z usługą.</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key" xml:space="preserve">
+    <value>Klucz prywatny certyfikatu TLS niedostępny</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key.Remedy" xml:space="preserve">
+    <value>Nadaj kontu usługi prawo odczytu klucza prywatnego certyfikatu (certlm.msc → Zarządzaj kluczami prywatnymi).</value>
   </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Dostarczanie do kanału</value>
@@ -4138,17 +4171,35 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Health.permission.replicationMetadata.Remedy" xml:space="preserve">
     <value>Bez metadanych replikacji nie wiadomo, na którym DC i kiedy nastąpiła zmiana – sprawdź uprawnienia odczytu.</value>
   </data>
+  <data name="Watchdog.Health.permission.search" xml:space="preserve">
+    <value>Wyszukiwanie zmian w katalogu</value>
+  </data>
+  <data name="Watchdog.Health.permission.search.Remedy" xml:space="preserve">
+    <value>Kontroler domeny odmówił wyszukiwania zmian – sprawdź, czy konto usługi jest włączone i może czytać domenę (docs/WATCHDOG.md).</value>
+  </data>
   <data name="Watchdog.Health.permission.uSNChanged" xml:space="preserve">
     <value>Odczyt uSNChanged na wszystkich kontach</value>
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Część obiektów jest niewidoczna dla śledzenia zmian – deleguj GenericRead dla konta usługi.</value>
   </data>
+  <data name="Watchdog.Health.rules" xml:space="preserve">
+    <value>Reguły</value>
+  </data>
+  <data name="Watchdog.Health.rules.Remedy" xml:space="preserve">
+    <value>Sprawdź konfigurację reguł na karcie Reguły.</value>
+  </data>
   <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
     <value>Nieistniejące DN w konfiguracji</value>
   </data>
   <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
-    <value>Jednostka organizacyjna lub grupa wskazana w konfiguracji została przemianowana albo przeniesiona – reguły, grupy uprzywilejowane i poddrzewa ze starą nazwą DN niczego nie obejmują. Popraw wymienione DN.</value>
+    <value>Jednostka organizacyjna lub grupa wskazana w konfiguracji została przemianowana, przeniesiona lub usunięta – reguły, grupy uprzywilejowane i poddrzewa ze starą nazwą DN niczego nie obejmują. Popraw nazwy wyróżniające wymienione w szczegółach.</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner" xml:space="preserve">
+    <value>Planowanie powiadomień</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner.Remedy" xml:space="preserve">
+    <value>Usługa jest zainstalowana niekompletnie – zdarzenia są zapisywane, ale powiadomienia nie są wysyłane; zainstaluj usługę ponownie.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Środowisko uruchomieniowe</value>
@@ -4197,6 +4248,18 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Watchdog.Health.storage.free.Remedy" xml:space="preserve">
     <value>Zwolnij miejsce na dysku danych lub skróć retencję.</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance" xml:space="preserve">
+    <value>Konserwacja bazy danych</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance.Remedy" xml:space="preserve">
+    <value>Retencja lub konserwacja bazy nie powiodła się – sprawdź dziennik Aplikacja na serwerze usługi.</value>
+  </data>
+  <data name="Watchdog.Health.storage.size" xml:space="preserve">
+    <value>Rozmiar bazy danych</value>
+  </data>
+  <data name="Watchdog.Health.storage.size.Remedy" xml:space="preserve">
+    <value>Baza zbliża się do limitu Retention.MaxDatabaseMb – skróć retencję lub zwiększ limit.</value>
   </data>
   <data name="Watchdog.HealthState.Disabled" xml:space="preserve">
     <value>Wyłączone</value>
@@ -5354,7 +5417,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Historia obiektu:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Otwórz w AD_MNG</value>
+    <value>Pokaż w AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Otwiera obiekt w bieżącej lokalizacji (wymaga połączenia z tą domeną); usunięty obiekt otwiera Kosz AD.</value>
