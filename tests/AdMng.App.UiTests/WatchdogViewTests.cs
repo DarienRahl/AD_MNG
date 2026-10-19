@@ -182,7 +182,7 @@ public sealed class WatchdogViewTests
         Control[] expected =
         [
             events.FilterTextBox, events.SeverityBox, events.UnresolvedToggle, events.UnacknowledgedToggle, events.FromPicker,
-            events.ToPicker, events.MoreFiltersToggle, events.ClearFiltersButton, events.PresetBox,
+            events.ToPicker, events.PresetBox, events.MoreFiltersToggle, events.ClearFiltersButton,
         ];
         var order = UiWait.Descendants<Control>(events).Where(c => expected.Contains(c)).ToList();
         Assert.Equal(expected, order);
@@ -264,6 +264,50 @@ public sealed class WatchdogViewTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
         Assert.True(window.DetailsColumn.ActualWidth > 0);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The filter bar of the feed: at 1440 × 900 every filter and the reset button (named, with a tool tip) share one row;
+    /// in a narrow window the filters wrap, but the reset button stays on the first row next to "Więcej filtrów" – never
+    /// alone on a row. The comment box of the toolbar shows its whole placeholder.
+    /// </summary>
+    [Fact]
+    public Task FilterBar_ResetButtonSharesTheRowOfTheFilters() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (_, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var events = view.EventsView;
+        var reset = events.ClearFiltersButton;
+        Assert.Equal("Wyczyść filtry", AutomationProperties.GetName(reset));
+        Assert.Equal("Wyczyść filtry", reset.ToolTip);
+        Control[] filters =
+        [
+            events.FilterTextBox, events.SeverityBox, events.UnresolvedToggle, events.UnacknowledgedToggle, events.FromPicker,
+            events.ToPicker, events.MoreFiltersToggle,
+        ];
+        Assert.All(filters, f => AssertSameRow(f, reset, events.FilterBar));
+        Assert.True(Bounds(reset, events.FilterBar).Left >= Bounds(events.MoreFiltersToggle, events.FilterBar).Right, "The reset button is not after \"Więcej filtrów\".");
+
+        // The whole placeholder of the acknowledgement comment.
+        var placeholder = ((Grid)events.AcknowledgeCommentBox.Parent).Children.OfType<TextBlock>().Single();
+        Assert.True(placeholder.IsVisible);
+        Assert.True(placeholder.ActualWidth + 0.5 >= TextWidth(placeholder), $"'{placeholder.Text}' is cut off ({placeholder.ActualWidth} px).");
+
+        // A narrow window: the filters wrap, the reset button stays on the first row, after "Więcej filtrów".
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1100, 800);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertSameRow(events.FilterTextBox, reset, events.FilterBar);
+        AssertSameRow(events.MoreFiltersToggle, reset, events.FilterBar);
+        Assert.True(Bounds(events.ToPicker, events.FilterBar).Top > Bounds(reset, events.FilterBar).Bottom - 1, "The filters did not wrap.");
         context.AssertHealthy();
     });
 
@@ -398,6 +442,22 @@ public sealed class WatchdogViewTests
             var edge = h.TranslatePoint(new Point(h.ActualWidth, 0), viewer).X;
             Assert.True(edge <= right + 0.5, $"Column '{h.Column.Header}' of {list.Name} ends at {edge} px, the list shows {right} px.");
         });
+    }
+
+    /// <summary>The bounds of <paramref name="element"/> in <paramref name="root"/>'s coordinates.</summary>
+    private static Rect Bounds(FrameworkElement element, Visual root) =>
+        element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
+
+    /// <summary><paramref name="a"/> and <paramref name="b"/> are on the same row: each one's vertical centre is inside the other.</summary>
+    private static void AssertSameRow(FrameworkElement a, FrameworkElement b, Visual root)
+    {
+        var first = Bounds(a, root);
+        var second = Bounds(b, root);
+        var firstCentre = (first.Top + first.Bottom) / 2;
+        var secondCentre = (second.Top + second.Bottom) / 2;
+        Assert.True(
+            firstCentre >= second.Top && firstCentre <= second.Bottom && secondCentre >= first.Top && secondCentre <= first.Bottom,
+            $"{a.Name} ({first}) and {b.Name} ({second}) are not on the same row.");
     }
 
     /// <summary>The headers of the shown columns ("✓" for the glyph header).</summary>

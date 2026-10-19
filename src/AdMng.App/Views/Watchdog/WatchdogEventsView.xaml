@@ -58,89 +58,106 @@
   </UserControl.Resources>
 
   <DockPanel>
-    <!-- Filter bar -->
-    <WrapPanel Margin="0,4,0,0" DockPanel.Dock="Top">
-      <Grid Width="240" Margin="0,0,8,6">
-        <TextBox x:Name="FilterTextBox"
-                 AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterText}"
-                 Text="{Binding Filter.Text, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Style="{StaticResource Ad.HintText}"
-                   Text="{l:Tr Watchdog.Ui.FilterTextHint}"
-                   Visibility="{Binding Text, ElementName=FilterTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
-      </Grid>
-      <ComboBox x:Name="SeverityBox"
-                MinWidth="160"
-                Margin="0,0,8,6"
-                AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSeverity}"
-                DisplayMemberPath="Text"
-                ItemsSource="{Binding Filter.Severities, Mode=OneWay}"
-                SelectedItem="{Binding Filter.MinSeverity}" />
-      <ToggleButton x:Name="UnresolvedToggle"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnresolved}"
-                    Content="{l:Tr Watchdog.Ui.FilterUnresolved}"
-                    IsChecked="{Binding Filter.UnresolvedOnly}"
-                    Style="{StaticResource Ad.ChipToggleButton}"
-                    ToolTip="{l:Tr Watchdog.Ui.FilterUnresolvedHint}" />
-      <ToggleButton x:Name="UnacknowledgedToggle"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
-                    Content="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
-                    IsChecked="{Binding Filter.UnacknowledgedOnly}"
-                    Style="{StaticResource Ad.ChipToggleButton}" />
-      <DatePicker x:Name="FromPicker"
-                  Width="150"
+    <!--
+      Filter bar: the filters wrap on the left; saved filters, "Więcej filtrów" and the reset button stay together at the
+      end of the first row, so the reset button is never alone on a row. At 1440 × 900 everything is one row.
+    -->
+    <Grid x:Name="FilterBar"
+          Margin="0,4,0,0"
+          DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <WrapPanel x:Name="FilterPanel">
+        <Grid Width="220" Margin="0,0,6,6">
+          <TextBox x:Name="FilterTextBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterText}"
+                   Text="{Binding Filter.Text, UpdateSourceTrigger=PropertyChanged}"
+                   ToolTip="{l:Tr Watchdog.Ui.FilterTextHint}" />
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.FilterTextHint}"
+                     Visibility="{Binding Text, ElementName=FilterTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <ComboBox x:Name="SeverityBox"
+                  MinWidth="160"
                   Margin="0,0,6,6"
-                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterFrom}"
-                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterFrom}"
-                  SelectedDate="{Binding Filter.From}" />
-      <DatePicker x:Name="ToPicker"
-                  Width="150"
-                  Margin="0,0,8,6"
-                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTo}"
-                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterTo}"
-                  SelectedDate="{Binding Filter.To}" />
-      <ToggleButton x:Name="MoreFiltersToggle"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSeverity}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding Filter.Severities, Mode=OneWay}"
+                  SelectedItem="{Binding Filter.MinSeverity}" />
+        <ToggleButton x:Name="UnresolvedToggle"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                      Content="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                      IsChecked="{Binding Filter.UnresolvedOnly}"
+                      Style="{StaticResource Ad.ChipToggleButton}"
+                      ToolTip="{l:Tr Watchdog.Ui.FilterUnresolvedHint}" />
+        <ToggleButton x:Name="UnacknowledgedToggle"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                      Content="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                      IsChecked="{Binding Filter.UnacknowledgedOnly}"
+                      Style="{StaticResource Ad.ChipToggleButton}" />
+        <DatePicker x:Name="FromPicker"
+                    Width="136"
                     Margin="0,0,6,6"
-                    Padding="10,4"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.MoreFilters}"
-                    IsHitTestVisible="{Binding IsOpen, ElementName=MoreFiltersPopup, Converter={StaticResource Ad.InverseBool}}">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock FontSize="12"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Filter}" />
-          <TextBlock Margin="6,0,0,0"
-                     VerticalAlignment="Center"
-                     Text="{l:Tr Watchdog.Ui.MoreFilters}" />
-          <TextBlock Margin="6,0,0,0"
-                     VerticalAlignment="Center"
-                     FontWeight="SemiBold"
-                     Text="{Binding Filter.ActiveCount, Mode=OneWay}"
-                     Visibility="{Binding Filter.HasActiveFilter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
-      </ToggleButton>
-      <Button x:Name="ClearFiltersButton"
-              Margin="0,0,8,6"
-              AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearFilters}"
-              Command="{Binding Filter.ClearCommand}"
-              Content="{x:Static c:Glyphs.Cancel}"
-              Style="{StaticResource Ad.IconButton}"
-              ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
-      <!-- Saved filters: only when there are some (saved under "Więcej filtrów"); the placeholder names the list. -->
-      <Grid x:Name="PresetPanel"
-            Margin="0,0,0,6"
-            Visibility="{Binding Filter.HasPresets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <ComboBox x:Name="PresetBox"
-                  MinWidth="170"
-                  AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
-                  DisplayMemberPath="Name"
-                  ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
-                  SelectedItem="{Binding Filter.SelectedPreset}"
-                  ToolTip="{l:Tr Watchdog.Ui.Presets}" />
-        <TextBlock x:Name="PresetPlaceholder"
-                   Style="{StaticResource Ad.HintText}"
-                   Text="{l:Tr Watchdog.Ui.Presets}"
-                   Visibility="{Binding SelectedItem, ElementName=PresetBox, Converter={StaticResource Ad.EmptyToVisible}}" />
-      </Grid>
-    </WrapPanel>
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterFrom}"
+                    b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterFrom}"
+                    SelectedDate="{Binding Filter.From}" />
+        <DatePicker x:Name="ToPicker"
+                    Width="136"
+                    Margin="0,0,6,6"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTo}"
+                    b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterTo}"
+                    SelectedDate="{Binding Filter.To}" />
+      </WrapPanel>
+      <StackPanel x:Name="FilterActions"
+                  Grid.Column="1"
+                  VerticalAlignment="Top"
+                  Orientation="Horizontal">
+        <!-- Saved filters: only when there are some (saved under "Więcej filtrów"); the placeholder names the list. -->
+        <Grid x:Name="PresetPanel"
+              Margin="0,0,6,6"
+              Visibility="{Binding Filter.HasPresets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ComboBox x:Name="PresetBox"
+                    MinWidth="170"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
+                    DisplayMemberPath="Name"
+                    ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
+                    SelectedItem="{Binding Filter.SelectedPreset}"
+                    ToolTip="{l:Tr Watchdog.Ui.Presets}" />
+          <TextBlock x:Name="PresetPlaceholder"
+                     Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.Presets}"
+                     Visibility="{Binding SelectedItem, ElementName=PresetBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <ToggleButton x:Name="MoreFiltersToggle"
+                      Margin="0,0,6,6"
+                      Padding="10,4"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.MoreFilters}"
+                      IsHitTestVisible="{Binding IsOpen, ElementName=MoreFiltersPopup, Converter={StaticResource Ad.InverseBool}}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="12"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Filter}" />
+            <TextBlock Margin="6,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="{l:Tr Watchdog.Ui.MoreFilters}" />
+            <TextBlock Margin="6,0,0,0"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{Binding Filter.ActiveCount, Mode=OneWay}"
+                       Visibility="{Binding Filter.HasActiveFilter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+        </ToggleButton>
+        <Button x:Name="ClearFiltersButton"
+                Margin="0,0,0,6"
+                AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearFilters}"
+                Command="{Binding Filter.ClearCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
+      </StackPanel>
+    </Grid>
 
     <!-- More filters -->
     <Popup x:Name="MoreFiltersPopup"
@@ -337,7 +354,7 @@
                 Content="{x:Static c:Glyphs.Refresh}"
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr Commands.Refresh}" />
-        <Grid Width="260" Margin="0,0,6,0">
+        <Grid Width="300" Margin="0,0,6,0">
           <TextBox x:Name="AcknowledgeCommentBox"
                    AutomationProperties.Name="{l:Tr Watchdog.Ui.AcknowledgeComment}"
                    MaxLength="500"

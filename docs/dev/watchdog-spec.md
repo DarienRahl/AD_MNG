@@ -5191,8 +5191,11 @@ their minimum width (40/120/130/160/80) fits – the first that does not fit hid
 list widens; their values are in the details pane; the rule list shares its width 4 : 3 : 3 between name, kinds and
 delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); other columns give up width
 before a star column drops below its minimum, and a column the operator resized keeps its width (the star columns give
-way); the saved-filter list
-(`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
+way); the filter bar wraps its filters on the left and keeps the saved filters, "Więcej filtrów" and the reset button
+(automation name and tool tip "Wyczyść filtry") together at the end of its first row, so the reset button is never alone
+on a row (at 1440 × 900 the whole bar is one row; the search box shows its hint as tool tip, the acknowledgement comment
+box is wide enough for its placeholder); the saved-filter list (`Filter.HasPresets`) is shown only when presets exist,
+with the placeholder "Zapisane filtry"; the details button is
 "Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
 column at least 250 px wide.
 
