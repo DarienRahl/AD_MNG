@@ -70,6 +70,12 @@ internal sealed class DetectionCycle
     /// <summary>Member keys of principals deleted in this cycle (no PrivilegeRevoked for them).</summary>
     public HashSet<string> DeletedPrincipalKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Member key → DN of the members removed from a stored member list in this cycle (the PrivilegeEvaluator tells a
+    /// principal of another domain, which a search of this domain never finds, by it).
+    /// </summary>
+    public Dictionary<string, string> RemovedMemberDns { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Member key of a restored object → change set of its ObjectRestored event (PrivilegeGranted tag restored).</summary>
     public Dictionary<string, Guid> RestoredChangeSets { get; } = new(StringComparer.OrdinalIgnoreCase);
 

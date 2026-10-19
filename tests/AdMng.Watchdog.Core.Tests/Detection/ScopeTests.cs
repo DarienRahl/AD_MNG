@@ -182,6 +182,33 @@ public class ScopeTests
         Assert.Empty(await scenario.CycleEventsAsync());
     }
 
+    [Fact]
+    public async Task OuMovedOutOfAnExcludedSubtree_AUserCreatedThereInTheSamePollIsCreated()
+    {
+        string? archive = null;
+        string? department = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            archive = b.AddOu("Archiwum", b.DomainDn);
+            department = b.AddOu("Dział", archive);
+            b.AddUser("Żaneta", "Ślęzak", department);
+        });
+        scenario.Config.Update(c => c with { Directory = c.Directory with { ExcludedSubtrees = [archive!] } });
+        await scenario.BaselineAsync();
+
+        // Created in the excluded OU (with a risky flag), and the OU brought into scope – within one poll.
+        scenario.Builder.AddUser("Nowy", "Pracownik", department,
+            new Dictionary<string, object?> { [Attr.UserAccountControl] = (int)(UserAccountControl.NormalAccount | UserAccountControl.DontRequirePreauth) });
+        var restored = await scenario.MoveAsync(department!, scenario.Builder.DomainDn);
+        var events = await scenario.SettleAsync();
+
+        var created = DistinguishedName.Parse(restored).Child("CN", "Nowy Pracownik").ToString();
+        Assert.Single(events, e => e.Kind == WatchEventKind.UserCreated && e.Object.Dn == created);
+        Assert.Single(events, e => e.Kind == WatchEventKind.AccountFlagsChanged && e.Object.Dn == created);
+        Assert.Single(events, e => e.Kind == WatchEventKind.ObjectAppeared && e.Object.Dn == restored);
+        Assert.Equal(3, events.Count);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

@@ -174,6 +174,64 @@ public class MembershipKindTests
     }
 
     [Fact]
+    public async Task PrivilegedAndWatchListOnly_GroupNestedInDomainAdminsAtTheBaseline_ReportsItsFirstChange()
+    {
+        string? adam = null;
+        string? barbara = null;
+        string? nested = null;
+        await using var scenario = WatchListOnly(b =>
+        {
+            adam = b.AddUser("Adam", "Pierwszy", b.UsersDn);
+            barbara = b.AddUser("Barbara", "Druga", b.UsersDn);
+            nested = b.AddGroup("GG_Zagnieżdżona", b.UsersDn, members: [adam]);
+            b.AddMembers(b.DomainAdminsDn, nested);
+        });
+        await scenario.BaselineAsync();
+        Assert.Single(await scenario.Store.GetMembersAsync(scenario.Snapshot(nested!)!.ObjectGuid, TestContext.Current.CancellationToken));
+
+        await scenario.AddValuesAsync(nested!, Attr.Member, barbara!);
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.Equal(barbara, Assert.Single(events, e => e.Kind == WatchEventKind.GroupMemberAdded).Member!.Dn);
+        Assert.Equal(barbara, Assert.Single(events, e => e.Kind == WatchEventKind.PrivilegeGranted).Object.Dn);
+    }
+
+    [Fact]
+    public async Task PrivilegedAndWatchListOnly_GroupNestedInAWatchListGroup_ReportsItsFirstChange()
+    {
+        // Nested in a watch-list group (not privileged): without its stored list the first change would vanish –
+        // there is no PrivilegeGranted to fall back on.
+        string? adam = null;
+        string? barbara = null;
+        string? nested = null;
+        string? watched = null;
+        await using var scenario = WatchListOnly(b =>
+        {
+            adam = b.AddUser("Adam", "Pierwszy", b.UsersDn);
+            barbara = b.AddUser("Barbara", "Druga", b.UsersDn);
+            nested = b.AddGroup("GG_Płace_Zespół", b.UsersDn, members: [adam]);
+            watched = b.AddGroup("GG_Kadry_Płace", b.UsersDn, members: [nested]);
+        });
+        scenario.Config.Update(c => c with { PrivilegedGroups = c.PrivilegedGroups with { WatchListDns = [watched!] } });
+        await scenario.BaselineAsync();
+
+        await scenario.AddValuesAsync(nested!, Attr.Member, barbara!);
+        var added = Assert.Single(await scenario.CycleEventsAsync());
+        Assert.Equal(WatchEventKind.GroupMemberAdded, added.Kind);
+        Assert.Equal(barbara, added.Member!.Dn);
+
+        // Nested later (the watch-list group changes, the nested one does not): stored in that cycle too.
+        var later = scenario.Builder.AddGroup("GG_Płace_Nowi", scenario.Builder.UsersDn, members: [adam!]);
+        Assert.Single(await scenario.SettleAsync(), e => e.Kind == WatchEventKind.GroupCreated);
+        await scenario.AddValuesAsync(watched!, Attr.Member, later);
+        await scenario.CycleEventsAsync();
+        await scenario.RemoveValuesAsync(later, Attr.Member, adam!);
+        var removed = Assert.Single(await scenario.CycleEventsAsync());
+        Assert.Equal(WatchEventKind.GroupMemberRemoved, removed.Kind);
+        Assert.Equal(adam, removed.Member!.Dn);
+    }
+
+    [Fact]
     public async Task SwitchingToAllGroups_FirstReadOfAFormerlyUntrackedGroupIsSilent()
     {
         await using var scenario = WatchListOnly(null);

@@ -59,7 +59,7 @@ internal sealed class PrivilegeEvaluator
             .Distinct()
             .ToList();
         var snapshots = await _services.Store.GetSnapshotsAsync(guids, cancellationToken).ConfigureAwait(false);
-        revoked = await WithoutGonePrincipalsAsync(cycle, revoked, snapshots, cancellationToken).ConfigureAwait(false);
+        revoked = await WithoutGonePrincipalsAsync(cycle, revoked, snapshots, edges, cancellationToken).ConfigureAwait(false);
         var drafts = new List<EventDraft>();
         drafts.AddRange(granted.Select(p => Draft(WatchEventKind.PrivilegeGranted, p, snapshots, cycle, edges)));
         drafts.AddRange(revoked.Select(p => Draft(WatchEventKind.PrivilegeRevoked, p, snapshots, cycle, edges)));
@@ -69,16 +69,26 @@ internal sealed class PrivilegeEvaluator
     /// <summary>
     /// Drops revocations of principals that are gone: the snapshot row is marked deleted, or there is no row and the
     /// GUID is not found live (deleted or disappeared). Members outside the snapshot that still exist (excluded subtrees,
-    /// foreign security principals) and keys without a GUID keep their revocation.
+    /// foreign security principals), members of another domain of the forest (a search of this domain never finds them;
+    /// told by the DN of a member list of this cycle) and keys without a GUID keep their revocation.
     /// </summary>
     private static async Task<List<PrivilegedPrincipal>> WithoutGonePrincipalsAsync(DetectionCycle cycle, List<PrivilegedPrincipal> revoked,
-        IReadOnlyDictionary<Guid, SnapshotObject> snapshots, CancellationToken cancellationToken)
+        IReadOnlyDictionary<Guid, SnapshotObject> snapshots, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges,
+        CancellationToken cancellationToken)
     {
         var result = new List<PrivilegedPrincipal>(revoked.Count);
         var exists = new Dictionary<Guid, bool>();
+        HashSet<string>? otherDomain = null;
         foreach (var principal in revoked)
         {
             if (KeyGuid(principal.PrincipalKey) is not { } guid)
+            {
+                result.Add(principal);
+                continue;
+            }
+
+            otherDomain ??= OtherDomainKeys(cycle, edges);
+            if (otherDomain.Contains(principal.PrincipalKey))
             {
                 result.Add(principal);
                 continue;
@@ -106,6 +116,21 @@ internal sealed class PrivilegeEvaluator
         }
 
         return result;
+    }
+
+    /// <summary>Member keys whose DN in a member list of this cycle (stored, read live or just removed) is in another domain.</summary>
+    private static HashSet<string> OtherDomainKeys(DetectionCycle cycle, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, dn) in cycle.RemovedMemberDns.Concat(edges.Values.SelectMany(l => l).Select(m => KeyValuePair.Create(m.Member.Key, m.Member.Dn))))
+        {
+            if (cycle.Scope.IsOtherDomain(dn))
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
     }
 
     private static async Task<bool> ExistsAsync(DetectionCycle cycle, Guid guid, CancellationToken cancellationToken)
@@ -222,7 +247,8 @@ internal sealed class PrivilegeEvaluator
 
     /// <summary>
     /// Stored member edges plus virtual primary-group edges (principal's primaryGroupID RID + domain SID → group). In
-    /// PrivilegedAndWatchListOnly mode, nested groups without a stored list are read on demand (not stored).
+    /// PrivilegedAndWatchListOnly mode, nested groups without a stored list are read on demand and their lists stored
+    /// (<see cref="ReadUntrackedNestedGroupsAsync"/>).
     /// </summary>
     private async Task<Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>>> LoadGraphAsync(DetectionCycle cycle, CancellationToken cancellationToken)
     {
@@ -261,6 +287,13 @@ internal sealed class PrivilegeEvaluator
         return edges;
     }
 
+    /// <summary>
+    /// Reads the groups that are members of a stored list but have none themselves (nested groups not tracked when they
+    /// were last read – at the baseline every nested group, since the containing list is committed with the same page –
+    /// or legacy rows) and stores what it read in the final commit: a group in a stored list is tracked (10.8), so its
+    /// next change is diffed against this list (GroupMemberAdded/Removed) instead of being stored silently as a first
+    /// tracked read. A group changed after H is left to the next cycle, which reads and diffs it.
+    /// </summary>
     private async Task ReadUntrackedNestedGroupsAsync(DetectionCycle cycle, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges, CancellationToken cancellationToken)
     {
         var pending = new Queue<Guid>(edges.Values.SelectMany(l => l).Select(m => m.Member.ObjectGuid).OfType<Guid>().Where(g => !edges.ContainsKey(g)).Distinct());
@@ -288,6 +321,18 @@ internal sealed class PrivilegeEvaluator
 
                 var members = await _services.Members.ReadAsync(cycle.Session, entry, cancellationToken).ConfigureAwait(false);
                 edges[group.ObjectGuid] = members.Select(m => (m, false)).ToList();
+                var current = cycle.Chunk.PendingUpsert(group.ObjectGuid) ?? group;
+                var untracked = MemberListState.IsUntracked(current);
+                if ((members.Count > 0 || untracked) && (entry.GetInt64(Attr.UsnChanged) ?? long.MaxValue) <= cycle.Dc.HighestUsn
+                    && cycle.Chunk.PendingMembers(group.ObjectGuid) is null)
+                {
+                    cycle.Chunk.ReplaceMembers(group.ObjectGuid, members);
+                    if (untracked)
+                    {
+                        cycle.Chunk.Upsert(MemberListState.With(current, tracked: true));
+                    }
+                }
+
                 foreach (var nested in members.Select(m => m.ObjectGuid).OfType<Guid>().Where(g => !edges.ContainsKey(g) && !checkedGuids.Contains(g)))
                 {
                     pending.Enqueue(nested);
@@ -302,7 +347,7 @@ internal sealed class PrivilegeEvaluator
         {
             BaseDn = dn,
             Scope = SearchScope.Base,
-            Attributes = [Attr.Member],
+            Attributes = [Attr.Member, Attr.UsnChanged],
             ExtendedDn = true,
         }, cancellationToken).ConfigureAwait(false))
         {
@@ -315,7 +360,7 @@ internal sealed class PrivilegeEvaluator
     private static EventDraft Draft(WatchEventKind kind, PrivilegedPrincipal principal, IReadOnlyDictionary<Guid, SnapshotObject> snapshots,
         DetectionCycle cycle, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges)
     {
-        var principalRef = ReferenceOf(principal.PrincipalKey, snapshots, edges);
+        var principalRef = ReferenceOf(principal.PrincipalKey, snapshots, edges, cycle.RemovedMemberDns);
         var groupRef = snapshots.TryGetValue(principal.GroupGuid, out var group) ? group.ToRef() : new ObjectRef { ObjectGuid = principal.GroupGuid, Dn = string.Empty };
         var via = principal.Path.Select(g => snapshots.TryGetValue(g, out var s) ? s.ToRef() : new ObjectRef { ObjectGuid = g, Dn = string.Empty }).ToList();
         var restored = kind == WatchEventKind.PrivilegeGranted && cycle.RestoredChangeSets.TryGetValue(principal.PrincipalKey, out var changeSet) ? changeSet : (Guid?)null;
@@ -332,20 +377,23 @@ internal sealed class PrivilegeEvaluator
         };
     }
 
-    private static ObjectRef ReferenceOf(string key, IReadOnlyDictionary<Guid, SnapshotObject> snapshots, Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges)
+    private static ObjectRef ReferenceOf(string key, IReadOnlyDictionary<Guid, SnapshotObject> snapshots,
+        Dictionary<Guid, List<(MemberReference Member, bool ViaPrimaryGroup)>> edges, IReadOnlyDictionary<string, string> removedMemberDns)
     {
         if (KeyGuid(key) is { } guid && snapshots.TryGetValue(guid, out var snapshot))
         {
             return snapshot.ToRef();
         }
 
+        // Not in the snapshot: the DN of a member list – a current one, else the one it was just removed from.
         var member = edges.Values.SelectMany(l => l).Select(m => m.Member).FirstOrDefault(m => string.Equals(m.Key, key, StringComparison.OrdinalIgnoreCase) && m.Dn.Length > 0);
+        var memberDn = member?.Dn ?? removedMemberDns.GetValueOrDefault(key) ?? string.Empty;
         return new ObjectRef
         {
             ObjectGuid = KeyGuid(key),
             Sid = member?.Sid ?? (key.StartsWith(ValueCanonicalizer.SidPrefix, StringComparison.Ordinal) ? key[ValueCanonicalizer.SidPrefix.Length..] : null),
-            Dn = member?.Dn ?? string.Empty,
-            Name = member is not null && DistinguishedName.TryParse(member.Dn, out var dn) && !dn.IsRoot ? dn.Name : null,
+            Dn = memberDn,
+            Name = DistinguishedName.TryParse(memberDn, out var dn) && !dn.IsRoot ? dn.Name : null,
         };
     }
 

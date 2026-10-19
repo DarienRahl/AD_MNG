@@ -185,6 +185,54 @@ public class PrivilegeEvaluatorTests
         Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.PrivilegeRevoked);
     }
 
+    [Theory]
+    [InlineData("DC=fabrikam,DC=test")]
+    [InlineData("DC=oddzial,DC=contoso,DC=test")]
+    public async Task MemberOfAnotherDomainRemoved_IsGroupMemberRemovedAndRevoked(string otherDomain)
+    {
+        // A member from another domain of the forest (a separate tree or a child domain lexically below this one): its
+        // GUID is never found by a search of this domain, which must not make it look deleted.
+        string? foreign = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            b.Session.Seed(otherDomain, new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "domain", "domainDNS" } });
+            b.Session.Seed($"CN=Users,{otherDomain}", new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "container" } });
+            foreign = b.AddUser("Józef", "Obcy", $"CN=Users,{otherDomain}", new Dictionary<string, object?> { [Attr.ObjectSid] = "S-1-5-21-1111-2222-3333-1105" });
+        });
+        await scenario.BaselineAsync();
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, foreign!);
+        Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.PrivilegeGranted);
+
+        await scenario.RemoveValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, foreign!);
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.Equal(foreign, Assert.Single(events, e => e.Kind == WatchEventKind.GroupMemberRemoved).Member!.Dn);
+        Assert.Equal(foreign, Assert.Single(events, e => e.Kind == WatchEventKind.PrivilegeRevoked).Object.Dn);
+    }
+
+    [Fact]
+    public async Task MemberOfAnotherDomainInANestedGroup_IsRevokedWhenTheGroupLeaves()
+    {
+        string? foreign = null;
+        string? nested = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            b.Session.Seed("DC=fabrikam,DC=test", new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "domain", "domainDNS" } });
+            b.Session.Seed("CN=Users,DC=fabrikam,DC=test", new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "container" } });
+            foreign = b.AddUser("Józef", "Obcy", "CN=Users,DC=fabrikam,DC=test", new Dictionary<string, object?> { [Attr.ObjectSid] = "S-1-5-21-1111-2222-3333-1105" });
+            nested = b.AddGroup("GG_Partnerzy", members: [foreign]);
+        });
+        await scenario.BaselineAsync();
+        await scenario.AddValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, nested!);
+        Assert.Equal(2, (await scenario.CycleEventsAsync()).Count(e => e.Kind == WatchEventKind.PrivilegeGranted));
+
+        await scenario.RemoveValuesAsync(scenario.Builder.DomainAdminsDn, Attr.Member, nested!);
+        var revoked = (await scenario.CycleEventsAsync()).Where(e => e.Kind == WatchEventKind.PrivilegeRevoked).ToList();
+
+        Assert.Equal(2, revoked.Count);
+        Assert.Contains(revoked, e => e.Object.Dn == foreign);
+    }
+
     [Fact]
     public async Task RestoredPrivilegedPrincipal_IsGrantedWithTagRestored()
     {

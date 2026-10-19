@@ -3100,7 +3100,8 @@ if old is null:
          emitted at once
     else → ObjectAppeared (Info; tag outOfScope when the object was moved in: the `name` metadata – a move or rename
          stamps it – has usnLocal > W; without metadata or W, whenChanged > LastPollAt. Never decided from the
-         configuration); a container also adopts, silently, the descendants without a row (10.7)
+         configuration); a container also adopts, silently, the descendants without a row that were not created
+         since the last poll (10.7)
 elif old.IsDeleted → ObjectRestored (+ diff vs the last live snapshot for context, not as separate events) and
          RestoredMembershipReader (10.9)
 elif old.CreationPendingUntil is set → upsert the new state, no events (still settling)
@@ -3226,9 +3227,10 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
   a swap of names in one poll puts A's children under the new B whatever order the server returned the containers in
   (so a child of a renamed OU is not reported as moved).
 - The commit applies the rewrites to all stored descendants (DN suffix replace, case-insensitive on the normalized
-  DN) and to `snapshot_members.member_dn`, one after the other: deepest old DN first; when a new DN lies at or below
-  another rewrite's old DN (shift, swap), in two phases through unique temporary DNs below
-  `DC=admng-rewrite,DC=invalid` – the result equals the deepest-ancestor rule. Descendants keep their USN – AD does
+  DN) and to `snapshot_members.member_dn`, one after the other: deepest old DN first; when a new DN lies at, below or
+  above another rewrite's old DN (shift, swap, a container moved onto the name of a removed one whose child moved away),
+  in two phases through unique temporary DNs below `DC=admng-rewrite,DC=invalid` – the result equals the
+  deepest-ancestor rule. Descendants keep their USN – AD does
   not bump them.
 - Pass 2 runs after the container chunk committed the rewrites, so its stored DNs are already rewritten. The
   PreviousDn of an object that left a container renamed in the same poll is mapped back to the DN of the start of
@@ -3245,7 +3247,9 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
 - A move **into** scope finds no snapshot → ObjectAppeared with tag `outOfScope` (no Created event, no ObjectRestored –
   only tombstone-marked rows are restores). A container moved in (or found again after an exclusion was removed) adopts
   its subtree in the same cycle: descendants without a row are snapshotted silently (members read as for 10.8),
-  instead of staying unknown until the reconciliation reports each of them.
+  instead of staying unknown until the reconciliation reports each of them. Descendants **created since the last poll**
+  (`uSNCreated > W`; Resync: the whenCreated rule of 10.6) are not adopted – the cycle's own search (or the next one)
+  returns them and they get the creation settle window and their Created event like any new object.
 
 ### 10.8 Membership (`MembershipReader`, `MembershipDiffer`, `PrivilegeEvaluator`)
 
@@ -3263,6 +3267,12 @@ Reading (groups in the increment or full scan):
    whose old snapshot carries the marker stores its list **silently** (no GroupMemberAdded for members that were there
    all along; `MembershipRelevant`, so the evaluator reports new privileges). The same applies after switching
    `MembershipTracking` to `AllGroups`. The restore re-insertion (10.9) only touches groups whose list is stored.
+   Because a page's member lists are committed together, a group read in the same page as the list that contains it
+   (every nested group at the baseline, a group nested in the same poll) is still untracked when read; the evaluator's
+   on-demand read of such a group (a member of a stored list without a list of its own) therefore **stores** what it
+   read and clears the marker in the final commit – unless the group's `uSNChanged > H` (the next cycle reads and
+   diffs it). Its next change is then diffed normally (GroupMemberAdded/Removed) – important for groups nested in a
+   watch-list group, where no PrivilegeGranted would stand in for a silent first read.
 
 Diffing: old = `store.GetMembersAsync(groupGuid)`, new = read set, by `Key`. Added → `GroupMemberAdded` (Object =
 group, Member = member ref resolved from the snapshot by GUID, else from the DN), removed → `GroupMemberRemoved`.
@@ -3272,7 +3282,10 @@ replacements, deletions/removals of principals or primaryGroupID changes sets `M
 
 Deleted members: when the DeletedObjectsScanner reports a deletion, the store removes the key from every group
 (`DetectionCommit.Deletions`) – **no** GroupMemberRemoved events (the ObjectDeleted event lists the former groups in
-an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context).
+an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context). A removed member that a search of
+this domain by objectGUID no longer finds counts as deleted too – except a member whose DN lies in another naming
+context (another domain of the forest, also a child domain lexically below this one: a `DC=` RDN below the domain root,
+or outside it), which such a search can never see: its removal is a GroupMemberRemoved.
 
 `PrivilegeEvaluator` – runs when the cycle changed memberships, primaryGroupIDs, created/deleted/restored groups or
 principals; always at baseline/resync/failback; on the **first cycle after process start**; and whenever the stored
@@ -3292,7 +3305,9 @@ replacements and before the final commit would otherwise lose the PrivilegeGrant
    (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event – nor pairs whose principal's
    snapshot row is marked deleted, or has no row and is not found live by objectGUID (a cycle repeated after a crash
    between the deletion chunk and the final commit; a repeated reconciliation after ObjectDisappeared). Members outside
-   the snapshot that still exist (excluded subtrees, FSPs) are revoked normally. Pairs that came back with a
+   the snapshot that still exist (excluded subtrees, FSPs) are revoked normally, and so are members of another domain
+   of the forest – told by the DN of a member list of this cycle (stored, read live or just removed), as for
+   GroupMemberRemoved; the revoked principal's ObjectRef takes that DN when there is no row. Pairs that came back with a
    restored object (10.9) get tag `restored` and the ObjectRestored event's ChangeSetId (they inherit its 5138
    attribution).
 5. Commit the new state. Domain Controllers (RID 516 via primary group) and krbtgt etc. are part of the baseline state

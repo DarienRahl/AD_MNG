@@ -90,14 +90,19 @@ internal sealed class DnRewriter
 
     /// <summary>
     /// The <see cref="DnRewrite"/> list of the rewrites recorded from index <paramref name="from"/> on, for a store that
-    /// applies them one after the other: deepest old DN first; when a new DN lies at or below another rewrite's old DN
-    /// (shift or swap of names), in two phases through unique temporary DNs below <c>DC=admng-rewrite,DC=invalid</c>, so
-    /// every stored DN is re-based exactly once, by its deepest recorded ancestor.
+    /// applies them one after the other: deepest old DN first; when a new DN lies at, below or above another rewrite's
+    /// old DN (shift or swap of names, a container moved onto the name of a removed one whose child moved away), in two
+    /// phases through unique temporary DNs below <c>DC=admng-rewrite,DC=invalid</c>, so every stored DN is re-based
+    /// exactly once, by its deepest recorded ancestor.
     /// </summary>
     public IReadOnlyList<DnRewrite> StoreRewrites(int from)
     {
         var pending = _rewrites.Skip(from).OrderByDescending(r => r.Old.Rdns.Count).ToList();
-        var conflict = pending.Any(r => pending.Any(o => r.New == o.Old || r.New.IsDescendantOf(o.Old)));
+
+        // A DN re-based by one rewrite is below its new DN; a later rewrite touches it again only when that new DN and
+        // the later rewrite's old DN are on one line of descent (either way round).
+        var conflict = pending.Any(r => pending.Any(o => !ReferenceEquals(r, o)
+            && (r.New == o.Old || r.New.IsDescendantOf(o.Old) || o.Old.IsDescendantOf(r.New))));
         if (!conflict)
         {
             return pending.Select(r => new DnRewrite(r.Old.ToString(), r.New.ToString())).ToList();

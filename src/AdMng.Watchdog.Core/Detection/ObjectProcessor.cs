@@ -352,7 +352,8 @@ internal sealed class ObjectProcessor
     /// <summary>
     /// A container that appeared (moved in from outside the scope, an exclusion removed) brings its subtree: the
     /// descendants without a stored row are adopted silently (the container's ObjectAppeared covers them) instead of
-    /// staying unknown until the reconciliation reports each of them.
+    /// staying unknown until the reconciliation reports each of them. Descendants created since the last poll are left
+    /// to the ordinary processing, which reports them as created.
     /// </summary>
     private async Task AdoptDescendantsAsync(DirectoryObject container, CancellationToken cancellationToken)
     {
@@ -405,6 +406,13 @@ internal sealed class ObjectProcessor
             if (known.ContainsKey(guid) || _cycle.Chunk.PendingUpsert(guid) is not null || _cycle.HandledWithContainer.Contains(guid)
                 || WatchObjectKinds.FromObjectClasses(entry.GetStrings(Attr.ObjectClass)) is not { } kind
                 || !_cycle.Scope.IsInScope(entry.DistinguishedName, kind))
+            {
+                continue;
+            }
+
+            // A descendant created since the last poll is a creation, not part of the move: the cycle's own search
+            // returns it (uSNChanged ≥ uSNCreated > W), or the next cycle does, and AddNewAsync starts its settle window.
+            if (IsCreatedSinceLastPoll(entry.GetInt64(Attr.UsnCreated) ?? 0, entry.GetGeneralizedTime(Attr.WhenCreated)))
             {
                 continue;
             }
@@ -491,15 +499,17 @@ internal sealed class ObjectProcessor
     /// last poll minus <see cref="ResyncCreationMargin"/> – an object created on another DC shortly before the last poll
     /// may not have reached the old DC.
     /// </summary>
-    private bool IsCreatedSinceLastPoll(SnapshotObject current)
+    private bool IsCreatedSinceLastPoll(SnapshotObject current) => IsCreatedSinceLastPoll(current.UsnCreated, current.WhenCreated);
+
+    private bool IsCreatedSinceLastPoll(long usnCreated, DateTimeOffset? whenCreated)
     {
         if (_cycle.Mode == DetectionMode.Resync)
         {
             var since = _cycle.State?.LastPollAt ?? _cycle.State?.LastFullSyncAt;
-            return since is not null && current.WhenCreated > since - ResyncCreationMargin;
+            return since is not null && whenCreated > since - ResyncCreationMargin;
         }
 
-        return current.UsnCreated > _cycle.Decision.Watermark;
+        return usnCreated > _cycle.Decision.Watermark;
     }
 
     private async Task RestoreAsync(DirectoryObject entry, SnapshotObject old, SnapshotObject current, IReadOnlySet<string> watched, CancellationToken cancellationToken)
@@ -735,6 +745,7 @@ internal sealed class ObjectProcessor
         var gone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var member in removed)
         {
+            _cycle.RemovedMemberDns[member.Key] = member.Dn;
             if (await IsGoneAsync(member, cancellationToken).ConfigureAwait(false))
             {
                 gone.Add(member.Key);
@@ -761,10 +772,13 @@ internal sealed class ObjectProcessor
         return containing.Count > 0;
     }
 
-    /// <summary>A removed member no longer exists live (deleted in this cycle, or not found): its removal is no event.</summary>
+    /// <summary>
+    /// A removed member no longer exists live (deleted in this cycle, or not found): its removal is no event. A member of
+    /// another domain of the forest is never "not found" – a search of this domain cannot see it.
+    /// </summary>
     private async Task<bool> IsGoneAsync(MemberReference member, CancellationToken cancellationToken)
     {
-        if (member.ObjectGuid is not { } guid)
+        if (member.ObjectGuid is not { } guid || _cycle.Scope.IsOtherDomain(member.Dn))
         {
             return false;
         }
