@@ -19,6 +19,7 @@ using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
 using AdMng.Presentation.Shell;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -47,9 +48,13 @@ public sealed class CopyUiTests
             "details of Jan Kowalski");
         await UiTestSupport.WaitForIdleAsync();
 
-        // Values are read-only text boxes: selectable with the mouse, not tab stops.
-        var mail = UiWait.Descendants<TextBox>(window.DetailsContent)
-            .Single(t => t.DataContext is SummaryField && t.Text == "jan.kowalski@contoso.test");
+        // Values are read-only text boxes: selectable with the mouse, not tab stops. (The UPN has the same value as the
+        // e-mail address: the line is found by its label.)
+        var session = context.Services.GetRequiredService<ISessionManager>().Current!;
+        var mailLabel = context.Services.GetRequiredService<ILocalizer>().AttributeName(Attr.Mail, session.Schema);
+        var mailField = window.Shell.SelectedObject!.Fields.Single(f => f.Label == mailLabel);
+        var mail = UiWait.Descendants<TextBox>(window.DetailsContent).Single(t => ReferenceEquals(t.DataContext, mailField));
+        Assert.Equal("jan.kowalski@contoso.test", mail.Text);
         Assert.True(mail.IsReadOnly);
         Assert.False(mail.IsTabStop);
         mail.SelectAll();
@@ -58,8 +63,7 @@ public sealed class CopyUiTests
             .Single(t => t.DataContext is SummaryField { Label: "Domain logon name" }).Text);
 
         // One click copies the value; the glyph turns into a check mark and a toast confirms it.
-        var copyMail = UiWait.Descendants<Button>(window.DetailsContent)
-            .Single(b => b.CommandParameter is SummaryField { Value: "jan.kowalski@contoso.test" });
+        var copyMail = UiWait.Descendants<Button>(window.DetailsContent).Single(b => ReferenceEquals(b.CommandParameter, mailField));
         Assert.Equal(Visibility.Visible, copyMail.Visibility);
         Assert.StartsWith("Copy: ", AutomationProperties.GetName(copyMail), StringComparison.Ordinal);
         await ClickAsync(copyMail);
