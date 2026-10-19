@@ -67,7 +67,9 @@ jobs:
         run: |
           & publish-watchdog/AdMng.Watchdog.exe --smoke-test
           if ($LASTEXITCODE -ne 0) { throw "AdMng Watchdog smoke test failed with exit code $LASTEXITCODE" }
-          if (-not (Test-Path publish-watchdog/Deploy/Install-AdMngWatchdog.ps1)) { throw "Deploy/Install-AdMngWatchdog.ps1 is missing from the publish output" }
+          foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
+            if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: AdMng-Watchdog-win-x64
