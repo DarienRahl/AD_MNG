@@ -18,29 +18,41 @@ public sealed class EventNotices
     private readonly long _eventId;
     private readonly IReadOnlyList<OutboxMessage> _kept;
 
-    private EventNotices(long eventId, IReadOnlyList<OutboxMessage> kept)
+    private EventNotices(long eventId, IReadOnlyList<OutboxMessage> kept, IReadOnlySet<string> notifyingRules)
     {
         _eventId = eventId;
         _kept = kept;
+        NotifyingRules = notifyingRules;
     }
+
+    /// <summary>The rules whose immediate messages (alerts, follow-ups – lost ones too) are linked to the event: the
+    /// messages <c>IOutboxStore.WasNotifiedAboutObjectAsync</c> counts for the rule. Such a rule's repeat suppression would
+    /// count its own message about this very event; a matched rule that has none was left out as a repeat (or notified
+    /// under another rule) and is checked again (13.2 #3).</summary>
+    public IReadOnlySet<string> NotifyingRules { get; }
 
     /// <summary>The alerts and follow-ups of <paramref name="eventId"/> that reach their recipients.</summary>
     public static async Task<EventNotices> LoadAsync(IOutboxStore outbox, long eventId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(outbox);
-        var messages = (await outbox.GetMessagesForEventAsync(eventId, cancellationToken).ConfigureAwait(false))
-            .Where(m => m.Kind is DeliveryKind.Alert or DeliveryKind.FollowUp && m.EventIds.Contains(eventId))
+        var linked = (await outbox.GetMessagesForEventAsync(eventId, cancellationToken).ConfigureAwait(false))
+            .Where(m => m.EventIds.Contains(eventId))
             .ToList();
+        var notifyingRules = linked
+            .Where(m => m.Kind is DeliveryKind.Alert or DeliveryKind.FollowUp or DeliveryKind.Health && !string.IsNullOrEmpty(m.RuleId))
+            .Select(m => m.RuleId!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var messages = linked.Where(m => m.Kind is DeliveryKind.Alert or DeliveryKind.FollowUp).ToList();
         if (messages.Count == 0)
         {
-            return new EventNotices(eventId, []);
+            return new EventNotices(eventId, [], notifyingRules);
         }
 
         var lost = (await outbox.GetDeliveriesForEventAsync(eventId, cancellationToken).ConfigureAwait(false))
             .Where(d => d.Status is OutboxStatus.Dead or OutboxStatus.Cancelled)
             .Select(d => d.OutboxId)
             .ToHashSet();
-        return new EventNotices(eventId, [.. messages.Where(m => !lost.Contains(m.Id))]);
+        return new EventNotices(eventId, [.. messages.Where(m => !lost.Contains(m.Id))], notifyingRules);
     }
 
     /// <summary>The severity <paramref name="message"/> showed event <paramref name="eventId"/> with: its per-event state,

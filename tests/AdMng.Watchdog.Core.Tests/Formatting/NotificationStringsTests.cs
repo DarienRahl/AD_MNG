@@ -36,6 +36,7 @@ public sealed partial class NotificationStringsTests
         foreach (var severity in Enum.GetValues<Severity>())
         {
             yield return "Severity." + severity;
+            yield return "SeverityName." + severity;
         }
 
         foreach (var confidence in Enum.GetValues<AttributionConfidence>())
@@ -161,6 +162,8 @@ public sealed partial class NotificationStringsTests
         Assert.Equal("KRYTYCZNE", NotificationText.Polish.SeverityWord(Severity.Critical));
         Assert.Equal("ŚREDNI", NotificationText.Polish.SeverityWord(Severity.Medium));
         Assert.Equal("CRITICAL", NotificationText.English.SeverityWord(Severity.Critical));
+        Assert.Equal("Krytyczny", NotificationText.Polish.SeverityName(Severity.Critical));     // "Priorytet: Wysoki → Krytyczny"
+        Assert.Equal("Critical", NotificationText.English.SeverityName(Severity.Critical));
         Assert.Equal("Department", NotificationText.English.Get("Attr.department"));
         Assert.DoesNotMatch("[ąćęłńóśźż]", string.Concat(English.Values));
     }

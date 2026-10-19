@@ -606,7 +606,9 @@ reguła i ile wiadomości by wysłała.
   tak by przyszło (alarm wysoki, który staje się krytyczny), odbiorca dostaje jedną wiadomość z wykonawcą i nowym
   priorytetem. Eskalacja jest wysyłana tylko raz (także po restarcie usługi), dopiero po doręczeniu alarmu i z
   ustalonym wykonawcą. Godziny dostarczania reguły działają jak przy alarmie (domyślnie wysoki i krytyczny – zawsze;
-  reguła „tylko w godzinach pracy” poza nimi nie eskaluje, zdarzenie pokazuje raport dzienny), tryb wdrożenia też.
+  reguła „tylko w godzinach pracy” poza nimi nie eskaluje, zdarzenie pokazuje raport dzienny), tryb wdrożenia i
+  tłumienie powtórzeń też: reguła, która przy tym zdarzeniu milczała jako powtórzenie, nie wysyła eskalacji ze swoim
+  priorytetem.
   Eskalacja przechodzi przez limity i ponawianie kanału, nie zależy od ustawienia
   `notifications.followUpWhenAttributed` i – jak każde uzupełnienie – nie jest wstrzymywana przez limit wiadomości
   reguły na godzinę (jest najwyżej jedna na alarm i odbiorcę). Obniżenie priorytetu nigdy nie wysyła nowej wiadomości –

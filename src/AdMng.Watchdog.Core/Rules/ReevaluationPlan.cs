@@ -24,7 +24,8 @@ public sealed record ReevaluationPlan
     /// <summary>The other waiting rows, re-planned from the rules that match now – applied only while they wait.</summary>
     public IReadOnlyList<PendingNotification> Update { get; init; } = [];
 
-    /// <summary>Waiting rows (ids) whose target no rule notifies any more.</summary>
+    /// <summary>Waiting rows (ids) whose target no rule notifies any more, and waiting follow-ups of the event (stored by a
+    /// pass interrupted before its attribution update) that <see cref="FollowUps"/> does not carry again.</summary>
     public IReadOnlyList<long> Drop { get; init; } = [];
 
     /// <summary>Follow-up rows (13.2 #7) of targets that already got an alert of the event and that a stored or added rule

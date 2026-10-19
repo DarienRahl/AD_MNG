@@ -155,8 +155,8 @@ public sealed class EmailAlertFormatterTests
         Assert.Equal("Critical", email.Headers["X-AdMng-Severity"]);
         Assert.StartsWith("Uzupełnienie: wykonawca ustalony, priorytet podniesiony · KRYTYCZNE ·", email.TextBody, StringComparison.Ordinal);
         Assert.Contains("Priorytet:", email.TextBody, StringComparison.Ordinal);
-        Assert.Contains("Średni → Krytyczne", email.TextBody, StringComparison.Ordinal);
-        Assert.Contains("Średni → Krytyczne", email.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("Średni → Krytyczny", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Średni → Krytyczny", email.HtmlBody, StringComparison.Ordinal);
         Assert.Contains(@"CONTOSO\adm.nowak", email.TextBody, StringComparison.Ordinal);
 
         var english = EmailAlertFormatter.FollowUp([e], "x", "0192f3a45b6c7d8e9f00112233445566", FormattingSamples.Rule(), FormattingSamples.Context("en"),

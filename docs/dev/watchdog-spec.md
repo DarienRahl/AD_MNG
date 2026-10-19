@@ -3827,11 +3827,14 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    row carries the final severity of an attribution follow-up still to come for that target when it differs (also a
    lower one – nothing extra is sent for it). Targets that only the added rules notify and that have no alert get new
    rows unless an alert already covers them (13.2 #1). Otherwise rules that already matched are not planned again for a
-   target without a waiting row (it may be delivered and deleted); the stored rules are exempt from repeat suppression
-   here – their own alert of this very event is no repeat. The waiting rows and the follow-up rows are re-planned first
-   (idempotent upserts – a merged row whose waiting row was flushed meanwhile is inserted and the dispatch job drops it
-   when the alert covers it; an escalation stored by an interrupted pass is updated in place), then matched rules ∪ new
-   rules, the evaluated
+   target without a waiting row (it may be delivered and deleted). Repeat suppression is not checked again for the
+   rules of the waiting rows nor for a rule with a message about this very event (`EventNotices.NotifyingRules` – its
+   own alert of this event is no repeat); every other matched rule is checked again, so a stored rule that was left out
+   as a repeat when the event was planned never escalates with its severity. The waiting rows and the follow-up rows are
+   re-planned first (idempotent upserts – a merged row whose waiting row was flushed meanwhile is inserted and the
+   dispatch job drops it when the alert covers it; an escalation stored by an interrupted pass is updated in place, and
+   dropped when the next pass does not plan it again – no rule notifies the target any more, or the final severity is no
+   news), then matched rules ∪ new rules, the evaluated
    severity and the new rows are stored in one `CommitEvaluationAsync`, **before** the attribution update: a pass
    interrupted in between leaves the event pending and the next pass re-plans the same way. The update stores the
    final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
@@ -4126,7 +4129,8 @@ higher severity: it gets an escalation in the thread of that alert (#7).
    for a Dead/Cancelled original).
 7. **Escalation** (re-evaluation after attribution, 11.4 #9, `ReevaluationPlan.FollowUps`): per target that the rules
    matching the event now notify (stored and added rules; #0 rollout, #2 delivery hours at the target's severity – Always
-   for ≥ High by default –, #3 repeat suppression for added rules only), that has no waiting row and that already got an
+   for ≥ High by default –, #3 repeat suppression except for rules with a message about this event), that has no
+   waiting row and that already got an
    alert of the event that reaches it (`EventNotices`: not Dead/Cancelled; still waiting in the outbox counts): when the
    severity the target is notified with now (the strongest treatment, as for a row) is ≥ High and higher than every
    severity its alerts and follow-ups showed the event with (`EventStates`; older messages: their message severity), one
@@ -4358,6 +4362,8 @@ and a banner that says what is new – "Uzupełnienie: wykonawca ustalony" (en "
 was pending, "Uzupełnienie: wykonawca ustalony, priorytet podniesiony" ("Follow-up: actor determined, severity raised")
 for both. A single event whose severity changed gets the fact `Priorytet  Średni → Wysoki` right after "Co" (also a
 lowered one: `Wysoki → Info`); an aggregated follow-up adds a Priorytet column (`Wysoki` or `Średni → Wysoki`). The
+values agree with "Priorytet" (`SeverityName.*`: Info, Niski, Średni, Wysoki, Krytyczny – the subject word stays
+`KRYTYCZNE`). The
 previous severity is the original alert's per-event state (`FollowUpChange`); unknown (alert purged, an aggregated alert
 stored before the per-event states) → no change shown. The content shows the rule leading the target now (an escalation
 may come from another rule than the alert).

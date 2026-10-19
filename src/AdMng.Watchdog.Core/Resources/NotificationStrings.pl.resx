@@ -1787,6 +1787,21 @@
   <data name="Severity.Medium" xml:space="preserve">
     <value>Średni</value>
   </data>
+  <data name="SeverityName.Critical" xml:space="preserve">
+    <value>Krytyczny</value>
+  </data>
+  <data name="SeverityName.High" xml:space="preserve">
+    <value>Wysoki</value>
+  </data>
+  <data name="SeverityName.Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="SeverityName.Low" xml:space="preserve">
+    <value>Niski</value>
+  </data>
+  <data name="SeverityName.Medium" xml:space="preserve">
+    <value>Średni</value>
+  </data>
   <data name="Source.ClientReported" xml:space="preserve">
     <value>zgłoszona przez klienta</value>
   </data>

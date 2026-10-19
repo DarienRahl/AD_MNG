@@ -767,8 +767,47 @@ public sealed class ReevaluationPipelineTests : IDisposable
         var followUp = messages[1];
         Assert.Equal(Severity.Critical, followUp.Severity);
         Assert.Equal(alert.MessageId, followUp.Email!.InReplyTo);
-        Assert.Contains("Wysoki → Krytyczne", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Wysoki → Krytyczny", followUp.Email.TextBody, StringComparison.Ordinal);
         Assert.Contains("adm.jkowalska", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ADispatchSendingTheEscalationBeforeTheActorFollowUpIsQueued_SendsNoSecondFollowUp()
+    {
+        // The dispatch wakes on NotificationsQueued right after the attribution update and sends the Critical escalation
+        // (with the actor) before the pass queues the attribution follow-up of the High alert: that follow-up arrives after
+        // the escalation was completed – no duplicate in the queue any more – and must not go out as a second message.
+        _p.Config.Set(Pipeline.Configuration(ResetsRule() with { Severity = Severity.Critical }));
+        var e = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        await _p.MarkSentAsync(e);
+        OutboxMessage? escalation = null;
+        _p.Signals.OnRaise = signal =>
+        {
+            if (signal == WatchdogSignal.NotificationsQueued && escalation is null)
+            {
+                _p.DispatchAsync(TimeSpan.Zero).GetAwaiter().GetResult();
+                escalation = _p.Store.GetMessagesForEventAsync(e.Id, Ct).GetAwaiter().GetResult().MaxBy(m => m.Id);
+            }
+        };
+
+        _p.SecurityStore.Add(Account(4724, T, Admin));
+        await _p.Engine.RunOnceAsync(Ct);
+        Assert.NotNull(escalation);
+        Assert.Equal((DeliveryKind.FollowUp, Severity.Critical, alert.MessageId), (escalation.Kind, escalation.Severity, escalation.Email!.InReplyTo));
+        Assert.Contains("adm.jkowalska", escalation.Email.TextBody, StringComparison.Ordinal);
+        await _p.MarkSentAsync(e);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).Select(m => m.Kind));
         Assert.Empty(await _p.Store.GetAllAsync(Ct));
     }
 
@@ -951,6 +990,72 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.DoesNotContain("ustalanie", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
         Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], (await ToAsync(p, e, ToSiem)).Select(m => m.Kind));
         Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AStoredRuleSuppressedAsARepeat_DoesNotEscalate_WhenTheAttributionChangesNothing()
+    {
+        // vip-powtorki (High, repeat suppression 1 h) told the helpdesk about shadow credentials on this user 30 minutes
+        // ago. For the second change it is a repeat, so konta-vip alone told the helpdesk – Medium, with the actor pending.
+        // The actor is the user itself: the event stays Medium. The repeat-suppressed rule's High is no news from the
+        // attribution – nothing more goes out.
+        var repeat = HelpdeskRule(Severity.High) with { Id = "vip-powtorki", Name = "VIP – powtórki" };
+        repeat = repeat with { Delivery = repeat.Delivery! with { RepeatSuppression = TimeSpan.FromHours(1) } };
+        _p.Config.Set(WithHelpdeskAndSiem(repeat, HelpdeskRule()));
+        var earlier = await _p.AppendAsync(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.High, attribution: Resolved(AdminSid)));
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        Assert.Equal("vip-powtorki", Assert.Single(await ToAsync(_p, earlier, ToHelpdesk)).RuleId);
+        await _p.MarkSentAsync(earlier);
+
+        _p.Time.Advance(TimeSpan.FromMinutes(30));
+        var detected = _p.Time.GetUtcNow();
+        var e = await _p.AppendShadowCredentialsAsync(detected);
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromMinutes(5));
+        var alert = Assert.Single(await ToAsync(_p, e, ToHelpdesk));
+        Assert.Equal(("konta-vip", Severity.Medium, true), (alert.RuleId, alert.Severity, alert.SentWithPendingAttribution));
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Modified(detected.AddMinutes(-2), User, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        Assert.Equal(AttributionStatus.Resolved, (await _p.Store.GetAsync(e.Id, Ct))!.Attribution.Status);
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(_p, e, ToHelpdesk)).Select(m => m.Kind));
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AnEscalationOfAnInterruptedPass_IsDropped_WhenNoRuleNotifiesTheTargetInTheNextPass()
+    {
+        // The pass that stored the escalation of the Medium alert failed before the attribution update; before the next pass
+        // the operator removed konta-vip. No rule notifies the helpdesk or the SIEM any more: the escalation stored by the
+        // failed pass must not go out with the next pass's attribution.
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule(channels: Siem)));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        await p.MarkSentAsync(e);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        p.Racing.FailingWrite = "update";
+        Assert.True((await p.Engine.RunOnceAsync(Ct)).Failed);
+        Assert.Equal(2, (await p.Store.GetAllAsync(Ct)).Count(r => r.IsFollowUp && r.EventId == e.Id));
+        p.Racing.FailingWrite = null;
+
+        p.Config.Set(WithHelpdeskAndSiem());
+        p.Restart();
+        p.Time.Advance(TimeSpan.FromSeconds(30));
+        Assert.False((await p.Engine.RunOnceAsync(Ct)).Failed);
+        await p.DispatchAsync();
+        await p.DispatchAsync(TimeSpan.FromMinutes(2));
+
+        Assert.Equal(AttributionStatus.Resolved, (await p.Store.GetAsync(e.Id, Ct))!.Attribution.Status);
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(p, e, ToHelpdesk)).Select(m => m.Kind));
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(p, e, ToSiem)).Select(m => m.Kind));
+        Assert.DoesNotContain(await p.Store.GetAllAsync(Ct), r => r.IsFollowUp);
     }
 
     private static RuleSettings ResetsRule() => new()

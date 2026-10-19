@@ -167,7 +167,7 @@ public sealed class TeamsCardFormatterTests
 
         Assert.Contains("Uzupełnienie: wykonawca ustalony, priorytet podniesiony", AllText(card), StringComparison.Ordinal);
         Assert.Contains("Priorytet", AllText(card), StringComparison.Ordinal);
-        Assert.Contains("Krytyczne", AllText(card), StringComparison.Ordinal);
+        Assert.Contains("Krytyczny", AllText(card), StringComparison.Ordinal);
         Assert.Contains("Średni → Wysoki", AllText(card), StringComparison.Ordinal);
         Assert.Equal("attention", card["body"]![0]!["style"]!.GetValue<string>());
         Assert.Contains("Follow-up: severity raised", AllText(english), StringComparison.Ordinal);
