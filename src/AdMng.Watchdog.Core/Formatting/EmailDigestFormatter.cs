@@ -115,7 +115,7 @@ public static class EmailDigestFormatter
                 context.Text.Format("Digest.AttentionTitle", context.Text.Number(model.Counts.Attention)),
                 [],
                 DigestRowFormatter.AttentionHeaders(context),
-                [.. model.Attention.Select(e => DigestRowFormatter.AttentionCells(e, context))],
+                [.. model.Attention.Select(e => DigestRowFormatter.AttentionCells(e, context, model.PreviousSeverity(e.Id)))],
                 model.Counts.Attention - model.Attention.Count));
         }
 

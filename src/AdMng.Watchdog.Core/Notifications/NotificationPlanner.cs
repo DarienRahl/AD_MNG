@@ -116,11 +116,20 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
     /// Every target the rules that match now notify is planned with all of them (13.2 #1). A target with a waiting row takes
     /// the new treatment (earlier due time kept): merged – and inserted again if the row was flushed meanwhile, the dispatch
     /// job then drops it when the alert covers it – when an added rule notifies it, otherwise updated while it waits. A
-    /// target without a waiting row is planned only when an added rule notifies it and the event has no alert for it that
-    /// covers the plan (<see cref="AlertCoverage"/>, per event: not lost, the event shown with at least the planned severity,
-    /// with its actor or followed by the attribution follow-up); a higher severity, or an alert sent with the actor pending
-    /// and no follow-up to come, is new information. Waiting rows whose target no rule notifies any more are dropped. The
-    /// rules of the waiting rows passed their repeat suppression when they were planned and are not checked again.
+    /// target without a waiting row that already got an alert of the event (<see cref="EventNotices"/>: not lost) hears
+    /// about a different final severity only in the thread of that alert (13.2 #7): an escalation when the severity it is
+    /// notified with now is High or above and higher than every severity its alerts and follow-ups showed the event with –
+    /// whether a stored or an added rule notifies it –, or the final severity of the attribution follow-up still to come
+    /// (lowered as well); the follow-up row replies to the target's latest alert, or merges into its waiting follow-up.
+    /// Any other target without a waiting row is planned only when an added rule notifies it and the event has no alert for
+    /// it that covers the plan (<see cref="AlertCoverage"/>, per event: not lost, the event shown with at least the planned
+    /// severity, with its actor or followed by the attribution follow-up); an alert sent with the actor pending and no
+    /// follow-up to come is new information. Waiting rows whose target no rule notifies any more are dropped, and so are
+    /// waiting follow-ups (stored by an interrupted pass) that this plan does not carry again. The rules of
+    /// the waiting rows passed their repeat suppression when they were planned, and a rule with a message about this very
+    /// event (<see cref="EventNotices.NotifyingRules"/>) would count its own message – neither is checked again (an
+    /// escalation of an alert about this event is no repeat); any other matched rule is checked again, so a rule left out
+    /// as a repeat when the event was planned does not escalate with its severity.
     /// </remarks>
     async ValueTask<ReevaluationPlan> IRuleMatchPlanner.PlanReevaluationAsync(RuleEvaluationResult evaluation, IReadOnlySet<string> addedRuleIds,
         IReadOnlyList<PendingNotification> waiting, WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
@@ -130,14 +139,22 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
         ArgumentNullException.ThrowIfNull(waiting);
         ArgumentNullException.ThrowIfNull(configuration);
         var watchEvent = evaluation.Event;
-        var waitingRows = waiting.Where(w => w.EventId == watchEvent.Id && !w.IsFollowUp).ToList();
-        var exempt = waitingRows.Select(w => w.RuleId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ofEvent = waiting.Where(w => w.EventId == watchEvent.Id).ToList();
+        var waitingRows = ofEvent.Where(w => !w.IsFollowUp).ToList();
+        var waitingFollowUps = ofEvent.Where(w => w.IsFollowUp).ToList();
+        var notices = await EventNotices.LoadAsync(_outbox, watchEvent.Id, cancellationToken).ConfigureAwait(false);
+
+        // Repeat suppression (13.2 #3): the rules of the waiting rows passed it when they were planned, and a rule that
+        // notified about this very event would count its own message – both exempt. A matched rule without a message about
+        // the event was a repeat when it was planned (or notified under another rule) and is checked again: its severity
+        // is no escalation the recipients missed.
+        var exempt = waitingRows.Select(w => w.RuleId).Concat(notices.NotifyingRules).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var contributions = await ContributionsAsync(watchEvent, Planned(evaluation), configuration, now, exempt, cancellationToken).ConfigureAwait(false);
 
         var insert = new List<PendingNotification>();
         var merge = new List<PendingNotification>();
         var update = new List<PendingNotification>();
-        Func<string, Severity, bool>? covered = null;
+        var followUps = new List<PendingNotification>();
         foreach (var (key, forTarget) in contributions)
         {
             var row = Row(watchEvent, forTarget, configuration, now);
@@ -149,24 +166,72 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
                 continue;
             }
 
-            if (!notifiedByAddedRule)
+            if (FollowUpOfAlert(row, notices, waitingFollowUps.FirstOrDefault(f => string.Equals(f.Target.Key, key, StringComparison.Ordinal)),
+                configuration, now) is { } followUp)
             {
-                continue;   // notified before (or not at all): a rule that matched already is never planned again
+                followUps.Add(followUp);
+                continue;
             }
 
-            covered ??= await AlertCoverage.CoverageAsync(_outbox, watchEvent.Id, configuration, cancellationToken).ConfigureAwait(false);
-            if (!covered(key, row.Severity))
+            if (!notifiedByAddedRule)
+            {
+                continue;   // notified before (or not at all) with nothing new: a rule that matched already is not planned again
+            }
+
+            if (!notices.Covers(key, row.Severity, configuration))
             {
                 insert.Add(row);
             }
         }
 
+        // A waiting follow-up of an event whose attribution is only now final was stored by a pass interrupted before its
+        // attribution update (the attribution follow-up comes after it): one this plan does not carry again – no rule
+        // notifies its target now, or the final severity is no news any more – is dropped; the attribution follow-up of
+        // the alert, when it gets one, is planned again after the update.
+        var staleFollowUps = waitingFollowUps
+            .Where(w => !followUps.Any(f => string.Equals(f.Target.Key, w.Target.Key, StringComparison.Ordinal)))
+            .Select(w => w.Id);
         return new ReevaluationPlan
         {
             Insert = insert,
             Merge = merge,
             Update = update,
-            Drop = [.. waitingRows.Where(w => !contributions.ContainsKey(w.Target.Key)).Select(w => w.Id)],
+            Drop = [.. waitingRows.Where(w => !contributions.ContainsKey(w.Target.Key)).Select(w => w.Id), .. staleFollowUps],
+            FollowUps = followUps,
+        };
+    }
+
+    /// <summary>
+    /// The follow-up row (13.2 #7) of a target that already got an alert of the event and is notified with
+    /// <paramref name="row"/>'s severity now, or null: an escalation when that severity is High or above and higher than
+    /// every severity the target was shown the event with; the final severity of the attribution follow-up still to come
+    /// (or waiting) when it differs from the shown one. It replies to the target's waiting follow-up's message, else to the
+    /// target's latest alert, and is due now.
+    /// </summary>
+    private static PendingNotification? FollowUpOfAlert(PendingNotification row, EventNotices notices, PendingNotification? waitingFollowUp,
+        WatchdogConfiguration configuration, DateTimeOffset now)
+    {
+        var key = row.Target.Key;
+        if (notices.LatestAlert(key) is not { } alert || notices.Shown(key) is not { } shown)
+        {
+            return null;
+        }
+
+        var escalation = row.Severity >= Severity.High && row.Severity > shown;
+        var finalSeverity = row.Severity != shown && (waitingFollowUp is not null || notices.FollowUpComing(key, configuration));
+        if (!escalation && !finalSeverity)
+        {
+            return null;
+        }
+
+        var replyTo = waitingFollowUp?.ReplyToMessageId ?? alert.MessageId;
+        return row with
+        {
+            BucketKey = AggregationPolicy.FollowUpBucketKey(replyTo, row.Target),
+            DueAt = now,
+            HoldForAttributionUntil = null,
+            IsFollowUp = true,
+            ReplyToMessageId = replyTo,
         };
     }
 

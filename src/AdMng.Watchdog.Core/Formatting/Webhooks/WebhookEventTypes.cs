@@ -7,7 +7,8 @@ namespace AdMng.Watchdog.Core.Formatting.Webhooks;
 /// The <c>type</c> of generic webhook payloads (section 14.5): <c>ad.&lt;object&gt;.&lt;action&gt;</c> in lower snake case
 /// for directory changes, <c>ad.privilege.granted|revoked</c>, <c>ad.burst.*</c>, <c>ad.dc.*</c> for event-log kinds,
 /// <c>watchdog.health.*</c>, <c>watchdog.configuration_changed</c>, <c>watchdog.heartbeat</c>, <c>watchdog.digest</c>,
-/// <c>watchdog.test</c> and <c>ad.attribution.updated</c> for follow-ups.
+/// <c>watchdog.test</c>, <c>ad.attribution.updated</c> for follow-ups and <c>ad.severity.escalated</c> for follow-ups
+/// that raise the severity (13.2 #7).
 /// </summary>
 public static class WebhookEventTypes
 {
@@ -15,6 +16,10 @@ public static class WebhookEventTypes
     public const string Digest = "watchdog.digest";
     public const string Test = "watchdog.test";
     public const string AttributionUpdated = "ad.attribution.updated";
+
+    /// <summary>A follow-up whose event became more severe than the alert showed it (an escalation; it carries the final
+    /// attribution as well, <c>data.previousSeverity</c> holds the earlier severity).</summary>
+    public const string SeverityEscalated = "ad.severity.escalated";
     public const string ConfigurationChanged = "watchdog.configuration_changed";
 
     /// <summary>The event type of an event of <paramref name="kind"/> on an object of <paramref name="objectKind"/>.</summary>

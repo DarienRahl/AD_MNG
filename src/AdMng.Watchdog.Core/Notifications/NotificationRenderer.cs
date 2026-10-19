@@ -11,7 +11,8 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// <summary>
 /// Renders a flushed bucket into an outbox message (section 13.3 "Rendering choice"): e-mail – one item → alert, more →
 /// aggregated alert; Teams – one item → alert card, more → burst card; webhook – one payload per event; follow-ups → the
-/// follow-up template of the channel. The message id is a Guid v7 ("N"), the webhook-id and the Message-ID local part.
+/// follow-up template of the channel (actor determined and/or severity raised – an escalation, <c>ad.severity.escalated</c>).
+/// The message id is a Guid v7 ("N"), the webhook-id and the Message-ID local part.
 /// </summary>
 public static class NotificationRenderer
 {
@@ -51,9 +52,11 @@ public static class NotificationRenderer
     }
 
     /// <summary>A follow-up of the message <paramref name="originalMessageId"/> for <paramref name="events"/> (final
-    /// attribution); <paramref name="originalSubject"/> is the subject the e-mail thread started with.</summary>
+    /// attribution, each event with its final severity for the target); <paramref name="originalSubject"/> is the subject the
+    /// e-mail thread started with; <paramref name="changes"/> say how the original showed each event (severity change –
+    /// an escalation, 13.2 #7 –, actor pending).</summary>
     public static OutboxMessage FollowUp(NotificationTarget target, RuleSettings? rule, IReadOnlyList<WatchEvent> events, string originalMessageId,
-        string originalSubject, WatchdogConfiguration configuration, DateTimeOffset now)
+        string originalSubject, WatchdogConfiguration configuration, DateTimeOffset now, IReadOnlyList<FollowUpChange>? changes = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(events);
@@ -67,9 +70,13 @@ public static class NotificationRenderer
         var message = Base(target, rule, events, [.. events.Select(e => e.Id)], now, DeliveryKind.FollowUp);
         return target.ChannelType switch
         {
-            DeliveryChannelType.Email => message with { Email = EmailAlertFormatter.FollowUp(events, originalSubject, originalMessageId, rule, context) },
-            DeliveryChannelType.Teams => message with { Http = TeamsAlertCardFormatter.FollowUp(events, rule, context, CardVersion(configuration, target)) },
-            _ => message with { Http = WebhookPayloadFormatter.Event(events[0], MatchedRules(events[0], rule, configuration), context, followUp: true) },
+            DeliveryChannelType.Email => message with { Email = EmailAlertFormatter.FollowUp(events, originalSubject, originalMessageId, rule, context, changes) },
+            DeliveryChannelType.Teams => message with { Http = TeamsAlertCardFormatter.FollowUp(events, rule, context, CardVersion(configuration, target), changes) },
+            _ => message with
+            {
+                Http = WebhookPayloadFormatter.Event(events[0], MatchedRules(events[0], rule, configuration), context, followUp: true,
+                    previousSeverity: FollowUpChange.Of(events[0], changes)?.PreviousSeverity),
+            },
         };
     }
 

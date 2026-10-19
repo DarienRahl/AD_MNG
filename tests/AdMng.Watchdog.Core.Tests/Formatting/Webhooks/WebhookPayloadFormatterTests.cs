@@ -96,6 +96,30 @@ public sealed class WebhookPayloadFormatterTests
     }
 
     [Fact]
+    public void AFollowUpThatRaisesTheSeverity_IsAnEscalation_WithThePreviousSeverity()
+    {
+        var e = FormattingSamples.PrivilegeGranted();
+
+        var escalated = WebhookPayloadFormatter.Event(e, [], FormattingSamples.Context(level: DetailLevel.Minimal), followUp: true, previousSeverity: Severity.Medium);
+        var lowered = JsonNode.Parse(WebhookPayloadFormatter.Event(e with { Severity = Severity.Info }, [], FormattingSamples.Context(), followUp: true,
+            previousSeverity: Severity.High).Body)!;
+        var unchanged = JsonNode.Parse(WebhookPayloadFormatter.Event(e, [], FormattingSamples.Context(), followUp: true, previousSeverity: Severity.Critical).Body)!;
+        var alert = JsonNode.Parse(WebhookPayloadFormatter.Event(e, [], FormattingSamples.Context(), previousSeverity: Severity.Medium).Body)!;
+
+        Assert.Equal("ad.severity.escalated", escalated.WebhookEventType);
+        var data = JsonNode.Parse(escalated.Body)!;
+        Assert.Equal(("ad.severity.escalated", "critical", "medium"),
+            (data["type"]!.GetValue<string>(), data["data"]!["severity"]!.GetValue<string>(), data["data"]!["previousSeverity"]!.GetValue<string>()));
+        Assert.Equal("Resolved", data["data"]!["actor"]!["status"]!.GetValue<string>());
+        Assert.Equal(("ad.attribution.updated", "info", "high"),
+            (lowered["type"]!.GetValue<string>(), lowered["data"]!["severity"]!.GetValue<string>(), lowered["data"]!["previousSeverity"]!.GetValue<string>()));
+        Assert.Equal("ad.attribution.updated", unchanged["type"]!.GetValue<string>());
+        Assert.Null(unchanged["data"]!["previousSeverity"]);
+        Assert.Equal("ad.privilege.granted", alert["type"]!.GetValue<string>());
+        Assert.Null(alert["data"]!["previousSeverity"]);
+    }
+
+    [Fact]
     public void HealthEvents_DescribeTheWatchdogInsteadOfAnObject()
     {
         var health = FormattingSamples.PrivilegeGranted() with

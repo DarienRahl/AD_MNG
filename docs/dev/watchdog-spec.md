@@ -334,7 +334,7 @@ Attribution/EventLogGapDetector.cs                           cursor regressions,
 Attribution/EventLogOnlyDetector.cs                          1102/4719/4794 → WatchEvents
 Rules/RuleEvaluationJob.cs                                   [S*] IWatchdogJob
 Rules/RuleEngine.cs                                          event × rules → matches
-Rules/ReevaluationPlan.cs                                    re-plan of an event's pending rows after attribution (11.4 #9)
+Rules/ReevaluationPlan.cs                                    re-plan of an event's pending rows after attribution (11.4 #9), escalations (13.2 #7)
 Rules/RuleMatcher.cs                                         one rule vs one event
 Rules/ScopeMatcher.cs
 Rules/ExclusionMatcher.cs
@@ -348,6 +348,7 @@ Rules/RolloutMode.cs                                         rollout-mode window
 Rules/Tier0Catalog.cs                                        Tier-0 kinds/attributes that cannot be suppressed (8.3)
 Notifications/NotificationPlanner.cs                         matches → one PendingNotification row per target (strongest treatment)
 Notifications/AlertCoverage.cs                               per-event coverage by an earlier alert (13.2 #1)
+Notifications/EventNotices.cs                                what each target was told about one event: shown severity, latest alert, follow-up to come (13.2 #1, #7)
 Notifications/AggregationPolicy.cs                           bucket keys, flush delays, max items
 Notifications/ThrottlePolicy.cs                              per rule × channel hourly cap
 Notifications/BusinessCalendar.cs                            business hours check (time zone)
@@ -355,7 +356,7 @@ Notifications/PolishHolidays.cs                              PL statutory holida
 Notifications/NotificationDispatchJob.cs                     [S*] IWatchdogJob: due buckets → render → outbox
 Notifications/OutboxSenderJob.cs                             [S*] IWatchdogJob: lease → transport → result
 Notifications/RetryPolicy.cs                                 per channel type schedules (section 15)
-Notifications/FollowUpPlanner.cs                             attribution-resolved follow-ups
+Notifications/FollowUpPlanner.cs                             attribution-resolved follow-ups (each event with its own final severity)
 Notifications/DigestBuilder.cs                               DigestModel from events + scans
 Notifications/DigestModel.cs
 Notifications/DigestJob.cs                                   [S*] IWatchdogJob + IDigestService
@@ -371,6 +372,7 @@ Formatting/HtmlWriter.cs                                     tiny HTML builder, 
 Formatting/EmailSubjectBuilder.cs
 Formatting/EmailAlertFormatter.cs
 Formatting/EmailDigestFormatter.cs
+Formatting/FollowUpChange.cs                                 what a follow-up tells about an event vs. its alert (severity change, actor determined)
 Formatting/EventHtmlRenderer.cs                              implements IEventHtmlRenderer (HTML event page)
 Formatting/AdaptiveCards/AdaptiveCardBuilder.cs              typed builder (AC 1.4 subset)
 Formatting/AdaptiveCards/AdaptiveElements.cs                 element records (TextBlock, RichTextBlock, TextRun, …)
@@ -2153,8 +2155,9 @@ public sealed record OutboxMessage
     public RenderedHttpMessage? Http { get; init; }
     public string? RuleId { get; init; }
     public IReadOnlyList<long> EventIds { get; init; } = [];
-    /// <summary>Alerts: per linked event the severity it was shown with and whether its actor was pending (13.2 #1 coverage);
-    /// empty for other kinds and alerts of schema ≤ 2 (then Severity / SentWithPendingAttribution stand for every event).</summary>
+    /// <summary>Alerts and follow-ups: per linked event the severity it was shown with and whether its actor was pending
+    /// (13.2 #1 coverage, 13.2 #7 escalation); empty for other kinds and for alerts of schema ≤ 2 and follow-ups stored
+    /// before escalations (then Severity / SentWithPendingAttribution stand for every event).</summary>
     public IReadOnlyList<OutboxEventState> EventStates { get; init; } = [];
     public Severity Severity { get; init; }                         // the highest severity of its events
     public int Attempts { get; init; }
@@ -2282,9 +2285,10 @@ public interface INotificationQueueStore
     Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken);
     /// <summary>Moves the rows' DueAt (throttled buckets, 13.3).</summary>
     Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken);
-    /// <summary>Re-planned targets (13.2 #1): the waiting row with the same (event, target, follow-up) takes rule, target,
-    /// severity, bucket and hold and keeps the earlier due time; a missing one is inserted when insertMissing (SQLite:
-    /// INSERT … ON CONFLICT DO UPDATE / UPDATE), one transaction.</summary>
+    /// <summary>Re-planned targets (13.2 #1) and escalations (13.2 #7, follow-up rows): the waiting row with the same
+    /// (event, target, follow-up) takes rule, target, severity, bucket and hold and keeps the earlier due time and its
+    /// reply-to; a missing one is inserted when insertMissing (SQLite: INSERT … ON CONFLICT DO UPDATE / UPDATE), one
+    /// transaction.</summary>
     Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken);
 }
 
@@ -3815,10 +3819,24 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    stored `matched_rules`) notifies the target, so `tier0-security` added for the recipients of a custom rule's held row
    takes that row over with its severity, name and Always delivery; updated while it waits otherwise; dropped when no
    rule notifies the target any more (a custom rule excluding the actor must not silence `tier0-security` for the same
-   recipients); targets that only the added rules notify get new rows unless an alert already covers them (13.2 #1).
-   Rules that already matched are never planned again for a target without a waiting row (it may be delivered and
-   deleted). The waiting rows are re-planned first (idempotent – a merged row whose waiting row was flushed meanwhile is
-   inserted and the dispatch job drops it when the alert covers it), then matched rules ∪ new rules, the evaluated
+   recipients). **Escalation** (13.2 #7): a target without a waiting row that already got an alert of the event (not
+   Dead/Cancelled) and that a stored **or** an added rule notifies now with a severity ≥ High above every severity its
+   alerts and follow-ups showed the event with (`OutboxMessage.EventStates`, per event) gets exactly one follow-up row
+   of its latest alert (`ReevaluationPlan.FollowUps`, `ReplanAsync` insert missing) – e.g. a Medium alert sent at the end
+   of the grace with the actor pending (no follow-up below High) whose final attribution makes the event High. The same
+   row carries the final severity of an attribution follow-up still to come for that target when it differs (also a
+   lower one – nothing extra is sent for it). Targets that only the added rules notify and that have no alert get new
+   rows unless an alert already covers them (13.2 #1). Otherwise rules that already matched are not planned again for a
+   target without a waiting row (it may be delivered and deleted). Repeat suppression is not checked again for the
+   rules of the waiting rows nor for a rule with a message about this very event (`EventNotices.NotifyingRules` – its
+   own alert of this event is no repeat); every other matched rule is checked again, so a stored rule that was left out
+   as a repeat when the event was planned never escalates with its severity. The waiting rows and the follow-up rows are
+   re-planned first (idempotent upserts – a merged row whose waiting row was flushed meanwhile is inserted and the
+   dispatch job drops it when the alert covers it; an escalation stored by an interrupted pass is updated in place, and
+   dropped when the next pass does not plan it again – no rule notifies the target any more, or the final severity is no
+   news – or ends the attribution without a re-evaluation, because the final state it found changes no rule input
+   (another actor, or attribution turned off since; the waiting follow-ups of such an event are dropped right before its
+   attribution update)), then matched rules ∪ new rules, the evaluated
    severity and the new rows are stored in one `CommitEvaluationAsync`, **before** the attribution update: a pass
    interrupted in between leaves the event pending and the next pass re-plans the same way. The update stores the
    final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
@@ -3834,7 +3852,9 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    re-evaluation re-planned it would complete it with the old treatment and delete the re-planned row with it (the
    `tier0-security` takeover of a held custom-rule row lost).
 10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
-   `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
+   `FollowUpPlanner` directly (13.2 #6) and `INotificationQueueStore.AddAsync` – a row for a target that already has an
+   escalation row (#9) is a duplicate and ignored, so the recipients get one message with the actor and the new severity;
+   then `signals.Raise(AttributionUpdated)`.
    The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
    pass) also when a later write of the pass fails.
 
@@ -3846,7 +3866,15 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
   "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final own severity and tags (13.3).
 - Other High/Critical are sent at once; when `FollowUpWhenAttributed`, a follow-up notification (same e-mail thread:
   `In-Reply-To`/`References`; Teams: a short card "Uzupełnienie: wykonawca ustalony"; webhook: event type
-  `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves.
+  `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves. It shows each event
+  with its own final severity (not the maximum of an aggregated alert) and says when it changed ("Priorytet: Wysoki →
+  Info").
+- When the final attribution raises the severity of an event to High or Critical above the one an alert already showed
+  its recipients, they get one **escalation** in the same thread (13.2 #7: e-mail "Uzupełnienie: priorytet podniesiony"
+  or "Uzupełnienie: wykonawca ustalony, priorytet podniesiony" with "Priorytet: Średni → Wysoki"; Teams the same title
+  and a Priorytet row per event; webhook `ad.severity.escalated` with `data.previousSeverity`) – also when no follow-up
+  for the actor was due (an alert below High) and independent of `FollowUpWhenAttributed`. A lower final severity never
+  sends anything new.
 - The digest and the GUI always show the final attribution.
 
 ### 11.6 Event-log-only detections (`EventLogOnlyDetector`)
@@ -4059,7 +4087,8 @@ attribution (11.4 #9, `PlanReevaluationAsync`) and the dispatch job when it rele
 left its delivery hours or the configuration (13.3, `PlanTargetAsync` with `IHeldNotificationMatcher.MatchAll`) – so
 a rule earlier in the configuration, a higher severity or Always delivery takes a target over, and a target whose rule
 no longer matches passes to the next rule that does. The rules of a waiting row passed their repeat suppression when it
-was planned and are not checked again.
+was planned and are not checked again. A target that already got an alert is never re-planned as a second alert for a
+higher severity: it gets an escalation in the thread of that alert (#7).
 
 0. Rollout mode (12.5) active and the rule is not `tier0-*` / `bursts` / `health` → no immediate notification
    (digest only; counted for the rollout banner).
@@ -4073,8 +4102,10 @@ was planned and are not checked again.
    (`AlertCoverage`): not Dead or Cancelled, the **event itself** shown with at least the planned severity
    (`OutboxMessage.EventStates` – an aggregated alert carries the maximum of its events, so an event shown Medium inside
    a High alert is not covered by a High plan) and carrying the final state (the event's actor known when rendered, or the
-   follow-up of #6 coming); a higher severity, or an alert sent with the actor pending and no follow-up to come, is new
-   information and the added rule notifies. The dispatch job checks the coverage again right before it completes a row
+   follow-up of #6 coming); a follow-up of the event to the target that showed it with at least the planned severity
+   covers it too (it carries the final attribution). An alert sent with the actor pending and no follow-up to come is new
+   information and the added rule notifies; a higher severity of High or above for a target that has an alert is an
+   escalation (#7), not a second alert. The dispatch job checks the coverage again right before it completes a row
    (13.3): it is the only writer of alerts and completes one bucket at a time, so a row stored after the earlier alert
    was completed never becomes a second alert; its runs and the re-evaluation share the evaluation section (11.4 #9), so
    a re-plan never lands between its read of a row and the completion of that row.
@@ -4092,9 +4123,30 @@ was planned and are not checked again.
 6. Follow-ups (`FollowUpPlanner`, called by the AttributionEngine when an attribution becomes final, 11.4 #9): for
    every message from `outbox.GetMessagesForEventAsync(eventId)` with `SentWithPendingAttribution`, severity ≥ High and
    `FollowUpWhenAttributed`, add a pending row for the original `TargetKey` with `IsFollowUp`, `ReplyToMessageId` =
-   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored). The dispatch job
-   also plans them right after it stored an alert whose events turned final while it was rendered (13.3), and sends a
-   follow-up only after its original was Sent (none for a Dead/Cancelled original).
+   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored). Its severity is the
+   event's own final severity (`FollowUpPlanner.FinalSeverity`): the severity the alert showed **that event** with
+   (`EventStates`, not the alert's maximum), lowered to the event's final evaluated severity when the attribution lowered
+   it; a raise comes from #7, whose row is stored first. The dispatch job also plans them right after it stored an alert
+   whose events turned final while it was rendered (13.3), and sends a follow-up only after its original was Sent (none
+   for a Dead/Cancelled original).
+7. **Escalation** (re-evaluation after attribution, 11.4 #9, `ReevaluationPlan.FollowUps`): per target that the rules
+   matching the event now notify (stored and added rules; #0 rollout, #2 delivery hours at the target's severity – Always
+   for ≥ High by default –, #3 repeat suppression except for rules with a message about this event), that has no
+   waiting row and that already got an
+   alert of the event that reaches it (`EventNotices`: not Dead/Cancelled; still waiting in the outbox counts): when the
+   severity the target is notified with now (the strongest treatment, as for a row) is ≥ High and higher than every
+   severity its alerts and follow-ups showed the event with (`EventStates`; older messages: their message severity), one
+   follow-up row (`IsFollowUp`, rule = the rule leading the target now, `ReplyToMessageId` = the target's waiting
+   follow-up's reply-to, else its latest alert, `BucketKey = followup|messageId|target`, DueAt = now) is upserted with
+   `ReplanAsync(insertMissing: true)` – before the attribution update, so an interrupted pass re-plans it in place (and
+   the next pass drops it, `ReevaluationPlan.Drop`, when it does not plan it again, or the AttributionEngine before the
+   attribution update when the next pass's final state changes no rule input and is not re-evaluated, 11.4 #9). The
+   attribution follow-up of #6 for the same target is then a duplicate (same (event, target, follow-up) key): one
+   message carries the actor and the new severity. The same row also carries the final severity of a follow-up still to
+   come (#6 due, or waiting) when it differs, lower ones included; a lower severity never creates a message by itself.
+   Escalations do not depend on `FollowUpWhenAttributed`. They go through the follow-up path of the dispatch job (13.3):
+   wait for the original to be Sent, dropped with a Dead/Cancelled original, not held by the hourly cap (at most one per
+   alert and target – the alerts were capped), delivered through the channel's rate limiter, retries and health (15).
 
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
@@ -4122,15 +4174,22 @@ for each bucket with min(DueAt) ≤ now:
         reports them
     ready non-follow-up items whose event already has an alert for the target that covers them (13.2 #1,
         AlertCoverage: per event, not lost, at least the item's severity, actor known or follow-up coming) → dropped
-    follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original
-        message (ReplyToMessageId) Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min)
-        (a follow-up never overtakes its original); Sent or unknown (purged) → rendered
+    follow-up items whose event's attribution is still Pending (an escalation stored by a re-evaluation interrupted
+        before the attribution update, 13.2 #7) → RescheduleAsync(now + 1 min) – never rendered with "ustalanie…"
+    follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate: it told the
+        actor and the target's final severity – also when a later attribution follow-up carries the event's evaluated
+        severity, e.g. another rule's override for another target), unless the item is an escalation (≥ High and higher
+        than every severity the target's alerts and follow-ups showed the event with, 13.2 #7); original message (ReplyToMessageId)
+        Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min) (a follow-up never overtakes its
+        original); Sent or unknown (purged) → rendered, each event with its row severity and the change against the
+        original's EventStates (FollowUpChange: previous severity, actor pending), the content under the row's rule (an
+        escalation's leading rule), the subject of the original
     if ready is empty: continue
     if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
-        TargetKey, SentWithPendingAttribution = any rendered event still Pending; alerts: EventStates = per event its
-        row severity and whether its actor is still Pending)
+        TargetKey, SentWithPendingAttribution = any rendered event still Pending; alerts and follow-ups: EventStates = per
+        event its row severity and whether its actor is still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
     ThrottlePolicy.RecordEnqueued(rule, channel, now)
     alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
@@ -4144,7 +4203,9 @@ the messages **enqueued** in the last hour (kept in memory by the `ThrottlePolic
 deliver does not let a burst queue one message per flush that floods the recipients after the recovery.
 
 Rendering choice: e-mail 1 item → alert, > 1 → aggregated alert; Teams 1 → alert card, > 1 → burst card (digest
-layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template.
+layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template (title by what is
+new: "Uzupełnienie: wykonawca ustalony" / "Uzupełnienie: priorytet podniesiony" / "Uzupełnienie: wykonawca ustalony,
+priorytet podniesiony"; webhook `ad.attribution.updated` or, when the severity was raised, `ad.severity.escalated`).
 
 ### 13.4 Digest (`DigestJob`, `DigestBuilder`, `Schedule`)
 
@@ -4175,7 +4236,11 @@ layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-u
 - Content (`DigestModel`): header (instance, domain, period, health line: DC, last poll, attribution coverage,
   log gaps, broken channels, rollout mode); counts (critical/high, new users, new computers, deleted, disabled/enabled,
   lockouts, password resets (tag passwordReset), own password changes, password age resets, privileged changes,
-  GPO/domain changes); **"Wymaga uwagi"** = all events ≥ High with acknowledged/unacknowledged state; sections (only
+  GPO/domain changes); **"Wymaga uwagi"** = all events ≥ High with acknowledged/unacknowledged state – an event whose
+  alert recipients were later told another severity in the alert's thread (an escalation, 13.2 #7; `EventNotices.
+  ChangedFrom` per shown event: the alert's per-event state against a later follow-up of the same target, lost
+  messages excluded) adds "(priorytet: Średni → Wysoki)" / "(severity: Medium → High)" to its change cell
+  (`DigestModel.SeverityChanges`); sections (only
   events matched by a rule with `IncludeInDigest`, plus health): Nowe konta · Nowe komputery (grouped by parent OU,
   unusual ones flagged, `defaultContainer` flag) · Usunięte / przywrócone · Wyłączone / włączone · Przeniesione /
   zmiany nazw · Dostęp uprzywilejowany · Członkostwo w grupach · Zmiany parametrów kont (grouped per object: attribute
@@ -4245,7 +4310,7 @@ never retried past its interval – the next one supersedes it (15.1, `heartbeat
 | single | `[AD Watchdog][KRYTYCZNE] Dodano do grupy uprzywilejowanej: Jan Kowalski (jan.kowalski) → Domain Admins – CONTOSO\adm.nowak` | `[AD Watchdog][CRITICAL] Privileged access granted: Jan Kowalski (jan.kowalski) → Domain Admins – CONTOSO\adm.nowak` |
 | single, actor pending | `[AD Watchdog][NISKI] Nowe konto: Zofia Żak (zofia.zak) – wykonawca: ustalanie…` | `[AD Watchdog][LOW] New account: Zofia Żak (zofia.zak) – actor: pending…` |
 | aggregated | `[AD Watchdog][NISKI] Nowe konta: 25 (OU=Sprzedaż) – CONTOSO\adm.nowak` | `[AD Watchdog][LOW] New accounts: 25 (OU=Sprzedaż) – CONTOSO\adm.nowak` |
-| follow-up | `Re: <original subject>` | same |
+| follow-up (also an escalation, 13.2 #7) | `Re: <original subject>` (the thread keeps its subject; `X-AdMng-Severity` and the banner carry the new severity) | same |
 | digest | `[AD Watchdog] Raport dzienny contoso.com – 14.10.2026: 71 zdarzeń (2 wymagają uwagi)` | `[AD Watchdog] Daily report contoso.com – 2026-10-14: 71 events (2 need attention)` |
 | test | `[AD Watchdog] Wiadomość testowa` | `[AD Watchdog] Test message` |
 
@@ -4297,6 +4362,17 @@ What / Object / Who / From / When / Where, "Changes · Before · After", "change
 <reason>", "pending… (a follow-up will be sent)", footer "Rule … · event … · service … · automated message, do not
 reply".
 Text alternative: the same content as aligned "Label: value" lines, ≤ 100 characters per line.
+Follow-up (13.2 #6–#7): the single-alert or aggregated layout of the follow-up's events, each with its final severity,
+and a banner that says what is new – "Uzupełnienie: wykonawca ustalony" (en "Follow-up: actor determined"),
+"Uzupełnienie: priorytet podniesiony" ("Follow-up: severity raised") when an event's severity was raised and no actor
+was pending, "Uzupełnienie: wykonawca ustalony, priorytet podniesiony" ("Follow-up: actor determined, severity raised")
+for both. A single event whose severity changed gets the fact `Priorytet  Średni → Wysoki` right after "Co" (also a
+lowered one: `Wysoki → Info`); an aggregated follow-up adds a Priorytet column (`Wysoki` or `Średni → Wysoki`). The
+values agree with "Priorytet" (`SeverityName.*`: Info, Niski, Średni, Wysoki, Krytyczny – the subject word stays
+`KRYTYCZNE`). The
+previous severity is the original alert's per-event state (`FollowUpChange`); unknown (alert purged, an aggregated alert
+stored before the per-event states) → no change shown. The content shows the rule leading the target now (an escalation
+may come from another rule than the alert).
 
 ### 14.4 Teams (Power Automate Workflows) – `TeamsAlertCardFormatter`, `TeamsDigestCardFormatter`, `CardBudget`
 
@@ -4338,9 +4414,12 @@ Alert card (pl, abbreviated):
  "actions":[{"type":"Action.OpenUrl","title":"Otwórz w AD Watchdog","url":"https://admng-wd.contoso.com:8443/events/0192f3a4-5b6c-7d8e-9f00-112233445566"}]}}]}
 ```
 
+Follow-up card: title by what is new (as the e-mail banner, 14.3), per event the kind and object, a "Priorytet" row with
+its final severity ("Wysoki" or "Średni → Wysoki"), Kto, Skąd, Kiedy; header style by the highest severity.
+
 Digest card: header container (style `emphasis`), FactSet with counts, per section up to 10 rows (ColumnSet: time ·
 object TextRun · change TextRun · actor TextRun), "… i N kolejnych", "Pokazano X z Y zdarzeń", OpenUrl to the
-service when configured.
+service when configured; "Wymaga uwagi" rows carry the severity change of an escalated event (13.4).
 
 ### 14.5 Generic webhook – `WebhookPayloadFormatter`, `WebhookEventTypes`, `StandardWebhookSigner`
 
@@ -4356,7 +4435,10 @@ domain, gpo, trust, dc, pso, schema, pki, forest; action from the kind (`created
 `ad.burst.mass_lockout|mass_deletion|password_spraying`; event-log kinds →
 `ad.dc.security_log_cleared|audit_policy_changed|dsrm_password_changed`; health → `watchdog.health.<snake kind without
 Health>`; WatchdogConfigurationChanged → `watchdog.configuration_changed`; heartbeat → `watchdog.heartbeat`; digest →
-`watchdog.digest`; test → `watchdog.test`; follow-up → `ad.attribution.updated`.
+`watchdog.digest`; test → `watchdog.test`; follow-up → `ad.attribution.updated`; a follow-up whose event's severity is
+higher than the alert showed it (an escalation, 13.2 #7 – it carries the final attribution too) →
+`ad.severity.escalated`. A follow-up whose severity changed writes `data.previousSeverity` (lower case, next to
+`data.severity`, both types); otherwise the field is absent.
 
 Body (UTF-8, compact, signed bytes = sent bytes):
 
@@ -5307,8 +5389,8 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
 | Scans | `AccountExpiryScannerTests` (thresholds 14/7/1 in calendar days to the last valid day, '1 day' fires the day before, Sunday expiry announced on Friday, holiday stretch 24–26 Dec, dedup, downtime catch-up records larger thresholds, changed expiry re-arms, expired once, ADUC end-of-day display), `PasswordExpiryScannerTests` (scope, 0 and never), `LockoutMonitorTests`, `BurstDetectorTests` (mass lockout with the percentage threshold, mass deletion by class: 10 users Critical, 10 computers nothing, 50 computers High; cooldown), `PasswordSprayDetectorTests` (fixture 4771/4776 sets: 20 accounts from one IP → event; 20 lockouts from different IPs → none; disabled by default) |
 | Attribution | `SecurityEventParserTests` (all fixtures, by-name parsing, unknown fields, `-`, %% decoding, 4740 caller mapping, 1102 UserData, masking), `IngestionReductionTests` (5136 value kept only for watched non-secret attributes, no values without a schema, excluded-subtree / unwatched-class records dropped, budget → HealthEventLogGap flooding), `EventSourceGuardTests` (foreign provider / unknown Computer dropped, also in ForwardedEvents mode), `SamAccountControlDecoderTests` (the four Microsoft samples: 0x0→0x15 = Disabled+PwdNotRequired+Normal; 0x15→0x211; 0x80→0x2080; 0x80), `SecurityEventQueryBuilderTests` (≤ 20 IDs per Select, escaping, suppress), `AttributionCorrelatorTests` (strong vs weak keys, attribute confirmation, ambiguous, SYSTEM, self change, 4723 → selfChange / 4724 → passwordReset, sync account tag, attribution-dependent severity re-resolution, operation grouping, retries then each reason code), `LogonSourceResolverTests` (types 3/8/10, loopback, From bound = LogonLookback, timeout, one query per DC, negative cache, SOURCE_LOGON_NOT_FOUND, source confidence caps), `LockoutSourceResolverTests` (empty caller → 4771/4776 sources with counts; caller = DC/server → sources queried), `EventLogGapDetectorTests` |
 | Rules | `RuleMatcherTests` (each condition; actor exclusions by SID only), `ExclusionMatcherTests` (attribute exclusion semantics, expiry), `SeverityResolverTests` (order base → bumps → attribution → overrides; HR-attribute change of a privileged user stays Info; privileged own password change → Info, reset → High; krbtgt exactly Medium; AdminCountSet after PrivilegeGranted → Info), `DefaultRulesTests` (ids unique, health locked with AllEnabledChannels, every kind with RecordedByDefault is covered by at least digest), `ConfigurationValidatorTests` (every code of 8.3 incl. secretRebindRequired, tier0Suppression, invalidAttribute, invalidScope, oauthHostNotAllowed, invalidHostName, both time-zone id forms), `ConfigChangeAuditorTests` (severity per change class, no secret values in Changes), `ConfigRedactorTests`, `RolloutModeTests`, `RulePreviewServiceTests`, `ConfigTokensTests`, `TimeZoneResolverTests` (IANA, Windows id, built-in map when ICU conversion is unavailable) |
-| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged, one row per target with the strongest treatment of every rule, the re-evaluation plan – merge/update/drop/insert, per-event alert coverage), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution), `DispatchJobTests` (FakeTimeProvider; re-match with the final own severity drops a privileged self password change; a released row passes to the next rule that still matches; a row whose rule left its hours goes out under an Always rule; a row covered by an earlier alert is dropped at flush; per-event alert states; a released row rendered with the own severity, not another rule's override), `ReevaluationPipelineTests` (rules job + attribution engine + dispatch over one store: takeover by an added earlier rule, no deferral, failed re-match, own vs evaluated severity, aggregated coverage, a dispatch run waiting for the re-evaluation, a re-evaluation while the dispatch completes the held row, a pass interrupted after the takeover + restart + repeated cycles), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
-| Formatting | `EmailSubjectBuilderTests` (pl/en table 14.2, CR/LF stripping, 200 chars), `UntrustedTextTests` (U+202E, U+2066, zero-width → visible escapes; `https://evil.example/x` → `hxxps://evil[.]example/x`; `www.` defanged; UPNs and host names unchanged), `EmailAlertFormatterTests` (HTML-encoded hostile values like `<script>`, `[Kliknij](https://evil)`, `‮` and a URL in description and in a nested group name of a Via path; secret masked; detail levels; source row IP first with name origin; lockout source row), `TeamsCardFormatterTests` (only AC 1.4 element types; AD strings only in TextRun; defanged URLs; ≤ 24 576 bytes with 500 Polish events; one attachment), `WebhookPayloadFormatterTests` (schema, Minimal level strips values), `StandardWebhookSignerTests` (both vectors of 14.5, rotation = two signatures), `TeamsUrlValidatorTests`, `NotificationStringsTests` (every generated key in en and pl) |
+| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged, one row per target with the strongest treatment of every rule, the re-evaluation plan – merge/update/drop/insert, per-event alert coverage, escalation of a stored or added rule's target in the thread of its alert despite repeat suppression, no escalation below High or without a raise, the final severity of the follow-up still to come, merge into a waiting follow-up, no second escalation after a follow-up showed the severity, none for a lost alert), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution; each event of an aggregated alert with its own severity, lowered to the final one), `DispatchJobTests` (FakeTimeProvider; re-match with the final own severity drops a privileged self password change; a released row passes to the next rule that still matches; a row whose rule left its hours goes out under an Always rule; a row covered by an earlier alert is dropped at flush; per-event alert states; a released row rendered with the own severity, not another rule's override; an escalation of a pending event waits for the stored attribution; an escalation after a follow-up is no duplicate; an aggregated follow-up shows each event's final severity and its change), `ReevaluationPipelineTests` (rules job + attribution engine + dispatch over one store: takeover by an added earlier rule, no deferral, failed re-match, own vs evaluated severity, aggregated coverage, a dispatch run waiting for the re-evaluation, a re-evaluation while the dispatch completes the held row, a pass interrupted after the takeover + restart + repeated cycles; escalation 13.2 #7: a Medium alert with the actor pending escalated once over repeated cycles (e-mail thread + `ad.severity.escalated`), an alert already High gets only the follow-up, High → Critical merged with the actor follow-up, a lowered severity sends nothing more, an aggregated alert escalates only the event that became High, the attribution arriving while the dispatch completes the alert, a dispatch starting while the escalation is stored, a restart or an interrupted pass between alert and escalation, a dispatch sending the escalation – or a lowered follow-up while another rule's override keeps the evaluated severity High – before the attribution follow-up is queued, no escalation from a stored rule left out as a repeat, an interrupted pass's escalation dropped when the next pass no longer plans it or ends the attribution without a re-evaluation), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes, the severity change of an escalated attention event), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
+| Formatting | `EmailSubjectBuilderTests` (pl/en table 14.2, CR/LF stripping, 200 chars), `UntrustedTextTests` (U+202E, U+2066, zero-width → visible escapes; `https://evil.example/x` → `hxxps://evil[.]example/x`; `www.` defanged; UPNs and host names unchanged), `EmailAlertFormatterTests` (HTML-encoded hostile values like `<script>`, `[Kliknij](https://evil)`, `‮` and a URL in description and in a nested group name of a Via path; secret masked; detail levels; source row IP first with name origin; lockout source row; follow-up banners and the severity change pl/en – single fact, aggregated Priorytet column, lowered value), `TeamsCardFormatterTests` (only AC 1.4 element types; AD strings only in TextRun; defanged URLs; ≤ 24 576 bytes with 500 Polish events; one attachment; escalation card title and Priorytet rows), `WebhookPayloadFormatterTests` (schema, Minimal level strips values; `ad.severity.escalated` / `previousSeverity`), `EmailDigestFormatterTests` / `TeamsDigestCardFormatterTests` (attention severity change), `StandardWebhookSignerTests` (both vectors of 14.5, rotation = two signatures), `TeamsUrlValidatorTests`, `NotificationStringsTests` (every generated key in en and pl) |
 
 ### 22.2 `tests/AdMng.Watchdog.Service.Tests` (W-service)
 

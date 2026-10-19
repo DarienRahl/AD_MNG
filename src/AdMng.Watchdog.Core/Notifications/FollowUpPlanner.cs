@@ -11,8 +11,10 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// Follow-ups once an attribution became final (sections 11.4 #9, 11.5 and 13.2 #6): for every alert message of the
 /// event that was sent with the actor pending and has severity ≥ High, a pending follow-up for the same target, due now
 /// and replying to that message (same e-mail thread, Teams "Uzupełnienie", webhook <c>ad.attribution.updated</c>) – only
-/// with <c>Notifications.FollowUpWhenAttributed</c>. The AttributionEngine adds the rows (<c>INotificationQueueStore.AddAsync</c>;
-/// duplicates are ignored) through <see cref="IAttributionFollowUpPlanner"/>.
+/// with <c>Notifications.FollowUpWhenAttributed</c>. Each row carries the event's own final severity
+/// (<see cref="FinalSeverity"/>), not the alert's maximum. The AttributionEngine adds the rows
+/// (<c>INotificationQueueStore.AddAsync</c>; duplicates are ignored – an escalation the re-evaluation planned for the same
+/// target, 13.2 #7, already carries the actor) through <see cref="IAttributionFollowUpPlanner"/>.
 /// </summary>
 public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
 {
@@ -56,7 +58,7 @@ public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
                 EventId = attributedEvent.Id,
                 RuleId = message.RuleId ?? string.Empty,
                 Target = target,
-                Severity = message.Severity,
+                Severity = FinalSeverity(message, attributedEvent),
                 BucketKey = AggregationPolicy.FollowUpBucketKey(message.MessageId, target),
                 DueAt = now,
                 IsFollowUp = true,
@@ -66,6 +68,20 @@ public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// The severity a follow-up of <paramref name="alert"/> shows <paramref name="attributedEvent"/> with: the severity the
+    /// alert showed that event with (<see cref="EventNotices.ShownSeverity"/> – not the maximum of an aggregated alert),
+    /// lowered to the event's final evaluated severity when the attribution lowered it. A raise is planned per target by the
+    /// re-evaluation (13.2 #7), whose row comes first and takes precedence (same (event, target, follow-up) key).
+    /// </summary>
+    public static Severity FinalSeverity(OutboxMessage alert, WatchEvent attributedEvent)
+    {
+        ArgumentNullException.ThrowIfNull(alert);
+        ArgumentNullException.ThrowIfNull(attributedEvent);
+        var shown = EventNotices.ShownSeverity(alert, attributedEvent.Id);
+        return attributedEvent.Severity < shown ? attributedEvent.Severity : shown;
     }
 
     /// <summary>True when <paramref name="message"/> gets a follow-up once the attribution of its events is final: an

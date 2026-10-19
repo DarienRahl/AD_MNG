@@ -107,6 +107,24 @@ public abstract partial class WatchdogStoreContractTests<TStore>
     });
 
     [Fact]
+    public Task Outbox_KeepsHowAFollowUpShowedItsEvents() => WithStoreAsync(async store =>
+    {
+        // 13.2 #7: an escalation records the severity it told the recipients – a later re-evaluation compares with it.
+        var events = await StoreEventsAsync(store, Event(WatchEventKind.KeyCredentialChanged, Snapshot(), Now, Severity.Medium));
+        var followUp = Message("email", kind: DeliveryKind.FollowUp, eventIds: [events[0].Id]) with
+        {
+            Severity = Severity.High,
+            EventStates = [new(events[0].Id, Severity.High, false)],
+        };
+
+        await store.EnqueueAsync(followUp, Ct);
+
+        var stored = Assert.Single(await store.GetMessagesForEventAsync(events[0].Id, Ct));
+        Assert.Equal((DeliveryKind.FollowUp, Severity.High), (stored.Kind, stored.Severity));
+        Assert.Equal([new OutboxEventState(events[0].Id, Severity.High, false)], stored.EventStates);
+    });
+
+    [Fact]
     public Task Outbox_DuplicateMessageId_IsRejected() => WithStoreAsync(async store =>
     {
         var message = Message();

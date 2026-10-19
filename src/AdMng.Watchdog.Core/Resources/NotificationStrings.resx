@@ -383,6 +383,12 @@
   <data name="Card.FollowUpTitle" xml:space="preserve">
     <value>Follow-up: actor determined</value>
   </data>
+  <data name="Card.FollowUpTitleActorAndSeverity" xml:space="preserve">
+    <value>Follow-up: actor determined, severity raised</value>
+  </data>
+  <data name="Card.FollowUpTitleSeverity" xml:space="preserve">
+    <value>Follow-up: severity raised</value>
+  </data>
   <data name="Card.OpenInWatchdog" xml:space="preserve">
     <value>Open in AD Watchdog</value>
   </data>
@@ -722,6 +728,9 @@
   <data name="Digest.SectionTitle" xml:space="preserve">
     <value>{0} ({1})</value>
   </data>
+  <data name="Digest.SeverityChanged" xml:space="preserve">
+    <value>severity: {0} → {1}</value>
+  </data>
   <data name="Digest.Shown" xml:space="preserve">
     <value>Shown {0} of {1} rows</value>
   </data>
@@ -751,6 +760,12 @@
   </data>
   <data name="Email.FollowUpBanner" xml:space="preserve">
     <value>Follow-up: actor determined</value>
+  </data>
+  <data name="Email.FollowUpBannerActorAndSeverity" xml:space="preserve">
+    <value>Follow-up: actor determined, severity raised</value>
+  </data>
+  <data name="Email.FollowUpBannerSeverity" xml:space="preserve">
+    <value>Follow-up: severity raised</value>
   </data>
   <data name="Email.Footer" xml:space="preserve">
     <value>Rule {0} · event {1} · service {2} · automated message, do not reply</value>
@@ -1532,6 +1547,9 @@
   <data name="Label.PreviousDn" xml:space="preserve">
     <value>Previously</value>
   </data>
+  <data name="Label.Severity" xml:space="preserve">
+    <value>Severity</value>
+  </data>
   <data name="Label.Time" xml:space="preserve">
     <value>Time</value>
   </data>
@@ -1769,6 +1787,21 @@
   <data name="Severity.Medium" xml:space="preserve">
     <value>Medium</value>
   </data>
+  <data name="SeverityName.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="SeverityName.High" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="SeverityName.Info" xml:space="preserve">
+    <value>Info</value>
+  </data>
+  <data name="SeverityName.Low" xml:space="preserve">
+    <value>Low</value>
+  </data>
+  <data name="SeverityName.Medium" xml:space="preserve">
+    <value>Medium</value>
+  </data>
   <data name="Source.ClientReported" xml:space="preserve">
     <value>client-reported</value>
   </data>
@@ -1891,6 +1924,9 @@
   </data>
   <data name="Value.PasswordExpiresOn" xml:space="preserve">
     <value>the password expires on {0} (days left: {1})</value>
+  </data>
+  <data name="Value.SeverityChange" xml:space="preserve">
+    <value>{0} → {1}</value>
   </data>
   <data name="Value.SourceUnknown" xml:space="preserve">
     <value>unknown – {0} ({1})</value>

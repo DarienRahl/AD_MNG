@@ -77,6 +77,36 @@ public abstract partial class WatchdogStoreContractTests<TStore>
     });
 
     [Fact]
+    public Task Queue_Replan_RaisesTheWaitingFollowUpOfTheTarget_KeepingItsThread() => WithStoreAsync(async store =>
+    {
+        // 13.2 #7: an escalation merges into the follow-up already waiting for the target – one row, one thread, the
+        // higher severity and the escalating rule; without a waiting follow-up it is inserted, next to the target's alert row.
+        var stored = (await StoreEventsAsync(store, Event(WatchEventKind.KeyCredentialChanged, Snapshot(), Now)))[0];
+        var admins = EmailTarget("łucja.nowak@contoso.test");
+        var helpdesk = EmailTarget("pomoc@contoso.test");
+        const string Original = "0192f3a45b6c7d8e9f00112233445566";
+        var actor = Pending(stored.Id, "konta-vip", admins, followUp: true) with { ReplyToMessageId = Original, Severity = Severity.Medium, DueAt = Now };
+        await store.AddAsync([actor, Pending(stored.Id, "konta-vip", helpdesk)], Ct);
+        var waiting = (await store.GetAllAsync(Ct)).Single(p => p.IsFollowUp);
+
+        var escalation = actor with { RuleId = "tier0-security", Severity = Severity.High, DueAt = Now.AddSeconds(30), CreatedAt = Now.AddMinutes(1) };
+        await store.ReplanAsync([escalation, Pending(stored.Id, "tier0-security", helpdesk, followUp: true) with { ReplyToMessageId = Original, Severity = Severity.High }],
+            insertMissing: true, Ct);
+
+        var rows = await store.GetAllAsync(Ct);
+        Assert.Equal(3, rows.Count);
+        var merged = rows.Single(p => p.IsFollowUp && p.Target.Key == admins.Key);
+        Assert.Equal((waiting.Id, "tier0-security", Severity.High, Original, Now), (merged.Id, merged.RuleId, merged.Severity, merged.ReplyToMessageId, merged.DueAt));
+        var inserted = rows.Single(p => p.IsFollowUp && p.Target.Key == helpdesk.Key);
+        Assert.Equal((Severity.High, Original), (inserted.Severity, inserted.ReplyToMessageId));
+        Assert.Single(rows, p => !p.IsFollowUp);
+
+        // The follow-up planner's row for the same target comes later: a duplicate.
+        await store.AddAsync([actor], Ct);
+        Assert.Equal(Severity.High, (await store.GetAllAsync(Ct)).Single(p => p.IsFollowUp && p.Target.Key == admins.Key).Severity);
+    });
+
+    [Fact]
     public Task Queue_Replan_InsertsAFlushedTarget_OnlyWhenAsked() => WithStoreAsync(async store =>
     {
         var stored = (await StoreEventsAsync(store, Event(WatchEventKind.KeyCredentialChanged, Snapshot(), Now)))[0];

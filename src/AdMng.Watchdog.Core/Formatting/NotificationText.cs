@@ -80,8 +80,9 @@ public sealed class NotificationText
     /// <summary>Severity word as shown in subjects and banners (upper case).</summary>
     public string SeverityWord(Severity severity) => Get("Severity." + severity).ToUpper(Culture);
 
-    /// <summary>Severity name in normal case.</summary>
-    public string SeverityName(Severity severity) => Get("Severity." + severity);
+    /// <summary>Severity name in normal case, as the value of "Priorytet" (pl: masculine – "Krytyczny", while the subject
+    /// word is "KRYTYCZNE").</summary>
+    public string SeverityName(Severity severity) => Get("SeverityName." + severity);
 
     /// <summary>Title of a kind (singular or plural).</summary>
     public string KindTitle(WatchEventKind kind, bool plural = false) => Get("Kind." + kind + (plural ? ".TitlePlural" : ".Title"));
