@@ -299,7 +299,7 @@ internal sealed class ObjectProcessor
     /// Removes the stored descendants of <paramref name="storedDn"/> (the container's DN at the start of the cycle) that
     /// live below <paramref name="liveDn"/> now. Descendants found elsewhere (moved away or deleted in the same poll)
     /// keep their rows for pass 2 and the deletion pass. When the new location cannot be read, every stored descendant
-    /// is taken to have gone with the container.
+    /// is taken to have gone with the container; one that moved away in the same poll then appears in pass 2.
     /// </summary>
     private async Task RemoveDescendantsAsync(string storedDn, string liveDn, CancellationToken cancellationToken)
     {
@@ -340,7 +340,14 @@ internal sealed class ObjectProcessor
         foreach (var descendant in stored.Where(d => below is null || below.Contains(d.ObjectGuid)))
         {
             _cycle.Chunk.Remove(descendant.ObjectGuid);
-            _cycle.HandledWithContainer.Add(descendant.ObjectGuid);
+
+            // Unreadable new location: a descendant that left the container in the same poll is among the removed rows;
+            // pass 2 returns it (its move bumped it) and finds it without a row, so it must not be skipped.
+            if (below is not null)
+            {
+                _cycle.HandledWithContainer.Add(descendant.ObjectGuid);
+            }
+
             if (WatchObjectKinds.IsPrincipal(descendant.Kind))
             {
                 _cycle.Chunk.MembershipRelevant = true;

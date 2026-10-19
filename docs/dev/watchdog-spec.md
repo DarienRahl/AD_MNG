@@ -3242,7 +3242,9 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
   rewrite is recorded for it, and its stored descendants that a subtree search finds below its new DN get `Removals`
   entries in the same chunk without events (the container's ObjectMoved covers them; AD does not bump them, so no
   later pass would see them); descendants found elsewhere (moved away or deleted in the same poll) keep their rows for
-  pass 2 and the deletion pass. An object outside the scope whose DN did not change (an `ExcludedSubtrees` entry was
+  pass 2 and the deletion pass. When the new location cannot be read (warning `outOfScopeSubtreeUnreadable`), every
+  stored descendant is removed; one that moved away in the same poll is then found without a row by pass 2
+  (ObjectAppeared) instead of being lost. An object outside the scope whose DN did not change (an `ExcludedSubtrees` entry was
   added) is removed **silently** – the configuration change is audited as WatchdogConfigurationChanged.
 - A move **into** scope finds no snapshot → ObjectAppeared with tag `outOfScope` (no Created event, no ObjectRestored –
   only tombstone-marked rows are restores). A container moved in (or found again after an exclusion was removed) adopts

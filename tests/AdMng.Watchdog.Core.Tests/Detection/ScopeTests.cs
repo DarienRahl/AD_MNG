@@ -119,6 +119,37 @@ public class ScopeTests
     }
 
     [Fact]
+    public async Task OuMovedIntoAnUnreadableExcludedSubtree_AChildMovedAwayFirstIsStillSeen()
+    {
+        // The new location cannot be read, so every stored descendant goes with the OU – but one that left it in the
+        // same poll is returned by pass 2 and must be picked up there, not skipped as handled with the OU.
+        string? archive = null;
+        string? department = null;
+        string? leaving = null;
+        string? staying = null;
+        await using var scenario = new DetectionScenario(seed: b =>
+        {
+            archive = b.AddOu("Archiwum", b.DomainDn);
+            department = b.AddOu("Dział", b.DomainDn);
+            leaving = b.AddUser("Łucja", "Przeniesiona", department);
+            staying = b.AddUser("Żaneta", "Ślęzak", department);
+        });
+        scenario.Config.Update(c => c with { Directory = c.Directory with { ExcludedSubtrees = [archive!] } });
+        await scenario.BaselineAsync();
+        var stayingGuid = scenario.Snapshot(staying!)!.ObjectGuid;
+
+        var newHome = await scenario.MoveAsync(leaving!, scenario.Company.SalesOu);
+        var moved = await scenario.MoveAsync(department!, archive);
+        scenario.Directory.FailNext(AdMng.Testing.FakeOperationKind.Search, moved, AdMng.Core.Directory.DirectoryErrorKind.AccessDenied);
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.Single(events, e => e.Kind == WatchEventKind.ObjectMoved && e.PreviousDn == department);
+        Assert.Single(events, e => e.Object.Dn == newHome && e.Kind is WatchEventKind.ObjectMoved or WatchEventKind.ObjectAppeared);
+        Assert.NotNull(scenario.Snapshot(newHome));
+        Assert.DoesNotContain(scenario.Store.Snapshots, s => s.ObjectGuid == stayingGuid);
+    }
+
+    [Fact]
     public async Task OuMovedIntoAnExcludedSubtree_AChildMovedAwayFirstIsAnOrdinaryMove()
     {
         string? archive = null;
