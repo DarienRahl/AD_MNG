@@ -7,6 +7,7 @@ using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Testing.Attribution;
 using AdMng.Watchdog.Testing.Fixtures.SecurityEvents;
+using Microsoft.Extensions.Logging.Abstractions;
 using static AdMng.Watchdog.Core.Tests.Attribution.Records;
 using static AdMng.Watchdog.Core.Tests.Rules.TestEvents;
 
@@ -248,6 +249,50 @@ public sealed class AttributionEngineTests : IDisposable
 
         Assert.Empty(_h.Planner.Calls);
         Assert.Equal(0, _h.Events.CommitCalls);
+    }
+
+    [Fact]
+    public async Task TheRulesJobAndTheReevaluation_DoNotOverwriteEachOther()
+    {
+        // Both jobs wake on EventsStored: the rules job reads the event while its attribution is pending and commits that
+        // evaluation only after the engine stored the final match – the stale evaluation overwrote the severity and the
+        // matched rules (and a rule matched by both could be planned twice).
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: false);
+        var planner = new GatedPlanner();
+        var job = new RuleEvaluationJob(_h.Events, _h.Rules, [planner], _h.Config, _h.Tokens, _h.Signals, _h.Health, _h.Time,
+            NullLogger<RuleEvaluationJob>.Instance);
+
+        var evaluating = job.RunOnceAsync(Ct);
+        await planner.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);   // the job holds the pending state
+        var attributing = _h.Engine.RunOnceAsync(Ct);
+        await Task.WhenAny(attributing, Task.Delay(TimeSpan.FromMilliseconds(200), Ct));
+        planner.Release.SetResult();
+        await Task.WhenAll(evaluating, attributing).WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        var stored = _h.Events.Get(pending.Id);
+        Assert.Equal(AttributionStatus.Resolved, stored.Attribution.Status);
+        Assert.Equal(Severity.High, stored.Severity);
+        Assert.Contains(DefaultRules.Tier0Security, stored.MatchedRules);
+        Assert.Single(_h.Events.Notifications, n => n.RuleId == DefaultRules.Tier0Security);
+    }
+
+    /// <summary>A planner that holds the rules job inside its read → commit sequence until released.</summary>
+    private sealed class GatedPlanner : IRuleMatchPlanner
+    {
+        private readonly Rules.Fakes.RecordingPlanner _inner = new();
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask<IReadOnlyList<AdMng.Watchdog.Core.Model.PendingNotification>> PlanAsync(RuleEvaluationResult evaluation,
+            WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await _inner.PlanAsync(evaluation, configuration, now, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     [Fact]

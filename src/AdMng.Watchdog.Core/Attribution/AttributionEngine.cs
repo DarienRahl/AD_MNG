@@ -247,16 +247,23 @@ public sealed partial class AttributionEngine(
             foreach (var result in processed)
             {
                 var update = result.Update;
-                if (result.IsFinal && ChangesRuleInputs(result))
+
+                // The re-evaluation and the update form one section with the rules job's read → commit (RuleEngine): the
+                // job never commits a match made with the pending state after the final one was stored.
+                using (await ruleEngine.EnterEvaluationAsync(CancellationToken.None).ConfigureAwait(false))
                 {
-                    rules ??= ruleEngine.CreateContext(configProvider.Current.Configuration);
-                    if (await ReevaluateAsync(result, rules).ConfigureAwait(false) is { } severity)
+                    if (result.IsFinal && ChangesRuleInputs(result))
                     {
-                        update = update with { Severity = severity };
+                        rules ??= ruleEngine.CreateContext(configProvider.Current.Configuration);
+                        if (await ReevaluateAsync(result, rules).ConfigureAwait(false) is { } severity)
+                        {
+                            update = update with { Severity = severity };
+                        }
                     }
+
+                    await events.UpdateAttributionAsync(result.Event.Id, update, CancellationToken.None).ConfigureAwait(false);
                 }
 
-                await events.UpdateAttributionAsync(result.Event.Id, update, CancellationToken.None).ConfigureAwait(false);
                 if (result.IsFinal)
                 {
                     if (recordOutcomes)

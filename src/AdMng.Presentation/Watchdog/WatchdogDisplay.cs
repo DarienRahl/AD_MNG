@@ -31,8 +31,8 @@ public static class WatchdogDisplay
         "directory", "directory.connection", "directory.notSynchronized", "directory.computersNotRedirected",
         "permission", "permission.uSNChanged", "permission.accountRestrictions", "permission.replicationMetadata",
         "permission.deletedObjects", "permission.domainPolicy", "permission.passwordSettings", "permission.configurationPartition",
-        "eventlog", "eventlog.foreignRecords", "attribution", "attribution.actorConditionsUnreliable",
-        "storage", "storage.free", "storage.acl", "secret", "secret.unreadable", "runtime", "runtime.outdated", "smtp", "channel",
+        "eventlog", "eventlog.foreignRecords", "attribution", "attribution.actorConditionsUnreliable", "attribution.collector",
+        "rules.configuredDns", "storage", "storage.free", "storage.acl", "secret", "secret.unreadable", "runtime", "runtime.outdated", "smtp", "channel",
     ];
 
     /// <summary>Delivery test hints (<see cref="DeliveryHints"/>).</summary>

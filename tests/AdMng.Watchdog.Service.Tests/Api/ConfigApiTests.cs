@@ -244,6 +244,68 @@ public sealed class ConfigApiTests : IAsyncLifetime
         Assert.DoesNotContain("Zofia", await response.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ExcludingASubtreeWithPrivilegedObjects_NeedsTheBootstrapFlag()
+    {
+        // Tiered environments keep admin accounts and nested admin groups in their own OU – outside CN=Users and
+        // CN=Builtin, which the static catalog protects. Excluding that OU through the API silenced their changes.
+        var domainAdmins = Guid.NewGuid();
+        var tier0Group = Guid.NewGuid();
+        var admin = Guid.NewGuid();
+        await _factory.Store.CommitAsync(new AdMng.Watchdog.Core.Model.DetectionCommit
+        {
+            Upserts =
+            [
+                new() { ObjectGuid = domainAdmins, Dn = "CN=Domain Admins,CN=Users,DC=contoso,DC=test", Kind = WatchObjectKind.Group },
+                new() { ObjectGuid = tier0Group, Dn = "CN=Administratorzy Tier0,OU=Tier0,OU=Administracja,DC=contoso,DC=test", Kind = WatchObjectKind.Group },
+                new() { ObjectGuid = admin, Dn = "CN=adm.łukasz,OU=Konta,OU=Administracja,DC=contoso,DC=test", Kind = WatchObjectKind.User },
+            ],
+            Privileges = new AdMng.Watchdog.Core.Model.PrivilegeState
+            {
+                Principals =
+                [
+                    new() { PrincipalKey = admin.ToString("N"), GroupGuid = domainAdmins, Tier = AdMng.Watchdog.Core.Model.PrivilegeTier.Critical, Path = [tier0Group] },
+                ],
+            },
+        }, Ct);
+        using var client = _factory.Admin();
+        var saved = await PutAsync(client, TestData.Configuration(), version: 0);
+
+        foreach (var subtree in new[] { "OU=Tier0,OU=Administracja,{domain}", "OU=Konta,OU=Administracja,DC=contoso,DC=test", "OU=Administracja,{domain}" })
+        {
+            var excluded = saved.Configuration with { Directory = saved.Configuration.Directory with { ExcludedSubtrees = [subtree] } };
+            using var response = await client.PutAsync(WatchdogRoutes.Config, ApiJson.Content(new ConfigEnvelope { Version = saved.Version, Configuration = excluded }), Ct);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("tier0Suppression", await ApiJson.IssueCodesAsync(response));
+        }
+
+        var unrelated = saved.Configuration with { Directory = saved.Configuration.Directory with { ExcludedSubtrees = ["OU=Testy,{domain}"] } };
+        Assert.Equal(saved.Version + 1, (await PutAsync(client, unrelated, saved.Version)).Version);
+    }
+
+    [Fact]
+    public async Task ExcludingASubtreeWithPrivilegedObjects_IsAllowedWithTheBootstrapFlag()
+    {
+        await using var factory = new WatchdogFactory(new Dictionary<string, string?> { ["Watchdog:Authorization:AllowTier0Suppression"] = "true" });
+        var admin = Guid.NewGuid();
+        var domainAdmins = Guid.NewGuid();
+        await factory.Store.CommitAsync(new AdMng.Watchdog.Core.Model.DetectionCommit
+        {
+            Upserts = [new() { ObjectGuid = admin, Dn = "CN=adm.łukasz,OU=Konta,OU=Administracja,DC=contoso,DC=test", Kind = WatchObjectKind.User }],
+            Privileges = new AdMng.Watchdog.Core.Model.PrivilegeState
+            {
+                Principals = [new() { PrincipalKey = admin.ToString("N"), GroupGuid = domainAdmins, Tier = AdMng.Watchdog.Core.Model.PrivilegeTier.Critical }],
+            },
+        }, Ct);
+        using var client = factory.Admin();
+        var saved = await PutAsync(client, TestData.Configuration(), version: 0);
+
+        var excluded = saved.Configuration with { Directory = saved.Configuration.Directory with { ExcludedSubtrees = ["OU=Administracja,{domain}"] } };
+
+        Assert.Equal(saved.Version + 1, (await PutAsync(client, excluded, saved.Version)).Version);
+    }
+
     private static WatchdogConfiguration WithSecrets() => TestData.Configuration() with
     {
         Smtp = new SmtpSettings

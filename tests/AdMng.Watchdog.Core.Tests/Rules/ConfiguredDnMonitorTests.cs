@@ -88,6 +88,28 @@ public class ConfiguredDnMonitorTests
     }
 
     [Fact]
+    public async Task TheBuiltinContainer_IsNotReportedMissing()
+    {
+        // CN=Builtin is a builtinDomain object, not a container – the snapshot holds its groups but never the object
+        // itself, so a rule scoped to the built-in groups must not raise a permanent false warning.
+        SnapshotEverything();
+        Snapshot("CN=Administrators,CN=Builtin," + DomainDn, WatchObjectKind.Group);
+        var configuration = Configuration();
+        configuration = configuration with
+        {
+            Rules =
+            [
+                .. configuration.Rules,
+                new RuleSettings { Id = "wbudowane", Name = "Grupy wbudowane", Scope = new RuleScope { IncludeSubtrees = ["CN=Builtin,{domain}"] } },
+            ],
+        };
+
+        await _monitor.CheckAsync(configuration, Tokens, Ct);
+
+        Assert.Equal(HealthState.Ok, _health.Find(ConfiguredDnMonitor.CheckCode)!.State);
+    }
+
+    [Fact]
     public async Task BeforeTheBaseline_NothingIsReported()
     {
         await _monitor.CheckAsync(Configuration(), Tokens, Ct);

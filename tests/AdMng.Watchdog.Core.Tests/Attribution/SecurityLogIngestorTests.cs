@@ -387,6 +387,41 @@ public class SecurityLogIngestorTests
     }
 
     [Fact]
+    public async Task ForwardedEvents_ABurstAboveTheBudget_DoesNotStallTheWindow()
+    {
+        // More records inside one overlap window than MaxRecordsPerPoll (a bulk import): every poll re-read the same
+        // oldest records of the window, the time cursor never moved past them and the 1102 behind them was never read.
+        var budget = Context(new AttributionSettings { MaxRecordsPerPoll = 5 });
+        for (var i = 0; i < 12; i++)
+        {
+            Forward(Dc1, 1000 + i, Now.AddMinutes(-10).AddSeconds(i));
+        }
+
+        _source.Add(Collector.Host, SecurityEventXml.LogCleared(2000, Now.AddMinutes(-5), Dc2, AdminSid, "adm.jkowalska", "CONTOSO", AdminLogonId),
+            SecurityLogIngestor.ForwardedEventsLog);
+
+        for (var poll = 0; poll < 6; poll++)
+        {
+            await _ingestor.IngestAsync(Collector, budget, Ct);
+            _time.Advance(TimeSpan.FromSeconds(30));
+        }
+
+        Assert.Single(_events.All, e => e.Kind == WatchEventKind.SecurityLogCleared);
+        Assert.Equal(12, _store.All.Count(e => e.EventCode == 4725));
+        Assert.Contains(_events.All, e => e.Kind == WatchEventKind.HealthEventLogGap
+            && e.Changes.Any(c => c.NewValues.Contains(EventLogGapDetector.Flooding)));
+
+        // Once the burst is read, the overlap window returns (records delivered late are read again).
+        _time.Advance(TimeSpan.FromMinutes(20));
+        Forward(Dc1, 3000, _time.GetUtcNow().AddMinutes(-1));
+        await _ingestor.IngestAsync(Collector, budget, Ct);
+        Forward(Dc2, 3001, _time.GetUtcNow().AddMinutes(-3));   // late WEF delivery, older than the newest record read
+        _time.Advance(TimeSpan.FromSeconds(30));
+        await _ingestor.IngestAsync(Collector, budget, Ct);
+        Assert.Contains(_store.All, e => e.RecordId == 3001);
+    }
+
+    [Fact]
     public async Task DisabledEventLogKinds_AreNotCreated()
     {
         _source.Add(Dc1, id => SecurityEventXml.Create(4794, id, Now.AddMinutes(-1), Dc1, [.. Admin, ("Workstation", "DC01")]));

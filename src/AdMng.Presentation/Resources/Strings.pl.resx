@@ -4048,6 +4048,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Health.attribution.actorConditionsUnreliable.Remedy" xml:space="preserve">
     <value>Reguła wyklucza wykonawców dla zdarzeń, których wykonawcy nie da się ustalić – popraw zasady inspekcji lub SACL.</value>
   </data>
+  <data name="Watchdog.Health.attribution.collector" xml:space="preserve">
+    <value>Kolektor zdarzeń (WEF)</value>
+  </data>
+  <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
+    <value>Podaj kolektor jako nazwę DNS, nie adres IP – usługa łączy się z nim wyłącznie przez Kerberos.</value>
+  </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Dostarczanie do kanału</value>
   </data>
@@ -4137,6 +4143,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Część obiektów jest niewidoczna dla śledzenia zmian – deleguj GenericRead dla konta usługi.</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
+    <value>Nieistniejące DN w konfiguracji</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
+    <value>Jednostka organizacyjna lub grupa wskazana w konfiguracji została przemianowana albo przeniesiona – reguły, grupy uprzywilejowane i poddrzewa ze starą nazwą DN niczego nie obejmują. Popraw wymienione DN.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Środowisko uruchomieniowe</value>

@@ -12,7 +12,8 @@ namespace AdMng.Watchdog.Core.Rules;
 /// Every configured DN (rule scopes, rule group DNs and exclusion subtrees, the additional critical/high and watch-list
 /// groups, critical objects, service-account and disabled-account subtrees, wake-up containers) is resolved against the
 /// snapshot; the ones that no longer exist are listed (Args, as configured). DNs outside the default naming context, under
-/// <c>CN=System</c> or under an excluded subtree are not snapshotted and therefore not checked; nothing is reported
+/// <c>CN=System</c> or under an excluded subtree, and <c>CN=Builtin</c> itself (a builtinDomain object, not a container),
+/// are not snapshotted and therefore not checked; nothing is reported
 /// before the baseline. The service never rewrites the configuration itself. Runs at most every <see cref="Interval"/>
 /// per configuration (called by <see cref="RuleEvaluationJob"/>).
 /// </summary>
@@ -52,12 +53,13 @@ public sealed class ConfiguredDnMonitor(IDetectionStore snapshot, IHealthRegistr
 
         var excluded = (configuration.Directory?.ExcludedSubtrees ?? []).Select(e => Parse(e, tokens)).OfType<DistinguishedName>().ToList();
         var system = domain.Child("CN", "System");
+        var builtin = domain.Child("CN", "Builtin");   // a builtinDomain object: its groups are snapshotted, it is not
         var missing = new List<string>();
         foreach (var configured in Configured(configuration).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (Parse(configured, tokens) is not { } dn
                 || !(dn.Equals(domain) || dn.IsDescendantOf(domain))
-                || dn.Equals(system) || dn.IsDescendantOf(system)
+                || dn.Equals(system) || dn.IsDescendantOf(system) || dn.Equals(builtin)
                 || excluded.Any(e => dn.Equals(e) || dn.IsDescendantOf(e)))
             {
                 continue;

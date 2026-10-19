@@ -29,6 +29,7 @@ internal sealed class AttributionHarness : IDisposable
             Tracker,
             Time);
         var gaps = new EventLogGapDetector(Time);
+        Rules = new AdMng.Watchdog.Core.Rules.RuleEngine(Config, Tokens, Time);
         Engine = new AttributionEngine(
             Config,
             Source,
@@ -47,11 +48,14 @@ internal sealed class AttributionHarness : IDisposable
             Health,
             Signals,
             [FollowUps],
-            new AdMng.Watchdog.Core.Rules.RuleEngine(Config, Tokens, Time),
+            Rules,
             [Planner],
             Time,
             NullLogger<AttributionEngine>.Instance);
     }
+
+    /// <summary>The rule engine of the re-evaluation after attribution (shared with a rules job in race tests).</summary>
+    public AdMng.Watchdog.Core.Rules.RuleEngine Rules { get; }
 
     /// <summary>Stands in for the NotificationPlanner of the re-evaluation after attribution.</summary>
     public RecordingPlanner Planner { get; } = new();

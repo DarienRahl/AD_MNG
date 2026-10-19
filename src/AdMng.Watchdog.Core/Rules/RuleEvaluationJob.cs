@@ -84,6 +84,9 @@ public sealed partial class RuleEvaluationJob : IWatchdogJob
             var configuration = _configProvider.Current.Configuration;
             var context = _engine.CreateContext(configuration);
             await CheckConfiguredDnsAsync(configuration, tokens, cancellationToken).ConfigureAwait(false);
+
+            // Read → match → plan → commit in one section with the attribution engine's re-evaluation (RuleEngine).
+            using var section = await _engine.EnterEvaluationAsync(cancellationToken).ConfigureAwait(false);
             var events = await _events.GetUnevaluatedAsync(BatchSize, cancellationToken).ConfigureAwait(false);
             if (events.Count == 0)
             {

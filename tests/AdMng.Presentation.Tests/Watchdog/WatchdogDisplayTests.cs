@@ -33,6 +33,18 @@ public sealed class WatchdogDisplayTests
         Assert.StartsWith("Kolektor przekazuje zdarzenia", localizer.HealthRemedy("eventlog.dc02.contoso.test.foreignRecords"), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void HealthText_TheConfiguredDnAndCollectorChecks_AreLocalized()
+    {
+        // Codes reported by the service (ConfiguredDnMonitor, AttributionSourceResolver) – not shown as raw codes.
+        var localizer = new ResxLocalizer(Polish);
+
+        Assert.Equal("Nieistniejące DN w konfiguracji", localizer.HealthText("rules.configuredDns"));
+        Assert.StartsWith("Jednostka organizacyjna lub grupa", localizer.HealthRemedy("rules.configuredDns"), StringComparison.Ordinal);
+        Assert.Equal("Kolektor zdarzeń (WEF)", localizer.HealthText("attribution.collector"));
+        Assert.Contains("nie adres IP", localizer.HealthRemedy("attribution.collector"), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(0, "0 ms")]
     [InlineData(840, "840 ms")]

@@ -2754,7 +2754,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `invalidDn` | every DN parses with `DistinguishedName.TryParse` after token expansion with placeholder values |
 | `invalidSid` | SIDs match `^S-1-\d+(-\d+)+$` after token expansion – includes `ActorFilter.ExcludeActors` and `RuleExclusion.Actor` (SIDs only) |
 | `invalidAttribute` | `additionalWatchedAttributes` / `ignoredAttributes` / rule `attributes`: `^[A-Za-z][A-Za-z0-9-]{0,63}$` (no `*`, `+`, `1.1`, `;options`), ≤ 20 additional attributes, not secret (`SecretAttributes.IsSecret`), not a noise attribute (9.3). The Service additionally validates `additionalWatchedAttributes` against the live session schema on PUT (exists, not confidential, not constructed, not a back link); without a session the change is rejected (`schemaUnavailable`) |
-| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
+| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true. The service (`ConfigValidationService`, PUT and validate) also rejects a newly added `excludedSubtrees` entry that equals or contains a privileged object of the snapshot – a privileged root group (critical/high SIDs, the watchdog's role and host groups), a group on a path to one, a principal of the current privilege state, krbtgt or the built-in Administrator – so privileged groups and admin accounts moved into tiered OUs stay protected; entries already stored are not re-checked |
 | `invalidAddress` | every e-mail address parses (`MailboxAddress.TryParse` semantics: implemented in Core with `System.Net.Mail.MailAddress` parsing rules + no CR/LF); `from` likewise |
 | `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces); `attribution.collector` and every `attribution.domainControllers` entry likewise and are not an IP literal (`HostNames.IsHostName`) – the service identity authenticates to them with Kerberos only |
 | `insecureCredentials` | `smtp.authentication` ≠ None requires `security` StartTls or SslOnConnect |
@@ -3531,7 +3531,11 @@ for each source (in parallel, max 4; a source failing with a store error is repo
   with the collector's numbering): the cursor is time based – the newest TimeCreated read (capped at now) is kept in
   EventLogCursor.BookmarkXml as <TimeCursor SystemTime="…"/>; every poll reads the ingestion set from that time −
   ReplicationLatencyBound (late WEF deliveries) in one read of at most MaxRecordsPerPoll records, stored in pages of
-  1000; the collector's record numbers are never checked for overwrites or regressions. Records read again are
+  1000; the collector's record numbers are never checked for overwrites or regressions. A read cut by
+  MaxRecordsPerPoll (HealthEventLogGap "flooding") stores the newest TimeCreated read as the cursor's Floor
+  (<TimeCursor SystemTime="…" Floor="…"/>, at least one tick after the read's start): later reads start at
+  max(cursor − ReplicationLatencyBound, Floor), so a window holding more records than the budget (a bulk import) cannot
+  make every poll re-read its oldest records and stall the cursor. Records read again are
   ignored by the store (computer, record id) and by the detections (stable ids, below).
   1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6) and record gaps, appended to the event store before
     the cursor of their page is committed, under an id derived from the record (RecordEventIds: Guid v7 layout,
@@ -3707,7 +3711,11 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    and stores matched rules ∪ new rules, the evaluated severity and the new pending rows in one
    `CommitEvaluationAsync`, **before** the attribution update: a pass interrupted in between leaves the event pending and
    the next pass finds the rules stored. An event the rules job has not evaluated yet has no matched rules, so all its
-   final matches are planned and the job skips it afterwards. `rules_state` is never reset.
+   final matches are planned and the job skips it afterwards. `rules_state` is never reset. The re-evaluation and the
+   attribution update of one event and the rules job's read → match → plan → commit run in one in-process section
+   (`RuleEngine.EnterEvaluationAsync`): both jobs wake on EventsStored, and without it the job could commit a match
+   made with the pending attribution after the final one was stored (stale severity and matched rules, a rule planned
+   twice).
 10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
    `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
    The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
@@ -3802,8 +3810,10 @@ DN-based settings compare DN strings, so a renamed or moved OU/group makes them 
 every configured DN – rule scopes, `GroupDns`, exclusion subtrees, `privilegedGroups.additionalCriticalDns` /
 `additionalHighDns` / `watchListDns`, `directory.criticalObjects`, service-account and disabled-account subtrees,
 wake-up containers – is resolved against the snapshot; the ones that no longer exist are listed (Args, as configured).
-DNs outside the default NC, under `CN=System` or under an excluded subtree are not snapshotted and not checked; nothing
-is reported before the baseline; the service never rewrites the configuration.
+DNs outside the default NC, under `CN=System` or under an excluded subtree, and `CN=Builtin` itself (a builtinDomain
+object, not a container – its groups are snapshotted) are not snapshotted and not checked; nothing is reported before
+the baseline; the service never rewrites the configuration. The GUI shows the check as „Nieistniejące DN w
+konfiguracji” (health codes `rules.configuredDns` and `attribution.collector` are localized).
 
 `RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
 matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
@@ -3905,9 +3915,10 @@ domain policy, PSO, trust and PKI attributes of 9.2 – every attribute of the 9
 ### 13.1 `RuleEvaluationJob` (wake: EventsStored, AttributionUpdated, ConfigChanged; interval 30 s)
 
 ```
+enter RuleEngine.EnterEvaluationAsync (shared with the AttributionEngine's re-evaluation, 11.4 #9)
 events = eventStore.GetUnevaluatedAsync(500)
 for each: matches = RuleEngine.Evaluate(e); pendings += NotificationPlanner.Plan(e, matches, now)
-eventStore.CommitEvaluationAsync(evaluations, pendings); signals.Raise(NotificationsQueued)
+eventStore.CommitEvaluationAsync(evaluations, pendings); leave; signals.Raise(NotificationsQueued)
 ```
 
 Rules matched only after a final attribution (raised severity, added tags) are planned by the AttributionEngine

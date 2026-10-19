@@ -104,8 +104,28 @@ public sealed partial class SecurityLogIngestor(
         return string.Equals(ingestion.LogName, ForwardedEventsLog, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The time cursor of a ForwardedEvents source (<see cref="EventLogCursor.BookmarkXml"/>); null when none.</summary>
-    public static DateTimeOffset? ReadTimeCursor(EventLogCursor? cursor)
+    /// <summary>The time cursor of a ForwardedEvents source (<see cref="EventLogCursor.BookmarkXml"/>): the newest
+    /// <c>TimeCreated</c> read; null when none.</summary>
+    public static DateTimeOffset? ReadTimeCursor(EventLogCursor? cursor) => ReadTimeAttribute(cursor, "SystemTime");
+
+    /// <summary>The floor of a ForwardedEvents time cursor: set when the last read was cut by
+    /// <c>MaxRecordsPerPoll</c> – the next read starts there at the earliest instead of reaching back by the overlap, so a
+    /// window holding more records than the budget cannot stall the cursor. Null when none.</summary>
+    public static DateTimeOffset? ReadTimeFloor(EventLogCursor? cursor) => ReadTimeAttribute(cursor, "Floor");
+
+    /// <summary>The <see cref="EventLogCursor.BookmarkXml"/> form of a ForwardedEvents time cursor (with its floor).</summary>
+    public static string WriteTimeCursor(DateTimeOffset time, DateTimeOffset? floor = null)
+    {
+        var element = new XElement("TimeCursor", new XAttribute("SystemTime", time.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)));
+        if (floor is { } value)
+        {
+            element.Add(new XAttribute("Floor", value.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)));
+        }
+
+        return element.ToString(SaveOptions.DisableFormatting);
+    }
+
+    private static DateTimeOffset? ReadTimeAttribute(EventLogCursor? cursor, string attribute)
     {
         if (cursor?.BookmarkXml is not { Length: > 0 } xml)
         {
@@ -116,7 +136,7 @@ public sealed partial class SecurityLogIngestor(
         {
             var element = XElement.Parse(xml);
             return element.Name.LocalName == "TimeCursor"
-                && DateTimeOffset.TryParse((string?)element.Attribute("SystemTime"), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
+                && DateTimeOffset.TryParse((string?)element.Attribute(attribute), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var time)
                 ? time.ToUniversalTime()
                 : null;
         }
@@ -125,10 +145,6 @@ public sealed partial class SecurityLogIngestor(
             return null;   // a bookmark of another kind (or of an older version): start like a new source
         }
     }
-
-    /// <summary>The <see cref="EventLogCursor.BookmarkXml"/> form of a ForwardedEvents time cursor.</summary>
-    public static string WriteTimeCursor(DateTimeOffset time) =>
-        new XElement("TimeCursor", new XAttribute("SystemTime", time.UtcDateTime.ToString("O", CultureInfo.InvariantCulture))).ToString(SaveOptions.DisableFormatting);
 
     private SecurityEventQuery BaseQuery(IngestionSource ingestion) => new()
     {
@@ -213,12 +229,15 @@ public sealed partial class SecurityLogIngestor(
         var host = pass.Host;
         var settings = pass.Context.Settings;
         var known = ReadTimeCursor(cursor);
+        var floor = ReadTimeFloor(cursor);
         var highWater = known;
-        var query = BaseQuery(ingestion) with
+        var from = (known ?? pass.Now) - settings.ReplicationLatencyBound;
+        if (floor is { } earliest && earliest > from)
         {
-            From = (known ?? pass.Now) - settings.ReplicationLatencyBound,
-            MaxRecords = Math.Max(1, settings.MaxRecordsPerPoll),
-        };
+            from = earliest;   // the last read was cut by the budget: do not reach back into the records already read
+        }
+
+        var query = BaseQuery(ingestion) with { From = from, MaxRecords = Math.Max(1, settings.MaxRecordsPerPoll) };
 
         // One read of the whole window in log (arrival) order – records of different DCs interleave in time, so the window
         // cannot be paged by time; the stream is stored in pages of PageSize.
@@ -230,17 +249,21 @@ public sealed partial class SecurityLogIngestor(
             read++;
             if (chunk.Count == PageSize)
             {
-                highWater = await StoreForwardedAsync(pass, chunk, highWater, cancellationToken).ConfigureAwait(false);
+                highWater = await StoreForwardedAsync(pass, chunk, highWater, floor, null, cancellationToken).ConfigureAwait(false);
                 chunk.Clear();
             }
         }
 
-        if (chunk.Count > 0)
+        // Cut by the budget: the next read starts at the newest record read (strictly after this read's start), without
+        // the overlap – a window holding more records than MaxRecordsPerPoll would otherwise be read from its start on
+        // every poll and the cursor would never pass it. Records of that window not read are reported as flooding.
+        var truncated = read >= query.MaxRecords;
+        if (chunk.Count > 0 || truncated)
         {
-            await StoreForwardedAsync(pass, chunk, highWater, cancellationToken).ConfigureAwait(false);
+            await StoreForwardedAsync(pass, chunk, highWater, floor, truncated ? from : null, cancellationToken).ConfigureAwait(false);
         }
 
-        if (read >= query.MaxRecords)
+        if (truncated)
         {
             await AddAsync(pass, gaps.Gap(host, EventLogGapDetector.Flooding, pass.Context.Domain), cancellationToken).ConfigureAwait(false);
         }
@@ -248,7 +271,10 @@ public sealed partial class SecurityLogIngestor(
         return null;
     }
 
-    private async Task<DateTimeOffset?> StoreForwardedAsync(Pass pass, IReadOnlyList<string> chunk, DateTimeOffset? highWater, CancellationToken cancellationToken)
+    /// <summary>Stores one chunk of a ForwardedEvents read with the time cursor. <paramref name="cutAfter"/> is the start of
+    /// a read the budget cut: the cursor's floor becomes the newest record read (at least one tick after that start).</summary>
+    private async Task<DateTimeOffset?> StoreForwardedAsync(Pass pass, IReadOnlyList<string> chunk, DateTimeOffset? highWater, DateTimeOffset? floor,
+        DateTimeOffset? cutAfter, CancellationToken cancellationToken)
     {
         var processed = await ProcessAsync(pass, chunk, cancellationToken).ConfigureAwait(false);
         if (processed.MaxTimeCreated is { } newest)
@@ -258,10 +284,15 @@ public sealed partial class SecurityLogIngestor(
             highWater = highWater is { } known && known > capped ? known : capped;
         }
 
+        if (cutAfter is { } start)
+        {
+            floor = highWater is { } reached && reached > start ? reached : start + TimeSpan.FromTicks(1);
+        }
+
         var cursor = new EventLogCursor
         {
             Source = pass.Host,
-            BookmarkXml = highWater is { } time ? WriteTimeCursor(time) : null,
+            BookmarkXml = (highWater ?? floor) is { } time ? WriteTimeCursor(time, floor) : null,
             UpdatedAt = pass.Now,
         };
         await store.AppendAsync(processed.Batch, cursor, cancellationToken).ConfigureAwait(false);

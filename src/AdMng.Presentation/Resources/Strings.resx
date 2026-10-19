@@ -4048,6 +4048,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.attribution.actorConditionsUnreliable.Remedy" xml:space="preserve">
     <value>A rule excludes actors for events whose actor cannot be determined – fix the audit policy or SACL.</value>
   </data>
+  <data name="Watchdog.Health.attribution.collector" xml:space="preserve">
+    <value>Event collector (WEF)</value>
+  </data>
+  <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
+    <value>Enter the collector by its DNS host name, not an IP address – the service connects to it with Kerberos only.</value>
+  </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Channel delivery</value>
   </data>
@@ -4137,6 +4143,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Some objects are invisible to change tracking – delegate GenericRead to the service account.</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
+    <value>Configured DNs that no longer exist</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
+    <value>An OU or group named in the configuration was renamed or moved – rules, privileged groups and subtrees that use the old DN match nothing. Update the DNs listed.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Runtime</value>
