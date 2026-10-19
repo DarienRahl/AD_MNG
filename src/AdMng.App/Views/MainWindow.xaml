@@ -811,7 +811,7 @@
                         <TextBox Grid.Column="1"
                                  Margin="0,2,0,0"
                                  VerticalAlignment="Top"
-                                 AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                                 AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
                                  Style="{StaticResource Ad.SelectableText}"
                                  Text="{Binding Value, Mode=OneWay}" />
                         <Button Grid.Column="2"

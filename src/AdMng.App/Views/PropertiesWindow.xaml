@@ -202,13 +202,13 @@
                     Style="{StaticResource Ad.IconButton}"
                     Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
               <Button.ToolTip>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="Label" />
                 </MultiBinding>
               </Button.ToolTip>
               <AutomationProperties.Name>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="Label" />
                 </MultiBinding>
@@ -231,13 +231,13 @@
                     DockPanel.Dock="Left"
                     Visibility="{Binding QualifiedPrefix, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
               <Button.ToolTip>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="QualifiedValue" />
                 </MultiBinding>
               </Button.ToolTip>
               <AutomationProperties.Name>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="QualifiedValue" />
                 </MultiBinding>
@@ -389,20 +389,20 @@
                     DockPanel.Dock="Right"
                     Style="{StaticResource Ad.IconButton}">
               <Button.ToolTip>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="Label" />
                 </MultiBinding>
               </Button.ToolTip>
               <AutomationProperties.Name>
-                <MultiBinding Converter="{StaticResource Ad.Format}">
+                <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                   <l:TrBinding Key="Copy.CopyValue" />
                   <Binding Mode="OneWay" Path="Label" />
                 </MultiBinding>
               </AutomationProperties.Name>
             </Button>
             <Grid>
-              <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+              <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
                        IsReadOnly="True"
                        Text="{Binding DisplayName, Mode=OneWay}"
                        ToolTip="{Binding Value, Mode=OneWay}" />
@@ -564,7 +564,7 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
-          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
                    IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
                    Text="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" />
           <TextBlock Grid.Column="1"
@@ -587,13 +587,13 @@
                   Content="{x:Static c:Glyphs.Copy}"
                   Style="{StaticResource Ad.IconButton}">
             <Button.ToolTip>
-              <MultiBinding Converter="{StaticResource Ad.Format}">
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                 <l:TrBinding Key="Copy.CopyValue" />
                 <Binding Mode="OneWay" Path="Label" />
               </MultiBinding>
             </Button.ToolTip>
             <AutomationProperties.Name>
-              <MultiBinding Converter="{StaticResource Ad.Format}">
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
                 <l:TrBinding Key="Copy.CopyValue" />
                 <Binding Mode="OneWay" Path="Label" />
               </MultiBinding>

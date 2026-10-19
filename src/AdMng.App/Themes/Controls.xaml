@@ -129,7 +129,7 @@
     <Setter Property="b:CopyFeedback.IsEnabled" Value="True" />
     <Setter Property="ToolTip">
       <Setter.Value>
-        <MultiBinding Converter="{StaticResource Ad.Format}">
+        <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
           <l:TrBinding Key="Copy.CopyValue" />
           <Binding Mode="OneWay"
                    Path="Tag"
@@ -139,7 +139,7 @@
     </Setter>
     <Setter Property="AutomationProperties.Name">
       <Setter.Value>
-        <MultiBinding Converter="{StaticResource Ad.Format}">
+        <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
           <l:TrBinding Key="Copy.CopyValue" />
           <Binding Mode="OneWay"
                    Path="Tag"
