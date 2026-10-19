@@ -327,6 +327,13 @@ public sealed class WatchdogEventDetailsTests
             Assert.Contains(SamplePrincipals.MalgorzataWojcik.Dn, text, StringComparison.Ordinal);
             Assert.Contains(@"CONTOSO\svc-hr-sync", text, StringComparison.Ordinal);
             Assert.Contains("Główna księgowa → Dyrektor finansowa", text, StringComparison.Ordinal);
+
+            // Confirmed like every other copy; a busy clipboard is not confirmed.
+            Assert.Equal("Copied: Event details.", h.Ad.Notifications.Items[^1].Message);
+            var count = h.Ad.Notifications.Items.Count;
+            h.Ad.Clipboard.IsBusy = true;
+            details.CopyDetailsCommand.Execute(null);
+            Assert.Equal(count, h.Ad.Notifications.Items.Count);
         });
     }
 

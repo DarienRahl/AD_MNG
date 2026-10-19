@@ -49,7 +49,7 @@ public sealed partial class ShellViewModel
     [
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
-        NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand,
+        NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowWatchdogHistoryCommand,
     ];
@@ -491,14 +491,21 @@ public sealed partial class ShellViewModel
 
     private bool CanExport() => SelectedDocument is { Items.Count: > 0 };
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    /// <summary>
+    /// "Kopiuj jako ▸ Nazwa wyróżniająca" (Ctrl+Shift+C): the DNs of the selection in the list's order, like every other
+    /// "Copy as" format; not confirmed when the clipboard was busy.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasCopySelection))]
     private void CopyDn()
     {
-        var selection = CurrentSelection;
+        var selection = OrderedSelection();
         if (selection.Count > 0)
         {
-            _clipboard.SetText(string.Join(Environment.NewLine, selection.Select(r => r.Dn)));
-            _notifications.Show(NotificationSeverity.Info, Localizer.Format(L.Shell.CopiedDn, selection.Count));
+            ClipboardCopy.Text(
+                _clipboard,
+                _notifications,
+                string.Join(Environment.NewLine, selection.Select(r => r.Dn)),
+                Localizer.Format(L.Shell.CopiedDn, selection.Count));
         }
     }
 

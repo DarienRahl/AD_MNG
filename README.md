@@ -233,9 +233,10 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   dostępne tylko w edytorze zbiorczym** – cofanie pojedynczej zmiany z dziennika sesji jest w planach.
 - ✅ **Jakość:** PL/EN bez restartu, motyw jasny/ciemny/systemowy (Fluent), skróty jak w ADUC, testy UI (UI Automation)
   i test dymny opublikowanego `AdMng.exe` w CI.
-- ⬜ **Szybkie kopiowanie (następne w kolejce):** przycisk „Kopiuj” przy adresie e-mail, UPN, loginie, telefonach i
-  innych wartościach w panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów, „Kopiuj jako…” dla wielu
-  obiektów naraz – szczegóły w sekcji [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
+- ✅ **Szybkie kopiowanie:** przycisk „Kopiuj” przy adresie e-mail, UPN, loginie, telefonach i innych wartościach w
+  panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów (widoczne kolumny, tabulatory), „Kopiuj jako…”
+  dla wielu obiektów naraz (adresy e-mail jako lista dla Outlooka, Ctrl+Shift+M) – szczegóły w sekcji
+  [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
 - ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID, „Zmień kontroler domeny” w trakcie sesji, „Godzin logowania”,
   „Kopiuj użytkownika” (faza 3), VLV na listach bardzo dużych OU (sesja już go obsługuje), pól opartych o ACL (na razie
   wyświetlane jako tylko do odczytu – faza 5).
@@ -272,30 +273,39 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 #### Akcje
 - Reset hasła (wpisane lub wygenerowane, wymuszenie zmiany, odblokowanie), włącz/wyłącz, odblokuj, dodaj do grupy,
   przenieś (okno i przeciągnij-upuść), zmień nazwę (F2), usuń (ostrzeżenia, usuwanie poddrzewa za potwierdzeniem),
-  nowy użytkownik/grupa/OU/komputer/kontakt, eksport listy do CSV, kopiuj DN.
+  nowy użytkownik/grupa/OU/komputer/kontakt, eksport listy do CSV, kopiowanie wartości (Ctrl+C, „Kopiuj jako…”).
 - Każda zmiana (także pojedyncza) przechodzi przez silnik zmian: walidacja, dziennik sesji, możliwość cofnięcia.
 
-#### Kopiowanie wartości ⬜
+#### Kopiowanie wartości ✅
 
-Dziś przycisk kopiowania jest tylko przy DN (panel szczegółów, menu obiektu), przy polach karty *Obiekt* i w Edytorze
-atrybutów; adres e-mail czy UPN trzeba zaznaczyć w polu karty właściwości i skopiować Ctrl+C. Plan:
+Wartość kopiuje się jednym kliknięciem albo skrótem – bez zaznaczania tekstu w polu i bez dodatkowych okien. Projekt:
+[docs/dev/phase1-copy.md](docs/dev/phase1-copy.md).
 
-- **Przycisk kopiowania jednym kliknięciem** przy wartościach w **panelu szczegółów** i na kartach właściwości: adres
-  e-mail, UPN, nazwa logowania (`sAMAccountName` i `DOMENA\login`), nazwa wyświetlana, telefony, numer pracownika,
-  stanowisko, dział, menedżer, ścieżka i DN; krótkie potwierdzenie „Skopiowano” bez dodatkowego okna; wartości w panelu
+- **Przycisk kopiowania jednym kliknięciem** przy wartościach w **panelu szczegółów** (adres e-mail, UPN, nazwa
+  logowania `sAMAccountName` i `DOMENA\login`, nazwa wyświetlana, telefon i komórka, numer/identyfikator pracownika,
+  stanowisko, dział, firma, menedżer, nazwa, ścieżka i DN) i na kartach właściwości (e-mail, nazwa wyświetlana, nazwa
+  logowania z przyciskiem `DOMENA\`, telefony, stanowisko, dział, firma, biuro, UPN, menedżer, pola karty *Obiekt*).
+  Potwierdzenie to krótki komunikat „Skopiowano: …” (bez okna, czytany przez czytnik ekranu) i znacznik ✓ na przycisku;
+  gdy schowek jest zajęty przez inny program, zamiast potwierdzenia pojawia się ostrzeżenie. Wartości w panelu
   szczegółów dają się też zaznaczyć myszą.
-- **Ctrl+C na liście obiektów:** zaznaczone wiersze z widocznymi kolumnami jako tekst rozdzielany tabulatorami (wklejanie
-  do Excela, Teams, zgłoszenia w helpdesku), z nagłówkami kolumn lub bez.
-- **„Kopiuj jako…”** w menu kontekstowym, na pasku narzędzi i w palecie poleceń (Ctrl+K): adres e-mail, UPN, login,
-  nazwa, DN, ścieżka kanoniczna, GUID, SID – także dla wielu zaznaczonych obiektów naraz. Adresy e-mail zaznaczonych osób
-  (albo członków grupy z karty *Członkowie*) trafiają do schowka jako lista rozdzielana `;`, gotowa do wklejenia w polu
-  „Do” w Outlooku; skrót klawiszowy do kopiowania adresu e-mail zaznaczonych obiektów.
-- **Kopiowanie z list na kartach:** pojedynczy adres z karty *Adresy e-mail* (bez prefiksu `smtp:`), nazwa lub DN grupy z
-  *Członek grup*, członek z *Członkowie*, wpis z dziennika sesji, szczegóły zdarzenia Watchdoga.
-- **Bezpieczeństwo:** wartości poufne (LAPS, BitLocker, atrybuty oznaczone w schemacie) można skopiować dopiero po jawnym
-  odsłonięciu – z wykluczeniem z historii schowka i wyczyszczeniem po 60 s, jak dziś przy hasłach; kopiowanie niczego nie
-  zapisuje na dysku (zasada „zero lokalnych danych”).
-- Teksty przycisków i potwierdzeń po polsku i angielsku, obsługa z klawiatury i czytnika ekranu, testy UI.
+- **Ctrl+C na liście obiektów:** zaznaczone wiersze (w kolejności listy) z widocznymi kolumnami jako tekst rozdzielany
+  tabulatorami – do Excela, Teams czy zgłoszenia w helpdesku; „Kopiuj wiersze z nagłówkami” dodaje nagłówki kolumn.
+  Wartości zaczynające się od `=`, `+`, `-`, `@` dostają apostrof (ochrona przed formułami jak w eksporcie CSV), z
+  wyjątkiem liczb i numerów telefonów. DN zaznaczonych obiektów kopiuje Ctrl+Shift+C.
+- **„Kopiuj jako…”** w menu kontekstowym, w menu *Akcja*, na pasku narzędzi i w palecie poleceń (Ctrl+K, kategoria
+  „Kopiuj jako”): adres e-mail, UPN, nazwa logowania, `DOMENA\login`, nazwa, nazwa wyświetlana, DN, ścieżka kanoniczna,
+  GUID, SID – dla jednego lub wielu obiektów (wartości czytane na żywo z kontrolera sesji, po jednej w wierszu). Adresy
+  e-mail (Ctrl+Shift+M) trafiają do schowka jako lista rozdzielana `; `, gotowa do pola „Do” w Outlooku; obiekty bez
+  adresu są pomijane, a komunikat mówi, ile ich było.
+- **Kopiowanie z list na kartach:** pojedynczy adres z karty *Adresy e-mail* bez prefiksu `smtp:` (przycisk, menu,
+  Ctrl+C), nazwa (Ctrl+C), DN (Ctrl+Shift+C) i adres e-mail z *Członek grup* i *Członkowie*, adresy e-mail wszystkich
+  członków grupy dla Outlooka, wpis dziennika sesji (Ctrl+C), szczegóły zdarzenia Watchdoga.
+- **Bezpieczeństwo:** wartości poufne (hasła, LAPS, BitLocker, atrybuty oznaczone w schemacie jako poufne) nie są
+  kopiowane tymi poleceniami – kolumny z nimi są pomijane przy Ctrl+C (komunikat mówi które); skopiować je można tylko
+  po jawnym odsłonięciu w Edytorze atrybutów, z wykluczeniem z historii schowka i wyczyszczeniem po 60 s. Kopiowanie
+  niczego nie zapisuje na dysku (zasada „zero lokalnych danych”).
+- Teksty przycisków i potwierdzeń po polsku i angielsku, obsługa z klawiatury (przyciski kopiowania są w kolejności Tab,
+  z nazwą „Kopiuj: …” dla czytnika ekranu), testy jednostkowe i testy UI (CI Windows).
 
 #### Jakość
 - PL/EN bez restartu, motyw jasny/ciemny, skróty jak w ADUC (F5, Del, F2, Alt+Enter, Ctrl+F) + Ctrl+K, dostępność
@@ -665,9 +675,11 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   może aktualizować listę członków”) są pokazywane tylko do odczytu; brak karty Zabezpieczenia i „Godzin logowania”.
 - **Cofanie** działa w edytorze zbiorczym (cała paczka); pojedynczych zmian z kart właściwości i menu nie da się jeszcze
   cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
-- **Kopiowanie** – przycisk kopiowania jest tylko przy DN, polach karty *Obiekt* i w Edytorze atrybutów; wartości w
-  panelu szczegółów nie da się zaznaczyć, a e-mail, UPN czy telefon kopiuje się z pola karty właściwości (zaznaczenie i
-  Ctrl+C); brak Ctrl+C na liście obiektów – szybkie kopiowanie jest zaplanowane w fazie 1.
+- **Kopiowanie** – identyfikator i numer pracownika nie mają pola na kartach właściwości (jak w ADUC): kopiuje się je
+  z panelu szczegółów albo z Edytora atrybutów. „Kopiuj jako…” dla wielu tysięcy obiektów czyta je ponownie z kontrolera
+  (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę i nie ma wskaźnika postępu (rozłączenie sesji
+  przerywa odczyt). Ctrl+C na liście obiektów kopiuje teraz wiersze;
+  DN zaznaczonych obiektów kopiuje Ctrl+Shift+C.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain

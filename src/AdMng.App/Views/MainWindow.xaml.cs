@@ -146,8 +146,9 @@ public partial class MainWindow : Window
     // ---- Keyboard ----------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Key bindings from the command descriptors. Object commands (Delete, F2, Alt+Enter...) act on the list selection,
-    /// so they are bound to the document area only - Delete in the search box or the tree never deletes list objects.
+    /// Key bindings from the command descriptors. Object and "Copy as" commands (Delete, F2, Alt+Enter, Ctrl+C...) act on
+    /// the list selection, so they are bound to the document area only - Delete in the search box or the tree never
+    /// deletes list objects, and Ctrl+C there copies the text box's selection.
     /// </summary>
     private void BuildKeyBindings()
     {
@@ -159,7 +160,7 @@ public partial class MainWindow : Window
             }
 
             var binding = new KeyBinding(descriptor.Command, gesture) { CommandParameter = descriptor.Parameter };
-            if (string.Equals(descriptor.CategoryKey, L.CommandCategories.Object, StringComparison.Ordinal))
+            if (descriptor.CategoryKey is L.CommandCategories.Object or L.Copy.Category)
             {
                 DocumentHost.InputBindings.Add(binding);
             }
@@ -279,6 +280,17 @@ public partial class MainWindow : Window
     }
 
     private void OnFiltersMenuClick(object sender, RoutedEventArgs e) => FilterToggle.IsChecked = FilterToggle.IsChecked != true;
+
+    /// <summary>The toolbar's "Kopiuj jako…" button opens its menu below itself (also with Enter / Space).</summary>
+    private void OnCopyAsButtonClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { ContextMenu: { } menu } button)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
 
     /// <summary>Tools > PowerShell history (no IDialogService entry: it is a tool window of the WPF shell).</summary>
     private void OnPowerShellHistoryClick(object sender, RoutedEventArgs e) => _tools.ShowPowerShellHistory();

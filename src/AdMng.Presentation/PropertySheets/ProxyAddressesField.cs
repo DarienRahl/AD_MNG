@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Model;
+using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -64,7 +65,7 @@ public sealed partial class ProxyAddressesFieldViewModel : PropertyFieldViewMode
     public IReadOnlyList<string> Types { get; } = ["SMTP", "X500", "SIP", "X400", "EUM"];
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveCommand), nameof(SetPrimaryCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveCommand), nameof(SetPrimaryCommand), nameof(CopyAddressCommand))]
     public partial ProxyAddressViewModel? SelectedItem { get; set; }
 
     [ObservableProperty]
@@ -139,6 +140,27 @@ public sealed partial class ProxyAddressesFieldViewModel : PropertyFieldViewMode
     }
 
     private bool CanChangeSelected() => IsEditable && SelectedItem is not null;
+
+    /// <summary>
+    /// Copies the selected address without its type prefix ("smtp:", "SIP:"...) - what goes into an e-mail or a ticket.
+    /// Available on read-only fields too. The confirmation names the one address by its type ("Copied: E-mail address.",
+    /// "Copied: SIP address."), not by the field ("Proxy addresses").
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void CopyAddress()
+    {
+        if (SelectedItem is not { } item)
+        {
+            return;
+        }
+
+        var label = item.IsSmtp ? Localizer[L.Copy.Mail]
+            : item.Prefix.Length == 0 ? Localizer[L.Labels.Address]
+            : Localizer.Format(L.Copy.TypedAddress, item.Type);
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, item.Address, label);
+    }
+
+    private bool HasSelection() => SelectedItem is not null;
 
     protected override void OnAccessChanged()
     {

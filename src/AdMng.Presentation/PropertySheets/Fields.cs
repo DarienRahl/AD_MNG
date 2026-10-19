@@ -3,10 +3,10 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
-using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -213,6 +213,8 @@ public sealed partial class FieldViewModel : PropertyFieldViewModel
 
     /// <summary>Pending value (two-way).</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(QualifiedValue))]
+    [NotifyCanExecuteChangedFor(nameof(CopyCommand), nameof(CopyQualifiedCommand))]
     public partial string Value { get; set; } = string.Empty;
 
     /// <summary>Value as read from the domain controller.</summary>
@@ -224,23 +226,50 @@ public sealed partial class FieldViewModel : PropertyFieldViewModel
     /// <summary>Multi-line text (Notes).</summary>
     public bool IsMultiline { get; init; }
 
-    /// <summary>Show a copy button (Object page).</summary>
+    /// <summary>Show a copy button (Object page, e-mail, phones, logon name, title...).</summary>
     public bool CanCopy { get; init; }
+
+    /// <summary>
+    /// "CONTOSO\" in front of a pre-Windows 2000 logon name (like ADUC's Account tab): a second copy button puts
+    /// <see cref="QualifiedValue"/> on the clipboard. Null when the field has none (or the NetBIOS name is unknown).
+    /// </summary>
+    public string? QualifiedPrefix { get; init; }
+
+    /// <summary>NETBIOS\value, or null without a prefix or a value.</summary>
+    public string? QualifiedValue => QualifiedPrefix is null || string.IsNullOrWhiteSpace(Value) ? null : QualifiedPrefix + Value.Trim();
 
     /// <summary>"Other..." values (otherTelephone, url...) edited in a list; null when the field has none.</summary>
     public MultiValueFieldViewModel? Others { get; init; }
 
     internal override IReadOnlyList<string> ReadAttributes => [Attribute];
 
-    [RelayCommand]
+    /// <summary>Copies the value shown (also a pending, not yet applied one), confirmed with the field's label.</summary>
+    [RelayCommand(CanExecute = nameof(HasValue))]
     private void Copy()
     {
-        if (Value.Length > 0)
+        if (string.IsNullOrEmpty(Value))
         {
-            Context.Services.Clipboard.SetText(Value);
-            Context.Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Fields.Copied]);
+            return;
         }
+
+        if (SecretAttributes.IsSecret(Attribute, Context.Schema))
+        {
+            // Never the case on the standard pages; a secret would only go the protected way (no history, cleared).
+            ClipboardCopy.Secret(Context.Services.Clipboard, Context.Services.Notifications, Value, Localizer.Format(L.Copy.CopiedValue, Label));
+            return;
+        }
+
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, Value, Label);
     }
+
+    private bool HasValue() => !string.IsNullOrEmpty(Value);
+
+    /// <summary>Copies NETBIOS\login (<see cref="QualifiedValue"/>).</summary>
+    [RelayCommand(CanExecute = nameof(HasQualifiedValue))]
+    private void CopyQualified() =>
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, QualifiedValue, Localizer[L.Copy.DomainLogin]);
+
+    private bool HasQualifiedValue() => QualifiedValue is not null;
 
     partial void OnValueChanged(string value) => OnEdited();
 
@@ -573,7 +602,7 @@ public sealed partial class DnFieldViewModel : PropertyFieldViewModel
 
     /// <summary>DN of the referenced object (null = not set).</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ClearCommand), nameof(OpenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClearCommand), nameof(OpenCommand), nameof(CopyCommand))]
     [NotifyPropertyChangedFor(nameof(HasValue))]
     public partial string? Value { get; private set; }
 
@@ -626,6 +655,15 @@ public sealed partial class DnFieldViewModel : PropertyFieldViewModel
 
     [RelayCommand(CanExecute = nameof(HasValue))]
     private Task OpenAsync() => Value is { } dn ? Context.Services.Dialogs.ShowPropertiesAsync(dn) : Task.CompletedTask;
+
+    /// <summary>Copies the referenced object's name (the manager's name goes into tickets and e-mails, not the DN).</summary>
+    [RelayCommand(CanExecute = nameof(CanCopy))]
+    private void Copy() =>
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, DisplayName, Label);
+
+    private bool CanCopy() => Value is not null && !string.IsNullOrWhiteSpace(DisplayName);
+
+    partial void OnDisplayNameChanged(string value) => CopyCommand.NotifyCanExecuteChanged();
 
     protected override void OnAccessChanged()
     {

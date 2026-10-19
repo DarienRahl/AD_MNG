@@ -864,7 +864,11 @@ public class ShellViewModelTests
 
         shell.CopyDnCommand.Execute(null);
 
-        Assert.Equal($"{Ewa}{Environment.NewLine}{Jan}", harness.Clipboard.Text);
+        // In the list's order (like every "Copy as" format), not in the order the rows were clicked.
+        var expected = shell.SelectedDocument!.Items.Select(r => r.Dn).Where(dn => dn == Ewa || dn == Jan);
+        Assert.Equal(string.Join(Environment.NewLine, expected), harness.Clipboard.Text);
+        Assert.Contains(Ewa, harness.Clipboard.Text, StringComparison.Ordinal);
+        Assert.Contains(Jan, harness.Clipboard.Text, StringComparison.Ordinal);
     }
 
     [Fact]

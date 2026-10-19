@@ -59,8 +59,7 @@ public sealed partial class PowerShellHistoryViewModel : WindowViewModelBase
     {
         if (SelectedItem is { } item)
         {
-            Services.Clipboard.SetText(item.Script);
-            Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.PowerShellCopied]);
+            ClipboardCopy.Text(Services.Clipboard, Services.Notifications, item.Script, Localizer[L.Batch.PowerShellCopied]);
         }
     }
 

@@ -6,7 +6,6 @@ using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
-using AdMng.Presentation.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -526,16 +525,12 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
         // A LAPS password or another secret value: kept out of clipboard history and cleared after a while.
         if (SecretAttributes.IsSecret(row.Attribute, Context.Schema))
         {
-            if (Context.Services.Clipboard.SetSecret(row.ValueText))
-            {
-                Context.Services.Notifications.Show(NotificationSeverity.Info, Context.Localizer[L.Fields.Copied]);
-            }
-
+            ClipboardCopy.Secret(Context.Services.Clipboard, Context.Services.Notifications, row.ValueText, Context.Localizer[L.Fields.Copied]);
             return;
         }
 
-        Context.Services.Clipboard.SetText(row.ValueText);
-        Context.Services.Notifications.Show(NotificationSeverity.Info, Context.Localizer[L.Fields.Copied]);
+        // Not confirmed when the clipboard was busy (the clipboard service warned instead).
+        ClipboardCopy.Text(Context.Services.Clipboard, Context.Services.Notifications, row.ValueText, Context.Localizer[L.Fields.Copied]);
     }
 
     private bool HasSelection(AttributeRowViewModel? row) => (row ?? SelectedRow) is not null;

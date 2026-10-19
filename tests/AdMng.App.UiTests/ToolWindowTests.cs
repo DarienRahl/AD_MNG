@@ -219,7 +219,11 @@ public sealed class ToolWindowTests
     {
         public string? Text { get; private set; }
 
-        public void SetText(string text) => Text = text;
+        public bool SetText(string text)
+        {
+            Text = text;
+            return true;
+        }
 
         public bool SetSecret(string secret)
         {

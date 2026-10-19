@@ -10,7 +10,17 @@ using AdMng.Presentation.Session;
 namespace AdMng.Presentation.Shell;
 
 /// <summary>A label/value line in the details pane.</summary>
-public sealed record SummaryField(string Label, string Value);
+public sealed record SummaryField(string Label, string Value)
+{
+    /// <summary>What the line's copy button puts on the clipboard; null for lines that are not copied (states, counts).</summary>
+    public string? CopyText { get; init; }
+
+    /// <summary>The line has a copy button.</summary>
+    public bool CanCopy => !string.IsNullOrEmpty(CopyText);
+
+    /// <summary>A line whose value is copied as shown.</summary>
+    public static SummaryField Copyable(string label, string value) => new(label, value) { CopyText = value };
+}
 
 /// <summary>
 /// Details pane content for the selected object: name, type, DN, description, key account state (disabled,
@@ -26,16 +36,23 @@ public sealed class ObjectSummaryViewModel
         Attr.LockoutTime, Attr.PwdLastSet, Attr.PasswordExpiryComputed, Attr.AccountExpires, Attr.LastLogonTimestamp,
         Attr.Mail, Attr.SamAccountName, Attr.UserPrincipalName, Attr.Title, Attr.Department, Attr.TelephoneNumber,
         Attr.WhenCreated, Attr.WhenChanged, Attr.OperatingSystem, Attr.OperatingSystemVersion, Attr.DnsHostName,
-        Attr.GroupType, Attr.ManagedBy, Attr.Company, Attr.AdminCount,
+        Attr.GroupType, Attr.ManagedBy, Attr.Company, Attr.AdminCount, Attr.Mobile, Attr.EmployeeId, Attr.EmployeeNumber,
+        Attr.Manager,
     ];
 
-    private ObjectSummaryViewModel(string name, string typeText, ObjectIcon icon, string? dn, IReadOnlyList<SummaryField> fields)
+    private ObjectSummaryViewModel(string name, string typeText, ObjectIcon icon, string? dn, IReadOnlyList<SummaryField> fields, ILocalizer localizer)
     {
         Name = name;
         TypeText = typeText;
         Icon = icon;
         DistinguishedName = dn;
         Fields = fields;
+
+        // Name, path and DN have their own places in the pane; as fields they get copy buttons like the other values.
+        var single = dn is not null;
+        NameField = new SummaryField(localizer[L.Copy.Name], name) { CopyText = single ? name : null };
+        PathField = new SummaryField(localizer[L.Details.Path], Path) { CopyText = single ? Path : null };
+        DnField = new SummaryField(localizer[L.Details.DistinguishedName], dn ?? string.Empty) { CopyText = dn };
     }
 
     public string Name { get; }
@@ -64,14 +81,31 @@ public sealed class ObjectSummaryViewModel
 
     public IReadOnlyList<SummaryField> Fields { get; }
 
+    /// <summary>The object's name with its copy text (not copyable for a multi-selection).</summary>
+    public SummaryField NameField { get; }
+
+    /// <summary>Canonical path of the object with its copy text.</summary>
+    public SummaryField PathField { get; }
+
+    /// <summary>Distinguished name with its copy text.</summary>
+    public SummaryField DnField { get; }
+
     /// <summary>Summary of a single object read with <see cref="Attributes"/>.</summary>
+    /// <param name="obj">The object.</param>
+    /// <param name="localizer">UI language.</param>
+    /// <param name="formatter">Value formatter of the session.</param>
+    /// <param name="schema">Schema of the session (attribute names, confidential attributes).</param>
+    /// <param name="policy">Lockout and password policy of the domain.</param>
+    /// <param name="now">Reference time of the lockout and expiry states.</param>
+    /// <param name="netBiosName">NetBIOS domain name: users and groups get a NETBIOS\login line (null: no such line).</param>
     public static ObjectSummaryViewModel Create(
         DirectoryObject obj,
         ILocalizer localizer,
         IAttributeFormatter formatter,
         ISchemaCatalog? schema,
         DomainPolicy policy,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        string? netBiosName = null)
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(localizer);
@@ -87,10 +121,30 @@ public sealed class ObjectSummaryViewModel
                 var text = attribute == Attr.GroupType && obj.GetInt32(attribute) is { } gt
                     ? localizer.GroupTypeName(gt)
                     : formatter.Format(attribute, values, culture);
-                if (!string.IsNullOrWhiteSpace(text))
+                // Values of secret attributes are never shown (and so never copied) in the pane.
+                if (!string.IsNullOrWhiteSpace(text) && !SecretAttributes.IsSecret(attribute, schema))
                 {
-                    fields.Add(new SummaryField(localizer.AttributeName(attribute, schema), text));
+                    fields.Add(SummaryField.Copyable(localizer.AttributeName(attribute, schema), text));
                 }
+            }
+        }
+
+        void AddDomainLogon()
+        {
+            if (ObjectCopyFormats.Qualify(netBiosName, obj.GetString(Attr.SamAccountName)) is { } logon)
+            {
+                fields.Add(SummaryField.Copyable(localizer[L.Copy.DomainLogon], logon));
+            }
+        }
+
+        void AddManager()
+        {
+            // The manager's name (RDN value), not the whole DN: that is what goes into a ticket or an e-mail.
+            if (obj.GetString(Attr.Manager) is { } manager
+                && Core.Ldap.DistinguishedName.TryParse(manager, out var managerDn)
+                && !managerDn.IsRoot)
+            {
+                fields.Add(SummaryField.Copyable(localizer.AttributeName(Attr.Manager, schema), managerDn.Name));
             }
         }
 
@@ -110,11 +164,16 @@ public sealed class ObjectSummaryViewModel
                 AddAttribute(Attr.DisplayName);
                 AddAttribute(Attr.UserPrincipalName);
                 AddAttribute(Attr.SamAccountName);
+                AddDomainLogon();
                 AddAttribute(Attr.Title);
                 AddAttribute(Attr.Department);
                 AddAttribute(Attr.Company);
+                AddManager();
                 AddAttribute(Attr.Mail);
                 AddAttribute(Attr.TelephoneNumber);
+                AddAttribute(Attr.Mobile);
+                AddAttribute(Attr.EmployeeId);
+                AddAttribute(Attr.EmployeeNumber);
                 fields.Add(new SummaryField(localizer[L.Details.PasswordExpires], PasswordExpiry(obj, localizer, policy)));
                 AddAttribute(Attr.PwdLastSet);
                 AddAttribute(Attr.AccountExpires);
@@ -130,6 +189,7 @@ public sealed class ObjectSummaryViewModel
             case ObjectKind.Group:
                 AddAttribute(Attr.GroupType);
                 AddAttribute(Attr.SamAccountName);
+                AddDomainLogon();
                 AddAttribute(Attr.Mail);
                 AddAttribute(Attr.ManagedBy);
                 break;
@@ -137,6 +197,7 @@ public sealed class ObjectSummaryViewModel
                 AddAttribute(Attr.DisplayName);
                 AddAttribute(Attr.Mail);
                 AddAttribute(Attr.TelephoneNumber);
+                AddAttribute(Attr.Mobile);
                 AddAttribute(Attr.Company);
                 break;
             default:
@@ -148,7 +209,7 @@ public sealed class ObjectSummaryViewModel
         AddAttribute(Attr.WhenChanged);
 
         return new ObjectSummaryViewModel(obj.Name, localizer.TypeName(obj), ObjectIcons.For(obj.Kind, obj.IsDisabled, locked,
-            obj.GetInt32(Attr.GroupType) is not { } g || GroupTypes.IsSecurity(g)), obj.DistinguishedName, fields)
+            obj.GetInt32(Attr.GroupType) is not { } g || GroupTypes.IsSecurity(g)), obj.DistinguishedName, fields, localizer)
         {
             Description = obj.GetString(Attr.Description),
             Kind = obj.Kind,
@@ -174,7 +235,7 @@ public sealed class ObjectSummaryViewModel
             fields.Add(new SummaryField(localizer[L.Details.StateDisabled], disabled.ToString(localizer.Culture)));
         }
 
-        return new ObjectSummaryViewModel(localizer.Format(L.Details.ManySelected, items.Count), string.Empty, ObjectIcon.Folder, null, fields)
+        return new ObjectSummaryViewModel(localizer.Format(L.Details.ManySelected, items.Count), string.Empty, ObjectIcon.Folder, null, fields, localizer)
         {
             Count = items.Count,
         };
