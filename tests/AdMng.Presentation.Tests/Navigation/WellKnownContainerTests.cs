@@ -47,6 +47,10 @@ public class WellKnownContainerTests
         Assert.True(users.IsWellKnown);
         Assert.Equal("Default container for new users and groups", users.WellKnownText);
         Assert.Equal("Default container for new users and groups" + Environment.NewLine + "Default container for upgraded user accounts", users.ToolTipText);
+
+        // The tooltip is mouse-only: the tree item exposes it as its UI Automation help text (keyboard, screen readers).
+        Assert.Equal(users.ToolTipText, users.HelpText);
+        Assert.Null(tree.ViewsNode.HelpText);
         Assert.Equal(WellKnownContainer.Computers, Node(domain, "Computers").WellKnown);
         Assert.Equal("Default container for new computers", Node(domain, "Computers").WellKnownText);
         Assert.Equal(WellKnownContainer.DomainControllers, Node(domain, "Domain Controllers").WellKnown);
@@ -116,10 +120,14 @@ public class WellKnownContainerTests
 
         Assert.Equal("Domyślny kontener nowych użytkowników i grup", users.WellKnownText);
         Assert.Equal("Domyślny kontener nowych komputerów", computers.WellKnownText);
+        var changed = new List<string?>();
+        users.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
         harness.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));
 
         Assert.Equal("Default container for new users and groups", users.WellKnownText);
+        Assert.StartsWith("Default container for new users and groups", users.HelpText, StringComparison.Ordinal);
+        Assert.Contains(nameof(ContainerNodeViewModel.HelpText), changed);
         Assert.StartsWith("Default container for new computers", computers.ToolTipText, StringComparison.Ordinal);
     }
 

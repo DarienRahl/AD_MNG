@@ -28,6 +28,9 @@ public sealed partial class ObjectListViewModel
     private Debouncer? _serverFilter;
     private List<string>? _virtualSelection;
 
+    // Type-to-find requests: only the newest one selects (an older, shorter prefix may be answered last).
+    private int _findRequest;
+
     // The shown location is large: loads use VLV. Reset when another location is shown.
     private bool _virtualLocation;
 
@@ -60,10 +63,12 @@ public sealed partial class ObjectListViewModel
     /// <summary>
     /// Type-to-find of the virtual mode: positions on the first row whose value of the sort column starts with
     /// <paramref name="prefix"/> (VLV seek, like a phone book) and selects it. False when nothing matches or the list is
-    /// not virtual (the view's own text search covers loaded lists).
+    /// not virtual (the view's own text search covers loaded lists). A newer call supersedes a running one: the older one
+    /// then returns false without selecting (typed characters arrive faster than the DC answers).
     /// </summary>
     public async Task<bool> FindByPrefixAsync(string prefix)
     {
+        var request = ++_findRequest;
         if (_virtualRows is not { } rows || string.IsNullOrWhiteSpace(prefix) || _lastSearch?.Sort is not { } sort)
         {
             return false;
@@ -80,7 +85,7 @@ public sealed partial class ObjectListViewModel
             return false;
         }
 
-        if (!ReferenceEquals(rows, _virtualRows) || index is not { } match || rows.GetLoaded(match) is not { } row)
+        if (request != _findRequest || !ReferenceEquals(rows, _virtualRows) || index is not { } match || rows.GetLoaded(match) is not { } row)
         {
             return false;
         }

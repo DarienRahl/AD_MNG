@@ -506,6 +506,8 @@
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+            <!-- The tooltip (well-known role, description) for keyboard and screen reader users. -->
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding HelpText, Mode=OneWay, TargetNullValue=''}" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="2" />
             <Style.Triggers>

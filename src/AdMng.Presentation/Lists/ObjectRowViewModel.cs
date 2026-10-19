@@ -46,7 +46,7 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
     {
         _context = context;
         IsPlaceholder = true;
-        Object = new DirectoryObject(string.Empty, [new AttributeValues(Attr.Name, [context.Localizer[L.Common.Loading]])]);
+        Object = PlaceholderObject(context);
         Icon = ObjectIcon.Unknown;
     }
 
@@ -164,6 +164,10 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
         _context = context ?? throw new ArgumentNullException(nameof(context));
         if (IsPlaceholder)
         {
+            // "Loading…" in the new language (a page that is slow or failing keeps its placeholders on screen).
+            Object = PlaceholderObject(context);
+            _formatted.Clear();
+            RaiseAllChanged();
             return;
         }
 
@@ -174,6 +178,9 @@ public sealed class ObjectRowViewModel : INotifyPropertyChanged
     /// <summary>A "Loading…" row (see <see cref="IsPlaceholder"/>).</summary>
     public static ObjectRowViewModel CreatePlaceholder(RowContext context) =>
         new(context ?? throw new ArgumentNullException(nameof(context)));
+
+    private static DirectoryObject PlaceholderObject(RowContext context) =>
+        new(string.Empty, [new AttributeValues(Attr.Name, [context.Localizer[L.Common.Loading]])]);
 
     public override string ToString() => Dn;
 

@@ -232,6 +232,24 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task TypeToFind_AnOlderPrefixAnsweredLate_DoesNotOverrideTheNewerOne()
+    {
+        // Typing "Użytkownik 0012" quickly: the seek for the shorter prefix comes back last (another pooled connection).
+        var (harness, list) = await OpenAsync();
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = w => w.SeekValue == "Użytkownik 001" ? gate.Task : null;
+
+        var older = list.FindByPrefixAsync("Użytkownik 001");
+        await TestWait.UntilAsync(() => harness.Directory.VirtualListRequests.Any(r => r.Window.SeekValue == "Użytkownik 001"));
+        Assert.True(await list.FindByPrefixAsync("Użytkownik 0012"));
+        Assert.Equal(UserDn(12), list.SelectedItem!.Dn);
+
+        gate.SetResult();
+        Assert.False(await older);
+        Assert.Equal(UserDn(12), list.SelectedItem!.Dn);
+    }
+
+    [Fact]
     public async Task TypeToFind_WalksBack_WhenTheServerSeeksPastTheMatches()
     {
         var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
@@ -290,6 +308,77 @@ public class VirtualListTests
         Assert.Same(selected, list.SelectedItem);
         Assert.Equal([selected], list.Selection);
         Assert.Null(harness.Directory.VirtualListRequests.Last().Window.ContextId);
+    }
+
+    [Fact]
+    public async Task LiveChange_OfAnAttribute_UpdatesTheRowsInPlace_WithoutAReset()
+    {
+        // The common live update (an attribute of a listed object): no Reset - a Reset regenerates every row container
+        // and takes the keyboard focus out of the list on a busy container.
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        harness.Directory.SupportsWatch = true;
+        var list = CreateList(harness);
+        await list.NavigateAsync(ListLocation.ForContainer(Masowe));
+        var rows = list.VirtualRows!;
+        var selected = rows[5];
+        list.SelectedItems = new List<object> { selected };
+        list.SelectedItem = selected;
+        // Only the first read of page 6 is held (the pump's); the refresh reads it again meanwhile.
+        var gate = new TaskCompletionSource();
+        var held = 0;
+        harness.Directory.HoldVirtualList = w => w.Offset == 60 && w.SeekValue is null && Interlocked.Increment(ref held) == 1 ? gate.Task : null;
+        var placeholder = rows[65];
+        await TestWait.UntilAsync(() => held == 1);
+        var events = new List<NotifyCollectionChangedEventArgs>();
+        rows.CollectionChanged += (_, e) => events.Add(e);
+        var reloaded = 0;
+        rows.Reloaded += (_, _) => reloaded++;
+        Assert.Equal(string.Empty, selected[Attr.Description]);
+
+        harness.Directory.Put(WithAttribute(harness.Directory.Find(UserDn(5))!, Attr.Description, "Nowy opis – księgowość"));
+        harness.Directory.RaiseChange(UserDn(5));
+        harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+        await TestWait.UntilAsync(() => selected[Attr.Description] == "Nowy opis – księgowość");
+
+        Assert.DoesNotContain(events, e => e.Action == NotifyCollectionChangedAction.Reset);
+        Assert.Equal(0, reloaded);
+        Assert.Same(selected, rows[5]);
+        Assert.Same(selected, list.SelectedItem);
+        Assert.Equal([selected], list.Selection);
+        Assert.Equal(Users, rows.Count);
+
+        // The page that was still being read when the refresh started: its placeholders are replaced in place.
+        gate.SetResult();
+        await TestWait.UntilAsync(() => rows.GetLoaded(65) is not null);
+        Assert.Equal(UserName(65), rows[65].Name);
+        Assert.Contains(events, e => e.Action == NotifyCollectionChangedAction.Replace && ReferenceEquals(e.OldItems![0], placeholder));
+        Assert.DoesNotContain(events, e => e.Action == NotifyCollectionChangedAction.Reset);
+    }
+
+    [Fact]
+    public async Task FailedRefresh_AsksAgainForThePagesItsStartDropped()
+    {
+        // A page is being read when a refresh starts (its result is dropped) and the refresh itself fails: the rows that
+        // waited for that page must not stay "Loading…" for good.
+        var (harness, list) = await OpenAsync();
+        var rows = list.VirtualRows!;
+        var gate = new TaskCompletionSource();
+        var held = 0;
+        harness.Directory.HoldVirtualList = w => w.Offset == 60 && Interlocked.Increment(ref held) == 1 ? gate.Task : null;
+        var placeholder = rows[65];
+        await TestWait.UntilAsync(() => held == 1);
+        // The refresh re-reads the shown page without the server context - and the DC is busy.
+        harness.Directory.FailVirtualList = (_, w) => w.Offset == 60 && w.ContextId is null
+            ? new DirectoryException(DirectoryErrorKind.Busy, "busy")
+            : null;
+
+        await Assert.ThrowsAsync<DirectoryException>(rows.RefreshAsync);
+        harness.Directory.FailVirtualList = null;
+        gate.SetResult();
+
+        await TestWait.UntilAsync(() => rows.GetLoaded(65) is not null);
+        Assert.Equal(UserName(65), rows[65].Name);
+        Assert.Equal(-1, rows.IndexOf(placeholder));
     }
 
     [Fact]
@@ -402,6 +491,59 @@ public class VirtualListTests
         Assert.False(shell.IsVirtualListShown);
         shell.SelectedDocument = document;
         Assert.True(shell.IsVirtualListShown);
+    }
+
+    [Fact]
+    public async Task Shell_OpenItem_OnAPlaceholderRow_DoesNothing()
+    {
+        // Double click / Enter on a "Loading…" row: it has no DN - no properties of "" (the RootDSE), no navigation.
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        var shell = harness.CreateShell();
+        await shell.InitializeAsync();
+        var document = shell.SelectedDocument!;
+        document.VirtualThreshold = 50;
+        document.VirtualPageSize = 10;
+        await shell.NavigateAsync(ListLocation.ForContainer(Masowe));
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = _ => gate.Task;
+        var placeholder = document.VirtualRows![99];
+        Assert.True(placeholder.IsPlaceholder);
+
+        Assert.False(shell.OpenItemCommand.CanExecute(placeholder));
+        await shell.OpenItemCommand.ExecuteAsync(placeholder);
+        document.SelectedItem = placeholder;
+        await shell.OpenItemCommand.ExecuteAsync(null);
+
+        Assert.Empty(harness.Dialogs.PropertiesShown);
+        Assert.Equal(Masowe, document.Location!.BaseDn);
+        gate.SetResult();
+        await document.VirtualRows.Idle;
+        await shell.OpenItemCommand.ExecuteAsync(document.VirtualRows[99]);
+        Assert.Equal([UserDn(99)], harness.Dialogs.PropertiesShown);
+    }
+
+    [Fact]
+    public async Task LanguageSwitch_RelocalizesThePlaceholdersTheViewShows()
+    {
+        // A page that cannot be read (slow or failing DC) keeps its "Loading…" rows on screen: they follow the language.
+        var (harness, list) = await OpenAsync();
+        var rows = list.VirtualRows!;
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = _ => gate.Task;
+        var placeholder = rows[55];
+        Assert.Equal("Loading…", placeholder.Name);
+        var changed = new List<string?>();
+        placeholder.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        harness.Localizer.SetCulture(System.Globalization.CultureInfo.GetCultureInfo("pl-PL"));
+
+        Assert.Equal("Ładowanie…", placeholder.Name);
+        Assert.Equal("Ładowanie…", placeholder[Attr.Name]);
+        Assert.Equal(string.Empty, placeholder[Attr.Description]);
+        Assert.True(placeholder.IsPlaceholder);
+        Assert.NotEmpty(changed);
+        Assert.Equal("Ładowanie…", rows[56].Name);
+        gate.SetResult();
     }
 
     [Fact]

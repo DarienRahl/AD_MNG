@@ -140,6 +140,18 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
         }
     }
 
+    /// <summary>The placeholders currently handed out (the view may show them): relocalized on a language switch.</summary>
+    internal IReadOnlyList<ObjectRowViewModel> Placeholders
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _placeholders.Values];
+            }
+        }
+    }
+
     /// <summary>Placeholders currently handed out (tests: bounded memory).</summary>
     internal int PlaceholderCount
     {
@@ -433,7 +445,10 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
 
     /// <summary>
     /// Re-reads the most recently shown pages and the count (live updates, own changes) without the old server context.
-    /// Rows keep their identity by DN (updated in place); the view gets one Reset.
+    /// When the count and the objects at the re-read positions are unchanged (an attribute changed - the common live
+    /// update), the rows are updated in place and the view gets no Reset: a Reset regenerates every row container and
+    /// takes the keyboard focus out of the list. Otherwise rows keep their identity by DN (updated in place) and the view
+    /// gets one Reset followed by <see cref="Reloaded"/>.
     /// </summary>
     public async Task RefreshAsync()
     {
@@ -458,15 +473,33 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
 
         var results = new List<(int Page, VirtualListPage Result)>(pages.Length);
         byte[]? context = null;
-        foreach (var page in pages)
+        try
         {
-            var result = await _fetch(
-                new VirtualListRequest { Offset = page * PageSize, Count = PageSize, ContextId = context },
-                _lifetime.Token).ConfigureAwait(true);
-            context = result.ContextId ?? context;
-            results.Add((page, result));
+            foreach (var page in pages)
+            {
+                var result = await _fetch(
+                    new VirtualListRequest { Offset = page * PageSize, Count = PageSize, ContextId = context },
+                    _lifetime.Token).ConfigureAwait(true);
+                context = result.ContextId ?? context;
+                results.Add((page, result));
+            }
+        }
+        catch
+        {
+            // The reads of the previous generation were dropped when the refresh started: rows still waiting for them
+            // would stay "Loading…" without a Reset - they are asked for again.
+            lock (_gate)
+            {
+                if (generation == _generation)
+                {
+                    WantPlaceholderPages();
+                }
+            }
+
+            throw;
         }
 
+        var reset = false;
         await _dispatcher.RunAsync(() =>
         {
             lock (_gate)
@@ -477,7 +510,31 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                 }
 
                 _contextId = context ?? _contextId;
-                DropAll(results[^1].Result.TotalCount);
+                var total = results[^1].Result.TotalCount;
+                if (CanUpdateInPlace(results, total))
+                {
+                    foreach (var (page, result) in results)
+                    {
+                        if (_pages.TryGetValue(page, out var rows))
+                        {
+                            for (var i = 0; i < rows.Length; i++)
+                            {
+                                rows[i].Update(result.Items[i]);
+                            }
+
+                            Touch(page);
+                        }
+                        else if (result.Items.Count > 0)
+                        {
+                            StoreAndReplacePlaceholders(page, result.Items);
+                        }
+                    }
+
+                    WantPlaceholderPages();
+                    return;
+                }
+
+                DropAll(total);
                 foreach (var (page, result) in results)
                 {
                     if (result.Offset == page * PageSize && result.TotalCount == _count && result.Items.Count > 0)
@@ -487,9 +544,13 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                 }
 
                 RaiseReset();
+                reset = true;
             }
         }).ConfigureAwait(true);
-        Reloaded?.Invoke(this, EventArgs.Empty);
+        if (reset)
+        {
+            Reloaded?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public void Dispose()
@@ -694,20 +755,77 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                     return;
                 }
 
-                var rows = StorePage(page, result.Items);
-                for (var i = 0; i < rows.Length; i++)
-                {
-                    if (_placeholders.Remove(start + i, out var placeholder))
-                    {
-                        _placeholderIndexes.Remove(placeholder);
-                        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, rows[i], placeholder, start + i));
-                    }
-                }
+                StoreAndReplacePlaceholders(page, result.Items);
             }
         }).ConfigureAwait(true);
         if (reloaded)
         {
             Reloaded?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Stores a page that was not cached and replaces its handed-out placeholders (one Replace each).</summary>
+    private void StoreAndReplacePlaceholders(int page, IReadOnlyList<DirectoryObject> items)
+    {
+        var start = page * PageSize;
+        var rows = StorePage(page, items);
+        for (var i = 0; i < rows.Length; i++)
+        {
+            if (_placeholders.Remove(start + i, out var placeholder))
+            {
+                _placeholderIndexes.Remove(placeholder);
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, rows[i], placeholder, start + i));
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when a refresh changed no position: the same count, every re-read window where it was asked for, and every
+    /// cached page among them holding the same objects in the same order (only attribute values may differ).
+    /// </summary>
+    private bool CanUpdateInPlace(List<(int Page, VirtualListPage Result)> results, int total)
+    {
+        if (total != _count)
+        {
+            return false;
+        }
+
+        foreach (var (page, result) in results)
+        {
+            var start = page * PageSize;
+            if (result.TotalCount != total || result.Offset != start)
+            {
+                return false;
+            }
+
+            if (!_pages.TryGetValue(page, out var rows))
+            {
+                continue;
+            }
+
+            if (rows.Length != Math.Min(result.Items.Count, Math.Max(0, total - start)))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < rows.Length; i++)
+            {
+                if (!string.Equals(rows[i].Key, DnKey.For(result.Items[i].DistinguishedName), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Queues the pages whose placeholders are handed out but which are not cached (nothing reads them otherwise).</summary>
+    private void WantPlaceholderPages()
+    {
+        foreach (var page in _placeholders.Keys.Select(i => i / PageSize).Distinct().Where(p => !_pages.ContainsKey(p)).Order().ToList())
+        {
+            Want(page);
         }
     }
 

@@ -22,7 +22,8 @@ Binding for the implementation; user documentation is in `README.md`.
 - Tree: `NavigationTreeViewModel.WellKnown` holds the map of the current session; every `ContainerNodeViewModel`
   (domain tree and pinned shortcuts) gets `WellKnown` (the role or null), `IsWellKnown` and `ToolTipText` (role
   description, e.g. "Domyślny kontener nowych użytkowników", plus the object's description). Nodes created before the
-  map arrives are updated when it does. The tree item template shows a small badge glyph with the role as tooltip.
+  map arrives are updated when it does. The tree item template shows a small badge glyph with the role as tooltip;
+  the tree item carries the same text as its UI Automation help text (keyboard and screen reader users).
 - New objects: the New commands with an explicit parent (tree context menu) keep it. Without one, the target is
   the current container tab, except when the tab shows the domain root or is not a container (search results, a view,
   Find results): then users, inetOrgPersons, groups and contacts go to the well-known Users container and computers to
@@ -75,18 +76,22 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   starts with the text (`VirtualRowList.FindPrefixAsync`). The rows just before the seek target are checked too
   (bounded walk back): in descending order the matching block lies before the target ("mark" sorts above "m"), and
   Samba compares a value that continues with a non-ASCII letter as smaller than the text ("Kontakt 2222 Żółw" <
-  "Kontakt 2222"), so its seek lands one block late (verified in the lab). WPF's own text search stays on for loaded
+  "Kontakt 2222"), so its seek lands one block late (verified in the lab). Only the newest typed prefix selects: the
+  answer for an older, shorter prefix that arrives later is ignored. WPF's own text search stays on for loaded
   lists (now by `Name`) and is switched off in the virtual mode (it would walk every item).
 - Locate / select after load (new object, "show in container"): the object's sort value (its RDN for `name`) is
   sought, the page is scanned for the DN.
 - Live updates and the application's own changes in a virtual list re-read the most recently shown pages and the
-  count (one request per page); rows keep their identity by DN (updated in place), so the WPF selection of a row
-  that is still shown survives; selected DNs are re-selected after a Reset.
+  count (one request per page). When the count and the objects at those positions are unchanged (an attribute
+  changed - the common live update), the rows are updated in place and the view gets no Reset (a Reset regenerates
+  every row container and takes the keyboard focus out of the list). Otherwise rows keep their identity by DN
+  (updated in place), the view gets one Reset and the selected DNs are re-selected after it. Rows still waiting for a
+  page read the refresh dropped are asked for again (also when the refresh fails).
 - The quick filter cannot filter rows that are not loaded: on a large location it becomes a server-side filter
   (`name`, `displayName`, `sAMAccountName`, `description` contain the text; debounced reload in the virtual mode).
 - Status bar: "Wirtualna lista (VLV): 125 000 obiektów, sortowanie po stronie serwera: Nazwa" (the list's status
   text) and a badge in the main window status bar with a tooltip. Ctrl+A is not offered in the virtual mode (it would
-  select placeholders); placeholders are never part of `Selection`. Export of a virtual list is disabled (the
+  select placeholders); placeholders are never part of `Selection` and are never opened (double click / Enter). Export of a virtual list is disabled (the
   operator exports with a Find query or a saved view).
 - Memory: at most 12 × 200 rows and 12 × 200 placeholders plus the selected rows; nothing is written to disk (rule 1).
 

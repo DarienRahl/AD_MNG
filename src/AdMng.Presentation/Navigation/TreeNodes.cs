@@ -44,6 +44,12 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; protected set; }
 
+    /// <summary>
+    /// Accessible description of the node (UI Automation help text of the tree item, read by screen readers - the
+    /// tooltip is mouse-only); null when there is none.
+    /// </summary>
+    public virtual string? HelpText => null;
+
     /// <summary>Loads children if the node has lazy children (no-op otherwise).</summary>
     public virtual Task EnsureChildrenLoadedAsync() => Task.CompletedTask;
 
@@ -134,7 +140,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
     public ObjectKind Kind { get; private set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ToolTipText))]
+    [NotifyPropertyChangedFor(nameof(ToolTipText), nameof(HelpText))]
     public partial string? Description { get; set; }
 
     /// <summary>The well-known role of this container from the domain head's wellKnownObjects (null: none).</summary>
@@ -146,7 +152,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
 
     /// <summary>Localized role ("Default container for new users and groups"), null for ordinary containers.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ToolTipText))]
+    [NotifyPropertyChangedFor(nameof(ToolTipText), nameof(HelpText))]
     public partial string? WellKnownText { get; private set; }
 
     /// <summary>Tooltip of the node: the well-known role and the description (null when there is neither).</summary>
@@ -157,6 +163,9 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
         (null, { } description) => description,
         ({ } role, { } description) => role + Environment.NewLine + description,
     };
+
+    /// <summary>The tooltip for screen readers: the well-known role and the description.</summary>
+    public override string? HelpText => ToolTipText;
 
     /// <summary>True for nodes under "Views > pinned containers" (shortcuts, not part of the domain tree index).</summary>
     public bool IsPinnedEntry { get; }

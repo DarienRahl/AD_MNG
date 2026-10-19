@@ -110,6 +110,10 @@ public class WellKnownObjectsTests
     [InlineData("B:32:A9D1CA15768811D1ADED00C04FD8D5CD:")]
     [InlineData("B:32:A9D1CA15768811D1ADED00C04FD8D5CD:not a dn")]
     [InlineData("B:32:A9D1CA15768811D1ADED00C04FD8D5CD")]
+
+    // A length prefix near int.MaxValue must not overflow the position arithmetic (the parser never throws).
+    [InlineData("B:2147483646:AB:CN=Users,DC=contoso,DC=test")]
+    [InlineData("B:2147483640:AB:CN=Users,DC=contoso,DC=test")]
     public void TryParseValue_RejectsMalformedValues(string value)
     {
         Assert.False(WellKnownObjects.TryParseValue(value, out _, out _));

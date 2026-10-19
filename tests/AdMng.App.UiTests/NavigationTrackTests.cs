@@ -35,6 +35,12 @@ public sealed class NavigationTrackTests
         Assert.Equal("Domyślny kontener nowych użytkowników i grup", System.Windows.Automation.AutomationProperties.GetName(badge));
         Assert.StartsWith("Domyślny kontener nowych użytkowników i grup", Assert.IsType<string>(((FrameworkElement)badge.Parent).ToolTip), StringComparison.Ordinal);
         Assert.Equal(Visibility.Collapsed, Badge(window, company)?.Visibility ?? Visibility.Collapsed);
+
+        // Keyboard and screen reader users get the role from the focused tree item itself (the tooltip is mouse-only).
+        var item = UiWait.Descendants<TreeViewItem>(window.NavigationTree).First(i => ReferenceEquals(i.DataContext, users));
+        Assert.StartsWith("Domyślny kontener nowych użytkowników i grup", System.Windows.Automation.AutomationProperties.GetHelpText(item), StringComparison.Ordinal);
+        var plain = UiWait.Descendants<TreeViewItem>(window.NavigationTree).First(i => ReferenceEquals(i.DataContext, window.Shell.Tree.ViewsNode));
+        Assert.Equal(string.Empty, System.Windows.Automation.AutomationProperties.GetHelpText(plain));
         context.AssertHealthy();
     });
 

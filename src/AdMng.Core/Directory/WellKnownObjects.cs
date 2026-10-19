@@ -129,7 +129,9 @@ public static class WellKnownObjects
             || !int.TryParse(value.AsSpan(2, lengthEnd - 2), NumberStyles.None, CultureInfo.InvariantCulture, out var length)
             || length == 0
             || length % 2 != 0
-            || lengthEnd + 1 + length >= value.Length
+
+            // Compared without adding to the length: a prefix near int.MaxValue must not overflow into a negative index.
+            || length >= value.Length - lengthEnd - 1
             || value[lengthEnd + 1 + length] != ':')
         {
             return false;
