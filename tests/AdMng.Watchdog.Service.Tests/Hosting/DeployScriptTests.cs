@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
@@ -156,12 +158,13 @@ public sealed class DeployScriptTests
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) and Windows ACLs exist on Windows only.");
         using var directory = new TestDataDirectory();
+        KnownAcl(directory.Path);
         var config = Path.Combine(directory.Path, "Watchdog", "config");
         System.IO.Directory.CreateDirectory(config);
         var file = Path.Combine(config, "appsettings.json");
         await File.WriteAllTextAsync(file, """{ "Watchdog": { "Authorization": { "ViewerSids": [ "S-1-5-21-1-2-3-1301" ] } } }""", Ct);
 
-        var output = await PowerShellAsync(
+        var (output, errors) = await PowerShellWithErrorsAsync(
             "Import-Module $args[0] -Force; " +
             "$trusted = @('S-1-5-18', 'S-1-5-32-544', [Security.Principal.WindowsIdentity]::GetCurrent().User.Value); " +
             "'BEFORE=' + @(Get-AdMngUntrustedWriters -Path $args[1] -Top $args[2] -TrustedSids $trusted).Count; " +
@@ -175,10 +178,11 @@ public sealed class DeployScriptTests
             directory.Path,
             config);
 
-        Assert.Contains("BEFORE=0", output, StringComparison.Ordinal);
-        Assert.Contains("CREATE=0", output, StringComparison.Ordinal);
+        var report = $"{output}\nstderr:\n{errors}";
+        Assert.True(output.Contains("BEFORE=0", StringComparison.Ordinal), report);
+        Assert.True(output.Contains("CREATE=0", StringComparison.Ordinal), report);
         var problems = output.Split('\n').Where(l => l.StartsWith("PROBLEM=", StringComparison.Ordinal)).ToList();
-        Assert.Equal(2, problems.Count);
+        Assert.True(problems.Count == 2, report);
         Assert.Contains(problems, p => p.Contains(file, StringComparison.OrdinalIgnoreCase) && p.Contains("S-1-1-0", StringComparison.Ordinal));
         Assert.Contains(problems, p => p.Contains(config, StringComparison.OrdinalIgnoreCase) && p.Contains("S-1-5-11", StringComparison.Ordinal));
     }
@@ -204,17 +208,20 @@ public sealed class DeployScriptTests
         Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) and Windows ACLs exist on Windows only.");
         Assert.SkipUnless(IsElevated(), "Making Administrators the owner (icacls /setowner) needs an elevated process.");
         using var directory = new TestDataDirectory();
+        KnownAcl(directory.Path);
         var data = Path.Combine(directory.Path, "dane");
         var backup = Path.Combine(data, "backup");
         System.IO.Directory.CreateDirectory(backup);
         var copy = Path.Combine(backup, "kopia-łódź.db");
         await File.WriteAllTextAsync(copy, "x", Ct);
 
-        // Paths go in as arguments: the probe script itself is ASCII.
-        var output = await PowerShellAsync(
+        // Paths go in as arguments: the probe script itself is ASCII. Users get an inheritable ACE on the folder and an
+        // explicit one on the file, as a local user who created data\backup before the installation could have done.
+        var (output, errors) = await PowerShellWithErrorsAsync(
             "Import-Module $args[0] -Force; " +
             "function Get-UsersAces([string] $Item) { @((Get-Acl -LiteralPath $Item).Access | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-545' }).Count }; " +
             "& icacls.exe $args[2] /grant '*S-1-5-32-545:(OI)(CI)F' /Q | Out-Null; " +
+            "& icacls.exe $args[3] /grant '*S-1-5-32-545:F' /Q | Out-Null; " +
             "'BEFORE=' + (Get-UsersAces $args[3]); " +
             "Set-AdMngProtectedAcl -Path $args[1] -ResetChildren -Grants @('S-1-5-18|FullControl|true', 'S-1-5-32-544|FullControl|true'); " +
             "'AFTER=' + (Get-UsersAces $args[2]); " +
@@ -224,8 +231,32 @@ public sealed class DeployScriptTests
             backup,
             copy);
 
-        Assert.DoesNotContain("BEFORE=0", output, StringComparison.Ordinal);
-        Assert.Equal(2, output.Split('\n').Count(l => l.Trim() == "AFTER=0"));
+        var report = $"{output}\nstderr:\n{errors}";
+        Assert.True(output.Contains("BEFORE=", StringComparison.Ordinal) && !output.Contains("BEFORE=0", StringComparison.Ordinal), report);
+        Assert.True(output.Split('\n').Count(l => l.Trim() == "AFTER=0") == 2, report);
+    }
+
+    /// <summary>Gives a test folder a protected DACL (SYSTEM, Administrators and the current user, inherited by
+    /// everything created below it) and the current user as owner, so the ACL checks do not depend on the ACEs of the
+    /// machine's temp folder (a CI runner's profile may carry ACEs a %ProgramData% install never sees).</summary>
+    [SupportedOSPlatform("windows")]
+    private static void KnownAcl(string path)
+    {
+        var me = WindowsIdentity.GetCurrent().User ?? throw new InvalidOperationException("The current identity has no SID.");
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        security.SetOwner(me);
+        foreach (var sid in (SecurityIdentifier[])[new(WellKnownSidType.LocalSystemSid, null), new(WellKnownSidType.BuiltinAdministratorsSid, null), me])
+        {
+            security.AddAccessRule(new FileSystemAccessRule(
+                sid,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+        }
+
+        new DirectoryInfo(path).SetAccessControl(security);
     }
 
     [SupportedOSPlatform("windows")]
@@ -253,7 +284,13 @@ public sealed class DeployScriptTests
     }
 
     [SupportedOSPlatform("windows")]
-    private static async Task<string> PowerShellAsync(string script, params string[] arguments)
+    private static async Task<string> PowerShellAsync(string script, params string[] arguments) =>
+        (await PowerShellWithErrorsAsync(script, arguments)).Output;
+
+    /// <summary>Runs the probe script with Windows PowerShell 5.1; the error stream comes back too, for the failure
+    /// message of a test (non-terminating errors such as a path Get-Acl cannot find do not change the exit code).</summary>
+    [SupportedOSPlatform("windows")]
+    private static async Task<(string Output, string Errors)> PowerShellWithErrorsAsync(string script, params string[] arguments)
     {
         using var scratch = new TestDataDirectory();
         var file = scratch.File("probe.ps1");
@@ -264,6 +301,7 @@ public sealed class DeployScriptTests
             RedirectStandardError = true,
             UseShellExecute = false,
             StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         foreach (var argument in (string[])["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file, .. arguments])
         {
@@ -275,6 +313,6 @@ public sealed class DeployScriptTests
         var error = process.StandardError.ReadToEndAsync(Ct);
         await process.WaitForExitAsync(Ct);
         Assert.True(process.ExitCode == 0, $"powershell.exe exited with {process.ExitCode}: {await error}");
-        return await output;
+        return (await output, await error);
     }
 }
