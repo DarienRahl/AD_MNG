@@ -476,9 +476,10 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
 
     /// <summary>
     /// New events from the poller (ascending ids, filtered by the service): prepended newest first with one collection
-    /// notification per page; the feed then keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded
-    /// with "Wczytaj starsze"), the oldest are dropped and stay reachable through <see cref="LoadOlderCommand"/> (not
-    /// while an older page loads: that page continues below the oldest row). Pages are dropped only while a full reload
+    /// notification per page (merged in id order when the late-match merge already inserted newer rows); the feed then
+    /// keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded with "Wczytaj starsze"), the oldest are
+    /// dropped and stay reachable through <see cref="LoadOlderCommand"/> (not while an older page loads: that page
+    /// continues below the oldest row). Pages are dropped only while a full reload
     /// runs (the poller has no cursor then; the reload reads them itself) – never while an older page loads, because the
     /// poller's cursor has already moved past them.
     /// </summary>
@@ -508,7 +509,18 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         // While "Wczytaj starsze" runs (IsLoading with a cursor) nothing is trimmed: its page continues below the oldest
         // row, so trimming that row now would leave a gap no later page fills. The next page after it trims instead.
         var limit = Math.Max(MaxLiveItems, Items.Count);
-        Items.InsertRange(0, rows);
+        if (Items.Count == 0 || rows[^1].Id > Items[0].Id)
+        {
+            Items.InsertRange(0, rows);
+        }
+        else
+        {
+            // The late-match merge reads newest first, not bounded by the cursor: while the poll catches up on a backlog
+            // (a tab shown again, a bulk operation) the merge may already have inserted newer events of the filter. The
+            // page goes to its place in id order (one notification; the selection keeps the same row objects).
+            Items.ReplaceAll(MergeDescending(Items, rows));
+        }
+
         if (!IsLoading && Items.TrimTo(limit) > 0)
         {
             HasMore = true;

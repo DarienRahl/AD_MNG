@@ -483,6 +483,51 @@ public sealed class WatchdogLateMatchTests
         h.AssertNoUiErrors();
     }
 
+    [Fact]
+    public async Task ABacklogAfterTheTabWasHidden_FromThePollAndTheMergeAtOnce_StaysInIdOrder()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            feed.Filter.MinSeverity = feed.Filter.Severities.Single(s => s.Value == Severity.High);
+            await feed.Loading;
+            await WaitForFilteredPollAsync(h, q => q.MinSeverity == Severity.High);
+
+            // The operator works in another document while a bulk operation stores 1200 High events.
+            tab.IsVisible = false;
+            await h.Ui.IdleAsync();
+            var added = Enumerable.Range(0, 1200)
+                .Select(i => h.Client.AddEvent(SampleEvents.NewUser($"Konto {i:D4} Źdźbło", h.Time.GetUtcNow(), Severity.High)))
+                .ToList();
+
+            // Shown again 45 s after the last status: the status round is due at once, so the late-match merge (newest
+            // first) runs next to the long-poll catching up from its old cursor (oldest first). The merge's second page
+            // waits until the poll is done, so the poll's pages arrive between the merge's.
+            h.Client.HoldEvents(q => IsLateMatchQuery(q) && q.Before is not null);
+            h.Time.Advance(TimeSpan.FromSeconds(45));
+            tab.IsVisible = true;
+            await WaitForCursorAsync(h, added[^1].Id);
+            await WatchdogTestWait.UntilAsync(h, () => LateMatchQueries(h).Any(q => q.Before is not null), "the merge's second page");
+            await h.Ui.IdleAsync();
+
+            var ids = feed.Items.Select(r => r.Id).ToList();
+            Assert.Equal(ids.OrderDescending(), ids);
+
+            var rounds = feed.CompletedLateRefreshes;
+            h.Client.ReleaseEvents();
+            await WatchdogTestWait.UntilAsync(h, () => feed.CompletedLateRefreshes > rounds, "the end of the merge");
+            await h.Ui.IdleAsync();
+
+            ids = [.. feed.Items.Select(r => r.Id)];
+            Assert.Equal(ids.OrderDescending(), ids);
+            Assert.Equal(ids.Count, ids.Distinct().Count());
+            Assert.Subset(ids.ToHashSet(), added.Select(e => e.Id).ToHashSet());
+        });
+        h.AssertNoUiErrors();
+    }
+
     private static bool IsLateMatchQuery(EventQuery query) =>
         query.After is null && query.From is { } from && from > SampleEvents.Now.AddDays(-2);
 
