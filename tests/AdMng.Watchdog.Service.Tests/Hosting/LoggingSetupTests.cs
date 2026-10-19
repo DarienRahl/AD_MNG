@@ -6,8 +6,8 @@ namespace AdMng.Watchdog.Service.Tests.Hosting;
 
 /// <summary>
 /// The Application log (the only sink of the Windows service) takes Warning and above plus the Information entries that
-/// are part of its contract: 1000 service started, 1006 configuration changed (spec 19.8) and the RODO access log of
-/// single events 2600/2601 (spec 17.1) – not the per-request lines or other diagnostics.
+/// are part of its contract: 1000 service started, 1006 configuration changed, 2301 job recovered (spec 19.8) and the
+/// RODO access log of single events 2600/2601 (spec 17.1) – not the per-request lines or other diagnostics.
 /// </summary>
 public sealed class LoggingSetupTests
 {
@@ -15,6 +15,7 @@ public sealed class LoggingSetupTests
     [InlineData(typeof(EventAccessLog))]
     [InlineData(typeof(ConfigChangeNotifier))]
     [InlineData(typeof(StartupChecks))]
+    [InlineData(typeof(JobHost))]
     public void EventLog_AdmitsTheInformationEntriesOfItsContract(Type category)
     {
         Assert.True(LoggingSetup.EventLogFilter(category.FullName, LogLevel.Information));
@@ -23,7 +24,7 @@ public sealed class LoggingSetupTests
 
     [Theory]
     [InlineData(typeof(RequestLogMiddleware))]
-    [InlineData(typeof(JobHost))]
+    [InlineData(typeof(EventEndpoints))]
     public void EventLog_DropsOtherInformation_AndKeepsEveryWarning(Type category)
     {
         Assert.False(LoggingSetup.EventLogFilter(category.FullName, LogLevel.Information));

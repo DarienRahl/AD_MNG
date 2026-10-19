@@ -7,7 +7,7 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// <see cref="WatchdogEventIds"/>, which the Core jobs use for the conditions they detect. The EventLog provider writes
 /// <c>EventId.Id</c> as the event id, so only these ids are used for Warning/Error entries; Information-level diagnostics
 /// use ids from 2000 up (console only – the EventLog provider logs Warning and above plus the Information entries of
-/// <see cref="LoggingSetup.EventLogInformationCategories"/>: 1000, 1006 and the access log 2600/2601).
+/// <see cref="LoggingSetup.EventLogInformationCategories"/>: 1000, 1006, 2301 and the access log 2600/2601).
 /// </summary>
 public static class EventLogIds
 {

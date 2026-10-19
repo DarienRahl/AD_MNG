@@ -14,7 +14,8 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// 10 minutes (renewals are picked up without a restart); <see cref="Current"/> is what the server certificate selector
 /// returns. A newly found certificate is adopted only when the service account can sign with its private key (an AD CS
 /// renewal gives the new key the default ACL): otherwise the previous certificate stays while it is valid, and health
-/// <see cref="KeyHealthCode"/> plus Application-log event 1007 (once per thumbprint) tell the administrator. Every
+/// <see cref="KeyHealthCode"/> plus Application-log event 1007 (once per thumbprint while the previous certificate serves,
+/// once more as an Error when none usable remains and handshakes fail) tell the administrator. Every
 /// reload also re-evaluates the 30-day expiry warning (<see cref="ExpiryHealthCode"/>).
 /// </summary>
 public sealed partial class CertificateSelector : IDisposable
@@ -227,7 +228,9 @@ public sealed partial class CertificateSelector : IDisposable
                 ? "A newer TLS certificate was found, but the service account cannot use its private key; the previous certificate stays in use."
                 : "The service account cannot use the private key of the TLS certificate; TLS handshakes fail.",
             certificate.Thumbprint);
-        if (!_loggedKeyProblems.Add(certificate.Thumbprint))
+        // Once per thumbprint AND state: the Warning while the previous certificate still serves, and again (Error) when
+        // it has expired and TLS handshakes start failing - the moment the administrator must act.
+        if (!_loggedKeyProblems.Add(certificate.Thumbprint + (keepingPrevious ? "|kept" : "|serving")))
         {
             return;
         }

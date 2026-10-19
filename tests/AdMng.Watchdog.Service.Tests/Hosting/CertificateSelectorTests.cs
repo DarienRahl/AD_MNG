@@ -121,13 +121,21 @@ public sealed class CertificateSelectorTests
         var clock = new FakeTimeProvider(Now);
         var health = new FakeHealthRegistry();
         var renewed = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-1), Now.AddDays(365));
-        using var selector = new CertificateSelector(store, SubjectOptions(), clock, health, new TestLog().For<CertificateSelector>(), c => c.Thumbprint != renewed.Thumbprint);
+        var log = new TestLog();
+        using var selector = new CertificateSelector(store, SubjectOptions(), clock, health, log.For<CertificateSelector>(), c => c.Thumbprint != renewed.Thumbprint);
         selector.Reload();
         store.Add(StoreName.My, renewed);
 
-        clock.Advance(TimeSpan.FromMinutes(20));   // the previous certificate has expired meanwhile
+        clock.Advance(TimeSpan.FromMinutes(10));   // renewed found, the previous one still serves: Warning
+        Assert.Equal(HealthState.Warning, Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode).State);
+        clock.Advance(TimeSpan.FromMinutes(10));   // the previous certificate has expired meanwhile
+        clock.Advance(TimeSpan.FromMinutes(10));   // and stays expired: no further log entry
 
         Assert.Equal(HealthState.Error, Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode).State);
+
+        // The moment TLS starts failing reaches the Application log as an Error, not only the earlier Warning.
+        var entries = log.Entries.Where(e => e.EventId.Id == EventLogIds.RuntimeOrCertificate && e.Values.Contains(renewed.Thumbprint, StringComparison.OrdinalIgnoreCase)).ToList();
+        Assert.Equal([Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Error], entries.Select(e => e.Level));
     }
 
     [Fact]

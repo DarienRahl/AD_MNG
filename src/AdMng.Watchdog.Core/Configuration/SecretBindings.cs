@@ -75,7 +75,7 @@ public static class SecretBindings
 
     /// <summary>The host of an absolute URL in binding form (lower-case IDNA, no trailing dot), or null when
     /// <paramref name="url"/> is not an absolute URL with a host. Also accepts a URL hint
-    /// (<c>scheme://host/first-segment/…</c>).</summary>
+    /// (<c>scheme://host[:port]/…</c>).</summary>
     public static string? UrlHost(string? url)
     {
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Host))

@@ -1672,7 +1672,7 @@ public sealed record ChannelSettings
     public required ChannelType Type { get; init; }
     public required string Name { get; init; }
     public bool Enabled { get; init; } = true;
-    public SecretField Url { get; init; } = new();           // Hint = scheme://host/first-path-segment/…
+    public SecretField Url { get; init; } = new();           // Hint = scheme://host[:port]/… (never a path segment)
     public DetailLevel DetailLevel { get; init; } = DetailLevel.Standard;   // Teams Standard, webhook Minimal (defaults factory)
     public TeamsChannelOptions? Teams { get; init; }
     public WebhookChannelOptions? Webhook { get; init; }
@@ -2857,7 +2857,13 @@ seconds; everything else needs a service restart (documented). `DetectionHostOpt
 is read once at start. An edit that cannot be loaded (malformed JSON) keeps the previous settings in effect – the file
 provider throws in its change callback, so the options are not rebuilt – and `ConfigurationSetup.ReportReloadFailures`
 logs warning 2002 (type and code only), so an emergency `DeniedSids` entry with a syntax error does not fail silently;
-at the next start the same file fails with exit code 2 / event 1010.
+at the next start the same file fails with exit code 2 / event 1010. (The provider does clear its data on such a
+failure: should another watched source – the `appsettings.json` next to the binary – change before the file is fixed,
+the options are rebuilt without the bootstrap settings, i.e. without any role SIDs – everyone gets 403, fail closed.)
+An edit that is valid JSON but holds a value the binder cannot convert (an unknown enum name such as
+`"ViewerDetailLevel": "Minimalny"`, `"tak"` for a flag) would make every `CurrentValue` read throw – each request,
+`/healthz`, the directory and notification jobs – so `ServiceOptionsFactory` keeps the last good options and logs the
+same warning 2002 (type only: the binder's message carries the value); the corrected file applies as usual.
 
 ---
 
@@ -4635,7 +4641,8 @@ ApiSetup.Map(app); app.Run()
   `FatalErrorHandler` → `IProcessTerminator.Exit(1)` so SCM recovery restarts the service (a clean stop never
   triggers recovery). Tests replace `IProcessTerminator`. A `Failed` result logs warning 2300 when the failure starts
   or its code changes, then at most hourly while it lasts (the condition itself is in the health registry), and
-  Information 2301 on recovery.
+  Information 2301 on recovery – admitted to the Application log (19.8), otherwise a recovered job and a still failing
+  one would look the same there.
 - `TimeProvider.System` everywhere; tests swap `FakeTimeProvider`.
 - Crash dumps: the install script calls `WerAddExcludedApplication` for `AdMng.Watchdog.exe` (WER dumps could contain
   decrypted secrets and directory values); the service never enables `DOTNET_DbgEnableMiniDump`.
@@ -4664,7 +4671,8 @@ error "grant the service account Read on the private key (certlm.msc → Manage 
 The reload applies the same signing check before it switches to a newly found certificate (an AD CS renewal gives the
 new key the default ACL): when it fails, the previous certificate stays in use while it is valid, health
 `certificate.key` Warning (Error when no valid alternative remains – the unusable one is then served, so fixing the key
-ACL takes effect at the next handshake) and event 1007 once per thumbprint; `certificate.key` returns to Ok when the key
+ACL takes effect at the next handshake) and event 1007 once per thumbprint and state (Warning while the previous
+certificate serves, Error once handshakes fail); `certificate.key` returns to Ok when the key
 becomes usable. Every reload also re-evaluates `certificate.expiry` (Warning < 30 days, event 1007 once per thumbprint).
 A failure to read the store keeps the current certificate.
 
@@ -4761,18 +4769,20 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 | 1004 | Warning | permission gap (self-check code) |
 | 1005 | Warning | attribution degraded / event-log gap (DC host, code) |
 | 1006 | Information | configuration changed (version, caller account) |
-| 1007 | Warning | runtime outdated / certificate expiring within 30 days |
+| 1007 | Warning | runtime outdated / certificate expiring within 30 days / renewed certificate whose key the service account cannot use (the previous one still serves); Error: no usable certificate key remains, TLS handshakes fail (19.3) |
 | 1010 | Error | fatal start-up check failed (exit code in the message) |
-| 2002 | Warning | an edit of the bootstrap file could not be loaded; the previous settings stay in effect (8.4) |
+| 2002 | Warning | an edit of the bootstrap file could not be loaded (malformed JSON) or holds a value that cannot be bound; the previous settings stay in effect (8.4) |
+| 2300 / 2301 | Warning / Information | a job's iterations fail (job, failure code, failures in a row – when the failure starts or its code changes, then at most hourly) / the job recovered (job, number of failed iterations) – 19.1 |
 | 2600 / 2601 | Information | single event viewed through `/api/v1/events/{id}` / `/events/{eventId}` (numeric id / event GUID, caller account) – the RODO access log of 17.1 |
 
 As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
 Warning and above plus the Information entries of this table (categories `StartupChecks`, `ConfigChangeNotifier`,
-`EventAccessLog`); other Information diagnostics (e.g. the per-request line 2700) stay console-only. The log is shared
+`EventAccessLog`, `JobHost`); other Information diagnostics (e.g. the per-request line 2700) stay console-only. The log is shared
 with every application on the server, so `ThrottlingLoggerProvider` writes a Warning/Error whose category, event id and
 text equal one written within the last 15 minutes only once, the next one carrying the number of suppressed repeats
-(a DC outage would otherwise repeat the same per-cycle warnings thousands of times a day); distinct entries, Critical
-and Information always pass.
+(a DC outage would otherwise repeat the same per-cycle warnings thousands of times a day); distinct entries, Critical,
+Information and warning 2002 always pass (2002 answers an administrator's edit – a second malformed edit within the
+window must not leave only the entry of the first attempt, which predates it).
 
 Docs recommend forwarding these and the SCM events 7036/7040 for `AdMngWatchdog` to the SIEM, plus external
 monitoring of `/healthz` from `MonitoringSubnets` and, optionally, the webhook heartbeat (13.6).
