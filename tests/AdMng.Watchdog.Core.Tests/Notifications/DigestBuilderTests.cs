@@ -48,6 +48,48 @@ public sealed class DigestBuilderTests
     }
 
     [Fact]
+    public void Period_SendNowOnMondayAfterTheMondayDigest_DoesNotCoverTheWeekendAgain()
+    {
+        var configuration = ConfigWith();
+        var calendar = BusinessCalendar.For(configuration);
+        var mondayDigest = new DateTimeOffset(2026, 10, 19, 5, 30, 0, TimeSpan.Zero);     // 07:30 in Warsaw
+        var mondayAfternoon = new DateTimeOffset(2026, 10, 19, 12, 0, 0, TimeSpan.Zero); // 14:00
+
+        Assert.Equal((mondayDigest, false), DigestBuilder.ResolvePeriodStart(configuration, calendar, mondayDigest, mondayAfternoon));
+    }
+
+    [Fact]
+    public void Period_SendNowEarlyOnMonday_IsNotCoveredAgainByTheScheduledDigest()
+    {
+        var configuration = ConfigWith();
+        var calendar = BusinessCalendar.For(configuration);
+        var sundayDigest = new DateTimeOffset(2026, 10, 18, 5, 30, 0, TimeSpan.Zero);
+        var mondayEarly = new DateTimeOffset(2026, 10, 19, 4, 0, 0, TimeSpan.Zero);      // 06:00, before the 07:30 digest
+        var mondayDigest = new DateTimeOffset(2026, 10, 19, 5, 30, 0, TimeSpan.Zero);
+
+        Assert.Equal((new DateTimeOffset(2026, 10, 16, 5, 30, 0, TimeSpan.Zero), true),
+            DigestBuilder.ResolvePeriodStart(configuration, calendar, sundayDigest, mondayEarly));
+        Assert.Equal((mondayEarly, false), DigestBuilder.ResolvePeriodStart(configuration, calendar, mondayEarly, mondayDigest));
+    }
+
+    [Fact]
+    public void Period_MondayAfterALateFridayDigest_StartsWhereFridaysDigestEnded()
+    {
+        var configuration = ConfigWith();
+        var calendar = BusinessCalendar.For(configuration);
+        var lateFriday = new DateTimeOffset(2026, 10, 16, 8, 0, 0, TimeSpan.Zero);       // catch-up at 10:00 in Warsaw
+        var monday = new DateTimeOffset(2026, 10, 19, 5, 30, 0, TimeSpan.Zero);
+
+        // Weekday schedule: Friday's digest is the last one.
+        Assert.Equal((lateFriday, false), DigestBuilder.ResolvePeriodStart(configuration, calendar, lateFriday, monday));
+        // Weekend digests were sent too: the end of Friday's digest is known to the job.
+        Assert.Equal((lateFriday, true), DigestBuilder.ResolvePeriodStart(configuration, calendar, monday.AddDays(-1), monday, lateFriday));
+        // A known end from an older business day is not used (the nominal Friday time is).
+        Assert.Equal((new DateTimeOffset(2026, 10, 16, 5, 30, 0, TimeSpan.Zero), true),
+            DigestBuilder.ResolvePeriodStart(configuration, calendar, monday.AddDays(-1), monday, lateFriday.AddDays(-1)));
+    }
+
+    [Fact]
     public void Period_DayAfterAHoliday_CoversTheHoliday_UnlessDisabled()
     {
         var configuration = ConfigWith();

@@ -4012,7 +4012,9 @@ For every match with `Delivery.Immediate`:
 6. Follow-ups (`FollowUpPlanner`, called by the AttributionEngine when an attribution becomes final, 11.4 #9): for
    every message from `outbox.GetMessagesForEventAsync(eventId)` with `SentWithPendingAttribution`, severity ≥ High and
    `FollowUpWhenAttributed`, add a pending row for the original `TargetKey` with `IsFollowUp`, `ReplyToMessageId` =
-   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored).
+   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored). The dispatch job
+   also plans them right after it stored an alert whose events turned final while it was rendered (13.3), and sends a
+   follow-up only after its original was Sent (none for a Dead/Cancelled original).
 
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
@@ -4027,14 +4029,27 @@ for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
     re-match held items with the event's final state (severity, tags, actor): RuleMatcher for that rule, delivery
         hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
+    other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
+        the end of business hours) dropped – the digest reports them
+    follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original
+        message (ReplyToMessageId) Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min)
+        (a follow-up never overtakes its original); Sent or unknown (purged) → rendered
     if ready is empty: continue
-    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // sent in the last hour ≥ cap
+    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
         TargetKey, SentWithPendingAttribution = any rendered event still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
+    ThrottlePolicy.RecordEnqueued(rule, channel, now)
+    alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
+        FollowUpPlanner rows for this message → queueStore.AddAsync (the AttributionEngine planned before the message
+        existed; whichever side plans second is ignored by the uniqueness or dropped as a duplicate at flush)
 signals.Raise(OutboxEnqueued)
 ```
+
+The hourly cap counts the larger of the messages **sent** in the last hour (`CountSentAsync`, survives a restart) and
+the messages **enqueued** in the last hour (kept in memory by the `ThrottlePolicy` singleton), so a channel that cannot
+deliver does not let a burst queue one message per flush that floods the recipients after the recovery.
 
 Rendering choice: e-mail 1 item → alert, > 1 → aggregated alert; Teams 1 → alert card, > 1 → burst card (digest
 layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template.
@@ -4043,12 +4058,26 @@ layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-u
 
 - Schedule: `Schedule.NextOccurrence(Digest.Time, Digest.Days, tz, now)`; DST: a non-existent local time moves to
   the next valid minute, an ambiguous one uses the first occurrence. After a downtime the missed digest is sent at
-  start-up when it is less than 12 h late, otherwise skipped. `IDigestRunStore` (`digest_runs`) stores the period
-  and the outbox ids.
-- Period: from the previous digest's end (first run: now − 24 h) to now. With `CoverNonBusinessDays` (default), the
+  start-up when it is less than 12 h late, otherwise skipped; a digest counts as missed only when the last recorded
+  period ended more than `MaxEvaluationLag` (10 min) before the scheduled time (a digest whose end was held back for an
+  unevaluated event, see Period, was sent – a restart must not send it again). `IDigestRunStore` (`digest_runs`)
+  stores the period and the outbox ids. Once the first message of a digest is enqueued, the remaining messages and the
+  `digest_runs` row are written without cancellation (a service stop in between would make the start-up catch-up send
+  the digest again); when recording fails after an enqueue, the error is logged and the schedule moves on anyway (the
+  next digest then starts at the previous end instead of this digest being enqueued every minute).
+- Period: from the previous digest's end (first run: now − 24 h) to now – or to just before the oldest event the
+  rule evaluation has not processed yet, when it was detected within the last 10 min (`DigestBuilder.MaxEvaluationLag`;
+  sections list only rule-matched events, so such an event goes to the next digest instead of being counted but never
+  listed; an older backlog does not hold the period back). With `CoverNonBusinessDays` (default), the
   digest of the **first business day after non-business days** (Monday after a weekend, the day after a holiday)
   covers everything since the end of the last business-day digest's period (e.g. Friday 07:30 → Monday 07:30) in every
-  section; the weekend digests are still sent (heartbeat) with their own 24 h periods.
+  section; the weekend digests are still sent (heartbeat) with their own 24 h periods. The extension applies only while
+  the previous digest ended on a non-business day (or there was none): a send-now after the Monday digest, or a
+  weekday-only schedule, simply starts where the previous digest ended. The end of the last business-day digest is
+  the one the job remembers (e.g. a late Friday catch-up at 10:00), after a restart the scheduled time of that day.
+- Preview (`IDigestService.PreviewAsync`, served to Viewers): "Aktywne wyjątki" shows only the number of active
+  exceptions (`Digest.Fact.ActiveExceptionsHidden`) – exclusions are Admin configuration (17.2) and the API passes only
+  the caller's detail level; the sent digest lists them for its recipients.
 - Content (`DigestModel`): header (instance, domain, period, health line: DC, last poll, attribution coverage,
   log gaps, broken channels, rollout mode); counts (critical/high, new users, new computers, deleted, disabled/enabled,
   lockouts, password resets (tag passwordReset), own password changes, password age resets, privileged changes,
@@ -4079,7 +4108,8 @@ anonymous Gregorian algorithm (tests: 2026-04-05, 2027-03-28). `ExtraHolidays` a
 
 For every enabled webhook channel with `HeartbeatInterval`: every interval a `watchdog.heartbeat` payload (instance,
 service version, directory state, last poll, pending outbox count – no directory values) is enqueued as
-`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat.
+`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat. A heartbeat is
+never retried past its interval – the next one supersedes it (15.1, `heartbeat.superseded`).
 
 ---
 
@@ -4303,9 +4333,26 @@ for each msg (sequential per channel, parallel across channels, max 4):
                            else MarkRetry(next, countAttempt: true)
     Permanent            → MarkDead (message-specific, e.g. 552 too large, 5.1.1 unknown recipient); health Warning
     ChannelBroken /
-    AuthenticationFailed → MarkRetry(now + 1 h) until 24 h old, then MarkDead; channel health Error;
-                           HealthDeliveryFailing once per Ok→Error transition (sent through other working channels)
+    AuthenticationFailed → MarkRetry(now + 1 h, countAttempt: false) until 24 h old, then MarkDead; channel health Error;
+                           HealthDeliveryFailing once per transition into Error (sent through other working channels)
 ```
+
+- Partial delivery: a transport puts `partial.` before the code of a transient failure after some recipients already got
+  the message (e-mail: a recipient rejected temporarily while the others accepted, a later recipient chunk failed). Its
+  exhausted retries are message-specific – Dead with channel health Warning, no `HealthDeliveryFailing` (one mailbox
+  answering `452 4.2.2` or `450 4.1.1` for days must not report the working e-mail channel as failing with every alert).
+- Broken-channel retries do not count as attempts: a Teams flow switched off for ten hours must not leave the message
+  with an exhausted transient schedule, so the first 429/503/421 after the recovery is retried after the first step;
+  the 24 h age limit ends a broken period.
+- Withdrawn channel: before sending (and when the transport answers `channel.disabled` / `channel.unknown` /
+  `smtp.disabled`), a message whose Teams/webhook channel was disabled or removed, or an e-mail while `Smtp.Enabled` is
+  false, is marked Dead with that code – no channel health failure, no `HealthDeliveryFailing`, nothing delivered to a
+  re-enabled channel later (an Admin can still retry it manually until `OutboxDeadDays`).
+- Heartbeats (`DeliveryKind.Health`, 13.6) are not sent or retried once the next heartbeat of their channel is due
+  (`CreatedAt + max(HeartbeatInterval, 1 min)`): such a message is marked Dead with `heartbeat.superseded` instead of a
+  retry (a stale backlog would arrive with old timestamps and use the channel's rate limit); the failure itself still
+  counts for the channel health as usual.
+- Every run first lets an expired channel Error decay (15.8), also when nothing is due.
 
 ### 15.2 `RetryPolicy` (±20 % jitter; `Retry-After` honored up to 1 h when longer than the step)
 
@@ -4336,7 +4383,8 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 | Error | Result |
 |---|---|
 | `SmtpCommandException` 4xx (incl. 421, 451, 452) | Transient |
-| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed |
+| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed (a chunk whose recipients were all rejected does not stop the other chunks); warning log 2203 with the count |
+| `SmtpCommandException` 4xx on RCPT for some recipients (greylisting, 452 too many recipients) | the others get it; Transient with code `partial.smtp.4xx…` (15.1) – the retry goes only to the recipients that did not get the message yet; warning log 2202 with the count |
 | 552 / `SenderNotAccepted` + ExceededStorageAllocation | Permanent (message too large – digest splits by MaxRowsPerSection) |
 | 535 5.7.139, 550 5.7.30 | AuthenticationFailed + hint `smtp.basicAuthDisabled` / `smtp.smtpAuthDisabled` |
 | 550 5.7.68 | ChannelBroken + hint `smtp.directSendRejected` |
@@ -4348,8 +4396,9 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 ### 15.5 Rate limits (`ChannelRateLimiters`, W-service)
 
 `System.Threading.RateLimiting.TokenBucketRateLimiter` (shared framework): e-mail `MaxMessagesPerMinute` (default 20,
-under Exchange Online's 30/min); per Teams/webhook channel three chained limiters PerSecond/PerMinute/PerHour (Teams
-default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
+under Exchange Online's 30/min) – one token per SMTP message, i.e. per recipient chunk (a denied token after some
+chunks were sent returns `Deferred`; the retry does not resend them); per Teams/webhook channel three chained
+limiters PerSecond/PerMinute/PerHour (Teams default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
 `RetryAfter` = the limiter's retry hint (no attempt counted). Limiters use `AutoReplenishment = false`;
 `ChannelRateLimiters` calls `TryReplenish()` from a `TimeProvider` timer (deterministic under `FakeTimeProvider`).
 
@@ -4370,7 +4419,13 @@ default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied leas
   `AcquireTokenForClient([EntraCloudInfo.SmtpScope(cloud)])` → `new SaslMechanismOAuth2(UserName /*sender mailbox*/,
   token)`. Authority and scope are fixed per cloud (`EntraCloud`) – never free text.
 - Each recipient group gets its own message (one pending target per group); its addresses go in `To:`, split into
-  messages of ≤ `MaxRecipientsPerMessage` recipients.
+  messages of ≤ `MaxRecipientsPerMessage` recipients – sorted first, so the same recipient set always gives the same
+  chunks: chunk n has `Message-ID: <{MessageId}.{n}@…>` (the first `<{MessageId}@…>`) and chunk n of a follow-up (sent
+  to the original's recipients) replies to chunk n of the original (`In-Reply-To`/`References`).
+- Recipient progress (`SmtpRecipientProgress`, in memory in the singleton transport): the addresses that accepted an
+  outbox e-mail are remembered until the message is complete (at most 14 days), so a retry after a temporary RCPT
+  rejection, a failed later chunk, a timeout or a rate-limit deferral goes only to the recipients that did not get it.
+  After a service restart a retry reaches everybody again (a duplicate, never a loss). Addresses are never logged.
 - MailKit `ProtocolLogger` is never enabled (it would log DATA = directory values).
 
 ### 15.7 Teams transport (`TeamsWorkflowTransport`, `TeamsTokenProvider`)
@@ -4386,7 +4441,11 @@ host) the same way.
 ### 15.8 Channel health
 
 `IHealthRegistry.ReportChannel` after every attempt: Ok (last success), Warning (transient failures ≥ 3 in a row),
-Error (ChannelBroken / AuthenticationFailed / Dead in the last hour). Shown in the GUI status and the digest header.
+Error (ChannelBroken / AuthenticationFailed / Dead in the last **two hours** – longer than the hourly broken-channel
+retry, so a channel that stays broken neither flaps nor is reported again). Without another error-level failure the
+Error decays to Warning (until the next success) – also without any traffic, `ChannelHealthTracker.Refresh` runs with
+every outbox run – and the next error-level failure enters Error again and is reported again (`HealthDeliveryFailing`).
+Shown in the GUI status and the digest header.
 `DeliveryTester` (test buttons) runs the same transport code path with stage reporting (`DeliveryTestResult`) and never
 writes to the outbox; Teams test card says "Wiadomość testowa AD Watchdog" and the result always includes hint
 `teams.acceptedNotDelivered`.
@@ -4546,9 +4605,15 @@ Pending/Retrying/Dead), deleted snapshot rows older than `DeletedSnapshotDays` (
 whose expiry passed more than 30 days ago, `config_audit` older than `ConfigAuditDays`, `digest_runs` older than 365
 days. Size cap: when the database exceeds `MaxDatabaseMb`, `security_events` are purged oldest-first (then outbox
 Dead) until it is below 90 % – also checked hourly, not only at maintenance time; `HealthStorage` at ≥ 80 %. Then
-`PRAGMA incremental_vacuum; PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
+`PRAGMA incremental_vacuum(2048)` in steps (the writer gate is released between the steps, so deliveries are not held
+up by a large freelist), `PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
 pages and the truncated WAL no longer contain purged values), then `VACUUM INTO
-'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` and delete backups beyond `BackupsToKeep`; pre-migration backups: keep the
+'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` – on its own connection **outside** the single-writer gate (in WAL mode a
+read transaction on a consistent snapshot; only the `LastBackupAt` update takes the gate, so lease/sent/retry and
+detection writes go on while a multi-GB database is copied) – and delete backups beyond `BackupsToKeep`. The health
+checks `storage.size` (database file + WAL against the cap: Warning from 80 %, Error above it) and `storage.free`
+(Error below 1 GiB) have one definition (`StorageHealth`), reported by the retention job and the hourly
+`StorageGuardJob` from the same `GetStatusAsync`; pre-migration backups: keep the
 newest, delete the rest after `PreMigrationBackupDays`. A backup is only useful together with `<data>\keys\` and the
 same gMSA (DPAPI-NG) – documented; backups carry the folder ACL and should be encrypted by the backup system
 (BitLocker on the data volume recommended).
@@ -4599,7 +4664,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | POST | `/api/v1/test/email` | Admin | `TestEmailRequest` | `DeliveryTestResult` | ≤ 60 s; never queued; stored secrets only with a matching binding (else 400 `secretRebindRequired`, nothing sent) |
 | POST | `/api/v1/test/channels/{channelId}` | Admin | `TestChannelRequest` | `DeliveryTestResult` | ≤ 45 s; same binding rule |
 | POST | `/api/v1/rules/preview` | Admin | `RulePreviewRequest` | `RulePreviewResult` | scans stored events of the last N days (≤ 100 000) |
-| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel) |
+| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel); active exceptions only as a number (13.4) |
 | POST | `/api/v1/digest/send` | Admin | – | 202 | `IDigestService.SendNowAsync` |
 | GET | `/api/v1/outbox` | Admin | `OutboxQuery` | `OutboxPage` | delivery log |
 | POST | `/api/v1/outbox/{id}/retry` | Admin | – | 204 / 404 / 409 (not Dead) | requeue now |

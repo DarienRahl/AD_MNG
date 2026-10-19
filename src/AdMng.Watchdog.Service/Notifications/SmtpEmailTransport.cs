@@ -5,6 +5,7 @@ using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -16,11 +17,19 @@ namespace AdMng.Watchdog.Service.Notifications;
 /// <see cref="SecureSocketOptions"/> mapped from <see cref="SmtpSecurity"/> (never Auto), certificate validation per
 /// <see cref="SmtpCertificateValidation"/>, revocation check per settings. Credentials pass the
 /// <see cref="DestinationGuard"/> BEFORE the connection is opened (a refused secret means nothing is sent); Basic and
-/// XOAUTH2 only over TLS. A rejected recipient does not stop the others; the message fails only when all are rejected.
-/// Rate limit: <c>MaxMessagesPerMinute</c> (a denial is <see cref="DeliveryOutcome.Deferred"/>).
+/// XOAUTH2 only over TLS. A rejected recipient does not stop the others (nor does a chunk whose recipients were all
+/// rejected stop the other chunks): recipients rejected permanently (5xx) are dropped with a warning – the message fails
+/// only when nobody got it –, recipients rejected temporarily (4xx) make the attempt Transient and the retry goes only to
+/// the recipients that did not get the message yet (<see cref="SmtpRecipientProgress"/>, also after a failed chunk); once
+/// somebody got the message, a transient code carries <see cref="OutboxSenderJob.PartialDeliveryPrefix"/>.
+/// Rate limit: <c>MaxMessagesPerMinute</c>, one token per SMTP message (chunk); a denial is
+/// <see cref="DeliveryOutcome.Deferred"/> and the chunks already sent are not sent again.
 /// </summary>
 public sealed partial class SmtpEmailTransport : INotificationTransport
 {
+    private const string RateLimitCode = "rateLimit";
+
+    private readonly SmtpRecipientProgress _progress = new();
     private readonly IWatchdogConfigProvider _configuration;
     private readonly DestinationGuard _guard;
     private readonly SmtpOAuthTokenProvider _tokens;
@@ -55,25 +64,29 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         var smtp = _configuration.Current.Configuration.Smtp;
         if (!smtp.Enabled || string.IsNullOrWhiteSpace(smtp.Host))
         {
-            return Finish(message, ClassifiedDelivery.Failure(DeliveryOutcome.ChannelBroken, "smtp.disabled"));
+            return Finish(message, SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.ChannelBroken, "smtp.disabled")));
         }
 
         var decision = _limiters.TryAcquireEmail(smtp.MaxMessagesPerMinute);
         if (!decision.Acquired)
         {
-            return new DeliveryResult { Outcome = DeliveryOutcome.Deferred, ErrorCode = "rateLimit", RetryAfter = decision.RetryAfter };
+            return Deferred(decision);
         }
 
-        var result = await SendAsync(message, smtp, recorder: null, cancellationToken).ConfigureAwait(false);
-        return Finish(message, result);
+        var attempt = await SendCoreAsync(message, smtp, recorder: null, outbox: true, cancellationToken).ConfigureAwait(false);
+        return Finish(message, attempt);
     }
 
-    /// <summary>The delivery code path shared with the test send (<see cref="DeliveryTester"/>).</summary>
-    internal async Task<ClassifiedDelivery> SendAsync(OutboxMessage message, SmtpSettings smtp, DeliveryStageRecorder? recorder, CancellationToken cancellationToken)
+    /// <summary>The delivery code path shared with the test send (<see cref="DeliveryTester"/>): no rate limit and no
+    /// recipient progress (a test message is never retried).</summary>
+    internal async Task<ClassifiedDelivery> SendAsync(OutboxMessage message, SmtpSettings smtp, DeliveryStageRecorder? recorder, CancellationToken cancellationToken) =>
+        (await SendCoreAsync(message, smtp, recorder, outbox: false, cancellationToken).ConfigureAwait(false)).Result;
+
+    private async Task<SmtpAttempt> SendCoreAsync(OutboxMessage message, SmtpSettings smtp, DeliveryStageRecorder? recorder, bool outbox, CancellationToken cancellationToken)
     {
         if (message.Email is null || message.Recipients.Count == 0)
         {
-            return ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.noContent");
+            return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.noContent"));
         }
 
         IReadOnlyList<MimeMessage> mime;
@@ -84,14 +97,38 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         }
         catch (FormatException)
         {
-            return ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.invalidAddress");
+            return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.invalidAddress"));
+        }
+
+        // A retry goes only to the recipients that did not get the message yet (same chunks, same Message-IDs).
+        var delivered = outbox ? _progress.Delivered(message.MessageId) : new HashSet<string>();
+        var parts = new List<MimeMessage>(mime.Count);
+        foreach (var part in mime)
+        {
+            var remaining = part.To.Mailboxes.Where(m => !delivered.Contains(SmtpRecipientProgress.Key(m.Address))).ToList();
+            if (remaining.Count > 0 && remaining.Count < part.To.Count)
+            {
+                part.To.Clear();
+                part.To.AddRange(remaining);
+            }
+
+            if (remaining.Count > 0)
+            {
+                parts.Add(part);
+            }
+        }
+
+        if (parts.Count == 0)
+        {
+            _progress.Complete(message.MessageId);
+            return new SmtpAttempt(ClassifiedDelivery.Delivered(), 0, 0, 0);
         }
 
         // Credentials first: nothing is sent (not even a connection is opened) for a refused secret or OAuth host.
         var credential = await ResolveCredentialAsync(smtp, recorder, cancellationToken).ConfigureAwait(false);
         if (credential.Failure is { } refused)
         {
-            return refused;
+            return SmtpAttempt.Failed(refused);
         }
 
         var validation = new SmtpCertificateValidation(smtp.CertificateValidation, smtp.PinnedSha256, _environment.IsDevelopment());
@@ -103,24 +140,45 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
             CheckCertificateRevocation = smtp.CheckRevocation,
             ServerCertificateValidationCallback = validation.Validate,
         };
+        var accepted = 0;
+        var temporary = new List<ClassifiedDelivery>();
+        var permanent = new List<ClassifiedDelivery>();
         try
         {
             await ConnectAsync(client, smtp, recorder, cancellationToken).ConfigureAwait(false);
             if (await AuthenticateAsync(client, smtp, credential, recorder, cancellationToken).ConfigureAwait(false) is { } authFailure)
             {
-                return authFailure;
+                return SmtpAttempt.Failed(authFailure);
             }
 
-            foreach (var part in mime)
+            for (var i = 0; i < parts.Count; i++)
             {
-                var outcome = await SendOneAsync(client, part, recorder, cancellationToken).ConfigureAwait(false);
-                if (outcome.Result.Outcome != DeliveryOutcome.Delivered)
+                // One rate-limit token per SMTP message: the caller took the one of the first chunk.
+                if (outbox && i > 0 && _limiters.TryAcquireEmail(smtp.MaxMessagesPerMinute) is { Acquired: false } denied)
                 {
-                    return outcome;
+                    return new SmtpAttempt(ClassifiedDelivery.Failure(DeliveryOutcome.Deferred, RateLimitCode, retryAfter: denied.RetryAfter), accepted, 0, 0);
+                }
+
+                var part = await SendOneAsync(client, parts[i], recorder, cancellationToken).ConfigureAwait(false);
+                if (part.Accepted.Count > 0)
+                {
+                    accepted += part.Accepted.Count;
+                    if (outbox)
+                    {
+                        _progress.Add(message.MessageId, part.Accepted, _timeProvider.GetUtcNow());
+                    }
+                }
+
+                var rejections = part.Rejected.Select(r => SmtpErrorClassifier.ClassifyCommand(r.Status, r.Reply)).ToList();
+                temporary.AddRange(rejections.Where(r => r.Result.Outcome == DeliveryOutcome.Transient));
+                permanent.AddRange(rejections.Where(r => r.Result.Outcome != DeliveryOutcome.Transient));
+                if (part.Accepted.Count == 0
+                    && rejections.FirstOrDefault(r => r.Result.Outcome is DeliveryOutcome.ChannelBroken or DeliveryOutcome.AuthenticationFailed) is { } channel)
+                {
+                    recorder?.AddHints(channel.Hints);
+                    return new SmtpAttempt(channel, accepted, temporary.Count, permanent.Count);    // e.g. 5.7.68: the other chunks would fail alike
                 }
             }
-
-            return ClassifiedDelivery.Delivered();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -130,12 +188,32 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         {
             var classified = SmtpErrorClassifier.Classify(ex, certificateHint: validation.FailureHint);
             recorder?.AddHints(classified.Hints);
-            return classified;
+            return new SmtpAttempt(MarkPartial(classified, outbox && (accepted > 0 || delivered.Count > 0)), accepted, temporary.Count, permanent.Count);
         }
         finally
         {
             await QuitAsync(client).ConfigureAwait(false);
         }
+
+        if (temporary.Count > 0)
+        {
+            // 4xx for some recipients (greylisting, 452 too many recipients): retried later – for them only.
+            recorder?.AddHints(temporary[0].Hints);
+            return new SmtpAttempt(MarkPartial(temporary[0], outbox && (accepted > 0 || delivered.Count > 0)), accepted, temporary.Count, permanent.Count);
+        }
+
+        if (permanent.Count > 0 && accepted == 0 && delivered.Count == 0)
+        {
+            recorder?.AddHints(permanent[0].Hints);
+            return new SmtpAttempt(permanent[0], 0, 0, permanent.Count);       // nobody got it
+        }
+
+        if (outbox)
+        {
+            _progress.Complete(message.MessageId);
+        }
+
+        return new SmtpAttempt(ClassifiedDelivery.Delivered(), accepted, 0, permanent.Count);
     }
 
     private async Task<SmtpCredential> ResolveCredentialAsync(SmtpSettings smtp, DeliveryStageRecorder? recorder, CancellationToken cancellationToken)
@@ -253,7 +331,10 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         return null;
     }
 
-    private static async Task<ClassifiedDelivery> SendOneAsync(WatchdogSmtpClient client, MimeMessage message, DeliveryStageRecorder? recorder, CancellationToken cancellationToken)
+    /// <summary>One SMTP message: the recipients that got it (DATA accepted) and the replies of the rejected ones. Every
+    /// recipient rejected → no exception (MailKit resets the transaction, the connection stays usable for the next chunk);
+    /// any other command failure is thrown.</summary>
+    private static async Task<PartResult> SendOneAsync(WatchdogSmtpClient client, MimeMessage message, DeliveryStageRecorder? recorder, CancellationToken cancellationToken)
     {
         client.ResetEnvelope();
         recorder?.Begin();
@@ -265,10 +346,7 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         catch (SmtpCommandException) when (client.AcceptedRecipients == 0 && client.RejectedRecipients.Count > 0)
         {
             RecordEnvelope(client, recorder, dataSucceeded: false);
-            var (status, text) = client.RejectedRecipients[0];
-            var classified = SmtpErrorClassifier.ClassifyCommand(status, text);
-            recorder?.AddHints(classified.Hints);
-            return classified;
+            return new PartResult([], [.. client.RejectedRecipients.Select(r => (r.Status, r.Reply))]);
         }
         catch (SmtpCommandException command)
         {
@@ -277,7 +355,7 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         }
 
         RecordEnvelope(client, recorder, dataSucceeded: true, reply: reply);
-        return ClassifiedDelivery.Delivered();
+        return new PartResult([.. client.AcceptedAddresses], [.. client.RejectedRecipients.Select(r => (r.Status, r.Reply))]);
     }
 
     private static void RecordEnvelope(WatchdogSmtpClient client, DeliveryStageRecorder? recorder, bool dataSucceeded, string? reply = null, SmtpCommandException? failure = null)
@@ -338,19 +416,41 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         }
     }
 
-    private DeliveryResult Finish(OutboxMessage message, ClassifiedDelivery classified)
+    private DeliveryResult Finish(OutboxMessage message, SmtpAttempt attempt)
     {
-        if (classified.Result.Outcome == DeliveryOutcome.Delivered)
+        var result = attempt.Result.Result;
+        if (attempt.TemporarilyRejected > 0)
         {
-            Log.Delivered(_logger, message.MessageId, message.Recipients.Count);
+            Log.RecipientsDeferred(_logger, message.MessageId, attempt.TemporarilyRejected);
+        }
+
+        if (attempt.PermanentlyRejected > 0 && result.Outcome != DeliveryOutcome.Permanent)
+        {
+            Log.RecipientsRejected(_logger, message.MessageId, attempt.PermanentlyRejected);
+        }
+
+        if (result.Outcome == DeliveryOutcome.Delivered)
+        {
+            Log.Delivered(_logger, message.MessageId, attempt.Accepted);
         }
         else
         {
-            Log.Failed(_logger, message.MessageId, classified.Result.Outcome, classified.Result.ErrorCode ?? "unknown");
+            Log.Failed(_logger, message.MessageId, result.Outcome, result.ErrorCode ?? "unknown");
         }
 
-        return classified.Result;
+        return result;
     }
+
+    /// <summary>A transient failure after some recipients already got the message carries
+    /// <see cref="OutboxSenderJob.PartialDeliveryPrefix"/>: exhausted retries are then a message-specific failure, not a
+    /// failing channel (the others accept – e.g. one mailbox answering 452 4.2.2 or 450 4.1.1 for days).</summary>
+    private static ClassifiedDelivery MarkPartial(ClassifiedDelivery failure, bool partial) =>
+        partial && failure.Result.Outcome == DeliveryOutcome.Transient && failure.Result.ErrorCode is { } code
+            ? failure with { Result = failure.Result with { ErrorCode = OutboxSenderJob.PartialDeliveryPrefix + code } }
+            : failure;
+
+    private static DeliveryResult Deferred(RateLimitDecision decision) =>
+        new() { Outcome = DeliveryOutcome.Deferred, ErrorCode = RateLimitCode, RetryAfter = decision.RetryAfter };
 
     private static SecureSocketOptions SecureOptions(SmtpSecurity security) => security switch
     {
@@ -385,6 +485,18 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         public override string ToString() => "SmtpCredential";
     }
 
+    /// <summary>The outcome of one attempt with the recipient counts (no addresses).</summary>
+    private sealed record SmtpAttempt(ClassifiedDelivery Result, int Accepted, int TemporarilyRejected, int PermanentlyRejected)
+    {
+        public static SmtpAttempt Failed(ClassifiedDelivery result) => new(result, 0, 0, 0);
+    }
+
+    /// <summary>One SMTP message: accepted addresses (kept only in memory) and the replies of the rejected recipients.</summary>
+    private sealed record PartResult(IReadOnlyList<string> Accepted, IReadOnlyList<(int Status, string Reply)> Rejected)
+    {
+        public override string ToString() => $"PartResult({Accepted.Count} accepted, {Rejected.Count} rejected)";
+    }
+
     private static partial class Log
     {
         [LoggerMessage(EventId = 2200, Level = LogLevel.Information, Message = "E-mail {MessageId} delivered to {RecipientCount} recipient(s).")]
@@ -392,5 +504,13 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
 
         [LoggerMessage(EventId = 2201, Level = LogLevel.Information, Message = "E-mail {MessageId} not delivered: {Outcome} ({ErrorCode}).")]
         public static partial void Failed(ILogger logger, string messageId, DeliveryOutcome outcome, string errorCode);
+
+        [LoggerMessage(EventId = 2202, Level = LogLevel.Warning,
+            Message = "E-mail {MessageId}: {Count} recipient(s) rejected temporarily; the message is retried for them only.")]
+        public static partial void RecipientsDeferred(ILogger logger, string messageId, int count);
+
+        [LoggerMessage(EventId = 2203, Level = LogLevel.Warning,
+            Message = "E-mail {MessageId}: {Count} recipient(s) rejected permanently; they do not get the message.")]
+        public static partial void RecipientsRejected(ILogger logger, string messageId, int count);
     }
 }

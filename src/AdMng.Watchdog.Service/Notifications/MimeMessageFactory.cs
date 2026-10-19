@@ -39,7 +39,11 @@ public static partial class MimeMessageFactory
         return string.IsNullOrWhiteSpace(fqdn) ? "localhost" : fqdn.ToLowerInvariant();
     }
 
-    /// <summary>The MIME messages of one outbox e-mail (one per recipient chunk).</summary>
+    /// <summary>The MIME messages of one outbox e-mail (one per recipient chunk). The recipients are sorted before they
+    /// are chunked, so the same recipient set always gives the same chunks: chunk n has the Message-ID
+    /// <c>{MessageId}.{n}</c> (the first one <c>{MessageId}</c>), and chunk n of a follow-up replies to chunk n of its
+    /// original (<c>In-Reply-To: {original}.{n}</c>) – the follow-up goes to the original's recipients, so every recipient
+    /// gets the reply in the thread of the message it received.</summary>
     /// <exception cref="FormatException">The configured sender address is not valid.</exception>
     public static IReadOnlyList<MimeMessage> Create(OutboxMessage message, SmtpSettings smtp, string localDomain, DateTimeOffset now)
     {
@@ -49,17 +53,22 @@ public static partial class MimeMessageFactory
         var chunks = message.Recipients
             .Where(r => !string.IsNullOrWhiteSpace(r))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
             .Chunk(Math.Max(1, smtp.MaxRecipientsPerMessage))
             .ToList();
         var result = new List<MimeMessage>(chunks.Count);
         for (var i = 0; i < chunks.Count; i++)
         {
-            var id = i == 0 ? message.MessageId : string.Create(CultureInfo.InvariantCulture, $"{message.MessageId}.{i + 1}");
-            result.Add(Create(email, smtp, chunks[i], id, localDomain, message.Severity, message.RuleId, now));
+            var chunkEmail = i > 0 && !string.IsNullOrWhiteSpace(email.InReplyTo) ? email with { InReplyTo = ChunkId(email.InReplyTo, i) } : email;
+            result.Add(Create(chunkEmail, smtp, chunks[i], ChunkId(message.MessageId, i), localDomain, message.Severity, message.RuleId, now));
         }
 
         return result;
     }
+
+    /// <summary>The Message-ID local part of recipient chunk <paramref name="index"/> (0-based) of a message.</summary>
+    public static string ChunkId(string messageId, int index) =>
+        index == 0 ? messageId : string.Create(CultureInfo.InvariantCulture, $"{messageId}.{index + 1}");
 
     /// <summary>One MIME message for <paramref name="recipients"/>.</summary>
     public static MimeMessage Create(
