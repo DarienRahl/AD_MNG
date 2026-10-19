@@ -580,6 +580,13 @@ reguła i ile wiadomości by wysłała.
 - Po ponownej ocenie odbiorcy, którzy dostali już alarm o tym zdarzeniu z co najmniej tym samym priorytetem i z ustalonym
   wykonawcą (albo dostaną „Uzupełnienie”), nie dostają drugiego alarmu z nowej reguły; wyższy priorytet przychodzi jako
   nowy alarm. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
+- **Priorytet własny a priorytet wyświetlany**: priorytet ustawiony w regule podnosi priorytet zdarzenia widoczny na
+  liście, w raporcie dziennym i w licznikach, ale nie wpływa na dopasowanie innych reguł – „minimalny priorytet” każdej
+  reguły jest porównywany z własnym priorytetem zdarzenia (wykrycie, tagi, atrybucja), także przy ponownej ocenie po
+  ustaleniu wykonawcy i przy zwalnianiu wstrzymanego powiadomienia. Reguła przeglądowa podnosząca zmiany haseł kont
+  uprzywilejowanych do „Wysokiego” nie sprawi więc, że własna zmiana hasła użytkownika (priorytet własny: informacyjny)
+  wyśle alarm reguły „Konta uprzywilejowane i serwisowe”. Zdarzenia zapisane przed aktualizacją usługi przyjmują
+  dotychczasowy priorytet jako własny.
 - `SuppressComputerSelfChanges` (domyślnie włączone) działa także przy włączonych `TrackComputerPasswordChanges` lub
   `TrackComputerOsChanges`: rutynowe zmiany, które komputer wprowadza sam w sobie (rotacja hasła, wersja systemu), nie
   pasują do żadnej reguły, ale pozostają na liście zdarzeń.

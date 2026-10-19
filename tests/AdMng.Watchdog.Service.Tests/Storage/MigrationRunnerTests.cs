@@ -46,16 +46,17 @@ public sealed class MigrationRunnerTests
     {
         await using var store = TestStore.Create();
         await store.Store.AppendAsync(TestData.Event(WatchEventKind.UserCreated), Ct);
-        var next = new Migration(2, "0002_test", "CREATE TABLE test_extra (id INTEGER PRIMARY KEY, note TEXT NOT NULL);");
+        var current = Migration.LatestVersion;
+        var next = new Migration(current + 1, "9999_test", "CREATE TABLE test_extra (id INTEGER PRIMARY KEY, note TEXT NOT NULL);");
         store.Clock.SetUtcNow(new DateTimeOffset(2026, 11, 2, 21, 5, 9, TimeSpan.Zero));
 
         var result = new MigrationRunner(store.Database, store.Clock, NullLogger<MigrationRunner>.Instance, [.. Migration.All, next]).Run();
 
-        Assert.Equal(1, result.FromVersion);
-        Assert.Equal(2, result.ToVersion);
+        Assert.Equal(current, result.FromVersion);
+        Assert.Equal(current + 1, result.ToVersion);
         Assert.NotNull(result.BackupPath);
-        Assert.Equal("pre-migration-1-20261102210509.db", Path.GetFileName(result.BackupPath));
-        Assert.Equal(2, Pragma<long>(store.Database, "user_version"));
+        Assert.Equal($"pre-migration-{current}-20261102210509.db", Path.GetFileName(result.BackupPath));
+        Assert.Equal(current + 1, Pragma<long>(store.Database, "user_version"));
         Assert.True(File.Exists(result.BackupPath));
         using (var connection = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={result.BackupPath};Mode=ReadOnly;Pooling=False"))
         {
@@ -65,8 +66,45 @@ public sealed class MigrationRunnerTests
             Assert.Equal(1L, (long)count.ExecuteScalar()!);
             using var version = connection.CreateCommand();
             version.CommandText = "PRAGMA user_version;";
-            Assert.Equal(1L, (long)version.ExecuteScalar()!);
+            Assert.Equal((long)current, (long)version.ExecuteScalar()!);
         }
+    }
+
+    [Fact]
+    public async Task Version2_KeepsTheSeverityOfExistingEventsAsTheirOwnSeverity()
+    {
+        // Schema 1 stored only the evaluated severity (rule overrides included); its own severity is not known any more,
+        // so the migration takes the current value – the input of later matches (dispatch re-match, re-evaluation).
+        var directory = new TestDataDirectory();
+        var database = new SqliteDatabase(directory.Path);
+        new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [Migration.All[0]]).Run();
+        var evaluated = TestData.Event(WatchEventKind.KeyCredentialChanged) with { Severity = Severity.High, MatchedRules = ["konta-vip"] };
+        using (var connection = database.Open())
+        {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = """
+                INSERT INTO events (event_id, kind, severity, object_kind, object_dn, object_dn_norm, search_text, detected_at, source,
+                  actor_status, rules_state, matched_rules, payload)
+                VALUES ($eventId, $kind, $severity, $objectKind, $dn, $dn, '', $detectedAt, $source, $actorStatus, 1, 'konta-vip', $payload);
+                """;
+            insert.Parameters.AddWithValue("$eventId", evaluated.EventId.ToByteArray());
+            insert.Parameters.AddWithValue("$kind", (int)evaluated.Kind);
+            insert.Parameters.AddWithValue("$severity", (int)Severity.High);
+            insert.Parameters.AddWithValue("$objectKind", (int)evaluated.Object.Kind);
+            insert.Parameters.AddWithValue("$dn", evaluated.Object.Dn ?? string.Empty);
+            insert.Parameters.AddWithValue("$detectedAt", evaluated.DetectedAt.ToUnixTimeMilliseconds());
+            insert.Parameters.AddWithValue("$source", (int)evaluated.Source);
+            insert.Parameters.AddWithValue("$actorStatus", (int)evaluated.Attribution.Status);
+            insert.Parameters.AddWithValue("$payload", BlobCodec.EncodeContract(evaluated with { Id = 0, OwnSeverity = null }));
+            insert.ExecuteNonQuery();
+        }
+
+        await using var store = TestStore.Create(directory);
+        var loaded = Assert.Single((await store.Store.QueryAsync(new AdMng.Watchdog.Contracts.Api.EventQuery { Limit = 10 }, Ct)).Items);
+
+        Assert.Equal(Migration.LatestVersion, Pragma<long>(store.Database, "user_version"));
+        Assert.Equal((Severity.High, Severity.High), (loaded.OwnSeverity, loaded.Severity));
+        Assert.Equal(["konta-vip"], loaded.MatchedRules);
     }
 
     [Fact]

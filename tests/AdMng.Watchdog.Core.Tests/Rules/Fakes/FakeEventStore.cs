@@ -60,7 +60,7 @@ internal sealed class FakeEventStore : IEventStore
     {
         lock (_gate)
         {
-            var stored = watchEvent with { Id = _events.Count + 1 };
+            var stored = watchEvent with { Id = _events.Count + 1, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
             _events.Add(new StoredEvent
             {
                 Event = stored,
@@ -159,13 +159,7 @@ internal sealed class FakeEventStore : IEventStore
         {
             var stored = _events.Single(e => e.Event.Id == id);
             var watchEvent = stored.Event;
-            stored.Event = watchEvent with
-            {
-                Attribution = update.Attribution,
-                Tags = [.. watchEvent.Tags.Concat(update.AddedTags).Distinct(StringComparer.Ordinal)],
-                Severity = update.Severity ?? watchEvent.Severity,
-                Lockout = update.Lockout ?? watchEvent.Lockout,
-            };
+            stored.Event = EventSeverities.WithAttribution(watchEvent, update);
             stored.NextAttributionAt = update.NextAttemptAt;
             AttributionUpdates.Add((id, update));
         }

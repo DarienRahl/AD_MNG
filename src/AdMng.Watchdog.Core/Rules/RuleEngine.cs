@@ -1,12 +1,15 @@
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Rules;
 
 /// <summary>
 /// Event × rules → matches (section 12.1): every matching rule in configuration order, and the evaluated severity
-/// <c>max(event.Severity, every matched rule's Severity override)</c>. The default overloads use
+/// <c>max(own severity, every matched rule's Severity override)</c>. The input is always the event's own severity
+/// (<see cref="EventSeverities.Own"/>), never a stored evaluated one, so re-matching a stored event gives the rules job's
+/// result. The default overloads use
 /// <see cref="IWatchdogConfigProvider.Current"/> and the last known token values; <c>ConfigChangeNotifier</c> passes the
 /// previous configuration explicitly (17.2), the dispatch job re-matches held items with <see cref="Rematch"/>.
 /// </summary>
@@ -55,7 +58,8 @@ public sealed class RuleEngine
         ArgumentNullException.ThrowIfNull(watchEvent);
         ArgumentNullException.ThrowIfNull(context);
         var matches = new List<RuleMatch>();
-        var severity = watchEvent.Severity;
+        var own = EventSeverities.Own(watchEvent);
+        var severity = own;
         foreach (var rule in context.Configuration.Rules)
         {
             if (rule is null)
@@ -72,7 +76,7 @@ public sealed class RuleEngine
             matches.Add(new RuleMatch
             {
                 Rule = rule,
-                NotificationSeverity = rule.Severity ?? watchEvent.Severity,
+                NotificationSeverity = rule.Severity ?? own,
                 IsProvisional = outcome == RuleMatchOutcome.Provisional,
             });
             if (rule.Severity is { } overrideSeverity && overrideSeverity > severity)
@@ -101,7 +105,7 @@ public sealed class RuleEngine
         var outcome = RuleMatcher.Match(rule, watchEvent, context, _timeProvider.GetUtcNow(), attributionGraceExpired);
         return outcome == RuleMatchOutcome.NoMatch
             ? null
-            : new RuleMatch { Rule = rule, NotificationSeverity = rule.Severity ?? watchEvent.Severity, IsProvisional = outcome == RuleMatchOutcome.Provisional };
+            : new RuleMatch { Rule = rule, NotificationSeverity = rule.Severity ?? EventSeverities.Own(watchEvent), IsProvisional = outcome == RuleMatchOutcome.Provisional };
     }
 
     /// <summary>

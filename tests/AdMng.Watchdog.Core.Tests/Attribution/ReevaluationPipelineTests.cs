@@ -202,6 +202,87 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.All(statusWhenQueued, s => Assert.Equal(AttributionStatus.Resolved, s));
     }
 
+    // ---- Severity model: the event's own severity is the input of every rule match ------------------------------------
+
+    [Fact]
+    public async Task ARuleOverride_DoesNotLetTheDispatchReleaseAnAlertTheOwnSeverityNoLongerQualifiesFor()
+    {
+        // A review rule raises privileged password changes to High (evaluated severity). The user's own change at expiry
+        // (4723 by the user) makes the event's own severity Info: privileged-accounts (MinSeverity High) no longer matches.
+        // The dispatch re-matches its held row – against the own severity, as the rules job does, not the raised one.
+        var review = new RuleSettings
+        {
+            Id = "hasla-uprzywilejowane",
+            Name = "Hasła kont uprzywilejowanych – przegląd",
+            Kinds = [WatchEventKind.PasswordChanged],
+            AnyTags = [EventTags.Privileged],
+            Severity = Severity.High,
+            Delivery = new RuleDelivery { Immediate = false },
+        };
+        _p.Config.Set(Pipeline.Configuration(review));
+        var e = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        Assert.Equal(DefaultRules.PrivilegedAccounts, Assert.Single(await _p.Store.GetAllAsync(Ct)).RuleId);
+
+        _p.SecurityStore.Add(Account(4723, T, User));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var stored = (await _p.Store.GetAsync(e.Id, Ct))!;
+        Assert.Contains(EventTags.SelfChange, stored.Tags);
+        Assert.Equal((Severity.Info, Severity.High), (stored.OwnSeverity, stored.Severity));
+        Assert.Empty(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ATagAddedByTheAttribution_IsMatchedWithTheOwnSeverity_NotWithARuleOverride()
+    {
+        // A review rule raises description changes to High; the event's own severity is Info. The attribution finds the sync
+        // account (tag syncAccount): a rule for sync-account changes from High up must not match – the rules job would not
+        // match it with the same tags either.
+        var review = new RuleSettings
+        {
+            Id = "opisy-kont",
+            Name = "Opisy kont – przegląd",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Severity = Severity.High,
+            Delivery = new RuleDelivery { Immediate = false },
+        };
+        var sync = new RuleSettings
+        {
+            Id = "konta-synchronizacji",
+            Name = "Zmiany wykonane przez konto synchronizacji",
+            Kinds = [WatchEventKind.AttributesChanged],
+            AnyTags = [EventTags.SyncAccount],
+            MinSeverity = Severity.High,
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        _p.Config.Set(Pipeline.Configuration(review, sync));
+        var e = await _p.AppendAsync(Create(WatchEventKind.AttributesChanged, severity: Severity.Info, changedAttributes: ["description"]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        Assert.Equal(Severity.High, (await _p.Store.GetAsync(e.Id, Ct))!.Severity);
+
+        _p.SecurityStore.Add(Modified(T, Sync, "description", "Księgowość – Kraków", added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+
+        var stored = (await _p.Store.GetAsync(e.Id, Ct))!;
+        Assert.Contains(EventTags.SyncAccount, stored.Tags);
+        Assert.DoesNotContain("konta-synchronizacji", stored.MatchedRules);
+        Assert.Equal((Severity.Info, Severity.High), (stored.OwnSeverity, stored.Severity));
+        Assert.Empty(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+    }
+
     /// <summary>The rules job, attribution engine and dispatch job over one <see cref="InMemoryWatchdogStore"/>.</summary>
     private sealed class Pipeline : IDisposable
     {

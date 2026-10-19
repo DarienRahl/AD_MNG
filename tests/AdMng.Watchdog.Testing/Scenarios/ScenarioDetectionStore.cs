@@ -326,7 +326,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
             var stored = new List<WatchEvent>();
             foreach (var watchEvent in commit.Events)
             {
-                var withId = watchEvent with { Id = _events.Count + 1 };
+                var withId = watchEvent with { Id = _events.Count + 1, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
                 _events.Add(withId);
                 stored.Add(withId);
             }
@@ -365,7 +365,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
         ArgumentNullException.ThrowIfNull(watchEvent);
         lock (_gate)
         {
-            var withId = watchEvent with { Id = _events.Count + 1 };
+            var withId = watchEvent with { Id = _events.Count + 1, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
             _events.Add(withId);
             return Task.FromResult(withId.Id);
         }
@@ -438,13 +438,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
             if (index >= 0)
             {
                 var current = _events[index];
-                _events[index] = current with
-                {
-                    Attribution = update.Attribution,
-                    Tags = [.. current.Tags.Concat(update.AddedTags).Distinct(StringComparer.Ordinal)],
-                    Severity = update.Severity ?? current.Severity,
-                    Lockout = update.Lockout ?? current.Lockout,
-                };
+                _events[index] = EventSeverities.WithAttribution(current, update);
             }
 
             return Task.CompletedTask;

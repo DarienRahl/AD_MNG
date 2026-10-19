@@ -971,7 +971,11 @@ public sealed record WatchEvent
     /// <summary>Events produced from one object diff (create + enable + password set) share this id.</summary>
     public Guid ChangeSetId { get; init; }
     public required WatchEventKind Kind { get; init; }
+    /// <summary>The evaluated (displayed) severity: OwnSeverity raised by the Severity overrides of the matched rules (12.1).</summary>
     public Severity Severity { get; init; }
+    /// <summary>The event's own severity without rule overrides (12.2) – the input of every rule match; the store fills it
+    /// on insert (null = Severity, an event not stored yet).</summary>
+    public Severity? OwnSeverity { get; init; }
     public required ObjectRef Object { get; init; }
     public string? PreviousDn { get; init; }                 // moves/renames, deletions (last live DN)
     public IReadOnlyList<AttributeChange> Changes { get; init; } = [];
@@ -2068,7 +2072,7 @@ public sealed record EventLogCursor
 public sealed record EventEvaluation
 {
     public required long EventId { get; init; }
-    public required Severity Severity { get; init; }
+    public required Severity Severity { get; init; }                // evaluated severity; the own severity is not changed
     public IReadOnlyList<string> MatchedRules { get; init; } = [];
 }
 
@@ -2077,8 +2081,10 @@ public sealed record AttributionUpdate
 {
     public required Attribution Attribution { get; init; }
     public IReadOnlyList<string> AddedTags { get; init; } = [];     // selfChange, passwordReset, syncAccount
-    /// <summary>Re-resolved severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
+    /// <summary>Re-resolved own severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
     public Severity? Severity { get; init; }
+    /// <summary>Evaluated severity of the re-evaluation (11.4 #9); null = unchanged, or the new own severity when Severity is set.</summary>
+    public Severity? EvaluatedSeverity { get; init; }
     /// <summary>Lockout sources filled by LockoutSourceResolver; null = unchanged.</summary>
     public LockoutInfo? Lockout { get; init; }
     /// <summary>Null when the attribution is final.</summary>
@@ -3783,11 +3789,10 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
 7. **Operation grouping**: events with the same ChangeSetId resolved from candidates with the same (Computer,
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the
-   `SeverityResolver` re-resolves the severity with the final attribution and the added tags.
-9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always: "severity unchanged" is relative
-   to the stored severity, which carries the rule overrides, so a rise of the event's own severity to an override's
-   value reports no change), or one that changes the severity or adds a tag (`passwordReset`, `selfChange`,
-   `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
+   `SeverityResolver` re-resolves the event's **own** severity (`WatchEvent.OwnSeverity`, never the evaluated one with
+   rule overrides) with the final attribution and the added tags (`AttributionUpdate.Severity`).
+9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always), or one that changes the own
+   severity or adds a tag (`passwordReset`, `selfChange`, `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
    and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
    with its final state (`RuleEngine.Evaluate`), plans only the rules that are not yet in the stored `matched_rules`
    (`IRuleMatchPlanner.PlanReevaluationAsync` – rules that already matched are never planned again, their rows may be
@@ -3796,9 +3801,11 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    update: a pass interrupted in between leaves the event pending and the next pass finds the rules stored. Waiting rows
    of stored rules that no longer match the final state are dropped first – the dispatch job would drop them on release,
    and the store keeps one row per (event, target), so they would otherwise swallow the row of a rule that matches now
-   (a custom rule excluding the actor must not silence `tier0-security` for the same recipients). The stored severity is
-   the evaluated one, `max(final severity, overrides of the matching rules)` (12.1), also when nothing new matched – a
-   re-resolved severity never drops a rule override. `NotificationsQueued` is raised only after the attribution update,
+   (a custom rule excluding the actor must not silence `tier0-security` for the same recipients). The update stores the
+   final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
+   (`EvaluatedSeverity` = `max(final own severity, overrides of the matching rules)`, 12.1), also when nothing new
+   matched – a re-resolved severity never drops a rule override, and an override never feeds a later `MinSeverity`
+   check. `NotificationsQueued` is raised only after the attribution update,
    so a dispatch it wakes renders the new rows with the final actor. An event the rules job has not evaluated yet has no matched rules, so all its
    final matches are planned and the job skips it afterwards. `rules_state` is never reset. The re-evaluation and the
    attribution update of one event and the rules job's read → match → plan → commit run in one in-process section
@@ -3815,7 +3822,7 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
 - Events are stored and evaluated immediately with `Attribution.Pending`.
 - Notifications of severity < High, of attribution-dependent kinds (any severity) and of provisional actor matches are
   held until attribution is final or `Notifications.AttributionGrace` elapsed (then sent with "Wykonawca: ustalanie…" /
-  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final severity and tags (13.3).
+  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final own severity and tags (13.3).
 - Other High/Critical are sent at once; when `FollowUpWhenAttributed`, a follow-up notification (same e-mail thread:
   `In-Reply-To`/`References`; Teams: a short card "Uzupełnienie: wykonawca ustalony"; webhook: event type
   `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves.
@@ -3877,7 +3884,9 @@ A rule matches an event when **all** hold:
 6. `Groups` (only for GroupMemberAdded/Removed – the group is `Object` – and Privilege* – the group is `Member`):
    Privileged = the group is a privileged root (by SID/name/DN); WatchList = DN in `PrivilegedGroups.WatchListDns`;
    Explicit = DN in `GroupDns`. For other kinds the filter is ignored.
-7. `MinSeverity` ≤ event severity (after SeverityResolver).
+7. `MinSeverity` ≤ the event's **own** severity (after SeverityResolver, `WatchEvent.OwnSeverity`) – never the evaluated
+   severity, which another rule's override may have raised: the rules job, the re-evaluation after attribution (11.4 #9),
+   the dispatch job's re-match (13.3) and the rule preview all match the same input.
 8. Actors: when attribution is Resolved and the actor's **SID** equals an `ExcludeActors` entry (SIDs only) → no
    match; an entry with a `{domainSid}`/`{rootDomainSid}` token whose value is unknown matches nothing (the
    any-domain relative-id fallback of 8.1 applies to privileged roots only – an exclusion fails closed).
@@ -3904,8 +3913,9 @@ object, not a container – its groups are snapshotted) are not snapshotted and 
 the baseline; the service never rewrites the configuration. The GUI shows the check as „Nieistniejące DN w
 konfiguracji” (health codes `rules.configuredDns` and `attribution.collector` are localized).
 
-`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
-matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
+`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(own severity, every matched
+rule's Severity override)` is the evaluated severity stored in `WatchEvent.Severity` (feed, digest, counts) while
+`WatchEvent.OwnSeverity` keeps the own one; a rule's own notifications use `rule.Severity ?? own severity` (a rule may
 deliberately lower its notifications). Health events always match the locked `health` rule.
 
 ### 12.2 Severity resolution (`SeverityResolver`)
@@ -3932,7 +3942,7 @@ AccountFlagsChanged / DelegationChanged per bit table 10.6.1; PrivilegeGranted p
 | 4 | krbtgt | PasswordChanged | exactly Medium (expected: two resets ~10 h apart) |
 
 Kinds with step-3 rules (`SeverityResolver.AttributionDependentKinds`) are held by the planner until the attribution is
-final or the grace period ends (13.2), and re-matched with the final severity on release (13.3).
+final or the grace period ends (13.2), and re-matched with the final own severity on release (13.3).
 
 ### 12.3 Exclusion hygiene
 
@@ -4056,7 +4066,7 @@ for this; the default overloads use `IWatchdogConfigProvider.Current`), then nor
 pendings = queueStore.GetAllAsync(); group by BucketKey
 for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
-    re-match held items with the event's final state (severity, tags, actor): RuleMatcher for that rule, delivery
+    re-match held items with the event's final state (own severity, tags, actor): RuleMatcher for that rule, delivery
         hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
     other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
         the end of business hours) dropped – the digest reports them
@@ -4624,6 +4634,17 @@ CREATE TABLE upcoming_expiries (
 CREATE TABLE digest_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, period_start INTEGER NOT NULL, period_end INTEGER NOT NULL,
   created_at INTEGER NOT NULL, event_count INTEGER NOT NULL, outbox_ids TEXT NOT NULL);
+```
+
+Later migrations (forward-only, `Storage/Migrations/Migration000N*.cs`, each in one transaction followed by
+`PRAGMA user_version = N`; a database with older data is copied to `pre-migration-<old>-<timestamp>.db` first):
+
+```sql
+-- 0002_own_severity: the event's own severity (12.1/12.2 – the input of every rule match) apart from the evaluated
+-- `severity` (overrides included). Payloads are deflated, so it is a column; rows of schema 1 keep their current
+-- severity as their own (the own severity of an evaluated row is not known any more). EventRows reads it from the column.
+ALTER TABLE events ADD COLUMN own_severity INTEGER;
+UPDATE events SET own_severity = severity;
 ```
 
 ### 16.3 Retention and maintenance (`RetentionJob` → `IStoreMaintenance`) – daily at `Retention.MaintenanceTime`

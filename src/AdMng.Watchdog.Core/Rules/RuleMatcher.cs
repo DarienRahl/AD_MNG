@@ -2,13 +2,14 @@ using AdMng.Core.Ldap;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Detection;
+using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Rules;
 
 /// <summary>
 /// One rule against one event (section 12.1). A rule matches when all hold: enabled; kinds and object kinds; scope;
-/// attributes; required/any tags; the group filter (membership and privilege kinds only); <c>MinSeverity</c> ≤ event
-/// severity; no actor exclusion (SIDs of a resolved actor only, <c>ExcludeSelfChanges</c> with tag <c>selfChange</c>);
+/// attributes; required/any tags; the group filter (membership and privilege kinds only); <c>MinSeverity</c> ≤ the event's
+/// own severity (<see cref="EventSeverities.Own"/> – never one raised by another rule's override); no actor exclusion (SIDs of a resolved actor only, <c>ExcludeSelfChanges</c> with tag <c>selfChange</c>);
 /// no applying exclusion. While attribution is pending a rule with actor conditions matches
 /// <see cref="RuleMatchOutcome.Provisional"/>ly; after the grace period an unresolved actor excludes nothing. The
 /// locked <c>health</c> rule always matches health events; <see cref="WatchEventKind.Test"/> never matches.
@@ -55,7 +56,7 @@ public static class RuleMatcher
             || !AttributesMatch(rule, watchEvent)
             || !TagsMatch(rule, watchEvent)
             || !GroupsMatch(rule, watchEvent, context)
-            || (rule.MinSeverity is { } minimum && watchEvent.Severity < minimum))
+            || (rule.MinSeverity is { } minimum && EventSeverities.Own(watchEvent) < minimum))
         {
             return RuleMatchOutcome.NoMatch;
         }

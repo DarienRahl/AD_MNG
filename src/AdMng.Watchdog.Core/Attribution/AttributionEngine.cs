@@ -30,8 +30,9 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// added to the matched rules in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in
 /// between leaves the event pending and the next pass finds the rules already stored (no duplicate). Rules that already
 /// matched are never planned again (their rows may be delivered and gone); their waiting rows are dropped when they no
-/// longer match, so the added rules can take their targets. The stored severity is the evaluated one (rule overrides
-/// included), and NotificationsQueued is raised only after the attribution update.</para>
+/// longer match, so the added rules can take their targets. The update stores the final own severity
+/// (<c>AttributionUpdate.Severity</c>, the input of every later match) and the evaluated one (<c>EvaluatedSeverity</c>, rule
+/// overrides included, as the rules job stores it), and NotificationsQueued is raised only after the attribution update.</para>
 /// <para>The store phase of a pass (re-evaluations, attribution updates, follow-ups) runs without the stop token, and
 /// the follow-ups collected so far are queued even when a later write fails, so an attribution that became final never
 /// loses its follow-up.</para>
@@ -262,7 +263,7 @@ public sealed partial class AttributionEngine(
                         queued = reevaluation.Queued;
                         if (reevaluation.Severity is { } severity)
                         {
-                            update = update with { Severity = severity };
+                            update = update with { EvaluatedSeverity = severity };
                         }
                     }
 
@@ -292,13 +293,11 @@ public sealed partial class AttributionEngine(
         }
     }
 
-    /// <summary>True when a final update can change the rule evaluation: an attribution-dependent kind (12.2 – its
-    /// severity is re-resolved; "unchanged" is relative to the stored severity, which carries the rule overrides, so a
-    /// rise of the event's own severity to an override's value reports no change), a changed severity, or a tag the event
-    /// does not carry yet.</summary>
+    /// <summary>True when a final update can change the rule evaluation: an attribution-dependent kind (12.2 – its own
+    /// severity is re-resolved), a changed own severity, or a tag the event does not carry yet.</summary>
     private static bool ChangesRuleInputs(ProcessedAttribution result) =>
         AttributionSeverityPolicy.AttributionDependentKinds.Contains(result.Event.Kind)
-        || (result.Update.Severity is { } severity && severity != result.Event.Severity)
+        || (result.Update.Severity is { } severity && severity != EventSeverities.Own(result.Event))
         || result.Update.AddedTags.Any(tag => !(result.Event.Tags ?? []).Contains(tag, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>

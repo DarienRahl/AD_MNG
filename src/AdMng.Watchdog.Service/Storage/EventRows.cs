@@ -6,26 +6,28 @@ namespace AdMng.Watchdog.Service.Storage;
 /// <summary>
 /// The <c>events</c> table: the payload (the full <see cref="WatchEvent"/>, stored with <c>Id = 0</c>) is authoritative and
 /// rewritten on every change; the other columns are derived lookup values (normalized DNs, lower-case search text and
-/// tag/rule lists, upper-case actor SID).
+/// tag/rule lists, upper-case actor SID). The event's own severity (<c>own_severity</c>, schema 2) is a column of its own:
+/// rows stored before schema 2 have it only there (the migration copied their severity).
 /// </summary>
 internal static class EventRows
 {
     /// <summary>Columns to select for <see cref="Read"/>.</summary>
-    public const string Columns = "id, payload";
+    public const string Columns = "id, payload, own_severity";
 
     /// <summary>Inserts one event (unevaluated; a pending attribution is due at detection time) and returns it with its id.</summary>
     public static WatchEvent Insert(SqliteConnection connection, SqliteTransaction transaction, WatchEvent watchEvent)
     {
         ArgumentNullException.ThrowIfNull(watchEvent);
+        watchEvent = watchEvent with { OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
         var payload = watchEvent with { Id = 0 };
         using var command = SqliteValues.Command(
             connection,
             transaction,
             """
-            INSERT INTO events (event_id, change_set_id, kind, severity, object_kind, object_guid, object_dn, object_dn_norm,
+            INSERT INTO events (event_id, change_set_id, kind, severity, own_severity, object_kind, object_guid, object_dn, object_dn_norm,
               previous_dn_norm, search_text, tags, detected_at, originating_at, originating_dc, source, actor_status, actor_sid,
               next_attribution_at, rules_state, matched_rules, acked_at, acked_by, ack_comment, payload)
-            VALUES ($eventId, $changeSet, $kind, $severity, $objectKind, $objectGuid, $dn, $dnNorm, $previousDnNorm, $search,
+            VALUES ($eventId, $changeSet, $kind, $severity, $ownSeverity, $objectKind, $objectGuid, $dn, $dnNorm, $previousDnNorm, $search,
               $tags, $detectedAt, $originatingAt, $originatingDc, $source, $actorStatus, $actorSid, $nextAttribution, 0, $rules,
               $ackedAt, $ackedBy, $ackComment, $payload)
             RETURNING id;
@@ -34,6 +36,7 @@ internal static class EventRows
             ("$changeSet", SqliteValues.ToBlobOrNull(watchEvent.ChangeSetId)),
             ("$kind", (int)watchEvent.Kind),
             ("$severity", (int)watchEvent.Severity),
+            ("$ownSeverity", (int)watchEvent.OwnSeverity!.Value),
             ("$objectKind", (int)watchEvent.Object.Kind),
             ("$objectGuid", SqliteValues.ToBlobOrNull(watchEvent.Object.ObjectGuid)),
             ("$dn", watchEvent.Object.Dn ?? string.Empty),
@@ -59,28 +62,34 @@ internal static class EventRows
         return watchEvent with { Id = id };
     }
 
-    /// <summary>Maps a row selected with <see cref="Columns"/>.</summary>
-    public static WatchEvent Read(SqliteDataReader reader) =>
-        BlobCodec.DecodeContract<WatchEvent>((byte[])reader.GetValue(1)) with { Id = reader.GetInt64(0) };
+    /// <summary>Maps a row selected with <see cref="Columns"/> (the own severity from its column).</summary>
+    public static WatchEvent Read(SqliteDataReader reader)
+    {
+        var payload = BlobCodec.DecodeContract<WatchEvent>((byte[])reader.GetValue(1));
+        var own = reader.IsDBNull(2) ? payload.OwnSeverity ?? payload.Severity : (Severity)reader.GetInt32(2);
+        return payload with { Id = reader.GetInt64(0), OwnSeverity = own };
+    }
 
     /// <summary>Loads one event inside a transaction (null when missing).</summary>
     public static WatchEvent? Load(SqliteConnection connection, SqliteTransaction? transaction, long id) =>
         SqliteValues.Query(connection, transaction, $"SELECT {Columns} FROM events WHERE id = $id;", Read, ("$id", id))
             .FirstOrDefault();
 
-    /// <summary>Stores a new attribution state: payload, severity, search text, tags, actor and the next attempt.</summary>
+    /// <summary>Stores a new attribution state: payload, own and evaluated severity, search text, tags, actor and the next
+    /// attempt.</summary>
     public static void UpdateAttribution(SqliteConnection connection, SqliteTransaction transaction, WatchEvent updated, DateTimeOffset? nextAttemptAt)
     {
         SqliteValues.Execute(
             connection,
             transaction,
             """
-            UPDATE events SET severity = $severity, search_text = $search, tags = $tags, actor_status = $actorStatus,
+            UPDATE events SET severity = $severity, own_severity = $ownSeverity, search_text = $search, tags = $tags, actor_status = $actorStatus,
               actor_sid = $actorSid, next_attribution_at = $next, payload = $payload
             WHERE id = $id;
             """,
             ("$id", updated.Id),
             ("$severity", (int)updated.Severity),
+            ("$ownSeverity", (int)(updated.OwnSeverity ?? updated.Severity)),
             ("$search", SearchText(updated)),
             ("$tags", SqliteValues.PipeList(updated.Tags)),
             ("$actorStatus", (int)updated.Attribution.Status),
@@ -89,7 +98,8 @@ internal static class EventRows
             ("$payload", BlobCodec.EncodeContract(updated with { Id = 0 })));
     }
 
-    /// <summary>Stores the rule evaluation and marks the event evaluated.</summary>
+    /// <summary>Stores the rule evaluation (evaluated severity, matched rules) and marks the event evaluated; the own
+    /// severity is not changed.</summary>
     public static void UpdateEvaluation(SqliteConnection connection, SqliteTransaction transaction, WatchEvent updated) =>
         SqliteValues.Execute(
             connection,

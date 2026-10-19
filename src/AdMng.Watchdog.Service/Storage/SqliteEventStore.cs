@@ -172,13 +172,7 @@ public sealed class SqliteEventStore : IEventStore
                     return;
                 }
 
-                var updated = current with
-                {
-                    Attribution = update.Attribution,
-                    Tags = [.. current.Tags.Concat(update.AddedTags).Distinct(StringComparer.Ordinal)],
-                    Severity = update.Severity ?? current.Severity,
-                    Lockout = update.Lockout ?? current.Lockout,
-                };
+                var updated = EventSeverities.WithAttribution(current, update);
                 EventRows.UpdateAttribution(connection, transaction, updated, update.NextAttemptAt);
             },
             cancellationToken);

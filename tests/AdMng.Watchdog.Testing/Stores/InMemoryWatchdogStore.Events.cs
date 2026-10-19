@@ -160,13 +160,7 @@ public sealed partial class InMemoryWatchdogStore
             if (_events.TryGetValue(id, out var row))
             {
                 var current = row.Event;
-                row.Event = RoundTrip(current with
-                {
-                    Attribution = update.Attribution,
-                    Tags = [.. current.Tags.Concat(update.AddedTags).Distinct(StringComparer.Ordinal)],
-                    Severity = update.Severity ?? current.Severity,
-                    Lockout = update.Lockout ?? current.Lockout,
-                });
+                row.Event = RoundTrip(EventSeverities.WithAttribution(current, update));
                 row.NextAttributionAt = update.Attribution.Status == AttributionStatus.Pending ? update.NextAttemptAt : null;
             }
         }
@@ -276,7 +270,7 @@ public sealed partial class InMemoryWatchdogStore
     }
 
     /// <summary>Inserts one event (caller holds the lock): next AUTOINCREMENT id, unevaluated, attribution due at
-    /// detection time when pending. The EventId is unique.</summary>
+    /// detection time when pending, own severity = severity unless given. The EventId is unique.</summary>
     private WatchEvent InsertEvent(WatchEvent watchEvent)
     {
         if (!_eventGuids.Add(watchEvent.EventId))
@@ -284,7 +278,7 @@ public sealed partial class InMemoryWatchdogStore
             throw new InvalidOperationException("An event with this EventId is already stored (UNIQUE event_id).");
         }
 
-        var stored = RoundTrip(watchEvent with { Id = ++_lastEventId });
+        var stored = RoundTrip(watchEvent with { Id = ++_lastEventId, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity });
         _events[stored.Id] = new StoredEventRow(stored);
         return RoundTrip(stored);
     }

@@ -38,7 +38,7 @@ public abstract partial class WatchdogStoreContractTests<TStore>
         Assert.True(second > first);
         var loaded = await store.GetAsync(first, Ct);
         Assert.NotNull(loaded);
-        AssertSameJson(full with { Id = first }, loaded);
+        AssertSameJson(full with { Id = first, OwnSeverity = full.Severity }, loaded);
         AssertSameJson(loaded, await store.GetByEventIdAsync(full.EventId, Ct));
         Assert.Null(await store.GetAsync(second + 100, Ct));
         Assert.Null(await store.GetByEventIdAsync(Guid.NewGuid(), Ct));
@@ -129,7 +129,7 @@ public abstract partial class WatchdogStoreContractTests<TStore>
         Assert.Equal(AttributionStatus.Resolved, loaded.Attribution.Status);
         Assert.Equal(@"CONTOSO\zofia.zak", loaded.Attribution.Actor?.Account);
         Assert.Equal([EventTags.Privileged, EventTags.SelfChange], loaded.Tags);
-        Assert.Equal(Severity.Info, loaded.Severity);
+        Assert.Equal((Severity.Info, Severity.Info), (loaded.OwnSeverity, loaded.Severity));
         Assert.Equal("10.0.0.99", Assert.Single(loaded.Lockout!.Sources).IpAddress);
         Assert.Single((await store.QueryAsync(new EventQuery { Text = "księgowość-07" }, Ct)).Items);
         Assert.Single((await store.QueryAsync(new EventQuery { Text = "10.0.44" }, Ct)).Items);
@@ -138,6 +138,61 @@ public abstract partial class WatchdogStoreContractTests<TStore>
         Assert.Equal(Severity.Info, (await store.GetAsync(stored.Id, Ct))?.Severity);
         Assert.NotNull((await store.GetAsync(stored.Id, Ct))?.Lockout);
     });
+
+    [Fact]
+    public Task OwnSeverity_IsTheSeverityOnInsert_AndTheEvaluationRaisesOnlyTheEvaluatedSeverity() => WithStoreAsync(async store =>
+    {
+        // 12.1/12.2: the own severity is the input of every rule match, the evaluated one (overrides included) is displayed.
+        var user = Snapshot();
+        var stored = await StoreEventsAsync(store,
+            Event(WatchEventKind.KeyCredentialChanged, user, Now, Severity.Medium),
+            Event(WatchEventKind.AttributesChanged, user, Now, Severity.High) with { OwnSeverity = Severity.Low });
+        Assert.Equal((Severity.Medium, Severity.Medium), Severities(await store.GetAsync(stored[0].Id, Ct)));
+        Assert.Equal((Severity.Low, Severity.High), Severities(await store.GetAsync(stored[1].Id, Ct)));
+
+        await store.CommitEvaluationAsync([new EventEvaluation { EventId = stored[0].Id, Severity = Severity.Critical, MatchedRules = ["konta-vip"] }], [], Ct);
+
+        Assert.Equal((Severity.Medium, Severity.Critical), Severities(await store.GetAsync(stored[0].Id, Ct)));
+        Assert.Equal((Severity.Medium, Severity.Critical), Severities(await store.GetByEventIdAsync(stored[0].EventId, Ct)));
+        Assert.Equal((Severity.Medium, Severity.Critical), Severities((await store.QueryAsync(new EventQuery { Limit = 10 }, Ct)).Items.Single(e => e.Id == stored[0].Id)));
+        Assert.Equal((Severity.Medium, Severity.Critical), Severities((await store.GetPendingAttributionAsync(Now, 10, Ct)).Single(e => e.Id == stored[0].Id)));
+        await foreach (var e in store.GetRangeAsync(Now.AddMinutes(-1), Now.AddMinutes(1), Ct))
+        {
+            Assert.NotNull(e.OwnSeverity);
+        }
+    });
+
+    [Fact]
+    public Task UpdateAttribution_StoresTheOwnAndTheEvaluatedSeverity() => WithStoreAsync(async store =>
+    {
+        var user = Snapshot();
+        var stored = (await StoreEventsAsync(store, Event(WatchEventKind.PasswordChanged, user, Now, Severity.High, tags: [EventTags.Privileged])))[0];
+        await store.CommitEvaluationAsync([new EventEvaluation { EventId = stored.Id, Severity = Severity.Critical, MatchedRules = ["hasla-vip"] }], [], Ct);
+
+        // The user's own change: own Info, the override keeps the evaluated severity Critical.
+        await store.UpdateAttributionAsync(stored.Id, new AttributionUpdate
+        {
+            Attribution = Resolved(@"CONTOSO\zofia.zak", user.Sid!, "WS-KADRY-03", "10.0.44.8"),
+            AddedTags = [EventTags.SelfChange],
+            Severity = Severity.Info,
+            EvaluatedSeverity = Severity.Critical,
+        }, Ct);
+        Assert.Equal((Severity.Info, Severity.Critical), Severities(await store.GetAsync(stored.Id, Ct)));
+
+        // Nothing re-resolved: both unchanged.
+        await store.UpdateAttributionAsync(stored.Id, new AttributionUpdate { Attribution = Resolved(@"CONTOSO\zofia.zak", user.Sid!, null, null) }, Ct);
+        Assert.Equal((Severity.Info, Severity.Critical), Severities(await store.GetAsync(stored.Id, Ct)));
+
+        // An own severity without an evaluation (an event the rules have not evaluated yet): the evaluated one follows it.
+        await store.UpdateAttributionAsync(stored.Id, new AttributionUpdate { Attribution = Resolved(@"CONTOSO\zofia.zak", user.Sid!, null, null), Severity = Severity.Low }, Ct);
+        Assert.Equal((Severity.Low, Severity.Low), Severities(await store.GetAsync(stored.Id, Ct)));
+    });
+
+    private static (Severity? Own, Severity Evaluated) Severities(WatchEvent? watchEvent)
+    {
+        Assert.NotNull(watchEvent);
+        return (watchEvent.OwnSeverity, watchEvent.Severity);
+    }
 
     [Fact]
     public Task Evaluation_StoresSeverityAndMatchedRules_InsertsNotifications_AndIgnoresDuplicates() => WithStoreAsync(async store =>

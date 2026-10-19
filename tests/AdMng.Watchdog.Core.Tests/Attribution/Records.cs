@@ -18,6 +18,12 @@ internal static class Records
     public static readonly IEnumerable<(string, string?)> OtherAdmin = SecurityEventXml.Subject(OtherAdminSid, "adm.zzak", "CONTOSO", "0x77aa1");
     public static readonly IEnumerable<(string, string?)> LocalSystem = SecurityEventXml.Subject("S-1-5-18", "DC01$", "CONTOSO", "0x3e7");
 
+    /// <summary>The user of <see cref="TestEvents.UserDn"/> acting on his own account (4723 at password expiry).</summary>
+    public static readonly IEnumerable<(string, string?)> User = SecurityEventXml.Subject(UserSid, "lwisniewski", "CONTOSO", "0x91a2");
+
+    /// <summary>The Entra Connect sync account (<see cref="TestEvents.SyncSid"/>).</summary>
+    public static readonly IEnumerable<(string, string?)> Sync = SecurityEventXml.Subject(TestEvents.SyncSid, "MSOL_4c1a8e7f", "CONTOSO", "0x6612");
+
     private static readonly SecurityEventParser Parser = new();
     private static long _recordId = 1000;
 
