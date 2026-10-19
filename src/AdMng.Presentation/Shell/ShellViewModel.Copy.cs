@@ -191,7 +191,7 @@ public sealed partial class ShellViewModel
     /// change, and a list may have tens of thousands of rows selected).
     /// </summary>
     private bool HasCopySelection() =>
-        SelectedDocument is { } document && (document.SelectedItems is { Count: > 0 } || document.SelectedItem is not null);
+        SelectedDocument is { } document && (document.SelectedItems is { Count: > 0 } || document.SelectedItem is { IsPlaceholder: false });
 
     /// <summary>The selection in the list's order (the view's selection is in click order).</summary>
     private List<ObjectRowViewModel> OrderedSelection()
@@ -200,6 +200,13 @@ public sealed partial class ShellViewModel
         if (selection.Count < 2 || SelectedDocument is not { } document)
         {
             return [.. selection];
+        }
+
+        if (document.VirtualRows is { } virtualRows)
+        {
+            // A virtual list (VLV) holds no Items: its loaded rows know their position in the server's sort order
+            // (a lookup - walking the whole list would read every page of the container).
+            return [.. selection.OrderBy(r => virtualRows.IndexOf(r) is var index and >= 0 ? index : int.MaxValue)];
         }
 
         var positions = new Dictionary<ObjectRowViewModel, int>(document.Items.Count);
