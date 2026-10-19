@@ -50,6 +50,10 @@ public sealed partial class WatchdogRuleRowViewModel : ObservableObject
     [ObservableProperty]
     public partial string Name { get; private set; } = string.Empty;
 
+    /// <summary>Tool tip of the name (cut in a narrow list): the whole name and, below it, the rule's identifier.</summary>
+    [ObservableProperty]
+    public partial string NameToolTip { get; private set; } = string.Empty;
+
     /// <summary>"wbudowana" / "zablokowana" / empty.</summary>
     [ObservableProperty]
     public partial string BadgeText { get; private set; } = string.Empty;
@@ -94,6 +98,7 @@ public sealed partial class WatchdogRuleRowViewModel : ObservableObject
     {
         var rule = Rule;
         Name = rule.Name;
+        NameToolTip = rule.Name + "\n" + rule.Id;
         BadgeText = rule.Locked ? _localizer[L.Watchdog.RulesLocked] : rule.BuiltIn ? _localizer[L.Watchdog.RulesBuiltIn] : string.Empty;
         KindsText = rule.Kinds.Count switch
         {

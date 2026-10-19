@@ -154,14 +154,8 @@
                         <!-- A long name is cut: the tool tip shows it whole, with the rule's identifier. -->
                         <TextBlock FontWeight="SemiBold"
                                    Text="{Binding Name, Mode=OneWay}"
-                                   TextTrimming="CharacterEllipsis">
-                          <TextBlock.ToolTip>
-                            <MultiBinding StringFormat="{}{0}&#x0a;{1}">
-                              <Binding Mode="OneWay" Path="Name" />
-                              <Binding Mode="OneWay" Path="Id" />
-                            </MultiBinding>
-                          </TextBlock.ToolTip>
-                        </TextBlock>
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding NameToolTip, Mode=OneWay}" />
                       </DockPanel>
                       <TextBlock Style="{StaticResource Ad.SecondaryText}">
                         <Run Text="{Binding BadgeText, Mode=OneWay}" />
