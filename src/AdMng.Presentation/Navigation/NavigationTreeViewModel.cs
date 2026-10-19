@@ -124,12 +124,13 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     /// <summary>Re-marks every container node (domain tree and pinned shortcuts) from <see cref="WellKnown"/>.</summary>
     private void ApplyWellKnown()
     {
-        foreach (var node in _index.Values)
+        // A snapshot: children of other containers may be merged meanwhile (they read WellKnown when they are created).
+        foreach (var node in _index.Values.ToList())
         {
             node.ApplyWellKnown(WellKnown);
         }
 
-        foreach (var pin in ViewsNode.Children.OfType<ContainerNodeViewModel>())
+        foreach (var pin in ViewsNode.Children.OfType<ContainerNodeViewModel>().ToList())
         {
             ApplyWellKnownBelow(pin);
         }
