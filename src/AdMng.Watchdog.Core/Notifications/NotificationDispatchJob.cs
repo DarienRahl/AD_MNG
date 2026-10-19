@@ -30,8 +30,8 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// is announced as "+N kolejnych"; all ready items are completed with the message in one store call. A follow-up waits
 /// (<see cref="FollowUpWait"/>) until its original message was sent and until its event's attribution is stored (an
 /// escalation is stored by the re-evaluation just before it, 13.2 #7), and is dropped when the original went Dead or
-/// Cancelled or the event already has a follow-up for the target that showed it with at least the row's severity (a higher
-/// one is an escalation). Follow-ups render each event with its row's final severity and the change against the original
+/// Cancelled or the event already has a follow-up for the target, unless the row is an escalation (≥ High and higher than
+/// everything the target was shown about the event). Follow-ups render each event with its row's final severity and the change against the original
 /// (<see cref="FollowUpChange"/>), and record their per-event states like alerts. After an alert sent with a pending
 /// actor, events whose attribution became final meanwhile get their follow-ups planned here (the AttributionEngine planned
 /// them before the alert was in the outbox). Wakes on NotificationsQueued and AttributionUpdated.
@@ -377,10 +377,16 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
                 originalEventId = item.EventId;
             }
 
-            // A follow-up the target already got with at least this severity told it everything (the actor is final in
-            // every follow-up); a higher severity is an escalation (13.2 #7).
-            if (messages.Any(m => m.Kind == DeliveryKind.FollowUp && string.Equals(m.TargetKey, item.Target.Key, StringComparison.Ordinal)
-                && EventNotices.ShownSeverity(m, item.EventId) >= item.Severity))
+            // A follow-up the target already got told it the final state (the actor is final in every follow-up, and the
+            // re-evaluation planned its final severity for the target); only an escalation – High or above and higher than
+            // anything its alerts and follow-ups showed the event with (13.2 #7) – is news after it. A later attribution
+            // follow-up of the alert (the event's evaluated severity, possibly another rule's override for another target)
+            // is not.
+            var toTarget = messages
+                .Where(m => m.Kind is DeliveryKind.Alert or DeliveryKind.FollowUp && string.Equals(m.TargetKey, item.Target.Key, StringComparison.Ordinal))
+                .ToList();
+            if (toTarget.Any(m => m.Kind == DeliveryKind.FollowUp)
+                && !(item.Severity >= Severity.High && item.Severity > toTarget.Max(m => EventNotices.ShownSeverity(m, item.EventId))))
             {
                 duplicates.Add(item.Id);
             }

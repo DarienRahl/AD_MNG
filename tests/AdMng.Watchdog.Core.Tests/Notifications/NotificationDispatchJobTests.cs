@@ -431,6 +431,28 @@ public sealed class NotificationDispatchJobTests
     }
 
     [Fact]
+    public async Task AFollowUpNoHigherThanTheAlert_IsADuplicateOfAnEarlierLowerFollowUp()
+    {
+        // The Critical alert's target already got the follow-up with its final (lowered) severity. A later row of the same
+        // event and target – e.g. the attribution follow-up with the event's evaluated severity, another rule's override –
+        // tells it nothing new: no escalation above what the alert showed, so it is a duplicate.
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendWithPendingActorAsync(harness, rule);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.Medium)], Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+        await harness.MarkSentAsync(Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp).Id, harness.Clock.GetUtcNow());
+
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.Critical)], Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Equal([Severity.Medium], (await harness.MessagesAsync(e)).Where(m => m.Kind == DeliveryKind.FollowUp).Select(m => m.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
     public async Task AFollowUpOfAnAggregatedAlert_ShowsEachEventWithItsFinalSeverity()
     {
         // One alert showed Zofia's privilege grant as High and Jędrzej's as Medium, both actors pending. The follow-up brings

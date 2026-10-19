@@ -840,6 +840,66 @@ public sealed class ReevaluationPipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task ADispatchSendingTheLoweredFollowUpBeforeTheActorFollowUpIsQueued_SendsNoSecondFollowUp()
+    {
+        // privileged-accounts alerted it-admins High with the actor pending. The actor is the user at expiry (4723): the own
+        // severity is Info, and only hasla-kont (no override) still tells it-admins – Info, in the thread of the alert. The
+        // digest-only hasla-raport keeps the event's evaluated severity High, so the attribution follow-up of the alert would
+        // say High. The dispatch wakes right after the attribution update and sends the Info follow-up before the pass queues
+        // the attribution follow-up: that one is no news for it-admins and must not go out as a second message.
+        var passwords = new RuleSettings
+        {
+            Id = "hasla-kont",
+            Name = "Hasła kont uprzywilejowanych",
+            Kinds = [WatchEventKind.PasswordChanged],
+            AnyTags = [EventTags.Privileged],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        var report = new RuleSettings
+        {
+            Id = "hasla-raport",
+            Name = "Hasła – raport",
+            Kinds = [WatchEventKind.PasswordChanged],
+            AnyTags = [EventTags.Privileged],
+            Severity = Severity.High,
+            Delivery = new RuleDelivery { Immediate = false, IncludeInDigest = true },
+        };
+        _p.Config.Set(Pipeline.Configuration(passwords, report));
+        var e = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DefaultRules.PrivilegedAccounts, Severity.High, true), (alert.RuleId, alert.Severity, alert.SentWithPendingAttribution));
+        await _p.MarkSentAsync(e);
+        OutboxMessage? lowered = null;
+        _p.Signals.OnRaise = signal =>
+        {
+            if (signal == WatchdogSignal.NotificationsQueued && lowered is null)
+            {
+                _p.DispatchAsync(TimeSpan.Zero).GetAwaiter().GetResult();
+                lowered = _p.Store.GetMessagesForEventAsync(e.Id, Ct).GetAwaiter().GetResult().MaxBy(m => m.Id);
+            }
+        };
+
+        _p.SecurityStore.Add(Account(4723, T, User));
+        await _p.Engine.RunOnceAsync(Ct);
+        Assert.NotNull(lowered);
+        Assert.Equal((DeliveryKind.FollowUp, Severity.Info, alert.MessageId), (lowered.Kind, lowered.Severity, lowered.Email!.InReplyTo));
+        Assert.Contains("Wysoki → Info", lowered.Email.TextBody, StringComparison.Ordinal);
+        Assert.Equal(Severity.High, (await _p.Store.GetAsync(e.Id, Ct))!.Severity);
+        await _p.MarkSentAsync(e);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).Select(m => m.Kind));
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
     public async Task AnAggregatedAlert_EscalatesOnlyTheEventThatBecameHigh()
     {
         // konta-vip collected shadow credentials and a description change of another account into one Medium helpdesk alert,
