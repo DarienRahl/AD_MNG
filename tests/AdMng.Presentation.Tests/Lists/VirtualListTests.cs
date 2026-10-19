@@ -258,6 +258,26 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task Refresh_RereadsTheShownPages_EvenWhenTheyWereNotCached()
+    {
+        var (_, list) = await OpenAsync();
+        var rows = list.VirtualRows!;
+        foreach (var i in new[] { 30, 60, 90, 110 })
+        {
+            _ = rows[i];
+            await TestWait.UntilAsync(() => rows.GetLoaded(i) is not null);
+        }
+
+        Assert.Null(rows.GetLoaded(1));
+        _ = rows[1];
+        await rows.RefreshAsync();
+
+        Assert.Equal(UserName(1), rows.GetLoaded(1)?.Name);
+        Assert.Equal(UserName(110), rows.GetLoaded(110)?.Name);
+        Assert.True(rows.CachedPageCount <= 3);
+    }
+
+    [Fact]
     public async Task OwnChanges_RefreshTheVirtualList()
     {
         var (harness, list) = await OpenAsync();

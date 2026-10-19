@@ -48,6 +48,9 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
     private readonly Dictionary<int, ObjectRowViewModel> _placeholders = [];
     private readonly Dictionary<ObjectRowViewModel, int> _placeholderIndexes = new(ReferenceEqualityComparer.Instance);
     private readonly List<int> _wanted = [];
+
+    // Pages the view asked for most recently (loaded or not), newest last: what a refresh re-reads.
+    private readonly List<int> _shown = [];
     private readonly CancellationTokenSource _lifetime = new();
 
     // Rows of dropped pages (refresh, count change): reused by DN so that a row keeps its identity (WPF selection).
@@ -184,6 +187,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                 ArgumentOutOfRangeException.ThrowIfNegative(index);
                 ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _count);
                 var page = index / PageSize;
+                Shown(page);
                 if (_pages.TryGetValue(page, out var rows) && index - (page * PageSize) < rows.Length)
                 {
                     Touch(page);
@@ -431,7 +435,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
             }
 
             generation = ++_generation;
-            pages = [.. _recent.Take(RefreshPages).Order()];
+            pages = [.. _shown.Order()];
             if (pages.Length == 0)
             {
                 pages = [0];
@@ -499,6 +503,21 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
         lock (_gate)
         {
             return GetLoaded(index) ?? (_placeholders.TryGetValue(index, out var placeholder) ? placeholder : null);
+        }
+    }
+
+    private void Shown(int page)
+    {
+        if (_shown.Count > 0 && _shown[^1] == page)
+        {
+            return;
+        }
+
+        _shown.Remove(page);
+        _shown.Add(page);
+        if (_shown.Count > RefreshPages)
+        {
+            _shown.RemoveAt(0);
         }
     }
 

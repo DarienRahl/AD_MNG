@@ -52,8 +52,9 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
 
 - Only container listings (one level) switch; search results, views and Find results keep streaming.
 - Detection without an extra request for normal containers: the load streams as before; when the streamed rows
-  reach `VirtualThreshold` (5000) and the DC announces the VLV and sort controls, the list asks the DC for the first
-  VLV window. If the DC serves it, the stream is cancelled, the streamed rows are dropped and the list switches to the
+  reach `VirtualThreshold` (5000) and the DC announces the VLV control, the list asks the DC for the first VLV window
+  (the stream is paused meanwhile). `msDS-Approx-Immed-Subordinates` is deliberately not read: it would cost one more
+  request on every navigation, and the streamed first pages are shown anyway. If the DC serves it, the stream is cancelled, the streamed rows are dropped and the list switches to the
   virtual mode; the location is remembered as large, so F5, sorting, chips and live updates of the same location use
   VLV right away. If the DC refuses (unsupported control, unwilling to perform, sort refused) the stream simply
   continues – today's behaviour. The locked-accounts post filter (it drops rows client side) never uses VLV.
@@ -68,9 +69,12 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   Columns the server cannot sort on (Type, Location) are ignored in the virtual mode. A sort the DC refuses falls back
   to the streaming load (which itself falls back to unsorted + local sort).
 - Type-to-find: in the virtual mode the view sends typed characters (1 s window) to `FindByPrefixAsync`, which seeks
-  with the VLV assertion value (the sort column, like a phone book), and selects the first row whose sort value
-  starts with the text. In descending order the matching block lies before the seek target; the pages before it are
-  searched for the block start (bounded).
+  with the VLV assertion value (the sort column, like a phone book) and selects the first row whose sort value
+  starts with the text (`VirtualRowList.FindPrefixAsync`). The rows just before the seek target are checked too
+  (bounded walk back): in descending order the matching block lies before the target ("mark" sorts above "m"), and
+  Samba compares a value that continues with a non-ASCII letter as smaller than the text ("Kontakt 2222 Żółw" <
+  "Kontakt 2222"), so its seek lands one block late (verified in the lab). WPF's own text search stays on for loaded
+  lists (now by `Name`) and is switched off in the virtual mode (it would walk every item).
 - Locate / select after load (new object, "show in container"): the object's sort value (its RDN for `name`) is
   sought, the page is scanned for the DN.
 - Live updates and the application's own changes in a virtual list re-read the most recently shown pages and the
@@ -103,10 +107,12 @@ check), disposal, language switch (rows reformatted, placeholders relocalized), 
 
 ### Tests
 
-Presentation (InMemoryDirectorySession with VLV, seek, refusal and request log): switch at the threshold, no
+Presentation (InMemoryDirectorySession with VLV, seek - optionally with Samba's comparison -, refusal, holds and a
+request log): switch at the threshold, no
 switch below it or for views, fallback when VLV/sort is refused, pages on demand, bounded cache and pending queue,
 placeholders and Replace notifications, server sort on header click, type-to-find (ascending and descending), locate,
 live update (count change → Reset, selection by DN), quick filter on the server, status text. UI tests: the tree
 badge and the virtual list binding without binding errors. Lab (`AdMng.Directory.IntegrationTests`): an OU with
-3000 contacts created by the test (removed with `LabCleanup`), VLV windows across the whole list, descending order,
-seek in both directions, and `VirtualRowList` over the real session.
+3000 contacts created once per run in the run OU (removed with it by `LabCleanup`), VLV windows across the whole
+list, descending order, seek in both directions, and `VirtualRowList` (pages, seek, type-to-find in both directions,
+refresh after a new object) over the real session - the integration test project references Presentation for that.
