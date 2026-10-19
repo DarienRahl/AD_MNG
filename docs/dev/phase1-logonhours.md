@@ -63,8 +63,8 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
 - `Dialogs/LogonHoursViewModel` – the dialog (no session, pure editing): rows = days in the UI culture's week order
   (Polish: Monday first, as the Polish ADUC; English: Sunday first), 24 hour columns, cells with `IsPermitted`,
   `IsSelected`, `IsFocused` and a localized automation name ("Poniedziałek 08:00–09:00, logowanie dozwolone").
-  Rectangular selection (anchor + focus) set by click/drag (`BeginSelection`/`ExtendSelection`), row header (whole
-  day), column header (one hour on every day), corner (everything); Shift extends from the anchor. Keyboard:
+  Rectangular selection (anchor + focus) set by click/drag (`BeginSelection`/`ExtendSelection`, Shift+click extends
+  from the anchor), row header (whole day), column header (one hour on every day), corner (everything). Keyboard:
   arrows move the focused cell, Shift+arrows extend, Home/End jump to the first/last hour, Space flips the selection to
   the opposite of the focused cell, Ctrl+A selects all. `Permit`/`Deny` commands and the radio state
   `IsSelectionPermitted`/`IsSelectionDenied` (both false for a mixed selection), selection text
@@ -81,16 +81,18 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
   "Godziny logowania…" button opening the same dialog; builds `SetLogonHoursOperation`. The preview shows the
   before/after schedules as summaries instead of hex.
 - `LogonHoursText` – summary in local time with localized short day names, days with identical hours grouped
-  ("pon–pt 8–16", "Wszystkie godziny", "Żadne godziny"), selection text.
+  ("pon–pt 8–16", "Wszystkie godziny", "Żadne godziny"), week order, hour and offset labels.
 - Localization: `Labels.LogonHours*`, `LogonHours.*`, `Operation.LogonHours`, `OperationHint.LogonHours` (en + pl).
 
 ## 5. App (`src/AdMng.App`)
 
 - `Views/LogonHoursWindow.xaml(.cs)` – modal, `IDialogResultWindow`. Grid of 7 × 24 cells (ItemsControl of rows,
-  `UniformGrid` of cells), row and column header buttons, corner "Wszystkie" button, legend (permitted = accent fill,
-  denied = empty cell with border), radio buttons *Logowanie dozwolone* / *Logowanie zabronione*, selection text (live
-  region), time-zone note, OK/Cancel. Mouse: press on a cell starts a selection, moving with the button pressed extends
-  it (mouse capture on the grid), Shift+click extends. Keyboard on the focusable grid as in 4. Every automation name is
+  `UniformGrid` of cells), row and column header buttons (bound through a `BindingProxy`, not tab stops - the keyboard
+  works on the grid), corner "Wszystkie" button, radio buttons *Logowanie dozwolone* / *Logowanie zabronione* with the
+  legend swatches (permitted = accent fill, denied = plain cell), selection text (a live region announced after every
+  change), summary, "no hours" warning, time-zone note, keyboard hint, OK/Cancel. Mouse: press on a cell starts a
+  selection, moving with the button pressed extends it (mouse capture on the grid; the cell is computed from the
+  position, clamped to the grid), Shift+click extends. Keyboard on the focusable grid as in 4. Every automation name is
   null-safe.
 - `AppHost`: `AddWindow<LogonHoursViewModel, LogonHoursWindow>()`; `DialogService.ShowLogonHoursAsync`; `SmokeTest`
   renders the dialog; templates for the field (`PropertiesWindow.xaml`) and the batch editor (`BatchEditorWindow.xaml`).
