@@ -15,7 +15,10 @@ namespace AdMng.Presentation.Watchdog;
 /// The event feed: newest first, filtered on the service (<see cref="WatchdogEventFilterViewModel"/>), older pages on
 /// demand (<c>before</c>), new events from the poller prepended (a "N nowych" badge while the operator is scrolled away),
 /// details of the selected event, bulk acknowledge with a comment and the CSV export – the only way watchdog data reaches
-/// the operator's disk, started by the operator, formula-injection safe.
+/// the operator's disk, started by the operator, formula-injection safe. Only a full load replaces <see cref="Items"/>
+/// (one Reset); live pages, late matches, rows leaving the filter and older pages change it row by row (Add / Remove, in
+/// id order, applied in one pass), so the list keeps its scroll position and selection – a Reset re-creates a WPF list's
+/// rows and scrolls it back to the top.
 /// </summary>
 public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposable
 {
@@ -89,6 +92,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
 
     public WatchdogEventDetailsViewModel Details { get; }
 
+    /// <summary>The rows, newest first (descending ids).</summary>
     public BulkObservableCollection<WatchdogEventRowViewModel> Items { get; } = [];
 
     [ObservableProperty]
@@ -278,7 +282,13 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             var before = Items.Min(r => r.Id);
             var page = await _services.Client.GetEventsAsync(_liveQuery with { Before = before, Limit = PageSize }, token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
-            Items.AddRange(page.Items.Where(e => e.Id < before).Select(CreateRow));
+
+            // Row by row below the loaded ones: the list stays where the operator scrolled to.
+            foreach (var watchEvent in page.Items.Where(e => e.Id < before).OrderByDescending(e => e.Id))
+            {
+                Items.Add(CreateRow(watchEvent));
+            }
+
             HasMore = page.HasMore;
             Error = null;
         }
@@ -475,13 +485,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     }
 
     /// <summary>
-    /// New events from the poller (ascending ids, filtered by the service): prepended newest first with one collection
-    /// notification per page (merged in id order when the late-match merge already inserted newer rows); the feed then
-    /// keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded with "Wczytaj starsze"), the oldest are
-    /// dropped and stay reachable through <see cref="LoadOlderCommand"/> (not while an older page loads: that page
-    /// continues below the oldest row). Pages are dropped only while a full reload
-    /// runs (the poller has no cursor then; the reload reads them itself) – never while an older page loads, because the
-    /// poller's cursor has already moved past them.
+    /// New events from the poller (ascending ids, filtered by the service): inserted newest first at their place in id order
+    /// – on top, or between rows when the late-match merge already inserted newer ones – row by row (<see cref="MergeRows"/>);
+    /// the feed then keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded with "Wczytaj starsze"), the
+    /// oldest are dropped and stay reachable through <see cref="LoadOlderCommand"/> (not while an older page loads: that page
+    /// continues below the oldest row). Pages are dropped only while a full reload runs (the poller has no cursor then; the
+    /// reload reads them itself) – never while an older page loads, because the poller's cursor has already moved past them.
     /// </summary>
     private void OnEventsReceived(object? sender, EventPage page)
     {
@@ -507,28 +516,19 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
 
         // While "Wczytaj starsze" runs (IsLoading with a cursor) nothing is trimmed: its page continues below the oldest
-        // row, so trimming that row now would leave a gap no later page fills. The next page after it trims instead.
-        var limit = Math.Max(MaxLiveItems, Items.Count);
-        if (Items.Count == 0 || rows[^1].Id > Items[0].Id)
-        {
-            Items.InsertRange(0, rows);
-        }
-        else
-        {
-            // The late-match merge reads newest first, not bounded by the cursor: while the poll catches up on a backlog
-            // (a tab shown again, a bulk operation) the merge may already have inserted newer events of the filter. The
-            // page goes to its place in id order (one notification; the selection keeps the same row objects).
-            Items.ReplaceAll(MergeDescending(Items, rows));
-        }
-
-        if (!IsLoading && Items.TrimTo(limit) > 0)
+        // row, so trimming that row now would leave a gap no later page fills. The next page after it trims instead. The
+        // late-match merge reads newest first, not bounded by the cursor: while the poll catches up on a backlog (a tab
+        // shown again, a bulk operation) the merge may already have inserted newer events of the filter, so a page goes to
+        // its place in id order, not simply on top.
+        var (inserted, dropped) = MergeRows(rows, IsLoading ? int.MaxValue : Math.Max(MaxLiveItems, Items.Count));
+        if (dropped > 0)
         {
             HasMore = true;
         }
 
         if (IsScrolledAway)
         {
-            NewCount += rows.Count;
+            NewCount += inserted;
         }
 
         UpdateStatus();
@@ -611,7 +611,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// read: a tab hidden for hours, rounds that failed and a service restart – see <see cref="AdvanceObservedAt"/> – do not
     /// shorten what is read again) – page by page, newest first, down to the oldest loaded row (the whole window while
     /// everything of the filter is loaded) – and merges each page: events that match only since are inserted at
-    /// their place in id order (one collection notification per page; the live cap applies, trimmed rows stay reachable
+    /// their place in id order (row by row, <see cref="MergeRows"/>; the live cap applies, trimmed rows stay reachable
     /// with "Wczytaj starsze"), rows whose event changed show the new version (row and details pane). Once the whole range
     /// was read, rows of the window the service no longer returns are removed; a selected one is only marked
     /// (<see cref="WatchdogEventRowViewModel.NoLongerMatches"/>) and removed in the first round after it was deselected.
@@ -697,7 +697,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>The oldest loaded row's id while older events of the filter exist, else null (everything is loaded).</summary>
     private long? Floor() => HasMore && Items.Count > 0 ? Items[^1].Id : null;
 
-    /// <summary>One page of the late-match read: existing rows updated, missing ones inserted in id order, cap applied.</summary>
+    /// <summary>One page of the late-match read: existing rows updated, missing ones inserted in id order (row by row), cap applied.</summary>
     private void MergePage(IReadOnlyList<WatchEvent> events, bool unacknowledgedOnly, HashSet<long> seen, int limit)
     {
         if (events.Count == 0)
@@ -729,26 +729,15 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
 
         late.Sort((a, b) => b.Id.CompareTo(a.Id));
-        if (late.Count == 1)
-        {
-            Items.Insert(IndexFor(late[0].Id), late[0]);
-        }
-        else
-        {
-            // One Reset notification for the whole page (its rows may fill several gaps); the selection is kept (same row
-            // objects).
-            Items.ReplaceAll(MergeDescending(Items, late));
-        }
-
-        if (Items.TrimTo(limit) > 0)
+        var (inserted, dropped) = MergeRows(late, limit);
+        if (dropped > 0)
         {
             HasMore = true;
         }
 
         if (IsScrolledAway)
         {
-            var oldest = Items.Count == 0 ? long.MaxValue : Items[^1].Id;
-            NewCount += late.Count(r => r.Id >= oldest);
+            NewCount += inserted;
         }
 
         UpdateStatus();
@@ -758,7 +747,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
 
     /// <summary>
     /// After a complete read: the candidates the read did not return no longer match. Unselected rows are removed (one
-    /// notification), selected ones are marked so that the operator keeps what they are looking at. Returns the marked rows.
+    /// notification per row), selected ones are marked so that the operator keeps what they are looking at. Returns the
+    /// marked rows.
     /// </summary>
     private List<WatchdogEventRowViewModel> RemoveNoLongerMatching(HashSet<long> candidates, HashSet<long> seen)
     {
@@ -788,7 +778,14 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return marked;
         }
 
-        Items.RemoveWhere(removed.Contains);
+        for (var i = Items.Count - 1; i >= 0; i--)
+        {
+            if (removed.Contains(Items[i]))
+            {
+                Items.RemoveAt(i);
+            }
+        }
+
         NewCount = Math.Max(0, NewCount - removed.Count(r => r.IsNew));
         UpdateStatus();
         ExportCsvCommand.NotifyCanExecuteChanged();
@@ -868,37 +865,42 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             || a.Evidence?.Count != b.Evidence?.Count;
     }
 
-    /// <summary>Index of the first row older than <paramref name="id"/> (rows are in descending id order).</summary>
-    private int IndexFor(long id)
+    /// <summary>
+    /// Inserts <paramref name="rows"/> (descending ids, none of them in the feed) at their place in id order and then keeps
+    /// the first <paramref name="limit"/> rows – in one pass, one Add or Remove notification per row (WPF lists take no
+    /// multi-row notifications, and a Reset would scroll the list back to the top and lose the selected row's place). A row
+    /// whose place is beyond the limit is not inserted at all. Returns how many rows were inserted and how many were left
+    /// out or removed because of the limit (they stay reachable with "Wczytaj starsze").
+    /// </summary>
+    private (int Inserted, int Dropped) MergeRows(IReadOnlyList<WatchdogEventRowViewModel> rows, int limit)
     {
-        int low = 0, high = Items.Count;
-        while (low < high)
+        var inserted = 0;
+        var index = 0;
+        foreach (var row in rows)
         {
-            var middle = low + ((high - low) / 2);
-            if (Items[middle].Id > id)
+            while (index < Items.Count && Items[index].Id > row.Id)
             {
-                low = middle + 1;
+                index++;
             }
-            else
+
+            // Every row above this place is final (later rows are older and go below it).
+            if (index >= limit)
             {
-                high = middle;
+                break;
             }
+
+            Items.Insert(index++, row);
+            inserted++;
         }
 
-        return low;
-    }
-
-    /// <summary>Both lists in descending id order (no common ids) merged into one.</summary>
-    private static List<WatchdogEventRowViewModel> MergeDescending(IReadOnlyList<WatchdogEventRowViewModel> rows, List<WatchdogEventRowViewModel> late)
-    {
-        var merged = new List<WatchdogEventRowViewModel>(rows.Count + late.Count);
-        int i = 0, j = 0;
-        while (i < rows.Count || j < late.Count)
+        var dropped = rows.Count - inserted;
+        for (var i = Items.Count - 1; i >= limit; i--)
         {
-            merged.Add(j >= late.Count || (i < rows.Count && rows[i].Id > late[j].Id) ? rows[i++] : late[j++]);
+            Items.RemoveAt(i);
+            dropped++;
         }
 
-        return merged;
+        return (inserted, dropped);
     }
 
     /// <summary>The service stores detection times in whole milliseconds: the window starts on one, like its query.</summary>

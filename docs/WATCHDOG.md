@@ -834,7 +834,11 @@ filtry.
   filtru (np. obniżony priorytet albo inny wykonawca), znika z listy; zaznaczony wiersz zostaje przyciemniony z
   podpowiedzią „Nie pasuje już do filtru” i znika po odznaczeniu. Zdarzenie potwierdzone w innej konsoli pozostaje na
   liście jako potwierdzone (jak potwierdzone przez operatora). Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
-  jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”.
+  jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”. Nowe i późno
+  dopasowane zdarzenia ani „Wczytaj starsze” nie przewijają listy: gdy operator czyta starsze zdarzenia (lista
+  przewinięta w dół), czytane wiersze i zaznaczenie zostają na miejscu, a o nowych informuje przycisk „N nowych”.
+  Po odświeżeniu (F5) albo zmianie filtru przewinięta lista pokazuje to samo zdarzenie, jeśli nadal pasuje (inaczej
+  zaznaczone, a bez zaznaczenia – najnowsze).
 
 | Podzakładka | Zawartość |
 |---|---|

@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts.Api;
@@ -36,17 +37,70 @@ public sealed class WatchdogLateMatchTests
                 h.Client.UpdateEvent(watchEvent.Id, e => e with { Attribution = resolved });
             }
 
-            var notifications = 0;
-            feed.Items.CollectionChanged += (_, _) => notifications++;
+            var changes = WatchdogEventsTests.Record(feed);
             await NextStatusRoundAsync(h, feed);
 
             Assert.Equal([.. added.Select(e => e.Id).OrderDescending(), .. shown], feed.Items.Select(r => r.Id));
             Assert.All(feed.Items.Take(added.Count), r => Assert.Equal(@"CONTOSO\jan.kowalski", r.ActorText));
-            Assert.True(notifications <= 4, $"{notifications} collection notifications for 3 pages");
+
+            // One Add per late row, none for the rows shown before (no Reset: the list keeps its place).
+            Assert.Equal(added.Count, changes.Count);
+            Assert.All(changes, c => Assert.Equal(NotifyCollectionChangedAction.Add, c.Action));
 
             // The next round finds nothing new: no duplicates, nothing moves.
             await NextStatusRoundAsync(h, feed);
             Assert.Equal([.. added.Select(e => e.Id).OrderDescending(), .. shown], feed.Items.Select(r => r.Id));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LateMatches_BetweenShownRows_AreInsertedRowByRow_TheOperatorsRowsAndSelectionStay()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var (feed, resolved) = await OpenFilteredByActorAsync(h);
+
+            // Events of Jan Kowalski (shown at once) between events whose actor is still being determined.
+            var late = new List<WatchEvent>();
+            var current = new List<WatchEvent>();
+            for (var i = 0; i < 4; i++)
+            {
+                late.Add(h.Client.AddEvent(SampleEvents.NewUser($"Późna Żaneta {i}", h.Time.GetUtcNow())));
+                current.Add(h.Client.AddEvent(SampleEvents.NewUser($"Bieżący Łukasz {i}", h.Time.GetUtcNow()) with { Attribution = resolved }));
+            }
+
+            await WaitForCursorAsync(h, current[^1].Id);
+            await WatchdogTestWait.UntilAsync(h, () => current.All(e => feed.Items.Any(r => r.Id == e.Id)), "the matching events");
+            var before = feed.Items.ToList();
+            var selected = feed.Items.Single(r => r.Id == current[1].Id);
+            feed.SelectedItem = selected;
+            feed.SelectedItems = new List<object> { selected };
+
+            // One status round finds all four, each between two shown rows.
+            foreach (var watchEvent in late)
+            {
+                h.Client.UpdateEvent(watchEvent.Id, e => e with { Attribution = resolved });
+            }
+
+            var changes = WatchdogEventsTests.Record(feed);
+            await NextStatusRoundAsync(h, feed);
+
+            var ids = feed.Items.Select(r => r.Id).ToList();
+            Assert.Equal(ids.OrderDescending(), ids);
+            Assert.Subset(ids.ToHashSet(), late.Select(e => e.Id).ToHashSet());
+
+            // Inserted one by one at their place (no Reset, no Move); the rows shown before are the same objects.
+            Assert.Equal(late.Count, changes.Count);
+            Assert.All(changes, c =>
+            {
+                Assert.Equal(NotifyCollectionChangedAction.Add, c.Action);
+                Assert.Same(feed.Items[c.NewStartingIndex], Assert.Single(c.NewItems!.Cast<object>()));
+            });
+            Assert.Equal(before, feed.Items.Where(r => before.Contains(r)));
+            Assert.Same(selected, feed.SelectedItem);
+            Assert.Equal([selected], feed.Selection);
         });
         h.AssertNoUiErrors();
     }
@@ -171,9 +225,13 @@ public sealed class WatchdogLateMatchTests
             // The final attribution re-resolves the severities (e.g. a self-service password change, a reset by an admin).
             h.Client.UpdateEvent(lowered.Id, e => e with { Severity = Severity.Medium });
             h.Client.UpdateEvent(raised.Id, e => e with { Severity = Severity.Critical, Tags = [EventTags.PasswordReset] });
+            var changes = WatchdogEventsTests.Record(feed);
             await NextStatusRoundAsync(h, feed);
 
             Assert.Equal(before.Where(id => id != lowered.Id), feed.Items.Select(r => r.Id));
+            var change = Assert.Single(changes);
+            Assert.Equal(NotifyCollectionChangedAction.Remove, change.Action);
+            Assert.Equal(before.IndexOf(lowered.Id), change.OldStartingIndex);
             Assert.Same(raisedRow, feed.Items.Single(r => r.Id == raised.Id));
             Assert.Equal(Severity.Critical, raisedRow.Severity);
             Assert.Equal(h.Ad.Localizer[WatchdogDisplay.SeverityKey(Severity.Critical)], raisedRow.SeverityText);
@@ -506,6 +564,7 @@ public sealed class WatchdogLateMatchTests
             // first) runs next to the long-poll catching up from its old cursor (oldest first). The merge's second page
             // waits until the poll is done, so the poll's pages arrive between the merge's.
             h.Client.HoldEvents(q => IsLateMatchQuery(q) && q.Before is not null);
+            var changes = WatchdogEventsTests.Record(feed);
             h.Time.Advance(TimeSpan.FromSeconds(45));
             tab.IsVisible = true;
             await WaitForCursorAsync(h, added[^1].Id);
@@ -524,6 +583,10 @@ public sealed class WatchdogLateMatchTests
             Assert.Equal(ids.OrderDescending(), ids);
             Assert.Equal(ids.Count, ids.Distinct().Count());
             Assert.Subset(ids.ToHashSet(), added.Select(e => e.Id).ToHashSet());
+
+            // Poll pages that land between the merge's rows and the merge's pages: row by row, never a Reset.
+            Assert.DoesNotContain(changes, c => c.Action is not (NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Remove));
+            Assert.Equal(added.Count, changes.Count(c => c.Action == NotifyCollectionChangedAction.Add));
         });
         h.AssertNoUiErrors();
     }

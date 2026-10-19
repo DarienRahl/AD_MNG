@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Specialized;
 using System.Text;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -85,8 +86,16 @@ public sealed class WatchdogEventsTests
             Assert.True(feed.HasMore);
             Assert.True(feed.LoadOlderCommand.CanExecute(null));
 
+            var selected = feed.Items[42];
+            feed.SelectedItem = selected;
+            var changes = Record(feed);
             await feed.LoadOlderCommand.ExecuteAsync(null);
 
+            // Appended row by row below the loaded ones (a Reset would scroll the list back to the top).
+            Assert.Equal(50, changes.Count);
+            Assert.All(changes, c => Assert.Equal(NotifyCollectionChangedAction.Add, c.Action));
+            Assert.Equal(Enumerable.Range(100, 50), changes.Select(c => c.NewStartingIndex));
+            Assert.Same(selected, feed.SelectedItem);
             Assert.Equal(150, feed.Items.Count);
             Assert.Equal(1, feed.Items[^1].Id);
             Assert.False(feed.HasMore);
@@ -115,14 +124,17 @@ public sealed class WatchdogEventsTests
             Assert.Equal(0, feed.NewCount);
             Assert.False(feed.HasNewEvents);
 
-            // Scrolled away from the top: new events are marked and counted ("2 new").
+            // Scrolled away from the top: new events are marked and counted ("2 new"), each inserted on its own (the list
+            // keeps the operator's place; a Reset would scroll it back to the top).
             feed.IsScrolledAway = true;
+            var changes = Record(feed);
             h.Client.AddEvent(SampleEvents.NewUser("Dorota Kruk", h.Time.GetUtcNow()));
             await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count == 32, "the second event");
             h.Client.AddEvent(SampleEvents.NewUser("Edward Sowa", h.Time.GetUtcNow()));
             await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count == 33, "the third event");
 
             Assert.Equal(2, feed.NewCount);
+            Assert.Equal([NotifyCollectionChangedAction.Add, NotifyCollectionChangedAction.Add], changes.Select(c => c.Action));
             Assert.True(feed.HasNewEvents);
             Assert.Equal(h.Ad.Localizer.Format(L.Watchdog.EventsNew, 2), feed.NewEventsText);
             Assert.True(feed.Items[0].IsNew);
@@ -435,7 +447,7 @@ public sealed class WatchdogEventsTests
     }
 
     [Fact]
-    public async Task LiveFeed_IsCapped_AndEachPageIsInsertedAtOnce()
+    public async Task LiveFeed_IsCapped_PagesAreInsertedRowByRow_NeverReset()
     {
         using var h = await WatchdogHarness.CreateAsync();
         await h.Ui.RunAsync(async () =>
@@ -453,14 +465,20 @@ public sealed class WatchdogEventsTests
                 last = h.Client.AddEvent(SampleEvents.NewUser($"Konto {i:D4}", SampleEvents.Now.AddSeconds(i)));
             }
 
-            var notifications = 0;
-            feed.Items.CollectionChanged += (_, _) => notifications++;
+            var before = feed.Items.Count;
+            var changes = Record(feed);
             tab.IsVisible = true;
             await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count > 0 && feed.Items[0].Id == last.Id, "the catch-up");
 
             Assert.Equal(WatchdogEventsViewModel.MaxLiveItems, feed.Items.Count);
             Assert.True(feed.HasMore);
-            Assert.True(notifications <= 10, $"{notifications} collection notifications for 5 pages");
+
+            // One notification per row that came or went (the oldest leave from the end), never a Reset.
+            var added = changes.Count(c => c.Action == NotifyCollectionChangedAction.Add);
+            var removed = changes.Count(c => c.Action == NotifyCollectionChangedAction.Remove);
+            Assert.Equal(changes.Count, added + removed);
+            Assert.Equal(2100, added);
+            Assert.Equal(before + added - removed, feed.Items.Count);
             Assert.Equal(feed.Items.Select(r => r.Id).OrderDescending(), feed.Items.Select(r => r.Id));
 
             // The trimmed (oldest) events are still reachable with "Wczytaj starsze".
@@ -513,6 +531,14 @@ public sealed class WatchdogEventsTests
             Assert.True(feed.HasMore);
         });
         h.AssertNoUiErrors();
+    }
+
+    /// <summary>Records the collection notifications of the feed from now on.</summary>
+    internal static List<NotifyCollectionChangedEventArgs> Record(WatchdogEventsViewModel feed)
+    {
+        var changes = new List<NotifyCollectionChangedEventArgs>();
+        feed.Items.CollectionChanged += (_, e) => changes.Add(e);
+        return changes;
     }
 
     [Fact]

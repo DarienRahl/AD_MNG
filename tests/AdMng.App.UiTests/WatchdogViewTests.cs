@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
@@ -19,6 +20,7 @@ using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace AdMng.App.UiTests;
 
@@ -358,6 +360,82 @@ public sealed class WatchdogViewTests
         var rules = view.RulesView.RulesList;
         AssertColumnsFit(rules);
         Assert.Equal(4, ((GridView)rules.View).Columns.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// An operator reading older events keeps their place while a status round merges late matches above and below the
+    /// rows in view: the same row stays first in view, the selected row stays selected and in view, and the list gets one
+    /// Add per late match – no Reset, which would scroll it back to the top.
+    /// </summary>
+    [Fact]
+    public Task LateMatchMerge_KeepsTheScrollPositionAndTheSelection() => WpfTestHost.RunAsync(async () =>
+    {
+        // Fifty accounts created in the last hour: forty High, ten stored as Low that the service raises to High later.
+        var time = new FakeTimeProvider(SampleEvents.Now);
+        var client = WatchdogUiSupport.CreateClient(time: time);
+        var raised = new List<WatchEvent>();
+        for (var i = 0; i < 50; i++)
+        {
+            var severity = i % 5 == 2 ? Severity.Low : Severity.High;
+            var added = client.AddEvent(SampleEvents.NewUser($"Konto {i:D2} Źdźbło", SampleEvents.Now.AddMinutes(-60 + i), severity));
+            if (severity == Severity.Low)
+            {
+                raised.Add(added);
+            }
+        }
+
+        await using var context = await UiTestContext.CreateAsync("pl", services =>
+        {
+            WatchdogUiSupport.Use(client)(services);
+            WatchdogUiSupport.UseClock(time)(services);
+        });
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        var feed = tab.Events;
+        feed.Filter.MinSeverity = feed.Filter.Severities.Single(s => s.Value == Severity.High);
+        await feed.Loading;
+        await UiWait.UntilAsync(() => client.EventQueries.LastOrDefault(q => q.After is not null) is { MinSeverity: Severity.High }, "the filtered long-poll");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.DoesNotContain(feed.Items, r => raised.Any(e => e.Id == r.Id));
+
+        // Scrolled down to older events, one of them selected.
+        var list = view.EventsView.EventsList;
+        var scroller = UiWait.Descendants<ScrollViewer>(list).First();
+        scroller.ScrollToVerticalOffset(15);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var offset = scroller.VerticalOffset;
+        Assert.True(offset >= 15, $"The feed scrolled to {offset} only.");
+        var first = feed.Items[(int)Math.Floor(offset)];
+        var selected = feed.Items[(int)Math.Floor(offset) + 3];
+        list.SelectedItem = selected;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.Same(first, view.EventsView.AnchorRow);
+
+        // The service raises the ten; the next status round (30 s later) merges them at their place.
+        foreach (var watchEvent in raised)
+        {
+            client.UpdateEvent(watchEvent.Id, e => e with { Severity = Severity.High });
+        }
+
+        var changes = new List<NotifyCollectionChangedAction>();
+        feed.Items.CollectionChanged += (_, e) => changes.Add(e.Action);
+        time.Advance(WatchdogPoller.VisibleStatusInterval);
+        await UiWait.UntilAsync(() => raised.All(e => feed.Items.Any(r => r.Id == e.Id)), "the late matches");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(Enumerable.Repeat(NotifyCollectionChangedAction.Add, raised.Count), changes);
+        var above = raised.Count(e => e.Id > first.Id);
+        Assert.InRange(above, 1, raised.Count - 1);
+        Assert.Equal(offset + above, scroller.VerticalOffset, 3);
+        Assert.Same(first, feed.Items[(int)Math.Floor(scroller.VerticalOffset)]);
+        Assert.Same(selected, list.SelectedItem);
+        var row = Assert.IsType<ListViewItem>(list.ItemContainerGenerator.ContainerFromItem(selected));
+        Assert.True(row.IsSelected && row.IsVisible);
         context.AssertHealthy();
     });
 
