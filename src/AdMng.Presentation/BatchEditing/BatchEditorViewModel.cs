@@ -785,7 +785,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         var session = Session;
-        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
+        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
         _plan = plan;
         _planSource = source;
         _previewObjects.Clear();
@@ -808,7 +808,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private void ShowResults(BatchResult result)
     {
         var session = Session;
-        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
+        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
         Result = result;
         _resultHasGeneratedPasswords = GeneratesPasswords;
         _passwordsExported = false;

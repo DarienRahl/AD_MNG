@@ -122,6 +122,7 @@ public static class AppHost
         services.AddWindow<MessageDialogViewModel, MessageDialogWindow>();
         services.AddWindow<SavedViewEditorViewModel, SavedViewEditorWindow>();
         services.AddWindow<ColumnChooserViewModel, ColumnChooserWindow>();
+        services.AddWindow<LogonHoursViewModel, LogonHoursWindow>();
 
         // ---- C2a: object dialogs (view models from IDialogViewModelFactory, opened by DialogService) ----
         services.AddWindow<PropertySheetViewModel, PropertiesWindow>();

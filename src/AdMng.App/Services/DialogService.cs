@@ -76,6 +76,12 @@ public sealed class DialogService : IDialogService
         return OnUiThreadAsync(() => ShowModal(chooser) && chooser.Result.Count > 0);
     }
 
+    public Task<bool> ShowLogonHoursAsync(LogonHoursViewModel editor)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        return OnUiThreadAsync(() => ShowModal(editor));
+    }
+
     public Task ShowConnectAsync() => OnUiThreadAsync(() =>
     {
         _navigator.ShowConnect();

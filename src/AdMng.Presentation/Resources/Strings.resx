@@ -2911,6 +2911,12 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Labels.LogOnTo" xml:space="preserve">
     <value>Log On To</value>
   </data>
+  <data name="Labels.LogonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
+  <data name="Labels.LogonHoursButton" xml:space="preserve">
+    <value>Logon Hours…</value>
+  </data>
   <data name="Labels.MustChangePassword" xml:space="preserve">
     <value>User must change password at next logon</value>
   </data>
@@ -2964,6 +2970,111 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="Labels.Value" xml:space="preserve">
     <value>Value</value>
+  </data>
+  <data name="LogonHours.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="LogonHours.Always" xml:space="preserve">
+    <value>All hours</value>
+  </data>
+  <data name="LogonHours.Cell" xml:space="preserve">
+    <value>{0} {1}–{2}: {3}</value>
+  </data>
+  <data name="LogonHours.Day.Friday" xml:space="preserve">
+    <value>Friday</value>
+  </data>
+  <data name="LogonHours.Day.Monday" xml:space="preserve">
+    <value>Monday</value>
+  </data>
+  <data name="LogonHours.Day.Saturday" xml:space="preserve">
+    <value>Saturday</value>
+  </data>
+  <data name="LogonHours.Day.Sunday" xml:space="preserve">
+    <value>Sunday</value>
+  </data>
+  <data name="LogonHours.Day.Thursday" xml:space="preserve">
+    <value>Thursday</value>
+  </data>
+  <data name="LogonHours.Day.Tuesday" xml:space="preserve">
+    <value>Tuesday</value>
+  </data>
+  <data name="LogonHours.Day.Wednesday" xml:space="preserve">
+    <value>Wednesday</value>
+  </data>
+  <data name="LogonHours.DayRange" xml:space="preserve">
+    <value>{0} through {1}</value>
+  </data>
+  <data name="LogonHours.DayShort.Friday" xml:space="preserve">
+    <value>Fri</value>
+  </data>
+  <data name="LogonHours.DayShort.Monday" xml:space="preserve">
+    <value>Mon</value>
+  </data>
+  <data name="LogonHours.DayShort.Saturday" xml:space="preserve">
+    <value>Sat</value>
+  </data>
+  <data name="LogonHours.DayShort.Sunday" xml:space="preserve">
+    <value>Sun</value>
+  </data>
+  <data name="LogonHours.DayShort.Thursday" xml:space="preserve">
+    <value>Thu</value>
+  </data>
+  <data name="LogonHours.DayShort.Tuesday" xml:space="preserve">
+    <value>Tue</value>
+  </data>
+  <data name="LogonHours.DayShort.Wednesday" xml:space="preserve">
+    <value>Wed</value>
+  </data>
+  <data name="LogonHours.Denied" xml:space="preserve">
+    <value>Logon Denied</value>
+  </data>
+  <data name="LogonHours.Grid" xml:space="preserve">
+    <value>Logon hours of the week</value>
+  </data>
+  <data name="LogonHours.Invalid" xml:space="preserve">
+    <value>Invalid value ({0} bytes)</value>
+  </data>
+  <data name="LogonHours.KeyboardHint" xml:space="preserve">
+    <value>Drag over the grid or click a day or an hour to select. Arrow keys move, Shift extends the selection, Space switches it.</value>
+  </data>
+  <data name="LogonHours.Never" xml:space="preserve">
+    <value>No hours (logon denied)</value>
+  </data>
+  <data name="LogonHours.NoneWarning" xml:space="preserve">
+    <value>No hour is permitted: the user will not be able to log on at all.</value>
+  </data>
+  <data name="LogonHours.Permitted" xml:space="preserve">
+    <value>Logon Permitted</value>
+  </data>
+  <data name="LogonHours.SelectAll" xml:space="preserve">
+    <value>Select all hours of the week</value>
+  </data>
+  <data name="LogonHours.SelectDay" xml:space="preserve">
+    <value>Select all hours of {0}</value>
+  </data>
+  <data name="LogonHours.SelectHour" xml:space="preserve">
+    <value>Select {0}–{1} on every day</value>
+  </data>
+  <data name="LogonHours.Selection" xml:space="preserve">
+    <value>Selected: {0}, {1}–{2} ({3})</value>
+  </data>
+  <data name="LogonHours.StateDenied" xml:space="preserve">
+    <value>logon denied</value>
+  </data>
+  <data name="LogonHours.StateMixed" xml:space="preserve">
+    <value>partly permitted</value>
+  </data>
+  <data name="LogonHours.StatePermitted" xml:space="preserve">
+    <value>logon permitted</value>
+  </data>
+  <data name="LogonHours.TimeZoneNote" xml:space="preserve">
+    <value>Hours in this computer's local time (UTC{0}). The domain controller applies them in UTC, so after a change between summer and winter time they move by one hour.</value>
+  </data>
+  <data name="LogonHours.WindowTitle" xml:space="preserve">
+    <value>Logon Hours for {0}</value>
+  </data>
+  <data name="LogonHours.WindowTitleBatch" xml:space="preserve">
+    <value>Logon Hours</value>
   </data>
   <data name="Membership.Direct" xml:space="preserve">
     <value>Direct</value>
@@ -3065,6 +3176,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Operation.FindReplace" xml:space="preserve">
     <value>Find and replace</value>
   </data>
+  <data name="Operation.LogonHours" xml:space="preserve">
+    <value>Set logon hours</value>
+  </data>
   <data name="Operation.Move" xml:space="preserve">
     <value>Move to container</value>
   </data>
@@ -3115,6 +3229,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="OperationHint.FindReplace" xml:space="preserve">
     <value>Replaces text in every value (plain text or regular expression).</value>
+  </data>
+  <data name="OperationHint.LogonHours" xml:space="preserve">
+    <value>Sets one weekly logon schedule for user accounts (the Logon Hours dialog).</value>
   </data>
   <data name="OperationHint.Move" xml:space="preserve">
     <value>Moves the objects to another container or organizational unit.</value>

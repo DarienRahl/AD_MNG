@@ -367,6 +367,20 @@
       </Grid>
     </DataTemplate>
 
+    <!-- Logon hours: the schedule's summary (local time) and the Logon Hours dialog. -->
+    <DataTemplate DataType="{x:Type batch:LogonHoursEditorViewModel}">
+      <DockPanel Margin="0,6,0,0">
+        <Button Margin="8,0,0,0"
+                VerticalAlignment="Top"
+                Command="{Binding EditCommand}"
+                Content="{l:Tr Labels.LogonHoursButton}"
+                DockPanel.Dock="Right" />
+        <TextBlock VerticalAlignment="Center"
+                   Text="{Binding Summary, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+    </DataTemplate>
+
     <!-- Password boxes are handed to the view model as IPasswordInput (code-behind); the password is never bound. -->
     <DataTemplate DataType="{x:Type batch:ResetPasswordEditorViewModel}">
       <StackPanel Margin="0,6,0,0">

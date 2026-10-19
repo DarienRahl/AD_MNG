@@ -67,6 +67,9 @@ public interface IDialogService
 
     /// <summary>Shows the column chooser of a list. Returns true when the operator applied the selection.</summary>
     Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser);
+
+    /// <summary>Shows the Logon Hours dialog (modal). Returns true when the operator pressed OK.</summary>
+    Task<bool> ShowLogonHoursAsync(Dialogs.LogonHoursViewModel editor);
 }
 
 /// <summary>What the batch editor should open with.</summary>

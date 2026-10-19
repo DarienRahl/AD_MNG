@@ -162,6 +162,7 @@ internal static class PropertyPageFactory
                 Section(null,
                     Known(Attr.UserPrincipalName, () => new UpnFieldViewModel(context)),
                     Text(Attr.SamAccountName),
+                    Known(Attr.LogonHours, () => new LogonHoursFieldViewModel(context)),
                     unlock),
                 Section(Localizer[L.Labels.AccountOptions],
                     mustChange,

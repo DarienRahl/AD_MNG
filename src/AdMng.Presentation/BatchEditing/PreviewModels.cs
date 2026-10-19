@@ -4,6 +4,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Formatting;
 using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -177,9 +178,10 @@ public sealed class ResultRowViewModel
 
 /// <summary>
 /// Turns plans and results into localized grid rows. Passwords and the values of secret attributes
-/// (<see cref="SecretAttributes"/>, including the schema's confidential attributes) are shown as a mask.
+/// (<see cref="SecretAttributes"/>, including the schema's confidential attributes) are shown as a mask; logonHours
+/// (hex in the plan) as the schedule's summary in the operator's local time (<paramref name="time"/>, UTC without it).
 /// </summary>
-internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator errors, IAttributeFormatter formatter, ISchemaCatalog schema)
+internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator errors, IAttributeFormatter formatter, ISchemaCatalog schema, TimeProvider? time = null)
 {
     public List<PreviewObjectViewModel> Build(ChangePlan plan)
     {
@@ -304,7 +306,19 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
     private string Format(string attribute, IReadOnlyList<string> values) =>
         values.Count == 0 ? string.Empty
         : SecretAttributes.IsSecret(attribute, schema) ? SecretAttributes.Mask
-        : string.Join("; ", values.Select(v => formatter.FormatValue(attribute, v, localizer.Culture)));
+        : string.Join("; ", values.Select(v => FormatValue(attribute, v)));
+
+    private string FormatValue(string attribute, string value)
+    {
+        if (string.Equals(attribute, Attr.LogonHours, StringComparison.OrdinalIgnoreCase) && LogonHours.TryParseHex(value, out var hours))
+        {
+            return time is null
+                ? LogonHoursText.Describe(hours, localizer, 0)
+                : LogonHoursText.Describe(hours, localizer, time.LocalTimeZone, time.GetUtcNow());
+        }
+
+        return formatter.FormatValue(attribute, value, localizer.Culture);
+    }
 
     private static string NameOf(string? dn) =>
         dn is not null && DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot ? parsed.Name : dn ?? string.Empty;

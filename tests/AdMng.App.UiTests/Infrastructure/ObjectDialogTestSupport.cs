@@ -86,6 +86,8 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
 
+    public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Inner.ShowLogonHoursAsync(editor);
+
     /// <summary>A UI test context whose IDialogService is a <see cref="TestDialogService"/> over the real one.</summary>
     /// <param name="language">UI language ("en" / "pl").</param>
     /// <param name="configure">Further replacements of services (e.g. the sample watchdog client).</param>

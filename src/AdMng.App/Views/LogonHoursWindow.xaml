@@ -1,0 +1,284 @@
+<!--
+  ADUC's "Logon Hours" dialog: the week as a 7 × 24 grid in the operator machine's local time (days in the UI culture's
+  order, Polish: Monday first). Select by dragging over the cells, by the day and hour headers or the corner button,
+  or with the keyboard on the grid (arrows, Shift, Home/End, Space, Ctrl+A); the radio buttons set the selection.
+  Pure editing: the caller turns the result into a change plan (nothing is written from here).
+-->
+<Window x:Class="AdMng.App.Views.LogonHoursWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
+        Title="{Binding WindowTitle, Mode=OneWay}"
+        MinWidth="640"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner">
+  <Window.Resources>
+    <c:BindingProxy x:Key="Proxy" Data="{Binding}" />
+
+    <!-- Day and hour headers: flat, compact buttons (reachable by UI Automation; the keyboard uses the grid). -->
+    <Style x:Key="HeaderButton" TargetType="Button">
+      <Setter Property="IsTabStop" Value="False" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Chrome"
+                    Background="{TemplateBinding Background}"
+                    CornerRadius="3">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- One hour: accent fill = logon permitted, plain = denied; the selection is shaded, the keyboard focus outlined. -->
+    <DataTemplate x:Key="CellTemplate" DataType="{x:Type dlg:LogonHoursCellViewModel}">
+      <Grid Width="24"
+            Height="24"
+            AutomationProperties.Name="{Binding AutomationName, Mode=OneWay, TargetNullValue=''}">
+        <Border x:Name="Fill"
+                Margin="1"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="2" />
+        <Rectangle x:Name="Selection"
+                   Margin="1"
+                   Fill="{DynamicResource TextFillColorPrimaryBrush}"
+                   Opacity="0.3"
+                   RadiusX="2"
+                   RadiusY="2"
+                   Visibility="Collapsed" />
+        <Border x:Name="FocusOutline"
+                BorderBrush="{DynamicResource TextFillColorPrimaryBrush}"
+                BorderThickness="2"
+                CornerRadius="3"
+                Visibility="Collapsed" />
+      </Grid>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsPermitted, Mode=OneWay}" Value="True">
+          <Setter TargetName="Fill" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+          <Setter TargetName="Fill" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsSelected, Mode=OneWay}" Value="True">
+          <Setter TargetName="Selection" Property="Visibility" Value="Visible" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsFocused, Mode=OneWay}" Value="True">
+          <Setter TargetName="FocusOutline" Property="Visibility" Value="Visible" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="OkButton"
+                Click="OnOkClick"
+                Content="{l:Tr Common.Ok}"
+                IsDefault="True"
+                Style="{StaticResource Ad.AccentDialogButton}" />
+        <Button x:Name="CancelButton"
+                Click="OnCancelClick"
+                Content="{l:Tr Common.Cancel}"
+                IsCancel="True"
+                Style="{StaticResource Ad.DialogButton}" />
+      </StackPanel>
+    </Border>
+
+    <StackPanel Margin="16,12,16,12">
+      <Border Margin="0,0,0,10"
+              Style="{StaticResource Ad.WarningBar}"
+              Visibility="{Binding ReadOnlyReason, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <TextBlock Text="{Binding ReadOnlyReason, Mode=OneWay}" TextWrapping="Wrap" />
+      </Border>
+
+      <Grid HorizontalAlignment="Left">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" MinWidth="110" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Corner: the whole week. -->
+        <Button x:Name="SelectAllButton"
+                Margin="0,0,6,2"
+                Padding="6,2"
+                HorizontalContentAlignment="Left"
+                AutomationProperties.Name="{l:Tr LogonHours.SelectAll}"
+                Command="{Binding SelectAllCommand}"
+                Content="{l:Tr LogonHours.All}"
+                IsTabStop="True"
+                Style="{StaticResource HeaderButton}"
+                ToolTip="{l:Tr LogonHours.SelectAll}" />
+
+        <!-- Hour headers: that hour on every day. -->
+        <ItemsControl x:Name="HourHeaders"
+                      Grid.Column="1"
+                      Margin="0,0,0,2"
+                      Focusable="False"
+                      ItemsSource="{Binding Hours, Mode=OneWay}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="24" Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type dlg:LogonHoursHourViewModel}">
+              <Button Width="24"
+                      Height="22"
+                      AutomationProperties.Name="{Binding SelectText, Mode=OneWay, TargetNullValue=''}"
+                      Command="{Binding Data.SelectHourCommand, Source={StaticResource Proxy}}"
+                      CommandParameter="{Binding}"
+                      Content="{Binding Label, Mode=OneWay}"
+                      Style="{StaticResource HeaderButton}"
+                      ToolTip="{Binding SelectText, Mode=OneWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Day headers: the whole day. -->
+        <ItemsControl x:Name="DayHeaders"
+                      Grid.Row="1"
+                      Margin="0,0,6,0"
+                      Focusable="False"
+                      ItemsSource="{Binding Days, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type dlg:LogonHoursDayViewModel}">
+              <Button Height="24"
+                      Padding="6,0"
+                      HorizontalContentAlignment="Left"
+                      AutomationProperties.Name="{Binding SelectText, Mode=OneWay, TargetNullValue=''}"
+                      Command="{Binding Data.SelectDayCommand, Source={StaticResource Proxy}}"
+                      CommandParameter="{Binding}"
+                      Content="{Binding Name, Mode=OneWay}"
+                      Style="{StaticResource HeaderButton}"
+                      ToolTip="{Binding SelectText, Mode=OneWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- The grid: mouse selection and keyboard handling in code-behind. -->
+        <ItemsControl x:Name="HourGrid"
+                      Grid.Row="1"
+                      Grid.Column="1"
+                      AutomationProperties.HelpText="{l:Tr LogonHours.KeyboardHint}"
+                      AutomationProperties.Name="{l:Tr LogonHours.Grid}"
+                      Background="Transparent"
+                      Focusable="True"
+                      IsTabStop="True"
+                      ItemsSource="{Binding Days, Mode=OneWay}"
+                      KeyboardNavigation.DirectionalNavigation="None"
+                      LostMouseCapture="OnGridLostMouseCapture"
+                      MouseLeftButtonDown="OnGridMouseLeftButtonDown"
+                      MouseLeftButtonUp="OnGridMouseLeftButtonUp"
+                      MouseMove="OnGridMouseMove"
+                      PreviewKeyDown="OnGridKeyDown"
+                      ToolTip="{l:Tr LogonHours.KeyboardHint}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type dlg:LogonHoursDayViewModel}">
+              <ItemsControl Focusable="False"
+                            ItemTemplate="{StaticResource CellTemplate}"
+                            ItemsSource="{Binding Cells, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <UniformGrid Columns="24" Rows="1" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+              </ItemsControl>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+
+      <!-- Legend and the state of the selection (the radio buttons set it). -->
+      <WrapPanel Margin="0,12,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
+        <RadioButton x:Name="PermittedRadio"
+                     Margin="0,0,24,0"
+                     VerticalContentAlignment="Center"
+                     AutomationProperties.Name="{l:Tr LogonHours.Permitted}"
+                     IsChecked="{Binding IsSelectionPermitted}">
+          <StackPanel Orientation="Horizontal">
+            <Border Width="16"
+                    Height="16"
+                    Margin="0,0,6,0"
+                    Background="{DynamicResource AccentFillColorDefaultBrush}"
+                    CornerRadius="2" />
+            <TextBlock VerticalAlignment="Center" Text="{l:Tr LogonHours.Permitted}" />
+          </StackPanel>
+        </RadioButton>
+        <RadioButton x:Name="DeniedRadio"
+                     VerticalContentAlignment="Center"
+                     AutomationProperties.Name="{l:Tr LogonHours.Denied}"
+                     IsChecked="{Binding IsSelectionDenied}">
+          <StackPanel Orientation="Horizontal">
+            <Border Width="16"
+                    Height="16"
+                    Margin="0,0,6,0"
+                    Background="{DynamicResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="2" />
+            <TextBlock VerticalAlignment="Center" Text="{l:Tr LogonHours.Denied}" />
+          </StackPanel>
+        </RadioButton>
+      </WrapPanel>
+
+      <TextBlock x:Name="SelectionLine"
+                 Margin="0,10,0,0"
+                 AutomationProperties.LiveSetting="Polite"
+                 Text="{Binding SelectionText, Mode=OneWay}"
+                 TextWrapping="Wrap" />
+      <TextBlock Margin="0,4,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding Summary, Mode=OneWay}"
+                 TextTrimming="None"
+                 TextWrapping="Wrap" />
+
+      <Border Margin="0,10,0,0"
+              Style="{StaticResource Ad.WarningBar}"
+              Visibility="{Binding IsNonePermitted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock AutomationProperties.LiveSetting="Assertive"
+                   Text="{l:Tr LogonHours.NoneWarning}"
+                   TextWrapping="Wrap" />
+      </Border>
+
+      <TextBlock MaxWidth="720"
+                 Margin="0,10,0,0"
+                 HorizontalAlignment="Left"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{Binding TimeZoneNote, Mode=OneWay}"
+                 TextTrimming="None"
+                 TextWrapping="Wrap" />
+      <TextBlock MaxWidth="720"
+                 Margin="0,4,0,0"
+                 HorizontalAlignment="Left"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr LogonHours.KeyboardHint}"
+                 TextTrimming="None"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+  </DockPanel>
+</Window>
