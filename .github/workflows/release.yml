@@ -52,6 +52,8 @@ jobs:
           PUSHED_SHA: ${{ github.sha }}
           BEFORE_SHA: ${{ github.event.before }}
           HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [ "$REF_TYPE" = tag ]; then
@@ -87,6 +89,14 @@ jobs:
             exit 1
           fi
           version="${BASH_REMATCH[1]}"
+          if [ "$REF_TYPE" = tag ] && [ "$HAS_RELEASE_TOKEN" = true ] \
+            && [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null || true)" = false ]; then
+            # Publishing a release from release notes creates its tag, and that tag push starts this workflow again:
+            # the release is complete, and rebuilding would replace its files with ones that no longer match the sums.
+            echo "Release $tag is already published; nothing to build."
+            echo "mode=skip" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ ! -f "$notes" ]; then
             echo "::error::Release notes $notes are missing."
             exit 1
@@ -207,7 +217,7 @@ jobs:
           # Symbols are not shipped in the zip.
           $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
           Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
-          # The service keeps its folder layout (Deploy\, runtimes\); its symbols are not shipped either.
+          # The service keeps its folder layout (Deploy\, pl\); its symbols are not shipped either.
           Get-ChildItem -Path publish-watchdog -Recurse -File -Filter *.pdb | Remove-Item
           Compress-Archive -Path publish-watchdog/* -DestinationPath "dist/AdMng-Watchdog-$version-win-x64.zip"
           Get-ChildItem screenshots -Filter *.png | ForEach-Object {

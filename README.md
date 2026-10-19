@@ -9,7 +9,7 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.1.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.2.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
@@ -122,7 +122,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.1.0 (polski interfejs, przykładowa firma z testów). Aktualny komplet CI publikuje przy
+<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów). Aktualny komplet CI publikuje przy
 każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -491,7 +491,7 @@ alarmów o rutynie. Osobna usługa Windows ([WATCHDOG.md](docs/WATCHDOG.md), [AD
 specyfikacja [dev/watchdog-spec.md](docs/dev/watchdog-spec.md)); AD_MNG dostaje zakładkę Watchdog.
 
 <details>
-<summary><b>Szczegóły ścieżki W</b> – wykrywanie, atrybucja, powiadomienia, usługa, plan przed wydaniem</summary>
+<summary><b>Szczegóły ścieżki W</b> – wykrywanie, atrybucja, powiadomienia, usługa, plan przed wersją stabilną</summary>
 
 - 🟡 **Wykrywanie:** odpytywanie `uSNChanged` jednego DC z migawką obserwowanych atrybutów (Extended DN, metadane
   replikacji, watermark per DC, uzgodnienie dobowe), nowe/usunięte/przywrócone/przeniesione obiekty, zmiany atrybutów
@@ -504,15 +504,16 @@ specyfikacja [dev/watchdog-spec.md](docs/dev/watchdog-spec.md)); AD_MNG dostaje 
   (relay, Basic, Exchange Online OAuth2), raport dzienny, Microsoft Teams (Workflows, Adaptive Card 1.4), webhook
   podpisany Standard Webhooks, heartbeat; tryb wdrożenia przez pierwsze 7 dni.
 - 🟡 **Usługa:** API HTTPS tylko z Kerberosem, role wg grup AD, SQLite z retencją i kopiami, sekrety w Data Protection
-  (DPAPI-NG) powiązane z miejscem docelowym, skrypty instalacyjne, test dymny; artefakt CI `AdMng-Watchdog-win-x64`.
-- 🟡 **Zakładka Watchdog w AD_MNG** (w realizacji): zdarzenia z filtrami i szczegółami, reguły z podglądem, kanały i testowe wysyłki,
+  (DPAPI-NG) powiązane z miejscem docelowym, skrypty instalacyjne, test dymny; archiwum w wydaniach (od 0.2.0) i artefakt
+  CI `AdMng-Watchdog-win-x64`.
+- 🟡 **Zakładka Watchdog w AD_MNG** (wersja zapoznawcza 0.2.0): zdarzenia z filtrami i szczegółami, reguły z podglądem, kanały i testowe wysyłki,
   raport dzienny, stan usługi, dziennik wysyłek.
 - ✅ **Środowisko testowe:** testy silnika i usługi na Linuksie, testy integracyjne na laboratorium Samba (scenariusze
   wykrywania z kontem tylko do odczytu, usługa end-to-end z Mailpit i podpisanym webhookiem, opcjonalnie prawdziwy
   Kerberos), skrypty laboratoryjne (`tools/testlab/watchdog`: usługa, Mailpit, odbiornik webhooków, scenariusz
   z weryfikacją) uruchamiane także w CI.
 
-**Do zrobienia przed wydaniem:** przebieg na laboratorium Windows Server 2022/2025 (odczyt `msDS-ReplAttributeMetaData`
+**Do zrobienia przed wersją stabilną (0.2.0 jest wersją zapoznawczą):** przebieg na laboratorium Windows Server 2022/2025 (odczyt `msDS-ReplAttributeMetaData`
 przez konto bez uprawnień administratora, zdarzenia 4624 dla zmian przez ADWS/PowerShell, 4740 na DC innych niż PDC,
 pokrycie SACL dla 5136/5137, czytnik dzienników przez „Event Log Readers” – wyłącznie Kerberos, DC i kolektor WEF po
 nazwach DNS –, HTTP.sys: czy każde logowanie dociera do usługi jako Kerberos, a klient tylko-NTLM jest odrzucany) z zapisem
@@ -733,8 +734,9 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 
 **Gotowa wersja**
 
-Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z jednoplikowym `AdMng.exe`
-(win-x64, self-contained – bez instalacji, .NET i RSAT), sumy SHA-256 i zrzuty ekranu. Rozpakuj i uruchom `AdMng.exe`.
+Wydania są w zakładce **Releases** repozytorium: archiwum `AdMng-<wersja>-win-x64.zip` z `AdMng.exe`
+i jego bibliotekami natywnymi WPF (win-x64, self-contained – bez instalacji, .NET i RSAT), sumy SHA-256 i zrzuty ekranu.
+Rozpakuj całe archiwum do jednego folderu i uruchom `AdMng.exe`.
 
 > [!NOTE]
 > Plik nie jest jeszcze podpisany (podpis i MSI – faza 7), więc SmartScreen lub AppLocker/WDAC mogą go zablokować.

@@ -15,8 +15,7 @@ namespace AdMng.Watchdog.Service.Tests.Client;
 public sealed class WatchdogClientServer : IAsyncDisposable
 {
     /// <summary>The server certificate. The service selects it with its fake clock (<see cref="TestStore.Start"/>),
-    /// the client checks it at the real time, so it is valid at both – unlike <see cref="TestCertificates.Localhost"/>,
-    /// which starts a day before the real time.</summary>
+    /// the client checks it at the real time, so it is valid at both whatever the real date.</summary>
     private static readonly Lazy<X509Certificate2> LazyCertificate = new(() =>
     {
         var now = DateTimeOffset.UtcNow;

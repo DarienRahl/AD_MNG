@@ -415,8 +415,10 @@ nie tworzy plików tymczasowych poza folderem danych, a usuwane rekordy są nadp
 
 ### 4.9 Instalacja usługi
 
-Rozpakuj archiwum `AdMng-Watchdog-<wersja>-win-x64.zip` z wydania (albo artefakt CI `AdMng-Watchdog-win-x64`) i uruchom
-jako administrator:
+Rozpakuj archiwum `AdMng-Watchdog-<wersja>-win-x64.zip` z wydania (albo artefakt CI `AdMng-Watchdog-win-x64`). Skrypty nie
+są podpisane: archiwum pobrane z Internetu ma znacznik pochodzenia, który przechodzi na rozpakowane pliki, i zasada
+wykonywania RemoteSigned zablokuje wtedy `Install-AdMngWatchdog.ps1` – odblokuj pliki w folderze archiwum
+(`Get-ChildItem -Recurse | Unblock-File`). Potem uruchom jako administrator:
 
 ```powershell
 .\Deploy\Install-AdMngWatchdog.ps1 `
@@ -973,8 +975,8 @@ Nieudana retencja lub konserwacja bazy daje stan „Konserwacja bazy danych” (
 - Członkostwa czasowe (PAM, TTL) wygasają bez śladu w AD – ich koniec jest wykrywany przy dobowym uzgodnieniu.
 - Zmiany GPO są wykrywane na poziomie obiektu GPO (wersja, powiązania), bez porównywania ustawień.
 - Usługa niczego nie blokuje ani nie cofa – tylko raportuje.
-- Laboratorium Samba nie ma dzienników zabezpieczeń Windows: atrybucję testuje się na zarejestrowanych zdarzeniach,
-  a przed wydaniem na laboratorium Windows Server.
+- Laboratorium Samba nie ma dzienników zabezpieczeń Windows: atrybucję testowano dotąd na zarejestrowanych zdarzeniach;
+  przebieg na laboratorium Windows Server jest jeszcze przed nami (wersja zapoznawcza 0.2.0 go nie przeszła).
 - Tryb HTTP.sys nie został jeszcze sprawdzony na laboratorium Windows: nie wiadomo, czy każde logowanie dociera do
   usługi jako Kerberos (obejście – 4.10).
 - W trybie WEF po zalewie zdarzeń (więcej niż `maxRecordsPerPoll` w jednym odczycie) zdarzenia dostarczone z
