@@ -125,7 +125,10 @@ domeny, więc nie traktuje ich jako usuniętych.
    hasła, z liczbą prób). Dziennik bywa opóźniony – wtedy zdarzenie ma status „ustalanie…”, a po dopasowaniu jest
    uzupełniane (dla zdarzeń krytycznych przychodzi dodatkowe „Uzupełnienie” w tym samym wątku – dopiero gdy pierwotny
    alarm został doręczony; czeka, dopóki alarm jest ponawiany, i nie jest wysyłane wcale, gdy alarm ostatecznie się
-   nie powiódł; uzupełnienie powstaje także wtedy, gdy wykonawcę ustalono w trakcie przygotowywania alarmu). Jeżeli
+   nie powiódł; uzupełnienie powstaje także wtedy, gdy wykonawcę ustalono w trakcie przygotowywania alarmu). Gdy
+   ustalony wykonawca **podnosi priorytet** zdarzenia do wysokiego lub krytycznego (np. Shadow Credentials zapisane
+   przez inne konto: średni → wysoki), odbiorcy, którzy dostali już alarm z niższym priorytetem, dostają w tym samym
+   wątku jedno „Uzupełnienie: priorytet podniesiony” (razem z wykonawcą – nigdy dwie wiadomości). Jeżeli
    wykonawcy nie da się ustalić, Watchdog nie zgaduje: pokazuje „nieustalony” z przyczyną (np. brak zasad inspekcji;
    po wyczyszczeniu dziennika Security – zdarzenia 1102/1104 albo numeracja rekordów zaczęta od nowa –
    „LOG_OVERWRITTEN” zamiast „NO_MATCH”).
@@ -586,12 +589,31 @@ reguła i ile wiadomości by wysłała.
 - Własne reguły z wymaganymi tagami „reset hasła” (`passwordReset`), „zmiana własna” (`selfChange`) lub „konto
   synchronizacji” (`syncAccount`) działają – te tagi są nadawane po atrybucji, a reguły są wtedy oceniane ponownie.
 - Po ponownej ocenie odbiorcy, którzy dostali już alarm o tym zdarzeniu z co najmniej tym samym priorytetem i z ustalonym
-  wykonawcą (albo dostaną „Uzupełnienie”), nie dostają drugiego alarmu z nowej reguły; wyższy priorytet przychodzi jako
-  nowy alarm. W alarmie zbiorczym liczy się priorytet, z jakim pokazano **to** zdarzenie, a nie najwyższy priorytet całej
-  wiadomości – zdarzenie pokazane jako średnie w zbiorczym alarmie „wysokim” dostanie osobny alarm, gdy stanie się
-  wysokie. Usługa sprawdza to jeszcze raz tuż przed wysłaniem, więc alarm wysłany w tej samej chwili co ponowna ocena
-  nie zostanie powtórzony, a przejęcie powiadomienia przez regułę „tier0-security” nie przepadnie, gdy wstrzymane
-  powiadomienie jest akurat wysyłane. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
+  wykonawcą (albo dostaną „Uzupełnienie”), nie dostają drugiego alarmu z nowej reguły. W alarmie zbiorczym liczy się
+  priorytet, z jakim pokazano **to** zdarzenie, a nie najwyższy priorytet całej wiadomości. Usługa sprawdza to jeszcze
+  raz tuż przed wysłaniem, więc alarm wysłany w tej samej chwili co ponowna ocena nie zostanie powtórzony, a przejęcie
+  powiadomienia przez regułę „tier0-security” nie przepadnie, gdy wstrzymane powiadomienie jest akurat wysyłane.
+  Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
+- **Podniesienie priorytetu po ustaleniu wykonawcy (eskalacja)**: gdy odbiorca dostał już alarm o zdarzeniu, a po
+  ustaleniu wykonawcy reguła, która go obejmuje – ta sama, która wysłała alarm, albo nowa (np. „tier0-security”) –
+  daje mu priorytet wysoki lub krytyczny, wyższy niż widział, dostaje **jedno** uzupełnienie w wątku tego alarmu, a nie
+  drugi alarm: e-mail z tematem „Re: …” (nagłówki `In-Reply-To`/`References`), baner „Uzupełnienie: priorytet
+  podniesiony” albo „Uzupełnienie: wykonawca ustalony, priorytet podniesiony” i wiersz „Priorytet: Średni → Wysoki”;
+  w Teams karta uzupełnienia z tym samym tytułem i wierszem „Priorytet” przy każdym zdarzeniu; webhook typu
+  `ad.severity.escalated` (5.4). Dotyczy to także alarmu „średniego” wysłanego z wykonawcą „ustalanie…” po upływie
+  czasu oczekiwania (dla niego zwykłe uzupełnienie nie przychodzi) oraz zdarzenia pokazanego jako średnie w zbiorczym
+  alarmie – uzupełnienie obejmuje tylko zdarzenia, którym podniesiono priorytet. Jeżeli uzupełnienie z wykonawcą i
+  tak by przyszło (alarm wysoki, który staje się krytyczny), odbiorca dostaje jedną wiadomość z wykonawcą i nowym
+  priorytetem. Eskalacja jest wysyłana tylko raz (także po restarcie usługi), dopiero po doręczeniu alarmu i z
+  ustalonym wykonawcą. Godziny dostarczania reguły działają jak przy alarmie (domyślnie wysoki i krytyczny – zawsze;
+  reguła „tylko w godzinach pracy” poza nimi nie eskaluje, zdarzenie pokazuje raport dzienny), tryb wdrożenia też.
+  Eskalacja przechodzi przez limity i ponawianie kanału, nie zależy od ustawienia
+  `notifications.followUpWhenAttributed` i – jak każde uzupełnienie – nie jest wstrzymywana przez limit wiadomości
+  reguły na godzinę (jest najwyżej jedna na alarm i odbiorcę). Obniżenie priorytetu nigdy nie wysyła nowej wiadomości –
+  zwykłe uzupełnienie z wykonawcą pokaże wtedy nowy priorytet (np. „Wysoki → Info” przy własnej zmianie hasła
+  użytkownika).
+- **Uzupełnienia pokazują priorytet każdego zdarzenia**: w uzupełnieniu zbiorczego alarmu każde zdarzenie ma swój
+  ostateczny priorytet (kolumna „Priorytet”), a nie najwyższy priorytet całego alarmu.
 - **Priorytet własny a priorytet wyświetlany**: priorytet ustawiony w regule podnosi priorytet zdarzenia widoczny na
   liście, w raporcie dziennym i w licznikach, ale nie wpływa na dopasowanie innych reguł – „minimalny priorytet” każdej
   reguły jest porównywany z własnym priorytetem zdarzenia (wykrycie, tagi, atrybucja), także przy ponownej ocenie po
@@ -668,8 +690,8 @@ odcisku SHA-256; „akceptuj każdy” istnieje tylko w trybie deweloperskim); u
 adresów (domyślnie 50). Limit `MaxMessagesPerMinute` (domyślnie 20, poniżej limitu Exchange Online 30/min) liczy
 **każdą wiadomość SMTP**, czyli każdą taką część, a nie każdy wpis kolejki – duże grupy zużywają więc więcej limitu, a
 wysyłka może zostać odłożona w połowie bez ponownego wysyłania części już wysłanych. Uzupełnienie (np. „ustalono
-wykonawcę”) trafia do tych samych odbiorców w tym samym wątku – każda część odpowiada na odpowiadającą jej część
-pierwotnego alarmu.
+wykonawcę”, „podniesiono priorytet”) trafia do tych samych odbiorców w tym samym wątku – każda część odpowiada na
+odpowiadającą jej część pierwotnego alarmu.
 
 **Częściowe doręczenie.** Gdy serwer odrzuci tylko część odbiorców:
 
@@ -709,7 +731,10 @@ zamiast podpisu w adresie) jest obsługiwany: aplikacja Entra z certyfikatem, za
 idempotencji), `webhook-timestamp`, `webhook-signature: v1,<base64 HMAC-SHA256>`; sekret `whsec_…` generuje zakładka
 (pokazany jeden raz). Opcjonalnie nagłówek `X-Hub-Signature-256` (styl GitHub). Typy zdarzeń: `ad.user.created`,
 `ad.user.locked_out`, `ad.group.member_added`, `ad.privilege.granted`, `ad.burst.mass_lockout`,
-`watchdog.configuration_changed`, `watchdog.digest`, `watchdog.heartbeat` … Domyślny poziom szczegółowości
+`watchdog.configuration_changed`, `watchdog.digest`, `watchdog.heartbeat` … Uzupełnienia mają ten sam `data.eventId` co
+alarm: `ad.attribution.updated` (ustalony wykonawca) albo `ad.severity.escalated`, gdy priorytet zdarzenia wzrósł
+(5.1; z ostatecznym wykonawcą); przy zmianie priorytetu pole `data.previousSeverity` zawiera poprzedni priorytet
+(np. `"severity":"high","previousSeverity":"medium"`). Domyślny poziom szczegółowości
 „Minimalny” (bez wartości atrybutów). Opcja **heartbeat** (np. co 15 min) pozwala systemowi SIEM zaalarmować, gdy
 Watchdog przestanie się odzywać. Sygnały heartbeat nigdy nie są ponawiane ani wysyłane po upływie swojego interwału:
 w czasie awarii SIEM pojawiają się w dzienniku wysyłek jako „Niedostarczone” z kodem `heartbeat.superseded`, a SIEM
@@ -741,7 +766,8 @@ priorytetem i wykonawcą (nic nie ginie i nic nie jest liczone dwa razy). Raport
 przerwany zatrzymaniem usługi jest kończony po jej starcie i nie jest wysyłany drugi raz; restart usługi krótko po
 wysłaniu raportu nie powoduje ponownej wysyłki.
 
-Zawartość: stan usługi, liczniki, **„Wymaga uwagi”** (zdarzenia wysokie i krytyczne z informacją o potwierdzeniu),
+Zawartość: stan usługi, liczniki, **„Wymaga uwagi”** (zdarzenia wysokie i krytyczne z informacją o potwierdzeniu;
+zdarzenie, któremu po wysłaniu alarmu podniesiono priorytet, ma dopisek „(priorytet: Średni → Wysoki)”),
 sekcje: nowe konta, nowe komputery (wg OU), usunięcia, włączenia i wyłączenia, przeniesienia, dostęp uprzywilejowany,
 członkostwo w grupach, zmiany parametrów kont (stara → nowa wartość, kto, kiedy), blokady (jeden wiersz na konto i
 dzień: „zablokowane 5× dziś, ostatnio 10:42” – „dziś” liczone od rzeczywistej północy czasu lokalnego, także w dniach
