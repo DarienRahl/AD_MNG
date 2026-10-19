@@ -259,8 +259,9 @@ Model/SecurityEvent.cs                                       [S]
 Model/SecurityEventCriteria.cs                               [S]
 Model/EventLogCursor.cs                                      [S]
 Model/EventEvaluation.cs                                     [S] + AttributionUpdate
+Model/EventSeverities.cs                                     own vs evaluated severity (12.1/12.2), attribution update applied
 Model/PendingNotification.cs                                 [S] + NotificationTarget
-Model/OutboxMessage.cs                                       [S] + RenderedEmail, RenderedHttpMessage
+Model/OutboxMessage.cs                                       [S] + RenderedEmail, RenderedHttpMessage, OutboxEventState
 Model/DeliveryResult.cs                                      [S] + DeliveryOutcome
 Model/ExpiryNotice.cs                                        [S] + UpcomingExpiry
 Model/SecretValue.cs                                         [S] SecretValue, StoredSecret, SecretChange
@@ -333,6 +334,7 @@ Attribution/EventLogGapDetector.cs                           cursor regressions,
 Attribution/EventLogOnlyDetector.cs                          1102/4719/4794 → WatchEvents
 Rules/RuleEvaluationJob.cs                                   [S*] IWatchdogJob
 Rules/RuleEngine.cs                                          event × rules → matches
+Rules/ReevaluationPlan.cs                                    re-plan of an event's pending rows after attribution (11.4 #9)
 Rules/RuleMatcher.cs                                         one rule vs one event
 Rules/ScopeMatcher.cs
 Rules/ExclusionMatcher.cs
@@ -344,7 +346,8 @@ Rules/WatchdogConfigProvider.cs                              implements IWatchdo
 Rules/ConfigTokens.cs                                        {domain}, {domainSid}, {rootDomainSid} expansion
 Rules/RolloutMode.cs                                         rollout-mode window (12.5)
 Rules/Tier0Catalog.cs                                        Tier-0 kinds/attributes that cannot be suppressed (8.3)
-Notifications/NotificationPlanner.cs                         matches → PendingNotification rows (holds, quiet hours)
+Notifications/NotificationPlanner.cs                         matches → one PendingNotification row per target (strongest treatment)
+Notifications/AlertCoverage.cs                               per-event coverage by an earlier alert (13.2 #1)
 Notifications/AggregationPolicy.cs                           bucket keys, flush delays, max items
 Notifications/ThrottlePolicy.cs                              per rule × channel hourly cap
 Notifications/BusinessCalendar.cs                            business hours check (time zone)
@@ -434,6 +437,8 @@ Api/EventPageEndpoint.cs                            GET /events/{eventId} HTML (
 Storage/SqliteDatabase.cs                           connection factory, PRAGMAs, single-writer gate
 Storage/MigrationRunner.cs                          user_version migrations, VACUUM INTO before upgrade
 Storage/Migrations/0001_initial.sql                 embedded resource (section 16)
+Storage/Migrations/Migration0002OwnSeverity.cs      events.own_severity (16.2)
+Storage/Migrations/Migration0003OutboxEventState.cs outbox_events.severity / pending (16.2)
 Storage/BlobCodec.cs                                deflate + JSON (WatchdogStorageJsonContext), case-insensitive dictionaries
 Storage/WatchdogStorageJsonContext.cs               source-gen context for stored Core.Model payloads
 Storage/SqliteDetectionStore.cs                     IDetectionStore
@@ -971,7 +976,11 @@ public sealed record WatchEvent
     /// <summary>Events produced from one object diff (create + enable + password set) share this id.</summary>
     public Guid ChangeSetId { get; init; }
     public required WatchEventKind Kind { get; init; }
+    /// <summary>The evaluated (displayed) severity: OwnSeverity raised by the Severity overrides of the matched rules (12.1).</summary>
     public Severity Severity { get; init; }
+    /// <summary>The event's own severity without rule overrides (12.2) – the input of every rule match; the store fills it
+    /// on insert (null = Severity, an event not stored yet).</summary>
+    public Severity? OwnSeverity { get; init; }
     public required ObjectRef Object { get; init; }
     public string? PreviousDn { get; init; }                 // moves/renames, deletions (last live DN)
     public IReadOnlyList<AttributeChange> Changes { get; init; } = [];
@@ -2068,7 +2077,7 @@ public sealed record EventLogCursor
 public sealed record EventEvaluation
 {
     public required long EventId { get; init; }
-    public required Severity Severity { get; init; }
+    public required Severity Severity { get; init; }                // evaluated severity; the own severity is not changed
     public IReadOnlyList<string> MatchedRules { get; init; } = [];
 }
 
@@ -2077,8 +2086,10 @@ public sealed record AttributionUpdate
 {
     public required Attribution Attribution { get; init; }
     public IReadOnlyList<string> AddedTags { get; init; } = [];     // selfChange, passwordReset, syncAccount
-    /// <summary>Re-resolved severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
+    /// <summary>Re-resolved own severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
     public Severity? Severity { get; init; }
+    /// <summary>Evaluated severity of the re-evaluation (11.4 #9); null = unchanged, or the new own severity when Severity is set.</summary>
+    public Severity? EvaluatedSeverity { get; init; }
     /// <summary>Lockout sources filled by LockoutSourceResolver; null = unchanged.</summary>
     public LockoutInfo? Lockout { get; init; }
     /// <summary>Null when the attribution is final.</summary>
@@ -2142,12 +2153,17 @@ public sealed record OutboxMessage
     public RenderedHttpMessage? Http { get; init; }
     public string? RuleId { get; init; }
     public IReadOnlyList<long> EventIds { get; init; } = [];
-    public Severity Severity { get; init; }
+    /// <summary>Alerts: per linked event the severity it was shown with and whether its actor was pending (13.2 #1 coverage);
+    /// empty for other kinds and alerts of schema ≤ 2 (then Severity / SentWithPendingAttribution stand for every event).</summary>
+    public IReadOnlyList<OutboxEventState> EventStates { get; init; } = [];
+    public Severity Severity { get; init; }                         // the highest severity of its events
     public int Attempts { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset NextAttemptAt { get; init; }
     public override string ToString() => $"OutboxMessage({Id}, {ChannelType}, {ChannelId}, {Kind})";
 }
+
+public sealed record OutboxEventState(long EventId, Severity Severity, bool PendingAttribution);
 
 /// <summary>Deferred = not attempted (rate limiter); the outbox does not count an attempt.</summary>
 public enum DeliveryOutcome { Delivered, Deferred, Transient, Permanent, ChannelBroken, AuthenticationFailed }
@@ -2266,6 +2282,10 @@ public interface INotificationQueueStore
     Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken);
     /// <summary>Moves the rows' DueAt (throttled buckets, 13.3).</summary>
     Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken);
+    /// <summary>Re-planned targets (13.2 #1): the waiting row with the same (event, target, follow-up) takes rule, target,
+    /// severity, bucket and hold and keeps the earlier due time; a missing one is inserted when insertMissing (SQLite:
+    /// INSERT … ON CONFLICT DO UPDATE / UPDATE), one transaction.</summary>
+    Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken);
 }
 
 public interface IOutboxStore
@@ -3783,28 +3803,36 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
 7. **Operation grouping**: events with the same ChangeSetId resolved from candidates with the same (Computer,
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the
-   `SeverityResolver` re-resolves the severity with the final attribution and the added tags.
-9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always: "severity unchanged" is relative
-   to the stored severity, which carries the rule overrides, so a rise of the event's own severity to an override's
-   value reports no change), or one that changes the severity or adds a tag (`passwordReset`, `selfChange`,
-   `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
+   `SeverityResolver` re-resolves the event's **own** severity (`WatchEvent.OwnSeverity`, never the evaluated one with
+   rule overrides) with the final attribution and the added tags (`AttributionUpdate.Severity`).
+9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always), or one that changes the own
+   severity or adds a tag (`passwordReset`, `selfChange`, `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
    and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
-   with its final state (`RuleEngine.Evaluate`), plans only the rules that are not yet in the stored `matched_rules`
-   (`IRuleMatchPlanner.PlanReevaluationAsync` – rules that already matched are never planned again, their rows may be
-   delivered and deleted; targets that already got the final state are left out, 13.2 #1) and stores matched rules ∪
-   new rules, the evaluated severity and the new pending rows in one `CommitEvaluationAsync`, **before** the attribution
-   update: a pass interrupted in between leaves the event pending and the next pass finds the rules stored. Waiting rows
-   of stored rules that no longer match the final state are dropped first – the dispatch job would drop them on release,
-   and the store keeps one row per (event, target), so they would otherwise swallow the row of a rule that matches now
-   (a custom rule excluding the actor must not silence `tier0-security` for the same recipients). The stored severity is
-   the evaluated one, `max(final severity, overrides of the matching rules)` (12.1), also when nothing new matched – a
-   re-resolved severity never drops a rule override. `NotificationsQueued` is raised only after the attribution update,
+   with its final state (`RuleEngine.Evaluate`, every rule that matches now) and lets the planner re-plan its pending
+   notifications (`IRuleMatchPlanner.PlanReevaluationAsync(evaluation, addedRuleIds, waitingRows, …)` →
+   `ReevaluationPlan`, 13.2 #1): every waiting (non-follow-up) row of the event takes the strongest treatment of the
+   rules that notify its target now – merged (`ReplanAsync`, insert missing) when an added rule (one not yet in the
+   stored `matched_rules`) notifies the target, so `tier0-security` added for the recipients of a custom rule's held row
+   takes that row over with its severity, name and Always delivery; updated while it waits otherwise; dropped when no
+   rule notifies the target any more (a custom rule excluding the actor must not silence `tier0-security` for the same
+   recipients); targets that only the added rules notify get new rows unless an alert already covers them (13.2 #1).
+   Rules that already matched are never planned again for a target without a waiting row (it may be delivered and
+   deleted). The waiting rows are re-planned first (idempotent – a merged row whose waiting row was flushed meanwhile is
+   inserted and the dispatch job drops it when the alert covers it), then matched rules ∪ new rules, the evaluated
+   severity and the new rows are stored in one `CommitEvaluationAsync`, **before** the attribution update: a pass
+   interrupted in between leaves the event pending and the next pass re-plans the same way. The update stores the
+   final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
+   (`EvaluatedSeverity` = `max(final own severity, overrides of the matching rules)`, 12.1), also when nothing new
+   matched – a re-resolved severity never drops a rule override, and an override never feeds a later `MinSeverity`
+   check. `NotificationsQueued` is raised only after the attribution update,
    so a dispatch it wakes renders the new rows with the final actor. An event the rules job has not evaluated yet has no matched rules, so all its
    final matches are planned and the job skips it afterwards. `rules_state` is never reset. The re-evaluation and the
-   attribution update of one event and the rules job's read → match → plan → commit run in one in-process section
-   (`RuleEngine.EnterEvaluationAsync`): both jobs wake on EventsStored, and without it the job could commit a match
-   made with the pending attribution after the final one was stored (stale severity and matched rules, a rule planned
-   twice).
+   attribution update of one event, the rules job's read → match → plan → commit and a run of the dispatch job (13.3)
+   run in one in-process section (`RuleEngine.EnterEvaluationAsync`): both evaluating jobs wake on EventsStored, and
+   without it the job could commit a match made with the pending attribution after the final one was stored (stale
+   severity and matched rules, a rule planned twice); a dispatch run that read a waiting row just before the
+   re-evaluation re-planned it would complete it with the old treatment and delete the re-planned row with it (the
+   `tier0-security` takeover of a held custom-rule row lost).
 10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
    `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
    The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
@@ -3815,7 +3843,7 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
 - Events are stored and evaluated immediately with `Attribution.Pending`.
 - Notifications of severity < High, of attribution-dependent kinds (any severity) and of provisional actor matches are
   held until attribution is final or `Notifications.AttributionGrace` elapsed (then sent with "Wykonawca: ustalanie…" /
-  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final severity and tags (13.3).
+  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final own severity and tags (13.3).
 - Other High/Critical are sent at once; when `FollowUpWhenAttributed`, a follow-up notification (same e-mail thread:
   `In-Reply-To`/`References`; Teams: a short card "Uzupełnienie: wykonawca ustalony"; webhook: event type
   `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves.
@@ -3877,7 +3905,9 @@ A rule matches an event when **all** hold:
 6. `Groups` (only for GroupMemberAdded/Removed – the group is `Object` – and Privilege* – the group is `Member`):
    Privileged = the group is a privileged root (by SID/name/DN); WatchList = DN in `PrivilegedGroups.WatchListDns`;
    Explicit = DN in `GroupDns`. For other kinds the filter is ignored.
-7. `MinSeverity` ≤ event severity (after SeverityResolver).
+7. `MinSeverity` ≤ the event's **own** severity (after SeverityResolver, `WatchEvent.OwnSeverity`) – never the evaluated
+   severity, which another rule's override may have raised: the rules job, the re-evaluation after attribution (11.4 #9),
+   the dispatch job's re-match (13.3) and the rule preview all match the same input.
 8. Actors: when attribution is Resolved and the actor's **SID** equals an `ExcludeActors` entry (SIDs only) → no
    match; an entry with a `{domainSid}`/`{rootDomainSid}` token whose value is unknown matches nothing (the
    any-domain relative-id fallback of 8.1 applies to privileged roots only – an exclusion fails closed).
@@ -3904,8 +3934,9 @@ object, not a container – its groups are snapshotted) are not snapshotted and 
 the baseline; the service never rewrites the configuration. The GUI shows the check as „Nieistniejące DN w
 konfiguracji” (health codes `rules.configuredDns` and `attribution.collector` are localized).
 
-`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
-matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
+`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(own severity, every matched
+rule's Severity override)` is the evaluated severity stored in `WatchEvent.Severity` (feed, digest, counts) while
+`WatchEvent.OwnSeverity` keeps the own one; a rule's own notifications use `rule.Severity ?? own severity` (a rule may
 deliberately lower its notifications). Health events always match the locked `health` rule.
 
 ### 12.2 Severity resolution (`SeverityResolver`)
@@ -3932,7 +3963,7 @@ AccountFlagsChanged / DelegationChanged per bit table 10.6.1; PrivilegeGranted p
 | 4 | krbtgt | PasswordChanged | exactly Medium (expected: two resets ~10 h apart) |
 
 Kinds with step-3 rules (`SeverityResolver.AttributionDependentKinds`) are held by the planner until the attribution is
-final or the grace period ends (13.2), and re-matched with the final severity on release (13.3).
+final or the grace period ends (13.2), and re-matched with the final own severity on release (13.3).
 
 ### 12.3 Exclusion hygiene
 
@@ -4015,21 +4046,41 @@ Rules matched only after a final attribution (raised severity, added tags) are p
 
 ### 13.2 `NotificationPlanner`
 
-For every match with `Delivery.Immediate`:
+One pending row per (event, target) – the unique key of `pending_notifications` – carries the **strongest treatment of
+every rule that notifies that target now**. For every match with `Delivery.Immediate` (configuration order) that passes
+#0, #2 and #3, the rule contributes to each of its targets (#1); per target:
+- the contributions that need no attribution hold (#4) decide when any exists – the target is notified at once, a rule
+  still waiting for its actor would only repeat it (and its match may still turn out not to apply) –, otherwise all of
+  them (the row is held until the actor is known or the grace ends);
+- severity = the highest notification severity of the deciding contributions; due time = now + the shortest of their
+  windows (#5); `RuleId` and `BucketKey` = the deciding rule earliest in configuration order (displayed rule name).
+The same planning re-plans a target later from the rules that match the event *then*: the re-evaluation after
+attribution (11.4 #9, `PlanReevaluationAsync`) and the dispatch job when it releases a held row or a row whose rule
+left its delivery hours or the configuration (13.3, `PlanTargetAsync` with `IHeldNotificationMatcher.MatchAll`) – so
+a rule earlier in the configuration, a higher severity or Always delivery takes a target over, and a target whose rule
+no longer matches passes to the next rule that does. The rules of a waiting row passed their repeat suppression when it
+was planned and are not checked again.
+
 0. Rollout mode (12.5) active and the rule is not `tier0-*` / `bursts` / `health` → no immediate notification
    (digest only; counted for the rollout banner).
 1. Targets: each recipient group → one `NotificationTarget(Email, "email", group addresses, group DetailLevel)`
    (skipped when SMTP is disabled or the group is empty); each channel id – plus every enabled Teams/webhook channel when
    `AllEnabledChannels` – → `NotificationTarget(Teams|Webhook, id, [], channel DetailLevel)` (skipped when the channel
    is disabled); `NotifyManager` (expiry kinds) → the object's manager (snapshot `manager` → that object's `mail`) as an
-   e-mail target with DetailLevel Minimal. Targets are de-duplicated across rules by (Target.Key, EventId) – the first
-   rule (config order) owns the pending row. For the rules added by the re-evaluation after attribution (11.4 #9,
-   `PlanReevaluationAsync`) a target is also left out when the event already has an alert for it that is not Dead or
-   Cancelled, has at least the planned severity and carries the final state (sent with the attribution final, or getting
-   the follow-up of #6); a higher severity, or an alert sent with the actor pending and no follow-up to come, is new
-   information and the added rule notifies.
-2. Delivery hours: `Default` → Always for severity ≥ High, else BusinessHours. BusinessHours and
-   `BusinessCalendar.IsBusinessTime(now)` false → **no immediate notification** (the event still goes to the digest).
+   e-mail target with DetailLevel Minimal. Targets are merged across rules by (Target.Key, EventId) as described above.
+   For the rules added by the re-evaluation after attribution (11.4 #9, `PlanReevaluationAsync`) a target without a
+   waiting row is left out when the event already has an alert for it that covers the plan
+   (`AlertCoverage`): not Dead or Cancelled, the **event itself** shown with at least the planned severity
+   (`OutboxMessage.EventStates` – an aggregated alert carries the maximum of its events, so an event shown Medium inside
+   a High alert is not covered by a High plan) and carrying the final state (the event's actor known when rendered, or the
+   follow-up of #6 coming); a higher severity, or an alert sent with the actor pending and no follow-up to come, is new
+   information and the added rule notifies. The dispatch job checks the coverage again right before it completes a row
+   (13.3): it is the only writer of alerts and completes one bucket at a time, so a row stored after the earlier alert
+   was completed never becomes a second alert; its runs and the re-evaluation share the evaluation section (11.4 #9), so
+   a re-plan never lands between its read of a row and the completion of that row.
+2. Delivery hours (per rule, at its notification severity): `Default` → Always for severity ≥ High, else
+   BusinessHours. BusinessHours and `BusinessCalendar.IsBusinessTime(now)` false → the rule does not contribute; no
+   contributing rule → **no immediate notification** (the event still goes to the digest).
 3. Repeat suppression: `RepeatSuppression` set and `outbox.WasNotifiedAboutObjectAsync(ruleId, objectGuid, now −
    RepeatSuppression)` → no immediate notification (digest only; the next one after the period carries
    `LockoutsToday`).
@@ -4048,18 +4099,29 @@ For every match with `Delivery.Immediate`:
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
 for this; the default overloads use `IWatchdogConfigProvider.Current`), then normally against the new one;
-`(event, target, follow-up)` uniqueness removes duplicates.
+`(event, target, follow-up)` uniqueness removes duplicates, and a second plan whose first alert already went out is
+dropped by the dispatch job when that alert covers it (13.2 #1, 13.3).
 
 ### 13.3 `NotificationDispatchJob` (wake: NotificationsQueued, AttributionUpdated; interval 10 s)
 
 ```
+enter RuleEngine.EnterEvaluationAsync (the whole run; shared with the rules job and the AttributionEngine's
+    re-evaluation and attribution update, 11.4 #9 – a re-plan or a final attribution of an event is stored before this
+    run reads its rows or after it completed them, never in between)
 pendings = queueStore.GetAllAsync(); group by BucketKey
 for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
-    re-match held items with the event's final state (severity, tags, actor): RuleMatcher for that rule, delivery
-        hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
-    other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
-        the end of business hours) dropped – the digest reports them
+    released held items: re-plan the target from every rule that matches the event's final state now
+        (IHeldNotificationMatcher.MatchAll – own severity, tags, actor; NotificationPlanner.PlanTargetAsync – delivery
+        hours and rollout recomputed, 13.2) → no rule notifies the target → dropped (queueStore.DropAsync); led by the
+        same rule → rendered with the re-planned severity; led by another rule → moved to that rule's bucket
+        (ReplanAsync, still due) and flushed in a second pass of the same run
+    other non-follow-up items: delivery hours of their rule rechecked; outside them (the aggregation window or
+        throttling ran past the end of business hours) or the rule left the configuration → re-planned the same way
+        (another rule may still deliver, e.g. an Always rule of the same target) → dropped when none does – the digest
+        reports them
+    ready non-follow-up items whose event already has an alert for the target that covers them (13.2 #1,
+        AlertCoverage: per event, not lost, at least the item's severity, actor known or follow-up coming) → dropped
     follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original
         message (ReplyToMessageId) Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min)
         (a follow-up never overtakes its original); Sent or unknown (purged) → rendered
@@ -4067,7 +4129,8 @@ for each bucket with min(DueAt) ≤ now:
     if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
-        TargetKey, SentWithPendingAttribution = any rendered event still Pending)
+        TargetKey, SentWithPendingAttribution = any rendered event still Pending; alerts: EventStates = per event its
+        row severity and whether its actor is still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
     ThrottlePolicy.RecordEnqueued(rule, channel, now)
     alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
@@ -4624,6 +4687,25 @@ CREATE TABLE upcoming_expiries (
 CREATE TABLE digest_runs (
   id INTEGER PRIMARY KEY AUTOINCREMENT, period_start INTEGER NOT NULL, period_end INTEGER NOT NULL,
   created_at INTEGER NOT NULL, event_count INTEGER NOT NULL, outbox_ids TEXT NOT NULL);
+```
+
+Later migrations (forward-only, `Storage/Migrations/Migration000N*.cs`, each in one transaction followed by
+`PRAGMA user_version = N`; a database with older data is copied to `pre-migration-<old>-<timestamp>.db` first):
+
+```sql
+-- 0002_own_severity: the event's own severity (12.1/12.2 – the input of every rule match) apart from the evaluated
+-- `severity` (overrides included). Payloads are deflated, so it is a column; rows of schema 1 keep their current
+-- severity as their own (the own severity of an evaluated row is not known any more): the column stays NULL and
+-- EventRows reads NULL as the payload's severity (written together with `severity` by every write) until an
+-- attribution update fills it. Schema only – no `UPDATE events …`: rewriting every row would copy the whole table
+-- into the WAL at service start (about its size on disk, kept until the next truncating checkpoint and counted by
+-- storage.size) and fail the start on a nearly full volume.
+ALTER TABLE events ADD COLUMN own_severity INTEGER;
+
+-- 0003_outbox_event_state: how an alert showed each linked event (OutboxMessage.EventStates, 13.2 #1 coverage); NULL on
+-- links of older schemas – the message severity and sent_with_pending then stand for every event.
+ALTER TABLE outbox_events ADD COLUMN severity INTEGER;
+ALTER TABLE outbox_events ADD COLUMN pending INTEGER;
 ```
 
 ### 16.3 Retention and maintenance (`RetentionJob` → `IStoreMaintenance`) – daily at `Retention.MaintenanceTime`
@@ -5206,7 +5288,7 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
 | Scans | `AccountExpiryScannerTests` (thresholds 14/7/1 in calendar days to the last valid day, '1 day' fires the day before, Sunday expiry announced on Friday, holiday stretch 24–26 Dec, dedup, downtime catch-up records larger thresholds, changed expiry re-arms, expired once, ADUC end-of-day display), `PasswordExpiryScannerTests` (scope, 0 and never), `LockoutMonitorTests`, `BurstDetectorTests` (mass lockout with the percentage threshold, mass deletion by class: 10 users Critical, 10 computers nothing, 50 computers High; cooldown), `PasswordSprayDetectorTests` (fixture 4771/4776 sets: 20 accounts from one IP → event; 20 lockouts from different IPs → none; disabled by default) |
 | Attribution | `SecurityEventParserTests` (all fixtures, by-name parsing, unknown fields, `-`, %% decoding, 4740 caller mapping, 1102 UserData, masking), `IngestionReductionTests` (5136 value kept only for watched non-secret attributes, no values without a schema, excluded-subtree / unwatched-class records dropped, budget → HealthEventLogGap flooding), `EventSourceGuardTests` (foreign provider / unknown Computer dropped, also in ForwardedEvents mode), `SamAccountControlDecoderTests` (the four Microsoft samples: 0x0→0x15 = Disabled+PwdNotRequired+Normal; 0x15→0x211; 0x80→0x2080; 0x80), `SecurityEventQueryBuilderTests` (≤ 20 IDs per Select, escaping, suppress), `AttributionCorrelatorTests` (strong vs weak keys, attribute confirmation, ambiguous, SYSTEM, self change, 4723 → selfChange / 4724 → passwordReset, sync account tag, attribution-dependent severity re-resolution, operation grouping, retries then each reason code), `LogonSourceResolverTests` (types 3/8/10, loopback, From bound = LogonLookback, timeout, one query per DC, negative cache, SOURCE_LOGON_NOT_FOUND, source confidence caps), `LockoutSourceResolverTests` (empty caller → 4771/4776 sources with counts; caller = DC/server → sources queried), `EventLogGapDetectorTests` |
 | Rules | `RuleMatcherTests` (each condition; actor exclusions by SID only), `ExclusionMatcherTests` (attribute exclusion semantics, expiry), `SeverityResolverTests` (order base → bumps → attribution → overrides; HR-attribute change of a privileged user stays Info; privileged own password change → Info, reset → High; krbtgt exactly Medium; AdminCountSet after PrivilegeGranted → Info), `DefaultRulesTests` (ids unique, health locked with AllEnabledChannels, every kind with RecordedByDefault is covered by at least digest), `ConfigurationValidatorTests` (every code of 8.3 incl. secretRebindRequired, tier0Suppression, invalidAttribute, invalidScope, oauthHostNotAllowed, invalidHostName, both time-zone id forms), `ConfigChangeAuditorTests` (severity per change class, no secret values in Changes), `ConfigRedactorTests`, `RolloutModeTests`, `RulePreviewServiceTests`, `ConfigTokensTests`, `TimeZoneResolverTests` (IANA, Windows id, built-in map when ICU conversion is unavailable) |
-| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution), `DispatchJobTests` (FakeTimeProvider; re-match with final severity drops a privileged self password change), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
+| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged, one row per target with the strongest treatment of every rule, the re-evaluation plan – merge/update/drop/insert, per-event alert coverage), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution), `DispatchJobTests` (FakeTimeProvider; re-match with the final own severity drops a privileged self password change; a released row passes to the next rule that still matches; a row whose rule left its hours goes out under an Always rule; a row covered by an earlier alert is dropped at flush; per-event alert states; a released row rendered with the own severity, not another rule's override), `ReevaluationPipelineTests` (rules job + attribution engine + dispatch over one store: takeover by an added earlier rule, no deferral, failed re-match, own vs evaluated severity, aggregated coverage, a dispatch run waiting for the re-evaluation, a re-evaluation while the dispatch completes the held row, a pass interrupted after the takeover + restart + repeated cycles), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
 | Formatting | `EmailSubjectBuilderTests` (pl/en table 14.2, CR/LF stripping, 200 chars), `UntrustedTextTests` (U+202E, U+2066, zero-width → visible escapes; `https://evil.example/x` → `hxxps://evil[.]example/x`; `www.` defanged; UPNs and host names unchanged), `EmailAlertFormatterTests` (HTML-encoded hostile values like `<script>`, `[Kliknij](https://evil)`, `‮` and a URL in description and in a nested group name of a Via path; secret masked; detail levels; source row IP first with name origin; lockout source row), `TeamsCardFormatterTests` (only AC 1.4 element types; AD strings only in TextRun; defanged URLs; ≤ 24 576 bytes with 500 Polish events; one attachment), `WebhookPayloadFormatterTests` (schema, Minimal level strips values), `StandardWebhookSignerTests` (both vectors of 14.5, rotation = two signatures), `TeamsUrlValidatorTests`, `NotificationStringsTests` (every generated key in en and pl) |
 
 ### 22.2 `tests/AdMng.Watchdog.Service.Tests` (W-service)
@@ -5230,7 +5312,9 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
   5136 XML, SMTP 550 on a recipient, an `int.Parse` failure on an AD value, an unhandled exception in an endpoint and
   in a job – and assert that no snapshot/event string value, no recipient address and no secret appears.
 - Storage: `SqliteStoreContractTests` (subclass of W-core's abstract contract suite, incl. the case-insensitive
-  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused),
+  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused,
+  a migration failing halfway rolled back whole and applied at the next start, schema-1 rows read with their payload
+  severity as own severity without a table rewrite),
   retention batches + backup rotation (pre-migration backups too), size cap purge, AUTOINCREMENT cursor after purge,
   outbox payload NULL after send, `secure_delete`: after purge + checkpoint the db and WAL bytes no longer contain a
   purged Polish value, `temp_store = MEMORY` set on every connection, config + secrets + audit in one transaction,

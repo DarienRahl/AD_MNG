@@ -41,4 +41,6 @@ internal sealed class FakeNotificationQueue : INotificationQueueStore
     public Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken) => throw new NotSupportedException();
 
     public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+    public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken) => throw new NotSupportedException();
 }

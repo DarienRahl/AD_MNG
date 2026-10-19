@@ -85,6 +85,44 @@ public sealed partial class InMemoryWatchdogStore
         return Task.CompletedTask;
     }
 
+    public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            var missing = new List<PendingNotification>();
+            foreach (var notification in notifications)
+            {
+                var key = notification.Target.Key;
+                var waiting = _pending.Values.FirstOrDefault(p =>
+                    p.EventId == notification.EventId && p.IsFollowUp == notification.IsFollowUp && p.Target.Key == key);
+                if (waiting is null)
+                {
+                    missing.Add(notification);
+                    continue;
+                }
+
+                _pending[waiting.Id] = waiting with
+                {
+                    RuleId = notification.RuleId,
+                    Target = Copy(notification.Target),
+                    Severity = notification.Severity,
+                    BucketKey = notification.BucketKey,
+                    HoldForAttributionUntil = notification.HoldForAttributionUntil,
+                    DueAt = notification.DueAt < waiting.DueAt ? notification.DueAt : waiting.DueAt,
+                };
+            }
+
+            if (insertMissing)
+            {
+                InsertPending(missing);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>Inserts pending rows (caller holds the lock); duplicates by (event, target key, follow-up) – stored or
     /// within the batch – are ignored; an unknown event id violates the foreign key.</summary>
     private void InsertPending(IReadOnlyList<PendingNotification> notifications)

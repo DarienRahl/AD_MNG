@@ -1,5 +1,6 @@
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Model;
 using Xunit;
 
 namespace AdMng.Watchdog.Testing.Stores;
@@ -68,6 +69,41 @@ public abstract partial class WatchdogStoreContractTests<TStore>
         Assert.Equal(webhook.Http.ContentType, http.ContentType);
         Assert.Equal("ad.user.created", http.WebhookEventType);
         Assert.Equal("Nowe konto", http.Title);
+    });
+
+    [Fact]
+    public Task Outbox_KeepsHowAnAlertShowedEachOfItsEvents() => WithStoreAsync(async store =>
+    {
+        // An aggregated alert is High as a whole; its events were shown High (actor known) and Medium (actor pending) –
+        // what decides whether a later plan for one of them is a repeat (13.2 #1).
+        var user = Snapshot();
+        var events = await StoreEventsAsync(store,
+            Event(WatchEventKind.PasswordChanged, user, Now, Severity.High),
+            Event(WatchEventKind.KeyCredentialChanged, user, Now, Severity.Medium),
+            Event(WatchEventKind.UserCreated, user, Now));
+        var aggregated = Message("email", eventIds: [events[0].Id, events[1].Id], ruleId: "konta-vip") with
+        {
+            Severity = Severity.High,
+            SentWithPendingAttribution = true,
+            EventStates =
+            [
+                new(events[1].Id, Severity.Medium, true),
+                new(events[0].Id, Severity.High, false),
+                new(events[2].Id, Severity.Low, false),     // not linked: not kept
+            ],
+        };
+        var followUp = Message("email", kind: DeliveryKind.FollowUp, eventIds: [events[1].Id]);
+
+        await store.EnqueueAsync(aggregated, Ct);
+        await store.EnqueueAsync(followUp, Ct);
+
+        var expected = new[] { new OutboxEventState(events[0].Id, Severity.High, false), new OutboxEventState(events[1].Id, Severity.Medium, true) };
+        var forEvent = await store.GetMessagesForEventAsync(events[1].Id, Ct);
+        Assert.Equal(expected, forEvent.Single(m => m.Kind == DeliveryKind.Alert).EventStates);
+        Assert.Empty(forEvent.Single(m => m.Kind == DeliveryKind.FollowUp).EventStates);
+        var leased = await store.LeaseDueAsync(Now, 10, TimeSpan.FromMinutes(5), Ct);
+        Assert.Equal(expected, leased.Single(m => m.Kind == DeliveryKind.Alert).EventStates);
+        Assert.Empty(await store.GetMessagesForEventAsync(events[2].Id, Ct));
     });
 
     [Fact]

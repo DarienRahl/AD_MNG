@@ -4,16 +4,27 @@ using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Rules;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Watchdog.Core.Notifications;
 
 /// <summary>
 /// <see cref="IWatchdogJob"/> "dispatch" (section 13.3): flushes due buckets of pending notifications into the outbox.
-/// Held items are released when the attribution is final or the grace period ended and are re-matched with the event's
-/// final state (<see cref="IHeldNotificationMatcher"/>; delivery hours and rollout mode recomputed) – items that no
-/// longer qualify are dropped. Every other (non-follow-up) item is dropped when its rule's delivery hours ended while it
-/// waited (aggregation window, throttling) – the digest reports it. A bucket whose rule reached its hourly cap on the
+/// Held items are released when the attribution is final or the grace period ended; their target is re-planned from
+/// every rule that matches the event's final state now (<see cref="IHeldNotificationMatcher.MatchAll"/>,
+/// <see cref="NotificationPlanner.PlanTargetAsync"/>; delivery hours and rollout mode recomputed): the strongest treatment
+/// of those rules, and a target whose rule no longer matches passes to the next rule that does – items no rule notifies
+/// any more are dropped. Every other (non-follow-up) item whose rule's delivery hours ended while it waited (aggregation
+/// window, throttling) or that left the configuration is re-planned the same way – dropped when no rule delivers now (the
+/// digest reports it). A re-planned item led by another rule moves to that rule's bucket and is flushed in a second pass
+/// of the same run. A run is one evaluation section (<see cref="RuleEngine.EnterEvaluationAsync"/>, shared with the rules
+/// job and the attribution engine's re-evaluation and attribution update): a row is never completed with a treatment, or
+/// an event state, read before a re-plan of that event was stored – the re-plan happens before the run reads it or after
+/// the row was completed (then the alert's coverage decides). A row whose event already has an alert for the target
+/// that covers it (<see cref="AlertCoverage"/>, per event) is dropped right before the bucket is completed – this job is
+/// the only writer of alerts, so a row planned while that alert was being completed never becomes a second one; every
+/// alert records how it showed each event (<see cref="OutboxMessage.EventStates"/>). A bucket whose rule reached its hourly cap on the
 /// channel waits 15 minutes (Critical is never throttled). At most <c>MaxItemsPerMessage</c> items are rendered, the rest
 /// is announced as "+N kolejnych"; all ready items are completed with the message in one store call. A follow-up waits
 /// (<see cref="FollowUpWait"/>) until its original message was sent and is dropped when the original went Dead or
@@ -34,7 +45,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     private readonly IWatchdogConfigProvider _configProvider;
     private readonly IHeldNotificationMatcher _matcher;
     private readonly NotificationPlanner _planner;
-    private readonly RolloutGate _rollout;
+    private readonly RuleEngine _ruleEngine;
     private readonly ThrottlePolicy _throttle;
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
@@ -42,15 +53,17 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     private readonly FollowUpPlanner _followUps;
 
     public NotificationDispatchJob(INotificationQueueStore queue, IEventStore events, IOutboxStore outbox, IWatchdogConfigProvider configProvider,
-        IHeldNotificationMatcher matcher, NotificationPlanner planner, RolloutGate rollout, ThrottlePolicy throttle, IWatchdogSignals signals,
-        TimeProvider timeProvider, ILogger<NotificationDispatchJob> logger)
+        IHeldNotificationMatcher matcher, NotificationPlanner planner, RuleEngine ruleEngine, RolloutGate rollout, ThrottlePolicy throttle,
+        IWatchdogSignals signals, TimeProvider timeProvider, ILogger<NotificationDispatchJob> logger)
     {
+        // Rollout mode is applied by the planner's re-plan (PlanTargetAsync); the gate stays a dependency of the job.
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(outbox);
         ArgumentNullException.ThrowIfNull(configProvider);
         ArgumentNullException.ThrowIfNull(matcher);
         ArgumentNullException.ThrowIfNull(planner);
+        ArgumentNullException.ThrowIfNull(ruleEngine);
         ArgumentNullException.ThrowIfNull(rollout);
         ArgumentNullException.ThrowIfNull(throttle);
         ArgumentNullException.ThrowIfNull(signals);
@@ -62,7 +75,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         _configProvider = configProvider;
         _matcher = matcher;
         _planner = planner;
-        _rollout = rollout;
+        _ruleEngine = ruleEngine;
         _throttle = throttle;
         _signals = signals;
         _timeProvider = timeProvider;
@@ -84,25 +97,37 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     {
         try
         {
+            // The attribution engine re-plans an event's waiting rows and stores its final attribution inside this section
+            // (11.4 #9): without it a row it re-planned for a stronger rule could be completed with the treatment this run
+            // read before – and the re-planned row deleted with it.
+            using var section = await _ruleEngine.EnterEvaluationAsync(cancellationToken).ConfigureAwait(false);
             var now = _timeProvider.GetUtcNow();
             var configuration = _configProvider.Current.Configuration;
-            var pending = await _queue.GetAllAsync(cancellationToken).ConfigureAwait(false);
             var nextWake = now + DefaultInterval;
             var enqueued = 0;
-            foreach (var bucket in pending.GroupBy(p => p.BucketKey, StringComparer.Ordinal))
-            {
-                var dueAt = bucket.Min(p => p.DueAt);
-                if (dueAt > now)
-                {
-                    nextWake = Min(nextWake, dueAt);
-                    continue;
-                }
 
-                var outcome = await FlushAsync([.. bucket.OrderBy(p => p.Id)], configuration, now, cancellationToken).ConfigureAwait(false);
-                enqueued += outcome.Enqueued ? 1 : 0;
-                if (outcome.WakeAt is { } wake)
+            // A re-planned row that another rule leads now moves to that rule's bucket (due at once): a second pass over
+            // the stored rows flushes it with that bucket.
+            var moved = new List<long>();
+            for (var pass = 0; pass < 2 && (pass == 0 || moved.Count > 0); pass++)
+            {
+                moved.Clear();
+                var pending = await _queue.GetAllAsync(cancellationToken).ConfigureAwait(false);
+                foreach (var bucket in pending.GroupBy(p => p.BucketKey, StringComparer.Ordinal))
                 {
-                    nextWake = Min(nextWake, wake);
+                    var dueAt = bucket.Min(p => p.DueAt);
+                    if (dueAt > now)
+                    {
+                        nextWake = Min(nextWake, dueAt);
+                        continue;
+                    }
+
+                    var outcome = await FlushAsync([.. bucket.OrderBy(p => p.Id)], configuration, now, moved, cancellationToken).ConfigureAwait(false);
+                    enqueued += outcome.Enqueued ? 1 : 0;
+                    if (outcome.WakeAt is { } wake)
+                    {
+                        nextWake = Min(nextWake, wake);
+                    }
                 }
             }
 
@@ -123,10 +148,11 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     }
 
     private async Task<(bool Enqueued, DateTimeOffset? WakeAt)> FlushAsync(IReadOnlyList<PendingNotification> items, WatchdogConfiguration configuration,
-        DateTimeOffset now, CancellationToken cancellationToken)
+        DateTimeOffset now, List<long> moved, CancellationToken cancellationToken)
     {
         var ready = new List<(PendingNotification Item, WatchEvent Event)>();
         var drop = new List<long>();
+        var settings = configuration.Notifications ?? new NotificationSettings();
         DateTimeOffset? wakeAt = null;
         foreach (var item in items)
         {
@@ -143,35 +169,56 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
                 continue;
             }
 
-            if (item.HoldForAttributionUntil is null)
+            var held = item.HoldForAttributionUntil is not null;
+            var graceExpired = (item.HoldForAttributionUntil ?? watchEvent.DetectedAt + settings.AttributionGrace) <= now;
+            if (held && watchEvent.Attribution?.Status == AttributionStatus.Pending && !graceExpired)
             {
-                // Delivery hours were checked at planning; the aggregation window or throttling may have run past them.
-                if (FindRule(configuration, item.RuleId) is { } itemRule && !_planner.IsWithinDeliveryHours(itemRule, item.Severity, configuration, now))
-                {
+                wakeAt = Min(wakeAt, item.HoldForAttributionUntil!.Value);
+                continue;
+            }
+
+            // Delivery hours were checked at planning; the aggregation window or throttling may have run past them.
+            if (!held && FindRule(configuration, item.RuleId) is { } itemRule && _planner.IsWithinDeliveryHours(itemRule, item.Severity, configuration, now))
+            {
+                ready.Add((item, watchEvent));
+                continue;
+            }
+
+            // A released held row, or one whose rule left its delivery hours or the configuration: re-planned from every rule
+            // that matches the event now (13.3) – the strongest treatment, and a target never stays with a rule that no longer
+            // matches while another one still does.
+            switch (await ReplanAsync(item, watchEvent, configuration, now, graceExpired, cancellationToken).ConfigureAwait(false))
+            {
+                case null:
                     drop.Add(item.Id);
-                }
-                else
-                {
-                    ready.Add((item, watchEvent));
-                }
-
-                continue;
+                    break;
+                case { HoldForAttributionUntil: { } stillHeld } waiting:
+                    // Only rules that wait for the actor are left (a row released by its delivery hours): it waits again.
+                    await _queue.ReplanAsync([waiting], insertMissing: false, cancellationToken).ConfigureAwait(false);
+                    wakeAt = Min(wakeAt, stillHeld);
+                    break;
+                case var released when !string.Equals(released.BucketKey, item.BucketKey, StringComparison.Ordinal):
+                    // Another rule leads the target now: the row moves to that rule's bucket (still due) and goes out with it
+                    // in the second pass of this run.
+                    await _queue.ReplanAsync([released], insertMissing: false, cancellationToken).ConfigureAwait(false);
+                    moved.Add(released.Id);
+                    break;
+                case var released:
+                    ready.Add((released, watchEvent));
+                    break;
             }
+        }
 
-            var graceExpired = item.HoldForAttributionUntil <= now;
-            if (watchEvent.Attribution?.Status == AttributionStatus.Pending && !graceExpired)
-            {
-                wakeAt = Min(wakeAt, item.HoldForAttributionUntil.Value);
-                continue;
-            }
-
-            if (await ReleaseAsync(item, watchEvent, configuration, now, graceExpired, cancellationToken).ConfigureAwait(false) is { } released)
-            {
-                ready.Add((released, watchEvent));
-            }
-            else
+        // One alert per event and target (13.2 #1): a row planned after an earlier alert of its event was completed (the
+        // re-evaluation of an attribution that was stored after this job flushed the earlier row, the second planning of a
+        // configuration change) is a repeat when that alert covers it. This job is the only writer of alerts and completes
+        // one bucket at a time, so the check cannot race.
+        foreach (var (item, _) in ready.Where(r => !r.Item.IsFollowUp).ToList())
+        {
+            if (await AlertCoverage.IsCoveredAsync(_outbox, item.EventId, item.Target.Key, item.Severity, configuration, cancellationToken).ConfigureAwait(false))
             {
                 drop.Add(item.Id);
+                ready.RemoveAll(r => r.Item.Id == item.Id);
             }
         }
 
@@ -228,8 +275,6 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         }
 
         var ids = ready.Select(r => r.Item.Id).ToList();
-
-        var settings = configuration.Notifications ?? new NotificationSettings();
         var severity = ready.Max(r => r.Item.Severity);
         if (!first.IsFollowUp && rule is not null
             && await _throttle.IsExceededAsync(rule.Id, ThrottlePolicy.Cap(rule, settings), first.Target, severity, now, cancellationToken).ConfigureAwait(false))
@@ -245,7 +290,11 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         var shown = ordered.Take(cap).ToList();
         var message = first.IsFollowUp
             ? await FollowUpAsync(first, original, rule, shown, configuration, now, cancellationToken).ConfigureAwait(false)
-            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now);
+            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now) with
+            {
+                // What the recipients know about each event (an aggregated alert's events differ): the coverage of later plans.
+                EventStates = [.. ordered.Select(e => new OutboxEventState(e.Id, e.Severity, e.Attribution?.Status == AttributionStatus.Pending))],
+            };
         await _queue.CompleteAsync(ids, message, cancellationToken).ConfigureAwait(false);
         if (message.RuleId is { } ruleId)
         {
@@ -322,23 +371,31 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         return (original, status, duplicates);
     }
 
-    /// <summary>A released held item with its re-matched severity, or null when it no longer qualifies.</summary>
-    private async Task<PendingNotification?> ReleaseAsync(PendingNotification item, WatchEvent watchEvent, WatchdogConfiguration configuration,
+    /// <summary>
+    /// The item's target re-planned from every rule that matches the event now (<see cref="IHeldNotificationMatcher.MatchAll"/>
+    /// with the final own severity, tags and actor; delivery hours and rollout mode recomputed), or null when no rule notifies
+    /// the target any more. A row that may go out has no hold, keeps its id, creation and due time; one that has to wait for
+    /// the actor again keeps the new hold.
+    /// </summary>
+    private async Task<PendingNotification?> ReplanAsync(PendingNotification item, WatchEvent watchEvent, WatchdogConfiguration configuration,
         DateTimeOffset now, bool graceExpired, CancellationToken cancellationToken)
     {
-        if (FindRule(configuration, item.RuleId) is not { } rule || _matcher.Rematch(watchEvent, rule, configuration, now, graceExpired) is not { } match)
+        var matches = _matcher.MatchAll(watchEvent, configuration, now, graceExpired);
+        var replanned = await _planner.PlanTargetAsync(watchEvent, matches, item.Target.Key, item.RuleId, configuration, now, cancellationToken)
+            .ConfigureAwait(false);
+        if (replanned is null)
         {
             return null;
         }
 
-        if (!_planner.IsWithinDeliveryHours(rule, match.NotificationSeverity, configuration, now)
-            || (!RolloutGate.AllowsImmediate(rule.Id)
-                && await _rollout.IsActiveAsync(configuration, watchEvent.Domain, now, cancellationToken).ConfigureAwait(false)))
+        var waits = replanned.HoldForAttributionUntil is { } hold && hold > now && watchEvent.Attribution?.Status == AttributionStatus.Pending;
+        return replanned with
         {
-            return null;
-        }
-
-        return item with { Severity = match.NotificationSeverity };
+            Id = item.Id,
+            CreatedAt = item.CreatedAt,
+            DueAt = item.DueAt,
+            HoldForAttributionUntil = waits ? replanned.HoldForAttributionUntil : null,
+        };
     }
 
     private async Task<OutboxMessage> FollowUpAsync(PendingNotification first, OutboxMessage? original, RuleSettings? rule, IReadOnlyList<WatchEvent> events,

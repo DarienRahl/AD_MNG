@@ -10,6 +10,8 @@ internal sealed record Migration(int Version, string Name, string Sql)
     public static IReadOnlyList<Migration> All { get; } =
     [
         new(Migration0001Initial.Version, Migration0001Initial.Name, Migration0001Initial.Sql),
+        new(Migration0002OwnSeverity.Version, Migration0002OwnSeverity.Name, Migration0002OwnSeverity.Sql),
+        new(Migration0003OutboxEventState.Version, Migration0003OutboxEventState.Name, Migration0003OutboxEventState.Sql),
     ];
 
     /// <summary>The newest schema version this build knows.</summary>

@@ -80,6 +80,7 @@ public sealed partial class InMemoryWatchdogStore :
     {
         Recipients = [.. message.Recipients],
         EventIds = [.. message.EventIds],
+        EventStates = [.. message.EventStates],
         Email = message.Email is null
             ? null
             : message.Email with { Headers = new Dictionary<string, string>(message.Email.Headers, StringComparer.OrdinalIgnoreCase) },

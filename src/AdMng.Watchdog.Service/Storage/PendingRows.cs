@@ -46,6 +46,56 @@ internal static class PendingRows
         }
     }
 
+    /// <summary>Re-planned rows (<c>INotificationQueueStore.ReplanAsync</c>): the waiting row with the same (event, target
+    /// key, follow-up) takes rule, target, severity, bucket and hold and keeps the earlier due time; a missing one is
+    /// inserted when <paramref name="insertMissing"/>.</summary>
+    public static void Replan(SqliteConnection connection, SqliteTransaction transaction, IReadOnlyList<PendingNotification> notifications,
+        bool insertMissing, DateTimeOffset now)
+    {
+        if (notifications.Count == 0)
+        {
+            return;
+        }
+
+        using var command = SqliteValues.Command(
+            connection,
+            transaction,
+            insertMissing
+                ? """
+                  INSERT INTO pending_notifications (event_id, rule_id, target, target_key, severity, bucket_key, due_at,
+                    hold_until, is_follow_up, reply_to, created_at)
+                  VALUES ($event, $rule, $target, $targetKey, $severity, $bucket, $due, $hold, $followUp, $replyTo, $created)
+                  ON CONFLICT (event_id, target_key, is_follow_up) DO UPDATE SET
+                    rule_id = excluded.rule_id, target = excluded.target, severity = excluded.severity,
+                    bucket_key = excluded.bucket_key, hold_until = excluded.hold_until, due_at = min(due_at, excluded.due_at);
+                  """
+                : """
+                  UPDATE pending_notifications SET rule_id = $rule, target = $target, severity = $severity, bucket_key = $bucket,
+                    hold_until = $hold, due_at = min(due_at, $due)
+                  WHERE event_id = $event AND target_key = $targetKey AND is_follow_up = $followUp;
+                  """);
+        foreach (var notification in notifications)
+        {
+            command.Parameters.Clear();
+            command.Parameters.AddWithValue("$event", notification.EventId);
+            command.Parameters.AddWithValue("$rule", notification.RuleId);
+            command.Parameters.AddWithValue("$target", BlobCodec.Encode(notification.Target, WatchdogStorageJsonContext.Default.NotificationTarget));
+            command.Parameters.AddWithValue("$targetKey", notification.Target.Key);
+            command.Parameters.AddWithValue("$severity", (int)notification.Severity);
+            command.Parameters.AddWithValue("$bucket", notification.BucketKey);
+            command.Parameters.AddWithValue("$due", SqliteValues.ToUnixMs(notification.DueAt));
+            command.Parameters.AddWithValue("$hold", SqliteValues.ToUnixMsOrNull(notification.HoldForAttributionUntil));
+            command.Parameters.AddWithValue("$followUp", notification.IsFollowUp ? 1 : 0);
+            if (insertMissing)
+            {
+                command.Parameters.AddWithValue("$replyTo", SqliteValues.OrNull(notification.ReplyToMessageId));
+                command.Parameters.AddWithValue("$created", SqliteValues.ToUnixMs(notification.CreatedAt == default ? now : notification.CreatedAt));
+            }
+
+            command.ExecuteNonQuery();
+        }
+    }
+
     /// <summary>Maps a row selected with <see cref="Columns"/>.</summary>
     public static PendingNotification Read(SqliteDataReader reader) => new()
     {

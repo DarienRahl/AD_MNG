@@ -59,7 +59,7 @@ public sealed class NotificationPlannerTests
     }
 
     [Fact]
-    public async Task SameTargetOfTwoRules_IsOwnedByTheFirstRule()
+    public async Task SameTargetOfTwoRules_IsOneRowLedByTheFirstRule()
     {
         var first = Rule("tier0-privilege");
         var second = Rule("privileged-changes", channels: [TeamsChannel]);
@@ -70,6 +70,57 @@ public sealed class NotificationPlannerTests
         Assert.Equal(2, planned.Count);
         Assert.Equal(("tier0-privilege", DeliveryChannelType.Email), (planned[0].RuleId, planned[0].Target.ChannelType));
         Assert.Equal(("privileged-changes", DeliveryChannelType.Teams), (planned[1].RuleId, planned[1].Target.ChannelType));
+    }
+
+    [Fact]
+    public async Task SameTargetOfTwoRules_GetsTheHighestSeverityAndTheShortestWindow()
+    {
+        // konta-vip (first) lowers its notifications to Low; hasla-adm notifies the same mailbox with the event's High.
+        var first = Rule("konta-vip", "Konta VIP") with { Severity = Severity.Low };
+        var second = Rule("hasla-adm", "Hasła administratorów", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(first, second));
+
+        var (_, planned) = await harness.PlanAsync(Event(severity: Severity.High), new PlannedMatch(first, Severity.Low), new PlannedMatch(second, Severity.High));
+
+        var row = Assert.Single(planned);
+        Assert.Equal(("konta-vip", Severity.High, Now.AddSeconds(10)), (row.RuleId, row.Severity, row.DueAt));
+        Assert.Equal($"konta-vip|{AdminsTarget(harness.Current).Key}", row.BucketKey);
+        Assert.Null(row.HoldForAttributionUntil);
+    }
+
+    [Fact]
+    public async Task ARuleThatNotifiesAtOnce_DecidesOverOneWaitingForTheActor()
+    {
+        // konta-vip excludes an actor (provisional while pending, held); hasla-adm notifies the same mailbox at once: the row
+        // goes out now with hasla-adm's treatment – the excluded actor cannot silence a rule without that condition.
+        var first = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always) with { Severity = Severity.Critical };
+        var second = Rule("hasla-adm", "Hasła administratorów", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(first, second));
+
+        var (_, planned) = await harness.PlanAsync(Event(severity: Severity.High, attribution: EventAttribution.Pending),
+            new PlannedMatch(first, Severity.Critical, IsProvisional: true), new PlannedMatch(second, Severity.High));
+
+        var row = Assert.Single(planned);
+        Assert.Equal(("hasla-adm", Severity.High), (row.RuleId, row.Severity));
+        Assert.Null(row.HoldForAttributionUntil);
+    }
+
+    [Fact]
+    public async Task RulesThatAllWaitForTheActor_HoldOneRowWithTheirStrongestTreatment()
+    {
+        var first = Rule("konta-vip", "Konta VIP") with { Severity = Severity.Low };
+        var second = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always) with
+        {
+            Delivery = Rule("opisy-kont").Delivery with { Hours = DeliveryHours.Always, AggregationWindow = TimeSpan.FromMinutes(2) },
+        };
+        var harness = new NotificationHarness(ConfigWith(first, second));
+
+        var (stored, planned) = await harness.PlanAsync(Event(severity: Severity.Medium, attribution: EventAttribution.Pending),
+            new PlannedMatch(first, Severity.Low), new PlannedMatch(second, Severity.Medium));
+
+        var row = Assert.Single(planned);
+        Assert.Equal(("konta-vip", Severity.Medium, Now.AddMinutes(2)), (row.RuleId, row.Severity, row.DueAt));
+        Assert.Equal(stored.DetectedAt.AddSeconds(90), row.HoldForAttributionUntil);
     }
 
     [Fact]
@@ -214,17 +265,73 @@ public sealed class NotificationPlannerTests
         return (harness, e, Assert.Single(await harness.MessagesAsync(e)));
     }
 
+    /// <summary>The new rows of a re-evaluation that added <see cref="AddedRule"/> (the alert went out, nothing waits).</summary>
     private static async Task<IReadOnlyList<PendingNotification>> PlanAddedAsync(NotificationHarness harness, WatchEvent e, Severity severity) =>
-        await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
+        (await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
             new RuleEvaluationResult
             {
-                Event = e with { Severity = severity, Attribution = Resolved(), MatchedRules = [FirstRule.Id] },
+                Event = e with { Severity = severity, OwnSeverity = severity, Attribution = Resolved(), MatchedRules = [FirstRule.Id] },
                 Severity = severity,
                 Matches = [new RuleMatch { Rule = AddedRule, NotificationSeverity = severity }],
             },
+            new HashSet<string>([AddedRule.Id], StringComparer.OrdinalIgnoreCase),
+            await harness.Store.GetAllAsync(Ct),
+            harness.Current,
+            harness.Clock.GetUtcNow(),
+            Ct)).Insert;
+
+    [Fact]
+    public async Task Reevaluation_ReplansEveryWaitingRow_FromTheRulesThatMatchNow()
+    {
+        // While the actor was pending: konta-vip (Low) held the it-admins row, opisy-kont the security row and stara-regula
+        // the Teams row. Final state: tier0-security (earlier in the configuration, High) is added for it-admins, opisy-kont
+        // still matches, stara-regula no longer does.
+        var tier0 = Rule("tier0-security", "Atrybuty krytyczne", hours: DeliveryHours.Always);
+        var vip = Rule("konta-vip", "Konta VIP") with { Severity = Severity.Low };
+        var descriptions = Rule("opisy-kont", "Opisy kont", groups: [SecurityGroup], hours: DeliveryHours.Always);
+        var old = Rule("stara-regula", "Stara reguła", groups: [], channels: [TeamsChannel], hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(tier0, vip, descriptions, old));
+        var (e, held) = await harness.PlanAsync(Event(WatchEventKind.KeyCredentialChanged, Severity.Medium, EventAttribution.Pending),
+            new PlannedMatch(vip, Severity.Low), new PlannedMatch(descriptions, Severity.Medium), new PlannedMatch(old, Severity.Medium));
+        Assert.Equal(3, held.Count);
+        var waiting = await harness.Store.GetAllAsync(Ct);
+        harness.Clock.Advance(TimeSpan.FromSeconds(30));
+        var final = e with { Severity = Severity.High, OwnSeverity = Severity.High, Attribution = Resolved(), MatchedRules = [vip.Id, descriptions.Id, old.Id] };
+
+        var plan = await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
+            new RuleEvaluationResult
+            {
+                Event = final,
+                Severity = Severity.High,
+                Matches =
+                [
+                    new RuleMatch { Rule = tier0, NotificationSeverity = Severity.High },
+                    new RuleMatch { Rule = vip, NotificationSeverity = Severity.Low },
+                    new RuleMatch { Rule = descriptions, NotificationSeverity = Severity.High },
+                ],
+            },
+            new HashSet<string>([tier0.Id], StringComparer.OrdinalIgnoreCase),
+            waiting,
             harness.Current,
             harness.Clock.GetUtcNow(),
             Ct);
+
+        var admins = waiting.Single(w => w.RuleId == vip.Id);
+        var merged = Assert.Single(plan.Merge);
+        Assert.Equal((admins.Id, "tier0-security", Severity.High, harness.Clock.GetUtcNow().AddSeconds(10)), (merged.Id, merged.RuleId, merged.Severity, merged.DueAt));
+        Assert.Null(merged.HoldForAttributionUntil);
+        var updated = Assert.Single(plan.Update);
+        Assert.Equal((waiting.Single(w => w.RuleId == descriptions.Id).Id, "opisy-kont", Severity.High), (updated.Id, updated.RuleId, updated.Severity));
+        Assert.Null(updated.HoldForAttributionUntil);
+        Assert.Equal([waiting.Single(w => w.RuleId == old.Id).Id], plan.Drop);
+        Assert.Empty(plan.Insert);
+
+        await harness.Store.ReplanAsync(plan.Merge, insertMissing: true, Ct);
+        await harness.Store.ReplanAsync(plan.Update, insertMissing: false, Ct);
+        await harness.Store.DropAsync(plan.Drop, Ct);
+        var rows = await harness.Store.GetAllAsync(Ct);
+        Assert.Equal(["opisy-kont", "tier0-security"], rows.Select(r => r.RuleId).Order(StringComparer.Ordinal));
+    }
 
     [Fact]
     public async Task AddedRule_LeavesOutATargetThatGotTheFinalState_ButNotifiesAnEscalation()
