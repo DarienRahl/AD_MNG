@@ -4790,7 +4790,9 @@ Kerberos – sprawdź SPN i rekord DNS (docs/WATCHDOG.md)"), `Watchdog.Connectio
 o dodanie do grupy AD z rolą Watchdog"), `Commands.Watchdog`.
 Dynamic families (tested for completeness against the enums/constants like `DisplayNames`):
 `Watchdog.Kind.{WatchEventKind}`, `Watchdog.Category.{EventCategory}`, `Watchdog.Severity.{Severity}`,
-`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}`,
+`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}` + `.Remedy`
+(every health code the service and the engine report – e.g. `certificate.expiry`, `storage.size`, `rules.planner`,
+`attribution.collector` – resolves to a prefix with its own text; a Presentation test scans their sources),
 `Watchdog.Hint.{hint}`, `Watchdog.Validation.{code}`, `Watchdog.Stage.{DeliveryStage}`,
 `Watchdog.Outbox.{OutboxStatus}`, `Watchdog.State.{ConnectionState}`, `Watchdog.DetailLevel.{DetailLevel}`,
 `Watchdog.DeliveryHours.{DeliveryHours}`, `Watchdog.SmtpSecurity.{…}`, `Watchdog.SmtpAuthentication.{…}`,
