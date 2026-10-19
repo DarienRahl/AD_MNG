@@ -407,8 +407,10 @@
 
     <!--
       Feed | splitter | details: the feed takes the rest. Its columns fit the feed (GridViewColumnFit): the event title takes
-      what severity, time and object leave (at least 260 px); ✓, actor, source, location and lockouts follow in this order
-      while their minimum width fits (their values are in the details pane).
+      what severity, time and object leave (at least 244 px); ✓, actor, source, location and lockouts follow in this order
+      while their minimum width fits (their values are in the details pane). The four required columns fit at their minimum
+      (600 px together) in the main window's default size 1360 × 840 next to the 400 px details pane (a feed of about
+      634 px); at 1440 × 900 the title keeps at least 260 px with the preferred widths of the others.
     -->
     <Grid>
       <Grid.ColumnDefinitions>
@@ -446,7 +448,7 @@
             </ListView.ItemsPanel>
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="110"
+                <GridViewColumn Width="104"
                                 b:GridViewColumnFit.MinWidth="100"
                                 Header="{l:Tr Watchdog.Column.Severity}">
                   <GridViewColumn.CellTemplate>
@@ -461,8 +463,8 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="165"
-                                b:GridViewColumnFit.MinWidth="140"
+                <GridViewColumn Width="144"
+                                b:GridViewColumnFit.MinWidth="132"
                                 Header="{l:Tr Watchdog.Column.Time}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
@@ -470,8 +472,8 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="260"
-                                b:GridViewColumnFit.MinWidth="260"
+                <GridViewColumn Width="244"
+                                b:GridViewColumnFit.MinWidth="244"
                                 b:GridViewColumnFit.Star="1"
                                 Header="{l:Tr Watchdog.Column.Kind}">
                   <GridViewColumn.CellTemplate>
@@ -482,8 +484,8 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="200"
-                                b:GridViewColumnFit.MinWidth="140"
+                <GridViewColumn Width="150"
+                                b:GridViewColumnFit.MinWidth="124"
                                 Header="{l:Tr Watchdog.Column.Object}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">

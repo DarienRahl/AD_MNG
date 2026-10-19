@@ -4,9 +4,9 @@ namespace AdMng.Presentation.Tests.Watchdog;
 
 /// <summary>
 /// <see cref="ColumnFit"/> with the columns of the Watchdog lists (the same widths as <c>WatchdogEventsView.xaml</c> and
-/// <c>WatchdogRulesView.xaml</c>): at the screenshot size 1440 × 900 every shown column fits the list (no horizontal
-/// scrolling), the title takes what the others leave without starving them, optional columns appear in a fixed order as
-/// the list widens and the operator's widths are kept.
+/// <c>WatchdogRulesView.xaml</c>): at the screenshot size 1440 × 900 and in the main window's default size 1360 × 840
+/// every shown column fits the list (no horizontal scrolling), the title takes what the others leave without starving them,
+/// optional columns appear in a fixed order as the list widens and the operator's widths are kept.
 /// </summary>
 public sealed class WatchdogColumnFitTests
 {
@@ -15,22 +15,33 @@ public sealed class WatchdogColumnFitTests
     private const double FeedAt1440 = 711;
     private const double FeedWithNarrowDetails = 810;
 
+    // The same in the main window's default size 1360 × 840 (MainWindow.xaml; a client area of 1344 px inside the frame):
+    // 96 px less than at 1440 – a 634 px list. The second value allows for a 17 px scroll bar (the system default width).
+    private const double FeedAtDefaultWindow = 615;
+    private const double FeedAtDefaultWindowWideScrollBar = 610;
+
     // Width left for the columns of the rule list at 1440 × 900 (5/9 of the tab next to the editor).
     private const double RulesAt1440 = 606;
+
+    // The rule list in the default window: 5/9 of the 96 px less (553 px).
+    private const double RulesAtDefaultWindow = 553;
 
     // Width left for the columns of the delivery log on the Status tab at 1440 × 900 (the card's 1109 px inside its border
     // and padding, minus the list border, the row's border and padding, the vertical scroll bar and a pixel for rounding).
     private const double DeliveryLogAt1440 = 1088;
+
+    // The delivery log in the default window: the card is 96 px narrower.
+    private const double DeliveryLogAtDefaultWindow = 992;
 
     private const int Severity = 0, Time = 1, Title = 2, Object = 3, Path = 4, Actor = 5, Source = 6, Lockouts = 7, Acknowledged = 8;
 
     /// <summary>The feed: severity, time, the title (star), object, then the optional location, actor, source, lockouts and ✓.</summary>
     private static readonly FitColumn[] FeedColumns =
     [
-        new(110, 100),
-        new(165, 140),
-        new(260, 260, Star: 1),
-        new(200, 140),
+        new(104, 100),
+        new(144, 132),
+        new(244, 244, Star: 1),
+        new(150, 124),
         new(240, 160, Priority: 4),
         new(180, 120, Priority: 2),
         new(170, 130, Priority: 3),
@@ -81,6 +92,41 @@ public sealed class WatchdogColumnFitTests
         Assert.Null(widths[Lockouts]);
     }
 
+    /// <summary>
+    /// The app opens at 1360 × 840 (no window placement is restored): severity, time, title and object fit next to the
+    /// details pane at their minimum, so the feed does not scroll sideways and the object column is not under the scroll bar.
+    /// The widths before (title 260, time 140 and object 140 at least: 640 px) did not fit there.
+    /// </summary>
+    [Theory]
+    [InlineData(FeedAtDefaultWindow)]
+    [InlineData(FeedAtDefaultWindowWideScrollBar)]
+    public void Feed_AtTheDefaultWindowSize_TheRequiredColumnsFit_NoSidewaysScrolling(double available)
+    {
+        Assert.True(100 + 140 + 260 + 140 > available, "The test no longer covers the old minimum widths.");
+
+        var widths = ColumnFit.Fit(available, FeedColumns);
+
+        AssertFits(available, FeedColumns, widths);
+        Assert.Equal(Math.Floor(available), Shown(widths).Sum());
+        Assert.InRange(widths[Title]!.Value, FeedColumns[Title].MinWidth, FeedColumns[Title].MinWidth + 3);
+        Assert.True(widths[Time] >= 134, $"The time column is {widths[Time]} px wide.");
+        Assert.True(widths[Object] >= FeedColumns[Object].MinWidth);
+        Assert.All(Enumerable.Range(0, FeedColumns.Length).Where(i => FeedColumns[i].Priority > 0), i => Assert.Null(widths[i]));
+    }
+
+    [Fact]
+    public void RulesAndDeliveryLog_AtTheDefaultWindowSize_FitTheirLists()
+    {
+        var rules = ColumnFit.Fit(RulesAtDefaultWindow, RuleColumns);
+        AssertFits(RulesAtDefaultWindow, RuleColumns, rules);
+        Assert.Equal(RulesAtDefaultWindow, Shown(rules).Sum());
+
+        var log = ColumnFit.Fit(DeliveryLogAtDefaultWindow, DeliveryLogColumns);
+        AssertFits(DeliveryLogAtDefaultWindow, DeliveryLogColumns, log);
+        Assert.All(log, w => Assert.NotNull(w));
+        Assert.Equal(DeliveryLogAtDefaultWindow, Shown(log).Sum());
+    }
+
     [Fact]
     public void Feed_DetailsPaneNarrowed_ShowsTheActorToo()
     {
@@ -126,7 +172,7 @@ public sealed class WatchdogColumnFitTests
     {
         var widths = ColumnFit.Fit(500, FeedColumns);
 
-        Assert.Equal([100d, 140, 260, 140, null, null, null, null, null], widths);
+        Assert.Equal([100d, 132, 244, 124, null, null, null, null, null], widths);
     }
 
     [Fact]
@@ -139,13 +185,14 @@ public sealed class WatchdogColumnFitTests
 
         Assert.Equal(320, widths[Object]);
         AssertFits(FeedWithNarrowDetails, columns, widths);
-        Assert.True(widths[Title] >= 260);
+        Assert.True(widths[Title] >= FeedColumns[Title].MinWidth);
+        Assert.Equal(FeedWithNarrowDetails, Shown(widths).Sum());
 
         // Wider than the list allows: the operator's width still wins (the list scrolls), the title keeps its minimum.
         columns[Object] = new(700, 0, IsFixed: true);
         widths = ColumnFit.Fit(FeedAt1440, columns);
         Assert.Equal(700, widths[Object]);
-        Assert.Equal(260, widths[Title]);
+        Assert.Equal(FeedColumns[Title].MinWidth, widths[Title]);
         Assert.Null(widths[Acknowledged]);
     }
 
@@ -207,8 +254,8 @@ public sealed class WatchdogColumnFitTests
         Assert.Equal(733, Shown(ColumnFit.Fit(733.7, FeedColumns)).Sum());
 
         Assert.Empty(ColumnFit.Fit(800, []));
-        Assert.Equal([100d, 140, 260, 140, null, null, null, null, null], ColumnFit.Fit(double.NaN, FeedColumns));
-        Assert.Equal([100d, 140, 260, 140, null, null, null, null, null], ColumnFit.Fit(-20, FeedColumns));
+        Assert.Equal([100d, 132, 244, 124, null, null, null, null, null], ColumnFit.Fit(double.NaN, FeedColumns));
+        Assert.Equal([100d, 132, 244, 124, null, null, null, null, null], ColumnFit.Fit(-20, FeedColumns));
     }
 
     /// <summary>Every shown column is at least its minimum (or exactly the operator's width) and together they fit.</summary>

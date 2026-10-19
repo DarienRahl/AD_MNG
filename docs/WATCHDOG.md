@@ -807,8 +807,9 @@ filtry.
   filtry”, „Więcej filtrów” i przycisk ✕ „Wyczyść filtry” są zawsze razem na końcu pierwszego wiersza filtrów; w wąskim
   oknie pozostałe filtry przechodzą do kolejnego wiersza.
 - **Kolumny list** zdarzeń, reguł i dziennika dostarczeń (podzakładka Stan) mieszczą się w szerokości listy – lista nie
-  przewija się w bok. Na liście zdarzeń zawsze widać ważność, czas, zdarzenie i obiekt; tytuł zdarzenia zajmuje
-  miejsce, które zostaje po pozostałych kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady
+  przewija się w bok, także w domyślnym rozmiarze okna AD Manager (1360 × 840, w którym program się otwiera) przy
+  panelu szczegółów zdarzenia o szerokości 400 px. Na liście zdarzeń zawsze widać ważność, czas, zdarzenie i obiekt;
+  tytuł zdarzenia zajmuje miejsce, które zostaje po pozostałych kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady
   pojawiają się w tej kolejności, gdy lista ma na nie miejsce (szersze okno, węższy panel szczegółów) – ich wartości są
   zawsze w panelu szczegółów zdarzenia. Na liście reguł nazwa, rodzaje zdarzeń i powiadomienia dzielą szerokość w
   proporcji 4 : 3 : 3; skróconą nazwę reguły pokazuje podpowiedź. W dzienniku dostarczeń temat i błąd dzielą miejsce po

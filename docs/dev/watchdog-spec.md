@@ -5188,8 +5188,11 @@ being read down) and after a full reload shows the same event first again (else 
 the columns of the feed, of the rule list and of the Status tab's delivery log fit the list's visible width
 (`Behaviors/GridViewColumnFit` over the pure `Infrastructure/ColumnFit`, recomputed when the window, the splitter or the
 vertical scroll bar changes that width – the Fluent scroll bar lies over the rows, so its width stays free – and never
-scrolling sideways at 1440 × 900): the feed always shows severity (min 100 px), time (140), the event title (star, at least
-260 px, takes what the others leave) and object (140), and ✓, actor, source, location and lockouts in this order while
+scrolling sideways at 1440 × 900 nor in the main window's default size 1360 × 840 – it opens at that size, no window
+placement is restored): the feed always shows severity (min 100 px), time (132), the event title (star, at least 244 px,
+takes what the others leave – at 1440 × 900 at least 260 px with the others at their preferred widths) and object (124) –
+600 px together, so they fit the about 634 px feed of the default window next to the 400 px details pane – and ✓, actor,
+source, location and lockouts in this order while
 their minimum width (40/120/130/160/80) fits – the first that does not fit hides the rest, so columns only appear as the
 list widens; their values are in the details pane; the rule list shares its width 4 : 3 : 3 between name, kinds and
 delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); the delivery log's subject and

@@ -364,18 +364,56 @@ public sealed class WatchdogViewTests
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         AssertColumnsFit(list);
         Assert.Equal(operatorWidth, objectColumn.Width);
-        Assert.True(title.ActualWidth >= 260, $"The title column is {title.ActualWidth} px wide.");
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
         objectColumn.Width = double.NaN;
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         AssertColumnsFit(list);
         Assert.True(double.IsNaN(objectColumn.Width), "The operator's auto width was replaced.");
-        Assert.True(title.ActualWidth >= 260, $"The title column is {title.ActualWidth} px wide.");
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
 
         // The rules next to the editor: the delivery column ends inside the list.
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
         var rules = view.RulesView.RulesList;
         AssertColumnsFit(rules);
         Assert.Equal(4, ((GridView)rules.View).Columns.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The application opens at its declared size 1360 × 840 (no window placement is restored): there too the feed (next to
+    /// the 400 px details pane), the rule list and the delivery log do not scroll sideways, and the feed shows severity, time,
+    /// title and object – the minimum widths of the feed's required columns once added up to more than its width.
+    /// </summary>
+    [Fact]
+    public Task ListColumns_FitTheLists_AtTheDefaultWindowSize() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        Assert.Equal(1360, window.Width);
+        Assert.Equal(840, window.Height);
+        await ScreenshotWriter.ShowAsync(window);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var list = view.EventsView.EventsList;
+        AssertColumnsFit(list);
+        Assert.Equal(["Ważność", "Czas", "Zdarzenie", "Obiekt"], Headers(list).Take(4));
+        var title = Column(list, "Zdarzenie");
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(view.RulesView.RulesList);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(view.StatusView.DeliveryLogList);
+        Assert.Equal(8, ((GridView)view.StatusView.DeliveryLogList.View).Columns.Count);
         context.AssertHealthy();
     });
 
