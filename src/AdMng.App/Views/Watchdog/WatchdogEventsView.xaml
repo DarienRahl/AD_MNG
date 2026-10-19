@@ -388,7 +388,11 @@
       </DockPanel>
     </Border>
 
-    <!-- Feed | splitter | details: the feed takes the rest; the event title column fills what the feed has left. -->
+    <!--
+      Feed | splitter | details: the feed takes the rest. Its columns fit the feed (GridViewColumnFit): the event title takes
+      what severity, time and object leave (at least 260 px); ✓, actor, source, location and lockouts follow in this order
+      while their minimum width fits (their values are in the details pane).
+    -->
     <Grid>
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" MinWidth="360" />
@@ -406,9 +410,7 @@
                 Visibility="{Binding HasMore, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Grid>
           <ListView x:Name="EventsList"
-                    b:GridViewFill.Column="2"
-                    b:GridViewFill.MaxWidth="380"
-                    b:GridViewFill.MinWidth="230"
+                    b:GridViewColumnFit.IsEnabled="True"
                     AutomationProperties.Name="{l:Tr Watchdog.Tab.Events}"
                     BorderThickness="0,1,0,0"
                     ItemContainerStyle="{StaticResource EventRowStyle}"
@@ -427,7 +429,9 @@
             </ListView.ItemsPanel>
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="118" Header="{l:Tr Watchdog.Column.Severity}">
+                <GridViewColumn Width="110"
+                                b:GridViewColumnFit.MinWidth="100"
+                                Header="{l:Tr Watchdog.Column.Severity}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <StackPanel Orientation="Horizontal">
@@ -440,14 +444,19 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="150" Header="{l:Tr Watchdog.Column.Time}">
+                <GridViewColumn Width="165"
+                                b:GridViewColumnFit.MinWidth="140"
+                                Header="{l:Tr Watchdog.Column.Time}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding TimeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Kind}">
+                <GridViewColumn Width="260"
+                                b:GridViewColumnFit.MinWidth="260"
+                                b:GridViewColumnFit.Star="1"
+                                Header="{l:Tr Watchdog.Column.Kind}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding KindText, Mode=OneWay}"
@@ -456,7 +465,9 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="210" Header="{l:Tr Watchdog.Column.Object}">
+                <GridViewColumn Width="200"
+                                b:GridViewColumnFit.MinWidth="140"
+                                Header="{l:Tr Watchdog.Column.Object}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <DockPanel ToolTip="{Binding ObjectPath, Mode=OneWay}">
@@ -472,14 +483,20 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Path}">
+                <GridViewColumn Width="240"
+                                b:GridViewColumnFit.MinWidth="160"
+                                b:GridViewColumnFit.Priority="4"
+                                Header="{l:Tr Watchdog.Column.Path}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding ObjectPath, Mode=OneWay}" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Actor}">
+                <GridViewColumn Width="180"
+                                b:GridViewColumnFit.MinWidth="120"
+                                b:GridViewColumnFit.Priority="2"
+                                Header="{l:Tr Watchdog.Column.Actor}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Style="{StaticResource ActorTextStyle}"
@@ -488,7 +505,10 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Source}">
+                <GridViewColumn Width="170"
+                                b:GridViewColumnFit.MinWidth="130"
+                                b:GridViewColumnFit.Priority="3"
+                                Header="{l:Tr Watchdog.Column.Source}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding SourceText, Mode=OneWay}"
@@ -497,14 +517,19 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="80" Header="{l:Tr Watchdog.Ui.ColumnLockouts}">
+                <GridViewColumn Width="80"
+                                b:GridViewColumnFit.MinWidth="80"
+                                b:GridViewColumnFit.Priority="5"
+                                Header="{l:Tr Watchdog.Ui.ColumnLockouts}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding LockoutText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="44">
+                <GridViewColumn Width="44"
+                                b:GridViewColumnFit.MinWidth="40"
+                                b:GridViewColumnFit.Priority="1">
                   <GridViewColumn.Header>
                     <TextBlock FontSize="12"
                                Style="{StaticResource Ad.GlyphText}"

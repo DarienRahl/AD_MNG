@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
@@ -234,12 +235,12 @@ public sealed class WatchdogViewTests
         var events = view.EventsView;
         Assert.Equal(Visibility.Collapsed, events.PresetPanel.Visibility);
 
-        // The title column fills what the feed has left, so the titles are readable.
+        // Every shown column fits the feed (no sideways scrolling); the title takes what the others leave, so the titles
+        // are readable, and the object keeps its room.
         var list = events.EventsList;
-        var columns = ((GridView)list.View).Columns;
-        var viewer = UiWait.Descendants<ScrollViewer>(list).First();
-        Assert.True(columns[2].ActualWidth >= 300, $"The title column is {columns[2].ActualWidth} px wide.");
-        Assert.True(columns.Take(3).Sum(c => c.ActualWidth) <= viewer.ViewportWidth + 0.5, "The title column ends outside the visible feed.");
+        AssertColumnsFit(list);
+        Assert.True(Column(list, "Zdarzenie").ActualWidth >= 260, $"The title column is {Column(list, "Zdarzenie").ActualWidth} px wide.");
+        Assert.True(Column(list, "Obiekt").ActualWidth >= 140, $"The object column is {Column(list, "Obiekt").ActualWidth} px wide.");
         var titles = UiWait.Descendants<TextBlock>(list)
             .Where(t => t.IsVisible && t.DataContext is WatchdogEventRowViewModel row && t.Text == row.KindText)
             .ToList();
@@ -263,6 +264,56 @@ public sealed class WatchdogViewTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
         Assert.True(window.DetailsColumn.ActualWidth > 0);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The feed and the rule list at 1440 × 900 do not scroll sideways (every column ends inside the list, none under the
+    /// vertical scroll bar) and fit again when the window or the details pane is resized.
+    /// </summary>
+    [Fact]
+    public Task ListColumns_FitTheList_At1440_AndAfterResizing() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        // The feed next to the details pane: severity, time, title and object always, the optional columns while they fit.
+        var list = view.EventsView.EventsList;
+        AssertColumnsFit(list);
+        var shown = Headers(list);
+        Assert.Equal(["Ważność", "Czas", "Zdarzenie", "Obiekt"], shown.Take(4));
+
+        // A wide window shows every column; back at 1440 the same columns as before.
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1920, 1080);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(GridViewColumnFit.AllColumns(list).Count, ((GridView)list.View).Columns.Count);
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(shown, Headers(list));
+
+        // The details pane dragged to its minimum: the feed's columns take the 100 px (a wider title or more columns).
+        var before = ((GridView)list.View).Columns.Sum(c => c.ActualWidth);
+        var panes = (Grid)view.EventsView.DetailsSplitter.Parent;
+        panes.ColumnDefinitions[2].Width = new GridLength(300);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.True(((GridView)list.View).Columns.Sum(c => c.ActualWidth) >= before + 90, "The feed's columns did not follow the splitter.");
+        Assert.Superset(shown.ToHashSet(), Headers(list).ToHashSet());
+
+        // The rules next to the editor: the delivery column ends inside the list.
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
+        var rules = view.RulesView.RulesList;
+        AssertColumnsFit(rules);
+        Assert.Equal(4, ((GridView)rules.View).Columns.Count);
         context.AssertHealthy();
     });
 
@@ -326,6 +377,35 @@ public sealed class WatchdogViewTests
         Assert.Equal(2, dialogs.Confirmations.Count);
         context.AssertHealthy();
     });
+
+    /// <summary>
+    /// <paramref name="list"/> does not scroll sideways and every column header ends inside the list, left of the vertical
+    /// scroll bar (which the Fluent theme lays over the rows).
+    /// </summary>
+    private static void AssertColumnsFit(ListView list)
+    {
+        var viewer = UiWait.Descendants<ScrollViewer>(list).First();
+        Assert.True(viewer.ExtentWidth <= viewer.ViewportWidth + 0.5, $"{list.Name} scrolls sideways: {viewer.ExtentWidth} px in {viewer.ViewportWidth} px.");
+        Assert.NotEqual(Visibility.Visible, viewer.ComputedHorizontalScrollBarVisibility);
+        var bar = viewer.Template.FindName("PART_VerticalScrollBar", viewer) as ScrollBar;
+        var right = bar is { IsVisible: true } && bar.TranslatePoint(default, viewer).X is var left && left < viewer.ViewportWidth
+            ? left
+            : viewer.ViewportWidth;
+        var headers = UiWait.Descendants<GridViewColumnHeader>(list).Where(h => h.Column is not null && h.IsVisible).ToList();
+        Assert.Equal(((GridView)list.View).Columns.Count, headers.Count);
+        Assert.All(headers, h =>
+        {
+            var edge = h.TranslatePoint(new Point(h.ActualWidth, 0), viewer).X;
+            Assert.True(edge <= right + 0.5, $"Column '{h.Column.Header}' of {list.Name} ends at {edge} px, the list shows {right} px.");
+        });
+    }
+
+    /// <summary>The headers of the shown columns ("✓" for the glyph header).</summary>
+    private static List<string> Headers(ListView list) =>
+        [.. ((GridView)list.View).Columns.Select(c => c.Header as string ?? "✓")];
+
+    private static GridViewColumn Column(ListView list, string header) =>
+        ((GridView)list.View).Columns.Single(c => Equals(c.Header, header));
 
     /// <summary>Width of <paramref name="text"/>'s whole text in its font (what it needs to be shown uncut).</summary>
     private static double TextWidth(TextBlock text) =>

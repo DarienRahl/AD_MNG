@@ -5182,8 +5182,16 @@ Layout (checked by UI tests at the screenshot size 1440 × 900): the connection 
 second line (`BannerMessage`) only to explain a problem or the missing address; the main window's object details pane
 (and its column) is hidden while the Watchdog tab is selected (`ShellViewModel.IsDetailsPaneShown`; the operator's
 choice `IsDetailsPaneVisible` is kept for the object lists); the feed and its details pane (400 px, min 300) are
-separated by a `GridSplitter`, and the event title column fills the width the feed has left right of severity and
-time (`GridViewFill`, 230–380 px; a column the operator resized keeps its width); the saved-filter list
+separated by a `GridSplitter`; the columns of the feed and of the rule list fit the list's visible width
+(`Behaviors/GridViewColumnFit` over the pure `Infrastructure/ColumnFit`, recomputed when the window, the splitter or the
+vertical scroll bar changes that width – the Fluent scroll bar lies over the rows, so its width stays free – and never
+scrolling sideways at 1440 × 900): the feed always shows severity (min 100 px), time (140), the event title (star, at least
+260 px, takes what the others leave) and object (140), and ✓, actor, source, location and lockouts in this order while
+their minimum width (40/120/130/160/80) fits – the first that does not fit hides the rest, so columns only appear as the
+list widens; their values are in the details pane; the rule list shares its width 4 : 3 : 3 between name, kinds and
+delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); other columns give up width
+before a star column drops below its minimum, and a column the operator resized keeps its width (the star columns give
+way); the saved-filter list
 (`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
 "Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
 column at least 250 px wide.

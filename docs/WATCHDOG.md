@@ -802,8 +802,14 @@ filtry.
 - **Pasek stanu** pokazuje raz „stan + host”; drugi wiersz pojawia się tylko wtedy, gdy trzeba wyjaśnić problem.
   Gdy wybrana jest zakładka Watchdog, panel szczegółów obiektu okna głównego jest ukryty (wybór Ctrl+D zostaje
   zapamiętany dla list obiektów). Zdarzenia krytyczne mają obwódkę wokół czerwonej kropki, aby odróżnić je od
-  wysokich. Panel szczegółów zdarzenia ma 400 px szerokości i można go poszerzyć przeciągając rozdzielacz. Lista
-  „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw.
+  wysokich. Panel szczegółów zdarzenia ma 400 px szerokości; rozdzielaczem można go poszerzyć albo zwęzić do 300 px.
+  Lista „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw.
+- **Kolumny list** zdarzeń i reguł mieszczą się w szerokości listy – lista nie przewija się w bok. Na liście zdarzeń
+  zawsze widać ważność, czas, zdarzenie i obiekt; tytuł zdarzenia zajmuje miejsce, które zostaje po pozostałych
+  kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady pojawiają się w tej kolejności, gdy
+  lista ma na nie miejsce (szersze okno, węższy panel szczegółów) – ich wartości są zawsze w panelu szczegółów
+  zdarzenia. Na liście reguł nazwa, rodzaje zdarzeń i powiadomienia dzielą szerokość w proporcji 4 : 3 : 3; skróconą
+  nazwę reguły pokazuje podpowiedź. Szerokość kolumny zmieniona przez operatora (przeciągnięcie nagłówka) zostaje.
 - **Problemy z połączeniem**: pojedyncze żądanie, które przekroczyło czas albo nie dotarło do usługi (np. powolny zapis
   lub wyszukiwanie tekstu), pokazuje błąd w swojej podzakładce, a zakładka zostaje otwarta. Zakładka chowa się za
   banerem „Ponów” dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu
