@@ -92,14 +92,15 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords))
+        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords && !Shell.HasUnsavedDocuments))
         {
             return;
         }
 
-        // Running batches would be interrupted, and generated passwords that were not exported would be lost with the
-        // batch editors (owned windows close without asking): cancel this close and ask first. The question (a modal dialog) and the
-        // second Close() must run after this event: WPF throws when Close() is called while the window is closing.
+        // Running batches would be interrupted, generated passwords that were not exported would be lost with the batch
+        // editors (owned windows close without asking), and a tab's unsaved changes (the Watchdog configuration) would be
+        // discarded: cancel this close and ask first. The question (a modal dialog) and the second Close() must run after
+        // this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
         {
@@ -128,6 +129,8 @@ public partial class MainWindow : Window
                     || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
                 && (!_tools.HasUnsavedGeneratedPasswords
                     || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
+                && !_closed
+                && await Shell.CanCloseDocumentsAsync().ConfigureAwait(true)
                 && !_closed)
             {
                 _closeConfirmed = true;

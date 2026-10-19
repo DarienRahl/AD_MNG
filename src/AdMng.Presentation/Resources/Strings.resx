@@ -3832,6 +3832,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>none</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>The Watchdog configuration has unsaved changes (typed passwords and secrets included). Discard them?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>The configuration was not saved – correct the marked fields.</value>
   </data>

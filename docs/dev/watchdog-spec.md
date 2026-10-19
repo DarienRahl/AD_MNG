@@ -4709,6 +4709,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
     string SelectionText { get; }
     /// <summary>F5 on this tab.</summary>
     Task RefreshAsync();
+    /// <summary>Unsaved changes that closing the tab would discard (default false).</summary>
+    bool HasUnsavedChanges => false;
+    /// <summary>Asks before discarding them; true when the tab may close (default true).</summary>
+    Task<bool> CanCloseAsync() => Task.FromResult(true);
 }
 ```
 
@@ -4722,7 +4726,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 - Command `tools.watchdog` – `L.Commands.Watchdog` ("Watchdog" / "Watchdog – monitor zmian"), category Tools,
   shortcut **Ctrl+Shift+A**, available without an AD session; opens the single Watchdog tab or selects it if open.
   Menu **Narzędzia → Watchdog** (after "Kosz AD"), listed in the command palette (Ctrl+K). F5 on the tab calls
-  `RefreshAsync`; Ctrl+W closes it.
+  `RefreshAsync`; Ctrl+W closes it. Closing a tab (Ctrl+W, its close button) or the main window with unsaved Watchdog
+  configuration edits (typed secrets included, `HasUnsavedChanges` = `Config.IsDirty`) asks first
+  (`Watchdog.Config.Discard`, like the property sheets and the batch editor); the window selects each such tab and
+  stays open when the operator keeps the changes (`ShellViewModel.CanCloseDocumentsAsync`).
 - `MainWindow.xaml`: tab header and content templates per document type (implicit `DataTemplate`s for
   `ObjectListViewModel` and `WatchdogDocumentViewModel`); a new `ObjectIcon.Watchdog` value with its glyph; the tab
   header shows a badge with `UnacknowledgedHighOrAbove` (refreshed by the poller's `/status` call every 60 s even while

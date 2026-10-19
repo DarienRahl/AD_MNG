@@ -3832,6 +3832,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>brak</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>Konfiguracja Watchdog ma niezapisane zmiany (także wpisane hasła i sekrety). Odrzucić je?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>Konfiguracja nie została zapisana – popraw zaznaczone pola.</value>
   </data>

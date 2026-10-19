@@ -25,6 +25,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     private Exception? _lastError;
     private Uri? _configAddress;
     private bool _eventsLoaded;
+    private bool _confirmingClose;
     private bool _disposed;
 
     public WatchdogDocumentViewModel(WatchdogServices services)
@@ -205,6 +206,37 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             WatchdogSubTab.Status => Status.LoadAsync(),
             _ => Config.IsDirty ? Task.CompletedTask : Config.LoadAsync(),
         };
+    }
+
+    /// <summary>The configuration has unsaved Admin edits (typed secrets included) that closing the tab would discard.</summary>
+    public bool HasUnsavedChanges => Config.IsDirty;
+
+    /// <summary>
+    /// Closing the tab (Ctrl+W, its close button, the main window): asks before unsaved configuration edits and typed
+    /// secrets are discarded, like the property sheets and the batch editor. True when the tab may close.
+    /// </summary>
+    public async Task<bool> CanCloseAsync()
+    {
+        if (!Config.IsDirty || _disposed)
+        {
+            return true;
+        }
+
+        if (_confirmingClose)
+        {
+            // A second Ctrl+W while the question is open.
+            return false;
+        }
+
+        _confirmingClose = true;
+        try
+        {
+            return await _services.Dialogs.ConfirmAsync(Title, _services.Localizer[L.Watchdog.ConfigDiscard], destructive: true).ConfigureAwait(true);
+        }
+        finally
+        {
+            _confirmingClose = false;
+        }
     }
 
     /// <summary>"Historia zmian (Watchdog)": the events of one object.</summary>

@@ -6,10 +6,12 @@ using System.Windows.Input;
 using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
@@ -190,6 +192,38 @@ public sealed class WatchdogViewTests
             .Select(b => b.Name)
             .ToList();
         Assert.Empty(unnamed);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_AsksBeforeClosing_WhenTheWatchdogConfigurationIsUnsaved() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        var dialogs = new ScriptedDialogService { ConfirmAnswer = false };
+        await using var context = await UiTestContext.CreateAsync("pl", services =>
+        {
+            WatchdogUiSupport.Use(client)(services);
+            services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs));
+        });
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: true);
+        var (tab, _) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        tab.Config.Update(c => c with { Smtp = c.Smtp with { From = "Strażnik AD <straznik@contoso.com>" } });
+        Assert.True(tab.HasUnsavedChanges);
+
+        // The close is cancelled first; the question comes after the Closing event. Declined: the window stays.
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(window.IsVisible);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Contains(tab, window.Shell.Documents);
+        Assert.True(tab.Config.IsDirty);
+
+        dialogs.ConfirmAnswer = true;
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.False(window.IsVisible);
+        Assert.Equal(2, dialogs.Confirmations.Count);
         context.AssertHealthy();
     });
 
