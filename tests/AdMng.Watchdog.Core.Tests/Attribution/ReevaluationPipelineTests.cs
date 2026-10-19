@@ -1028,6 +1028,32 @@ public sealed class ReevaluationPipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task ABusinessHoursRule_DoesNotEscalateOutsideItsHours()
+    {
+        // konta-vip delivers in business hours only: its Medium alert went out at 10:00, the actor became known at 20:00 and
+        // made the event High – no escalation at night (the digest reports the event); the actor alone is no news.
+        var vip = HelpdeskRule();
+        _p.Config.Set(WithHelpdeskAndSiem(vip with { Delivery = vip.Delivery! with { Hours = DeliveryHours.BusinessHours } }));
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromMinutes(5));
+        var alert = Assert.Single(await ToAsync(_p, e, ToHelpdesk));
+        Assert.Equal((Severity.Medium, true), (alert.Severity, alert.SentWithPendingAttribution));
+        await _p.MarkSentAsync(e);
+
+        _p.Time.Advance(TimeSpan.FromHours(10));
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var stored = (await _p.Store.GetAsync(e.Id, Ct))!;
+        Assert.Equal((AttributionStatus.Resolved, Severity.High), (stored.Attribution.Status, stored.Severity));
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(_p, e, ToHelpdesk)).Select(m => m.Kind));
+        Assert.DoesNotContain(await _p.Store.GetAllAsync(Ct), r => r.EventId == e.Id && r.IsFollowUp);
+    }
+
+    [Fact]
     public async Task AnEscalationOfAnInterruptedPass_IsDropped_WhenNoRuleNotifiesTheTargetInTheNextPass()
     {
         // The pass that stored the escalation of the Medium alert failed before the attribution update; before the next pass
