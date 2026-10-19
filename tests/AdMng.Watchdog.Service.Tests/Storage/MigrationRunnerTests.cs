@@ -1,4 +1,5 @@
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Service.Storage;
 using AdMng.Watchdog.Service.Storage.Migrations;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
@@ -74,30 +75,15 @@ public sealed class MigrationRunnerTests
     public async Task SchemaOne_KeepsTheSeverityAsTheOwnSeverity_AndAlertLinksWithoutAPerEventState()
     {
         // Schema 1 stored only the evaluated severity (rule overrides included); its own severity is not known any more,
-        // so the migration takes the current value – the input of later matches (dispatch re-match, re-evaluation).
+        // so it keeps the current value – the input of later matches (dispatch re-match, re-evaluation).
         // Its alert links have no per-event state (schema 3): the message's severity and pending flag stand for them.
         var directory = new TestDataDirectory();
         var database = new SqliteDatabase(directory.Path);
         new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [Migration.All[0]]).Run();
         var evaluated = TestData.Event(WatchEventKind.KeyCredentialChanged) with { Severity = Severity.High, MatchedRules = ["konta-vip"] };
+        InsertSchemaOneEvent(database, evaluated);
         using (var connection = database.Open())
         {
-            using var insert = connection.CreateCommand();
-            insert.CommandText = """
-                INSERT INTO events (event_id, kind, severity, object_kind, object_dn, object_dn_norm, search_text, detected_at, source,
-                  actor_status, rules_state, matched_rules, payload)
-                VALUES ($eventId, $kind, $severity, $objectKind, $dn, $dn, '', $detectedAt, $source, $actorStatus, 1, 'konta-vip', $payload);
-                """;
-            insert.Parameters.AddWithValue("$eventId", evaluated.EventId.ToByteArray());
-            insert.Parameters.AddWithValue("$kind", (int)evaluated.Kind);
-            insert.Parameters.AddWithValue("$severity", (int)Severity.High);
-            insert.Parameters.AddWithValue("$objectKind", (int)evaluated.Object.Kind);
-            insert.Parameters.AddWithValue("$dn", evaluated.Object.Dn ?? string.Empty);
-            insert.Parameters.AddWithValue("$detectedAt", evaluated.DetectedAt.ToUnixTimeMilliseconds());
-            insert.Parameters.AddWithValue("$source", (int)evaluated.Source);
-            insert.Parameters.AddWithValue("$actorStatus", (int)evaluated.Attribution.Status);
-            insert.Parameters.AddWithValue("$payload", BlobCodec.EncodeContract(evaluated with { Id = 0, OwnSeverity = null }));
-            insert.ExecuteNonQuery();
             using var alert = connection.CreateCommand();
             alert.CommandText = """
                 INSERT INTO outbox (message_id, channel_type, channel_id, kind, rule_id, severity, status, attempts, created_at,
@@ -122,6 +108,89 @@ public sealed class MigrationRunnerTests
         Assert.Equal([loaded.Id], message.EventIds);
         Assert.Equal((Severity.High, true), (message.Severity, message.SentWithPendingAttribution));
         Assert.Empty(message.EventStates);
+
+        // The migration changes the schema only – no row of the events table is rewritten at service start (a full-table
+        // UPDATE would copy the table into the WAL); the row is read with its payload severity.
+        Assert.Null(OwnSeverityColumn(store.Database, loaded.Id));
+
+        // A later evaluation keeps that own severity (the payload now carries it), an attribution update stores it.
+        await store.Store.CommitEvaluationAsync([new EventEvaluation { EventId = loaded.Id, Severity = Severity.Critical, MatchedRules = ["konta-vip", "przeglad"] }], [], Ct);
+        var reevaluated = (await store.Store.GetAsync(loaded.Id, Ct))!;
+        Assert.Equal((Severity.High, Severity.Critical), (reevaluated.OwnSeverity, reevaluated.Severity));
+        Assert.Null(OwnSeverityColumn(store.Database, loaded.Id));
+        await store.Store.UpdateAttributionAsync(
+            loaded.Id,
+            new AttributionUpdate { Attribution = new AdMng.Watchdog.Contracts.Events.Attribution { Status = AttributionStatus.Unknown, Reason = AttributionReasons.NoMatch } },
+            Ct);
+        var attributed = (await store.Store.GetAsync(loaded.Id, Ct))!;
+        Assert.Equal((Severity.High, Severity.Critical), (attributed.OwnSeverity, attributed.Severity));
+        Assert.Equal((long)Severity.High, OwnSeverityColumn(store.Database, loaded.Id));
+    }
+
+    [Fact]
+    public void AMigrationFailingHalfway_IsRolledBackWhole_AndTheNextStartAppliesIt()
+    {
+        // A crash or an error in the middle of a migration (here: its second statement) must leave the database at the
+        // previous version with none of the migration's changes, so the next start simply applies it again.
+        using var directory = new TestDataDirectory();
+        var database = new SqliteDatabase(directory.Path);
+        new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [Migration.All[0]]).Run();
+        InsertSchemaOneEvent(database, TestData.Event(WatchEventKind.UserCreated) with { Severity = Severity.Medium });
+
+        var failing = new Migration(2, "0002_failing", Migration0002OwnSeverity.Sql + "\nINSERT INTO no_such_table VALUES (1);");
+        var runner = new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [Migration.All[0], failing]);
+
+        Assert.ThrowsAny<Microsoft.Data.Sqlite.SqliteException>(() => runner.Run());
+        Assert.Equal(1L, Pragma<long>(database, "user_version"));
+        Assert.Equal(0L, Scalar(database, "SELECT count(*) FROM pragma_table_info('events') WHERE name = 'own_severity';"));
+
+        // The service restarts later (the install script's recovery waits 60 s), so its pre-migration backup gets a new name.
+        var result = new MigrationRunner(database, new FakeTimeProvider(TestStore.Start.AddMinutes(1)), NullLogger<MigrationRunner>.Instance).Run();
+
+        Assert.Equal((1, Migration.LatestVersion), (result.FromVersion, result.ToVersion));
+        Assert.Equal(1L, Scalar(database, "SELECT count(*) FROM pragma_table_info('events') WHERE name = 'own_severity';"));
+        Assert.Equal(2L, Scalar(database, "SELECT count(*) FROM pragma_table_info('outbox_events') WHERE name IN ('severity', 'pending');"));
+        Assert.Equal(1L, Scalar(database, "SELECT count(*) FROM events;"));
+    }
+
+    /// <summary>One evaluated event row as schema 1 stored it (no own severity anywhere).</summary>
+    private static void InsertSchemaOneEvent(SqliteDatabase database, WatchEvent watchEvent)
+    {
+        using var connection = database.Open();
+        using var insert = connection.CreateCommand();
+        insert.CommandText = """
+            INSERT INTO events (event_id, kind, severity, object_kind, object_dn, object_dn_norm, search_text, detected_at, source,
+              actor_status, rules_state, matched_rules, payload)
+            VALUES ($eventId, $kind, $severity, $objectKind, $dn, $dn, '', $detectedAt, $source, $actorStatus, 1, $rules, $payload);
+            """;
+        insert.Parameters.AddWithValue("$eventId", watchEvent.EventId.ToByteArray());
+        insert.Parameters.AddWithValue("$kind", (int)watchEvent.Kind);
+        insert.Parameters.AddWithValue("$severity", (int)watchEvent.Severity);
+        insert.Parameters.AddWithValue("$objectKind", (int)watchEvent.Object.Kind);
+        insert.Parameters.AddWithValue("$dn", watchEvent.Object.Dn ?? string.Empty);
+        insert.Parameters.AddWithValue("$detectedAt", watchEvent.DetectedAt.ToUnixTimeMilliseconds());
+        insert.Parameters.AddWithValue("$source", (int)watchEvent.Source);
+        insert.Parameters.AddWithValue("$actorStatus", (int)watchEvent.Attribution.Status);
+        insert.Parameters.AddWithValue("$rules", watchEvent.MatchedRules.Count == 0 ? DBNull.Value : string.Join('|', watchEvent.MatchedRules));
+        insert.Parameters.AddWithValue("$payload", BlobCodec.EncodeContract(watchEvent with { Id = 0, OwnSeverity = null }));
+        insert.ExecuteNonQuery();
+    }
+
+    private static long? OwnSeverityColumn(SqliteDatabase database, long id)
+    {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT own_severity FROM events WHERE id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+        return command.ExecuteScalar() is long value ? value : null;
+    }
+
+    private static long Scalar(SqliteDatabase database, string sql)
+    {
+        using var connection = database.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return (long)command.ExecuteScalar()!;
     }
 
     [Fact]

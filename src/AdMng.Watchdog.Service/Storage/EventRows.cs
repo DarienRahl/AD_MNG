@@ -6,8 +6,9 @@ namespace AdMng.Watchdog.Service.Storage;
 /// <summary>
 /// The <c>events</c> table: the payload (the full <see cref="WatchEvent"/>, stored with <c>Id = 0</c>) is authoritative and
 /// rewritten on every change; the other columns are derived lookup values (normalized DNs, lower-case search text and
-/// tag/rule lists, upper-case actor SID). The event's own severity (<c>own_severity</c>, schema 2) is a column of its own:
-/// rows stored before schema 2 have it only there (the migration copied their severity).
+/// tag/rule lists, upper-case actor SID). The event's own severity (<c>own_severity</c>, schema 2) is a column of its own;
+/// rows stored before schema 2 keep it NULL (the migration does not rewrite them) and are read with their payload
+/// severity – stored together with the <c>severity</c> column by every write – until an attribution update fills it.
 /// </summary>
 internal static class EventRows
 {
@@ -62,7 +63,8 @@ internal static class EventRows
         return watchEvent with { Id = id };
     }
 
-    /// <summary>Maps a row selected with <see cref="Columns"/> (the own severity from its column).</summary>
+    /// <summary>Maps a row selected with <see cref="Columns"/> (the own severity from its column; NULL – a row of schema 1 –
+    /// falls back to the payload's own severity, else its severity).</summary>
     public static WatchEvent Read(SqliteDataReader reader)
     {
         var payload = BlobCodec.DecodeContract<WatchEvent>((byte[])reader.GetValue(1));

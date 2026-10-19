@@ -4695,9 +4695,12 @@ Later migrations (forward-only, `Storage/Migrations/Migration000N*.cs`, each in 
 ```sql
 -- 0002_own_severity: the event's own severity (12.1/12.2 – the input of every rule match) apart from the evaluated
 -- `severity` (overrides included). Payloads are deflated, so it is a column; rows of schema 1 keep their current
--- severity as their own (the own severity of an evaluated row is not known any more). EventRows reads it from the column.
+-- severity as their own (the own severity of an evaluated row is not known any more): the column stays NULL and
+-- EventRows reads NULL as the payload's severity (written together with `severity` by every write) until an
+-- attribution update fills it. Schema only – no `UPDATE events …`: rewriting every row would copy the whole table
+-- into the WAL at service start (about its size on disk, kept until the next truncating checkpoint and counted by
+-- storage.size) and fail the start on a nearly full volume.
 ALTER TABLE events ADD COLUMN own_severity INTEGER;
-UPDATE events SET own_severity = severity;
 
 -- 0003_outbox_event_state: how an alert showed each linked event (OutboxMessage.EventStates, 13.2 #1 coverage); NULL on
 -- links of older schemas – the message severity and sent_with_pending then stand for every event.
@@ -5309,7 +5312,9 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
   5136 XML, SMTP 550 on a recipient, an `int.Parse` failure on an AD value, an unhandled exception in an endpoint and
   in a job – and assert that no snapshot/event string value, no recipient address and no secret appears.
 - Storage: `SqliteStoreContractTests` (subclass of W-core's abstract contract suite, incl. the case-insensitive
-  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused),
+  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused,
+  a migration failing halfway rolled back whole and applied at the next start, schema-1 rows read with their payload
+  severity as own severity without a table rewrite),
   retention batches + backup rotation (pre-migration backups too), size cap purge, AUTOINCREMENT cursor after purge,
   outbox payload NULL after send, `secure_delete`: after purge + checkpoint the db and WAL bytes no longer contain a
   purged Polish value, `temp_store = MEMORY` set on every connection, config + secrets + audit in one transaction,
