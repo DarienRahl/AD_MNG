@@ -1,4 +1,5 @@
 using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
@@ -102,8 +103,9 @@ public sealed class WatchdogLateMatchTests
 
             Assert.Contains(feed.Items, r => r.Id == late.Id);
             Assert.Equal(feed.Items.Select(r => r.Id).OrderDescending(), feed.Items.Select(r => r.Id));
+            // The window counts back from the previous round (the feed's last view of the service's state).
             var read = LateMatchQueries(h).Last();
-            Assert.Equal(h.Time.GetUtcNow() - feed.LateMatchWindow, read.From);
+            Assert.Equal(h.Time.GetUtcNow() - WatchdogPoller.VisibleStatusInterval - feed.LateMatchWindow, read.From);
         });
         h.AssertNoUiErrors();
     }
@@ -383,6 +385,104 @@ public sealed class WatchdogLateMatchTests
         h.AssertNoUiErrors();
     }
 
+    [Fact]
+    public async Task ChangesWhileTheTabWasHidden_LongerThanTheWindow_AreMergedOnceItIsShownAgain()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var (tab, resolved) = await OpenTabFilteredByActorAsync(h);
+            var feed = tab.Events;
+            var leaving = h.Client.AddEvent(SampleEvents.NewUser("Jadwiga Odchodząca", h.Time.GetUtcNow()) with { Attribution = resolved });
+            var late = h.Client.AddEvent(SampleEvents.NewUser("Kazimierz Spóźniony", h.Time.GetUtcNow()));
+            await WaitForCursorAsync(h, late.Id);
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Any(r => r.Id == leaving.Id), "the matching event in the feed");
+            await NextStatusRoundAsync(h, feed);
+            Assert.DoesNotContain(feed.Items, r => r.Id == late.Id);
+
+            // The operator switches to another document for three hours; meanwhile the service attributes both events:
+            // one to Jan Kowalski (matches now), the other to Anna Nowak (no longer matches).
+            tab.IsVisible = false;
+            h.Client.UpdateEvent(late.Id, e => e with { Attribution = resolved });
+            h.Client.UpdateEvent(leaving.Id, e => e with { Attribution = resolved with { Actor = SamplePrincipals.AnnaNowak } });
+            h.Time.Advance(TimeSpan.FromHours(3));
+            await h.Ui.IdleAsync();
+
+            tab.IsVisible = true;
+            await NextStatusRoundAsync(h, feed);
+
+            Assert.Contains(feed.Items, r => r.Id == late.Id);
+            Assert.DoesNotContain(feed.Items, r => r.Id == leaving.Id);
+            Assert.Equal(feed.Items.Select(r => r.Id).OrderDescending(), feed.Items.Select(r => r.Id));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task AfterAServiceOutage_TheCatchUpOnEventsStoredBeforeIt_IsMerged()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var (tab, resolved) = await OpenTabFilteredByActorAsync(h);
+            var feed = tab.Events;
+            var late = h.Client.AddEvent(SampleEvents.NewUser("Lucyna Przedawaryjna", h.Time.GetUtcNow()));
+            await WaitForCursorAsync(h, late.Id);
+            await NextStatusRoundAsync(h, feed);
+
+            // The service host is down for three hours (an update window), then starts again; the console reconnects.
+            h.Client.FailWith(WatchdogClientErrorKind.Unreachable);
+            h.Time.Advance(TimeSpan.FromHours(3));
+            await h.Ui.IdleAsync();
+            h.Client.ClearFailures();
+            h.Client.Status = h.Client.Status with { StartedAt = h.Time.GetUtcNow() };
+            await NextStatusRoundAsync(h, feed, untilDone: true);
+            Assert.DoesNotContain(feed.Items, r => r.Id == late.Id);
+
+            // Two minutes after the start it catches up on the attribution of the events it stored before the outage.
+            h.Time.Advance(TimeSpan.FromMinutes(2));
+            h.Client.UpdateEvent(late.Id, e => e with { Attribution = resolved });
+            await NextStatusRoundAsync(h, feed);
+
+            Assert.Contains(feed.Items, r => r.Id == late.Id);
+
+            // Once the service has run for the whole window, the rounds count back from the previous one again.
+            h.Time.Advance(feed.LateMatchWindow);
+            await NextStatusRoundAsync(h, feed);
+            await NextStatusRoundAsync(h, feed);
+            Assert.Equal(h.Time.GetUtcNow() - WatchdogPoller.VisibleStatusInterval - feed.LateMatchWindow, LateMatchQueries(h).Last().From);
+            Assert.Single(feed.Items, r => r.Id == late.Id);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task AnEventThatLeavesAndMatchesAgain_ComesBackOnce_RoundAfterRound()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var (feed, resolved) = await OpenFilteredByActorAsync(h);
+            var flapping = h.Client.AddEvent(SampleEvents.NewUser("Mirosław Zmienny", h.Time.GetUtcNow()) with { Attribution = resolved });
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Any(r => r.Id == flapping.Id), "the matching event in the feed");
+            var other = resolved with { Actor = SamplePrincipals.MarekZajac };
+
+            for (var cycle = 0; cycle < 3; cycle++)
+            {
+                h.Client.UpdateEvent(flapping.Id, e => e with { Attribution = other });
+                await NextStatusRoundAsync(h, feed);
+                Assert.DoesNotContain(feed.Items, r => r.Id == flapping.Id);
+
+                h.Client.UpdateEvent(flapping.Id, e => e with { Attribution = resolved });
+                await NextStatusRoundAsync(h, feed);
+                Assert.Single(feed.Items, r => r.Id == flapping.Id);
+                Assert.Equal(feed.Items.Count, feed.Items.Select(r => r.Id).Distinct().Count());
+                Assert.Equal(feed.Items.Select(r => r.Id).OrderDescending(), feed.Items.Select(r => r.Id));
+            }
+        });
+        h.AssertNoUiErrors();
+    }
+
     private static bool IsLateMatchQuery(EventQuery query) =>
         query.After is null && query.From is { } from && from > SampleEvents.Now.AddDays(-2);
 
@@ -401,6 +501,12 @@ public sealed class WatchdogLateMatchTests
     /// <summary>A visible tab filtered on Jan Kowalski as the actor, with the filtered long-poll running.</summary>
     private static async Task<(WatchdogEventsViewModel Feed, Attribution Resolved)> OpenFilteredByActorAsync(WatchdogHarness h)
     {
+        var (tab, resolved) = await OpenTabFilteredByActorAsync(h);
+        return (tab.Events, resolved);
+    }
+
+    private static async Task<(WatchdogDocumentViewModel Tab, Attribution Resolved)> OpenTabFilteredByActorAsync(WatchdogHarness h)
+    {
         var tab = await h.OpenAsync();
         var feed = tab.Events;
         var resolved = h.Client.Events.Single(e => e.Id == SampleEvents.PrivilegeGrantedId).Attribution;
@@ -408,7 +514,7 @@ public sealed class WatchdogLateMatchTests
         await feed.Loading;
         Assert.NotEmpty(feed.Items);
         await WaitForFilteredPollAsync(h, q => q.ActorSid is not null);
-        return (feed, resolved);
+        return (tab, resolved);
     }
 
     private static Task WaitForFilteredPollAsync(WatchdogHarness h, Func<EventQuery, bool> match) =>
@@ -417,11 +523,23 @@ public sealed class WatchdogLateMatchTests
     private static Task WaitForCursorAsync(WatchdogHarness h, long id) =>
         WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { After: { } after } && after >= id, "the cursor past the new events");
 
-    /// <summary>Advances the clock to the next status round of the visible tab and waits until its refresh completed.</summary>
-    private static async Task NextStatusRoundAsync(WatchdogHarness h, WatchdogEventsViewModel feed)
+    /// <summary>
+    /// Advances the clock to the next status round of the visible tab and waits until its refresh completed; with
+    /// <paramref name="untilDone"/> the clock keeps moving in status intervals until one did (a poller backing off).
+    /// </summary>
+    private static async Task NextStatusRoundAsync(WatchdogHarness h, WatchdogEventsViewModel feed, bool untilDone = false)
     {
         var rounds = feed.CompletedLateRefreshes;
         h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
+        if (untilDone)
+        {
+            for (var i = 0; i < 10 && feed.CompletedLateRefreshes == rounds; i++)
+            {
+                await h.Ui.IdleAsync();
+                h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
+            }
+        }
+
         await WatchdogTestWait.UntilAsync(h, () => feed.CompletedLateRefreshes > rounds, "the next status round");
     }
 }

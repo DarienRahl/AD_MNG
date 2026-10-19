@@ -58,6 +58,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     private Task _loading = Task.CompletedTask;
     private volatile EventQuery _liveQuery = new();
     private int _rangeVersion;
+    private DateTimeOffset? _observedAt;
+    private DateTimeOffset? _serviceUpSince;
     private bool _refreshingPending;
     private bool _disposed;
 
@@ -436,8 +438,10 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         NewCount = 0;
         try
         {
+            var requestedAt = _services.Time.GetUtcNow();
             var page = await _services.Client.GetEventsAsync(_liveQuery with { Limit = PageSize }, token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
+            _observedAt = requestedAt;
             var selectedId = SelectedItem?.Id;
             Items.ReplaceAll(page.Items.Select(CreateRow));
             HasMore = page.HasMore;
@@ -528,6 +532,9 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// </summary>
     private void OnStatusReceived(object? sender, StatusDto status)
     {
+        // Since when the service runs, on this clock (also while the tab is hidden: a restart meanwhile counts).
+        var uptime = status.Now - status.StartedAt;
+        _serviceUpSince = _services.Time.GetUtcNow() - (uptime > TimeSpan.Zero ? uptime : TimeSpan.Zero);
         if (_disposed || !_poller.IsVisible || _poller.Cursor is null || _refreshingPending)
         {
             return;
@@ -588,8 +595,10 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// them the text on actor, workstation and IP) and the matched rules after it stored an event under its id. With a
     /// filter on any of them the live long-poll skips an event that matches only later (its id is behind the cursor) and
     /// never drops a row that stops matching. So every status round reads the filter's events detected within
-    /// <see cref="LateMatchWindow"/> again – page by page, newest first, down to the oldest loaded row (the whole window
-    /// while everything of the filter is loaded) – and merges each page: events that match only since are inserted at
+    /// <see cref="LateMatchWindow"/> before the last moment the feed saw the service's state (the load or the last complete
+    /// read: a tab hidden for hours, rounds that failed and a service restart – see <see cref="AdvanceObservedAt"/> – do not
+    /// shorten what is read again) – page by page, newest first, down to the oldest loaded row (the whole window while
+    /// everything of the filter is loaded) – and merges each page: events that match only since are inserted at
     /// their place in id order (one collection notification per page; the live cap applies, trimmed rows stay reachable
     /// with "Wczytaj starsze"), rows whose event changed show the new version (row and details pane). Once the whole range
     /// was read, rows of the window the service no longer returns are removed; a selected one is only marked
@@ -607,7 +616,9 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
-        var since = _services.Time.GetUtcNow() - LateMatchWindow;
+        var roundStart = _services.Time.GetUtcNow();
+        var observed = _observedAt is { } seenAt && seenAt < roundStart ? seenAt : roundStart;
+        var since = observed - LateMatchWindow;
         var from = WholeMilliseconds(query.From is { } start && start > since ? start : since);
         if (query.To is { } to && to < from)
         {
@@ -645,6 +656,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             before = page.Items.Min(e => e.Id);
         }
 
+        AdvanceObservedAt(observed, roundStart);
         var marked = RemoveNoLongerMatching(candidates, seen);
 
         // The marked (selected) rows show why they no longer match: their current version, read one by one.
@@ -659,6 +671,16 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             UpdateRow(row, details.Event);
         }
     }
+
+    /// <summary>
+    /// After a complete read that started at <paramref name="roundStart"/>: the feed knows the service's state as of then,
+    /// so the next round reads from <c>roundStart - LateMatchWindow</c> – except while the service runs for less than
+    /// <see cref="LateMatchWindow"/>: after a restart it catches up on the evaluation and attribution of the events it
+    /// stored before (however old), so the window stays anchored at <paramref name="observed"/>, the feed's last view
+    /// before the restart (or its load).
+    /// </summary>
+    private void AdvanceObservedAt(DateTimeOffset observed, DateTimeOffset roundStart) =>
+        _observedAt = _serviceUpSince is { } upSince && roundStart - upSince < LateMatchWindow ? observed : roundStart;
 
     /// <summary>The oldest loaded row's id while older events of the filter exist, else null (everything is loaded).</summary>
     private long? Floor() => HasMore && Items.Count > 0 ? Items[^1].Id : null;
