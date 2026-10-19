@@ -521,6 +521,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Copy.SkippedNoValue" xml:space="preserve">
     <value>Skipped objects without a value: {0}.</value>
   </data>
+  <data name="Copy.TypedAddress" xml:space="preserve">
+    <value>{0} address</value>
+  </data>
   <data name="Copy.Upn" xml:space="preserve">
     <value>User principal name (UPN)</value>
   </data>

@@ -38,6 +38,9 @@ public static partial class L
         /// <summary>Label of a copied session log entry.</summary>
         public const string Entry = "Copy.Entry";
 
+        /// <summary>{0} = address type ("SIP"): label of one copied proxy address that is not an e-mail address.</summary>
+        public const string TypedAddress = "Copy.TypedAddress";
+
         /// <summary>Label of copied Watchdog event details.</summary>
         public const string EventDetails = "Copy.EventDetails";
 

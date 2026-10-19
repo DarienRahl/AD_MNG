@@ -158,6 +158,9 @@ public sealed class CopyUiTests
     {
         var clipboard = new RecordingClipboard();
         await using var context = await UiTestContext.CreateAsync(configure: UseClipboard(clipboard));
+
+        // A NetBIOS name with "_": shown as is, not as an access key ("MYCORP\" with C underlined).
+        context.Directory.Session.Info = context.Directory.Session.Info with { DomainNetBiosName = "MY_CORP" };
         await context.ConnectAsync();
         var window = await OpenSheetAsync(context, context.Company.LukaszWisniewski);
         var sheet = window.ViewModel;
@@ -180,9 +183,11 @@ public sealed class CopyUiTests
         sheet.SelectedPage = sheet.Pages.Single(p => p.Key == L.Pages.Account);
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         var qualified = UiWait.Descendants<Button>(window).Single(b => b.Name == "QualifiedCopyButton" && b.IsVisible);
-        Assert.Equal(@"CONTOSO\", qualified.Content);
+        Assert.Equal(@"MY_CORP\", Assert.IsType<TextBlock>(qualified.Content).Text);
+        Assert.Empty(UiWait.Descendants<AccessText>(qualified));
+        Assert.Equal(@"Copy: MY_CORP\lukasz.wisniewski", AutomationProperties.GetName(qualified));
         await ClickAsync(qualified);
-        Assert.Equal(@"CONTOSO\lukasz.wisniewski", clipboard.Text);
+        Assert.Equal(@"MY_CORP\lukasz.wisniewski", clipboard.Text);
         await ClickAsync(UiWait.Descendants<Button>(window).Single(b => b.Name == "CopyUpnButton"));
         Assert.Equal("lukasz.wisniewski@contoso.test", clipboard.Text);
 

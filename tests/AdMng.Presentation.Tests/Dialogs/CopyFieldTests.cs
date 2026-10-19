@@ -129,7 +129,30 @@ public class CopyFieldTests
         proxies.SelectedItem = Assert.Single(proxies.Items, i => i.Type == "SIP");
         proxies.CopyAddressCommand.Execute(null);
         Assert.Equal("jan@contoso.test", harness.Clipboard.Text);
-        Assert.All(harness.Notifications.Items, n => Assert.Equal($"Copied: {proxies.Label}.", n.Message));
+
+        // One address is confirmed by its type, not with the field's plural name ("Proxy addresses").
+        Assert.Equal(["Copied: E-mail address.", "Copied: SIP address."], harness.Notifications.Items.Select(n => n.Message));
+    }
+
+    [Fact]
+    public async Task EmailAddressesTab_ConfirmsTheCopiedAddressInPolish()
+    {
+        var harness = await B2Harness.CreateAsync(CultureInfo.GetCultureInfo("pl-PL"));
+        harness.Session.SetValues(harness.Company.JanKowalski, Attr.ProxyAddresses, "SMTP:jan.kowalski@contoso.test", "SIP:jan@contoso.test", "X500:/o=Contoso/cn=jkowalski");
+        var sheet = harness.Factory.CreatePropertySheet(harness.Company.JanKowalski);
+        await sheet.InitializeAsync();
+        var proxies = Assert.Single(Page(sheet, L.Pages.EmailAddresses).Fields.OfType<ProxyAddressesFieldViewModel>());
+
+        foreach (var type in new[] { "SMTP", "SIP", "X500" })
+        {
+            proxies.SelectedItem = Assert.Single(proxies.Items, i => i.Type == type);
+            proxies.CopyAddressCommand.Execute(null);
+        }
+
+        Assert.Equal("/o=Contoso/cn=jkowalski", harness.Clipboard.Text);
+        Assert.Equal(
+            ["Skopiowano: Adres e-mail.", "Skopiowano: Adres SIP.", "Skopiowano: Adres X500."],
+            harness.Notifications.Items.Select(n => n.Message));
     }
 
     [Fact]

@@ -143,11 +143,22 @@ public sealed partial class ProxyAddressesFieldViewModel : PropertyFieldViewMode
 
     /// <summary>
     /// Copies the selected address without its type prefix ("smtp:", "SIP:"...) - what goes into an e-mail or a ticket.
-    /// Available on read-only fields too.
+    /// Available on read-only fields too. The confirmation names the one address by its type ("Copied: E-mail address.",
+    /// "Copied: SIP address."), not by the field ("Proxy addresses").
     /// </summary>
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void CopyAddress() =>
-        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, SelectedItem?.Address, Label);
+    private void CopyAddress()
+    {
+        if (SelectedItem is not { } item)
+        {
+            return;
+        }
+
+        var label = item.IsSmtp ? Localizer[L.Copy.Mail]
+            : item.Prefix.Length == 0 ? Localizer[L.Labels.Address]
+            : Localizer.Format(L.Copy.TypedAddress, item.Type);
+        ClipboardCopy.Value(Context.Services.Clipboard, Context.Services.Notifications, Localizer, item.Address, label);
+    }
 
     private bool HasSelection() => SelectedItem is not null;
 

@@ -521,6 +521,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Copy.SkippedNoValue" xml:space="preserve">
     <value>Pominięto obiekty bez wartości: {0}.</value>
   </data>
+  <data name="Copy.TypedAddress" xml:space="preserve">
+    <value>Adres {0}</value>
+  </data>
   <data name="Copy.Upn" xml:space="preserve">
     <value>Nazwa UPN</value>
   </data>

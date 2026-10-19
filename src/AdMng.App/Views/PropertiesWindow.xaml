@@ -227,13 +227,15 @@
                           DockPanel.Dock="Right"
                           KeyboardNavigation.TabIndex="2"
                           Visibility="{Binding Others, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-            <!-- ADUC's "CONTOSO\" in front of the pre-Windows 2000 logon name: copies CONTOSO\login. -->
+            <!--
+              ADUC's "CONTOSO\" in front of the pre-Windows 2000 logon name: copies CONTOSO\login. The prefix is shown in a
+              TextBlock: as a string Content the button would read "_" in a NetBIOS name (MY_CORP) as an access key.
+            -->
             <Button x:Name="QualifiedCopyButton"
                     Margin="0,0,4,0"
                     Padding="8,4"
                     VerticalAlignment="Top"
                     Command="{Binding CopyQualifiedCommand}"
-                    Content="{Binding QualifiedPrefix, Mode=OneWay}"
                     DockPanel.Dock="Left"
                     KeyboardNavigation.TabIndex="0"
                     Visibility="{Binding QualifiedPrefix, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
@@ -249,6 +251,7 @@
                   <Binding Mode="OneWay" Path="QualifiedValue" />
                 </MultiBinding>
               </AutomationProperties.Name>
+              <TextBlock Text="{Binding QualifiedPrefix, Mode=OneWay}" />
             </Button>
             <TextBox x:Name="ValueBox"
                      AutomationProperties.Name="{Binding Label, Mode=OneWay}"

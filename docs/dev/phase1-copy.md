@@ -26,6 +26,8 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
   manager's name). The Object page already had copy buttons (canonical name, GUID, SID, DN...). Employee ID / number
   have no field on ADUC's pages; they are copied from the details pane or the Attribute Editor. The tab order follows
   the screen, not the markup (the copy button is docked first): `NETBIOS\` button, value, "Other...", copy button.
+  The `NETBIOS\` prefix is shown in a `TextBlock`, not as a string `Content`: a button would read the `_` of a NetBIOS
+  name such as `MY_CORP` as an access key and show `MYCORP\`.
 * Confirmation: a short non-modal toast **"Skopiowano: <label>" / "Copied: <label>"** (Info, auto-dismissed, read by
   screen readers – the toast host is a polite live region) and the button's glyph turns into a check mark for 1.5 s
   (`CopyFeedback` behaviour, view only) – only when the copy reached the clipboard (`ClipboardCopy.ConfirmedCount`
@@ -85,7 +87,9 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
 ### 4. Copy from list tabs
 
 * **E-mail addresses** tab (proxyAddresses): "Kopiuj adres" button, context menu and Ctrl+C copy the selected address
-  **without** its `smtp:`/`SMTP:` (or other type) prefix; works on read-only fields too.
+  **without** its `smtp:`/`SMTP:` (or other type) prefix; works on read-only fields too. The toast names the one
+  address by its type – "Skopiowano: Adres e-mail." / "Skopiowano: Adres SIP." (`Copy.TypedAddress`) – not by the
+  field's plural name ("Adresy proxy").
 * **Member Of / Members**: context menu and Ctrl+C on the direct list: name(s) (Ctrl+C), DN(s), e-mail address(es) of
   the selection. The Members page also has "Kopiuj adresy e-mail" copying the addresses of **all** members in the list
   (the filtered list, pending removals excluded) as a `"; "` list, skipping members without mail (groups without mail,
@@ -138,6 +142,10 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
   format, multi-selection with skipped objects and the `"; "` mail list, display order, NetBIOS login, rows TSV with
   and without headers, secret column left out, formula protection vs phone numbers, busy clipboard, details pane
   fields and copy, property field copies (mail, UPN, NETBIOS\login, manager), proxy address without prefix, members'
-  mail list, session log entry, Watchdog copy consistency, palette entries and shortcuts, localization keys.
+  mail list, session log entry, Watchdog copy consistency, palette entries and shortcuts, localization keys; a
+  directory error during "Copy as" (error dialog, clipboard untouched), a selection of 230 objects read in three
+  batches through the session without writes, attributes a schema marks confidential (refused by "Copy as", not shown
+  in the details pane), the proxy address toast named by the address type.
 * UI (Windows CI): details pane copy buttons and selectable values without binding errors, "Kopiuj jako" submenu
-  wired to the descriptors, Ctrl+C on the list, property page copy buttons, session log Ctrl+C.
+  wired to the descriptors, Ctrl+C on the list, property page copy buttons (a NetBIOS name with `_` shown as is),
+  session log Ctrl+C.

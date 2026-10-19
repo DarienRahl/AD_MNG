@@ -1,13 +1,17 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Core.Schema;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
+using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.Dialogs;
 using AdMng.Presentation.Tests.TestDoubles;
+using AdMng.Testing;
 
 namespace AdMng.Presentation.Tests.Shell;
 
@@ -189,6 +193,93 @@ public class CopyTests
         Assert.Null(harness.Clipboard.Text);
         Assert.Empty(harness.Dialogs.Errors);
         Assert.Empty(harness.Notifications.Items);
+    }
+
+    [Fact]
+    public async Task CopyAs_DirectoryError_ShowsTheError_AndLeavesTheClipboardAlone()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var shell = await OpenAsync(harness, harness.Company.ItOu);
+        SelectReversed(shell);
+
+        // The tree expands to the list's container in the background: the failure must hit the copy's read (searched
+        // from the domain root), not a level of the tree.
+        await B2Harness.WaitUntilAsync(() => shell.Tree.SelectedNode is ContainerNodeViewModel { Dn: var dn } && dn == harness.Company.ItOu);
+        harness.Session.FailNext(FakeOperationKind.Search, harness.Session.Info.DefaultNamingContext, DirectoryErrorKind.Busy);
+        await shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
+
+        Assert.Null(harness.Clipboard.Text);
+        Assert.Empty(harness.Notifications.Items);
+        Assert.Equal("E-mail address", Assert.Single(harness.Dialogs.Errors).Title);
+
+        // The next attempt reads again (nothing is remembered from the failed one).
+        await shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
+        Assert.Equal("jan.kowalski@contoso.test; lukasz.wisniewski@contoso.test", harness.Clipboard.Text);
+    }
+
+    [Fact]
+    public async Task CopyAs_LargeSelection_IsReadLiveInBatchesOf100_InListOrder_WithoutWriting()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var ou = harness.Builder.AddOu("Masowe", harness.Company.CompanyOu);
+        for (var i = 1; i <= 230; i++)
+        {
+            // Every third account has no mailbox.
+            harness.Builder.AddUser("Oliwia", $"Żółkiewska{i:000}", ou, i % 3 == 0 ? null : new Dictionary<string, object?>
+            {
+                [Attr.Mail] = $"oliwia.zolkiewska{i:000}@contoso.test",
+            });
+        }
+
+        var shell = await OpenAsync(harness, ou);
+        var rows = SelectReversed(shell);
+        Assert.Equal(230, rows.Count);
+        harness.Session.ClearOperations();
+
+        await shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
+
+        var expected = rows.Select(r => harness.Value(r.Dn, Attr.Mail)).OfType<string>().ToList();
+        Assert.Equal(154, expected.Count);
+        Assert.Equal(string.Join("; ", expected), harness.Clipboard.Text);
+        Assert.Equal(
+            "Copied e-mail addresses: 154. Skipped objects without an e-mail address: 76.",
+            Assert.Single(harness.Notifications.Items).Message);
+
+        // Three OR-filter searches of the selected DNs (100 + 100 + 30) through the session (its one DC), no writes.
+        var reads = harness.Session.Operations
+            .Where(o => o.Kind == FakeOperationKind.Search && o.Search!.Filter.Contains("distinguishedName=", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        Assert.Equal(3, reads.Count);
+        Assert.All(reads, o => Assert.Equal(harness.Session.Info.DefaultNamingContext, o.DistinguishedName));
+        Assert.DoesNotContain(harness.Session.Operations, o => o.IsWrite);
+    }
+
+    [Fact]
+    public async Task CopyAs_AttributeTheSchemaMarksConfidential_IsNeverCopied()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var schema = Confidential(harness, Attr.Mail);
+
+        Assert.False(ObjectCopyFormats.IsAllowed(CopyFormat.Mail, schema));
+        Assert.True(ObjectCopyFormats.IsAllowed(CopyFormat.UserPrincipalName, schema));
+        Assert.All(Enum.GetValues<CopyFormat>(), f => Assert.True(ObjectCopyFormats.IsAllowed(f, harness.Session.Schema)));
+    }
+
+    [Fact]
+    public async Task DetailsSummary_NeverShowsAttributesTheSchemaMarksConfidential()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var lukasz = harness.Company.LukaszWisniewski;
+        harness.Session.SetValues(lukasz, Attr.EmployeeId, "E-00042");
+        var obj = await harness.Session.GetAsync(lukasz, ObjectSummaryViewModel.Attributes, TestContext.Current.CancellationToken);
+        var policy = await harness.Sessions.GetDomainPolicyAsync(TestContext.Current.CancellationToken);
+
+        var plain = ObjectSummaryViewModel.Create(obj!, harness.Localizer, harness.Sessions.Formatter, harness.Session.Schema, policy, harness.Time.GetUtcNow());
+        Assert.Contains(plain.Fields, f => f.Value == "E-00042" && f.CanCopy);
+
+        var confidential = ObjectSummaryViewModel.Create(obj!, harness.Localizer, harness.Sessions.Formatter, Confidential(harness, Attr.EmployeeId), policy, harness.Time.GetUtcNow());
+        Assert.DoesNotContain(confidential.Fields, f => f.Value.Contains("E-00042", StringComparison.Ordinal) || f.CopyText == "E-00042");
+        Assert.Contains(confidential.Fields, f => f.Value == "lukasz.wisniewski@contoso.test");
     }
 
     [Fact]
@@ -429,4 +520,13 @@ public class CopyTests
     }
 
     private static SummaryField Field(ObjectSummaryViewModel summary, string label) => Assert.Single(summary.Fields, f => f.Label == label);
+
+    /// <summary>The session's schema with <paramref name="attribute"/> marked confidential (searchFlags bit 7).</summary>
+    private static SchemaCatalog Confidential(B2Harness harness, string attribute)
+    {
+        var schema = (SchemaCatalog)harness.Session.Schema;
+        return new SchemaCatalog(
+            schema.Attributes.Select(a => string.Equals(a.LdapName, attribute, StringComparison.OrdinalIgnoreCase) ? a with { IsConfidential = true } : a),
+            schema.Classes);
+    }
 }
