@@ -3,6 +3,15 @@
 # BOM in the ANSI code page.
 
 Set-StrictMode -Version 3.0
+# A module does not see the caller's $ErrorActionPreference: without this, a failed Set-Acl would only print an error
+# and the installation would go on with a folder that is not protected.
+$ErrorActionPreference = 'Stop'
+# Get-Acl and Set-Acl come from Microsoft.PowerShell.Security. Windows PowerShell 5.1 started from PowerShell 7 inherits
+# a PSModulePath that finds the PowerShell 7 copy of that module first and cannot load it, so load the one of this
+# edition by its path.
+if ($PSVersionTable.PSEdition -eq 'Desktop') {
+    Import-Module (Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1')
+}
 
 function ConvertTo-AdMngTree {
     <#

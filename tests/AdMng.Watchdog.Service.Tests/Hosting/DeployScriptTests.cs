@@ -236,6 +236,52 @@ public sealed class DeployScriptTests
         Assert.True(output.Split('\n').Count(l => l.Trim() == "AFTER=0") == 2, report);
     }
 
+    /// <summary>A module does not inherit the caller's $ErrorActionPreference, so the install script's 'Stop' would not
+    /// make a failed Set-Acl inside Set-AdMngProtectedAcl stop the installation; the module sets it itself. Under Windows
+    /// PowerShell 5.1 it loads Microsoft.PowerShell.Security (Get-Acl, Set-Acl) by path, so a PowerShell 7 module path
+    /// inherited from the console that started it does not break them.</summary>
+    [Fact]
+    public void InstallModule_StopsOnErrors_AndLoadsItsOwnSecurityModule()
+    {
+        var module = File.ReadAllText(Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"));
+        var firstFunction = module.IndexOf("function ", StringComparison.Ordinal);
+
+        var stop = module.IndexOf("$ErrorActionPreference = 'Stop'", StringComparison.Ordinal);
+        var security = module.IndexOf(@"Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1'", StringComparison.Ordinal);
+        Assert.InRange(stop, 0, firstFunction);
+        Assert.InRange(security, 0, firstFunction);
+    }
+
+    [Fact]
+    [SupportedOSPlatform("windows")]
+    public async Task WindowsPowerShell51_StartedFromPowerShell7_StillReadsAcls()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "powershell.exe (Windows PowerShell 5.1) and Windows ACLs exist on Windows only.");
+        using var directory = new TestDataDirectory();
+        KnownAcl(directory.Path);
+        var file = Path.Combine(directory.Path, "appsettings.json");
+        await File.WriteAllTextAsync(file, "{}", Ct);
+        // What a PowerShell 7 console hands to a powershell.exe it starts: its own module folders first.
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        var pwsh7ModulePath = string.Join(
+            ';',
+            Path.Combine(programFiles, "PowerShell", "Modules"),
+            Path.Combine(programFiles, "PowerShell", "7", "Modules"),
+            Path.Combine(programFiles, "WindowsPowerShell", "Modules"),
+            Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "Modules"));
+
+        var (output, errors) = await RunPowerShellAsync(
+            "Import-Module $args[0] -Force; " +
+            "$trusted = @('S-1-5-18', 'S-1-5-32-544', [Security.Principal.WindowsIdentity]::GetCurrent().User.Value); " +
+            "@(Get-AdMngUntrustedWriters -Path $args[1] -Top $args[2] -TrustedSids $trusted) | ForEach-Object { 'PROBLEM=' + $_ }; 'DONE'",
+            pwsh7ModulePath,
+            [Path.Combine(DeployFolder(), "AdMngWatchdog.Install.psm1"), file, directory.Path]);
+
+        var report = $"{output}\nstderr:\n{errors}";
+        Assert.True(output.Contains("DONE", StringComparison.Ordinal), report);
+        Assert.False(output.Contains("PROBLEM=", StringComparison.Ordinal), report);
+    }
+
     /// <summary>Gives a test folder a protected DACL (SYSTEM, Administrators and the current user, inherited by
     /// everything created below it) and the current user as owner, so the ACL checks do not depend on the ACEs of the
     /// machine's temp folder (a CI runner's profile may carry ACEs a %ProgramData% install never sees).</summary>
@@ -287,10 +333,16 @@ public sealed class DeployScriptTests
     private static async Task<string> PowerShellAsync(string script, params string[] arguments) =>
         (await PowerShellWithErrorsAsync(script, arguments)).Output;
 
-    /// <summary>Runs the probe script with Windows PowerShell 5.1; the error stream comes back too, for the failure
-    /// message of a test (non-terminating errors such as a path Get-Acl cannot find do not change the exit code).</summary>
+    /// <summary>Runs the probe script with Windows PowerShell 5.1 as a fresh console would: without the PSModulePath of
+    /// the process that runs the tests (CI runs them from PowerShell 7, whose module path breaks the autoloading of 5.1's
+    /// own modules). The error stream comes back too, for the failure message of a test (non-terminating errors do not
+    /// change the exit code).</summary>
     [SupportedOSPlatform("windows")]
-    private static async Task<(string Output, string Errors)> PowerShellWithErrorsAsync(string script, params string[] arguments)
+    private static Task<(string Output, string Errors)> PowerShellWithErrorsAsync(string script, params string[] arguments) =>
+        RunPowerShellAsync(script, psModulePath: null, arguments);
+
+    [SupportedOSPlatform("windows")]
+    private static async Task<(string Output, string Errors)> RunPowerShellAsync(string script, string? psModulePath, string[] arguments)
     {
         using var scratch = new TestDataDirectory();
         var file = scratch.File("probe.ps1");
@@ -303,6 +355,12 @@ public sealed class DeployScriptTests
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        start.Environment.Remove("PSModulePath");
+        if (psModulePath is not null)
+        {
+            start.Environment["PSModulePath"] = psModulePath;
+        }
+
         foreach (var argument in (string[])["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", file, .. arguments])
         {
             start.ArgumentList.Add(argument);
