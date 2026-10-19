@@ -93,6 +93,9 @@ public static class Glyphs
     public const string Accept = "\uE8FB";
     public const string Health = "\uE95E";
 
+    /// <summary>Badge of the well-known containers in the navigation tree (a house: the default container).</summary>
+    public const string WellKnown = "\uE80F";
+
     /// <summary>Base glyph of an object icon.</summary>
     public static string For(ObjectIcon icon) => icon switch
     {

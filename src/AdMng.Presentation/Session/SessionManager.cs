@@ -55,6 +55,12 @@ public interface ISessionManager
 
     /// <summary>The current session or an <see cref="InvalidOperationException"/> when disconnected.</summary>
     IDirectorySession RequireSession();
+
+    /// <summary>
+    /// The well-known containers of the current session's domain (<c>wellKnownObjects</c> / <c>otherWellKnownObjects</c>
+    /// of the domain head), read once per session and kept in memory; never throws (empty when not readable).
+    /// </summary>
+    Task<WellKnownObjectMap> GetWellKnownObjectsAsync(CancellationToken cancellationToken) => Task.FromResult(WellKnownObjectMap.Empty);
 }
 
 /// <summary>Default <see cref="ISessionManager"/>.</summary>
@@ -208,6 +214,22 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
     public IDirectorySession RequireSession() =>
         Current ?? throw new InvalidOperationException("Not connected to a directory.");
 
+    public Task<WellKnownObjectMap> GetWellKnownObjectsAsync(CancellationToken cancellationToken)
+    {
+        var entry = _current;
+        if (entry is null)
+        {
+            return Task.FromResult(WellKnownObjectMap.Empty);
+        }
+
+        lock (_gate)
+        {
+            // One read per session; a failed read is remembered too (without the map nothing is marked or redirected).
+            entry.WellKnown ??= Task.Run(() => ReadWellKnownObjectsAsync(entry.Session));
+            return entry.WellKnown.WaitAsync(cancellationToken);
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         SessionEntry[] all;
@@ -256,6 +278,22 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
         }
     }
 
+    private async Task<WellKnownObjectMap> ReadWellKnownObjectsAsync(IDirectorySession session)
+    {
+        try
+        {
+            var domain = await session.GetAsync(session.Info.DefaultNamingContext, WellKnownObjects.Attributes, CancellationToken.None)
+                .ConfigureAwait(false);
+            return domain is null ? WellKnownObjectMap.Empty : WellKnownObjectMap.FromDomainObject(domain);
+        }
+        catch (Exception ex)
+        {
+            // Best effort: without the map the tree shows no badges and new objects go to the current container.
+            _logger.LogInformation("Well-known containers not readable ({ErrorType}).", ex.GetType().Name);
+            return WellKnownObjectMap.Empty;
+        }
+    }
+
     private sealed class SessionEntry(IDirectorySession session, IAttributeFormatter formatter)
     {
         public IDirectorySession Session { get; } = session;
@@ -263,5 +301,7 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
         public IAttributeFormatter Formatter { get; } = formatter;
 
         public Task<DomainPolicy>? Policy { get; set; }
+
+        public Task<WellKnownObjectMap>? WellKnown { get; set; }
     }
 }

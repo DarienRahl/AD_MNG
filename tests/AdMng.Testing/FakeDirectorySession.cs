@@ -437,8 +437,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             int offset;
             if (window.SeekValue is { } seek)
             {
+                // Like AD: the first entry at or after the value in the list order (descending: at or below it).
                 var compare = CultureInfo.InvariantCulture.CompareInfo;
-                offset = all.FindIndex(o => compare.Compare(o.GetString(search.Sort.Attribute) ?? string.Empty, seek, CompareOptions.IgnoreCase) >= 0);
+                offset = all.FindIndex(o =>
+                {
+                    var compared = compare.Compare(o.GetString(search.Sort.Attribute) ?? string.Empty, seek, CompareOptions.IgnoreCase);
+                    return search.Sort.Descending ? compared <= 0 : compared >= 0;
+                });
                 if (offset < 0)
                 {
                     offset = all.Count;

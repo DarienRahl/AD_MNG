@@ -83,6 +83,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _detailsPaneVisible = Settings.Current.ShowDetailsPane;
         Tree.NodeActivated += OnNodeActivated;
+        Tree.PropertyChanged += OnTreePropertyChanged;
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -410,12 +411,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Double click / Enter on a row: containers open in the current tab, other objects show properties.</summary>
-    [RelayCommand(AllowConcurrentExecutions = true)]
+    /// <summary>
+    /// Double click / Enter on a row: containers open in the current tab, other objects show properties. A virtual list's
+    /// "Loading…" placeholder has no object behind it and is never opened.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanOpenItem), AllowConcurrentExecutions = true)]
     private async Task OpenItemAsync(ObjectRowViewModel? row)
     {
         row ??= SelectedDocument?.SelectedItem;
-        if (row is null)
+        if (row is null or { IsPlaceholder: true })
         {
             return;
         }
@@ -429,6 +433,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             await _dialogs.ShowPropertiesAsync(row.Dn).ConfigureAwait(true);
         }
     }
+
+    private static bool CanOpenItem(ObjectRowViewModel? row) => row is not { IsPlaceholder: true };
 
     [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => SelectedDocument?.GoBackCommand.ExecuteAsync(null) ?? Task.CompletedTask;
@@ -459,6 +465,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         Tree.NodeActivated -= OnNodeActivated;
+        Tree.PropertyChanged -= OnTreePropertyChanged;
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -504,6 +511,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(IsBusy));
+        OnPropertyChanged(nameof(IsVirtualListShown));
         UpdateDetailsAsync().Forget();
 
         // The tree highlights what the active tab shows: with another tab's container still selected, a click on that
@@ -655,6 +663,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 break;
             case nameof(ObjectListViewModel.Location):
                 RefreshCommandStates();
+                break;
+            case nameof(ObjectListViewModel.IsVirtual):
+                OnPropertyChanged(nameof(IsVirtualListShown));
                 break;
         }
     }

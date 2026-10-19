@@ -27,17 +27,23 @@ public partial class ObjectListView : UserControl
     /// <summary>Drag &amp; drop data format: the dragged objects' DNs (string[]).</summary>
     public const string DistinguishedNamesFormat = "AdMng.DistinguishedNames";
 
+    /// <summary>Typed characters of the virtual list's type-to-find form one prefix within this time.</summary>
+    private const long TypeToFindWindowMs = 1000;
+
     private ObjectListViewModel? _viewModel;
     private Point? _dragStart;
     private ListViewItem? _pressedItem;
     private bool _selectOnMouseUp;
     private ObjectRowViewModel? _renaming;
+    private string _typed = string.Empty;
+    private long _typedAt;
 
     public ObjectListView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         List.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler(OnListScrolled));
+        List.PreviewTextInput += OnListTextInput;
     }
 
     /// <summary>Raised on double click / Enter on a row, before the default action.</summary>
@@ -119,6 +125,7 @@ public partial class ObjectListView : UserControl
         if (_viewModel is not null)
         {
             _viewModel.ScrollIntoViewRequested -= OnScrollIntoViewRequested;
+            _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             if (ReferenceEquals(_viewModel.SelectedItems, List.SelectedItems))
             {
                 _viewModel.SelectedItems = null;
@@ -132,6 +139,40 @@ public partial class ObjectListView : UserControl
             // The list's live multi-selection (observable) drives the view model's Selection.
             _viewModel.SelectedItems = List.SelectedItems;
             _viewModel.ScrollIntoViewRequested += OnScrollIntoViewRequested;
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        UpdateTextSearch();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ObjectListViewModel.IsVirtual))
+        {
+            UpdateTextSearch();
+        }
+    }
+
+    /// <summary>
+    /// WPF's own type-to-find walks the items: fine for loaded lists, but in a virtual list (VLV) it would page through the
+    /// whole container - there the typed text goes to the server (<see cref="ObjectListViewModel.FindByPrefixAsync"/>).
+    /// </summary>
+    private void UpdateTextSearch() => List.IsTextSearchEnabled = _viewModel?.IsVirtual != true;
+
+    private async void OnListTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (_viewModel is not { IsVirtual: true } viewModel || IsRenaming || string.IsNullOrEmpty(e.Text) || char.IsControl(e.Text[0]))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var now = Environment.TickCount64;
+        _typed = now - _typedAt > TypeToFindWindowMs ? e.Text : _typed + e.Text;
+        _typedAt = now;
+        if (await viewModel.FindByPrefixAsync(_typed).ConfigureAwait(true))
+        {
+            FocusList();
         }
     }
 
@@ -176,6 +217,11 @@ public partial class ObjectListView : UserControl
         {
             // The selected rows with the visible columns, tab separated (Ctrl+Shift+C copies the DNs).
             shell.CopyRowsCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.A && modifiers == ModifierKeys.Control && _viewModel?.IsVirtual == true)
+        {
+            // A virtual list holds only the shown pages: "select all" would select placeholders, not the container.
             e.Handled = true;
         }
     }

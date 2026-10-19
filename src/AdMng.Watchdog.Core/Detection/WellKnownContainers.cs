@@ -1,3 +1,4 @@
+using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 
 namespace AdMng.Watchdog.Core.Detection;
@@ -5,12 +6,13 @@ namespace AdMng.Watchdog.Core.Detection;
 /// <summary>
 /// The default users and computers containers from the domain head's <c>wellKnownObjects</c> (section 10.2): values
 /// <c>B:32:A9D1CA15768811D1ADED00C04FD8D5CD:&lt;dn&gt;</c> (users) and <c>B:32:AA312825768811D1ADED00C04FD8D5CD:&lt;dn&gt;</c>
-/// (computers), the DN possibly in Extended DN form. Follows <c>redirusr</c>/<c>redircmp</c>.
+/// (computers), the DN possibly in Extended DN form. Follows <c>redirusr</c>/<c>redircmp</c>. Values are parsed by
+/// <see cref="WellKnownObjects.TryParseValue"/> (the parser the console uses too).
 /// </summary>
 public sealed class WellKnownContainers
 {
-    public const string UsersGuid = "A9D1CA15768811D1ADED00C04FD8D5CD";
-    public const string ComputersGuid = "AA312825768811D1ADED00C04FD8D5CD";
+    public const string UsersGuid = WellKnownGuids.Users;
+    public const string ComputersGuid = WellKnownGuids.Computers;
 
     private WellKnownContainers(string domainDn, DistinguishedName? users, DistinguishedName? computers)
     {
@@ -47,9 +49,8 @@ public sealed class WellKnownContainers
         DistinguishedName? users = null, computers = null;
         foreach (var value in wellKnownObjects)
         {
-            if (!ValueCanonicalizer.TrySplitDnBinary(value, out var binary, out var dnPart)
-                || !ExtendedDistinguishedName.TryParse(dnPart, out var extended)
-                || !DistinguishedName.TryParse(extended.Dn, out var dn))
+            if (!WellKnownObjects.TryParseValue(value, out var binary, out var dnText)
+                || !DistinguishedName.TryParse(dnText, out var dn))
             {
                 continue;
             }

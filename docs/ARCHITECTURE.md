@@ -100,6 +100,11 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
   (DC, tożsamość – z wyróżnieniem kont uprzywilejowanych, liczba obiektów, czas zapytania, operacje w tle).
 - **Listy:** strumieniowo ładowane, wirtualizowane, kolumny wybierane z atrybutów schematu, szybki filtr tekstowy,
   filtry-chipy wykonywane po stronie serwera (zablokowane, wyłączone, nieaktywne N dni, …), sortowanie, eksport CSV.
+  Kontener, który przekroczy 5000 obiektów, przechodzi w listę wirtualną (`VirtualRowList`): VLV sortowany na serwerze,
+  strony czytane w trakcie przewijania, ograniczona pamięć podręczna stron, wyszukiwanie po wpisaniu przez wartość
+  `seek` VLV, odświeżanie widocznych stron po zmianach ([dev/phase1-navigation.md](dev/phase1-navigation.md)).
+- **Drzewo:** kontenery dobrze znane rozpoznawane po GUID z `wellKnownObjects`/`otherWellKnownObjects` głowy domeny
+  (znacznik i opis roli); polecenia „Nowy” bez kontekstu kontenera tworzą obiekty w domyślnym kontenerze Users/Computers.
 - **Właściwości:** okna niemodalne, karty jak w ADUC + Edytor atrybutów; pola niedostępne dla operatora tylko do odczytu.
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w

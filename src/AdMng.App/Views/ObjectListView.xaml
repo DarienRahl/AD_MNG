@@ -41,7 +41,7 @@
       <Style.Triggers>
         <MultiDataTrigger>
           <MultiDataTrigger.Conditions>
-            <Condition Binding="{Binding Items.Count, Mode=OneWay}" Value="0" />
+            <Condition Binding="{Binding Rows.Count, Mode=OneWay}" Value="0" />
             <Condition Binding="{Binding IsLoading, Mode=OneWay}" Value="False" />
             <Condition Binding="{Binding Error, Mode=OneWay}" Value="{x:Null}" />
           </MultiDataTrigger.Conditions>
@@ -141,7 +141,7 @@
                 AutomationProperties.Name="{Binding Title, Mode=OneWay}"
                 BorderThickness="0,1,0,0"
                 ItemContainerStyle="{StaticResource ObjectRowStyle}"
-                ItemsSource="{Binding Items}"
+                ItemsSource="{Binding Rows, Mode=OneWay}"
                 PreviewKeyDown="OnListKeyDown"
                 PreviewMouseLeftButtonDown="OnListMouseDown"
                 PreviewMouseLeftButtonUp="OnListMouseUp"
@@ -150,6 +150,7 @@
                 ScrollViewer.IsDeferredScrollingEnabled="False"
                 SelectedItem="{Binding SelectedItem}"
                 SelectionMode="Extended"
+                TextSearch.TextPath="Name"
                 VirtualizingPanel.IsContainerVirtualizable="True"
                 VirtualizingPanel.IsVirtualizing="True"
                 VirtualizingPanel.ScrollUnit="Item"

@@ -1241,6 +1241,18 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="List.ServerFilters" xml:space="preserve">
     <value>Filters</value>
   </data>
+  <data name="List.Virtual.Badge" xml:space="preserve">
+    <value>Virtual list (VLV)</value>
+  </data>
+  <data name="List.Virtual.BadgeToolTip" xml:space="preserve">
+    <value>Very large container: rows are read from the domain controller while you scroll (VLV). Sorting, type-to-find and the quick filter run on the server; Select all and Export are not available - use Find (Ctrl+F) or a saved view to export.</value>
+  </data>
+  <data name="List.Virtual.FilterMatches" xml:space="preserve">
+    <value>{0} objects match (filtered on the server)</value>
+  </data>
+  <data name="List.Virtual.Summary" xml:space="preserve">
+    <value>{0} objects · virtual list (VLV), sorted on the server by {1} · as of {2}</value>
+  </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
     <value>Move {0} object(s) to {1}?</value>
   </data>
@@ -1501,6 +1513,45 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Tree.Views" xml:space="preserve">
     <value>Views</value>
+  </data>
+  <data name="Tree.WellKnown.Computers" xml:space="preserve">
+    <value>Default container for new computers</value>
+  </data>
+  <data name="Tree.WellKnown.DeletedObjects" xml:space="preserve">
+    <value>Deleted objects (AD Recycle Bin)</value>
+  </data>
+  <data name="Tree.WellKnown.DomainControllers" xml:space="preserve">
+    <value>Default container for domain controllers</value>
+  </data>
+  <data name="Tree.WellKnown.ForeignSecurityPrincipals" xml:space="preserve">
+    <value>Security principals from trusted domains</value>
+  </data>
+  <data name="Tree.WellKnown.Infrastructure" xml:space="preserve">
+    <value>Infrastructure master settings</value>
+  </data>
+  <data name="Tree.WellKnown.Keys" xml:space="preserve">
+    <value>Key credentials of devices (Windows Hello for Business)</value>
+  </data>
+  <data name="Tree.WellKnown.LostAndFound" xml:space="preserve">
+    <value>Orphaned objects (LostAndFound)</value>
+  </data>
+  <data name="Tree.WellKnown.ManagedServiceAccounts" xml:space="preserve">
+    <value>Default container for managed service accounts</value>
+  </data>
+  <data name="Tree.WellKnown.Microsoft" xml:space="preserve">
+    <value>Microsoft application data</value>
+  </data>
+  <data name="Tree.WellKnown.NtdsQuotas" xml:space="preserve">
+    <value>Object creation quotas (NTDS Quotas)</value>
+  </data>
+  <data name="Tree.WellKnown.ProgramData" xml:space="preserve">
+    <value>Application data</value>
+  </data>
+  <data name="Tree.WellKnown.System" xml:space="preserve">
+    <value>System settings of the domain</value>
+  </data>
+  <data name="Tree.WellKnown.Users" xml:space="preserve">
+    <value>Default container for new users and groups</value>
   </data>
   <data name="Uac.AccountDisable" xml:space="preserve">
     <value>Account is disabled</value>

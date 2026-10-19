@@ -31,12 +31,22 @@
 
     <!-- Navigation tree nodes -->
     <HierarchicalDataTemplate DataType="{x:Type nav:ContainerNodeViewModel}" ItemsSource="{Binding Children}">
-      <StackPanel Orientation="Horizontal" ToolTip="{Binding Description, Mode=OneWay}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTipText, Mode=OneWay}">
         <c:ObjectIconView Margin="0,0,6,0"
                           VerticalAlignment="Center"
                           Icon="{Binding Icon, Mode=OneWay}"
                           Size="16" />
         <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <!-- Well-known container (wellKnownObjects): default container of new users/computers, System... -->
+        <TextBlock x:Name="WellKnownBadge"
+                   Margin="6,0,0,0"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding WellKnownText, Mode=OneWay, TargetNullValue=''}"
+                   FontSize="11"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.WellKnown}"
+                   Visibility="{Binding IsWellKnown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <TextBlock Margin="6,0,0,0"
                    FontSize="10"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -541,6 +551,8 @@
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+            <!-- The tooltip (well-known role, description) for keyboard and screen reader users. -->
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding HelpText, Mode=OneWay, TargetNullValue=''}" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="2" />
             <Style.Triggers>
@@ -994,6 +1006,28 @@
 
       <StatusBarItem DockPanel.Dock="Left" Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SecurityText, Mode=OneWay}" />
+      </StatusBarItem>
+
+      <!-- Very large container shown as a virtual list (VLV): rows are read while scrolling. -->
+      <StatusBarItem x:Name="VirtualListBadge"
+                     DockPanel.Dock="Left"
+                     AutomationProperties.HelpText="{l:Tr List.Virtual.BadgeToolTip}"
+                     AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
+                     ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
+                     Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="3">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,4,0"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Columns}" />
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Text="{l:Tr List.Virtual.Badge}" />
+          </StackPanel>
+        </Border>
       </StatusBarItem>
 
       <StatusBarItem DockPanel.Dock="Left">

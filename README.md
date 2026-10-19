@@ -78,7 +78,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 
 | | ADUC (`dsa.msc`) | AD Manager |
 |---|---|---|
-| **Duże OU** | „Not Responding”, limit 2000 obiektów | wyniki strumieniowane stronami, bez limitu, z anulowaniem |
+| **Duże OU** | „Not Responding”, limit 2000 obiektów | wyniki strumieniowane stronami, bez limitu, z anulowaniem; kontenery > 5000 obiektów jako lista wirtualna VLV (sortowanie i wyszukiwanie po wpisaniu na serwerze, stała ilość pamięci) |
 | **Wyszukiwanie** | Znajdź w osobnym oknie | ANR w trakcie pisania (Ctrl+E), paleta poleceń (Ctrl+K) |
 | **Wiele obiektów naraz** | stały podzbiór pól, bez podglądu i raportu | dowolne atrybuty, podgląd przed → po, raport, PowerShell, cofanie |
 | **Kosz AD** | tylko w ADAC | przeglądanie i przywracanie, także całych poddrzew OU |
@@ -225,7 +225,10 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 - ✅ **Nawigacja i listy:** drzewo ładowane leniwie, „Funkcje zaawansowane”, listy bez limitu 2000 (strony
   strumieniowane, wirtualizacja), sortowanie, wybór kolumn z atrybutów schematu, nazwy z display specifiers (`CN=415`),
   znaczniki stanu, pasek adresu (DN lub ścieżka), Wstecz/Dalej/W górę, karty (Ctrl+T, Ctrl+Enter), panel szczegółów,
-  „stan na godz.”, szybkie filtry po stronie serwera, **odświeżanie list na żywo** (powiadomienia LDAP o zmianach).
+  „stan na godz.”, szybkie filtry po stronie serwera, **odświeżanie list na żywo** (powiadomienia LDAP o zmianach),
+  **kontenery dobrze znane rozpoznawane po WKGUID** (`wellKnownObjects`: znacznik w drzewie, domyślny kontener nowych
+  użytkowników, grup i komputerów – także po `redirusr`/`redircmp`), **lista wirtualna VLV** dla kontenerów powyżej
+  5000 obiektów (strony czytane w trakcie przewijania, sortowanie, szybki filtr i wyszukiwanie po wpisaniu na serwerze).
 - ✅ **Wyszukiwanie:** ANR w trakcie pisania (Ctrl+E), Znajdź (Ctrl+F) z kategoriami i własnym filtrem LDAP, okno wyboru
   obiektów, paleta poleceń (Ctrl+K).
 - ✅ **Właściwości:** wszystkie karty z tabeli poniżej, okna niemodalne, pola niedozwolone dla operatora tylko do odczytu
@@ -240,9 +243,8 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów (widoczne kolumny, tabulatory), „Kopiuj jako…”
   dla wielu obiektów naraz (adresy e-mail jako lista dla Outlooka, Ctrl+Shift+M) – szczegóły w sekcji
   [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
-- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID,
-  „Kopiuj użytkownika” (faza 3), VLV na listach bardzo dużych OU (sesja już go obsługuje), pól opartych o ACL (na razie
-  wyświetlane jako tylko do odczytu – faza 5).
+- ⬜ **Brakuje:** „Kopiuj użytkownika” (faza 3), pól opartych o ACL (na razie wyświetlane jako tylko do odczytu –
+  faza 5).
 - 🟡 **Do weryfikacji na Windows Server:** pilotaż, pomiar 100 000 obiektów, Kerberos z wymuszonym channel binding,
   test „żadnych danych na dysku”, wysoki kontrast i czytnik ekranu.
 
@@ -668,10 +670,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   „unknown (Negotiate)”; obejście: Kestrel ze SPN-em albo tymczasowo `RequireKerberos: false`); w trybie WEF zdarzenia
   dostarczone z opóźnieniem w trakcie zalewu (więcej niż `maxRecordsPerPoll`) mogą ominąć atrybucję; zmiana podsieci
   w `appsettings.json` nie aktualizuje reguły zapory. Szczegóły: [WATCHDOG.md, rozdział 9](docs/WATCHDOG.md#9-ograniczenia).
-- **Kontenery dobrze znane** (`Users`, `Computers`, …) nie są rozpoznawane po WKGUID – drzewo pokazuje je jak zwykłe
-  kontenery, a obiekty są zawsze tworzone w bieżącym kontenerze, nie w domyślnym z `wellKnownObjects`.
-- **Bardzo duże OU** są wczytywane strumieniowo w całości (bez VLV) – lista działa płynnie, ale zajmuje pamięć
-  proporcjonalną do liczby obiektów.
+- **Kontenery dobrze znane** – domyślny kontener z `wellKnownObjects` dotyczy poleceń „Nowy” bez wskazanego kontenera
+  (karta domeny, wyniki wyszukiwania, widoki); jednostki organizacyjne nie mają kontenera domyślnego. Gdy atrybutu nie da
+  się odczytać, drzewo nie pokazuje znaczników, a obiekty powstają w bieżącym kontenerze (nazwy nie są zgadywane).
+- **Lista wirtualna (VLV)** – kontener przełącza się na nią dopiero po 5000 wczytanych obiektach (wcześniej strumień);
+  w tym trybie nie ma „Zaznacz wszystko” ani eksportu listy (do eksportu służy Znajdź albo zapisany widok), kolumn Typ i
+  Lokalizacja nie da się sortować, szybki filtr działa po stronie serwera (bez ignorowania polskich znaków), a filtr
+  „Zablokowane” wraca do strumienia. Odświeżenie na żywo czyta ponownie widoczne strony. Wyszukiwanie po wpisaniu działa
+  po kolumnie sortowania (jak w książce telefonicznej).
 - **Pola oparte o ACL** („Chroń obiekt przed przypadkowym usunięciem”, „Użytkownik nie może zmienić hasła”, „Menedżer
   może aktualizować listę członków”) są pokazywane tylko do odczytu; brak karty Zabezpieczenia.
 - **Godziny logowania** są pokazywane w czasie lokalnym komputera operatora z **bieżącym** przesunięciem względem UTC –

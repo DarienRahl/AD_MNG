@@ -44,6 +44,12 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; protected set; }
 
+    /// <summary>
+    /// Accessible description of the node (UI Automation help text of the tree item, read by screen readers - the
+    /// tooltip is mouse-only); null when there is none.
+    /// </summary>
+    public virtual string? HelpText => null;
+
     /// <summary>Loads children if the node has lazy children (no-op otherwise).</summary>
     public virtual Task EnsureChildrenLoadedAsync() => Task.CompletedTask;
 
@@ -126,6 +132,7 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
         Description = description;
         IsPinnedEntry = isPinnedEntry;
         Children.Add(new PlaceholderNodeViewModel(this, tree.Localizer[L.Common.Loading]));
+        ApplyWellKnown(tree.WellKnown);
     }
 
     public string Dn { get; }
@@ -133,7 +140,32 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
     public ObjectKind Kind { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToolTipText), nameof(HelpText))]
     public partial string? Description { get; set; }
+
+    /// <summary>The well-known role of this container from the domain head's wellKnownObjects (null: none).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWellKnown))]
+    public partial WellKnownContainer? WellKnown { get; private set; }
+
+    public bool IsWellKnown => WellKnown is not null;
+
+    /// <summary>Localized role ("Default container for new users and groups"), null for ordinary containers.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToolTipText), nameof(HelpText))]
+    public partial string? WellKnownText { get; private set; }
+
+    /// <summary>Tooltip of the node: the well-known role and the description (null when there is neither).</summary>
+    public string? ToolTipText => (WellKnownText, string.IsNullOrWhiteSpace(Description) ? null : Description) switch
+    {
+        (null, null) => null,
+        ({ } role, null) => role,
+        (null, { } description) => description,
+        ({ } role, { } description) => role + Environment.NewLine + description,
+    };
+
+    /// <summary>The tooltip for screen readers: the well-known role and the description.</summary>
+    public override string? HelpText => ToolTipText;
 
     /// <summary>True for nodes under "Views > pinned containers" (shortcuts, not part of the domain tree index).</summary>
     public bool IsPinnedEntry { get; }
@@ -160,6 +192,13 @@ public sealed partial class ContainerNodeViewModel : TreeNodeViewModel
         Kind = kind;
         Icon = ObjectIcons.For(kind, false, false);
         Description = description;
+    }
+
+    /// <summary>Marks the node from the well-known containers of the session (also re-run after a language switch).</summary>
+    internal void ApplyWellKnown(WellKnownObjectMap map)
+    {
+        WellKnown = map.Identify(Dn);
+        WellKnownText = WellKnown is { } role ? WellKnownRoles.Text(_tree.Localizer, role) : null;
     }
 
     private async Task LoadChildrenAsync()
