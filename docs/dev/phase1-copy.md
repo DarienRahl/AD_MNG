@@ -33,9 +33,10 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
 ### 2. Ctrl+C on the object list
 
 * `object.copyRows` (Ctrl+C, list context menu, Action menu, palette): the selected rows, **in display order**, with
-  the **visible columns** (same headers as the list) as tab-separated text, one row per line (CRLF). No header row.
-* `object.copyRowsWithHeaders` (context menu "Kopiuj z nagłówkami", Action menu, palette; no shortcut – Ctrl+Shift+C
-  stays "copy DN" as planned in RESEARCH.md): the same with the column headers as the first line.
+  the **visible columns** (same headers as the list) as tab-separated text, one row per line. No header row. The cells
+  are formatted off the UI thread (`FormatUncached`, like the CSV export); only the clipboard is written on it.
+* `object.copyRowsWithHeaders` (context menu "Kopiuj wiersze z nagłówkami", Action menu, palette; no shortcut –
+  Ctrl+Shift+C stays "copy DN" as planned in RESEARCH.md): the same with the column headers as the first line.
 * Cells: tabs and line breaks inside a value become spaces; values starting with `=`, `+`, `-` or `@` get an
   apostrophe (formula injection protection, like the CSV export) unless they are plain numbers or phone numbers
   (`+48 22 123 45 67`, `-5`), which cannot run anything and would otherwise get a stray apostrophe in Teams or a
