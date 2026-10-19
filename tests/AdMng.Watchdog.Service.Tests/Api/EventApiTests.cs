@@ -205,6 +205,30 @@ public sealed class EventApiTests : IAsyncLifetime
         Assert.Equal(@"CONTOSO\adm.łukasz", item.Attribution.Actor?.Account);
     }
 
+    /// <summary>Minimal viewers do not see workstation and IP, so the text search must not match them either – otherwise
+    /// hit/miss per query is an oracle for the hidden source. Names, accounts and DNs stay searchable; Admins search all.</summary>
+    [Theory]
+    [InlineData("10.0.12.34", false)]
+    [InlineData("10.0.12", false)]
+    [InlineData("ws-łódź", false)]
+    [InlineData("zofia", true)]
+    [InlineData("księgowość", true)]
+    [InlineData("adm.łukasz", true)]
+    public async Task MinimalDetailLevel_TextSearchIgnoresTheHiddenSources(string text, bool viewerFinds)
+    {
+        await using var factory = new WatchdogFactory(new Dictionary<string, string?> { ["Watchdog:Authorization:ViewerDetailLevel"] = "Minimal" });
+        await factory.Store.AppendAsync(TestData.Event(WatchEventKind.AttributesChanged, attribution: TestData.Resolved()), Ct);
+        using var viewer = factory.Viewer();
+        using var admin = factory.Admin();
+        var query = "text=" + Uri.EscapeDataString(text);
+
+        var asViewer = await GetPageAsync(viewer, query);
+        var asAdmin = await GetPageAsync(admin, query);
+
+        Assert.Equal(viewerFinds ? 1 : 0, asViewer.Items.Count);
+        Assert.Single(asAdmin.Items);
+    }
+
     private async Task<long[]> AppendAsync(int count)
     {
         var ids = new long[count];

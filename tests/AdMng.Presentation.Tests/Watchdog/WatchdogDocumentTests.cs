@@ -155,6 +155,53 @@ public sealed class WatchdogDocumentTests
     }
 
     [Fact]
+    public async Task Banner_ShowsStateAndHostOnce_AndASecondLineOnlyToExplain()
+    {
+        using var h = await WatchdogHarness.CreateAsync(culture: Polish);
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var changed = new List<string?>();
+            tab.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            // Connected: "Połączono admng-wd.contoso.com:8443" – the message repeats it, so no second line.
+            Assert.Equal("Połączono", tab.StateText);
+            Assert.Equal("admng-wd.contoso.com:8443", tab.HostText);
+            Assert.Equal("Połączono z admng-wd.contoso.com:8443", tab.ConnectionMessage);
+            Assert.Equal(string.Empty, tab.BannerMessage);
+
+            // A problem: the second line explains it (with the remedy); Retry clears it again.
+            var failed = h.CreateDocument();
+            failed.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            h.Client.FailWith(WatchdogClientErrorKind.Forbidden, nameof(IWatchdogClient.GetMeAsync));
+            await failed.InitializeAsync();
+            Assert.Equal("Brak uprawnień", failed.StateText);
+            Assert.Equal("Brak uprawnień – poproś o dodanie do grupy AD z rolą Watchdog.", failed.BannerMessage);
+            Assert.Contains(nameof(WatchdogDocumentViewModel.BannerMessage), changed);
+
+            h.Client.ClearFailures();
+            await failed.RefreshAsync();
+            Assert.True(failed.IsConnected);
+            Assert.Equal(string.Empty, failed.BannerMessage);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task Banner_NotConfigured_ExplainsWhatToDo()
+    {
+        using var h = await WatchdogHarness.CreateAsync(configured: false);
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = h.CreateDocument();
+            await tab.InitializeAsync();
+
+            Assert.Equal(h.Ad.Localizer[L.Watchdog.ConnectionNotConfigured], tab.BannerMessage);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task Retry_AfterAFailure_Connects()
     {
         using var h = await WatchdogHarness.CreateAsync();
@@ -404,6 +451,171 @@ public sealed class WatchdogDocumentTests
             h.Time.Advance(TimeSpan.FromMinutes(10));
             await h.Ui.IdleAsync();
             Assert.Equal(calls, h.Client.Calls.All.Count);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task SupersededConnect_NeverShowsAnErrorState()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = h.CreateDocument();
+            var states = new List<WatchdogConnectionState>();
+            tab.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(WatchdogDocumentViewModel.ConnectionState))
+                {
+                    states.Add(tab.ConnectionState);
+                }
+            };
+            h.Client.Hold(nameof(IWatchdogClient.GetMeAsync));
+
+            var first = tab.InitializeAsync();
+            var second = tab.InitializeAsync();
+            await first;
+            h.Client.Release(nameof(IWatchdogClient.GetMeAsync));
+            await second;
+            await tab.Config.Loading;
+
+            Assert.Equal(WatchdogConnectionState.Connected, tab.ConnectionState);
+            Assert.DoesNotContain(WatchdogConnectionState.Error, states);
+            Assert.False(tab.HasConnectionProblem);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Theory]
+    [InlineData(WatchdogClientErrorKind.Timeout)]
+    [InlineData(WatchdogClientErrorKind.Unreachable)]
+    public async Task OneFailedRequest_WhileLiveUpdatesWork_StaysInline_AndKeepsTheTab(WatchdogClientErrorKind kind)
+    {
+        using var h = await WatchdogHarness.CreateAsync(culture: Polish);
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            tab.Config.Update(c => c with
+            {
+                Digest = c.Digest with { SendWhenEmpty = !c.Digest.SendWhenEmpty },
+                Smtp = c.Smtp with { Password = new() { NewValue = "Hasło-Źródłowe!2026" } },
+            });
+
+            // A save that times out (or hits a network blip) while the poller still reaches the service.
+            h.Client.FailNext(nameof(IWatchdogClient.SaveConfigAsync), new WatchdogClientException(kind, "slow"));
+            Assert.False(await tab.Config.SaveAsync());
+            Assert.NotNull(tab.Config.Error);
+            Assert.Equal(WatchdogConnectionState.Connected, tab.ConnectionState);
+            Assert.True(tab.IsConnected);
+
+            // A slow text search of the feed: the error bar of the feed, not a hidden tab.
+            h.Client.FailNext(nameof(IWatchdogClient.GetEventsAsync), new WatchdogClientException(kind, "slow"));
+            await tab.Events.LoadAsync();
+            Assert.NotNull(tab.Events.Error);
+            Assert.True(tab.IsConnected);
+
+            // The unsaved edits and the typed password are still there for the next save.
+            Assert.True(tab.Config.IsDirty);
+            Assert.Equal("Hasło-Źródłowe!2026", tab.Config.Working!.Smtp.Password.NewValue);
+            Assert.True(await tab.Config.SaveAsync());
+            Assert.Equal("Hasło-Źródłowe!2026", h.Client.SavedEnvelopes[^1].Configuration.Smtp.Password.NewValue);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task Reconnect_KeepsUnsavedConfiguration_OfTheSameService()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            tab.Config.Update(c => c with
+            {
+                Digest = c.Digest with { SendWhenEmpty = !c.Digest.SendWhenEmpty },
+                Smtp = c.Smtp with { Password = new() { NewValue = "Zażółć-Gęślą-2026" } },
+            });
+            var loads = h.Client.Calls.Count(nameof(IWatchdogClient.GetConfigAsync));
+
+            // Retry / F5 after a connection problem reconnects: the operator's work survives.
+            await tab.InitializeAsync();
+            Assert.True(tab.IsConnected);
+            Assert.Equal(loads, h.Client.Calls.Count(nameof(IWatchdogClient.GetConfigAsync)));
+            Assert.True(tab.Config.IsDirty);
+            Assert.Equal("Zażółć-Gęślą-2026", tab.Config.Working!.Smtp.Password.NewValue);
+
+            // Another service: its own configuration is loaded (edits never go to a different service).
+            tab.ChangeAddressCommand.Execute(null);
+            tab.ServiceUrlInput = "https://admng-wd2.contoso.com:8443";
+            await tab.ConnectCommand.ExecuteAsync(null);
+            await tab.Config.Loading;
+            Assert.Equal(loads + 1, h.Client.Calls.Count(nameof(IWatchdogClient.GetConfigAsync)));
+            Assert.False(tab.Config.IsDirty);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task FailedConnectToAnotherService_IsNotRestored_ByItsStatus()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            tab.Config.Update(c => c with { Digest = c.Digest with { SendWhenEmpty = !c.Digest.SendWhenEmpty } });
+            var firstAddress = h.Client.BaseAddress;
+
+            // "Zmień adres" to another service: the caller is read, its catalog times out.
+            h.Client.FailNext(nameof(IWatchdogClient.GetCatalogAsync), new WatchdogClientException(WatchdogClientErrorKind.Timeout, "slow"));
+            tab.ChangeAddressCommand.Execute(null);
+            tab.ServiceUrlInput = "https://admng-wd2.contoso.com:8443";
+            await tab.ConnectCommand.ExecuteAsync(null);
+            Assert.Equal(WatchdogConnectionState.Unreachable, tab.ConnectionState);
+            Assert.NotEqual(firstAddress, h.Client.BaseAddress);
+
+            // The poller (still running) reads the status of the new service: the tab must not come back "connected"
+            // with the caller, configuration and feed of the first service (a save would PUT it to the new one).
+            var calls = h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync));
+            h.Time.Advance(WatchdogPoller.HiddenStatusInterval);
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), calls + 1);
+            await h.Ui.IdleAsync();
+            await tab.Status.LoadAsync();
+            Assert.Equal(WatchdogConnectionState.Unreachable, tab.ConnectionState);
+            Assert.False(tab.IsConnected);
+
+            // Retry connects to the new service properly (its own configuration).
+            await tab.RefreshAsync();
+            await tab.Config.Loading;
+            Assert.True(tab.IsConnected);
+            Assert.False(tab.Config.IsDirty);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task ConnectionProblemOfACall_ClearsWithTheNextSuccessfulStatus()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), 2);
+            h.Client.FailNext(nameof(IWatchdogClient.GetEventsAsync), new WatchdogClientException(WatchdogClientErrorKind.Forbidden, "403") { StatusCode = 403 });
+            await tab.Events.LoadAsync();
+            Assert.Equal(WatchdogConnectionState.Forbidden, tab.ConnectionState);
+
+            // The status (Status sub-tab or the poller) answers again: the tab is usable again without Retry.
+            await tab.Status.LoadAsync();
+            Assert.Equal(WatchdogConnectionState.Connected, tab.ConnectionState);
+            Assert.False(tab.HasConnectionProblem);
+
+            h.Client.FailNext(nameof(IWatchdogClient.GetEventsAsync), new WatchdogClientException(WatchdogClientErrorKind.Forbidden, "403") { StatusCode = 403 });
+            await tab.Events.LoadAsync();
+            Assert.Equal(WatchdogConnectionState.Forbidden, tab.ConnectionState);
+            var calls = h.Client.Calls.Count(nameof(IWatchdogClient.GetStatusAsync));
+            h.Time.Advance(WatchdogPoller.HiddenStatusInterval);
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), calls + 1);
+            await WatchdogTestWait.UntilAsync(h, () => tab.IsConnected, "the poller's status");
         });
         h.AssertNoUiErrors();
     }

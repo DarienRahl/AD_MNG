@@ -195,6 +195,49 @@ public class SecretBindingsTests
         Assert.True(SecretBindings.RequiresRebind(Find(configuration with { Smtp = smtp }, SecretNames.SmtpPassword), stored));
     }
 
+    [Theory]
+    [InlineData("pinned")]
+    [InlineData("acceptAny")]
+    [InlineData("revocationOff")]
+    public void RequiresRebind_WhenTheTlsTrustOfTheSmtpServerChanges(string change)
+    {
+        // An Admin who pins his own certificate (or turns validation off) must not get the stored password or the
+        // XOAUTH2 token released to whoever presents that certificate for smtp.contoso.test.
+        var configuration = SampleConfiguration.Create();
+        var stored = Stored(configuration);
+        stored[SecretNames.SmtpOAuthClientSecret] = SecretBindings.ForSmtpOAuthClientSecret(configuration.Smtp);
+        var smtp = change switch
+        {
+            "pinned" => configuration.Smtp with
+            {
+                CertificateValidation = CertificateValidationMode.PinnedSha256,
+                PinnedSha256 = "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08",
+            },
+            "acceptAny" => configuration.Smtp with { CertificateValidation = CertificateValidationMode.AcceptAnyDevelopmentOnly },
+            _ => configuration.Smtp with { CheckRevocation = false },
+        };
+        var changed = configuration with { Smtp = smtp };
+
+        Assert.True(SecretBindings.RequiresRebind(Find(changed, SecretNames.SmtpPassword), stored));
+        var oauth = changed with { Smtp = smtp with { Authentication = SmtpAuthentication.OAuth2ClientCredentials } };
+        Assert.True(SecretBindings.RequiresRebind(Find(oauth, SecretNames.SmtpOAuthClientSecret), stored));
+    }
+
+    [Fact]
+    public void SmtpBindings_WithTheDefaultTlsTrust_KeepTheirStoredForm()
+    {
+        // Secrets stored before the TLS components existed stay usable: system validation with revocation checks adds
+        // nothing, and another pin is another binding.
+        var smtp = SampleConfiguration.Create().Smtp;
+        var pinned = smtp with { CertificateValidation = CertificateValidationMode.PinnedSha256, PinnedSha256 = "AB" + new string('0', 62) };
+
+        Assert.Equal("smtp|smtp.contoso.test|587|svc-wd@contoso.test|basic", SecretBindings.ForSmtpPassword(smtp));
+        Assert.Equal("smtp|smtp.contoso.test|587|svc-wd@contoso.test|basic|tls-pinnedsha256:ab" + new string('0', 62), SecretBindings.ForSmtpPassword(pinned));
+        Assert.NotEqual(SecretBindings.ForSmtpPassword(pinned), SecretBindings.ForSmtpPassword(pinned with { PinnedSha256 = "CD" + new string('0', 62) }));
+        Assert.Equal(SecretBindings.ForSmtpPassword(pinned), SecretBindings.ForSmtpPassword(pinned with { PinnedSha256 = " ab" + new string('0', 62) + " " }));
+        Assert.EndsWith("|smtp.contoso.test|tls-system|revocation-off", SecretBindings.ForSmtpOAuthClientSecret(smtp with { CheckRevocation = false }), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void RequiresRebind_IsFalse_WhenNothingChangedOrNothingIsStored()
     {

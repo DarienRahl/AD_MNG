@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -126,6 +127,43 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
         ArgumentNullException.ThrowIfNull(evaluation);
         var matches = evaluation.Matches.Select(m => new PlannedMatch(m.Rule, m.NotificationSeverity, m.IsProvisional)).ToList();
         return PlanAsync(evaluation.Event, matches, configuration, now, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A target is left out when the event already has an alert for it (13.2 #1: one notification per event and target)
+    /// that the recipients get – not Dead or Cancelled – with at least the planned severity, and that carries the final
+    /// state: sent with the attribution known, or followed by the attribution follow-up (<see cref="FollowUpPlanner.GetsFollowUp"/>).
+    /// A higher severity, or an alert sent with the actor pending and no follow-up to come, is new information: the
+    /// added rule notifies. A target whose pending row still waits is kept by the store (one row per event and target).
+    /// </remarks>
+    async ValueTask<IReadOnlyList<PendingNotification>> IRuleMatchPlanner.PlanReevaluationAsync(RuleEvaluationResult evaluation,
+        WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evaluation);
+        ArgumentNullException.ThrowIfNull(configuration);
+        var planned = await ((IRuleMatchPlanner)this).PlanAsync(evaluation, configuration, now, cancellationToken).ConfigureAwait(false);
+        if (planned.Count == 0)
+        {
+            return planned;
+        }
+
+        var alerts = (await _outbox.GetMessagesForEventAsync(evaluation.Event.Id, cancellationToken).ConfigureAwait(false))
+            .Where(m => m.Kind == DeliveryKind.Alert)
+            .ToList();
+        if (alerts.Count == 0)
+        {
+            return planned;
+        }
+
+        var lost = (await _outbox.GetDeliveriesForEventAsync(evaluation.Event.Id, cancellationToken).ConfigureAwait(false))
+            .Where(d => d.Status is OutboxStatus.Dead or OutboxStatus.Cancelled)
+            .Select(d => d.OutboxId)
+            .ToHashSet();
+        var covered = alerts
+            .Where(m => !lost.Contains(m.Id) && (!m.SentWithPendingAttribution || FollowUpPlanner.GetsFollowUp(m, configuration)))
+            .ToList();
+        return [.. planned.Where(p => !covered.Any(m => string.Equals(m.TargetKey, p.Target.Key, StringComparison.Ordinal) && m.Severity >= p.Severity))];
     }
 
     private async Task<bool> IsRepeatAsync(WatchEvent watchEvent, RuleSettings rule, DateTimeOffset now, CancellationToken cancellationToken) =>

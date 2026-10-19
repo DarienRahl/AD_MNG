@@ -17,6 +17,9 @@ public sealed class DigestBuilder
     /// <summary>Most event ids in the model's <see cref="DigestModel.EventIds"/> (webhook payload).</summary>
     public const int MaxEventIds = 5000;
 
+    /// <summary>Unevaluated events read by <see cref="ResolvePeriodEndAsync"/> (one rule evaluation batch).</summary>
+    private const int UnevaluatedScanLimit = 500;
+
     private readonly IEventStore _events;
     private readonly IExpiryNoticeStore _expiry;
     private readonly IHealthRegistry _health;
@@ -41,23 +44,35 @@ public sealed class DigestBuilder
         _calendars = calendars;
     }
 
+    /// <summary>Unevaluated events at most this old hold the period end back (<see cref="ResolvePeriodEndAsync"/>); the
+    /// rule evaluation job runs every 30 s and on every new event, so an older one is a backlog that must not stall the
+    /// digest.</summary>
+    public static readonly TimeSpan MaxEvaluationLag = TimeSpan.FromMinutes(10);
+
     /// <summary>
     /// The start of the digest period ending at <paramref name="periodEnd"/>: the end of the previous digest (first
     /// digest: 24 h back). With <c>CoverNonBusinessDays</c>, the digest of the first business day after non-business
-    /// days starts at the scheduled time of the last business day instead (Friday 07:30 → Monday 07:30), when that is
-    /// earlier.
+    /// days – while the previous digest ended on a non-business day (weekend digests) or there was none – starts at the
+    /// end of the last business-day digest instead (Friday 07:30 → Monday 07:30): <paramref name="lastBusinessDayPeriodEnd"/>
+    /// when it fell on that business day (the job remembers it, e.g. a late Friday catch-up), else the scheduled time of
+    /// that day. A digest that follows a business-day digest (send-now on Monday after the Monday digest, a weekday-only
+    /// schedule) simply starts where it ended.
     /// </summary>
     public static (DateTimeOffset Start, bool CoversNonBusinessDays) ResolvePeriodStart(WatchdogConfiguration configuration, BusinessCalendar calendar,
-        DateTimeOffset? lastPeriodEnd, DateTimeOffset periodEnd)
+        DateTimeOffset? lastPeriodEnd, DateTimeOffset periodEnd, DateTimeOffset? lastBusinessDayPeriodEnd = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(calendar);
         var digest = configuration.Digest ?? new DigestSettings();
         var start = lastPeriodEnd is { } last && last < periodEnd ? last : periodEnd.AddHours(-24);
         var today = calendar.LocalDate(periodEnd);
-        if (digest.CoverNonBusinessDays && calendar.IsBusinessDay(today) && !calendar.IsBusinessDay(today.AddDays(-1)))
+        if (digest.CoverNonBusinessDays && calendar.IsBusinessDay(today) && !calendar.IsBusinessDay(today.AddDays(-1))
+            && (lastPeriodEnd is null || !calendar.IsBusinessDay(calendar.LocalDate(lastPeriodEnd.Value))))
         {
-            var from = Schedule.OnDate(calendar.PreviousBusinessDay(today), digest.Time, calendar.TimeZone);
+            var previous = calendar.PreviousBusinessDay(today);
+            var from = lastBusinessDayPeriodEnd is { } known && calendar.LocalDate(known) == previous
+                ? known
+                : Schedule.OnDate(previous, digest.Time, calendar.TimeZone);
             if (from < start)
             {
                 return (from, true);
@@ -65,6 +80,32 @@ public sealed class DigestBuilder
         }
 
         return (start, false);
+    }
+
+    /// <summary>
+    /// The end of a digest generated at <paramref name="now"/>: just before the oldest event detected within
+    /// <see cref="MaxEvaluationLag"/> that the rule evaluation has not processed yet, or whose attribution is still
+    /// pending – sections list only rule-matched events, and the final attribution can still change severity, tags and
+    /// matched rules (re-evaluation, 11.4 #9). Such an event is left to the next digest, which shows its final state,
+    /// instead of being counted now as it was never to be listed again (e.g. shadow credentials that become High after
+    /// the digest, missing from "Wymaga uwagi"). Never at or before <paramref name="lastPeriodEnd"/>.
+    /// </summary>
+    public async Task<DateTimeOffset> ResolvePeriodEndAsync(DateTimeOffset now, DateTimeOffset? lastPeriodEnd, CancellationToken cancellationToken)
+    {
+        var unevaluated = await _events.GetUnevaluatedAsync(UnevaluatedScanLimit, cancellationToken).ConfigureAwait(false);
+        var oldest = unevaluated
+            .Where(e => e.Kind != WatchEventKind.Test && e.DetectedAt <= now && now - e.DetectedAt <= MaxEvaluationLag)
+            .Select(e => (DateTimeOffset?)e.DetectedAt)
+            .Min();
+        await foreach (var e in _events.GetRangeAsync(now - MaxEvaluationLag, now, cancellationToken).ConfigureAwait(false))
+        {
+            if (e.Kind != WatchEventKind.Test && e.Attribution?.Status == AttributionStatus.Pending && (oldest is null || e.DetectedAt < oldest))
+            {
+                oldest = e.DetectedAt;
+            }
+        }
+
+        return oldest is { } end && (lastPeriodEnd is null || end > lastPeriodEnd.Value) ? end : now;
     }
 
     /// <summary>Builds the digest of [<paramref name="periodStart"/>, <paramref name="periodEnd"/>).</summary>

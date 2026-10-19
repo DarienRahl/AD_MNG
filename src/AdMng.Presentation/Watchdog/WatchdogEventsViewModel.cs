@@ -24,12 +24,32 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>Most ids per bulk acknowledge request (the service's limit).</summary>
     public const int AcknowledgeBatchSize = 500;
 
+    /// <summary>
+    /// Most rows the live feed grows to: older rows are dropped from memory (still reachable with "Wczytaj starsze") so a
+    /// tab left open for days in a busy domain does not grow without bound.
+    /// </summary>
+    public const int MaxLiveItems = 2000;
+
+    /// <summary>Most rows with a pending attribution read again per status round (newest first).</summary>
+    public const int PendingRefreshLimit = 20;
+
+    /// <summary>Most events of the late-match page read per status round (<see cref="MergeLateMatchesAsync"/>).</summary>
+    public const int LateMatchLimit = 50;
+
+    /// <summary>
+    /// How far back an event can still start to match a filter (detection time): the service evaluates an event at once
+    /// and attributes it within the attribution retries (30 min by default); older events are final.
+    /// </summary>
+    public static readonly TimeSpan LateMatchWindow = TimeSpan.FromHours(2);
+
     private readonly WatchdogServices _services;
     private readonly WatchdogPoller _poller;
     private readonly SerialCancellation _loads = new();
     private readonly CancellationTokenSource _lifetime = new();
     private IList? _selectedItems;
     private Task _loading = Task.CompletedTask;
+    private volatile EventQuery _liveQuery = new();
+    private bool _refreshingPending;
     private bool _disposed;
 
     public WatchdogEventsViewModel(WatchdogServices services, WatchdogPoller poller)
@@ -40,8 +60,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         Details = new WatchdogEventDetailsViewModel(services);
         Filter.Changed += OnFilterChanged;
         Details.Acknowledged += OnDetailsAcknowledged;
-        _poller.Filter = Filter.ToQuery;
+
+        // The poller runs on the thread pool: it reads the immutable query of the loaded feed (built on the UI thread by
+        // the last full load), never the filter's observable collections.
+        _poller.Filter = () => _liveQuery;
         _poller.EventsReceived += OnEventsReceived;
+        _poller.StatusReceived += OnStatusReceived;
     }
 
     /// <summary>A service call failed (the document updates its connection state for connection failures).</summary>
@@ -149,7 +173,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         return _loading;
     }
 
-    /// <summary>An AD session was opened or closed (pickers, "Otwórz w AD_MNG", unlock).</summary>
+    /// <summary>An AD session was opened or closed (pickers, "Pokaż w AD Manager", unlock).</summary>
     public void NotifySessionChanged()
     {
         Filter.NotifySessionChanged();
@@ -182,6 +206,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         Filter.Changed -= OnFilterChanged;
         Details.Acknowledged -= OnDetailsAcknowledged;
         _poller.EventsReceived -= OnEventsReceived;
+        _poller.StatusReceived -= OnStatusReceived;
         _loads.Cancel();
         _lifetime.Cancel();
         Details.Dispose();
@@ -205,15 +230,16 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         try
         {
             var before = Items.Min(r => r.Id);
-            var page = await _services.Client.GetEventsAsync(Filter.ToQuery() with { Before = before, Limit = PageSize }, token).ConfigureAwait(true);
+            var page = await _services.Client.GetEventsAsync(_liveQuery with { Before = before, Limit = PageSize }, token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             Items.AddRange(page.Items.Where(e => e.Id < before).Select(CreateRow));
             HasMore = page.HasMore;
             Error = null;
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Superseded by a reload.
+            // Superseded by a reload (the client reports a cancelled request as OperationCanceledException or as a
+            // WatchdogClientException of kind Cancelled): never an error.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -257,7 +283,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             AcknowledgeComment = string.Empty;
             _services.Ui.Notifications.Show(NotificationSeverity.Success, _services.Localizer.Format(L.Watchdog.EventsAcknowledged, rows.Count));
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && _lifetime.IsCancellationRequested)
         {
             // Tab closed.
         }
@@ -359,12 +385,13 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     {
         var token = _loads.Next();
         _poller.Cursor = null;
+        _liveQuery = Filter.ToQuery();
         IsLoading = true;
         Error = null;
         NewCount = 0;
         try
         {
-            var page = await _services.Client.GetEventsAsync(Filter.ToQuery() with { Limit = PageSize }, token).ConfigureAwait(true);
+            var page = await _services.Client.GetEventsAsync(_liveQuery with { Limit = PageSize }, token).ConfigureAwait(true);
             token.ThrowIfCancellationRequested();
             var selectedId = SelectedItem?.Id;
             Items.ReplaceAll(page.Items.Select(CreateRow));
@@ -372,10 +399,12 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             SelectedItem = selectedId is { } id ? Items.FirstOrDefault(r => r.Id == id) : null;
             _poller.Cursor = Math.Max(page.LatestId, page.Items.Count == 0 ? 0 : page.Items.Max(e => e.Id));
             _poller.Wake();
+            Error = null;
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Superseded by a newer load.
+            // Superseded by a newer load (the client reports a cancelled request as OperationCanceledException or as a
+            // WatchdogClientException of kind Cancelled): the newer load owns the list and the error bar.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -396,33 +425,175 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         }
     }
 
-    /// <summary>New events from the poller (ascending ids, filtered by the service): prepended newest first.</summary>
+    /// <summary>
+    /// New events from the poller (ascending ids, filtered by the service): prepended newest first with one collection
+    /// notification per page; the feed then keeps at most <see cref="MaxLiveItems"/> rows (or what the operator loaded
+    /// with "Wczytaj starsze"), the oldest are dropped and stay reachable through <see cref="LoadOlderCommand"/> (not
+    /// while an older page loads: that page continues below the oldest row). Pages are dropped only while a full reload
+    /// runs (the poller has no cursor then; the reload reads them itself) – never while an older page loads, because the
+    /// poller's cursor has already moved past them.
+    /// </summary>
     private void OnEventsReceived(object? sender, EventPage page)
     {
-        if (_disposed || IsLoading)
+        if (_disposed || _poller.Cursor is null)
         {
             return;
         }
 
         var known = Items.Select(r => r.Id).ToHashSet();
-        var added = 0;
-        foreach (var watchEvent in page.Items.OrderBy(e => e.Id).Where(e => !known.Contains(e.Id)))
+        var rows = page.Items
+            .Where(e => !known.Contains(e.Id))
+            .OrderByDescending(e => e.Id)
+            .Select(e =>
+            {
+                var row = CreateRow(e);
+                row.IsNew = IsScrolledAway;
+                return row;
+            })
+            .ToList();
+        if (rows.Count == 0)
         {
-            var row = CreateRow(watchEvent);
-            row.IsNew = IsScrolledAway;
-            Items.Insert(0, row);
-            added++;
+            return;
         }
 
-        if (added > 0 && IsScrolledAway)
+        // While "Wczytaj starsze" runs (IsLoading with a cursor) nothing is trimmed: its page continues below the oldest
+        // row, so trimming that row now would leave a gap no later page fills. The next page after it trims instead.
+        var limit = Math.Max(MaxLiveItems, Items.Count);
+        Items.InsertRange(0, rows);
+        if (!IsLoading && Items.TrimTo(limit) > 0)
         {
-            NewCount += added;
+            HasMore = true;
+        }
+
+        if (IsScrolledAway)
+        {
+            NewCount += rows.Count;
         }
 
         UpdateStatus();
         ExportCsvCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(IsEmpty));
     }
+
+    /// <summary>
+    /// Every status round of the visible tab: events still waiting for attribution are read again (the attribution engine
+    /// fills in actor and source by updating the stored event, the live feed only fetches new ids), so "ustalanie…" is
+    /// replaced without a reload – in the row and in the details pane; and events that match the filter only since then
+    /// are inserted (<see cref="MergeLateMatchesAsync"/>).
+    /// </summary>
+    private void OnStatusReceived(object? sender, StatusDto status)
+    {
+        if (_disposed || !_poller.IsVisible || _poller.Cursor is null || _refreshingPending)
+        {
+            return;
+        }
+
+        RefreshLateChangesAsync().Forget();
+    }
+
+    private async Task RefreshLateChangesAsync()
+    {
+        _refreshingPending = true;
+        try
+        {
+            await RefreshPendingAttributionAsync().ConfigureAwait(true);
+            await MergeLateMatchesAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Informative only (the tab closed, an event was purged, the service is busy): the next round tries again,
+            // load errors of the feed come from its own loads.
+        }
+        finally
+        {
+            _refreshingPending = false;
+        }
+    }
+
+    private async Task RefreshPendingAttributionAsync()
+    {
+        var pending = Items.Where(r => r.IsActorPending).Take(PendingRefreshLimit).Select(r => r.Id).ToList();
+        foreach (var id in pending)
+        {
+            var details = await _services.Client.GetEventAsync(id, _lifetime.Token).ConfigureAwait(true);
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (details.Event.Attribution?.Status is AttributionStatus.Pending)
+            {
+                continue;
+            }
+
+            if (Items.FirstOrDefault(r => r.Id == id) is { } row)
+            {
+                row.Update(details.Event);
+            }
+
+            Details.UpdateEvent(details.Event);
+        }
+    }
+
+    /// <summary>
+    /// The service fills in severity and tags (attribution, re-evaluation), the attribution status and actor (and with
+    /// them the text on actor, workstation and IP) and the matched rules after it stored an event under its id. With a
+    /// filter on any of them the live long-poll skips an event that matches only later – its id is behind the cursor – so
+    /// the newest events of the filter detected within <see cref="LateMatchWindow"/> are read again and such events are
+    /// inserted at their place (descending ids) within the loaded range. Not while a reload or "Wczytaj starsze" runs
+    /// (they own the list).
+    /// </summary>
+    private async Task MergeLateMatchesAsync()
+    {
+        var query = _liveQuery;
+        var since = _services.Time.GetUtcNow() - LateMatchWindow;
+        if (!MatchesLate(query) || IsLoading || _disposed || query.To < since)
+        {
+            return;
+        }
+
+        var recent = query with { Limit = LateMatchLimit, From = query.From > since ? query.From : since };
+        var page = await _services.Client.GetEventsAsync(recent, _lifetime.Token).ConfigureAwait(true);
+        if (_disposed || IsLoading || _poller.Cursor is null || !ReferenceEquals(query, _liveQuery))
+        {
+            return;
+        }
+
+        var known = Items.Select(r => r.Id).ToHashSet();
+        long? oldest = Items.Count == 0 ? null : Items[^1].Id;
+        var late = page.Items.Where(e => !known.Contains(e.Id) && (oldest is null || e.Id > oldest)).OrderByDescending(e => e.Id).ToList();
+        if (late.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var watchEvent in late)
+        {
+            var row = CreateRow(watchEvent);
+            row.IsNew = IsScrolledAway;
+            var index = 0;
+            while (index < Items.Count && Items[index].Id > watchEvent.Id)
+            {
+                index++;
+            }
+
+            Items.Insert(index, row);
+        }
+
+        if (IsScrolledAway)
+        {
+            NewCount += late.Count;
+        }
+
+        UpdateStatus();
+        ExportCsvCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>True when <paramref name="query"/> filters on something the service fills in after storing the event.</summary>
+    private static bool MatchesLate(EventQuery query) =>
+        query.MinSeverity is not null || query.Tags.Count > 0 || query.AttributionStatuses.Count > 0 || query.ActorSid is not null
+        || query.RuleId is not null || !string.IsNullOrWhiteSpace(query.Text);
 
     private void OnFilterChanged(object? sender, EventArgs e) => LoadAsync().Forget();
 

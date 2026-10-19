@@ -15,7 +15,7 @@ param(
 
     [string] $DataDirectory = (Join-Path $env:ProgramData 'AdMng\Watchdog\data'),
 
-    # Also delete the data folder (events, snapshots, secrets, backups) and the configuration – irreversible.
+    # Also delete the data folder (events, snapshots, secrets, backups) and the configuration - irreversible.
     [switch] $RemoveData,
 
     # Also delete the program files.

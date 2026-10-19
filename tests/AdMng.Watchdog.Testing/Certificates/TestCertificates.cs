@@ -11,9 +11,14 @@ namespace AdMng.Watchdog.Testing.Certificates;
 /// </summary>
 public static class TestCertificates
 {
-    private static readonly Lazy<X509Certificate2> LazyLocalhost = new(() => Create("localhost"));
+    /// <summary>Start of validity of <see cref="Localhost"/>: before every fixed test clock (the service tests run on a
+    /// fake clock in October 2026 – "yesterday" of the real clock would make the certificate not yet valid there).</summary>
+    public static readonly DateTimeOffset LocalhostNotBefore = new(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    /// <summary>A shared certificate for 127.0.0.1 / localhost (valid from yesterday for 30 days).</summary>
+    private static readonly Lazy<X509Certificate2> LazyLocalhost = new(() => Create("localhost", notBefore: LocalhostNotBefore));
+
+    /// <summary>A shared certificate for 127.0.0.1 / localhost (valid from <see cref="LocalhostNotBefore"/> until 30 days
+    /// from now).</summary>
     public static X509Certificate2 Localhost => LazyLocalhost.Value;
 
     /// <summary>A new self-signed server certificate.</summary>

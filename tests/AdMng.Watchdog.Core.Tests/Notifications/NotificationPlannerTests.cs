@@ -1,7 +1,9 @@
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
+using AdMng.Watchdog.Core.Rules;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 using static AdMng.Watchdog.Core.Tests.Notifications.NotificationHarness;
 
@@ -194,5 +196,74 @@ public sealed class NotificationPlannerTests
         var planned = await harness.Planner.PlanAsync(changed, [new PlannedMatch(health, Severity.High)], previous, Now, Ct);
 
         Assert.Equal(["poprzedni.zespol@contoso.test"], Assert.Single(planned).Target.Recipients);
+    }
+
+    // ---- Rules added by the re-evaluation after attribution (11.4 #9, PlanReevaluationAsync) ------------------------------
+
+    private static readonly RuleSettings FirstRule = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always);
+    private static readonly RuleSettings AddedRule = Rule("tier0-security", "Atrybuty krytyczne", hours: DeliveryHours.Always);
+
+    /// <summary>The event alerted under <see cref="FirstRule"/> to the it-admins mailbox (sent after the grace, 5 min).</summary>
+    private static async Task<(NotificationHarness Harness, WatchEvent Event, OutboxMessage Alert)> AlertedAsync(Severity severity, EventAttribution attribution,
+        WatchdogConfiguration? configuration = null)
+    {
+        var harness = new NotificationHarness(configuration ?? ConfigWith(FirstRule, AddedRule));
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.KeyCredentialChanged, severity, attribution), new PlannedMatch(FirstRule, severity));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        return (harness, e, Assert.Single(await harness.MessagesAsync(e)));
+    }
+
+    private static async Task<IReadOnlyList<PendingNotification>> PlanAddedAsync(NotificationHarness harness, WatchEvent e, Severity severity) =>
+        await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
+            new RuleEvaluationResult
+            {
+                Event = e with { Severity = severity, Attribution = Resolved(), MatchedRules = [FirstRule.Id] },
+                Severity = severity,
+                Matches = [new RuleMatch { Rule = AddedRule, NotificationSeverity = severity }],
+            },
+            harness.Current,
+            harness.Clock.GetUtcNow(),
+            Ct);
+
+    [Fact]
+    public async Task AddedRule_LeavesOutATargetThatGotTheFinalState_ButNotifiesAnEscalation()
+    {
+        var (harness, e, alert) = await AlertedAsync(Severity.Medium, Resolved());
+        Assert.False(alert.SentWithPendingAttribution);
+
+        Assert.Empty(await PlanAddedAsync(harness, e, Severity.Medium));
+        Assert.Equal(AdminsTarget(harness.Current).Key, Assert.Single(await PlanAddedAsync(harness, e, Severity.High)).Target.Key);
+    }
+
+    [Fact]
+    public async Task AddedRule_LeavesOutATargetWhoseAlertGetsTheFollowUp()
+    {
+        var (harness, e, alert) = await AlertedAsync(Severity.High, EventAttribution.Pending);
+        Assert.True(alert.SentWithPendingAttribution);
+
+        Assert.Empty(await PlanAddedAsync(harness, e, Severity.High));
+    }
+
+    [Fact]
+    public async Task AddedRule_NotifiesWhenNoFollowUpBringsTheActor()
+    {
+        // Below High there is no follow-up; with follow-ups switched off neither.
+        var (medium, mediumEvent, _) = await AlertedAsync(Severity.Medium, EventAttribution.Pending);
+        Assert.Single(await PlanAddedAsync(medium, mediumEvent, Severity.Medium));
+
+        var noFollowUps = ConfigWith(FirstRule, AddedRule) with { Notifications = new NotificationSettings { FollowUpWhenAttributed = false } };
+        var (high, highEvent, _) = await AlertedAsync(Severity.High, EventAttribution.Pending, noFollowUps);
+        Assert.Single(await PlanAddedAsync(high, highEvent, Severity.High));
+    }
+
+    [Fact]
+    public async Task AddedRule_NotifiesWhenTheEarlierAlertWasLost()
+    {
+        var (harness, e, alert) = await AlertedAsync(Severity.High, Resolved());
+        await harness.Store.LeaseDueAsync(harness.Clock.GetUtcNow(), 100, TimeSpan.FromMinutes(5), Ct);
+        await harness.Store.MarkDeadAsync(alert.Id, "smtp.550.5.1.1", null, Ct);
+
+        Assert.Single(await PlanAddedAsync(harness, e, Severity.High));
     }
 }

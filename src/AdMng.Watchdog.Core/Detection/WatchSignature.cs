@@ -15,6 +15,13 @@ internal static class WatchSignature
     /// <summary>Reserved snapshot attribute key (not an LDAP name: LDAP names never start with '$').</summary>
     public const string Key = "$watch";
 
+    /// <summary>True for a reserved snapshot key (<see cref="Key"/>, <see cref="MemberListState.Key"/>) – never an attribute.</summary>
+    public static bool IsReserved(string key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return key.StartsWith('$');
+    }
+
     private const string Version = "v1";
 
     /// <summary>The signature values of an effective watched set.</summary>

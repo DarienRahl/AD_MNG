@@ -24,6 +24,7 @@ public static partial class L
         public const string ColumnActor = "Watchdog.Column.Actor";
         public const string ColumnSource = "Watchdog.Column.Source";
         public const string ColumnAcknowledged = "Watchdog.Column.Acknowledged";
+        public const string ConfigDiscard = "Watchdog.Config.Discard";
         public const string ConfigInvalid = "Watchdog.Config.Invalid";
         public const string ConfigSaved = "Watchdog.Config.Saved";
         public const string ConfigValid = "Watchdog.Config.Valid";

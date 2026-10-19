@@ -59,6 +59,49 @@ public class AttributionSourceResolverTests
         Assert.Equal(HealthState.Error, _health.Find("attribution.collector")!.State);
     }
 
+    [Theory]
+    [InlineData("10.66.6.6")]
+    [InlineData("0x7f000001")]
+    [InlineData("[fe80::1]")]
+    public async Task ForwardedEvents_RefusesACollectorThatIsNotAHostName(string collector)
+    {
+        // An IP literal cannot be authenticated with Kerberos; the gMSA must never offer its credentials to it.
+        var sources = await _resolver.ResolveAsync(new AttributionSettings { Source = AttributionSourceKind.ForwardedEvents, Collector = collector }, Ct);
+
+        Assert.Empty(sources);
+        var check = _health.Find("attribution.collector")!;
+        Assert.Equal(HealthState.Error, check.State);
+        Assert.Equal(AttributionSourceResolver.InvalidHostName, check.Detail);
+    }
+
+    [Fact]
+    public async Task ConfiguredDcs_ThatAreIpLiterals_AreRefused_EvenFromADegradedCatalog()
+    {
+        // The degraded catalog accepts configured DCs unverified.
+        _dcs.IsAuthoritative = false;
+        _dcs.Writable.Add("10.0.0.5");
+
+        var sources = await _resolver.ResolveAsync(new AttributionSettings { DomainControllers = ["10.0.0.5", Dc1] }, Ct);
+
+        Assert.Equal([new IngestionSource(Dc1, "Security")], sources);
+        Assert.Equal(HealthState.Error, _health.Find("eventlog.10.0.0.5")!.State);
+        Assert.Equal([Dc1, Dc2], (await _resolver.ResolveAsync(new AttributionSettings(), Ct)).Select(s => s.Host));
+    }
+
+    [Theory]
+    [InlineData("dc01.contoso.test", true)]
+    [InlineData("WEC01", true)]
+    [InlineData("srv-plików.contoso.test", true)]
+    [InlineData("10.66.6.6", false)]
+    [InlineData("0x7f000001", false)]
+    [InlineData("2130706433", false)]
+    [InlineData("fe80::1", false)]
+    [InlineData("dc01 .contoso.test", false)]
+    [InlineData("dc01.contoso.test\r\n", false)]
+    [InlineData("", false)]
+    public void HostNames_IsHostName_RejectsIpLiterals(string host, bool expected) =>
+        Assert.Equal(expected, HostNames.IsHostName(host));
+
     [Fact]
     public async Task AFallbackDcCatalog_IsAWarning()
     {

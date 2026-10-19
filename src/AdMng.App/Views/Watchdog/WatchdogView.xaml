@@ -74,15 +74,19 @@
                   Visibility="{Binding ShowAddressEditor, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
         </StackPanel>
         <StackPanel>
-          <TextBlock x:Name="StateText" TextWrapping="Wrap">
+          <TextBlock x:Name="StateText"
+                     AutomationProperties.LiveSetting="Polite"
+                     TextWrapping="Wrap">
             <Run FontWeight="SemiBold" Text="{Binding StateText, Mode=OneWay}" />
             <Run Text="{Binding HostText, Mode=OneWay}" />
           </TextBlock>
+          <!-- Only to explain a problem or the missing address: "Połączono z …" would repeat the line above. -->
           <TextBlock x:Name="ConnectionMessage"
                      Margin="0,2,0,0"
                      AutomationProperties.LiveSetting="Polite"
-                     Text="{Binding ConnectionMessage, Mode=OneWay}"
-                     TextWrapping="Wrap" />
+                     Text="{Binding BannerMessage, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding BannerMessage, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
           <TextBlock x:Name="AccountText"
                      Margin="0,2,0,0"
                      Style="{StaticResource Ad.SecondaryText}"

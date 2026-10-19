@@ -33,6 +33,28 @@ public class InfrastructureTests
         Assert.Equal([7, 8], collection);
     }
 
+    [Fact]
+    public void BulkCollection_InsertRangeAndTrimTo_OneNotificationEach()
+    {
+        var collection = new BulkObservableCollection<int>([5, 4]);
+        var events = new List<NotifyCollectionChangedAction>();
+        collection.CollectionChanged += (_, e) => events.Add(e.Action);
+
+        collection.InsertRange(0, [9, 8, 7, 6]);
+        collection.InsertRange(0, [10]);
+        collection.InsertRange(0, []);
+        Assert.Equal([10, 9, 8, 7, 6, 5, 4], collection);
+
+        Assert.Equal(0, collection.TrimTo(10));
+        Assert.Equal(1, collection.TrimTo(6));
+        Assert.Equal(3, collection.TrimTo(3));
+        Assert.Equal([10, 9, 8], collection);
+        Assert.Equal(
+            [NotifyCollectionChangedAction.Reset, NotifyCollectionChangedAction.Add, NotifyCollectionChangedAction.Remove, NotifyCollectionChangedAction.Reset],
+            events);
+        Assert.Throws<ArgumentOutOfRangeException>(() => collection.InsertRange(4, [1, 2]));
+    }
+
     [Theory]
     [InlineData("Łukasz Żółć", "lukasz zolc", true)]
     [InlineData("ŁUKASZ", "łuk", true)]

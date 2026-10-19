@@ -70,13 +70,31 @@ internal sealed class DetectionCycle
     /// <summary>Member keys of principals deleted in this cycle (no PrivilegeRevoked for them).</summary>
     public HashSet<string> DeletedPrincipalKeys { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Member key → DN of the members removed from a stored member list in this cycle (the PrivilegeEvaluator tells a
+    /// principal of another domain, which a search of this domain never finds, by it).
+    /// </summary>
+    public Dictionary<string, string> RemovedMemberDns { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Member key of a restored object → change set of its ObjectRestored event (PrivilegeGranted tag restored).</summary>
     public Dictionary<string, Guid> RestoredChangeSets { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>GUIDs returned by the full scan (reconciliation of the rest).</summary>
     public HashSet<Guid> Seen { get; } = [];
 
+    /// <summary>
+    /// GUIDs already handled with their container in this cycle – descendants removed with a container that left the
+    /// scope, or adopted with one that entered it (10.7) – which a later pass skips.
+    /// </summary>
+    public HashSet<Guid> HandledWithContainer { get; } = [];
+
     public List<string> Warnings { get; } = [];
+
+    /// <summary>
+    /// Drafts without a snapshot row (SchemaChanged) emitted only into the final commit, together with W – a cycle that
+    /// fails before it is repeated over the same USN range without a duplicate.
+    /// </summary>
+    public List<(EventDraft Draft, ObjectRef Object)> FinalDrafts { get; } = [];
 
     public bool MembershipRelevant { get; set; }
 
@@ -104,24 +122,23 @@ internal sealed class DetectionCycle
     /// <summary>Commits the current chunk (when not empty) and starts a new one.</summary>
     public async Task CommitChunkAsync(IDetectionStore store, CancellationToken cancellationToken)
     {
-        var rewrites = Rewriter.Rewrites;
-        var newRewrites = rewrites.Skip(_committedRewrites).ToList();
-        if (Chunk.IsEmpty && newRewrites.Count == 0)
+        var recorded = Rewriter.Count;
+        if (Chunk.IsEmpty && recorded == _committedRewrites)
         {
             return;
         }
 
-        var commit = Chunk.ToCommit(newRewrites);
+        var commit = Chunk.ToCommit(Rewriter.StoreRewrites(_committedRewrites));
         MembershipRelevant |= commit.MembershipRelevant;
         var stored = await store.CommitAsync(commit, cancellationToken).ConfigureAwait(false);
         StoredEvents.AddRange(stored);
-        _committedRewrites = rewrites.Count;
+        _committedRewrites = recorded;
         Chunk = new CommitChunk();
     }
 
-    /// <summary>Rewrites committed so far plus pending ones (for the final commit).</summary>
-    public IReadOnlyList<DnRewrite> PendingRewrites => Rewriter.Rewrites.Skip(_committedRewrites).ToList();
+    /// <summary>The store rewrites of the container rewrites not committed yet (for the final commit).</summary>
+    public IReadOnlyList<DnRewrite> PendingRewrites => Rewriter.StoreRewrites(_committedRewrites);
 
     /// <summary>Marks every rewrite as committed (after the final commit).</summary>
-    public void MarkRewritesCommitted() => _committedRewrites = Rewriter.Rewrites.Count;
+    public void MarkRewritesCommitted() => _committedRewrites = Rewriter.Count;
 }

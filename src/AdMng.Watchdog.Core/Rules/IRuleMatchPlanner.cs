@@ -19,4 +19,13 @@ public interface IRuleMatchPlanner
     /// <param name="cancellationToken">Cancellation.</param>
     ValueTask<IReadOnlyList<PendingNotification>> PlanAsync(RuleEvaluationResult evaluation, WatchdogConfiguration configuration,
         DateTimeOffset now, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The pending notifications of the rules a re-evaluation after attribution added (11.4 #9): <paramref name="evaluation"/>
+    /// holds the event with its final attribution and only the added matches. The event may already have been notified
+    /// under the rules that matched before – the notification side leaves out the targets that already got (or will get,
+    /// through the follow-up) the final state. Default: <see cref="PlanAsync"/>.
+    /// </summary>
+    ValueTask<IReadOnlyList<PendingNotification>> PlanReevaluationAsync(RuleEvaluationResult evaluation, WatchdogConfiguration configuration,
+        DateTimeOffset now, CancellationToken cancellationToken) => PlanAsync(evaluation, configuration, now, cancellationToken);
 }

@@ -1,5 +1,6 @@
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
@@ -28,6 +29,7 @@ public static class EventEndpoints
         HttpContext context,
         IEventStore events,
         IOptionsMonitor<ServiceOptions> options,
+        IHostApplicationLifetime lifetime,
         CancellationToken cancellationToken)
     {
         var (query, issues) = EventQueryBinder.Bind(context.Request.Query);
@@ -36,13 +38,23 @@ public static class EventEndpoints
             return ApiResults.Invalid(issues);
         }
 
-        if (query.After is { } after && query.WaitSeconds > 0)
+        // Minimal viewers do not see workstation and IP: their text search must not match them either.
+        var level = CallerIdentity.DetailLevel(context.User, options.CurrentValue);
+        var hideSources = level == DetailLevel.Minimal && !string.IsNullOrWhiteSpace(query.Text);
+        if (hideSources && events is not IViewerEventSearch)
         {
-            await events.WaitForNewerAsync(after, TimeSpan.FromSeconds(query.WaitSeconds), cancellationToken).ConfigureAwait(false);
+            return ApiResults.Invalid("text", "textSearchUnavailable", "The text search is not available at the configured detail level.");
         }
 
-        var page = await events.QueryAsync(query, cancellationToken).ConfigureAwait(false);
-        return ApiResults.Json(ViewerEventFilter.Apply(page, CallerIdentity.DetailLevel(context.User, options.CurrentValue)));
+        if (query.After is { } after && query.WaitSeconds > 0)
+        {
+            await WaitForNewerAsync(events, after, TimeSpan.FromSeconds(query.WaitSeconds), lifetime.ApplicationStopping, cancellationToken).ConfigureAwait(false);
+        }
+
+        var page = hideSources
+            ? await ((IViewerEventSearch)events).QueryWithoutSourcesAsync(query, cancellationToken).ConfigureAwait(false)
+            : await events.QueryAsync(query, cancellationToken).ConfigureAwait(false);
+        return ApiResults.Json(ViewerEventFilter.Apply(page, level));
     }
 
     private static async Task<IResult> GetAsync(
@@ -60,6 +72,22 @@ public static class EventEndpoints
         return details is null
             ? ApiResults.NotFound("The event does not exist (it may have been purged).")
             : ApiResults.Json(ViewerEventFilter.Apply(details, CallerIdentity.DetailLevel(context.User, options.CurrentValue)));
+    }
+
+    /// <summary>The long-poll wait, also ended by the service stopping: Kestrel drains in-flight requests on a graceful
+    /// stop without cancelling them, so an open GUI tab would otherwise hold every stop for up to 30 s. A stop answers
+    /// with the current page.</summary>
+    private static async Task WaitForNewerAsync(IEventStore events, long after, TimeSpan wait, CancellationToken stopping, CancellationToken requestAborted)
+    {
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(requestAborted, stopping);
+        try
+        {
+            await events.WaitForNewerAsync(after, wait, linked.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stopping.IsCancellationRequested && !requestAborted.IsCancellationRequested)
+        {
+            // Stopping: fall through to the page.
+        }
     }
 
     /// <summary>The event with its change set (other events of the same <c>ChangeSetId</c>) and its deliveries.</summary>

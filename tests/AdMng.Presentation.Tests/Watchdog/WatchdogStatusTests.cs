@@ -294,4 +294,25 @@ public sealed class WatchdogStatusTests
             Assert.NotNull(log.Error);
         });
     }
+
+    [Fact]
+    public async Task DeliveryLog_SupersededLoad_ShowsNoError()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var log = new WatchdogDeliveryLogViewModel(h.Services);
+            h.Client.Hold(nameof(IWatchdogClient.GetOutboxAsync));
+            var first = log.LoadAsync();
+            var second = log.LoadAsync();
+            await first;
+            h.Client.Release(nameof(IWatchdogClient.GetOutboxAsync));
+            await second;
+
+            Assert.Null(log.Error);
+            Assert.Equal(10, log.Items.Count);
+            Assert.False(log.IsLoading);
+        });
+        h.AssertNoUiErrors();
+    }
 }

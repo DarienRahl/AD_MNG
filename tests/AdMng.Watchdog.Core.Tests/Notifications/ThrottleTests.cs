@@ -58,6 +58,22 @@ public sealed class ThrottleTests
         Assert.False(await throttle.IsExceededAsync("tier0-privilege", 1, Admins, Severity.Critical, Now, Ct));
     }
 
+    [Fact]
+    public async Task Exceeded_WhenTheCapWasEnqueuedInTheLastHour_EvenIfNothingWasSent()
+    {
+        var throttle = new ThrottlePolicy(_store);
+        throttle.RecordEnqueued("lockouts", "email", Now.AddMinutes(-65));
+        throttle.RecordEnqueued("Lockouts", "EMAIL", Now.AddMinutes(-30));
+        throttle.RecordEnqueued("lockouts", "email", Now.AddMinutes(-5));
+        throttle.RecordEnqueued("lockouts", "teams-it", Now.AddMinutes(-5));
+
+        Assert.True(await throttle.IsExceededAsync("lockouts", 2, Admins, Severity.Medium, Now, Ct));
+        Assert.False(await throttle.IsExceededAsync("lockouts", 3, Admins, Severity.Medium, Now, Ct));
+        Assert.False(await throttle.IsExceededAsync("other", 1, Admins, Severity.Medium, Now, Ct));
+        Assert.False(await throttle.IsExceededAsync("lockouts", 2, Admins, Severity.Medium, Now.AddMinutes(31), Ct));
+        Assert.False(await throttle.IsExceededAsync("lockouts", 1, Admins, Severity.Critical, Now, Ct));
+    }
+
     private async Task SendAsync(string ruleId, string channelId, DateTimeOffset sentAt)
     {
         var id = await _store.EnqueueAsync(new OutboxMessage

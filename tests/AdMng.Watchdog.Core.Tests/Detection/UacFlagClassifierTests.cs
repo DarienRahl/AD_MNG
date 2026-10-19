@@ -50,6 +50,18 @@ public class UacFlagClassifierTests
     }
 
     [Fact]
+    public void OneStepPromotion_IsDomainControllerAddedWithoutADelegationEvent()
+    {
+        // dcpromo of an existing member server: SERVER_TRUST_ACCOUNT and TRUSTED_FOR_DELEGATION in one write (10.6.1:
+        // TRUSTED_FOR_DELEGATION on a DC – tag domainController from the new UAC – is no event).
+        var promotion = Classify(Workstation, DomainController, WatchObjectKind.Computer, EventTags.DomainController);
+
+        Assert.DoesNotContain(promotion, e => e.Kind == WatchEventKind.DelegationChanged);
+        Assert.Contains((WatchEventKind.DomainControllerAdded, Severity.Critical), promotion);
+        Assert.Equal([WatchEventKind.DomainControllerAdded, WatchEventKind.AccountFlagsChanged], promotion.Select(e => e.Kind));
+    }
+
+    [Fact]
     public void TrustedToAuthForDelegation_IsHigh()
     {
         Assert.Equal([(WatchEventKind.DelegationChanged, Severity.High)], Classify(Normal, Normal | UserAccountControl.TrustedToAuthForDelegation));

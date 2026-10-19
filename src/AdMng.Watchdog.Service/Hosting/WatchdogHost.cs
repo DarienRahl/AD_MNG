@@ -50,8 +50,12 @@ public static class WatchdogHost
             KestrelSetup.Configure(builder, context.Endpoints);
         }
 
-        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context);
+        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context, options);
         var app = builder.Build();
+        ConfigurationSetup.ReportReloadFailures(
+            builder.Configuration,
+            ConfigurationSetup.BootstrapFilePath,
+            app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ConfigurationSetup).FullName!));
         ApiSetup.Map(app);
         return app;
     }
@@ -79,17 +83,34 @@ public static class WatchdogHost
         _ => StartupExitCodes.Fatal,
     };
 
-    private static async Task<int> RunServiceAsync(string[] args, bool console)
+    /// <summary>
+    /// Runs <paramref name="build"/>; any failure (malformed bootstrap JSON, an invalid setting value, an unusable data
+    /// folder) goes to <paramref name="reportFailure"/> as a value-free error code and yields exit code 2 – never an
+    /// unhandled crash. Returns 0 with the built <paramref name="app"/> on success.
+    /// </summary>
+    public static int TryBuild(Func<WebApplication> build, Action<string> reportFailure, out WebApplication? app)
     {
-        WebApplication app;
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(reportFailure);
         try
         {
-            app = Build(args, console: console);
+            app = build();
+            return 0;
         }
-        catch (Exception ex) when (ex is FormatException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Console.Error.WriteLineAsync("AdMng Watchdog: the service could not be configured: " + SafeExceptionLog.ErrorCode(ex)).ConfigureAwait(false);
+            app = null;
+            reportFailure(SafeExceptionLog.ErrorCode(ex));
             return StartupExitCodes.InvalidSettings;
+        }
+    }
+
+    private static async Task<int> RunServiceAsync(string[] args, bool console)
+    {
+        var built = TryBuild(() => Build(args, console: console), StartupFailureLog.Report, out var app);
+        if (app is null)
+        {
+            return built;
         }
 
         await using (app.ConfigureAwait(false))

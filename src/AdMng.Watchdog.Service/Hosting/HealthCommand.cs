@@ -14,10 +14,10 @@ public static class HealthCommand
 
     public static async Task<int> RunAsync(string[] args)
     {
-        var configuration = new ConfigurationManager();
+        using var configuration = new ConfigurationManager();
         configuration.SetBasePath(AppContext.BaseDirectory);
         configuration.AddJsonFile("appsettings.json", optional: true);
-        ConfigurationSetup.AddSources(configuration, args, isWindowsService: false);
+        ConfigurationSetup.AddSources(configuration, args, isWindowsService: false, ConfigurationSetup.BootstrapFilePath, reloadBootstrapFile: false);
         var options = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>() ?? new ServiceOptions();
         if (HealthUri(options) is not { } uri)
         {

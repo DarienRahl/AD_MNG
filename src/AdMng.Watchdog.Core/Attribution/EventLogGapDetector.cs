@@ -10,7 +10,8 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// (<c>OldestRecordNumber &gt; cursor + 1</c>), a cursor regression (the log was cleared or recreated – newest record id
 /// below the cursor), the ingestion budget exceeded ("flooding"), and the event-log service records 1102 (log cleared),
 /// 1104 (log full), 1100 (service shut down). Each becomes one HealthEventLogGap event per DC and reason, repeated at
-/// most every <see cref="RepeatAfter"/> while the condition persists.
+/// most every <see cref="RepeatAfter"/> while the condition persists. The gap of a record has the record's stable id
+/// (<see cref="RecordEventIds"/>).
 /// </summary>
 public sealed class EventLogGapDetector(TimeProvider timeProvider)
 {
@@ -84,7 +85,7 @@ public sealed class EventLogGapDetector(TimeProvider timeProvider)
             _raised[key] = now;
         }
 
-        var id = Guid.CreateVersion7(now);
+        var id = record is null ? Guid.CreateVersion7(now) : RecordEventIds.Create(record, reason);
         return new WatchEvent
         {
             EventId = id,

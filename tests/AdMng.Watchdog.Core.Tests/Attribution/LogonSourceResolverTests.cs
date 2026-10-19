@@ -27,7 +27,7 @@ public sealed class LogonSourceResolverTests : IDisposable
     {
         _tracker = new DcLogHealthTracker(_time);
         _gate = new SourceQueryGate(_tracker, _time);
-        _resolver = new LogonSourceResolver(_source, _gate, _dns, _time);
+        _resolver = new LogonSourceResolver(_source, _gate, _dns, _time, _tracker);
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -108,6 +108,45 @@ public sealed class LogonSourceResolverTests : IDisposable
         Assert.Equal(AttributionReasons.SourceLogonNotFound, first.Reason);
         Assert.Equal(AttributionReasons.SourceLogonNotFound, second.Reason);
         Assert.Single(_source.Queries);
+    }
+
+    [Fact]
+    public async Task ACachedSession_IsNotReusedAfterTheDcRebooted()
+    {
+        // attribution-rules-19: LUIDs restart with the DC; after a reboot 0x5a3f1 is another person's session.
+        AddLogon(3, "10.0.0.5", "PC-ADMIN-A", at: T.AddHours(-7));
+        Assert.Equal("10.0.0.5", (await ResolveAsync(Account(4725, T.AddHours(-6), Admin)))!.IpAddress);
+
+        _tracker.RecordShutdown(Dc1, T.AddHours(-3));   // 1100 – the event log service shut down (reboot)
+        AddLogon(3, "10.66.6.6", "PC-OBCY", at: T.AddHours(-2));
+        var after = (await ResolveAsync(Account(4725, T, Admin)))!;
+
+        Assert.Equal("10.66.6.6", after.IpAddress);
+        Assert.Equal(2, _source.Queries.Count);
+    }
+
+    [Fact]
+    public async Task ACachedSession_IsReusedOnlyForEvidenceInsideItsLifetime()
+    {
+        AddLogon(3, "10.0.0.5", "PC-ADMIN-A", at: T.AddHours(-7));
+        await ResolveAsync(Account(4725, T.AddHours(-6), Admin));
+
+        await ResolveAsync(Account(4725, T.AddHours(-5), Admin));   // the same session: cached
+        Assert.Single(_source.Queries);
+        await ResolveAsync(Account(4725, T.AddHours(-8), Admin));   // before that logon: another session
+        Assert.Equal(2, _source.Queries.Count);
+    }
+
+    [Fact]
+    public async Task ANegativeResult_IsReusedOnlyInsideTheSearchedWindow()
+    {
+        Assert.Equal(AttributionReasons.SourceLogonNotFound, (await ResolveAsync(Account(4725, T.AddHours(-1), Admin)))!.Reason);
+        AddLogon(3, "10.20.30.41", "PC-01", at: T.AddMinutes(-30));
+
+        var later = (await ResolveAsync(Account(4725, T, Admin)))!;
+
+        Assert.Equal("10.20.30.41", later.IpAddress);
+        Assert.Equal(2, _source.Queries.Count);
     }
 
     [Fact]

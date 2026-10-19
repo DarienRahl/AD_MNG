@@ -59,6 +59,21 @@ internal static class SqliteValues
 
     public static object OrNull(long? value) => value is { } v ? v : DBNull.Value;
 
+    /// <summary>The <c>search_text</c> without its last two fields, workstation and IP (<see cref="EventRows.SearchText"/>)
+    /// – what a Minimal viewer may search (SQL function <c>wd_search_visible</c>). Cut from the right: names and DNs
+    /// may contain '|', host names and IP literals never do.</summary>
+    public static string? WithoutSources(string? searchText)
+    {
+        if (searchText is null)
+        {
+            return null;
+        }
+
+        var last = searchText.LastIndexOf('|');
+        var cut = last > 0 ? searchText.LastIndexOf('|', last - 1) : -1;
+        return cut >= 0 ? searchText[..cut] : searchText;
+    }
+
     /// <summary>True when <paramref name="dn"/> equals or is below <paramref name="ancestor"/> (RFC 4514, case-insensitive).</summary>
     public static bool IsAtOrBelow(string? dn, string? ancestor)
     {

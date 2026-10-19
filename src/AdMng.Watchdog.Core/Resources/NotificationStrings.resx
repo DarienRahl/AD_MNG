@@ -566,6 +566,9 @@
   <data name="Digest.Expiry.Password" xml:space="preserve">
     <value>password expires {0}</value>
   </data>
+  <data name="Digest.Fact.ActiveExceptionsHidden" xml:space="preserve">
+    <value>Number of active exceptions (details only in the sent report)</value>
+  </data>
   <data name="Digest.Fact.AdminCountOrphans" xml:space="preserve">
     <value>adminCount=1 without privileges</value>
   </data>

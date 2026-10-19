@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Core.Model;
@@ -164,6 +165,94 @@ public class BurstDetectorTests
         await scenario.CycleEventsAsync();
 
         Assert.Single(await scenario.ScanEventsAsync(), e => e.Kind == WatchEventKind.MassDeletion);
+    }
+
+    [Fact]
+    public async Task DeletionsSpreadOverHours_FoundTogetherAfterAnOutage_AreNoBurst()
+    {
+        var users = new List<string>();
+        await using var scenario = new DetectionScenario(seed: b => users.AddRange(Enumerable.Range(1, 10).Select(i => b.AddUser("Odchodzący", $"Nr{i:D2}", b.UsersDn))));
+        await scenario.BaselineAsync();
+        await scenario.ScanEventsAsync();
+
+        // The watchdog host is down for two hours; one deletion every 12 minutes, then one catch-up cycle.
+        foreach (var user in users)
+        {
+            await scenario.DeleteAsync(user);
+            scenario.Advance(TimeSpan.FromMinutes(12));
+        }
+
+        Assert.Equal(10, (await scenario.CycleEventsAsync()).Count(e => e.Kind == WatchEventKind.ObjectDeleted));
+
+        Assert.Empty(await scenario.ScanEventsAsync());
+    }
+
+    [Fact]
+    public async Task DeletionsFoundByTheReconciliation_AreNoBurst()
+    {
+        var users = new List<string>();
+        await using var scenario = new DetectionScenario(
+            seed: b => users.AddRange(Enumerable.Range(1, 12).Select(i => b.AddUser("Łukasz", $"Odejście{i:D2}", b.UsersDn))),
+            configuration: new WatchdogConfiguration { Directory = new DirectorySettings { TrackDeletedObjects = false } });
+        await scenario.BaselineAsync();
+        foreach (var user in users)
+        {
+            await scenario.DeleteAsync(user);
+            await scenario.CycleEventsAsync();
+            scenario.Advance(TimeSpan.FromHours(1));
+        }
+
+        scenario.Advance(TimeSpan.FromHours(6));
+        Assert.Equal(DetectionMode.Reconciliation, (await scenario.RunCycleAsync()).Mode);
+        Assert.Equal(12, scenario.TakeEvents().Count(e => e.Kind == WatchEventKind.ObjectDeleted));
+
+        Assert.DoesNotContain(await scenario.ScanEventsAsync(), e => e.Kind == WatchEventKind.MassDeletion);
+    }
+
+    [Fact]
+    public async Task ABurstDuringAnOutage_IsReportedOnceWhenFound()
+    {
+        var users = new List<string>();
+        await using var scenario = new DetectionScenario(seed: b => users.AddRange(Enumerable.Range(1, 10).Select(i => b.AddUser("Zwolniony", $"Nr{i:D2}", b.UsersDn))));
+        await scenario.BaselineAsync();
+        await scenario.ScanEventsAsync();
+
+        foreach (var user in users)
+        {
+            await scenario.DeleteAsync(user);
+            scenario.Advance(TimeSpan.FromSeconds(20));
+        }
+
+        scenario.Advance(TimeSpan.FromHours(2));
+        await scenario.CycleEventsAsync();
+        var burst = Assert.Single(await scenario.ScanEventsAsync());
+        scenario.Advance(TimeSpan.FromMinutes(10));
+        var cooling = await scenario.ScanEventsAsync();
+        scenario.Advance(TimeSpan.FromMinutes(1));
+        var later = await scenario.ScanEventsAsync();
+
+        Assert.Equal(WatchEventKind.MassDeletion, burst.Kind);
+        Assert.Equal(10, burst.Burst!.Count);
+        Assert.Empty(cooling);
+        Assert.Empty(later);
+    }
+
+    [Fact]
+    public async Task LockoutsSpreadOverAnOutage_AreNoMassLockout()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        await scenario.ScanEventsAsync();
+
+        foreach (var user in Users(scenario))
+        {
+            scenario.Directory.SimulateLockout(user);
+            scenario.Advance(TimeSpan.FromMinutes(15));
+        }
+
+        Assert.Equal(5, (await scenario.CycleEventsAsync()).Count(e => e.Kind == WatchEventKind.AccountLockedOut));
+
+        Assert.Empty(await scenario.ScanEventsAsync());
     }
 
     private static IEnumerable<string> Users(DetectionScenario scenario) =>

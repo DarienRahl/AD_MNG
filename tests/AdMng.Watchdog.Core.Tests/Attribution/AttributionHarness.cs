@@ -22,13 +22,14 @@ internal sealed class AttributionHarness : IDisposable
         Processor = new PendingAttributionProcessor(
             new AttributionCorrelator(SecurityStore),
             Actors,
-            new LogonSourceResolver(Source, Gate, Dns, Time),
+            new LogonSourceResolver(Source, Gate, Dns, Time, Tracker),
             new LockoutSourceResolver(SecurityStore, Source, Gate, DomainControllers, new FixedLockoutPolicy(TimeSpan.FromMinutes(30))),
             new UnresolvedReasonResolver(SecurityStore, Tracker, Time),
             new PrivilegeAttributionInheritor(Events),
             Tracker,
             Time);
         var gaps = new EventLogGapDetector(Time);
+        Rules = new AdMng.Watchdog.Core.Rules.RuleEngine(Config, Tokens, Time);
         Engine = new AttributionEngine(
             Config,
             Source,
@@ -37,7 +38,7 @@ internal sealed class AttributionHarness : IDisposable
             DomainControllers,
             new AttributionSourceResolver(DomainControllers, Health, Time),
             new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), Tokens, new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(Config)),
-            new SecurityLogIngestor(Source, SecurityStore, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
+            new SecurityLogIngestor(Source, SecurityStore, Events, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
                 NullLogger<SecurityLogIngestor>.Instance),
             Processor,
             Tracker,
@@ -47,9 +48,17 @@ internal sealed class AttributionHarness : IDisposable
             Health,
             Signals,
             [FollowUps],
+            Rules,
+            [Planner],
             Time,
             NullLogger<AttributionEngine>.Instance);
     }
+
+    /// <summary>The rule engine of the re-evaluation after attribution (shared with a rules job in race tests).</summary>
+    public AdMng.Watchdog.Core.Rules.RuleEngine Rules { get; }
+
+    /// <summary>Stands in for the NotificationPlanner of the re-evaluation after attribution.</summary>
+    public RecordingPlanner Planner { get; } = new();
 
     public FakeTimeProvider Time { get; } = new(TestEvents.Now);
 

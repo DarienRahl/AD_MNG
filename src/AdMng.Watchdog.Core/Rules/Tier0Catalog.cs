@@ -33,8 +33,11 @@ public static class Tier0Catalog
         "msDS-SupersededServiceAccountState", "altSecurityIdentities", "msDS-GroupMSAMembership", "nTSecurityDescriptor",
         "sAMAccountName",
 
-        // GPO links and FSMO
-        "gPLink", "gPOptions", "fSMORoleOwner",
+        // computer name spoofing (dNSHostName conflict, 9.3: always evaluated)
+        "dNSHostName",
+
+        // GPO links, GPO content (GroupPolicyChanged: version and file system path) and FSMO
+        "gPLink", "gPOptions", "versionNumber", "gPCFileSysPath", "fSMORoleOwner",
 
         // domain and forest policy
         "lockoutThreshold", "lockoutDuration", "lockOutObservationWindow", "maxPwdAge", "minPwdAge", "minPwdLength",
@@ -56,9 +59,15 @@ public static class Tier0Catalog
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Subtrees <c>Directory.ExcludedSubtrees</c> may neither equal nor contain (besides every
-    /// <c>Directory.CriticalObjects</c> entry); tokens are expanded by <see cref="ConfigTokens"/>.</summary>
+    /// <c>Directory.CriticalObjects</c> entry and the additional privileged group DNs); tokens are expanded by
+    /// <see cref="ConfigTokens"/>. <c>CN=Users</c> holds Domain/Enterprise/Schema Admins, krbtgt and the built-in
+    /// Administrator, <c>CN=Builtin</c> the Administrators and operator groups – excluding either container would
+    /// silence Tier-0 privilege detection.</summary>
     public static IReadOnlyList<string> ProtectedSubtrees { get; } =
-        [ConfigTokens.DomainToken, "OU=Domain Controllers," + ConfigTokens.DomainToken, "CN=System," + ConfigTokens.DomainToken];
+    [
+        ConfigTokens.DomainToken, "OU=Domain Controllers," + ConfigTokens.DomainToken, "CN=System," + ConfigTokens.DomainToken,
+        "CN=Users," + ConfigTokens.DomainToken, "CN=Builtin," + ConfigTokens.DomainToken,
+    ];
 
     /// <summary>True for a Tier-0 kind.</summary>
     public static bool IsTier0Kind(WatchEventKind kind) => Kinds.Contains(kind);

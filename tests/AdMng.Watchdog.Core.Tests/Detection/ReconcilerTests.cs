@@ -54,6 +54,24 @@ public class ReconcilerTests
     }
 
     [Fact]
+    public async Task Reconciliation_AnObjectFoundLiveWhereItWasButNotByTheScan_IsNoMove()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        var guid = scenario.Snapshot(scenario.Company.GrazynaDabrowska)!.ObjectGuid;
+
+        // The scan no longer matches it (objectClass unreadable), the GUID lookup still finds it at its old DN.
+        scenario.Directory.HideAttributes(scenario.Company.GrazynaDabrowska, Attr.ObjectClass);
+        scenario.Advance(ToNextReconciliation);
+        var events = await scenario.CycleEventsAsync();
+
+        var gone = Assert.Single(events);
+        Assert.Equal(WatchEventKind.ObjectDisappeared, gone.Kind);
+        Assert.Equal(scenario.Company.GrazynaDabrowska, gone.PreviousDn);
+        Assert.DoesNotContain(scenario.Store.Snapshots, s => s.ObjectGuid == guid);
+    }
+
+    [Fact]
     public async Task Reconciliation_RemovesTheRowOfADisappearedGroupAndItsMemberList()
     {
         await using var scenario = new DetectionScenario();

@@ -170,10 +170,11 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
             }
 
             HasMore = page.HasMore;
+            Error = null;
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Superseded.
+            // Superseded (OperationCanceledException or a WatchdogClientException of kind Cancelled): never an error.
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

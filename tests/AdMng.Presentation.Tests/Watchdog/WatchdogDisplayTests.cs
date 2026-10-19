@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Contracts.Api;
@@ -6,7 +7,7 @@ using AdMng.Watchdog.Contracts.Api;
 namespace AdMng.Presentation.Tests.Watchdog;
 
 /// <summary>Pure display helpers of the tab: health codes, durations, DN and SID checks, edit values.</summary>
-public sealed class WatchdogDisplayTests
+public sealed partial class WatchdogDisplayTests
 {
     private static readonly CultureInfo Polish = CultureInfo.GetCultureInfo("pl-PL");
 
@@ -32,6 +33,112 @@ public sealed class WatchdogDisplayTests
         Assert.Equal("Odczyt kontenera Deleted Objects", localizer.HealthText("permission.deletedObjects"));
         Assert.StartsWith("Kolektor przekazuje zdarzenia", localizer.HealthRemedy("eventlog.dc02.contoso.test.foreignRecords"), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void HealthText_TheConfiguredDnAndCollectorChecks_AreLocalized()
+    {
+        // Codes reported by the service (ConfiguredDnMonitor, AttributionSourceResolver) – not shown as raw codes.
+        var localizer = new ResxLocalizer(Polish);
+
+        Assert.Equal("Nieistniejące DN w konfiguracji", localizer.HealthText("rules.configuredDns"));
+        Assert.StartsWith("Jednostka organizacyjna lub grupa", localizer.HealthRemedy("rules.configuredDns"), StringComparison.Ordinal);
+        Assert.Equal("Kolektor zdarzeń (WEF)", localizer.HealthText("attribution.collector"));
+        Assert.Contains("nie adres IP", localizer.HealthRemedy("attribution.collector"), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("certificate.expiry", "Certyfikat TLS wkrótce wygaśnie")]
+    [InlineData("certificate.key", "Klucz prywatny certyfikatu TLS niedostępny")]
+    [InlineData("storage.size", "Rozmiar bazy danych")]
+    [InlineData("storage.maintenance", "Konserwacja bazy danych")]
+    [InlineData("rules.planner", "Planowanie powiadomień")]
+    [InlineData("rules.configuredDns", "Nieistniejące DN w konfiguracji")]
+    [InlineData("attribution.collector", "Kolektor zdarzeń (WEF)")]
+    [InlineData("attribution.dcDirectory", "Wykrywanie kontrolerów domeny")]
+    [InlineData("attribution.source", "Źródło atrybucji")]
+    [InlineData("permission.search", "Wyszukiwanie zmian w katalogu")]
+    public void HealthCodes_OfTheService_HaveTheirOwnTextAndRemedy(string code, string expected)
+    {
+        var localizer = new ResxLocalizer(Polish);
+
+        Assert.Equal(code, WatchdogDisplay.HealthPrefix(code));
+        Assert.Equal(expected, localizer.HealthText(code));
+        Assert.False(string.IsNullOrWhiteSpace(localizer.HealthRemedy(code)));
+        Assert.NotEqual(localizer.HealthRemedy(code), new ResxLocalizer(CultureInfo.GetCultureInfo("en-US")).HealthRemedy(code));
+    }
+
+    /// <summary>
+    /// Every health code the service and its engine report (constants and literals next to <c>HealthCheckDto</c>) has a
+    /// known prefix, so the Status tab never shows a raw code without a remedy. Codes ending in "." get a subject
+    /// appended (e.g. the DC of "eventlog." + host).
+    /// </summary>
+    [Fact]
+    public void HealthPrefix_ResolvesEveryCodeTheServiceReports()
+    {
+        var codes = ReportedHealthCodes();
+
+        Assert.Contains("certificate.expiry", codes);
+        Assert.Contains("storage.size", codes);
+        Assert.Contains("eventlog.", codes);
+        Assert.Contains("secret.unreadable", codes);
+        var localizer = new ResxLocalizer(Polish);
+        Assert.All(codes, literal =>
+        {
+            var code = literal.EndsWith('.') ? literal + "dc02.contoso.test" : literal;
+            Assert.True(WatchdogDisplay.HealthPrefix(code) is not null, $"No Watchdog.Health.* text for the health code '{literal}'.");
+            Assert.NotEqual(code, localizer.HealthText(code));
+            Assert.NotNull(localizer.HealthRemedy(code));
+        });
+    }
+
+    private static SortedSet<string> ReportedHealthCodes()
+    {
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "AdMng.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        Assert.NotNull(root);
+        var literal = HealthCodeLiteral();
+        var constant = HealthCodeConstant();
+        var codes = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var project in new[] { "AdMng.Watchdog.Core", "AdMng.Watchdog.Service" })
+        {
+            var directory = Path.Combine(root.FullName, "src", project);
+            foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(directory, file).Replace('\\', '/');
+                if (relative.StartsWith("obj/", StringComparison.Ordinal) || relative.StartsWith("bin/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var text = File.ReadAllText(file);
+                var matches = text.Contains("HealthCheckDto", StringComparison.Ordinal) || text.Contains("IHealthRegistry", StringComparison.Ordinal)
+                    ? literal.Matches(text).Concat(constant.Matches(text))
+                    : constant.Matches(text);
+                foreach (var match in matches)
+                {
+                    // A health code has a dot ("storage.free", "eventlog." + host); plain names are job names or details.
+                    if (match.Groups[1].Value.Contains('.', StringComparison.Ordinal))
+                    {
+                        codes.Add(match.Groups[1].Value);
+                    }
+                }
+            }
+        }
+
+        return codes;
+    }
+
+    /// <summary>A code literal next to a <c>HealthCheckDto</c>: <c>Code = "…"</c>, <c>Report("…"</c>, <c>const string X = "…"</c>.</summary>
+    [GeneratedRegex(@"(?:\bCode\s*=\s*|Report\(\s*|const string \w+\s*=\s*)""([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*\.?)""", RegexOptions.CultureInvariant)]
+    private static partial Regex HealthCodeLiteral();
+
+    /// <summary>A health code constant anywhere (<c>HealthCode</c>, <c>CheckCode</c>, <c>KeyHealthCode</c>…).</summary>
+    [GeneratedRegex(@"const string \w*(?:HealthCode|CheckCode)\s*=\s*""([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*)""", RegexOptions.CultureInvariant)]
+    private static partial Regex HealthCodeConstant();
 
     [Theory]
     [InlineData(0, "0 ms")]

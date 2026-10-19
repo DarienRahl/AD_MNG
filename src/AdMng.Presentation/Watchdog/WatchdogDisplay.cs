@@ -25,14 +25,19 @@ public static class WatchdogDisplay
         AttributionReasons.SourceLogonNotFound, AttributionReasons.SourceNotCollected,
     ];
 
-    /// <summary>Health code prefixes with a text and a ".Remedy" (a code is shown with its longest known prefix).</summary>
+    /// <summary>
+    /// Health code prefixes with a text and a ".Remedy" (a code is shown with its longest known prefix). Every code the
+    /// service reports resolves to one of them (a test scans the service and engine sources).
+    /// </summary>
     public static IReadOnlyList<string> HealthCodes { get; } =
     [
         "directory", "directory.connection", "directory.notSynchronized", "directory.computersNotRedirected",
         "permission", "permission.uSNChanged", "permission.accountRestrictions", "permission.replicationMetadata",
         "permission.deletedObjects", "permission.domainPolicy", "permission.passwordSettings", "permission.configurationPartition",
-        "eventlog", "eventlog.foreignRecords", "attribution", "attribution.actorConditionsUnreliable",
-        "storage", "storage.free", "storage.acl", "secret", "secret.unreadable", "runtime", "runtime.outdated", "smtp", "channel",
+        "permission.search", "eventlog", "eventlog.foreignRecords", "attribution", "attribution.actorConditionsUnreliable",
+        "attribution.collector", "attribution.dcDirectory", "attribution.source", "storage", "storage.free", "storage.acl",
+        "storage.size", "storage.maintenance", "secret", "secret.unreadable", "runtime", "runtime.outdated", "certificate",
+        "certificate.expiry", "certificate.key", "rules", "rules.planner", "rules.configuredDns", "smtp", "channel",
     ];
 
     /// <summary>Delivery test hints (<see cref="DeliveryHints"/>).</summary>

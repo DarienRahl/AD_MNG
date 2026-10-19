@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
@@ -11,12 +12,20 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// <see cref="IWatchdogJob"/> "dispatch" (section 13.3): flushes due buckets of pending notifications into the outbox.
 /// Held items are released when the attribution is final or the grace period ended and are re-matched with the event's
 /// final state (<see cref="IHeldNotificationMatcher"/>; delivery hours and rollout mode recomputed) – items that no
-/// longer qualify are dropped. A bucket whose rule reached its hourly cap on the channel waits 15 minutes (Critical is
-/// never throttled). At most <c>MaxItemsPerMessage</c> items are rendered, the rest is announced as "+N kolejnych"; all
-/// ready items are completed with the message in one store call. Wakes on NotificationsQueued and AttributionUpdated.
+/// longer qualify are dropped. Every other (non-follow-up) item is dropped when its rule's delivery hours ended while it
+/// waited (aggregation window, throttling) – the digest reports it. A bucket whose rule reached its hourly cap on the
+/// channel waits 15 minutes (Critical is never throttled). At most <c>MaxItemsPerMessage</c> items are rendered, the rest
+/// is announced as "+N kolejnych"; all ready items are completed with the message in one store call. A follow-up waits
+/// (<see cref="FollowUpWait"/>) until its original message was sent and is dropped when the original went Dead or
+/// Cancelled or the event already has a follow-up for the target. After an alert sent with a pending actor, events whose
+/// attribution became final meanwhile get their follow-ups planned here (the AttributionEngine planned them before the
+/// alert was in the outbox). Wakes on NotificationsQueued and AttributionUpdated.
 /// </summary>
 public sealed partial class NotificationDispatchJob : IWatchdogJob
 {
+    /// <summary>How long a follow-up waits before it checks again whether its original message was sent.</summary>
+    public static readonly TimeSpan FollowUpWait = TimeSpan.FromMinutes(1);
+
     private static readonly WatchdogSignal[] Signals = [WatchdogSignal.NotificationsQueued, WatchdogSignal.AttributionUpdated];
 
     private readonly INotificationQueueStore _queue;
@@ -30,6 +39,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<NotificationDispatchJob> _logger;
+    private readonly FollowUpPlanner _followUps;
 
     public NotificationDispatchJob(INotificationQueueStore queue, IEventStore events, IOutboxStore outbox, IWatchdogConfigProvider configProvider,
         IHeldNotificationMatcher matcher, NotificationPlanner planner, RolloutGate rollout, ThrottlePolicy throttle, IWatchdogSignals signals,
@@ -57,6 +67,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         _signals = signals;
         _timeProvider = timeProvider;
         _logger = logger;
+        _followUps = new FollowUpPlanner(outbox, configProvider, timeProvider);
     }
 
     /// <inheritdoc/>
@@ -126,9 +137,24 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
                 continue;
             }
 
-            if (item.IsFollowUp || item.HoldForAttributionUntil is null)
+            if (item.IsFollowUp)
             {
                 ready.Add((item, watchEvent));
+                continue;
+            }
+
+            if (item.HoldForAttributionUntil is null)
+            {
+                // Delivery hours were checked at planning; the aggregation window or throttling may have run past them.
+                if (FindRule(configuration, item.RuleId) is { } itemRule && !_planner.IsWithinDeliveryHours(itemRule, item.Severity, configuration, now))
+                {
+                    drop.Add(item.Id);
+                }
+                else
+                {
+                    ready.Add((item, watchEvent));
+                }
+
                 continue;
             }
 
@@ -162,12 +188,46 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
 
         var first = ready[0].Item;
         var rule = FindRule(configuration, first.RuleId);
-        var ids = ready.Select(r => r.Item.Id).ToList();
         if (!first.IsFollowUp && rule is null)
         {
-            await _queue.DropAsync(ids, cancellationToken).ConfigureAwait(false);
+            await _queue.DropAsync([.. ready.Select(r => r.Item.Id)], cancellationToken).ConfigureAwait(false);
             return (false, wakeAt);
         }
+
+        OutboxMessage? original = null;
+        if (first.IsFollowUp)
+        {
+            var gate = await FollowUpGateAsync(ready, cancellationToken).ConfigureAwait(false);
+            if (gate.Duplicates.Count > 0)
+            {
+                await _queue.DropAsync(gate.Duplicates, cancellationToken).ConfigureAwait(false);
+                LogDropped(gate.Duplicates.Count);
+                ready.RemoveAll(r => gate.Duplicates.Contains(r.Item.Id));
+            }
+
+            if (ready.Count == 0)
+            {
+                return (false, wakeAt);
+            }
+
+            switch (gate.OriginalStatus)
+            {
+                case OutboxStatus.Dead or OutboxStatus.Cancelled:
+                    // The recipients never got the alert: a reply to it would be the first thing they see.
+                    await _queue.DropAsync([.. ready.Select(r => r.Item.Id)], cancellationToken).ConfigureAwait(false);
+                    LogDropped(ready.Count);
+                    return (false, wakeAt);
+                case OutboxStatus.Pending or OutboxStatus.Sending or OutboxStatus.Retrying:
+                    // The original is still waiting (e.g. 421, retry in 2 h): the follow-up must not overtake it.
+                    var retryAt = now + FollowUpWait;
+                    await _queue.RescheduleAsync([.. ready.Select(r => r.Item.Id)], retryAt, cancellationToken).ConfigureAwait(false);
+                    return (false, Min(wakeAt, retryAt));
+            }
+
+            original = gate.Original;
+        }
+
+        var ids = ready.Select(r => r.Item.Id).ToList();
 
         var settings = configuration.Notifications ?? new NotificationSettings();
         var severity = ready.Max(r => r.Item.Severity);
@@ -184,10 +244,82 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         var cap = AggregationPolicy.MaxItems(settings);
         var shown = ordered.Take(cap).ToList();
         var message = first.IsFollowUp
-            ? await FollowUpAsync(first, rule, shown, configuration, now, cancellationToken).ConfigureAwait(false)
+            ? await FollowUpAsync(first, original, rule, shown, configuration, now, cancellationToken).ConfigureAwait(false)
             : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now);
         await _queue.CompleteAsync(ids, message, cancellationToken).ConfigureAwait(false);
+        if (message.RuleId is { } ruleId)
+        {
+            _throttle.RecordEnqueued(ruleId, message.ChannelId, now);
+        }
+
+        if (!first.IsFollowUp && message.SentWithPendingAttribution)
+        {
+            await PlanMissedFollowUpsAsync(message, ordered, cancellationToken).ConfigureAwait(false);
+        }
+
         return (true, wakeAt);
+    }
+
+    /// <summary>
+    /// The AttributionEngine plans follow-ups right after it committed an attribution – from the messages already in the
+    /// outbox. An attribution committed after this job read the event (pending) but before the alert was completed found no
+    /// message, so the follow-ups are planned here once the alert is stored; duplicates of rows still queued are ignored
+    /// by the store and a follow-up already sent is dropped at flush.
+    /// </summary>
+    private async Task PlanMissedFollowUpsAsync(OutboxMessage message, IReadOnlyList<WatchEvent> rendered, CancellationToken cancellationToken)
+    {
+        var rows = new List<PendingNotification>();
+        foreach (var pending in rendered.Where(e => e.Attribution?.Status == AttributionStatus.Pending))
+        {
+            if (await _events.GetAsync(pending.Id, cancellationToken).ConfigureAwait(false) is not { } current
+                || current.Attribution?.Status == AttributionStatus.Pending)
+            {
+                continue;
+            }
+
+            rows.AddRange((await _followUps.PlanAsync(current, cancellationToken).ConfigureAwait(false))
+                .Where(r => string.Equals(r.ReplyToMessageId, message.MessageId, StringComparison.Ordinal)));
+        }
+
+        if (rows.Count > 0)
+        {
+            await _queue.AddAsync(rows, cancellationToken).ConfigureAwait(false);
+            _signals.Raise(WatchdogSignal.NotificationsQueued);
+        }
+    }
+
+    /// <summary>The original message of a follow-up bucket with its delivery status (null status: unknown, e.g. purged –
+    /// the follow-up goes out), and the items whose event already has a follow-up for their target.</summary>
+    private async Task<(OutboxMessage? Original, OutboxStatus? OriginalStatus, List<long> Duplicates)> FollowUpGateAsync(
+        IReadOnlyList<(PendingNotification Item, WatchEvent Event)> ready, CancellationToken cancellationToken)
+    {
+        var replyTo = ready[0].Item.ReplyToMessageId;
+        var duplicates = new List<long>();
+        OutboxMessage? original = null;
+        var originalEventId = 0L;
+        foreach (var (item, _) in ready)
+        {
+            var messages = await _outbox.GetMessagesForEventAsync(item.EventId, cancellationToken).ConfigureAwait(false);
+            if (original is null && messages.FirstOrDefault(m => string.Equals(m.MessageId, replyTo, StringComparison.Ordinal)) is { } found)
+            {
+                original = found;
+                originalEventId = item.EventId;
+            }
+
+            if (messages.Any(m => m.Kind == DeliveryKind.FollowUp && string.Equals(m.TargetKey, item.Target.Key, StringComparison.Ordinal)))
+            {
+                duplicates.Add(item.Id);
+            }
+        }
+
+        if (original is null)
+        {
+            return (null, null, duplicates);
+        }
+
+        var status = (await _outbox.GetDeliveriesForEventAsync(originalEventId, cancellationToken).ConfigureAwait(false))
+            .FirstOrDefault(d => d.OutboxId == original.Id)?.Status;
+        return (original, status, duplicates);
     }
 
     /// <summary>A released held item with its re-matched severity, or null when it no longer qualifies.</summary>
@@ -209,12 +341,10 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         return item with { Severity = match.NotificationSeverity };
     }
 
-    private async Task<OutboxMessage> FollowUpAsync(PendingNotification first, RuleSettings? rule, IReadOnlyList<WatchEvent> events,
+    private async Task<OutboxMessage> FollowUpAsync(PendingNotification first, OutboxMessage? original, RuleSettings? rule, IReadOnlyList<WatchEvent> events,
         WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var replyTo = first.ReplyToMessageId ?? string.Empty;
-        var original = (await _outbox.GetMessagesForEventAsync(events[0].Id, cancellationToken).ConfigureAwait(false))
-            .FirstOrDefault(m => string.Equals(m.MessageId, replyTo, StringComparison.Ordinal));
         var originalRule = FindRule(configuration, original?.RuleId) ?? rule;
         var originalEvents = new List<WatchEvent>();
         foreach (var id in original?.EventIds ?? [])

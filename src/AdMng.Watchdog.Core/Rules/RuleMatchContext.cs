@@ -73,6 +73,15 @@ public sealed class RuleMatchContext
     public SidPattern? ResolveSid(string? configured) =>
         string.IsNullOrWhiteSpace(configured) ? null : _sids.GetOrAdd(configured, static (value, tokens) => tokens.ExpandSid(value), Tokens);
 
+    /// <summary>
+    /// A configured actor SID (<c>ActorFilter.ExcludeActors</c>, <c>RuleExclusion.Actor</c>): only an exact SID. While
+    /// the value of a <c>{domainSid}</c> / <c>{rootDomainSid}</c> token is unknown the entry is null and excludes nothing –
+    /// the relative-id fallback of <see cref="ConfigTokens.ExpandSid"/> (any domain) is meant for privileged roots, and
+    /// for an exclusion it would fail open to the same RID of every trusted domain.
+    /// </summary>
+    public SidPattern? ResolveActorSid(string? configured) =>
+        ResolveSid(configured) is { Sid: not null } exact ? exact : null;
+
     /// <summary>True when <paramref name="group"/> is a privileged root: its SID is one of the critical/high SIDs, its
     /// sAMAccountName one of <c>HighSamAccountNames</c>, or its DN one of the additional critical/high DNs.</summary>
     public bool IsPrivilegedRoot(ObjectRef group, WatchEvent watchEvent)

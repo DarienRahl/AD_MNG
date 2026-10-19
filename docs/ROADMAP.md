@@ -309,7 +309,8 @@ specyfikacja [dev/watchdog-spec.md](dev/watchdog-spec.md)); AD_MNG dostaje zakł
 
 **Do zrobienia przed wydaniem:** przebieg na laboratorium Windows Server 2022/2025 (odczyt `msDS-ReplAttributeMetaData`
 przez konto bez uprawnień administratora, zdarzenia 4624 dla zmian przez ADWS/PowerShell, 4740 na DC innych niż PDC,
-pokrycie SACL dla 5136/5137, czytnik dzienników przez „Event Log Readers”, HTTP.sys z klientem tylko-NTLM) z zapisem
+pokrycie SACL dla 5136/5137, czytnik dzienników przez „Event Log Readers” – wyłącznie Kerberos, DC i kolektor WEF po
+nazwach DNS –, HTTP.sys: czy każde logowanie dociera do usługi jako Kerberos, a klient tylko-NTLM jest odrzucany) z zapisem
 prawdziwych zdarzeń jako danych testowych; sprawdzenie Teams Workflows na żywej dzierżawie (wersja karty, SAS vs OAuth);
 akceptacja zakresu danych w powiadomieniach przez IOD (RODO); pilotaż w jednej domenie.
 
@@ -326,6 +327,10 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 - **Nie sprawdzone na Windows Server AD.** Testy integracyjne działają na kontrolerze Samba 4.19; pilotaż, pomiary na
   dużych katalogach, Kerberos z wymuszonym channel binding, Kosz AD z delegowanymi uprawnieniami i test „żadnych danych
   na dysku” są przed nami (fazy 1–2, 4).
+- **AdMng Watchdog – nie sprawdzone na Windows:** tryb HTTP.sys może odrzucać każde logowanie (zdarzenie 2500
+  „unknown (Negotiate)”; obejście: Kestrel ze SPN-em albo tymczasowo `RequireKerberos: false`); w trybie WEF zdarzenia
+  dostarczone z opóźnieniem w trakcie zalewu (więcej niż `maxRecordsPerPoll`) mogą ominąć atrybucję; zmiana podsieci
+  w `appsettings.json` nie aktualizuje reguły zapory. Szczegóły: [WATCHDOG.md, rozdział 9](WATCHDOG.md#9-ograniczenia).
 - **Jeden kontroler przez całą sesję** – zmiana DC wymaga rozłączenia i ponownego połączenia (brak okna „Zmień
   kontroler domeny”).
 - **Kontenery dobrze znane** (`Users`, `Computers`, …) nie są rozpoznawane po WKGUID – drzewo pokazuje je jak zwykłe

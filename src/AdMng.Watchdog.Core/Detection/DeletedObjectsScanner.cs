@@ -9,17 +9,22 @@ namespace AdMng.Watchdog.Core.Detection;
 
 /// <summary>
 /// Show Deleted pass of the incremental cycle (section 10.9): one-level search of <c>CN=Deleted Objects</c> for
-/// tombstones with <c>uSNChanged ≥ W'</c>, restricted to the watched classes (children removed by tree-delete or system
-/// churn – BitLocker, TPM, DNS nodes, devices, FSPs – never produce events). The query runs before the main pass so the
-/// member differ knows which members were deleted; the events are produced afterwards.
+/// tombstones with <c>W' ≤ uSNChanged ≤ H</c>, restricted to the watched classes (children removed by tree-delete or
+/// system churn – BitLocker, TPM, DNS nodes, devices, FSPs – never produce events). The query runs before the main pass
+/// so the member differ knows which members were deleted; the events are produced afterwards. An unknown tombstone
+/// (created and deleted between two polls) leaves a deleted marker row, so a repeated cycle, the later recycling or a
+/// restore never report it as a new deletion; a recycled object whose row is gone (retention) is not reported again.
 /// </summary>
 internal sealed class DeletedObjectsScanner
 {
     private static readonly string[] TombstoneAttributes =
     [
         Attr.ObjectGuid, Attr.ObjectSid, Attr.ObjectClass, Attr.SamAccountName, Attr.LastKnownParent, Attr.MsDsLastKnownRdn,
-        Attr.IsRecycled, Attr.WhenChanged, Attr.UsnChanged,
+        Attr.IsRecycled, Attr.WhenChanged, Attr.UsnChanged, Attr.UsnCreated,
     ];
+
+    /// <summary>The mangling of a deleted object's RDN: <c>&lt;name&gt;\0ADEL:&lt;objectGUID&gt;</c> (0x0A = line feed).</summary>
+    private const string DeletedNameMarker = "\nDEL:";
 
     private readonly DetectionServices _services;
 
@@ -28,10 +33,14 @@ internal sealed class DeletedObjectsScanner
         _services = services;
     }
 
-    /// <summary>The tombstone filter: isDeleted, uSNChanged ≥ W', watched classes only.</summary>
-    public static string TombstoneFilter(long searchFrom) => LdapFilter.And(
+    /// <summary>
+    /// The tombstone filter: isDeleted, <c>W' ≤ uSNChanged ≤ H</c>, watched classes only. Tombstones written after H was
+    /// read belong to the next cycle (an unknown tombstone has no snapshot row that would make a second look harmless).
+    /// </summary>
+    public static string TombstoneFilter(long searchFrom, long highestUsn) => LdapFilter.And(
         LdapFilter.Equal(Attr.IsDeleted, "TRUE"),
         LdapFilter.GreaterOrEqual(Attr.UsnChanged, searchFrom),
+        LdapFilter.LessOrEqual(Attr.UsnChanged, highestUsn),
         LdapFilter.Or(
             LdapFilter.Equal(Attr.ObjectClass, ObjectClasses.User),
             LdapFilter.Equal(Attr.ObjectClass, ObjectClasses.Group),
@@ -56,7 +65,7 @@ internal sealed class DeletedObjectsScanner
             {
                 BaseDn = DistinguishedName.Parse(cycle.Settings.Facts.DomainDn).Child("CN", "Deleted Objects").ToString(),
                 Scope = SearchScope.OneLevel,
-                Filter = TombstoneFilter(cycle.SearchFrom),
+                Filter = TombstoneFilter(cycle.SearchFrom, cycle.Dc.HighestUsn),
                 Attributes = TombstoneAttributes,
                 IncludeDeleted = true,
                 IncludeRecycled = cycle.Session.Info.RecycleBinEnabled,
@@ -97,6 +106,15 @@ internal sealed class DeletedObjectsScanner
             snapshots.TryGetValue(guid, out var snapshot);
             snapshot = cycle.Chunk.PendingUpsert(guid) ?? snapshot;
             if (snapshot is { IsDeleted: true })
+            {
+                continue;
+            }
+
+            // Recycle Bin: deleted object → recycled (deletedObjectLifetime later) is never a new deletion, also when the
+            // deleted row is already gone (retention). Only an object created after the last poll and deleted and
+            // purged before this one is new. Without the Recycle Bin every tombstone is isRecycled = TRUE.
+            if (snapshot is null && cycle.Session.Info.RecycleBinEnabled && tombstone.GetBoolean(Attr.IsRecycled) == true
+                && (tombstone.GetInt64(Attr.UsnCreated) ?? 0) < cycle.SearchFrom)
             {
                 continue;
             }
@@ -160,7 +178,7 @@ internal sealed class DeletedObjectsScanner
         }
 
         var parent = await ResolveParentAsync(cycle, tombstone.GetString(Attr.LastKnownParent), 0, cancellationToken).ConfigureAwait(false);
-        var rdn = tombstone.GetString(Attr.MsDsLastKnownRdn);
+        var rdn = LastKnownRdn(tombstone);
         if (parent is null || rdn is null || !DistinguishedName.TryParse(parent, out var parentDn))
         {
             return;
@@ -183,7 +201,23 @@ internal sealed class DeletedObjectsScanner
         };
         var draft = new EventDraft { Kind = WatchEventKind.ObjectDeleted, PreviousDn = dn, MetadataAttributes = [Attr.IsDeleted] };
         processor.Emit([draft], null, reference, ReplicationMetadata.Empty, deletedAt, DetectionSource.DeletedObjects);
-        cycle.Chunk.Delete(tombstone.ObjectGuid!.Value, deletedAt);
+
+        // The deleted marker row (no attributes) in the same chunk as the event: a repeated cycle, the later recycling
+        // and a restore (ObjectRestored) then know the object.
+        cycle.Chunk.UpsertDeleted(new SnapshotObject
+        {
+            ObjectGuid = tombstone.ObjectGuid!.Value,
+            Dn = dn,
+            Kind = kind,
+            ObjectClasses = tombstone.GetStrings(Attr.ObjectClass),
+            Sid = tombstone.ObjectSid,
+            SamAccountName = reference.SamAccountName,
+            Name = rdn,
+            UsnCreated = tombstone.GetInt64(Attr.UsnCreated) ?? 0,
+            UsnChanged = tombstone.GetInt64(Attr.UsnChanged) ?? 0,
+            IsDeleted = true,
+            DeletedAt = deletedAt,
+        });
         if (WatchObjectKinds.IsPrincipal(kind))
         {
             cycle.Chunk.MembershipRelevant = true;
@@ -233,13 +267,43 @@ internal sealed class DeletedObjectsScanner
             }
 
             var grandParent = await ResolveParentAsync(cycle, parentTombstone.GetString(Attr.LastKnownParent), depth + 1, cancellationToken).ConfigureAwait(false);
-            var rdn = parentTombstone.GetString(Attr.MsDsLastKnownRdn);
+            var rdn = LastKnownRdn(parentTombstone);
             return grandParent is null || rdn is null
                 ? null
                 : DistinguishedName.Parse(grandParent).Child(DistinguishedName.Parse(parentTombstone.DistinguishedName).Leaf.Type, rdn).ToString();
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// The RDN value an object had before it was deleted: <c>msDS-LastKnownRDN</c> (set on the Recycle Bin path only),
+    /// else the tombstone's leaf value cut at the <c>\0ADEL:&lt;guid&gt;</c> mangling (tombstones without the Recycle
+    /// Bin – Samba, and Windows unless the feature is enabled – lab-verified); null when neither is available.
+    /// </summary>
+    public static string? LastKnownRdn(DirectoryObject tombstone)
+    {
+        ArgumentNullException.ThrowIfNull(tombstone);
+        return tombstone.GetString(Attr.MsDsLastKnownRdn) ?? UnmangledName(tombstone.DistinguishedName);
+    }
+
+    /// <summary>The leaf value of a deleted object's DN without the <c>\0ADEL:&lt;guid&gt;</c> suffix; null when not mangled.</summary>
+    public static string? UnmangledName(string tombstoneDn)
+    {
+        if (!DistinguishedName.TryParse(tombstoneDn, out var dn) || dn.IsRoot)
+        {
+            return null;
+        }
+
+        var marker = dn.Leaf.Value.IndexOf(DeletedNameMarker, StringComparison.Ordinal);
+        return marker > 0 ? dn.Leaf.Value[..marker] : null;
+    }
+
+    /// <summary>A deleted marker row of an unknown tombstone (no watched attributes, unlike every built snapshot).</summary>
+    public static bool IsDeletedMarker(SnapshotObject snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        return snapshot.IsDeleted && snapshot.Attributes.Count == 0;
     }
 
     private static bool DeletedObjectsDn(string dn) =>

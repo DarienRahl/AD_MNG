@@ -15,7 +15,7 @@ namespace AdMng.Watchdog.Service.Storage;
 /// </summary>
 public sealed class SqliteWatchdogStore :
     IDetectionStore, IEventStore, INotificationQueueStore, IOutboxStore, ISecurityEventStore, IExpiryNoticeStore,
-    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, IAsyncDisposable
+    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, Api.IViewerEventSearch, IAsyncDisposable
 {
     private readonly bool _ownsDatabase;
 
@@ -140,6 +140,9 @@ public sealed class SqliteWatchdogStore :
 
     public Task<EventPage> QueryAsync(EventQuery query, CancellationToken cancellationToken) =>
         Events.QueryAsync(query, cancellationToken);
+
+    public Task<EventPage> QueryWithoutSourcesAsync(EventQuery query, CancellationToken cancellationToken) =>
+        Events.QueryAsync(query, textMatchesSources: false, cancellationToken);
 
     public Task WaitForNewerAsync(long afterId, TimeSpan timeout, CancellationToken cancellationToken) =>
         Events.WaitForNewerAsync(afterId, timeout, cancellationToken);

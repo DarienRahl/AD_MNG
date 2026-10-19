@@ -34,6 +34,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
     private PrivilegeState? _privileges;
     private int _commitCount;
     private int? _failOnCommit;
+    private bool _failFinalCommit;
 
     public ScenarioDetectionStore(TimeProvider timeProvider)
     {
@@ -106,6 +107,18 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
         lock (_gate)
         {
             _failOnCommit = _commitCount + commitNumber;
+        }
+    }
+
+    /// <summary>
+    /// Throws an <see cref="IOException"/> instead of applying the next final commit of a cycle (the one that writes
+    /// <see cref="DetectionCommit.NewState"/>) – a crash after the chunk commits, before W moves.
+    /// </summary>
+    public void FailNextFinalCommit()
+    {
+        lock (_gate)
+        {
+            _failFinalCommit = true;
         }
     }
 
@@ -267,6 +280,12 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
             {
                 _failOnCommit = null;
                 throw new IOException("Injected store failure (simulated crash).");
+            }
+
+            if (_failFinalCommit && commit.NewState is not null)
+            {
+                _failFinalCommit = false;
+                throw new IOException("Injected failure of the final commit (simulated crash).");
             }
 
             foreach (var rewrite in commit.DnRewrites)

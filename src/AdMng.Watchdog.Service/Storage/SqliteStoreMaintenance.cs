@@ -11,8 +11,9 @@ namespace AdMng.Watchdog.Service.Storage;
 /// <see cref="IStoreMaintenance"/> (spec 16.3): retention purge in batches of 5 000 rows per transaction (the writer gate
 /// is released between batches; event deletes cascade to pending notifications and outbox links), the size cap (oldest
 /// Security events, then dead outbox messages, until below 90 % of <see cref="RetentionSettings.MaxDatabaseMb"/>),
-/// <c>incremental_vacuum</c> + <c>wal_checkpoint(TRUNCATE)</c> + <c>optimize</c> (with <c>secure_delete</c> the freed
-/// pages and the truncated WAL no longer hold purged values), <c>VACUUM INTO</c> backups and their rotation.
+/// <c>incremental_vacuum</c> in steps (the gate is released between them) + <c>wal_checkpoint(TRUNCATE)</c> +
+/// <c>optimize</c> (with <c>secure_delete</c> the freed pages and the truncated WAL no longer hold purged values),
+/// <c>VACUUM INTO</c> backups outside the writer gate and their rotation.
 /// </summary>
 public sealed class SqliteStoreMaintenance : IStoreMaintenance
 {
@@ -28,6 +29,11 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
     /// <summary>Digest runs are kept for a year.</summary>
     public static readonly TimeSpan DigestRunRetention = TimeSpan.FromDays(365);
 
+    /// <summary>Free pages released per <c>incremental_vacuum</c> step (8 MiB with 4 KiB pages – milliseconds behind the
+    /// writer gate).</summary>
+    public const int VacuumStepPages = 2048;
+
+    private readonly SemaphoreSlim _backupGate = new(1, 1);
     private readonly SqliteDatabase _database;
     private readonly TimeProvider _timeProvider;
     private readonly BackupFiles _backups;
@@ -77,24 +83,36 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
         return new PurgeResult(events, securityEvents + cap.SecurityEvents, outbox + cap.OutboxMessages, snapshots, notices, audit);
     }
 
-    public Task<string> BackupAsync(CancellationToken cancellationToken) =>
-        _database.ExclusiveAsync(
-            connection =>
+    /// <summary>
+    /// <c>VACUUM INTO</c> a new backup file on its own connection, outside the single-writer gate: in WAL mode it is a read
+    /// transaction on a consistent snapshot, so outbox, detection and API writes go on while a multi-GB database is copied.
+    /// Only the <c>LastBackupAt</c> update takes the gate; backups themselves are serialized.
+    /// </summary>
+    public async Task<string> BackupAsync(CancellationToken cancellationToken)
+    {
+        await _backupGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _backups.EnsureDirectory();
+            var now = _timeProvider.GetUtcNow();
+            var path = _backups.NewRetentionBackupPath(now);
+            await Task.Run(() => _database.Read(c => SqliteValues.Execute(c, null, "VACUUM INTO $path;", ("$path", path))), cancellationToken).ConfigureAwait(false);
+            if (!OperatingSystem.IsWindows())
             {
-                _backups.EnsureDirectory();
-                var now = _timeProvider.GetUtcNow();
-                var path = _backups.NewRetentionBackupPath(now);
-                SqliteValues.Execute(connection, null, "VACUUM INTO $path;", ("$path", path));
-                if (!OperatingSystem.IsWindows())
-                {
-                    File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-                }
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
 
-                MetaRows.Set(connection, null, MetaRows.LastBackupAt, SqliteValues.ToUnixMs(now).ToString(CultureInfo.InvariantCulture));
-                _backups.RotateRetentionBackups(Volatile.Read(ref _backupsToKeep));
-                return Path.GetFileName(path);
-            },
-            cancellationToken);
+            await _database.WriteAsync(
+                (c, t) => MetaRows.Set(c, t, MetaRows.LastBackupAt, SqliteValues.ToUnixMs(now).ToString(CultureInfo.InvariantCulture)),
+                cancellationToken).ConfigureAwait(false);
+            _backups.RotateRetentionBackups(Volatile.Read(ref _backupsToKeep));
+            return Path.GetFileName(path);
+        }
+        finally
+        {
+            _backupGate.Release();
+        }
+    }
 
     public Task<StorageStatusDto> GetStatusAsync(CancellationToken cancellationToken)
     {
@@ -135,12 +153,30 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
         return (securityEvents, outbox);
     }
 
-    /// <summary><c>PRAGMA incremental_vacuum; wal_checkpoint(TRUNCATE); optimize;</c> behind the writer gate.</summary>
-    public Task CompactAsync(CancellationToken cancellationToken) =>
-        _database.ExclusiveAsync(
+    /// <summary><c>PRAGMA incremental_vacuum(N)</c> in steps of <see cref="VacuumStepPages"/> pages – the writer gate is
+    /// released between the steps, so deliveries are not held up by a large freelist – then
+    /// <c>wal_checkpoint(TRUNCATE); optimize;</c> behind the gate.</summary>
+    public async Task CompactAsync(CancellationToken cancellationToken)
+    {
+        while (await _database.ExclusiveAsync(
             connection =>
             {
-                SqliteValues.Execute(connection, null, "PRAGMA incremental_vacuum;");
+                var before = FreePages(connection);
+                if (before == 0)
+                {
+                    return false;
+                }
+
+                SqliteValues.Execute(connection, null, string.Create(CultureInfo.InvariantCulture, $"PRAGMA incremental_vacuum({VacuumStepPages});"));
+                return FreePages(connection) < before;      // no progress (auto_vacuum off): stop
+            },
+            cancellationToken).ConfigureAwait(false))
+        {
+        }
+
+        await _database.ExclusiveAsync(
+            connection =>
+            {
                 using (var checkpoint = SqliteValues.Command(connection, null, "PRAGMA wal_checkpoint(TRUNCATE);"))
                 {
                     using var reader = checkpoint.ExecuteReader();
@@ -152,7 +188,10 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
                 SqliteValues.Execute(connection, null, "PRAGMA optimize;");
                 return true;
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static long FreePages(SqliteConnection connection) => SqliteValues.Scalar<long>(connection, null, "PRAGMA freelist_count;");
 
     private async Task<int> TrimOldestAsync(string table, string orderColumn, string where, long targetBytes, CancellationToken cancellationToken)
     {

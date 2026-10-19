@@ -207,7 +207,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         }
     }
 
-    /// <summary>An AD session was opened or closed: "Otwórz w AD_MNG" and the unlock offer are re-evaluated.</summary>
+    /// <summary>An AD session was opened or closed: "Pokaż w AD Manager" and the unlock offer are re-evaluated.</summary>
     public void NotifySessionChanged()
     {
         OpenInAdMngCommand.NotifyCanExecuteChanged();
@@ -391,16 +391,13 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             Fill(details.Event, details);
             await CheckLockAsync(details.Event, token).ConfigureAwait(true);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Another event was selected.
+            // Another event was selected (OperationCanceledException or a WatchdogClientException of kind Cancelled).
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            if (!token.IsCancellationRequested)
-            {
-                Error = _services.Connection.Describe(ex);
-            }
+            Error = _services.Connection.Describe(ex);
         }
         finally
         {

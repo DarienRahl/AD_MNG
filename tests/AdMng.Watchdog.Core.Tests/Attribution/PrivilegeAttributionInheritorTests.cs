@@ -77,6 +77,91 @@ public class PrivilegeAttributionInheritorTests
         Assert.Equal(cause.EventId, found!.EventId);
     }
 
+    private const string ItOpsDn = "CN=IT-Ops Łódź,OU=Grupy,DC=contoso,DC=test";
+    private const string AdministratorsDn = "CN=Administrators,CN=Builtin,DC=contoso,DC=test";
+    private static readonly Guid ItOpsGuid = Guid.Parse("0b4c22e6-6c1e-4b7a-9d2a-2f0b8f3a1003");
+    private static readonly Guid AdministratorsGuid = Guid.Parse("0b4c22e6-6c1e-4b7a-9d2a-2f0b8f3a1004");
+    private static readonly string AttackerSid = DomainSid + "-6666";
+    private static readonly string HelpdeskSid = DomainSid + "-2201";
+
+    private static ObjectRef GroupRef(Guid guid, string dn) => new() { Dn = dn, Kind = WatchObjectKind.Group, ObjectGuid = guid };
+
+    /// <summary><paramref name="member"/> added to (removed from) the group <paramref name="group"/> by <paramref name="actorSid"/>.</summary>
+    private static WatchEvent Edge(ObjectRef group, ObjectRef member, string actorSid, DateTimeOffset at, WatchEventKind kind = WatchEventKind.GroupMemberAdded) =>
+        Create(kind, group.Dn, WatchObjectKind.Group, detectedAt: at, objectGuid: group.ObjectGuid) with
+        {
+            ChangeSetId = Guid.NewGuid(),
+            Member = member,
+            Attribution = Resolved(actorSid),
+        };
+
+    private static WatchEvent PrivilegeOf(ObjectRef root, IReadOnlyList<ObjectRef> via, WatchEventKind kind = WatchEventKind.PrivilegeGranted) =>
+        Create(kind) with { ChangeSetId = Guid.NewGuid(), Member = root, Via = via };   // its own change set (ObjectProcessor.Emit)
+
+    private static ObjectRef Bob => new() { Dn = UserDn, Kind = WatchObjectKind.User, ObjectGuid = UserGuid };
+
+    [Fact]
+    public async Task NestingAGroupIntoTheRoot_IsTheCause_NotAnEarlierAdditionToThatGroup()
+    {
+        // attribution-rules-2: helpdesk added Bob to IT-Ops yesterday; today an attacker nests IT-Ops into Domain Admins.
+        var itOps = GroupRef(ItOpsGuid, ItOpsDn);
+        var admins = GroupRef(AdminsGuid, AdminsDn);
+        _events.Add(Edge(itOps, Bob, HelpdeskSid, Now.AddDays(-1)));
+        var nesting = _events.Add(Edge(admins, itOps, AttackerSid, Now));
+        var privilege = _events.Add(PrivilegeOf(admins, [itOps]));
+
+        var cause = await new PrivilegeAttributionInheritor(_events).FindCauseAsync(privilege, Ct);
+
+        Assert.Equal(nesting.EventId, cause!.EventId);
+        Assert.Equal(AttackerSid, cause.Attribution.Actor!.Sid);
+    }
+
+    [Fact]
+    public async Task APathOfTwoGroups_FindsTheEdgeOfThePrincipal()
+    {
+        // Bob added to IT-Ops; IT-Ops ∈ Domain Admins ∈ Administrators: the Administrators event has Via [Domain Admins, IT-Ops].
+        var itOps = GroupRef(ItOpsGuid, ItOpsDn);
+        var admins = GroupRef(AdminsGuid, AdminsDn);
+        var administrators = GroupRef(AdministratorsGuid, AdministratorsDn);
+        var added = _events.Add(Edge(itOps, Bob, HelpdeskSid, Now));
+        var privilege = _events.Add(PrivilegeOf(administrators, [admins, itOps]));
+
+        Assert.Equal(added.EventId, (await new PrivilegeAttributionInheritor(_events).FindCauseAsync(privilege, Ct))!.EventId);
+    }
+
+    [Fact]
+    public async Task AMembershipChangeLongBeforeThePrivilegeEvent_IsNotItsCause()
+    {
+        // Better unresolved than the wrong person: a day-old addition did not cause a privilege detected now.
+        var admins = GroupRef(AdminsGuid, AdminsDn);
+        _events.Add(Edge(admins, Bob, HelpdeskSid, Now.AddHours(-20)));
+        var privilege = _events.Add(PrivilegeOf(admins, []));
+
+        Assert.Null(await new PrivilegeAttributionInheritor(_events).FindCauseAsync(privilege, Ct));
+    }
+
+    [Fact]
+    public async Task APrimaryGroupChange_OfThePrincipal_IsACause()
+    {
+        var admins = GroupRef(AdminsGuid, AdminsDn);
+        var primary = _events.Add(Create(WatchEventKind.PrimaryGroupChanged, detectedAt: Now) with { ChangeSetId = Guid.NewGuid(), Attribution = Resolved(AttackerSid) });
+        var privilege = _events.Add(PrivilegeOf(admins, []));
+
+        Assert.Equal(primary.EventId, (await new PrivilegeAttributionInheritor(_events).FindCauseAsync(privilege, Ct))!.EventId);
+    }
+
+    [Fact]
+    public async Task ARevocation_FindsTheRemovalOnAnyEdge()
+    {
+        var itOps = GroupRef(ItOpsGuid, ItOpsDn);
+        var admins = GroupRef(AdminsGuid, AdminsDn);
+        var removal = _events.Add(Edge(admins, itOps, AdminSid, Now.AddSeconds(-30), WatchEventKind.GroupMemberRemoved));
+        _events.Add(Edge(itOps, Bob, HelpdeskSid, Now.AddSeconds(-20)));   // an addition does not revoke
+        var privilege = _events.Add(PrivilegeOf(admins, [itOps], WatchEventKind.PrivilegeRevoked));
+
+        Assert.Equal(removal.EventId, (await new PrivilegeAttributionInheritor(_events).FindCauseAsync(privilege, Ct))!.EventId);
+    }
+
     [Fact]
     public async Task NoCause_IsNull() =>
         Assert.Null(await new PrivilegeAttributionInheritor(_events).FindCauseAsync(_events.Add(Privilege()), Ct));

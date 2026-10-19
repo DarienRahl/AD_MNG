@@ -12,8 +12,10 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// EventData[Data[@Name='AttributeLDAPDisplayName']='dSCorePropagationData']]&lt;/Suppress&gt;&lt;/Query&gt;&lt;/QueryList&gt;</c>.
 /// At most <see cref="MaxEventIdsPerSelect"/> EventID expressions per Select (several Selects are OR-ed); time filters
 /// <c>TimeCreated[@SystemTime&gt;='…Z']</c>; data filters <c>EventData[Data[@Name='TargetLogonId']='0x30dc2']</c>.
-/// Every name and value is restricted to <c>[0-9A-Za-z.\-_:{}$ ]</c> (anything else is rejected – no XPath injection)
-/// and the XML is written by an <see cref="XmlWriter"/> (escaping).
+/// Log names, data names and suppressed attributes are restricted to <c>[0-9A-Za-z.\-_:{}$ ]</c>; a data value is one
+/// XPath string literal – single-quoted, double-quoted when it contains an apostrophe (<c>o'neill</c>), rejected when it
+/// contains both quote characters or a control character – so letters with diacritics (<c>józef.żak</c>) are queried and
+/// no value can change the query. The XML is written by an <see cref="XmlWriter"/> (escaping).
 /// </summary>
 public static class SecurityEventQueryBuilder
 {
@@ -64,9 +66,15 @@ public static class SecurityEventQueryBuilder
         return builder.ToString();
     }
 
-    /// <summary>True when <paramref name="value"/> may appear in a query (<c>[0-9A-Za-z.\-_:{}$ ]</c>, not empty).</summary>
+    /// <summary>True when <paramref name="value"/> can be a data filter value: not empty, no control character, and not
+    /// both quote characters (it must fit one XPath string literal).</summary>
     public static bool IsAllowedValue(string? value) =>
-        !string.IsNullOrEmpty(value) && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' or ':' or '{' or '}' or '$' or ' ');
+        !string.IsNullOrEmpty(value) && value.Length <= 1024 && !value.Any(char.IsControl) && !(value.Contains('\'') && value.Contains('"'));
+
+    /// <summary>True when <paramref name="name"/> may be a log name, data name or suppressed attribute
+    /// (<c>[0-9A-Za-z.\-_:{}$ ]</c>, not empty).</summary>
+    public static bool IsAllowedName(string? name) =>
+        !string.IsNullOrEmpty(name) && name.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' or ':' or '{' or '}' or '$' or ' ');
 
     private static string SelectExpression(int[] codes, List<string> common, List<string> dataConditions)
     {
@@ -114,19 +122,25 @@ public static class SecurityEventQueryBuilder
         foreach (var (name, value) in query.DataEquals)
         {
             Require(name, nameof(query.DataEquals));
-            Require(value, nameof(query.DataEquals));
-            conditions.Add($"EventData[Data[@Name='{name}']='{value}']");
+            if (!IsAllowedValue(value))
+            {
+                throw new ArgumentException("A filter value is empty, contains a control character or both quote characters.", nameof(query));
+            }
+
+            conditions.Add($"EventData[Data[@Name='{name}']={Literal(value)}]");
         }
 
         return conditions;
     }
+
+    private static string Literal(string value) => value.Contains('\'') ? "\"" + value + "\"" : "'" + value + "'";
 
     private static string SystemTime(DateTimeOffset value) =>
         value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", CultureInfo.InvariantCulture);
 
     private static void Require(string? value, string parameter)
     {
-        if (!IsAllowedValue(value))
+        if (!IsAllowedName(value))
         {
             throw new ArgumentException("A query name or value contains characters outside [0-9A-Za-z.-_:{}$ ].", parameter);
         }
