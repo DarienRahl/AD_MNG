@@ -759,7 +759,7 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>Connects to {0} in your site {1}.</value>
   </data>
   <data name="ChangeDc.AnyWritableIsCurrent" xml:space="preserve">
-    <value>The current domain controller {0} already is a writable domain controller of your site.</value>
+    <value>The current domain controller {0} is already a writable domain controller in your site.</value>
   </data>
   <data name="ChangeDc.ClientSiteUnknown" xml:space="preserve">
     <value>The site of this computer is unknown (no domain controller locator). Choose a domain controller from the list.</value>

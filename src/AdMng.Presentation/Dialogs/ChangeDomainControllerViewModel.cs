@@ -234,7 +234,11 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             {
                 StatusText = null;
                 var error = Describe(ex);
-                ErrorText = error + Environment.NewLine + Localizer.Format(L.ChangeDc.StaysOn, previous.Server);
+
+                // The session of the dialog may have ended meanwhile (a disconnect): then it does not stay on its DC.
+                ErrorText = Session is null
+                    ? NoSessionMessage
+                    : error + Environment.NewLine + Localizer.Format(L.ChangeDc.StaysOn, previous.Server);
                 Record(previous, previous.Server, target, error);
                 return;
             }
@@ -387,7 +391,10 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             }
 
             _list = DomainControllerCatalog.Merge(directory ?? [], located ?? [], session.Info);
-            ListNote = directory is null && (located is null || located.Count == 0) ? Localizer[L.ChangeDc.ListUnavailable] : null;
+
+            // Without a locator (or when it found nothing) it returns only its fallback, the domain name: no DC is known.
+            var locatedAny = located?.Any(d => !DomainControllerCatalog.IsLocatorFallback(d, session.Info.DomainDnsName)) == true;
+            ListNote = directory is null && !locatedAny ? Localizer[L.ChangeDc.ListUnavailable] : null;
             if (string.IsNullOrWhiteSpace(ServerText))
             {
                 ServerText = session.Info.Server;

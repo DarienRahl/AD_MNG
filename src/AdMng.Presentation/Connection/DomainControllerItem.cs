@@ -34,7 +34,10 @@ public sealed class DomainControllerItem
         }
 
         RolesText = string.Join(", ", roles);
-        AutomationName = string.Join(", ", new[] { entry.HostName, SiteText, RolesText }.Where(t => t.Length > 0));
+
+        // Every column the row shows, also "your site" (the column only says "Yes").
+        var yourSite = entry.IsInClientSite ? localizer[L.ChangeDc.ColumnYourSite] : string.Empty;
+        AutomationName = string.Join(", ", new[] { entry.HostName, SiteText, yourSite, RolesText }.Where(t => t.Length > 0));
     }
 
     public DomainControllerEntry Entry { get; }
@@ -50,7 +53,7 @@ public sealed class DomainControllerItem
     /// <summary>"Current, PDC emulator, Read-only, Global catalog" (the roles that apply).</summary>
     public string RolesText { get; }
 
-    /// <summary>Screen reader text of the row.</summary>
+    /// <summary>Screen reader text of the row: name, site, "your site" and the roles.</summary>
     public string AutomationName { get; }
 
     public bool IsCurrent => Entry.IsCurrent;

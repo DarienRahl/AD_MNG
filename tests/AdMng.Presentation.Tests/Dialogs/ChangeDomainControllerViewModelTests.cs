@@ -245,6 +245,10 @@ public class ChangeDomainControllerViewModelTests
         Assert.Equal("Connects to dc02.contoso.test in your site Kraków.", dialog.AnyWritableText);
         Assert.Equal("Yes", dialog.DomainControllers.Single(d => d.HostName == "dc02.contoso.test").InClientSiteText);
         Assert.Equal(string.Empty, dialog.DomainControllers.Single(d => d.HostName == "dc01.contoso.test").InClientSiteText);
+        Assert.Equal("dc02.contoso.test, Kraków, Your site", dialog.DomainControllers.Single(d => d.HostName == "dc02.contoso.test").AutomationName);
+        Assert.Equal(
+            "rodc-krk.contoso.test, Kraków, Your site, Read-only, Global catalog",
+            dialog.DomainControllers.Single(d => d.HostName == "rodc-krk.contoso.test").AutomationName);
 
         dialog.UseAnyWritableInSite = true;
 
@@ -268,7 +272,7 @@ public class ChangeDomainControllerViewModelTests
 
         dialog.UseAnyWritableInSite = true;
 
-        Assert.Equal("The current domain controller dc01.contoso.test already is a writable domain controller of your site.", dialog.AnyWritableText);
+        Assert.Equal("The current domain controller dc01.contoso.test is already a writable domain controller in your site.", dialog.AnyWritableText);
         Assert.False(dialog.ChangeCommand.CanExecute(null));
     }
 
@@ -498,6 +502,51 @@ public class ChangeDomainControllerViewModelTests
     }
 
     [Fact]
+    public async Task UnreadableDirectory_AndOnlyTheLocatorFallback_SaysTheListIsUnavailable()
+    {
+        var harness = await HarnessAsync();
+        harness.Session.FailNext(FakeOperationKind.Search, "CN=Sites,CN=Configuration,DC=contoso,DC=test", DirectoryErrorKind.AccessDenied, times: 5);
+
+        // Without DsGetDcName (Linux), or when it found nothing, the locator returns only the domain name itself.
+        using (var dialog = await OpenAsync(harness, new DomainControllerInfo("contoso.test", null, false, false, false)))
+        {
+            Assert.Equal(Text(harness, L.ChangeDc.ListUnavailable), dialog.ListNote);
+            var current = Assert.Single(dialog.DomainControllers);
+            Assert.True(current.Entry.IsCurrent);
+            Assert.False(dialog.CanUseAnyWritableInSite);
+        }
+
+        // A locator that knows a DC fills the list: nothing to report.
+        using (var dialog = await OpenAsync(harness, new DomainControllerInfo("dc02.contoso.test", "Kraków", true, false, true)))
+        {
+            Assert.Null(dialog.ListNote);
+            Assert.Equal(["dc02.contoso.test", "dc01.contoso.test"], dialog.DomainControllers.Select(d => d.HostName));
+        }
+    }
+
+    [Fact]
+    public async Task SessionEndedWhileSwitching_DoesNotClaimTheSessionStaysConnected()
+    {
+        var harness = await HarnessAsync();
+        harness.ConnectToServer = async (_, server, _) =>
+        {
+            await harness.Sessions.DisconnectAsync();
+            return new FakeDomainControllerSession(harness.Session, server);
+        };
+        using var dialog = await OpenAsync(harness);
+        dialog.ServerText = "dc02.contoso.test";
+
+        await dialog.ChangeCommand.ExecuteAsync(null);
+
+        Assert.Null(harness.Sessions.Current);
+        Assert.Null(dialog.Result);
+        Assert.Equal(Text(harness, L.WindowSession.Ended), dialog.ErrorText);
+        Assert.False(dialog.ChangeCommand.CanExecute(null));
+        Assert.False(dialog.RefreshCommand.CanExecute(null));
+        Assert.False(Assert.Single(harness.AuditLog.Entries).Succeeded);
+    }
+
+    [Fact]
     public async Task Refresh_RereadsTheList()
     {
         var harness = await HarnessAsync();
@@ -520,6 +569,7 @@ public class ChangeDomainControllerViewModelTests
         Assert.Equal("Bieżący kontroler domeny: dc01.contoso.test", dialog.CurrentText);
         Assert.Equal("Bieżący, Emulator PDC, Wykaz globalny", dialog.DomainControllers.Single(d => d.Entry.IsCurrent).RolesText);
         Assert.Equal("Tak", dialog.DomainControllers.Single(d => d.HostName == "dc02.contoso.test").InClientSiteText);
+        Assert.Equal("dc02.contoso.test, Kraków, Twoja lokacja", dialog.DomainControllers.Single(d => d.HostName == "dc02.contoso.test").AutomationName);
         Assert.Equal("Połączenie z dc02.contoso.test w Twojej lokacji Kraków.", dialog.AnyWritableText);
 
         harness.Localizer.SetCulture(CultureInfo.GetCultureInfo("en-US"));

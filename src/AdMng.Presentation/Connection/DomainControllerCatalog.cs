@@ -166,7 +166,7 @@ public static class DomainControllerCatalog
         for (var rank = 0; rank < located.Count; rank++)
         {
             var dc = located[rank];
-            if (!TryNormalizeHostName(dc.HostName, out var host) || IsSameHost(host, session.DomainDnsName))
+            if (IsLocatorFallback(dc, session.DomainDnsName) || !TryNormalizeHostName(dc.HostName, out var host))
             {
                 continue;
             }
@@ -205,6 +205,16 @@ public static class DomainControllerCatalog
             .Select(x => x.Entry)
             .ToList();
         return new DomainControllerList(entries, clientSite);
+    }
+
+    /// <summary>
+    /// True when a DC locator entry names no domain controller: the locator's fallback (the domain name itself, which
+    /// DNS resolves to some DC – returned when there is no locator or it found nothing) or a name that is not a host name.
+    /// </summary>
+    public static bool IsLocatorFallback(DomainControllerInfo located, string? domainDnsName)
+    {
+        ArgumentNullException.ThrowIfNull(located);
+        return !TryNormalizeHostName(located.HostName, out var host) || IsSameHost(host, domainDnsName);
     }
 
     /// <summary>

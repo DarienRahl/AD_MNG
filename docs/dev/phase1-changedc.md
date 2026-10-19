@@ -59,8 +59,8 @@ password). This note describes the in-session switch.
   * the session log (`IAuditLog`) records the switch – action `ChangeDomainController`, old → new DC, operator,
     success or the error (never a password) – shown localized in the session log window;
   * a toast confirms the new DC; the profile is updated only when the checkbox was ticked.
-* **Cancellation / no UI blocking** – the Change button becomes Cancel while connecting; closing the window cancels
-  too. Discovery and the switch run on the thread pool.
+* **Cancellation / no UI blocking** – while connecting, Change is disabled and Cancel (or Esc) cancels the switch and
+  keeps the dialog open; closing the window cancels too. Discovery and the switch run on the thread pool.
 
 ## Edge cases
 
@@ -73,9 +73,9 @@ password). This note describes the in-session switch.
 | Unreachable DC / wrong port / bind refused | old session intact, localized error + hint |
 | RODC chosen | allowed (browsing), warning that changes are refused |
 | Background operations running | confirmation; cancelled only after the new DC was verified |
-| Locator and directory both unavailable | message, free text still possible |
+| Locator and directory both unavailable (the locator's fallback is only the domain name) | message, free text still possible |
 | Profile save fails (I/O) | switch stays done, warning toast |
-| Disconnect while switching | the new session is closed, nothing replaced |
+| Disconnect while switching | the new session is closed, nothing replaced; the dialog says the session ended |
 
 ## Files
 
