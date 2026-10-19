@@ -6,6 +6,7 @@ using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Core.Tests.Notifications.Fakes;
 using Microsoft.Extensions.Logging.Abstractions;
+using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 using static AdMng.Watchdog.Core.Tests.Notifications.NotificationHarness;
 
 namespace AdMng.Watchdog.Core.Tests.Notifications;
@@ -263,6 +264,31 @@ public sealed class DigestJobTests
 
         Assert.Equal(NextMorning.AddSeconds(-2), await _harness.Store.GetLastPeriodEndAsync(Ct));
         await _harness.Store.CommitEvaluationAsync([new EventEvaluation { EventId = late.Id, Severity = Severity.Low, MatchedRules = [NewAccounts.Id] }], [], Ct);
+        _harness.Clock.SetUtcNow(NextMorning.AddDays(1));
+        await _job.RunOnceAsync(Ct);
+
+        var digest = Assert.Single(await _harness.Store.GetMessagesForEventAsync(late.Id, Ct), m => m.ChannelType == DeliveryChannelType.Email);
+        Assert.Contains("Łucja Późna", digest.Email!.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EventStillWaitingForItsActor_AtDigestTime_IsListedInTheNextDigestWithItsFinalState()
+    {
+        // Shadow credentials detected seconds before the digest: Medium while the actor is pending, High once the
+        // attribution engine resolved another account (re-evaluation, 11.4 #9) – after the digest was built. Counted now,
+        // it would never reach "Wymaga uwagi": the next digest starts after it.
+        await _job.RunOnceAsync(Ct);
+        var late = await _harness.StoreAsync(Event(WatchEventKind.KeyCredentialChanged, Severity.Medium, attribution: EventAttribution.Pending,
+            name: "Łucja Późna", detectedAt: NextMorning.AddSeconds(-10)));
+        await _harness.Store.CommitEvaluationAsync([new EventEvaluation { EventId = late.Id, Severity = Severity.Medium, MatchedRules = [NewAccounts.Id] }], [], Ct);
+        _harness.Clock.SetUtcNow(NextMorning);
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal(NextMorning.AddSeconds(-10), await _harness.Store.GetLastPeriodEndAsync(Ct));
+        Assert.Empty(await _harness.Store.GetMessagesForEventAsync(late.Id, Ct));
+
+        await _harness.Store.UpdateAttributionAsync(late.Id, new AttributionUpdate { Attribution = Resolved(), Severity = Severity.High }, Ct);
         _harness.Clock.SetUtcNow(NextMorning.AddDays(1));
         await _job.RunOnceAsync(Ct);
 

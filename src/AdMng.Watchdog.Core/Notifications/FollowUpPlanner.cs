@@ -45,7 +45,7 @@ public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
         var rows = new List<PendingNotification>();
         foreach (var message in messages)
         {
-            if (message.Kind != DeliveryKind.Alert || !message.SentWithPendingAttribution || message.Severity < Severity.High)
+            if (!GetsFollowUp(message, configuration))
             {
                 continue;
             }
@@ -66,6 +66,16 @@ public sealed class FollowUpPlanner : IAttributionFollowUpPlanner
         }
 
         return rows;
+    }
+
+    /// <summary>True when <paramref name="message"/> gets a follow-up once the attribution of its events is final: an
+    /// alert sent with the actor pending, severity ≥ High, <c>Notifications.FollowUpWhenAttributed</c> on.</summary>
+    public static bool GetsFollowUp(OutboxMessage message, WatchdogConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        ArgumentNullException.ThrowIfNull(configuration);
+        return configuration.Notifications?.FollowUpWhenAttributed != false
+            && message.Kind == DeliveryKind.Alert && message.SentWithPendingAttribution && message.Severity >= Severity.High;
     }
 
     /// <summary>The target an outbox message was rendered for (detail level from the current configuration).</summary>

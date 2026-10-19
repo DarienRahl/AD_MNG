@@ -83,10 +83,12 @@ public sealed class DigestBuilder
     }
 
     /// <summary>
-    /// The end of a digest generated at <paramref name="now"/>: just before the oldest event the rule evaluation has not
-    /// processed yet when it was detected within <see cref="MaxEvaluationLag"/> – sections list only rule-matched events,
-    /// so such an event is left to the next digest instead of being counted but never listed. Never at or before
-    /// <paramref name="lastPeriodEnd"/>.
+    /// The end of a digest generated at <paramref name="now"/>: just before the oldest event detected within
+    /// <see cref="MaxEvaluationLag"/> that the rule evaluation has not processed yet, or whose attribution is still
+    /// pending – sections list only rule-matched events, and the final attribution can still change severity, tags and
+    /// matched rules (re-evaluation, 11.4 #9). Such an event is left to the next digest, which shows its final state,
+    /// instead of being counted now as it was never to be listed again (e.g. shadow credentials that become High after
+    /// the digest, missing from "Wymaga uwagi"). Never at or before <paramref name="lastPeriodEnd"/>.
     /// </summary>
     public async Task<DateTimeOffset> ResolvePeriodEndAsync(DateTimeOffset now, DateTimeOffset? lastPeriodEnd, CancellationToken cancellationToken)
     {
@@ -95,6 +97,14 @@ public sealed class DigestBuilder
             .Where(e => e.Kind != WatchEventKind.Test && e.DetectedAt <= now && now - e.DetectedAt <= MaxEvaluationLag)
             .Select(e => (DateTimeOffset?)e.DetectedAt)
             .Min();
+        await foreach (var e in _events.GetRangeAsync(now - MaxEvaluationLag, now, cancellationToken).ConfigureAwait(false))
+        {
+            if (e.Kind != WatchEventKind.Test && e.Attribution?.Status == AttributionStatus.Pending && (oldest is null || e.DetectedAt < oldest))
+            {
+                oldest = e.DetectedAt;
+            }
+        }
+
         return oldest is { } end && (lastPeriodEnd is null || end > lastPeriodEnd.Value) ? end : now;
     }
 

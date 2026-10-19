@@ -573,9 +573,13 @@ wszystkich włączonych kanałów Teams/webhook. Przycisk **Podgląd** pokazuje,
 reguła i ile wiadomości by wysłała.
 
 - Shadow Credentials (`msDS-KeyCredentialLink`) na koncie zwykłego użytkownika zapisane przez **inne** konto wywołują
-  alarm reguły „tier0-security” od razu po ustaleniu wykonawcy.
+  alarm reguły „tier0-security” od razu po ustaleniu wykonawcy – także wtedy, gdy własna reguła dla tych samych
+  odbiorców dopasowała zdarzenie wcześniej, ale wyklucza tego wykonawcę.
 - Własne reguły z wymaganymi tagami „reset hasła” (`passwordReset`), „zmiana własna” (`selfChange`) lub „konto
   synchronizacji” (`syncAccount`) działają – te tagi są nadawane po atrybucji, a reguły są wtedy oceniane ponownie.
+- Po ponownej ocenie odbiorcy, którzy dostali już alarm o tym zdarzeniu z co najmniej tym samym priorytetem i z ustalonym
+  wykonawcą (albo dostaną „Uzupełnienie”), nie dostają drugiego alarmu z nowej reguły; wyższy priorytet przychodzi jako
+  nowy alarm. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
 - `SuppressComputerSelfChanges` (domyślnie włączone) działa także przy włączonych `TrackComputerPasswordChanges` lub
   `TrackComputerOsChanges`: rutynowe zmiany, które komputer wprowadza sam w sobie (rotacja hasła, wersja systemu), nie
   pasują do żadnej reguły, ale pozostają na liście zdarzeń.
@@ -713,7 +717,8 @@ piątkowy raport wysłano z opóźnieniem po przerwie w pracy usługi). „Wyśl
 nie obejmuje ponownie weekendu.
 
 Okres raportu może kończyć się kilka sekund lub minut przed godziną wysłania, gdy jakieś zdarzenie nie przeszło
-jeszcze oceny reguł – trafi ono do następnego raportu (nic nie ginie i nic nie jest liczone dwa razy). Raport
+jeszcze oceny reguł albo czeka jeszcze na ustalenie wykonawcy – trafi ono do następnego raportu, już z ostatecznym
+priorytetem i wykonawcą (nic nie ginie i nic nie jest liczone dwa razy). Raport
 przerwany zatrzymaniem usługi jest kończony po jej starcie i nie jest wysyłany drugi raz; restart usługi krótko po
 wysłaniu raportu nie powoduje ponownej wysyłki.
 
@@ -790,7 +795,9 @@ filtry.
   niezapisanej konfiguracji pyta: „Konfiguracja Watchdog ma niezapisane zmiany (także wpisane hasła i sekrety).
   Odrzucić je?”. Odpowiedź „Nie” pozostawia zakładkę i okno otwarte, a zakładka zostaje wybrana.
 - **Lista zdarzeń**: „ustalanie…” jest zastępowane automatycznie (w wierszu i w panelu szczegółów) około 30 s po
-  ustaleniu wykonawcy, dopóki zakładka jest widoczna. Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
+  ustaleniu wykonawcy, dopóki zakładka jest widoczna. Przy filtrze po tym, co usługa uzupełnia po zapisaniu zdarzenia
+  (priorytet, tagi, status atrybucji, wykonawca, reguła, tekst), zdarzenie, które zaczyna pasować dopiero po atrybucji,
+  pojawia się na liście na swoim miejscu w ciągu około 30 s. Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
   jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”.
 
 | Podzakładka | Zawartość |

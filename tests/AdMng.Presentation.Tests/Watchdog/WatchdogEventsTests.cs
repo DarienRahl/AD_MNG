@@ -152,7 +152,7 @@ public sealed class WatchdogEventsTests
             var shown = feed.Items.Count;
             Assert.All(feed.Items, r => Assert.True(r.Severity >= Severity.High));
 
-            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries[^1] is { After: not null, MinSeverity: Severity.High }, "the filtered long-poll");
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { MinSeverity: Severity.High }, "the filtered long-poll");
 
             h.Client.AddEvent(SampleEvents.NewUser("Filip Niski", h.Time.GetUtcNow(), Severity.Low));
             h.Client.AddEvent(SampleEvents.NewUser("Gerard Wysoki", h.Time.GetUtcNow(), Severity.Critical));
@@ -160,6 +160,38 @@ public sealed class WatchdogEventsTests
 
             Assert.Equal("Gerard Wysoki", feed.Items[0].ObjectName);
             Assert.DoesNotContain(feed.Items, r => r.ObjectName == "Filip Niski");
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveFeed_FilteredByWhatTheServiceFillsInLater_ShowsAnEventOnceItMatches()
+    {
+        // The service stores an event with the actor pending and evaluates/attributes it afterwards (same id): with a filter
+        // on the actor the live long-poll skips it, so the status round must pick it up once it matches.
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            var resolved = h.Client.Events.Single(e => e.Id == SampleEvents.PrivilegeGrantedId).Attribution;
+            feed.Filter.ActorSid = resolved.Actor!.Sid;
+            await feed.Loading;
+            var shown = feed.Items.Select(r => r.Id).ToList();
+            Assert.NotEmpty(shown);
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { ActorSid: not null }, "the filtered long-poll");
+
+            var added = h.Client.AddEvent(SampleEvents.NewUser("Zenon Łęcki", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { After: { } after } && after >= added.Id, "the cursor past the pending event");
+            Assert.DoesNotContain(feed.Items, r => r.Id == added.Id);
+
+            h.Client.UpdateEvent(added.Id, e => e with { Attribution = resolved });
+            h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Any(r => r.Id == added.Id), "the late match");
+
+            Assert.Equal(added.Id, feed.Items[0].Id);
+            Assert.Equal(@"CONTOSO\jan.kowalski", feed.Items[0].ActorText);
+            Assert.Equal([added.Id, .. shown], feed.Items.Select(r => r.Id));
         });
         h.AssertNoUiErrors();
     }

@@ -33,6 +33,15 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>Most rows with a pending attribution read again per status round (newest first).</summary>
     public const int PendingRefreshLimit = 20;
 
+    /// <summary>Most events of the late-match page read per status round (<see cref="MergeLateMatchesAsync"/>).</summary>
+    public const int LateMatchLimit = 50;
+
+    /// <summary>
+    /// How far back an event can still start to match a filter (detection time): the service evaluates an event at once
+    /// and attributes it within the attribution retries (30 min by default); older events are final.
+    /// </summary>
+    public static readonly TimeSpan LateMatchWindow = TimeSpan.FromHours(2);
+
     private readonly WatchdogServices _services;
     private readonly WatchdogPoller _poller;
     private readonly SerialCancellation _loads = new();
@@ -469,7 +478,8 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
     /// <summary>
     /// Every status round of the visible tab: events still waiting for attribution are read again (the attribution engine
     /// fills in actor and source by updating the stored event, the live feed only fetches new ids), so "ustalanie…" is
-    /// replaced without a reload – in the row and in the details pane.
+    /// replaced without a reload – in the row and in the details pane; and events that match the filter only since then
+    /// are inserted (<see cref="MergeLateMatchesAsync"/>).
     /// </summary>
     private void OnStatusReceived(object? sender, StatusDto status)
     {
@@ -478,40 +488,16 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             return;
         }
 
-        RefreshPendingAttributionAsync().Forget();
+        RefreshLateChangesAsync().Forget();
     }
 
-    private async Task RefreshPendingAttributionAsync()
+    private async Task RefreshLateChangesAsync()
     {
-        var pending = Items.Where(r => r.IsActorPending).Take(PendingRefreshLimit).Select(r => r.Id).ToList();
-        if (pending.Count == 0)
-        {
-            return;
-        }
-
         _refreshingPending = true;
         try
         {
-            foreach (var id in pending)
-            {
-                var details = await _services.Client.GetEventAsync(id, _lifetime.Token).ConfigureAwait(true);
-                if (_disposed)
-                {
-                    return;
-                }
-
-                if (details.Event.Attribution?.Status is AttributionStatus.Pending)
-                {
-                    continue;
-                }
-
-                if (Items.FirstOrDefault(r => r.Id == id) is { } row)
-                {
-                    row.Update(details.Event);
-                }
-
-                Details.UpdateEvent(details.Event);
-            }
+            await RefreshPendingAttributionAsync().ConfigureAwait(true);
+            await MergeLateMatchesAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -523,6 +509,91 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
             _refreshingPending = false;
         }
     }
+
+    private async Task RefreshPendingAttributionAsync()
+    {
+        var pending = Items.Where(r => r.IsActorPending).Take(PendingRefreshLimit).Select(r => r.Id).ToList();
+        foreach (var id in pending)
+        {
+            var details = await _services.Client.GetEventAsync(id, _lifetime.Token).ConfigureAwait(true);
+            if (_disposed)
+            {
+                return;
+            }
+
+            if (details.Event.Attribution?.Status is AttributionStatus.Pending)
+            {
+                continue;
+            }
+
+            if (Items.FirstOrDefault(r => r.Id == id) is { } row)
+            {
+                row.Update(details.Event);
+            }
+
+            Details.UpdateEvent(details.Event);
+        }
+    }
+
+    /// <summary>
+    /// The service fills in severity and tags (attribution, re-evaluation), the attribution status and actor (and with
+    /// them the text on actor, workstation and IP) and the matched rules after it stored an event under its id. With a
+    /// filter on any of them the live long-poll skips an event that matches only later – its id is behind the cursor – so
+    /// the newest events of the filter detected within <see cref="LateMatchWindow"/> are read again and such events are
+    /// inserted at their place (descending ids) within the loaded range. Not while a reload or "Wczytaj starsze" runs
+    /// (they own the list).
+    /// </summary>
+    private async Task MergeLateMatchesAsync()
+    {
+        var query = _liveQuery;
+        var since = _services.Time.GetUtcNow() - LateMatchWindow;
+        if (!MatchesLate(query) || IsLoading || _disposed || query.To < since)
+        {
+            return;
+        }
+
+        var recent = query with { Limit = LateMatchLimit, From = query.From > since ? query.From : since };
+        var page = await _services.Client.GetEventsAsync(recent, _lifetime.Token).ConfigureAwait(true);
+        if (_disposed || IsLoading || _poller.Cursor is null || !ReferenceEquals(query, _liveQuery))
+        {
+            return;
+        }
+
+        var known = Items.Select(r => r.Id).ToHashSet();
+        long? oldest = Items.Count == 0 ? null : Items[^1].Id;
+        var late = page.Items.Where(e => !known.Contains(e.Id) && (oldest is null || e.Id > oldest)).OrderByDescending(e => e.Id).ToList();
+        if (late.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var watchEvent in late)
+        {
+            var row = CreateRow(watchEvent);
+            row.IsNew = IsScrolledAway;
+            var index = 0;
+            while (index < Items.Count && Items[index].Id > watchEvent.Id)
+            {
+                index++;
+            }
+
+            Items.Insert(index, row);
+        }
+
+        if (IsScrolledAway)
+        {
+            NewCount += late.Count;
+        }
+
+        UpdateStatus();
+        ExportCsvCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
+    /// <summary>True when <paramref name="query"/> filters on something the service fills in after storing the event.</summary>
+    private static bool MatchesLate(EventQuery query) =>
+        query.MinSeverity is not null || query.Tags.Count > 0 || query.AttributionStatuses.Count > 0 || query.ActorSid is not null
+        || query.RuleId is not null || !string.IsNullOrWhiteSpace(query.Text);
 
     private void OnFilterChanged(object? sender, EventArgs e) => LoadAsync().Forget();
 
