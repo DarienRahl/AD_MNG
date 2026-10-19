@@ -151,6 +151,12 @@ internal static class SmokeTest
         var chooser = windows.CreateWindow(new ColumnChooserViewModel(localizer, null, ColumnSets.Search, ColumnSets.Container));
         UiTestSupport.ShowOffScreen(chooser);
 
+        // Logon Hours: a sample schedule (no directory involved), editable and read-only.
+        var office = Core.ActiveDirectory.LogonHours.FromLocalGrid(
+            Core.ActiveDirectory.LogonHoursGrid.Create((day, hour) => day is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && hour is >= 8 and < 16), 0);
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new LogonHoursViewModel(localizer, office, TimeZoneInfo.Local, DateTimeOffset.UtcNow, "Jan Kowalski")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new LogonHoursViewModel(localizer, null, TimeZoneInfo.Local, DateTimeOffset.UtcNow, null, localizer[L.Fields.ReadOnlyPermission])));
+
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
