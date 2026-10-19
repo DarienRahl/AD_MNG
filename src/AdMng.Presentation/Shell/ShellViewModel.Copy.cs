@@ -84,7 +84,7 @@ public sealed partial class ShellViewModel
 
     private bool CanCopyAs(CopyFormat format)
     {
-        if (CurrentSelection.Count == 0)
+        if (!HasCopySelection())
         {
             return false;
         }
@@ -104,11 +104,11 @@ public sealed partial class ShellViewModel
     }
 
     /// <summary>Ctrl+C: the selected rows with the visible columns as tab-separated text (Excel, Teams, tickets).</summary>
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    [RelayCommand(CanExecute = nameof(HasCopySelection))]
     private Task CopyRowsAsync() => CopySelectedRowsAsync(includeHeaders: false);
 
     /// <summary>The selected rows with the column headers as the first line.</summary>
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    [RelayCommand(CanExecute = nameof(HasCopySelection))]
     private Task CopyRowsWithHeadersAsync() => CopySelectedRowsAsync(includeHeaders: true);
 
     /// <summary>A copy button of the details pane: the line's value, confirmed with its label.</summary>
@@ -168,6 +168,13 @@ public sealed partial class ShellViewModel
             leftOut is null ? NotificationSeverity.Info : NotificationSeverity.Warning,
             leftOut is null ? message : $"{message} {leftOut}");
     }
+
+    /// <summary>
+    /// Something is selected - without copying the selection (the menu items of every copy format ask on each selection
+    /// change, and a list may have tens of thousands of rows selected).
+    /// </summary>
+    private bool HasCopySelection() =>
+        SelectedDocument is { } document && (document.SelectedItems is { Count: > 0 } || document.SelectedItem is not null);
 
     /// <summary>The selection in the list's order (the view's selection is in click order).</summary>
     private List<ObjectRowViewModel> OrderedSelection()
