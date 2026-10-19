@@ -590,7 +590,8 @@ reguła i ile wiadomości by wysłała.
   nowy alarm. W alarmie zbiorczym liczy się priorytet, z jakim pokazano **to** zdarzenie, a nie najwyższy priorytet całej
   wiadomości – zdarzenie pokazane jako średnie w zbiorczym alarmie „wysokim” dostanie osobny alarm, gdy stanie się
   wysokie. Usługa sprawdza to jeszcze raz tuż przed wysłaniem, więc alarm wysłany w tej samej chwili co ponowna ocena
-  nie zostanie powtórzony. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
+  nie zostanie powtórzony, a przejęcie powiadomienia przez regułę „tier0-security” nie przepadnie, gdy wstrzymane
+  powiadomienie jest akurat wysyłane. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
 - **Priorytet własny a priorytet wyświetlany**: priorytet ustawiony w regule podnosi priorytet zdarzenia widoczny na
   liście, w raporcie dziennym i w licznikach, ale nie wpływa na dopasowanie innych reguł – „minimalny priorytet” każdej
   reguły jest porównywany z własnym priorytetem zdarzenia (wykrycie, tagi, atrybucja), także przy ponownej ocenie po

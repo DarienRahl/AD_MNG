@@ -4,6 +4,7 @@ using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Rules;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Watchdog.Core.Notifications;
@@ -17,7 +18,10 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// any more are dropped. Every other (non-follow-up) item whose rule's delivery hours ended while it waited (aggregation
 /// window, throttling) or that left the configuration is re-planned the same way – dropped when no rule delivers now (the
 /// digest reports it). A re-planned item led by another rule moves to that rule's bucket and is flushed in a second pass
-/// of the same run. A row whose event already has an alert for the target
+/// of the same run. A run is one evaluation section (<see cref="RuleEngine.EnterEvaluationAsync"/>, shared with the rules
+/// job and the attribution engine's re-evaluation and attribution update): a row is never completed with a treatment, or
+/// an event state, read before a re-plan of that event was stored – the re-plan happens before the run reads it or after
+/// the row was completed (then the alert's coverage decides). A row whose event already has an alert for the target
 /// that covers it (<see cref="AlertCoverage"/>, per event) is dropped right before the bucket is completed – this job is
 /// the only writer of alerts, so a row planned while that alert was being completed never becomes a second one; every
 /// alert records how it showed each event (<see cref="OutboxMessage.EventStates"/>). A bucket whose rule reached its hourly cap on the
@@ -41,6 +45,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     private readonly IWatchdogConfigProvider _configProvider;
     private readonly IHeldNotificationMatcher _matcher;
     private readonly NotificationPlanner _planner;
+    private readonly RuleEngine _ruleEngine;
     private readonly ThrottlePolicy _throttle;
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
@@ -48,8 +53,8 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     private readonly FollowUpPlanner _followUps;
 
     public NotificationDispatchJob(INotificationQueueStore queue, IEventStore events, IOutboxStore outbox, IWatchdogConfigProvider configProvider,
-        IHeldNotificationMatcher matcher, NotificationPlanner planner, RolloutGate rollout, ThrottlePolicy throttle, IWatchdogSignals signals,
-        TimeProvider timeProvider, ILogger<NotificationDispatchJob> logger)
+        IHeldNotificationMatcher matcher, NotificationPlanner planner, RuleEngine ruleEngine, RolloutGate rollout, ThrottlePolicy throttle,
+        IWatchdogSignals signals, TimeProvider timeProvider, ILogger<NotificationDispatchJob> logger)
     {
         // Rollout mode is applied by the planner's re-plan (PlanTargetAsync); the gate stays a dependency of the job.
         ArgumentNullException.ThrowIfNull(queue);
@@ -58,6 +63,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         ArgumentNullException.ThrowIfNull(configProvider);
         ArgumentNullException.ThrowIfNull(matcher);
         ArgumentNullException.ThrowIfNull(planner);
+        ArgumentNullException.ThrowIfNull(ruleEngine);
         ArgumentNullException.ThrowIfNull(rollout);
         ArgumentNullException.ThrowIfNull(throttle);
         ArgumentNullException.ThrowIfNull(signals);
@@ -69,6 +75,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         _configProvider = configProvider;
         _matcher = matcher;
         _planner = planner;
+        _ruleEngine = ruleEngine;
         _throttle = throttle;
         _signals = signals;
         _timeProvider = timeProvider;
@@ -90,6 +97,10 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     {
         try
         {
+            // The attribution engine re-plans an event's waiting rows and stores its final attribution inside this section
+            // (11.4 #9): without it a row it re-planned for a stronger rule could be completed with the treatment this run
+            // read before – and the re-planned row deleted with it.
+            using var section = await _ruleEngine.EnterEvaluationAsync(cancellationToken).ConfigureAwait(false);
             var now = _timeProvider.GetUtcNow();
             var configuration = _configProvider.Current.Configuration;
             var nextWake = now + DefaultInterval;
@@ -198,9 +209,10 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
             }
         }
 
-        // One alert per event and target (13.2 #1): a row planned while an earlier alert of its event was being completed
-        // (the re-evaluation after attribution, the second planning of a configuration change) is a repeat when that alert
-        // covers it. This job is the only writer of alerts and completes one bucket at a time, so the check cannot race.
+        // One alert per event and target (13.2 #1): a row planned after an earlier alert of its event was completed (the
+        // re-evaluation of an attribution that was stored after this job flushed the earlier row, the second planning of a
+        // configuration change) is a repeat when that alert covers it. This job is the only writer of alerts and completes
+        // one bucket at a time, so the check cannot race.
         foreach (var (item, _) in ready.Where(r => !r.Item.IsFollowUp).ToList())
         {
             if (await AlertCoverage.IsCoveredAsync(_outbox, item.EventId, item.Target.Key, item.Severity, configuration, cancellationToken).ConfigureAwait(false))

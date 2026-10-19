@@ -111,9 +111,11 @@ public sealed class RuleEngine
     /// <summary>
     /// Enters the section in which an event's stored evaluation is read, matched, planned and committed (13.1, 11.4 #9);
     /// dispose the result to leave it. The rules job holds it from reading the unevaluated events until their evaluations
-    /// are committed, the attribution engine for the re-evaluation and the attribution update of one event. Both jobs wake
-    /// on EventsStored: without the section the rules job could commit a match made with the pending attribution after
-    /// the engine had stored the final one (stale severity and matched rules, a rule planned twice).
+    /// are committed, the attribution engine for the re-evaluation and the attribution update of one event, the dispatch
+    /// job for a run (read → re-plan → complete). Both evaluating jobs wake on EventsStored: without the section the rules
+    /// job could commit a match made with the pending attribution after the engine had stored the final one (stale
+    /// severity and matched rules, a rule planned twice); and the dispatch job could complete a row with the treatment it
+    /// read just before the re-evaluation re-planned that row for a stronger rule.
     /// </summary>
     public async Task<IDisposable> EnterEvaluationAsync(CancellationToken cancellationToken)
     {

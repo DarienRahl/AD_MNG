@@ -346,7 +346,7 @@ public sealed class NotificationDispatchJobTests
             plannedByTheAttributionEngine = rows.Count;
             await harness.Store.AddAsync(rows, Ct);
         });
-        var dispatch = new NotificationDispatchJob(racing, harness.Store, harness.Store, harness.Config, harness.Matcher, harness.Planner, harness.Rollout,
+        var dispatch = new NotificationDispatchJob(racing, harness.Store, harness.Store, harness.Config, harness.Matcher, harness.Planner, harness.Rules, harness.Rollout,
             new ThrottlePolicy(harness.Store), harness.Signals, harness.Clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<NotificationDispatchJob>.Instance);
 
         await dispatch.RunOnceAsync(Ct);
@@ -469,6 +469,32 @@ public sealed class NotificationDispatchJobTests
         var alert = Assert.Single(await harness.MessagesAsync(e));
         Assert.Equal(("opisy-kont", Severity.Medium), (alert.RuleId, alert.Severity));
         Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ReleasedRow_IsRenderedWithTheOwnSeverity_NotWithAnotherRulesOverride()
+    {
+        // 12.1: a review rule (digest only) raises description changes to High – the evaluated, displayed severity. The
+        // held row of opisy-kont (no override) was planned with the event's own Medium; released with the actor, its
+        // re-match must give the same notification severity as the rules job did, not the review rule's High.
+        var review = Rule("przeglad-opisow", "Opisy kont – przegląd", immediate: false) with { Severity = Severity.High };
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(review, descriptions));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, EventAttribution.Pending),
+            new PlannedMatch(review, Severity.High), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal(("opisy-kont", Severity.Medium), (Assert.Single(planned).RuleId, planned[0].Severity));
+        await harness.Store.CommitEvaluationAsync(
+            [new EventEvaluation { EventId = e.Id, Severity = Severity.High, MatchedRules = [review.Id, descriptions.Id] }], [], Ct);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        var stored = (await harness.Store.GetAsync(e.Id, Ct))!;
+        Assert.Equal((Severity.Medium, Severity.High), (stored.OwnSeverity, stored.Severity));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal(("opisy-kont", Severity.Medium), (alert.RuleId, alert.Severity));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.Medium, false)], alert.EventStates);
     }
 
     [Fact]

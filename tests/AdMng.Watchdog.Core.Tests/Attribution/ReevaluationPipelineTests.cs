@@ -469,11 +469,11 @@ public sealed class ReevaluationPipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task ADispatchCompletingTheEarlierAlertWhileTheReevaluationStores_DoesNotCauseADuplicate()
+    public async Task ADispatchRunningWhileTheReevaluationStores_WaitsForIt_AndSendsOneAlertWithTheFinalState()
     {
         // privileged-accounts is due (the grace ended with the actor pending) at the very moment the re-evaluation stores the
-        // row of resety-hasel for the same recipients: the dispatch completes the earlier alert first. The recipients get it
-        // with the follow-up – never a second alert.
+        // row of resety-hasel for the same recipients. The dispatch run waits for the re-evaluation and the attribution
+        // update (one evaluation section) and sends one alert with the actor – never a second alert.
         using var p = new Pipeline(racing: true);
         p.Config.Set(Pipeline.Configuration(ResetsRule()));
         var e = await p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
@@ -484,20 +484,112 @@ public sealed class ReevaluationPipelineTests : IDisposable
         await p.RulesJob.RunOnceAsync(Ct);
         p.Time.Advance(TimeSpan.FromSeconds(91));
         p.SecurityStore.Add(Account(4724, T, Admin));
-        p.Racing.BeforeWrite = () => p.DispatchAsync(TimeSpan.Zero);
+        Task? dispatch = null;
+        p.Racing.BeforeWrite = async () =>
+        {
+            dispatch = Task.Run(() => p.DispatchAsync(TimeSpan.Zero), Ct);
+            await Task.WhenAny(dispatch, Task.Delay(TimeSpan.FromMilliseconds(500), Ct));
+        };
 
         await p.Engine.RunOnceAsync(Ct);
         Assert.Null(p.Racing.BeforeWrite);
+        Assert.NotNull(dispatch);
+        await dispatch;
         var first = Assert.Single(await p.Store.GetMessagesForEventAsync(e.Id, Ct));
-        Assert.Equal((DefaultRules.PrivilegedAccounts, true), (first.RuleId, first.SentWithPendingAttribution));
+        Assert.Equal((DeliveryKind.Alert, DefaultRules.PrivilegedAccounts, false), (first.Kind, first.RuleId, first.SentWithPendingAttribution));
         await p.Store.LeaseDueAsync(p.Time.GetUtcNow(), 10, TimeSpan.FromMinutes(1), Ct);
         await p.Store.MarkSentAsync(first.Id, p.Time.GetUtcNow(), Ct);
         await p.DispatchAsync();
         await p.DispatchAsync(TimeSpan.FromMinutes(6));
 
         Assert.Contains("resety-hasel", (await p.Store.GetAsync(e.Id, Ct))!.MatchedRules);
+        Assert.Single(await p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AReevaluationWhileTheDispatchCompletesTheHeldRow_DoesNotLoseTheStrongerTreatment()
+    {
+        // konta-vip (Low) holds the it-admins row; its window ends and the dispatch releases it at the very moment the actor
+        // becomes known – the re-evaluation re-plans that row for tier0-security (High) while the dispatch is completing it
+        // with konta-vip's treatment. The recipients must still learn that the shadow credentials are High.
+        using var p = new Pipeline(hookedDispatch: true);
+        p.Config.Set(Pipeline.Configuration(LoweringRule()));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        Assert.Equal("konta-vip", Assert.Single(await p.Store.GetAllAsync(Ct)).RuleId);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        Task<JobResult>? engine = null;
+        p.DispatchQueue.BeforeComplete = async () =>
+        {
+            // The attribution job runs concurrently; it may have to wait for the dispatch.
+            engine = Task.Run(() => p.Engine.RunOnceAsync(Ct), Ct);
+            await Task.WhenAny(engine, Task.Delay(TimeSpan.FromMilliseconds(500), Ct));
+        };
+
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        Assert.NotNull(engine);
+        Assert.False((await engine).Failed);
+        await p.DispatchAsync();
+        await p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var alerts = (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).Where(m => m.Kind == DeliveryKind.Alert).OrderBy(m => m.Id).ToList();
+        var last = alerts[^1];
+        Assert.Equal((DefaultRules.Tier0Security, Severity.High, false), (last.RuleId, last.Severity, last.SentWithPendingAttribution));
+        Assert.Equal([Mailbox], last.Recipients);
+        Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    [Theory]
+    [InlineData("commit", false)]
+    [InlineData("commit", true)]
+    [InlineData("update", false)]
+    [InlineData("update", true)]
+    public async Task APassInterruptedAfterTheTakeover_AndARestart_AlertOnceUnderTheRuleThatTookOver(string failingWrite, bool dispatchInBetween)
+    {
+        // tier0-security takes over the held row of konta-vip, then the pass fails (before or after it stored the
+        // evaluation, always before the attribution) and the service restarts – possibly after a dispatch sent the taken-over
+        // row with the actor still pending. Repeated cycles afterwards: one tier0-security alert (with its follow-up when it
+        // went out before the actor was stored), never konta-vip's Low alert, never a second alert.
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(Pipeline.Configuration(LoweringRule()));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        p.Racing.FailingWrite = failingWrite;
+
+        Assert.True((await p.Engine.RunOnceAsync(Ct)).Failed);
+        Assert.Equal(AttributionStatus.Pending, (await p.Store.GetAsync(e.Id, Ct))!.Attribution.Status);
+        Assert.Equal((DefaultRules.Tier0Security, Severity.High), (Assert.Single(await p.Store.GetAllAsync(Ct)).RuleId, (await p.Store.GetAllAsync(Ct))[0].Severity));
+        if (dispatchInBetween)
+        {
+            await p.DispatchAsync();
+        }
+
+        p.Racing.FailingWrite = null;
+        p.Restart();
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            p.Time.Advance(TimeSpan.FromSeconds(30));
+            Assert.False((await p.Engine.RunOnceAsync(Ct)).Failed);
+            await p.RulesJob.RunOnceAsync(Ct);
+            await p.DispatchAsync();
+            foreach (var message in await p.Store.GetMessagesForEventAsync(e.Id, Ct))
+            {
+                await p.Store.LeaseDueAsync(p.Time.GetUtcNow(), 10, TimeSpan.FromMinutes(1), Ct);
+                await p.Store.MarkSentAsync(message.Id, p.Time.GetUtcNow(), Ct);
+            }
+
+            await p.DispatchAsync(TimeSpan.FromMinutes(2));
+        }
+
+        var stored = (await p.Store.GetAsync(e.Id, Ct))!;
+        Assert.Equal((AttributionStatus.Resolved, Severity.High), (stored.Attribution.Status, stored.Severity));
+        Assert.Equal(1, stored.MatchedRules.Count(r => r == DefaultRules.Tier0Security));
         var messages = (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
-        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], messages.Select(m => m.Kind));
+        Assert.Equal(dispatchInBetween ? [DeliveryKind.Alert, DeliveryKind.FollowUp] : [DeliveryKind.Alert], messages.Select(m => m.Kind));
+        Assert.Equal((DefaultRules.Tier0Security, Severity.High, dispatchInBetween), (messages[0].RuleId, messages[0].Severity, messages[0].SentWithPendingAttribution));
+        Assert.All(messages, m => Assert.Equal([Mailbox], m.Recipients));
         Assert.Empty(await p.Store.GetAllAsync(Ct));
     }
 
@@ -521,13 +613,32 @@ public sealed class ReevaluationPipelineTests : IDisposable
     {
         /// <param name="racing">The attribution engine writes through <see cref="Racing"/> (a hook runs right before its
         /// first write of pending rows).</param>
-        public Pipeline(bool racing = false)
+        /// <param name="hookedDispatch">The dispatch job uses <see cref="DispatchQueue"/> (a hook runs right before it
+        /// completes a bucket).</param>
+        public Pipeline(bool racing = false, bool hookedDispatch = false)
         {
             Store = new InMemoryWatchdogStore(Time);
             Racing = new RacingStore(Store);
+            DispatchQueue = new HookedQueue(Store);
             Config = new FakeConfigProvider(Configuration());
             Tracker = new DcLogHealthTracker(Time);
             Gate = new SourceQueryGate(Tracker, Time);
+            _racing = racing;
+            _hookedDispatch = hookedDispatch;
+            Start();
+        }
+
+        private readonly bool _racing;
+        private readonly bool _hookedDispatch;
+
+        /// <summary>A service restart: new jobs, rule engine, planner and throttle over the same store, configuration and
+        /// Security log (nothing kept in memory survives).</summary>
+        public void Restart() => Start();
+
+        private void Start()
+        {
+            var racing = _racing;
+            var hookedDispatch = _hookedDispatch;
             var actors = new ActorResolver(new FakeDetectionStore(), new FakeSyncAccounts(SyncSid));
             var processor = new PendingAttributionProcessor(
                 new AttributionCorrelator(SecurityStore),
@@ -566,9 +677,12 @@ public sealed class ReevaluationPipelineTests : IDisposable
                 [Planner],
                 Time,
                 NullLogger<AttributionEngine>.Instance);
-            Dispatch = new NotificationDispatchJob(Store, Store, Store, Config, new RuleEngineHeldMatcher(Rules), Planner, rollout, new ThrottlePolicy(Store),
-                Signals, Time, NullLogger<NotificationDispatchJob>.Instance);
+            Dispatch = new NotificationDispatchJob(hookedDispatch ? DispatchQueue : Store, Store, Store, Config, new RuleEngineHeldMatcher(Rules), Planner, Rules,
+                rollout, new ThrottlePolicy(Store), Signals, Time, NullLogger<NotificationDispatchJob>.Instance);
         }
+
+        /// <summary>The dispatch job's queue in a pipeline with a hooked dispatch.</summary>
+        public HookedQueue DispatchQueue { get; }
 
         public FakeTimeProvider Time { get; } = new(Now);
 
@@ -593,15 +707,15 @@ public sealed class ReevaluationPipelineTests : IDisposable
 
         public SourceQueryGate Gate { get; }
 
-        public RuleEngine Rules { get; }
+        public RuleEngine Rules { get; private set; } = null!;
 
-        public NotificationPlanner Planner { get; }
+        public NotificationPlanner Planner { get; private set; } = null!;
 
-        public RuleEvaluationJob RulesJob { get; }
+        public RuleEvaluationJob RulesJob { get; private set; } = null!;
 
-        public AttributionEngine Engine { get; }
+        public AttributionEngine Engine { get; private set; } = null!;
 
-        public NotificationDispatchJob Dispatch { get; }
+        public NotificationDispatchJob Dispatch { get; private set; } = null!;
 
         /// <summary>The default document with SMTP, the it-admins mailbox, rollout ended and <paramref name="extra"/> rules.</summary>
         public static WatchdogConfiguration Configuration(params RuleSettings[] extra)
@@ -640,11 +754,15 @@ public sealed class ReevaluationPipelineTests : IDisposable
 
     /// <summary>
     /// The engine's view of the store: delegates everything to the in-memory store and runs <see cref="BeforeWrite"/> once,
-    /// right before the first write that stores pending rows – a dispatch job running at that instant.
+    /// right before the first write that stores pending rows – a dispatch job starting at that instant.
     /// </summary>
     private sealed class RacingStore(InMemoryWatchdogStore inner) : IEventStore, INotificationQueueStore
     {
         public Func<Task>? BeforeWrite { get; set; }
+
+        /// <summary>The write that fails (a store error, the service stopping): "commit" (the evaluation of the
+        /// re-evaluation) or "update" (the attribution update); null = none.</summary>
+        public string? FailingWrite { get; set; }
 
         public async Task CommitEvaluationAsync(IReadOnlyList<EventEvaluation> evaluations, IReadOnlyList<PendingNotification> notifications,
             CancellationToken cancellationToken)
@@ -654,6 +772,7 @@ public sealed class ReevaluationPipelineTests : IDisposable
                 await RaceAsync();
             }
 
+            ThrowIfFailing("commit");
             await inner.CommitEvaluationAsync(evaluations, notifications, cancellationToken);
         }
 
@@ -677,8 +796,11 @@ public sealed class ReevaluationPipelineTests : IDisposable
         public Task<IReadOnlyList<WatchEvent>> GetPendingAttributionAsync(DateTimeOffset dueBefore, int limit, CancellationToken cancellationToken) =>
             inner.GetPendingAttributionAsync(dueBefore, limit, cancellationToken);
 
-        public Task UpdateAttributionAsync(long id, AttributionUpdate update, CancellationToken cancellationToken) =>
-            inner.UpdateAttributionAsync(id, update, cancellationToken);
+        public Task UpdateAttributionAsync(long id, AttributionUpdate update, CancellationToken cancellationToken)
+        {
+            ThrowIfFailing("update");
+            return inner.UpdateAttributionAsync(id, update, cancellationToken);
+        }
 
         public Task<IReadOnlyList<WatchEvent>> GetUnevaluatedAsync(int limit, CancellationToken cancellationToken) => inner.GetUnevaluatedAsync(limit, cancellationToken);
 
@@ -717,6 +839,14 @@ public sealed class ReevaluationPipelineTests : IDisposable
             await inner.ReplanAsync(notifications, insertMissing, cancellationToken);
         }
 
+        private void ThrowIfFailing(string write)
+        {
+            if (string.Equals(FailingWrite, write, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("SQLite Error 5: database is locked");
+            }
+        }
+
         private async Task RaceAsync()
         {
             if (BeforeWrite is { } race)
@@ -725,6 +855,35 @@ public sealed class ReevaluationPipelineTests : IDisposable
                 await race();
             }
         }
+    }
+
+    /// <summary>The dispatch job's view of the queue: runs <see cref="BeforeComplete"/> once, right before it completes a bucket.</summary>
+    private sealed class HookedQueue(InMemoryWatchdogStore inner) : INotificationQueueStore
+    {
+        public Func<Task>? BeforeComplete { get; set; }
+
+        public Task<IReadOnlyList<PendingNotification>> GetAllAsync(CancellationToken cancellationToken) => inner.GetAllAsync(cancellationToken);
+
+        public Task AddAsync(IReadOnlyList<PendingNotification> notifications, CancellationToken cancellationToken) => inner.AddAsync(notifications, cancellationToken);
+
+        public async Task CompleteAsync(IReadOnlyList<long> pendingIds, OutboxMessage? message, CancellationToken cancellationToken)
+        {
+            if (BeforeComplete is { } hook)
+            {
+                BeforeComplete = null;
+                await hook();
+            }
+
+            await inner.CompleteAsync(pendingIds, message, cancellationToken);
+        }
+
+        public Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken) => inner.DropAsync(pendingIds, cancellationToken);
+
+        public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
+            inner.RescheduleAsync(pendingIds, dueAt, cancellationToken);
+
+        public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken) =>
+            inner.ReplanAsync(notifications, insertMissing, cancellationToken);
     }
 
     /// <summary>Records signals and lets a test look at the store at the moment one is raised.</summary>
