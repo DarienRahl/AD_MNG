@@ -18,3 +18,7 @@ stanu; operator może zmienić DC („Zmień kontroler domeny…” jak w ADUC).
 
 - Spójny obraz „zapisz → odśwież”.
 - Przy awarii DC sesja zgłasza błąd i proponuje ponowne połączenie (bez cichego przełączania na inny DC).
+- „Zmień kontroler domeny…” (faza 1, październik 2026) nie przełącza istniejącej sesji: otwiera nową sesję na wybranym
+  DC z poświadczeniem bieżącej i zastępuje ją dopiero po sprawdzeniu (ta sama domena, inny DC). Okna otwarte wcześniej
+  zostają przy poprzedniej sesji i nie zapisują – reguła „jedna sesja = jeden DC” obowiązuje bez wyjątków
+  ([dev/phase1-changedc.md](../dev/phase1-changedc.md)).

@@ -54,7 +54,13 @@ testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tyl
   `ISessionManager.SwitchDomainControllerAsync` sprawdza ją (ta sama domena, inny DC) i dopiero wtedy zastępuje
   bieżącą i zamyka poprzednią. Błąd lub anulowanie zostawia bieżącą sesję bez zmian. Okna otwarte w poprzedniej sesji
   zostają przy niej (nie czytają i nie zapisują) i informują, że należą do poprzedniego DC; karty głównego okna
-  przeładowują się z nowego DC, a dziennik sesji zapisuje zmianę.
+  przeładowują się z nowego DC, a dziennik sesji zapisuje zmianę. Lista DC łączy odczyt z katalogu bieżącej sesji
+  (`server`/`nTDSDSA` w `CN=Sites`, `fSMORoleOwner`) z lokatorem (DsGetDcName/DNS SRV, lokacja klienta)
+  ([dev/phase1-changedc.md](dev/phase1-changedc.md)).
+- Kontenery dobrze znane (`wellKnownObjects`/`otherWellKnownObjects` głowy domeny) czyta
+  `ISessionManager.GetWellKnownObjectsAsync` raz na sesję i trzyma w pamięci (`WellKnownObjectMap`); nowa sesja – także
+  po zmianie DC – czyta je ponownie. Nieczytelny atrybut daje pustą mapę: bez znaczników i bez przekierowania, nazwy
+  kontenerów nie są zgadywane.
 - Wyszukiwanie (`SearchAsync`) zwraca `IAsyncEnumerable` – pierwsza strona trafia na ekran, zanim serwer zwróci
   kolejne. Dla ogromnych kontenerów dostępny jest VLV (`GetVirtualListPageAsync`) – okno przewijania sortowane po
   stronie serwera.
@@ -106,6 +112,14 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
 - **Drzewo:** kontenery dobrze znane rozpoznawane po GUID z `wellKnownObjects`/`otherWellKnownObjects` głowy domeny
   (znacznik i opis roli); polecenia „Nowy” bez kontekstu kontenera tworzą obiekty w domyślnym kontenerze Users/Computers.
 - **Właściwości:** okna niemodalne, karty jak w ADUC + Edytor atrybutów; pola niedostępne dla operatora tylko do odczytu.
+  „Godziny logowania…” (karta Konto i operacja edytora zbiorczego) to siatka 7 × 24 w czasie lokalnym operatora:
+  `LogonHours` (Core) przelicza 168 bitów UTC na siatkę lokalną z bieżącym przesunięciem strefy, jak ADUC
+  ([dev/phase1-logonhours.md](dev/phase1-logonhours.md)).
+- **Kopiowanie:** przyciski „Kopiuj” w panelu szczegółów i na kartach właściwości, Ctrl+C wierszy listy (widoczne
+  kolumny, tabulatory, formatowane poza wątkiem UI), „Kopiuj jako…” dla zaznaczenia w kolejności listy – formaty inne
+  niż nazwa, DN i ścieżka czytają obiekty na żywo z DC sesji paczkami (`DirectoryLookup.ReadManyAsync`), odczyt jest
+  anulowany przy zmianie sesji. Do schowka pisze wyłącznie `IClipboardService`; nic nie trafia na dysk
+  ([dev/phase1-copy.md](dev/phase1-copy.md)).
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
@@ -117,6 +131,10 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
   proste wiązanie (simple bind) tylko po TLS lub w laboratorium za jawną zgodą.
 - Filtry i DN budowane wyłącznie przez `LdapFilter` / `DistinguishedName` (escaping RFC 4515/4514).
 - Eksport CSV chroniony przed wstrzykiwaniem formuł Excela; eksport haseł wymaga osobnego potwierdzenia.
+- Schowek: polecenia kopiowania pomijają wartości poufne (hasła, LAPS, BitLocker, atrybuty poufne wg schematu – kolumny
+  z nimi są pomijane przy Ctrl+C); sekret trafia do schowka tylko po jawnym odsłonięciu w Edytorze atrybutów, z
+  wykluczeniem z historii schowka i wyczyszczeniem po 60 s. Wiersze kopiowane do Excela mają tę samą ochronę przed
+  formułami co eksport CSV.
 - Ostrzeżenia dla obiektów chronionych (adminCount=1, obiekty krytyczne systemu, konta wbudowane) i potwierdzenie
   przez wpisanie liczby obiektów dla dużych/ryzykownych operacji.
 - Aplikacja nie jest granicą bezpieczeństwa – o uprawnieniach decydują ACL w AD; UI jedynie je odzwierciedla.

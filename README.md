@@ -37,18 +37,28 @@ podglądem zmian, raportem i cofaniem.
 
 - ⚡ **Płynność zamiast przystawki MMC** – zapytania LDAP asynchroniczne i strumieniowane stronami, pobierane są tylko
   potrzebne atrybuty, brak limitu 2000 obiektów w folderze, wirtualizowane listy, karty (Ctrl+T), paleta poleceń
-  (Ctrl+K), listy odświeżane na żywo przez powiadomienia LDAP – zmienione obiekty, a nie cały folder.
+  (Ctrl+K), listy odświeżane na żywo przez powiadomienia LDAP – zmienione obiekty, a nie cały folder. Kontenery
+  powyżej 5000 obiektów przechodzą w **listę wirtualną (VLV)**: kontroler sortuje, strony są czytane w trakcie
+  przewijania, a pamięć nie rośnie z liczbą obiektów.
 - 🔒 **Zero lokalnych danych** – nic z katalogu nie jest zapisywane na dysku (brak bazy, cache, snapshotów); każde
   odświeżenie pyta kontroler domeny na żywo. Na dysku (`%APPDATA%\AdMng`) są tylko ustawienia interfejsu, profile
   połączeń bez haseł i definicje widoków. Hasła nigdy nie trafiają do dzienników; do pliku – tylko w eksporcie wyników
   resetu haseł, o który operator wyraźnie poprosi.
 - 🔑 **Różne poświadczenia** – logowanie bieżącym kontem Windows albo innym (helpdesk, administrator); Kerberos z
-  podpisywaniem i szyfrowaniem, LDAPS lub StartTLS; cała sesja pracuje z jednym kontrolerem domeny. Interfejs pokazuje,
-  co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia konta uprzywilejowane.
-- 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto, Profil, Telefony,
-  Organizacja, Członek grup (bezpośrednio i w pełni, z zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor
-  atrybutów; akcje helpdesk (reset hasła, odblokowanie, włącz/wyłącz, dodaj do grupy), tworzenie, przenoszenie
-  (także przeciągnij-upuść), zmiana nazwy (F2), usuwanie.
+  podpisywaniem i szyfrowaniem, LDAPS lub StartTLS; cała sesja pracuje z jednym kontrolerem domeny, który można zmienić
+  w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
+  karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
+  konta uprzywilejowane.
+- 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
+  logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
+  zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
+  włącz/wyłącz, dodaj do grupy), tworzenie, przenoszenie (także przeciągnij-upuść), zmiana nazwy (F2), usuwanie. Kontenery
+  dobrze znane (`Users`, `Computers` – także przekierowane) są rozpoznawane po WKGUID: drzewo je oznacza, a nowe konta
+  bez wskazanego kontenera trafiają tam, gdzie wskazuje domena.
+- 📋 **Szybkie kopiowanie** – przycisk „Kopiuj” przy adresie e-mail, UPN, loginie (także `DOMENA\login`), telefonach i
+  innych wartościach w panelu szczegółów i na kartach właściwości; Ctrl+C kopiuje zaznaczone wiersze listy (do Excela,
+  Teams, zgłoszeń); „Kopiuj jako…” dla wielu obiektów naraz – np. adresy e-mail jako lista gotowa do pola „Do” w
+  Outlooku (Ctrl+Shift+M). Wartości poufne nie trafiają do schowka bez jawnego odsłonięcia.
 - 🧰 **Edycja zbiorcza** użytkowników, komputerów, grup i kontaktów: ustawianie/czyszczenie atrybutów, szablony
   (`{givenName|nodiacritics|lower}.{sn|nodiacritics|lower}`), znajdź i zamień, włącz/wyłącz, odblokuj, reset haseł,
   przenoszenie, zmiana nazwy, członkostwo w grupach, usuwanie, import CSV (także `;` i cp1250 z polskiego Excela) –
@@ -80,6 +90,7 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 |---|---|---|
 | **Duże OU** | „Not Responding”, limit 2000 obiektów | wyniki strumieniowane stronami, bez limitu, z anulowaniem; kontenery > 5000 obiektów jako lista wirtualna VLV (sortowanie i wyszukiwanie po wpisaniu na serwerze, stała ilość pamięci) |
 | **Wyszukiwanie** | Znajdź w osobnym oknie | ANR w trakcie pisania (Ctrl+E), paleta poleceń (Ctrl+K) |
+| **Kopiowanie** | zaznaczenie tekstu w polu karty właściwości | przycisk „Kopiuj” przy wartości, Ctrl+C wierszy listy, „Kopiuj jako…” dla wielu obiektów (adresy e-mail dla Outlooka) |
 | **Wiele obiektów naraz** | stały podzbiór pól, bez podglądu i raportu | dowolne atrybuty, podgląd przed → po, raport, PowerShell, cofanie |
 | **Kosz AD** | tylko w ADAC | przeglądanie i przywracanie, także całych poddrzew OU |
 | **Odświeżanie** | ręczne F5 | listy odświeżane na żywo (powiadomienia LDAP) |
@@ -170,7 +181,7 @@ flowchart TB
 | Faza | Cel | Najważniejsze rezultaty | Status |
 |---|---|---|---|
 | 0 | Fundamenty | Rozwiązanie, CI, laboratorium Samba AD, rdzeń LDAP, kontrakty, prototyp wydajności | ✅ |
-| 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 zaimplementowane, czeka na pilotaż na Windows AD |
+| 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 cały zakres zaimplementowany (także kopiowanie wartości, „Zmień kontroler domeny”, godziny logowania, WKGUID i VLV: ✅), czeka na pilotaż na Windows AD |
 | 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 zaimplementowane, czeka na testy obciążeniowe |
 | 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (karta Adresy e-mail: ✅) |
 | 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡, członkostwo zagnieżdżone i eksport widoków: ✅) |
@@ -243,20 +254,35 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów (widoczne kolumny, tabulatory), „Kopiuj jako…”
   dla wielu obiektów naraz (adresy e-mail jako lista dla Outlooka, Ctrl+Shift+M) – szczegóły w sekcji
   [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
-- ⬜ **Brakuje:** „Kopiuj użytkownika” (faza 3), pól opartych o ACL (na razie wyświetlane jako tylko do odczytu –
-  faza 5).
+- ✅ **Zakres funkcjonalny fazy 1 jest kompletny** – ostatnie braki (kopiowanie wartości, „Zmień kontroler domeny” w
+  trakcie sesji, „Godziny logowania”, kontenery dobrze znane po WKGUID, VLV na listach bardzo dużych OU) są gotowe;
+  projekty: [kopiowanie](docs/dev/phase1-copy.md), [zmiana DC](docs/dev/phase1-changedc.md),
+  [godziny logowania](docs/dev/phase1-logonhours.md), [WKGUID i VLV](docs/dev/phase1-navigation.md).
+- ➡ **Przeniesione do kolejnych faz:** „Kopiuj użytkownika” (faza 3), edycja pól opartych o ACL – na razie wyświetlane
+  tylko do odczytu (faza 5).
 - 🟡 **Do weryfikacji na Windows Server:** pilotaż, pomiar 100 000 obiektów, Kerberos z wymuszonym channel binding,
   test „żadnych danych na dysku”, wysoki kontrast i czytnik ekranu.
 
 #### Połączenie i sesja
 - Logowanie bieżącym kontem Windows lub innymi poświadczeniami; Kerberos z podpisywaniem i szyfrowaniem, LDAPS, StartTLS.
-- Wykrywanie domeny komputera i kontrolerów (DsGetDcName, lokacja), wybór DC, „Zmień kontroler domeny”.
+- Wykrywanie domeny komputera i kontrolerów (DsGetDcName, lokacja), wybór DC przy łączeniu.
+- „Zmień kontroler domeny…” w trakcie sesji (menu *Plik*, menu kontekstowe domeny w drzewie, paleta poleceń): lista DC
+  domeny z lokacją, „Twoja lokacja”, GC, RODC i emulatorem PDC, wpisanie nazwy ręcznie albo „dowolny zapisywalny DC w
+  mojej lokacji”; nowa sesja powstaje z poświadczeniem bieżącej (bez ponownego wpisywania hasła) i zastępuje ją dopiero
+  po sprawdzeniu (ta sama domena, inny DC) – błąd lub anulowanie zostawia bieżącą. Opcjonalnie zapis wybranego DC w
+  profilu połączenia; zmiana trafia do dziennika sesji.
 - Profile połączeń (bez haseł), pasek tożsamości z wyróżnieniem kont uprzywilejowanych, zrozumiałe komunikaty błędów PL/EN.
 
 #### Nawigacja i listy
-- Drzewo domeny/OU ładowane leniwie, kontenery dobrze znane rozpoznawane po WKGUID, przełącznik „Funkcje zaawansowane”.
+- Drzewo domeny/OU ładowane leniwie, przełącznik „Funkcje zaawansowane”; kontenery dobrze znane rozpoznawane po WKGUID
+  (`wellKnownObjects`/`otherWellKnownObjects` głowy domeny – znacznik i opis roli w drzewie, także po przekierowaniu
+  `redirusr`/`redircmp`); „Nowy użytkownik/grupa/kontakt/komputer” z karty domeny, wyników wyszukiwania lub widoku
+  tworzy obiekt w domyślnym kontenerze Users/Computers.
 - Listy bez limitu 2000: wyniki strumieniowane stronami, wirtualizacja, sortowanie, wybór kolumn z atrybutów schematu,
   nazwy kolumn z polskich display specifiers (jak w polskim ADUC), znaczniki stanu (wyłączone, zablokowane, chronione).
+- Bardzo duże kontenery (powyżej 5000 obiektów) jako lista wirtualna VLV: kontroler sortuje i zwraca tylko oglądane
+  strony (200 wierszy, w pamięci najwyżej 12 stron), wyszukiwanie po wpisaniu przez `seek` VLV, szybki filtr po stronie
+  serwera, odświeżanie na żywo widocznych stron; znacznik „Lista wirtualna (VLV)” na pasku stanu.
 - Pasek adresu (DN lub ścieżka), historia Wstecz/Dalej, karty, panel szczegółów z szybkimi akcjami, „stan na godz.”.
 - Szybkie filtry (chipy) wykonywane po stronie serwera: wyłączone, zablokowane, nieaktywne > N dni, hasło nigdy nie wygasa,
   wymagana zmiana hasła, wygasłe/wygasające konta, puste grupy.
@@ -665,7 +691,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 
 - **Nie sprawdzone na Windows Server AD.** Testy integracyjne działają na kontrolerze Samba 4.19; pilotaż, pomiary na
   dużych katalogach, Kerberos z wymuszonym channel binding, Kosz AD z delegowanymi uprawnieniami i test „żadnych danych
-  na dysku” są przed nami (fazy 1–2, 4).
+  na dysku” są przed nami (fazy 1–2, 4). Dotyczy to też nowych funkcji fazy 1: VLV na OU z dziesiątkami tysięcy
+  obiektów (limity serwera, np. `MaxTempTableSize`), lista DC i „dowolny zapisywalny DC w mojej lokacji” w oknie
+  „Zmień kontroler domeny” (lokator DsGetDcName, lokacje AD) oraz zgodność siatki godzin logowania z ADUC.
+- **„Zmień kontroler domeny”** – okna otwarte przed zmianą (np. właściwości) zostają przy poprzednim kontrolerze: nie
+  czytają i nie zapisują, tylko informują, że trzeba je otworzyć ponownie. Zmiana przerywa operacje w tle (po
+  potwierdzeniu). Gdy lokacja komputera jest nieznana (komputer spoza domeny, lokator DsGetDcName nie odpowiada), opcja
+  „dowolny zapisywalny DC w mojej lokacji” jest niedostępna, a lista DC pochodzi tylko z katalogu. Kontrolera innej
+  domeny nie da się wybrać – to wymaga nowego połączenia.
 - **AdMng Watchdog – nie sprawdzone na Windows:** tryb HTTP.sys może odrzucać każde logowanie (zdarzenie 2500
   „unknown (Negotiate)”; obejście: Kestrel ze SPN-em albo tymczasowo `RequireKerberos: false`); w trybie WEF zdarzenia
   dostarczone z opóźnieniem w trakcie zalewu (więcej niż `maxRecordsPerPoll`) mogą ominąć atrybucję; zmiana podsieci
@@ -688,9 +721,10 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   cofnąć z dziennika sesji – można je odwrócić ręcznie, a dziennik pokazuje stare wartości.
 - **Kopiowanie** – identyfikator i numer pracownika nie mają pola na kartach właściwości (jak w ADUC): kopiuje się je
   z panelu szczegółów albo z Edytora atrybutów. „Kopiuj jako…” dla wielu tysięcy obiektów czyta je ponownie z kontrolera
-  (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę i nie ma wskaźnika postępu (rozłączenie sesji
-  przerywa odczyt). Ctrl+C na liście obiektów kopiuje teraz wiersze;
-  DN zaznaczonych obiektów kopiuje Ctrl+Shift+C.
+  (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę i nie ma wskaźnika postępu (rozłączenie sesji lub
+  zmiana DC przerywa odczyt). Ctrl+C na liście obiektów kopiuje wiersze, a nie – jak wcześniej – DN; DN zaznaczonych
+  obiektów kopiuje Ctrl+Shift+C. Na liście wirtualnej (VLV) kopiowane są tylko wczytane zaznaczone wiersze (wiersze
+  „Ładowanie…” są pomijane), a całego kontenera nie da się zaznaczyć – do tego służy Znajdź albo zapisany widok.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
@@ -727,8 +761,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 
 Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespołu). Najważniejsze dla kolejnych faz:
 
-1. **Skala i topologia:** liczba domen/lasów i zaufań, liczba obiektów, największe OU i grupa (wpływa na priorytet VLV i
-   wielu domen).
+1. **Skala i topologia:** liczba domen/lasów i zaufań, liczba obiektów, największe OU i grupa (wpływa na próg listy
+   wirtualnej VLV i priorytet wielu domen).
 2. **Granica „brak danych lokalnych”:** czy dopuszczalne są: zapisane widoki z DN (zakładamy, że tak), eksporty CSV na
    żądanie (zakładamy, że tak), dziennik zmian ze starymi/nowymi wartościami w pliku lub w Dzienniku zdarzeń (domyślnie
    tylko w pamięci), eksport dziennika cofania.
