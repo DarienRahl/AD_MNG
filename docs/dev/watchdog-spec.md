@@ -2277,6 +2277,10 @@ public interface INotificationQueueStore
     Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken);
     /// <summary>Moves the rows' DueAt (throttled buckets, 13.3).</summary>
     Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken);
+    /// <summary>Re-planned targets (13.2 #1): the waiting row with the same (event, target, follow-up) takes rule, target,
+    /// severity, bucket and hold and keeps the earlier due time; a missing one is inserted when insertMissing (SQLite:
+    /// INSERT … ON CONFLICT DO UPDATE / UPDATE), one transaction.</summary>
+    Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken);
 }
 
 public interface IOutboxStore
@@ -3799,14 +3803,19 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
 9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always), or one that changes the own
    severity or adds a tag (`passwordReset`, `selfChange`, `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
    and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
-   with its final state (`RuleEngine.Evaluate`), plans only the rules that are not yet in the stored `matched_rules`
-   (`IRuleMatchPlanner.PlanReevaluationAsync` – rules that already matched are never planned again, their rows may be
-   delivered and deleted; targets that already got the final state are left out, 13.2 #1) and stores matched rules ∪
-   new rules, the evaluated severity and the new pending rows in one `CommitEvaluationAsync`, **before** the attribution
-   update: a pass interrupted in between leaves the event pending and the next pass finds the rules stored. Waiting rows
-   of stored rules that no longer match the final state are dropped first – the dispatch job would drop them on release,
-   and the store keeps one row per (event, target), so they would otherwise swallow the row of a rule that matches now
-   (a custom rule excluding the actor must not silence `tier0-security` for the same recipients). The update stores the
+   with its final state (`RuleEngine.Evaluate`, every rule that matches now) and lets the planner re-plan its pending
+   notifications (`IRuleMatchPlanner.PlanReevaluationAsync(evaluation, addedRuleIds, waitingRows, …)` →
+   `ReevaluationPlan`, 13.2 #1): every waiting (non-follow-up) row of the event takes the strongest treatment of the
+   rules that notify its target now – merged (`ReplanAsync`, insert missing) when an added rule (one not yet in the
+   stored `matched_rules`) notifies the target, so `tier0-security` added for the recipients of a custom rule's held row
+   takes that row over with its severity, name and Always delivery; updated while it waits otherwise; dropped when no
+   rule notifies the target any more (a custom rule excluding the actor must not silence `tier0-security` for the same
+   recipients); targets that only the added rules notify get new rows unless an alert already covers them (13.2 #1).
+   Rules that already matched are never planned again for a target without a waiting row (it may be delivered and
+   deleted). The waiting rows are re-planned first (idempotent – a merged row whose waiting row was flushed meanwhile is
+   inserted and the dispatch job drops it when the alert covers it), then matched rules ∪ new rules, the evaluated
+   severity and the new rows are stored in one `CommitEvaluationAsync`, **before** the attribution update: a pass
+   interrupted in between leaves the event pending and the next pass re-plans the same way. The update stores the
    final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
    (`EvaluatedSeverity` = `max(final own severity, overrides of the matching rules)`, 12.1), also when nothing new
    matched – a re-resolved severity never drops a rule override, and an override never feeds a later `MinSeverity`
@@ -4030,16 +4039,30 @@ Rules matched only after a final attribution (raised severity, added tags) are p
 
 ### 13.2 `NotificationPlanner`
 
-For every match with `Delivery.Immediate`:
+One pending row per (event, target) – the unique key of `pending_notifications` – carries the **strongest treatment of
+every rule that notifies that target now**. For every match with `Delivery.Immediate` (configuration order) that passes
+#0, #2 and #3, the rule contributes to each of its targets (#1); per target:
+- the contributions that need no attribution hold (#4) decide when any exists – the target is notified at once, a rule
+  still waiting for its actor would only repeat it (and its match may still turn out not to apply) –, otherwise all of
+  them (the row is held until the actor is known or the grace ends);
+- severity = the highest notification severity of the deciding contributions; due time = now + the shortest of their
+  windows (#5); `RuleId` and `BucketKey` = the deciding rule earliest in configuration order (displayed rule name).
+The same planning re-plans a target later from the rules that match the event *then*: the re-evaluation after
+attribution (11.4 #9, `PlanReevaluationAsync`) and the dispatch job when it releases a held row or a row whose rule
+left its delivery hours or the configuration (13.3, `PlanTargetAsync` with `IHeldNotificationMatcher.MatchAll`) – so
+a rule earlier in the configuration, a higher severity or Always delivery takes a target over, and a target whose rule
+no longer matches passes to the next rule that does. The rules of a waiting row passed their repeat suppression when it
+was planned and are not checked again.
+
 0. Rollout mode (12.5) active and the rule is not `tier0-*` / `bursts` / `health` → no immediate notification
    (digest only; counted for the rollout banner).
 1. Targets: each recipient group → one `NotificationTarget(Email, "email", group addresses, group DetailLevel)`
    (skipped when SMTP is disabled or the group is empty); each channel id – plus every enabled Teams/webhook channel when
    `AllEnabledChannels` – → `NotificationTarget(Teams|Webhook, id, [], channel DetailLevel)` (skipped when the channel
    is disabled); `NotifyManager` (expiry kinds) → the object's manager (snapshot `manager` → that object's `mail`) as an
-   e-mail target with DetailLevel Minimal. Targets are de-duplicated across rules by (Target.Key, EventId) – the first
-   rule (config order) owns the pending row. For the rules added by the re-evaluation after attribution (11.4 #9,
-   `PlanReevaluationAsync`) a target is also left out when the event already has an alert for it that covers the plan
+   e-mail target with DetailLevel Minimal. Targets are merged across rules by (Target.Key, EventId) as described above.
+   For the rules added by the re-evaluation after attribution (11.4 #9, `PlanReevaluationAsync`) a target without a
+   waiting row is left out when the event already has an alert for it that covers the plan
    (`AlertCoverage`): not Dead or Cancelled, the **event itself** shown with at least the planned severity
    (`OutboxMessage.EventStates` – an aggregated alert carries the maximum of its events, so an event shown Medium inside
    a High alert is not covered by a High plan) and carrying the final state (the event's actor known when rendered, or the
@@ -4047,8 +4070,9 @@ For every match with `Delivery.Immediate`:
    information and the added rule notifies. The dispatch job checks the coverage again right before it completes a row
    (13.3): it is the only writer of alerts and completes one bucket at a time, so a row stored while the earlier alert
    was being completed never becomes a second alert.
-2. Delivery hours: `Default` → Always for severity ≥ High, else BusinessHours. BusinessHours and
-   `BusinessCalendar.IsBusinessTime(now)` false → **no immediate notification** (the event still goes to the digest).
+2. Delivery hours (per rule, at its notification severity): `Default` → Always for severity ≥ High, else
+   BusinessHours. BusinessHours and `BusinessCalendar.IsBusinessTime(now)` false → the rule does not contribute; no
+   contributing rule → **no immediate notification** (the event still goes to the digest).
 3. Repeat suppression: `RepeatSuppression` set and `outbox.WasNotifiedAboutObjectAsync(ruleId, objectGuid, now −
    RepeatSuppression)` → no immediate notification (digest only; the next one after the period carries
    `LockoutsToday`).
@@ -4067,7 +4091,8 @@ For every match with `Delivery.Immediate`:
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
 for this; the default overloads use `IWatchdogConfigProvider.Current`), then normally against the new one;
-`(event, target, follow-up)` uniqueness removes duplicates.
+`(event, target, follow-up)` uniqueness removes duplicates, and a second plan whose first alert already went out is
+dropped by the dispatch job when that alert covers it (13.2 #1, 13.3).
 
 ### 13.3 `NotificationDispatchJob` (wake: NotificationsQueued, AttributionUpdated; interval 10 s)
 
@@ -4075,10 +4100,15 @@ for this; the default overloads use `IWatchdogConfigProvider.Current`), then nor
 pendings = queueStore.GetAllAsync(); group by BucketKey
 for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
-    re-match held items with the event's final state (own severity, tags, actor): RuleMatcher for that rule, delivery
-        hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
-    other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
-        the end of business hours) dropped – the digest reports them
+    released held items: re-plan the target from every rule that matches the event's final state now
+        (IHeldNotificationMatcher.MatchAll – own severity, tags, actor; NotificationPlanner.PlanTargetAsync – delivery
+        hours and rollout recomputed, 13.2) → no rule notifies the target → dropped (queueStore.DropAsync); led by the
+        same rule → rendered with the re-planned severity; led by another rule → moved to that rule's bucket
+        (ReplanAsync, still due) and flushed in a second pass of the same run
+    other non-follow-up items: delivery hours of their rule rechecked; outside them (the aggregation window or
+        throttling ran past the end of business hours) or the rule left the configuration → re-planned the same way
+        (another rule may still deliver, e.g. an Always rule of the same target) → dropped when none does – the digest
+        reports them
     ready non-follow-up items whose event already has an alert for the target that covers them (13.2 #1,
         AlertCoverage: per event, not lost, at least the item's severity, actor known or follow-up coming) → dropped
     follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original

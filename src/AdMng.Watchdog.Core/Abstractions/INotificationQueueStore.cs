@@ -13,4 +13,9 @@ public interface INotificationQueueStore
     Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken);
     /// <summary>Moves the rows' DueAt (throttled buckets, 13.3).</summary>
     Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken);
+    /// <summary>Re-planned targets (13.2 #1, 11.4 #9, 13.3), in one transaction: the waiting row with the same (event,
+    /// target, follow-up) takes the row's rule, target, severity, bucket and hold and keeps the earlier of both due times;
+    /// a row without a waiting counterpart (it was flushed or dropped meanwhile) is inserted when
+    /// <paramref name="insertMissing"/>, otherwise skipped. An inserted row of an unknown event violates the foreign key.</summary>
+    Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken);
 }

@@ -575,6 +575,14 @@ reguła i ile wiadomości by wysłała.
 - Shadow Credentials (`msDS-KeyCredentialLink`) na koncie zwykłego użytkownika zapisane przez **inne** konto wywołują
   alarm reguły „tier0-security” od razu po ustaleniu wykonawcy – także wtedy, gdy własna reguła dla tych samych
   odbiorców dopasowała zdarzenie wcześniej, ale wyklucza tego wykonawcę.
+- **Kilka reguł, ci sami odbiorcy**: odbiorca (grupa e-mail, kanał) dostaje o jednym zdarzeniu jeden alarm, z
+  najsilniejszym ustawieniem wszystkich reguł, które go teraz obejmują – najwyższy priorytet, najkrótsze okno zbierania,
+  dostarczenie także poza godzinami pracy, jeśli choć jedna z nich tak dostarcza; w alarmie widnieje reguła najwyżej na
+  liście. Reguła, która w danej chwili nie może wysyłać (godziny pracy, tryb wdrożenia, tłumienie powtórzeń), nie
+  wpływa na alarm. Dotyczy to także zmian po ustaleniu wykonawcy: wbudowana reguła „tier0-security”, która dopasuje
+  zdarzenie dopiero po atrybucji, przejmuje wstrzymane powiadomienie własnej reguły z niższym priorytetem (alarm ma
+  priorytet i nazwę „tier0-security” i nie czeka na godziny pracy), a gdy reguła wstrzymanego powiadomienia przestaje
+  pasować (np. wyklucza ustalonego wykonawcę), powiadomienie przejmuje następna reguła, która nadal pasuje.
 - Własne reguły z wymaganymi tagami „reset hasła” (`passwordReset`), „zmiana własna” (`selfChange`) lub „konto
   synchronizacji” (`syncAccount`) działają – te tagi są nadawane po atrybucji, a reguły są wtedy oceniane ponownie.
 - Po ponownej ocenie odbiorcy, którzy dostali już alarm o tym zdarzeniu z co najmniej tym samym priorytetem i z ustalonym

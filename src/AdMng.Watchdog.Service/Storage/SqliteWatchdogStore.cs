@@ -203,6 +203,9 @@ public sealed class SqliteWatchdogStore :
     public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
         Queue.RescheduleAsync(pendingIds, dueAt, cancellationToken);
 
+    public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken) =>
+        Queue.ReplanAsync(notifications, insertMissing, cancellationToken);
+
     // Outbox
 
     public Task<long> EnqueueAsync(OutboxMessage message, CancellationToken cancellationToken) =>

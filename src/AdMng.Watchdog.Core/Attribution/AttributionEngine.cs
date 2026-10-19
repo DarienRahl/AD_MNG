@@ -25,12 +25,13 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// <para>Re-evaluation (11.4 #9): rules are matched once, when the event is stored. A final attribution that changes
 /// the severity or adds tags (passwordReset, selfChange, syncAccount) can make further rules match – shadow credentials
 /// on a user written by another account become High (10.6.4) and must reach <c>tier0-security</c>. Such an event is
-/// matched again with its final state; rules that are not yet among its stored matched rules are planned
-/// (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/> – targets that already got the final state are left out) and
-/// added to the matched rules in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in
-/// between leaves the event pending and the next pass finds the rules already stored (no duplicate). Rules that already
-/// matched are never planned again (their rows may be delivered and gone); their waiting rows are dropped when they no
-/// longer match, so the added rules can take their targets. The update stores the final own severity
+/// matched again with its final state and its pending notifications are re-planned from every rule that matches now
+/// (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/>): waiting rows take the strongest treatment of the rules that
+/// notify their target (an added <c>tier0-security</c> takes over the held row of a custom rule with a lower override),
+/// targets only the added rules notify get new rows unless an alert already covers them, and the added rules are stored
+/// with those rows in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in between
+/// leaves the event pending and the next pass re-plans the same way (no duplicate). Rules that already matched are never
+/// planned again for a target without a waiting row (it may be delivered and gone). The update stores the final own severity
 /// (<c>AttributionUpdate.Severity</c>, the input of every later match) and the evaluated one (<c>EvaluatedSeverity</c>, rule
 /// overrides included, as the rules job stores it), and NotificationsQueued is raised only after the attribution update.</para>
 /// <para>The store phase of a pass (re-evaluations, attribution updates, follow-ups) runs without the stop token, and
@@ -301,11 +302,17 @@ public sealed partial class AttributionEngine(
         || result.Update.AddedTags.Any(tag => !(result.Event.Tags ?? []).Contains(tag, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Matches the event with its final state against the rules; plans and stores the rules that are not yet among its
-    /// stored matched rules (an event the rules job has not evaluated yet has none, so every match is planned and the job
-    /// skips it afterwards). Returns the evaluated severity – <c>max(final severity, overrides of the rules that match)</c>,
-    /// as the rules job stores it – to store with the attribution (null when the event is gone), and whether rows were
-    /// queued (announced by the caller once the attribution is stored).
+    /// Matches the event with its final state against the rules and re-plans its pending notifications from every rule
+    /// that matches now (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/>, 13.2 #1): the waiting rows take the
+    /// strongest treatment of the rules that notify their target now – a rule earlier in the configuration, a higher
+    /// severity or Always delivery takes the target over, a target whose rule no longer matches passes to another one that
+    /// does, a target nobody notifies any more is dropped –, and the targets only the added rules notify (rules not yet
+    /// among the stored matched rules; for an event the rules job has not evaluated yet, all of them) get new rows unless an
+    /// alert already covers them. The waiting rows are re-planned first (idempotent), then the added rules are stored with
+    /// the new rows in one <c>CommitEvaluationAsync</c>; a pass interrupted in between re-plans the same way. Returns the
+    /// evaluated severity – <c>max(final own severity, overrides of the rules that match)</c>, as the rules job stores it
+    /// – to store with the attribution (null when the event is gone), and whether rows were queued or brought forward
+    /// (announced by the caller once the attribution is stored).
     /// </summary>
     private async Task<(Severity? Severity, bool Queued)> ReevaluateAsync(ProcessedAttribution result, RuleMatchContext rules)
     {
@@ -319,46 +326,45 @@ public sealed partial class AttributionEngine(
         var evaluation = RuleEngine.Evaluate(final, rules, now);
         var stored = (current.MatchedRules ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var added = evaluation.Matches.Where(m => !stored.Contains(m.Rule.Id)).ToList();
-        if (added.Count == 0)
-        {
-            return (evaluation.Severity, false);
-        }
-
-        await DropSupersededRowsAsync(current.Id, evaluation).ConfigureAwait(false);
-        var newMatches = evaluation with { Matches = added };
-        var notifications = new List<PendingNotification>();
+        var addedIds = added.Select(m => m.Rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var waiting = (await notificationQueue.GetAllAsync(CancellationToken.None).ConfigureAwait(false))
+            .Where(p => p.EventId == current.Id && !p.IsFollowUp)
+            .ToList();
+        var plan = ReevaluationPlan.Empty;
         foreach (var planner in _ruleMatchPlanners)
         {
-            notifications.AddRange(await planner.PlanReevaluationAsync(newMatches, rules.Configuration, now, CancellationToken.None).ConfigureAwait(false));
+            plan = plan.Combine(await planner.PlanReevaluationAsync(evaluation, addedIds, waiting, rules.Configuration, now, CancellationToken.None)
+                .ConfigureAwait(false));
         }
 
-        var record = new EventEvaluation
+        if (plan.Merge.Count > 0)
         {
-            EventId = current.Id,
-            Severity = evaluation.Severity,
-            MatchedRules = [.. (current.MatchedRules ?? []).Concat(added.Select(m => m.Rule.Id))],
-        };
-        await events.CommitEvaluationAsync([record], notifications, CancellationToken.None).ConfigureAwait(false);
-        LogReevaluated(current.Id, added.Count, notifications.Count);
-        return (evaluation.Severity, notifications.Count > 0);
-    }
-
-    /// <summary>
-    /// Drops the event's waiting rows of rules that no longer match its final state – the dispatch job would drop them when
-    /// it releases them (13.3) –, so a rule matched by the re-evaluation can take their target: the store keeps one row
-    /// per event and target and ignores a second one.
-    /// </summary>
-    private async Task DropSupersededRowsAsync(long eventId, RuleEvaluationResult evaluation)
-    {
-        var matching = evaluation.Matches.Select(m => m.Rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var superseded = (await notificationQueue.GetAllAsync(CancellationToken.None).ConfigureAwait(false))
-            .Where(p => p.EventId == eventId && !p.IsFollowUp && !matching.Contains(p.RuleId))
-            .Select(p => p.Id)
-            .ToList();
-        if (superseded.Count > 0)
-        {
-            await notificationQueue.DropAsync(superseded, CancellationToken.None).ConfigureAwait(false);
+            await notificationQueue.ReplanAsync(plan.Merge, insertMissing: true, CancellationToken.None).ConfigureAwait(false);
         }
+
+        if (plan.Update.Count > 0)
+        {
+            await notificationQueue.ReplanAsync(plan.Update, insertMissing: false, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        if (plan.Drop.Count > 0)
+        {
+            await notificationQueue.DropAsync(plan.Drop, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        if (added.Count > 0)
+        {
+            var record = new EventEvaluation
+            {
+                EventId = current.Id,
+                Severity = evaluation.Severity,
+                MatchedRules = [.. (current.MatchedRules ?? []).Concat(added.Select(m => m.Rule.Id))],
+            };
+            await events.CommitEvaluationAsync([record], plan.Insert, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        LogReevaluated(current.Id, added.Count, plan.Insert.Count + plan.Merge.Count);
+        return (evaluation.Severity, plan.Insert.Count + plan.Merge.Count + plan.Update.Count > 0);
     }
 
     private async Task<IReadOnlyList<PendingNotification>> PlanFollowUpsAsync(WatchEvent attributed, CancellationToken cancellationToken)

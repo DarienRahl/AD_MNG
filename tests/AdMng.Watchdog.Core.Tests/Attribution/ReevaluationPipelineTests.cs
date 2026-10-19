@@ -203,6 +203,138 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.All(statusWhenQueued, s => Assert.Equal(AttributionStatus.Resolved, s));
     }
 
+    // ---- One alert per (event, target) with the strongest treatment of every rule that matches it now -----------------
+
+    /// <summary>A custom rule for the it-admins mailbox that lowers its notifications to Low (Default hours: business hours
+    /// only below High).</summary>
+    private static RuleSettings LoweringRule() => new()
+    {
+        Id = "konta-vip",
+        Name = "Konta VIP – poświadczenia (niski)",
+        Kinds = [WatchEventKind.KeyCredentialChanged],
+        Severity = Severity.Low,
+        Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Default },
+    };
+
+    [Fact]
+    public async Task ARuleAddedByTheReevaluation_TakesOverTheHeldTarget_WithItsSeverityAndName()
+    {
+        // konta-vip planned the it-admins row (Low, held for the actor). The attribution makes the shadow credentials High:
+        // tier0-security – earlier in the configuration – now matches the same recipients. The alert must be tier0-security's,
+        // High, not konta-vip's Low.
+        _p.Config.Set(Pipeline.Configuration(LoweringRule()));
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        Assert.Equal(("konta-vip", Severity.Low), (Assert.Single(await _p.Store.GetAllAsync(Ct)).RuleId, Assert.Single(await _p.Store.GetAllAsync(Ct)).Severity));
+
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DeliveryKind.Alert, DefaultRules.Tier0Security, Severity.High), (alert.Kind, alert.RuleId, alert.Severity));
+        Assert.Equal([Mailbox], alert.Recipients);
+        Assert.StartsWith("[AD Watchdog][WYSOKI]", alert.Email!.Subject, StringComparison.Ordinal);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ARuleAddedByTheReevaluation_IsNotDeferredToBusinessHoursByTheHeldRowOfALowerRule()
+    {
+        // 16:58 in Warsaw: konta-vip (Low, Default hours) still plans within business hours. The actor is known at 17:01 –
+        // after hours. tier0-security (High, Always) must alert at once instead of konta-vip's row being dropped.
+        _p.Time.Advance(TimeSpan.FromHours(6) + TimeSpan.FromMinutes(58));
+        var detected = _p.Time.GetUtcNow();
+        _p.Config.Set(Pipeline.Configuration(LoweringRule()));
+        var e = await _p.AppendShadowCredentialsAsync(detected);
+        await _p.RulesJob.RunOnceAsync(Ct);
+        Assert.Single(await _p.Store.GetAllAsync(Ct));
+
+        _p.Time.Advance(TimeSpan.FromMinutes(3));
+        _p.SecurityStore.Add(Modified(detected.AddMinutes(-2), Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DeliveryKind.Alert, DefaultRules.Tier0Security, Severity.High), (alert.Kind, alert.RuleId, alert.Severity));
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AFailedRematchAtRelease_PassesTheTargetToTheNextRuleThatStillMatches()
+    {
+        // Two custom rules for the it-admins mailbox matched a description change while the actor was pending: konta-vip
+        // (first, excludes the administrator) took the target. The actor is that administrator – konta-vip no longer
+        // matches, opisy-kont still does and must alert.
+        var vip = new RuleSettings
+        {
+            Id = "konta-vip",
+            Name = "Konta VIP – zmiany opisu",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Actors = new ActorFilter { ExcludeActors = [AdminSid] },
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        var descriptions = new RuleSettings
+        {
+            Id = "opisy-kont",
+            Name = "Zmiany opisów kont",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        _p.Config.Set(Pipeline.Configuration(vip, descriptions));
+        var e = await _p.AppendAsync(Create(WatchEventKind.AttributesChanged, severity: Severity.Medium, changedAttributes: ["description"]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        Assert.Equal("konta-vip", Assert.Single(await _p.Store.GetAllAsync(Ct)).RuleId);
+
+        _p.SecurityStore.Add(Modified(T, Admin, "description", "Księgowość – Gdańsk", added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DeliveryKind.Alert, "opisy-kont", Severity.Medium, false), (alert.Kind, alert.RuleId, alert.Severity, alert.SentWithPendingAttribution));
+        Assert.Equal([Mailbox], alert.Recipients);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task TwoRulesForOneTarget_AlertOnce_WithTheHighestSeverityAndTheEarliestDelivery()
+    {
+        // The rules job: konta-vip (earlier, lowers to Low, Default hours) and opisy-kont (High, Always) both notify the
+        // it-admins mailbox about a High change whose actor is already known. One alert, High, after the high-severity flush
+        // delay – not konta-vip's Low after its 5-minute window.
+        var vip = new RuleSettings
+        {
+            Id = "konta-vip",
+            Name = "Konta VIP – zmiany opisu",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Severity = Severity.Low,
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Default },
+        };
+        var descriptions = new RuleSettings
+        {
+            Id = "opisy-kont",
+            Name = "Zmiany opisów kont",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        _p.Config.Set(Pipeline.Configuration(vip, descriptions));
+        var e = await _p.AppendAsync(Create(WatchEventKind.AttributesChanged, severity: Severity.High, changedAttributes: ["description"],
+            attribution: Resolved(AdminSid)));
+        await _p.RulesJob.RunOnceAsync(Ct);
+
+        await _p.DispatchAsync();
+
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DeliveryKind.Alert, "konta-vip", Severity.High), (alert.Kind, alert.RuleId, alert.Severity));
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
     // ---- Severity model: the event's own severity is the input of every rule match ------------------------------------
 
     [Fact]
@@ -485,12 +617,13 @@ public sealed class ReevaluationPipelineTests : IDisposable
         }
 
         /// <summary>Shadow credentials on an ordinary user, detected with the actor pending (Medium).</summary>
-        public Task<WatchEvent> AppendShadowCredentialsAsync() => AppendAsync(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.Medium) with
-        {
-            OriginatingTime = T,
-            OriginatingDc = Dc1,
-            Changes = [new AttributeChange { Attribute = "msDS-KeyCredentialLink", Redacted = true }],
-        });
+        public Task<WatchEvent> AppendShadowCredentialsAsync(DateTimeOffset? detectedAt = null) =>
+            AppendAsync(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.Medium, detectedAt: detectedAt ?? Now) with
+            {
+                OriginatingTime = (detectedAt ?? Now).AddMinutes(-2),
+                OriginatingDc = Dc1,
+                Changes = [new AttributeChange { Attribute = "msDS-KeyCredentialLink", Redacted = true }],
+            });
 
         public async Task<WatchEvent> AppendAsync(WatchEvent e) => e with { Id = await Store.AppendAsync(e, Ct) };
 
@@ -573,6 +706,16 @@ public sealed class ReevaluationPipelineTests : IDisposable
 
         public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
             inner.RescheduleAsync(pendingIds, dueAt, cancellationToken);
+
+        public async Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken)
+        {
+            if (notifications.Count > 0)
+            {
+                await RaceAsync();
+            }
+
+            await inner.ReplanAsync(notifications, insertMissing, cancellationToken);
+        }
 
         private async Task RaceAsync()
         {

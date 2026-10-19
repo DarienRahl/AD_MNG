@@ -4,7 +4,8 @@ using AdMng.Watchdog.Core.Model;
 namespace AdMng.Watchdog.Service.Storage;
 
 /// <summary><see cref="INotificationQueueStore"/> over <c>pending_notifications</c>; completing a bucket deletes its rows
-/// and enqueues the rendered message in the same transaction.</summary>
+/// and enqueues the rendered message in the same transaction; a re-planned target updates its waiting row in place
+/// (<c>ON CONFLICT (event_id, target_key, is_follow_up) DO UPDATE</c>).</summary>
 public sealed class SqliteNotificationQueueStore : INotificationQueueStore
 {
     private readonly SqliteDatabase _database;
@@ -69,6 +70,12 @@ public sealed class SqliteNotificationQueueStore : INotificationQueueStore
                 }
             },
             cancellationToken);
+    }
+
+    public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notifications);
+        return _database.WriteAsync((c, t) => PendingRows.Replan(c, t, notifications, insertMissing, _timeProvider.GetUtcNow()), cancellationToken);
     }
 
     private static void DeleteRows(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction transaction, IReadOnlyList<long> ids)

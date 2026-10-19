@@ -426,6 +426,52 @@ public sealed class NotificationDispatchJobTests
     }
 
     [Fact]
+    public async Task ReleasedRowWhoseRuleNoLongerMatches_GoesOutUnderTheNextRuleThatStillMatches()
+    {
+        // konta-vip (first, excludes Paweł Wójcik) led the held row; opisy-kont matched the same mailbox. The actor is the
+        // excluded administrator: the target passes to opisy-kont instead of being dropped.
+        var vip = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always) with
+        {
+            Actors = new ActorFilter { ExcludeActors = [Resolved().Actor!.Sid!] },
+        };
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(vip, descriptions));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, EventAttribution.Pending),
+            new PlannedMatch(vip, Severity.Medium, IsProvisional: true), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal("konta-vip", Assert.Single(planned).RuleId);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        var result = await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.False(result.Failed);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal((DeliveryKind.Alert, "opisy-kont", Severity.Medium), (alert.Kind, alert.RuleId, alert.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task RowWhoseRuleLeftItsDeliveryHours_GoesOutUnderARuleThatAlwaysDelivers()
+    {
+        // 16:58: konta-vip (business hours) leads the row with opisy-kont (Always) for the same mailbox; the window ends at
+        // 17:03, after business hours – opisy-kont still delivers, so the alert goes out instead of only the digest.
+        var vip = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.BusinessHours);
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(vip, descriptions));
+        harness.Clock.Advance(TimeSpan.FromHours(6) + TimeSpan.FromMinutes(58));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, detectedAt: harness.Clock.GetUtcNow()),
+            new PlannedMatch(vip, Severity.Medium), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal("konta-vip", Assert.Single(planned).RuleId);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal(("opisy-kont", Severity.Medium), (alert.RuleId, alert.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
     public async Task AggregatedAlert_RecordsHowItShowedEachEvent()
     {
         var rule = Rule("new-users", "Nowe konta");
@@ -463,6 +509,9 @@ public sealed class NotificationDispatchJobTests
         public Task<IReadOnlyList<PendingNotification>> GetAllAsync(CancellationToken cancellationToken) => inner.GetAllAsync(cancellationToken);
 
         public Task AddAsync(IReadOnlyList<PendingNotification> notifications, CancellationToken cancellationToken) => inner.AddAsync(notifications, cancellationToken);
+
+        public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken) =>
+            inner.ReplanAsync(notifications, insertMissing, cancellationToken);
 
         public async Task CompleteAsync(IReadOnlyList<long> pendingIds, OutboxMessage? message, CancellationToken cancellationToken)
         {
