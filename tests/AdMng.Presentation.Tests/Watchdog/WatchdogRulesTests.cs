@@ -34,6 +34,9 @@ public sealed class WatchdogRulesTests
             var lockouts = rules.Rules[LockoutsIndex];
             Assert.Equal("lockouts", lockouts.Id);
             Assert.Equal("Blokady kont", lockouts.Name);
+
+            // A name cut in the narrow list is shown whole in the tool tip, with the rule's identifier.
+            Assert.Equal("Blokady kont\nlockouts", lockouts.NameToolTip);
             Assert.Equal(localizer[L.Watchdog.RulesBuiltIn], lockouts.BadgeText);
             Assert.Equal(localizer.KindName(WatchEventKind.AccountLockedOut), lockouts.KindsText);
             Assert.Equal(localizer.Format(L.Watchdog.RulesImmediate, "helpdesk") + " · " + localizer[L.Watchdog.RulesDigest], lockouts.DeliveryText);
@@ -380,6 +383,7 @@ public sealed class WatchdogRulesTests
             rules.SelectedRule = rules.Rules[CustomIndex];
             rules.Editor!.Name = "Oddział Kraków – wszystkie zmiany";
             Assert.Equal("Oddział Kraków – wszystkie zmiany", rules.Rules[CustomIndex].Name);
+            Assert.Equal("Oddział Kraków – wszystkie zmiany\noddzial-krakow", rules.Rules[CustomIndex].NameToolTip);
 
             Assert.True(await tab.Config.SaveAsync());
 

@@ -6,6 +6,7 @@
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogRulesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -97,7 +98,9 @@
                   Style="{StaticResource Wd.ToolButton}" />
         </WrapPanel>
 
+        <!-- The columns fit the list (GridViewColumnFit): name, kinds and delivery share the width 4 : 3 : 3. -->
         <ListView x:Name="RulesList"
+                  b:GridViewColumnFit.IsEnabled="True"
                   AutomationProperties.Name="{l:Tr Watchdog.Tab.Rules}"
                   ItemContainerStyle="{StaticResource RuleRowStyle}"
                   ItemsSource="{Binding Rules, Mode=OneWay}"
@@ -107,7 +110,7 @@
                   VirtualizingPanel.VirtualizationMode="Recycling">
           <ListView.View>
             <GridView AllowsColumnReorder="False">
-              <GridViewColumn Width="44">
+              <GridViewColumn Width="44" b:GridViewColumnFit.MinWidth="40">
                 <GridViewColumn.Header>
                   <TextBlock FontSize="12"
                              Style="{StaticResource Ad.GlyphText}"
@@ -123,7 +126,10 @@
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
-              <GridViewColumn Width="250" Header="{l:Tr Common.Name}">
+              <GridViewColumn Width="250"
+                              b:GridViewColumnFit.MinWidth="200"
+                              b:GridViewColumnFit.Star="4"
+                              Header="{l:Tr Common.Name}">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate DataType="{x:Type wd:WatchdogRuleRowViewModel}">
                     <StackPanel VerticalAlignment="Center">
@@ -145,10 +151,11 @@
                                    Text="{x:Static c:Glyphs.Warning}"
                                    ToolTip="{Binding WarningText, Mode=OneWay}"
                                    Visibility="{Binding WarningText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                        <!-- A long name is cut: the tool tip shows it whole, with the rule's identifier. -->
                         <TextBlock FontWeight="SemiBold"
                                    Text="{Binding Name, Mode=OneWay}"
                                    TextTrimming="CharacterEllipsis"
-                                   ToolTip="{Binding Id, Mode=OneWay}" />
+                                   ToolTip="{Binding NameToolTip, Mode=OneWay}" />
                       </DockPanel>
                       <TextBlock Style="{StaticResource Ad.SecondaryText}">
                         <Run Text="{Binding BadgeText, Mode=OneWay}" />
@@ -158,7 +165,10 @@
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
-              <GridViewColumn Width="210" Header="{l:Tr Watchdog.Ui.RuleKinds}">
+              <GridViewColumn Width="210"
+                              b:GridViewColumnFit.MinWidth="140"
+                              b:GridViewColumnFit.Star="3"
+                              Header="{l:Tr Watchdog.Ui.RuleKinds}">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate DataType="{x:Type wd:WatchdogRuleRowViewModel}">
                     <StackPanel VerticalAlignment="Center">
@@ -170,7 +180,10 @@
                   </DataTemplate>
                 </GridViewColumn.CellTemplate>
               </GridViewColumn>
-              <GridViewColumn Width="260" Header="{l:Tr Watchdog.Ui.RuleDelivery}">
+              <GridViewColumn Width="260"
+                              b:GridViewColumnFit.MinWidth="150"
+                              b:GridViewColumnFit.Star="3"
+                              Header="{l:Tr Watchdog.Ui.RuleDelivery}">
                 <GridViewColumn.CellTemplate>
                   <DataTemplate DataType="{x:Type wd:WatchdogRuleRowViewModel}">
                     <StackPanel VerticalAlignment="Center">

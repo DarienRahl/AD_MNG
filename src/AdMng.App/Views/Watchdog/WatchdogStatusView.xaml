@@ -6,6 +6,7 @@
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogStatusView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -434,8 +435,10 @@
                          Text="{l:Tr Watchdog.Ui.DeliveryLog}" />
             </DockPanel>
             <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Error, Mode=OneWay}" />
+            <!-- The columns fit the card (GridViewColumnFit): subject and error share what the others leave, 3 : 2. -->
             <ListView x:Name="DeliveryLogList"
                       MaxHeight="360"
+                      b:GridViewColumnFit.IsEnabled="True"
                       AutomationProperties.Name="{l:Tr Watchdog.Ui.DeliveryLog}"
                       ItemContainerStyle="{StaticResource Wd.ListRow}"
                       ItemsSource="{Binding Items, Mode=OneWay}"
@@ -445,14 +448,18 @@
                       VirtualizingPanel.VirtualizationMode="Recycling">
               <ListView.View>
                 <GridView AllowsColumnReorder="False">
-                  <GridViewColumn Width="150" Header="{l:Tr Watchdog.Ui.Created}">
+                  <GridViewColumn Width="150"
+                                  b:GridViewColumnFit.MinWidth="140"
+                                  Header="{l:Tr Watchdog.Ui.Created}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding CreatedText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="170" Header="{l:Tr Watchdog.Ui.Channel}">
+                  <GridViewColumn Width="150"
+                                  b:GridViewColumnFit.MinWidth="120"
+                                  Header="{l:Tr Watchdog.Ui.Channel}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock TextTrimming="CharacterEllipsis">
@@ -462,7 +469,9 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="120" Header="{l:Tr Watchdog.Ui.DeliveryStatus}">
+                  <GridViewColumn Width="140"
+                                  b:GridViewColumnFit.MinWidth="130"
+                                  Header="{l:Tr Watchdog.Ui.DeliveryStatus}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock x:Name="StatusCell"
@@ -477,21 +486,28 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="60" Header="{l:Tr Watchdog.Ui.Attempts}">
+                  <GridViewColumn Width="60"
+                                  b:GridViewColumnFit.MinWidth="56"
+                                  Header="{l:Tr Watchdog.Ui.Attempts}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding AttemptsText, Mode=OneWay}" TextAlignment="Right" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="170" Header="{l:Tr Watchdog.Ui.SentOrNext}">
+                  <GridViewColumn Width="180"
+                                  b:GridViewColumnFit.MinWidth="170"
+                                  Header="{l:Tr Watchdog.Ui.SentOrNext}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding TimeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="260" Header="{l:Tr Watchdog.Ui.Subject}">
+                  <GridViewColumn Width="260"
+                                  b:GridViewColumnFit.MinWidth="160"
+                                  b:GridViewColumnFit.Star="3"
+                                  Header="{l:Tr Watchdog.Ui.Subject}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding Subject, Mode=OneWay}"
@@ -500,7 +516,10 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="220" Header="{l:Tr Common.Error}">
+                  <GridViewColumn Width="220"
+                                  b:GridViewColumnFit.MinWidth="120"
+                                  b:GridViewColumnFit.Star="2"
+                                  Header="{l:Tr Common.Error}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
@@ -510,7 +529,7 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="110">
+                  <GridViewColumn Width="100" b:GridViewColumnFit.MinWidth="90">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <Button Padding="8,0"

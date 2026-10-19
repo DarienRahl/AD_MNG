@@ -8,7 +8,8 @@ namespace AdMng.Presentation.Watchdog;
 
 /// <summary>
 /// The delivery log of the Status sub-tab (Admin): outbox messages filtered by status and channel, older pages on
-/// demand, "Ponów" for dead deliveries (queued again at once).
+/// demand (appended row by row, so the list keeps its scroll position and selection), "Ponów" for dead deliveries (queued
+/// again at once).
 /// </summary>
 public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
 {
@@ -166,7 +167,11 @@ public sealed partial class WatchdogDeliveryLogViewModel : ObservableObject
             }
             else
             {
-                Items.AddRange(rows);
+                // Row by row below the loaded ones: a Reset would scroll the list back to the top.
+                foreach (var row in rows)
+                {
+                    Items.Add(row);
+                }
             }
 
             HasMore = page.HasMore;

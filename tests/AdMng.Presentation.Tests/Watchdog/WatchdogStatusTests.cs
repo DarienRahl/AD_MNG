@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.Globalization;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -254,9 +255,17 @@ public sealed class WatchdogStatusTests
             await log.LoadAsync();
             Assert.Equal(100, log.Items.Count);
             Assert.True(log.HasMore);
+            var selected = log.Items[90];
+            log.SelectedItem = selected;
+            var changes = new List<NotifyCollectionChangedEventArgs>();
+            log.Items.CollectionChanged += (_, e) => changes.Add(e);
 
             await log.LoadMoreCommand.ExecuteAsync(null);
 
+            // Appended row by row below the loaded ones (a Reset would scroll the list back to the top).
+            Assert.All(changes, c => Assert.Equal(NotifyCollectionChangedAction.Add, c.Action));
+            Assert.Equal(Enumerable.Range(100, 20), changes.Select(c => c.NewStartingIndex));
+            Assert.Same(selected, log.SelectedItem);
             Assert.Equal(120, log.Items.Count);
             Assert.Equal(111, log.Items[^1].Id);
             Assert.Equal(131, h.Client.OutboxQueries[^1].Before);

@@ -802,8 +802,19 @@ filtry.
 - **Pasek stanu** pokazuje raz „stan + host”; drugi wiersz pojawia się tylko wtedy, gdy trzeba wyjaśnić problem.
   Gdy wybrana jest zakładka Watchdog, panel szczegółów obiektu okna głównego jest ukryty (wybór Ctrl+D zostaje
   zapamiętany dla list obiektów). Zdarzenia krytyczne mają obwódkę wokół czerwonej kropki, aby odróżnić je od
-  wysokich. Panel szczegółów zdarzenia ma 400 px szerokości i można go poszerzyć przeciągając rozdzielacz. Lista
-  „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw.
+  wysokich. Panel szczegółów zdarzenia ma 400 px szerokości; rozdzielaczem można go poszerzyć albo zwęzić do 300 px.
+  Lista „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw. „Zapisane
+  filtry”, „Więcej filtrów” i przycisk ✕ „Wyczyść filtry” są zawsze razem na końcu pierwszego wiersza filtrów; w wąskim
+  oknie pozostałe filtry przechodzą do kolejnego wiersza.
+- **Kolumny list** zdarzeń, reguł i dziennika dostarczeń (podzakładka Stan) mieszczą się w szerokości listy – lista nie
+  przewija się w bok, także w domyślnym rozmiarze okna AD Manager (1360 × 840, w którym program się otwiera) przy
+  panelu szczegółów zdarzenia o szerokości 400 px. Na liście zdarzeń zawsze widać ważność, czas, zdarzenie i obiekt;
+  tytuł zdarzenia zajmuje miejsce, które zostaje po pozostałych kolumnach. Kolumny ✓ (potwierdzone), Wykonawca, Źródło, Lokalizacja i Blokady
+  pojawiają się w tej kolejności, gdy lista ma na nie miejsce (szersze okno, węższy panel szczegółów) – ich wartości są
+  zawsze w panelu szczegółów zdarzenia. Na liście reguł nazwa, rodzaje zdarzeń i powiadomienia dzielą szerokość w
+  proporcji 4 : 3 : 3; skróconą nazwę reguły pokazuje podpowiedź. W dzienniku dostarczeń temat i błąd dzielą miejsce po
+  pozostałych kolumnach (3 : 2). Szerokość kolumny zmieniona przez operatora (przeciągnięcie krawędzi nagłówka albo
+  dwuklik na niej, który dopasowuje kolumnę do zawartości) zostaje, a pozostałe kolumny od razu robią jej miejsce.
 - **Problemy z połączeniem**: pojedyncze żądanie, które przekroczyło czas albo nie dotarło do usługi (np. powolny zapis
   lub wyszukiwanie tekstu), pokazuje błąd w swojej podzakładce, a zakładka zostaje otwarta. Zakładka chowa się za
   banerem „Ponów” dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu
@@ -826,7 +837,11 @@ filtry.
   filtru (np. obniżony priorytet albo inny wykonawca), znika z listy; zaznaczony wiersz zostaje przyciemniony z
   podpowiedzią „Nie pasuje już do filtru” i znika po odznaczeniu. Zdarzenie potwierdzone w innej konsoli pozostaje na
   liście jako potwierdzone (jak potwierdzone przez operatora). Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
-  jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”.
+  jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”. Nowe i późno
+  dopasowane zdarzenia ani „Wczytaj starsze” nie przewijają listy: gdy operator czyta starsze zdarzenia (lista
+  przewinięta w dół), czytane wiersze i zaznaczenie zostają na miejscu, a o nowych informuje przycisk „N nowych”.
+  Po odświeżeniu (F5) albo zmianie filtru przewinięta lista pokazuje to samo zdarzenie, jeśli nadal pasuje (inaczej
+  zaznaczone, a bez zaznaczenia – najnowsze).
 
 | Podzakładka | Zawartość |
 |---|---|
