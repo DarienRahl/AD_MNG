@@ -394,6 +394,38 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task InPlaceRefresh_DropsTheCachedPagesItDidNotReread()
+    {
+        // A rename far from the shown rows moves objects only there (same count): a cached page that was not re-read
+        // must not keep showing the old order when the operator scrolls back to it.
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        var list = CreateList(harness);
+        list.VirtualMaxCachedPages = 6;
+        await list.NavigateAsync(ListLocation.ForContainer(Masowe));
+        var rows = list.VirtualRows!;
+        foreach (var i in new[] { 95, 15, 25, 5 })
+        {
+            _ = rows[i];
+            await TestWait.UntilAsync(() => rows.GetLoaded(i) is not null);
+        }
+
+        var shown = rows[5];
+        var events = new List<NotifyCollectionChangedEventArgs>();
+        rows.CollectionChanged += (_, e) => events.Add(e);
+        harness.Directory.Remove(UserDn(95));
+        harness.Directory.Put(User($"CN=Użytkownik 0098a,{Masowe}", "user0098a"));
+
+        await rows.RefreshAsync();
+
+        Assert.DoesNotContain(events, e => e.Action == NotifyCollectionChangedAction.Reset);
+        Assert.Same(shown, rows[5]);
+        Assert.Null(rows.GetLoaded(95));
+        _ = rows[95];
+        await TestWait.UntilAsync(() => rows.GetLoaded(95) is not null);
+        Assert.Equal([UserName(96), UserName(97), UserName(98), "Użytkownik 0098a", UserName(99)], Enumerable.Range(95, 5).Select(i => rows[i].Name));
+    }
+
+    [Fact]
     public async Task FailedRefresh_AsksAgainForThePagesItsStartDropped()
     {
         // A page is being read when a refresh starts (its result is dropped) and the refresh itself fails: the rows that

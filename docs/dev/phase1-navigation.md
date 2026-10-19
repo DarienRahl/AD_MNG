@@ -87,7 +87,8 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
 - Live updates and the application's own changes in a virtual list re-read the most recently shown pages and the
   count (one request per page). When the count and the objects at those positions are unchanged (an attribute
   changed - the common live update), the rows are updated in place and the view gets no Reset (a Reset regenerates
-  every row container and takes the keyboard focus out of the list). Otherwise rows keep their identity by DN
+  every row container and takes the keyboard focus out of the list); the other cached pages are forgotten (a rename
+  elsewhere may have moved rows there) and read again when shown. Otherwise rows keep their identity by DN
   (updated in place), the view gets one Reset and the selected DNs are re-selected after it. Rows still waiting for a
   page read the refresh dropped are asked for again (also when the refresh fails).
 - The quick filter cannot filter rows that are not loaded: on a large location it becomes a server-side filter

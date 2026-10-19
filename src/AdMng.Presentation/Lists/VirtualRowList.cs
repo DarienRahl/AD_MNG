@@ -453,8 +453,9 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
     /// Re-reads the most recently shown pages and the count (live updates, own changes) without the old server context.
     /// When the count and the objects at the re-read positions are unchanged (an attribute changed - the common live
     /// update), the rows are updated in place and the view gets no Reset: a Reset regenerates every row container and
-    /// takes the keyboard focus out of the list. Otherwise rows keep their identity by DN (updated in place) and the view
-    /// gets one Reset followed by <see cref="Reloaded"/>.
+    /// takes the keyboard focus out of the list; the other cached pages are forgotten and read again when shown.
+    /// Otherwise rows keep their identity by DN (updated in place) and the view gets one Reset followed by
+    /// <see cref="Reloaded"/>.
     /// </summary>
     public async Task RefreshAsync()
     {
@@ -519,6 +520,9 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                 var total = results[^1].Result.TotalCount;
                 if (CanUpdateInPlace(results, total))
                 {
+                    // Cached pages that were not re-read may be stale (a rename elsewhere moved rows there): the view no
+                    // longer shows them (see MaxPlaceholders), so they are read again when shown - rows reused by DN.
+                    DropPages(_pages.Keys.Except(results.Select(r => r.Page)).ToList());
                     foreach (var (page, result) in results)
                     {
                         if (_pages.TryGetValue(page, out var rows))
@@ -896,6 +900,41 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                 }
             }
         }
+    }
+
+    /// <summary>Forgets some cached pages without a notification (their rows stay reusable by DN).</summary>
+    private void DropPages(IReadOnlyList<int> pages)
+    {
+        if (pages.Count == 0)
+        {
+            return;
+        }
+
+        var reuse = new Dictionary<string, ObjectRowViewModel>(StringComparer.Ordinal);
+        foreach (var page in pages)
+        {
+            if (!_pages.Remove(page, out var rows))
+            {
+                continue;
+            }
+
+            if (_recentNodes.Remove(page, out var node))
+            {
+                _recent.Remove(node);
+            }
+
+            var start = page * PageSize;
+            for (var i = 0; i < rows.Length; i++)
+            {
+                reuse[rows[i].Key] = rows[i];
+                if (_indexByKey.TryGetValue(rows[i].Key, out var index) && index == start + i)
+                {
+                    _indexByKey.Remove(rows[i].Key);
+                }
+            }
+        }
+
+        _reuse = reuse;
     }
 
     /// <summary>Forgets every cached page and placeholder (their rows stay reusable by DN) and takes the new count.</summary>
