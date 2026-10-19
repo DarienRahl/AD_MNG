@@ -20,6 +20,20 @@ public interface IDirectoryConnector
     /// </summary>
     /// <exception cref="DirectoryException">Bind failed (wrong credentials, DC unreachable, policy).</exception>
     Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// "Change domain controller": opens a NEW session on <paramref name="server"/> with the connection options of
+    /// <paramref name="current"/> (authentication, channel security, port, user name, timeouts) and the credential that
+    /// session keeps in memory - the operator does not type the password again, and it never leaves the connector.
+    /// <paramref name="current"/> stays open and unchanged (the caller closes it). Like <see cref="ConnectAsync"/> it
+    /// binds and reads RootDSE and the schema; checking that the DC serves the same domain is up to the caller.
+    /// </summary>
+    /// <exception cref="DirectoryException">The DC is unreachable or refused the bind.</exception>
+    /// <exception cref="ArgumentException">The server name is empty or contains a port.</exception>
+    /// <exception cref="ObjectDisposedException"><paramref name="current"/> was closed (its credential is gone).</exception>
+    /// <exception cref="NotSupportedException">The connector cannot reuse <paramref name="current"/> (default implementation).</exception>
+    Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken) =>
+        Task.FromException<IDirectorySession>(new NotSupportedException("This connector cannot open a session with the credential of another session."));
 }
 
 /// <summary>
