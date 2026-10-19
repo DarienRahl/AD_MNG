@@ -415,7 +415,8 @@ nie tworzy plików tymczasowych poza folderem danych, a usuwane rekordy są nadp
 
 ### 4.9 Instalacja usługi
 
-Rozpakuj artefakt `AdMng-Watchdog-win-x64` i uruchom jako administrator:
+Rozpakuj archiwum `AdMng-Watchdog-<wersja>-win-x64.zip` z wydania (albo artefakt CI `AdMng-Watchdog-win-x64`) i uruchom
+jako administrator:
 
 ```powershell
 .\Deploy\Install-AdMngWatchdog.ps1 `

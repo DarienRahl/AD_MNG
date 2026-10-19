@@ -746,9 +746,10 @@ workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14
 Windows albo podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos
 z podpisywaniem i szyfrowaniem). Profil połączenia można zapisać – bez hasła.
 
-**AdMng Watchdog** jest publikowany obok, jako artefakt **AdMng-Watchdog-win-x64** (zależny od środowiska
-uruchomieniowego: wymaga ASP.NET Core Runtime ≥ 10.0.13 x64 na serwerze, aktualizowanego przez Microsoft Update) – razem
-ze skryptami `Deploy\Install-AdMngWatchdog.ps1` / `Uninstall-AdMngWatchdog.ps1`. Instalacja krok po kroku (gMSA, SPN,
+**AdMng Watchdog** (od wersji 0.2.0) jest w tym samym wydaniu jako archiwum `AdMng-Watchdog-<wersja>-win-x64.zip`,
+a między wydaniami jako artefakt CI **AdMng-Watchdog-win-x64**. Usługa jest zależna od środowiska uruchomieniowego:
+wymaga ASP.NET Core Runtime ≥ 10.0.13 x64 na serwerze, aktualizowanego przez Microsoft Update; w archiwum są skrypty
+`Deploy\Install-AdMngWatchdog.ps1` / `Uninstall-AdMngWatchdog.ps1`. Instalacja krok po kroku (gMSA, SPN,
 certyfikat, uprawnienia, inspekcja): [docs/WATCHDOG.md](docs/WATCHDOG.md#4-wdrożenie-krok-po-kroku).
 
 <details>
@@ -756,8 +757,8 @@ certyfikat, uprawnienia, inspekcja): [docs/WATCHDOG.md](docs/WATCHDOG.md#4-wdro�
 
 Wydanie tworzy workflow `.github/workflows/release.yml`, gdy na gałąź wydań trafi nowy opis
 `docs/releases/v<wersja>.md` (pierwsza linia może wskazać commit: `<!-- release-commit: <sha> -->`) albo gdy zostanie
-wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows, tworzy tag oraz wydanie z archiwum,
-zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu aktualizuje tylko opis wydania.
+wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows, tworzy tag oraz wydanie z archiwami
+aplikacji i usługi Watchdog, zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu aktualizuje tylko opis wydania.
 
 </details>
 

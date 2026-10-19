@@ -6,8 +6,9 @@ name: Release
 #    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
 #    that already exists only updates the release description;
 #  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
-# The build job builds, tests and publishes AdMng.exe on Windows and renders screenshots of exactly that commit; the
-# release gets the zip, the screenshots and SHA256SUMS.txt. Tags v0.* and tags with a suffix are pre-releases.
+# The build job builds, tests and publishes AdMng.exe and the AdMng Watchdog service on Windows and renders screenshots
+# of exactly that commit; the release gets both zips, the screenshots and SHA256SUMS.txt. Tags v0.* and tags with a
+# suffix are pre-releases.
 # Creating releases needs the repository secret RELEASE_TOKEN (a fine-grained token for this repository with Contents
 # and Workflows: read and write): the workflow token is refused here with 403 "Resource not accessible by integration"
 # and cannot create a tag on a commit that changes .github/workflows anyway. The plan job fails early without it.
@@ -164,6 +165,28 @@ jobs:
           if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
             "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
+      - name: Publish AdMng Watchdog (framework-dependent)
+        # Framework-dependent, so Microsoft Update services the ASP.NET Core runtime on the server (spec 19.7).
+        run: >-
+          dotnet publish src/AdMng.Watchdog.Service/AdMng.Watchdog.Service.csproj -c Release -r win-x64 --self-contained false
+          -p:Version=${{ needs.plan.outputs.version }} -o publish-watchdog
+      - name: Smoke test published AdMng Watchdog
+        # Temporary data folder, loopback HTTP, Development authentication, directory and attribution disabled:
+        # migrations, /healthz, /api/v1/status and every formatter (spec 19.1).
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          & publish-watchdog/AdMng.Watchdog.exe --smoke-test
+          if ($LASTEXITCODE -ne 0) { throw "AdMng Watchdog smoke test failed with exit code $LASTEXITCODE" }
+          foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
+            if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
+          }
+          $info = (Get-Item publish-watchdog/AdMng.Watchdog.exe).VersionInfo
+          "AdMng.Watchdog.exe file version $($info.FileVersion), product version $($info.ProductVersion)"
+          if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
+            "::warning::AdMng.Watchdog.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
+          }
       - name: Screenshots
         shell: pwsh
         run: |
@@ -184,6 +207,9 @@ jobs:
           # Symbols are not shipped in the zip.
           $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
           Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
+          # The service keeps its folder layout (Deploy\, runtimes\); its symbols are not shipped either.
+          Get-ChildItem -Path publish-watchdog -Recurse -File -Filter *.pdb | Remove-Item
+          Compress-Archive -Path publish-watchdog/* -DestinationPath "dist/AdMng-Watchdog-$version-win-x64.zip"
           Get-ChildItem screenshots -Filter *.png | ForEach-Object {
             Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"
           }
