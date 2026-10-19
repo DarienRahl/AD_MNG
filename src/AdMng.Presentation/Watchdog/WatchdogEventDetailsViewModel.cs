@@ -207,7 +207,7 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         }
     }
 
-    /// <summary>An AD session was opened or closed: "Otwórz w AD_MNG" and the unlock offer are re-evaluated.</summary>
+    /// <summary>An AD session was opened or closed: "Pokaż w AD Manager" and the unlock offer are re-evaluated.</summary>
     public void NotifySessionChanged()
     {
         OpenInAdMngCommand.NotifyCanExecuteChanged();

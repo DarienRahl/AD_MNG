@@ -3872,7 +3872,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Nie można połączyć się z usługą {0} – sprawdź adres, zaporę i czy usługa działa.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>Usługa używa innej wersji API – zaktualizuj AD_MNG lub usługę Watchdog.</value>
+    <value>Usługa używa innej wersji API – zaktualizuj AD Manager lub usługę Watchdog.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Zawsze</value>
@@ -5417,7 +5417,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Historia obiektu:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Otwórz w AD_MNG</value>
+    <value>Pokaż w AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Otwiera obiekt w bieżącej lokalizacji (wymaga połączenia z tą domeną); usunięty obiekt otwiera Kosz AD.</value>

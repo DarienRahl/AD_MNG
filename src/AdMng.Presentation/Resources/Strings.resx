@@ -3872,7 +3872,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The service {0} cannot be reached – check the address, the firewall and whether the service is running.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>The service uses another API version – update AD_MNG or the watchdog service.</value>
+    <value>The service uses another API version – update AD Manager or the watchdog service.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Always</value>
@@ -5417,7 +5417,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>History of:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Open in AD_MNG</value>
+    <value>Show in AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Opens the object at its current location (needs a connection to that domain); a deleted object opens the AD Recycle Bin.</value>

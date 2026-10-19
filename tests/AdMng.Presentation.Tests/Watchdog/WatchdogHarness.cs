@@ -14,7 +14,7 @@ namespace AdMng.Presentation.Tests.Watchdog;
 /// The Watchdog tab's services over test doubles: <see cref="FakeWatchdogClient"/> with the Polish sample data, a
 /// <see cref="FakeTimeProvider"/> for polling, debouncing and "now", a <see cref="TestUiThread"/> as the UI thread, and the
 /// real AD side of <see cref="B2Harness"/> (sample company over FakeDirectorySession, real planner and executor) for the
-/// pickers, "open in AD_MNG" and unlock. Run view model code inside <see cref="TestUiThread.RunAsync(Func{Task})"/>.
+/// pickers, "Pokaż w AD Manager" and unlock. Run view model code inside <see cref="TestUiThread.RunAsync(Func{Task})"/>.
 /// </summary>
 internal sealed class WatchdogHarness : IDisposable
 {

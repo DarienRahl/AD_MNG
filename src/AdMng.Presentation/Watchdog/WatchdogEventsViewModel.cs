@@ -164,7 +164,7 @@ public sealed partial class WatchdogEventsViewModel : ObservableObject, IDisposa
         return _loading;
     }
 
-    /// <summary>An AD session was opened or closed (pickers, "Otwórz w AD_MNG", unlock).</summary>
+    /// <summary>An AD session was opened or closed (pickers, "Pokaż w AD Manager", unlock).</summary>
     public void NotifySessionChanged()
     {
         Filter.NotifySessionChanged();
