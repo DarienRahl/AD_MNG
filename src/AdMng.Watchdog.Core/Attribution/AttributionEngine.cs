@@ -33,7 +33,7 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// follow-up), targets only the added rules notify get new rows unless an alert already covers them, and the added rules
 /// are stored with those rows in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in
 /// between leaves the event pending and the next pass re-plans the same way (no duplicate; the dispatch job holds a
-/// follow-up of a pending event). Otherwise rules that already matched are not planned again for a target without a
+/// follow-up of a pending event; a next pass whose final state changes no rule input drops it). Otherwise rules that already matched are not planned again for a target without a
 /// waiting row (it may be delivered and gone). The update stores the final own severity
 /// (<c>AttributionUpdate.Severity</c>, the input of every later match) and the evaluated one (<c>EvaluatedSeverity</c>, rule
 /// overrides included, as the rules job stores it), and NotificationsQueued is raised only after the attribution update.</para>
@@ -249,6 +249,7 @@ public sealed partial class AttributionEngine(
     {
         var followUps = new List<PendingNotification>();
         RuleMatchContext? rules = null;
+        IReadOnlyList<PendingNotification>? waitingFollowUps = null;
         try
         {
             foreach (var result in processed)
@@ -268,6 +269,20 @@ public sealed partial class AttributionEngine(
                         if (reevaluation.Severity is { } severity)
                         {
                             update = update with { EvaluatedSeverity = severity };
+                        }
+                    }
+                    else if (result.IsFinal)
+                    {
+                        // A follow-up of an event whose attribution was pending until now is an escalation stored by a pass
+                        // that failed before its attribution update (13.2 #7). This final state changes no rule input – the
+                        // pass that stored it found another actor, or attribution was turned off since –, so nothing plans
+                        // it again: it is stale. Read once per pass (the rows of this pass's re-evaluations belong to
+                        // other events).
+                        waitingFollowUps ??= [.. (await notificationQueue.GetAllAsync(CancellationToken.None).ConfigureAwait(false)).Where(p => p.IsFollowUp)];
+                        var stale = waitingFollowUps.Where(p => p.EventId == result.Event.Id).Select(p => p.Id).ToList();
+                        if (stale.Count > 0)
+                        {
+                            await notificationQueue.DropAsync(stale, CancellationToken.None).ConfigureAwait(false);
                         }
                     }
 

@@ -1144,6 +1144,56 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.DoesNotContain(await p.Store.GetAllAsync(Ct), r => r.IsFollowUp);
     }
 
+    [Fact]
+    public async Task AnEscalationOfAnInterruptedPass_IsDropped_WhenTheNextPassEndsTheAttributionWithoutAReevaluation()
+    {
+        // opisy-kont told the helpdesk about a description change as Medium with the actor pending. The pass that found the
+        // Entra Connect sync account (tag syncAccount → synchronizacja, Critical) stored the escalation and failed before it
+        // stored the added rule and the attribution. Before the next pass the operator turned attribution off: the event
+        // ends Unknown without the tag – nothing to re-evaluate, the event stays Medium – and the escalation stored by the
+        // failed pass must not go out ("Średni → Krytyczny" with an unknown actor).
+        var descriptions = new RuleSettings
+        {
+            Id = "opisy-kont",
+            Name = "Opisy kont",
+            Kinds = [WatchEventKind.AttributesChanged],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.HelpdeskGroup], Hours = DeliveryHours.Always },
+        };
+        var sync = descriptions with { Id = "synchronizacja", Name = "Zmiany konta synchronizacji", RequiredTags = [EventTags.SyncAccount], Severity = Severity.Critical };
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(WithHelpdesk(Pipeline.Configuration(descriptions, sync)));
+        var e = await p.AppendAsync(Create(WatchEventKind.AttributesChanged, severity: Severity.Medium, changedAttributes: ["description"]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await p.RulesJob.RunOnceAsync(Ct);
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        var alert = Assert.Single(await ToAsync(p, e, ToHelpdesk));
+        Assert.Equal(("opisy-kont", Severity.Medium, true), (alert.RuleId, alert.Severity, alert.SentWithPendingAttribution));
+        await p.MarkSentAsync(e);
+
+        p.SecurityStore.Add(Modified(T, Sync, "description", "Synchronizacja – Gdańsk", added: true));
+        p.Racing.FailingWrite = "commit";
+        Assert.True((await p.Engine.RunOnceAsync(Ct)).Failed);
+        var escalation = Assert.Single(await p.Store.GetAllAsync(Ct), r => r.IsFollowUp && r.EventId == e.Id);
+        Assert.Equal(Severity.Critical, escalation.Severity);
+        p.Racing.FailingWrite = null;
+
+        var current = p.Config.Current.Configuration;
+        p.Config.Set(current with { Attribution = (current.Attribution ?? new AttributionSettings()) with { Enabled = false } });
+        p.Restart();
+        p.Time.Advance(TimeSpan.FromSeconds(30));
+        Assert.False((await p.Engine.RunOnceAsync(Ct)).Failed);
+        await p.DispatchAsync();
+        await p.DispatchAsync(TimeSpan.FromMinutes(2));
+
+        var stored = (await p.Store.GetAsync(e.Id, Ct))!;
+        Assert.Equal((AttributionStatus.Unknown, Severity.Medium), (stored.Attribution.Status, stored.Severity));
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(p, e, ToHelpdesk)).Select(m => m.Kind));
+        Assert.DoesNotContain(await p.Store.GetAllAsync(Ct), r => r.IsFollowUp);
+    }
+
     private static RuleSettings ResetsRule() => new()
     {
         Id = "resety-hasel",

@@ -769,7 +769,8 @@ przerwany zatrzymaniem usługi jest kończony po jej starcie i nie jest wysyłan
 wysłaniu raportu nie powoduje ponownej wysyłki.
 
 Zawartość: stan usługi, liczniki, **„Wymaga uwagi”** (zdarzenia wysokie i krytyczne z informacją o potwierdzeniu;
-zdarzenie, któremu po wysłaniu alarmu podniesiono priorytet, ma dopisek „(priorytet: Średni → Wysoki)”),
+zdarzenie, któremu po wysłaniu alarmu zmieniono priorytet w wątku alarmu – podniesiono go albo obniżono w
+uzupełnieniu – ma dopisek „(priorytet: Średni → Wysoki)”),
 sekcje: nowe konta, nowe komputery (wg OU), usunięcia, włączenia i wyłączenia, przeniesienia, dostęp uprzywilejowany,
 członkostwo w grupach, zmiany parametrów kont (stara → nowa wartość, kto, kiedy), blokady (jeden wiersz na konto i
 dzień: „zablokowane 5× dziś, ostatnio 10:42” – „dziś” liczone od rzeczywistej północy czasu lokalnego, także w dniach
