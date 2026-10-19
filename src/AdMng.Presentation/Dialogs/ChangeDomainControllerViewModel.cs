@@ -26,6 +26,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     private readonly IDirectoryConnector? _connector;
     private readonly CancellationTokenSource _lifetime = new();
     private DomainControllerList _list = new([], null);
+    private bool _listShown;
     private bool _syncingSelection;
 
     /// <param name="services">Shared dialog services.</param>
@@ -78,9 +79,13 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     /// <summary>The client's site is known and has a writable DC.</summary>
     public bool CanUseAnyWritableInSite => _list.AnyWritableInClientSite is not null;
 
-    /// <summary>What "any writable DC in my site" resolves to, or why it is not available.</summary>
+    /// <summary>
+    /// What "any writable DC in my site" resolves to, or why it is not available ("Loading…" until the list was read once:
+    /// the DC locator may still be answering, so the client's site is not unknown yet).
+    /// </summary>
     public string AnyWritableText => _list.AnyWritableInClientSite switch
     {
+        null when IsLoading && !_listShown => Localizer[L.Common.Loading],
         { IsCurrent: true } current => Localizer.Format(L.ChangeDc.AnyWritableIsCurrent, current.HostName),
         { } target => Localizer.Format(L.ChangeDc.AnyWritableTarget, target.HostName, _list.ClientSite),
         null when _list.ClientSite is { } site => Localizer.Format(L.ChangeDc.NoWritableInSite, site),
@@ -138,6 +143,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     public partial bool UpdateProfile { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AnyWritableText))]
     [NotifyCanExecuteChangedFor(nameof(RefreshCommand))]
     public partial bool IsLoading { get; private set; }
 
@@ -247,7 +253,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             Result = server;
             StatusText = null;
             Record(result.Session.Info, previous.Server, server, error: null);
-            await RememberInProfileAsync(anyWritable ? null : target).ConfigureAwait(true);
+            await RememberInProfileAsync(anyWritable ? null : target, previous.DomainDnsName).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.ChangeDc.Changed, server));
             RequestClose(true);
         }
@@ -391,6 +397,7 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             }
 
             _list = DomainControllerCatalog.Merge(directory ?? [], located ?? [], session.Info);
+            _listShown = true;
 
             // Without a locator (or when it found nothing) it returns only its fallback, the domain name: no DC is known.
             var locatedAny = located?.Any(d => !DomainControllerCatalog.IsLocatorFallback(d, session.Info.DomainDnsName)) == true;
@@ -488,7 +495,9 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
             : null;
     }
 
-    private async Task RememberInProfileAsync(string? server)
+    /// <param name="server">The chosen DC, or null for automatic location ("any writable DC in my site").</param>
+    /// <param name="domainDnsName">The session's domain: automatic location needs it when the profile named only a DC.</param>
+    private async Task RememberInProfileAsync(string? server, string domainDnsName)
     {
         if (!UpdateProfile || ProfileName is not { } name)
         {
@@ -502,7 +511,13 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
                 var index = s.ConnectionProfiles.FindIndex(p => string.Equals(p.Name, name, StringComparison.Ordinal));
                 if (index >= 0)
                 {
-                    s.ConnectionProfiles[index] = s.ConnectionProfiles[index] with { Server = server };
+                    // Without a server and a domain the profile would connect to this computer's domain - maybe another one.
+                    var profile = s.ConnectionProfiles[index];
+                    s.ConnectionProfiles[index] = profile with
+                    {
+                        Server = server,
+                        Domain = server is null && string.IsNullOrWhiteSpace(profile.Domain) ? domainDnsName : profile.Domain,
+                    };
                 }
             }).ConfigureAwait(true);
         }

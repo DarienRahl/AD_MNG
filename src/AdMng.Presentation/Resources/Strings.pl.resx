@@ -1341,7 +1341,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Sesja, w której otwarto to okno, została zakończona (rozłączenie lub ponowne połączenie). Zamknij to okno i otwórz je ponownie.</value>
   </data>
   <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
-    <value>To okno należy do poprzedniego kontrolera domeny {0}. Sesja pracuje teraz z {1} – zamknij to okno i otwórz je ponownie.</value>
+    <value>To okno należy do poprzedniego kontrolera domeny {0}. Sesja jest teraz połączona z {1} – zamknij to okno i otwórz je ponownie.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>Nie masz uprawnień do tworzenia obiektów typu „{0}” w tym kontenerze.</value>

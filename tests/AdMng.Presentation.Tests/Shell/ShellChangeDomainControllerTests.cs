@@ -98,7 +98,7 @@ public class ShellChangeDomainControllerTests
         await harness.Sessions.SwitchDomainControllerAsync("dc02.contoso.test", null, Ct);
 
         var expected = "This window belongs to the previous domain controller dc01.contoso.test. "
-            + "The session now works with dc02.contoso.test – close this window and open it again.";
+            + "The session is now connected to dc02.contoso.test – close this window and open it again.";
         Assert.True(sheet.IsSessionEnded);
         Assert.Equal(expected, sheet.SessionEndedMessage);
         Assert.Equal(expected, sheet.LoadError);
@@ -122,7 +122,7 @@ public class ShellChangeDomainControllerTests
 
         Assert.Equal(
             "To okno należy do poprzedniego kontrolera domeny dc01.contoso.test. "
-            + "Sesja pracuje teraz z dc02.contoso.test – zamknij to okno i otwórz je ponownie.",
+            + "Sesja jest teraz połączona z dc02.contoso.test – zamknij to okno i otwórz je ponownie.",
             sheet.SessionEndedMessage);
     }
 

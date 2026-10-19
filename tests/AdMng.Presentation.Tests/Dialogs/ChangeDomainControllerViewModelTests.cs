@@ -299,6 +299,30 @@ public class ChangeDomainControllerViewModelTests
     }
 
     [Fact]
+    public async Task AnyWritableDcInMySite_WhileTheLocatorAnswers_SaysLoading_NotSiteUnknown()
+    {
+        var harness = await HarnessAsync();
+        var locator = new HeldLocatorConnector([new DomainControllerInfo("dc02.contoso.test", "Kraków", true, false, true)]);
+        using var dialog = new ChangeDomainControllerViewModel(harness.Services, harness.AuditLog, locator);
+        var changed = new List<string?>();
+        dialog.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        var initialization = dialog.InitializeAsync();
+
+        // DsGetDcName may take seconds: until it answered the client's site is not "unknown".
+        Assert.True(dialog.IsLoading);
+        Assert.False(dialog.CanUseAnyWritableInSite);
+        Assert.Equal("Loading…", dialog.AnyWritableText);
+
+        locator.Release();
+        await initialization;
+
+        Assert.False(dialog.IsLoading);
+        Assert.Equal("Connects to dc02.contoso.test in your site Kraków.", dialog.AnyWritableText);
+        Assert.Contains(nameof(dialog.AnyWritableText), changed);
+    }
+
+    [Fact]
     public async Task Profile_IsUpdatedOnlyWhenAsked()
     {
         var harness = await HarnessAsync();
@@ -369,6 +393,44 @@ public class ChangeDomainControllerViewModelTests
         }
 
         Assert.All(harness.Settings.Current.ConnectionProfiles, p => Assert.Null(p.Server));
+    }
+
+    [Fact]
+    public async Task Profile_NamingOnlyADc_KeepsItsDomain_WhenAnyWritableDcIsRemembered()
+    {
+        var harness = await HarnessAsync();
+        await harness.Settings.UpdateAsync(s =>
+        {
+            s.ConnectionProfiles.Add(new ConnectionProfile { Name = "Tylko DC", Server = "dc01.contoso.test" });
+            s.LastProfileName = "Tylko DC";
+        }, Ct);
+
+        // A specific DC: the profile still needs no domain.
+        using (var dialog = await OpenAsync(harness))
+        {
+            Assert.True(dialog.CanUpdateProfile);
+            dialog.ServerText = "dc05.contoso.test";
+            dialog.UpdateProfile = true;
+            await dialog.ChangeCommand.ExecuteAsync(null);
+        }
+
+        var profile = Assert.Single(harness.Settings.Current.ConnectionProfiles);
+        Assert.Equal("dc05.contoso.test", profile.Server);
+        Assert.Null(profile.Domain);
+
+        // Automatic location: without the domain the profile would locate a DC of this computer's domain instead.
+        using (var dialog = await OpenAsync(harness, new DomainControllerInfo("dc02.contoso.test", "Kraków", true, false, true)))
+        {
+            Assert.True(dialog.CanUpdateProfile);
+            dialog.UseAnyWritableInSite = true;
+            dialog.UpdateProfile = true;
+            await dialog.ChangeCommand.ExecuteAsync(null);
+        }
+
+        profile = Assert.Single(harness.Settings.Current.ConnectionProfiles);
+        Assert.Equal("dc02.contoso.test", harness.Sessions.Current!.Info.Server);
+        Assert.Null(profile.Server);
+        Assert.Equal("contoso.test", profile.Domain);
     }
 
     [Fact]
@@ -598,6 +660,25 @@ public class ChangeDomainControllerViewModelTests
 
         public Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken) =>
             Task.FromResult(located);
+
+        public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    /// <summary>DC locator that answers only after <see cref="Release"/> (DsGetDcName waiting for DNS).</summary>
+    private sealed class HeldLocatorConnector(IReadOnlyList<DomainControllerInfo> located) : IDirectoryConnector
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _release.TrySetResult();
+
+        public string? GetComputerDomain() => "contoso.test";
+
+        public async Task<IReadOnlyList<DomainControllerInfo>> FindDomainControllersAsync(string domain, CancellationToken cancellationToken)
+        {
+            await _release.Task.WaitAsync(cancellationToken);
+            return located;
+        }
 
         public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

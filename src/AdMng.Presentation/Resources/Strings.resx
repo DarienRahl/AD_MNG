@@ -1341,7 +1341,7 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.</value>
   </data>
   <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
-    <value>This window belongs to the previous domain controller {0}. The session now works with {1} – close this window and open it again.</value>
+    <value>This window belongs to the previous domain controller {0}. The session is now connected to {1} – close this window and open it again.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>You do not have permission to create objects of type '{0}' in this container.</value>

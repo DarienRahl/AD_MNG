@@ -27,11 +27,13 @@ password). This note describes the in-session switch.
     `/`, or `host:port`).
   * **"Any writable domain controller in my site"** – resolves to the current DC if it already qualifies (nothing to
     do), otherwise the first writable in-site DC in locator order. Disabled with a reason when the client's site is
-    unknown (no locator, e.g. Linux) or no writable DC of the site is known.
+    unknown (no locator, e.g. Linux) or no writable DC of the site is known; until the list was read the reason line
+    says "Loading…" (DsGetDcName may take seconds).
   * **"Remember in the connection profile «X»"** checkbox, shown only when the current connection came from a saved
     profile (`LastProfileName`, matching domain, authentication and channel security). Off by default; when checked
-    the profile's `Server` becomes the chosen DC (or empty = automatic for "any writable DC in my site"). Never
-    stores a password (profiles cannot hold one).
+    the profile's `Server` becomes the chosen DC (or empty = automatic for "any writable DC in my site"; a profile
+    that named only a DC then gets the session's domain, otherwise it would locate a DC of this computer's domain).
+    Never stores a password (profiles cannot hold one).
   * warning line for a read-only DC (writes are refused by an RODC) and when the selection is the current DC.
 * **Switch** (`ISessionManager.SwitchDomainControllerAsync`), respecting *one DC per session* (ADR-0005):
   1. if background operations run, the operator confirms first (they are cancelled only once the new DC answered);
@@ -74,7 +76,7 @@ password). This note describes the in-session switch.
 | RODC chosen | allowed (browsing), warning that changes are refused |
 | Background operations running | confirmation; cancelled only after the new DC was verified |
 | Locator and directory both unavailable (the locator's fallback is only the domain name) | message, free text still possible |
-| Profile save fails (I/O) | switch stays done, warning toast |
+| Profile save fails (I/O) | switch stays done; the settings store logs it and keeps the change for this run (a store that throws: warning toast) |
 | Disconnect while switching | the new session is closed, nothing replaced; the dialog says the session ended |
 
 ## Files
