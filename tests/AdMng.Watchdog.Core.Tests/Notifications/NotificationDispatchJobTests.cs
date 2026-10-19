@@ -396,6 +396,53 @@ public sealed class NotificationDispatchJobTests
         Assert.StartsWith("[AD Watchdog][KRYTYCZNE]", message.Email!.Subject, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RowOfAnEventAlreadyAlertedToTheTarget_IsDroppedUnlessItEscalates()
+    {
+        // 13.2 #1: one alert per event and target – a row inserted after the earlier alert was completed (re-evaluation,
+        // second planning of a configuration change) is checked again when it is flushed.
+        var first = Rule("konta-vip", "Konta VIP");
+        var second = Rule("hasla", "Hasła");
+        var harness = new NotificationHarness(ConfigWith(first, second));
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.PasswordChanged, Severity.Medium), new PlannedMatch(first, Severity.Medium));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.Medium, false)], alert.EventStates);
+
+        var repeat = await harness.Planner.PlanAsync(e, [new PlannedMatch(second, Severity.Medium)], harness.Current, harness.Clock.GetUtcNow(), Ct);
+        await harness.Store.AddAsync(repeat, Ct);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        Assert.Single(await harness.MessagesAsync(e));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+
+        var escalation = await harness.Planner.PlanAsync(e, [new PlannedMatch(second, Severity.High)], harness.Current, harness.Clock.GetUtcNow(), Ct);
+        await harness.Store.AddAsync(escalation, Ct);
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var messages = await harness.MessagesAsync(e);
+        Assert.Equal([Severity.Medium, Severity.High], messages.Select(m => m.Severity));
+    }
+
+    [Fact]
+    public async Task AggregatedAlert_RecordsHowItShowedEachEvent()
+    {
+        var rule = Rule("new-users", "Nowe konta");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (high, _) = await harness.PlanAsync(Event(severity: Severity.High), new PlannedMatch(rule, Severity.High));
+        var (low, _) = await harness.PlanAsync(Event(severity: Severity.Low, name: "Żaneta Łęcka"), new PlannedMatch(rule, Severity.Low));
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(high, low));
+        Assert.Equal(Severity.High, alert.Severity);
+        Assert.Equal([new OutboxEventState(high.Id, Severity.High, false), new OutboxEventState(low.Id, Severity.Low, false)], alert.EventStates);
+        Assert.False(AlertCoverage.Covers(alert, low.Id, Severity.Medium, harness.Current));
+        Assert.True(AlertCoverage.Covers(alert, high.Id, Severity.High, harness.Current));
+    }
+
     /// <summary>A Critical alert sent with the actor pending (grace expired); the outbox row is still Pending.</summary>
     private static async Task<(WatchEvent Event, OutboxMessage Alert)> SendWithPendingActorAsync(NotificationHarness harness, RuleSettings rule)
     {

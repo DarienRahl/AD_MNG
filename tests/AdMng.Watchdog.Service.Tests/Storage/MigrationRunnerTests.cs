@@ -71,10 +71,11 @@ public sealed class MigrationRunnerTests
     }
 
     [Fact]
-    public async Task Version2_KeepsTheSeverityOfExistingEventsAsTheirOwnSeverity()
+    public async Task SchemaOne_KeepsTheSeverityAsTheOwnSeverity_AndAlertLinksWithoutAPerEventState()
     {
         // Schema 1 stored only the evaluated severity (rule overrides included); its own severity is not known any more,
         // so the migration takes the current value – the input of later matches (dispatch re-match, re-evaluation).
+        // Its alert links have no per-event state (schema 3): the message's severity and pending flag stand for them.
         var directory = new TestDataDirectory();
         var database = new SqliteDatabase(directory.Path);
         new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [Migration.All[0]]).Run();
@@ -97,6 +98,18 @@ public sealed class MigrationRunnerTests
             insert.Parameters.AddWithValue("$actorStatus", (int)evaluated.Attribution.Status);
             insert.Parameters.AddWithValue("$payload", BlobCodec.EncodeContract(evaluated with { Id = 0, OwnSeverity = null }));
             insert.ExecuteNonQuery();
+            using var alert = connection.CreateCommand();
+            alert.CommandText = """
+                INSERT INTO outbox (message_id, channel_type, channel_id, kind, rule_id, severity, status, attempts, created_at,
+                  next_attempt_at, target_key, sent_with_pending)
+                VALUES ('0192f3a45b6c7d8e9f00112233445566', $email, 'email', $alert, 'konta-vip', $high, $sent, 1, 0, 0, 'email|0', 1);
+                INSERT INTO outbox_events (outbox_id, event_id) VALUES (last_insert_rowid(), (SELECT max(id) FROM events));
+                """;
+            alert.Parameters.AddWithValue("$email", (int)AdMng.Watchdog.Contracts.Api.DeliveryChannelType.Email);
+            alert.Parameters.AddWithValue("$alert", (int)AdMng.Watchdog.Contracts.Api.DeliveryKind.Alert);
+            alert.Parameters.AddWithValue("$high", (int)Severity.High);
+            alert.Parameters.AddWithValue("$sent", (int)AdMng.Watchdog.Contracts.Api.OutboxStatus.Sent);
+            alert.ExecuteNonQuery();
         }
 
         await using var store = TestStore.Create(directory);
@@ -105,6 +118,10 @@ public sealed class MigrationRunnerTests
         Assert.Equal(Migration.LatestVersion, Pragma<long>(store.Database, "user_version"));
         Assert.Equal((Severity.High, Severity.High), (loaded.OwnSeverity, loaded.Severity));
         Assert.Equal(["konta-vip"], loaded.MatchedRules);
+        var message = Assert.Single(await store.Store.GetMessagesForEventAsync(loaded.Id, Ct));
+        Assert.Equal([loaded.Id], message.EventIds);
+        Assert.Equal((Severity.High, true), (message.Severity, message.SentWithPendingAttribution));
+        Assert.Empty(message.EventStates);
     }
 
     [Fact]

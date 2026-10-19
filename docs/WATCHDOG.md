@@ -579,7 +579,10 @@ reguła i ile wiadomości by wysłała.
   synchronizacji” (`syncAccount`) działają – te tagi są nadawane po atrybucji, a reguły są wtedy oceniane ponownie.
 - Po ponownej ocenie odbiorcy, którzy dostali już alarm o tym zdarzeniu z co najmniej tym samym priorytetem i z ustalonym
   wykonawcą (albo dostaną „Uzupełnienie”), nie dostają drugiego alarmu z nowej reguły; wyższy priorytet przychodzi jako
-  nowy alarm. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
+  nowy alarm. W alarmie zbiorczym liczy się priorytet, z jakim pokazano **to** zdarzenie, a nie najwyższy priorytet całej
+  wiadomości – zdarzenie pokazane jako średnie w zbiorczym alarmie „wysokim” dostanie osobny alarm, gdy stanie się
+  wysokie. Usługa sprawdza to jeszcze raz tuż przed wysłaniem, więc alarm wysłany w tej samej chwili co ponowna ocena
+  nie zostanie powtórzony. Priorytet nadany przez regułę (np. „Krytyczny”) zostaje po ustaleniu wykonawcy.
 - **Priorytet własny a priorytet wyświetlany**: priorytet ustawiony w regule podnosi priorytet zdarzenia widoczny na
   liście, w raporcie dziennym i w licznikach, ale nie wpływa na dopasowanie innych reguł – „minimalny priorytet” każdej
   reguły jest porównywany z własnym priorytetem zdarzenia (wykrycie, tagi, atrybucja), także przy ponownej ocenie po

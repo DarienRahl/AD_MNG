@@ -13,7 +13,10 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// Held items are released when the attribution is final or the grace period ended and are re-matched with the event's
 /// final state (<see cref="IHeldNotificationMatcher"/>; delivery hours and rollout mode recomputed) – items that no
 /// longer qualify are dropped. Every other (non-follow-up) item is dropped when its rule's delivery hours ended while it
-/// waited (aggregation window, throttling) – the digest reports it. A bucket whose rule reached its hourly cap on the
+/// waited (aggregation window, throttling) – the digest reports it. A row whose event already has an alert for the target
+/// that covers it (<see cref="AlertCoverage"/>, per event) is dropped right before the bucket is completed – this job is
+/// the only writer of alerts, so a row planned while that alert was being completed never becomes a second one; every
+/// alert records how it showed each event (<see cref="OutboxMessage.EventStates"/>). A bucket whose rule reached its hourly cap on the
 /// channel waits 15 minutes (Critical is never throttled). At most <c>MaxItemsPerMessage</c> items are rendered, the rest
 /// is announced as "+N kolejnych"; all ready items are completed with the message in one store call. A follow-up waits
 /// (<see cref="FollowUpWait"/>) until its original message was sent and is dropped when the original went Dead or
@@ -175,6 +178,18 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
             }
         }
 
+        // One alert per event and target (13.2 #1): a row planned while an earlier alert of its event was being completed
+        // (the re-evaluation after attribution, the second planning of a configuration change) is a repeat when that alert
+        // covers it. This job is the only writer of alerts and completes one bucket at a time, so the check cannot race.
+        foreach (var (item, _) in ready.Where(r => !r.Item.IsFollowUp).ToList())
+        {
+            if (await AlertCoverage.IsCoveredAsync(_outbox, item.EventId, item.Target.Key, item.Severity, configuration, cancellationToken).ConfigureAwait(false))
+            {
+                drop.Add(item.Id);
+                ready.RemoveAll(r => r.Item.Id == item.Id);
+            }
+        }
+
         if (drop.Count > 0)
         {
             await _queue.DropAsync(drop, cancellationToken).ConfigureAwait(false);
@@ -245,7 +260,11 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         var shown = ordered.Take(cap).ToList();
         var message = first.IsFollowUp
             ? await FollowUpAsync(first, original, rule, shown, configuration, now, cancellationToken).ConfigureAwait(false)
-            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now);
+            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now) with
+            {
+                // What the recipients know about each event (an aggregated alert's events differ): the coverage of later plans.
+                EventStates = [.. ordered.Select(e => new OutboxEventState(e.Id, e.Severity, e.Attribution?.Status == AttributionStatus.Pending))],
+            };
         await _queue.CompleteAsync(ids, message, cancellationToken).ConfigureAwait(false);
         if (message.RuleId is { } ruleId)
         {

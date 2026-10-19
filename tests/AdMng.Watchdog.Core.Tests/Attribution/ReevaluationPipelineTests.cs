@@ -3,6 +3,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
+using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
 using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Core.Tests.Attribution.Fakes;
@@ -283,12 +284,115 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.Empty(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
     }
 
+    // ---- Coverage of an earlier alert: per event, decided where the alert is completed ------------------------------------
+
+    private const string Helpdesk = "pomoc@contoso.test";
+
+    [Fact]
+    public async Task AnEventShownLowerInsideAHighAggregatedAlert_IsNotCoveredByTheAggregatesSeverity()
+    {
+        // konta-vip collects a privileged password change (High) and shadow credentials (Medium while the actor is pending)
+        // into one aggregated helpdesk alert – High as a whole, but the shadow credentials are shown as Medium. Once the actor
+        // is known they are High and a rule for the same recipients matches: the helpdesk saw them only as Medium, so that is
+        // an escalation, not a repeat.
+        var vip = new RuleSettings
+        {
+            Id = "konta-vip",
+            Name = "Konta VIP – hasła i poświadczenia",
+            Kinds = [WatchEventKind.PasswordChanged, WatchEventKind.KeyCredentialChanged],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.HelpdeskGroup], Hours = DeliveryHours.Always },
+        };
+        var shadow = new RuleSettings
+        {
+            Id = "poswiadczenia-pomoc",
+            Name = "Shadow Credentials – helpdesk",
+            Kinds = [WatchEventKind.KeyCredentialChanged],
+            MinSeverity = Severity.High,
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.HelpdeskGroup], Hours = DeliveryHours.Always },
+        };
+        _p.Config.Set(WithHelpdesk(Pipeline.Configuration(vip, shadow)));
+        var password = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, dn: "CN=Anna Zając,OU=Kraków,DC=contoso,DC=test",
+            severity: Severity.High, tags: [EventTags.Privileged], objectGuid: Guid.Parse("0b6d5c8e-2f1a-4c3e-9d7b-5a4e3f2d1c0b"),
+            sid: DomainSid + "-7702") with { OriginatingTime = T, OriginatingDc = Dc1 });
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        var aggregated = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal([password.Id, e.Id], aggregated.EventIds.Order());
+        Assert.Equal((Severity.High, true), (aggregated.Severity, aggregated.SentWithPendingAttribution));
+        await _p.Store.LeaseDueAsync(_p.Time.GetUtcNow(), 10, TimeSpan.FromMinutes(1), Ct);
+        await _p.Store.MarkSentAsync(aggregated.Id, _p.Time.GetUtcNow(), Ct);
+
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+
+        var helpdeskAlerts = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct))
+            .Where(m => m.Kind == DeliveryKind.Alert && m.Recipients.SequenceEqual([Helpdesk]))
+            .OrderBy(m => m.Id)
+            .ToList();
+        Assert.Equal(2, helpdeskAlerts.Count);
+        Assert.Equal([e.Id], helpdeskAlerts[1].EventIds);
+        Assert.Equal((Severity.High, false), (helpdeskAlerts[1].Severity, helpdeskAlerts[1].SentWithPendingAttribution));
+    }
+
+    [Fact]
+    public async Task ADispatchCompletingTheEarlierAlertWhileTheReevaluationStores_DoesNotCauseADuplicate()
+    {
+        // privileged-accounts is due (the grace ended with the actor pending) at the very moment the re-evaluation stores the
+        // row of resety-hasel for the same recipients: the dispatch completes the earlier alert first. The recipients get it
+        // with the follow-up – never a second alert.
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(Pipeline.Configuration(ResetsRule()));
+        var e = await p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await p.RulesJob.RunOnceAsync(Ct);
+        p.Time.Advance(TimeSpan.FromSeconds(91));
+        p.SecurityStore.Add(Account(4724, T, Admin));
+        p.Racing.BeforeWrite = () => p.DispatchAsync(TimeSpan.Zero);
+
+        await p.Engine.RunOnceAsync(Ct);
+        Assert.Null(p.Racing.BeforeWrite);
+        var first = Assert.Single(await p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DefaultRules.PrivilegedAccounts, true), (first.RuleId, first.SentWithPendingAttribution));
+        await p.Store.LeaseDueAsync(p.Time.GetUtcNow(), 10, TimeSpan.FromMinutes(1), Ct);
+        await p.Store.MarkSentAsync(first.Id, p.Time.GetUtcNow(), Ct);
+        await p.DispatchAsync();
+        await p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        Assert.Contains("resety-hasel", (await p.Store.GetAsync(e.Id, Ct))!.MatchedRules);
+        var messages = (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], messages.Select(m => m.Kind));
+        Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    private static RuleSettings ResetsRule() => new()
+    {
+        Id = "resety-hasel",
+        Name = "Resety haseł",
+        Kinds = [WatchEventKind.PasswordChanged],
+        RequiredTags = [EventTags.PasswordReset],
+        Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+    };
+
+    /// <summary>The configuration with the helpdesk mailbox.</summary>
+    private static WatchdogConfiguration WithHelpdesk(WatchdogConfiguration configuration) => configuration with
+    {
+        RecipientGroups = [.. configuration.RecipientGroups.Select(g => g.Id == DefaultRules.HelpdeskGroup ? g with { Addresses = [Helpdesk] } : g)],
+    };
+
     /// <summary>The rules job, attribution engine and dispatch job over one <see cref="InMemoryWatchdogStore"/>.</summary>
     private sealed class Pipeline : IDisposable
     {
-        public Pipeline()
+        /// <param name="racing">The attribution engine writes through <see cref="Racing"/> (a hook runs right before its
+        /// first write of pending rows).</param>
+        public Pipeline(bool racing = false)
         {
             Store = new InMemoryWatchdogStore(Time);
+            Racing = new RacingStore(Store);
             Config = new FakeConfigProvider(Configuration());
             Tracker = new DcLogHealthTracker(Time);
             Gate = new SourceQueryGate(Tracker, Time);
@@ -310,8 +414,8 @@ public sealed class ReevaluationPipelineTests : IDisposable
             Engine = new AttributionEngine(
                 Config,
                 Source,
-                Store,
-                Store,
+                racing ? Racing : Store,
+                racing ? Racing : Store,
                 DomainControllers,
                 new AttributionSourceResolver(DomainControllers, Health, Time),
                 new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), tokens,
@@ -337,6 +441,9 @@ public sealed class ReevaluationPipelineTests : IDisposable
         public FakeTimeProvider Time { get; } = new(Now);
 
         public InMemoryWatchdogStore Store { get; }
+
+        /// <summary>The engine's store in a racing pipeline.</summary>
+        public RacingStore Racing { get; }
 
         public FakeConfigProvider Config { get; }
 
@@ -396,6 +503,85 @@ public sealed class ReevaluationPipelineTests : IDisposable
         }
 
         public void Dispose() => Gate.Dispose();
+    }
+
+    /// <summary>
+    /// The engine's view of the store: delegates everything to the in-memory store and runs <see cref="BeforeWrite"/> once,
+    /// right before the first write that stores pending rows – a dispatch job running at that instant.
+    /// </summary>
+    private sealed class RacingStore(InMemoryWatchdogStore inner) : IEventStore, INotificationQueueStore
+    {
+        public Func<Task>? BeforeWrite { get; set; }
+
+        public async Task CommitEvaluationAsync(IReadOnlyList<EventEvaluation> evaluations, IReadOnlyList<PendingNotification> notifications,
+            CancellationToken cancellationToken)
+        {
+            if (notifications.Count > 0)
+            {
+                await RaceAsync();
+            }
+
+            await inner.CommitEvaluationAsync(evaluations, notifications, cancellationToken);
+        }
+
+        public Task<long> AppendAsync(WatchEvent watchEvent, CancellationToken cancellationToken) => inner.AppendAsync(watchEvent, cancellationToken);
+
+        public Task<EventPage> QueryAsync(EventQuery query, CancellationToken cancellationToken) => inner.QueryAsync(query, cancellationToken);
+
+        public Task WaitForNewerAsync(long afterId, TimeSpan timeout, CancellationToken cancellationToken) =>
+            inner.WaitForNewerAsync(afterId, timeout, cancellationToken);
+
+        public Task<WatchEvent?> GetAsync(long id, CancellationToken cancellationToken) => inner.GetAsync(id, cancellationToken);
+
+        public Task<WatchEvent?> GetByEventIdAsync(Guid eventId, CancellationToken cancellationToken) => inner.GetByEventIdAsync(eventId, cancellationToken);
+
+        public Task<IReadOnlyList<WatchEvent>> GetChangeSetAsync(Guid changeSetId, CancellationToken cancellationToken) =>
+            inner.GetChangeSetAsync(changeSetId, cancellationToken);
+
+        public IAsyncEnumerable<WatchEvent> GetRangeAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken) =>
+            inner.GetRangeAsync(from, to, cancellationToken);
+
+        public Task<IReadOnlyList<WatchEvent>> GetPendingAttributionAsync(DateTimeOffset dueBefore, int limit, CancellationToken cancellationToken) =>
+            inner.GetPendingAttributionAsync(dueBefore, limit, cancellationToken);
+
+        public Task UpdateAttributionAsync(long id, AttributionUpdate update, CancellationToken cancellationToken) =>
+            inner.UpdateAttributionAsync(id, update, cancellationToken);
+
+        public Task<IReadOnlyList<WatchEvent>> GetUnevaluatedAsync(int limit, CancellationToken cancellationToken) => inner.GetUnevaluatedAsync(limit, cancellationToken);
+
+        public Task<bool> AcknowledgeAsync(long id, string by, string? comment, DateTimeOffset at, CancellationToken cancellationToken) =>
+            inner.AcknowledgeAsync(id, by, comment, at, cancellationToken);
+
+        public Task<int> AcknowledgeManyAsync(IReadOnlyList<long> ids, string by, string? comment, DateTimeOffset at, CancellationToken cancellationToken) =>
+            inner.AcknowledgeManyAsync(ids, by, comment, at, cancellationToken);
+
+        public Task<int> CountForObjectAsync(Guid objectGuid, WatchEventKind kind, DateTimeOffset since, CancellationToken cancellationToken) =>
+            inner.CountForObjectAsync(objectGuid, kind, since, cancellationToken);
+
+        public Task<EventCountsDto> CountAsync(DateTimeOffset since, CancellationToken cancellationToken) => inner.CountAsync(since, cancellationToken);
+
+        public Task<long> GetLatestIdAsync(CancellationToken cancellationToken) => inner.GetLatestIdAsync(cancellationToken);
+
+        public Task<IReadOnlyList<PendingNotification>> GetAllAsync(CancellationToken cancellationToken) => inner.GetAllAsync(cancellationToken);
+
+        public Task AddAsync(IReadOnlyList<PendingNotification> notifications, CancellationToken cancellationToken) => inner.AddAsync(notifications, cancellationToken);
+
+        public Task CompleteAsync(IReadOnlyList<long> pendingIds, OutboxMessage? message, CancellationToken cancellationToken) =>
+            inner.CompleteAsync(pendingIds, message, cancellationToken);
+
+        public Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken) => inner.DropAsync(pendingIds, cancellationToken);
+
+        public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
+            inner.RescheduleAsync(pendingIds, dueAt, cancellationToken);
+
+        private async Task RaceAsync()
+        {
+            if (BeforeWrite is { } race)
+            {
+                BeforeWrite = null;
+                await race();
+            }
+        }
     }
 
     /// <summary>Records signals and lets a test look at the store at the moment one is raised.</summary>

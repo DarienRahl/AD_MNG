@@ -22,6 +22,12 @@ public sealed record RenderedHttpMessage
     public string? Title { get; init; }                     // for the delivery log
 }
 
+/// <summary>How one event was shown in an alert: its notification severity and whether its actor was still pending.</summary>
+/// <param name="EventId">The event (store id).</param>
+/// <param name="Severity">The severity the event was rendered with (an aggregated alert's events may differ).</param>
+/// <param name="PendingAttribution">The event's attribution was still pending when the alert was rendered.</param>
+public sealed record OutboxEventState(long EventId, Severity Severity, bool PendingAttribution);
+
 /// <summary>One message to deliver over one channel (the outbox row).</summary>
 public sealed record OutboxMessage
 {
@@ -39,6 +45,12 @@ public sealed record OutboxMessage
     public RenderedHttpMessage? Http { get; init; }
     public string? RuleId { get; init; }
     public IReadOnlyList<long> EventIds { get; init; } = [];
+    /// <summary>Alerts: per linked event, the severity it was shown with and whether its actor was still pending – what
+    /// the recipients know about that event (13.2 #1 coverage of a later plan for the same event and target). Empty for
+    /// other kinds and for alerts stored before schema 3: <see cref="Severity"/> and <see cref="SentWithPendingAttribution"/>
+    /// then stand for every event.</summary>
+    public IReadOnlyList<OutboxEventState> EventStates { get; init; } = [];
+    /// <summary>The highest severity of the message's events.</summary>
     public Severity Severity { get; init; }
     public int Attempts { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }

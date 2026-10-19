@@ -7,13 +7,16 @@ using Microsoft.Data.Sqlite;
 
 namespace AdMng.Watchdog.Service.Storage;
 
-/// <summary>The <c>outbox</c> and <c>outbox_events</c> tables (payload NULL after a successful send, spec 16.3).</summary>
+/// <summary>The <c>outbox</c> and <c>outbox_events</c> tables (payload NULL after a successful send, spec 16.3); a link
+/// keeps how an alert showed its event (severity, actor pending – schema 3).</summary>
 internal static class OutboxRows
 {
     /// <summary>Columns to select for <see cref="ReadMessage"/>.</summary>
     public const string MessageColumns =
         "id, message_id, channel_type, channel_id, kind, rule_id, severity, attempts, created_at, next_attempt_at, recipients, " +
-        "target_key, sent_with_pending, payload, (SELECT group_concat(event_id) FROM outbox_events WHERE outbox_id = outbox.id)";
+        "target_key, sent_with_pending, payload, (SELECT group_concat(event_id) FROM outbox_events WHERE outbox_id = outbox.id), " +
+        "(SELECT group_concat(event_id || ':' || severity || ':' || pending) FROM outbox_events " +
+        "WHERE outbox_id = outbox.id AND severity IS NOT NULL AND pending IS NOT NULL)";
 
     /// <summary>Columns to select for <see cref="ReadItem"/>.</summary>
     public const string ItemColumns =
@@ -59,12 +62,20 @@ internal static class OutboxRows
             ("$payload", message.Email is null && message.Http is null ? DBNull.Value : BlobCodec.EncodeOutbox(message.Email, message.Http)));
         var id = (long)command.ExecuteScalar()!;
 
-        using var link = SqliteValues.Command(connection, transaction, "INSERT OR IGNORE INTO outbox_events (outbox_id, event_id) VALUES ($outbox, $event);");
+        using var link = SqliteValues.Command(
+            connection,
+            transaction,
+            "INSERT OR IGNORE INTO outbox_events (outbox_id, event_id, severity, pending) VALUES ($outbox, $event, $severity, $pending);");
         link.Parameters.AddWithValue("$outbox", id);
         var eventParameter = link.Parameters.Add("$event", SqliteType.Integer);
+        var severityParameter = link.Parameters.Add("$severity", SqliteType.Integer);
+        var pendingParameter = link.Parameters.Add("$pending", SqliteType.Integer);
+        var states = message.EventStates.DistinctBy(s => s.EventId).ToDictionary(s => s.EventId);
         foreach (var eventId in message.EventIds)
         {
             eventParameter.Value = eventId;
+            severityParameter.Value = states.TryGetValue(eventId, out var state) ? (int)state.Severity : DBNull.Value;
+            pendingParameter.Value = state is null ? DBNull.Value : state.PendingAttribution ? 1 : 0;
             link.ExecuteNonQuery();
         }
 
@@ -96,6 +107,7 @@ internal static class OutboxRows
             Email = payload?.Email,
             Http = payload?.Http,
             EventIds = ParseIds(SqliteValues.StringOrNull(reader, 14)),
+            EventStates = ParseStates(SqliteValues.StringOrNull(reader, 15)),
         };
     }
 
@@ -123,6 +135,18 @@ internal static class OutboxRows
             EventCount = reader.GetInt32(14),
         };
     }
+
+    /// <summary>"eventId:severity:pending,…" → the per-event states ordered by event id.</summary>
+    private static List<OutboxEventState> ParseStates(string? csv) =>
+        string.IsNullOrEmpty(csv)
+            ? []
+            : [.. csv.Split(',')
+                .Select(v => v.Split(':'))
+                .Select(p => new OutboxEventState(
+                    long.Parse(p[0], NumberStyles.Integer, CultureInfo.InvariantCulture),
+                    (Severity)int.Parse(p[1], NumberStyles.Integer, CultureInfo.InvariantCulture),
+                    p[2] != "0"))
+                .OrderBy(s => s.EventId)];
 
     private static List<long> ParseIds(string? csv) =>
         string.IsNullOrEmpty(csv)

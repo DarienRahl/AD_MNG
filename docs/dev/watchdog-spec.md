@@ -2148,12 +2148,17 @@ public sealed record OutboxMessage
     public RenderedHttpMessage? Http { get; init; }
     public string? RuleId { get; init; }
     public IReadOnlyList<long> EventIds { get; init; } = [];
-    public Severity Severity { get; init; }
+    /// <summary>Alerts: per linked event the severity it was shown with and whether its actor was pending (13.2 #1 coverage);
+    /// empty for other kinds and alerts of schema ≤ 2 (then Severity / SentWithPendingAttribution stand for every event).</summary>
+    public IReadOnlyList<OutboxEventState> EventStates { get; init; } = [];
+    public Severity Severity { get; init; }                         // the highest severity of its events
     public int Attempts { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset NextAttemptAt { get; init; }
     public override string ToString() => $"OutboxMessage({Id}, {ChannelType}, {ChannelId}, {Kind})";
 }
+
+public sealed record OutboxEventState(long EventId, Severity Severity, bool PendingAttribution);
 
 /// <summary>Deferred = not attempted (rate limiter); the outbox does not count an attempt.</summary>
 public enum DeliveryOutcome { Delivered, Deferred, Transient, Permanent, ChannelBroken, AuthenticationFailed }
@@ -4034,10 +4039,14 @@ For every match with `Delivery.Immediate`:
    is disabled); `NotifyManager` (expiry kinds) → the object's manager (snapshot `manager` → that object's `mail`) as an
    e-mail target with DetailLevel Minimal. Targets are de-duplicated across rules by (Target.Key, EventId) – the first
    rule (config order) owns the pending row. For the rules added by the re-evaluation after attribution (11.4 #9,
-   `PlanReevaluationAsync`) a target is also left out when the event already has an alert for it that is not Dead or
-   Cancelled, has at least the planned severity and carries the final state (sent with the attribution final, or getting
-   the follow-up of #6); a higher severity, or an alert sent with the actor pending and no follow-up to come, is new
-   information and the added rule notifies.
+   `PlanReevaluationAsync`) a target is also left out when the event already has an alert for it that covers the plan
+   (`AlertCoverage`): not Dead or Cancelled, the **event itself** shown with at least the planned severity
+   (`OutboxMessage.EventStates` – an aggregated alert carries the maximum of its events, so an event shown Medium inside
+   a High alert is not covered by a High plan) and carrying the final state (the event's actor known when rendered, or the
+   follow-up of #6 coming); a higher severity, or an alert sent with the actor pending and no follow-up to come, is new
+   information and the added rule notifies. The dispatch job checks the coverage again right before it completes a row
+   (13.3): it is the only writer of alerts and completes one bucket at a time, so a row stored while the earlier alert
+   was being completed never becomes a second alert.
 2. Delivery hours: `Default` → Always for severity ≥ High, else BusinessHours. BusinessHours and
    `BusinessCalendar.IsBusinessTime(now)` false → **no immediate notification** (the event still goes to the digest).
 3. Repeat suppression: `RepeatSuppression` set and `outbox.WasNotifiedAboutObjectAsync(ruleId, objectGuid, now −
@@ -4070,6 +4079,8 @@ for each bucket with min(DueAt) ≤ now:
         hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
     other non-follow-up items: delivery hours rechecked → outside them (the aggregation window or throttling ran past
         the end of business hours) dropped – the digest reports them
+    ready non-follow-up items whose event already has an alert for the target that covers them (13.2 #1,
+        AlertCoverage: per event, not lost, at least the item's severity, actor known or follow-up coming) → dropped
     follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate); original
         message (ReplyToMessageId) Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min)
         (a follow-up never overtakes its original); Sent or unknown (purged) → rendered
@@ -4077,7 +4088,8 @@ for each bucket with min(DueAt) ≤ now:
     if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
-        TargetKey, SentWithPendingAttribution = any rendered event still Pending)
+        TargetKey, SentWithPendingAttribution = any rendered event still Pending; alerts: EventStates = per event its
+        row severity and whether its actor is still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
     ThrottlePolicy.RecordEnqueued(rule, channel, now)
     alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
@@ -4645,6 +4657,11 @@ Later migrations (forward-only, `Storage/Migrations/Migration000N*.cs`, each in 
 -- severity as their own (the own severity of an evaluated row is not known any more). EventRows reads it from the column.
 ALTER TABLE events ADD COLUMN own_severity INTEGER;
 UPDATE events SET own_severity = severity;
+
+-- 0003_outbox_event_state: how an alert showed each linked event (OutboxMessage.EventStates, 13.2 #1 coverage); NULL on
+-- links of older schemas – the message severity and sent_with_pending then stand for every event.
+ALTER TABLE outbox_events ADD COLUMN severity INTEGER;
+ALTER TABLE outbox_events ADD COLUMN pending INTEGER;
 ```
 
 ### 16.3 Retention and maintenance (`RetentionJob` → `IStoreMaintenance`) – daily at `Retention.MaintenanceTime`
