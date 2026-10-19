@@ -96,8 +96,11 @@
         <ListView.InputBindings>
           <KeyBinding Key="Enter" Command="{Binding Data.OpenCommand, Source={StaticResource LogProxy}}" />
           <KeyBinding Key="C"
-                      Command="{Binding Data.CopyDnCommand, Source={StaticResource LogProxy}}"
+                      Command="{Binding Data.CopyEntryCommand, Source={StaticResource LogProxy}}"
                       Modifiers="Control" />
+          <KeyBinding Key="C"
+                      Command="{Binding Data.CopyDnCommand, Source={StaticResource LogProxy}}"
+                      Modifiers="Control+Shift" />
         </ListView.InputBindings>
         <ListView.ContextMenu>
           <ContextMenu>
@@ -105,9 +108,14 @@
                       FontWeight="SemiBold"
                       Header="{l:Tr Commands.Properties}"
                       InputGestureText="Enter" />
+            <Separator />
+            <MenuItem x:Name="CopyEntryMenuItem"
+                      Command="{Binding Data.CopyEntryCommand, Source={StaticResource LogProxy}}"
+                      Header="{l:Tr Copy.CopyEntry}"
+                      InputGestureText="Ctrl+C" />
             <MenuItem Command="{Binding Data.CopyDnCommand, Source={StaticResource LogProxy}}"
                       Header="{l:Tr Commands.CopyDn}"
-                      InputGestureText="Ctrl+C" />
+                      InputGestureText="Ctrl+Shift+C" />
           </ContextMenu>
         </ListView.ContextMenu>
         <ListView.View>

@@ -264,7 +264,20 @@
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />
-        <MenuItem b:CommandMenu.Id="object.copyDn" />
+        <MenuItem b:CommandMenu.Id="object.copyRows" />
+        <MenuItem b:CommandMenu.Id="object.copyRowsWithHeaders" />
+        <MenuItem x:Name="CopyAsMenuItem" Header="{l:Tr CommandCategories.CopyAs}">
+          <MenuItem b:CommandMenu.Id="copyAs.mail" />
+          <MenuItem b:CommandMenu.Id="copyAs.upn" />
+          <MenuItem b:CommandMenu.Id="copyAs.login" />
+          <MenuItem b:CommandMenu.Id="copyAs.domainLogin" />
+          <MenuItem b:CommandMenu.Id="copyAs.name" />
+          <MenuItem b:CommandMenu.Id="copyAs.displayName" />
+          <MenuItem b:CommandMenu.Id="object.copyDn" />
+          <MenuItem b:CommandMenu.Id="copyAs.path" />
+          <MenuItem b:CommandMenu.Id="copyAs.guid" />
+          <MenuItem b:CommandMenu.Id="copyAs.sid" />
+        </MenuItem>
         <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
@@ -363,6 +376,37 @@
         <Button b:CommandMenu.Id="nav.find" Content="{x:Static c:Glyphs.Search}" Style="{StaticResource Ad.IconButton}" />
         <Button b:CommandMenu.Id="object.batchEdit" Content="{x:Static c:Glyphs.Batch}" Style="{StaticResource Ad.IconButton}" />
         <Button b:CommandMenu.Id="view.export" Content="{x:Static c:Glyphs.Export}" Style="{StaticResource Ad.IconButton}" />
+        <!-- "Kopiuj jako…" of the selection: the button opens the same menu as the object's context menu. -->
+        <Button x:Name="CopyAsButton"
+                AutomationProperties.Name="{l:Tr CommandCategories.CopyAs}"
+                Click="OnCopyAsButtonClick"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr CommandCategories.CopyAs}">
+          <Button.ContextMenu>
+            <ContextMenu>
+              <MenuItem b:CommandMenu.Id="object.copyRows" />
+              <MenuItem b:CommandMenu.Id="object.copyRowsWithHeaders" />
+              <Separator />
+              <MenuItem b:CommandMenu.Id="copyAs.mail" />
+              <MenuItem b:CommandMenu.Id="copyAs.upn" />
+              <MenuItem b:CommandMenu.Id="copyAs.login" />
+              <MenuItem b:CommandMenu.Id="copyAs.domainLogin" />
+              <MenuItem b:CommandMenu.Id="copyAs.name" />
+              <MenuItem b:CommandMenu.Id="copyAs.displayName" />
+              <MenuItem b:CommandMenu.Id="object.copyDn" />
+              <MenuItem b:CommandMenu.Id="copyAs.path" />
+              <MenuItem b:CommandMenu.Id="copyAs.guid" />
+              <MenuItem b:CommandMenu.Id="copyAs.sid" />
+            </ContextMenu>
+          </Button.ContextMenu>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Ad.GlyphText}" Text="{x:Static c:Glyphs.Copy}" />
+            <TextBlock Margin="2,0,0,0"
+                       FontSize="8"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.ChevronDown}" />
+          </StackPanel>
+        </Button>
         <Rectangle Style="{StaticResource Ad.VerticalDivider}" />
         <ToggleButton x:Name="FilterToggle"
                       AutomationProperties.Name="{l:Tr Ui.ShowFilters}"
@@ -705,10 +749,21 @@
                                     Icon="{Binding Icon, Mode=OneWay}"
                                     Size="32" />
                   <StackPanel>
-                    <TextBlock FontSize="15"
+                    <!-- Values are selectable with the mouse; the copy buttons copy them with one click. -->
+                    <DockPanel>
+                      <Button x:Name="CopyNameButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding NameField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding NameField.Label, Mode=OneWay}"
+                              Visibility="{Binding NameField.CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}" />
+                      <TextBox AutomationProperties.Name="{Binding Name, Mode=OneWay, TargetNullValue=''}"
+                               FontSize="15"
                                FontWeight="SemiBold"
-                               Text="{Binding Name, Mode=OneWay}"
-                               TextWrapping="Wrap" />
+                               Style="{StaticResource Ad.SelectableText}"
+                               Text="{Binding Name, Mode=OneWay}" />
+                    </DockPanel>
                     <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding TypeText, Mode=OneWay}" />
                   </StackPanel>
                 </DockPanel>
@@ -727,10 +782,11 @@
                   </DockPanel>
                 </Border>
 
-                <TextBlock Margin="0,10,0,0"
-                           Text="{Binding Description, Mode=OneWay}"
-                           TextWrapping="Wrap"
-                           Visibility="{Binding Description, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                <TextBox Margin="0,10,0,0"
+                         AutomationProperties.Name="{l:Tr Attribute.description}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding Description, Mode=OneWay}"
+                         Visibility="{Binding Description, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
 
                 <ItemsControl Margin="0,10,0,0"
                               Focusable="False"
@@ -738,41 +794,64 @@
                               ItemsSource="{Binding Fields, Mode=OneWay}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type shell:SummaryField}">
-                      <Grid Margin="0,2">
+                      <Grid Margin="0,1">
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
                           <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <!-- An Auto column measures with unlimited width: the label itself must be bounded to wrap. -->
                         <TextBlock MaxWidth="140"
-                                   Margin="0,0,10,0"
+                                   Margin="0,2,10,0"
                                    VerticalAlignment="Top"
                                    Style="{StaticResource Ad.SecondaryText}"
                                    Text="{Binding Label, Mode=OneWay}"
                                    TextWrapping="Wrap" />
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding Value, Mode=OneWay}"
-                                   TextWrapping="Wrap" />
+                        <!-- Selectable with the mouse; the copy button copies the whole value with one click. -->
+                        <TextBox Grid.Column="1"
+                                 Margin="0,2,0,0"
+                                 VerticalAlignment="Top"
+                                 AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                                 Style="{StaticResource Ad.SelectableText}"
+                                 Text="{Binding Value, Mode=OneWay}" />
+                        <Button Grid.Column="2"
+                                Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                                CommandParameter="{Binding Mode=OneWay}"
+                                Style="{StaticResource Ad.CopyButton}"
+                                Tag="{Binding Label, Mode=OneWay}"
+                                Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <StackPanel Visibility="{Binding DistinguishedName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-                  <TextBlock Margin="0,12,0,2"
-                             Style="{StaticResource Ad.SecondaryText}"
-                             Text="{l:Tr Details.Path}" />
-                  <TextBlock Text="{Binding Path, Mode=OneWay}" TextWrapping="Wrap" />
-                  <DockPanel Margin="0,10,0,2">
-                    <Button b:CommandMenu.Id="object.copyDn"
-                            Content="{x:Static c:Glyphs.Copy}"
+                  <DockPanel Margin="0,12,0,2">
+                    <Button x:Name="CopyPathButton"
+                            Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                            CommandParameter="{Binding PathField, Mode=OneWay}"
                             DockPanel.Dock="Right"
-                            Style="{StaticResource Ad.SmallIconButton}" />
+                            Style="{StaticResource Ad.CopyButton}"
+                            Tag="{Binding PathField.Label, Mode=OneWay}" />
+                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.Path}" />
+                  </DockPanel>
+                  <TextBox AutomationProperties.Name="{l:Tr Details.Path}"
+                           Style="{StaticResource Ad.SelectableText}"
+                           Text="{Binding Path, Mode=OneWay}" />
+                  <DockPanel Margin="0,10,0,2">
+                    <Button x:Name="CopyDnButton"
+                            Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                            CommandParameter="{Binding DnField, Mode=OneWay}"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource Ad.CopyButton}"
+                            Tag="{Binding DnField.Label, Mode=OneWay}" />
                     <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.DistinguishedName}" />
                   </DockPanel>
-                  <TextBlock FontSize="11"
-                             Text="{Binding DistinguishedName, Mode=OneWay}"
-                             TextWrapping="Wrap" />
+                  <TextBox x:Name="DetailsDnText"
+                           AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
+                           FontSize="11"
+                           Style="{StaticResource Ad.SelectableText}"
+                           Text="{Binding DistinguishedName, Mode=OneWay}" />
                 </StackPanel>
 
                 <TextBlock Margin="0,14,0,6"

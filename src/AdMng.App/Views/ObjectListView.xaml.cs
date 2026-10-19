@@ -172,9 +172,10 @@ public partial class ObjectListView : UserControl
             e.Handled = true;
         }
         else if (e.Key == Key.C && modifiers == ModifierKeys.Control && CommandMenu.FindShell(this) is { } shell
-            && shell.CopyDnCommand.CanExecute(null))
+            && shell.CopyRowsCommand.CanExecute(null))
         {
-            shell.CopyDnCommand.Execute(null);
+            // The selected rows with the visible columns, tab separated (Ctrl+Shift+C copies the DNs).
+            shell.CopyRowsCommand.Execute(null);
             e.Handled = true;
         }
     }
