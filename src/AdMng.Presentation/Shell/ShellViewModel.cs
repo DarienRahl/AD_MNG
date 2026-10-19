@@ -83,6 +83,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _detailsPaneVisible = Settings.Current.ShowDetailsPane;
         Tree.NodeActivated += OnNodeActivated;
+        Tree.PropertyChanged += OnTreePropertyChanged;
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -459,6 +460,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         Tree.NodeActivated -= OnNodeActivated;
+        Tree.PropertyChanged -= OnTreePropertyChanged;
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;

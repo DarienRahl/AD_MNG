@@ -1310,6 +1310,45 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Tree.Views" xml:space="preserve">
     <value>Widoki</value>
   </data>
+  <data name="Tree.WellKnown.Computers" xml:space="preserve">
+    <value>Domyślny kontener nowych komputerów</value>
+  </data>
+  <data name="Tree.WellKnown.DeletedObjects" xml:space="preserve">
+    <value>Obiekty usunięte (Kosz AD)</value>
+  </data>
+  <data name="Tree.WellKnown.DomainControllers" xml:space="preserve">
+    <value>Domyślny kontener kontrolerów domeny</value>
+  </data>
+  <data name="Tree.WellKnown.ForeignSecurityPrincipals" xml:space="preserve">
+    <value>Podmioty zabezpieczeń z domen zaufanych</value>
+  </data>
+  <data name="Tree.WellKnown.Infrastructure" xml:space="preserve">
+    <value>Ustawienia wzorca infrastruktury</value>
+  </data>
+  <data name="Tree.WellKnown.Keys" xml:space="preserve">
+    <value>Klucze uwierzytelniania urządzeń (Windows Hello dla firm)</value>
+  </data>
+  <data name="Tree.WellKnown.LostAndFound" xml:space="preserve">
+    <value>Obiekty osierocone (LostAndFound)</value>
+  </data>
+  <data name="Tree.WellKnown.ManagedServiceAccounts" xml:space="preserve">
+    <value>Domyślny kontener zarządzanych kont usług</value>
+  </data>
+  <data name="Tree.WellKnown.Microsoft" xml:space="preserve">
+    <value>Dane aplikacji firmy Microsoft</value>
+  </data>
+  <data name="Tree.WellKnown.NtdsQuotas" xml:space="preserve">
+    <value>Limity tworzenia obiektów (NTDS Quotas)</value>
+  </data>
+  <data name="Tree.WellKnown.ProgramData" xml:space="preserve">
+    <value>Dane aplikacji</value>
+  </data>
+  <data name="Tree.WellKnown.System" xml:space="preserve">
+    <value>Ustawienia systemowe domeny</value>
+  </data>
+  <data name="Tree.WellKnown.Users" xml:space="preserve">
+    <value>Domyślny kontener nowych użytkowników i grup</value>
+  </data>
   <data name="Uac.AccountDisable" xml:space="preserve">
     <value>Konto jest wyłączone</value>
   </data>

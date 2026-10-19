@@ -31,12 +31,22 @@
 
     <!-- Navigation tree nodes -->
     <HierarchicalDataTemplate DataType="{x:Type nav:ContainerNodeViewModel}" ItemsSource="{Binding Children}">
-      <StackPanel Orientation="Horizontal" ToolTip="{Binding Description, Mode=OneWay}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTipText, Mode=OneWay}">
         <c:ObjectIconView Margin="0,0,6,0"
                           VerticalAlignment="Center"
                           Icon="{Binding Icon, Mode=OneWay}"
                           Size="16" />
         <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <!-- Well-known container (wellKnownObjects): default container of new users/computers, System... -->
+        <TextBlock x:Name="WellKnownBadge"
+                   Margin="6,0,0,0"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding WellKnownText, Mode=OneWay, TargetNullValue=''}"
+                   FontSize="11"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.WellKnown}"
+                   Visibility="{Binding IsWellKnown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <TextBlock Margin="6,0,0,0"
                    FontSize="10"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"

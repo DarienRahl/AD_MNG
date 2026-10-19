@@ -36,8 +36,8 @@ public sealed partial class ShellViewModel
     public event EventHandler<ObjectRowViewModel>? RenameRequested;
 
     /// <summary>
-    /// Container for new objects and the Find dialog: the current container tab, else the selected tree container,
-    /// else the domain root.
+    /// Container of the Find dialog and the Move picker (new objects: <see cref="DefaultCreateContainer"/>): the current
+    /// container tab, else the selected tree container, else the domain root.
     /// </summary>
     public string? CurrentContainerDn => SelectedDocument?.Location is { Kind: ListLocationKind.Container } location
         ? location.BaseDn
@@ -71,7 +71,7 @@ public sealed partial class ShellViewModel
     /// </summary>
     public string? CreateBlockedReason(ObjectKind kind, string? parentDn = null)
     {
-        if (CreateTarget(parentDn) is not { } parent
+        if (CreateTarget(kind, parentDn) is not { } parent
             || Sessions.Current is not { } session
             || !ReferenceEquals(session, _createPermissionsSession)
             || !_createPermissions.TryGetValue(DnKey.For(parent), out var permissions)
@@ -391,9 +391,7 @@ public sealed partial class ShellViewModel
     private bool CanCreateContact(string? parentDn) => CanCreate(ObjectKind.Contact, parentDn);
 
     private bool CanCreate(ObjectKind kind, string? parentDn) =>
-        IsConnected && CreateTarget(parentDn) is not null && CreateBlockedReason(kind, parentDn) is null;
-
-    private string? CreateTarget(string? parentDn) => string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn;
+        IsConnected && CreateTarget(kind, parentDn) is not null && CreateBlockedReason(kind, parentDn) is null;
 
     private static string CreatedClass(ObjectKind kind) => kind switch
     {
@@ -415,21 +413,27 @@ public sealed partial class ShellViewModel
         }
     }
 
-    /// <summary>Reads the create permissions of the current container once it changed (the New commands follow them).</summary>
+    /// <summary>
+    /// Reads the create permissions of the New commands' default targets (the current container, the well-known Users
+    /// and Computers containers) once they changed - the New commands follow them.
+    /// </summary>
     private void RequestCreatePermissions()
     {
         var session = Sessions.Current;
         UseCreatePermissionsOf(session);
-        if (session is null || _disposed || CurrentContainerDn is not { } container)
+        if (session is null || _disposed || CreateTargets() is not { Count: > 0 } targets)
         {
             return;
         }
 
-        var key = DnKey.For(container);
+        var key = string.Join('\n', targets.Select(DnKey.For));
         if (!string.Equals(key, _createPermissionsRequested, StringComparison.Ordinal))
         {
             _createPermissionsRequested = key;
-            LoadCreatePermissionsAsync(container).Forget();
+            foreach (var target in targets)
+            {
+                LoadCreatePermissionsAsync(target).Forget();
+            }
         }
     }
 
@@ -757,7 +761,7 @@ public sealed partial class ShellViewModel
 
     private async Task CreateObjectAsync(ObjectKind kind, string? parentDn)
     {
-        if ((string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn) is not { } parent)
+        if (CreateTarget(kind, parentDn) is not { } parent)
         {
             return;
         }

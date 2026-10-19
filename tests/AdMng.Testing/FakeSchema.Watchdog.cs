@@ -14,8 +14,8 @@ public static partial class FakeSchema
     {
         ["top"] =
         [
-            "msDS-ReplAttributeMetaData", "replPropertyMetaData", "fSMORoleOwner", "wellKnownObjects", "isRecycled",
-            "flags",
+            "msDS-ReplAttributeMetaData", "replPropertyMetaData", "fSMORoleOwner", "wellKnownObjects", "otherWellKnownObjects",
+            "isRecycled", "flags",
         ],
         ["user"] =
         [
@@ -89,6 +89,7 @@ public static partial class FakeSchema
         Def("fSMORoleOwner", AttributeSyntax.DistinguishedName),
         Def("msDS-HasDomainNCs", AttributeSyntax.DistinguishedName, single: false, systemOnly: true),
         Def("wellKnownObjects", AttributeSyntax.DnWithBinary, single: false, systemOnly: true),
+        Def("otherWellKnownObjects", AttributeSyntax.DnWithBinary, single: false),
         Def("msDS-EnabledFeature", AttributeSyntax.DistinguishedName, single: false, systemOnly: true),
         Def("dSHeuristics", AttributeSyntax.UnicodeString),
         Def("tombstoneLifetime", AttributeSyntax.Integer),

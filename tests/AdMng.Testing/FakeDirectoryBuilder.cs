@@ -69,6 +69,28 @@ public sealed partial class FakeDirectoryBuilder
     /// <summary>Allocates the next free domain SID (S-1-5-21-...-RID).</summary>
     public string NextSid() => $"{DomainSid}-{_nextRid++}";
 
+    /// <summary>
+    /// Points a well-known GUID of the domain head (<c>wellKnownObjects</c>, or <c>otherWellKnownObjects</c> for
+    /// Managed Service Accounts and Keys) at <paramref name="distinguishedName"/> - what <c>redirusr</c> /
+    /// <c>redircmp</c> do; null removes the entry.
+    /// </summary>
+    public void SetWellKnownContainer(WellKnownContainer container, string? distinguishedName)
+    {
+        var attribute = container is WellKnownContainer.ManagedServiceAccounts or WellKnownContainer.Keys
+            ? WellKnownObjects.OtherWellKnownObjectsAttribute
+            : WellKnownObjects.WellKnownObjectsAttribute;
+        var guid = WellKnownGuids.Of(container);
+        var values = Session.GetValues(DomainDn, attribute).OfType<string>()
+            .Where(v => !(WellKnownObjects.TryParseValue(v, out var hex, out _) && hex == guid))
+            .ToList();
+        if (distinguishedName is not null)
+        {
+            values.Add($"B:32:{guid}:{distinguishedName}");
+        }
+
+        Session.SeedAttributes(DomainDn, new Dictionary<string, object?> { [attribute] = values.ToArray() });
+    }
+
     public string AddOu(string name, string? parentDn = null, IReadOnlyDictionary<string, object?>? attributes = null)
     {
         var dn = Dn("OU", name, parentDn);
@@ -273,6 +295,14 @@ public sealed partial class FakeDirectoryBuilder
             [Attr.ObjectClass] = new[] { "top", "domain", ObjectClasses.DomainDns },
             [Attr.ObjectSid] = DomainSid,
             [Attr.IsCriticalSystemObject] = true,
+
+            // The default containers of the seeded structure, like every AD domain head lists them.
+            [WellKnownObjects.WellKnownObjectsAttribute] = new[]
+            {
+                $"B:32:{WellKnownGuids.Users}:{UsersDn}",
+                $"B:32:{WellKnownGuids.Computers}:{ComputersDn}",
+                $"B:32:{WellKnownGuids.DomainControllers}:{DomainControllersDn}",
+            },
         });
         AddContainer("Users", DomainDn, critical);
         AddContainer("Computers", DomainDn, critical);
