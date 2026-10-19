@@ -54,6 +54,24 @@ public sealed class StartupChecksTests
         Assert.Equal(StartupExitCodes.DevelopmentAuthentication, factory.Terminator.ExitCode);
     }
 
+    /// <summary>Plain http is allowed only on loopback listeners – for HTTP.sys as well as for Kestrel.</summary>
+    [Theory]
+    [InlineData("Kestrel")]
+    [InlineData("HttpSys")]
+    public async Task PlainHttpOnANetworkListener_RefusesToStart_WithExitCode4(string server)
+    {
+        await using var factory = new WatchdogFactory(new Dictionary<string, string?>
+        {
+            ["Watchdog:Hosting:Server"] = server,
+            ["Watchdog:Hosting:Urls"] = "http://+:8080/",
+        });
+
+        Assert.NotNull(Record.Exception(() => factory.Services));
+
+        Assert.Equal(StartupExitCodes.Certificate, factory.Terminator.ExitCode);
+        Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("loopback", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Production_WithoutProtectedKeys_RefusesToStart_WithExitCode5()
     {

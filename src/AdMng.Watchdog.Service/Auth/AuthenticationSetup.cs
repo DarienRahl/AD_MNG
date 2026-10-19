@@ -2,6 +2,7 @@ using AdMng.Watchdog.Service.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.Watchdog.Service.Auth;
 
@@ -24,6 +25,7 @@ public static class AuthenticationSetup
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(options);
+        services.TryAddSingleton<ILogonPackageResolver, WindowsLogonPackageResolver>();
         switch (options.Authentication)
         {
             case WatchdogAuthenticationMode.Negotiate when options.Hosting.Server == WatchdogServer.HttpSys:

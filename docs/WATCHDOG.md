@@ -313,8 +313,8 @@ Wystaw certyfikat serwera (EKU „Uwierzytelnianie serwera”) z nazwą `admng-w
 certyfikat → Wszystkie zadania → Zarządzaj kluczami prywatnymi… → dodaj `CONTOSO\svc-admngwd$` (Odczyt). Skrypt
 instalacyjny robi to automatycznie. Po automatycznym odnowieniu certyfikatu nowy klucz dostaje domyślne ACL – w
 szablonie AD CS zaznacz „Autoryzuj dodatkowe konta usług w celu uzyskania dostępu do klucza prywatnego” albo ponów
-nadanie uprawnień (usługa zgłosi problem w dzienniku Application i w stanie usługi). Usługa przyjmuje tylko TLS 1.2 i
-1.3.
+nadanie uprawnień (usługa zgłosi problem w dzienniku Application – zdarzenie 1007 – i w stanie usługi, a do czasu
+nadania uprawnień używa poprzedniego, jeszcze ważnego certyfikatu). Usługa przyjmuje tylko TLS 1.2 i 1.3.
 
 ### 4.8 Foldery usługi
 
@@ -358,7 +358,14 @@ Skrypt: kopiuje pliki do `C:\Program Files\AdMng\Watchdog`, tworzy foldery `conf
 uprawnienie do klucza certyfikatu, wyłącza zrzuty awaryjne WER dla `AdMng.Watchdog.exe` (mogłyby zawierać sekrety),
 rejestruje usługę `AdMngWatchdog` (start „automatyczny – opóźniony”, konto gMSA bez hasła, automatyczny restart po
 awarii), dodaje regułę zapory dla wskazanych podsieci, sprawdza SPN, uruchamia usługę i sprawdza ją poleceniem
-`AdMng.Watchdog.exe --health`. Odpowiednik ręczny:
+`AdMng.Watchdog.exe --health`. Skrypt działa w Windows PowerShell 5.1 i PowerShell 7.
+
+Aktualizacja to ponowne uruchomienie skryptu: istniejący `config\appsettings.json` jest **scalany** – zmieniają się
+tylko ustawienia podane w parametrach (`-Url`, `-AdminGroupSid` zawsze), a ręczne wpisy (np. `DeniedSids`,
+`ViewerDetailLevel`, `Notifications`, `Directory`, `Server: "HttpSys"`) zostają; skrypt wypisuje zmienione ustawienia.
+Bez `-CertificateThumbprint` skrypt sam znajduje certyfikat po nazwie hosta (ta sama reguła co usługa) i nadaje gMSA
+odczyt jego klucza. Właścicielem folderów `%ProgramData%\AdMng\…` zostają Administratorzy, a ich ACL są zastępowane w
+całości – nikt, kto utworzył te foldery lub plik przed instalacją, nie zachowuje do nich praw. Odpowiednik ręczny:
 
 ```powershell
 sc.exe create AdMngWatchdog binPath= "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" start= delayed-auto obj= "CONTOSO\svc-admngwd$" DisplayName= "AdMng Watchdog"
@@ -403,11 +410,17 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
 
 - `Server: "HttpSys"` – alternatywa bez SPN na gMSA; wymaga `netsh http add urlacl url=https://+:8443/
   user=CONTOSO\svc-admngwd$` i `netsh http add sslcert ipport=0.0.0.0:8443 certhash=<odcisk>
-  appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). Przy `RequireKerberos` HTTP.sys
-  przyjmuje wyłącznie Kerberos.
+  appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). HTTP.sys negocjuje schematem
+  Negotiate (z ochroną powiązania kanału); przy `RequireKerberos` usługa odrzuca każde logowanie, które nie odbyło
+  się przez Kerberos (dziennik Application, zdarzenie 2500).
 - `RequireKerberos: true` odrzuca NTLM w obu trybach (ochrona przed przekazywaniem NTLM; .NET 10 nie ma tu powiązania
   kanału).
-- `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu.
+- `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu i
+  bez restartu usługi.
+- Usługa obserwuje ten plik: zmiany w `Authorization`, `Notifications` oraz w listach `AllowedRemoteSubnets` i
+  `MonitoringSubnets` działają w ciągu kilku sekund. Pozostałe ustawienia (`Urls`, `Server`, `Certificate`,
+  `RequireKerberos`, `DataDirectory`, `Authentication`, `Directory`) wymagają restartu usługi
+  (`Restart-Service AdMngWatchdog`).
 - `ViewerDetailLevel` – ile danych widzi rola Viewer w zakładce i na stronie zdarzenia (5.6).
 - `AllowTier0Suppression` – tylko lokalnie można zezwolić na wyłączenie krytycznych zdarzeń przez API (domyślnie nie).
   Bez tej zgody API odrzuca m.in. wykluczenie kontenerów `CN=Users` i `CN=Builtin` (grupy Domain Admins,
@@ -556,7 +569,7 @@ zmian w okresie”) – jego brak oznacza problem z usługą.
 
 | Poziom | Co zawiera |
 |---|---|
-| Minimalny | rodzaj zdarzenia, obiekt, priorytet, wykonawca (konto), łącze – bez wartości atrybutów i adresów IP |
+| Minimalny | rodzaj zdarzenia, obiekt, priorytet, wykonawca (konto), łącze – bez wartości atrybutów i adresów IP (wyszukiwanie tekstu w zakładce też nie uwzględnia wtedy stacji ani IP) |
 | Standardowy | jak wyżej + wartości atrybutów poza danymi osobowymi (telefony, numer pracownika, uwagi, biuro, katalog domowy, godziny logowania) |
 | Pełny | wszystkie wartości z wyjątkiem tajnych (hasła, LAPS, BitLocker, atrybuty poufne – nigdy) |
 
@@ -618,7 +631,8 @@ migawki.
   Uzgodnij z IOD cele, okres retencji, krąg odbiorców i kanały (Teams i Power Automate przechowują kopie poza
   folderem – historia przepływu 30 dni). Wpisz przetwarzanie do rejestru czynności. Obowiązki z ustawy o KSC
   (NIS2) dotyczące monitorowania i dowodów incydentów mogą przemawiać za dłuższą retencją zdarzeń. Odczyt
-  pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia).
+  pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia) w dzienniku Application – zdarzenia 2600
+  (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu).
 - **Zero sekretów.** Wartości haseł, LAPS, BitLockera, TPM, gMSA, sekretów LSA (`currentValue`, `priorValue`) i
   atrybutów oznaczonych w schemacie jako poufne nie są odczytywane, zapisywane ani wysyłane.
 - **Serwer Watchdog to zasób Tier 0** (rozdział 3). Konto usługi ma tylko odczyt AD i dzienników; nie ma uprawnień
@@ -679,7 +693,7 @@ migawki.
 | „Brak uprawnień” (403) | Konto nie należy do grup z `Authorization` w `config\appsettings.json`, jest na liście `DeniedSids` albo bilet Kerberos jest sprzed dodania do grupy (wyloguj się lub `klist purge`). |
 | „Usługa nieosiągalna” | Usługa zatrzymana, zapora (port 8443, `AllowedRemoteSubnets`), DNS. Na serwerze: `& "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" --health` (kod 0 = działa) albo `Invoke-WebRequest https://admng-wd.contoso.com:8443/healthz -UseBasicParsing` (nazwa z certyfikatu, nie `localhost`). |
 | Błąd certyfikatu | Certyfikat nie pochodzi z zaufanego CA lub nazwa nie zgadza się z adresem. |
-| Usługa nie startuje (dziennik Application, źródło „AdMng Watchdog”, zdarzenie 1010) | Kod wyjścia 3 – baza w nowszej wersji niż program; 4 – brak odczytu klucza prywatnego certyfikatu; 5 – zbyt szerokie uprawnienia folderu `data\`; 6 – konto usługi może zapisywać `config\`; 7 – tryb deweloperski uruchomiony jako usługa; brak prawa „Logowanie w trybie usługi”. |
+| Usługa nie startuje (dziennik Application, źródło „AdMng Watchdog”, zdarzenie 1010) | Kod wyjścia 2 – błędny `config\appsettings.json` (składnia JSON, nazwa lub wartość ustawienia; szczegóły: `AdMng.Watchdog.exe --check-config`); 3 – baza w nowszej wersji niż program; 4 – brak odczytu klucza prywatnego certyfikatu albo `http://` na adresie innym niż lokalny; 5 – zbyt szerokie uprawnienia folderu `data\`; 6 – konto usługi może zapisywać `config\`; 7 – tryb deweloperski uruchomiony jako usługa; brak prawa „Logowanie w trybie usługi”. |
 | Stan: „permission.uSNChanged” | Konto nie widzi części obiektów – nadaj uprawnienia z rozdziału 4.3 (także na AdminSDHolder). |
 | Stan: „eventlog.<DC>” z kodem 1722 / 5 | 1722 – zapora „Remote Event Log Management” na DC (także ograniczenie adresu); 5 – gMSA nie jest w Event Log Readers (lub usługa nie została zrestartowana po dodaniu). |
 | Wykonawca „nieustalony – AUDIT_POLICY_MISSING / SACL_MISSING / LOG_OVERWRITTEN / DC_UNREACHABLE” | Odpowiednio: zasady inspekcji (4.5), SACL (4.6), rozmiar dziennika (4.4), dostęp do dziennika DC. |
@@ -694,7 +708,8 @@ migawki.
 Zdarzenia dziennika Application (źródło „AdMng Watchdog”) do monitoringu (SCOM, Zabbix, SIEM): 1000 start usługi,
 1001 brak połączenia z DC / przełączenie na inny DC, 1002 nieudane wysyłki, 1003 problem z magazynem (miejsce, limit,
 uprawnienia folderu), 1004 braki uprawnień, 1005 problemy z atrybucją / luka w dzienniku DC, 1006 zmiana konfiguracji,
-1007 przestarzałe środowisko .NET / wygasający certyfikat, 1010 nieudana kontrola startowa.
+1007 przestarzałe środowisko .NET / wygasający certyfikat, 1010 nieudana kontrola startowa; do rozliczalności (RODO)
+2600/2601 odczyt pojedynczego zdarzenia (kto, numer zdarzenia).
 
 ---
 

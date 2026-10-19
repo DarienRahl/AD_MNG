@@ -4,6 +4,7 @@ using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Configuration;
+using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
 using Microsoft.Extensions.Options;
@@ -48,6 +49,7 @@ public static class ConfigEndpoints
         ConfigChangeNotifier notifier,
         IWatchdogSignals signals,
         WatchdogDomain domain,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var (envelope, error) = await ApiResults.ReadJsonAsync<ConfigEnvelope>(context.Request, allowEmpty: false, cancellationToken).ConfigureAwait(false);
@@ -74,9 +76,13 @@ public static class ConfigEndpoints
             return ApiResults.Invalid(outcome.Result.Issues, "The configuration is not valid.");
         }
 
-        var secrets = ConfigSecretsApplier.Apply(incoming, previous, outcome.StoredBindings, outcome.UrlHosts);
-        var audit = auditor.Compare(previous, incoming);
         var caller = CallerIdentity.Principal(context.User);
+        incoming = ExclusionProvenance.Apply(incoming, previous, caller.Account ?? caller.Sid ?? "unknown", timeProvider.GetUtcNow());
+        var secrets = ConfigSecretsApplier.Apply(incoming, previous, outcome.StoredBindings, outcome.UrlHosts);
+
+        // Effective forms on both sides: GET returns the effective document (missing built-in rules merged in memory), so
+        // disabling a rule the stored document lacks is a change of that rule, not an added one.
+        var audit = auditor.Compare(WatchdogConfigProvider.Effective(previous), WatchdogConfigProvider.Effective(incoming));
         ConfigEnvelope saved;
         try
         {

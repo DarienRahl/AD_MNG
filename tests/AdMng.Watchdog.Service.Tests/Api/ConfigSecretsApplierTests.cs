@@ -2,6 +2,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Configuration;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Service.Api;
+using AdMng.Watchdog.Service.Secrets;
 
 namespace AdMng.Watchdog.Service.Tests.Api;
 
@@ -25,7 +26,7 @@ public sealed class ConfigSecretsApplierTests
         Assert.Equal("channel|teams-pomoc|teams", url.Binding);
         Assert.True(result.Configuration.Smtp.Password.IsSet);
         Assert.Null(result.Configuration.Smtp.Password.NewValue);
-        Assert.Equal("https://contoso.environment.api.powerplatform.com/powerautomate/…", result.Configuration.Channels[0].Url.Hint);
+        Assert.Equal("https://contoso.environment.api.powerplatform.com/…", result.Configuration.Channels[0].Url.Hint);
         Assert.DoesNotContain("TAJNE", result.Configuration.Channels[0].Url.Hint, StringComparison.Ordinal);
         Assert.DoesNotContain("Hasło", result.ToString(), StringComparison.Ordinal);
     }
@@ -46,7 +47,7 @@ public sealed class ConfigSecretsApplierTests
         Assert.Empty(result.Changes);
         Assert.True(result.Configuration.Smtp.Password.IsSet);
         Assert.True(result.Configuration.Channels[0].Url.IsSet);
-        Assert.Equal(previous.Channels[0].Url.Hint, result.Configuration.Channels[0].Url.Hint);
+        Assert.Equal("https://contoso.environment.api.powerplatform.com/…", result.Configuration.Channels[0].Url.Hint);   // the stored hint, in the safe form
     }
 
     [Fact]
@@ -92,7 +93,7 @@ public sealed class ConfigSecretsApplierTests
     }
 
     [Theory]
-    [InlineData("channel.siem.url", "https://siem.contoso.test:8443/hooks/abc?token=x", "https://siem.contoso.test:8443/hooks/…")]
+    [InlineData("channel.siem.url", "https://siem.contoso.test:8443/hooks/abc?token=x", "https://siem.contoso.test:8443/…")]
     [InlineData("channel.siem.url", "https://siem.contoso.test", "https://siem.contoso.test")]
     [InlineData("channel.siem.signingSecret", "whsec_MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIz", "whsec_…MTIz")]
     [InlineData("channel.siem.previousSigningSecret", "whsec_MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIz", "whsec_…MTIz")]
@@ -101,6 +102,36 @@ public sealed class ConfigSecretsApplierTests
     public void Hints(string name, string value, string? hint)
     {
         Assert.Equal(hint, ConfigSecretsApplier.Hint(name, value));
+    }
+
+    /// <summary>Services that put the credential in the first path segment: the hint never contains a path segment, query
+    /// or user info (spec 18: channel URLs only through ISecretStore). The host stays – the validator reads it.</summary>
+    [Theory]
+    [InlineData("https://webhook.site/0f8fad5b-d9cb-469f-a165-70867728950e", "https://webhook.site/…", "0f8fad5b")]
+    [InlineData("https://ntfy.sh/alarmy-łódź-kadry-7f3k", "https://ntfy.sh/…", "alarmy")]
+    [InlineData("https://jan:Hasło1@siem.contoso.test/hooks", "https://siem.contoso.test/…", "Hasło1")]
+    [InlineData("https://siem.contoso.test/?token=tajny-żeton", "https://siem.contoso.test/…", "tajny")]
+    public void UrlHints_NeverRevealTheSecretPart(string url, string hint, string secretPart)
+    {
+        var actual = ConfigSecretsApplier.Hint(SecretNames.ChannelUrl("siem"), url);
+
+        Assert.Equal(hint, actual);
+        Assert.NotEqual(url, actual);
+        Assert.DoesNotContain(secretPart, actual, StringComparison.Ordinal);
+        Assert.Equal(actual, SecretHints.Url(actual));   // idempotent
+    }
+
+    /// <summary>A hint stored before the rule (the whole secret URL) is repaired at the next save of the unchanged secret.</summary>
+    [Fact]
+    public void UnchangedSecrets_WithALeakyStoredHint_GetASafeHint()
+    {
+        var leaky = new SecretField { IsSet = true, Hint = "https://webhook.site/0f8fad5b-d9cb-469f-a165-70867728950e" };
+        var previous = Configuration(url: leaky, password: new SecretField());
+        var stored = new Dictionary<string, string> { [SecretNames.ChannelUrl("teams-pomoc")] = "channel|teams-pomoc|teams" };
+
+        var result = ConfigSecretsApplier.Apply(previous, previous, stored, new Dictionary<string, string?>());
+
+        Assert.Equal("https://webhook.site/…", result.Configuration.Channels[0].Url.Hint);
     }
 
     [Fact]

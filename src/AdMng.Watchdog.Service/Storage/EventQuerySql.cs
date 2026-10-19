@@ -16,7 +16,10 @@ internal sealed class EventQuerySql
     private readonly List<string> _conditions = [];
     private readonly List<(string Name, object? Value)> _parameters = [];
 
-    public EventQuerySql(EventQuery query)
+    /// <param name="query">The filters and the cursor.</param>
+    /// <param name="textMatchesSources">False for Minimal viewers: <c>Text</c> does not match workstation and IP, which
+    /// they cannot see (otherwise hit/miss would reveal them).</param>
+    public EventQuerySql(EventQuery query, bool textMatchesSources = true)
     {
         ArgumentNullException.ThrowIfNull(query);
         Limit = Math.Clamp(query.Limit, 1, MaxLimit);
@@ -43,7 +46,9 @@ internal sealed class EventQuerySql
 
         if (!string.IsNullOrWhiteSpace(query.Text))
         {
-            Add("instr(search_text, $text) > 0", ("$text", query.Text.Trim().ToLowerInvariant()));
+            Add(
+                textMatchesSources ? "instr(search_text, $text) > 0" : "instr(wd_search_visible(search_text), $text) > 0",
+                ("$text", query.Text.Trim().ToLowerInvariant()));
         }
 
         AddSubtree(query.Subtree);

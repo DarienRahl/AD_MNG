@@ -1672,7 +1672,7 @@ public sealed record ChannelSettings
     public required ChannelType Type { get; init; }
     public required string Name { get; init; }
     public bool Enabled { get; init; } = true;
-    public SecretField Url { get; init; } = new();           // Hint = scheme://host/first-path-segment/…
+    public SecretField Url { get; init; } = new();           // Hint = scheme://host[:port]/… (never a path segment)
     public DetailLevel DetailLevel { get; init; } = DetailLevel.Standard;   // Teams Standard, webhook Minimal (defaults factory)
     public TeamsChannelOptions? Teams { get; init; }
     public WebhookChannelOptions? Webhook { get; init; }
@@ -2847,6 +2847,23 @@ Warnings (save allowed):
 | `Notifications.OAuthSmtpHosts` | hosts that may receive an XOAUTH2 token (default `smtp.office365.com`) |
 | `Directory.Domain/Server` | null = computer's domain / PDC emulator (`PreferPdc`) located via `IDirectoryConnector` |
 | `Directory.Authentication` | `CurrentUser` (gMSA) in production; lab: `SimpleBind` with `LabSimpleBindUser`, password ONLY from env `ADMNG_WATCHDOG_LDAP_PASSWORD`, and `AllowInsecureLab=true` (maps to `ConnectionOptions.AllowInsecureSimpleBind`, refused outside Development) |
+
+**Reload.** The bootstrap file is added with `reloadOnChange` (when `config\` exists; the gMSA cannot write it, 19.5).
+`ServiceOptionsFactory` builds the `IOptionsMonitor<ServiceOptions>` value from the live configuration but pins what the
+host consumed when it was built – `DataDirectory`, `AllowInsecureDataDirectoryAcl`, `Authentication`, `Hosting` (except
+`AllowedRemoteSubnets`/`MonitoringSubnets`), `Directory`, `Development` – to the start-up values. So `Authorization`
+(above all `DeniedSids`: revocation must not wait for a restart), `Notifications` and the two subnet lists apply within
+seconds; everything else needs a service restart (documented). `DetectionHostOptions` (role groups as privileged roots)
+is read once at start. An edit that cannot be loaded (malformed JSON) keeps the previous settings in effect – the file
+provider throws in its change callback, so the options are not rebuilt – and `ConfigurationSetup.ReportReloadFailures`
+logs warning 2002 (type and code only), so an emergency `DeniedSids` entry with a syntax error does not fail silently;
+at the next start the same file fails with exit code 2 / event 1010. (The provider does clear its data on such a
+failure: should another watched source – the `appsettings.json` next to the binary – change before the file is fixed,
+the options are rebuilt without the bootstrap settings, i.e. without any role SIDs – everyone gets 403, fail closed.)
+An edit that is valid JSON but holds a value the binder cannot convert (an unknown enum name such as
+`"ViewerDetailLevel": "Minimalny"`, `"tak"` for a flag) would make every `CurrentValue` read throw – each request,
+`/healthz`, the directory and notification jobs – so `ServiceOptionsFactory` keeps the last good options and logs the
+same warning 2002 (type only: the binder's message carries the value); the corrected file applies as usual.
 
 ---
 
@@ -4652,7 +4669,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | GET | `/api/v1/me` | Viewer | – | `MeDto` | roles from SID claims, detail level |
 | GET | `/api/v1/status` | Viewer | – | `StatusDto` | health registry + storage + counts + rollout + suggestions |
 | GET | `/api/v1/catalog` | Viewer | – | `EventKindInfo[]` | |
-| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel` |
+| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`, ended at once by `ApplicationStopping` – a stop never waits for open GUI tabs); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel`; for Minimal callers `text` does not match workstation and IP (`IViewerEventSearch`, SQL `wd_search_visible`), else hit/miss would reveal the hidden source; page and `LatestId` come from one read snapshot (`SqliteDatabase.ReadSnapshot`) |
 | GET | `/api/v1/events/{id}` | Viewer | – | `EventDetails` | 404 when purged; detail level as above; access logged |
 | POST | `/api/v1/events/{id}/ack` | Viewer | `AcknowledgeRequest` | 204 | idempotent; stores caller account |
 | POST | `/api/v1/events/ack` | Viewer | `BulkAcknowledgeRequest` (1–500 ids) | 204 | bulk acknowledge (lockout-heavy feeds) |
@@ -4674,13 +4691,26 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 1. Parse; reject a redacted envelope (`redactedConfig`).
 2. Validate with `ConfigValidationContext` (stored secret names + bindings from `ISecretStore.ListAsync`, environment,
    bootstrap flags) and, for `additionalWatchedAttributes`, the live session schema (8.3 `invalidAttribute`).
+   Then `ExclusionProvenance` sets `CreatedBy`/`CreatedAt` of every new or changed exclusion to the caller and the
+   service clock and keeps the stored values of unchanged ones (same rule id, exclusion id and content) – the client's
+   values are ignored (12.3 shows them in every digest).
 3. `ConfigSecretsApplier` builds `SecretChange`s: `Clear` → remove; `NewValue` → set with the binding of the **new**
-   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host/first-segment/…`, webhook secrets →
-   `whsec_…` + last 4 chars, passwords → null); a removed channel removes its secrets; strip `NewValue`/`Clear`, set
-   `IsSet`.
+   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host[:port]/…` – `SecretHints`: never a path
+   segment, query or user info, because services such as webhook.site or ntfy.sh carry the credential in the first
+   segment; the host stays because the validator reads the declared host from the hint; webhook secrets →
+   `whsec_…` + last 4 chars, passwords → null); a kept secret keeps its stored hint in that safe form; a removed
+   channel removes its secrets; strip `NewValue`/`Clear`, set `IsSet`. `SqliteConfigStore` stores hints only in the
+   safe form and repairs a document written by an earlier version in place on its first read (same version, no audit
+   entry). Known limits: a service whose host itself is the credential (e.g. `*.m.pipedream.net`) still shows it in the
+   hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core); a
+   retired connector URL recognised only by its path (`outlook.office.com/webhook/…`) is no longer caught by the
+   stored-hint check of 8.3 (it cannot be entered – `NewValue` is checked in full – and the Teams transport refuses it
+   at send time with `retiredTeamsUrl`).
 4. `IConfigStore.SaveAsync(config, expectedVersion, by, summary, secretChanges)` – config row, secrets and the
    `config_audit` entry in **one SQLite transaction** (412 on conflict leaves secrets untouched).
-5. `ConfigChangeAuditor` (Core) diffs old vs new → `WatchdogConfigurationChanged` (Health; severity per section 7,
+5. `ConfigChangeAuditor` (Core) diffs the **effective** forms (`WatchdogConfigProvider.Effective`) of old and new – GET
+   returns the effective document, so disabling a built-in rule the stored document lacks is audited as disabled, not
+   added – → `WatchdogConfigurationChanged` (Health; severity per section 7,
    Changes: changed sections/rules, never secret values; attribution Resolved = caller). `ConfigChangeNotifier`
    appends it and plans its notifications **synchronously with the previous configuration** (so the old recipients
    learn that they were removed), then leaves it unevaluated so `RuleEvaluationJob` also plans it with the new one.
@@ -4695,13 +4725,18 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   `KerberosOnlyEvents.OnAuthenticated`: when `Hosting.RequireKerberos` and `AuthenticationType` ≠ `"Kerberos"` →
   `Fail("NTLM is not accepted")`. `OnAuthenticationFailed`: respond 401, `HandleResponse()`, log a hint ("check SPN
   HTTP/<host> on the service account and that clients use the A record") – never a 500.
-- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity whose
-  `AuthenticationType` is not `"Kerberos"` → 401 (Development/Test schemes exempt). This is the enforcement point for
-  HTTP.sys, where `NegotiateEvents` do not run.
+- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity that was not
+  authenticated by Kerberos → 401 + log 2500 (Development/Test schemes exempt). This is the enforcement point for
+  HTTP.sys, where `NegotiateEvents` do not run. Kestrel reports `AuthenticationType` `Kerberos`/`NTLM` directly;
+  HTTP.sys reports every SPNEGO logon as `Negotiate`, so `ILogonPackageResolver` (`WindowsLogonPackageResolver`)
+  reads the real package from the caller's logon token – the token source (`Kerberos` / `NtLmSsp`), else the logon
+  session (`LsaGetLogonSessionData`) – and an undeterminable package is refused (fail closed).
 - Kestrel endpoint `HttpProtocols.Http1` (Negotiate does not work on HTTP/2).
-- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Kerberos` when
-  `RequireKerberos` (else Negotiate plus the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening`
-  = true), `AllowAnonymous = true` (for `/healthz`), scheme `HttpSysDefaults.AuthenticationScheme`; same authorization.
+- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Negotiate` always, plus
+  the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` = true (the scheme `Kerberos` sends
+  `WWW-Authenticate: Kerberos`, which neither browsers nor `SocketsHttpHandler` answer – every call would get 401);
+  `RequireKerberos` is enforced by `KerberosOnlyMiddleware` as above. `AllowAnonymous = true` (for `/healthz`), scheme
+  `HttpSysDefaults.AuthenticationScheme`; same authorization.
 - Authorization: requirement `SidRoleRequirement(role)`; handler **first** denies when any user/group SID claim is in
   `Authorization.DeniedSids` (emergency revocation – Kerberos tickets keep group SIDs for up to 10 h), then grants when
   any `ClaimTypes.GroupSid` **or** `ClaimTypes.PrimaryGroupSid` claim value is in the configured SIDs (Admin SIDs also
@@ -4714,7 +4749,9 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   (the Negotiate handler throws `NotSupportedException` under TestServer – it needs `IConnectionItemsFeature`), so the
   Negotiate handler is registered only when `Watchdog:Authentication = Negotiate`.
 - `RemoteAddressFilter`: `AllowedRemoteSubnets` (when non-empty) → 403 for other remote addresses (defense in depth);
-  `/healthz` → loopback, own addresses and `MonitoringSubnets` only.
+  `/healthz` → loopback, own addresses and `MonitoringSubnets` only. The filter runs after `UseRouting` and applies the
+  health rule to whatever routing matched to the health endpoint (`/healthz/`, `/HEALTHZ` too), with the path without
+  trailing slashes as the fallback.
 - Linux: the Negotiate handler emits no SID claims (only role names via `EnableLdap`), so on Linux the real-Kerberos
   test proves **authentication only** (expects 403 with `AuthenticationType` "Kerberos", 22.4).
 
@@ -4772,10 +4809,11 @@ args: [--console] [--smoke-test] [--check-config] [--health] [--environment <nam
 options = new WebApplicationOptions { Args = args, ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null }
 builder = WebApplication.CreateBuilder(options)
 builder.Services.AddWindowsService(o => o.ServiceName = "AdMngWatchdog")  // no-op on Linux / console
-builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional), the file
+builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional, watched – 8.4), the file
     named by env ADMNG_WATCHDOG_CONFIG (optional, lab/dev, refused when running as a Windows service), env
     ADMNG_WATCHDOG__* (section "Watchdog")
-LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+), both wrapped
+LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+ plus the
+    Information entries 1000, 1006 and the access log 2600/2601 – `LoggingSetup.EventLogFilter`), both wrapped
     by RedactingLoggerProvider; no file logs; HostOptions.BackgroundServiceExceptionBehavior = Ignore (JobHost catches
     everything and logs via SafeExceptionLog); AddExceptionHandler<ApiExceptionHandler>()
 DataDirectory.Ensure(); DataProtectionSetup; AuthenticationSetup; KestrelSetup | HttpSysSetup
@@ -4785,12 +4823,17 @@ IDirectorySessionProvider (ServiceDirectorySessionProvider over LdapDirectoryCon
 app = builder.Build()
 StartupChecks (before Run – .NET 10 runs BackgroundService.ExecuteAsync fully in the background, so nothing may serve
     an un-migrated DB): BootstrapFileGuard (exit 6), data-directory ACL (exit 5), migrations (exit 3 for a newer DB),
-    certificate key access (only for Kestrel with HTTPS; exit 4), Development-auth guard (refused as a Windows service
+    plain http only on loopback listeners (both servers; exit 4), certificate key access (only for Kestrel with HTTPS;
+    exit 4), Development-auth guard (refused as a Windows service
     or with a non-loopback listener; exit 7), secrets readable, runtime version (`Environment.Version` < 10.0.13 →
     Event Log warning + health Warning `runtime.outdated`) → Event Log hints
 ApiSetup.Map(app); app.Run()
 ```
 
+- A host that cannot be built at all (malformed bootstrap JSON, an invalid setting value, an unusable data folder –
+  any exception from `Build` except OOM) is reported by `StartupFailureLog` before any logging provider exists: stderr
+  and, on Windows, Application-log event 1010 written directly with source "AdMng Watchdog" (type and code only, no
+  values, a hint to `--check-config`); exit code 2 – never an unhandled crash.
 - `--smoke-test` (CI): temporary data directory, loopback HTTP on an ephemeral port, `Development` auth,
   directory and attribution disabled, runs migrations, GETs `/healthz` and `/api/v1/status`, renders a sample alert
   with every formatter, exits 0/1. `--check-config`: validates bootstrap + stored config, prints issues, exits.
@@ -4800,7 +4843,10 @@ ApiSetup.Map(app); app.Run()
   loop `RunOnceAsync` → `subscription.WaitAsync(NextRunIn ?? DefaultInterval)`; unexpected exception →
   `SafeExceptionLog`, exponential backoff 1 s → 5 min; repeated fatal errors in the detection job for > 1 h →
   `FatalErrorHandler` → `IProcessTerminator.Exit(1)` so SCM recovery restarts the service (a clean stop never
-  triggers recovery). Tests replace `IProcessTerminator`.
+  triggers recovery). Tests replace `IProcessTerminator`. A `Failed` result logs warning 2300 when the failure starts
+  or its code changes, then at most hourly while it lasts (the condition itself is in the health registry), and
+  Information 2301 on recovery – admitted to the Application log (19.8), otherwise a recovered job and a still failing
+  one would look the same there.
 - `TimeProvider.System` everywhere; tests swap `FakeTimeProvider`.
 - Crash dumps: the install script calls `WerAddExcludedApplication` for `AdMng.Watchdog.exe` (WER dumps could contain
   decrypted secrets and directory values); the service never enables `DOTNET_DbgEnableMiniDump`.
@@ -4810,7 +4856,7 @@ ApiSetup.Map(app); app.Run()
 | | Kestrel + Negotiate (default) | HTTP.sys (option) |
 |---|---|---|
 | Kerberos | user mode, SPN `HTTP/<A record>` **on the gMSA** | kernel mode, machine account – no SPN work (HOST/ covers HTTP/<server FQDN>) |
-| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme `Kerberos` only (`RequireKerberos`) + `KerberosOnlyMiddleware`; Negotiate only with `EnableCBTHardening` |
+| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme Negotiate with `EnableCBTHardening`; NTLM rejected by `KerberosOnlyMiddleware` from the logon token's package (`RequireKerberos`) |
 | TLS cert | selected in app config; key ACL for the gMSA; hot selection by thumbprint/subject | `netsh http add sslcert` per hash – rebind on every renewal |
 | URL ACL | none | `netsh http add urlacl url=https://+:8443/ user=CONTOSO\svc-admngwd$` |
 | Channel binding (EPA) | none on .NET 10 → NTLM rejected | opt-in `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` (10.0.1+, off by default) |
@@ -4826,6 +4872,13 @@ SslProtocols.Tls13; h.ServerCertificateSelector = (_, _) => CertificateSelector.
 Selector: LocalMachine\My by `Thumbprint`, else by `Subject` (newest valid NotAfter with serverAuth EKU and private
 key); reloaded every 10 min (renewals). Startup self-check signs test data with the private key; failure → Event Log
 error "grant the service account Read on the private key (certlm.msc → Manage Private Keys)" and exit code 4.
+The reload applies the same signing check before it switches to a newly found certificate (an AD CS renewal gives the
+new key the default ACL): when it fails, the previous certificate stays in use while it is valid, health
+`certificate.key` Warning (Error when no valid alternative remains – the unusable one is then served, so fixing the key
+ACL takes effect at the next handshake) and event 1007 once per thumbprint and state (Warning while the previous
+certificate serves, Error once handshakes fail); `certificate.key` returns to Ok when the key
+becomes usable. Every reload also re-evaluates `certificate.expiry` (Warning < 30 days, event 1007 once per thumbprint).
+A failure to read the store keeps the current certificate.
 
 ### 19.4 Windows service registration
 
@@ -4839,26 +4892,28 @@ GPO-managed environments add the gMSA to that GPO).
 ### 19.5 Folders (`DataDirectory`, `BootstrapFileGuard`)
 
 ```
-%ProgramData%\AdMng\Watchdog\            SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
-  config\appsettings.json                SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
-  data\                                  SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
-    watchdog.db, -wal, -shm, keys\, backup\
+%ProgramData%\AdMng\                     SYSTEM F, Administrators F, Users RX + gMSA RX (this folder only), inheritance off
+  Watchdog\                             SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
+    config\appsettings.json              SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
+    data\                                SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
+      watchdog.db, -wal, -shm, keys\, backup\
 ```
 
-The install script sets the ACLs with SIDs (`icacls … /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F"
-"*S-1-5-32-544:(OI)(CI)F" "<gMSA>:(OI)(CI)M"` on `data\`, `R` on `config\`) – SIDs avoid localized names such as
-"Administratorzy". When the service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same
-protected DACL. On every start (Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm` are compared with the
-allow-list {SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or
-Administrators: a deviation → Event Log error 1003 and exit code 5, unless the bootstrap flag
-`AllowInsecureDataDirectoryAcl` (then health Warning `storage.acl`). Backups made by the service land in `data\backup\`
-with the same ACL; BitLocker on the volume is recommended (docs).
+The install script sets the ACLs with SIDs (`Set-AdMngProtectedAcl`: owner Administrators recursively, then a new
+protected `DirectorySecurity` that replaces every ACE – `(OI)(CI)` Full for SYSTEM and Administrators, `(OI)(CI)` Modify
+for the gMSA on `data\`, Read on `config\`; 19.6) – SIDs avoid localized names such as "Administratorzy". When the
+service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same protected DACL. On every start
+(Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm`, `keys\` and `backup\` are compared with the allow-list
+{SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or Administrators: a deviation → Event Log
+error 1003 and exit code 5, unless the bootstrap flag `AllowInsecureDataDirectoryAcl` (then health Warning
+`storage.acl`). Backups made by the service land in `data\backup\` with the same ACL; BitLocker on the volume is
+recommended (docs).
 
 ### 19.6 Install script (`Deploy/Install-AdMngWatchdog.ps1`, PowerShell 5.1+/7, elevated)
 
 Parameters: `-ServiceAccount CONTOSO\svc-admngwd$`, `-InstallPath "C:\Program Files\AdMng\Watchdog"`,
 `-DataDirectory`, `-Url https://admng-wd.contoso.com:8443`, `-CertificateThumbprint`, `-ViewerGroupSid`,
-`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`. Steps: `Test-ADServiceAccount` (when the
+`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`, `-TrustExistingConfig` (see below). Steps: `Test-ADServiceAccount` (when the
 AD module exists) → copy files → create `config\` and `data\` with the ACLs of 19.5 → write
 `config\appsettings.json` (role, host-group and monitoring settings) → event source
 (`[System.Diagnostics.EventLog]::CreateEventSource('AdMng Watchdog','Application')`; `New-EventLog` does not exist in
@@ -4869,6 +4924,37 @@ monitoring subnets>` → `setspn -Q HTTP/<host>` must return only the gMSA (warn
 `AdMng.Watchdog.exe --health` (uses the configured FQDN; the machine's own address counts as local). Idempotent;
 `-WhatIf` supported. `Uninstall-AdMngWatchdog.ps1` stops/deletes the service and the firewall rule and keeps `data\`
 unless `-RemoveData`.
+
+Details (helper module `Deploy/AdMngWatchdog.Install.psm1`, shipped with the scripts):
+- **Pure ASCII** (`.ps1`, `.psm1`; `DeployScriptTests`): Windows PowerShell 5.1 reads a script without BOM in the ANSI
+  code page, where the UTF-8 bytes of "–" contain a typographic quote that ends a double-quoted string early. On
+  Windows CI the scripts are parsed by `powershell.exe`.
+- **Update = merge**: an existing `config\appsettings.json` is read and only the settings given as parameters
+  (`$PSBoundParameters`; `-Url` and `-AdminGroupSid` always) are written; defaults (`Server=Kestrel`,
+  `RequireKerberos=true`, empty lists, `Certificate.Subject=<host>` when no thumbprint exists) fill only missing values;
+  everything else – `DeniedSids`, `ViewerDetailLevel`, `Notifications`, `Directory`, `Server=HttpSys`, certificate
+  store – is kept. A `Certificate.Subject` equal to the host of the stored `Urls` (derived by the script,
+  `Test-AdMngSubjectFollowsUrl`) follows a new `-Url`; a subject set by hand stays. The changed settings are printed.
+  The file is written as a new file (UTF-8 without BOM) owned by Administrators.
+- **Trust before merge**: Users may create folders in `%ProgramData%`, so a local user could create
+  `AdMng\Watchdog\config\appsettings.json` before the first installation and plant settings the merge would take over
+  (`ViewerSids` when `-ViewerGroupSid` is omitted, `DataDirectory` – which the script then takes ownership of recursively –,
+  `ViewerDetailLevel`, `AllowTier0Suppression`, …). Before the file is read, `Get-AdMngUntrustedWriters` lists every
+  owner other than SYSTEM, Administrators, TrustedInstaller and the administrator running the script, and every Allow
+  ACE (not inherit-only) of another account that can change the file (write, delete, `WRITE_DAC`, `WRITE_OWNER`,
+  generic all/write) or replace it in `config\`, `Watchdog\` or `AdMng\` (delete child, delete, `WRITE_DAC`,
+  `WRITE_OWNER`, generic all) – the right to create files, which `%ProgramData%` passes on to Users, cannot replace an
+  existing file and is ignored. Any entry stops the script before the first change and names the accounts; the
+  administrator reviews the file and deletes it or re-runs with `-TrustExistingConfig` (then a warning lists them).
+- **ACLs**: `%ProgramData%\AdMng`, `Watchdog\`, `config\` and the data folder get owner Administrators (recursively,
+  `icacls /setowner /T`) and a protected DACL that replaces every other ACE (`Set-Acl` with a new
+  `DirectorySecurity`); everything inside `config\` and the data folder is reset to the inherited ACEs
+  (`icacls <folder>\* /reset /T`, `-ResetChildren`) – a new folder DACL leaves the explicit ACEs of existing children in
+  place. So a local user who created the folders, the bootstrap file or e.g. `data\backup` / `data\keys` before the
+  installation keeps neither ownership nor an ACE.
+- **Private key**: the gMSA gets Read on the key of the certificate the service will select – by thumbprint, else by
+  the selector's subject rule (serverAuth, valid, private key, newest NotAfter) – also without
+  `-CertificateThumbprint`; no matching certificate stops the script. Skipped for `Server=HttpSys` (netsh sslcert).
 
 ### 19.7 Publishing
 
@@ -4889,8 +4975,20 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 | 1004 | Warning | permission gap (self-check code) |
 | 1005 | Warning | attribution degraded / event-log gap (DC host, code) |
 | 1006 | Information | configuration changed (version, caller account) |
-| 1007 | Warning | runtime outdated / certificate expiring within 30 days |
+| 1007 | Warning | runtime outdated / certificate expiring within 30 days / renewed certificate whose key the service account cannot use (the previous one still serves); Error: no usable certificate key remains, TLS handshakes fail (19.3) |
 | 1010 | Error | fatal start-up check failed (exit code in the message) |
+| 2002 | Warning | an edit of the bootstrap file could not be loaded (malformed JSON) or holds a value that cannot be bound; the previous settings stay in effect (8.4) |
+| 2300 / 2301 | Warning / Information | a job's iterations fail (job, failure code, failures in a row – when the failure starts or its code changes, then at most hourly) / the job recovered (job, number of failed iterations) – 19.1 |
+| 2600 / 2601 | Information | single event viewed through `/api/v1/events/{id}` / `/events/{eventId}` (numeric id / event GUID, caller account) – the RODO access log of 17.1 |
+
+As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
+Warning and above plus the Information entries of this table (categories `StartupChecks`, `ConfigChangeNotifier`,
+`EventAccessLog`, `JobHost`); other Information diagnostics (e.g. the per-request line 2700) stay console-only. The log is shared
+with every application on the server, so `ThrottlingLoggerProvider` writes a Warning/Error whose category, event id and
+text equal one written within the last 15 minutes only once, the next one carrying the number of suppressed repeats
+(a DC outage would otherwise repeat the same per-cycle warnings thousands of times a day); distinct entries, Critical,
+Information and warning 2002 always pass (2002 answers an administrator's edit – a second malformed edit within the
+window must not leave only the entry of the first attempt, which predates it).
 
 Docs recommend forwarding these and the SCM events 7036/7040 for `AdMngWatchdog` to the SIEM, plus external
 monitoring of `/healthz` from `MonitoringSubnets` and, optionally, the webhook heartbeat (13.6).
@@ -5541,8 +5639,8 @@ public static class StandardWebhookSigner
    Security channel ACL for Event Log Readers, `lockoutTime` reset to 0 at the first logon after expiry (Samba source
    confirms it; assumed identical on Windows), Recycle Bin restore re-activating links without a group USN bump,
    4771/4776 visibility on the PDC for lockout sources and spraying, 5136/5137 coverage of the extended SACL script
-   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), what an NTLM-only client gets from HTTP.sys with
-   scheme Kerberos. Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
+   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), whether the token source / logon session of an HTTP.sys
+   Kerberos logon reads `Kerberos` for the gMSA (fail closed otherwise). Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
 5. **Teams**: the Adaptive Card version accepted by Workflows (1.4 assumed), rendering of ToggleVisibility/`msteams.width`,
    tenant policy on SAS triggers, OAuth trigger availability, flow owner licensing (90-day suspension → weekly digest
    heartbeat). Needs a live tenant check.

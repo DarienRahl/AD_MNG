@@ -14,7 +14,8 @@ namespace AdMng.Watchdog.Service.Storage;
 /// <see cref="IConfigStore"/> over <c>config</c> (one versioned row, JSON via <see cref="WatchdogJson.Options"/>),
 /// <c>config_audit</c> and <c>secrets</c>: a save checks the expected version, applies the secret changes, writes the
 /// document and the audit entry in ONE transaction – a conflict or any failure leaves secrets untouched (spec 17.2).
-/// A document that still carries <see cref="SecretField.NewValue"/> is refused (secret values never reach the JSON).
+/// A document that still carries <see cref="SecretField.NewValue"/> is refused (secret values never reach the JSON), and
+/// channel URL hints are always stored in the safe form of <see cref="SecretHints"/>.
 /// </summary>
 public sealed class SqliteConfigStore : IConfigStore
 {
@@ -34,19 +35,44 @@ public sealed class SqliteConfigStore : IConfigStore
         _timeProvider = timeProvider;
     }
 
-    public Task<ConfigEnvelope?> GetAsync(CancellationToken cancellationToken) =>
-        Task.FromResult(_database.Read(c => SqliteValues.Query(
+    /// <summary>The stored document; URL hints written before the safe-hint rule (<see cref="SecretHints"/>) are repaired
+    /// in place on this read (same version, no audit entry).</summary>
+    public async Task<ConfigEnvelope?> GetAsync(CancellationToken cancellationToken)
+    {
+        var row = _database.Read(c => SqliteValues.Query(
             c,
             null,
             "SELECT version, json, updated_at, updated_by FROM config WHERE id = 1;",
-            r => new ConfigEnvelope
-            {
-                Version = r.GetInt64(0),
-                Configuration = JsonSerializer.Deserialize<WatchdogConfiguration>(r.GetString(1), WatchdogJson.Options)
-                    ?? throw new InvalidDataException("The stored configuration is empty."),
-                UpdatedAt = SqliteValues.FromUnixMs(r.GetInt64(2)),
-                UpdatedBy = r.GetString(3),
-            }).FirstOrDefault()));
+            r => (Version: r.GetInt64(0), Json: r.GetString(1), UpdatedAt: r.GetInt64(2), UpdatedBy: r.GetString(3))).FirstOrDefault());
+        if (row.Json is null)
+        {
+            return null;
+        }
+
+        var stored = JsonSerializer.Deserialize<WatchdogConfiguration>(row.Json, WatchdogJson.Options)
+            ?? throw new InvalidDataException("The stored configuration is empty.");
+        var configuration = SecretHints.Sanitize(stored);
+        if (!ReferenceEquals(configuration, stored))
+        {
+            var json = JsonSerializer.Serialize(configuration, WatchdogJson.Options);
+            await _database.WriteAsync(
+                (connection, transaction) => SqliteValues.Execute(
+                    connection,
+                    transaction,
+                    "UPDATE config SET json = $json WHERE id = 1 AND version = $version;",
+                    ("$json", json),
+                    ("$version", row.Version)),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return new ConfigEnvelope
+        {
+            Version = row.Version,
+            Configuration = configuration,
+            UpdatedAt = SqliteValues.FromUnixMs(row.UpdatedAt),
+            UpdatedBy = row.UpdatedBy,
+        };
+    }
 
     public Task<ConfigEnvelope> SaveAsync(
         WatchdogConfiguration configuration,
@@ -65,7 +91,7 @@ public sealed class SqliteConfigStore : IConfigStore
             throw new ArgumentException("The configuration still carries secret values (SecretField.NewValue); strip them before saving.", nameof(configuration));
         }
 
-        var json = JsonSerializer.Serialize(configuration, WatchdogJson.Options);
+        var json = JsonSerializer.Serialize(SecretHints.Sanitize(configuration), WatchdogJson.Options);
         return _database.WriteAsync(
             (connection, transaction) =>
             {
