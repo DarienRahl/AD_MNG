@@ -19,8 +19,13 @@
   <Window.Resources>
     <c:BindingProxy x:Key="Proxy" Data="{Binding}" />
 
-    <!-- Day and hour headers: flat, compact buttons (reachable by UI Automation; the keyboard uses the grid). -->
+    <!--
+      Day and hour headers and the corner: flat, compact buttons (reachable by UI Automation; the keyboard uses the
+      grid, Ctrl+A selects the week). Not focusable: a click must not take the keyboard focus from the grid, or the
+      arrows would stop working and Space would click the header again instead of switching the hours.
+    -->
     <Style x:Key="HeaderButton" TargetType="Button">
+      <Setter Property="Focusable" Value="False" />
       <Setter Property="IsTabStop" Value="False" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -106,13 +111,19 @@
     </Border>
 
     <StackPanel Margin="16,12,16,12">
-      <Border Margin="0,0,0,10"
+      <!--
+        Texts are capped at the width of the time-zone note: the window sizes to its content, so an unbounded line (a
+        long summary of a fragmented schedule) would widen it past the screen and push OK/Cancel out of sight.
+      -->
+      <Border MaxWidth="720"
+              Margin="0,0,0,10"
               Style="{StaticResource Ad.WarningBar}"
               Visibility="{Binding ReadOnlyReason, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
         <TextBlock Text="{Binding ReadOnlyReason, Mode=OneWay}" TextWrapping="Wrap" />
       </Border>
 
-      <Grid HorizontalAlignment="Left">
+      <!-- A header click (bubbling Click) hands the keyboard focus to the grid, so the keys continue from there. -->
+      <Grid HorizontalAlignment="Left" ButtonBase.Click="OnHeaderClick">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" MinWidth="110" />
           <ColumnDefinition Width="Auto" />
@@ -130,7 +141,6 @@
                 AutomationProperties.Name="{l:Tr LogonHours.SelectAll}"
                 Command="{Binding SelectAllCommand}"
                 Content="{l:Tr LogonHours.All}"
-                IsTabStop="True"
                 Style="{StaticResource HeaderButton}"
                 ToolTip="{l:Tr LogonHours.SelectAll}" />
 
@@ -195,8 +205,7 @@
                       MouseLeftButtonDown="OnGridMouseLeftButtonDown"
                       MouseLeftButtonUp="OnGridMouseLeftButtonUp"
                       MouseMove="OnGridMouseMove"
-                      PreviewKeyDown="OnGridKeyDown"
-                      ToolTip="{l:Tr LogonHours.KeyboardHint}">
+                      PreviewKeyDown="OnGridKeyDown">
           <ItemsControl.ItemTemplate>
             <DataTemplate DataType="{x:Type dlg:LogonHoursDayViewModel}">
               <ItemsControl Focusable="False"
@@ -247,17 +256,23 @@
       </WrapPanel>
 
       <TextBlock x:Name="SelectionLine"
+                 MaxWidth="720"
                  Margin="0,10,0,0"
+                 HorizontalAlignment="Left"
                  AutomationProperties.LiveSetting="Polite"
                  Text="{Binding SelectionText, Mode=OneWay}"
                  TextWrapping="Wrap" />
-      <TextBlock Margin="0,4,0,0"
+      <TextBlock x:Name="SummaryLine"
+                 MaxWidth="720"
+                 Margin="0,4,0,0"
+                 HorizontalAlignment="Left"
                  Style="{StaticResource Ad.SecondaryText}"
                  Text="{Binding Summary, Mode=OneWay}"
                  TextTrimming="None"
                  TextWrapping="Wrap" />
 
-      <Border Margin="0,10,0,0"
+      <Border MaxWidth="720"
+              Margin="0,10,0,0"
               Style="{StaticResource Ad.WarningBar}"
               Visibility="{Binding IsNonePermitted, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock AutomationProperties.LiveSetting="Assertive"

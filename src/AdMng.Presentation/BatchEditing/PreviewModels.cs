@@ -179,7 +179,8 @@ public sealed class ResultRowViewModel
 /// <summary>
 /// Turns plans and results into localized grid rows. Passwords and the values of secret attributes
 /// (<see cref="SecretAttributes"/>, including the schema's confidential attributes) are shown as a mask; logonHours
-/// (hex in the plan) as the schedule's summary in the operator's local time (<paramref name="time"/>, UTC without it).
+/// (hex in the plan) as the schedule's summary in the operator's local time (<paramref name="time"/>, UTC without it),
+/// an absent logonHours of an existing object as "All hours" (what it means).
 /// </summary>
 internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator errors, IAttributeFormatter formatter, ISchemaCatalog schema, TimeProvider? time = null)
 {
@@ -263,8 +264,9 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                     foreach (var attribute in change.Attributes)
                     {
                         var issues = change.Issues.Where(i => i.Attribute is null || string.Equals(i.Attribute, attribute.Attribute, StringComparison.OrdinalIgnoreCase));
+                        var existing = change.Action == ChangeAction.Modify;
                         Add(action, localizer.AttributeName(attribute.Attribute, schema),
-                            Format(attribute.Attribute, attribute.OldValues), Format(attribute.Attribute, attribute.ResultValues), issues, isChange: true);
+                            Format(attribute.Attribute, attribute.OldValues, existing), Format(attribute.Attribute, attribute.ResultValues, existing), issues, isChange: true);
                     }
 
                     // Findings about attributes that produced no change (e.g. an unknown attribute).
@@ -303,14 +305,20 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
         return rows;
     }
 
-    private string Format(string attribute, IReadOnlyList<string> values) =>
-        values.Count == 0 ? string.Empty
+    /// <summary>
+    /// The values of a preview cell. For an existing object (<paramref name="existing"/>) an absent logonHours is shown as
+    /// the schedule it means ("All hours") - an empty cell would read like "no hours".
+    /// </summary>
+    private string Format(string attribute, IReadOnlyList<string> values, bool existing = false) =>
+        values.Count == 0 ? (existing && IsLogonHours(attribute) ? localizer[L.LogonHours.Always] : string.Empty)
         : SecretAttributes.IsSecret(attribute, schema) ? SecretAttributes.Mask
         : string.Join("; ", values.Select(v => FormatValue(attribute, v)));
 
+    private static bool IsLogonHours(string attribute) => string.Equals(attribute, Attr.LogonHours, StringComparison.OrdinalIgnoreCase);
+
     private string FormatValue(string attribute, string value)
     {
-        if (string.Equals(attribute, Attr.LogonHours, StringComparison.OrdinalIgnoreCase) && LogonHours.TryParseHex(value, out var hours))
+        if (IsLogonHours(attribute) && LogonHours.TryParseHex(value, out var hours))
         {
             return time is null
                 ? LogonHoursText.Describe(hours, localizer, 0)

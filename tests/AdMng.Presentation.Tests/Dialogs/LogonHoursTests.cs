@@ -133,7 +133,7 @@ public class LogonHoursTests
         Assert.Equal(LogonHours.HoursPerWeek, Selected(dialog));
         dialog.IsSelectionDenied = true;
         Assert.True(dialog.IsNonePermitted);
-        Assert.Equal("Żadne godziny (logowanie zabronione)", dialog.Summary);
+        Assert.Equal("Brak dozwolonych godzin (logowanie zabronione)", dialog.Summary);
         Assert.Equal(LogonHours.None, dialog.Result);
         Assert.False(dialog.HasChanges);
     }
@@ -205,7 +205,8 @@ public class LogonHoursTests
         var hours = LogonHours.FromLocalGrid(LogonHoursGrid.Create((day, hour) =>
             (Workdays.Contains(day) && hour is >= 8 and < 16) || (day == DayOfWeek.Saturday && hour is >= 9 and < 13) || (day == DayOfWeek.Sunday && hour == 23)), 1);
 
-        Assert.Equal("pon–pt 8–16; sob 9–13; nie 23–24", LogonHoursText.Describe(hours, Polish, 1));
+        // Sunday is "ndz" (as in the Watchdog summaries), never "nie" ("no").
+        Assert.Equal("pon–pt 8–16; sob 9–13; ndz 23–24", LogonHoursText.Describe(hours, Polish, 1));
         Assert.Equal("Sun 23–24; Mon–Fri 8–16; Sat 9–13", LogonHoursText.Describe(hours, English, 1));
         Assert.Equal("All hours", LogonHoursText.Describe(LogonHours.All, English, 1));
         Assert.Equal("UTC+02:00", "UTC" + LogonHoursText.Offset(2));
@@ -338,9 +339,36 @@ public class LogonHoursTests
 
         await sheet.ApplyCommand.ExecuteAsync(null);
 
-        Assert.Contains(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal) && s.Contains("Logon", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal) && s.Contains("Logon hours", StringComparison.Ordinal));
         Assert.NotNull(sheet.ApplyError);
         Assert.Equal([LogonHours.None.ToHex().ToUpperInvariant()], harness.Session.GetValues(jan, Attr.LogonHours));
+    }
+
+    [Fact]
+    public async Task Field_InvalidStoredValue_IsReplacedThroughTheSheet_WithoutAConflict()
+    {
+        var harness = await B2Harness.CreateAsync();
+        var jan = harness.Company.JanKowalski;
+        harness.Session.SetValues(jan, Attr.LogonHours, new byte[] { 1, 2, 3 });
+        var sheet = harness.Factory.CreatePropertySheet(jan);
+        await sheet.InitializeAsync();
+        var field = Assert.Single(sheet.Pages.OfType<FieldsPageViewModel>().SelectMany(p => p.Fields).OfType<LogonHoursFieldViewModel>());
+        Assert.Equal("Invalid value (3 bytes)", field.Summary);
+        Assert.False(sheet.HasChanges);
+
+        // OK on the dialog (which starts with every hour permitted) replaces the broken value with a valid one.
+        harness.Dialogs.LogonHoursHandler = dialog => dialog.HasChanges;
+        await field.EditCommand.ExecuteAsync(null);
+        Assert.True(field.IsDirty);
+        await sheet.ApplyCommand.ExecuteAsync(null);
+
+        // The sheet compares the plan's old value (hex) with its own read in the same form: no false conflict.
+        Assert.Null(sheet.ApplyError);
+        Assert.DoesNotContain(harness.Dialogs.Shown, s => s.StartsWith("confirm:", StringComparison.Ordinal));
+        Assert.Equal([LogonHours.All.ToHex().ToUpperInvariant()], harness.Session.GetValues(jan, Attr.LogonHours));
+        Assert.Contains(harness.AuditLog.Entries, e => e.Attribute == Attr.LogonHours && e.OldValue == "010203" && e.NewValue == LogonHours.All.ToHex());
+        Assert.Equal("All hours", field.Summary);
+        Assert.False(field.IsDirty);
     }
 
     [Fact]
@@ -356,7 +384,14 @@ public class LogonHoursTests
         field.Load(new DirectoryObject("CN=Jan,DC=contoso,DC=test", [new AttributeValues(Attr.LogonHours, [OfficeUtc.ToBytes()])]));
         Assert.Equal("Mon–Fri 9–17", field.Summary);
 
+        field.Load(new DirectoryObject("CN=Jan,DC=contoso,DC=test", [new AttributeValues(Attr.LogonHours, [new byte[] { 1, 2, 3, 4, 5 }])]));
+        Assert.Equal("Invalid value (5 bytes)", field.Summary);
+
+        // Read again with another invalid value: the shown text follows although the schedule stays "invalid" (null).
+        var summaryChanged = false;
+        field.PropertyChanged += (_, e) => summaryChanged |= e.PropertyName == nameof(LogonHoursFieldViewModel.Summary);
         field.Load(new DirectoryObject("CN=Jan,DC=contoso,DC=test", [new AttributeValues(Attr.LogonHours, [new byte[] { 1, 2, 3 }])]));
+        Assert.True(summaryChanged);
         Assert.Equal("Invalid value (3 bytes)", field.Summary);
         Assert.False(field.IsDirty);
         Assert.Empty(field.GetOperations());
@@ -396,7 +431,11 @@ public class LogonHoursTests
 
         await editor.PreviewCommand.ExecuteAsync(null);
 
-        Assert.Contains(editor.PreviewRows, r => r.Name == "Jan Kowalski" && r.Before == string.Empty && r.After == "Mon 0–24");
+        // The attribute column names the attribute like the Account tab does, never by its LDAP name.
+        Assert.All(editor.PreviewRows.Where(r => r.Before.Length > 0 || r.After.Length > 0), r => Assert.Equal("Logon hours", r.Attribute));
+
+        // An absent value is "no restriction": an empty cell would read like "no hours".
+        Assert.Contains(editor.PreviewRows, r => r.Name == "Jan Kowalski" && r.Before == "All hours" && r.After == "Mon 0–24");
         Assert.Contains(editor.PreviewRows, r => r.Name == "Łukasz Wiśniewski" && r.Before == "Mon–Fri 7–15" && r.After == "Mon 0–24");
         await editor.ExecuteCommand.ExecuteAsync(null);
 
@@ -406,6 +445,7 @@ public class LogonHoursTests
         Assert.Empty(harness.Session.GetValues(company.Computer1, Attr.LogonHours));
 
         editor.UndoCommand.Execute(null);
+        Assert.Contains(editor.PreviewRows, r => r.Name == "Jan Kowalski" && r.Before == "Mon 0–24" && r.After == "All hours");
         await editor.ExecuteCommand.ExecuteAsync(null);
         Assert.Empty(harness.Session.GetValues(company.JanKowalski, Attr.LogonHours));
         Assert.Equal([OfficeUtc.ToHex().ToUpperInvariant()], harness.Session.GetValues(company.LukaszWisniewski, Attr.LogonHours));

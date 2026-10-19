@@ -83,6 +83,74 @@ public sealed class LogonHoursWindowTests
     });
 
     [Fact]
+    public Task LogonHoursWindow_Headers_NeverTakeTheKeyboardFocusFromTheGrid() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var localizer = context.Services.GetRequiredService<ILocalizer>();
+        var dialog = new LogonHoursViewModel(localizer, LogonHours.None, TimeZoneInfo.Utc, DateTimeOffset.UtcNow, "Jan Kowalski");
+        var window = (LogonHoursWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(dialog);
+        UiTestSupport.ShowOffScreen(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        // A focusable header would keep the focus after a click: the arrows would stop working and Space would click
+        // the header again instead of switching the selected hours.
+        var headers = UiWait.Descendants<Button>(window.DayHeaders)
+            .Concat(UiWait.Descendants<Button>(window.HourHeaders))
+            .Append(window.SelectAllButton)
+            .ToList();
+        Assert.Equal(7 + 24 + 1, headers.Count);
+        Assert.All(headers, b => Assert.False(b.Focusable));
+        Assert.True(window.HourGrid.Focusable);
+
+        var wednesday = headers.Single(b => b.DataContext is LogonHoursDayViewModel { Day: DayOfWeek.Wednesday });
+        Keyboard.Focus(window.PermittedRadio);
+        var canFocus = window.PermittedRadio.IsKeyboardFocused;
+        wednesday.Command.Execute(wednesday.CommandParameter);
+        wednesday.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        await UiTestSupport.WaitForIdleAsync();
+        if (canFocus)
+        {
+            // Only where the off-screen window can hold the keyboard focus (an interactive desktop).
+            Assert.True(window.HourGrid.IsKeyboardFocused);
+        }
+
+        Press(window.HourGrid, Key.Space);
+        Assert.All(dialog.Days.Single(d => d.Day == DayOfWeek.Wednesday).Cells, c => Assert.True(c.IsPermitted));
+        Assert.Equal(24, dialog.Result.PermittedCount);
+
+        window.CancelButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        await UiTestSupport.WaitForIdleAsync();
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task LogonHoursWindow_LongSummary_WrapsInsteadOfWideningTheWindow() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var localizer = context.Services.GetRequiredService<ILocalizer>();
+
+        // A checkerboard: every day has twelve one-hour ranges and no two neighbouring days match - a very long summary.
+        var checkerboard = LogonHours.FromLocalGrid(LogonHoursGrid.Create((day, hour) => ((int)day + hour) % 2 == 0), 0);
+        var dialog = new LogonHoursViewModel(localizer, checkerboard, TimeZoneInfo.Utc, DateTimeOffset.UtcNow, "Jan Kowalski");
+        Assert.True(dialog.Summary.Length > 400, dialog.Summary);
+        var window = (LogonHoursWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(dialog);
+        UiTestSupport.ShowOffScreen(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        // The window sizes to its content: an unbounded summary line would make it as wide as the screen (and push
+        // OK/Cancel off it). The grid sets the width; the summary wraps.
+        Assert.True(window.SummaryLine.ActualWidth <= 720, $"Summary line is {window.SummaryLine.ActualWidth} px wide.");
+        Assert.True(window.SelectionLine.ActualWidth <= 720);
+        Assert.True(window.ActualWidth < 900, $"Window is {window.ActualWidth} px wide.");
+        var okRight = window.OkButton.TranslatePoint(new Point(window.OkButton.ActualWidth, 0), window).X;
+        Assert.True(okRight <= window.ActualWidth, $"OK ends at {okRight} px of a {window.ActualWidth} px window.");
+
+        window.CancelButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        await UiTestSupport.WaitForIdleAsync();
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task LogonHoursWindow_ReadOnly_DisablesTheRadioButtons() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync();
@@ -128,6 +196,9 @@ public sealed class LogonHoursWindowTests
         Assert.Equal("Wszystkie godziny", field.Summary);
         Assert.Contains(UiWait.Descendants<TextBlock>(window), t => t.IsVisible && t.Text == field.Summary);
 
+        // The summary text is not focusable: a screen reader gets it as the button's help text.
+        Assert.Equal(field.Summary, AutomationProperties.GetHelpText(button));
+
         var drive = UiWait.DriveModalAsync<LogonHoursWindow>(async w =>
         {
             await UiTestSupport.WaitForIdleAsync();
@@ -142,6 +213,8 @@ public sealed class LogonHoursWindowTests
 
         Assert.True(field.IsDirty);
         Assert.True(sheet.HasChanges);
+        Assert.NotEqual("Wszystkie godziny", field.Summary);
+        Assert.Equal(field.Summary, AutomationProperties.GetHelpText(button));
         await sheet.ApplyCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync();
 

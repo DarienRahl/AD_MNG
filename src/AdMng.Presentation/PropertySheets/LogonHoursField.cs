@@ -61,6 +61,9 @@ public sealed partial class LogonHoursFieldViewModel : PropertyFieldViewModel
         _original = LogonHours.FromAttribute(stored);
         _name = obj.Name;
         Hours = _original;
+
+        // An invalid value read again with another length keeps Hours null (no change notification) but not the text.
+        OnPropertyChanged(nameof(Summary));
     }
 
     protected override void RevertCore() => Hours = _original;

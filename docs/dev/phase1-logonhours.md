@@ -79,21 +79,26 @@ behaviour for Europe/Warsaw on both sides of both switches in 2026 (29 March 01:
   compares the pipeline (hex) form.
 - `BatchEditing`: `OperationType.LogonHours` with `LogonHoursEditorViewModel` ("Ustaw godziny logowania"): summary +
   "Godziny logowania…" button opening the same dialog; builds `SetLogonHoursOperation`. The preview shows the
-  before/after schedules as summaries instead of hex.
+  before/after schedules as summaries instead of hex; an absent value of an existing account (before a first
+  restriction, after its undo) is shown as "Wszystkie godziny" - an empty cell would read like "no hours".
 - `LogonHoursText` – summary in local time with localized short day names, days with identical hours grouped
-  ("pon–pt 8–16", "Wszystkie godziny", "Żadne godziny"), week order, hour and offset labels.
+  ("pon–pt 8–16; ndz 9–13", "Wszystkie godziny", "Brak dozwolonych godzin"), week order, hour and offset labels. The
+  Polish short day names match the Watchdog's (Sunday is "ndz", never "nie").
 - Localization: `Labels.LogonHours*`, `LogonHours.*`, `Operation.LogonHours`, `OperationHint.LogonHours` (en + pl).
 
 ## 5. App (`src/AdMng.App`)
 
 - `Views/LogonHoursWindow.xaml(.cs)` – modal, `IDialogResultWindow`. Grid of 7 × 24 cells (ItemsControl of rows,
-  `UniformGrid` of cells), row and column header buttons (bound through a `BindingProxy`, not tab stops - the keyboard
-  works on the grid), corner "Wszystkie" button, radio buttons *Logowanie dozwolone* / *Logowanie zabronione* with the
+  `UniformGrid` of cells), row and column header buttons and the corner "Wszystkie" button (bound through a
+  `BindingProxy`; not focusable, and a click hands the keyboard focus to the grid - otherwise arrows would stop working
+  and Space would click the header again), radio buttons *Logowanie dozwolone* / *Logowanie zabronione* with the
   legend swatches (permitted = accent fill, denied = plain cell), selection text (a live region announced after every
   change), summary, "no hours" warning, time-zone note, keyboard hint, OK/Cancel. Mouse: press on a cell starts a
   selection, moving with the button pressed extends it (mouse capture on the grid; the cell is computed from the
   position, clamped to the grid), Shift+click extends. Keyboard on the focusable grid as in 4. Every automation name is
-  null-safe.
+  null-safe. The window sizes to its content, so every text line is capped at 720 px (a long summary of a fragmented
+  schedule would otherwise widen the window past the screen). On the Account tab and in the batch editor the
+  "Godziny logowania…" button carries the summary as its automation help text (the summary itself is not focusable).
 - `AppHost`: `AddWindow<LogonHoursViewModel, LogonHoursWindow>()`; `DialogService.ShowLogonHoursAsync`; `SmokeTest`
   renders the dialog; templates for the field (`PropertiesWindow.xaml`) and the batch editor (`BatchEditorWindow.xaml`).
 

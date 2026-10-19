@@ -167,6 +167,9 @@
   <data name="Attribute.logonCount" xml:space="preserve">
     <value>Logon count</value>
   </data>
+  <data name="Attribute.logonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
   <data name="Attribute.mail" xml:space="preserve">
     <value>E-mail</value>
   </data>
@@ -3035,7 +3038,7 @@ Anyone who can read the file can sign in with these accounts - store it securely
     <value>Invalid value ({0} bytes)</value>
   </data>
   <data name="LogonHours.KeyboardHint" xml:space="preserve">
-    <value>Drag over the grid or click a day or an hour to select. Arrow keys move, Shift extends the selection, Space switches it.</value>
+    <value>Select hours by dragging over the grid or by clicking a day or an hour. With the keyboard: arrow keys move the cursor, Shift with an arrow key extends the selection, Home and End go to the start and end of the day, Ctrl+A selects the whole week, and Space switches the selected hours between permitted and denied.</value>
   </data>
   <data name="LogonHours.Never" xml:space="preserve">
     <value>No hours (logon denied)</value>

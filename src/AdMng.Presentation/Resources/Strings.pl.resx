@@ -167,6 +167,9 @@
   <data name="Attribute.logonCount" xml:space="preserve">
     <value>Liczba logowań</value>
   </data>
+  <data name="Attribute.logonHours" xml:space="preserve">
+    <value>Godziny logowania</value>
+  </data>
   <data name="Attribute.mail" xml:space="preserve">
     <value>Adres e-mail</value>
   </data>
@@ -3014,7 +3017,7 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
     <value>sob</value>
   </data>
   <data name="LogonHours.DayShort.Sunday" xml:space="preserve">
-    <value>nie</value>
+    <value>ndz</value>
   </data>
   <data name="LogonHours.DayShort.Thursday" xml:space="preserve">
     <value>czw</value>
@@ -3035,10 +3038,10 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
     <value>Nieprawidłowa wartość ({0} B)</value>
   </data>
   <data name="LogonHours.KeyboardHint" xml:space="preserve">
-    <value>Zaznacz, przeciągając myszą po siatce albo klikając dzień lub godzinę. Strzałki przesuwają, Shift rozszerza zaznaczenie, spacja je przełącza.</value>
+    <value>Zaznacz godziny, przeciągając myszą po siatce albo klikając dzień lub godzinę. Z klawiatury: strzałki przesuwają kursor, Shift ze strzałką rozszerza zaznaczenie, Home i End przechodzą na początek i koniec dnia, Ctrl+A zaznacza cały tydzień, a spacja przełącza zaznaczone godziny między dozwolonymi a zabronionymi.</value>
   </data>
   <data name="LogonHours.Never" xml:space="preserve">
-    <value>Żadne godziny (logowanie zabronione)</value>
+    <value>Brak dozwolonych godzin (logowanie zabronione)</value>
   </data>
   <data name="LogonHours.NoneWarning" xml:space="preserve">
     <value>Żadna godzina nie jest dozwolona – użytkownik nie będzie mógł się zalogować.</value>

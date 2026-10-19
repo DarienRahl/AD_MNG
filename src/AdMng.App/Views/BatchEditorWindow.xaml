@@ -372,6 +372,7 @@
       <DockPanel Margin="0,6,0,0">
         <Button Margin="8,0,0,0"
                 VerticalAlignment="Top"
+                AutomationProperties.HelpText="{Binding Summary, Mode=OneWay, TargetNullValue=''}"
                 Command="{Binding EditCommand}"
                 Content="{l:Tr Labels.LogonHoursButton}"
                 DockPanel.Dock="Right" />

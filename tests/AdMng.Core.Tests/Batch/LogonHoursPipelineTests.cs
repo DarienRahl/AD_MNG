@@ -239,6 +239,27 @@ public class LogonHoursPipelineTests
     }
 
     [Fact]
+    public async Task Executor_RefusesAHandMadePlanWithNonHexValues_WithoutWriting()
+    {
+        var plan = await PlanAsync([_company.JanKowalski], new SetLogonHoursOperation(Office));
+        var target = Assert.Single(plan.Objects);
+        var modify = Assert.Single(target.Changes, c => c.Action == ChangeAction.Modify);
+        var tampered = plan with
+        {
+            Objects = [target with { Changes = [modify with { Attributes = [LogonHoursChange(target) with { NewValues = ["not hex"] }] }] }],
+        };
+        Session.ClearOperations();
+
+        var result = await ExecuteAsync(tampered);
+
+        var change = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.False(change.Succeeded);
+        Assert.Contains("hexadecimal", change.ErrorMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain(Session.Writes, w => w.Kind == FakeOperationKind.Modify);
+        Assert.Null(Stored(_company.JanKowalski));
+    }
+
+    [Fact]
     public async Task Rollback_RestoresThePreviousBytes_OrRemovesTheAttribute()
     {
         Session.SetValues(_company.JanKowalski, Attr.LogonHours, Office.ToBytes());

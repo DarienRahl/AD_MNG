@@ -20,6 +20,7 @@ public static partial class DisplayNames
         Attr.OtherIpPhone, Attr.DirectReports, Attr.OperatingSystemServicePack, Attr.AllowedToDelegateTo, Attr.MailNickname,
         Attr.TargetAddress, Attr.HideFromAddressLists, Attr.UserWorkstations, Attr.SupportedEncryptionTypes, Attr.PrimaryGroupId,
         Attr.UsnCreated, Attr.UsnChanged, Attr.UserAccountControlComputed, Attr.ShowInAdvancedViewOnly, Attr.Initials,
+        Attr.LogonHours,
     ];
 
     /// <summary>Object kinds with a plural name (object picker "Object Types").</summary>
