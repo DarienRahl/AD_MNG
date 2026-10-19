@@ -345,6 +345,31 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task Shell_ShowsTheVirtualListBadge_ForTheSelectedTabOnly_AndDisablesExport()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        var shell = harness.CreateShell();
+        await shell.InitializeAsync();
+        var document = shell.SelectedDocument!;
+        document.VirtualThreshold = 50;
+        var changes = new List<string?>();
+        shell.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        await shell.NavigateAsync(ListLocation.ForContainer(Masowe));
+
+        Assert.True(shell.IsVirtualListShown);
+        Assert.Contains(nameof(shell.IsVirtualListShown), changes);
+        Assert.StartsWith("120 objects · virtual list (VLV)", shell.StatusText, StringComparison.Ordinal);
+        Assert.False(shell.ExportListCommand.CanExecute(null));
+
+        await shell.NewTabCommand.ExecuteAsync(null);
+        await shell.NavigateAsync(ListLocation.ForContainer(It));
+        Assert.False(shell.IsVirtualListShown);
+        shell.SelectedDocument = document;
+        Assert.True(shell.IsVirtualListShown);
+    }
+
+    [Fact]
     public async Task LanguageSwitch_ReformatsTheStatus()
     {
         var (harness, list) = await OpenAsync();
