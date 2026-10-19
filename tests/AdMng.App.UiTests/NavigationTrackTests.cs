@@ -70,6 +70,8 @@ public sealed class NavigationTrackTests
         Assert.Equal(300, list.Items.Count);
         Assert.False(list.IsTextSearchEnabled);
         Assert.Equal(Visibility.Visible, window.VirtualListBadge.Visibility);
+        Assert.Equal("Lista wirtualna (VLV)", System.Windows.Automation.AutomationProperties.GetName(window.VirtualListBadge));
+        Assert.StartsWith("Bardzo duży kontener", System.Windows.Automation.AutomationProperties.GetHelpText(window.VirtualListBadge), StringComparison.Ordinal);
         Assert.Contains("lista wirtualna (VLV)", window.Shell.StatusText, StringComparison.Ordinal);
 
         // Scrolling to the end reads the last page: its placeholders are replaced in place.

@@ -356,6 +356,44 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task DeletedSelection_IsSoughtOnce_NotOnEveryLaterRefresh()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        harness.Directory.SupportsWatch = true;
+        var list = CreateList(harness);
+        await list.NavigateAsync(ListLocation.ForContainer(Masowe));
+        var rows = list.VirtualRows!;
+        var selected = rows[5];
+        list.SelectedItems = new List<object> { selected };
+        list.SelectedItem = selected;
+        int Seeks() => harness.Directory.VirtualListRequests.Count(r => r.Window.SeekValue is not null);
+
+        // The selected object is deleted: after the Reset the list looks for it (it may only have moved) - in vain.
+        harness.Directory.Remove(UserDn(5));
+        harness.Changes.Publish([new DirectoryChange(DirectoryChangeKind.Deleted, UserDn(5), ObjectKind: ObjectKind.User)]);
+        await TestWait.UntilAsync(() => rows.Count == Users - 1 && Seeks() > 0);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+
+        // WPF drops the selection of a row that is gone after the Reset.
+        list.SelectedItems = new List<object>();
+        list.SelectedItem = null;
+        var seeks = Seeks();
+
+        // Later live updates of other objects do not look for the deleted object again.
+        foreach (var (dn, index) in new[] { (UserDn(7), 6), (UserDn(8), 7) })
+        {
+            harness.Directory.Put(WithAttribute(harness.Directory.Find(dn)!, Attr.Description, "Zmieniony opis"));
+            harness.Directory.RaiseChange(dn);
+            harness.Time.Advance(TimeSpan.FromMilliseconds(500));
+            await TestWait.UntilAsync(() => rows.GetLoaded(index)?[Attr.Description] == "Zmieniony opis");
+        }
+
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+        Assert.Equal(seeks, Seeks());
+        Assert.Null(list.SelectedItem);
+    }
+
+    [Fact]
     public async Task FailedRefresh_AsksAgainForThePagesItsStartDropped()
     {
         // A page is being read when a refresh starts (its result is dropped) and the refresh itself fails: the rows that
@@ -436,6 +474,42 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task FilterChips_OnALargeContainer_UseVlvWithTheCombinedFilter_ExceptLocked()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        foreach (var i in new[] { 3, 40, 77 })
+        {
+            harness.Directory.Put(User(UserDn(i), $"user{i:0000}", disabled: true));
+        }
+
+        var list = CreateList(harness);
+        await list.NavigateAsync(ListLocation.ForContainer(Masowe));
+        Assert.True(list.IsVirtual);
+
+        // A server-side chip: still a virtual list (the location is known to be large), with the chip in the filter.
+        var disabled = list.FilterChips.Single(c => c.Kind == QuickFilterKind.Disabled);
+        disabled.IsActive = true;
+        await list.CurrentLoad;
+
+        Assert.True(list.IsVirtual);
+        Assert.Equal(3, list.VirtualRows!.Count);
+        Assert.Contains("userAccountControl:1.2.840.113556.1.4.803:=2", harness.Directory.VirtualListRequests.Last().Search.Filter, StringComparison.Ordinal);
+        Assert.Equal([UserName(3), UserName(40), UserName(77)], list.VirtualRows.Select(r => r.Name));
+
+        // "Locked" drops rows on the client (expired lockouts): it streams the whole container instead.
+        disabled.IsActive = false;
+        await list.CurrentLoad;
+        var requests = harness.Directory.VirtualListRequests.Count;
+        list.FilterChips.Single(c => c.Kind == QuickFilterKind.Locked).IsActive = true;
+        await list.CurrentLoad;
+
+        Assert.False(list.IsVirtual);
+        Assert.Same(list.Items, list.Rows);
+        Assert.Equal(requests, harness.Directory.VirtualListRequests.Count);
+        Assert.Null(list.Error);
+    }
+
+    [Fact]
     public async Task NavigatingAway_LeavesTheVirtualMode_AndBackReturnsToIt()
     {
         var (harness, list) = await OpenAsync();
@@ -457,15 +531,57 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task SelectedPlaceholder_IsReplacedBySelectedRow_WhenItsPageArrives()
+    {
+        // End (or PageDown) in a large list selects a "Loading…" row; WPF's Selector unselects an item that a Replace
+        // notification swaps out - the operator would be left without a selection once the page arrived.
+        var (harness, list) = await OpenAsync();
+        var rows = list.VirtualRows!;
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = _ => gate.Task;
+        var last = rows[Users - 1];
+        var other = rows[Users - 2];
+        Assert.True(last.IsPlaceholder);
+        var selection = new System.Collections.ObjectModel.ObservableCollection<object> { last };
+        list.SelectedItems = selection;
+        list.SelectedItem = last;
+
+        // Like Selector.OnItemsChanged(Replace): the replaced item leaves the selection (subscribed after the list).
+        rows.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == NotifyCollectionChangedAction.Replace && selection.Remove(e.OldItems![0]!) && ReferenceEquals(list.SelectedItem, e.OldItems[0]))
+            {
+                list.SelectedItem = null;
+            }
+        };
+
+        gate.SetResult();
+        await TestWait.UntilAsync(() => rows.GetLoaded(Users - 1) is not null);
+        await rows.Idle;
+
+        var loaded = rows[Users - 1];
+        Assert.Equal(UserName(Users - 1), loaded.Name);
+        Assert.Same(loaded, list.SelectedItem);
+        Assert.Equal([loaded], selection);
+        Assert.Equal([loaded], list.Selection);
+        Assert.DoesNotContain(rows[Users - 2], selection);
+        Assert.True(other.IsPlaceholder);
+    }
+
+    [Fact]
     public async Task Placeholders_AreNeverPartOfTheSelection()
     {
-        var (_, list) = await OpenAsync();
+        var (harness, list) = await OpenAsync();
+        var gate = new TaskCompletionSource();
+        harness.Directory.HoldVirtualList = _ => gate.Task;
         var placeholder = list.VirtualRows![99];
 
         list.SelectedItem = placeholder;
         Assert.Empty(list.Selection);
         list.SelectedItems = new List<object> { placeholder, list.VirtualRows[0] };
         Assert.Equal([list.VirtualRows[0]], list.Selection);
+        Assert.Equal("1 selected", list.SelectionText);
+        gate.SetResult();
     }
 
     [Fact]

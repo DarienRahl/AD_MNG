@@ -105,6 +105,12 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
     /// <summary>Raised after a Reset (refresh, count change) - the owner restores its selection by DN.</summary>
     public event EventHandler? Reloaded;
 
+    /// <summary>
+    /// Raised after the Replace notifications of a page that arrived (all handlers have seen them): the owner selects
+    /// the rows of placeholders that were selected - a list control unselects an item a Replace swaps out.
+    /// </summary>
+    public event EventHandler? PlaceholdersReplaced;
+
     public int PageSize { get; }
 
     public int MaxCachedPages { get; }
@@ -769,13 +775,20 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
     {
         var start = page * PageSize;
         var rows = StorePage(page, items);
+        var replaced = false;
         for (var i = 0; i < rows.Length; i++)
         {
             if (_placeholders.Remove(start + i, out var placeholder))
             {
                 _placeholderIndexes.Remove(placeholder);
                 CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, rows[i], placeholder, start + i));
+                replaced = true;
             }
+        }
+
+        if (replaced)
+        {
+            PlaceholdersReplaced?.Invoke(this, EventArgs.Empty);
         }
     }
 

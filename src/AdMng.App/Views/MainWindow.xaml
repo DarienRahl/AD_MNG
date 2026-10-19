@@ -931,6 +931,7 @@
       <!-- Very large container shown as a virtual list (VLV): rows are read while scrolling. -->
       <StatusBarItem x:Name="VirtualListBadge"
                      DockPanel.Dock="Left"
+                     AutomationProperties.HelpText="{l:Tr List.Virtual.BadgeToolTip}"
                      AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
                      ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
                      Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">

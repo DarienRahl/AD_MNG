@@ -63,7 +63,9 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   the server's content count. The indexer returns a cached row or a per-index placeholder ("Loading…") and asks for
   the page (200 rows). Fetches run one at a time, newest wanted page first, at most 4 pending (an enumeration of the
   whole list – UI Automation, a text search – cannot queue the whole directory). Loaded rows replace their
-  placeholders with Replace notifications; a changed count raises Reset. The cache holds at most 12 pages (LRU);
+  placeholders with Replace notifications; a changed count raises Reset. A list control unselects an item a Replace
+  swaps out, so a selected placeholder (End, PageDown onto rows not read yet) hands its selection to its row once
+  the page arrived. The cache holds at most 12 pages (LRU);
   evicted pages are fetched again when shown. Placeholders are bounded as well: beyond 12 × 200 handed out
   (a fast drag of the scroll thumb over a slow DC), those of pages that are neither recently shown nor pending are
   forgotten (the view no longer shows them; asked again, the index gets a new placeholder). The server context id of the last response is sent with the next
@@ -80,7 +82,8 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   answer for an older, shorter prefix that arrives later is ignored. WPF's own text search stays on for loaded
   lists (now by `Name`) and is switched off in the virtual mode (it would walk every item).
 - Locate / select after load (new object, "show in container"): the object's sort value (its RDN for `name`) is
-  sought, the page is scanned for the DN.
+  sought, the page is scanned for the DN. One attempt per request: an object that is not found (deleted, moved out)
+  is not sought again on every later refresh.
 - Live updates and the application's own changes in a virtual list re-read the most recently shown pages and the
   count (one request per page). When the count and the objects at those positions are unchanged (an attribute
   changed - the common live update), the rows are updated in place and the view gets no Reset (a Reset regenerates

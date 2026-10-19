@@ -24,12 +24,19 @@ public sealed partial class ObjectListViewModel
 
     private static readonly TimeSpan ServerFilterDelay = TimeSpan.FromMilliseconds(400);
 
+    // Multi-selections up to this size get the rows of their replaced placeholders (the view's selection is a list:
+    // a range selection over a whole huge container is not searched once per arriving row).
+    private const int MaxReselectedPlaceholders = 1000;
+
     private VirtualRowList? _virtualRows;
     private Debouncer? _serverFilter;
     private List<string>? _virtualSelection;
 
     // Type-to-find requests: only the newest one selects (an older, shorter prefix may be answered last).
     private int _findRequest;
+
+    // Selected placeholders whose page arrived (Replace): their rows are selected once all handlers saw the Replace.
+    private List<(ObjectRowViewModel Placeholder, ObjectRowViewModel Row)>? _replacedSelection;
 
     // The shown location is large: loads use VLV. Reset when another location is shown.
     private bool _virtualLocation;
@@ -221,6 +228,7 @@ public sealed partial class ObjectListViewModel
         rows.CollectionChanged += OnVirtualRowsCollectionChanged;
         rows.FetchFailed += OnVirtualFetchFailed;
         rows.Reloaded += OnVirtualReloaded;
+        rows.PlaceholdersReplaced += OnVirtualPlaceholdersReplaced;
         _virtualRows = rows;
         IsVirtual = true;
         LoadedCount = rows.Count;
@@ -240,9 +248,11 @@ public sealed partial class ObjectListViewModel
         rows.CollectionChanged -= OnVirtualRowsCollectionChanged;
         rows.FetchFailed -= OnVirtualFetchFailed;
         rows.Reloaded -= OnVirtualReloaded;
+        rows.PlaceholdersReplaced -= OnVirtualPlaceholdersReplaced;
         rows.Dispose();
         _virtualRows = null;
         _virtualSelection = null;
+        _replacedSelection = null;
         IsVirtual = false;
     }
 
@@ -296,7 +306,11 @@ public sealed partial class ObjectListViewModel
         }
     }
 
-    /// <summary>Selects the pending object (locate, new object, renamed selection) in the virtual list.</summary>
+    /// <summary>
+    /// Selects the pending object (locate, new object, renamed selection) in the virtual list. One attempt: an object that
+    /// cannot be found (deleted, moved out) is not sought again on every later refresh - each attempt costs a seek and a
+    /// page read.
+    /// </summary>
     private async Task SelectPendingVirtualAsync()
     {
         if (_pendingSelectionKey is not { } key || _virtualRows is not { } rows)
@@ -304,7 +318,8 @@ public sealed partial class ObjectListViewModel
             return;
         }
 
-        if (await LocateVirtualAsync(rows, key).ConfigureAwait(true) && ReferenceEquals(_pendingSelectionKey, key))
+        await LocateVirtualAsync(rows, key).ConfigureAwait(true);
+        if (ReferenceEquals(_pendingSelectionKey, key) && ReferenceEquals(rows, _virtualRows))
         {
             _pendingSelectionKey = null;
         }
@@ -393,10 +408,53 @@ public sealed partial class ObjectListViewModel
 
     private void OnVirtualRowsCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
+        if (!ReferenceEquals(sender, _virtualRows))
+        {
+            return;
+        }
+
         // A Reset may drop the view's selection: remember it (by DN) to restore it after the reload.
-        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset && ReferenceEquals(sender, _virtualRows))
+        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
         {
             _virtualSelection ??= [.. SelectionKeys()];
+        }
+
+        // A selected placeholder is swapped out (End / PageDown onto rows not read yet): the list control unselects it,
+        // its row is selected instead once every handler has seen the Replace (this handler runs before the view's).
+        else if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace
+            && e.OldItems is [ObjectRowViewModel { IsPlaceholder: true } placeholder]
+            && e.NewItems is [ObjectRowViewModel row]
+            && (ReferenceEquals(SelectedItem, placeholder) || _selectedItems is { Count: <= MaxReselectedPlaceholders } selected && selected.Contains(placeholder)))
+        {
+            (_replacedSelection ??= []).Add((placeholder, row));
+        }
+    }
+
+    /// <summary>Selects the rows of the selected placeholders a page just replaced (see <see cref="OnVirtualRowsCollectionChanged"/>).</summary>
+    private void OnVirtualPlaceholdersReplaced(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(sender, _virtualRows) || _replacedSelection is not { Count: > 0 } replaced)
+        {
+            return;
+        }
+
+        _replacedSelection = null;
+        if (SelectedItem is null || replaced.Any(r => ReferenceEquals(r.Placeholder, SelectedItem)))
+        {
+            // Nothing else is selected any more (or no view unselected it): the arrived row is the selected item.
+            SelectedItem = replaced.FirstOrDefault(r => ReferenceEquals(r.Placeholder, SelectedItem)).Row ?? replaced[0].Row;
+        }
+
+        if (_selectedItems is { IsReadOnly: false, IsFixedSize: false } items)
+        {
+            foreach (var (placeholder, row) in replaced)
+            {
+                items.Remove(placeholder);
+                if (!items.Contains(row))
+                {
+                    items.Add(row);
+                }
+            }
         }
     }
 

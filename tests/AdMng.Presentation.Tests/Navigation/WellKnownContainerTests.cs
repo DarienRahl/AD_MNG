@@ -83,6 +83,24 @@ public class WellKnownContainerTests
     }
 
     [Fact]
+    public async Task NewSession_RereadsTheMap_AndDropsTheOldBadges()
+    {
+        var harness = await TestHarness.ConnectedAsync();
+        var tree = harness.CreateTree();
+        await tree.InitializeAsync();
+        Assert.Equal(WellKnownContainer.Computers, Node(tree.DomainNode!, "Computers").WellKnown);
+
+        // redircmp between the sessions: the new session reads the domain head again (the map is per session).
+        Redirect(harness, WellKnownContainer.Computers, It);
+        await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = "contoso.test" }, null, CancellationToken.None);
+        await tree.InitializeAsync();
+
+        Assert.Equal(It, tree.WellKnown.Find(WellKnownContainer.Computers));
+        Assert.Null(Node(tree.DomainNode!, "Computers").WellKnown);
+        Assert.Equal(WellKnownContainer.Users, Node(tree.DomainNode!, "Users").WellKnown);
+    }
+
+    [Fact]
     public async Task Tree_WithoutWellKnownObjects_ShowsNoBadges()
     {
         var harness = await TestHarness.ConnectedAsync();
