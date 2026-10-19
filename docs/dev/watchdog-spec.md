@@ -4496,8 +4496,11 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
    `whsec_…` + last 4 chars, passwords → null); a kept secret keeps its stored hint in that safe form; a removed
    channel removes its secrets; strip `NewValue`/`Clear`, set `IsSet`. `SqliteConfigStore` stores hints only in the
    safe form and repairs a document written by an earlier version in place on its first read (same version, no audit
-   entry). Known limit: a service whose host itself is the credential (e.g. `*.m.pipedream.net`) still shows it in the
-   hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core).
+   entry). Known limits: a service whose host itself is the credential (e.g. `*.m.pipedream.net`) still shows it in the
+   hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core); a
+   retired connector URL recognised only by its path (`outlook.office.com/webhook/…`) is no longer caught by the
+   stored-hint check of 8.3 (it cannot be entered – `NewValue` is checked in full – and the Teams transport refuses it
+   at send time with `retiredTeamsUrl`).
 4. `IConfigStore.SaveAsync(config, expectedVersion, by, summary, secretChanges)` – config row, secrets and the
    `config_audit` entry in **one SQLite transaction** (412 on conflict leaves secrets untouched).
 5. `ConfigChangeAuditor` (Core) diffs the **effective** forms (`WatchdogConfigProvider.Effective`) of old and new – GET
