@@ -1,3 +1,7 @@
+using AdMng.Watchdog.Core.Diagnostics;
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.FileProviders;
+
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
@@ -6,10 +10,13 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// local administrators edit), the file named by <see cref="ConfigFileVariable"/> (lab/dev only, refused for the Windows
 /// service), environment variables <c>ADMNG_WATCHDOG__…</c> mapped to the "Watchdog" section, the command line.
 /// </summary>
-public static class ConfigurationSetup
+public static partial class ConfigurationSetup
 {
     public const string ConfigFileVariable = "ADMNG_WATCHDOG_CONFIG";
     public const string EnvironmentPrefix = "ADMNG_WATCHDOG__";
+
+    /// <summary>Warning: an edit of the watched bootstrap file could not be loaded; the previous settings stay in effect.</summary>
+    public const int ReloadFailedEventId = 2002;
 
     /// <summary>The bootstrap file under %ProgramData% (or the platform's common application data folder).</summary>
     public static string BootstrapFilePath =>
@@ -65,5 +72,37 @@ public static class ConfigurationSetup
         configuration.AddInMemoryCollection(environment);
         configuration.AddCommandLine([.. args]);
         return extraPath;
+    }
+
+    /// <summary>
+    /// Reports an edit of the watched bootstrap file that cannot be loaded (e.g. malformed JSON) as warning
+    /// <see cref="ReloadFailedEventId"/> – type and code only, never a value of the file. The provider still throws in its
+    /// change callback, so the options are not rebuilt and the previous settings stay in effect: an administrator whose
+    /// emergency <c>DeniedSids</c> edit has a syntax error must learn that it did not apply. Call after the host was built
+    /// – a file that cannot be loaded at start still fails the start (exit code 2, event 1010).
+    /// </summary>
+    public static void ReportReloadFailures(IConfigurationBuilder configuration, string bootstrapFilePath, ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentException.ThrowIfNullOrWhiteSpace(bootstrapFilePath);
+        ArgumentNullException.ThrowIfNull(logger);
+        var bootstrap = Path.GetFullPath(bootstrapFilePath);
+        foreach (var source in configuration.Sources.OfType<JsonConfigurationSource>())
+        {
+            if (source.ReloadOnChange
+                && source.FileProvider is PhysicalFileProvider files
+                && source.Path is { Length: > 0 } path
+                && string.Equals(Path.GetFullPath(Path.Combine(files.Root, path)), bootstrap, StringComparison.OrdinalIgnoreCase))
+            {
+                source.OnLoadException = context => Log.ReloadFailed(logger, SafeExceptionLog.ErrorCode(context.Exception));
+            }
+        }
+    }
+
+    private static partial class Log
+    {
+        [LoggerMessage(EventId = ReloadFailedEventId, Level = LogLevel.Warning,
+            Message = "The edited bootstrap file config\\appsettings.json could not be loaded ({ErrorCode}); the previous settings stay in effect until it is fixed (check the JSON syntax, AdMng.Watchdog.exe --check-config).")]
+        public static partial void ReloadFailed(ILogger logger, string errorCode);
     }
 }

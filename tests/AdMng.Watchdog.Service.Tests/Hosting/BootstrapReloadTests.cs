@@ -3,6 +3,7 @@ using System.Text.Json;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Service.Auth;
 using AdMng.Watchdog.Service.Hosting;
+using AdMng.Watchdog.Service.Tests.Fakes;
 using AdMng.Watchdog.Service.Tests.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
@@ -59,6 +60,55 @@ public sealed class BootstrapReloadTests
         Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
     }
 
+    /// <summary>An edit with a syntax error (here a missing comma) cannot be loaded: the previous settings stay in effect
+    /// and warning 2002 tells the administrator that the edit – an emergency DeniedSids entry – did not apply (without
+    /// any value of the file); the corrected file applies as usual.</summary>
+    [Fact]
+    public async Task AMalformedEdit_KeepsThePreviousSettings_AndIsReported()
+    {
+        using var directory = new TestDataDirectory();
+        var file = Path.Combine(directory.Path, "config", "appsettings.json");
+        System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        await File.WriteAllTextAsync(file, Bootstrap(denied: [], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
+
+        using var configuration = new ConfigurationManager();
+        ConfigurationSetup.AddSources(configuration, [], isWindowsService: false, file, reloadBootstrapFile: true);
+        var startup = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>()!;
+        var services = new ServiceCollection();
+        ServiceRegistration.AddServiceOptions(services, configuration, startup);
+        await using var provider = services.BuildServiceProvider();
+        var monitor = provider.GetRequiredService<IOptionsMonitor<ServiceOptions>>();
+        var handler = new SidRoleHandler(monitor);
+        var log = new TestLog();
+        ConfigurationSetup.ReportReloadFailures(configuration, file, log.CreateLogger(typeof(ConfigurationSetup).FullName!));
+        Assert.True(await IsAdminAsync(handler));
+
+        await File.WriteAllTextAsync(
+            file,
+            $$"""{ "Watchdog": { "Authorization": { "AdminSids": [ "{{TestRoles.AdminGroup}}" ] "DeniedSids": [ "{{ŁukaszSid}}" ] } } }""",
+            Ct);
+        await WaitUntilAsync(() => log.Entries.Any(e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId));
+
+        Assert.True(await IsAdminAsync(handler));
+        Assert.Equal(["10.20.30.0/24"], monitor.CurrentValue.Hosting.MonitoringSubnets);
+        var warning = Assert.Single(log.Entries, e => e.EventId.Id == ConfigurationSetup.ReloadFailedEventId);
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, warning.Level);
+        Assert.DoesNotContain(ŁukaszSid, log.Text, StringComparison.Ordinal);
+
+        var reloaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var subscription = monitor.OnChange((options, _) =>
+        {
+            if (options.Authorization.DeniedSids.Contains(ŁukaszSid, StringComparer.OrdinalIgnoreCase))
+            {
+                reloaded.TrySetResult();
+            }
+        });
+        await File.WriteAllTextAsync(file, Bootstrap(denied: [ŁukaszSid], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
+        await reloaded.Task.WaitAsync(TimeSpan.FromSeconds(30), Ct);
+
+        Assert.False(await IsAdminAsync(handler));
+    }
+
     [Fact]
     public void LiveOptions_KeepTheSettingsTheHostWasBuiltWith()
     {
@@ -95,6 +145,17 @@ public sealed class BootstrapReloadTests
         Assert.Equal([ŁukaszSid], effective.Authorization.DeniedSids);
         Assert.Equal(Contracts.Configuration.DetailLevel.Minimal, effective.Authorization.ViewerDetailLevel);
         Assert.Equal(["smtp.office365.us"], effective.Notifications.OAuthSmtpHosts);
+    }
+
+    /// <summary>Waits (real time – the file watcher) until <paramref name="condition"/> holds, at most 30 s.</summary>
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        while (!condition())
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(50), timeout.Token);
+        }
     }
 
     private static async Task<bool> IsAdminAsync(SidRoleHandler handler)

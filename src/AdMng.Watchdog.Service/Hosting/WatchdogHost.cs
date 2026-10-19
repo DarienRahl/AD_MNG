@@ -52,6 +52,10 @@ public static class WatchdogHost
 
         ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context, options);
         var app = builder.Build();
+        ConfigurationSetup.ReportReloadFailures(
+            builder.Configuration,
+            ConfigurationSetup.BootstrapFilePath,
+            app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ConfigurationSetup).FullName!));
         ApiSetup.Map(app);
         return app;
     }

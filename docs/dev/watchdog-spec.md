@@ -2854,7 +2854,10 @@ host consumed when it was built – `DataDirectory`, `AllowInsecureDataDirectory
 `AllowedRemoteSubnets`/`MonitoringSubnets`), `Directory`, `Development` – to the start-up values. So `Authorization`
 (above all `DeniedSids`: revocation must not wait for a restart), `Notifications` and the two subnet lists apply within
 seconds; everything else needs a service restart (documented). `DetectionHostOptions` (role groups as privileged roots)
-is read once at start.
+is read once at start. An edit that cannot be loaded (malformed JSON) keeps the previous settings in effect – the file
+provider throws in its change callback, so the options are not rebuilt – and `ConfigurationSetup.ReportReloadFailures`
+logs warning 2002 (type and code only), so an emergency `DeniedSids` entry with a syntax error does not fail silently;
+at the next start the same file fails with exit code 2 / event 1010.
 
 ---
 
@@ -4757,6 +4760,7 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 | 1006 | Information | configuration changed (version, caller account) |
 | 1007 | Warning | runtime outdated / certificate expiring within 30 days |
 | 1010 | Error | fatal start-up check failed (exit code in the message) |
+| 2002 | Warning | an edit of the bootstrap file could not be loaded; the previous settings stay in effect (8.4) |
 | 2600 / 2601 | Information | single event viewed through `/api/v1/events/{id}` / `/events/{eventId}` (numeric id / event GUID, caller account) – the RODO access log of 17.1 |
 
 As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
