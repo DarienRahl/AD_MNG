@@ -22,16 +22,22 @@ public static class WebhookPayloadFormatter
 
     private static readonly JsonWriterOptions WriterOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, Indented = false };
 
-    /// <summary>The payload of one event (<paramref name="followUp"/>: <c>ad.attribution.updated</c> with the final
-    /// attribution).</summary>
-    public static RenderedHttpMessage Event(WatchEvent watchEvent, IReadOnlyList<RuleSettings> rules, NotificationContext context, bool followUp = false)
+    /// <summary>The payload of one event. A follow-up (<paramref name="followUp"/>) carries the final attribution and the
+    /// event's final severity: <c>ad.severity.escalated</c> when that is higher than <paramref name="previousSeverity"/> –
+    /// the severity the alert showed (13.2 #7) –, else <c>ad.attribution.updated</c>; <c>data.previousSeverity</c> is
+    /// written when the severity changed.</summary>
+    public static RenderedHttpMessage Event(WatchEvent watchEvent, IReadOnlyList<RuleSettings> rules, NotificationContext context, bool followUp = false,
+        Severity? previousSeverity = null)
     {
         ArgumentNullException.ThrowIfNull(watchEvent);
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(context);
         var e = DetailLevelFilter.ForNotification(watchEvent, context.DetailLevel, context.MaxValueLength);
-        var type = followUp ? WebhookEventTypes.AttributionUpdated : WebhookEventTypes.For(e.Kind, e.Object.Kind);
-        var body = Write(type, e.DetectedAt, writer => WriteEventData(writer, e, rules, context));
+        var previous = followUp && previousSeverity is { } shown && shown != e.Severity ? previousSeverity : null;
+        var type = !followUp
+            ? WebhookEventTypes.For(e.Kind, e.Object.Kind)
+            : previous < e.Severity ? WebhookEventTypes.SeverityEscalated : WebhookEventTypes.AttributionUpdated;
+        var body = Write(type, e.DetectedAt, writer => WriteEventData(writer, e, rules, context, previous));
         return new RenderedHttpMessage { Body = body, WebhookEventType = type, Title = UntrustedText.ForHeader(context.Text.KindTitle(e.Kind)) };
     }
 
@@ -115,7 +121,8 @@ public static class WebhookPayloadFormatter
         return stream.ToArray();
     }
 
-    private static void WriteEventData(Utf8JsonWriter writer, WatchEvent e, IReadOnlyList<RuleSettings> rules, NotificationContext context)
+    private static void WriteEventData(Utf8JsonWriter writer, WatchEvent e, IReadOnlyList<RuleSettings> rules, NotificationContext context,
+        Severity? previousSeverity)
     {
         var minimal = context.DetailLevel == DetailLevel.Minimal;
         writer.WriteNumber("schemaVersion", SchemaVersion);
@@ -123,6 +130,11 @@ public static class WebhookPayloadFormatter
         writer.WriteNumber("id", e.Id);
         writer.WriteString("kind", e.Kind.ToString());
         writer.WriteString("severity", e.Severity.ToString().ToLowerInvariant());
+        if (previousSeverity is { } previous)
+        {
+            writer.WriteString("previousSeverity", previous.ToString().ToLowerInvariant());
+        }
+
         WriteNullableString(writer, "domain", e.Domain);
         writer.WriteString("detailLevel", context.DetailLevel.ToString());
         writer.WriteStartArray("rules");

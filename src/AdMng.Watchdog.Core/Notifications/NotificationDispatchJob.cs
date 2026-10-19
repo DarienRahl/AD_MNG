@@ -3,6 +3,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
+using AdMng.Watchdog.Core.Formatting;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Rules;
 using Microsoft.Extensions.Logging;
@@ -27,10 +28,13 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// alert records how it showed each event (<see cref="OutboxMessage.EventStates"/>). A bucket whose rule reached its hourly cap on the
 /// channel waits 15 minutes (Critical is never throttled). At most <c>MaxItemsPerMessage</c> items are rendered, the rest
 /// is announced as "+N kolejnych"; all ready items are completed with the message in one store call. A follow-up waits
-/// (<see cref="FollowUpWait"/>) until its original message was sent and is dropped when the original went Dead or
-/// Cancelled or the event already has a follow-up for the target. After an alert sent with a pending actor, events whose
-/// attribution became final meanwhile get their follow-ups planned here (the AttributionEngine planned them before the
-/// alert was in the outbox). Wakes on NotificationsQueued and AttributionUpdated.
+/// (<see cref="FollowUpWait"/>) until its original message was sent and until its event's attribution is stored (an
+/// escalation is stored by the re-evaluation just before it, 13.2 #7), and is dropped when the original went Dead or
+/// Cancelled or the event already has a follow-up for the target that showed it with at least the row's severity (a higher
+/// one is an escalation). Follow-ups render each event with its row's final severity and the change against the original
+/// (<see cref="FollowUpChange"/>), and record their per-event states like alerts. After an alert sent with a pending
+/// actor, events whose attribution became final meanwhile get their follow-ups planned here (the AttributionEngine planned
+/// them before the alert was in the outbox). Wakes on NotificationsQueued and AttributionUpdated.
 /// </summary>
 public sealed partial class NotificationDispatchJob : IWatchdogJob
 {
@@ -152,6 +156,7 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
     {
         var ready = new List<(PendingNotification Item, WatchEvent Event)>();
         var drop = new List<long>();
+        var deferred = new List<long>();
         var settings = configuration.Notifications ?? new NotificationSettings();
         DateTimeOffset? wakeAt = null;
         foreach (var item in items)
@@ -165,6 +170,14 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
 
             if (item.IsFollowUp)
             {
+                // A follow-up tells the final state. An escalation is stored by the re-evaluation before the attribution
+                // (13.2 #7); a pass interrupted in between leaves it with the actor pending until the next pass stores it.
+                if (watchEvent.Attribution?.Status == AttributionStatus.Pending)
+                {
+                    deferred.Add(item.Id);
+                    continue;
+                }
+
                 ready.Add((item, watchEvent));
                 continue;
             }
@@ -228,6 +241,13 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
             LogDropped(drop.Count);
         }
 
+        if (deferred.Count > 0)
+        {
+            var retryAt = now + FollowUpWait;
+            await _queue.RescheduleAsync(deferred, retryAt, cancellationToken).ConfigureAwait(false);
+            wakeAt = Min(wakeAt, retryAt);
+        }
+
         if (ready.Count == 0)
         {
             return (false, wakeAt);
@@ -284,16 +304,18 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
             return (false, wakeAt);
         }
 
-        // Rendered with the notification severity of the row (rule override or re-resolved event severity).
+        // Rendered with the notification severity of the row (rule override or re-resolved event severity; a follow-up: the
+        // event's own final severity for the target, 13.2 #6–#7).
         var ordered = ready.Select(r => r.Event with { Severity = r.Item.Severity }).DistinctBy(e => e.Id).OrderBy(e => e.DetectedAt).ThenBy(e => e.Id).ToList();
         var cap = AggregationPolicy.MaxItems(settings);
         var shown = ordered.Take(cap).ToList();
-        var message = first.IsFollowUp
+        var message = (first.IsFollowUp
             ? await FollowUpAsync(first, original, rule, shown, configuration, now, cancellationToken).ConfigureAwait(false)
-            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now) with
+            : NotificationRenderer.Alert(first.Target, rule, shown, ordered.Count - shown.Count, [.. ordered.Select(e => e.Id)], configuration, now)) with
             {
-                // What the recipients know about each event (an aggregated alert's events differ): the coverage of later plans.
-                EventStates = [.. ordered.Select(e => new OutboxEventState(e.Id, e.Severity, e.Attribution?.Status == AttributionStatus.Pending))],
+                // What the recipients know about each event (an aggregated alert's events differ): the coverage of later plans
+                // and the severity an escalation compares with.
+                EventStates = [.. (first.IsFollowUp ? shown : ordered).Select(e => new OutboxEventState(e.Id, e.Severity, e.Attribution?.Status == AttributionStatus.Pending))],
             };
         await _queue.CompleteAsync(ids, message, cancellationToken).ConfigureAwait(false);
         if (message.RuleId is { } ruleId)
@@ -355,7 +377,10 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
                 originalEventId = item.EventId;
             }
 
-            if (messages.Any(m => m.Kind == DeliveryKind.FollowUp && string.Equals(m.TargetKey, item.Target.Key, StringComparison.Ordinal)))
+            // A follow-up the target already got with at least this severity told it everything (the actor is final in
+            // every follow-up); a higher severity is an escalation (13.2 #7).
+            if (messages.Any(m => m.Kind == DeliveryKind.FollowUp && string.Equals(m.TargetKey, item.Target.Key, StringComparison.Ordinal)
+                && EventNotices.ShownSeverity(m, item.EventId) >= item.Severity))
             {
                 duplicates.Add(item.Id);
             }
@@ -413,7 +438,23 @@ public sealed partial class NotificationDispatchJob : IWatchdogJob
         }
 
         var subject = NotificationRenderer.OriginalSubject(originalEvents.Count > 0 ? originalEvents : events, originalRule, configuration, first.Target.DetailLevel);
-        return NotificationRenderer.FollowUp(first.Target, originalRule, events, replyTo.Length > 0 ? replyTo : Guid.Empty.ToString("N"), subject, configuration, now);
+
+        // An escalation shows the rule that notifies the target now (it may have taken the target over); the thread keeps
+        // the original subject. Each event says how the original showed it (severity change, actor determined).
+        var contentRule = FindRule(configuration, first.RuleId) ?? originalRule;
+        var changes = original is null ? null : events.Select(e => Change(original, e.Id)).ToList();
+        return NotificationRenderer.FollowUp(first.Target, contentRule, events, replyTo.Length > 0 ? replyTo : Guid.Empty.ToString("N"), subject, configuration, now,
+            changes);
+    }
+
+    /// <summary>How <paramref name="original"/> showed event <paramref name="eventId"/>: its per-event state; an alert stored
+    /// before the per-event states only for a single event (an aggregated alert's maximum says nothing about one event).</summary>
+    private static FollowUpChange Change(OutboxMessage original, long eventId)
+    {
+        var state = original.EventStates.FirstOrDefault(s => s.EventId == eventId);
+        return state is not null
+            ? new FollowUpChange(eventId, state.Severity, state.PendingAttribution)
+            : new FollowUpChange(eventId, original.EventIds.Count == 1 ? original.Severity : null, original.SentWithPendingAttribution);
     }
 
     private static RuleSettings? FindRule(WatchdogConfiguration configuration, string? ruleId) =>

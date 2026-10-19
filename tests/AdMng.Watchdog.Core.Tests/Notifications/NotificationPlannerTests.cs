@@ -267,7 +267,11 @@ public sealed class NotificationPlannerTests
 
     /// <summary>The new rows of a re-evaluation that added <see cref="AddedRule"/> (the alert went out, nothing waits).</summary>
     private static async Task<IReadOnlyList<PendingNotification>> PlanAddedAsync(NotificationHarness harness, WatchEvent e, Severity severity) =>
-        (await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
+        (await PlanAddedRuleAsync(harness, e, severity)).Insert;
+
+    /// <summary>The plan of a re-evaluation that added <see cref="AddedRule"/> (the alert went out, nothing waits).</summary>
+    private static async Task<ReevaluationPlan> PlanAddedRuleAsync(NotificationHarness harness, WatchEvent e, Severity severity) =>
+        await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
             new RuleEvaluationResult
             {
                 Event = e with { Severity = severity, OwnSeverity = severity, Attribution = Resolved(), MatchedRules = [FirstRule.Id] },
@@ -278,7 +282,7 @@ public sealed class NotificationPlannerTests
             await harness.Store.GetAllAsync(Ct),
             harness.Current,
             harness.Clock.GetUtcNow(),
-            Ct)).Insert;
+            Ct);
 
     [Fact]
     public async Task Reevaluation_ReplansEveryWaitingRow_FromTheRulesThatMatchNow()
@@ -334,13 +338,19 @@ public sealed class NotificationPlannerTests
     }
 
     [Fact]
-    public async Task AddedRule_LeavesOutATargetThatGotTheFinalState_ButNotifiesAnEscalation()
+    public async Task AddedRule_LeavesOutATargetThatGotTheFinalState_ButEscalatesInItsThread()
     {
         var (harness, e, alert) = await AlertedAsync(Severity.Medium, Resolved());
         Assert.False(alert.SentWithPendingAttribution);
 
-        Assert.Empty(await PlanAddedAsync(harness, e, Severity.Medium));
-        Assert.Equal(AdminsTarget(harness.Current).Key, Assert.Single(await PlanAddedAsync(harness, e, Severity.High)).Target.Key);
+        Assert.True((await PlanAddedRuleAsync(harness, e, Severity.Medium)).IsEmpty);
+        var plan = await PlanAddedRuleAsync(harness, e, Severity.High);
+        Assert.Empty(plan.Insert);
+        var escalation = Assert.Single(plan.FollowUps);
+        Assert.Equal((AdminsTarget(harness.Current).Key, true, alert.MessageId, Severity.High, AddedRule.Id),
+            (escalation.Target.Key, escalation.IsFollowUp, escalation.ReplyToMessageId, escalation.Severity, escalation.RuleId));
+        Assert.Equal((harness.Clock.GetUtcNow(), AggregationPolicy.FollowUpBucketKey(alert.MessageId, escalation.Target)), (escalation.DueAt, escalation.BucketKey));
+        Assert.Null(escalation.HoldForAttributionUntil);
     }
 
     [Fact]
@@ -372,5 +382,122 @@ public sealed class NotificationPlannerTests
         await harness.Store.MarkDeadAsync(alert.Id, "smtp.550.5.1.1", null, Ct);
 
         Assert.Single(await PlanAddedAsync(harness, e, Severity.High));
+    }
+
+    // ---- Escalation of a target that already got an alert (13.2 #7) -----------------------------------------------------
+
+    /// <summary>The plan of a re-evaluation in which only the stored <paramref name="rule"/> matches, with
+    /// <paramref name="severity"/> (the final attribution changed the own severity).</summary>
+    private static async Task<ReevaluationPlan> PlanStoredAsync(NotificationHarness harness, WatchEvent e, RuleSettings rule, Severity severity) =>
+        await ((IRuleMatchPlanner)harness.Planner).PlanReevaluationAsync(
+            new RuleEvaluationResult
+            {
+                Event = e with { Severity = severity, OwnSeverity = severity, Attribution = Resolved(), MatchedRules = [rule.Id] },
+                Severity = severity,
+                Matches = [new RuleMatch { Rule = rule, NotificationSeverity = severity }],
+            },
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+            await harness.Store.GetAllAsync(Ct),
+            harness.Current,
+            harness.Clock.GetUtcNow(),
+            Ct);
+
+    [Fact]
+    public async Task StoredRule_EscalatesItsTarget_InTheThreadOfTheAlert_DespiteItsRepeatSuppression()
+    {
+        // The stored rule's own alert is a notification about the object within its repeat suppression – an escalation of
+        // that very alert is no repeat.
+        var suppressing = FirstRule with { Delivery = FirstRule.Delivery! with { RepeatSuppression = TimeSpan.FromHours(1) } };
+        var (harness, e, alert) = await AlertedAsync(Severity.Medium, EventAttribution.Pending, ConfigWith(suppressing));
+        Assert.Equal((Severity.Medium, true), (alert.Severity, alert.SentWithPendingAttribution));
+
+        var plan = await PlanStoredAsync(harness, e, suppressing, Severity.High);
+
+        Assert.Empty(plan.Insert);
+        var escalation = Assert.Single(plan.FollowUps);
+        Assert.Equal((suppressing.Id, Severity.High, true, alert.MessageId), (escalation.RuleId, escalation.Severity, escalation.IsFollowUp, escalation.ReplyToMessageId));
+        Assert.Equal(AdminsTarget(harness.Current).Key, escalation.Target.Key);
+    }
+
+    [Theory]
+    [InlineData(Severity.Medium, Severity.Medium)]     // unchanged
+    [InlineData(Severity.Medium, Severity.Low)]        // lowered: nothing is sent for it
+    [InlineData(Severity.Low, Severity.Medium)]        // raised, but below High: the digest reports it
+    [InlineData(Severity.High, Severity.High)]         // already High: only the attribution follow-up
+    public async Task StoredRule_DoesNotEscalate_BelowHigh_OrWithoutARaise(Severity shown, Severity final)
+    {
+        var (harness, e, _) = await AlertedAsync(shown, EventAttribution.Pending);
+
+        Assert.True((await PlanStoredAsync(harness, e, FirstRule, final)).IsEmpty);
+    }
+
+    [Fact]
+    public async Task TheComingFollowUp_TakesTheFinalSeverity_AlsoALowerOne()
+    {
+        // The High alert gets its attribution follow-up anyway; it must show the event as Medium now, not High.
+        var (harness, e, alert) = await AlertedAsync(Severity.High, EventAttribution.Pending);
+
+        var followUp = Assert.Single((await PlanStoredAsync(harness, e, FirstRule, Severity.Medium)).FollowUps);
+
+        Assert.Equal((Severity.Medium, alert.MessageId), (followUp.Severity, followUp.ReplyToMessageId));
+        Assert.True((await PlanStoredAsync(harness, e, FirstRule, Severity.High)).IsEmpty);
+    }
+
+    [Fact]
+    public async Task AnEscalation_MergesIntoTheWaitingFollowUpOfTheTarget()
+    {
+        // A follow-up row already waits for the target (a pass that stored it was interrupted): the escalation replies to
+        // the same message and updates that row – never a second row or a second thread.
+        var (harness, e, alert) = await AlertedAsync(Severity.Medium, EventAttribution.Pending);
+        var target = AdminsTarget(harness.Current);
+        await harness.Store.AddAsync(
+        [
+            new PendingNotification
+            {
+                EventId = e.Id, RuleId = FirstRule.Id, Target = target, Severity = Severity.Medium, IsFollowUp = true, ReplyToMessageId = alert.MessageId,
+                BucketKey = AggregationPolicy.FollowUpBucketKey(alert.MessageId, target), DueAt = harness.Clock.GetUtcNow(),
+            },
+        ], Ct);
+        var waiting = Assert.Single(await harness.Store.GetAllAsync(Ct));
+
+        var plan = await PlanStoredAsync(harness, e, FirstRule, Severity.Critical);
+        await harness.Store.ReplanAsync(plan.FollowUps, insertMissing: true, Ct);
+
+        var row = Assert.Single(await harness.Store.GetAllAsync(Ct));
+        Assert.Equal((waiting.Id, Severity.Critical, alert.MessageId, waiting.BucketKey), (row.Id, row.Severity, row.ReplyToMessageId, row.BucketKey));
+    }
+
+    [Fact]
+    public async Task AnEscalation_IsNotPlannedAgain_OnceAFollowUpShowedTheSeverity_ButAHigherOneIs()
+    {
+        var (harness, e, alert) = await AlertedAsync(Severity.Medium, EventAttribution.Pending);
+        await harness.Store.EnqueueAsync(new OutboxMessage
+        {
+            MessageId = Guid.CreateVersion7(harness.Clock.GetUtcNow()).ToString("N"),
+            ChannelType = DeliveryChannelType.Email,
+            ChannelId = "email",
+            TargetKey = alert.TargetKey,
+            Kind = DeliveryKind.FollowUp,
+            Recipients = alert.Recipients,
+            RuleId = FirstRule.Id,
+            EventIds = [e.Id],
+            EventStates = [new OutboxEventState(e.Id, Severity.High, false)],
+            Severity = Severity.High,
+            CreatedAt = harness.Clock.GetUtcNow(),
+            NextAttemptAt = harness.Clock.GetUtcNow(),
+        }, Ct);
+
+        Assert.True((await PlanStoredAsync(harness, e, FirstRule, Severity.High)).IsEmpty);
+        Assert.Equal(Severity.Critical, Assert.Single((await PlanStoredAsync(harness, e, FirstRule, Severity.Critical)).FollowUps).Severity);
+    }
+
+    [Fact]
+    public async Task ALostAlert_IsNotEscalated()
+    {
+        var (harness, e, alert) = await AlertedAsync(Severity.Medium, EventAttribution.Pending);
+        await harness.Store.LeaseDueAsync(harness.Clock.GetUtcNow(), 100, TimeSpan.FromMinutes(5), Ct);
+        await harness.Store.MarkDeadAsync(alert.Id, "smtp.550.5.1.1", null, Ct);
+
+        Assert.True((await PlanStoredAsync(harness, e, FirstRule, Severity.High)).IsEmpty);
     }
 }

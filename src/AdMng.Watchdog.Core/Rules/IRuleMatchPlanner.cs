@@ -23,10 +23,12 @@ public interface IRuleMatchPlanner
     /// <summary>
     /// The re-plan of a re-evaluation after attribution (11.4 #9). <paramref name="evaluation"/> holds the event with its
     /// final attribution and every rule that matches it now; <paramref name="addedRuleIds"/> are the ones that were not
-    /// among its stored matched rules; <paramref name="waiting"/> are the event's waiting (non-follow-up) rows. Rules that
-    /// matched before are never planned again for a target without a waiting row (it may already be notified), the targets
-    /// that already got the final state are left out, and every waiting row takes the treatment of the rules that notify
-    /// its target now. Default: the added matches planned as new rows.
+    /// among its stored matched rules; <paramref name="waiting"/> are the event's waiting rows (follow-ups included). Every
+    /// waiting row takes the treatment of the rules that notify its target now; a target that already got an alert hears
+    /// about a severity raised to High or above – or about the final severity of its attribution follow-up – only in a
+    /// follow-up of that alert (<see cref="ReevaluationPlan.FollowUps"/>, 13.2 #7), whether a stored or an added rule
+    /// notifies it; otherwise rules that matched before are not planned again for a target without a waiting row, and the
+    /// targets that already got the final state are left out. Default: the added matches planned as new rows.
     /// </summary>
     async ValueTask<ReevaluationPlan> PlanReevaluationAsync(RuleEvaluationResult evaluation, IReadOnlySet<string> addedRuleIds,
         IReadOnlyList<PendingNotification> waiting, WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)

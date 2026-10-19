@@ -42,14 +42,17 @@ public static class EmailAlertFormatter
         var summary = Summary(safe, events.Count + moreCount, rule, context);
         var rows = safe.Select(e => ItemRow(e, context)).ToList();
         return Render(subject, severity, rule, events, context,
-            html => WriteAggregated(html, severity, summary, rows, moreCount, rule, safe, context, null),
-            text => WriteAggregated(text, summary, rows, moreCount, rule, safe, context, null));
+            html => WriteAggregated(html, severity, summary, ItemHeaders(context), rows, moreCount, rule, safe, context, null),
+            text => WriteAggregated(text, summary, ItemHeaders(context), rows, moreCount, rule, safe, context, null));
     }
 
-    /// <summary>The follow-up to message <paramref name="originalMessageId"/> once the actors of
-    /// <paramref name="events"/> are known: subject "Re: <paramref name="originalSubject"/>", same thread.</summary>
+    /// <summary>The follow-up to message <paramref name="originalMessageId"/> once the actors of <paramref name="events"/>
+    /// are known or their severity was raised (an escalation, 13.2 #7): subject "Re: <paramref name="originalSubject"/>",
+    /// same thread. Every event is shown with its final severity – a single event in the banner and, when it changed, as
+    /// "Priorytet: Średni → Wysoki"; several in a Priorytet column – and the banner says what is new
+    /// (<see cref="FollowUpChange"/>).</summary>
     public static RenderedEmail FollowUp(IReadOnlyList<WatchEvent> events, string originalSubject, string originalMessageId, RuleSettings? rule,
-        NotificationContext context)
+        NotificationContext context, IReadOnlyList<FollowUpChange>? changes = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentException.ThrowIfNullOrWhiteSpace(originalMessageId);
@@ -60,12 +63,18 @@ public static class EmailAlertFormatter
         }
 
         var subject = EmailSubjectBuilder.FollowUp(originalSubject);
-        var banner = context.Text.Get("Email.FollowUpBanner");
+        var banner = FollowUpChange.Title(events, changes, context, "Email.FollowUpBanner");
         var severity = events.Max(e => e.Severity);
         RenderedEmail email;
         if (events.Count == 1)
         {
             var content = AlertContentBuilder.Build(events[0], rule, context);
+            if (FollowUpChange.SeverityChange(events[0], changes, context) is { } change)
+            {
+                // Right after "Co": the news of an escalation.
+                content = content with { Facts = [.. content.Facts.Take(1), new AlertFact(context.Text.Get("Label.Severity"), change), .. content.Facts.Skip(1)] };
+            }
+
             email = Render(subject, severity, rule, events, context, html => WriteAlert(html, content, context, banner),
                 text => WriteAlert(text, content, context, banner));
         }
@@ -73,10 +82,11 @@ public static class EmailAlertFormatter
         {
             var safe = events.Select(e => DetailLevelFilter.ForNotification(e, context.DetailLevel, context.MaxValueLength)).ToList();
             var summary = Summary(safe, safe.Count, rule, context);
-            var rows = safe.Select(e => ItemRow(e, context)).ToList();
+            var headers = (IReadOnlyList<string>)[.. ItemHeaders(context), context.Text.Get("Label.Severity")];
+            var rows = events.Select((e, i) => (IReadOnlyList<string?>)[.. ItemRow(safe[i], context), FollowUpChange.SeverityText(e, changes, context)]).ToList();
             email = Render(subject, severity, rule, events, context,
-                html => WriteAggregated(html, severity, summary, rows, 0, rule, safe, context, banner),
-                text => WriteAggregated(text, summary, rows, 0, rule, safe, context, banner));
+                html => WriteAggregated(html, severity, summary, headers, rows, 0, rule, safe, context, banner),
+                text => WriteAggregated(text, summary, headers, rows, 0, rule, safe, context, banner));
         }
 
         return email with { InReplyTo = originalMessageId };
@@ -196,14 +206,15 @@ public static class EmailAlertFormatter
         writer.Line(content.AdMngHint).Line().Line("── " + content.Footer);
     }
 
-    private static void WriteAggregated(HtmlWriter html, Severity severity, string summary, IReadOnlyList<IReadOnlyList<string?>> rows,
-        int moreCount, RuleSettings? rule, IReadOnlyList<WatchEvent> events, NotificationContext context, string? banner)
+    private static void WriteAggregated(HtmlWriter html, Severity severity, string summary, IReadOnlyList<string> headers,
+        IReadOnlyList<IReadOnlyList<string?>> rows, int moreCount, RuleSettings? rule, IReadOnlyList<WatchEvent> events, NotificationContext context,
+        string? banner)
     {
         var text = context.Text;
         var category = EmailSubjectBuilder.AggregatedTitle(events, rule, context);
         EmailLayout.Banner(html, severity, (banner is null ? string.Empty : banner + " · ") + text.SeverityWord(severity) + " · " + category);
         EmailLayout.Paragraph(html, summary);
-        EmailLayout.Table(html, ItemHeaders(context), rows);
+        EmailLayout.Table(html, headers, rows);
         if (moreCount > 0)
         {
             EmailLayout.Paragraph(html, text.Format("Value.More", moreCount), "padding:0 16px 8px 16px;font-size:13px;color:#605e5c;");
@@ -213,14 +224,13 @@ public static class EmailAlertFormatter
         EmailLayout.Footer(html, Footer(rule, events, context));
     }
 
-    private static void WriteAggregated(PlainTextWriter writer, string summary, IReadOnlyList<IReadOnlyList<string?>> rows, int moreCount,
-        RuleSettings? rule, IReadOnlyList<WatchEvent> events, NotificationContext context, string? banner)
+    private static void WriteAggregated(PlainTextWriter writer, string summary, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<string?>> rows,
+        int moreCount, RuleSettings? rule, IReadOnlyList<WatchEvent> events, NotificationContext context, string? banner)
     {
         var text = context.Text;
         var severity = events.Max(e => e.Severity);
         writer.Line((banner is null ? string.Empty : banner + " · ") + text.SeverityWord(severity) + " · " + EmailSubjectBuilder.AggregatedTitle(events, rule, context))
             .Line().Paragraph(summary);
-        var headers = ItemHeaders(context);
         foreach (var row in rows)
         {
             writer.Facts(headers.Select((h, i) => (h, row[i] ?? string.Empty)).Where(f => f.Item2.Length > 0)).Line();

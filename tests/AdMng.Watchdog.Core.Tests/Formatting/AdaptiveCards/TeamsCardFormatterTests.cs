@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Formatting;
 using AdMng.Watchdog.Core.Formatting.AdaptiveCards;
 using AdMng.Watchdog.Core.Model;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
@@ -151,6 +152,26 @@ public sealed class TeamsCardFormatterTests
         Assert.Contains("Uzupełnienie: wykonawca ustalony", AllText(followUp), StringComparison.Ordinal);
         Assert.Contains(@"CONTOSO\adm.nowak", AllText(followUp), StringComparison.Ordinal);
         Assert.Contains("AD Watchdog test message", AllText(test), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnEscalationCard_SaysTheSeverityWasRaised_AndShowsEachEventsFinalSeverity()
+    {
+        var granted = FormattingSamples.PrivilegeGranted();
+        var changed = FormattingSamples.AttributesChanged() with { Severity = Severity.High };
+        var changes = new[] { new FollowUpChange(granted.Id, Severity.Critical, true), new FollowUpChange(changed.Id, Severity.Medium, true) };
+
+        var card = AssertValidMessage(TeamsAlertCardFormatter.FollowUp([granted, changed], FormattingSamples.Rule(), FormattingSamples.Context(), changes: changes));
+        var english = AssertValidMessage(TeamsAlertCardFormatter.FollowUp([changed], FormattingSamples.Rule(), FormattingSamples.Context("en"),
+            changes: [new FollowUpChange(changed.Id, Severity.Medium, false)]));
+
+        Assert.Contains("Uzupełnienie: wykonawca ustalony, priorytet podniesiony", AllText(card), StringComparison.Ordinal);
+        Assert.Contains("Priorytet", AllText(card), StringComparison.Ordinal);
+        Assert.Contains("Krytyczne", AllText(card), StringComparison.Ordinal);
+        Assert.Contains("Średni → Wysoki", AllText(card), StringComparison.Ordinal);
+        Assert.Equal("attention", card["body"]![0]!["style"]!.GetValue<string>());
+        Assert.Contains("Follow-up: severity raised", AllText(english), StringComparison.Ordinal);
+        Assert.Contains("Medium → High", AllText(english), StringComparison.Ordinal);
     }
 
     [Fact]

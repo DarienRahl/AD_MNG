@@ -383,6 +383,12 @@
   <data name="Card.FollowUpTitle" xml:space="preserve">
     <value>Uzupełnienie: wykonawca ustalony</value>
   </data>
+  <data name="Card.FollowUpTitleActorAndSeverity" xml:space="preserve">
+    <value>Uzupełnienie: wykonawca ustalony, priorytet podniesiony</value>
+  </data>
+  <data name="Card.FollowUpTitleSeverity" xml:space="preserve">
+    <value>Uzupełnienie: priorytet podniesiony</value>
+  </data>
   <data name="Card.OpenInWatchdog" xml:space="preserve">
     <value>Otwórz w AD Watchdog</value>
   </data>
@@ -722,6 +728,9 @@
   <data name="Digest.SectionTitle" xml:space="preserve">
     <value>{0} ({1})</value>
   </data>
+  <data name="Digest.SeverityChanged" xml:space="preserve">
+    <value>priorytet: {0} → {1}</value>
+  </data>
   <data name="Digest.Shown" xml:space="preserve">
     <value>Pokazano {0} z {1} pozycji</value>
   </data>
@@ -751,6 +760,12 @@
   </data>
   <data name="Email.FollowUpBanner" xml:space="preserve">
     <value>Uzupełnienie: wykonawca ustalony</value>
+  </data>
+  <data name="Email.FollowUpBannerActorAndSeverity" xml:space="preserve">
+    <value>Uzupełnienie: wykonawca ustalony, priorytet podniesiony</value>
+  </data>
+  <data name="Email.FollowUpBannerSeverity" xml:space="preserve">
+    <value>Uzupełnienie: priorytet podniesiony</value>
   </data>
   <data name="Email.Footer" xml:space="preserve">
     <value>Reguła {0} · zdarzenie {1} · usługa {2} · wiadomość automatyczna, nie odpowiadaj</value>
@@ -1532,6 +1547,9 @@
   <data name="Label.PreviousDn" xml:space="preserve">
     <value>Poprzednio</value>
   </data>
+  <data name="Label.Severity" xml:space="preserve">
+    <value>Priorytet</value>
+  </data>
   <data name="Label.Time" xml:space="preserve">
     <value>Czas</value>
   </data>
@@ -1891,6 +1909,9 @@
   </data>
   <data name="Value.PasswordExpiresOn" xml:space="preserve">
     <value>hasło wygasa {0} (pozostało dni: {1})</value>
+  </data>
+  <data name="Value.SeverityChange" xml:space="preserve">
+    <value>{0} → {1}</value>
   </data>
   <data name="Value.SourceUnknown" xml:space="preserve">
     <value>nieustalone – {0} ({1})</value>

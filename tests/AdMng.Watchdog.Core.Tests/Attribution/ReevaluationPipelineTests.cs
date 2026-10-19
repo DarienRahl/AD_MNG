@@ -111,24 +111,28 @@ public sealed class ReevaluationPipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task AnEscalation_StillAlertsAfterALowerAlertWithoutFollowUp()
+    public async Task AnEscalation_AfterALowerAlertWithoutFollowUp_RepliesInItsThread()
     {
         // konta-vip went out as Medium at the end of the grace (no follow-up below High); the final High is new
-        // information for the recipients: tier0-security alerts.
+        // information for the recipients: tier0-security, matched by the re-evaluation for the same recipients, escalates
+        // in the thread of that alert – one message with the actor and the new severity, not a second alert.
         _p.Config.Set(Pipeline.Configuration(VipRule() with { Actors = new ActorFilter() }));
         var e = await _p.AppendShadowCredentialsAsync();
         await _p.RulesJob.RunOnceAsync(Ct);
         await _p.DispatchAsync(TimeSpan.FromMinutes(5));
         var first = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
         Assert.Equal((Severity.Medium, true), (first.Severity, first.SentWithPendingAttribution));
+        await _p.MarkSentAsync(e);
 
         _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
         await _p.Engine.RunOnceAsync(Ct);
         await _p.DispatchAsync();
 
         var messages = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
-        Assert.Equal(["konta-vip", DefaultRules.Tier0Security], messages.Select(m => m.RuleId));
+        Assert.Equal([(DeliveryKind.Alert, "konta-vip"), (DeliveryKind.FollowUp, DefaultRules.Tier0Security)], messages.Select(m => (m.Kind, m.RuleId!)));
         Assert.Equal(Severity.High, messages[1].Severity);
+        Assert.Equal(first.MessageId, messages[1].Email!.InReplyTo);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
     }
 
     [Fact]
@@ -421,12 +425,13 @@ public sealed class ReevaluationPipelineTests : IDisposable
     private const string Helpdesk = "pomoc@contoso.test";
 
     [Fact]
-    public async Task AnEventShownLowerInsideAHighAggregatedAlert_IsNotCoveredByTheAggregatesSeverity()
+    public async Task AnEventShownLowerInsideAHighAggregatedAlert_IsEscalated_NotCoveredByTheAggregatesSeverity()
     {
         // konta-vip collects a privileged password change (High) and shadow credentials (Medium while the actor is pending)
         // into one aggregated helpdesk alert – High as a whole, but the shadow credentials are shown as Medium. Once the actor
         // is known they are High and a rule for the same recipients matches: the helpdesk saw them only as Medium, so that is
-        // an escalation, not a repeat.
+        // an escalation, not a repeat – one follow-up in the thread with the actor and the new severity of that event only
+        // (the password change is still waiting for its actor).
         var vip = new RuleSettings
         {
             Id = "konta-vip",
@@ -459,13 +464,17 @@ public sealed class ReevaluationPipelineTests : IDisposable
         await _p.Engine.RunOnceAsync(Ct);
         await _p.DispatchAsync();
 
-        var helpdeskAlerts = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct))
-            .Where(m => m.Kind == DeliveryKind.Alert && m.Recipients.SequenceEqual([Helpdesk]))
+        var helpdesk = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct))
+            .Where(m => m.Recipients.SequenceEqual([Helpdesk]))
             .OrderBy(m => m.Id)
             .ToList();
-        Assert.Equal(2, helpdeskAlerts.Count);
-        Assert.Equal([e.Id], helpdeskAlerts[1].EventIds);
-        Assert.Equal((Severity.High, false), (helpdeskAlerts[1].Severity, helpdeskAlerts[1].SentWithPendingAttribution));
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        var escalation = helpdesk[1];
+        Assert.Equal([e.Id], escalation.EventIds);
+        Assert.Equal([new OutboxEventState(e.Id, Severity.High, false)], escalation.EventStates);
+        Assert.Equal(aggregated.MessageId, escalation.Email!.InReplyTo);
+        Assert.Contains("Średni → Wysoki", escalation.Email.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain(await _p.Store.GetMessagesForEventAsync(password.Id, Ct), m => m.Kind == DeliveryKind.FollowUp);
     }
 
     [Fact]
@@ -530,12 +539,14 @@ public sealed class ReevaluationPipelineTests : IDisposable
         await p.DispatchAsync(TimeSpan.FromMinutes(5));
         Assert.NotNull(engine);
         Assert.False((await engine).Failed);
+        await p.MarkSentAsync(e);
         await p.DispatchAsync();
         await p.DispatchAsync(TimeSpan.FromMinutes(6));
 
-        var alerts = (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).Where(m => m.Kind == DeliveryKind.Alert).OrderBy(m => m.Id).ToList();
-        var last = alerts[^1];
-        Assert.Equal((DefaultRules.Tier0Security, Severity.High, false), (last.RuleId, last.Severity, last.SentWithPendingAttribution));
+        // konta-vip's Low alert went out first: tier0-security escalates in its thread (13.2 #7).
+        var messages = (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
+        var last = messages[^1];
+        Assert.Equal((DeliveryKind.FollowUp, DefaultRules.Tier0Security, Severity.High, false), (last.Kind, last.RuleId, last.Severity, last.SentWithPendingAttribution));
         Assert.Equal([Mailbox], last.Recipients);
         Assert.Empty(await p.Store.GetAllAsync(Ct));
     }
@@ -590,6 +601,355 @@ public sealed class ReevaluationPipelineTests : IDisposable
         Assert.Equal(dispatchInBetween ? [DeliveryKind.Alert, DeliveryKind.FollowUp] : [DeliveryKind.Alert], messages.Select(m => m.Kind));
         Assert.Equal((DefaultRules.Tier0Security, Severity.High, dispatchInBetween), (messages[0].RuleId, messages[0].Severity, messages[0].SentWithPendingAttribution));
         Assert.All(messages, m => Assert.Equal([Mailbox], m.Recipients));
+        Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    // ---- Escalation of an alert that already went out: once per target, in its thread, merged with the actor ------------
+
+    private const string Siem = "siem";
+
+    /// <summary>A custom rule that sends shadow credentials to the helpdesk only (tier0-security goes to it-admins).</summary>
+    private static RuleSettings HelpdeskRule(Severity? severity = null, params string[] channels) => new()
+    {
+        Id = "konta-vip",
+        Name = "Konta VIP – poświadczenia",
+        Kinds = [WatchEventKind.KeyCredentialChanged],
+        Severity = severity,
+        Delivery = new RuleDelivery
+        {
+            Immediate = true,
+            RecipientGroupIds = [DefaultRules.HelpdeskGroup],
+            ChannelIds = channels,
+            Hours = DeliveryHours.Always,
+        },
+    };
+
+    /// <summary>The configuration with the helpdesk mailbox and a SIEM webhook channel.</summary>
+    private static WatchdogConfiguration WithHelpdeskAndSiem(params RuleSettings[] rules)
+    {
+        var configuration = WithHelpdesk(Pipeline.Configuration(rules));
+        return configuration with
+        {
+            Channels =
+            [
+                .. configuration.Channels ?? [],
+                new ChannelSettings { Id = Siem, Type = ChannelType.Webhook, Name = "SIEM – Kraków", DetailLevel = DetailLevel.Minimal, Webhook = new WebhookChannelOptions() },
+            ],
+        };
+    }
+
+    private static async Task<List<OutboxMessage>> ToAsync(Pipeline p, WatchEvent e, Func<OutboxMessage, bool> target) =>
+        [.. (await p.Store.GetMessagesForEventAsync(e.Id, Ct)).Where(target).OrderBy(m => m.Id)];
+
+    private static bool ToHelpdesk(OutboxMessage m) => m.ChannelType == DeliveryChannelType.Email && m.Recipients.SequenceEqual([Helpdesk]);
+
+    private static bool ToSiem(OutboxMessage m) => m.ChannelId == Siem;
+
+    [Fact]
+    public async Task AMediumAlertSentWithTheActorPending_IsEscalatedOnce_WhenTheAttributionMakesItHigh()
+    {
+        // konta-vip told the helpdesk and the SIEM about the shadow credentials as Medium at the end of the grace, with the
+        // actor pending (no follow-up below High). The actor is another account: the event is High now. Recipients notified
+        // only by that stored rule get exactly one escalation in the thread of the alert, with the actor and the new
+        // severity – also over repeated cycles.
+        _p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule(channels: Siem)));
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromMinutes(5));
+        var alerts = await _p.Store.GetMessagesForEventAsync(e.Id, Ct);
+        Assert.Equal(2, alerts.Count);
+        Assert.All(alerts, a => Assert.Equal((DeliveryKind.Alert, Severity.Medium, true), (a.Kind, a.Severity, a.SentWithPendingAttribution)));
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+
+        var helpdesk = await ToAsync(_p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        var escalation = helpdesk[1];
+        Assert.Equal((Severity.High, "konta-vip", false), (escalation.Severity, escalation.RuleId, escalation.SentWithPendingAttribution));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.High, false)], escalation.EventStates);
+        Assert.Equal(helpdesk[0].MessageId, escalation.Email!.InReplyTo);
+        Assert.StartsWith("Re: [AD Watchdog][ŚREDNI]", escalation.Email.Subject, StringComparison.Ordinal);
+        Assert.Equal("High", escalation.Email.Headers["X-AdMng-Severity"]);
+        Assert.Contains("Uzupełnienie: wykonawca ustalony, priorytet podniesiony", escalation.Email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Średni → Wysoki", escalation.Email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("adm.jkowalska", escalation.Email.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ustalanie", escalation.Email.TextBody, StringComparison.Ordinal);
+
+        var siem = await ToAsync(_p, e, ToSiem);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], siem.Select(m => m.Kind));
+        Assert.Equal("ad.severity.escalated", siem[1].Http!.WebhookEventType);
+        using (var payload = System.Text.Json.JsonDocument.Parse(siem[1].Http!.Body))
+        {
+            var data = payload.RootElement.GetProperty("data");
+            Assert.Equal(("high", "medium"), (data.GetProperty("severity").GetString(), data.GetProperty("previousSeverity").GetString()));
+            Assert.Equal("Resolved", data.GetProperty("actor").GetProperty("status").GetString());
+        }
+
+        // tier0-security, matched only now, alerts the it-admins mailbox that had no alert yet.
+        var admins = await ToAsync(_p, e, m => m.Recipients.SequenceEqual([Mailbox]));
+        Assert.Equal((DeliveryKind.Alert, DefaultRules.Tier0Security, Severity.High), (Assert.Single(admins).Kind, admins[0].RuleId, admins[0].Severity));
+
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            await _p.MarkSentAsync(e);
+            _p.Time.Advance(TimeSpan.FromMinutes(1));
+            await _p.Engine.RunOnceAsync(Ct);
+            await _p.RulesJob.RunOnceAsync(Ct);
+            await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+        }
+
+        Assert.Equal(5, (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).Count);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AnAlertThatWasHighAlready_GetsTheUsualFollowUp_WithoutAnEscalation()
+    {
+        // konta-vip raises shadow credentials to High: the helpdesk alert went out High with the actor pending and the
+        // follow-up brings the actor. The final High is no news – no escalation, no second message.
+        _p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule(Severity.High, Siem)));
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        Assert.All(await _p.Store.GetMessagesForEventAsync(e.Id, Ct), a => Assert.Equal((Severity.High, true), (a.Severity, a.SentWithPendingAttribution)));
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+
+        var helpdesk = await ToAsync(_p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.High, false)], helpdesk[1].EventStates);
+        Assert.Contains("Uzupełnienie: wykonawca ustalony ·", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("Priorytet", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+        var siem = await ToAsync(_p, e, ToSiem);
+        Assert.Equal("ad.attribution.updated", siem[1].Http!.WebhookEventType);
+        using (var payload = System.Text.Json.JsonDocument.Parse(siem[1].Http!.Body))
+        {
+            Assert.False(payload.RootElement.GetProperty("data").TryGetProperty("previousSeverity", out _));
+        }
+
+        await _p.MarkSentAsync(e);
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+        Assert.Equal(2, (await ToAsync(_p, e, ToHelpdesk)).Count);
+    }
+
+    [Fact]
+    public async Task AHighAlertRaisedToCritical_GetsOneFollowUp_WithTheActorAndTheNewSeverity()
+    {
+        // privileged-accounts alerted it-admins about a privileged password change as High with the actor pending – the
+        // follow-up will bring the actor. The actor turns out to be an administrator's reset: resety-hasel (Critical) now
+        // matches for the same recipients. One follow-up carries both the actor and Critical – no Critical alert next to it.
+        _p.Config.Set(Pipeline.Configuration(ResetsRule() with { Severity = Severity.Critical }));
+        var e = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        var alert = Assert.Single(await _p.Store.GetMessagesForEventAsync(e.Id, Ct));
+        Assert.Equal((DefaultRules.PrivilegedAccounts, Severity.High, true), (alert.RuleId, alert.Severity, alert.SentWithPendingAttribution));
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Account(4724, T, Admin));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var messages = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], messages.Select(m => m.Kind));
+        var followUp = messages[1];
+        Assert.Equal(Severity.Critical, followUp.Severity);
+        Assert.Equal(alert.MessageId, followUp.Email!.InReplyTo);
+        Assert.Contains("Wysoki → Krytyczne", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("adm.jkowalska", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Empty(await _p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ALoweredSeverity_SendsNothingMore_AndTheFollowUpShowsTheFinalSeverity()
+    {
+        // privileged-accounts alerted High with the actor pending; the actor is the user changing their own password at
+        // expiry (4723) – the event's own severity is Info now. Nothing new is sent for the lower severity; the follow-up
+        // that brings the actor shows Wysoki → Info.
+        _p.Config.Set(Pipeline.Configuration());
+        var e = await _p.AppendAsync(Create(WatchEventKind.PasswordChanged, severity: Severity.High, tags: [EventTags.Privileged]) with
+        {
+            OriginatingTime = T,
+            OriginatingDc = Dc1,
+        });
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromSeconds(91));
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Account(4723, T, User));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        var messages = (await _p.Store.GetMessagesForEventAsync(e.Id, Ct)).OrderBy(m => m.Id).ToList();
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], messages.Select(m => m.Kind));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.Info, false)], messages[1].EventStates);
+        Assert.Contains("Wysoki → Info", messages[1].Email!.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("priorytet podniesiony", messages[1].Email!.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AnAggregatedAlert_EscalatesOnlyTheEventThatBecameHigh()
+    {
+        // konta-vip collected shadow credentials and a description change of another account into one Medium helpdesk alert,
+        // both actors pending. Both actors become known in one pass; only the shadow credentials become High: one escalation
+        // with that event alone.
+        var vip = HelpdeskRule(channels: Siem) with { Kinds = [WatchEventKind.KeyCredentialChanged, WatchEventKind.AttributesChanged] };
+        _p.Config.Set(WithHelpdeskAndSiem(vip));
+        var annaGuid = Guid.Parse("0b6d5c8e-2f1a-4c3e-9d7b-5a4e3f2d1c0b");
+        const string AnnaDn = "CN=Anna Zając,OU=Kraków,DC=contoso,DC=test";
+        var description = await _p.AppendAsync(Create(WatchEventKind.AttributesChanged, dn: AnnaDn, severity: Severity.Medium, changedAttributes: ["description"],
+            objectGuid: annaGuid, sid: DomainSid + "-7702") with { OriginatingTime = T, OriginatingDc = Dc1 });
+        var e = await _p.AppendShadowCredentialsAsync();
+        await _p.RulesJob.RunOnceAsync(Ct);
+        await _p.DispatchAsync(TimeSpan.FromMinutes(5));
+        var aggregated = Assert.Single(await ToAsync(_p, e, ToHelpdesk));
+        Assert.Equal([description.Id, e.Id], aggregated.EventIds.Order());
+        Assert.Equal(Severity.Medium, aggregated.Severity);
+        await _p.MarkSentAsync(e);
+
+        _p.SecurityStore.Add(Modified(T, Admin, "description", "Księgowość – Gdańsk", added: true, objectGuid: annaGuid, dn: AnnaDn));
+        _p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        await _p.Engine.RunOnceAsync(Ct);
+        await _p.DispatchAsync();
+        await _p.DispatchAsync(TimeSpan.FromMinutes(6));
+
+        Assert.Equal(AttributionStatus.Resolved, (await _p.Store.GetAsync(description.Id, Ct))!.Attribution.Status);
+        var helpdesk = await ToAsync(_p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        Assert.Equal([e.Id], helpdesk[1].EventIds);
+        Assert.Equal([new OutboxEventState(e.Id, Severity.High, false)], helpdesk[1].EventStates);
+        Assert.Equal(aggregated.MessageId, helpdesk[1].Email!.InReplyTo);
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(_p, description, ToHelpdesk)).Select(m => m.Kind));
+        Assert.Equal([DeliveryKind.Alert], (await ToAsync(_p, description, ToSiem)).Select(m => m.Kind));
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], (await ToAsync(_p, e, ToSiem)).Select(m => m.Kind));
+    }
+
+    [Fact]
+    public async Task AnAttributionArrivingWhileTheDispatchCompletesTheMediumAlert_StillEscalates()
+    {
+        // The grace ends and the dispatch completes the Medium helpdesk alert at the very moment the actor becomes known.
+        // The re-evaluation waits for the dispatch run (one evaluation section) and must see that alert: one escalation.
+        using var p = new Pipeline(hookedDispatch: true);
+        p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule()));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        Task<JobResult>? engine = null;
+        p.DispatchQueue.BeforeComplete = async () =>
+        {
+            engine = Task.Run(() => p.Engine.RunOnceAsync(Ct), Ct);
+            await Task.WhenAny(engine, Task.Delay(TimeSpan.FromMilliseconds(500), Ct));
+        };
+
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        Assert.NotNull(engine);
+        Assert.False((await engine).Failed);
+        var alert = Assert.Single(await ToAsync(p, e, ToHelpdesk));
+        Assert.Equal((Severity.Medium, true), (alert.Severity, alert.SentWithPendingAttribution));
+        await p.DispatchAsync();
+        Assert.Single(await ToAsync(p, e, ToHelpdesk));       // the escalation waits until its alert was sent
+        await p.MarkSentAsync(e);
+        await p.DispatchAsync(NotificationDispatchJob.FollowUpWait);
+
+        var helpdesk = await ToAsync(p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        Assert.Equal((Severity.High, alert.MessageId), (helpdesk[1].Severity, helpdesk[1].Email!.InReplyTo));
+        Assert.Empty(await p.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ADispatchStartingWhileTheReevaluationStoresTheEscalation_SendsItWithTheFinalActor()
+    {
+        // The dispatch job wakes at the very moment the re-evaluation writes the escalation – before the attribution is
+        // stored. It waits for the re-evaluation and the attribution update and renders the actor, not "ustalanie…".
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule()));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        await p.MarkSentAsync(e);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        Task? dispatch = null;
+        p.Racing.BeforeWrite = async () =>
+        {
+            dispatch = Task.Run(() => p.DispatchAsync(TimeSpan.Zero), Ct);
+            await Task.WhenAny(dispatch, Task.Delay(TimeSpan.FromMilliseconds(500), Ct));
+        };
+
+        await p.Engine.RunOnceAsync(Ct);
+        Assert.NotNull(dispatch);
+        await dispatch;
+        await p.DispatchAsync();
+
+        var helpdesk = await ToAsync(p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        Assert.Contains("adm.jkowalska", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ustalanie", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("commit", false)]
+    [InlineData("commit", true)]
+    [InlineData("update", false)]
+    [InlineData("update", true)]
+    public async Task ARestartBetweenTheAlertAndTheEscalation_EscalatesOnce_WithTheFinalActor(string? failingWrite, bool dispatchInBetween)
+    {
+        // The Medium alert went out, then the service restarted – possibly in the middle of the pass that stored the
+        // escalation (before the attribution), possibly with a dispatch run in between. Repeated cycles afterwards: one
+        // escalation, rendered with the final actor, never one with "ustalanie…" and never a second one.
+        using var p = new Pipeline(racing: true);
+        p.Config.Set(WithHelpdeskAndSiem(HelpdeskRule(channels: Siem)));
+        var e = await p.AppendShadowCredentialsAsync();
+        await p.RulesJob.RunOnceAsync(Ct);
+        await p.DispatchAsync(TimeSpan.FromMinutes(5));
+        await p.MarkSentAsync(e);
+        p.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        if (failingWrite is not null)
+        {
+            p.Racing.FailingWrite = failingWrite;
+            Assert.True((await p.Engine.RunOnceAsync(Ct)).Failed);
+            Assert.Equal(AttributionStatus.Pending, (await p.Store.GetAsync(e.Id, Ct))!.Attribution.Status);
+            if (dispatchInBetween)
+            {
+                await p.DispatchAsync();
+                Assert.Empty(await ToAsync(p, e, m => m.Kind == DeliveryKind.FollowUp));
+            }
+
+            p.Racing.FailingWrite = null;
+        }
+
+        p.Restart();
+        for (var cycle = 0; cycle < 3; cycle++)
+        {
+            p.Time.Advance(TimeSpan.FromSeconds(30));
+            Assert.False((await p.Engine.RunOnceAsync(Ct)).Failed);
+            await p.RulesJob.RunOnceAsync(Ct);
+            await p.DispatchAsync();
+            await p.DispatchAsync(TimeSpan.FromMinutes(2));
+            await p.MarkSentAsync(e, DeliveryKind.Alert);
+        }
+
+        Assert.Equal(AttributionStatus.Resolved, (await p.Store.GetAsync(e.Id, Ct))!.Attribution.Status);
+        var helpdesk = await ToAsync(p, e, ToHelpdesk);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], helpdesk.Select(m => m.Kind));
+        Assert.Equal(Severity.High, helpdesk[1].Severity);
+        Assert.Contains("adm.jkowalska", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("ustalanie", helpdesk[1].Email!.TextBody, StringComparison.Ordinal);
+        Assert.Equal([DeliveryKind.Alert, DeliveryKind.FollowUp], (await ToAsync(p, e, ToSiem)).Select(m => m.Kind));
         Assert.Empty(await p.Store.GetAllAsync(Ct));
     }
 
@@ -740,6 +1100,21 @@ public sealed class ReevaluationPipelineTests : IDisposable
             });
 
         public async Task<WatchEvent> AppendAsync(WatchEvent e) => e with { Id = await Store.AppendAsync(e, Ct) };
+
+        /// <summary>Delivers every waiting message of <paramref name="e"/> (only those of <paramref name="kind"/> when given):
+        /// leased and marked Sent now – the payload is cleared, as after a real send.</summary>
+        public async Task MarkSentAsync(WatchEvent e, DeliveryKind? kind = null)
+        {
+            var delivered = (await Store.GetDeliveriesForEventAsync(e.Id, Ct)).Where(d => d.Status == OutboxStatus.Sent).Select(d => d.OutboxId).ToHashSet();
+            foreach (var message in await Store.GetMessagesForEventAsync(e.Id, Ct))
+            {
+                if ((kind is null || message.Kind == kind) && !delivered.Contains(message.Id))
+                {
+                    await Store.LeaseDueAsync(Time.GetUtcNow(), 100, TimeSpan.FromMinutes(1), Ct);
+                    await Store.MarkSentAsync(message.Id, Time.GetUtcNow(), Ct);
+                }
+            }
+        }
 
         /// <summary>Runs the dispatch job after <paramref name="after"/> (default: the high-severity flush delay).</summary>
         public async Task DispatchAsync(TimeSpan? after = null)

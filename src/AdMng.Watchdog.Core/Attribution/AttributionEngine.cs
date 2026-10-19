@@ -28,10 +28,13 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// matched again with its final state and its pending notifications are re-planned from every rule that matches now
 /// (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/>): waiting rows take the strongest treatment of the rules that
 /// notify their target (an added <c>tier0-security</c> takes over the held row of a custom rule with a lower override),
-/// targets only the added rules notify get new rows unless an alert already covers them, and the added rules are stored
-/// with those rows in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in between
-/// leaves the event pending and the next pass re-plans the same way (no duplicate). Rules that already matched are never
-/// planned again for a target without a waiting row (it may be delivered and gone). The update stores the final own severity
+/// a target that already got an alert and is notified now – by a stored or an added rule – with a severity of High or
+/// above that it was not shown yet gets one escalation in the thread of that alert (13.2 #7, merged with its attribution
+/// follow-up), targets only the added rules notify get new rows unless an alert already covers them, and the added rules
+/// are stored with those rows in one <c>CommitEvaluationAsync</c>, before the attribution update – a pass interrupted in
+/// between leaves the event pending and the next pass re-plans the same way (no duplicate; the dispatch job holds a
+/// follow-up of a pending event). Otherwise rules that already matched are not planned again for a target without a
+/// waiting row (it may be delivered and gone). The update stores the final own severity
 /// (<c>AttributionUpdate.Severity</c>, the input of every later match) and the evaluated one (<c>EvaluatedSeverity</c>, rule
 /// overrides included, as the rules job stores it), and NotificationsQueued is raised only after the attribution update.</para>
 /// <para>The store phase of a pass (re-evaluations, attribution updates, follow-ups) runs without the stop token, and
@@ -306,10 +309,12 @@ public sealed partial class AttributionEngine(
     /// that matches now (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/>, 13.2 #1): the waiting rows take the
     /// strongest treatment of the rules that notify their target now – a rule earlier in the configuration, a higher
     /// severity or Always delivery takes the target over, a target whose rule no longer matches passes to another one that
-    /// does, a target nobody notifies any more is dropped –, and the targets only the added rules notify (rules not yet
-    /// among the stored matched rules; for an event the rules job has not evaluated yet, all of them) get new rows unless an
-    /// alert already covers them. The waiting rows are re-planned first (idempotent), then the added rules are stored with
-    /// the new rows in one <c>CommitEvaluationAsync</c>; a pass interrupted in between re-plans the same way. Returns the
+    /// does, a target nobody notifies any more is dropped –, a target that already got an alert gets its escalation or the
+    /// final severity of its attribution follow-up as a follow-up row of that alert (13.2 #7), and the targets only the
+    /// added rules notify (rules not yet among the stored matched rules; for an event the rules job has not evaluated yet,
+    /// all of them) get new rows unless an alert already covers them. The waiting rows and the follow-up rows are re-planned
+    /// first (idempotent upserts), then the added rules are stored with the new rows in one <c>CommitEvaluationAsync</c>; a
+    /// pass interrupted in between re-plans the same way. Returns the
     /// evaluated severity – <c>max(final own severity, overrides of the rules that match)</c>, as the rules job stores it
     /// – to store with the attribution (null when the event is gone), and whether rows were queued or brought forward
     /// (announced by the caller once the attribution is stored).
@@ -328,7 +333,7 @@ public sealed partial class AttributionEngine(
         var added = evaluation.Matches.Where(m => !stored.Contains(m.Rule.Id)).ToList();
         var addedIds = added.Select(m => m.Rule.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var waiting = (await notificationQueue.GetAllAsync(CancellationToken.None).ConfigureAwait(false))
-            .Where(p => p.EventId == current.Id && !p.IsFollowUp)
+            .Where(p => p.EventId == current.Id)
             .ToList();
         var plan = ReevaluationPlan.Empty;
         foreach (var planner in _ruleMatchPlanners)
@@ -352,6 +357,13 @@ public sealed partial class AttributionEngine(
             await notificationQueue.DropAsync(plan.Drop, CancellationToken.None).ConfigureAwait(false);
         }
 
+        // Escalations and final severities of targets that already got an alert (13.2 #7): before the attribution update,
+        // so an interrupted pass re-plans them the same way; the dispatch job holds them until the attribution is stored.
+        if (plan.FollowUps.Count > 0)
+        {
+            await notificationQueue.ReplanAsync(plan.FollowUps, insertMissing: true, CancellationToken.None).ConfigureAwait(false);
+        }
+
         if (added.Count > 0)
         {
             var record = new EventEvaluation
@@ -363,8 +375,8 @@ public sealed partial class AttributionEngine(
             await events.CommitEvaluationAsync([record], plan.Insert, CancellationToken.None).ConfigureAwait(false);
         }
 
-        LogReevaluated(current.Id, added.Count, plan.Insert.Count + plan.Merge.Count);
-        return (evaluation.Severity, plan.Insert.Count + plan.Merge.Count + plan.Update.Count > 0);
+        LogReevaluated(current.Id, added.Count, plan.Insert.Count + plan.Merge.Count + plan.FollowUps.Count);
+        return (evaluation.Severity, plan.Insert.Count + plan.Merge.Count + plan.Update.Count + plan.FollowUps.Count > 0);
     }
 
     private async Task<IReadOnlyList<PendingNotification>> PlanFollowUpsAsync(WatchEvent attributed, CancellationToken cancellationToken)

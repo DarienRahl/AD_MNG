@@ -144,6 +144,57 @@ public sealed class EmailAlertFormatterTests
     }
 
     [Fact]
+    public void AnEscalation_SaysTheSeverityWasRaised_AndShowsTheChange()
+    {
+        // The alert showed the grant as Medium with the actor pending; the follow-up brings the actor and Critical.
+        var e = FormattingSamples.PrivilegeGranted();
+        var email = EmailAlertFormatter.FollowUp([e], "[AD Watchdog][ŚREDNI] Dodano do grupy uprzywilejowanej: x", "0192f3a45b6c7d8e9f00112233445566",
+            FormattingSamples.Rule(), FormattingSamples.Context(), [new FollowUpChange(e.Id, Severity.Medium, ActorWasPending: true)]);
+
+        Assert.Equal("Re: [AD Watchdog][ŚREDNI] Dodano do grupy uprzywilejowanej: x", email.Subject);
+        Assert.Equal("Critical", email.Headers["X-AdMng-Severity"]);
+        Assert.StartsWith("Uzupełnienie: wykonawca ustalony, priorytet podniesiony · KRYTYCZNE ·", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Priorytet:", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Średni → Krytyczne", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Średni → Krytyczne", email.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains(@"CONTOSO\adm.nowak", email.TextBody, StringComparison.Ordinal);
+
+        var english = EmailAlertFormatter.FollowUp([e], "x", "0192f3a45b6c7d8e9f00112233445566", FormattingSamples.Rule(), FormattingSamples.Context("en"),
+            [new FollowUpChange(e.Id, Severity.Medium, ActorWasPending: false)]);
+        Assert.StartsWith("Follow-up: severity raised · CRITICAL ·", english.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Medium → Critical", english.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AFollowUpWithoutAChange_LooksAsBefore_AndALoweredSeverityIsShownWithoutARaise()
+    {
+        var e = FormattingSamples.PrivilegeGranted();
+        var unchanged = EmailAlertFormatter.FollowUp([e], "x", "0192f3a45b6c7d8e9f00112233445566", FormattingSamples.Rule(), FormattingSamples.Context(),
+            [new FollowUpChange(e.Id, Severity.Critical, ActorWasPending: true)]);
+        var lowered = EmailAlertFormatter.FollowUp([e with { Severity = Severity.Info }], "x", "0192f3a45b6c7d8e9f00112233445566", FormattingSamples.Rule(),
+            FormattingSamples.Context(), [new FollowUpChange(e.Id, Severity.High, ActorWasPending: true)]);
+
+        Assert.StartsWith("Uzupełnienie: wykonawca ustalony · KRYTYCZNE ·", unchanged.TextBody, StringComparison.Ordinal);
+        Assert.DoesNotContain("Priorytet", unchanged.TextBody, StringComparison.Ordinal);
+        Assert.StartsWith("Uzupełnienie: wykonawca ustalony · INFO ·", lowered.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Wysoki → Info", lowered.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AnAggregatedFollowUp_ShowsEachEventWithItsOwnSeverity()
+    {
+        var granted = FormattingSamples.PrivilegeGranted();
+        var changed = FormattingSamples.AttributesChanged() with { Severity = Severity.High };
+        var email = EmailAlertFormatter.FollowUp([granted, changed], "x", "0192f3a45b6c7d8e9f00112233445566", FormattingSamples.Rule(), FormattingSamples.Context("en"),
+            [new FollowUpChange(granted.Id, Severity.Critical, true), new FollowUpChange(changed.Id, Severity.Low, true)]);
+
+        Assert.StartsWith("Follow-up: actor determined, severity raised · CRITICAL ·", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains(">Severity<", email.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("Severity: Critical", email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Severity: Low → High", email.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Headers_MarkAutomatedMessages_AndCapTheEventIds()
     {
         var headers = EmailAlertFormatter.Headers(Severity.High, "lockouts", Enumerable.Range(0, 30).Select(_ => Guid.NewGuid()));
