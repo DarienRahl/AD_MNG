@@ -18,13 +18,13 @@ Specyfikacja implementacyjna (dla programistów, po angielsku) powstała razem z
 | Nietypowe komputery | komputer dodany do domeny przez zwykłego użytkownika (MachineAccountQuota), utworzony w `CN=Computers` mimo przekierowania kontenera domyślnego (`redircmp`), nowy serwer | średni | e-mail w godzinach pracy |
 | Usunięcia | usunięte / przywrócone konto, grupa, komputer, OU; masowe usuwanie (≥ 10 kont, grup lub OU w 10 min – krytyczny; ≥ 50 komputerów w 10 min – wysoki) | średni (OU – wysoki) | e-mail |
 | Stan konta | wyłączenie, włączenie (włączenie konta wyłączonego lub nieużywanego > 30 dni – wysoki), zmiana flag (np. „hasło nigdy nie wygasa”, „hasło niewymagane”) | informacja … wysoki | flagi ryzykowne: e-mail; pozostałe: raport dzienny |
-| Blokady | zablokowanie konta ze **źródłem błędnych haseł** (adres IP / komputer z liczbą prób), odblokowanie przez administratora, wiele blokad w krótkim czasie (≥ 5 kont lub 0,5 % kont w 10 min), opcjonalnie wykrywanie ataku „password spraying” z dzienników DC (≥ 20 kont z jednego adresu w 10 min) | niski (masowe blokady – średni, spraying – wysoki) | blokady: e-mail do helpdesku w godzinach pracy, najwyżej jeden na konto na godzinę; spraying: e-mail zawsze |
-| Hasła | reset hasła przez administratora, zmiana hasła przez użytkownika, „użytkownik musi zmienić hasło”, przedłużenie ważności hasła bez jego zmiany (sztuczka `pwdLastSet` 0 → -1) | informacja (przedłużenie – średni; reset hasła konta uprzywilejowanego lub serwisowego – wysoki) | raport dzienny; reset hasła konta uprzywilejowanego i przedłużenie ważności: e-mail |
+| Blokady | zablokowanie konta ze **źródłem błędnych haseł** (adres IP / komputer z liczbą prób), odblokowanie przez administratora, wiele blokad w krótkim czasie (≥ 5 kont lub 0,5 % kont w 10 min), opcjonalnie wykrywanie ataku „password spraying” z dzienników DC (≥ 20 kont z jednego adresu w 10 min; nazwy kont, które nie istnieją, są maskowane do pierwszego znaku i długości, np. `L…(9)`, bo bywają hasłem wpisanym w pole nazwy użytkownika – liczba kont pozostaje dokładna) | niski (masowe blokady – średni, spraying – wysoki) | blokady: e-mail do helpdesku w godzinach pracy, najwyżej jeden na konto na godzinę; spraying: e-mail zawsze |
+| Hasła | reset hasła przez administratora (reset z opcją „użytkownik musi zmienić hasło przy następnym logowaniu” daje oba zdarzenia: reset – liczony jako reset w raporcie i regułach – oraz „użytkownik musi zmienić hasło”), zmiana hasła przez użytkownika, „użytkownik musi zmienić hasło”, przedłużenie ważności hasła bez jego zmiany (sztuczka `pwdLastSet` 0 → -1) | informacja (przedłużenie – średni; reset hasła konta uprzywilejowanego lub serwisowego – wysoki) | raport dzienny; reset hasła konta uprzywilejowanego i przedłużenie ważności: e-mail |
 | Parametry kont | każda obserwowana zmiana atrybutu: stara → nowa wartość (dział, stanowisko, przełożony, telefon, UPN, skrypt logowania, profil, ograniczenia logowania …) | informacja (skrypty/profile/ograniczenia – średni) | raport dzienny; skrypty i profile: e-mail |
-| Grupy | dodanie / usunięcie członka, zmiana typu grupy | informacja | raport dzienny; grupy obserwowane: e-mail |
+| Grupy | dodanie / usunięcie członka (także członka z innej domeny lasu, np. z domeny podrzędnej), zmiana typu grupy | informacja | raport dzienny; grupy obserwowane: e-mail |
 | Dostęp uprzywilejowany | uzyskanie członkostwa (także pośredniego, przez zagnieżdżone grupy i grupę podstawową, również po przywróceniu konta z Kosza AD) w Domain Admins, Enterprise Admins, Administrators, Schema Admins, operatorach kont/kopii/serwerów, DnsAdmins, grupach ról samego Watchdoga … | krytyczny / wysoki | e-mail natychmiast, całą dobę |
 | Atrybuty krytyczne | adminCount, SID History, delegowanie Kerberos, SPN na koncie użytkownika, msDS-KeyCredentialLink (Shadow Credentials), zmiana grupy podstawowej, powiązania migracji kont dMSA (po obu stronach – BadSuccessor), jawne mapowania certyfikatów (`altSecurityIdentities`), lista odczytujących hasło gMSA, zmiana uprawnień (ACL) obiektów krytycznych (domena, AdminSDHolder, OU kontrolerów) | wysoki / krytyczny | e-mail natychmiast, całą dobę |
-| Domena i las | zasady haseł i blokad, zasady szczegółowe (PSO), powiązania GPO z domeną i OU kontrolerów, relacje zaufania, nowy lub usunięty kontroler domeny, przeniesienie ról FSMO, szablony certyfikatów i usługi PKI (NTAuth), włączenie Kosza AD, `dSHeuristics`, `tombstoneLifetime`, zmiany schematu (jedno zdarzenie na cykl) | wysoki / krytyczny | e-mail natychmiast |
+| Domena i las | zasady haseł i blokad, zasady szczegółowe (PSO), powiązania GPO z domeną i OU kontrolerów, relacje zaufania, nowy lub usunięty kontroler domeny (awansowanie serwera na DC w jednym kroku daje tylko „nowy kontroler domeny”, bez dodatkowego krytycznego zdarzenia o delegowaniu), przeniesienie ról FSMO, szablony certyfikatów i usługi PKI (NTAuth), włączenie Kosza AD, `dSHeuristics`, `tombstoneLifetime`, zmiany schematu (jedno zdarzenie na cykl, nigdy powtórzone po błędzie cyklu; zapisy wykonane w trakcie cyklu zgłasza następny) | wysoki / krytyczny | e-mail natychmiast |
 | Dzienniki DC | wyczyszczenie dziennika zabezpieczeń (1102), zmiana zasad inspekcji (4719), zmiana hasła DSRM (4794) | krytyczny / wysoki | e-mail natychmiast |
 | Terminy | konto wygasa za 14 / 7 / 1 dzień (dni kalendarzowe do ostatniego dnia ważności; gdy termin wypada w weekend lub święto – w poprzedzającym dniu roboczym), konto wygasło, hasło konta uprzywilejowanego lub serwisowego wygasa | informacja (uprzywilejowane ≤ 7 dni – wysoki) | helpdesk: e-mail w godzinach pracy; raport dzienny; opcjonalnie przełożony konta |
 | Stan usługi | brak połączenia z DC, ponowna synchronizacja, braki uprawnień, problemy z dziennikami DC, nieudane wysyłki, mało miejsca, przestarzałe środowisko .NET, **zmiana konfiguracji Watchdoga** | wysoki / średni | e-mail i wszystkie kanały Teams/webhook zawsze (reguła zablokowana – nie da się jej wyłączyć ani osłabić jej doręczania) |
@@ -40,13 +40,53 @@ Watchdog celowo **nie hałasuje**:
 - Przy pierwszym uruchomieniu robi **zrzut bazowy** domeny i nie wysyła żadnych powiadomień o zmianach.
 - Przez pierwsze **7 dni** po zrzucie działa **tryb wdrożenia**: natychmiast powiadamia tylko o zdarzeniach
   krytycznych (reguły „tier0-*”, zdarzenia masowe, stan usługi), a resztę zbiera w raporcie dziennym; zakładka Reguły
-  pokazuje przy każdej regule, ile wiadomości by wysłała. Administrator kończy tryb wcześniej jednym przyciskiem.
+  pokazuje przy każdej regule, ile wiadomości by wysłała. Administrator kończy tryb wcześniej jednym przyciskiem
+  („Zakończ tryb wdrożenia” zapisuje wyłącznie tę flagę – inne niezapisane zmiany w regułach, kanałach i raporcie
+  dziennym pozostają niezapisane na nowej wersji konfiguracji i trzeba je zapisać osobno).
 - Konto zakładane w kilku krokach (utworzenie → hasło → włączenie, skrypty masowe) daje **jedno** zdarzenie „Nowe
   konto” ze stanem końcowym (okno 2 min).
 - Własna zmiana hasła przez administratora, automatyczna rotacja haseł gMSA, wpis SDProp (adminCount) po już zgłoszonym
   nadaniu uprawnień, zmiany działu czy telefonu z nocnej synchronizacji kadrowej, rejestracja klucza urządzenia
   (Windows Hello / dołączenie hybrydowe), usuwanie obiektów podrzędnych (klucze BitLocker, rekordy DNS, urządzenia) i
   wyzerowanie blokady przy pierwszym logowaniu po jej wygaśnięciu **nie** generują pilnych powiadomień.
+  „Własna” zmiana hasła to tylko zdarzenie 4723 zapisane przez to samo konto (albo przez ANONYMOUS LOGON – wygasłe
+  hasło zmieniane przy logowaniu). Hasło konta uprzywilejowanego zmienione przez **inne** konto pozostaje zdarzeniem
+  wysokim i wysyła alarm.
+- Zmiany, które obiekt wprowadza sam w sobie, reguła „tier0-security” (`ExcludeSelfChanges`) pomija tylko wtedy, gdy są
+  rutyną: rotacja klucza konta komputera oraz samodzielna rejestracja SPN przez gMSA/dMSA – i nigdy dla kontrolerów
+  domeny ani obiektów uprzywilejowanych. Zmiany Tier 0 we własnym obiekcie (RBCD, SID History, własny SPN konta
+  użytkownika, grupa podstawowa) zawsze alarmują – spodziewaj się alarmu np. w scenariuszu RBCD z przekazanym
+  uwierzytelnieniem konta komputera.
+- **Wykluczenia** (`ExcludedSubtrees`): dodanie poddrzewa do wykluczeń po cichu usuwa jego obiekty z migawki – bez
+  zdarzenia „przeniesiono” dla każdego obiektu; sama zmiana konfiguracji jest zgłaszana jako „Zmiana konfiguracji
+  Watchdog”. OU przeniesiona do wykluczonego poddrzewa daje **jedno** zdarzenie „przeniesiono poza zakres”
+  (`outOfScope`) dla samej OU, nie dla każdego obiektu w środku. OU przeniesiona z powrotem albo usunięcie wykluczenia
+  daje jedno zdarzenie „obiekt pojawił się”, a obiekty w środku są przejmowane po cichu. Obiekty utworzone w tym samym
+  odpytaniu nadal są zgłaszane jako nowe (np. „Nowe konto”). Znacznik `outOfScope` przy „obiekt pojawił się” oznacza
+  wyłącznie rzeczywiste przeniesienie do zakresu, nigdy samo istnienie wykluczeń.
+- **Masowe usunięcia i masowe blokady** są liczone według czasu samej zmiany, nie czasu jej wykrycia. Usunięcia lub
+  blokady rozłożone na wiele godzin, ale wykryte razem (nadrabianie po przerwie w pracy usługi, przełączenie na inny DC
+  i ponowna synchronizacja, nocne uzgodnienie), nie są zdarzeniem masowym. Prawdziwa seria wykryta z opóźnieniem jest
+  zgłaszana raz.
+- Po przełączeniu na inny DC (ponowna synchronizacja) obiekty utworzone do 3 godzin przed ostatnim odpytaniem są
+  zgłaszane jako nowe, a nie jako „obiekt pojawił się” (opóźnienie replikacji, różnica zegarów).
+- Zamiana lub przesunięcie nazw OU w jednym odpytaniu (np. `Sprzedaż` → `Sprzedaż_stara` i `Sprzedaż_nowa` →
+  `Sprzedaż`) zachowuje poprawne DN obiektów i nie daje fałszywych przeniesień; poprzednim DN obiektu, który opuścił
+  przemianowaną w tym samym odpytaniu OU, jest jego rzeczywisty stary DN.
+- Dobowe uzgodnienie: obiekt znaleziony pod starym DN, którego skanowanie nie widzi, to „obiekt zniknął” (niski), a nie
+  „przeniesiono” z tym samym poprzednim i nowym DN.
+
+Usunięcia a Kosz AD: bez Kosza AD (domyślne ustawienie Windows, Samba) obiekt utworzony i usunięty między dwoma
+odpytaniami jest zgłaszany jako usunięty. Z włączonym Koszem AD ostateczne usunięcie (recykling) dawno usuniętego
+obiektu – po ok. 180 dniach – nie jest zgłaszane jako nowe usunięcie. Przywrócenie takiego krótko żyjącego obiektu to
+zdarzenie „przywrócono obiekt”.
+
+Członkostwo w trybie `MembershipTracking: PrivilegedAndWatchListOnly` (tylko grupy uprzywilejowane i obserwowane):
+zapisywane są także listy członków grup zagnieżdżonych w grupach uprzywilejowanych lub obserwowanych, więc ich
+kolejne zmiany są zgłaszane jako dodanie / usunięcie członka – również zaraz po zrzucie bazowym. Pierwszy odczyt po
+zmianie trybu jest cichy (bez zdarzeń dla istniejących członków), a grupa, która przestaje być zagnieżdżona, traci
+zapisaną listę. Usunięcie z grupy członka z innej domeny lasu (także z domeny podrzędnej) jest zgłaszane (usunięcie
+członka, a dla grup uprzywilejowanych także odebranie dostępu uprzywilejowanego).
 
 ---
 
@@ -65,7 +105,7 @@ Watchdog celowo **nie hałasuje**:
             │  API HTTPS 8443 (Kerberos, dostęp tylko dla wskazanych grup AD), /healthz dla monitoringu │
             └──────────────────────────────────────▲───────────────────────────────────────────────┘
                                                    │ HTTPS + Kerberos
-                                  AD_MNG → Narzędzia → Watchdog (Ctrl+Shift+A)
+                              AD Manager → Narzędzia → Watchdog (Ctrl+Shift+A)
 ```
 
 1. **Wykrywanie (LDAP).** Usługa jest „przypięta” do jednego kontrolera (domyślnie emulatora PDC – tam trafiają
@@ -80,8 +120,20 @@ Watchdog celowo **nie hałasuje**:
    Komputer źródłowy ustala z logowania 4624 tej samej sesji (najpierw adres IP, potem nazwa stacji), a dla blokad –
    z pola „Caller Computer Name” zdarzenia 4740 oraz zdarzeń 4771/4776/4625 z PDC (adresy, z których szły błędne
    hasła, z liczbą prób). Dziennik bywa opóźniony – wtedy zdarzenie ma status „ustalanie…”, a po dopasowaniu jest
-   uzupełniane (dla zdarzeń krytycznych przychodzi dodatkowy e-mail w tym samym wątku). Jeżeli wykonawcy nie da się
-   ustalić, Watchdog nie zgaduje: pokazuje „nieustalony” z przyczyną (np. brak zasad inspekcji).
+   uzupełniane (dla zdarzeń krytycznych przychodzi dodatkowe „Uzupełnienie” w tym samym wątku – dopiero gdy pierwotny
+   alarm został doręczony; czeka, dopóki alarm jest ponawiany, i nie jest wysyłane wcale, gdy alarm ostatecznie się
+   nie powiódł; uzupełnienie powstaje także wtedy, gdy wykonawcę ustalono w trakcie przygotowywania alarmu). Jeżeli
+   wykonawcy nie da się ustalić, Watchdog nie zgaduje: pokazuje „nieustalony” z przyczyną (np. brak zasad inspekcji;
+   po wyczyszczeniu dziennika Security – zdarzenia 1102/1104 albo numeracja rekordów zaczęta od nowa –
+   „LOG_OVERWRITTEN” zamiast „NO_MATCH”).
+   - **Blokady:** dopóki zdarzenie 4740 nie dotarło (paczki WEF, niedostępny PDC), źródło błędnych haseł ma status
+     „ustalanie…” i jest szukane ponownie przez maksymalnie 30 minut. Konta z polskimi znakami lub apostrofem
+     (`józef.żak`, `o'neill`) też dostają wyszukanie 4771/4776/4625.
+   - **Dostęp uprzywilejowany** (uzyskanie / odebranie): wykonawcą jest autor zmiany dowolnego ogniwa ścieżki
+     zagnieżdżeń albo zmiany grupy podstawowej konta, wykonanej najwyżej 15 minut wcześniej. W przeciwnym razie
+     wykonawca pozostaje „nieustalony” – usługa nie przypisuje starszego, niezwiązanego dodania do grupy.
+   - Usługa łączy się z DC i z kolektorem WEF **wyłącznie przez Kerberos** (bez NTLM), dlatego DC i kolektor muszą być
+     podane jako nazwy DNS (rozdział 4.4).
 3. **Powiadomienia.** Reguły decydują, które zdarzenia i komu są wysyłane: natychmiast (zbiorczo w krótkim oknie,
    z limitem wiadomości na godzinę i z uwzględnieniem godzin pracy i polskich świąt), w raporcie dziennym albo do
    Teams / webhooka. Wysyłki czekają w trwałej kolejce i są ponawiane po błędach.
@@ -104,7 +156,7 @@ Watchdog celowo **nie hałasuje**:
   wyłączane na DC w 2026 r.).
 - Dla atrybucji: zasady inspekcji na kontrolerach, SACL na obiektach i dostęp do dzienników (rozdział 4.4–4.6).
 - Dla e-maili: serwer SMTP (Exchange Online, Exchange w firmie albo przekaźnik) z TLS.
-- Stacje administratorów z AD_MNG muszą mieć dostęp do portu usługi (domyślnie 8443/TCP); przed usługą nie może stać
+- Stacje administratorów z AD Manager muszą mieć dostęp do portu usługi (domyślnie 8443/TCP); przed usługą nie może stać
   serwer pośredniczący ani urządzenie inspekcji TLS.
 
 ---
@@ -158,7 +210,7 @@ Test-ADServiceAccount svc-admngwd        # musi zwrócić True
 setspn -Q HTTP/admng-wd.contoso.com     # SPN musi należeć wyłącznie do svc-admngwd$
 ```
 
-- **Nie** używaj `-RestrictToOutboundAuthenticationOnly` – klienci AD_MNG uwierzytelniają się do usługi Kerberosem.
+- **Nie** używaj `-RestrictToOutboundAuthenticationOnly` – klienci AD Manager uwierzytelniają się do usługi Kerberosem.
 - Nie dodawaj `HTTP/SRV-WD01…` do gMSA (zepsułoby to inne usługi HTTP serwera, np. WinRM).
 - Gdy zespół AD nie zgadza się na SPN na koncie usługi, użyj trybu **HTTP.sys** (rozdział 4.10) – wtedy Kerberos
   obsługuje konto komputera i SPN nie jest potrzebny.
@@ -217,7 +269,11 @@ Get-NetFirewallRule -Name "RemoteEventLogSvc*" | Set-NetFirewallRule -RemoteAddr
 
 Uwaga: członkostwo w „Event Log Readers” daje odczyt **wszystkich** dzienników na wszystkich DC domeny (także linii
 poleceń z 4688, skryptów PowerShell, Sysmon). Usługa czyta tylko zdarzenia z listy (rozdział 4.5) i tylko z
-zapisywalnych DC tej domeny (RODC i DC innych domen lasu są pomijane).
+zapisywalnych DC tej domeny (RODC i DC innych domen lasu są pomijane). Kontrolery wpisane ręcznie w ustawieniach
+atrybucji (`attribution.domainControllers`) muszą być nazwami DNS (zalecane FQDN) – usługa łączy się z nimi wyłącznie
+przez Kerberos, więc adres IP jest odrzucany przy zapisie, a `localhost` lub nazwa bez SPN kończy się błędem
+połączenia. Gdy usługa nie może odczytać `CN=Sites` w partycji konfiguracji, czyta tylko te wpisane kontrolery (Stan →
+„Wykrywanie kontrolerów domeny”).
 
 **B. Windows Event Forwarding (zalecane w środowiskach utwardzonych i dużych).** Kontrolery wysyłają do kolektora
 (np. sam serwer Watchdog) wyłącznie potrzebne zdarzenia, a gMSA czyta lokalny dziennik „ForwardedEvents” – bez praw
@@ -229,13 +285,19 @@ na DC:
    4720 4722 4723 4724 4725 4726 4738 4740 4767 4781 4765 4766 4794 4741 4742 4743 4727–4737 4744–4764 4719 5136 5137
    5138 5139 5141 1102 1104 1100 oraz – jeśli ma być ustalany komputer źródłowy – 4624 (tylko LogonType 3 i 10; duży
    wolumen, zwiększ dziennik kolektora) i 4771/4776 (tylko niepowodzenia).
-3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa DNS serwera (nie adres IP –
-   usługa łączy się z kolektorem i z DC wyłącznie przez Kerberos); gMSA w lokalnej grupie „Event Log Readers”
-   kolektora. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę „SOURCE_NOT_COLLECTED”.
+3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa DNS serwera (zalecana pełna
+   nazwa FQDN; nie adres IP, nie `localhost` – usługa łączy się z kolektorem i z DC wyłącznie przez Kerberos, więc
+   nazwa musi mieć SPN); gMSA w lokalnej grupie „Event Log Readers” kolektora. Adres IP jest odrzucany przy zapisie, a
+   konfiguracja zapisana wcześniej z adresem IP blokuje każdy zapis, dopóki go nie poprawisz; błąd pokazuje Stan →
+   „Kolektor zdarzeń (WEF)”. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę „SOURCE_NOT_COLLECTED”.
    Zdarzenia przekazane przez WEF zachowują numery rekordów swoich DC, dlatego usługa czyta kolektor według czasu
    zdarzeń: przy każdym odczycie ponownie przegląda ostatnie 15 minut (ustawienie „replicationLatencyBound”), aby nie
    pominąć zdarzeń dostarczonych z opóźnieniem. Zdarzenia dostarczone później (np. po dłuższej przerwie łączności DC
-   z kolektorem) nie zostaną uwzględnione w atrybucji – w razie potrzeby zwiększ to ustawienie.
+   z kolektorem) nie zostaną uwzględnione w atrybucji – w razie potrzeby zwiększ to ustawienie. Po zalewie zdarzeń
+   większym niż `maxRecordsPerPoll` (domyślnie 50 000 na odczyt; zdarzenie „Luka w dzienniku zabezpieczeń DC” z
+   przyczyną „flooding”) usługa
+   przez pewien czas czyta tylko zdarzenia nowsze od ostatnio odczytanego – zdarzenia dostarczone z opóźnieniem w
+   trakcie zalewu mogą zostać pominięte; potem wraca 15-minutowe nakładanie odczytów.
 
 W obu wariantach ustaw rozmiar dziennika Security na DC na co najmniej **1 GB** (GPO: Konfiguracja komputera →
 Zasady → Ustawienia systemu Windows → Ustawienia zabezpieczeń → Dziennik zdarzeń) – mały dziennik nadpisuje zdarzenia,
@@ -313,8 +375,10 @@ Wystaw certyfikat serwera (EKU „Uwierzytelnianie serwera”) z nazwą `admng-w
 certyfikat → Wszystkie zadania → Zarządzaj kluczami prywatnymi… → dodaj `CONTOSO\svc-admngwd$` (Odczyt). Skrypt
 instalacyjny robi to automatycznie. Po automatycznym odnowieniu certyfikatu nowy klucz dostaje domyślne ACL – w
 szablonie AD CS zaznacz „Autoryzuj dodatkowe konta usług w celu uzyskania dostępu do klucza prywatnego” albo ponów
-nadanie uprawnień (usługa zgłosi problem w dzienniku Application – zdarzenie 1007 – i w stanie usługi, a do czasu
-nadania uprawnień używa poprzedniego, jeszcze ważnego certyfikatu). Usługa przyjmuje tylko TLS 1.2 i 1.3.
+nadanie uprawnień. Do czasu nadania uprawnień usługa używa poprzedniego, jeszcze ważnego certyfikatu i zgłasza to jako
+**ostrzeżenie** 1007 w dzienniku Application. Gdy poprzedni certyfikat wygaśnie, pojawia się **błąd** 1007 (połączenia
+TLS przestają działać) oraz stan „Klucz prywatny certyfikatu TLS niedostępny” (`certificate.key`) w zakładce Stan;
+zbliżające się wygaśnięcie certyfikatu pokazuje stan `certificate.expiry`. Usługa przyjmuje tylko TLS 1.2 i 1.3.
 
 ### 4.8 Foldery usługi
 
@@ -334,8 +398,12 @@ icacls "$root\data"   /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-5
 icacls "$root\config" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "CONTOSO\svc-admngwd$:(OI)(CI)R"
 ```
 
-Przy każdym starcie usługa sprawdza uprawnienia folderu `data\` i plików bazy: jeśli dostęp ma ktokolwiek poza
-SYSTEM, Administratorami i kontem usługi, **nie uruchomi się** (dziennik Application, kod wyjścia 5). Folder musi
+Skrypt instalacyjny (także przy aktualizacji) przywraca wszystkim plikom i podfolderom wewnątrz `config\` i folderu
+danych uprawnienia dziedziczone – jawne wpisy ACL nadane tam ręcznie są usuwane.
+
+Przy każdym starcie usługa sprawdza uprawnienia folderu `data\`, plików bazy oraz folderów `data\keys\` i
+`data\backup\`: jeśli dostęp ma ktokolwiek poza SYSTEM, Administratorami i kontem usługi, **nie uruchomi się**
+(dziennik Application, kod wyjścia 5). Folder musi
 leżeć na lokalnym dysku NTFS (nie na udziale sieciowym); zalecane jest szyfrowanie BitLocker woluminu. Baza SQLite
 nie tworzy plików tymczasowych poza folderem danych, a usuwane rekordy są nadpisywane.
 
@@ -361,11 +429,29 @@ awarii), dodaje regułę zapory dla wskazanych podsieci, sprawdza SPN, uruchamia
 `AdMng.Watchdog.exe --health`. Skrypt działa w Windows PowerShell 5.1 i PowerShell 7.
 
 Aktualizacja to ponowne uruchomienie skryptu: istniejący `config\appsettings.json` jest **scalany** – zmieniają się
-tylko ustawienia podane w parametrach (`-Url`, `-AdminGroupSid` zawsze), a ręczne wpisy (np. `DeniedSids`,
-`ViewerDetailLevel`, `Notifications`, `Directory`, `Server: "HttpSys"`) zostają; skrypt wypisuje zmienione ustawienia.
+tylko ustawienia podane w parametrach, a ręczne wpisy (np. `DeniedSids`, `ViewerDetailLevel`, `Notifications`,
+`Directory`, `Server: "HttpSys"`) zostają; skrypt wypisuje zmienione ustawienia. `-Url` i `-AdminGroupSid` są
+wymagane i zawsze zastępują swoje wartości – **`-AdminGroupSid` zastępuje całą listę `AdminSids`**, więc druga grupa
+administratorów dopisana ręcznie znika przy aktualizacji (dopisz ją ponownie). `-ViewerGroupSid`, `-HostGroupSid`,
+`-AllowedSubnets` i `-MonitoringSubnets` zastępują swoje listy tylko wtedy, gdy zostały podane.
+
+Zanim skrypt cokolwiek zmieni, sprawdza istniejący `config\appsettings.json`: jeśli właścicielem pliku lub folderu nad
+nim (aż do `%ProgramData%\AdMng`) jest albo prawo zmiany ma konto inne niż SYSTEM i Administratorzy, skrypt
+**zatrzymuje się** i wypisuje te konta (taki plik mógł zostać podłożony, a scalenie przeniosłoby jego ustawienia do
+nowej konfiguracji). Przejrzyj plik, a potem usuń go albo uruchom skrypt ponownie z przełącznikiem
+`-TrustExistingConfig`.
+
 Bez `-CertificateThumbprint` skrypt sam znajduje certyfikat po nazwie hosta (ta sama reguła co usługa) i nadaje gMSA
 odczyt jego klucza. Właścicielem folderów `%ProgramData%\AdMng\…` zostają Administratorzy, a ich ACL są zastępowane w
-całości – nikt, kto utworzył te foldery lub plik przed instalacją, nie zachowuje do nich praw. Odpowiednik ręczny:
+całości – nikt, kto utworzył te foldery lub plik przed instalacją, nie zachowuje do nich praw; wszystko wewnątrz
+`config\` i folderu danych dostaje z powrotem uprawnienia dziedziczone (4.8).
+
+**Aktualizacja z wersji, w której hasło SMTP lub sekret klienta XOAUTH2 zapisano przy niestandardowej weryfikacji
+certyfikatu serwera SMTP** (przypięty odcisk `PinnedSha256`, „akceptuj każdy” albo wyłączone sprawdzanie odwołań): po
+aktualizacji hasło/sekret trzeba wpisać ponownie (zakładka Kanały i SMTP). Do tego czasu e-mail nie jest wysyłany, a
+wysyłki kończą się kodem `secretRebindRequired` (5.2).
+
+Odpowiednik ręczny instalacji:
 
 ```powershell
 sc.exe create AdMngWatchdog binPath= "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" start= delayed-auto obj= "CONTOSO\svc-admngwd$" DisplayName= "AdMng Watchdog"
@@ -412,7 +498,10 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
   user=CONTOSO\svc-admngwd$` i `netsh http add sslcert ipport=0.0.0.0:8443 certhash=<odcisk>
   appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). HTTP.sys negocjuje schematem
   Negotiate (z ochroną powiązania kanału); przy `RequireKerberos` usługa odrzuca każde logowanie, które nie odbyło
-  się przez Kerberos (dziennik Application, zdarzenie 2500).
+  się przez Kerberos (dziennik Application, zdarzenie 2500). **Do potwierdzenia na laboratorium Windows:** czy w trybie
+  HTTP.sys każde logowanie rzeczywiście dociera do usługi jako Kerberos. Jeżeli każde logowanie jest odrzucane
+  zdarzeniem 2500 z pakietem „unknown (Negotiate)”, użyj Kestrel ze SPN-em na gMSA albo tymczasowo ustaw
+  `RequireKerberos: false` (wtedy NTLM jest przyjmowany).
 - `RequireKerberos: true` odrzuca NTLM w obu trybach (ochrona przed przekazywaniem NTLM; .NET 10 nie ma tu powiązania
   kanału).
 - `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu i
@@ -420,12 +509,28 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
 - Usługa obserwuje ten plik: zmiany w `Authorization`, `Notifications` oraz w listach `AllowedRemoteSubnets` i
   `MonitoringSubnets` działają w ciągu kilku sekund. Pozostałe ustawienia (`Urls`, `Server`, `Certificate`,
   `RequireKerberos`, `DataDirectory`, `Authentication`, `Directory`) wymagają restartu usługi
-  (`Restart-Service AdMngWatchdog`).
+  (`Restart-Service AdMngWatchdog`). Wyjątki od „w ciągu kilku sekund”:
+  - `AllowedRemoteSubnets` i `MonitoringSubnets` od razu zmieniają filtr samej usługi, ale **nie** regułę zapory
+    Windows `AdMngWatchdog-HTTPS`, którą skrypt instalacyjny zbudował z tych list – uruchom skrypt ponownie albo
+    popraw regułę ręcznie.
+  - `AdminSids`, `ViewerSids` i `WatchdogHostGroupSids` od razu zmieniają dostęp do API, ale obserwacja tych grup jako
+    grup uprzywilejowanych (zdarzenia wysokie) korzysta z wartości z ostatniego startu – po ich zmianie zrestartuj
+    usługę.
+- Gdy zapisanej zmiany pliku nie da się wczytać (błąd składni JSON) ani zastosować (błędna wartość, np. `"Minimalny"`
+  zamiast `"Minimal"` albo `"tak"` zamiast `true`), usługa **zachowuje poprzednie ustawienia** i po każdym takim zapisie
+  wpisuje ostrzeżenie **2002** do dziennika Application. Do czasu poprawienia pliku zmiana (np. nowy wpis w
+  `DeniedSids`) **nie działa**, a ten sam plik przy następnym starcie zatrzyma usługę (kod wyjścia 2, zdarzenie 1010).
+  Po każdej edycji sprawdź plik poleceniem `AdMng.Watchdog.exe --check-config` i dodaj zdarzenie 2002 do
+  monitorowanych (rozdział 10).
 - `ViewerDetailLevel` – ile danych widzi rola Viewer w zakładce i na stronie zdarzenia (5.6).
 - `AllowTier0Suppression` – tylko lokalnie można zezwolić na wyłączenie krytycznych zdarzeń przez API (domyślnie nie).
   Bez tej zgody API odrzuca m.in. wykluczenie kontenerów `CN=Users` i `CN=Builtin` (grupy Domain Admins,
   Administrators, konto krbtgt), poddrzew z dodatkowymi grupami uprzywilejowanymi oraz pominięcie atrybutów
-  `dNSHostName`, `versionNumber` i `gPCFileSysPath`.
+  `dNSHostName`, `versionNumber` i `gPCFileSysPath`. Odrzucane jest też każde nowe wykluczone poddrzewo, które według
+  bieżącej migawki zawiera grupę uprzywilejowaną, grupę zagnieżdżoną na ścieżce do grupy uprzywilejowanej, konto z
+  dostępem uprzywilejowanym, krbtgt albo wbudowane konto Administrator – to chroni OU warstwowego modelu
+  administracji (Tier 0), nie tylko `CN=Users` i `CN=Builtin`. Wykluczenia zapisane wcześniej nie są sprawdzane
+  ponownie.
 - `MonitoringSubnets` – adresy systemu monitorowania, które mogą anonimowo pytać `/healthz` (zwraca tylko „ok” albo
   błąd 503).
 - `Directory.Server` pozwala wskazać konkretny DC; domyślnie usługa wybiera emulator PDC.
@@ -435,14 +540,14 @@ nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
 1. Po starcie usługa tworzy bazę, zapisuje domyślną konfigurację i wykonuje **zrzut bazowy** (dla ~50 000 obiektów
    kilka minut). Bez powiadomień o zmianach; na koniec zdarzenie „Zakończono zrzut bazowy”. Zaczyna się 7-dniowy
    **tryb wdrożenia** (rozdział 1).
-2. W AD_MNG: **Narzędzia → Watchdog** (Ctrl+Shift+A) → podaj adres `https://admng-wd.contoso.com:8443` → Połącz.
+2. W AD Manager: **Narzędzia → Watchdog** (Ctrl+Shift+A) → podaj adres `https://admng-wd.contoso.com:8443` → Połącz.
 3. Zakładka **Stan**: sprawdź połączenie z DC, kontrolę uprawnień i dostęp do dzienników każdego DC.
 4. Zakładka **Kanały i SMTP**: skonfiguruj SMTP, adresy grup odbiorców („Administratorzy IT”, „Helpdesk”), wyślij
    wiadomość testową.
 5. Przez tydzień przeglądaj **Reguły** (przy każdej regule: „wysłałaby N wiadomości”, przycisk Podgląd), dodaj wyjątki
    z podpowiedzi (np. konto synchronizacji Entra Connect) i zakończ tryb wdrożenia.
-6. Podłącz monitoring: `/healthz` z `MonitoringSubnets`, zdarzenia dziennika Application (rozdział 10) i opcjonalnie
-   sygnał „heartbeat” webhooka do SIEM.
+6. Podłącz monitoring: `/healthz` z `MonitoringSubnets`, zdarzenia dziennika Application (rozdział 10, także 2002 –
+   nieprzyjęta edycja `appsettings.json`) i opcjonalnie sygnał „heartbeat” webhooka do SIEM.
 
 ---
 
@@ -455,26 +560,46 @@ Reguła określa: rodzaje zdarzeń, rodzaje obiektów, zakres (OU – uwzględni
 priorytet, wykluczenia wykonawców (po SID) oraz dostarczanie: natychmiast (grupy odbiorców e-mail, kanały
 Teams/webhook), raport dzienny, godziny (zawsze / tylko w godzinach pracy / domyślnie: zawsze dla wysokich i
 krytycznych), okno zbierania (domyślnie 5 min), limit wiadomości na godzinę (domyślnie 10; zdarzenia krytyczne bez
-limitu) i tłumienie powtórzeń dla tego samego obiektu (blokady: 1 h).
+limitu) i tłumienie powtórzeń dla tego samego obiektu (blokady: 1 h). Limit wiadomości na godzinę (na regułę i kanał)
+liczy wiadomości **dodane do kolejki** w ostatniej godzinie, nie tylko już wysłane – awaria kanału nie pozwala więc
+nazbierać serii, która po naprawie wyszłaby naraz; po restarcie usługi liczą się tylko wiadomości już wysłane.
 
 Wbudowane reguły można edytować, wyłączać i przywracać do ustawień domyślnych; reguły „tier0-*” obejmują krytyczne
 zmiany bezpieczeństwa. Regułę „Stan usługi Watchdog” można tylko edytować (nie wyłączyć); wysyła ona także do
 wszystkich włączonych kanałów Teams/webhook. Przycisk **Podgląd** pokazuje, ile zdarzeń z ostatnich dni dopasowałaby
 reguła i ile wiadomości by wysłała.
 
+- Shadow Credentials (`msDS-KeyCredentialLink`) na koncie zwykłego użytkownika zapisane przez **inne** konto wywołują
+  alarm reguły „tier0-security” od razu po ustaleniu wykonawcy.
+- Własne reguły z wymaganymi tagami „reset hasła” (`passwordReset`), „zmiana własna” (`selfChange`) lub „konto
+  synchronizacji” (`syncAccount`) działają – te tagi są nadawane po atrybucji, a reguły są wtedy oceniane ponownie.
+- `SuppressComputerSelfChanges` (domyślnie włączone) działa także przy włączonych `TrackComputerPasswordChanges` lub
+  `TrackComputerOsChanges`: rutynowe zmiany, które komputer wprowadza sam w sobie (rotacja hasła, wersja systemu), nie
+  pasują do żadnej reguły, ale pozostają na liście zdarzeń.
+- Stan **„Nieistniejące DN w konfiguracji”** (`rules.configuredDns`, sprawdzany najwyżej co 10 minut) wymienia OU i
+  grupy wskazane w konfiguracji (zakresy reguł, grupy uprzywilejowane i obserwowane, poddrzewa, obiekty krytyczne,
+  wyjątki), które przemianowano, przeniesiono lub usunięto – reguła ze starym DN niczego nie obejmuje. Usługa nigdy
+  sama nie poprawia konfiguracji; `CN=Builtin`, `CN=System` i wykluczone poddrzewa nie są sprawdzane.
+
 **Wyjątki** (np. konto synchronizacji Entra Connect, które stale zmienia `msDS-KeyCredentialLink`, albo konto
-porządkujące stare komputery) wymagają podania powodu, wskazują wykonawcę po SID (wybór z AD w AD_MNG), mogą mieć
-datę wygaśnięcia, są zapisywane w historii zmian konfiguracji i wymieniane w każdym raporcie dziennym. Watchdog sam
-**proponuje** takie wyjątki (zakładka Reguły → „Dodaj wyjątek”), ale nigdy nie dodaje ich automatycznie.
+porządkujące stare komputery) wymagają podania powodu, wskazują wykonawcę po SID (wybór z AD w AD Manager), mogą mieć
+datę wygaśnięcia, są zapisywane w historii zmian konfiguracji i wymieniane w każdym raporcie dziennym. „Utworzył /
+kiedy” ustala usługa (konto administratora, który zapisał wyjątek, i czas serwera) – edycja wyjątku (powód, data
+wygaśnięcia, zakres) ustawia je od nowa, także wiek wyjątku pokazywany w raporcie dziennym. Wyjątki wykonawców zapisane
+z symbolem `{domainSid}` lub `{rootDomainSid}` niczego nie wykluczają, dopóki usługa nie zna SID-u domeny (bezpieczna
+odmowa). Watchdog sam **proponuje** takie wyjątki (zakładka Reguły → „Dodaj wyjątek”), ale nigdy nie dodaje ich
+automatycznie.
 
 **Ochrona przed wyciszeniem**: każda zapisana zmiana konfiguracji wywołuje zdarzenie „Zmiana konfiguracji Watchdog”
 (kto, co), wysyłane także do **dotychczasowych** odbiorców – usunięcie siebie z listy odbiorców nie przejdzie
 niezauważone. Wyłączenie przez API obserwacji atrybutów i zdarzeń krytycznych (np. `msDS-KeyCredentialLink`,
-dostęp uprzywilejowany) albo wykluczenie domeny lub OU kontrolerów jest niemożliwe bez lokalnej zgody
-(`AllowTier0Suppression` w `appsettings.json`).
+dostęp uprzywilejowany) albo wykluczenie domeny lub OU kontrolerów, a także poddrzewa z grupami i kontami
+uprzywilejowanymi (4.10), jest niemożliwe bez lokalnej zgody (`AllowTier0Suppression` w `appsettings.json`).
 
 Godziny pracy: domyślnie pon.–pt. 7:00–17:00 (strefa Europe/Warsaw) z polskimi świętami (w tym Wigilia od 2025 r.).
-Poza godzinami pracy powiadomienia o priorytecie niższym niż wysoki trafiają tylko do raportu dziennego.
+Poza godzinami pracy powiadomienia o priorytecie niższym niż wysoki trafiają tylko do raportu dziennego – dotyczy to
+też powiadomienia zbiorczego lub wstrzymanego przez limit, którego oczekiwanie kończy się już po godzinach pracy (nie
+jest wysyłane, trafia tylko do raportu).
 
 ### 5.2 SMTP
 
@@ -502,12 +627,34 @@ Przygotowanie Exchange Online OAuth2 (jednorazowo, administrator Entra/Exchange)
 
 Hasła i sekrety są **powiązane z miejscem docelowym**: po zmianie serwera, portu, użytkownika, dzierżawy lub adresu
 kanału trzeba wpisać hasło/sekret ponownie – zapisany sekret nigdy nie zostanie wysłany pod nowy adres (także przy
-wiadomości testowej).
+wiadomości testowej). Hasło SMTP i sekret klienta XOAUTH2 są powiązane także z weryfikacją certyfikatu serwera SMTP:
+każda zmiana przypiętego odcisku, trybu weryfikacji lub sprawdzania odwołań wymaga ponownego wpisania hasła/sekretu,
+również przed wiadomością testową (inaczej administrator Watchdoga mógłby przypiąć certyfikat własnego serwera i
+przechwycić hasło). Sekrety zapisane przez starsze wersje przy niestandardowej weryfikacji trzeba po aktualizacji
+wpisać ponownie (4.9).
 
 Przycisk **Wyślij wiadomość testową** pokazuje każdy etap (połączenie, TLS z wersją i szyfrem, logowanie, nadawca,
 odbiorcy, treść) z kodami odpowiedzi i podpowiedziami, np. `5.7.139`/`5.7.30` – wyłączone SMTP AUTH,
 `5.7.68` – odrzucone „Direct Send”. Certyfikat serwera SMTP jest zawsze weryfikowany (opcjonalnie przypięcie
 odcisku SHA-256; „akceptuj każdy” istnieje tylko w trybie deweloperskim); używane są tylko TLS 1.2 i 1.3.
+
+**Wielu odbiorców i limity.** Lista odbiorców jest sortowana i dzielona na wiadomości po `MaxRecipientsPerMessage`
+adresów (domyślnie 50). Limit `MaxMessagesPerMinute` (domyślnie 20, poniżej limitu Exchange Online 30/min) liczy
+**każdą wiadomość SMTP**, czyli każdą taką część, a nie każdy wpis kolejki – duże grupy zużywają więc więcej limitu, a
+wysyłka może zostać odłożona w połowie bez ponownego wysyłania części już wysłanych. Uzupełnienie (np. „ustalono
+wykonawcę”) trafia do tych samych odbiorców w tym samym wątku – każda część odpowiada na odpowiadającą jej część
+pierwotnego alarmu.
+
+**Częściowe doręczenie.** Gdy serwer odrzuci tylko część odbiorców:
+
+- odrzucenie tymczasowe (4xx, np. greylisting) – pozostali dostają wiadomość, a ponowienie idzie wyłącznie do
+  odrzuconych, bez duplikatów u pozostałych (ostrzeżenie 2202 w dzienniku Application); po restarcie usługi ponowienie
+  może jednak trafić ponownie do wszystkich,
+- odrzucenie trwałe (5xx) – odrzucony adres jest pomijany (ostrzeżenie 2203), pozostali dostają wiadomość; wysyłka
+  kończy się błędem trwałym tylko wtedy, gdy odrzucono wszystkich,
+- jeśli jeden odbiorca odpowiada 4xx przez ok. 22 godziny, wiadomość kończy się stanem „Niedostarczone” z kodem
+  `partial.smtp.4xx…`, a kanał e-mail ma stan ostrzeżenia – bez alarmu „kanał nie może dostarczać powiadomień”.
+  Ponowienie z dziennika wysyłek (rola Admin, w ciągu 14 dni) idzie wtedy tylko do brakujących odbiorców.
 
 ### 5.3 Microsoft Teams (Workflows)
 
@@ -520,7 +667,8 @@ odrzuca. Używaj **Workflows** (Power Automate):
    odejściu przestaje działać) i włącz „Secure inputs/outputs” dla wyzwalacza i akcji publikowania karty (historia
    uruchomień przechowuje treść 30 dni).
 3. W zakładce Watchdog → Kanały → Teams: wklej adres (jest sekretem – zawiera podpis `sig`; po zapisaniu widać tylko
-   początek adresu), wybierz poziom szczegółowości (domyślnie „Standardowy”) i wyślij kartę testową.
+   `schemat://host/…`, bez ścieżki i parametrów – podpowiedzi zapisane przez starsze wersje są skracane
+   automatycznie), wybierz poziom szczegółowości (domyślnie „Standardowy”) i wyślij kartę testową.
 
 Odpowiedź 202 oznacza tylko przyjęcie przez Workflows, nie publikację w kanale – sprawdź, czy karta testowa się
 pojawiła. Przepływy właścicieli bez licencji premium są zawieszane po 90 dniach bez wywołań; codzienny raport
@@ -537,7 +685,9 @@ idempotencji), `webhook-timestamp`, `webhook-signature: v1,<base64 HMAC-SHA256>`
 `ad.user.locked_out`, `ad.group.member_added`, `ad.privilege.granted`, `ad.burst.mass_lockout`,
 `watchdog.configuration_changed`, `watchdog.digest`, `watchdog.heartbeat` … Domyślny poziom szczegółowości
 „Minimalny” (bez wartości atrybutów). Opcja **heartbeat** (np. co 15 min) pozwala systemowi SIEM zaalarmować, gdy
-Watchdog przestanie się odzywać. Weryfikacja po stronie odbiorcy (Python):
+Watchdog przestanie się odzywać. Sygnały heartbeat nigdy nie są ponawiane ani wysyłane po upływie swojego interwału:
+w czasie awarii SIEM pojawiają się w dzienniku wysyłek jako „Niedostarczone” z kodem `heartbeat.superseded`, a SIEM
+dostaje wyłącznie świeże sygnały. Weryfikacja po stronie odbiorcy (Python):
 
 ```python
 import base64, hmac, hashlib, time
@@ -555,15 +705,28 @@ Przy rotacji sekretu wpisz stary w pole „Poprzedni sekret” – do czasu jego
 Codziennie o 7:30 (także w weekendy – jako sygnał, że usługa działa). **Raport z pierwszego dnia roboczego po
 weekendzie lub święcie obejmuje cały okres od ostatniego raportu dnia roboczego** (np. od piątku 7:30 do poniedziałku
 7:30), więc nic z weekendu nie umyka (opcja „Raport po dniach wolnych obejmuje cały okres”, domyślnie włączona).
+Okres takiego raportu zaczyna się tam, gdzie faktycznie skończył się ostatni raport dnia roboczego (np. o 10:00, gdy
+piątkowy raport wysłano z opóźnieniem po przerwie w pracy usługi). „Wyślij teraz” w poniedziałek po porannym raporcie
+nie obejmuje ponownie weekendu.
+
+Okres raportu może kończyć się kilka sekund lub minut przed godziną wysłania, gdy jakieś zdarzenie nie przeszło
+jeszcze oceny reguł – trafi ono do następnego raportu (nic nie ginie i nic nie jest liczone dwa razy). Raport
+przerwany zatrzymaniem usługi jest kończony po jej starcie i nie jest wysyłany drugi raz; restart usługi krótko po
+wysłaniu raportu nie powoduje ponownej wysyłki.
+
 Zawartość: stan usługi, liczniki, **„Wymaga uwagi”** (zdarzenia wysokie i krytyczne z informacją o potwierdzeniu),
 sekcje: nowe konta, nowe komputery (wg OU), usunięcia, włączenia i wyłączenia, przeniesienia, dostęp uprzywilejowany,
 członkostwo w grupach, zmiany parametrów kont (stara → nowa wartość, kto, kiedy), blokady (jeden wiersz na konto i
-dzień: „zablokowane 5× dziś, ostatnio 10:42” i źródła błędnych haseł), hasła (osobno resety przez administratorów,
+dzień: „zablokowane 5× dziś, ostatnio 10:42” – „dziś” liczone od rzeczywistej północy czasu lokalnego, także w dniach
+zmiany czasu – i źródła błędnych haseł), hasła (osobno resety przez administratorów,
 zmiany przez użytkowników i przedłużenia ważności), domena, GPO i PKI, zmiany bezpieczeństwa do przeglądu,
 nadchodzące terminy (≤ 14 dni), a w poniedziałki także konta nieaktywne (≥ 90 dni) i liczniki higieny (hasło
 niewymagane, hasło nigdy nie wygasa, delegowanie nieograniczone, osierocone `adminCount`, wiek hasła krbtgt). Aktywne
 wyjątki i zmiany konfiguracji Watchdog są wymienione na końcu. Raport wysyłany jest także przy braku zmian („Brak
 zmian w okresie”) – jego brak oznacza problem z usługą.
+
+**Podgląd** raportu w zakładce (Raport dzienny → Podgląd) w sekcji „Aktywne wyjątki” pokazuje dla każdej roli tylko
+ich liczbę („Liczba aktywnych wyjątków (szczegóły tylko w wysłanym raporcie)”); wysłany raport nadal je wymienia.
 
 ### 5.6 Poziomy szczegółowości
 
@@ -579,26 +742,61 @@ przełożeni (powiadomienia o wygasaniu kont) – minimalny, rola Viewer w zakł
 
 Teksty pochodzące z AD (opisy, nazwy obiektów i grup) są w powiadomieniach „rozbrajane”: niewidoczne znaki sterujące
 (np. odwrócenie kierunku tekstu) są pokazywane jawnie, a adresy w treści zamieniane na `hxxps://przyklad[.]pl`, żeby
-Outlook i Teams nie robiły z nich klikalnych łączy.
+Outlook i Teams nie robiły z nich klikalnych łączy. Znaki sterujące w wartościach zapisanych w dziennikach DC są w
+dowodach atrybucji pokazywane jako „�” – rekord nie jest z tego powodu odrzucany.
+
+### 5.7 Kolejka wysyłek, ponawianie i stan kanałów
+
+- **Kanał niesprawny** (przepływ Teams wyłączony, webhook odpowiada 404/410, błąd uwierzytelniania): usługa ponawia
+  wysyłkę co godzinę, ale te ponowienia nie zwiększają licznika „Próby” w dzienniku wysyłek. Po 24 godzinach
+  wiadomość jest porzucana („Niedostarczone”), a pierwszy błąd tymczasowy po naprawie kanału jest ponawiany w ciągu
+  kilku sekund.
+- **Wyłączenie lub usunięcie kanału** Teams/webhook albo wyłączenie SMTP od razu porzuca wiadomości czekające w kolejce
+  tego kanału („Niedostarczone”, kody `channel.disabled` / `channel.unknown` / `smtp.disabled`), bez alarmu „kanał nie
+  może dostarczać powiadomień”. Ponowne włączenie kanału ich nie dostarcza; Admin może je ponowić ręcznie z dziennika
+  wysyłek do upływu `OutboxDeadDays` (domyślnie 90 dni).
+- **Stan kanału** (zakładka Stan): błąd utrzymuje się 2 godziny od ostatniego niepowodzenia na poziomie błędu, potem
+  przechodzi w ostrzeżenie aż do następnej udanej wysyłki – także wtedy, gdy nic nie jest wysyłane. Kolejna awaria po
+  tym czasie wywołuje nowy alarm „kanał nie może dostarczać powiadomień”.
+- Częściowe doręczenie e-maili i limity wiadomości SMTP opisuje rozdział 5.2, sygnały heartbeat – 5.4.
 
 ---
 
-## 6. Zakładka Watchdog w AD_MNG
+## 6. Zakładka Watchdog w AD Manager
 
 Otwieranie: menu **Narzędzia → Watchdog**, paleta poleceń (Ctrl+K → „Watchdog”) lub **Ctrl+Shift+A**; dla wybranego
 obiektu: menu kontekstowe / panel szczegółów → **„Historia zmian (Watchdog)”** (zdarzenia tego obiektu po GUID).
 Zakładka działa niezależnie od połączenia z AD (zostaje otwarta po zmianie DC); łączy się z usługą przez HTTPS (tylko
 `https://`) z bieżącym kontem Windows (działa też `runas /netonly`); pasek połączenia zawsze pokazuje adres usługi.
 Nagłówek zakładki pokazuje liczbę niepotwierdzonych zdarzeń wysokich i krytycznych (odświeżaną co minutę także w tle).
-AD_MNG nie zapisuje danych Watchdoga na dysku – w ustawieniach zapamiętuje tylko adres usługi, układ i nazwane filtry.
+AD Manager nie zapisuje danych Watchdoga na dysku – w ustawieniach zapamiętuje tylko adres usługi, układ i nazwane
+filtry.
+
+- **Pasek stanu** pokazuje raz „stan + host”; drugi wiersz pojawia się tylko wtedy, gdy trzeba wyjaśnić problem.
+  Gdy wybrana jest zakładka Watchdog, panel szczegółów obiektu okna głównego jest ukryty (wybór Ctrl+D zostaje
+  zapamiętany dla list obiektów). Zdarzenia krytyczne mają obwódkę wokół czerwonej kropki, aby odróżnić je od
+  wysokich. Panel szczegółów zdarzenia ma 400 px szerokości i można go poszerzyć przeciągając rozdzielacz. Lista
+  „Zapisane filtry” pojawia się dopiero wtedy, gdy istnieje co najmniej jeden zapisany zestaw.
+- **Problemy z połączeniem**: pojedyncze żądanie, które przekroczyło czas albo nie dotarło do usługi (np. powolny zapis
+  lub wyszukiwanie tekstu), pokazuje błąd w swojej podzakładce, a zakładka zostaje otwarta. Zakładka chowa się za
+  banerem „Ponów” dopiero wtedy, gdy zawodzą także aktualizacje na żywo, i wraca sama po następnym udanym odczycie stanu
+  (w ciągu 30–60 s), bez klikania „Ponów”. Po nieudanym połączeniu z **innym** adresem usługi trzeba kliknąć „Ponów”.
+- „Ponów” lub F5 po problemie z połączeniem **zachowują** niezapisane zmiany konfiguracji i wpisane hasła/sekrety
+  administratora, jeśli adres usługi się nie zmienił; zmiana adresu usługi wczytuje konfigurację tamtej usługi.
+- Zamknięcie zakładki Watchdog (Ctrl+W, przycisk zamknięcia, środkowy przycisk myszy) albo okna głównego przy
+  niezapisanej konfiguracji pyta: „Konfiguracja Watchdog ma niezapisane zmiany (także wpisane hasła i sekrety).
+  Odrzucić je?”. Odpowiedź „Nie” pozostawia zakładkę i okno otwarte, a zakładka zostaje wybrana.
+- **Lista zdarzeń**: „ustalanie…” jest zastępowane automatycznie (w wierszu i w panelu szczegółów) około 30 s po
+  ustaleniu wykonawcy, dopóki zakładka jest widoczna. Lista na żywo trzyma w pamięci 2000 najnowszych zdarzeń (więcej,
+  jeśli operator wczytał starsze strony); starsze są dostępne ponownie przyciskiem „Wczytaj starsze”.
 
 | Podzakładka | Zawartość |
 |---|---|
-| Zdarzenia | lista na żywo (nowe zdarzenia pojawiają się same), filtry (priorytet, kategoria, rodzaj, obiekt, OU, tagi – np. „uprzywilejowane”, status atrybucji – np. „pokaż nieustalone”, wykonawca, tekst także po stacji/IP, daty, niepotwierdzone) z zapisywanymi zestawami, potwierdzanie wielu zdarzeń naraz; szczegóły: zmiany stara → nowa, wykonawca i źródło z poziomem pewności i dowodami (DC, numer zdarzenia), dla blokad źródła błędnych haseł, powiązane zdarzenia, wysłane powiadomienia; „Potwierdź”, „Pokaż w AD_MNG” (bieżące położenie obiektu po GUID; obiekt usunięty – okno Kosza AD), „Odblokuj konto” (przez plan zmian z podglądem), „Kopiuj”, eksport CSV (tylko na polecenie operatora) |
+| Zdarzenia | lista na żywo (nowe zdarzenia pojawiają się same), filtry (priorytet, kategoria, rodzaj, obiekt, OU, tagi – np. „uprzywilejowane”, status atrybucji – np. „pokaż nieustalone”, wykonawca, tekst także po stacji/IP, daty, niepotwierdzone) z zapisywanymi zestawami, potwierdzanie wielu zdarzeń naraz; szczegóły: zmiany stara → nowa, wykonawca i źródło z poziomem pewności i dowodami (DC, numer zdarzenia), dla blokad źródła błędnych haseł, powiązane zdarzenia, wysłane powiadomienia; „Potwierdź”, „Pokaż w AD Manager” (bieżące położenie obiektu po GUID; obiekt usunięty – okno Kosza AD), „Odblokuj konto” (przez plan zmian z podglądem), „Kopiuj”, eksport CSV (tylko na polecenie operatora) |
 | Reguły | lista reguł, edytor, wyjątki i propozycje wyjątków, podgląd skutków, baner trybu wdrożenia |
 | Kanały i SMTP | SMTP, grupy odbiorców, kanały Teams i webhook, wysyłki testowe z diagnostyką |
 | Raport dzienny | harmonogram, odbiorcy, podgląd treści, „Wyślij teraz” |
-| Stan | połączenie z DC, znacznik USN, zrzut bazowy, kontrola uprawnień, dzienniki każdego DC (pokrycie atrybucji, liczba i czas zapytań o źródło), kanały, baza danych i kopie, dziennik wysyłek (ponawianie), historia zmian konfiguracji |
+| Stan | połączenie z DC, znacznik USN, zrzut bazowy, kontrola uprawnień, dzienniki każdego DC (pokrycie atrybucji, liczba i czas zapytań o źródło), kanały, baza danych i kopie, dziennik wysyłek (ponawianie), historia zmian konfiguracji; każdy zgłaszany kod stanu ma opis i zalecenie – m.in. wygasający certyfikat TLS i jego klucz prywatny, rozmiar i konserwacja bazy, planowanie powiadomień, „Nieistniejące DN w konfiguracji”, kolektor WEF, wykrywanie kontrolerów domeny, źródło atrybucji, odmowa wyszukiwania zmian w katalogu (`permission.search`) |
 
 Rola Viewer widzi wszystko tylko do odczytu (bez wyjątków, adresów odbiorców i danych serwera SMTP); edycja wymaga
 roli Admin.
@@ -623,6 +821,15 @@ gMSA sekrety trzeba wpisać ponownie. Kopie zapasowe folderu mają te same ACL c
 przez system kopii. Rozmiar: ok. 0,6 KB na zdarzenie (1 000 zdarzeń dziennie ≈ 230 MB rocznie) i ok. 0,6 KB na obiekt
 migawki.
 
+Codzienna kopia (3:15, `VACUUM INTO`) i kompaktowanie bazy **nie wstrzymują** wykrywania zmian ani wysyłania
+alarmów. Stan bazy pokazują dwa sprawdzenia o jednej definicji (stan nie zmienia się już co godzinę):
+
+- „Rozmiar bazy danych” (`storage.size`) – plik bazy razem z plikiem WAL względem `Retention.MaxDatabaseMb`:
+  ostrzeżenie od 80 % limitu, błąd powyżej limitu,
+- „Wolne miejsce na dysku” (`storage.free`) – błąd, gdy na woluminie folderu danych zostaje mniej niż 1 GiB.
+
+Nieudana retencja lub konserwacja bazy daje stan „Konserwacja bazy danych” (`storage.maintenance`).
+
 ---
 
 ## 8. Bezpieczeństwo
@@ -632,7 +839,8 @@ migawki.
   folderem – historia przepływu 30 dni). Wpisz przetwarzanie do rejestru czynności. Obowiązki z ustawy o KSC
   (NIS2) dotyczące monitorowania i dowodów incydentów mogą przemawiać za dłuższą retencją zdarzeń. Odczyt
   pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia) w dzienniku Application – zdarzenia 2600
-  (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu).
+  (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu). Każde otwarcie szczegółów i każda
+  otwarta strona zdarzenia to jeden wpis – dobierz rozmiar dziennika Application albo przekazuj go do SIEM.
 - **Zero sekretów.** Wartości haseł, LAPS, BitLockera, TPM, gMSA, sekretów LSA (`currentValue`, `priorValue`) i
   atrybutów oznaczonych w schemacie jako poufne nie są odczytywane, zapisywane ani wysyłane.
 - **Serwer Watchdog to zasób Tier 0** (rozdział 3). Konto usługi ma tylko odczyt AD i dzienników; nie ma uprawnień
@@ -643,8 +851,10 @@ migawki.
   podsieci administratorów i monitoringu, bez serwerów pośredniczących.
 - **Sekrety kanałów** są tylko do zapisu i powiązane z miejscem docelowym: API i zakładka nigdy ich nie zwracają,
   administrator Watchdoga nie może przekierować zapisanego hasła lub tokenu OAuth na inny serwer (także przez zmianę
-  weryfikacji certyfikatu SMTP – przypięcie innego certyfikatu wymaga ponownego wpisania hasła); w dziennikach usługi
-  widać wyłącznie `schemat://host/ścieżka` adresów.
+  weryfikacji certyfikatu SMTP – przypięcie innego certyfikatu wymaga ponownego wpisania hasła); w zakładce i w
+  dziennikach usługi widać z adresów kanałów wyłącznie `schemat://host/…` (bez ścieżki i parametrów).
+- **Dzienniki DC** są czytane wyłącznie przez Kerberos (bez NTLM) i tylko z kontrolerów i kolektora podanych jako nazwy
+  DNS (4.4).
 - **Zmiany konfiguracji** są audytowane i zgłaszane (także dotychczasowym odbiorcom); krytycznych detekcji nie da się
   wyłączyć przez API bez lokalnej zgody.
 - **Dzienniki diagnostyczne** usługi (dziennik Application, konsola) nie zawierają wartości z katalogu ani treści
@@ -682,6 +892,12 @@ migawki.
 - Usługa niczego nie blokuje ani nie cofa – tylko raportuje.
 - Laboratorium Samba nie ma dzienników zabezpieczeń Windows: atrybucję testuje się na zarejestrowanych zdarzeniach,
   a przed wydaniem na laboratorium Windows Server.
+- Tryb HTTP.sys nie został jeszcze sprawdzony na laboratorium Windows: nie wiadomo, czy każde logowanie dociera do
+  usługi jako Kerberos (obejście – 4.10).
+- W trybie WEF po zalewie zdarzeń (więcej niż `maxRecordsPerPoll` w jednym odczycie) zdarzenia dostarczone z
+  opóźnieniem w trakcie zalewu mogą nie zostać uwzględnione w atrybucji (4.4).
+- Zmiana `AllowedRemoteSubnets`/`MonitoringSubnets` w `appsettings.json` nie aktualizuje reguły zapory Windows, a
+  zmiana grup ról działa na obserwację grup uprzywilejowanych dopiero po restarcie usługi (4.10).
 
 ---
 
@@ -693,12 +909,19 @@ migawki.
 | „Brak uprawnień” (403) | Konto nie należy do grup z `Authorization` w `config\appsettings.json`, jest na liście `DeniedSids` albo bilet Kerberos jest sprzed dodania do grupy (wyloguj się lub `klist purge`). |
 | „Usługa nieosiągalna” | Usługa zatrzymana, zapora (port 8443, `AllowedRemoteSubnets`), DNS. Na serwerze: `& "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" --health` (kod 0 = działa) albo `Invoke-WebRequest https://admng-wd.contoso.com:8443/healthz -UseBasicParsing` (nazwa z certyfikatu, nie `localhost`). |
 | Błąd certyfikatu | Certyfikat nie pochodzi z zaufanego CA lub nazwa nie zgadza się z adresem. |
-| Usługa nie startuje (dziennik Application, źródło „AdMng Watchdog”, zdarzenie 1010) | Kod wyjścia 2 – błędny `config\appsettings.json` (składnia JSON, nazwa lub wartość ustawienia; szczegóły: `AdMng.Watchdog.exe --check-config`); 3 – baza w nowszej wersji niż program; 4 – brak odczytu klucza prywatnego certyfikatu albo `http://` na adresie innym niż lokalny; 5 – zbyt szerokie uprawnienia folderu `data\`; 6 – konto usługi może zapisywać `config\`; 7 – tryb deweloperski uruchomiony jako usługa; brak prawa „Logowanie w trybie usługi”. |
+| Usługa nie startuje (dziennik Application, źródło „AdMng Watchdog”, zdarzenie 1010) | Kod wyjścia 2 – błędny `config\appsettings.json` (składnia JSON, nazwa lub wartość ustawienia; szczegóły: `AdMng.Watchdog.exe --check-config`); 3 – baza w nowszej wersji niż program; 4 – brak odczytu klucza prywatnego certyfikatu albo `http://` na adresie innym niż lokalny; 5 – zbyt szerokie uprawnienia folderu `data\`, plików bazy albo folderów `data\keys\` lub `data\backup\` (obce konto – uruchom ponownie skrypt instalacyjny, który przywraca uprawnienia, 4.8); 6 – konto usługi może zapisywać `config\`; 7 – tryb deweloperski uruchomiony jako usługa; brak prawa „Logowanie w trybie usługi”. |
+| Ostrzeżenie 2002 w dzienniku Application po edycji `config\appsettings.json` | Plik ma błąd składni JSON albo niepoprawną wartość (np. `"Minimalny"` zamiast `"Minimal"`, `"tak"` zamiast `true`). Usługa działa dalej na poprzednich ustawieniach – zmiana **nie** obowiązuje, a przy następnym starcie usługa się zatrzyma (kod 2). Popraw plik i sprawdź go `AdMng.Watchdog.exe --check-config`. |
+| Instalacja/aktualizacja: skrypt zatrzymuje się i wymienia konta, które mogły zmienić `config\appsettings.json` | Właścicielem pliku lub folderu nad nim albo kontem z prawem zapisu jest ktoś inny niż SYSTEM i Administratorzy. Przejrzyj plik, usuń go albo uruchom skrypt z `-TrustExistingConfig` (4.9). |
+| Tryb HTTP.sys: każde logowanie odrzucone zdarzeniem 2500 „unknown (Negotiate)” | Użyj Kestrel ze SPN-em na gMSA albo tymczasowo `RequireKerberos: false` (NTLM jest wtedy przyjmowany) – 4.10. |
+| Stan: „Kolektor zdarzeń (WEF)” – błąd; zapis konfiguracji odrzucany | Kolektor lub kontroler w ustawieniach atrybucji podano jako adres IP (albo `localhost`, nazwę bez SPN). Wpisz nazwę DNS (FQDN) – usługa łączy się wyłącznie przez Kerberos. Dopóki zapisany jest adres IP, każdy zapis konfiguracji jest odrzucany. |
+| Stan: „Nieistniejące DN w konfiguracji” | OU lub grupę wskazaną w konfiguracji przemianowano, przeniesiono albo usunięto – popraw wymienione DN (reguły, grupy uprzywilejowane, poddrzewa, wyjątki). |
 | Stan: „permission.uSNChanged” | Konto nie widzi części obiektów – nadaj uprawnienia z rozdziału 4.3 (także na AdminSDHolder). |
 | Stan: „eventlog.<DC>” z kodem 1722 / 5 | 1722 – zapora „Remote Event Log Management” na DC (także ograniczenie adresu); 5 – gMSA nie jest w Event Log Readers (lub usługa nie została zrestartowana po dodaniu). |
-| Wykonawca „nieustalony – AUDIT_POLICY_MISSING / SACL_MISSING / LOG_OVERWRITTEN / DC_UNREACHABLE” | Odpowiednio: zasady inspekcji (4.5), SACL (4.6), rozmiar dziennika (4.4), dostęp do dziennika DC. |
+| Wykonawca „nieustalony – AUDIT_POLICY_MISSING / SACL_MISSING / LOG_OVERWRITTEN / DC_UNREACHABLE” | Odpowiednio: zasady inspekcji (4.5), SACL (4.6), rozmiar dziennika (4.4) albo wyczyszczony dziennik Security (1102/1104 lub numeracja rekordów od nowa – zdarzenia sprzed wyczyszczenia nie są już dostępne), dostęp do dziennika DC. |
 | Źródło „SOURCE_LOGON_NOT_FOUND / SOURCE_NOT_COLLECTED” | Sesja logowania starsza niż 12 h lub dziennik nadpisany; w trybie WEF brak 4624/4771/4776 w subskrypcji (4.4). |
-| Zapis konfiguracji: „wpisz hasło/sekret ponownie” (`secretRebindRequired`) | Zmieniono serwer, port, użytkownika, dzierżawę lub adres kanału – zapisany sekret jest powiązany ze starym miejscem docelowym. |
+| Zapis konfiguracji: „wpisz hasło/sekret ponownie” (`secretRebindRequired`) | Zmieniono serwer, port, użytkownika, dzierżawę, adres kanału albo weryfikację certyfikatu serwera SMTP (przypięty odcisk, tryb, sprawdzanie odwołań) – zapisany sekret jest powiązany ze starym miejscem docelowym. Po aktualizacji usługi także hasło SMTP / sekret XOAUTH2 zapisany przy niestandardowej weryfikacji certyfikatu (4.9): do jego ponownego wpisania e-mail nie jest wysyłany. |
+| Dziennik wysyłek: „Niedostarczone” z kodem `partial.smtp.4xx…` | Jeden z odbiorców przez ok. 22 h odrzucał wiadomość tymczasowo (4xx); pozostali ją dostali. Ponowienie (rola Admin, do 14 dni) wyśle ją tylko do brakujących odbiorców (5.2). |
+| Dziennik wysyłek: „Niedostarczone” z kodem `channel.disabled` / `channel.unknown` / `smtp.disabled` | Kanał wyłączono lub usunięto albo wyłączono SMTP, gdy wiadomość czekała w kolejce. Ponowne włączenie kanału jej nie dostarczy – ponów ręcznie (5.7). |
 | E-mail: `535 5.7.139` / `550 5.7.30` | Exchange Online: SMTP AUTH wyłączone dla dzierżawy/skrzynki – przejdź na OAuth2 lub `Set-CASMailbox -SmtpClientAuthenticationDisabled $false`. |
 | E-mail: `550 5.7.68` | Dzierżawa odrzuca „Direct Send” – użyj łącznika przychodzącego lub logowania. |
 | Teams: „przestarzały adres” | Adres `*.webhook.office.com` – utwórz Workflow (5.3). |
@@ -708,8 +931,16 @@ migawki.
 Zdarzenia dziennika Application (źródło „AdMng Watchdog”) do monitoringu (SCOM, Zabbix, SIEM): 1000 start usługi,
 1001 brak połączenia z DC / przełączenie na inny DC, 1002 nieudane wysyłki, 1003 problem z magazynem (miejsce, limit,
 uprawnienia folderu), 1004 braki uprawnień, 1005 problemy z atrybucją / luka w dzienniku DC, 1006 zmiana konfiguracji,
-1007 przestarzałe środowisko .NET / wygasający certyfikat, 1010 nieudana kontrola startowa; do rozliczalności (RODO)
-2600/2601 odczyt pojedynczego zdarzenia (kto, numer zdarzenia).
+1007 przestarzałe środowisko .NET / wygasający certyfikat / niedostępny klucz odnowionego certyfikatu (ostrzeżenie,
+dopóki działa poprzedni certyfikat; błąd, gdy ten wygaśnie), 1010 nieudana kontrola startowa, **2002 nieprzyjęta
+edycja `config\appsettings.json`** (usługa działa na poprzednich ustawieniach), 2202/2203 odbiorcy e-maila odrzuceni
+tymczasowo / trwale (częściowe doręczenie), 2300 ostrzeżenie: zadanie usługi zawodzi (wpis przy pierwszym błędzie lub
+zmianie jego kodu, potem najwyżej co godzinę), 2301 zadanie znów działa; do rozliczalności (RODO) 2600/2601 odczyt
+pojedynczego zdarzenia (kto, numer zdarzenia).
+
+Identyczne ostrzeżenia i błędy są zapisywane najwyżej raz na 15 minut; następny wpis kończy się dopiskiem „(repeated N
+times since the previous entry)”. Reguły SIEM, które liczą wystąpienia, muszą to uwzględniać. Ostrzeżenie 2002 nigdy
+nie jest w ten sposób ograniczane.
 
 ---
 
