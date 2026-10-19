@@ -197,7 +197,7 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
     }
 
-    /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts) and Find.</summary>
+    /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts), Find and Change Domain Controller.</summary>
     private static void RenderObjectDialogs(IWindowService windows, IDialogViewModelFactory factory)
     {
         const string Parent = "OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test";
@@ -213,6 +213,7 @@ internal static class SmokeTest
             factory.CreateResetPassword([User]),
             factory.CreateResetPassword([User, "CN=Łukasz Wiśniewski," + Parent]),
             factory.CreateFind(null),
+            factory.CreateChangeDomainController(),
         ];
         foreach (var dialog in dialogs)
         {

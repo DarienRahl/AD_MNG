@@ -28,6 +28,12 @@ internal static class TreeMenu
                 items.Add(Item(L.Commands.OpenInNewTab, new AsyncRelayCommand(() =>
                     shell.OpenLocationInNewTabAsync(ListLocation.ForContainer(container.Dn, container.Name, container.Icon)))));
                 items.Add(Item(L.Commands.Refresh, container.RefreshCommand));
+                if (container is { Kind: ObjectKind.Domain, IsPinnedEntry: false })
+                {
+                    // As in ADUC: the domain root offers "Change Domain Controller...".
+                    items.Add(CommandItem("session.changeDc", shell));
+                }
+
                 items.Add(new Separator());
                 items.Add(NewMenu(shell, container));
                 items.Add(new Separator());
