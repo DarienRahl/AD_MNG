@@ -72,6 +72,16 @@ internal sealed class LdapDirectorySession : IDirectorySession
 
     private TimeSpan AbandonTimeout => RequestTimeout < TimeSpan.FromSeconds(15) ? RequestTimeout : TimeSpan.FromSeconds(15);
 
+    /// <summary>
+    /// "Change domain controller": this session's options and a copy of its credential for <paramref name="server"/>.
+    /// </summary>
+    /// <exception cref="ObjectDisposedException">The session was closed.</exception>
+    internal ConnectionSettings SettingsForServer(string server)
+    {
+        ThrowIfDisposed();
+        return _pool.Factory.Settings.ForServer(server);
+    }
+
     /// <summary>Completes the session set-up (called by the connector before the session is handed out).</summary>
     internal void Initialize(SessionInfo info, ISchemaCatalog schema)
     {

@@ -422,6 +422,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Commands.CancelLoad" xml:space="preserve">
     <value>Stop loading</value>
   </data>
+  <data name="Commands.ChangeDomainController" xml:space="preserve">
+    <value>Change Domain Controller...</value>
+  </data>
   <data name="Commands.ChooseColumns" xml:space="preserve">
     <value>Add/Remove Columns...</value>
   </data>
@@ -811,6 +814,93 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Connect.UserNameRequired" xml:space="preserve">
     <value>Enter the user name.</value>
+  </data>
+  <data name="ChangeDc.WindowTitle" xml:space="preserve">
+    <value>Change Domain Controller</value>
+  </data>
+  <data name="ChangeDc.Domain" xml:space="preserve">
+    <value>Domain: {0}</value>
+  </data>
+  <data name="ChangeDc.Current" xml:space="preserve">
+    <value>Current domain controller: {0}</value>
+  </data>
+  <data name="ChangeDc.ListLabel" xml:space="preserve">
+    <value>Domain controllers of the domain</value>
+  </data>
+  <data name="ChangeDc.ColumnYourSite" xml:space="preserve">
+    <value>Your site</value>
+  </data>
+  <data name="ChangeDc.ColumnRoles" xml:space="preserve">
+    <value>Roles</value>
+  </data>
+  <data name="ChangeDc.RoleCurrent" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
+    <value>PDC emulator</value>
+  </data>
+  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
+    <value>The list of domain controllers could not be read. Type the name of a domain controller.</value>
+  </data>
+  <data name="ChangeDc.ThisDomainController" xml:space="preserve">
+    <value>This domain controller:</value>
+  </data>
+  <data name="ChangeDc.ServerPlaceholder" xml:space="preserve">
+    <value>Name or address, e.g. dc02.contoso.com</value>
+  </data>
+  <data name="ChangeDc.AnyWritableInSite" xml:space="preserve">
+    <value>Any writable domain controller in my site</value>
+  </data>
+  <data name="ChangeDc.AnyWritableTarget" xml:space="preserve">
+    <value>Connects to {0} in your site {1}.</value>
+  </data>
+  <data name="ChangeDc.AnyWritableIsCurrent" xml:space="preserve">
+    <value>The current domain controller {0} is already a writable domain controller in your site.</value>
+  </data>
+  <data name="ChangeDc.ClientSiteUnknown" xml:space="preserve">
+    <value>The site of this computer is unknown (no domain controller locator). Choose a domain controller from the list.</value>
+  </data>
+  <data name="ChangeDc.NoWritableInSite" xml:space="preserve">
+    <value>No writable domain controller of your site {0} is known.</value>
+  </data>
+  <data name="ChangeDc.InvalidName" xml:space="preserve">
+    <value>Enter the host name or IP address of a domain controller, without a port or ldap://.</value>
+  </data>
+  <data name="ChangeDc.IsCurrent" xml:space="preserve">
+    <value>This is the current domain controller.</value>
+  </data>
+  <data name="ChangeDc.ReadOnlyWarning" xml:space="preserve">
+    <value>{0} is a read-only domain controller (RODC): you can browse, but changes will be refused.</value>
+  </data>
+  <data name="ChangeDc.UpdateProfile" xml:space="preserve">
+    <value>Remember the choice in the connection profile '{0}'</value>
+  </data>
+  <data name="ChangeDc.ChangeButton" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="ChangeDc.Changed" xml:space="preserve">
+    <value>Connected to domain controller {0}.</value>
+  </data>
+  <data name="ChangeDc.AlreadyConnected" xml:space="preserve">
+    <value>Already connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.OtherDomain" xml:space="preserve">
+    <value>{0} is a domain controller of {1}, not of {2}.</value>
+  </data>
+  <data name="ChangeDc.NotSupported" xml:space="preserve">
+    <value>This connection cannot be moved to another domain controller. Disconnect and connect to the chosen domain controller.</value>
+  </data>
+  <data name="ChangeDc.StaysOn" xml:space="preserve">
+    <value>The session stays connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.RunningOperations" xml:space="preserve">
+    <value>Background operations are still running. They will be cancelled when the session moves to the other domain controller. Continue?</value>
+  </data>
+  <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
+    <value>The domain controller was changed, but the connection profile could not be saved: {0}</value>
+  </data>
+  <data name="ChangeDc.SessionLogAction" xml:space="preserve">
+    <value>Change domain controller</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
     <value>Are you sure you want to delete these {0} objects?</value>
@@ -1345,6 +1435,9 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="WindowSession.Ended" xml:space="preserve">
     <value>The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.</value>
+  </data>
+  <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
+    <value>This window belongs to the previous domain controller {0}. The session is now connected to {1} – close this window and open it again.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>You do not have permission to create objects of type '{0}' in this container.</value>

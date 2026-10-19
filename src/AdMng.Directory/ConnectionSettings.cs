@@ -50,17 +50,7 @@ internal sealed class ConnectionSettings
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateNumbers(options);
-
-        if (options.Server is { } server && string.IsNullOrWhiteSpace(server))
-        {
-            throw new ArgumentException("The server name is empty.", nameof(options));
-        }
-
-        if (options.Server is { } hostAndPort && hostAndPort.Count(c => c == ':') == 1)
-        {
-            // "dc01:636" would bypass Port/Security (and an IPv6 literal has more than one colon).
-            throw new ArgumentException("Specify the port in ConnectionOptions.Port, not in the server name.", nameof(options));
-        }
+        ValidateServer(options);
 
         if (options.Domain is { } domainName && string.IsNullOrWhiteSpace(domainName))
         {
@@ -118,12 +108,48 @@ internal sealed class ConnectionSettings
         }
     }
 
+    /// <summary>
+    /// "Change domain controller": the same options, authentication and credential for another DC. The copy has its own
+    /// credential instance, so <see cref="ClearCredential"/> of this (old) session does not affect the new one.
+    /// </summary>
+    /// <param name="server">Host name or address of the DC (no port: the port stays as configured).</param>
+    /// <exception cref="ArgumentException">The name is empty or contains a port.</exception>
+    /// <exception cref="ObjectDisposedException">The session was closed: its credential is gone.</exception>
+    public ConnectionSettings ForServer(string server)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        var options = Options with { Server = server.Trim() };
+        ValidateServer(options);
+        var credential = _credential;
+        if (credential is null && Options.Authentication != AuthenticationMode.CurrentUser)
+        {
+            throw new ObjectDisposedException(nameof(ConnectionSettings), "The session credential was released.");
+        }
+
+        var copy = credential is null ? null : new NetworkCredential(credential.UserName, credential.Password, credential.Domain);
+        return new ConnectionSettings(options, AuthType, copy, Account);
+    }
+
     /// <summary>Drops the reference to the credential (session disposed).</summary>
     public void ClearCredential() => _credential = null;
 
     /// <summary>Never includes the credential.</summary>
     public override string ToString() =>
         $"{Options.Server ?? Options.Domain ?? "(default)"}:{Port} {Options.Authentication}/{Options.Security}";
+
+    private static void ValidateServer(ConnectionOptions options)
+    {
+        if (options.Server is { } server && string.IsNullOrWhiteSpace(server))
+        {
+            throw new ArgumentException("The server name is empty.", nameof(options));
+        }
+
+        if (options.Server is { } hostAndPort && hostAndPort.Count(c => c == ':') == 1)
+        {
+            // "dc01:636" would bypass Port/Security (and an IPv6 literal has more than one colon).
+            throw new ArgumentException("Specify the port in ConnectionOptions.Port, not in the server name.", nameof(options));
+        }
+    }
 
     private static void ValidateNumbers(ConnectionOptions options)
     {

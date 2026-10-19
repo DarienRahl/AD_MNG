@@ -41,6 +41,9 @@ public interface IDialogViewModelFactory
     /// <summary>For <see cref="IDialogService.PickContainerAsync"/> (modal); the result is <see cref="ContainerPickerViewModel.Result"/>.</summary>
     ContainerPickerViewModel CreateContainerPicker(IDirectorySession session, string? startDn);
 
+    /// <summary>For <see cref="IDialogService.ShowChangeDomainControllerAsync"/> (modal): switch the session to another DC.</summary>
+    ChangeDomainControllerViewModel CreateChangeDomainController();
+
     /// <summary>For <see cref="IDialogService.ShowSessionLogAsync"/> (modeless).</summary>
     SessionLogViewModel CreateSessionLog();
 
@@ -58,7 +61,10 @@ public interface IDialogViewModelFactory
 }
 
 /// <summary>Default <see cref="IDialogViewModelFactory"/> (singleton).</summary>
-/// <remarks>With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)".</remarks>
+/// <remarks>
+/// With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)"; with the
+/// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site).
+/// </remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
     BatchEngines engines,
@@ -67,7 +73,8 @@ public sealed class DialogViewModelFactory(
     AuditLogExporter auditExporter,
     PowerShellHistory powerShellHistory,
     IThemeService theme,
-    WatchdogObjectHistoryLauncher? historyLauncher = null) : IDialogViewModelFactory
+    WatchdogObjectHistoryLauncher? historyLauncher = null,
+    IDirectoryConnector? connector = null) : IDialogViewModelFactory
 {
     public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
         new(services, engines.Planner, distinguishedName) { HistoryLauncher = historyLauncher };
@@ -86,6 +93,8 @@ public sealed class DialogViewModelFactory(
 
     public ContainerPickerViewModel CreateContainerPicker(IDirectorySession session, string? startDn) =>
         new(services, CreateTree(), session, startDn);
+
+    public ChangeDomainControllerViewModel CreateChangeDomainController() => new(services, auditLog, connector);
 
     public SessionLogViewModel CreateSessionLog() => new(services, auditLog, auditExporter);
 

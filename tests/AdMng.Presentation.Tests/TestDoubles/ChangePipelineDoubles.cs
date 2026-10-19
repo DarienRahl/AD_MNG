@@ -225,6 +225,12 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    public Task<bool> ShowChangeDomainControllerAsync()
+    {
+        Shown.Add("changeDc");
+        return Task.FromResult(false);
+    }
+
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) =>
         Task.FromResult(ViewEditorHandler?.Invoke(editor) ?? false);
 

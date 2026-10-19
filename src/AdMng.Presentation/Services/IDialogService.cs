@@ -62,6 +62,12 @@ public interface IDialogService
     /// <summary>Shows the connection window (used after Disconnect).</summary>
     Task ShowConnectAsync();
 
+    /// <summary>
+    /// "Change domain controller" (modal): switches the session to another DC of the domain. True when the session
+    /// was switched.
+    /// </summary>
+    Task<bool> ShowChangeDomainControllerAsync();
+
     /// <summary>Shows the saved view editor. Returns true when the operator saved.</summary>
     Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor);
 

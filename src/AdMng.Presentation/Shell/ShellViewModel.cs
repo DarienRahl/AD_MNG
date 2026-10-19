@@ -776,7 +776,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         RaiseHeaderChanged();
         if (Sessions.Current is { } session && !ReferenceEquals(session, _initializedFor))
         {
-            InitializeAsync().Forget();
+            if (!TryReloadAfterDomainControllerChange(session))
+            {
+                InitializeAsync().Forget();
+            }
+
             return;
         }
 

@@ -219,7 +219,9 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
 
 - ✅ **Połączenie:** bieżące konto Windows lub inne poświadczenia, Kerberos z podpisywaniem i szyfrowaniem, LDAPS,
   StartTLS; wykrywanie domeny i kontrolerów (DsGetDcName, lokacja), wybór DC przy łączeniu, profile połączeń bez haseł,
-  pasek tożsamości z ostrzeżeniem dla kont uprzywilejowanych, komunikaty błędów AD po polsku i angielsku.
+  pasek tożsamości z ostrzeżeniem dla kont uprzywilejowanych, komunikaty błędów AD po polsku i angielsku,
+  **„Zmień kontroler domeny…”** w trakcie sesji (lista DC z lokacją, GC, RODC i emulatorem PDC, „dowolny zapisywalny
+  DC w mojej lokacji”, bez ponownego wpisywania hasła; otwarte karty przeładowują się z nowego DC).
 - ✅ **Nawigacja i listy:** drzewo ładowane leniwie, „Funkcje zaawansowane”, listy bez limitu 2000 (strony
   strumieniowane, wirtualizacja), sortowanie, wybór kolumn z atrybutów schematu, nazwy z display specifiers (`CN=415`),
   znaczniki stanu, pasek adresu (DN lub ścieżka), Wstecz/Dalej/W górę, karty (Ctrl+T, Ctrl+Enter), panel szczegółów,
@@ -237,7 +239,7 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   panelu szczegółów i na kartach właściwości, Ctrl+C na liście obiektów (widoczne kolumny, tabulatory), „Kopiuj jako…”
   dla wielu obiektów naraz (adresy e-mail jako lista dla Outlooka, Ctrl+Shift+M) – szczegóły w sekcji
   [Kopiowanie wartości](#kopiowanie-wartości-) poniżej.
-- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID, „Zmień kontroler domeny” w trakcie sesji, „Godzin logowania”,
+- ⬜ **Brakuje:** rozpoznawania kontenerów po WKGUID, „Godzin logowania”,
   „Kopiuj użytkownika” (faza 3), VLV na listach bardzo dużych OU (sesja już go obsługuje), pól opartych o ACL (na razie
   wyświetlane jako tylko do odczytu – faza 5).
 - 🟡 **Do weryfikacji na Windows Server:** pilotaż, pomiar 100 000 obiektów, Kerberos z wymuszonym channel binding,
@@ -665,8 +667,6 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   „unknown (Negotiate)”; obejście: Kestrel ze SPN-em albo tymczasowo `RequireKerberos: false`); w trybie WEF zdarzenia
   dostarczone z opóźnieniem w trakcie zalewu (więcej niż `maxRecordsPerPoll`) mogą ominąć atrybucję; zmiana podsieci
   w `appsettings.json` nie aktualizuje reguły zapory. Szczegóły: [WATCHDOG.md, rozdział 9](docs/WATCHDOG.md#9-ograniczenia).
-- **Jeden kontroler przez całą sesję** – zmiana DC wymaga rozłączenia i ponownego połączenia (brak okna „Zmień
-  kontroler domeny”).
 - **Kontenery dobrze znane** (`Users`, `Computers`, …) nie są rozpoznawane po WKGUID – drzewo pokazuje je jak zwykłe
   kontenery, a obiekty są zawsze tworzone w bieżącym kontenerze, nie w domyślnym z `wellKnownObjects`.
 - **Bardzo duże OU** są wczytywane strumieniowo w całości (bez VLV) – lista działa płynnie, ale zajmuje pamięć

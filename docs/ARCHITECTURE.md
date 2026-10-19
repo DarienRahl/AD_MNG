@@ -49,6 +49,12 @@ testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tyl
   display specifiers 415/409) – równolegle, cel < 1 s.
 - `IDirectorySession` jest przypięta do jednego DC ([ADR-0005](adr/0005-sesja-przypieta-do-dc.md)) i ma pulę kilku
   połączeń. Wszystkie wywołania są asynchroniczne z `CancellationToken`.
+- „Zmień kontroler domeny…” nie przełącza istniejącej sesji: `IDirectoryConnector.ConnectToServerAsync` otwiera NOWĄ
+  sesję na wybranym DC z opcjami i poświadczeniem bieżącej (hasło zostaje w pamięci warstwy `AdMng.Directory`),
+  `ISessionManager.SwitchDomainControllerAsync` sprawdza ją (ta sama domena, inny DC) i dopiero wtedy zastępuje
+  bieżącą i zamyka poprzednią. Błąd lub anulowanie zostawia bieżącą sesję bez zmian. Okna otwarte w poprzedniej sesji
+  zostają przy niej (nie czytają i nie zapisują) i informują, że należą do poprzedniego DC; karty głównego okna
+  przeładowują się z nowego DC, a dziennik sesji zapisuje zmianę.
 - Wyszukiwanie (`SearchAsync`) zwraca `IAsyncEnumerable` – pierwsza strona trafia na ekran, zanim serwer zwróci
   kolejne. Dla ogromnych kontenerów dostępny jest VLV (`GetVirtualListPageAsync`) – okno przewijania sortowane po
   stronie serwera.

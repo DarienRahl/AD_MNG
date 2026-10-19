@@ -85,8 +85,6 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
     public async Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
     {
         var settings = ConnectionSettings.Create(options, credential, OperatingSystem.IsWindows());
-        var started = _timeProvider.GetTimestamp();
-        var sessionLogger = _loggerFactory.CreateLogger<LdapDirectorySession>();
         var domain = options.Domain?.Trim().TrimEnd('.');
         if (options.Server is null)
         {
@@ -99,6 +97,32 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
             }
         }
 
+        return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The new session gets its own copy of the source session's settings (<see cref="ConnectionSettings.ForServer"/>):
+    /// closing the source session afterwards clears only the source's reference to the credential.
+    /// </remarks>
+    public async Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(server);
+        if (current is not LdapDirectorySession source)
+        {
+            throw new NotSupportedException("The session was not opened by this connector.");
+        }
+
+        var settings = source.SettingsForServer(server);
+        var domain = settings.Options.Domain?.Trim().TrimEnd('.') ?? source.Info.DomainDnsName;
+        return await ConnectCoreAsync(settings, domain, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<IDirectorySession> ConnectCoreAsync(ConnectionSettings settings, string? domain, CancellationToken cancellationToken)
+    {
+        var started = _timeProvider.GetTimestamp();
+        var sessionLogger = _loggerFactory.CreateLogger<LdapDirectorySession>();
         var (factory, connection) = await OpenFirstConnectionAsync(settings, domain, sessionLogger, cancellationToken)
             .ConfigureAwait(false);
         try

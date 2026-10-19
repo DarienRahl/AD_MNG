@@ -231,6 +231,7 @@
                   Click="OnConnectClick"
                   Header="{l:Tr Ui.Connect}"
                   Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <MenuItem b:CommandMenu.Id="session.changeDc" />
         <MenuItem b:CommandMenu.Id="session.disconnect" />
         <Separator />
         <MenuItem b:CommandMenu.Id="nav.newTab" />
