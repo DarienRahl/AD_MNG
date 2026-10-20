@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B3, B4, B5a, B6, B7)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B3, B4, B5a, B5b, B6, B7)
 
 **B1.**
 
@@ -2295,6 +2295,84 @@ or localization keys were needed (510–512, `gppPassword`, `SYSVOL_NOT_AUDITED`
   every parser with valid, Polish-diacritic and hostile inputs – billion laughs, XXE, deep nesting, wrong encodings,
   truncated/oversized Registry.pol, traversal paths, 12 000-value files – and scan the serialized snapshot for the
   fixture secrets, their hashes and Base64 forms).
+
+**B5b (GPO content: SYSVOL reader, job, store, wiring – the rest of B5).** Code: Core `Abstractions/IGpoContentStore.cs`,
+`Gpo/GpoContentJob.cs`, `Gpo/GpoContentQueue.cs` (`GpoQueueReason`, `GpoQueueEntry.Merge`, `StoredGpoContent`,
+`GpoContentJobState`), `SysvolListing.RejectedEntries` (planner → `invalidPath`), `SecurityEventCatalog.InheritsAttribution`
+(510/511), `PendingAttributionProcessor` (optional `GpoAttributionInheritor` + `IGpoContentStore`), `AttributeDisplay` /
+`AlertContentBuilder` (marker → `Value.Unreadable`, summary row `Attr.gpo.moreChanges` + `Value.GpoMoreChanges`, en+pl);
+Service `Gpo/SmbClientSysvolReader.cs`, `SmbClientProcess.cs`, `SmbClientListingParser.cs`, `Krb5TicketCache.cs`,
+`Storage/Migrations/Migration0005GpoContent.cs`, `Storage/SqliteGpoContentStore.cs` (`SqliteWatchdogStore` implements
+`IGpoContentStore`; the purge of `SqliteStoreMaintenance` removes deleted GPO snapshots), `ServiceRegistration.AddGpoContent`,
+`SysvolBootstrapOptions.StateDirectory`; Testing `InMemoryWatchdogStore.GpoContent.cs`, contract tests
+`WatchdogStoreContractTests.GpoContent.cs`; tests Core `Gpo/GpoContentJobTests`, `GpoContentFormattingTests`, processor
+tests; Service `Gpo/SmbClientListingParserTests` (fixtures captured in the lab), `SmbClientSysvolReaderTests` (fake
+smbclient script), `Storage/GpoContentDatabaseTests`; lab `IntegrationTests/Gpo/GpoContentLabTests` + `GpoLab`. The package
+needed no change: `smbclient` is in `Depends` and `smb-client.conf` a conffile since B1.
+
+- **Registration:** the job (`gpo-content`, Core) and the reader are registered by the service only on Linux with the
+  directory watched, `Watchdog:Sysvol:Enabled` and `Watchdog:Kerberos:ServicePrincipal` set; `IGpoContentStore` always (the
+  attribution processor reads it). The client keytab and the ccache come from `KRB5_CLIENT_KTNAME` / `KRB5CCNAME` of the unit
+  (a non-`FILE:` ccache falls back to `FILE:/run/admng-watchdog/krb5cc`), passed to smbclient explicitly.
+- **GPC state from the detection snapshot** (`versionNumber`, `gPCFileSysPath`, the `cn` GUID of the DN) – no second LDAP
+  read; the job waits for the detection baseline. Linked scope from the gPLink of the domain head and OU snapshots: sites
+  are not in the snapshot and do not count (B5a's "sites count as linked" applies only when a caller passes them).
+- **Triggers** are read from the stored events (cursor `gpo_content.event_cursor` in `meta`, starting at the newest event on
+  the first run – older changes are covered by the baseline): GroupPolicyChanged with `versionNumber` / `gPCFileSysPath`
+  (creation = its `operation: created` row), ObjectRestored and ObjectDeleted of a GPO (the latter marks the snapshot
+  deleted; the GUID comes from `PreviousDn` or the `\0ADEL` RDN).
+- **Queue** (`gpo_content_queue`) has, beyond 8.8, `object_guid`, `change_set_id` (the content event's `ChangeSetId`),
+  `enqueued_at` and `first_attempt_at` (start of the lag tolerance). Reasons Baseline < OutOfBand < Changed < Created <
+  Restored < PathChanged; a merge keeps the earliest due time, the strongest reason and the newest change set.
+- **Which reads report:** the baseline is silent, and so is a first read after a Changed/OutOfBand trigger without a stored
+  snapshot (no "everything added"); Created/Restored without a snapshot are compared with nothing, Restored with the
+  snapshot kept at the deletion (`DeletedSnapshotDays`). Reads per run ≤ 20, reconciliation listings per run ≤ 25 (the
+  rest in the following runs, 5 s apart).
+- **Poison-input guard:** the attempt counter is stored before every read; a failure (also an unexpected exception from a
+  parser) is retried after 2 and 10 minutes, the third failure parks the entry (due = max) with `gpo.<guid>.parseError`
+  (Args GUID, `attempts`) until the next GroupPolicyChanged of the GPO (a merge replaces a parked entry). A parked GPO
+  counts as done for the baseline and as failed in the status. Kerberos/unreachable failures are not the GPO's: the attempt
+  is not counted, the run stops (job result Failed `sysvol`, health `sysvol.connection` Error – a Core constant, GUI prefix
+  `sysvol`); a missing folder of a new GPO within the lag tolerance is SYSVOL lag, not a failure.
+- **511** is emitted for PathChanged/Created/Restored triggers and at the baseline (a hijack that exists already is
+  Critical too); later version changes of a still redirected GPO are neither read nor reported again, the reconciliation
+  skips it. Nothing of a redirected GPO is listed or read from any host; in addition the reader refuses every folder whose
+  DC or domain is not the live session's, before a ticket is checked or smbclient started.
+- **SYSVOL lag** is decided after the (single tar) read of a change, not with a separate GPT.INI read; not for the baseline
+  and the reconciliation.
+- **Health:** Ok rows are reported only for a check reported before (no row per healthy GPO); `sysvol.accessDenied` adds one
+  HealthPermissionGap event until a read succeeds again.
+- **Reader – tar mode confirmed (Q16)** in the lab (Samba 4.19.5, Ubuntu – no Debian 12/13 host here, so the fixtures are
+  4.19; the format is Samba's `display_finfo` in all three versions). Tar names are `./<-D as given>/<server's name>`; a
+  missing file only fails that file (exit 1 + `NT_STATUS_NO_SUCH_FILE listing …`), a missing folder fails all (`cd …:`).
+  The per-file `get` **fallback was dropped**: smbclient splits `-c` at `;` regardless of quotes (lab: `put a "x;y.txt"` ran
+  two commands), so a hostile file name could inject commands such as `get … /local/path`; tar takes every name as a
+  separate argument. Names starting with `-` are refused (never passed). Child environment: `TZ=UTC` (listing times),
+  `LC_ALL=C.UTF-8`, `KRB5CCNAME` explicit, `PASSWD`, `PASSWD_FD`, `PASSWD_FILE`, `LIBSMB_PROG`, `USER`, `LOGNAME` removed,
+  stdin closed. Listing entries are parsed from the right (size and date must end the line), folder headers are followed
+  only for folders listed before below the GPO folder, everything else is counted in `RejectedEntries` (→ `invalidPath`).
+  Output caps: listing 16 Mi characters; tar = requested files × (largest file + 4 KiB). The Samba state directory
+  (`Watchdog:Sysvol:StateDirectory`, default `/run/admng-watchdog/samba`) is created 0700 and emptied after every run.
+- **TGT:** `Krb5TicketCache` reads the end time of the cached `krbtgt/REALM` ticket of the service principal
+  (`krb5_cc_retrieve_cred`) instead of remembering its own – GSSAPI LDAP writes into the same `KRB5CCNAME`. **Lab finding:**
+  smbclient (Samba's gse_krb5) refuses a TGT with about two minutes left (`NT_STATUS_INVALID_PARAMETER`; five minutes
+  work), so smbclient cannot use a 1-minute TGT at all. The B5 test therefore seeds the cache with a 1-minute TGT, shows
+  smbclient failing with it and the reader replacing it – and an expired one – before smbclient runs.
+- **Formatter:** only `File/…` rows translate `unreadable`; the summary row reads e.g. „Pozostałe zmienione ustawienia:
+  nie pokazano kolejnych: 37 (zmienionych ustawień łącznie: 236)”. The AD Manager event view shows the rows as they come
+  (no special rendering yet).
+- **Lab findings:** the lab's SYSVOL had drifted POSIX ACLs (every non-admin got `NT_STATUS_ACCESS_DENIED` on
+  `Policies`, `samba-tool ntacl sysvolcheck` failed) – fixed with `samba-tool ntacl sysvolreset`; `samba-tool gpo del`
+  removes the folder named by `gPCFileSysPath`, so a redirected test GPO is deleted only after the path is restored (the
+  test does that); Samba's default GPO folders are `MACHINE`/`USER` with attribute `N`; smbclient pads the name column by
+  bytes (multi-byte names shift the columns).
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests and Watchdog.Service.Tests green on Linux;
+  lab `GpoContentLabTests` green: security template (account policy 8 → 12, `SeDebugPrivilege` +S-1-5-32-551, High),
+  Registry.pol (`AU!NoAutoUpdate` `REG_DWORD:0` → `REG_DWORD:1`, Low), startup script (`0/Parameters`, script file hash,
+  High), GPP immediate task (`Exec/Command` cmd.exe → powershell.exe, High), GPP local user with `cpassword` (Redacted,
+  tag `gppPassword`, Critical; no table, column or inflated blob of the SQLite database holds the value, its UTF-16 or
+  Base64-decoded form), out-of-band edit found by a forced reconciliation (512 High, `SYSVOL_NOT_AUDITED`), redirection to
+  `\\evil.example\share\{GUID}` → 511 Critical with no reader call at all; the 1-minute-TGT test above.
 
 **B6 (rules of section 9, catalog severities, retention floor).** Code: Contracts `EventKindCatalog`
 (ManagedAccountLinkChanged Critical); Core `Rules/DefaultRules.cs`, `Tier0Catalog.cs`, `RolloutMode.cs`,
