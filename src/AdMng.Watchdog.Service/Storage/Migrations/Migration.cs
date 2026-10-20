@@ -13,6 +13,7 @@ internal sealed record Migration(int Version, string Name, string Sql)
         new(Migration0002OwnSeverity.Version, Migration0002OwnSeverity.Name, Migration0002OwnSeverity.Sql),
         new(Migration0003OutboxEventState.Version, Migration0003OutboxEventState.Name, Migration0003OutboxEventState.Sql),
         new(Migration0004SecurityEventsV2.Version, Migration0004SecurityEventsV2.Name, Migration0004SecurityEventsV2.Sql),
+        new(Migration0005GpoContent.Version, Migration0005GpoContent.Name, Migration0005GpoContent.Sql),
     ];
 
     /// <summary>The newest schema version this build knows.</summary>

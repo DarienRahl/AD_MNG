@@ -4,9 +4,11 @@ using AdMng.Directory;
 using AdMng.Watchdog.Core;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Detection;
+using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Service.Api;
 using AdMng.Watchdog.Service.Attribution;
 using AdMng.Watchdog.Service.Directory;
+using AdMng.Watchdog.Service.Gpo;
 using AdMng.Watchdog.Service.Identity;
 using AdMng.Watchdog.Service.Notifications;
 using AdMng.Watchdog.Service.Storage;
@@ -59,6 +61,7 @@ public static class ServiceRegistration
         AddApi(services);
         AddWatchdogAccount(services, startupOptions);
         AddCollector(services, startupOptions);
+        AddGpoContent(services, startupOptions);
         services.AddWatchdogCore();
 
         services.TryAddSingleton<IProcessTerminator, EnvironmentProcessTerminator>();
@@ -110,6 +113,7 @@ public static class ServiceRegistration
         services.AddSingleton<IConfigStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
         services.AddSingleton<ISecretStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
         services.AddSingleton<IStoreMaintenance>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<IGpoContentStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
     }
 
     private static void AddDelivery(IServiceCollection services)
@@ -199,6 +203,63 @@ public static class ServiceRegistration
         services.TryAddSingleton<WecFileIngestionJob>();
         services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<WecFileIngestionJob>());
         services.TryAddSingleton<ISecurityEventCollector>(provider => provider.GetRequiredService<WecFileIngestionJob>());
+    }
+
+    /// <summary>
+    /// GPO content tracking of the Linux service (stage B design 8): SYSVOL of the session DC over smbclient with the
+    /// service account's Kerberos TGT, and the <c>gpo-content</c> job – whenever the directory is watched, SYSVOL reading
+    /// is enabled (bootstrap <c>Watchdog:Sysvol:Enabled</c>) and the service has its own principal.
+    /// </summary>
+    private static void AddGpoContent(IServiceCollection services, ServiceOptions startupOptions)
+    {
+        if (!OperatingSystem.IsLinux() || startupOptions.Directory.Disabled || !startupOptions.Sysvol.Enabled
+            || string.IsNullOrWhiteSpace(startupOptions.Kerberos.ServicePrincipal))
+        {
+            return;
+        }
+
+        AddLinuxGpoContent(services, startupOptions);
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    private static void AddLinuxGpoContent(IServiceCollection services, ServiceOptions startupOptions)
+    {
+        var sysvol = startupOptions.Sysvol;
+        var cache = Environment.GetEnvironmentVariable("KRB5CCNAME") is { } fromUnit && fromUnit.StartsWith("FILE:", StringComparison.Ordinal)
+            ? fromUnit
+            : SysvolBootstrapOptions.DefaultCredentialCache;
+        services.TryAddSingleton<ISmbTicketSource>(provider => new Krb5TicketCache(
+            new Krb5TicketCacheOptions
+            {
+                Principal = startupOptions.Kerberos.ServicePrincipal!,
+                ClientKeytab = Environment.GetEnvironmentVariable("KRB5_CLIENT_KTNAME") is { Length: > 0 } keytab
+                    ? keytab
+                    : "FILE:" + KerberosBootstrapOptions.DefaultKeytabPath,
+                CredentialCache = cache,
+            },
+            provider.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ISysvolReader>(provider => new SmbClientSysvolReader(
+            new SmbClientProcess(new SmbClientProcessOptions
+            {
+                ExecutablePath = sysvol.SmbClientPath,
+                Timeout = TimeSpan.FromSeconds(Math.Clamp(sysvol.InvocationTimeoutSeconds, 5, 600)),
+                Environment = new Dictionary<string, string>(StringComparer.Ordinal) { ["KRB5CCNAME"] = cache },
+            }),
+            new SmbClientSysvolOptions { ConfigFile = sysvol.ConfigFile, StateDirectory = sysvol.StateDirectory },
+            provider.GetRequiredService<ISmbTicketSource>(),
+            provider.GetRequiredService<IDirectorySessionProvider>()));
+        services.TryAddSingleton(provider => new GpoContentJob(
+            provider.GetRequiredService<IGpoContentStore>(),
+            provider.GetRequiredService<IEventStore>(),
+            provider.GetRequiredService<IDetectionStore>(),
+            provider.GetRequiredService<ISysvolReader>(),
+            provider.GetRequiredService<IDirectorySessionProvider>(),
+            provider.GetRequiredService<IWatchdogConfigProvider>(),
+            provider.GetRequiredService<IHealthRegistry>(),
+            provider.GetRequiredService<IWatchdogSignals>(),
+            provider.GetRequiredService<TimeProvider>(),
+            provider.GetRequiredService<ILogger<GpoContentJob>>()));
+        services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<GpoContentJob>());
     }
 
     /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and (Windows only – obsolete on Linux, stage B

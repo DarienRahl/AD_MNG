@@ -21,4 +21,13 @@ public sealed record SysvolBootstrapOptions
 
     /// <summary>One smbclient invocation at most this long.</summary>
     public int InvocationTimeoutSeconds { get; init; } = 60;
+
+    /// <summary>The lock/state/cache/private directory named in <see cref="ConfigFile"/> (tmpfs in the runtime directory);
+    /// created 0700 when missing and emptied after every smbclient run (8.3).</summary>
+    public string StateDirectory { get; init; } = DefaultStateDirectory;
+
+    public const string DefaultStateDirectory = "/run/admng-watchdog/samba";
+
+    /// <summary>The unit's <c>KRB5CCNAME</c> (8.3): the FILE ccache the TGT for smbclient is kept in.</summary>
+    public const string DefaultCredentialCache = "FILE:/run/admng-watchdog/krb5cc";
 }

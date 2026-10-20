@@ -23,12 +23,12 @@ public sealed partial class NotificationStringsTests
         "tier0-badsuccessor", "tier0-machine-quota", "watchdog-self", "tier0-gpo",
     ];
 
-    /// <summary>Stage B texts outside the generated families (7.8 collector remedy, 7.8 ADWS source, 8.4 unreadable file,
+    /// <summary>Stage B texts outside the generated families (7.8 collector remedy, 7.8 ADWS source, 8.4 unreadable file, 8.6 summary row,
     /// 9.4 SACL change row, 12.1 notify-failure message).</summary>
     private static readonly string[] StageBKeys =
     [
         "Reason.DC_UNREACHABLE.Collector", "Reason.DC_UNREACHABLE.Collector.Remedy", "Source.Adws", "Value.Unreadable",
-        "Value.AuditSettingsChanged", "Subject.ServiceStopped", "Email.ServiceStopped",
+        "Value.AuditSettingsChanged", "Subject.ServiceStopped", "Email.ServiceStopped", "Value.GpoMoreChanges",
     ];
 
     private static readonly Dictionary<string, string> English = Load(CultureInfo.InvariantCulture);

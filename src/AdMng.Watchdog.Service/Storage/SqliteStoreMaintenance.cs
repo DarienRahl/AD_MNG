@@ -68,6 +68,9 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
             Cutoff(now, retention.OutboxDeadDays),
             cancellationToken).ConfigureAwait(false);
         var snapshots = await PurgeDeletedSnapshotsAsync(Cutoff(now, retention.DeletedSnapshotDays), cancellationToken).ConfigureAwait(false);
+        snapshots += await _database.WriteAsync(
+            (connection, transaction) => SqliteGpoContentStore.PurgeDeleted(connection, transaction, Cutoff(now, retention.DeletedSnapshotDays)),
+            cancellationToken).ConfigureAwait(false);
         var notices = await DeleteInBatchesAsync(
             "expiry_notices",
             "(object_guid, kind, expires_raw, threshold_days)",

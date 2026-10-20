@@ -147,9 +147,12 @@ public static class SecurityEventCatalog
     public static bool IsAttributable(WatchEventKind kind) => !NotAttributable.Contains(kind);
 
     /// <summary>True for PrivilegeGranted/PrivilegeRevoked (attribution inherited from the membership change, primary
-    /// group change or restore that caused it).</summary>
+    /// group change or restore that caused it) and for GroupPolicySettingsChanged/GroupPolicyPathRedirected (inherited
+    /// from the GroupPolicyChanged event of the same <c>versionNumber</c> / <c>gPCFileSysPath</c> change – stage B design
+    /// 8.7). GroupPolicyContentOutOfBand is created final (Unknown, <c>SYSVOL_NOT_AUDITED</c>).</summary>
     public static bool InheritsAttribution(WatchEventKind kind) =>
-        kind is WatchEventKind.PrivilegeGranted or WatchEventKind.PrivilegeRevoked;
+        kind is WatchEventKind.PrivilegeGranted or WatchEventKind.PrivilegeRevoked
+            or WatchEventKind.GroupPolicySettingsChanged or WatchEventKind.GroupPolicyPathRedirected;
 
     /// <summary>The account-management ids (keyed by TargetSid) that can attribute <paramref name="kind"/> on an
     /// object of <paramref name="objectKind"/>.</summary>

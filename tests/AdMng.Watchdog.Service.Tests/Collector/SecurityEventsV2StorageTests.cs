@@ -32,7 +32,7 @@ public sealed class SecurityEventsV2StorageTests
             + "VALUES ('dc01.contoso.test', 42, 'dc01.contoso.test', 4724, $time, 'zofia.żak', '0x5a3f1', $data);",
             ("$time", TestStore.Start.ToUnixTimeMilliseconds()), ("$data", BlobCodec.EncodeSecurityEvent(record)));
 
-        var result = new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance).Run();
+        var result = new MigrationRunner(database, new FakeTimeProvider(TestStore.Start), NullLogger<MigrationRunner>.Instance, [.. Migration.All.Take(4)]).Run();
 
         Assert.Equal((3, Migration0004SecurityEventsV2.Version), (result.FromVersion, result.ToVersion));
         Assert.NotNull(result.BackupPath);   // the pre-migration backup of spec 16.1

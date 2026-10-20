@@ -130,6 +130,11 @@ public sealed record SysvolEntry
 public sealed record SysvolListing
 {
     public IReadOnlyList<SysvolEntry> Entries { get; init; } = [];
+
+    /// <summary>Lines of the server's listing the reader could not attribute to an entry of the GPO folder (a hostile or
+    /// unparsable name, a folder header outside the GPO folder); the planner reports them as
+    /// <see cref="GpoReadProblems.InvalidPath"/>.</summary>
+    public int RejectedEntries { get; init; }
 }
 
 /// <summary>Why a SYSVOL read failed (8.3: only <c>NT_STATUS_*</c> codes are evaluated, never logged verbatim).</summary>

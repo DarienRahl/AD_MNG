@@ -24,4 +24,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- smbclient output captured on the Samba lab (Ubuntu, Samba 4.19.5) – stage B design 8.3. -->
+    <None Update="Gpo\Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

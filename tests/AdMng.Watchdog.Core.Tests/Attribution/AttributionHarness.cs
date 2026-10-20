@@ -32,7 +32,9 @@ internal sealed class AttributionHarness : IDisposable
             new UnresolvedReasonResolver(SecurityStore, Tracker, Time),
             new PrivilegeAttributionInheritor(Events),
             Tracker,
-            Time);
+            Time,
+            new AdMng.Watchdog.Core.Gpo.GpoAttributionInheritor(Events),
+            GpoContent);
         Gaps = new EventLogGapDetector(Time);
         Reductions = new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), Tokens,
             new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(Config));
@@ -94,6 +96,11 @@ internal sealed class AttributionHarness : IDisposable
     public FakeSecurityEventStore SecurityStore { get; } = new();
 
     public FakeEventStore Events { get; } = new();
+
+    /// <summary>GPO content snapshots (stage B design 8.7: the GPC version a content event was read for).</summary>
+    public AdMng.Watchdog.Testing.Stores.InMemoryWatchdogStore GpoContent => _gpoContent ??= new AdMng.Watchdog.Testing.Stores.InMemoryWatchdogStore(Time);
+
+    private AdMng.Watchdog.Testing.Stores.InMemoryWatchdogStore? _gpoContent;
 
     public FakeNotificationQueue Queue { get; } = new();
 

@@ -79,6 +79,11 @@ public static class GpoReadPlanner
         ArgumentNullException.ThrowIfNull(listing);
         limits ??= GpoReadLimits.Default;
         var problems = new List<string>();
+        if (listing.RejectedEntries > 0)
+        {
+            problems.Add(GpoReadProblems.InvalidPath);
+        }
+
         var inventory = Inventory(listing, limits, problems);
         var files = inventory.Where(e => !e.IsDirectory)
             .Select(e => (Entry: e, File: GpoFileClassifier.Classify(e.Path)))

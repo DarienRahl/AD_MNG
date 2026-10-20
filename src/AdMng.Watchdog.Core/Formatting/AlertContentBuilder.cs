@@ -164,6 +164,12 @@ public static class AlertContentBuilder
         var text = context.Text;
         var display = context.Attributes;
         var name = display.Name(change.Attribute);
+        if (string.Equals(change.Attribute, Gpo.GpoSettingsDiffer.SummaryAttribute, StringComparison.Ordinal) && change.Truncated)
+        {
+            // Stage B design 8.6: more than 200 changed settings – counts only (rows left out, all changed settings).
+            return new AlertChangeRow(name, null, text.Format("Value.GpoMoreChanges", change.OldCount, change.NewCount));
+        }
+
         switch (DetailLevelFilter.Visibility(change, context.DetailLevel))
         {
             case ValueVisibility.Secret:

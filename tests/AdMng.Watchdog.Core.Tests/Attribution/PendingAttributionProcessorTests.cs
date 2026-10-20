@@ -174,6 +174,67 @@ public sealed class PendingAttributionProcessorTests : IDisposable
         Assert.Equal(AdminSid, processed.Update.Attribution.Actor!.Sid);
     }
 
+    [Theory]
+    [InlineData(WatchEventKind.GroupPolicySettingsChanged, "versionNumber")]
+    [InlineData(WatchEventKind.GroupPolicyPathRedirected, "gPCFileSysPath")]
+    public async Task GpoContentEvents_InheritTheGroupPolicyChangedOfTheirChangeSet(WatchEventKind kind, string attribute)
+    {
+        var changeSet = Guid.NewGuid();
+        var gpo = Guid.NewGuid();
+        _h.Events.Add(Create(WatchEventKind.GroupPolicyChanged, GpcDn, WatchObjectKind.GroupPolicy, objectGuid: gpo, changedAttributes: [attribute]) with
+        {
+            ChangeSetId = changeSet,
+            Attribution = Resolved(AdminSid),
+        });
+
+        var processed = await ProcessAsync(Create(kind, GpcDn, WatchObjectKind.GroupPolicy, objectGuid: gpo) with { ChangeSetId = changeSet });
+
+        Assert.True(processed.IsFinal);
+        Assert.Equal(AdminSid, processed.Update.Attribution.Actor!.Sid);
+    }
+
+    [Fact]
+    public async Task GpoSettingsChanged_OutsideItsChangeSet_InheritsTheVersionTransitionItWasReadFor()
+    {
+        var gpo = Guid.NewGuid();
+        var detectedAt = Now.AddMinutes(-1);
+        _h.Events.Add(Create(WatchEventKind.GroupPolicyChanged, GpcDn, WatchObjectKind.GroupPolicy, objectGuid: gpo, detectedAt: Now.AddMinutes(-40)) with
+        {
+            ChangeSetId = Guid.NewGuid(),
+            Changes = [new AttributeChange { Attribute = "versionNumber", OldValues = ["131074"], NewValues = ["131075"] }],
+            Attribution = Resolved(OtherAdminSid),
+        });
+        _h.Events.Add(Create(WatchEventKind.GroupPolicyChanged, GpcDn, WatchObjectKind.GroupPolicy, objectGuid: gpo, detectedAt: Now.AddMinutes(-20)) with
+        {
+            ChangeSetId = Guid.NewGuid(),
+            Changes = [new AttributeChange { Attribute = "versionNumber", OldValues = ["131075"], NewValues = ["131076"] }],
+            Attribution = Resolved(AdminSid),
+        });
+        await _h.GpoContent.CommitGpoContentAsync(new AdMng.Watchdog.Core.Gpo.GpoContentSnapshot
+        {
+            GpoGuid = Guid.Parse("6AC1786C-016F-11D2-945F-00C04FB984F9"),
+            Dc = "dc1.contoso.test",
+            GpcVersion = 131075,
+            ReadAt = detectedAt,
+        }, [], Ct);
+
+        var processed = await ProcessAsync(Create(WatchEventKind.GroupPolicySettingsChanged, GpcDn, WatchObjectKind.GroupPolicy, objectGuid: gpo, detectedAt: detectedAt));
+
+        Assert.True(processed.IsFinal);
+        Assert.Equal(OtherAdminSid, processed.Update.Attribution.Actor!.Sid); // the 131074 → 131075 transition, not the newest change
+    }
+
+    [Fact]
+    public void GpoContentKinds_InheritAndAreNeverCorrelatedThemselves()
+    {
+        Assert.True(SecurityEventCatalog.InheritsAttribution(WatchEventKind.GroupPolicySettingsChanged));
+        Assert.True(SecurityEventCatalog.InheritsAttribution(WatchEventKind.GroupPolicyPathRedirected));
+        Assert.False(SecurityEventCatalog.InheritsAttribution(WatchEventKind.GroupPolicyContentOutOfBand));
+        Assert.Empty(SecurityEventCatalog.CandidateCodes(WatchEventKind.GroupPolicySettingsChanged, WatchObjectKind.GroupPolicy));
+    }
+
+    private const string GpcDn = "CN={6AC1786C-016F-11D2-945F-00C04FB984F9},CN=Policies,CN=System,DC=contoso,DC=test";
+
     [Fact]
     public async Task APendingCause_IsWaitedFor()
     {

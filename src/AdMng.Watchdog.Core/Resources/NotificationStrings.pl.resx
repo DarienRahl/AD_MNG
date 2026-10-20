@@ -41,6 +41,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="Attr.gpo.moreChanges" xml:space="preserve">
+    <value>Pozostałe zmienione ustawienia</value>
+  </data>
   <data name="Attr.AuditPolicyChanges" xml:space="preserve">
     <value>Zmiany zasad inspekcji</value>
   </data>
@@ -2011,6 +2014,9 @@
   </data>
   <data name="Value.Unknown" xml:space="preserve">
     <value>nieustalony</value>
+  </data>
+  <data name="Value.GpoMoreChanges" xml:space="preserve">
+    <value>nie pokazano kolejnych: {0} (zmienionych ustawień łącznie: {1})</value>
   </data>
   <data name="Value.Unreadable" xml:space="preserve">
     <value>nie udało się odczytać</value>

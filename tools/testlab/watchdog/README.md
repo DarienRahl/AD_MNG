@@ -148,6 +148,24 @@ eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"
 tools/testlab/watchdog/wec-units-lab.sh <obraz> admng-openwec_<wersja>_amd64.deb admng-watchdog_<wersja>_amd64.deb
 ```
 
+## Zawartość GPO (SYSVOL)
+
+Etap B5 (`docs/dev/watchdog-linux-design.md` 8): `GpoContentLabTests` zakłada `samba-tool gpo create` własny GPO, zapisuje
+jego pliki przez `smbclient` jako administrator (szablon zabezpieczeń, Registry.pol, skrypt startowy, zadanie GPP,
+użytkownik GPP z `cpassword`), podbija `GPT.INI` i `versionNumber` jak GPMC i sprawdza zdarzenia „było → jest” zadania
+`gpo-content`, które czyta SYSVOL przez `smbclient` z biletem świeżego konta komputera (keytab z
+`admng-watchdog-keytab init`, własne `krb5.conf` i `smb-client.conf` w katalogu tymczasowym). Do tego: zmiana pliku bez
+zmiany wersji wykryta wymuszonym uzgodnieniem, przekierowanie `gPCFileSysPath` (Critical, bez żadnego połączenia SMB),
+skan bazy SQLite pod kątem `cpassword` oraz wymiana biletu TGT z 1-minutowym czasem życia. Na końcu GPO jest usuwany.
+Wymaga `smbclient`, `kinit` i `samba-tool` (Python z modułem `samba`). Jeżeli konto komputera dostaje
+`NT_STATUS_ACCESS_DENIED` na `Policies`, uprawnienia SYSVOL laboratorium rozjechały się z ACL obiektów GPO
+(`samba-tool ntacl sysvolcheck` zgłasza błąd) – naprawia je `samba-tool ntacl sysvolreset`.
+
+```bash
+export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
+dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~GpoContentLabTests"
+```
+
 ## Testy integracyjne
 
 ```bash

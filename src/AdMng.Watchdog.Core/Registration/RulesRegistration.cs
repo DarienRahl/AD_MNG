@@ -63,6 +63,7 @@ internal static class RulesRegistration
         services.TryAddSingleton<LockoutSourceResolver>();
         services.TryAddSingleton<UnresolvedReasonResolver>();
         services.TryAddSingleton<PrivilegeAttributionInheritor>();
+        services.TryAddSingleton<Gpo.GpoAttributionInheritor>();
         services.TryAddSingleton<PendingAttributionProcessor>();
         services.TryAddSingleton<EventLogGapDetector>();
         services.TryAddSingleton<EventLogOnlyDetector>();

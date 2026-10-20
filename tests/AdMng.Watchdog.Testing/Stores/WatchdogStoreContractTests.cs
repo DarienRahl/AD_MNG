@@ -28,7 +28,7 @@ namespace AdMng.Watchdog.Testing.Stores;
 /// <typeparam name="TStore">One object implementing every store interface of section 6.2.</typeparam>
 public abstract partial class WatchdogStoreContractTests<TStore>
     where TStore : IDetectionStore, IEventStore, INotificationQueueStore, IOutboxStore, ISecurityEventStore,
-        IExpiryNoticeStore, IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance
+        IExpiryNoticeStore, IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, IGpoContentStore
 {
     protected static readonly DateTimeOffset Now = new(2026, 10, 14, 8, 0, 0, TimeSpan.Zero);
 

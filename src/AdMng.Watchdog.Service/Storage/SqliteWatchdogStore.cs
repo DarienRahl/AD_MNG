@@ -2,6 +2,7 @@ using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Service.Secrets;
 
@@ -15,7 +16,7 @@ namespace AdMng.Watchdog.Service.Storage;
 /// </summary>
 public sealed class SqliteWatchdogStore :
     IDetectionStore, IEventStore, INotificationQueueStore, IOutboxStore, ISecurityEventStore, IExpiryNoticeStore,
-    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, Api.IViewerEventSearch, IAsyncDisposable
+    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, IGpoContentStore, Api.IViewerEventSearch, IAsyncDisposable
 {
     private readonly bool _ownsDatabase;
 
@@ -43,6 +44,7 @@ public sealed class SqliteWatchdogStore :
         Config = new SqliteConfigStore(database, protector, timeProvider);
         Secrets = new SqliteSecretStore(database, protector, timeProvider);
         Maintenance = new SqliteStoreMaintenance(database, timeProvider);
+        GpoContent = new SqliteGpoContentStore(database, notifier);
     }
 
     public SqliteDatabase Database { get; }
@@ -66,6 +68,8 @@ public sealed class SqliteWatchdogStore :
     public SqliteSecretStore Secrets { get; }
 
     public SqliteStoreMaintenance Maintenance { get; }
+
+    public SqliteGpoContentStore GpoContent { get; }
 
     /// <summary>Creates/migrates <c>&lt;dataDirectory&gt;/watchdog.db</c> and returns a store that owns the database.</summary>
     public static SqliteWatchdogStore Open(string dataDirectory, SecretProtector protector, TimeProvider timeProvider, ILogger<MigrationRunner> logger)
@@ -312,4 +316,39 @@ public sealed class SqliteWatchdogStore :
 
     public Task<StorageStatusDto> GetStatusAsync(CancellationToken cancellationToken) =>
         Maintenance.GetStatusAsync(cancellationToken);
+
+    // GPO content (stage B design 8.8)
+
+    public Task<StoredGpoContent?> GetGpoContentAsync(Guid gpoGuid, CancellationToken cancellationToken) =>
+        GpoContent.GetGpoContentAsync(gpoGuid, cancellationToken);
+
+    public Task<IReadOnlyList<StoredGpoContent>> ListGpoContentAsync(bool includeSettings, CancellationToken cancellationToken) =>
+        GpoContent.ListGpoContentAsync(includeSettings, cancellationToken);
+
+    public Task<IReadOnlyList<WatchEvent>> CommitGpoContentAsync(GpoContentSnapshot snapshot, IReadOnlyList<WatchEvent> events, CancellationToken cancellationToken) =>
+        GpoContent.CommitGpoContentAsync(snapshot, events, cancellationToken);
+
+    public Task<IReadOnlyList<WatchEvent>> CompleteGpoQueueEntryAsync(Guid gpoGuid, IReadOnlyList<WatchEvent> events, CancellationToken cancellationToken) =>
+        GpoContent.CompleteGpoQueueEntryAsync(gpoGuid, events, cancellationToken);
+
+    public Task MarkGpoContentDeletedAsync(Guid gpoGuid, DateTimeOffset deletedAt, CancellationToken cancellationToken) =>
+        GpoContent.MarkGpoContentDeletedAsync(gpoGuid, deletedAt, cancellationToken);
+
+    public Task EnqueueGpoContentAsync(GpoQueueEntry entry, CancellationToken cancellationToken) =>
+        GpoContent.EnqueueGpoContentAsync(entry, cancellationToken);
+
+    public Task<IReadOnlyList<GpoQueueEntry>> GetGpoQueueAsync(CancellationToken cancellationToken) =>
+        GpoContent.GetGpoQueueAsync(cancellationToken);
+
+    public Task UpdateGpoQueueEntryAsync(GpoQueueEntry entry, CancellationToken cancellationToken) =>
+        GpoContent.UpdateGpoQueueEntryAsync(entry, cancellationToken);
+
+    public Task RemoveGpoQueueEntryAsync(Guid gpoGuid, CancellationToken cancellationToken) =>
+        GpoContent.RemoveGpoQueueEntryAsync(gpoGuid, cancellationToken);
+
+    public Task<GpoContentJobState> GetGpoContentStateAsync(CancellationToken cancellationToken) =>
+        GpoContent.GetGpoContentStateAsync(cancellationToken);
+
+    public Task SaveGpoContentStateAsync(GpoContentJobState state, CancellationToken cancellationToken) =>
+        GpoContent.SaveGpoContentStateAsync(state, cancellationToken);
 }
