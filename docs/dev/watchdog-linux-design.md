@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a)
 
 **B1.**
 
@@ -2140,6 +2140,93 @@ watchdog/keytab-lab.sh`, `KeytabLabTests` (Watchdog.IntegrationTests), `GssapiTe
   `CLAUDE.md` layout row for `src/AdMng.Watchdog.Keytab` (B8); `otpActive` against a real Windows DC (Q5) and a real
   second DC for `replicationPending` (B9 pilot); the struct offsets of the P/Invoke layer are LP64 (x86_64 and aarch64)
   but only x86_64 was run.
+
+**B5a (GPO content, pure Core part of B5).** B5 is split: B5a is the Core logic of section 8 without I/O; **B5b** adds
+`Service/Gpo/SmbClientSysvolReader.cs` (8.3 over smbclient, TGT handling, listing parser and its Debian 12/13
+fixtures), `GpoContentJob` (8.1 triggers, baseline, queue, daily reconciliation), migration 0005 and the store, the
+health wiring (`gpo.<guid>.*`, `sysvol.accessDenied`, Status „Zawartość GPO”), the attribution-engine wiring of the
+inheritor (`SecurityEventCatalog.InheritsAttribution`, follow-ups and re-evaluation of spec 11.4/11.5), the formatter
+texts for the marker and summary rows below and the B5 lab acceptance. Code: `Core/Abstractions/ISysvolReader.cs`,
+`Core/Gpo/` (`SysvolTypes` – `SysvolGpoFolder` and the reader's result types, `GpoPathValidator` + `GpoRelativePath`,
+`GpoFileClassifier`, `GpoReadPlanner` + `GpoInventoryComparer`, `GpoSnapshotBuilder`, `GpoContentModel`,
+`GpoSettingCategories` + `GpoSecretSettings`, `GpoValues`, `GpoSettingSink`, `GpoSettingsDiffer`, `GpoLinkScope` +
+`GpoSeverityClassifier`, `GpoContentEvents`, `GpoAttributionInheritor` + `SysvolLagPolicy`, `Parsers/` – `GptIniParser`,
+`GptTmplParser`, `AuditCsvParser`, `RegistryPolParser`, `GppXmlParser`, `ScriptsIniParser`, `PolicyCommentParser`,
+`GpoText`/`IniReader`, `GpoXml`); the fake `Testing/Gpo/InMemorySysvolReader.cs` (call log per folder, raw hostile
+listing entries, injected failures); tests `Watchdog.Core.Tests/Gpo` with hand-written fixtures in `Gpo/Fixtures`
+(UTF-8/LF sources encoded by the tests as SYSVOL stores them – UTF-16LE+BOM+CRLF, UTF-8+BOM – and Registry.pol as an
+annotated hex dump of [MS-GPREG] 2.2.1, cross-checked against an entry builder). No new contract kinds, tags, reasons
+or localization keys were needed (510–512, `gppPassword`, `SYSVOL_NOT_AUDITED`, `Value.Unreadable` exist).
+
+- **Settings model (8.5) extended:** `GpoSetting` has `IsList` and `Source` (the file's relative path),
+  `GpoSettingKind` has `Unreadable`, the snapshot has `State` (`Complete`/`Partial`, column `state` of 8.8);
+  `GpoSettingCategory` is a stable-numbered enum, `GpoSettingCategories.IsSensitive` the list of 8.6.
+- **Lists instead of one capped value:** user rights, restricted groups, GPP `Members` (and any container of two or more
+  same-named leaf elements) and GPP `Filters` are sorted, de-duplicated element lists; the 200-character cap applies
+  per element, a list of more than 500 elements becomes one hash. Their `AttributeChange` rows carry the elements in
+  `OldValues`/`NewValues` and the differences in `Added`/`Removed` (not "one canonical value each"): a joined SID list
+  of four or five domain SIDs already exceeds 200 characters, and hashing it would lose "was → is" for exactly the most
+  sensitive categories.
+- **Keys (8.5 left them open):** security template `Computer/Security/<section>/<key>`; its `[Registry Values]`
+  `Computer/Security/Registry Values/HKLM\…!<name>` = `REG_DWORD:1` (kept apart from Registry.pol's
+  `Computer/Registry/HKLM\…!<name>`); `[Group Membership]` `…/Group Membership/<SID or name>/Members|MemberOf`;
+  services `…/Services/<name>/StartupMode|Security`; `[Registry Keys]`/`[File Security]` `…/<path>/Mode|Security`;
+  other sections (`[System Log]`, `[Security Log]`, `[Application Log]`, unknown ones) generic, category `EventLog`
+  (not sensitive – 8.6 does not list it) or `Other`. Registry.pol markers: `DELETE`, `DELETE_ALL_VALUES` (key
+  `…!**delvals.`), `DELETE_KEY` and `CREATE_KEY` (key-level keys without `!`), `SOFT:<value>`, `(Default)` for the
+  unnamed value, REG_MULTI_SZ as quoted items. GPP: `<Scope>/Preferences/<Type>/<uid>/<Properties attribute>`, item
+  attributes as `<uid>@name`, `@disabled`, `@removePolicy`, `@userContext`, `@bypassErrors`, `@desc`, `@element`
+  (`clsid`, `image`, `status`, `changed` skipped), Properties children flattened by path – the design's example
+  `…/ScheduledTasks/{uid}/Command` is `…/{uid}/Task/Actions/Exec/Command`. Scripts: `…/Scripts/<section>/<n>` (command
+  line) and `…/<n>/Parameters`, PowerShell under `…/Scripts/PowerShell/…`, script files
+  `…/Scripts/Files/<path below Scripts>` = `sha256:<hex> size:<n>` (Hash) or `size:<n>` above 1 MiB (not read).
+  Audit: `Computer/Audit/{guid}` (lower case) = `No Auditing`/`Success`/`Failure`/`Success and Failure` (also for
+  `[Event Audit]`), options `Computer/Audit/Option/<name>`. Comments `<Scope>/Comment/<namespace>:<policy>`, `Gpo/Comment`.
+  Keys compare case-insensitively; longer than 512 characters they keep a prefix plus a hash suffix.
+- **Masking:** presence only, so a new value of an existing secret is not detectable from the value; a GPP item with a
+  masked value therefore also stores its `<uid>@changed` time (GPMC updates it on every edit of the item). SNMP
+  `ValidCommunities` (value names are the community strings) collapse into one masked `…!*` setting, also in GPP
+  (`name` masked). `GpoSecretSettings.Registry` = Winlogon `DefaultPassword`/`AltDefaultPassword`, SNMP
+  `ValidCommunities` (Policies and Services). Over-masking by the name rule (LAPS `PasswordLength` …) is accepted.
+- **`gppPassword`:** set whenever the new content carries a GPP `cpassword` (presence, not only a change), so every
+  510 of such a GPO is Critical – the MS14-025 exposure persists as long as the value is in SYSVOL. 512 gets the tag
+  too but keeps the severity of 8.6 (High, Critical on the domain head / DC OU).
+- **Linked scope:** every gPLink entry naming the GPO counts, also a disabled link (it can be enabled without a content
+  change; enabling it is a GroupPolicyLinkChanged event); sites count as linked. Links are matched by the GUID of the
+  link DN's `cn`.
+- **Rows and limits (8.6):** sensitive categories first, then by key; more than 200 rows → 199 rows and a summary row
+  `gpo.moreChanges` (`Truncated`, `OldCount` = rows left out, `NewCount` = changed settings). An unreadable file is a
+  marker setting `File/<path>` whose row value is `unreadable` – the formatters (B5b) show `Value.Unreadable` for both.
+- **Fail closed per file:** a file that cannot be read, parsed, exceeds the per-file / total limits or would exceed the
+  10 000 settings contributes only its marker, and its settings of the previous snapshot are carried over (by `Source`),
+  so a transient failure is neither "everything removed" nor later "everything added". The marker's category is the
+  file's (security template → privilege rights, Registry.pol → security registry, GPP by type …): an unreadable
+  sensitive file counts as a sensitive change. Problem names (health Args of `tooLarge`/`parseError`): `maxFiles`
+  (counts files **and** folders), `maxDepth` (entries deeper than 12 folders are dropped), `maxFileSize`,
+  `maxTotalSize`, `maxSettings`, `invalidPath` (listing paths with `..`, roots, `:`, wildcards, control characters,
+  lone surrogates, trailing dot/space are dropped). Paths differing only in case: the first in ordinal order wins.
+  Read order within the 50 MiB: GPT.INI, security template, audit.csv, Registry.pol, scripts ini files, preferences,
+  script files, comments.
+- **Encodings:** GptTmpl.inf, scripts.ini, psscripts.ini and GPO.cmt accept UTF-16LE with or without BOM and strict
+  UTF-8; UTF-16BE, UTF-32, invalid sequences, odd UTF-16 lengths and NUL characters fail the file (an ANSI security
+  template with diacritics fails too – secedit writes Unicode). GPT.INI falls back to Latin-1 (only the digits
+  matter). XML: invalid bytes in the declared encoding fail the file (XmlReader throws); invalid characters via
+  character references become U+FFFD (character checking off); nesting ≤ 64, ≤ 16 Mi characters; DTDs (entity
+  expansion, external entities) fail the file.
+- **Path validation (8.2):** exact equality apart from case – a trailing separator, a trailing dot of the domain,
+  `\\?\UNC\`, forward slashes, an IP host, `..` segments or another GUID are all `Redirected`; an empty path is
+  `Missing` (no event). `SysvolGpoFolder` takes the DC and the domain only as `[a-z0-9.-]` DNS names (IPv4 literals
+  refused) and the GUID, and yields `//<dc>/SYSVOL` and `-D <domain>/Policies/{GUID}` (GUID upper case, "B" format).
+- **Attribution (8.7):** `GpoAttributionInheritor` looks in the content event's change set first (GroupPolicyChanged
+  preferred, ObjectRestored for a restore), else for a GroupPolicyChanged of the same GPO within **3 h** (the 2 h SYSVOL
+  lag tolerance plus queueing) whose `versionNumber` became the version the content was read for – only with that
+  version; 511 inherits from the GroupPolicyChanged carrying the `gPCFileSysPath` change. SYSVOL lag compares the
+  computer and user halves separately (`GpoVersion.IsBehind`); a missing GPT.INI counts as behind; GPT.INI ahead of
+  the GPC is read.
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests green on Linux (the new `Gpo` tests cover
+  every parser with valid, Polish-diacritic and hostile inputs – billion laughs, XXE, deep nesting, wrong encodings,
+  truncated/oversized Registry.pol, traversal paths, 12 000-value files – and scan the serialized snapshot for the
+  fixture secrets, their hashes and Base64 forms).
 
 ---
 
