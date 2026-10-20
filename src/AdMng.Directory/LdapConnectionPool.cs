@@ -517,7 +517,9 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
 
         /// <summary>
         /// Sends one request on the leased connection once the connection's request gate admits it. The gate is
-        /// held until the request really finished - also when the caller stopped waiting (cancellation).
+        /// held until the request really finished - also when the caller stopped waiting (cancellation) - and is free
+        /// again when a request that finished returns to its caller, so the caller's next request finds the
+        /// connection idle (no needless growth, idle recycling sees it).
         /// </summary>
         public async Task<TResponse> SendAsync<TResponse>(DirectoryRequest request, TimeSpan timeout, CancellationToken cancellationToken)
             where TResponse : DirectoryResponse
@@ -534,13 +536,7 @@ internal sealed class LdapConnectionPool : IAsyncDisposable
                 throw;
             }
 
-            _ = pending.Completion.ContinueWith(
-                static (completed, state) => ((RequestScope)state!).Complete(completed),
-                scope,
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
-            return await pending.Response.ConfigureAwait(false);
+            return await pending.ReceiveAsync(scope.Complete).ConfigureAwait(false);
         }
 
         /// <summary>The connection failed at transport level; drop it from the pool.</summary>
