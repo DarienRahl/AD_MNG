@@ -197,17 +197,21 @@ Watchdog **nigdy**:
    RDP, nie może być delegowane, używa tylko AES. Jego hasło ma 120 losowych znaków, nikt go nie zna i zmienia się co
    30 dni. Przejęcie tego konta daje napastnikowi odczyt katalogu i SYSVOL – to samo, co ma każdy zalogowany
    użytkownik domeny, plus kilka jawnie nadanych praw odczytu. Zapis we własnym obiekcie blokuje wpis odmowy (2.5),
-   tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), wystawienie certyfikatu na to konto –
-   wpisy odmowy na szablonach certyfikatów (2.5, gdy w lesie jest urząd Enterprise), a każda zmiana konta i tak jest
-   alarmem krytycznym. Wpisy na szablonach są ważne, bo certyfikat pozwala logować się jako to konto bez hasła przez
-   cały okres swojej ważności (zwykle rok) – zmiana hasła co 30 dni by go nie unieważniła. Jest jednak wyjątek poza
-   AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako dowolny użytkownik domeny (tzw.
+   tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), a każda zmiana konta i tak jest alarmem
+   krytycznym. **Ryzyko przyjęte świadomie (ADR-0009):** wystawienia certyfikatu na to konto nie blokujemy. Gdy w lesie
+   jest urząd Enterprise, kto ukradnie keytab, może poprosić o certyfikat dla `ADMNG-WD$` według szablonu, w którym
+   rejestrować się mogą komputery domeny (domyślnie „Computer”), i logować się nim jako to konto bez hasła przez cały
+   okres ważności certyfikatu (zwykle rok) – zmiana hasła co 30 dni go nie unieważnia. Dlatego po wycieku keytabu
+   certyfikaty wystawione na konto trzeba odwołać (2.5, „Gdy keytab mógł wyciec”). Jest też wyjątek poza AD: kto ma
+   keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako dowolny użytkownik domeny (tzw.
    *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć alarmy (historii nie skróci
    poniżej progu z ustawień startowych – punkt 5). Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja
    (4.3); podrobiony bilet zadziała tylko z podsieci administratorów, bo tylko z niej API przyjmuje połączenia – ale
-   z **każdej** stacji tej podsieci, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer). Dlatego
-   keytab, konta systemowe, które go czytają (usługa i OpenWEC), kopie maszyny i root serwera są zasobami Tier 0, a
-   każda zmiana konfiguracji Watchdoga trafia też do dotychczasowych odbiorców (punkt 3).
+   z **każdej** stacji tej podsieci, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer). Operacje
+   administracyjne Watchdoga są bowiem dozwolone z całej tej podsieci, nie tylko ze stacji PAW – to także część
+   przyjętego ryzyka (ADR-0009). Dlatego keytab, konta systemowe, które go czytają (usługa i OpenWEC), kopie maszyny
+   i root serwera są zasobami Tier 0, a każda zmiana konfiguracji Watchdoga trafia też do dotychczasowych odbiorców
+   (punkt 3).
 3. **Administratorzy Watchdoga to nie to samo co Domain Admins.** Grupa `AdMng-Watchdog-Admins` zarządza regułami,
    kanałami i wyjątkami w Watchdogu; jej członkowie nie potrzebują żadnych praw w AD. Członkostwo w Domain Admins nie
    daje żadnej roli w Watchdogu. Powód: osoby, których zmiany są monitorowane, nie powinny po cichu wyłączać
@@ -226,12 +230,12 @@ Watchdog **nigdy**:
 1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz; 1.7 – opcjonalny urząd certyfikacji).
 2. AD, część pierwsza – 2.1 (czy jest CA), 2.2 (audyt OU Tier 0), 2.3 (grupy), 2.4 (DNS).
 3. Debian – 3.1 do 3.5 (system, konta, zapora, DNS i czas, konfiguracja Kerberos).
-4. Konto usługi – 2.5 na PAW (utworzenie **wyłączonego** konta, wpis odmowy dla SELF, wpisy odmowy na szablonach
-   certyfikatów, dopiero potem włączenie konta i przekazanie hasła jednorazowego) i **od razu** 3.6 na Debianie (hasło
-   jednorazowe ma żyć kilka minut).
-5. AD, część druga – sprawdzenie certyfikatów i GPO z 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane
-   tam testy odczytu), na końcu lista kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia
-   w produkcji (usługa uruchomi się także bez niego, ale zakładka Stan ostrzega – 2.8).
+4. Konto usługi – 2.5 na PAW (utworzenie **wyłączonego** konta, wpis odmowy dla SELF, dopiero potem włączenie konta
+   i przekazanie hasła jednorazowego) i **od razu** 3.6 na Debianie (hasło jednorazowe ma żyć kilka minut).
+5. AD, część druga – sprawdzenie certyfikatów wystawionych na konto (gdy jest urząd Enterprise) i GPO z 2.5, potem
+   2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy odczytu), na końcu lista kontrolna 2.13. Krok 2.8
+   (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia w produkcji (usługa uruchomi się także bez niego, ale
+   zakładka Stan ostrzega – 2.8).
 6. Debian – 3.7 (na razie tylko zmiana ręczna), 3.8 (wariant A, jeśli jest urząd certyfikacji), 3.9 (dziennik
    systemowy, kopia maszyny).
 7. **[od 0.3.0]** OpenWEC (4), Watchdog (5), AD Manager (6), pozostałe części 3.7–3.9.
@@ -520,8 +524,8 @@ Status = 0 0x0 NERR_Success`; po `ipconfig /registerdns` polecenie `Resolve-DnsN
 
 **Gdzie:** DC01, PowerShell jako `CONTOSO\Administrator`. **Co i po co:** bez urzędu certyfikacji krok 2.1 zawsze
 kończy się wariantem B (certyfikat generowany przez pakiet 0.3.0). Urząd typu Enterprise w laboratorium pozwala już
-teraz przećwiczyć wariant A z 3.8 i wpisy odmowy na szablonach certyfikatów z 2.5. **Tylko w laboratorium** – w
-produkcji urząd certyfikacji nigdy nie działa na kontrolerze domeny.
+teraz przećwiczyć wariant A z 3.8 oraz sprawdzanie i odwoływanie certyfikatów wystawionych na konto usługi z 2.5.
+**Tylko w laboratorium** – w produkcji urząd certyfikacji nigdy nie działa na kontrolerze domeny.
 
 ```powershell
 Install-WindowsFeature ADCS-Cert-Authority -IncludeManagementTools
@@ -566,8 +570,12 @@ Jak czytać wynik:
 | Wynik | Znaczenie | Dalej |
 |---|---|---|
 | Pusty | W lesie nie ma urzędu typu Enterprise (w laboratorium bez 1.7 – zawsze). Urzędu Standalone to zapytanie nie pokaże – zapytaj zespół PKI. | **Wariant B** w 3.8 (**[od 0.3.0]**): certyfikat generowany na serwerze, odcisk potwierdzany w AD Managerze. |
-| Urząd z `WebServer` na liście `certificateTemplates` | Można wystawić certyfikat serwera WWW. | **Wariant A** w 3.8. Zanotuj ciąg konfiguracji `<dNSHostName>\<Name>`, np. `CA01.contoso.com\Contoso-Issuing-CA`. Wykonaj też wpisy odmowy na szablonach z 2.5. |
-| Urząd bez szablonu `WebServer` | Urząd jest, ale nie wystawia certyfikatów serwerów. | Poproś zespół PKI o opublikowanie szablonu (albo jego kopii) z prawem Enroll dla administratorów Tier 0 – albo wariant B. Wpisy odmowy na szablonach z 2.5 wykonaj i tak. |
+| Urząd z `WebServer` na liście `certificateTemplates` | Można wystawić certyfikat serwera WWW. | **Wariant A** w 3.8. Zanotuj ciąg konfiguracji `<dNSHostName>\<Name>`, np. `CA01.contoso.com\Contoso-Issuing-CA`. |
+| Urząd bez szablonu `WebServer` | Urząd jest, ale nie wystawia certyfikatów serwerów. | Poproś zespół PKI o opublikowanie szablonu (albo jego kopii) z prawem Enroll dla administratorów Tier 0 – albo wariant B. |
+
+Gdy w lesie jest urząd Enterprise, konto usługi (jak każdy komputer domeny) może prosić go o certyfikaty według
+szablonów, które na to pozwalają. Tego nie blokujemy – to ryzyko przyjęte świadomie (2.5, „Certyfikaty a konto
+usługi”); po utworzeniu keytabu sprawdzasz tylko, że na konto nie wystawiono żadnego certyfikatu.
 
 Gdy urząd jest, sprawdź, czy odpowiada:
 
@@ -873,12 +881,11 @@ pokaże jako źródło tylko adres IP.
 
 ### 2.5 Konto usługi `ADMNG-WD$`
 
-> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0 – najpierw wyłączony – z wpisem odmowy dla SELF i (tylko
-> gdy w lesie jest urząd Enterprise) wpisami odmowy na szablonach certyfikatów; dopiero potem konto jest włączane, a po
-> 3.6 powstaje GPO z odmową logowania. Gdzie: PAW (Domain Admin; szablony w lesie z wieloma domenami – Enterprise
-> Admin), między tymi częściami 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema
-> SPN-ami, tylko AES, bez prawa zapisu we własnym obiekcie i bez prawa rejestracji certyfikatów. Wycofanie: 2.13,
-> wiersze 4, 5 i 13.
+> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0 – najpierw wyłączony – z wpisem odmowy dla SELF;
+> dopiero potem konto jest włączane, a po 3.6 powstaje GPO z odmową logowania. Gdzie: PAW (Domain Admin), między tymi
+> częściami 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema SPN-ami, tylko AES, bez
+> prawa zapisu we własnym obiekcie. Rejestracji certyfikatów na to konto nie blokujemy (ryzyko przyjęte – niżej,
+> „Certyfikaty a konto usługi”). Wycofanie: 2.13, wiersze 4 i 5.
 
 #### Czym jest i dlaczego tak
 
@@ -899,8 +906,8 @@ tworzą pliki tymczasowe); nie instaluj ich na serwerze.
 
 **Gdzie:** PAW, Domain Admin. **Co i po co:** obiekt komputera w OU Tier 0 z trzema SPN-ami, tylko AES (0x18), z flagą
 „konto jest poufne i nie może być delegowane” i hasłem jednorazowym. Konto powstaje **wyłączone**: hasło jednorazowe
-zacznie działać dopiero po włączeniu konta, a to nastąpi po wpisach odmowy (niżej). Kto pozna to hasło, nie zdąży więc
-nim poprosić o certyfikat ani zmienić własnego obiektu konta. Przed wykonaniem uzgodnij z administratorem Debiana, że
+zacznie działać dopiero po włączeniu konta, a to nastąpi po wpisie odmowy dla SELF (niżej). Kto pozna to hasło, nie
+zmieni więc nim własnego obiektu konta. Przed wykonaniem uzgodnij z administratorem Debiana, że
 krok 3.6 wykona zaraz po włączeniu konta. Nie zamykaj okna PowerShell aż do „Włączenia konta” – zmienna `$plain`
 zawiera hasło jednorazowe. Przy migracji z wersji 0.2.0 pomiń w poleceniu SPN `HTTP/…` (ramka w 0.4) – inaczej
 kontroler odrzuci utworzenie konta, bo ten SPN ma jeszcze gMSA.
@@ -919,7 +926,7 @@ New-ADComputer -Name 'ADMNG-WD' -SamAccountName 'ADMNG-WD$' -Path $ou `
     -AccountNotDelegated $true -PasswordNotRequired $false `
     -AccountPassword $otp -Enabled $false `
     -Description 'AdMng Watchdog (Debian admng-wd, 10.0.1.25) - konto usługi Tier 0, tylko odczyt'
-(Get-ADComputer ADMNG-WD).Enabled      # False – konto czeka na wpisy odmowy
+(Get-ADComputer ADMNG-WD).Enabled      # False – konto czeka na wpis odmowy dla SELF
 ```
 
 SPN-y – po co każdy:
@@ -962,57 +969,10 @@ Oczekiwane: wiersz `NT AUTHORITY\SELF  CreateChild, DeleteChild, Self, WriteProp
 dotyczy (SELF oznacza wyłącznie samo konto `ADMNG-WD$`). **[od 0.3.0]** Usługa co godzinę sprawdza, czy wpis nadal
 istnieje (5.4).
 
-#### Szablony certyfikatów (gdy w lesie jest urząd Enterprise)
-
-**Kiedy:** zaraz po wpisie odmowy dla SELF, **przed** włączeniem konta – konto jest wyłączone, więc ten krok nie
-wydłuża życia hasła jednorazowego. **Gdzie:** PAW, konto z Enterprise Admins (w lesie z jedną domeną wystarczy Domain
-Admin) – szablony leżą w partycji konfiguracji; jeśli wykonuje go inna osoba, konto czeka wyłączone. Tylko gdy 2.1
-pokazało urząd typu Enterprise (w laboratorium – po 1.7). **Co i po co:** konto `ADMNG-WD$` należy do Domain
-Computers, a ta grupa ma domyślnie prawo rejestracji (Enroll) w szablonie „Computer” (`Machine`), opublikowanym na
-każdym urzędzie Enterprise. Kto ukradnie keytab albo pozna hasło jednorazowe, mógłby więc poprosić o certyfikat
-komputera dla `admng-wd.contoso.com` i logować się nim jako `ADMNG-WD$` (PKINIT) przez cały okres ważności certyfikatu –
-zwykle rok. Zmiana hasła co 30 dni tego nie unieważnia; zatrzymuje to dopiero wyłączenie konta albo odwołanie
-certyfikatu – i to dopiero wtedy, gdy kontrolery pobiorą nową listę odwołań (niżej, „Gdy keytab mógł wyciec”).
-Skrypt dodaje wpis „Odmów” dla praw Enroll i Autoenroll tego jednego konta na **każdym** szablonie, a nie tylko tam,
-gdzie dziś rejestrują się szerokie grupy: taki wpis nikomu innemu niczego nie odbiera, a zamyka też drogę przez grupy
-zagnieżdżone, „This Organization” i uprawnienia dodane później do istniejącego szablonu. Usługa nie potrzebuje
-certyfikatu z urzędu (certyfikat API z 3.8 wnioskuje administrator Tier 0).
-
-```powershell
-$cfg    = (Get-ADRootDSE).configurationNamingContext
-$wd     = (Get-ADComputer ADMNG-WD).SID
-$enroll = [guid]'0e10c968-78fb-11d2-90d4-00c04f79dc55'               # Certificate-Enrollment
-$auto   = [guid]'a05b8cc2-17bc-4802-a710-e7c15ab866a2'               # Certificate-AutoEnrollment
-$tpl    = Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" `
-              -LDAPFilter '(objectClass=pKICertificateTemplate)'
-foreach ($t in $tpl) {
-    $p   = "AD:\$($t.DistinguishedName)"
-    $acl = Get-Acl -Path $p
-    foreach ($g in $enroll, $auto) {
-        $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule($wd, 'ExtendedRight', 'Deny', $g)))
-    }
-    Set-Acl -Path $p -AclObject $acl
-}
-```
-
-Ponowne uruchomienie niczego nie dubluje. Uruchom blok znowu po utworzeniu każdego nowego szablonu. **[od 0.3.0]**
-Watchdog co godzinę sprawdza szablony opublikowane na urzędach i zgłasza w zakładce Stan szablon bez wpisu odmowy
-dla konta usługi – jako błąd, gdy konto mogłoby się w nim rejestrować (5.4).
-
-**Sprawdzenie** (w tej samej sesji):
-
-```powershell
-$bez = @($tpl | Where-Object { -not ((Get-Acl -Path "AD:\$($_.DistinguishedName)").Access | Where-Object {
-    $_.AccessControlType -eq 'Deny' -and $_.IdentityReference -like '*\ADMNG-WD$' -and $_.ObjectType -eq $enroll }) })
-'szablonów: {0}, bez wpisu odmowy: {1}' -f @($tpl).Count, $bez.Count
-```
-
-Oczekiwane: `bez wpisu odmowy: 0`.
-
 #### Włączenie konta i przekazanie hasła jednorazowego
 
-**Gdzie:** PAW, to samo okno PowerShell co „Tworzenie”. **Kiedy:** po wpisie odmowy dla SELF i – gdy jest urząd
-Enterprise – po wpisach na szablonach; administrator Debiana jest gotowy do 3.6.
+**Gdzie:** PAW, to samo okno PowerShell co „Tworzenie”. **Kiedy:** po wpisie odmowy dla SELF; administrator Debiana
+jest gotowy do 3.6.
 
 ```powershell
 Enable-ADAccount -Identity 'ADMNG-WD$'
@@ -1046,6 +1006,21 @@ Oczekiwane:
   `memberOf` puste, `PrimaryGroupID : 515` (Domain Computers),
 - `setspn -Q` znajduje `HTTP/admng-wd.contoso.com` **tylko** na `CN=ADMNG-WD,…`; `setspn -X` – `found 0 group of
   duplicate SPNs`. Przy migracji z wersji 0.2.0 SPN `HTTP/…` ma do przełączenia jeszcze gMSA (ramka w 0.4).
+
+#### Certyfikaty a konto usługi (ryzyko przyjęte)
+
+Konto `ADMNG-WD$` należy do Domain Computers, a ta grupa ma domyślnie prawo rejestracji (Enroll) w szablonie
+„Computer” (`Machine`), opublikowanym na każdym urzędzie Enterprise – i może je mieć w innych szablonach. Kto ukradnie
+keytab (albo pozna hasło jednorazowe w tych kilku minutach przed 3.6), może więc poprosić o certyfikat komputera dla
+`admng-wd.contoso.com` i logować się nim jako `ADMNG-WD$` (PKINIT) przez cały okres ważności certyfikatu – zwykle rok.
+Zmiana hasła co 30 dni tego nie unieważnia; zatrzymuje to dopiero wyłączenie konta albo odwołanie certyfikatu – i to
+dopiero wtedy, gdy kontrolery pobiorą nową listę odwołań (niżej, „Gdy keytab mógł wyciec”).
+
+**Wpisów odmowy dla tego konta na szablonach certyfikatów nie dodajemy** – to ryzyko zostało świadomie przyjęte
+(ADR-0009). Watchdog nie czyta bazy urzędu certyfikacji, więc wystawienia certyfikatu sam nie zgłosi. Zostają dwa
+kroki niżej: sprawdzenie zaraz po 3.6, że na konto nie wystawiono żadnego certyfikatu, oraz – gdy keytab mógł wyciec –
+odwołanie certyfikatów wystawionych na konto. Usługa sama certyfikatu z urzędu nie potrzebuje (certyfikat API z 3.8
+wnioskuje administrator Tier 0).
 
 #### Certyfikaty wystawione na konto (gdy w lesie jest urząd Enterprise)
 
@@ -1099,8 +1074,9 @@ foreach ($ca in $cas) {
 | czytać SYSVOL (GPO) | czytać haseł, LAPS, kluczy BitLocker, haseł gMSA, atrybutów poufnych |
 | zmienić własne hasło (protokół Kerberos, port 464) | być delegowane (usługi nie mogą działać w jego imieniu) |
 | przyjmować bilety do `HTTP/` i `HOST/admng-wd.contoso.com` | zmienić własnego `userAccountControl`, a dzięki wpisowi odmowy – także innych własnych atrybutów, SPN-ów i obiektów podrzędnych |
-| dopóki `ms-DS-MachineAccountQuota` > 0 – utworzyć do 10 kont komputerów, jak każde konto w domenie (2.8 ustawia 0) | uzyskać certyfikatu z urzędu Enterprise (wpisy odmowy na szablonach – wyżej) |
+| dopóki `ms-DS-MachineAccountQuota` > 0 – utworzyć do 10 kont komputerów, jak każde konto w domenie (2.8 ustawia 0) | |
 | jak każde uwierzytelnione konto – dodać nowy rekord w strefie DNS zintegrowanej z AD (domyślne prawo Authenticated Users) | |
+| jak każdy komputer domeny – uzyskać certyfikat z urzędu Enterprise według szablonu, który na to pozwala (domyślnie „Computer”) – ryzyko przyjęte, wyżej | |
 
 Dodawanie rekordów DNS nie daje kontu nic ponad to, co ma każdy zalogowany użytkownik domeny, a Watchdog nie śledzi
 partycji DNS. Jeśli chcesz odebrać to prawo także temu kontu, dodaj wpis odmowy na każdej strefie zintegrowanej z AD
@@ -1109,7 +1085,7 @@ partycji DNS. Jeśli chcesz odebrać to prawo także temu kontu, dodaj wpis odmo
 
 Kto ma keytab, ma tę tożsamość – i może też podrobić bilet do API Watchdoga (0.3, punkt 2).
 
-**[od 0.3.0]** Niezależnie od wpisów odmowy Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną
+**[od 0.3.0]** Niezależnie od wpisu odmowy dla SELF Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną
 (reguła `watchdog-self`) – poza jego własną, zaplanowaną zmianą hasła.
 
 #### Jak działa zmiana hasła
@@ -1125,7 +1101,8 @@ Kto ma keytab, ma tę tożsamość – i może też podrobić bilet do API Watch
 - **[od 0.3.0]** Nieudana zmiana niczego nie psuje: hasło i keytab zostają, timer spróbuje następnego dnia. Usługa
   ostrzega, gdy hasło ma ponad 32 dni, i zgłasza błąd po 35 dniach.
 - Kontrolery domeny nie wymuszają wygasania haseł kont komputerów – 30 dni to nasza zasada, nie limit domeny.
-- Zmiana hasła unieważnia stare klucze, ale nie certyfikaty wystawione na konto – dlatego wpisy odmowy na szablonach.
+- Zmiana hasła unieważnia stare klucze, ale nie certyfikaty wystawione na konto – tego ryzyka nie blokujemy (wyżej,
+  „Certyfikaty a konto usługi”); po wycieku keytabu certyfikaty odwołujesz według „Gdy keytab mógł wyciec”.
 
 #### Ograniczenie logowania konta (GPO) – po 3.6
 
@@ -1708,9 +1685,9 @@ serwery Exchange są przez to zasobem Tier 0.
 
 **[od 0.3.0]** Watchdog zgłasza jako zdarzenie krytyczne (reguła `tier0-security`) każdą zmianę zabezpieczeń obiektu
 domeny, `AdminSDHolder`, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites` – także zmianę samej listy SACL,
-choć jej treści nie widzi. Pokazuje też pokrycie – odsetek zmian przypisanych wykonawcy (Stan → Atrybucja). Treść wpisów
-sprawdzasz sam: blok „Sprawdzenie” (po bloku definicji) powtarzaj **raz w miesiącu** i po każdym wdrożeniu narzędzia,
-które zmienia SACL (np. Defender for Identity, Exchange).
+choć jej treści nie widzi (wykrywanie potwierdzone – ADR-0009). Pokazuje też pokrycie – odsetek zmian przypisanych
+wykonawcy (Stan → Atrybucja). Treść wpisów sprawdzasz sam: blok „Sprawdzenie” (po bloku definicji) powtarzaj **raz
+w miesiącu** i po każdym wdrożeniu narzędzia, które zmienia SACL (np. Defender for Identity, Exchange).
 
 **Wycofanie** – usuwa wyłącznie wpisy dodane w 2.11; działa w nowej sesji PowerShell, także po tygodniach. Najpierw
 uruchom blok „Definicje wpisów”, potem (wpisz nazwę **pierwszego** pliku kopii):
@@ -1864,7 +1841,7 @@ Remove-ADGroupMember -Identity 'S-1-5-32-573' -Members (Get-ADServiceAccount svc
 | 1 | Poprawki delegacji w OU Tier 0 (2.2) | ACL OU Tier 0, AdminSDHolder | skrypt 2.2 bez znalezisk | przywróć SDDL z zapisanego pliku (polecenie pod tabelą; zwykle **nie** wycofujesz – to poprawa bezpieczeństwa) |
 | 2 | Grupy `AdMng-Watchdog-Admins`, `-Viewers` (2.3) | OU Groups w Tier 0 | `Get-ADGroup` | `Remove-ADGroup AdMng-Watchdog-Admins`, `Remove-ADGroup AdMng-Watchdog-Viewers` |
 | 3 | Rekord A + PTR `admng-wd` (2.4) | DNS | `Resolve-DnsName` | `Remove-DnsServerResourceRecord -ComputerName DC01.contoso.com -ZoneName contoso.com -Name admng-wd -RRType A -Force` i PTR `-ZoneName 1.0.10.in-addr.arpa -Name 25 -RRType Ptr` |
-| 4 | Konto `ADMNG-WD$` z wpisem odmowy dla SELF (2.5) | OU Service Accounts w Tier 0 | `Get-ADComputer`, `setspn -L`, `Get-Acl` | `Disable-ADAccount 'ADMNG-WD$'`, po potwierdzeniu `Remove-ADComputer ADMNG-WD` (keytab przestaje działać od razu; wpis odmowy znika razem z obiektem) |
+| 4 | Konto `ADMNG-WD$` z wpisem odmowy dla SELF (2.5) | OU Service Accounts w Tier 0 | `Get-ADComputer`, `setspn -L`, `Get-Acl` | `Disable-ADAccount 'ADMNG-WD$'`; gdy jest urząd Enterprise – odwołaj certyfikaty wystawione na konto (8.2, krok 1); po potwierdzeniu `Remove-ADComputer ADMNG-WD` (keytab przestaje działać od razu; wpis odmowy znika razem z obiektem) |
 | 5 | GPO „AdMng - ograniczenia konta Watchdog” i wpisy konta w istniejących GPO z prawami odmowy logowania (2.5) | domena, OU tych GPO | `secedit` na stacjach | `Remove-GPO -Name 'AdMng - ograniczenia konta Watchdog'` i usuń konto z praw w pozostałych GPO |
 | 6 | Prawa odczytu `dsacls` (2.6) | domena, AdminSDHolder, Password Settings Container, Deleted Objects | `dsacls … \| Select-String ADMNG-WD`, test z Debiana | **przed** usunięciem konta: `dsacls <DN> /R 'CONTOSO\ADMNG-WD$'` na każdym z czterech obiektów (zmiany właściciela Deleted Objects nie cofamy) |
 | 7 | Odczyt GPO dla Domain Computers (2.7, tylko gdy potrzebne) | wybrane GPO | skrypt 2.7 | `Set-GPPermission -Guid <Id> -TargetName $dc -TargetType Group -PermissionLevel None -Replace` (`$dc` jak w 2.7; bez `-Replace` polecenie niczego nie zmienia) |
@@ -1873,8 +1850,7 @@ Remove-ADGroupMember -Identity 'S-1-5-32-573' -Members (Get-ADServiceAccount svc
 | 10 | GPO „AdMng - inspekcja DC” + rozmiar dziennika (2.10) | OU Domain Controllers | `auditpol`, `wevtutil gl security` | GPO zostaw (zalecane – inspekcja przydaje się niezależnie od Watchdoga). Samo `Remove-GPO` **nie** przywraca poprzednich zasad – kontrolery zachowują ostatnie ustawienia w lokalnej konfiguracji. Jeśli trzeba wycofać: w tym GPO ustaw każdą podkategorię na wartość z kopii z 2.10 (polecenie pod tabelą; „No Auditing” tylko tam, gdzie kopia tak mówi), rozmiar dziennika – jak w kopii albo nieskonfigurowany; na DC `gpupdate /target:computer /force`, porównaj `auditpol /get /category:*` z kopią i dopiero potem `Remove-GPO -Name 'AdMng - inspekcja DC'` |
 | 11 | SACL (2.11) | obiekt domeny, AdminSDHolder, `CN=Public Key Services` | blok sprawdzenia z 2.11 | blok „Wycofanie” z 2.11 – usuwa tylko wpisy dodane w 2.11 i sam sprawdza wynik (`pozostało wpisów z 2.11: 0` dla każdego obiektu) |
 | 12 | GPO „AdMng - WEF” (2.12) | OU Domain Controllers | rejestr, `wevtutil`, Forwarding/Operational | `Remove-GPO -Name 'AdMng - WEF'` i `gpupdate /force` na DC – kontrolery przestają wysyłać zdarzenia, dostęp NETWORK SERVICE do Security wraca do stanu domyślnego |
-| 13 | Wpisy odmowy dla `ADMNG-WD$` na szablonach certyfikatów (2.5, tylko gdy jest urząd Enterprise) | partycja konfiguracji, `CN=Certificate Templates` – każdy szablon | sprawdzenie z 2.5 | **przed** usunięciem konta: `dsacls "<DN szablonu>" /R 'CONTOSO\ADMNG-WD$'` na każdym szablonie (pętla w 8.2, krok 2) |
-| 14 | Delegacja prawa tworzenia obiektów komputerów (2.8, tylko gdy potrzebna) | OU komputerów, `CN=Computers` | `Get-Acl` z 2.8 | blok wycofania z 2.8 – usuwa tylko wpis `CC;computer` dodany w 2.8 i tylko tam, gdzie go nadałeś (**nie** `dsacls /R`, które usunęłoby też inne delegacje grupy); potem sprawdzenie z 2.8 pokazuje `False` |
+| 13 | Delegacja prawa tworzenia obiektów komputerów (2.8, tylko gdy potrzebna) | OU komputerów, `CN=Computers` | `Get-Acl` z 2.8 | blok wycofania z 2.8 – usuwa tylko wpis `CC;computer` dodany w 2.8 i tylko tam, gdzie go nadałeś (**nie** `dsacls /R`, które usunęłoby też inne delegacje grupy); potem sprawdzenie z 2.8 pokazuje `False` |
 
 Wartości zasad inspekcji sprzed 2.10 (dla każdego DC z jego pliku kopii). Nagłówki kolumn pliku są w języku systemu
 DC (np. po polsku albo po niemiecku), dlatego blok czyta kolumny po ich kolejności, a nie po nazwach:
@@ -2133,7 +2109,8 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
 
 - **SSH tylko ze stacji PAW.** W podsieci 10.0.20.0/24 pracują też osoby spoza Tier 0 (np. helpdesk z rolą Viewer
   w Watchdogu), więc port 22 jest otwarty wyłącznie dla adresów stacji PAW – w `define PAWS` wpisz je wszystkie (po
-  przecinku). API (8443) zostaje dla całej podsieci stacji z AD Managerem. W laboratorium PAW to ADM-WS01.
+  przecinku). API (8443) zostaje dla całej podsieci stacji z AD Managerem – także dla operacji administracyjnych
+  Watchdoga, których nie ograniczamy do stacji PAW (ADR-0009; skutek – 0.3, punkt 2). W laboratorium PAW to ADM-WS01.
 - **Konto `openwec` bez połączeń wychodzących.** Odbiornik OpenWEC (rozdz. 4) ma dostęp do keytabu, a jako odbiorca
   biletów nigdy nie musi sam niczego otwierać. Reguła `meta skuid "openwec" drop` odrzuca każdy pakiet tego konta, który
   nie należy do połączenia nawiązanego przez kontroler – przejęty OpenWEC nie wyśle keytabu poza serwer (także przez
@@ -2144,8 +2121,9 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
   wpisać stałych adresów – Teams (Power Automate) działa pod zmiennymi adresami chmury Microsoft. A usługa, tak jak
   OpenWEC, czyta dane z zewnątrz (pliki GPO z SYSVOL, które zmienia każdy edytor GPO, rekordy zdarzeń z DC, wartości
   z LDAP) i ma przy tym więcej: keytab, klucz sekretów kanałów i 3-letnią historię. Przejęta usługa mogłaby więc wysłać
-  te dane do dowolnego serwera w Internecie przez porty 80 i 443. To przyjęte ryzyko szczątkowe (ADR-0009); węższe
-  ograniczenie (serwer pośredniczący z listą dozwolonych nazw) to pytanie otwarte projektu.
+  te dane do dowolnego serwera w Internecie przez porty 80 i 443. To ryzyko szczątkowe przyjęte świadomie
+  (ADR-0009): połączenia idą bezpośrednio, bez serwera pośredniczącego (proxy), tylko z konta `admng-watchdog` (oraz
+  root i `_apt` dla aktualizacji); konto `openwec` i pozostałe konta nie łączą się z Internetem wcale.
 - Zapora odwołuje się do kont po nazwie, a `nft` odrzuca regułę z nazwą nieistniejącego konta (`User does not exist`) –
   dlatego konta systemowe `openwec` i `admng-watchdog` tworzysz już teraz (pakiety `admng-openwec` i `admng-watchdog`
   przejmą je bez zmian).
@@ -2592,15 +2570,15 @@ Get-ADComputer ADMNG-WD -Properties pwdLastSet, msDS-KeyVersionNumber |
 
 Oczekiwane: `pwdLastSet` sprzed kilku minut (hasło jednorazowe już nie działa) i `msDS-KeyVersionNumber` równe kvno z
 keytabu. Gdy w lesie jest urząd Enterprise, wykonaj też blok „Certyfikaty wystawione na konto” z 2.5 – na konto nie
-może być wystawiony żaden certyfikat.
+może być wystawiony żaden certyfikat (rejestracji nie blokujemy, a hasło jednorazowe działało przez kilka minut).
 
 ### 3.7 Zmiana hasła konta usługi co 30 dni
 
 **Gdzie:** Debian. **Co i po co:** regularna zmiana hasła ogranicza wartość skradzionego keytabu – po zmianie stare
 klucze przestają działać (najpóźniej po kolejnej zmianie). Nie unieważnia jednak certyfikatu, o który ktoś z keytabem
-zdążyłby poprosić u urzędu certyfikacji – przed tym chronią wpisy odmowy na szablonach (2.5), a po wycieku keytabu
-także wyłączenie konta, odwołanie certyfikatów i odczekanie, aż kontrolery pobiorą nową listę odwołań (2.5, „Gdy keytab
-mógł wyciec”).
+zdążyłby poprosić u urzędu certyfikacji – tego nie blokujemy (ryzyko przyjęte, 2.5 „Certyfikaty a konto usługi”); po
+wycieku keytabu pomaga dopiero wyłączenie konta, odwołanie certyfikatów i odczekanie, aż kontrolery pobiorą nową listę
+odwołań (2.5, „Gdy keytab mógł wyciec”).
 
 **[od 0.3.0]** Pakiet zainstaluje:
 
@@ -2942,7 +2920,9 @@ Ryzyko ograniczają:
 - **API tylko z podsieci administratorów** – zapora (3.3) przepuszcza port 8443 wyłącznie z 10.0.20.0/24, a usługa
   sprawdza to samo ustawieniem `AllowedRemoteSubnets` (5.2). Zapytania do API z samego serwera – także przez adres
   pętli zwrotnej – są odrzucane (poza `/healthz`), więc podrobiony bilet zadziała tylko z podsieci administratorów –
-  ale z każdej jej stacji, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer);
+  ale z każdej jej stacji, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer). Operacji
+  administracyjnych Watchdoga nie ograniczamy do stacji PAW (ADR-0009), więc to samo dotyczy biletu administratora –
+  to część przyjętego ryzyka;
 - **izolacja konta `openwec`** – osobne konto systemowe bez powłoki, usługa w piaskownicy systemd (bez uprawnień,
   zapis tylko w `/var/lib/openwec`), port 5985 przyjmuje połączenia tylko od kontrolerów domeny (zapora, 3.3); konto
   nie czyta bazy, biletów ani sekretów usługi Watchdog;
@@ -3267,9 +3247,8 @@ kodach systemd **nie** ponawia startu – trzeba usunąć przyczynę i wykonać 
 - **Usługa sama sprawdza konto `ADMNG-WD$`** przy starcie i co godzinę: brak członkostwa w grupach uprzywilejowanych,
   flaga „nie może być delegowane”, tylko AES, SPN-y, wpis odmowy dla SELF na własnym obiekcie (2.5), wiek hasła
   (ostrzeżenie > 32 dni, błąd > 35 dni), kvno keytabu równe `msDS-KeyVersionNumber`, pierwszy wpis keytabu równy
-  nazwie konta (3.6), różnica zegara względem DC, a gdy jest urząd Enterprise – wpisy odmowy na szablonach
-  opublikowanych na urzędach (2.5): szablon bez wpisu odmowy to ostrzeżenie (`certificateDenyMissing`), a gdy konto
-  mogłoby się w nim rejestrować – błąd (`certificateEnrollOpen`, z nazwą szablonu).
+  nazwie konta (3.6), różnica zegara względem DC. Szablonów certyfikatów usługa nie sprawdza (ryzyko przyjęte – 2.5,
+  „Certyfikaty a konto usługi”).
 - **Dziennik systemowy:** `journalctl -u admng-watchdog -p warning --since today` – ostrzeżenia i błędy z dziś (bez
   wartości z katalogu). Numery zdarzeń są takie jak w wersji 0.2.0 ([`WATCHDOG.md`](WATCHDOG.md), rozdz. 10), nowe:
   1008 odcisk certyfikatu, 1011 problem z kontem usługi, 1012 problem z kolektorem WEF, 1013 problem z treścią GPO.
@@ -3491,8 +3470,7 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
    certyfikaty na to konto (2.5, „Certyfikaty wystawione na konto”), i odwołaj je (2.5, „Gdy keytab mógł wyciec”,
    krok 2). Czekać na nową listę CRL nie trzeba – konto usuwasz w kroku 6, a konto utworzone kiedyś pod tą samą nazwą
    miałoby inny SID, którego stare certyfikaty nie zawierają.
-2. Usuń prawa odczytu i wpisy odmowy na szablonach certyfikatów (przed usunięciem konta – potem zostałyby wpisy
-   z „osieroconym” SID-em):
+2. Usuń prawa odczytu (przed usunięciem konta – potem zostałyby wpisy z „osieroconym” SID-em):
 
    ```powershell
    $d = 'DC=contoso,DC=com'; $a = 'CONTOSO\ADMNG-WD$'
@@ -3500,11 +3478,6 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
    dsacls "CN=AdminSDHolder,CN=System,$d" /R $a
    dsacls "CN=Password Settings Container,CN=System,$d" /R $a
    dsacls "CN=Deleted Objects,$d" /R $a
-   # tylko gdy wykonano wpisy odmowy na szablonach (2.5): każdy szablon z wpisem dla tego konta
-   $cfg = (Get-ADRootDSE).configurationNamingContext
-   Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" -LDAPFilter '(objectClass=pKICertificateTemplate)' |
-       Where-Object { (Get-Acl -Path "AD:\$($_.DistinguishedName)").Access | Where-Object IdentityReference -like '*\ADMNG-WD$' } |
-       ForEach-Object { dsacls $_.DistinguishedName /R $a }
    ```
 
 3. GPO: `Remove-GPO -Name 'AdMng - WEF'`; `Remove-GPO -Name 'AdMng - ograniczenia konta Watchdog'` i usuń konto
@@ -3551,7 +3524,7 @@ zespołem.
 | `Clock skew too great` | zegar Debiana lub DC różni się o więcej niż 5 min: chrony odrzuca kontrolery (brak `maxdistance` z 3.4, duży rozrzut czasu DC) albo emulator PDC nie ma źródła czasu | `chronyc tracking`, `chronyc -N sources`, `chronyc ntpdata 10.0.1.10` (`Root dispersion`), plik `/etc/chrony/conf.d/admng-ad.conf` (3.4); na DC01 `w32tm /query /status` (1.4) |
 | `Cannot contact any KDC for realm 'CONTOSO.COM'` | DNS, zapora (88/tcp), zła nazwa KDC w `krb5.conf` | `getent hosts DC01.contoso.com`, `nft list ruleset`, `KRB5_CONFIG` ustawione? |
 | `Client not found in Kerberos database` | zła nazwa konta (brak `$`, literówka, małe litery obszaru) | `ADMNG-WD$@CONTOSO.COM` – w apostrofach (znak `$`) |
-| `Client's credentials have been revoked` | konto wyłączone: nie włączono go po wpisach odmowy (2.5, „Włączenie konta…”) albo wyłączono je po wycieku keytabu | `Get-ADComputer ADMNG-WD -Properties Enabled`; `Enable-ADAccount 'ADMNG-WD$'` (po wycieku – dopiero według 2.5, „Gdy keytab mógł wyciec”) |
+| `Client's credentials have been revoked` | konto wyłączone: nie włączono go po wpisie odmowy dla SELF (2.5, „Włączenie konta…”) albo wyłączono je po wycieku keytabu | `Get-ADComputer ADMNG-WD -Properties Enabled`; `Enable-ADAccount 'ADMNG-WD$'` (po wycieku – dopiero według 2.5, „Gdy keytab mógł wyciec”) |
 | `Preauthentication failed` przy `kinit -k` | klucze w keytabie nie pasują do hasła w AD: zła sól, keytab sprzed zmiany hasła, zmiana hasła w AD poza Debianem | 3.6 (sól), porównaj kvno: `klist -k` vs `msDS-KeyVersionNumber`; naprawa – nowe hasło jednorazowe i 3.7 |
 | `kvno -k` bez `keytab entry valid` / AD Manager „Usługa odrzuciła uwierzytelnienie Kerberos” (401) przy poprawnym bilecie | keytab nie zawiera wersji klucza, którą KDC szyfruje bilety (kvno), albo brak nazwy `HTTP/…` w keytabie | `klist -k -e` – trzy nazwy, aktualne kvno; dziennik usługi, wpis 2501 z podpowiedzią |
 | `KDC has no support for encryption type` | konto nie ma kluczy AES (typy szyfrowania ustawione, ale hasło nie zmienione od tego czasu) albo klient wymusza AES, a konto ma tylko RC4 | `Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes` = 24; zmień hasło (3.7) |

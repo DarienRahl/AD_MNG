@@ -5,7 +5,8 @@ is binding for v1. Where this document and `watchdog-spec.md` disagree, this doc
 service does; sections of the spec that are replaced are listed in section 23 and get amended during B8.
 Date: 2026-10-19 (user confirmations: 2026-10-20). Decision record: `docs/adr/0009-watchdog-na-linuksie.md` (Polish;
 status "accepted" – the five changes to the decisions of 2026-10-19 were confirmed by the user on 2026-10-20, ADR
-section „Ustalenia potwierdzone 2026-10-20”). Deployment instructions: `docs/WATCHDOG-LINUX.md` (Polish, written in
+section „Ustalenia potwierdzone 2026-10-20”, and four further points were decided the same day, ADR section „Ustalenia
+potwierdzone 2026-10-20 – druga tura”). Deployment instructions: `docs/WATCHDOG-LINUX.md` (Polish, written in
 stage A); feature description: `docs/WATCHDOG.md` (Polish, its Windows chapters replaced in B8). Inputs: the user
 decisions of 2026-10-19 and their confirmations of 2026-10-20, the Linux lab verification (Samba lab, 2026-10-19,
 appendix C), the two reviews of 2026-10-20 and the web research on OpenWEC, Windows Event Forwarding, Kerberos on Linux,
@@ -16,7 +17,13 @@ and keytab are handled by `admng-watchdog-keytab` (no msktutil/adcli); (2) raw l
 collected events include 4625 and RDP logons (4624 type 10), the rules `tier0-machine-quota` and `watchdog-self` exist,
 and `ms-DS-MachineAccountQuota` = 0 (with delegated computer creation for whoever joins computers) plus the Deny ACE
 for SELF are deployment prerequisites; (4) OpenWEC **shares** the account, principal `HTTP/admng-wd.contoso.com` and
-keytab with the API (4.3); (5) the lab recipe has three VMs including ADM-WS01 (appendix B).
+keytab with the API (4.3); (5) the lab recipe has three VMs including ADM-WS01 (appendix B). The second batch of
+2026-10-20 is binding as well: (6) **no** Deny ACEs for `ADMNG-WD$` on the AD CS certificate templates and no hourly
+template check – the PKINIT risk of a stolen keytab is **accepted** (4.1, 22), while the per-CA certificate check after
+`init` and the revocation step of the compromise recovery stay; (7) the SACL-change detection of 9.4 is confirmed;
+(8) Watchdog admin operations are allowed from the whole admin subnet – no PAW-only admin role (4.3 item 1); (9) the
+Internet egress of `admng-watchdog` stays direct on TCP 80/443 without a proxy (accepted residual risk, Q23 closed;
+`root`/`_apt` for updates, no egress for `openwec`).
 
 Language rules from `CLAUDE.md` apply: code, comments, commits and this document in English; product docs, ADRs and
 instructions in Polish; every user-visible string through resx (en + pl). **MUST** = requirement, **SHOULD** = strong
@@ -30,7 +37,7 @@ default that an implementer may deviate from only with a reason in the final rep
 |---|---|---|
 | L1 | The Watchdog service runs **only on Linux**: Debian 13 (recommended) or Debian 12, amd64, as the systemd unit `admng-watchdog.service` (`Type=notify`, full hardening, section 12), shipped as the `.deb` package `admng-watchdog` (framework-dependent .NET 10, `Depends: aspnetcore-runtime-10.0 (>= 10.0.13)` from packages.microsoft.com). The Windows service stays available as release 0.2.0 and is **removed from the code after the first Linux release** (section 17). | User decision. One platform to secure and test; the server is a Tier 0 asset that the customer wants to run as a minimal Linux VM. |
 | L2 | The server `admng-wd.contoso.com` (10.0.1.25) is **not joined to the domain**. Kerberos (`krb5.conf`), DNS and time (chrony against the DCs) are configured by hand; the service has a private `krb5.conf`, `ldap.conf` and `smb-client.conf`. | No SSSD/realmd, no domain GPOs on a Tier 0 box, no interactive domain logons, fewer moving parts. |
-| L3 | Service identity = the **computer account `ADMNG-WD$`** with a **keytab**, created by a **Tier 0 administrator on Windows** with a one-time password (`New-ADComputer … -KerberosEncryptionType AES128,AES256 -AccountNotDelegated $true`) in the existing Tier 0 OU. The Debian host replaces the one-time password with a random 120-character password and writes the keytab; the password is **rotated every 30 days** by `admng-watchdog-keytab.timer`. No AD write grants (the inherent self-writes of a computer account are removed by a Deny ACE for SELF on its own object, computer creation by `ms-DS-MachineAccountQuota` = 0 – section 4.1), not privileged, no interactive logon. (Replaces the msktutil/adcli creation agreed on 2026-10-19; confirmed by the user on 2026-10-20, ADR-0009.) | A gMSA cannot be used by a non-joined Linux host without a second identity anyway; a computer account + keytab is the standard Linux pattern and was verified in the lab (kinit from keytab, self password change, kvno handling, acceptor without restart). |
+| L3 | Service identity = the **computer account `ADMNG-WD$`** with a **keytab**, created by a **Tier 0 administrator on Windows** with a one-time password (`New-ADComputer … -KerberosEncryptionType AES128,AES256 -AccountNotDelegated $true`) in the existing Tier 0 OU. The Debian host replaces the one-time password with a random 120-character password and writes the keytab; the password is **rotated every 30 days** by `admng-watchdog-keytab.timer`. No AD write grants (the inherent self-writes of a computer account are removed by a Deny ACE for SELF on its own object, computer creation by `ms-DS-MachineAccountQuota` = 0 – section 4.1), not privileged, no interactive logon. Certificate enrollment through templates open to Domain Computers is **not** blocked (no template Deny ACEs – accepted risk, user decision 2026-10-20, 4.1). (Replaces the msktutil/adcli creation agreed on 2026-10-19; confirmed by the user on 2026-10-20, ADR-0009.) | A gMSA cannot be used by a non-joined Linux host without a second identity anyway; a computer account + keytab is the standard Linux pattern and was verified in the lab (kinit from keytab, self password change, kvno handling, acceptor without restart). |
 | L4 | Password rotation and keytab writing are done by our own small tool **`admng-watchdog-keytab`** (separate .NET console project, MIT libkrb5 through P/Invoke: change-password protocol on port 464, key derivation with the AD salt, keytab append, verification against every DC). **Not** msktutil or adcli. | Both tools need LDAP self-writes whose effect on Windows DCs was not verifiable in the lab (operatingSystem, SPN, enctype writes), write temporary krb5.conf files to `/tmp`, and the msktutil package enables its own timer. The MIT primitives were verified. |
 | L5 | LDAP from Linux: **port 389, SASL GSSAPI (Kerberos) with sign + seal**, enforced through a service-private `ldap.conf` (`SASL_SECPROPS minssf=56`, `SASL_NOCANON on`) passed with `LDAPCONF`; the negotiated SSF is checked after every bind. **LDAPS (636) is an option**, not the default. One DC per session, PDC emulator preferred (unchanged rule 4). | Works with the enforced LDAP signing of Windows Server 2025 and with 2022, needs no PKI and no channel binding. |
 | L6 | API: **Kestrel + Negotiate with the keytab** (`KRB5_KTNAME`), Kerberos only (no NTLM), HTTPS 8443, admin subnet only. On Linux the Negotiate handler yields only the principal name, so **roles are resolved by the service itself from AD**: `sAMAccountName` → `objectSid` + `tokenGroups` over its own LDAP session, cached 5 minutes, then the unchanged SID role handler (`DeniedSids` first). The handler's `EnableLdap` role lookup is **never** used. | Lab: the Negotiate identity carries no SIDs; `EnableLdap` roles are group CN names and a look-alike group spoofed a role in the lab. tokenGroups by SID is spoof-proof and refreshes faster than Kerberos tickets. |
@@ -123,7 +130,8 @@ Ports on `admng-wd`:
 
 No outbound connection at all for the `openwec` user (nftables `meta skuid "openwec" drop`, 16; `IPAddressDeny=any`
 in `openwecd.service`, 12.2) – the WEF receiver only accepts connections (4.3). Every other local user reaches only
-the DCs and the SMTP relay; the egress of `admng-watchdog` is discussed in 4.3 ("The `admng-watchdog` process").
+the DCs and the SMTP relay; the egress of `admng-watchdog` (direct, no proxy – user decision 2026-10-20) is discussed
+in 4.3 ("The `admng-watchdog` process").
 
 ---
 
@@ -183,7 +191,7 @@ Processing pipeline: unchanged from spec 2, with `WecFileIngestionJob` replacing
 | Groups | only `Domain Computers` (primary group 515). Not in Protected Users (Microsoft: never for computers/services), no authentication silo, no privileged group (4.7) | – |
 | Password | random, 120 printable ASCII characters (0x21–0x7E) from the OS CSPRNG, set by `admng-watchdog-keytab`, never written anywhere, rotated when older than 30 days | Debian host |
 | Logon rights | domain GPO "Deny log on locally", "Deny log on through Remote Desktop Services", "Deny log on as a batch job", "Deny log on as a service" for `CONTOSO\ADMNG-WD$`; **not** "Deny access to this computer from the network" (LDAP, SMB need it) | Tier 0 admin (appendix A.6) |
-| Directory rights | read grants only: the explicit read grants of `docs/WATCHDOG.md` 4.3 (per class `GR`, domain head, AdminSDHolder, Password Settings Container, `LCRP` on Deleted Objects). Inherent computer-account writes: the own password (kpasswd, User-Change-Password right – kept), the computer class default SD's `(A;;CCDC;;;PS)`, validated SPN / dNSHostName writes and `RPWP` on Personal-Information for SELF – removed by a Deny ACE `SELF: CreateChild, DeleteChild, Self, WriteProperty` on the own object (verified hourly, 4.7); computer creation through `ms-DS-MachineAccountQuota` (Authenticated Users hold "Add workstations to domain" on DCs) – removed by MAQ = 0, a deployment prerequisite (health Warning `domain.machineAccountQuota` while > 0, 9.2); certificate enrollment as a member of Domain Computers (default `Machine` template, published on every enterprise CA – a certificate gives PKINIT logons for its whole validity, typically one year, and survives every password rotation) – removed by Deny `Certificate-Enrollment` (`0e10c968-78fb-11d2-90d4-00c04f79dc55`) and `Certificate-AutoEnrollment` (`a05b8cc2-17bc-4802-a710-e7c15ab866a2`) ACEs for `ADMNG-WD$` on **every** `pKICertificateTemplate` when an enterprise CA exists (a Deny for this one account is harmless and also covers grants through nested groups, This Organization, NETWORK or broad grants added later to an existing template), applied while the account is still **disabled** – before the one-time password is handed over (4.2) – and re-checked hourly for every published template (4.7 item 8) | Tier 0 admin (appendix A.2, A.5) |
+| Directory rights | read grants only: the explicit read grants of `docs/WATCHDOG.md` 4.3 (per class `GR`, domain head, AdminSDHolder, Password Settings Container, `LCRP` on Deleted Objects). Inherent computer-account writes: the own password (kpasswd, User-Change-Password right – kept), the computer class default SD's `(A;;CCDC;;;PS)`, validated SPN / dNSHostName writes and `RPWP` on Personal-Information for SELF – removed by a Deny ACE `SELF: CreateChild, DeleteChild, Self, WriteProperty` on the own object (verified hourly, 4.7); computer creation through `ms-DS-MachineAccountQuota` (Authenticated Users hold "Add workstations to domain" on DCs) – removed by MAQ = 0, a deployment prerequisite (health Warning `domain.machineAccountQuota` while > 0, 9.2); certificate enrollment as a member of Domain Computers (default `Machine` template, published on every enterprise CA, and any template that grants Enroll to Domain Computers or a broader group – a certificate gives PKINIT logons for its whole validity, typically one year, and survives every password rotation) – **not** removed: the user declined Deny ACEs on the certificate templates on 2026-10-20 (accepted risk, below and 22); the service does not check the templates | Tier 0 admin (appendix A.2, A.5) |
 
 Self-writable attributes that matter (lab, without the Deny ACE): the account itself can change
 `msDS-SupportedEncryptionTypes` (e.g. re-enable RC4) and add SPNs / `dNSHostName` values for its own host name
@@ -193,32 +201,48 @@ question Q22. Every change of the account raises `watchdog-self` regardless (sec
 writes LDAP.
 
 What remains is what every authenticated principal may do – notably creating new records in AD-integrated DNS zones
-(default `Create all child objects` for Authenticated Users on the zone objects). Stolen keys therefore give no write
-beyond an ordinary domain account; the Watchdog does not watch the DNS application partitions (outside its detection
-scope; `dnsNode` tombstones are dropped as noise, spec 10.9). The instructions (2.5) offer an optional Deny `CC` for
-`ADMNG-WD$` on each AD-integrated zone. Compromise recovery (instructions 2.5, "Gdy keytab mógł wyciec"), in this
-order: (1) disable the account (blocks password and PKINIT logons alike); (2) on **every** enterprise CA (the
-`pKIEnrollmentService` objects) list the certificates issued to it (`certutil -config <CA> -view -restrict
-'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'`), revoke each (`certutil -config <CA> -revoke <serial> 1`) and publish
-new CRLs at once (`certutil -config <CA> -crl`); (3) keep the account disabled until no DC can still use a CRL that was
-current before the revocation – the KDC trusts a cached base/delta CRL until its NextUpdate, so revocation alone does
-not block PKINIT at once (no certificate found → no wait); alternatively delete the account and create it anew
-(8.2 + A.2…A.6): the new SID makes old certificates fail strong certificate mapping; (4) enable the account, set a new
-one-time password and run `init` (a disabled account cannot obtain the `kadmin/changepw` ticket –
-`KDC_ERR_CLIENT_REVOKED`, lab).
+(default `Create all child objects` for Authenticated Users on the zone objects) – and what every member of Domain
+Computers may do – notably enrolling for a certificate from any template that grants Enroll to Domain Computers.
+Stolen keys therefore give no directory write beyond an ordinary domain account; the Watchdog does not watch the DNS
+application partitions (outside its detection scope; `dnsNode` tombstones are dropped as noise, spec 10.9). The
+instructions (2.5) offer an optional Deny `CC` for `ADMNG-WD$` on each AD-integrated zone.
+
+**Accepted risk – certificate for the service account** (user decision 2026-10-20, ADR-0009 „Konsekwencje” and
+„Ustalenia potwierdzone 2026-10-20 – druga tura”, item 6): no Deny ACEs for `ADMNG-WD$` are placed on the
+`pKICertificateTemplate` objects and the service does not check the templates. Whoever steals the keytab (or learns
+the one-time password in the minutes between enabling the account and `init`, 4.2) can request a certificate for
+`ADMNG-WD$` wherever a template allows Domain Computers to enroll (the default `Machine` template on every enterprise
+CA) and log on with it by PKINIT for the certificate's whole validity – the 30-day password rotation does not end
+that. The Watchdog does not read the CA databases and therefore does not detect the issuance itself. What stays: the
+per-CA check after `init` that no certificate was issued to the account (4.2 step 3, instructions 2.5 „Certyfikaty
+wystawione na konto”) and the revocation step of the compromise recovery below.
+
+Compromise recovery (instructions 2.5, "Gdy keytab mógł wyciec"), in this order: (1) disable the account (blocks
+password and PKINIT logons alike); (2) on **every** enterprise CA (the `pKIEnrollmentService` objects) find the
+certificates issued to it (`certutil -config <CA> -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'`),
+revoke each (`certutil -config <CA> -revoke <serial> 1`) and publish new CRLs at once (`certutil -config <CA> -crl`) –
+this step stays although the templates are not locked (accepted risk above); (3) keep the account disabled until no
+DC can still use a CRL that was current before the revocation – the KDC trusts a cached base/delta CRL until its
+NextUpdate, so revocation alone does not block PKINIT at once (no certificate found → no wait); alternatively delete
+the account and create it anew (instructions 8.2, then A.2…A.6): the new SID makes old certificates fail strong
+certificate mapping; (4) set a new one-time password while the account is still disabled (the old keytab stops
+working at once), then enable the account and run `init` right away (a disabled account cannot obtain the
+`kadmin/changepw` ticket – `KDC_ERR_CLIENT_REVOKED`, lab).
 
 ### 4.2 Creation (Tier 0 admin on a Tier 0 PAW) and handover
 
 1. The Tier 0 admin creates the account **disabled** with a **one-time password** (appendix A.2: `New-ADComputer …
-   -Enabled $false`, CSPRNG-generated one-time password of 32+ characters), adds the Deny ACE for SELF and – when an
-   enterprise CA exists – the certificate-template Deny ACEs (A.5; Enterprise Admins in a multi-domain forest), and only
+   -Enabled $false`, CSPRNG-generated one-time password of 32+ characters), adds the Deny ACE for SELF (A.5), and only
    then enables the account (`Enable-ADAccount`) and passes the one-time password to the Debian administrator over a
-   channel both trust (it is valid only until step 2, which happens within minutes). Nobody who learns the one-time
-   password can therefore enroll for a certificate or use a self-write in the window before step 2.
+   channel both trust (it is valid only until step 2, which happens within minutes). The Deny ACE exists before the
+   one-time password works, so nobody who learns it can use a self-write. There is no certificate-template step (user
+   decision 2026-10-20): certificate enrollment with the one-time password in the minutes before step 2 is part of the
+   accepted risk of 4.1 and is what the per-CA check of step 3 looks for.
 2. On `admng-wd`: `sudo admng-watchdog-keytab init` (prompts for the one-time password without echo) – section 4.4.
 3. The Tier 0 admin verifies: `Get-ADComputer ADMNG-WD -Properties pwdLastSet,msDS-KeyVersionNumber` shows a fresh
    `pwdLastSet` (the one-time password is gone), `setspn -L ADMNG-WD` the three SPNs and – with an enterprise CA – the
-   per-CA `certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$'` query returns no certificate (instructions 2.5).
+   per-CA `certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'` query returns no certificate
+   (instructions 2.5, „Certyfikaty wystawione na konto”).
 
 Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: only Kerberos (88) and kpasswd (464).
 
@@ -257,9 +281,12 @@ Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: on
   1. **API reachable only from the admin subnet** – nftables accepts 8443 only from `10.0.20.0/24` (16) and
      `AllowedRemoteSubnets` repeats it in the service; on Linux loopback and the host's own addresses are **not**
      exempt (6.1), so a forged ticket cannot be used from the server itself. The subnet is not a Tier 0 boundary: it
-     also holds the AD Manager workstations of Viewers and helpdesk staff (instructions 3.2, test 15), so a forged
-     admin ticket works from **any** host in `AllowedRemoteSubnets`. (Restricting the admin role to PAW addresses is an
-     open user decision – it would change where Watchdog admins work.)
+     also holds the AD Manager workstations of Viewers and helpdesk staff (instructions 3.2 and 3.3, 7.2 test 15), so
+     a forged admin ticket works from **any** host in `AllowedRemoteSubnets`. Watchdog admin operations are allowed
+     from the whole admin subnet: the admin role is **not** restricted to PAW addresses (user decision 2026-10-20,
+     ADR-0009 – the open item is closed). A forged admin ticket used from any workstation of the subnet, including
+     helpdesk and Viewer workstations, is therefore part of the accepted shared-keytab risk. (SSH stays PAW-only – 2,
+     16.)
   2. **Isolation of the `openwec` user** – separate system user without a shell, only supplementary group
      `admng-keytab`; `openwecd` runs in the sandbox of 12.2 (no capabilities, `ProtectSystem=strict`, writes only
      `/var/lib/openwec`, binds only 5985); nftables accepts 5985 only from the DC addresses (16), so the network-facing
@@ -303,9 +330,10 @@ Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: on
   cannot be narrowed to fixed addresses: Teams (Power Automate Workflows) is served from changing Microsoft cloud
   addresses, and the SMTP revocation check (`checkRevocation`, default on) fetches CRL/OCSP from the URLs in the
   relay's certificate chain. For the same reason `admng-watchdog.service` sets no `IPAddressDeny=` (12.1). Residual
-  risk (accepted, ADR-0009): code execution as `admng-watchdog` can send the keytab, the channel secrets and the
-  history to any Internet host over 80/443. Closing it needs an outbound proxy with a host allowlist (or dropping
-  Teams and serving CRLs internally) – open user decision Q23.
+  risk, **accepted by the user on 2026-10-20** (ADR-0009, Q23 closed): code execution as `admng-watchdog` can send the
+  keytab, the channel secrets and the history to any Internet host over 80/443. Decision: direct egress on TCP 80/443
+  only for `admng-watchdog` (plus `root` and `_apt` for updates), no outbound proxy, Teams kept; `openwec` and every
+  other local user have no Internet egress (16).
 
 ### 4.4 `admng-watchdog-keytab` (new project `src/AdMng.Watchdog.Keytab`)
 
@@ -386,15 +414,9 @@ The service resolves its own account by `sAMAccountName` from `Watchdog:Kerberos
    CreateChild | DeleteChild | Self | WriteProperty (`0x2B`); otherwise health Warning `serviceAccount.drift` with the
    reason `denySelfAceMissing` (someone with WriteDacl on the Tier 0 OU, or a "restore defaults" on the object, would
    otherwise silently re-enable the self-writes of 4.1).
-8. **Certificate templates (hourly)** – the Deny ACEs of 4.1 are a one-time change, while new templates and broader
-   enrollment are routine PKI work. Read `certificateTemplates` of every `pKIEnrollmentService` (configuration NC) and,
-   for each published template, its DACL (SD flags 4; templates are readable by Authenticated Users). A published
-   template without the two explicit Deny ACEs (Certificate-Enrollment, Certificate-AutoEnrollment) for `ADMNG-WD$`
-   → health Error `serviceAccount.drift` with reason `certificateEnrollOpen` (template name) when any Allow ACE with
-   Enroll, AutoEnroll, all extended rights or GenericAll names the account's `objectSid`, a SID of its `tokenGroups`, or
-   S-1-1-0, S-1-5-11, S-1-5-2, S-1-5-15 (well-known SIDs in every token that tokenGroups does not list); otherwise
-   health Warning with reason `certificateDenyMissing` (the instructions put the Deny on every template – 2.5). No
-   enterprise CA → the check reports "n/a". The remedy text points to the template block of instructions 2.5.
+
+There is no certificate-template check: the template Deny ACEs were declined by the user on 2026-10-20 (accepted
+risk, 4.1), so the service neither reads `pKICertificateTemplate` DACLs nor raises template-related health reasons.
 
 The Status tab gets a "Konto usługi" section (account DN, kvno, last rotation, next due, enctypes, checks above).
 
@@ -1086,7 +1108,8 @@ instructions 2.11. Every holder of "Manage auditing and security log" (`SeSecuri
 Administrators and, in every Exchange organisation, the Exchange Servers group (granted by Exchange setup in the
 Default Domain Controllers Policy) – can remove them silently; the service cannot read a SACL, and a targeted removal
 (e.g. only the dMSA/GPC/trustedDomain create entries) trips neither the coverage health (spec 7, < 50 % over 24 h)
-nor `SACL_MISSING` (7 days without any 5136 from a DC). Therefore (MUST, B6), every detection cycle the service reads
+nor `SACL_MISSING` (7 days without any 5136 from a DC). Therefore (MUST, B6; **confirmed by the user on 2026-10-20**,
+ADR-0009 „Ustalenia potwierdzone 2026-10-20 – druga tura”, item 7), every detection cycle the service reads
 `replPropertyMetaData` of the domain head, `CN=AdminSDHolder,CN=System,<domain>`, `OU=Domain Controllers,<domain>`,
 `CN=Public Key Services,CN=Services,<configuration NC>` and `CN=Sites,<configuration NC>` (readable by the computer
 account – appendix C) and keeps the version of the `nTSecurityDescriptor` entry (attid `0x20119`). A version increase
@@ -1101,10 +1124,9 @@ audit entry on the domain head → one Critical event each.
 ### 9.5 Contracts summary
 
 New `WatchEventKind` 510–512 (section 8.6), `HealthServiceAccount = 909` (rotation failing, password age, keytab stale,
-keytab entry order, privileged, drift incl. a missing Deny ACE for SELF and the certificate-template reasons
-`certificateEnrollOpen` / `certificateDenyMissing` of 4.7 item 8), new tags `badSuccessor`, `machineAccountQuota`,
-`watchdogAccount`, `gppPassword`, `auditSettings` (9.4), new reason `SYSVOL_NOT_AUDITED`, validator code
-`retentionBelowFloor` and health code `storage.backupSkipped` (14.2),
+keytab entry order, privileged, drift incl. a missing Deny ACE for SELF – no certificate-template reasons, 4.7), new
+tags `badSuccessor`, `machineAccountQuota`, `watchdogAccount`, `gppPassword`, `auditSettings` (9.4), new reason
+`SYSVOL_NOT_AUDITED`, validator code `retentionBelowFloor` and health code `storage.backupSkipped` (14.2),
 `AttributionSourceKind.OpenWec = 3`, `SecurityEventCriteria.LogonId`, `RetentionSettings.LogonRecordsHours`,
 `RetentionSettings.EventsDays` default **1095**, `AttributionSettings` collector fields (7.8), `GpoContentSettings` (`Enabled` true, `SysvolLagTolerance` 2 h,
 `MaxFileMb` 5, `MaxTotalMb` 50, `MaxFiles` 2000) in `DirectorySettings`, `StatusDto` sections (service account,
@@ -1302,8 +1324,9 @@ Notes (MUST be honoured by B1/B2 tests):
 - `AF_NETLINK` is needed by `NetworkInterface.GetAllNetworkInterfaces` (own addresses for `/healthz`).
 - No `IPAddressDeny=`/`IPAddressAllow=` (unlike 12.2): Teams and the CRL/OCSP URLs of the SMTP relay certificate have
   no fixed addresses, so an allow-list would have to contain `any` (4.3, "The `admng-watchdog` process"). Egress is
-  limited by the nftables output chain of 16 (DCs, SMTP relay, 80/443 only for `root`, `_apt` and `admng-watchdog`);
-  an outbound proxy with a host allowlist would allow `IPAddressDeny=any` here – open user decision Q23.
+  limited by the nftables output chain of 16 (DCs, SMTP relay, 80/443 only for `root`, `_apt` and `admng-watchdog`).
+  No outbound proxy is used (user decision 2026-10-20, Q23 closed): the direct egress of `admng-watchdog` is the
+  accepted residual risk of 4.3, so this unit keeps no `IPAddressDeny=`.
 - `SocketBindAllow=`/`SocketBindDeny=` (here and in 12.2) are effective only when `systemctl --version` shows
   `+BPF_FRAMEWORK`; otherwise systemd skips them with a debug-level message only. B1 records this for Debian 12 and 13.
   nftables (16) and the Kestrel / openwec listen settings remain the binding controls, and the exposure-score target
@@ -1724,11 +1747,11 @@ bounded separately by `MAX_UNCONSUMED_MB` (7.4).
   user that does not belong to an established connection (4.3 item 3; replies to the DCs' inbound WEF connections are
   `established`). TCP 80/443 to any address is accepted only for `root` and `_apt` (apt runs its download methods as
   `_apt`; the instructions' `curl` checks run as root) and for `admng-watchdog` (Teams, SMTP revocation check – 4.3,
-  "The `admng-watchdog` process"); every other local user reaches only the DCs and the SMTP relay. nft resolves user
-  names when the rules are loaded and refuses an unknown user ("User does not exist", nftables 1.0.9; checked in a
-  namespace: `meta skuid { "root", "_apt", "admng-watchdog" }` loads as a set of three uids), so the instructions
-  create the system users `openwec` and `admng-watchdog` in 3.3, before the first load; the packages keep them (13.1
-  sysusers, 13.2):
+  "The `admng-watchdog` process"; direct egress without a proxy – user decision 2026-10-20, Q23 closed); every other
+  local user reaches only the DCs and the SMTP relay. nft resolves user names when the rules are loaded and refuses an
+  unknown user ("User does not exist", nftables 1.0.9; checked in a namespace: `meta skuid { "root", "_apt",
+  "admng-watchdog" }` loads as a set of three uids), so the instructions create the system users `openwec` and
+  `admng-watchdog` in 3.3, before the first load; the packages keep them (13.1 sysusers, 13.2):
 
   ```
   #!/usr/sbin/nft -f
@@ -1927,7 +1950,7 @@ What only the pilot on real Windows DCs can prove is marked **(pilot)**.
 | Q5 | **(pilot)** Can the computer account change its own password right after the admin set the one-time password (minPwdAge 1 day; Samba allowed it)? | `init` fallback `otpActive` already designed |
 | Q6 | **(pilot)** Does `Data[@Name='Status']!='0x0'` filter 4776 correctly (field name, value format)? | validate with `Get-WinEvent -FilterXml` on both DCs before loading |
 | Q7 | **(pilot)** 4624 type 3/10 and 4776 volume per hour on DC01/DC02 → Security log size, WEF bandwidth, ingest rate | measure for one week; size logs to cover the longest tolerated collector outage |
-| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3)? | **closed** (user decision 2026-10-20, ADR-0009): the keytab is shared; mitigations = API only from the admin subnet (nftables + `AllowedRemoteSubnets`, loopback not exempt – 6.1), isolation of the `openwec` user and no outbound connections for it (4.3, 12.2, 16); open user decision: admin role only from PAW addresses (4.3 item 1) |
+| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3)? | **closed** (user decision 2026-10-20, ADR-0009): the keytab is shared; mitigations = API only from the admin subnet (nftables + `AllowedRemoteSubnets`, loopback not exempt – 6.1), isolation of the `openwec` user and no outbound connections for it (4.3, 12.2, 16). Admin role only from PAW addresses: **closed – no** (user decision 2026-10-20): Watchdog admin operations are allowed from the whole admin subnet, and a forged admin ticket working from any host in it (helpdesk and Viewer workstations included) is part of the accepted shared-keytab risk (4.3 item 1) |
 | Q9 | Does the customer's hypervisor back up/restore the vTPM state? Without it a restore loses the Data Protection key ring (secrets re-entered). | document; `reset-secrets-key` recovery |
 | Q10 | Can a dMSA be created below a computer object (computer default SD gives SELF CreateChild)? | **closed**: no – the effective possible superiors of a dMSA, inherited along `computer` → `user` → `organizationalPerson` → `person` → `top`, are `domainDNS`, `organizationalUnit`, `container`, `builtinDomain`, `organization` and `lostAndFound` (9.1; verified on the Samba schema for the inherited part, MS-ADSC for the dMSA class itself); the audit script (A.4) computes the set from each forest's schema and audits every object of those classes |
 | Q11 | **(pilot)** Default SPNs and `msDS-KeyVersionNumber` after `New-ADComputer -ServicePrincipalNames …`; whether `New-ADComputer -AccountPassword` honours the domain password policy for computer accounts | `setspn -L`, `Get-ADComputer -Properties *` in the lab |
@@ -1942,7 +1965,8 @@ What only the pilot on real Windows DCs can prove is marked **(pilot)**.
 | Q20 | **(pilot)** Which 4624 pattern do ADWS changes (PowerShell AD module, ADAC) leave on WS2025/WS2022 – loopback only, or also a network logon with the client address? | instructions test 18; decides whether the `AdwsSourceCorrelator` (7.8) is built |
 | Q21 | **(pilot)** Which actor do 4742/4723 show for the kpasswd change of `ADMNG-WD$` on WS2025/WS2022? | the `watchdog-self` exclusion no longer depends on it (9.3); record for the docs |
 | Q22 | **(pilot)** Does the Deny ACE for SELF (4.1) leave the kpasswd change of the own password working on Windows DCs? | the instructions apply the ACE before the first change (3.6 tests it at once); fallback: remove the ACE and keep `watchdog-self` as the only control |
-| Q23 | **Open user decision:** contain the Internet egress of `admng-watchdog` (today TCP 80/443 to any address, for Teams and the SMTP revocation check – 4.3, 16)? | options: an outbound proxy with a host allowlist (Power Automate host, CRL/OCSP hosts), after which `admng-watchdog.service` can get `IPAddressDeny=any` with the DCs, the relay and the proxy in `IPAddressAllow=` (12.1; B1 would have to confirm that the .NET revocation download honours the proxy); or Teams dropped and the relay certificate's CRL served internally; until decided: accepted residual risk (ADR-0009) |
+| Q23 | Contain the Internet egress of `admng-watchdog` (TCP 80/443 to any address, for Teams and the SMTP revocation check – 4.3, 16)? | **closed** (user decision 2026-10-20, ADR-0009): direct egress on TCP 80/443 only for `admng-watchdog` (and `root`/`_apt` for updates), no outbound proxy, Teams kept, no `IPAddressDeny=` on `admng-watchdog.service` (12.1); `openwec` has no egress at all (12.2, 16). Accepted residual risk: code execution as `admng-watchdog` can send the keytab, channel secrets and history to any Internet host |
+| Q24 | Certificate for `ADMNG-WD$` through templates that allow Domain Computers to enroll (PKINIT outlives the 30-day rotation)? | **closed – accepted risk** (user decision 2026-10-20, ADR-0009): no Deny ACEs on the certificate templates and no template health check (4.1, 4.7); remaining controls: per-CA check after `init` (4.2 step 3) and certificate revocation in the compromise recovery (4.1) |
 
 Further risks: OpenWEC is a small upstream project pinned to an unreleased commit (mitigation: own build, source
 attached, upgrade only through reviewed commits); the WEF path makes attribution depend on DC GPO configuration that
@@ -2001,7 +2025,7 @@ New-ADComputer -Name 'ADMNG-WD' -SamAccountName 'ADMNG-WD$' -Path $ou `
     -AccountNotDelegated $true -PasswordNotRequired $false `
     -AccountPassword $otp -Enabled $false `
     -Description 'AdMng Watchdog (Debian admng-wd, 10.0.1.25) - konto usługi Tier 0, tylko odczyt'
-# still disabled: Deny ACE for SELF (A.5) and, with an enterprise CA, the certificate-template Deny ACEs (A.5)
+# still disabled: Deny ACE for SELF (A.5); no certificate-template Deny ACEs (accepted risk, 4.1)
 Enable-ADAccount -Identity 'ADMNG-WD$'
 $plain    # hand over once to the Debian administrator, then close the session
 Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes,userAccountControl,servicePrincipalName,mS-DS-CreatorSID,memberOf |
@@ -2061,11 +2085,11 @@ As `docs/WATCHDOG.md` 4.3 with `$a = 'CONTOSO\ADMNG-WD$'` (per-class `GR`, domai
 Container, `LCRP` on Deleted Objects after `/takeownership`). The per-class `GR` on `user`/`inetOrgPerson`/`computer`
 also makes `tokenGroups` readable in hardened domains – no Windows Authorization Access Group (6.2). Verified from
 Debian with a non-protected account (instructions 2.6). Deny ACE on the own object (instructions 2.5):
-`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). With an enterprise CA (instructions 2.1/2.5, Enterprise
-Admins or a root-domain Domain Admin): Deny `Certificate-Enrollment` and `Certificate-AutoEnrollment` for `ADMNG-WD$`
-on **every** certificate template (4.1) – both Deny steps while the account is still disabled (A.2, 4.2); afterwards
-the per-CA `certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'` query must return no
-certificate.
+`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny), added while the account is still disabled (A.2, 4.2).
+No Deny ACEs on the certificate templates (user decision 2026-10-20 – accepted risk, 4.1). With an enterprise CA
+(instructions 2.1/2.5), after `init` the per-CA
+`certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'` query must return no certificate; the
+same query starts the revocation step of the compromise recovery (4.1).
 MachineAccountQuota = 0 is a deployment prerequisite: list who joins computers today (`mS-DS-CreatorSID` of existing
 computers) and delegate computer creation to them (`dsacls "<computers OU>" /I:T /G "CONTOSO\<group>:CC;computer"`),
 also on the default computers container `(Get-ADDomain).ComputersContainer` (usually `CN=Computers`, where joins
@@ -2145,9 +2169,9 @@ Same order as the instructions (`docs/WATCHDOG-LINUX.md` 0.4 and chapters 3–6)
    DNS and chrony with `maxdistance 16.0` (3.4).
 2. Private `/etc/admng-watchdog/krb5.conf`, `ldap.conf`, `smb-client.conf` created by hand (3.5); `dpkg` later keeps
    them (answer `N` at the conffile prompt).
-3. Keytab right after A.2 – the account is enabled only after its Deny ACEs (SELF, certificate templates) are in
-   place (3.6: manual MIT procedure until the package exists – the same block, which reads an existing keytab first,
-   also serves the manual change and the minimum-password-age fallback; afterwards `sudo admng-watchdog-keytab init`
+3. Keytab right after A.2 – the account is enabled only after its Deny ACE for SELF is in place (3.6: manual MIT
+   procedure until the package exists – the same block, which reads an existing keytab first, also serves the manual
+   change and the minimum-password-age fallback; afterwards `sudo admng-watchdog-keytab init`
    + `verify`).
 4. AD part two (right after the keytab: no certificate issued to the account (A.5), the logon-restriction GPO of A.6;
    then A.4–A.7), then certificate (3.8) and backups (3.9).
@@ -2206,7 +2230,8 @@ it stays a live credential on the old host – and the 0.2.0 host group (`Remove
 - Optional: DC02 – Windows Server 2022 evaluation (10.0.1.11) for the replication, failover and WinRM-version tests;
   `smtp` – a small Debian VM (10.0.1.30) with Mailpit (pinned version and SHA-256 of `tools/testlab/watchdog`,
   STARTTLS, self-signed certificate pinned in the SMTP settings) for the e-mail tests; an enterprise CA on DC01 (lab
-  only, instructions 1.7) to exercise certificate variant A and the template Deny ACEs; Teams only with a Microsoft 365
+  only, instructions 1.7) to exercise certificate variant A and the per-CA certificate check and revocation of
+  instructions 2.5; Teams only with a Microsoft 365
   tenant.
 - Hypervisor notes (instructions 1.1): Hyper-V internal switch + `New-NetNat` for the flat 10.0.1.0/24 network (the
   NAT does not answer DNS – DC01 forwards to a public or company resolver); a two-subnet lab needs a router without
