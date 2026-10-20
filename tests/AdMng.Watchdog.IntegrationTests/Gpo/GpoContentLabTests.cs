@@ -25,6 +25,7 @@ namespace AdMng.Watchdog.IntegrationTests.Gpo;
 /// <remarks>The engine's events (the triggers) are in the engine's in-memory store; the content events go to the SQLite
 /// store whose database is scanned for the GPP <c>cpassword</c>.</remarks>
 [SupportedOSPlatform("linux")]
+[Collection(KeytabLabCollection.Name)]   // in parallel with the keytab lab tests their GSSAPI LDAP sessions to the lab DC drop
 public sealed class GpoContentLabTests(AdministratorEngineFixture engine, LabFixture lab) : IClassFixture<AdministratorEngineFixture>
 {
     /// <summary>A made-up GPP cpassword (MS14-025 shape) that must never reach the database.</summary>
