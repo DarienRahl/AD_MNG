@@ -215,17 +215,21 @@ OU Tier 0), na której bezpiecznie przećwiczysz wszystkie kroki tej instrukcji.
   dla serwerów, 10.0.20.0/24 dla stacji) wymagają routera między nimi – np. maszyny z dwiema kartami sieciowymi albo
   routera hiperwizora.
 - vTPM dla Debiana jest opcjonalny: z nim sprawdzisz wariant „TPM2 + klucz hosta” szyfrowania sekretów (rozdz. 3.9).
-- **Przekaźnik SMTP w laboratorium.** Na maszynie `smtp` uruchom Mailpit (<https://github.com/axllent/mailpit>, wersja
-  jak w `tools/testlab/watchdog/start-mailpit.sh`) z STARTTLS i certyfikatem samopodpisanym dla `smtp.contoso.com`:
+- **Przekaźnik SMTP w laboratorium.** Na maszynie `smtp` skopiuj program `mailpit` z wydania Mailpit
+  (<https://github.com/axllent/mailpit>, wersja jak w `tools/testlab/watchdog/start-mailpit.sh`) do `/usr/local/bin/`
+  i jako root utwórz stały certyfikat samopodpisany dla `smtp.contoso.com` (stały, bo jego odcisk przypniesz w 6.2),
+  potem uruchom Mailpit z wymaganym STARTTLS:
 
   ```bash
-  mailpit --smtp 0.0.0.0:587 --listen 0.0.0.0:8025 --smtp-require-starttls --smtp-auth-accept-any \
-      --smtp-tls-cert sans:smtp.contoso.com --smtp-tls-key sans:smtp.contoso.com
+  openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj '/CN=smtp.contoso.com' \
+      -addext 'subjectAltName=DNS:smtp.contoso.com' -keyout /root/smtp.key -out /root/smtp.crt
+  systemd-run --unit=mailpit /usr/local/bin/mailpit --smtp 0.0.0.0:587 --listen 0.0.0.0:8025 \
+      --smtp-require-starttls --smtp-auth-accept-any --smtp-tls-cert /root/smtp.crt --smtp-tls-key /root/smtp.key
   ```
 
-  Po utworzeniu domeny (1.2) dodaj na DC01 rekord
+  Po restarcie maszyny powtórz polecenie `systemd-run`. Po utworzeniu domeny (1.2) dodaj na DC01 rekord
   `Add-DnsServerResourceRecordA -ZoneName contoso.com -Name smtp -IPv4Address 10.0.1.30 -CreatePtr`. Wiadomości
-  oglądasz na `http://10.0.1.30:8025`; odcisk certyfikatu przypniesz w 6.2.
+  oglądasz na `http://10.0.1.30:8025`.
 - **Microsoft Teams** jest opcjonalny – wymaga dzierżawy Microsoft 365. Bez niej pomiń kanał Teams w 6.2 i 7.2.
 
 ### 1.2 DC01 – nowy las `contoso.com`
@@ -846,8 +850,9 @@ własną, zaplanowaną zmianą hasła. **(pakiet powstaje - wersja 0.3.0)**
 
 **Gdzie:** PAW, Domain Admin. **Co i po co:** w wielu domenach każde konto czyta obiekty dzięki grupie „Pre-Windows 2000
 Compatible Access”. W domenach utwardzonych tak nie jest, a obiekty i atrybuty, których konto nie może odczytać (np.
-atrybuty `uSNChanged`, `lockoutTime`), **po cichu znikają** ze śledzenia. Dlatego prawa odczytu nadajemy jawnie – zawsze, także w domenie
-testowej. To te same polecenia co w wersji Windows ([`WATCHDOG.md`](WATCHDOG.md) 4.3), tylko dla konta `ADMNG-WD$`.
+atrybuty `uSNChanged`, `lockoutTime`), **po cichu znikają** ze śledzenia. Dlatego prawa odczytu nadajemy jawnie –
+zawsze, także w domenie testowej. To te same polecenia co w wersji Windows ([`WATCHDOG.md`](WATCHDOG.md) 4.3), tylko
+dla konta `ADMNG-WD$`.
 
 ```powershell
 $d = 'DC=contoso,DC=com'; $a = 'CONTOSO\ADMNG-WD$'
@@ -1089,9 +1094,8 @@ Audit Policy Configuration). Włącz (S = sukces, F = niepowodzenie):
 | Audit Policy Change | `{0CCE922F-69AE-11D9-BED3-505054503030}` | S | 4719 – zmiana zasad inspekcji |
 
 W tym samym GPO: Ustawienia zabezpieczeń → Zasady lokalne → Opcje zabezpieczeń (Security Settings → Local Policies →
-Security Options) → „Audit: Force audit policy
-subcategory settings (Windows Vista or later) to override audit policy category settings” = Enabled (zwykle już
-włączone). Ustawienia podkategorii z kilku GPO łączą się; przy konflikcie wygrywa GPO o wyższym priorytecie – dlatego
+Security Options) → „Audit: Force audit policy subcategory settings (Windows Vista or later) to override audit policy
+category settings” = Enabled (zwykle już włączone). Ustawienia podkategorii z kilku GPO łączą się; przy konflikcie wygrywa GPO o wyższym priorytecie – dlatego
 sprawdzasz wynik na każdym DC.
 
 **Rozmiar dziennika Security.** Kontrolery wysyłają teraz także logowania sieciowe (4624), więc dziennik zapełnia się
@@ -1945,8 +1949,7 @@ klist -k /etc/admng-watchdog/admng-wd.keytab | awk 'NR>3 {print $1}' | sort -u  
 
 Oczekiwane: timer z datą następnego uruchomienia; `status` z wynikiem `ok`; `verify` pokazuje nazwy, kvno i typy
 szyfrowania bez błędów; w keytabie utrzymywanym przez narzędzie najwyżej dwie wersje kluczy, z których nowsza równa się
-`msDS-KeyVersionNumber`
-(PAW: `Get-ADComputer ADMNG-WD -Properties msDS-KeyVersionNumber`, albo `ldapsearch` z 3.6).
+`msDS-KeyVersionNumber` (PAW: `Get-ADComputer ADMNG-WD -Properties msDS-KeyVersionNumber`, albo `ldapsearch` z 3.6).
 
 **Do czasu pakietu – zmiana ręczna przez nowe hasło jednorazowe.** Tak samo naprawisz keytab, który przestał pasować do
 AD (np. po odtworzeniu maszyny z kopii):
@@ -2382,8 +2385,8 @@ Plik edytuje tylko root serwera. Pakiet dostarcza go z przykładowymi nazwami; z
 | `Watchdog.Collector.SubscriptionUuid` | `4f7c2e1a-9b3d-4c55-8e21-6a0d9c7b3e10` | musi być równy `uuid` subskrypcji (4.4) |
 
 Pakiet wpisuje w miejsce SID-ów grup wartość zastępczą `S-1-5-21-0-0-0-0` – dopóki jej nie zmienisz,
-`--check-config` i start usługi kończą się komunikatem, że trzeba podać SID-y grup. Pozostałe ustawienia (`AllowTier0Suppression`,
-`AllowPrivilegedServiceAccount`, `AllowInsecureDataDirectoryAcl`) zostaw na `false`. Zmiany `Authorization` i podsieci
+`--check-config` i start usługi kończą się komunikatem, że trzeba podać SID-y grup. Pozostałe ustawienia
+(`AllowTier0Suppression`, `AllowPrivilegedServiceAccount`, `AllowInsecureDataDirectoryAcl`) zostaw na `false`. Zmiany `Authorization` i podsieci
 działają w ciągu kilku sekund, pozostałe po restarcie usługi.
 
 Po każdej edycji:
@@ -2483,19 +2486,25 @@ Opis wszystkich opcji: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 5 i 6. Minimum na st
    zmianach), nowe sekcje z 5.4 bez błędów.
 2. **Kanały i SMTP → SMTP**: serwer `smtp.contoso.com`, port `587`, **STARTTLS wymagane**, uwierzytelnianie zgodnie z
    ustawieniami przekaźnika (bez logowania – gdy przekaźnik przyjmuje pocztę z adresu 10.0.1.25; albo użytkownik i
-   hasło). W laboratorium (Mailpit z 1.1) – bez logowania, a ponieważ certyfikat Mailpit jest samopodpisany, w
-   weryfikacji certyfikatu serwera SMTP wybierz przypięty odcisk i wklej odcisk SHA-256 odczytany na Debianie:
-   `openssl s_client -starttls smtp -connect smtp.contoso.com:587 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256`. Hasło jest zapisywane zaszyfrowane, tylko do zapisu (nigdy nie wraca do AD Manager) i powiązane z tym
+   hasło). Hasło jest zapisywane zaszyfrowane, tylko do zapisu (nigdy nie wraca do AD Manager) i powiązane z tym
    serwerem – po zmianie serwera, portu lub użytkownika trzeba je wpisać ponownie. Nadawca np. `AD Watchdog
    <watchdog@contoso.com>`. **Wyślij wiadomość testową** – okno pokazuje każdy etap (połączenie, TLS, logowanie,
    odbiorcy).
+
+   W laboratorium (Mailpit z 1.1) – bez logowania, a ponieważ certyfikat Mailpit jest samopodpisany, w weryfikacji
+   certyfikatu serwera SMTP wybierz przypięty odcisk i wklej odcisk SHA-256 odczytany na Debianie (64 znaki
+   szesnastkowe bez dwukropków – w takiej postaci przyjmuje go Watchdog):
+
+   ```bash
+   openssl s_client -starttls smtp -connect smtp.contoso.com:587 </dev/null 2>/dev/null |
+       openssl x509 -noout -fingerprint -sha256 | cut -d= -f2 | tr -d :
+   ```
 3. **Grupy odbiorców**: „Administratorzy IT” (`it-admins`) i „Helpdesk” (`helpdesk`) – adresy e-mail (najlepiej listy
    dystrybucyjne).
 4. **Kanały i SMTP → Teams** (opcjonalnie – wymaga dzierżawy Microsoft 365): w kanale Teams → … → Przepływy pracy
-   (Workflows) → szablon „Send webhook alerts to a
-   channel” / „Post to a channel when a webhook request is received” → skopiuj adres. W Power Automate dodaj
-   współwłaścicieli przepływu (przepływ jednej osoby przestaje działać po jej odejściu) i włącz „Secure inputs/outputs”.
-   Wklej adres (to sekret – po zapisaniu widać tylko nazwę hosta) i wyślij kartę testową; sprawdź, że karta pojawiła się
+   (Workflows) → szablon „Send webhook alerts to a channel” / „Post to a channel when a webhook request is received”
+   → skopiuj adres. W Power Automate dodaj współwłaścicieli przepływu (przepływ jednej osoby przestaje działać po jej
+   odejściu) i włącz „Secure inputs/outputs”. Wklej adres (to sekret – po zapisaniu widać tylko nazwę hosta) i wyślij kartę testową; sprawdź, że karta pojawiła się
    w kanale (odpowiedź 202 oznacza tylko przyjęcie). Do reguł krytycznych (`tier0-*`) dodaj kanał Teams, jeśli alarmy
    mają tam trafiać.
 5. **Reguły**: przejrzyj reguły wbudowane, także nowe w 0.3.0: `tier0-badsuccessor` (dMSA), `tier0-machine-quota`,

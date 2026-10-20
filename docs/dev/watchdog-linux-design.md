@@ -569,7 +569,7 @@ pilot (Q7). `{client}` is the Kerberos principal with characters outside `[a-zA-
   `admng-wec-rotate.timer`; script `/usr/lib/admng-watchdog/wec-rotate`):
   1. every non-empty `/var/lib/openwec/out/*/security.jsonl` is renamed to `security.jsonl.<UTC yyyyMMddTHHmmssZ>`
      (same directory, inode unchanged);
-  2. if anything was renamed: `systemctl reload openwecd.service` (SIGHUP: OpenWEC drops its output contexts and
+  2. the unit then reloads `openwecd` (`ExecStartPost=`, 12.4 – SIGHUP: OpenWEC drops its output contexts and
      reopens the path on the next write – verified in the source);
   3. a rotated file is deleted when Watchdog's progress file `/run/admng-watchdog/wec-progress.json` (written by
      Watchdog after every commit; root reads it) lists its `(device, inode, firstLineSha256)` as **complete**
@@ -870,9 +870,9 @@ is kept `DeletedSnapshotDays` (restore diff), then purged. Events with their cha
   confirms it per forest). Attribution needs 5137/5136 with the dMSA class SACL (`docs/WATCHDOG.md` 4.6). The
   instructions add the Tier 0 OU / BadSuccessor delegation audit (appendix A.4: domain head, OUs and containers) and
   the requirement that DC01 has the August 2025 or later cumulative update (CVE-2025-53779).
-- SHOULD (B6, if time allows): weekly digest section "Kto może tworzyć dMSA" – OUs and containers whose DACL grants
-  `CreateChild` (all or the dMSA class), `GenericAll` or `WriteDacl`/`WriteOwner` to a principal outside Tier 0 (SDs read
-  with SD flags 7, readable by the computer account – lab).
+- SHOULD (B6, if time allows): weekly digest section "Kto może tworzyć dMSA" – the domain head, OUs and containers
+  whose DACL grants `CreateChild` (all or the dMSA class), `GenericAll` or `WriteDacl`/`WriteOwner` to a principal
+  outside Tier 0 (SDs read with SD flags 7, readable by the computer account – lab).
 
 ### 9.2 ms-DS-MachineAccountQuota
 
@@ -928,8 +928,8 @@ privileged, drift), new tags `badSuccessor`, `machineAccountQuota`, `watchdogAcc
   PCR 7, and a UEFI db/dbx update, a Secure Boot toggle or a hypervisor NVRAM change would make the credential
   undecryptable; systemd 257 (Debian 13) already defaults to no PCR. The credential is bound to the TPM and the host
   key, not to the boot state. A usable TPM2 needs the tpm2-tss runtime libraries (`Recommends`, 13.1); without them
-  `systemd-creds has-tpm2` reports `-libraries` and `auto` silently uses the host key only. `postinst` prints which variant was used; the Status tab shows it (`host.credentialKey`
-  = `tpm2+host` | `host`).
+  `systemd-creds has-tpm2` reports `-libraries` and `auto` silently uses the host key only. `postinst` prints which
+  variant was used; the Status tab shows it (`host.credentialKey` = `tpm2+host` | `host`).
 - Production without `CREDENTIALS_DIRECTORY/dp-key` → refuse to start (exit code 9) – this happens only when the process
   runs without the credential (started outside the unit, or the unit was changed). Development/tests:
   `UseEphemeralDataProtectionProvider()` or an explicit test key file.
@@ -1670,7 +1670,7 @@ New-ADComputer -Name 'ADMNG-WD' -SamAccountName 'ADMNG-WD$' -Path $ou `
     -DNSHostName 'admng-wd.contoso.com' `
     -ServicePrincipalNames 'HTTP/admng-wd.contoso.com','HOST/admng-wd.contoso.com','HOST/ADMNG-WD' `
     -KerberosEncryptionType AES128,AES256 `
-    -AccountNotDelegated $true `
+    -AccountNotDelegated $true -PasswordNotRequired $false `
     -AccountPassword $otp -Enabled $true `
     -Description 'AdMng Watchdog (Debian admng-wd, 10.0.1.25) - konto uslugi Tier 0, tylko odczyt'
 $plain    # hand over once to the Debian administrator, then close the session
@@ -1681,7 +1681,8 @@ setspn -Q HTTP/admng-wd.contoso.com       # only CN=ADMNG-WD (remove from a 0.2.
 ```
 
 Expected: `msDS-SupportedEncryptionTypes` 24, `userAccountControl` 1052672 (0x101000 = WORKSTATION_TRUST_ACCOUNT +
-NOT_DELEGATED), `mS-DS-CreatorSID` empty, `memberOf` empty (primary group Domain Computers). After
+NOT_DELEGATED; 1052704 means PASSWD_NOTREQD is still set → `Set-ADAccountControl -PasswordNotRequired $false`),
+`mS-DS-CreatorSID` empty, `memberOf` empty (primary group Domain Computers). After
 `admng-watchdog-keytab init` on Debian: `pwdLastSet` fresh, `msDS-KeyVersionNumber` increased.
 
 ### A.3 Role groups
@@ -1700,9 +1701,9 @@ Members: the people's administrative accounts used on the 10.0.20.0/24 workstati
 
 ### A.4 Tier 0 OU and BadSuccessor audit (script `Test-AdMngTier0Delegation.ps1`, shipped in `docs/`)
 
-Builds the Tier 0 SID set (`S-1-5-18`, `S-1-5-32-544`, `S-1-5-9`, domain `-512`, `-516`, `-498`, `-526`, forest root
-`-518`, `-519`, `-527`; DnsAdmins in the dMSA script); maps `schemaIDGUID` and `rightsGuid` to names; for the Tier 0 OU, every object below it
-(including computers and containers) and `CN=AdminSDHolder,CN=System,DC=contoso,DC=com` reads `nTSecurityDescriptor`
+Builds the Tier 0 SID set (`S-1-5-18`, `S-1-5-32-544`, `S-1-5-9`, domain `-512`, `-516`, `-526`, forest root `-498`,
+`-518`, `-519`, `-527`; DnsAdmins in the dMSA script); maps `schemaIDGUID` and `rightsGuid` to names; for the Tier 0
+OU, every object below it (including computers and containers) and `CN=AdminSDHolder,CN=System,DC=contoso,DC=com` reads `nTSecurityDescriptor`
 (`Get-Acl "AD:\<DN>"`) and reports: owners outside the Tier 0 set; every Allow ACE (explicit and inherited) with
 GenericAll, GenericWrite, WriteProperty, WriteDacl, WriteOwner, CreateChild, DeleteChild, Delete, DeleteTree,
 ExtendedRight or Self held by a SID outside the Tier 0 set, with its object type name (e.g. User-Force-Change-Password
