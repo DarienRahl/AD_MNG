@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- admng-watchdog-keytab (docs/dev/watchdog-linux-design.md 4.4): creates and rotates the password and keytab of the
+       Watchdog's own computer account (ADMNG-WD$) through MIT libkrb5 (P/Invoke). Linux only, run as root by the
+       admng-watchdog-keytab unit or by the administrator. Never writes, prints or logs a password; status.json holds no
+       secret and no directory value. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AdMng.Watchdog.Keytab</RootNamespace>
+    <AssemblyName>admng-watchdog-keytab</AssemblyName>
+    <!-- LibraryImport of libkrb5 / libk5crypto / libc with pointers to pinned secret buffers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Watchdog.Service.Tests" />
+    <InternalsVisibleTo Include="AdMng.Watchdog.IntegrationTests" />
+  </ItemGroup>
+</Project>

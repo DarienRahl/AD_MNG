@@ -7,6 +7,7 @@
     <Project Path="src/AdMng.Watchdog.Client/AdMng.Watchdog.Client.csproj" />
     <Project Path="src/AdMng.Watchdog.Contracts/AdMng.Watchdog.Contracts.csproj" />
     <Project Path="src/AdMng.Watchdog.Core/AdMng.Watchdog.Core.csproj" />
+    <Project Path="src/AdMng.Watchdog.Keytab/AdMng.Watchdog.Keytab.csproj" />
     <Project Path="src/AdMng.Watchdog.Service/AdMng.Watchdog.Service.csproj" />
   </Folder>
   <Folder Name="/tests/">
