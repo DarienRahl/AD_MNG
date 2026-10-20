@@ -53,7 +53,8 @@ libldap/SASL.
    Kerberos, DNS i czas (chrony z DC) konfigurujemy ręcznie; usługa ma własne pliki `krb5.conf`, `ldap.conf` i
    `smb-client.conf` w `/etc/admng-watchdog`.
 2. **Tożsamość: konto komputera + keytab zamiast gMSA.** Administrator Tier 0 tworzy na stacji PAW obiekt komputera
-   `ADMNG-WD` (`ADMNG-WD$`) w OU Tier 0 z jednorazowym hasłem, SPN-ami `HTTP/admng-wd.contoso.com`,
+   `ADMNG-WD` (`ADMNG-WD$`) w OU Tier 0 – najpierw wyłączony, włączany dopiero po wpisach odmowy opisanych niżej – z
+   jednorazowym hasłem, SPN-ami `HTTP/admng-wd.contoso.com`,
    `HOST/admng-wd.contoso.com`, `HOST/ADMNG-WD`, szyfrowaniem tylko AES (0x18) i flagą „konto jest poufne i nie może być
    delegowane”. Na Debianie narzędzie `admng-watchdog-keytab` (własne, oparte na bibliotece MIT Kerberos, bez LDAP)
    zastępuje jednorazowe hasło losowym hasłem 120 znaków, zapisuje keytab `/etc/admng-watchdog/admng-wd.keytab`
@@ -66,7 +67,8 @@ libldap/SASL.
    (warunek wdrożenia; prawo tworzenia obiektów komputerów dostają przez delegację ci, którzy dziś dołączają
    komputery); wystawienie certyfikatu na konto (jako członek Domain Computers mogłoby poprosić o certyfikat według
    szablonu „Computer” każdego urzędu Enterprise, a certyfikat przetrwałby wszystkie zmiany hasła) – wpisy „Odmów”
-   dla prawa rejestracji (Enroll) w szablonach, gdy w lesie jest urząd Enterprise. Zostaje zmiana własnego hasła oraz to, co może każde
+   dla praw rejestracji (Enroll, Autoenroll) tego konta na każdym szablonie, gdy w lesie jest urząd Enterprise (usługa
+   co godzinę sprawdza szablony opublikowane na urzędach). Zostaje zmiana własnego hasła oraz to, co może każde
    uwierzytelnione konto domeny (np. dodanie nowego rekordu w strefie DNS zintegrowanej z AD). Nie używamy msktutil
    ani adcli (zapisy LDAP do własnego obiektu, których skutków na DC Windows nie dało się zweryfikować, pliki
    tymczasowe w `/tmp`, własne timery pakietów) – potwierdzone przez użytkownika 2026-10-20.
@@ -87,7 +89,8 @@ libldap/SASL.
    raz, duplikaty pomijane po (komputer, numer rekordu, czas)). Subskrypcja obejmuje dotychczasowy zestaw zdarzeń
    zmian (atrybucja wykonawcy) oraz 4624 (logowania sieciowe – typ 3 – i RDP – typ 10), 4625, 4771 i nieudane 4776 –
    źródło zmian (komputer/adres IP) jest ustalane z tych rekordów. Watchdog sprawdza, czy rekord pochodzi od
-   uwierzytelnionego DC (konto, nazwa komputera i adres IP muszą się zgadzać).
+   uwierzytelnionego DC (konto, nazwa komputera i adres IP muszą się zgadzać) – wszystkie te pola zapisuje OpenWEC,
+   więc sprawdzenie chroni przed obcym nadawcą, nie przed przejętym OpenWEC („Konsekwencje”).
 6. **Treść GPO.** Usługa czyta foldery GPO w SYSVOL swojego DC (SMB 3, Kerberos, wymagane podpisywanie, tylko odczyt,
    dane wyłącznie w pamięci), analizuje `GptTmpl.inf`, `Registry.pol`, preferencje GPP, skrypty, `audit.csv`
    i komentarze i raportuje zmiany jako „ustawienie: było → jest”. Wykonawcę dziedziczy ze zdarzenia 5136 na obiekcie
@@ -108,7 +111,9 @@ libldap/SASL.
    certyfikatu nigdy nie jest akceptowana po cichu.
 10. **Retencja i kopie.** Zdarzenia Watchdog 1095 dni (3 lata); rekordy dzienników DC związane ze zmianami 30 dni;
     rekordy logowań i nieudanych logowań (4624/4625/4771/4776) 48 godzin – ustalone źródło trafia do zdarzenia i jest
-    przechowywane razem z nim 1095 dni (potwierdzone 2026-10-20); lokalne kopie zapasowe 7 dni.
+    przechowywane razem z nim 1095 dni (potwierdzone 2026-10-20); lokalne kopie zapasowe 7 dni. Retencji zdarzeń nie
+    da się w AD Managerze skrócić poniżej progu z ustawień startowych (`MinEventsDays`, domyślnie 1095 – zmienia go
+    tylko root serwera), a każde skrócenie retencji jest zdarzeniem krytycznym.
 11. **Wycofanie wersji Windows.** Usługa Windows pozostaje dostępna jako wydanie 0.2.0. Kod hostingu Windows (usługa
     SCM, HTTP.sys, DPAPI-NG, odczyt dzienników przez RPC, ACL NTFS, magazyn certyfikatów Windows, dziennik Application,
     skrypty PowerShell) zostaje usunięty po pierwszym wydaniu linuksowym (0.3.0). Bazę 0.2.0 można przenieść na
@@ -117,7 +122,11 @@ libldap/SASL.
 ## Konsekwencje
 
 - Na serwerze Watchdog nie ma żadnego komponentu Windows; serwer i jego administratorzy są zasobami Tier 0 (root
-  serwera = tożsamość `ADMNG-WD$` i wszystkie dane usługi).
+  serwera = tożsamość `ADMNG-WD$` i wszystkie dane usługi). Dotyczy to też platformy: maszyna wirtualna działa tylko
+  na platformie wirtualizacji Tier 0 (te same hosty lub klaster i ci sami administratorzy co kontrolery domeny) albo
+  na osobnym hoście, którego administratorzy, konsola, migawki, kopie i ochrona klucza vTPM są Tier 0. Administrator
+  hiperwizora ma inaczej dostęp do dysku, pamięci i stanu vTPM – czyli do keytabu, klucza sekretów i historii – i może
+  cofnąć maszynę do migawki; szyfrowanie dysku przez hiperwizor chroni tylko przed kradzieżą nośnika.
 - Po stronie AD potrzebne są: konto komputera z wpisem odmowy dla SELF (i – gdy jest urząd Enterprise – z wpisami
   odmowy na szablonach certyfikatów) i dwie grupy w OU Tier 0, rekord A (i PTR),
   jawne prawa odczytu (jak dotąd, dla `ADMNG-WD$`; one dają też odczyt `tokenGroups` – grupa Windows Authorization
@@ -131,21 +140,43 @@ libldap/SASL.
   Security na DC i ruch WEF trzeba dobrać na podstawie pomiaru w pilotażu. Watchdog odrzuca logowania kont komputerów
   i anonimowe przy odczycie, a pozostałe rekordy logowań przechowuje tylko 48 godzin.
 - Atrybucja zależy od poprawnego GPO subskrypcji na każdym DC; usługa zgłasza w zakładce Stan DC, od którego nie
-  przychodzą zdarzenia, opóźnienia i rekordy odrzucone przy sprawdzaniu tożsamości.
+  przychodzą zdarzenia, opóźnienia i rekordy odrzucone przy sprawdzaniu tożsamości. Zależy też od wpisów SACL, które
+  każdy posiadacz prawa „Zarządzanie inspekcją i dziennikiem zabezpieczeń” na DC (Administrators, a przy Exchange także
+  Exchange Servers) może po cichu usunąć; usługa nie czyta SACL, ale zgłasza jako krytyczną każdą zmianę zabezpieczeń
+  (także samej SACL) obiektu domeny, AdminSDHolder, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites`,
+  a instrukcja każe sprawdzać posiadaczy tego prawa i treść wpisów co miesiąc.
 - **Wspólny keytab API i OpenWEC (świadomie przyjęte ryzyko).** Kto przejmie konto systemowe `openwec` (np. przez
   błąd w OpenWEC, który przyjmuje dane z sieci), ma długoterminowy klucz `HTTP/admng-wd.contoso.com` – ten sam, którym
   API sprawdza bilety. Może nim sfałszować bilet usługi (tzw. *silver ticket*) z dowolną nazwą użytkownika domeny,
   także członka `AdMng-Watchdog-Admins`; API ustala role z tej nazwy, a akceptor MIT nie sprawdza PAC w KDC, więc
   napastnik dostaje pełne prawa administratora Watchdoga (zmiana reguł, wyciszenie alarmów – każda zmiana konfiguracji
-  trafia jednak do dotychczasowych odbiorców). Dostaje też tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL); nie
-  dostaje bazy Watchdog (katalog 0700 innego konta), sekretów kanałów ani praw zapisu w AD. Rozdzielenie keytabu
-  według nazw nic nie daje (jedno konto = jeden klucz). Ograniczenie: API jest osiągalne wyłącznie z podsieci
-  administratorów – zapora nftables i `AllowedRemoteSubnets`, a zapytania z samego serwera (także z adresu pętli
-  zwrotnej) usługa odrzuca – więc sfałszowanego biletu trzeba użyć z tej podsieci; oraz izolacja konta `openwec` (osobne
-  konto systemowe bez powłoki, piaskownica systemd bez uprawnień, zapis tylko w `/var/lib/openwec`, port 5985
-  przyjmuje połączenia tylko od adresów DC). Ryzyko szczątkowe: błąd w OpenWEC wykorzystany ruchem z adresu DC albo
-  inna droga do konta `openwec` na serwerze, połączona z dostępem do podsieci administratorów. Konto `openwec` jest
-  przez to zasobem Tier 0 na równi z keytabem.
+  trafia jednak do dotychczasowych odbiorców, a retencji historii nie skróci poniżej progu `MinEventsDays` z ustawień
+  startowych). Dostaje też tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL); nie dostaje bazy Watchdog (katalog 0700
+  innego konta), sekretów kanałów ani praw zapisu w AD. Rozdzielenie keytabu według nazw nic nie daje (jedno konto =
+  jeden klucz). Ograniczenia: (1) API jest osiągalne wyłącznie z podsieci administratorów – zapora nftables
+  i `AllowedRemoteSubnets`, a zapytania z samego serwera (także z adresu pętli zwrotnej) usługa odrzuca – więc
+  sfałszowanego biletu trzeba użyć z tej podsieci; podsieć nie jest jednak granicą Tier 0: są w niej także stacje osób
+  z rolą Viewer i helpdesku, więc bilet zadziała z każdej z nich; (2) izolacja konta `openwec` (osobne konto
+  systemowe bez powłoki, piaskownica systemd bez uprawnień, zapis tylko w `/var/lib/openwec`, port 5985 przyjmuje
+  połączenia tylko od adresów DC); (3) brak połączeń wychodzących konta `openwec` – odbiornik tylko przyjmuje
+  połączenia, więc zapora odrzuca każde połączenie, które to konto próbuje nawiązać (`meta skuid`), a jednostka
+  `openwecd` ma `IPAddressDeny=any` z wyjątkiem adresów DC: przejęty OpenWEC nie wyśle keytabu poza serwer i nie użyje
+  go sam wobec kontrolerów ani API. Ryzyko szczątkowe: błąd w OpenWEC wykorzystany ruchem z adresu DC albo inna droga
+  do konta `openwec` na serwerze, połączona z dostępem do dowolnej stacji w podsieci administratorów. Do ryzyka
+  szczątkowego należy też wiarygodność atrybucji – niezależnie od wspólnego keytabu: OpenWEC zapisuje każdy bajt, który
+  Watchdog czyta (także pola, po których sprawdza nadawcę), więc przejęte konto `openwec` może po cichu pominąć albo
+  podrobić rekordy z DC – wykonawcę i źródło zmian oraz zdarzenia widoczne tylko w dzienniku (1102, 4719, 4794) – bez
+  sygnału w zakładce Stan, dopóki z każdego DC przychodzi cokolwiek. Konto `openwec` jest przez to zasobem Tier 0 na
+  równi z keytabem.
+- **Połączenia usługi Watchdog z Internetem (ryzyko szczątkowe).** Usługa także czyta dane, na które mają wpływ mniej
+  zaufane osoby – pliki GPO z SYSVOL (zmienia je każdy edytor GPO), rekordy zdarzeń z DC (nazwy kont w nieudanych
+  logowaniach wpisuje każdy, kto dotrze do DC), wartości z LDAP – i ma więcej niż OpenWEC: keytab, klucz sekretów
+  kanałów i 3-letnią historię. Zapora pozwala na porty 80 i 443 pod dowolny adres tylko kontom root i `_apt`
+  (aktualizacje) oraz `admng-watchdog`; tego ostatniego nie da się zawęzić do stałych adresów, bo Teams (Power
+  Automate) działa pod zmiennymi adresami chmury Microsoft, a sprawdzanie unieważnienia certyfikatu serwera SMTP pobiera
+  listy CRL/OCSP spod adresów z certyfikatu. Błąd pozwalający wykonać kod jako `admng-watchdog` dawałby więc kanał
+  wysłania tych danych do Internetu. Zamknięcie go (serwer pośredniczący z listą dozwolonych nazw albo rezygnacja
+  z Teams) wymaga osobnej decyzji użytkownika – do tego czasu ryzyko jest przyjęte.
 - Konto komputera może domyślnie samo zmienić niektóre swoje atrybuty (np. ponownie włączyć RC4 w
   `msDS-SupportedEncryptionTypes`, dodać SPN dla własnej nazwy) – blokuje to wpis odmowy dla SELF, a każda zmiana
   własnego konta i tak jest zgłaszana jako krytyczna, mimo filtra „szumu komputerów”.
@@ -155,8 +186,11 @@ libldap/SASL.
 - Nieudana rotacja hasła niczego nie psuje (hasło i keytab zostają); jedyny groźny przypadek (hasło zmienione, zapis
   keytabu nieudany) jest wykrywany natychmiast i naprawiany jednorazowym hasłem od administratora Tier 0.
 - Zmiana hasła co 30 dni ogranicza wartość skradzionego keytabu, ale nie unieważnia certyfikatu, o który ktoś z
-  keytabem zdążyłby poprosić u urzędu certyfikacji – stąd wpisy odmowy na szablonach; po wycieku keytabu konto trzeba
-  wyłączyć, a certyfikaty wystawione na nie odwołać, zanim dostanie nowe hasło.
+  keytabem zdążyłby poprosić u urzędu certyfikacji – stąd wpisy odmowy na szablonach. Po wycieku keytabu konto trzeba
+  wyłączyć, certyfikaty wystawione na nie odwołać na każdym urzędzie Enterprise i od razu opublikować nowe listy CRL,
+  a konto włączyć (i dać mu nowe hasło) dopiero wtedy, gdy kontrolery nie mogą już korzystać ze starej listy CRL –
+  KDC trzyma ją do końca jej ważności, więc samo odwołanie nie blokuje od razu logowania certyfikatem. Alternatywa:
+  usunięcie i ponowne utworzenie konta (nowy SID – stare certyfikaty nie przejdą silnego mapowania).
 - OpenWEC to mały projekt zewnętrzny przypięty do niewydanej wersji: budujemy go sami, dołączamy źródła (GPL-3.0)
   i aktualizujemy tylko po przeglądzie. OpenWEC działa jako osobny proces – licencja GPL nie obejmuje kodu AdMng.
 - Zespół utrzymuje jedną platformę usługi; testy jednostkowe, testy usługi, testy integracyjne z laboratorium Samba
@@ -193,7 +227,7 @@ w projekcie (`watchdog-linux-design.md`) i w instrukcji (`WATCHDOG-LINUX.md`) be
    i keytabu co API; drugiego konta komputera ani drugiej nazwy DNS dla kolektora nie tworzymy. Ryzyko (sfałszowany
    bilet do API po przejęciu konta `openwec`) jest opisane w „Konsekwencjach”; ograniczają je dostęp do API wyłącznie
    z podsieci administratorów (nftables + `AllowedRemoteSubnets`, bez wyjątku dla pętli zwrotnej) i izolacja konta
-   `openwec`.
+   `openwec`, także bez połączeń wychodzących (zapora i piaskownica systemd).
 5. **Laboratorium: trzy maszyny.** Do ustalonych VM z DC Windows Server 2025 i z Debianem 13 dochodzi wymagana stacja
    ADM-WS01 z Windows (RSAT + AD Manager): AD Manager działa tylko na Windows, a zmiana zrobiona na DC ma jako źródło
    kontroler. Opcjonalnie DC02 i mała maszyna z Mailpit do testów e-mail.
@@ -247,7 +281,8 @@ ADR-0008 obowiązuje nadal; na Linuksie jego warunki realizujemy następująco:
 2. **Drugie, krótkotrwałe miejsce: pliki wyjściowe OpenWEC.** Surowe zdarzenia z DC leżą w
    `/var/lib/openwec/out` (openwec:admng-watchdog, 2750, pliki 0640) tylko do czasu ich przetworzenia: pliki są
    rotowane co godzinę i usuwane po potwierdzonym odczycie przez Watchdog, a nieprzetworzone – najpóźniej po 7 dniach
-   (maksymalnie 30). Baza OpenWEC zawiera wyłącznie subskrypcje i stan klientów. Ten wyjątek obejmuje tylko te dwa
+   (maksymalnie 30) albo wcześniej, od najstarszego, gdy razem przekroczą 8 GB (zalew zdarzeń nie może zapełnić
+   `/var`). Baza OpenWEC zawiera wyłącznie subskrypcje i stan klientów. Ten wyjątek obejmuje tylko te dwa
    katalogi. Trzecie miejsce, wyłącznie w pamięci (tmpfs `/run/admng-watchdog`, 0700, usuwane przy zatrzymaniu
    usługi): pamięć podręczna Samby (może zawierać mapowania nazw i SID-ów, czyszczona po każdym odczycie SYSVOL)
    i plik postępu odczytu plików OpenWEC.
@@ -257,14 +292,17 @@ ADR-0008 obowiązuje nadal; na Linuksie jego warunki realizujemy następująco:
 4. **Nigdy sekrety.** Hasła preferencji GPP (`cpassword`) i wartości rejestru o nazwach wskazujących na hasła nie są
    zapisywane w żadnej postaci (tylko informacja o obecności, oznaczona jako krytyczna).
 5. **Retencja.** Domyślna retencja zdarzeń Watchdog wynosi **1095 dni** (3 lata, decyzja użytkownika); rekordy
-   dzienników DC związane ze zmianami – 30 dni; rekordy logowań – 48 godzin; kopie zapasowe – 7.
+   dzienników DC związane ze zmianami – 30 dni; rekordy logowań – 48 godzin; kopie zapasowe – 7. Próg
+   `MinEventsDays` w ustawieniach startowych (domyślnie 1095) chroni historię przed skróceniem przez API; limit
+   rozmiaru bazy na Linuksie wynosi domyślnie 4096 MB, tak by baza i jej kopie zmieściły się na zalecanym `/var`.
 6. **Sekrety kanałów.** Klucze Data Protection są szyfrowane kluczem z poświadczenia systemd (TPM2 + klucz hosta lub
    klucz hosta) zamiast DPAPI-NG; wiązanie sekretów z miejscem docelowym bez zmian. Odtworzenie na innym hoście wymaga
    ponownego wprowadzenia sekretów (wcześniej: odtworzenie gMSA).
 7. **Dzienniki diagnostyczne** trafiają do journald zamiast do dziennika Application – nadal bez wartości z katalogu,
    treści wyjątków i sekretów.
 8. **Szyfrowanie dysku.** Zalecenie BitLocker zastępuje szyfrowanie dysku maszyny wirtualnej przez hiperwizor
-   (preferowane) lub LUKS (wymaga hasła w konsoli przy każdym starcie); pamięć wymiany wyłączona; zalecana kopia
+   (preferowane – chroni przed kradzieżą nośnika, nie przed administratorami hiperwizora, stąd wymóg platformy Tier 0
+   w „Konsekwencjach”) lub LUKS (wymaga hasła w konsoli przy każdym starcie); pamięć wymiany wyłączona; zalecana kopia
    zapasowa na poziomie maszyny wirtualnej (historia 3 lat).
 9. **Poświadczenie konta usługi.** Keytab `/etc/admng-watchdog/admng-wd.keytab` (root:admng-keytab 0640) zawiera klucze
    Kerberos konta `ADMNG-WD$` – nigdy hasło – oraz bilet TGT tego konta w `/run/admng-watchdog/krb5cc` (tmpfs, 0600,

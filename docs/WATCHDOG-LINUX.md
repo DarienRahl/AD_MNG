@@ -90,6 +90,7 @@ Pojęcia, które wracają w całej instrukcji:
 | Grupy ról Watchdoga | `AdMng-Watchdog-Admins`, `AdMng-Watchdog-Viewers` | 2.3, `appsettings.json` |
 | Podsieć stacji administratorów | 10.0.20.0/24 (w laboratorium brama 10.0.20.1) | zapora, `appsettings.json`, 1.6 |
 | Stacja administratora (testy) | `ADM-WS01`, 10.0.20.15 | pilotaż – oczekiwane „skąd” |
+| Adresy stacji PAW (jedyne źródło SSH do serwera) | 10.0.20.15 – w przykładach i w laboratorium rolę PAW pełni ADM-WS01 | zapora (`PAWS`, 3.3) |
 | Konto administratora (osoba) | `adm-jan` – konto Tier 0 w domenie i lokalne konto na Debianie | 1.5, 2.3, 3.2, pilotaż |
 | Grupa uprawniona do SSH na Debianie | `ssh-admins` | 3.2 |
 | Przekaźnik SMTP | `smtp.contoso.com:587` (STARTTLS), adres 10.0.1.30 (w laboratorium Mailpit – 1.1) | zapora, zakładka Kanały i SMTP |
@@ -184,8 +185,13 @@ Watchdog **nigdy**:
 
 1. **Serwer Watchdog jest zasobem Tier 0 – jak kontroler domeny.** Kto ma na nim roota, ten ma tożsamość konta usługi
    (odczyt całego katalogu i SYSVOL), 3-letnią historię zmian i może wyciszyć alarmy. Dlatego serwerem administrują
-   tylko 1–3 osoby z Tier 0, wyłącznie kluczami SSH i tylko z podsieci administratorów. Kopie zapasowe tej maszyny też
-   są zasobem Tier 0.
+   tylko 1–3 osoby z Tier 0, wyłącznie kluczami SSH i tylko ze stacji PAW. Kopie zapasowe tej maszyny też są zasobem
+   Tier 0. Tak samo platforma, na której działa: maszyna wirtualna może stać **tylko** na platformie wirtualizacji
+   Tier 0 – na tych samych hostach (klastrze) i pod tymi samymi administratorami co kontrolery domeny – albo na
+   osobnym hoście, którego administratorzy, dostęp do konsoli, migawki, kopie i ochrona klucza vTPM są Tier 0.
+   Administrator hiperwizora może otworzyć konsolę maszyny, skopiować jej dysk, zrobić migawkę lub zrzut pamięci albo
+   cofnąć maszynę do dawnego stanu – czyli przejąć keytab, klucz sekretów i historię albo „oślepić” Watchdoga.
+   Szyfrowanie dysku przez hiperwizor chroni tylko przed kradzieżą nośnika, nie przed administratorami hiperwizora.
 2. **Konto usługi `ADMNG-WD$` nie jest administratorem.** To zwykły obiekt komputera z prawami odczytu: nie należy do
    żadnej grupy uprzywilejowanej (usługa odmawia startu, jeśli należy), nie może się logować interaktywnie ani przez
    RDP, nie może być delegowane, używa tylko AES. Jego hasło ma 120 losowych znaków, nikt go nie zna i zmienia się co
@@ -195,11 +201,13 @@ Watchdog **nigdy**:
    wpisy odmowy na szablonach certyfikatów (2.5, gdy w lesie jest urząd Enterprise), a każda zmiana konta i tak jest
    alarmem krytycznym. Wpisy na szablonach są ważne, bo certyfikat pozwala logować się jako to konto bez hasła przez
    cały okres swojej ważności (zwykle rok) – zmiana hasła co 30 dni by go nie unieważniła. Jest jednak wyjątek poza
-   AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako dowolny użytkownik domeny (tzw. *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć
-   alarmy. Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja (4.3); podrobiony bilet zadziała tylko
-   z podsieci administratorów, bo tylko z niej API przyjmuje połączenia. Dlatego keytab, konta systemowe, które go
-   czytają (usługa i OpenWEC), kopie maszyny i root serwera są zasobami Tier 0, a każda zmiana konfiguracji Watchdoga
-   trafia też do dotychczasowych odbiorców (punkt 3).
+   AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako dowolny użytkownik domeny (tzw.
+   *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć alarmy (historii nie skróci
+   poniżej progu z ustawień startowych – punkt 5). Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja
+   (4.3); podrobiony bilet zadziała tylko z podsieci administratorów, bo tylko z niej API przyjmuje połączenia – ale
+   z **każdej** stacji tej podsieci, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer). Dlatego
+   keytab, konta systemowe, które go czytają (usługa i OpenWEC), kopie maszyny i root serwera są zasobami Tier 0, a
+   każda zmiana konfiguracji Watchdoga trafia też do dotychczasowych odbiorców (punkt 3).
 3. **Administratorzy Watchdoga to nie to samo co Domain Admins.** Grupa `AdMng-Watchdog-Admins` zarządza regułami,
    kanałami i wyjątkami w Watchdogu; jej członkowie nie potrzebują żadnych praw w AD. Członkostwo w Domain Admins nie
    daje żadnej roli w Watchdogu. Powód: osoby, których zmiany są monitorowane, nie powinny po cichu wyłączać
@@ -209,17 +217,20 @@ Watchdog **nigdy**:
 4. **Grupy ról leżą w OU Tier 0**, bo kontrola nad nimi to kontrola nad alarmami o Tier 0. Ich członkami zarządza
    wyłącznie Tier 0; Watchdog traktuje je jak grupy uprzywilejowane.
 5. **Ustawienia startowe** (kto jest administratorem Watchdoga, z jakich podsieci można się łączyć, czy wolno wyciszać
-   zdarzenia krytyczne) leżą w pliku na serwerze, którego usługa nie może zmienić. Zmienia je tylko root serwera.
+   zdarzenia krytyczne, jak długo co najmniej trzeba przechowywać historię) leżą w pliku na serwerze, którego usługa
+   nie może zmienić. Zmienia je tylko root serwera. Administrator Watchdoga nie skróci więc w AD Managerze retencji
+   zdarzeń poniżej 3 lat, a każde skrócenie retencji jest zdarzeniem krytycznym.
 
 ### 0.4 Kolejność prac
 
 1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz; 1.7 – opcjonalny urząd certyfikacji).
 2. AD, część pierwsza – 2.1 (czy jest CA), 2.2 (audyt OU Tier 0), 2.3 (grupy), 2.4 (DNS).
 3. Debian – 3.1 do 3.5 (system, konta, zapora, DNS i czas, konfiguracja Kerberos).
-4. Konto usługi – 2.5 (utworzenie konta i wpis odmowy dla SELF) na PAW i **od razu** 3.6 na Debianie (hasło
-   jednorazowe ma żyć kilka minut). Szablony certyfikatów i GPO z 2.5 – zaraz po 3.6.
-5. AD, część druga – szablony certyfikatów i GPO z 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy
-   odczytu), na końcu lista kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia
+4. Konto usługi – 2.5 na PAW (utworzenie **wyłączonego** konta, wpis odmowy dla SELF, wpisy odmowy na szablonach
+   certyfikatów, dopiero potem włączenie konta i przekazanie hasła jednorazowego) i **od razu** 3.6 na Debianie (hasło
+   jednorazowe ma żyć kilka minut).
+5. AD, część druga – sprawdzenie certyfikatów i GPO z 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane
+   tam testy odczytu), na końcu lista kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia
    w produkcji (usługa uruchomi się także bez niego, ale zakładka Stan ostrzega – 2.8).
 6. Debian – 3.7 (na razie tylko zmiana ręczna), 3.8 (wariant A, jeśli jest urząd certyfikacji), 3.9 (dziennik
    systemowy, kopia maszyny).
@@ -235,6 +246,12 @@ Watchdog **nigdy**:
 >   i to samo dla `AdMng-Watchdog-Viewers`.
 > - **2.4 i 3.1** – Debian dostaje tymczasowy adres (np. 10.0.1.26; w 3.1 także w `/etc/hosts`); rekord A
 >   `admng-wd` wskazuje stary serwer aż do przełączenia (2.4, „Rekord wskazuje inny serwer”).
+> - **3.2, 3.3, 3.8** – do przełączenia łącz się z Debianem adresem tymczasowym, nie nazwą (nazwa prowadzi do starego
+>   serwera): `ssh adm-jan@10.0.1.26`, `scp adm-jan@10.0.1.26:admng-wd.csr .`,
+>   `scp admng-wd.cer chain.p7b adm-jan@10.0.1.26:`, `Test-NetConnection 10.0.1.26 -Port 22` – także przy teście
+>   nowego połączenia w siatce bezpieczeństwa z 3.3. W 3.4 `host admng-wd.contoso.com` pokazuje do przełączenia adres
+>   starego serwera – to oczekiwane. Po przełączeniu pierwsze połączenie po nazwie zapyta o klucz hosta – porównaj
+>   odcisk z konsolą (3.2); przy ostrzeżeniu o zmianie klucza usuń stary wpis: `ssh-keygen -R admng-wd.contoso.com`.
 > - **2.5** – utwórz konto **bez** SPN `HTTP/…`: `-ServicePrincipalNames 'HOST/admng-wd.contoso.com', 'HOST/ADMNG-WD'`
 >   (kontroler odrzuciłby SPN, który ma jeszcze gMSA `svc-admngwd$`). Keytab z 3.6 i tak zawiera nazwę `HTTP/…` – to
 >   ten sam klucz konta. Do przełączenia `setspn -Q HTTP/admng-wd.contoso.com` pokazuje jeszcze gMSA, a w teście 1
@@ -270,7 +287,7 @@ OU Tier 0), na której bezpiecznie przećwiczysz wszystkie kroki tej instrukcji.
   maszynom dostęp do Internetu przez router hiperwizora (NAT) – przykład dla Hyper-V niżej.
 - **Sieć – w laboratorium najprościej jedna płaska sieć** 10.0.1.0/24: ADM-WS01 pod adresem 10.0.1.50 (brama 10.0.1.1).
   Wtedy wszędzie, gdzie instrukcja podaje podsieć 10.0.20.0/24 albo adres 10.0.20.15, wpisz `10.0.1.50/32` albo
-  `10.0.1.50`: adres i brama w 1.6, zapora Debiana (`ADMIN_NET`, 3.3), `AllowedRemoteSubnets` (5.2), oczekiwane źródło
+  `10.0.1.50`: adres i brama w 1.6, zapora Debiana (`ADMIN_NET` i `PAWS`, 3.3), `AllowedRemoteSubnets` (5.2), oczekiwane źródło
   w pilotażu (7.2); strefa odwrotna 10.0.20.0/24 z 1.2 jest wtedy zbędna. Dwie podsieci jak w przykładach (10.0.1.0/24
   dla serwerów, 10.0.20.0/24 dla stacji) wymagają routera między nimi (np. małej maszyny z Linuksem z dwiema kartami
   sieciowymi), który przekazuje ruch między podsieciami **bez NAT** (bez maskarady). Debian i kontrolery muszą widzieć
@@ -570,13 +587,14 @@ successfully.` (Polecenie `certutil -config - -ping` robi to samo, ale otwiera o
 **Gdzie:** PAW. **Co i po co:** konto usługi i grupy ról trafią do istniejącej OU Tier 0. Jeżeli ktoś spoza Tier 0
 (helpdesk, konto aplikacji, grupa Exchange) ma tam prawa zapisu – choćby odziedziczone z wyższej OU – może przejąć
 konto usługi albo zmienić członków grup Watchdoga. Skrypt tylko **czyta** listy ACL: OU Tier 0, wszystkich obiektów pod
-nią i `AdminSDHolder` (szablon uprawnień kont chronionych) i wypisuje wpisy, które dają prawa zapisu komuś spoza zbioru
-Tier 0, oraz właścicieli spoza Tier 0 (właściciel może zawsze zmienić uprawnienia obiektu).
+nią, `AdminSDHolder` (szablon uprawnień kont chronionych) oraz OU nadrzędnych aż do obiektu domeny, i wypisuje wpisy,
+które dają prawa zapisu komuś spoza zbioru Tier 0, oraz właścicieli spoza Tier 0 (właściciel może zawsze zmienić
+uprawnienia obiektu).
 
 Zapisz jako `Test-AdMngTier0Delegation.ps1`:
 
 ```powershell
-# Test-AdMngTier0Delegation.ps1 – audyt delegacji w OU Tier 0 i na AdminSDHolder (tylko odczyt)
+# Test-AdMngTier0Delegation.ps1 – audyt delegacji w OU Tier 0, jej przodkach i na AdminSDHolder (tylko odczyt)
 param(
     [string]   $Tier0Ou = 'OU=Tier 0,OU=Admin,DC=contoso,DC=com',
     [string[]] $AdditionalTier0Sids = @()      # SID-y własnych grup administratorów Tier 0, jeśli macie takie
@@ -620,6 +638,12 @@ function Get-SidName([string]$sid) {
     try { return ([System.Security.Principal.SecurityIdentifier]$sid).Translate([System.Security.Principal.NTAccount]).Value }
     catch { return $sid }
 }
+function Get-Scope($r) {
+    if (([int]$r.PropagationFlags -band 2) -ne 0) { return 'tylko podrzędne: ' + (Get-GuidName $r.InheritedObjectType 'wszystkie') }
+    if ($r.InheritanceType -ne 'None') { return 'ten obiekt i podrzędne' }
+    return 'ten obiekt'
+}
+$adr       = [System.DirectoryServices.ActiveDirectoryRights]
 $dangerous = [int][System.DirectoryServices.ActiveDirectoryRights]'CreateChild, DeleteChild, Self, WriteProperty, DeleteTree, ExtendedRight, Delete, WriteDacl, WriteOwner'
 
 $top = (Get-ADOrganizationalUnit -Identity $Tier0Ou).DistinguishedName
@@ -627,13 +651,13 @@ $adminSdHolder = "CN=AdminSDHolder,CN=System,$($domain.DistinguishedName)"
 $objects = @(Get-ADObject -SearchBase $top -SearchScope Subtree -Filter * -Properties nTSecurityDescriptor) +
            @(Get-ADObject -Identity $adminSdHolder -Properties nTSecurityDescriptor)
 
-$findings = foreach ($o in $objects) {
+$findings = @(foreach ($o in $objects) {
     $sd = $o.nTSecurityDescriptor
     $isRoot = ($o.DistinguishedName -eq $top) -or ($o.DistinguishedName -eq $adminSdHolder)
     $owner = $sd.GetOwner($SidType).Value
     if ($tier0 -notcontains $owner) {
         [pscustomobject]@{ Obiekt = $o.DistinguishedName; Kto = Get-SidName $owner; SID = $owner
-            Prawa = 'WŁAŚCICIEL (może zmienić uprawnienia)'; Dotyczy = ''; Zakres = ''; Odziedziczone = ''; Uwagi = $notes[$owner] }
+            Prawa = 'WŁAŚCICIEL (może zmienić uprawnienia)'; Dotyczy = ''; Zakres = ''; Odziedziczone = ''; Przodek = $false; Uwagi = $notes[$owner] }
     }
     # Na samej OU Tier 0 i na AdminSDHolder – wszystkie wpisy; niżej tylko jawne (odziedziczone pokazuje obiekt nadrzędny)
     foreach ($r in $sd.GetAccessRules($true, $isRoot, $SidType)) {
@@ -643,13 +667,41 @@ $findings = foreach ($o in $objects) {
         $note = $notes[$sid]
         if ($r.ObjectType -eq $changePassword) { $note = 'Zmiana własnego hasła (wymaga starego) – domyślne' }
         if ($r.ObjectType -eq $sendTo) { $note = 'Send To na grupie – domyślne, nie daje zmiany członków' }
-        $scope = if (([int]$r.PropagationFlags -band 2) -ne 0) { 'tylko podrzędne: ' + (Get-GuidName $r.InheritedObjectType 'wszystkie') }
-                 elseif ($r.InheritanceType -ne 'None') { 'ten obiekt i podrzędne' } else { 'ten obiekt' }
         [pscustomobject]@{ Obiekt = $o.DistinguishedName; Kto = Get-SidName $sid; SID = $sid
             Prawa = $r.ActiveDirectoryRights.ToString(); Dotyczy = Get-GuidName $r.ObjectType '(wszystko)'
-            Zakres = $scope; Odziedziczone = $r.IsInherited; Uwagi = $note }
+            Zakres = Get-Scope $r; Odziedziczone = $r.IsInherited; Przodek = $false; Uwagi = $note }
     }
+})
+
+# Przodkowie OU Tier 0 aż do obiektu domeny: właściciel i jawne wpisy, przez które można przejąć całą OU Tier 0
+$takeover = [int]($adr::WriteDacl -bor $adr::WriteOwner)                # także GenericAll
+$gpLink   = [guid]'f30e3bbe-9ff0-11d1-b603-0000f80367c1'                # gPLink – połączenia GPO
+$gpOpts   = [guid]'f30e3bbf-9ff0-11d1-b603-0000f80367c1'                # gPOptions – blokowanie dziedziczenia GPO
+$ancestors = @()
+$p = $top
+while ($p -ne $domain.DistinguishedName) {
+    $p = ($p -split '(?<!\\),', 2)[1]                                    # DN bez pierwszego członu (z pominięciem \,)
+    if (-not $p) { break }
+    $ancestors += $p
 }
+$findings += @(foreach ($dn in $ancestors) {
+    $sd = (Get-ADObject -Identity $dn -Properties nTSecurityDescriptor).nTSecurityDescriptor
+    $owner = $sd.GetOwner($SidType).Value
+    if ($tier0 -notcontains $owner) {
+        [pscustomobject]@{ Obiekt = $dn; Kto = Get-SidName $owner; SID = $owner
+            Prawa = 'WŁAŚCICIEL (może zmienić uprawnienia)'; Dotyczy = ''; Zakres = ''; Odziedziczone = ''; Przodek = $true; Uwagi = '' }
+    }
+    foreach ($r in $sd.GetAccessRules($true, $false, $SidType)) {          # tylko jawne wpisy, o dowolnym zasięgu
+        $sid = $r.IdentityReference.Value
+        if ($r.AccessControlType -ne 'Allow' -or $tier0 -contains $sid) { continue }
+        $rights = [int]$r.ActiveDirectoryRights
+        $write  = (($rights -band [int]$adr::WriteProperty) -ne 0) -and ($r.ObjectType -in [guid]::Empty, $gpLink, $gpOpts)   # także GenericWrite
+        if ((($rights -band $takeover) -eq 0) -and -not $write) { continue }
+        [pscustomobject]@{ Obiekt = $dn; Kto = Get-SidName $sid; SID = $sid
+            Prawa = $r.ActiveDirectoryRights.ToString(); Dotyczy = Get-GuidName $r.ObjectType '(wszystko)'
+            Zakres = Get-Scope $r; Odziedziczone = $false; Przodek = $true; Uwagi = '' }
+    }
+})
 foreach ($g in 'S-1-5-32-548', 'S-1-5-32-549', 'S-1-5-32-550', 'S-1-5-32-551') {
     Write-Host ('{0}: członków {1}' -f (Get-SidName $g), @(Get-ADGroupMember -Identity $g).Count)
 }
@@ -676,13 +728,21 @@ Jeśli macie własne grupy administratorów Tier 0 (np. `T0-Admins`), dodaj ich 
 | `Dotyczy` | atrybut, klasa lub prawo rozszerzone (np. `User-Force-Change-Password` = reset hasła, `member` = członkowie grupy, `msDS-DelegatedManagedServiceAccount` = tworzenie dMSA); `(wszystko)` = bez ograniczenia |
 | `Zakres` | czy wpis działa na tym obiekcie, czy tylko na obiektach podrzędnych danej klasy |
 | `Odziedziczone` | `True` = wpis przychodzi z wyższej OU albo z obiektu domeny – poprawiasz go **tam** |
+| `Przodek` | `True` = właściciel albo jawny wpis na OU nadrzędnej (np. `OU=Admin`) lub na obiekcie domeny. Pokazywane są tylko wpisy, przez które można przejąć całą OU Tier 0: `GenericAll`, `WriteDacl`, `WriteOwner`, `GenericWrite` oraz `WriteProperty` do wszystkich atrybutów albo do `gPLink`/`gPOptions` |
 
 Typowe znaleziska i co z nimi zrobić:
 
 - **Helpdesk z resetem haseł** na OU Tier 0 (często odziedziczony z `OU=Admin` albo z obiektu domeny) – usuń wpis u
   źródła albo wyłącz dziedziczenie na OU Tier 0. Helpdesk nie może resetować haseł kont Tier 0.
-- **Grupy Exchange** (np. `Exchange Windows Permissions` z `WriteDacl` na obiekcie domeny) – znane ryzyko; zastosuj
-  zalecenia Microsoft dla Exchange (model uprawnień „split permissions” albo odebranie `WriteDacl`).
+- **Grupy Exchange** (np. `Exchange Windows Permissions` z `WriteDacl` na obiekcie domeny – wiersz z `Przodek` =
+  `True`) – znane ryzyko; zastosuj zalecenia Microsoft dla Exchange (model uprawnień „split permissions” albo odebranie
+  `WriteDacl`).
+- **Wpisy i właściciele na przodkach** (`Przodek` = `True`) – niczego pod OU Tier 0 nie widać, a jednak właściciel albo
+  posiadacz `WriteDacl`/`WriteOwner`/`GenericAll` na `OU=Admin` czy na obiekcie domeny może w każdej chwili dopisać
+  tam wpis dziedziczony, który spłynie do OU Tier 0 (i przejąć konto usługi oraz grupy Watchdoga). Zapis do `gPLink`
+  pozwala połączyć z przodkiem GPO, które obejmie każdy komputer w OU Tier 0 (np. stacje PAW) – połączenie wymuszone
+  działa mimo blokowania dziedziczenia. Popraw te wpisy na przodku. Wyłączenie dziedziczenia uprawnień na OU Tier 0
+  to tylko obejście doraźne: zatrzymuje wpisy dziedziczone, ale nie połączenia GPO.
 - **Konta aplikacji lub kopii zapasowych** z `GenericAll` – ogranicz do potrzebnych atrybutów albo przenieś do Tier 0.
 - **Właściciel** będący kontem osoby lub grupą spoza Tier 0 – zmień właściciela na Domain Admins.
 - **Account Operators / Print Operators** – wpisy są domyślne; grupy mają być **puste** (skrypt wypisuje liczbę
@@ -691,7 +751,7 @@ Typowe znaleziska i co z nimi zrobić:
 Zanim cokolwiek zmienisz, zapisz obecną listę ACL obiektu (to jest Twój plan wycofania):
 
 ```powershell
-$dn = 'OU=Tier 0,OU=Admin,DC=contoso,DC=com'
+$dn = 'OU=Tier 0,OU=Admin,DC=contoso,DC=com'        # albo DN przodka albo obiektu, który poprawiasz
 (Get-Acl -Path "AD:\$dn").Sddl | Out-File "$env:USERPROFILE\Documents\acl-tier0-$(Get-Date -Format yyyyMMdd-HHmm).txt"
 ```
 
@@ -813,10 +873,12 @@ pokaże jako źródło tylko adres IP.
 
 ### 2.5 Konto usługi `ADMNG-WD$`
 
-> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0 i wpis odmowy dla SELF na tym obiekcie, a po 3.6 –
-> wpisy odmowy na szablonach certyfikatów (tylko gdy w lesie jest urząd Enterprise) i GPO z odmową logowania. Gdzie:
-> PAW (Domain Admin), między tymi częściami 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema
-> SPN-ami, tylko AES, bez prawa zapisu we własnym obiekcie. Wycofanie: 2.13, wiersze 4, 5 i 13.
+> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0 – najpierw wyłączony – z wpisem odmowy dla SELF i (tylko
+> gdy w lesie jest urząd Enterprise) wpisami odmowy na szablonach certyfikatów; dopiero potem konto jest włączane, a po
+> 3.6 powstaje GPO z odmową logowania. Gdzie: PAW (Domain Admin; szablony w lesie z wieloma domenami – Enterprise
+> Admin), między tymi częściami 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema
+> SPN-ami, tylko AES, bez prawa zapisu we własnym obiekcie i bez prawa rejestracji certyfikatów. Wycofanie: 2.13,
+> wiersze 4, 5 i 13.
 
 #### Czym jest i dlaczego tak
 
@@ -836,9 +898,12 @@ tworzą pliki tymczasowe); nie instaluj ich na serwerze.
 #### Tworzenie
 
 **Gdzie:** PAW, Domain Admin. **Co i po co:** obiekt komputera w OU Tier 0 z trzema SPN-ami, tylko AES (0x18), z flagą
-„konto jest poufne i nie może być delegowane” i hasłem jednorazowym. Przed wykonaniem uzgodnij z administratorem
-Debiana, że krok 3.6 wykona zaraz potem. Przy migracji z wersji 0.2.0 pomiń w poleceniu SPN `HTTP/…` (ramka w 0.4) –
-inaczej kontroler odrzuci utworzenie konta, bo ten SPN ma jeszcze gMSA.
+„konto jest poufne i nie może być delegowane” i hasłem jednorazowym. Konto powstaje **wyłączone**: hasło jednorazowe
+zacznie działać dopiero po włączeniu konta, a to nastąpi po wpisach odmowy (niżej). Kto pozna to hasło, nie zdąży więc
+nim poprosić o certyfikat ani zmienić własnego obiektu konta. Przed wykonaniem uzgodnij z administratorem Debiana, że
+krok 3.6 wykona zaraz po włączeniu konta. Nie zamykaj okna PowerShell aż do „Włączenia konta” – zmienna `$plain`
+zawiera hasło jednorazowe. Przy migracji z wersji 0.2.0 pomiń w poleceniu SPN `HTTP/…` (ramka w 0.4) – inaczej
+kontroler odrzuci utworzenie konta, bo ten SPN ma jeszcze gMSA.
 
 ```powershell
 $ou = 'OU=Service Accounts,OU=Tier 0,OU=Admin,DC=contoso,DC=com'
@@ -852,13 +917,10 @@ New-ADComputer -Name 'ADMNG-WD' -SamAccountName 'ADMNG-WD$' -Path $ou `
     -ServicePrincipalNames 'HTTP/admng-wd.contoso.com', 'HOST/admng-wd.contoso.com', 'HOST/ADMNG-WD' `
     -KerberosEncryptionType AES128, AES256 `
     -AccountNotDelegated $true -PasswordNotRequired $false `
-    -AccountPassword $otp -Enabled $true `
+    -AccountPassword $otp -Enabled $false `
     -Description 'AdMng Watchdog (Debian admng-wd, 10.0.1.25) - konto usługi Tier 0, tylko odczyt'
-$plain    # przekaż JEDEN raz administratorowi Debiana (3.6), potem zamknij okno PowerShell
+(Get-ADComputer ADMNG-WD).Enabled      # False – konto czeka na wpisy odmowy
 ```
-
-Hasło jednorazowe przekaż kanałem, któremu ufacie obaj (ustnie, przez menedżer haseł z usunięciem wpisu) – nie
-e-mailem ani komunikatorem. Jest ważne tylko do chwili wykonania 3.6.
 
 SPN-y – po co każdy:
 
@@ -874,37 +936,13 @@ rozróżnia wielkości liter w SPN, MIT Kerberos tak; to ta sama nazwa, więc `s
 `New-ADComputer` zapisuje wyłącznie podane SPN-y. Jeśli `setspn -L` pokaże dodatkowo `RestrictedKrbHost/…`, pochodzą
 one z innego narzędzia; nie szkodzą, ale zanotuj to przy pilotażu.
 
-**Sprawdzenie:**
-
-```powershell
-Get-ADComputer ADMNG-WD -Properties Enabled, AccountNotDelegated, KerberosEncryptionType, msDS-SupportedEncryptionTypes,
-    userAccountControl, servicePrincipalName, mS-DS-CreatorSID, memberOf, PrimaryGroupID, msDS-KeyVersionNumber |
-    Format-List Name, DistinguishedName, Enabled, AccountNotDelegated, KerberosEncryptionType, msDS-SupportedEncryptionTypes,
-        userAccountControl, servicePrincipalName, mS-DS-CreatorSID, memberOf, PrimaryGroupID, msDS-KeyVersionNumber
-setspn -L ADMNG-WD
-setspn -Q HTTP/admng-wd.contoso.com
-setspn -X
-```
-
-Oczekiwane:
-
-- `Enabled : True` (gdyby hasło nie spełniło zasad domeny, konto powstałoby wyłączone – usuń je i utwórz ponownie),
-- `AccountNotDelegated : True`, `KerberosEncryptionType : {AES128, AES256}`, `msDS-SupportedEncryptionTypes : 24`,
-- `userAccountControl : 1052672` (0x101000 = konto stacji roboczej + „nie może być delegowane”); jeśli widzisz
-  `1052704` (dodatkowo 0x20 – „hasło niewymagane”), wykonaj
-  `Set-ADAccountControl -Identity (Get-ADComputer ADMNG-WD) -PasswordNotRequired $false` i sprawdź ponownie,
-- trzy SPN-y z tabeli, `mS-DS-CreatorSID` puste (konto utworzył administrator, nie limit `MachineAccountQuota`),
-  `memberOf` puste, `PrimaryGroupID : 515` (Domain Computers),
-- `setspn -Q` znajduje `HTTP/admng-wd.contoso.com` **tylko** na `CN=ADMNG-WD,…`; `setspn -X` – `found 0 group of
-  duplicate SPNs`. Przy migracji z wersji 0.2.0 SPN `HTTP/…` ma do przełączenia jeszcze gMSA (ramka w 0.4).
-
 #### Blokada zapisu we własnym obiekcie
 
-**Gdzie:** PAW, Domain Admin, zaraz po utworzeniu konta (przed 3.6). **Co i po co:** każde konto komputera domyślnie
-może samo tworzyć i usuwać obiekty podrzędne pod własnym obiektem, dopisywać sobie SPN-y i nazwy DNS oraz zmieniać kilka
-własnych atrybutów (np. ponownie włączyć RC4 w `msDS-SupportedEncryptionTypes`). Usługa nic z tego nie potrzebuje,
-więc odbieramy to wpisem „Odmów” dla SELF. Zmiana hasła protokołem Kerberos korzysta z osobnego prawa „Change
-Password”, którego ten wpis nie obejmuje – krok 3.6 od razu to sprawdza.
+**Gdzie:** PAW, Domain Admin, zaraz po utworzeniu konta (konto jest jeszcze wyłączone). **Co i po co:** każde konto
+komputera domyślnie może samo tworzyć i usuwać obiekty podrzędne pod własnym obiektem, dopisywać sobie SPN-y i nazwy
+DNS oraz zmieniać kilka własnych atrybutów (np. ponownie włączyć RC4 w `msDS-SupportedEncryptionTypes`). Usługa nic z
+tego nie potrzebuje, więc odbieramy to wpisem „Odmów” dla SELF. Zmiana hasła protokołem Kerberos korzysta z osobnego
+prawa „Change Password”, którego ten wpis nie obejmuje – krok 3.6 od razu to sprawdza.
 
 ```powershell
 $dn   = (Get-ADComputer ADMNG-WD).DistinguishedName
@@ -926,67 +964,131 @@ istnieje (5.4).
 
 #### Szablony certyfikatów (gdy w lesie jest urząd Enterprise)
 
-**Kiedy:** zaraz po 3.6 – nie opóźniaj przez ten krok 3.6. **Gdzie:** PAW, konto z Enterprise Admins (w lesie z jedną
-domeną wystarczy Domain Admin) – szablony leżą w partycji konfiguracji. Tylko gdy 2.1 pokazało urząd typu Enterprise
-(w laboratorium – po 1.7). **Co i po co:** konto
-`ADMNG-WD$` należy do Domain Computers, a ta grupa ma domyślnie prawo rejestracji (Enroll) w szablonie „Computer”
-(`Machine`), opublikowanym na każdym urzędzie Enterprise. Kto ukradnie keytab, może więc poprosić o certyfikat
+**Kiedy:** zaraz po wpisie odmowy dla SELF, **przed** włączeniem konta – konto jest wyłączone, więc ten krok nie
+wydłuża życia hasła jednorazowego. **Gdzie:** PAW, konto z Enterprise Admins (w lesie z jedną domeną wystarczy Domain
+Admin) – szablony leżą w partycji konfiguracji; jeśli wykonuje go inna osoba, konto czeka wyłączone. Tylko gdy 2.1
+pokazało urząd typu Enterprise (w laboratorium – po 1.7). **Co i po co:** konto `ADMNG-WD$` należy do Domain
+Computers, a ta grupa ma domyślnie prawo rejestracji (Enroll) w szablonie „Computer” (`Machine`), opublikowanym na
+każdym urzędzie Enterprise. Kto ukradnie keytab albo pozna hasło jednorazowe, mógłby więc poprosić o certyfikat
 komputera dla `admng-wd.contoso.com` i logować się nim jako `ADMNG-WD$` (PKINIT) przez cały okres ważności certyfikatu –
-zwykle rok. Zmiana hasła co 30 dni tego nie unieważnia; unieważnia dopiero wyłączenie konta albo odwołanie
-certyfikatu. Wpis „Odmów” dla praw Enroll i Autoenroll na każdym szablonie, w którym mogą się rejestrować Everyone,
-Authenticated Users albo Domain Computers, zamyka tę drogę. Usługa nie potrzebuje certyfikatu z urzędu (certyfikat API
-z 3.8 wnioskuje administrator Tier 0).
+zwykle rok. Zmiana hasła co 30 dni tego nie unieważnia; zatrzymuje to dopiero wyłączenie konta albo odwołanie
+certyfikatu – i to dopiero wtedy, gdy kontrolery pobiorą nową listę odwołań (niżej, „Gdy keytab mógł wyciec”).
+Skrypt dodaje wpis „Odmów” dla praw Enroll i Autoenroll tego jednego konta na **każdym** szablonie, a nie tylko tam,
+gdzie dziś rejestrują się szerokie grupy: taki wpis nikomu innemu niczego nie odbiera, a zamyka też drogę przez grupy
+zagnieżdżone, „This Organization” i uprawnienia dodane później do istniejącego szablonu. Usługa nie potrzebuje
+certyfikatu z urzędu (certyfikat API z 3.8 wnioskuje administrator Tier 0).
 
 ```powershell
-$cfg     = (Get-ADRootDSE).configurationNamingContext
-$wd      = (Get-ADComputer ADMNG-WD).SID
-$dSid    = (Get-ADDomain).DomainSID.Value
-$broad   = @('S-1-1-0', 'S-1-5-11', "$dSid-515")                     # Everyone, Authenticated Users, Domain Computers
-$enroll  = [guid]'0e10c968-78fb-11d2-90d4-00c04f79dc55'              # Certificate-Enrollment
-$auto    = [guid]'a05b8cc2-17bc-4802-a710-e7c15ab866a2'              # Certificate-AutoEnrollment
-$adr     = [System.DirectoryServices.ActiveDirectoryRights]
-$SidType = [System.Security.Principal.SecurityIdentifier]
-Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" `
-    -LDAPFilter '(objectClass=pKICertificateTemplate)' | ForEach-Object {
-    $p   = "AD:\$($_.DistinguishedName)"
+$cfg    = (Get-ADRootDSE).configurationNamingContext
+$wd     = (Get-ADComputer ADMNG-WD).SID
+$enroll = [guid]'0e10c968-78fb-11d2-90d4-00c04f79dc55'               # Certificate-Enrollment
+$auto   = [guid]'a05b8cc2-17bc-4802-a710-e7c15ab866a2'               # Certificate-AutoEnrollment
+$tpl    = Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" `
+              -LDAPFilter '(objectClass=pKICertificateTemplate)'
+foreach ($t in $tpl) {
+    $p   = "AD:\$($t.DistinguishedName)"
     $acl = Get-Acl -Path $p
-    $open = $acl.GetAccessRules($true, $true, $SidType) | Where-Object {
-        $_.AccessControlType -eq 'Allow' -and $broad -contains $_.IdentityReference.Value -and (
-            $_.ActiveDirectoryRights.HasFlag($adr::GenericAll) -or
-            ($_.ActiveDirectoryRights.HasFlag($adr::ExtendedRight) -and $_.ObjectType -in [guid]::Empty, $enroll, $auto)) }
-    if ($open) {
-        foreach ($g in $enroll, $auto) {
-            $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule($wd, 'ExtendedRight', 'Deny', $g)))
-        }
-        Set-Acl -Path $p -AclObject $acl
-        $_.Name                                                          # szablon, na którym dodano wpis odmowy
+    foreach ($g in $enroll, $auto) {
+        $acl.AddAccessRule((New-Object System.DirectoryServices.ActiveDirectoryAccessRule($wd, 'ExtendedRight', 'Deny', $g)))
     }
+    Set-Acl -Path $p -AclObject $acl
 }
 ```
 
-Skrypt wypisuje nazwy szablonów, na których dodał wpis odmowy – na świeżym urzędzie co najmniej `Machine`. Ponowne
-uruchomienie niczego nie dubluje; uruchom go znowu po opublikowaniu nowego szablonu, w którym rejestrują się szerokie
-grupy (Watchdog zgłasza zmiany szablonów – 2.11).
+Ponowne uruchomienie niczego nie dubluje. Uruchom blok znowu po utworzeniu każdego nowego szablonu. **[od 0.3.0]**
+Watchdog co godzinę sprawdza szablony opublikowane na urzędach i zgłasza w zakładce Stan szablon bez wpisu odmowy
+dla konta usługi – jako błąd, gdy konto mogłoby się w nim rejestrować (5.4).
+
+**Sprawdzenie** (w tej samej sesji):
+
+```powershell
+$bez = @($tpl | Where-Object { -not ((Get-Acl -Path "AD:\$($_.DistinguishedName)").Access | Where-Object {
+    $_.AccessControlType -eq 'Deny' -and $_.IdentityReference -like '*\ADMNG-WD$' -and $_.ObjectType -eq $enroll }) })
+'szablonów: {0}, bez wpisu odmowy: {1}' -f @($tpl).Count, $bez.Count
+```
+
+Oczekiwane: `bez wpisu odmowy: 0`.
+
+#### Włączenie konta i przekazanie hasła jednorazowego
+
+**Gdzie:** PAW, to samo okno PowerShell co „Tworzenie”. **Kiedy:** po wpisie odmowy dla SELF i – gdy jest urząd
+Enterprise – po wpisach na szablonach; administrator Debiana jest gotowy do 3.6.
+
+```powershell
+Enable-ADAccount -Identity 'ADMNG-WD$'
+$plain    # przekaż JEDEN raz administratorowi Debiana (3.6), potem zamknij okno PowerShell
+```
+
+Hasło jednorazowe przekaż kanałem, któremu ufacie obaj (ustnie, przez menedżer haseł z usunięciem wpisu) – nie
+e-mailem ani komunikatorem. Jest ważne tylko do chwili wykonania 3.6.
 
 **Sprawdzenie:**
 
 ```powershell
-Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" -LDAPFilter '(objectClass=pKICertificateTemplate)' |
-    Where-Object { (Get-Acl -Path "AD:\$($_.DistinguishedName)").Access |
-        Where-Object { $_.AccessControlType -eq 'Deny' -and $_.IdentityReference -like '*\ADMNG-WD$' } } | Select-Object Name
+Get-ADComputer ADMNG-WD -Properties Enabled, AccountNotDelegated, KerberosEncryptionType, msDS-SupportedEncryptionTypes,
+    userAccountControl, servicePrincipalName, mS-DS-CreatorSID, memberOf, PrimaryGroupID, msDS-KeyVersionNumber |
+    Format-List Name, DistinguishedName, Enabled, AccountNotDelegated, KerberosEncryptionType, msDS-SupportedEncryptionTypes,
+        userAccountControl, servicePrincipalName, mS-DS-CreatorSID, memberOf, PrimaryGroupID, msDS-KeyVersionNumber
+setspn -L ADMNG-WD
+setspn -Q HTTP/admng-wd.contoso.com
+setspn -X
 ```
 
-Oczekiwane: te same nazwy, które wypisał skrypt.
+Oczekiwane:
 
-**Gdy keytab mógł wyciec:** wyłącz konto (`Disable-ADAccount 'ADMNG-WD$'` – wyłączone konto nie zaloguje się ani
-hasłem, ani certyfikatem) i odwołaj certyfikaty wystawione na to konto. Na PAW z narzędziami urzędu:
+- `Enabled : True` (jeśli `Enable-ADAccount` zgłosił błąd zasad haseł, hasło jednorazowe nie spełniło zasad domeny –
+  usuń konto i utwórz je ponownie),
+- `AccountNotDelegated : True`, `KerberosEncryptionType : {AES128, AES256}`, `msDS-SupportedEncryptionTypes : 24`,
+- `userAccountControl : 1052672` (0x101000 = konto stacji roboczej + „nie może być delegowane”); jeśli widzisz
+  `1052704` (dodatkowo 0x20 – „hasło niewymagane”), wykonaj
+  `Set-ADAccountControl -Identity (Get-ADComputer ADMNG-WD) -PasswordNotRequired $false` i sprawdź ponownie,
+- trzy SPN-y z tabeli, `mS-DS-CreatorSID` puste (konto utworzył administrator, nie limit `MachineAccountQuota`),
+  `memberOf` puste, `PrimaryGroupID : 515` (Domain Computers),
+- `setspn -Q` znajduje `HTTP/admng-wd.contoso.com` **tylko** na `CN=ADMNG-WD,…`; `setspn -X` – `found 0 group of
+  duplicate SPNs`. Przy migracji z wersji 0.2.0 SPN `HTTP/…` ma do przełączenia jeszcze gMSA (ramka w 0.4).
+
+#### Certyfikaty wystawione na konto (gdy w lesie jest urząd Enterprise)
+
+**Kiedy:** zaraz po 3.6 – i zawsze, gdy keytab mógł wyciec (niżej). **Gdzie:** PAW z narzędziami urzędu (`certutil`).
+Pytanie trafia do **każdego** urzędu Enterprise w lesie:
 
 ```powershell
-certutil -config 'CA01.contoso.com\Contoso-Issuing-CA' -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$' -out 'RequestID,SerialNumber,NotAfter'
-certutil -config 'CA01.contoso.com\Contoso-Issuing-CA' -revoke <SerialNumber> 1      # 1 = przejęcie klucza; dla każdego numeru z listy
+$cfg = (Get-ADRootDSE).configurationNamingContext
+$cas = Get-ADObject -SearchBase "CN=Enrollment Services,CN=Public Key Services,CN=Services,$cfg" `
+    -LDAPFilter '(objectClass=pKIEnrollmentService)' -Properties dNSHostName | ForEach-Object { "$($_.dNSHostName)\$($_.Name)" }
+foreach ($ca in $cas) {
+    "== $ca"
+    certutil -config $ca -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20' -out 'RequestID,SerialNumber,NotAfter'
+}
 ```
 
-Dopiero potem nowe hasło jednorazowe i 3.7 („zmiana ręczna”) albo usunięcie konta (8.2).
+`Disposition=20` – certyfikaty wystawione. Oczekiwane po 3.6: przy żadnym urzędzie nie ma wiersza z numerem seryjnym
+(`Serial Number:`).
+
+**Gdy keytab mógł wyciec** – kolejność ma znaczenie:
+
+1. Wyłącz konto: `Disable-ADAccount 'ADMNG-WD$'`. Wyłączone konto nie zaloguje się ani hasłem, ani certyfikatem;
+   Watchdog i OpenWEC przestają działać aż do kroku 4.
+2. Odwołaj certyfikaty z bloku wyżej (dla każdego urzędu i numeru seryjnego) i od razu opublikuj nowe listy odwołań
+   (CRL) – inaczej urząd opublikuje je dopiero w swoim terminie:
+
+   ```powershell
+   certutil -config '<urząd z listy>' -revoke <SerialNumber> 1      # 1 = przejęcie klucza
+   certutil -config '<urząd z listy>' -crl                          # nowe listy CRL od razu
+   ```
+
+3. Zostaw konto wyłączone, dopóki kontrolery mogą korzystać ze starej listy CRL. Kontroler (KDC) trzyma pobraną listę
+   do końca jej ważności (`Next Update`) i do tego czasu nie widzi odwołania – samo odwołanie nie blokuje więc od razu
+   logowania certyfikatem. Okres ważności pokaże konsola urzędu (Certification Authority → Revoked Certificates →
+   Properties: „CRL publication interval” i „Publish Delta CRLs”): przy ustawieniach domyślnych to ok. doby (lista
+   delta) albo – gdy urząd nie publikuje list delta – ok. tygodnia. Jeśli w kroku 2 nie było żadnego certyfikatu, nie
+   czekasz. Zamiast czekać możesz usunąć konto i utworzyć je na nowo (8.2, potem 2.5–2.7 i GPO z odmową logowania):
+   nowe konto ma nowy SID, a stare certyfikaty zawierają stary – kontrolery je odrzucą (silne mapowanie certyfikatów,
+   domyślnie wymuszane od aktualizacji z 2025 r.).
+4. Ustaw nowe hasło jednorazowe jeszcze przy wyłączonym koncie (3.7, punkt 1 – stary keytab nie zadziała już ani
+   chwili), potem włącz konto (`Enable-ADAccount 'ADMNG-WD$'`) i od razu wykonaj 3.7, punkt 2. Wyłączone konto nie
+   dostanie biletu do zmiany hasła (`Client's credentials have been revoked` – sprawdzone w laboratorium), dlatego
+   najpierw włączenie, potem Debian.
 
 #### Co to konto może, a czego nie
 
@@ -1209,10 +1311,22 @@ Get-ADComputer -LDAPFilter '(mS-DS-CreatorSID=*)' -Properties mS-DS-CreatorSID, 
 
 Komputery z listy dołączyli zwykli użytkownicy. Jeśli w ostatnich miesiącach to się zdarza (np. serwis dołącza laptopy
 własnym kontem), najpierw daj tym osobom – najlepiej grupie – prawo tworzenia obiektów komputerów, a dopiero potem
-ustaw 0:
+ustaw 0. Najpierw sprawdź, czy grupa już ma to prawo (wtedy go nie nadawaj – i nie wycofuj później). Liczą się
+tylko wpisy, które działają na samym obiekcie (także odziedziczone po OU nadrzędnej) – wpis „Full Control –
+Descendant Computer objects” z kreatora delegowania dotyczy tylko istniejących komputerów i **nie** pozwala ich
+tworzyć:
 
 ```powershell
 (Get-ADDomain).ComputersContainer        # tu trafiają komputery dołączane bez wskazania OU
+$sid      = (Get-ADGroup '<grupa>').SID
+$computer = [guid]'bf967a86-0de6-11d0-a285-00aa003049e2'               # klasa computer
+foreach ($dn in 'OU=Komputery,OU=Firma,DC=contoso,DC=com', 'CN=Computers,DC=contoso,DC=com') {
+    $had = (Get-Acl -Path "AD:\$dn").GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) | Where-Object {
+        $_.IdentityReference -eq $sid -and $_.AccessControlType -eq 'Allow' -and
+        ([int]$_.ActiveDirectoryRights -band 1) -and $_.ObjectType -in [guid]::Empty, $computer -and   # 1 = CreateChild
+        $_.InheritanceType -in 'None', 'All', 'SelfAndChildren' -and $_.InheritedObjectType -eq [guid]::Empty }   # działa na tym obiekcie
+    '{0}: grupa już może tworzyć komputery: {1}' -f $dn, [bool]$had
+}
 dsacls 'OU=Komputery,OU=Firma,DC=contoso,DC=com' /I:T /G 'CONTOSO\<grupa>:CC;computer'
 ```
 
@@ -1235,9 +1349,29 @@ Na koniec ustaw 0:
 Set-ADDomain -Identity contoso.com -Replace @{ 'ms-DS-MachineAccountQuota' = 0 }
 ```
 
-**Sprawdzenie:** polecenie odczytu z początku tego kroku zwraca `0`. Skutek: dołączenie komputera przez zwykłego
-użytkownika bez delegacji kończy się odmową dostępu. **Wycofanie:** `Set-ADDomain` z poprzednią wartością
-(domyślnie `10`); delegację usuwasz `dsacls '<DN>' /R 'CONTOSO\<grupa>'`.
+**Sprawdzenie:** polecenie odczytu z początku tego kroku zwraca `0`; sprawdzenie prawa grupy (blok wyżej, bez ostatniego
+wiersza `dsacls`) pokazuje `True` na każdym obiekcie, na którym prawo nadałeś. Skutek: dołączenie komputera przez
+zwykłego użytkownika bez delegacji kończy się odmową dostępu. **Wycofanie:** `Set-ADDomain` z poprzednią wartością
+(domyślnie `10`). Delegację usuwasz **tylko tam, gdzie ją nadałeś** (sprawdzenie wyżej pokazało `False`), i tylko ten
+jeden wpis – **nie** `dsacls … /R`, które usuwa wszystkie wpisy grupy na obiekcie, np. odczyt haseł LAPS, kluczy
+BitLocker albo reset haseł komputerów:
+
+```powershell
+$sid      = (Get-ADGroup '<grupa>').SID
+$computer = [guid]'bf967a86-0de6-11d0-a285-00aa003049e2'
+# OU – wpis z /I:T (ten obiekt i podrzędne); CN=Computers – wpis bez /I (tylko ten obiekt)
+foreach ($x in @{ dn = 'OU=Komputery,OU=Firma,DC=contoso,DC=com'; inh = 'All' }, @{ dn = 'CN=Computers,DC=contoso,DC=com'; inh = 'None' }) {
+    $acl = Get-Acl -Path "AD:\$($x.dn)"
+    $acl.RemoveAccessRuleSpecific((New-Object System.DirectoryServices.ActiveDirectoryAccessRule($sid, 'CreateChild', 'Allow', $computer, $x.inh)))
+    Set-Acl -Path "AD:\$($x.dn)" -AclObject $acl
+}
+```
+
+Pomiń w pętli obiekt, na którym prawa nie nadawałeś. Potem powtórz sprawdzenie prawa grupy (blok wyżej, bez wiersza
+`dsacls`): na obiektach, z których usunąłeś wpis, ma być znów `False`. `RemoveAccessRuleSpecific` usuwa dokładnie
+wpis nadany przez `dsacls`; zwykłe `RemoveAccessRule` odmawia usunięcia bez komunikatu błędu, gdy grupa ma na OU także
+wpis „Full Control – Descendant Computer objects”. Prawo nadane kreatorem „Delegate Control” usuń w konsoli
+(Właściwości → Zabezpieczenia → Zaawansowane) – tylko wpis „Create Computer objects” tej grupy.
 
 ### 2.9 Ekspozycja na BadSuccessor (dMSA) i poziom poprawek
 
@@ -1427,7 +1561,7 @@ Oczekiwane: przy każdej podkategorii `Success and Failure` (po polsku „Sukces
 > Wycofanie: blok „Wycofanie” na końcu kroku – usuwa tylko wpisy dodane tutaj.
 
 **Gdzie:** PAW, Domain Admin (potrzebne prawo „Zarządzanie inspekcją i dziennikiem zabezpieczeń” na kontrolerach – Domain
-Admins je mają). **Co i po co:** domyślne listy SACL w AD **nie** generują zdarzeń 5136/5137/5141 dla użytkowników,
+Admins je mają przez grupę Administrators; kto jeszcze je ma – niżej, „Kto może te wpisy usunąć”). **Co i po co:** domyślne listy SACL w AD **nie** generują zdarzeń 5136/5137/5141 dla użytkowników,
 grup i komputerów. Bez nich Watchdog wie, co się zmieniło, ale nie wie, kto to zrobił (`SACL_MISSING`). Skrypt dodaje
 wpisy inspekcji „Wszyscy – sukces” na wzór Microsoft Defender for Identity: dla klas śledzonych obiektów (także dMSA i
 obiektów GPO – potrzebne do reguł BadSuccessor i do wykonawcy zmian GPO), na samym obiekcie domeny (zasady haseł,
@@ -1551,8 +1685,32 @@ Oczekiwane: zdarzenie 5136 „A directory service object was modified” z konte
 `CN=Jan Kowalski,…` i atrybutem `description`; 5137 „A directory service object was created” dla
 `CN=test-sacl,CN=Users,…` (wpis tworzenia działa także w kontenerach) i 5141 „A directory service object was deleted”.
 
-Watchdog nie może sam odczytać SACL (to wymaga uprawnień, których konto usługi nie ma); zamiast tego pokazuje pokrycie –
-odsetek zmian przypisanych wykonawcy (Stan → Atrybucja).
+**Kto może te wpisy usunąć.** Listę SACL zmienia każdy, kto ma na kontrolerach prawo „Zarządzanie inspekcją i
+dziennikiem zabezpieczeń” (`SeSecurityPrivilege`) – i robi to po cichu: Watchdog nie odczyta SACL (wymaga to tego
+samego prawa, którego konto usługi nie ma), a pokrycie atrybucji (Stan → Atrybucja) długo nie pokaże usunięcia
+pojedynczych wpisów, np. tylko tych do tworzenia dMSA i GPO – alarmy krytyczne tracą wtedy wykonawcę. Sprawdź, kto
+ma to prawo (DC01; pozostałe kontrolery dostają te same zasady z GPO połączonych z OU Domain Controllers):
+
+```powershell
+Invoke-Command -ComputerName DC01.contoso.com {
+    secedit /export /areas USER_RIGHTS /cfg C:\Windows\Temp\admng-ur.inf | Out-Null
+    (Select-String -Path C:\Windows\Temp\admng-ur.inf -Pattern '^SeSecurityPrivilege').Line
+    Remove-Item C:\Windows\Temp\admng-ur.inf
+}
+```
+
+Oczekiwane: `SeSecurityPrivilege = *S-1-5-32-544` (Administrators), a w organizacji z Exchange dodatkowo SID grupy
+`Exchange Servers` (prawo nadaje instalator Exchange w Default Domain Controllers Policy). Nazwę dla SID-u (bez `*`)
+pokaże `([System.Security.Principal.SecurityIdentifier]'<SID>').Translate([System.Security.Principal.NTAccount])`.
+Każdy posiadacz tego prawa może po cichu wyłączyć atrybucję Watchdoga, więc jest w praktyce Tier 0. Każdy inny wpis
+wyjaśnij i usuń z GPO, które go nadaje. Grupy Exchange Servers nie usuwaj (bez tego prawa Exchange nie zamontuje baz) –
+serwery Exchange są przez to zasobem Tier 0.
+
+**[od 0.3.0]** Watchdog zgłasza jako zdarzenie krytyczne (reguła `tier0-security`) każdą zmianę zabezpieczeń obiektu
+domeny, `AdminSDHolder`, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites` – także zmianę samej listy SACL,
+choć jej treści nie widzi. Pokazuje też pokrycie – odsetek zmian przypisanych wykonawcy (Stan → Atrybucja). Treść wpisów
+sprawdzasz sam: blok „Sprawdzenie” (po bloku definicji) powtarzaj **raz w miesiącu** i po każdym wdrożeniu narzędzia,
+które zmienia SACL (np. Defender for Identity, Exchange).
 
 **Wycofanie** – usuwa wyłącznie wpisy dodane w 2.11; działa w nowej sesji PowerShell, także po tygodniach. Najpierw
 uruchom blok „Definicje wpisów”, potem (wpisz nazwę **pierwszego** pliku kopii):
@@ -1562,26 +1720,43 @@ $backup = "$env:USERPROFILE\Documents\admng-sacl-backup-<data>.txt"      # pierw
 $saved  = @{}
 Get-Content $backup | ForEach-Object { $k, $v = $_ -split '=', 2; $saved[$k] = $v }
 $names  = @{ "AD:\$domain" = 'domain'; "AD:\CN=AdminSDHolder,CN=System,$domain" = 'adminsdholder'; $pki = 'pki' }
+function Test-AdMngAuditRule($list, $r) {        # czy na liście jest dokładnie taki wpis jak $r (także te same prawa)
+    @($list | Where-Object { $_.IdentityReference -eq $r.IdentityReference -and $_.AuditFlags -eq $r.AuditFlags -and
+        $_.ObjectType -eq $r.ObjectType -and $_.InheritedObjectType -eq $r.InheritedObjectType -and
+        $_.InheritanceType -eq $r.InheritanceType -and $_.ActiveDirectoryRights -eq $r.ActiveDirectoryRights }).Count -gt 0
+}
 foreach ($p in $rules.Keys) {
     $before = New-Object System.DirectoryServices.ActiveDirectorySecurity
     if ($saved[$names[$p]]) { $before.SetSecurityDescriptorSddlForm($saved[$names[$p]], 'Audit') }
     $old = $before.GetAuditRules($true, $false, [System.Security.Principal.SecurityIdentifier])
     $acl = Get-Acl -Path $p -Audit
     foreach ($r in $rules[$p]) {
-        [void]$acl.RemoveAuditRule($r)                                     # odejmuje prawa dodane w 2.11
+        $acl.RemoveAuditRuleSpecific($r)                                   # usuwa dokładnie wpis dodany w 2.11
         $old | Where-Object { $_.IdentityReference -eq $r.IdentityReference -and $_.AuditFlags -eq $r.AuditFlags -and
             $_.ObjectType -eq $r.ObjectType -and $_.InheritedObjectType -eq $r.InheritedObjectType -and
             $_.InheritanceType -eq $r.InheritanceType } | ForEach-Object { $acl.AddAuditRule($_) }   # ten sam wpis sprzed 2.11 wraca
     }
     Set-Acl -Path $p -AclObject $acl
+    $now  = (Get-Acl -Path $p -Audit).GetAuditRules($true, $false, [System.Security.Principal.SecurityIdentifier])
+    $left = @($rules[$p] | Where-Object { (Test-AdMngAuditRule $now $_) -and -not (Test-AdMngAuditRule $old $_) })
+    '{0}: pozostało wpisów z 2.11: {1}' -f $p, $left.Count
 }
 ```
 
+Oczekiwane: trzy wiersze z `pozostało wpisów z 2.11: 0`. Wpis z 2.11, który był też w kopii (np. wpis 3, równy
+domyślnemu wpisowi obiektu domeny), wraca z kopii i nie jest liczony. Wynik większy od 0 znaczy, że wpis nie zniknął:
+powtórz blok, a gdy wynik się nie zmienia, pokaż wpisy (`$left | Format-List`) i usuń je w „Użytkownicy i komputery
+AD” (Właściwości → Zabezpieczenia → Zaawansowane → Inspekcja). Blok używa `RemoveAuditRuleSpecific`, które usuwa
+dokładnie wpis o tych samych prawach, klasie i dziedziczeniu. Zwykłe `RemoveAuditRule` nie nadaje się tutaj: gdy na
+obiekcie są wpisy 1 i 2 dla tego samego konta (Everyone), odmawia usunięcia każdego z nich i nie zgłasza błędu
+(sprawdzone na kodzie .NET).
+
 Wpisy, które ktoś dodał po 2.11 (np. Defender for Identity, Exchange, inny zespół), zostają – z jednym wyjątkiem:
-wpis o tym samym koncie, klasie i dziedziczeniu co wpis z 2.11 łączy się z nim w jeden i zniknie razem z nim. Takie są
-np. wymagane przez Defender for Identity wpisy „Everyone – Descendant User/Group/Computer objects”: jeśli po 2.11
-wdrożono Defender for Identity, nie wycofuj SACL. Pierwszy plik kopii służy wtedy tylko do porównania – pełne
-przywrócenie SACL z niego usunęłoby wszystkie wpisy dodane po 2.11.
+wpis o tym samym koncie, klasie i dziedziczeniu co wpis z 2.11 mógł się z nim połączyć w jeden. Taki wpis zniknie
+razem z wpisem z 2.11, gdy jego prawa mieściły się w prawach z 2.11; gdy były szersze, zostanie w całości (także
+z prawami z 2.11). Takie są np. wymagane przez Defender for Identity wpisy „Everyone – Descendant User/Group/Computer
+objects”: jeśli po 2.11 wdrożono Defender for Identity, nie wycofuj SACL. Pierwszy plik kopii służy wtedy tylko do
+porównania – pełne przywrócenie SACL z niego usunęłoby wszystkie wpisy dodane po 2.11.
 
 ### 2.12 Windows Event Forwarding – GPO dla kontrolerów
 
@@ -1602,25 +1777,32 @@ Utwórz GPO `AdMng - WEF` połączone z OU **Domain Controllers**:
    Usługa dziennika zdarzeń → Zabezpieczenia (Administrative Templates → Windows Components → Event Log Service →
    Security) → „Configure log access” = Enabled, wartość:
    `O:BAG:SYD:(A;;0xf0005;;;SY)(A;;0x5;;;BA)(A;;0x1;;;S-1-5-32-573)(A;;0x1;;;NS)`. To samo ustaw w „Configure log
-   access (legacy)” (zalecenie dokumentacji OpenWEC). Zanim wpiszesz wartość, porównaj ją z obecną na DC
-   (`wevtutil gl security`, wiersz `channelAccess`): jeśli są tam dodatkowe wpisy (np. konto agenta SIEM), zostaw je i
-   dopisz tylko `(A;;0x1;;;NS)`. Ta metoda działa bez restartu – w odróżnieniu od dodawania NETWORK SERVICE do grupy
-   Event Log Readers.
+   access (legacy)” (zalecenie dokumentacji OpenWEC). Ta wartość w całości **zastępuje** uprawnienia do dziennika
+   Security na każdym DC – nie łączy się z obecnymi. Zanim ją wpiszesz, porównaj ją z obecną na **każdym** DC (z PAW:
+   `Invoke-Command -ComputerName DC01.contoso.com, DC02.contoso.com { "$env:COMPUTERNAME $((wevtutil gl security) -match '^channelAccess')" }`).
+   Domyślnie jest tam `O:BAG:SYD:(A;;0xf0005;;;SY)(A;;0x5;;;BA)(A;;0x1;;;S-1-5-32-573)`. Jeśli są tam dodatkowe wpisy
+   (np. odczyt dla konta agenta SIEM lub EDR), zanotuj je, przepisz do wartości GPO i dopisz tylko `(A;;0x1;;;NS)` –
+   inaczej ten agent straci dostęp do dziennika Security. Ta metoda działa bez restartu – w odróżnieniu od dodawania
+   NETWORK SERVICE do grupy Event Log Readers.
 3. **Usługa WinRM.** Ustawienia zabezpieczeń → Usługi systemowe (Security Settings → System Services) → „Windows
    Remote Management (WS-Management)” = Automatic (na Windows Server zwykle już działa).
 4. **Zapora wychodząca.** Domyślnie Windows Firewall nie blokuje ruchu wychodzącego. Jeśli Wasze GPO dla DC blokuje
    ruch wychodzący, dodaj regułę: TCP 5985 do 10.0.1.25.
 
 Zamiast tworzenia GPO i punktów 1–2 w GPMC możesz użyć PowerShell (moduł GroupPolicy) – polecenia tworzą GPO, łączą je
-z OU i ustawiają obie wartości; ustawienie „(legacy)” oraz punkty 3–4 dodaj potem w GPMC:
+z OU i ustawiają obie wartości; ustawienie „(legacy)” oraz punkty 3–4 dodaj potem w GPMC. Porównanie z punktu 2 jest
+obowiązkowe także tutaj: `$sddl` zastępuje uprawnienia do dziennika Security na każdym DC, więc dodatkowe wpisy
+znalezione na którymkolwiek kontrolerze dopisz do `$sddl` przed `(A;;0x1;;;NS)`:
 
 ```powershell
+# domyślne wpisy + NETWORK SERVICE; tu dopisz dodatkowe wpisy z DC (punkt 2)
+$sddl = 'O:BAG:SYD:(A;;0xf0005;;;SY)(A;;0x5;;;BA)(A;;0x1;;;S-1-5-32-573)(A;;0x1;;;NS)'
 $gpo = New-GPO -Name 'AdMng - WEF'
 New-GPLink -Guid $gpo.Id -Target 'OU=Domain Controllers,DC=contoso,DC=com' -LinkEnabled Yes   # migracja z 0.2.0: -LinkEnabled No (0.4)
 Set-GPRegistryValue -Guid $gpo.Id -Key 'HKLM\Software\Policies\Microsoft\Windows\EventLog\EventForwarding\SubscriptionManager' `
     -ValueName '1' -Type String -Value 'Server=http://admng-wd.contoso.com:5985/wsman/SubscriptionManager/WEC,Refresh=60'
 Set-GPRegistryValue -Guid $gpo.Id -Key 'HKLM\Software\Policies\Microsoft\Windows\EventLog\Security' `
-    -ValueName 'ChannelAccess' -Type String -Value 'O:BAG:SYD:(A;;0xf0005;;;SY)(A;;0x5;;;BA)(A;;0x1;;;S-1-5-32-573)(A;;0x1;;;NS)'
+    -ValueName 'ChannelAccess' -Type String -Value $sddl
 ```
 
 Zasady inspekcji i SACL (2.10, 2.11) są częścią tej samej całości – bez nich nie ma czego przekazywać. Reguły zapory
@@ -1639,7 +1821,7 @@ Get-WinEvent -LogName 'Microsoft-Windows-Forwarding/Operational' -MaxEvents 10 |
 Oczekiwane:
 
 - wartość `1 : Server=http://admng-wd.contoso.com:5985/wsman/SubscriptionManager/WEC,Refresh=60`,
-- `channelAccess:` zawiera `(A;;0x1;;;NS)`,
+- `channelAccess:` zawiera `(A;;0x1;;;NS)` i wszystkie dodatkowe wpisy zanotowane w punkcie 2 (np. agenta SIEM),
 - `WinRM  Running  Automatic`,
 - w dzienniku Forwarding/Operational: **dopóki OpenWEC nie działa** – zdarzenia 105 („The forwarder is having a problem
   communicating with subscription manager…”) – to oczekiwane. Po uruchomieniu OpenWEC (rozdz. 4) – zdarzenie **104**
@@ -1689,23 +1871,34 @@ Remove-ADGroupMember -Identity 'S-1-5-32-573' -Members (Get-ADServiceAccount svc
 | 8 | `ms-DS-MachineAccountQuota` = 0 (2.8) | obiekt domeny | odczyt atrybutu | `Set-ADDomain -Identity contoso.com -Replace @{ 'ms-DS-MachineAccountQuota' = <poprzednia> }` |
 | 9 | Poprawki prawa tworzenia dMSA (2.9) | ACL obiektu domeny, OU, kontenerów, `CN=Builtin` | skrypt 2.9 | jak 1 – zwykle nie wycofujesz |
 | 10 | GPO „AdMng - inspekcja DC” + rozmiar dziennika (2.10) | OU Domain Controllers | `auditpol`, `wevtutil gl security` | GPO zostaw (zalecane – inspekcja przydaje się niezależnie od Watchdoga). Samo `Remove-GPO` **nie** przywraca poprzednich zasad – kontrolery zachowują ostatnie ustawienia w lokalnej konfiguracji. Jeśli trzeba wycofać: w tym GPO ustaw każdą podkategorię na wartość z kopii z 2.10 (polecenie pod tabelą; „No Auditing” tylko tam, gdzie kopia tak mówi), rozmiar dziennika – jak w kopii albo nieskonfigurowany; na DC `gpupdate /target:computer /force`, porównaj `auditpol /get /category:*` z kopią i dopiero potem `Remove-GPO -Name 'AdMng - inspekcja DC'` |
-| 11 | SACL (2.11) | obiekt domeny, AdminSDHolder, `CN=Public Key Services` | blok sprawdzenia z 2.11 | blok „Wycofanie” z 2.11 – usuwa tylko wpisy dodane w 2.11 |
+| 11 | SACL (2.11) | obiekt domeny, AdminSDHolder, `CN=Public Key Services` | blok sprawdzenia z 2.11 | blok „Wycofanie” z 2.11 – usuwa tylko wpisy dodane w 2.11 i sam sprawdza wynik (`pozostało wpisów z 2.11: 0` dla każdego obiektu) |
 | 12 | GPO „AdMng - WEF” (2.12) | OU Domain Controllers | rejestr, `wevtutil`, Forwarding/Operational | `Remove-GPO -Name 'AdMng - WEF'` i `gpupdate /force` na DC – kontrolery przestają wysyłać zdarzenia, dostęp NETWORK SERVICE do Security wraca do stanu domyślnego |
-| 13 | Wpisy odmowy dla `ADMNG-WD$` na szablonach certyfikatów (2.5, tylko gdy jest urząd Enterprise) | partycja konfiguracji, `CN=Certificate Templates` | sprawdzenie z 2.5 | **przed** usunięciem konta: `dsacls "<DN szablonu>" /R 'CONTOSO\ADMNG-WD$'` na każdym szablonie z listy |
+| 13 | Wpisy odmowy dla `ADMNG-WD$` na szablonach certyfikatów (2.5, tylko gdy jest urząd Enterprise) | partycja konfiguracji, `CN=Certificate Templates` – każdy szablon | sprawdzenie z 2.5 | **przed** usunięciem konta: `dsacls "<DN szablonu>" /R 'CONTOSO\ADMNG-WD$'` na każdym szablonie (pętla w 8.2, krok 2) |
+| 14 | Delegacja prawa tworzenia obiektów komputerów (2.8, tylko gdy potrzebna) | OU komputerów, `CN=Computers` | `Get-Acl` z 2.8 | blok wycofania z 2.8 – usuwa tylko wpis `CC;computer` dodany w 2.8 i tylko tam, gdzie go nadałeś (**nie** `dsacls /R`, które usunęłoby też inne delegacje grupy); potem sprawdzenie z 2.8 pokazuje `False` |
 
-Wartości zasad inspekcji sprzed 2.10 (dla każdego DC z jego pliku kopii):
+Wartości zasad inspekcji sprzed 2.10 (dla każdego DC z jego pliku kopii). Nagłówki kolumn pliku są w języku systemu
+DC (np. po polsku albo po niemiecku), dlatego blok czyta kolumny po ich kolejności, a nie po nazwach:
 
 ```powershell
 $guids = '{0CCE9235-69AE-11D9-BED3-505054503030}', '{0CCE9236-69AE-11D9-BED3-505054503030}', '{0CCE9237-69AE-11D9-BED3-505054503030}',
          '{0CCE9238-69AE-11D9-BED3-505054503030}', '{0CCE923C-69AE-11D9-BED3-505054503030}', '{0CCE9215-69AE-11D9-BED3-505054503030}',
          '{0CCE9242-69AE-11D9-BED3-505054503030}', '{0CCE923F-69AE-11D9-BED3-505054503030}', '{0CCE922F-69AE-11D9-BED3-505054503030}'
-Import-Csv "$env:USERPROFILE\Documents\admng-auditpol-before-DC01.csv" |
-    Where-Object { $guids -contains $_.'Subcategory GUID' } | Format-Table Subcategory, 'Inclusion Setting', 'Setting Value'
+Import-Csv "$env:USERPROFILE\Documents\admng-auditpol-before-DC01.csv" -Header Machine, Target, Subcategory, Guid, Inclusion, Exclusion, Value |
+    Select-Object -Skip 1 | Where-Object { $guids -contains $_.Guid } | Format-Table Subcategory, Guid, Inclusion, Value
 ```
 
-`Setting Value`: `0` – brak inspekcji (No Auditing), `1` – sukces, `2` – niepowodzenie, `3` – sukces i niepowodzenie.
+Oczekiwane: 9 wierszy. `Value`: `0` – brak inspekcji (No Auditing), `1` – sukces, `2` – niepowodzenie, `3` – sukces
+i niepowodzenie. Pusty wynik oznacza błąd odczytu pliku (np. zła nazwa), a **nie** brak ustawień – nie usuwaj wtedy
+GPO, tylko sprawdź plik.
+
 Zamiast ustawiania wartości w GPO możesz po `Remove-GPO` przywrócić kopię na każdym DC: skopiuj na niego jego plik
-kopii i wykonaj `auditpol /restore /file:<plik>`.
+kopii i wykonaj `auditpol /restore /file:<plik>`. Uwaga: `/restore` przywraca **całe** zasady inspekcji z chwili
+kopii – wszystkie podkategorie i opcje, nie tylko 9 z tabeli – więc cofa także zmiany wprowadzone po 2.10 przez inne
+GPO albo narzędzia (np. Defender for Identity). Dlatego przed nim zapisz obecny stan
+(`auditpol /get /category:* > C:\Windows\Temp\admng-auditpol-teraz.txt`), zaraz po nim wykonaj na tym DC
+`gpupdate /target:computer /force` (pozostałe GPO inspekcji ustawią znów swoje wartości) i porównaj
+`auditpol /get /category:*` z zapisem. Różnić mają się tylko podkategorie z tabeli (teraz wartości z kopii, chyba że
+ustawia je inne GPO); każdą inną różnicę ustaw z powrotem poleceniem `auditpol /set` i dopiero potem usuń zapis.
 
 **Przywrócenie listy uprawnień (DACL) z pliku zapisanego w 2.2 lub 2.9.** Poprawki z 2.2 i 2.9 to zwykle usunięte
 wpisy. Najpierw porównaj kopię z obecnym stanem i przywróć tylko to, co trzeba – pełne przywrócenie z pliku usuwa także
@@ -1744,6 +1937,12 @@ administratora i wpisz `sudo -i`.
 **Gdzie:** konsola maszyny wirtualnej (instalator), potem Debian. **Co i po co:** minimalny system bez środowiska
 graficznego – mniej oprogramowania to mniej podatności na serwerze Tier 0.
 
+**Gdzie postawić maszynę (wymaganie, przed instalacją).** Maszyna wirtualna działa tylko na platformie wirtualizacji
+Tier 0: na tych samych hostach (klastrze) i pod tymi samymi administratorami co kontrolery domeny – albo na osobnym
+hoście, którego administratorzy, dostęp do konsoli, migawki, kopie zapasowe i ochrona klucza vTPM są w rękach Tier 0.
+Nie stawiaj jej na ogólnym klastrze (Tier 1): jego administratorzy mogliby skopiować dysk albo pamięć maszyny, a z nimi
+keytab, klucz sekretów i 3-letnią historię, albo cofnąć maszynę do migawki i „oślepić” Watchdoga (0.3, punkt 1).
+
 1. Obraz: Debian 13 „trixie” netinst amd64 (debian.org). Debian 12 „bookworm” też będzie obsługiwany przez pakiet.
 2. W instalatorze:
    - nazwa hosta `admng-wd`, domena `contoso.com`;
@@ -1756,7 +1955,8 @@ graficznego – mniej oprogramowania to mniej podatności na serwerze Tier 0.
      najmniej 40 GB; partycję wymiany (swap) instalator utworzy sam – wyłączysz ją po instalacji (niżej);
    - wybór oprogramowania: **tylko** „SSH server” i „standard system utilities”.
 3. Szyfrowanie dysku (zalecane – na dysku będzie 3-letnia historia zmian i keytab): preferuj szyfrowanie przez
-   hiperwizor. LUKS z instalatora Debiana wymaga wpisania hasła w konsoli przy **każdym** starcie – serwer po restarcie
+   hiperwizor – chroni ono tylko przed kradzieżą nośnika, nie przed administratorami hiperwizora (stąd wymaganie
+   wyżej). LUKS z instalatora Debiana wymaga wpisania hasła w konsoli przy **każdym** starcie – serwer po restarcie
    (np. po awarii zasilania) nie wstanie sam, a monitoring do tego czasu nie działa.
 
 Po pierwszym uruchomieniu:
@@ -1768,6 +1968,11 @@ grep -q '^10\.0\.1\.25' /etc/hosts || printf '10.0.1.25\tadmng-wd.contoso.com\ta
 # bez pamięci wymiany – zawartość pamięci usług nie trafia na dysk
 swapoff -a && sed -i '/\sswap\s/s/^/#/' /etc/fstab
 echo 'RESUME=none' > /etc/initramfs-tools/conf.d/resume && update-initramfs -u
+# systemd sam włącza partycję wymiany przy każdym starcie (rozpoznaje ją po typie partycji GPT), gdy w fstab nie ma
+# żadnej – parametr jądra systemd.gpt_auto=0 to wyłącza
+grep -q 'systemd\.gpt_auto=0' /etc/default/grub ||
+    sed -i 's/^GRUB_CMDLINE_LINUX="\(.*\)"/GRUB_CMDLINE_LINUX="\1 systemd.gpt_auto=0"/' /etc/default/grub
+update-grub
 apt update && apt full-upgrade -y
 DEBIAN_FRONTEND=noninteractive apt install -y krb5-user libsasl2-modules-gssapi-mit ldap-utils smbclient \
     chrony nftables openssl ca-certificates curl bind9-dnsutils unattended-upgrades apt-listchanges
@@ -1801,17 +2006,21 @@ EOF
 **[od 0.3.0]** Aktualizacja środowiska .NET usuwa z dysku pliki poprzedniej wersji – pakiet `admng-watchdog` sam
 restartuje wtedy usługę (wyzwalacz dpkg). Restart trwa kilka sekund; zakładka Stan pokazuje wersję środowiska.
 
-**Sprawdzenie:**
+Uruchom serwer ponownie (`systemctl reboot`) i zaloguj się jeszcze raz (konsola albo SSH, potem `sudo -i`): dopiero
+po restarcie widać, czy pamięć wymiany na pewno jest wyłączona (a jądro z `full-upgrade` zaczyna działać).
+
+**Sprawdzenie** (po restarcie):
 
 ```bash
 hostname --fqdn; hostname -I; cat /etc/debian_version
-swapon --show
+swapon --show; grep -o 'systemd.gpt_auto=0' /proc/cmdline
 dotnet --list-runtimes
 unattended-upgrade --dry-run --debug 2>&1 | grep -i 'allowed origins'
 systemd-creds has-tpm2; echo "kod: $?"
 ```
 
-Oczekiwane: `admng-wd.contoso.com`, `10.0.1.25`, `13.x`; `swapon --show` nic nie wypisuje; w `dotnet --list-runtimes`
+Oczekiwane: `admng-wd.contoso.com`, `10.0.1.25`, `13.x`; `swapon --show` nic nie wypisuje, a `grep` wypisuje
+`systemd.gpt_auto=0`; w `dotnet --list-runtimes`
 wiersze `Microsoft.AspNetCore.App 10.0.13` (lub nowszy) i `Microsoft.NETCore.App 10.0.13`; lista dozwolonych źródeł
 zawiera `Debian-Security` i `site=packages.microsoft.com`. To sprawdza tylko konfigurację – prawdziwe sprawdzenie
 przychodzi po najbliższej aktualizacji .NET (zwykle w drugi wtorek miesiąca):
@@ -1835,8 +2044,7 @@ maszyna ma TPM, a gdy to się nie uda – samego klucza hosta, i wypisze, które
 ### 3.2 Konta administratorów i SSH
 
 **Gdzie:** Debian. **Co i po co:** serwerem administrują 1–3 osoby z Tier 0, każda z własnym kontem, wyłącznie kluczami
-SSH, bez logowania roota i tylko z podsieci administratorów (zapora – 3.3). Konta są lokalne (serwer nie jest w
-domenie).
+SSH, bez logowania roota i tylko ze stacji PAW (zapora – 3.3). Konta są lokalne (serwer nie jest w domenie).
 
 Na stacji **PAW** (Tier 0 – nie na stacjach z AD Managerem, z których korzystają też osoby spoza Tier 0) utwórz klucz
 chroniony hasłem, jeśli go nie masz (PowerShell, wbudowany klient OpenSSH; z kluczem sprzętowym FIDO2 użyj
@@ -1908,7 +2116,7 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
 
 | Kierunek | Port | Druga strona | Po co |
 |---|---|---|---|
-| przychodzący | 22/tcp | 10.0.20.0/24 (w tym PAW) | SSH administratorów |
+| przychodzący | 22/tcp | tylko adresy stacji PAW (`PAWS`; w przykładach 10.0.20.15) | SSH administratorów |
 | przychodzący | 8443/tcp | 10.0.20.0/24 | API Watchdog (HTTPS + Kerberos) dla AD Managera |
 | przychodzący | 5985/tcp | 10.0.1.10, 10.0.1.11 | OpenWEC – zdarzenia z kontrolerów |
 | wychodzący | 53/udp+tcp | kontrolery | DNS |
@@ -1919,18 +2127,43 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
 | wychodzący | 464/udp+tcp | kontrolery | kpasswd – zmiana hasła konta usługi |
 | wychodzący | 636/tcp | kontrolery | LDAPS (tylko gdy włączysz tę opcję) |
 | wychodzący | 587/tcp | 10.0.1.30 (`smtp.contoso.com`) | e-mail (STARTTLS) |
-| wychodzący | 80, 443/tcp | Internet | aktualizacje Debian i Microsoft, Teams Workflows |
+| wychodzący – tylko konta `root` i `_apt` | 80, 443/tcp | Internet | aktualizacje Debian i Microsoft (`apt` pobiera pakiety jako `_apt`) |
+| wychodzący – tylko konto `admng-watchdog` | 80, 443/tcp | Internet i serwery list CRL firmowego CA | Teams Workflows (443); sprawdzanie, czy certyfikat serwera SMTP nie jest unieważniony (CRL/OCSP – zwykle 80) |
+| wychodzący – konto `openwec` | **żaden** | – | OpenWEC tylko przyjmuje połączenia od kontrolerów |
 
-PAW musi mieć adres w 10.0.20.0/24. Jeśli stoi w innej sieci, dopisz jej adres do reguły SSH – albo zawęź SSH do
-samych adresów PAW (`ip saddr { <adresy PAW> } tcp dport 22 accept`), a port 8443 zostaw dla całej podsieci stacji.
+- **SSH tylko ze stacji PAW.** W podsieci 10.0.20.0/24 pracują też osoby spoza Tier 0 (np. helpdesk z rolą Viewer
+  w Watchdogu), więc port 22 jest otwarty wyłącznie dla adresów stacji PAW – w `define PAWS` wpisz je wszystkie (po
+  przecinku). API (8443) zostaje dla całej podsieci stacji z AD Managerem. W laboratorium PAW to ADM-WS01.
+- **Konto `openwec` bez połączeń wychodzących.** Odbiornik OpenWEC (rozdz. 4) ma dostęp do keytabu, a jako odbiorca
+  biletów nigdy nie musi sam niczego otwierać. Reguła `meta skuid "openwec" drop` odrzuca każdy pakiet tego konta, który
+  nie należy do połączenia nawiązanego przez kontroler – przejęty OpenWEC nie wyśle keytabu poza serwer (także przez
+  DNS) ani nie użyje go sam wobec kontrolerów.
+- **Internet tylko dla aktualizacji i usługi Watchdog.** Połączenia na porty 80 i 443 pod dowolny adres nawiązuje
+  tylko root, konto `_apt` (aktualizacje) i konto usługi `admng-watchdog` (Teams, listy CRL/OCSP certyfikatu serwera
+  SMTP). Pozostałe konta serwera łączą się wyłącznie z kontrolerami i serwerem SMTP. Usłudze Watchdog nie da się
+  wpisać stałych adresów – Teams (Power Automate) działa pod zmiennymi adresami chmury Microsoft. A usługa, tak jak
+  OpenWEC, czyta dane z zewnątrz (pliki GPO z SYSVOL, które zmienia każdy edytor GPO, rekordy zdarzeń z DC, wartości
+  z LDAP) i ma przy tym więcej: keytab, klucz sekretów kanałów i 3-letnią historię. Przejęta usługa mogłaby więc wysłać
+  te dane do dowolnego serwera w Internecie przez porty 80 i 443. To przyjęte ryzyko szczątkowe (ADR-0009); węższe
+  ograniczenie (serwer pośredniczący z listą dozwolonych nazw) to pytanie otwarte projektu.
+- Zapora odwołuje się do kont po nazwie, a `nft` odrzuca regułę z nazwą nieistniejącego konta (`User does not exist`) –
+  dlatego konta systemowe `openwec` i `admng-watchdog` tworzysz już teraz (pakiety `admng-openwec` i `admng-watchdog`
+  przejmą je bez zmian).
 
 ```bash
+# konta systemowe OpenWEC i Watchdoga (bez powłoki i katalogu domowego) – potrzebne zaporze; pakiety z rozdz. 4 i 5
+# przejmą je bez zmian
+getent passwd openwec >/dev/null || useradd --system --user-group --home-dir /var/lib/openwec --no-create-home \
+    --shell /usr/sbin/nologin --comment 'OpenWEC' openwec
+getent passwd admng-watchdog >/dev/null || useradd --system --user-group --home-dir /var/lib/admng-watchdog \
+    --no-create-home --shell /usr/sbin/nologin --comment 'AdMng Watchdog' admng-watchdog
 cp -a /etc/nftables.conf /etc/nftables.conf.orig        # kopia na wypadek wycofania (8.1)
 cat > /etc/nftables.conf <<'EOF'
 #!/usr/sbin/nft -f
 flush ruleset
 
 define DCS        = { 10.0.1.10, 10.0.1.11 }
+define PAWS       = { 10.0.20.15 }
 define ADMIN_NET  = 10.0.20.0/24
 define SMTP_RELAY = 10.0.1.30
 
@@ -1940,7 +2173,8 @@ table inet admng {
         ct state established,related accept
         ct state invalid drop
         iif lo accept
-        ip saddr $ADMIN_NET tcp dport { 22, 8443 } accept
+        ip saddr $PAWS tcp dport 22 accept
+        ip saddr $ADMIN_NET tcp dport 8443 accept
         ip saddr $DCS tcp dport 5985 accept
         icmp type { echo-request, destination-unreachable, time-exceeded } accept
     }
@@ -1950,11 +2184,12 @@ table inet admng {
     chain output {
         type filter hook output priority filter; policy drop;
         ct state established,related accept
+        meta skuid "openwec" drop
         oif lo accept
         ip daddr $DCS udp dport { 53, 88, 123, 464 } accept
         ip daddr $DCS tcp dport { 53, 88, 389, 445, 464, 636 } accept
         ip daddr $SMTP_RELAY tcp dport 587 accept
-        tcp dport { 80, 443 } accept
+        meta skuid { "root", "_apt", "admng-watchdog" } tcp dport { 80, 443 } accept
         icmp type echo-request accept
     }
 }
@@ -1972,7 +2207,7 @@ systemctl stop admng-nft-rescue.timer 2>/dev/null; systemd-run --on-active=180 -
 ```
 
 **Nie zamykaj tej sesji.** Z PAW otwórz **nowe** połączenie `ssh adm-jan@admng-wd.contoso.com`. Jeśli NIE działa – nic
-nie rób: po 3 minutach reguły znikną same; popraw `ADMIN_NET` i powtórz to samo polecenie. Dopiero gdy nowe połączenie
+nie rób: po 3 minutach reguły znikną same; popraw `PAWS` i powtórz to samo polecenie. Dopiero gdy nowe połączenie
 działa, w starej sesji wykonaj:
 
 ```bash
@@ -1981,7 +2216,7 @@ systemctl enable --now nftables
 ```
 
 Gdy wszystko zawiedzie: zaloguj się na konsoli maszyny wirtualnej w hiperwizorze na swoje konto (hasło lokalne – 3.1),
-wpisz `sudo nft flush ruleset`, popraw `ADMIN_NET` w `/etc/nftables.conf` i wykonaj `sudo systemctl restart nftables`
+wpisz `sudo nft flush ruleset`, popraw `PAWS` w `/etc/nftables.conf` i wykonaj `sudo systemctl restart nftables`
 (gdy usługa `nftables` jest już włączona, sam `flush` działa tylko do restartu serwera).
 
 Reguły przyjmują tylko IPv4. Jeżeli w sieci serwerów używacie IPv6, dopisz odpowiedniki `ip6` (i ICMPv6 dla wykrywania
@@ -1991,9 +2226,16 @@ sąsiadów); w przeciwnym razie ruch IPv6 jest blokowany.
 
 - `nft list ruleset` – pokazuje tabelę `inet admng`;
 - `systemctl list-timers admng-nft-rescue.timer` – brak timera (siatka bezpieczeństwa wyłączona);
-- z ADM-WS01: `Test-NetConnection admng-wd.contoso.com -Port 22` – `TcpTestSucceeded : True`;
-- z komputera spoza 10.0.20.0/24 to samo – `False`;
-- na Debianie: `getent hosts DC01.contoso.com` i `curl -sI https://packages.microsoft.com | head -1` – odpowiadają.
+- z PAW (w laboratorium ADM-WS01): `Test-NetConnection admng-wd.contoso.com -Port 22` – `TcpTestSucceeded : True`;
+- z komputera, który nie jest PAW (w produkcji np. stacja helpdesku w 10.0.20.0/24), to samo – `False`;
+- na Debianie: `getent hosts DC01.contoso.com` i `curl -sI https://packages.microsoft.com | head -1` – odpowiadają;
+- na Debianie jako konto usługi:
+  `sudo -u admng-watchdog curl -sS -m 10 -o /dev/null https://packages.microsoft.com; echo "kod: $?"` – `kod: 0`;
+- na Debianie jako inne konto (np. `nobody`): to samo polecenie z `sudo -u nobody` – błąd i kod różny od 0 (zwykle
+  `28` – przekroczony czas);
+- na Debianie jako konto `openwec`:
+  `sudo -u openwec curl -sS -m 10 -o /dev/null https://packages.microsoft.com; echo "kod: $?"` – błąd i kod różny
+  od 0 (np. `6` – brak odpowiedzi DNS, albo `28` – przekroczony czas).
 
 ### 3.4 DNS i czas
 
@@ -2349,14 +2591,16 @@ Get-ADComputer ADMNG-WD -Properties pwdLastSet, msDS-KeyVersionNumber |
 ```
 
 Oczekiwane: `pwdLastSet` sprzed kilku minut (hasło jednorazowe już nie działa) i `msDS-KeyVersionNumber` równe kvno z
-keytabu.
+keytabu. Gdy w lesie jest urząd Enterprise, wykonaj też blok „Certyfikaty wystawione na konto” z 2.5 – na konto nie
+może być wystawiony żaden certyfikat.
 
 ### 3.7 Zmiana hasła konta usługi co 30 dni
 
 **Gdzie:** Debian. **Co i po co:** regularna zmiana hasła ogranicza wartość skradzionego keytabu – po zmianie stare
 klucze przestają działać (najpóźniej po kolejnej zmianie). Nie unieważnia jednak certyfikatu, o który ktoś z keytabem
 zdążyłby poprosić u urzędu certyfikacji – przed tym chronią wpisy odmowy na szablonach (2.5), a po wycieku keytabu
-także wyłączenie konta i odwołanie certyfikatów (2.5, „Gdy keytab mógł wyciec”).
+także wyłączenie konta, odwołanie certyfikatów i odczekanie, aż kontrolery pobiorą nową listę odwołań (2.5, „Gdy keytab
+mógł wyciec”).
 
 **[od 0.3.0]** Pakiet zainstaluje:
 
@@ -2394,7 +2638,9 @@ szyfrowania bez błędów; w keytabie utrzymywanym przez narzędzie najwyżej dw
 przestał pasować do AD, np. po odtworzeniu maszyny z kopii):
 
 1. PAW – nowe hasło jednorazowe (wygeneruj `$plain` i `$otp` jak w 2.5):
-   `Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp`.
+   `Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp`. Jeśli konto jest wyłączone (2.5, „Gdy keytab
+   mógł wyciec”), włącz je zaraz po resecie: `Enable-ADAccount 'ADMNG-WD$'` – wyłączone konto nie zmieni hasła
+   (`Client's credentials have been revoked`).
 2. Debian – **cały** blok z 3.6 z nowym hasłem jednorazowym. Keytab już istnieje, więc blok najpierw wczytuje obecne
    klucze – poprzednia wersja zostaje. Jeśli `kpasswd` odmówi (minimalny wiek hasła), postępuj jak w 3.6, „Gdy
    `kpasswd` odmawia” – następnego dnia ten sam blok z tym samym hasłem, bez nowego resetu.
@@ -2425,17 +2671,22 @@ openssl req -new -newkey rsa:3072 -nodes -keyout admng-wd.key -out admng-wd.csr 
 cp admng-wd.csr /home/adm-jan/ && chown adm-jan /home/adm-jan/admng-wd.csr
 ```
 
-PAW (wniosek nie jest tajny – kopiujesz go zwykłym `scp`):
+PAW (wniosek nie jest tajny – kopiujesz go zwykłym `scp`). `certreq` i `certutil` bez `-f` nie nadpisują
+istniejącego pliku – stare pliki z poprzedniego wystawienia usuwa pierwsze polecenie:
 
 ```powershell
+Remove-Item admng-wd.cer, chain.p7b -ErrorAction SilentlyContinue
 scp adm-jan@admng-wd.contoso.com:admng-wd.csr .
-certreq -submit -attrib "CertificateTemplate:WebServer" -config "CA01.contoso.com\Contoso-Issuing-CA" admng-wd.csr admng-wd.cer
-certutil -config "CA01.contoso.com\Contoso-Issuing-CA" -ca.chain chain.p7b
+certreq -submit -f -attrib "CertificateTemplate:WebServer" -config "CA01.contoso.com\Contoso-Issuing-CA" admng-wd.csr admng-wd.cer
+certutil -f -config "CA01.contoso.com\Contoso-Issuing-CA" -ca.chain chain.p7b
 scp admng-wd.cer chain.p7b adm-jan@admng-wd.contoso.com:
+Remove-Item admng-wd.cer, chain.p7b, admng-wd.csr
 ```
 
-Jeśli `certreq` zgłosi wniosek „oczekujący” (szablon wymaga zatwierdzenia), po zatwierdzeniu pobierz certyfikat:
-`certreq -retrieve -config "CA01.contoso.com\Contoso-Issuing-CA" <RequestId> admng-wd.cer`.
+Jeśli `certreq` zgłosi wniosek „oczekujący” (szablon wymaga zatwierdzenia; `scp` i `Remove-Item` zgłoszą wtedy brak
+`admng-wd.cer` – to oczekiwane), po zatwierdzeniu pobierz certyfikat (`<RequestId>` z komunikatu `certreq`), a potem
+wykonaj trzy ostatnie polecenia bloku wyżej:
+`certreq -retrieve -f -config "CA01.contoso.com\Contoso-Issuing-CA" <RequestId> admng-wd.cer`.
 
 Debian:
 
@@ -2445,7 +2696,7 @@ openssl x509 -in /home/adm-jan/admng-wd.cer -out admng-wd.pem 2>/dev/null || ope
 openssl pkcs7 -inform DER -in /home/adm-jan/chain.p7b -print_certs -out chain.pem 2>/dev/null || \
     openssl pkcs7 -inform PEM -in /home/adm-jan/chain.p7b -print_certs -out chain.pem
 cat admng-wd.pem chain.pem > admng-wd.crt            # najpierw certyfikat serwera, potem urzędy
-chmod 0644 admng-wd.crt; rm admng-wd.csr /home/adm-jan/admng-wd.c* /home/adm-jan/chain.p7b
+chmod 0644 admng-wd.crt; rm admng-wd.csr admng-wd.pem /home/adm-jan/admng-wd.c* /home/adm-jan/chain.p7b
 ```
 
 **[od 0.3.0]** Po instalacji pakietu (rozdz. 5) grupa `admng-watchdog` musi móc czytać klucz – pakiet ustawia
@@ -2455,17 +2706,75 @@ certyfikat już leży w tym miejscu, pakiet nie generuje własnego.
 **Sprawdzenie:**
 
 ```bash
-openssl verify -CAfile chain.pem admng-wd.pem
-openssl x509 -in admng-wd.pem -noout -subject -enddate -ext subjectAltName,extendedKeyUsage
-[ "$(openssl x509 -in admng-wd.pem -noout -pubkey | sha256sum)" = "$(openssl pkey -in admng-wd.key -pubout | sha256sum)" ] && echo 'klucz pasuje'
+cd /etc/admng-watchdog/tls
+openssl verify -CAfile chain.pem admng-wd.crt
+openssl x509 -in admng-wd.crt -noout -subject -enddate -ext subjectAltName,extendedKeyUsage
+a=$(openssl x509 -in admng-wd.crt -noout -pubkey) && b=$(openssl pkey -in admng-wd.key -pubout) &&
+    [ -n "$a" ] && [ "$a" = "$b" ] && echo 'klucz pasuje'
 stat -c '%U:%G %a %n' /etc/admng-watchdog/tls /etc/admng-watchdog/tls/*     # po instalacji pakietu
 ```
 
-Oczekiwane: `admng-wd.pem: OK`; `subject=CN=admng-wd.contoso.com`, `DNS:admng-wd.contoso.com`, `TLS Web Server
-Authentication`; `klucz pasuje`; po instalacji pakietu katalog `root:admng-watchdog 750`, `admng-wd.key`
-`root:admng-watchdog 640`, `admng-wd.crt` `… 644`. Stacje w domenie ufają firmowemu CA, więc AD Manager połączy się bez
-dodatkowych pytań. Odnowienie: przed datą `notAfter` powtórz wariant A (nowy klucz i nowy wniosek); usługa sama
-wczytuje podmienione pliki.
+Oczekiwane: `admng-wd.crt: OK`; `subject=CN=admng-wd.contoso.com` (OpenSSL 3.0 na Debianie 12 wypisuje
+`subject=CN = admng-wd.contoso.com`), `DNS:admng-wd.contoso.com`, `TLS Web Server
+Authentication`; `klucz pasuje` (brak tego wiersza – klucz nie pasuje albo któregoś pliku nie da się odczytać);
+po instalacji pakietu katalog `root:admng-watchdog 750`, `admng-wd.key` `root:admng-watchdog 640`, `admng-wd.crt`
+`… 644`. Stacje w domenie ufają firmowemu CA, więc AD Manager połączy się bez dodatkowych pytań.
+
+**Odnowienie** (przed datą `notAfter`, z zapasem na zatwierdzenie wniosku). **Nie** powtarzaj pierwszego bloku
+wariantu A: nadpisałby działający klucz, zanim urząd wystawi nowy certyfikat (wniosek może czekać na zatwierdzenie
+dniami), a przy odrzuceniu wniosku nie dałoby się wrócić do ważnego jeszcze certyfikatu. Nowy klucz i certyfikat
+powstają obok działających i zastępują je dopiero po sprawdzeniu.
+
+Debian:
+
+```bash
+cd /etc/admng-watchdog/tls
+umask 077
+openssl req -new -newkey rsa:3072 -nodes -keyout admng-wd.new.key -out admng-wd.new.csr \
+    -subj '/CN=admng-wd.contoso.com' -addext 'subjectAltName=DNS:admng-wd.contoso.com' -addext 'extendedKeyUsage=serverAuth'
+cp admng-wd.new.csr /home/adm-jan/ && chown adm-jan /home/adm-jan/admng-wd.new.csr
+```
+
+PAW (jak przy pierwszym wystawieniu: stare pliki najpierw znikają, `-f` pozwala nadpisać plik; przy wniosku
+„oczekującym” – `certreq -retrieve -f …` jak wyżej):
+
+```powershell
+Remove-Item admng-wd.cer, chain.p7b -ErrorAction SilentlyContinue
+scp adm-jan@admng-wd.contoso.com:admng-wd.new.csr .
+certreq -submit -f -attrib "CertificateTemplate:WebServer" -config "CA01.contoso.com\Contoso-Issuing-CA" admng-wd.new.csr admng-wd.cer
+certutil -f -config "CA01.contoso.com\Contoso-Issuing-CA" -ca.chain chain.p7b
+scp admng-wd.cer chain.p7b adm-jan@admng-wd.contoso.com:
+Remove-Item admng-wd.cer, chain.p7b, admng-wd.new.csr
+```
+
+Debian – nowy certyfikat obok działającego i sprawdzenie pary:
+
+```bash
+cd /etc/admng-watchdog/tls
+umask 077
+openssl x509 -in /home/adm-jan/admng-wd.cer -out admng-wd.new.pem 2>/dev/null || openssl x509 -inform DER -in /home/adm-jan/admng-wd.cer -out admng-wd.new.pem
+openssl pkcs7 -inform DER -in /home/adm-jan/chain.p7b -print_certs -out chain.pem 2>/dev/null || \
+    openssl pkcs7 -inform PEM -in /home/adm-jan/chain.p7b -print_certs -out chain.pem
+cat admng-wd.new.pem chain.pem > admng-wd.new.crt
+openssl verify -CAfile chain.pem admng-wd.new.crt
+a=$(openssl x509 -in admng-wd.new.crt -noout -pubkey) && b=$(openssl pkey -in admng-wd.new.key -pubout) &&
+    [ -n "$a" ] && [ "$a" = "$b" ] && echo 'klucz pasuje'
+```
+
+Dopiero gdy widzisz `admng-wd.new.crt: OK` i `klucz pasuje`, podmień pliki (właściciel i tryb klucza – jak
+dotychczasowego). Brak `klucz pasuje` przy `OK` oznacza zwykle, że na serwer trafił stary certyfikat (np. ze starego
+pliku na PAW) – powtórz blok PAW:
+
+```bash
+chown --reference=admng-wd.key admng-wd.new.key && chmod --reference=admng-wd.key admng-wd.new.key &&
+    chmod 0644 admng-wd.new.crt && mv -f admng-wd.new.key admng-wd.key && mv -f admng-wd.new.crt admng-wd.crt
+rm -f admng-wd.new.csr admng-wd.new.pem /home/adm-jan/admng-wd.new.csr /home/adm-jan/admng-wd.cer /home/adm-jan/chain.p7b
+```
+
+Potem wykonaj „Sprawdzenie” wyżej. Jeśli urząd odrzuci wniosek, nic się nie zmienia – usuń pliki `admng-wd.new.*`.
+(Procedurę sprawdziliśmy w laboratorium z urzędem symulowanym przez `openssl`.) **[od 0.3.0]** Usługa wczytuje
+podmienione pliki sama; gdyby trafiła na klucz, który nie pasuje do certyfikatu (np. między dwiema zmianami nazw),
+zostaje przy dotychczasowym certyfikacie, zgłasza błąd `certificate.key` i przyjmuje nową parę przy następnym odczycie.
 
 #### Wariant B – certyfikat generowany na serwerze (gdy nie ma CA) [od 0.3.0]
 
@@ -2493,8 +2802,8 @@ migracją), ale **nie** przed utratą dysku czy maszyny – leżą na tym samym 
 
 **Zalecenie (jedno, ale ważne):** historia zmian ma obejmować 3 lata, więc zrób **kopię zapasową całej maszyny
 wirtualnej** na poziomie hiperwizora – razem ze stanem vTPM, jeśli go używasz. Taka kopia zawiera katalog usługi,
-keytab i dane – jest zasobem Tier 0: dostęp do systemu kopii mają tylko administratorzy Tier 0, a kopie powinny być
-szyfrowane. W wariancie „klucz hosta” (bez TPM2) kopia dysku zawiera też klucz, którym odszyfrowuje się sekrety kanałów.
+keytab i dane – jest zasobem Tier 0: dostęp do systemu kopii mają tylko administratorzy Tier 0 (tak jak do platformy
+wirtualizacji – 3.1), a kopie powinny być szyfrowane. W wariancie „klucz hosta” (bez TPM2) kopia dysku zawiera też klucz, którym odszyfrowuje się sekrety kanałów.
 
 Co musi zawierać odtworzenie:
 
@@ -2563,9 +2872,9 @@ Watchdoga (rozdz. 5), który od niego zależy:
 apt install ./admng-openwec_<wersja>~deb13_amd64.deb ./admng-watchdog_<wersja>_amd64.deb
 ```
 
-Pakiet `admng-openwec` tworzy konto systemowe `openwec` (bez powłoki), dodaje je do grupy `admng-keytab`, zakłada bazę
-stanu OpenWEC (`/var/lib/openwec/db/` – wyłącznie subskrypcje i stan klientów, bez zdarzeń) i jednostkę
-`openwecd.service` z ograniczeniami systemd. Katalog wyjściowy `/var/lib/openwec/out/` (właściciel `openwec`, grupa
+Pakiet `admng-openwec` przejmuje konto systemowe `openwec` z 3.3 (gdy go nie ma – tworzy je, bez powłoki), dodaje je
+do grupy `admng-keytab`, zakłada bazę stanu OpenWEC (`/var/lib/openwec/db/` – wyłącznie subskrypcje i stan klientów,
+bez zdarzeń) i jednostkę `openwecd.service` z ograniczeniami systemd. Katalog wyjściowy `/var/lib/openwec/out/` (właściciel `openwec`, grupa
 `admng-watchdog`, tryb 2750) tworzy pakiet `admng-watchdog` (rozdz. 5). Usługa nie wystartuje, dopóki nie ma keytabu
 (3.6). Katalog subskrypcji `/etc/openwec/subscriptions/` pakiet zostawia pusty – plik subskrypcji tworzysz sam (4.4);
 przykład leży w `/usr/share/admng-openwec/admng-dc-security.toml.example`.
@@ -2616,17 +2925,50 @@ files_descriptor_close_timeout = 600
 systemowe `openwec` (np. przez błąd w OpenWEC, który przyjmuje dane z sieci), ma klucz `HTTP/admng-wd.contoso.com` –
 ten sam, którym API Watchdoga sprawdza bilety. Może nim podrobić bilet do API jako dowolny użytkownik domeny, także
 administrator Watchdoga, i zmienić reguły albo wyciszyć alarmy (każda zmiana konfiguracji trafia jednak do
-dotychczasowych odbiorców); ma też tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL). Nie ma natomiast dostępu do bazy
-Watchdoga (katalog 0700 innego konta), sekretów kanałów ani praw zapisu w AD. Ryzyko ograniczają:
+dotychczasowych odbiorców, a retencji historii nie skróci poniżej progu z ustawień startowych – 5.2); ma też
+tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL). Nie ma natomiast dostępu do bazy Watchdoga (katalog 0700 innego
+konta), sekretów kanałów ani praw zapisu w AD.
+
+Jest jeszcze jedna konsekwencja, niezależna od wspólnego keytabu: OpenWEC zapisuje **każdy** bajt, który Watchdog
+czyta – także pola, po których Watchdog sprawdza nadawcę (4.5). Przejęte konto `openwec` może więc po cichu pominąć
+albo podrobić dowolny rekord z kontrolerów: wykonawcę i źródło zmiany oraz zdarzenia widoczne tylko w dzienniku
+(wyczyszczenie dziennika 1102, zmiana zasad inspekcji 4719, hasło DSRM 4794). Dopóki z każdego DC przychodzi
+cokolwiek, zakładka Stan niczego nie zgłosi. Wiarygodność atrybucji zależy więc od tego, czy konto `openwec` jest
+nienaruszone. To ryzyko wynika z samego użycia OpenWEC jako odbiornika (ADR-0009) i ogranicza je ta sama izolacja
+konta `openwec` (niżej).
+
+Ryzyko ograniczają:
 
 - **API tylko z podsieci administratorów** – zapora (3.3) przepuszcza port 8443 wyłącznie z 10.0.20.0/24, a usługa
   sprawdza to samo ustawieniem `AllowedRemoteSubnets` (5.2). Zapytania do API z samego serwera – także przez adres
-  pętli zwrotnej – są odrzucane (poza `/healthz`), więc podrobiony bilet zadziała tylko z podsieci administratorów;
+  pętli zwrotnej – są odrzucane (poza `/healthz`), więc podrobiony bilet zadziała tylko z podsieci administratorów –
+  ale z każdej jej stacji, także z komputerów osób spoza Tier 0 (np. helpdesku z rolą Viewer);
 - **izolacja konta `openwec`** – osobne konto systemowe bez powłoki, usługa w piaskownicy systemd (bez uprawnień,
   zapis tylko w `/var/lib/openwec`), port 5985 przyjmuje połączenia tylko od kontrolerów domeny (zapora, 3.3); konto
-  nie czyta bazy, biletów ani sekretów usługi Watchdog.
+  nie czyta bazy, biletów ani sekretów usługi Watchdog;
+- **brak połączeń wychodzących konta `openwec`** – odbiornik tylko przyjmuje połączenia, więc nie potrzebuje żadnych
+  wychodzących: zapora odrzuca je regułą `meta skuid "openwec" drop` (3.3), a jednostka `openwecd.service` ma
+  `IPAddressDeny=any` z wyjątkiem adresów kontrolerów (plik niżej). Przejęty OpenWEC nie wyśle więc keytabu poza
+  serwer (ani przez HTTPS, ani przez DNS) i nie użyje go sam – ani wobec kontrolerów (bilet TGT, LDAP, SMB), ani
+  wobec API na samym serwerze.
 
-Dlatego konto `openwec` traktuj jak keytab – jako zasób Tier 0. Opcjonalnym utwardzeniem na przyszłość byłoby osobne
+Adresy kontrolerów, z których OpenWEC przyjmuje połączenia, wpisujesz w osobnym pliku jednostki (te same co `DCS`
+w zaporze, 3.3, oraz ewentualne `AdditionalSourceAddresses`, 5.2). Bez tego pliku żaden kontroler się nie połączy:
+
+```bash
+install -d -m 0755 /etc/systemd/system/openwecd.service.d
+install -m 0644 /dev/stdin /etc/systemd/system/openwecd.service.d/admng-dcs.conf <<'EOF'
+[Service]
+IPAddressAllow=10.0.1.10 10.0.1.11
+EOF
+systemctl daemon-reload
+systemctl show openwecd -p IPAddressDeny -p IPAddressAllow
+```
+
+Oczekiwane: `IPAddressDeny=` obejmuje wszystkie adresy (`0.0.0.0/0 ::/0`), `IPAddressAllow=` – adresy kontrolerów.
+Przy dodaniu, wycofaniu albo zmianie adresu DC popraw ten plik i `DCS` w zaporze.
+
+Konto `openwec` traktuj więc jak keytab – jako zasób Tier 0. Opcjonalnym utwardzeniem na przyszłość byłoby osobne
 konto komputera z własną nazwą DNS i keytabem dla kolektora; wersja 0.3.0 go nie przewiduje i nie musisz niczego
 w tym kierunku przygotowywać.
 
@@ -2639,8 +2981,10 @@ oraz źródła zmian: 4624 (logowania sieciowe – typ 3 – i RDP – typ 10), 
 komputery nie dostaną tej subskrypcji.
 
 Plik `/etc/openwec/subscriptions/admng-dc-security.toml` wygeneruje polecenie (lista zdarzeń pochodzi z tego samego
-katalogu zdarzeń co parser usługi, więc nie mogą się rozjechać). `install -m 0644` nadaje plikowi tryb czytelny dla
-konta `openwec` także wtedy, gdy w powłoce działa `umask 077` z 3.6:
+katalogu zdarzeń co parser usługi, więc nie mogą się rozjechać). Z `appsettings.json` czyta ono tylko identyfikator
+subskrypcji (`Watchdog.Collector.SubscriptionUuid`), więc działa już teraz – zanim w 5.2 wpiszesz SID-y grup i
+pozostałe ustawienia. `install -m 0644` nadaje plikowi tryb czytelny dla konta `openwec` także wtedy, gdy w powłoce
+działa `umask 077` z 3.6:
 
 ```bash
 admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' --dc 'DC02$@CONTOSO.COM' |
@@ -2715,9 +3059,17 @@ Get-WinEvent -FilterXml ([xml]$q) -MaxEvents 3 | Format-List TimeCreated, Messag
 
 Oczekiwane: zdarzenie 4776 z kodem błędu `0xC000006A` (złe hasło); udane 4776 nie mogą się pojawić.
 
-Zasada na później: do wczytanej subskrypcji **nie dopisuje się** kanałów ani zdarzeń – tworzy się nową subskrypcję
-(nowy `uuid`, plik w miejsce starego), inaczej kontrolery mogą zgubić zakładki WEF (bookmarks – zapamiętane miejsce
-w dzienniku, do którego wysłały już zdarzenia).
+**Zasada na później – zmiana listy zdarzeń.** Nowe identyfikatory zdarzeń z kanału Security dodajesz w **tej samej**
+subskrypcji – ten sam `uuid` i `name`. Wygeneruj plik ponownie (polecenie `print-wec-subscription` wyżej, z tym samym
+`install -m 0644 /dev/stdin /etc/openwec/subscriptions/admng-dc-security.toml`) i wczytaj go tym samym
+`sudo -u openwec openwec subscriptions load -y …` co w 4.6. Zakładki WEF (bookmarks – zapamiętane miejsce w dzienniku,
+do którego kontroler wysłał już zdarzenia) zostają, więc zdarzenia z przerwy nie przepadają; kontrolery pobiorą nową
+wersję przy najbliższym odświeżeniu (`Refresh`). Nie dodawaj kanałów innych niż Security – kontroler z zakładką
+wysłałby wtedy wszystkie dotychczasowe zdarzenia nowego kanału (dokumentacja OpenWEC). Nie zmieniaj `uuid`: plik
+z nowym `uuid` i tą samą nazwą OpenWEC odrzuci (`UNIQUE constraint failed: subscriptions.name`); z nową nazwą
+`load` usunie starą subskrypcję razem z zakładkami, nowa zacznie od następnego zdarzenia (`read_existing_events =
+false`) i zdarzenia z przerwy przepadną, a Watchdog odrzuca wszystkie rekordy, dopóki nie zmienisz też
+`Watchdog.Collector.SubscriptionUuid` (5.2). (Sprawdzone na źródłach przypiętej wersji OpenWEC.)
 
 ### 4.5 Wyjście do Watchdoga
 
@@ -2726,13 +3078,18 @@ w dzienniku, do którego wysłały już zdarzenia).
   zapis zdarzeń – po awarii niczego nie gubi; ewentualne duplikaty odrzuca.
 - Watchdog przyjmuje wiersz tylko wtedy, gdy zgadzają się: identyfikator subskrypcji, konto nadawcy (zapisywalny DC
   tej domeny), nazwa komputera w zdarzeniu i adres IP nadawcy. Rekord niezgodny jest odrzucany, a zakładka Stan pokazuje
-  błąd (możliwy fałszywy nadawca).
+  błąd: zdarzenia przysłał inny komputer niż zapisywalny DC tej domeny (np. kontroler RODC, DC innej domeny, zwykły
+  komputer z błędnym GPO) albo inna subskrypcja. Wszystkie te pola zapisuje OpenWEC – sprawdzenie chroni przed obcym
+  nadawcą, którego uwierzytelnił nienaruszony OpenWEC, ale nie przed przejętym kontem `openwec` (4.3).
 - Logowania kont komputerów (`…$`) i anonimowe są odrzucane przy odczycie – filtr XPath Windows nie umie ich wykluczyć
   na kontrolerze.
 - Timer `admng-wec-rotate.timer` (co godzinę, jako root) zmienia nazwę aktywnych
   plików na `security.jsonl.<znacznik czasu>`, każe OpenWEC otworzyć nowe pliki (sygnał przeładowania) i usuwa plik
   dopiero wtedy, gdy Watchdog potwierdzi, że przeczytał go do końca. Plik nieprzetworzony jest usuwany po **7 dniach**
-  (ustawienie `MAX_UNCONSUMED_DAYS` w `/etc/default/admng-wec-rotate`, najwyżej 30), a Watchdog zgłasza lukę.
+  (ustawienie `MAX_UNCONSUMED_DAYS` w `/etc/default/admng-wec-rotate`, najwyżej 30) albo – od najstarszego – gdy
+  nieprzetworzone pliki wszystkich DC zajmują razem ponad **8 GB** (`MAX_UNCONSUMED_MB`, domyślnie 8192). Zalew
+  zdarzeń (np. nieudane logowania z losowymi nazwami kont) albo zatrzymany Watchdog nie zapełni więc `/var`, gdzie
+  leżą baza, jej kopie i kolejka wysyłek. W obu przypadkach Watchdog zgłasza lukę.
 
 ### 4.6 Uruchomienie i sprawdzenie, że zdarzenia z DC01 i DC02 docierają
 
@@ -2780,6 +3137,16 @@ Oczekiwane: na liście maszyn adres i nazwa każdego kontrolera (np. `10.0.1.10:
 liczba aktywnych maszyn = liczba kontrolerów; katalogi `DC01@CONTOSO.COM` i `DC02@CONTOSO.COM`; liczba wierszy rośnie
 (kontrolery cały czas obsługują logowania sieciowe). Zawartości plików nie kopiuj poza serwer – to dane z katalogu.
 
+Na koniec sprawdź, że konto `openwec` nie nawiąże żadnego połączenia, także z kontrolerem:
+
+```bash
+sudo -u openwec env KRB5_CONFIG=/etc/admng-watchdog/krb5.conf KRB5CCNAME=MEMORY:t \
+    kinit -k -t /etc/admng-watchdog/admng-wd.keytab 'ADMNG-WD$@CONTOSO.COM'
+```
+
+Oczekiwane: po kilkudziesięciu sekundach `kinit: Cannot contact any KDC for realm 'CONTOSO.COM'` (zapora odrzuca
+także zapytania DNS tego konta), a zdarzenia z DC nadal przychodzą (liczba wierszy wyżej rośnie).
+
 ---
 
 ## 5. Instalacja Watchdoga [od 0.3.0]
@@ -2793,7 +3160,8 @@ Instalacja: `apt install ./admng-openwec_<wersja>~deb13_amd64.deb ./admng-watchd
 `amd64` dla Debiana 12 i 13; zależności: ASP.NET Core Runtime 10.0 ≥ 10.0.13, `admng-openwec`, biblioteki MIT Kerberos
 i SASL GSSAPI, `smbclient`, `openssl`, systemd ≥ 252; konflikt z `gss-ntlmssp`). Pakiet:
 
-- tworzy konto systemowe `admng-watchdog` (bez powłoki) i dodaje je do grupy `admng-keytab`;
+- przejmuje konto systemowe `admng-watchdog` z 3.3 (gdy go nie ma – tworzy je, bez powłoki) i dodaje je do grupy
+  `admng-keytab`;
 - tworzy katalogi z właścicielami i trybami: dane `/var/lib/admng-watchdog` (0700, tylko konto usługi:
   `watchdog.db`, `backup/`, `keys/`), konfiguracja `/etc/admng-watchdog` (właściciel root; `appsettings.json`
   root:admng-watchdog 0640 – usługa może go czytać, ale nie zmienić);
@@ -2813,11 +3181,16 @@ i SASL GSSAPI, `smbclient`, `openssl`, systemd ≥ 252; konflikt z `gss-ntlmssp`
 
 Usługa `admng-watchdog.service` działa jako `admng-watchdog` w piaskownicy systemd (bez uprawnień, tylko odczyt systemu
 plików poza swoim katalogiem, tylko port 8443) i zgłasza systemd, że żyje, tylko wtedy, gdy jej zadania faktycznie
-posuwają się naprzód – zawieszona usługa zostanie zrestartowana.
+posuwają się naprzód – zawieszona usługa zostanie zrestartowana. systemd restartuje ją po awarii lub zawieszeniu co
+30 sekund, bez limitu prób; dane, które za każdym razem wywołują awarię (np. uszkodzony plik GPO), usługa po trzech
+próbach pomija i zgłasza. Nie restartuje jej tylko po błędzie konfiguracji (kody z tabeli w 5.3) – wtedy
+jednostka zostaje w stanie `failed`, a jednostka pomocnicza `admng-watchdog-failed.service` zapisuje błąd krytyczny
+w dzienniku systemowym i próbuje wysłać krótkie powiadomienie (bez danych z katalogu) kanałami Watchdoga.
 
 ### 5.2 Ustawienia startowe (`/etc/admng-watchdog/appsettings.json`)
 
-Plik edytuje tylko root serwera. Pakiet dostarcza go z przykładowymi nazwami; zmień:
+Plik edytuje tylko root serwera. Pakiet dostarcza go z przykładowymi nazwami; zmień je na swoje – poza
+identyfikatorem subskrypcji, który zostaje bez zmian:
 
 | Ustawienie | Wartość w przykładzie | Skąd |
 |---|---|---|
@@ -2830,7 +3203,8 @@ Plik edytuje tylko root serwera. Pakiet dostarcza go z przykładowymi nazwami; z
 | `Watchdog.Directory.Domain` | `contoso.com` | |
 | `Watchdog.Directory.Servers` | `[ "DC01.contoso.com", "DC02.contoso.com" ]` | tylko pełne nazwy, nie adresy IP; usługa wybiera emulator PDC |
 | `Watchdog.Kerberos.Realm` / `ServicePrincipal` | `CONTOSO.COM` / `ADMNG-WD$@CONTOSO.COM` | 2.5 |
-| `Watchdog.Collector.SubscriptionUuid` | `4f7c2e1a-9b3d-4c55-8e21-6a0d9c7b3e10` | musi być równy `uuid` subskrypcji (4.4) |
+| `Watchdog.Collector.SubscriptionUuid` | `4f7c2e1a-9b3d-4c55-8e21-6a0d9c7b3e10` | **nie zmieniaj** – musi być równy `uuid` subskrypcji wygenerowanej w 4.4 i wczytanej w 4.6 (`grep ^uuid /etc/openwec/subscriptions/admng-dc-security.toml`); po zmianie Watchdog odrzuca wszystkie rekordy (4.4, „Zasada na później”) |
+| `Watchdog.Retention.MinEventsDays` | `1095` | najkrótsza retencja zdarzeń, jaką można ustawić w AD Managerze (3 lata); niżej – tylko po zmianie tego pliku przez roota, np. po decyzji IOD |
 
 Pakiet wpisuje w miejsce SID-ów grup wartość zastępczą `S-1-5-21-0-0-0-0` – dopóki jej nie zmienisz,
 `--check-config` i start usługi kończą się komunikatem, że trzeba podać SID-y grup. Pozostałe ustawienia
@@ -2845,7 +3219,11 @@ admng-watchdog --check-config
 
 Retencję, SMTP, Teams i reguły ustawiasz w AD Managerze (rozdz. 6) – zapisują się w bazie usługi. Domyślna retencja
 w 0.3.0: zdarzenia **1095 dni**, rekordy dzienników DC związane ze zmianami 30 dni, rekordy logowań 48 godzin, 7 kopii
-bazy.
+bazy, limit rozmiaru bazy 4 GB (`MaxDatabaseMb` 4096 – baza i 7 kopii mieszczą się wtedy na zalecanych 40 GB `/var`).
+Krótszej retencji zdarzeń niż `MinEventsDays` usługa nie przyjmie (`retentionBelowFloor`), a każde skrócenie retencji
+(zdarzeń, rekordów DC, rekordów logowań, liczby kopii) jest zdarzeniem krytycznym, które trafia także do
+dotychczasowych odbiorców. Gdy na dysku brakuje miejsca na kolejną kopię bazy, usługa jej nie robi i zgłasza błąd
+(`storage.backupSkipped`).
 
 ### 5.3 Pierwsze uruchomienie
 
@@ -2864,7 +3242,8 @@ Po starcie usługa tworzy bazę i robi **zrzut bazowy** domeny (bez powiadomień
 minut) oraz ciche odczytanie wszystkich GPO. Na koniec pojawia się zdarzenie „Stan bazowy gotowy” i zaczyna się
 **7-dniowy tryb wdrożenia** (natychmiast tylko zdarzenia krytyczne, reszta w raporcie dziennym).
 
-Jeśli usługa nie startuje, kod wyjścia wskazuje przyczynę (`systemctl status admng-watchdog` → `status=…`):
+Jeśli usługa nie startuje, kod wyjścia wskazuje przyczynę (`systemctl status admng-watchdog` → `status=…`). Po tych
+kodach systemd **nie** ponawia startu – trzeba usunąć przyczynę i wykonać `systemctl start admng-watchdog`:
 
 | Kod | Przyczyna | Co zrobić |
 |---|---|---|
@@ -2888,14 +3267,19 @@ Jeśli usługa nie startuje, kod wyjścia wskazuje przyczynę (`systemctl status
 - **Usługa sama sprawdza konto `ADMNG-WD$`** przy starcie i co godzinę: brak członkostwa w grupach uprzywilejowanych,
   flaga „nie może być delegowane”, tylko AES, SPN-y, wpis odmowy dla SELF na własnym obiekcie (2.5), wiek hasła
   (ostrzeżenie > 32 dni, błąd > 35 dni), kvno keytabu równe `msDS-KeyVersionNumber`, pierwszy wpis keytabu równy
-  nazwie konta (3.6), różnica zegara względem DC.
+  nazwie konta (3.6), różnica zegara względem DC, a gdy jest urząd Enterprise – wpisy odmowy na szablonach
+  opublikowanych na urzędach (2.5): szablon bez wpisu odmowy to ostrzeżenie (`certificateDenyMissing`), a gdy konto
+  mogłoby się w nim rejestrować – błąd (`certificateEnrollOpen`, z nazwą szablonu).
 - **Dziennik systemowy:** `journalctl -u admng-watchdog -p warning --since today` – ostrzeżenia i błędy z dziś (bez
   wartości z katalogu). Numery zdarzeń są takie jak w wersji 0.2.0 ([`WATCHDOG.md`](WATCHDOG.md), rozdz. 10), nowe:
   1008 odcisk certyfikatu, 1011 problem z kontem usługi, 1012 problem z kolektorem WEF, 1013 problem z treścią GPO.
-- **Raport dzienny** (7:30, także w weekendy) – jego brak oznacza problem z usługą albo z wysyłką.
+- **Raport dzienny** (7:30, także w weekendy) – jego brak oznacza problem z usługą albo z wysyłką: sprawdź wtedy
+  `systemctl status admng-watchdog`.
 
-Zewnętrznego monitoringu nie potrzeba: zakładka Stan, raport dzienny i automatyczny restart przez systemd wystarczą;
-jeśli macie Zabbix lub SIEM, podepnijcie pod nie `journalctl` (priorytet warning i wyżej).
+Restart po awarii jest automatyczny i nie ma limitu prób. Jednostka w stanie `failed` (błąd konfiguracji – 5.3) nie
+wraca jednak sama: wtedy zwykle przychodzi krótkie powiadomienie „AdMng Watchdog zatrzymany” (5.1), a gdy i ono nie
+dotrze – jedynym sygnałem jest brak raportu dziennego. Jeśli macie Zabbix lub SIEM, podepnijcie pod nie `journalctl`
+(priorytet warning i wyżej).
 
 ---
 
@@ -2960,7 +3344,8 @@ Opis wszystkich opcji: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 5 i 6. Minimum na st
    wdrożenia; ich wyłączenie przez API wymaga lokalnej zgody na serwerze (`AllowTier0Suppression`) i samo jest
    zdarzeniem krytycznym. Przy każdej regule widać, ile wiadomości by wysłała (przycisk Podgląd).
 6. **Retencja** (Konfiguracja): sprawdź, że zdarzenia mają 1095 dni. Trzy lata historii to dane osobowe pracowników –
-   uzgodnij cel i okres z IOD i wpisz przetwarzanie do rejestru czynności.
+   uzgodnij cel i okres z IOD i wpisz przetwarzanie do rejestru czynności. Krótszy okres niż `MinEventsDays` z ustawień
+   startowych (5.2) ustawi tylko root serwera.
 7. **Tryb wdrożenia** (7 dni): w produkcji przez tydzień przeglądaj Reguły i dodawaj wyjątki z podpowiedzi (np. konto
    synchronizacji Entra Connect), potem „Zakończ tryb wdrożenia”. W domenie testowej zakończ go od razu po zrzucie
    bazowym – inaczej w pilotażu (rozdz. 7) zobaczysz tylko alarmy krytyczne.
@@ -2974,6 +3359,8 @@ Opis wszystkich opcji: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 5 i 6. Minimum na st
 
 - Wszystkie kroki 2.x, 3.x, 4, 5 i 6 zakończone sprawdzeniem; Stan bez błędów; tryb wdrożenia zakończony (domena
   testowa).
+- W produkcji: maszyna wirtualna stoi na platformie wirtualizacji Tier 0 (3.1) – zapisz, na którym klastrze lub
+  hoście i kto nim administruje.
 - Zmiany testowe wykonuj z **ADM-WS01** jako `CONTOSO\adm-jan`. AD Manager oraz konsole „Użytkownicy i komputery AD”
   i GPMC łączą się z kontrolerem bezpośrednio (LDAP) – wtedy Watchdog pokaże jako źródło `ADM-WS01` / 10.0.20.15 (nazwa
   z rekordu PTR, z dopiskiem „(DNS)”). Polecenia modułu ActiveDirectory w PowerShell i Centrum administracyjne AD
@@ -3038,7 +3425,7 @@ przywróć `0`.
 | 5 | Certyfikat (wariant B) | połączenie z drugiej stacji; potem `cert-renew-self-signed` | okno odcisku przy pierwszym połączeniu; po odnowieniu – ostrzeżenie o zmianie z dwoma odciskami |
 | 6 | Odtworzenie na innej maszynie | wariant TPM2: odtwórz dysk na nowej VM bez tego samego vTPM; wariant „klucz hosta”: nowa VM z Debianem z 3.1, skopiuj tylko `/etc/admng-watchdog` i `/var/lib/admng-watchdog` (bez `/var/lib/systemd/credential.secret`) | `systemctl status admng-watchdog` pokazuje `status=243/CREDENTIALS`; po `reset-secrets-key` usługa startuje, historia jest, SMTP i Teams trzeba wpisać ponownie. (Kopia całego dysku w wariancie „klucz hosta” zawiera klucz – usługa startuje normalnie, to oczekiwane.) |
 | 7 | Role | `Add-ADGroupMember AdMng-Watchdog-Viewers -Members anna.nowak`, logowanie AD Managerem z jej kontem; potem jej SID w `DeniedSids` | po ≤ 5 min dostęp tylko do odczytu; po wpisie w `DeniedSids` – odmowa w ciągu sekund |
-| 8 | Zapora | z sieci spoza 10.0.20.0/24: połączenie na 8443 i 22 | brak połączenia |
+| 8 | Zapora | z sieci spoza 10.0.20.0/24: połączenie na 8443 i 22; z komputera w 10.0.20.0/24, który nie jest PAW: połączenie na 22 | brak połączenia; ze stacji w 10.0.20.0/24 port 8443 działa |
 
 ### 7.4 Co pilotaż ma rozstrzygnąć
 
@@ -3058,6 +3445,8 @@ Zapisz wyniki – część decyzji etapu B zależy od nich:
 - jakie źródło Watchdog pokazuje dla zmian przez ADWS (PowerShell, Centrum administracyjne AD) – test 18 w 7.2;
 - kto jest zapisany jako wykonawca automatycznej zmiany hasła `ADMNG-WD$` (zdarzenia 4742/4723 na DC);
 - pokrycie atrybucji (Stan → Atrybucja) po tygodniu i rzeczywistą treść GPO (zmiany w każdej kategorii z 7.2 #10);
+- czy zmiana samej listy SACL na obiekcie domeny (dodanie i usunięcie testowego wpisu inspekcji) daje zdarzenie
+  krytyczne „zmiana zabezpieczeń” (2.11, „Kto może te wpisy usunąć”);
 - czy hiperwizor kopiuje i odtwarza stan vTPM (3.9).
 
 ---
@@ -3087,6 +3476,10 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
   rm -f /etc/chrony/sources.d/ad-dcs.sources /etc/chrony/conf.d/admng-ad.conf && systemctl restart chrony
   cp -a /etc/resolv.conf.orig /etc/resolv.conf
   ```
+- Pozostałości, których pakiety nie usuwają (po przywróceniu zapory – jej reguły odwołują się do kont `openwec`
+  i `admng-watchdog`): `rm -r /etc/systemd/system/openwecd.service.d && systemctl daemon-reload` (plik z 4.3),
+  `userdel openwec` (konto z 3.3) i – dopiero po usunięciu historii – `userdel admng-watchdog` (konto z 3.3; katalog
+  historii należy do niego).
 - Jeśli maszyna była przeznaczona tylko dla Watchdoga – usuń całą VM i jej kopie zapasowe (to dane Tier 0).
 
 ### 8.2 AD i kontrolery
@@ -3094,8 +3487,10 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
 **Gdzie:** PAW, Domain Admin. Kolejność ma znaczenie: najpierw prawa nadane kontu, potem samo konto.
 
 1. Wyłącz konto (od tej chwili keytab nie działa, a konto nie zaloguje się też certyfikatem):
-   `Disable-ADAccount 'ADMNG-WD$'`. Gdy jest urząd certyfikacji, sprawdź, czy wystawiono certyfikaty na to konto, i je
-   odwołaj (2.5, „Gdy keytab mógł wyciec”).
+   `Disable-ADAccount 'ADMNG-WD$'`. Gdy jest urząd certyfikacji, sprawdź na każdym urzędzie, czy wystawiono
+   certyfikaty na to konto (2.5, „Certyfikaty wystawione na konto”), i odwołaj je (2.5, „Gdy keytab mógł wyciec”,
+   krok 2). Czekać na nową listę CRL nie trzeba – konto usuwasz w kroku 6, a konto utworzone kiedyś pod tą samą nazwą
+   miałoby inny SID, którego stare certyfikaty nie zawierają.
 2. Usuń prawa odczytu i wpisy odmowy na szablonach certyfikatów (przed usunięciem konta – potem zostałyby wpisy
    z „osieroconym” SID-em):
 
@@ -3105,7 +3500,7 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
    dsacls "CN=AdminSDHolder,CN=System,$d" /R $a
    dsacls "CN=Password Settings Container,CN=System,$d" /R $a
    dsacls "CN=Deleted Objects,$d" /R $a
-   # tylko gdy wykonano wpisy odmowy na szablonach (2.5): każdy szablon z listy
+   # tylko gdy wykonano wpisy odmowy na szablonach (2.5): każdy szablon z wpisem dla tego konta
    $cfg = (Get-ADRootDSE).configurationNamingContext
    Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Services,$cfg" -LDAPFilter '(objectClass=pKICertificateTemplate)' |
        Where-Object { (Get-Acl -Path "AD:\$($_.DistinguishedName)").Access | Where-Object IdentityReference -like '*\ADMNG-WD$' } |
@@ -3120,7 +3515,8 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
    konfiguracji. Jeśli trzeba je wycofać, postępuj jak w 2.13, wiersz 10: w tym GPO ustaw każdą podkategorię na wartość
    z kopii z 2.10 (nie na „No Auditing” – chyba że kopia tak mówi), na DC `gpupdate /target:computer /force`, porównaj
    `auditpol /get /category:*` z kopią i dopiero potem `Remove-GPO -Name 'AdMng - inspekcja DC'`.
-4. SACL: blok „Wycofanie” z 2.11 (usuwa tylko wpisy dodane w 2.11 – także na `CN=Public Key Services`).
+4. SACL: blok „Wycofanie” z 2.11 (usuwa tylko wpisy dodane w 2.11 – także na `CN=Public Key Services`). Krok jest
+   zakończony dopiero wtedy, gdy blok wypisuje `pozostało wpisów z 2.11: 0` dla każdego z trzech obiektów.
 5. `ms-DS-MachineAccountQuota`: przywróć poprzednią wartość tylko wtedy, gdy jest taka potrzeba biznesowa (2.8).
 6. Usuń konto i grupy: `Remove-ADComputer ADMNG-WD -Confirm:$false`; `Remove-ADGroup AdMng-Watchdog-Admins -Confirm:$false`;
    `Remove-ADGroup AdMng-Watchdog-Viewers -Confirm:$false`.
@@ -3155,14 +3551,14 @@ zespołem.
 | `Clock skew too great` | zegar Debiana lub DC różni się o więcej niż 5 min: chrony odrzuca kontrolery (brak `maxdistance` z 3.4, duży rozrzut czasu DC) albo emulator PDC nie ma źródła czasu | `chronyc tracking`, `chronyc -N sources`, `chronyc ntpdata 10.0.1.10` (`Root dispersion`), plik `/etc/chrony/conf.d/admng-ad.conf` (3.4); na DC01 `w32tm /query /status` (1.4) |
 | `Cannot contact any KDC for realm 'CONTOSO.COM'` | DNS, zapora (88/tcp), zła nazwa KDC w `krb5.conf` | `getent hosts DC01.contoso.com`, `nft list ruleset`, `KRB5_CONFIG` ustawione? |
 | `Client not found in Kerberos database` | zła nazwa konta (brak `$`, literówka, małe litery obszaru) | `ADMNG-WD$@CONTOSO.COM` – w apostrofach (znak `$`) |
-| `Client's credentials have been revoked` | konto wyłączone (np. hasło jednorazowe nie spełniło zasad i konto powstało wyłączone) | `Get-ADComputer ADMNG-WD -Properties Enabled` (2.5) |
+| `Client's credentials have been revoked` | konto wyłączone: nie włączono go po wpisach odmowy (2.5, „Włączenie konta…”) albo wyłączono je po wycieku keytabu | `Get-ADComputer ADMNG-WD -Properties Enabled`; `Enable-ADAccount 'ADMNG-WD$'` (po wycieku – dopiero według 2.5, „Gdy keytab mógł wyciec”) |
 | `Preauthentication failed` przy `kinit -k` | klucze w keytabie nie pasują do hasła w AD: zła sól, keytab sprzed zmiany hasła, zmiana hasła w AD poza Debianem | 3.6 (sól), porównaj kvno: `klist -k` vs `msDS-KeyVersionNumber`; naprawa – nowe hasło jednorazowe i 3.7 |
 | `kvno -k` bez `keytab entry valid` / AD Manager „Usługa odrzuciła uwierzytelnienie Kerberos” (401) przy poprawnym bilecie | keytab nie zawiera wersji klucza, którą KDC szyfruje bilety (kvno), albo brak nazwy `HTTP/…` w keytabie | `klist -k -e` – trzy nazwy, aktualne kvno; dziennik usługi, wpis 2501 z podpowiedzią |
 | `KDC has no support for encryption type` | konto nie ma kluczy AES (typy szyfrowania ustawione, ale hasło nie zmienione od tego czasu) albo klient wymusza AES, a konto ma tylko RC4 | `Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes` = 24; zmień hasło (3.7) |
 | `Server not found in Kerberos database` | SPN nie istnieje albo klient używa aliasu (CNAME), adresu IP lub nazwy z innej domeny | `setspn -Q HTTP/admng-wd.contoso.com`; łącz się nazwą z rekordu A (2.4) |
 | Ten sam SPN na dwóch kontach (np. stary gMSA z 0.2.0) | KDC nie wie, kluczem którego konta szyfrować; uwierzytelnianie zawodzi | `setspn -X` (duplikaty), `setspn -Q HTTP/admng-wd.contoso.com`, `setspn -D …` na starym koncie |
 | `kpasswd`: `Password change rejected` | zasady haseł domeny – minimalny wiek hasła liczy się od ustawienia hasła jednorazowego | 3.6 – keytab z hasła jednorazowego, następnego dnia zmiana z **tym samym** hasłem jednorazowym, bez nowego resetu na PAW |
-| `kpasswd`: `Access denied` | zmiana hasła zablokowana – np. przez wpis odmowy dla SELF z 2.5 (pytanie pilotażu) | usuń wpis (blok z 2.5 z `RemoveAccessRule` w miejscu `AddAccessRule`), powtórz 3.6 i zgłoś wynik zespołowi |
+| `kpasswd`: `Access denied` | zmiana hasła zablokowana – np. przez wpis odmowy dla SELF z 2.5 (pytanie pilotażu) | usuń wpis (blok z 2.5 z `RemoveAccessRuleSpecific` w miejscu `AddAccessRule` – usuwa dokładnie ten wpis), powtórz 3.6 i zgłoś wynik zespołowi |
 | Usługa przestała się uwierzytelniać po odtworzeniu VM | keytab starszy niż hasło w AD (zmiana nastąpiła po wykonaniu kopii) | Stan → Konto usługi (`keytabStale`); nowe hasło jednorazowe + `init` (3.7) |
 
 ### 9.2 WEF (przekazywanie zdarzeń)
@@ -3174,7 +3570,7 @@ zawiera kod błędu.
 | Objaw | Przyczyna | Rozwiązanie |
 |---|---|---|
 | Brak jakichkolwiek wpisów Forwarding/Operational | GPO nie dotarło do DC albo usługa WinRM nie działa | `gpresult /scope computer /r` (czy jest „AdMng - WEF”), rejestr z 2.12, `Get-Service WinRM` |
-| 105 z kodem `2150858770` (0x80338012, „The client cannot connect to the destination…”) | DC nie dociera do 10.0.1.25:5985: DNS, zapora (Debian – tylko adresy DC; DC – ruch wychodzący), `openwecd` nie działa | `Test-NetConnection admng-wd.contoso.com -Port 5985`; `systemctl status openwecd`; `nft list ruleset` |
+| 105 z kodem `2150858770` (0x80338012, „The client cannot connect to the destination…”) | DC nie dociera do 10.0.1.25:5985: DNS, zapora (Debian – tylko adresy DC; DC – ruch wychodzący), adresu DC brak w `IPAddressAllow` jednostki `openwecd` (4.3), `openwecd` nie działa | `Test-NetConnection admng-wd.contoso.com -Port 5985`; `systemctl status openwecd`; `systemctl show openwecd -p IPAddressAllow`; `nft list ruleset` |
 | 105 z kodem `2150859027` (0x80338113, „…HTTP URL was not available”) | pod adresem odpowiada coś, co nie jest odbiornikiem WS-Management, albo zły adres w GPO | sprawdź wartość `Server=…` w GPO (2.12) i `ss -tlnp 'sport = :5985'` na Debianie |
 | 105 z błędem Kerberos (np. `0x80090322` – zła nazwa usługi) | SPN / keytab: brak SPN w AD, inne kvno w keytabie niż w AD | `setspn -L ADMNG-WD` (2.5), `kvno -k` na Debianie (3.6), `klist -li 0x3e4` na DC (4.6) |
 | 105 z błędem uwierzytelnienia mimo poprawnego SPN i keytabu | GPO ustawia na DC `TrustedHosts=*` klienta WinRM – kontroler wysyła Negotiate zamiast Kerberos | `winrm get winrm/config/client` na DC; zanotuj wynik i GPO (7.4) |

@@ -381,7 +381,12 @@ Set-Acl -Path $p -AclObject $acl
 
 Odczyt SACL wymaga uprawnień, których konto usługi nie ma, więc Watchdog nie sprawdzi SACL bezpośrednio. Zamiast tego
 liczy pokrycie: jaki odsetek wykrytych zmian udało się przypisać wykonawcy (Stan → Atrybucja, przyczyna
-„SACL_MISSING”, gdy brakuje zdarzeń 5136). Do audytu SACL można użyć skryptu Microsoft `Get-ADAuditSaclReport.ps1`.
+„SACL_MISSING”, gdy brakuje zdarzeń 5136). Usunięcie pojedynczych wpisów (np. tylko tworzenia dMSA albo GPO) pokrycie
+pokaże słabo albo wcale, a może to zrobić po cichu każdy posiadacz prawa „Zarządzanie inspekcją i dziennikiem
+zabezpieczeń” na DC – Administrators, a w organizacji z Exchange także grupa Exchange Servers. Wersja linuksowa
+(0.3.0) zgłasza dlatego jako krytyczną każdą zmianę zabezpieczeń – także samej SACL – na obiekcie domeny,
+AdminSDHolder, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites`; posiadaczy tego prawa i treść wpisów
+sprawdzaj okresowo ([`WATCHDOG-LINUX.md`](WATCHDOG-LINUX.md), 2.11). Do audytu SACL można użyć skryptu Microsoft `Get-ADAuditSaclReport.ps1`.
 Uwaga: reguły z warunkiem „z wyjątkiem wykonawcy X” działają niezawodnie dopiero wtedy, gdy wykonawca jest ustalany
 (przy brakującym SACL usługa pokaże ostrzeżenie w zakładce Stan).
 

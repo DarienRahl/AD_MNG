@@ -70,7 +70,9 @@ default that an implementer may deviate from only with a reason in the final rep
   their actor stays unknown (`SYSVOL_NOT_AUDITED`).
 - Remote management of OpenWEC from the API or AD Manager (subscriptions are files managed by the Linux admin).
 - External monitoring integration (the user has none): health is the Status tab, the daily digest, journald and
-  systemd restarts (`Restart=on-failure`, optional `WatchdogSec`).
+  systemd restarts (`Restart=on-failure` without a start limit, `WatchdogSec`, 12.1). A unit that stops for good
+  (a configuration error, `RestartPreventExitStatus=`) triggers the `OnFailure=` alert of 12.1; its absence from the
+  daily digest is the remaining signal.
 - Off-host backups managed by the product.
 
 ---
@@ -105,7 +107,7 @@ Ports on `admng-wd`:
 
 | Direction | Port | Peer | Purpose |
 |---|---|---|---|
-| in | 22/tcp | 10.0.20.0/24 | SSH (keys only, no root login) |
+| in | 22/tcp | Tier 0 PAW addresses only (example and lab: ADM-WS01 10.0.20.15) – not the whole admin subnet, which also holds non-Tier-0 AD Manager workstations | SSH (keys only, no root login) |
 | in | 8443/tcp | 10.0.20.0/24 | Watchdog API (HTTPS + Kerberos) |
 | in | 5985/tcp | 10.0.1.10, 10.0.1.11 | OpenWEC WEF receiver (HTTP + Kerberos message encryption) |
 | out | 53/udp+tcp | DCs | DNS |
@@ -116,7 +118,12 @@ Ports on `admng-wd`:
 | out | 464/udp+tcp | DCs | kpasswd (password rotation) |
 | out | 636/tcp | DCs | LDAPS (only with the LDAPS option) |
 | out | 587/tcp | smtp.contoso.com | SMTP STARTTLS |
-| out | 80, 443/tcp | Internet (Microsoft) and packages.microsoft.com / deb.debian.org (the default Debian sources use HTTP) | Teams Workflows, OS and runtime updates |
+| out (users `root`, `_apt`) | 80, 443/tcp | packages.microsoft.com / deb.debian.org (the default Debian sources use HTTP) | OS and runtime updates (apt downloads as `_apt`) |
+| out (user `admng-watchdog`) | 80, 443/tcp | Internet (Microsoft) and the CRL/OCSP URLs of the SMTP relay certificate | Teams Workflows (443); SMTP certificate revocation check (`checkRevocation`, online on Linux – usually HTTP 80) |
+
+No outbound connection at all for the `openwec` user (nftables `meta skuid "openwec" drop`, 16; `IPAddressDeny=any`
+in `openwecd.service`, 12.2) – the WEF receiver only accepts connections (4.3). Every other local user reaches only
+the DCs and the SMTP relay; the egress of `admng-watchdog` is discussed in 4.3 ("The `admng-watchdog` process").
 
 ---
 
@@ -176,7 +183,7 @@ Processing pipeline: unchanged from spec 2, with `WecFileIngestionJob` replacing
 | Groups | only `Domain Computers` (primary group 515). Not in Protected Users (Microsoft: never for computers/services), no authentication silo, no privileged group (4.7) | – |
 | Password | random, 120 printable ASCII characters (0x21–0x7E) from the OS CSPRNG, set by `admng-watchdog-keytab`, never written anywhere, rotated when older than 30 days | Debian host |
 | Logon rights | domain GPO "Deny log on locally", "Deny log on through Remote Desktop Services", "Deny log on as a batch job", "Deny log on as a service" for `CONTOSO\ADMNG-WD$`; **not** "Deny access to this computer from the network" (LDAP, SMB need it) | Tier 0 admin (appendix A.6) |
-| Directory rights | read grants only: the explicit read grants of `docs/WATCHDOG.md` 4.3 (per class `GR`, domain head, AdminSDHolder, Password Settings Container, `LCRP` on Deleted Objects). Inherent computer-account writes: the own password (kpasswd, User-Change-Password right – kept), the computer class default SD's `(A;;CCDC;;;PS)`, validated SPN / dNSHostName writes and `RPWP` on Personal-Information for SELF – removed by a Deny ACE `SELF: CreateChild, DeleteChild, Self, WriteProperty` on the own object (verified hourly, 4.7); computer creation through `ms-DS-MachineAccountQuota` (Authenticated Users hold "Add workstations to domain" on DCs) – removed by MAQ = 0, a deployment prerequisite (health Warning `domain.machineAccountQuota` while > 0, 9.2); certificate enrollment as a member of Domain Computers (default `Machine` template, published on every enterprise CA – a certificate gives PKINIT logons for its whole validity, typically one year, and survives every password rotation) – removed by Deny `Certificate-Enrollment` (`0e10c968-78fb-11d2-90d4-00c04f79dc55`) and `Certificate-AutoEnrollment` (`a05b8cc2-17bc-4802-a710-e7c15ab866a2`) ACEs for `ADMNG-WD$` on every `pKICertificateTemplate` that Everyone, Authenticated Users or Domain Computers may enroll in, when an enterprise CA exists | Tier 0 admin (appendix A.2, A.5) |
+| Directory rights | read grants only: the explicit read grants of `docs/WATCHDOG.md` 4.3 (per class `GR`, domain head, AdminSDHolder, Password Settings Container, `LCRP` on Deleted Objects). Inherent computer-account writes: the own password (kpasswd, User-Change-Password right – kept), the computer class default SD's `(A;;CCDC;;;PS)`, validated SPN / dNSHostName writes and `RPWP` on Personal-Information for SELF – removed by a Deny ACE `SELF: CreateChild, DeleteChild, Self, WriteProperty` on the own object (verified hourly, 4.7); computer creation through `ms-DS-MachineAccountQuota` (Authenticated Users hold "Add workstations to domain" on DCs) – removed by MAQ = 0, a deployment prerequisite (health Warning `domain.machineAccountQuota` while > 0, 9.2); certificate enrollment as a member of Domain Computers (default `Machine` template, published on every enterprise CA – a certificate gives PKINIT logons for its whole validity, typically one year, and survives every password rotation) – removed by Deny `Certificate-Enrollment` (`0e10c968-78fb-11d2-90d4-00c04f79dc55`) and `Certificate-AutoEnrollment` (`a05b8cc2-17bc-4802-a710-e7c15ab866a2`) ACEs for `ADMNG-WD$` on **every** `pKICertificateTemplate` when an enterprise CA exists (a Deny for this one account is harmless and also covers grants through nested groups, This Organization, NETWORK or broad grants added later to an existing template), applied while the account is still **disabled** – before the one-time password is handed over (4.2) – and re-checked hourly for every published template (4.7 item 8) | Tier 0 admin (appendix A.2, A.5) |
 
 Self-writable attributes that matter (lab, without the Deny ACE): the account itself can change
 `msDS-SupportedEncryptionTypes` (e.g. re-enable RC4) and add SPNs / `dNSHostName` values for its own host name
@@ -189,18 +196,29 @@ What remains is what every authenticated principal may do – notably creating n
 (default `Create all child objects` for Authenticated Users on the zone objects). Stolen keys therefore give no write
 beyond an ordinary domain account; the Watchdog does not watch the DNS application partitions (outside its detection
 scope; `dnsNode` tombstones are dropped as noise, spec 10.9). The instructions (2.5) offer an optional Deny `CC` for
-`ADMNG-WD$` on each AD-integrated zone. Compromise recovery: disable the account (blocks password and PKINIT logons
-alike), revoke certificates issued to it (`certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$'`, `certutil
--revoke <serial> 1`), then a new one-time password and `init`.
+`ADMNG-WD$` on each AD-integrated zone. Compromise recovery (instructions 2.5, "Gdy keytab mógł wyciec"), in this
+order: (1) disable the account (blocks password and PKINIT logons alike); (2) on **every** enterprise CA (the
+`pKIEnrollmentService` objects) list the certificates issued to it (`certutil -config <CA> -view -restrict
+'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'`), revoke each (`certutil -config <CA> -revoke <serial> 1`) and publish
+new CRLs at once (`certutil -config <CA> -crl`); (3) keep the account disabled until no DC can still use a CRL that was
+current before the revocation – the KDC trusts a cached base/delta CRL until its NextUpdate, so revocation alone does
+not block PKINIT at once (no certificate found → no wait); alternatively delete the account and create it anew
+(8.2 + A.2…A.6): the new SID makes old certificates fail strong certificate mapping; (4) enable the account, set a new
+one-time password and run `init` (a disabled account cannot obtain the `kadmin/changepw` ticket –
+`KDC_ERR_CLIENT_REVOKED`, lab).
 
 ### 4.2 Creation (Tier 0 admin on a Tier 0 PAW) and handover
 
-1. The Tier 0 admin creates the account with a **one-time password** (appendix A.2: `New-ADComputer`, CSPRNG-generated
-   one-time password of 32+ characters) and passes the one-time password to the Debian administrator over a channel
-   both trust (it is valid only until step 2, which happens within minutes).
+1. The Tier 0 admin creates the account **disabled** with a **one-time password** (appendix A.2: `New-ADComputer …
+   -Enabled $false`, CSPRNG-generated one-time password of 32+ characters), adds the Deny ACE for SELF and – when an
+   enterprise CA exists – the certificate-template Deny ACEs (A.5; Enterprise Admins in a multi-domain forest), and only
+   then enables the account (`Enable-ADAccount`) and passes the one-time password to the Debian administrator over a
+   channel both trust (it is valid only until step 2, which happens within minutes). Nobody who learns the one-time
+   password can therefore enroll for a certificate or use a self-write in the window before step 2.
 2. On `admng-wd`: `sudo admng-watchdog-keytab init` (prompts for the one-time password without echo) – section 4.4.
 3. The Tier 0 admin verifies: `Get-ADComputer ADMNG-WD -Properties pwdLastSet,msDS-KeyVersionNumber` shows a fresh
-   `pwdLastSet` (the one-time password is gone) and `setspn -L ADMNG-WD` the three SPNs.
+   `pwdLastSet` (the one-time password is gone), `setspn -L ADMNG-WD` the three SPNs and – with an enterprise CA – the
+   per-CA `certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$'` query returns no certificate (instructions 2.5).
 
 Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: only Kerberos (88) and kpasswd (464).
 
@@ -231,22 +249,63 @@ Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: on
   API's acceptor key. With it anyone can forge a service ticket (silver ticket) for `HTTP/admng-wd.contoso.com` with any
   client name, e.g. `adm-jan@CONTOSO.COM`; the API resolves roles from that name (6.2) and the MIT acceptor does not
   validate the PAC against the KDC, so a forged ticket for a member of `AdMng-Watchdog-Admins` gives full Watchdog admin
-  (rule and channel changes are still announced to the previous recipients). It also yields the `ADMNG-WD$` identity
-  (directory and SYSVOL read), not the Watchdog database (0700), the channel secrets (systemd credential, root 0700)
-  or any AD write. Splitting the keytab by principal does not help (one key per account). Mitigations (MUST):
+  (rule and channel changes are still announced to the previous recipients; retention cannot be lowered below the
+  root-owned floor `Watchdog:Retention:MinEventsDays` and every decrease is Critical – 14.2). It also yields the
+  `ADMNG-WD$` identity (directory and SYSVOL read), not the Watchdog database (0700), the channel secrets (systemd
+  credential, root 0700) or any AD write. Splitting the keytab by principal does not help (one key per account).
+  Mitigations (MUST):
   1. **API reachable only from the admin subnet** – nftables accepts 8443 only from `10.0.20.0/24` (16) and
      `AllowedRemoteSubnets` repeats it in the service; on Linux loopback and the host's own addresses are **not**
-     exempt (6.1), so a forged ticket cannot be used from the server itself.
+     exempt (6.1), so a forged ticket cannot be used from the server itself. The subnet is not a Tier 0 boundary: it
+     also holds the AD Manager workstations of Viewers and helpdesk staff (instructions 3.2, test 15), so a forged
+     admin ticket works from **any** host in `AllowedRemoteSubnets`. (Restricting the admin role to PAW addresses is an
+     open user decision – it would change where Watchdog admins work.)
   2. **Isolation of the `openwec` user** – separate system user without a shell, only supplementary group
      `admng-keytab`; `openwecd` runs in the sandbox of 12.2 (no capabilities, `ProtectSystem=strict`, writes only
      `/var/lib/openwec`, binds only 5985); nftables accepts 5985 only from the DC addresses (16), so the network-facing
      parser is reachable only from the DCs; the Watchdog data folder, `/run/admng-watchdog` and
      `/etc/admng-watchdog/credentials` are not readable by `openwec` (11).
+  3. **No outbound connections for `openwec`** – as an acceptor with a keytab OpenWEC never opens a connection (no KDC,
+     DNS or LDAP traffic; Files output only). `openwecd.service` sets `IPAddressDeny=any` with only the DC addresses in
+     `IPAddressAllow=` (drop-in written by the admin, 12.2), and the nftables output chain drops every packet of the
+     `openwec` user that is not part of an established connection (`meta skuid "openwec" drop`, before the loopback and
+     DC accepts – 16). A compromised `openwecd` can then neither send the keytab off the host (HTTPS, or DNS through the
+     DC resolvers) nor use it itself from the server (TGT, LDAP, SMB, S4U2Self against the DCs, or the local API). B4
+     acceptance test (lab VM): as user `openwec`, `curl https://packages.microsoft.com` and `kinit -k` fail, while WEF
+     from a DC address still arrives.
 
   Residual risk: an OpenWEC bug triggered by traffic from a DC address, or another local path to the `openwec` user,
-  combined with access to the admin subnet. The `openwec` user is therefore a Tier 0 asset like the keytab itself.
+  combined with access to any host in the admin subnet. The `openwec` user is therefore a Tier 0 asset like the keytab
+  itself.
+
+  **Integrity of the WEF feed** (inherent to the collector design, not to the shared keytab): `openwec` writes every
+  byte Watchdog ingests, including the `meta` fields (`Client`, `IpAddress`, `Subscription.Uuid`) and the event XML on
+  which the identity checks of 7.6 rest, and its own subscription database. A compromised `openwec` user can
+  therefore suppress or forge any WEF-derived record – actor and source of a change, and the event-log-only detections
+  (1102, 4719, 4794, 1100/1104) – without a health signal, as long as it keeps passing some records per DC (7.9 only
+  sees total silence). The checks of 7.6 reject other forwarders authenticated by an **intact** OpenWEC; they are not
+  a control against a compromised one. The control is the isolation above (items 2 and 3); integrity of attribution
+  belongs to the residual risk of the OpenWEC compromise.
   Optional hardening (not a default, not part of stage B): a separate computer account with its own DNS name and
   keytab for the collector would remove the API key from OpenWEC.
+
+  **The `admng-watchdog` process** is the second network-facing process and holds strictly more than `openwec`: the
+  same keytab, the decrypted Data Protection key (channel secrets) and the 3-year history (0700). Its inputs are not
+  all trusted either: the API (8443, admin subnet only, Kerberos-authenticated), GPO files read from SYSVOL
+  (`Registry.pol`, `GptTmpl.inf`, GPP XML – writable by every GPO editor, often a Tier 1 delegation; 8.4), the WEF
+  records written by `openwec` (forged ones if `openwec` is compromised; account names in 4625/4771/4776 are chosen by
+  anyone who can reach a DC), LDAP attribute values (some writable by the objects' owners), and – in the same sandbox
+  – `smbclient` (C) parsing the DCs' SMB responses and its tar stream (8.3). The parsers of 8.4 are managed code,
+  bound their input, fail closed per file and are tested with malformed and oversized fixtures (20.1); `smbclient` is
+  the main native parser and talks only to the DCs. Containment (MUST): the sandbox of 12.1 (no capabilities,
+  read-only system, binds only 8443) and the nftables output chain of 16 – DCs, the SMTP relay and TCP 80/443 to any
+  address; the 80/443 rule is limited to the users `root` and `_apt` (updates) and `admng-watchdog`. The service
+  cannot be narrowed to fixed addresses: Teams (Power Automate Workflows) is served from changing Microsoft cloud
+  addresses, and the SMTP revocation check (`checkRevocation`, default on) fetches CRL/OCSP from the URLs in the
+  relay's certificate chain. For the same reason `admng-watchdog.service` sets no `IPAddressDeny=` (12.1). Residual
+  risk (accepted, ADR-0009): code execution as `admng-watchdog` can send the keytab, the channel secrets and the
+  history to any Internet host over 80/443. Closing it needs an outbound proxy with a host allowlist (or dropping
+  Teams and serving CRLs internally) – open user decision Q23.
 
 ### 4.4 `admng-watchdog-keytab` (new project `src/AdMng.Watchdog.Keytab`)
 
@@ -327,6 +386,15 @@ The service resolves its own account by `sAMAccountName` from `Watchdog:Kerberos
    CreateChild | DeleteChild | Self | WriteProperty (`0x2B`); otherwise health Warning `serviceAccount.drift` with the
    reason `denySelfAceMissing` (someone with WriteDacl on the Tier 0 OU, or a "restore defaults" on the object, would
    otherwise silently re-enable the self-writes of 4.1).
+8. **Certificate templates (hourly)** – the Deny ACEs of 4.1 are a one-time change, while new templates and broader
+   enrollment are routine PKI work. Read `certificateTemplates` of every `pKIEnrollmentService` (configuration NC) and,
+   for each published template, its DACL (SD flags 4; templates are readable by Authenticated Users). A published
+   template without the two explicit Deny ACEs (Certificate-Enrollment, Certificate-AutoEnrollment) for `ADMNG-WD$`
+   → health Error `serviceAccount.drift` with reason `certificateEnrollOpen` (template name) when any Allow ACE with
+   Enroll, AutoEnroll, all extended rights or GenericAll names the account's `objectSid`, a SID of its `tokenGroups`, or
+   S-1-1-0, S-1-5-11, S-1-5-2, S-1-5-15 (well-known SIDs in every token that tokenGroups does not list); otherwise
+   health Warning with reason `certificateDenyMissing` (the instructions put the Deny on every template – 2.5). No
+   enterprise CA → the check reports "n/a". The remedy text points to the template block of instructions 2.5.
 
 The Status tab gets a "Konto usługi" section (account DN, kvno, last rotation, next due, enctypes, checks above).
 
@@ -476,12 +544,19 @@ real-Kerberos integration test on Linux can now prove roles (Viewer/Admin/403), 
 - `Hosting.Certificate.Path` (PEM chain, leaf first) and `KeyPath` (PEM private key), default
   `/etc/admng-watchdog/tls/admng-wd.crt` / `.key` (root:admng-watchdog, 0644 / 0640). Loaded with
   `X509Certificate2.CreateFromPemFile`; reloaded every 10 minutes and on file change; the existing signing self-check,
-  serverAuth EKU check, expiry warnings and `certificate.key` health apply. `Thumbprint`/`Subject`/`Store` stay
+  serverAuth EKU check, expiry warnings and `certificate.key` health apply. A reload that finds a key that does not
+  belong to the certificate (e.g. between the two renames of a renewal, or a key overwritten before the CA issued the
+  new certificate) MUST keep serving the current certificate and raise health Error `certificate.key` instead of
+  applying the pair; the next reload retries. Renewal of the company-CA variant writes `admng-wd.new.key` /
+  `admng-wd.new.crt` next to the live files and swaps them only after the pair is verified (instructions 3.8,
+  "Odnowienie"). `Thumbprint`/`Subject`/`Store` stay
   Windows-only until section 17.
 - **Company CA variant** (appendix A.8): on Debian
   `openssl req -new -newkey rsa:3072 -nodes -keyout admng-wd.key -out admng-wd.csr -subj '/CN=admng-wd.contoso.com' -addext 'subjectAltName=DNS:admng-wd.contoso.com' -addext 'extendedKeyUsage=serverAuth'`;
-  a Tier 0 admin: `certreq -submit -attrib "CertificateTemplate:WebServer" -config "<CAHost>\<CAName>" admng-wd.csr admng-wd.cer`;
-  the chain is installed on Debian. Check for an enterprise CA:
+  a Tier 0 admin: `certreq -submit -f -attrib "CertificateTemplate:WebServer" -config "<CAHost>\<CAName>" admng-wd.csr admng-wd.cer`
+  and `certutil -f -config "<CAHost>\<CAName>" -ca.chain chain.p7b` (without `-f` both refuse to overwrite an existing
+  output file, so a renewal on the same PAW would copy the old certificate; the instructions also delete the PAW copies
+  before and after); the chain is installed on Debian. Check for an enterprise CA:
   `certutil -config - -ping` / `certutil -TCAInfo`, or `Get-ADObject -SearchBase "CN=Enrollment Services,CN=Public Key Services,CN=Services,$((Get-ADRootDSE).configurationNamingContext)" -LDAPFilter '(objectClass=pKIEnrollmentService)'`.
 - **Self-signed variant** (default when no certificate is configured): `postinst` generates ECDSA P-256, 825 days,
   `CN`/SAN `DNS:<hostname --fqdn>`, EKU serverAuth, and prints its SHA-256 fingerprint; `sudo admng-watchdog
@@ -563,7 +638,20 @@ the non-conffile example `/usr/share/admng-openwec/admng-dc-security.toml.exampl
 loading, the XML is validated on **both** DCs with
 `Get-WinEvent -FilterXml ([xml](Get-Content .\admng-query.xml -Raw)) -MaxEvents 5` (`-LogName` and `-FilterXml` are in
 different parameter sets; open question Q6 for
-the 4776 `Status` filter). Never add channels or IDs to a loaded subscription – create a new one (new uuid) instead.
+the 4776 `Status` filter). **Changing the event list later:** new Security event IDs are added to the **same**
+subscription – same `uuid` and `name`: regenerate the file and load it again with the same `openwec subscriptions
+load -y <file>`. `store_subscription` is an upsert on `uuid` and bookmarks are keyed by the subscription `uuid`, so the
+DCs' WEF bookmarks survive and no events are lost; the DCs pick up the new version at their next refresh. Never add
+another **channel** (OpenWEC `doc/query.md`: a client with a bookmark then sends every existing event of the new
+channel). Never change the `uuid`: a new uuid with the same `name` fails (`UNIQUE constraint failed:
+subscriptions.name`); with a new name, `load` deletes the old subscription together with its bookmarks, and the new
+one starts at the next event (`read_existing_events = false`), so the gap is lost; and Watchdog rejects every record
+until `Watchdog:Collector:SubscriptionUuid` is changed too (7.6). `print-wec-subscription` therefore MUST always emit
+the configured `Watchdog:Collector:SubscriptionUuid` and the name `admng-dc-security` (never a fresh uuid). It MUST read
+only the `Watchdog:Collector` section and MUST NOT run the full configuration validation: the instructions run it in
+4.4, right after the package install and before `appsettings.json` is edited (5.2), so it has to succeed with the
+shipped placeholder SIDs of 14.1 (packaging CI test, 20). The instructions mark `SubscriptionUuid` as "do not change"
+in 5.2.
 
 ```toml
 uuid = "4f7c2e1a-9b3d-4c55-8e21-6a0d9c7b3e10"
@@ -629,7 +717,10 @@ principal with characters outside `[a-zA-Z0-9.\-_@]` removed: `DC01$@CONTOSO.COM
      Watchdog after every commit; root reads it) lists its `(device, inode, firstLineSha256)` as **complete**
      (consumed offset = size, committed, and the file unmodified for ≥ 5 minutes);
   4. a rotated file older than `MAX_UNCONSUMED_DAYS` (`/etc/default/admng-wec-rotate`, default 7, maximum 30 –
-     ADR-0008/0009) is deleted anyway with a journald warning (file name only); Watchdog reports the loss (7.5);
+     ADR-0008/0009) is deleted anyway with a journald warning (file name only); Watchdog reports the loss (7.5); the
+     same happens, oldest first, while the rotated files of all DCs together exceed `MAX_UNCONSUMED_MB` (default 8192)
+     – a WEF flood or a stopped Watchdog must not fill `/var`, where the database, its backups and the outbox live
+     (OpenWEC itself never checks free space);
   5. a missing or unreadable progress file (Watchdog stopped – `/run/admng-watchdog` is removed with its unit) means
      "nothing confirmed": steps 1, 2 and 4 still run, step 3 deletes nothing.
 - Durability: the Files driver writes with `write_all` and no `fsync`; OpenWEC acknowledges the batch to the DC after the
@@ -653,6 +744,19 @@ principal with characters outside `[a-zA-Z0-9.\-_@]` removed: `DC01$@CONTOSO.COM
   a crash before the commit re-reads the batch; the store ignores duplicates). Event-log-only detections (1102, 4719,
   4794, 1100/1104) keep their `RecordEventIds` (Guid from computer, record id, time, event id) – re-reading never
   repeats them.
+- **Poison input** (MUST): a line that crashes or hangs the process would otherwise be re-read after every restart
+  (the cursor is committed only after the batch). Before a batch is processed the job records `(file, offset,
+  attempts + 1)` in the cursor's bookmark (`Attempts` attribute) in its own transaction; after 3 attempts at the same
+  offset the batch is processed line by line and the line that fails again is skipped and counted as malformed
+  (`wec.<dc>.malformedLines`). `GpoContentJob` does the same with `gpo_content_queue.attempts`: incremented before a
+  GPO is read, and after 3 attempts the GPO is marked `gpo.<guid>.parseError` and skipped until its `versionNumber`
+  changes again.
+- **Ingest budget for logon and failure records** (MUST): 4624/4625/4771/4776 beyond
+  `Watchdog:Collector:MaxLogonRecordsPerDcPerMinute` (bootstrap, default 20 000) are counted, not stored, and raise
+  `HealthEventLogGap` with reason `flooding` (spec 11.1) for that DC; change-related records are never dropped. An
+  unauthenticated attacker can produce 4625/4776 at will (NTLM attempts with random names against a DC). SHOULD:
+  failures for non-existent accounts (`Status`/`SubStatus` `0xC0000064`) are reduced to per (DC, source, minute)
+  counters with a capped set of distinct names – enough for `PasswordSprayDetector` – instead of one row each.
 - Malformed line (not JSON, missing fields): counted (`wec.<dc>.malformedLines`, Warning); when OpenWEC died
   mid-write, the next batch is appended to a partial line – the parser resynchronises at the last occurrence of the
   record start token (`{"meta":` – field order to be confirmed in B4) inside the line.
@@ -678,6 +782,10 @@ by-name EventData, masking, %% decoding – spec 11.3). Accepted only when all h
 4. `meta.IpAddress` is one of the DC's A/AAAA records (resolved at every DomainControllerDirectory refresh) or in
    `Watchdog:Collector:AdditionalSourceAddresses` (NAT / multi-homed DCs);
 5. `System/Channel` = `Security` and the provider passes `EventSourceGuard` (spec 11.1).
+
+These checks reject records of other forwarders that an **intact** OpenWEC authenticated (a non-DC machine, an RODC,
+a DC of another domain, a wrong subscription). Every field they read is written by OpenWEC, so they do not protect
+against a compromised `openwec` user (4.3, "Integrity of the WEF feed").
 
 Resulting `SecurityEvent`: `Source` = DC FQDN, `Computer` = `System/Computer`, `RecordId` = `EventRecordID`,
 `TimeCreated` = `System/TimeCreated/@SystemTime`. `EvidenceRef.Dc` = DC FQDN, `Log` = `Security` (the record's origin).
@@ -752,7 +860,10 @@ GPO "AdMng - WEF" linked to the Domain Controllers OU: (1) Computer Configuratio
 Services → **Windows Remote Management (WS-Management)** = Automatic; (3) Windows Components → Event Log Service →
 Security → **Configure log access** =
 `O:BAG:SYD:(A;;0xf0005;;;SY)(A;;0x5;;;BA)(A;;0x1;;;S-1-5-32-573)(A;;0x1;;;NS)` (NETWORK SERVICE may read Security, no
-reboot; compare with `wevtutil gl security` first); (4) audit policy and SACLs as in `docs/WATCHDOG.md` 4.5/4.6 and
+reboot). The value **replaces** the channel's whole access SDDL on every DC (no merge), in the GPMC and in the
+`Set-GPRegistryValue` path alike: the instructions first read `channelAccess` on every DC (`wevtutil gl security`),
+carry any non-default ACE (e.g. a SIEM/EDR agent's read grant) into the value and check after `gpupdate` that those
+ACEs are still present; (4) audit policy and SACLs as in `docs/WATCHDOG.md` 4.5/4.6 and
 instructions 2.10/2.11: the audit GPO is linked with `-Order 1` and sets **every** listed subcategory (User, Computer,
 Security Group and Distribution Group Management, Directory Service Changes, Logon, Kerberos Authentication Service,
 Credential Validation, Audit Policy Change) to **Success and Failure** – the highest value, so the highest-precedence
@@ -968,11 +1079,32 @@ PrivilegeGranted, move/rename/disable/delete. All of these are already watched o
 computer-noise filter and from `SuppressComputerSelfChanges` (`NoiseAttributes` gets the own objectGUID as an
 exception), so a self-write of `ADMNG-WD$` (e.g. RC4 re-enabled, an extra SPN) is always reported.
 
-### 9.4 Contracts summary
+### 9.4 Changes of the audit configuration (SACL) of key objects
+
+All attribution of the Critical rules (BadSuccessor creations, GPO, PKI, AdminSDHolder) rests on the SACL entries of
+instructions 2.11. Every holder of "Manage auditing and security log" (`SeSecurityPrivilege`) on the DCs –
+Administrators and, in every Exchange organisation, the Exchange Servers group (granted by Exchange setup in the
+Default Domain Controllers Policy) – can remove them silently; the service cannot read a SACL, and a targeted removal
+(e.g. only the dMSA/GPC/trustedDomain create entries) trips neither the coverage health (spec 7, < 50 % over 24 h)
+nor `SACL_MISSING` (7 days without any 5136 from a DC). Therefore (MUST, B6), every detection cycle the service reads
+`replPropertyMetaData` of the domain head, `CN=AdminSDHolder,CN=System,<domain>`, `OU=Domain Controllers,<domain>`,
+`CN=Public Key Services,CN=Services,<configuration NC>` and `CN=Sites,<configuration NC>` (readable by the computer
+account – appendix C) and keeps the version of the `nTSecurityDescriptor` entry (attid `0x20119`). A version increase
+while the owner and the ACE summary read with SD flags 7 (spec 9.4) are unchanged is reported as the existing kind
+**`SecurityDescriptorChanged`** (Critical, rule `tier0-security` – no new rule, not suppressible without
+`AllowTier0Suppression`) with the new tag `auditSettings` and one change row „lista inspekcji (SACL) albo inne ustawienie
+zabezpieczeń zmienione – treści konto usługi nie odczyta” (originating DC and time from the metadata; actor through the
+5136 of the object if one arrives). It also triggers an immediate attribution-coverage re-check. A rewrite of an
+unchanged SD may bump the version as well and is reported the same way. Pilot item (20.6): add and remove a test
+audit entry on the domain head → one Critical event each.
+
+### 9.5 Contracts summary
 
 New `WatchEventKind` 510–512 (section 8.6), `HealthServiceAccount = 909` (rotation failing, password age, keytab stale,
-keytab entry order, privileged, drift incl. a missing Deny ACE for SELF), new tags `badSuccessor`,
-`machineAccountQuota`, `watchdogAccount`, `gppPassword`, new reason `SYSVOL_NOT_AUDITED`,
+keytab entry order, privileged, drift incl. a missing Deny ACE for SELF and the certificate-template reasons
+`certificateEnrollOpen` / `certificateDenyMissing` of 4.7 item 8), new tags `badSuccessor`, `machineAccountQuota`,
+`watchdogAccount`, `gppPassword`, `auditSettings` (9.4), new reason `SYSVOL_NOT_AUDITED`, validator code
+`retentionBelowFloor` and health code `storage.backupSkipped` (14.2),
 `AttributionSourceKind.OpenWec = 3`, `SecurityEventCriteria.LogonId`, `RetentionSettings.LogonRecordsHours`,
 `RetentionSettings.EventsDays` default **1095**, `AttributionSettings` collector fields (7.8), `GpoContentSettings` (`Enabled` true, `SysvolLagTolerance` 2 h,
 `MaxFileMb` 5, `MaxTotalMb` 50, `MaxFiles` 2000) in `DirectorySettings`, `StatusDto` sections (service account,
@@ -1035,6 +1167,7 @@ collector per DC, GPO content, host). All localization keys en + pl.
 | `/run/admng-watchdog/` (`krb5cc`, `samba/`, `wec-progress.json`) | admng-watchdog | 0700 | service (RuntimeDirectory) |
 | `/var/lib/openwec/` (`db/` 0700) | openwec:openwec | 0751 | admng-openwec |
 | `/var/lib/openwec/out/` | openwec:admng-watchdog | 2750 (subdirs 2750, files 0640) | openwecd |
+| `/etc/systemd/system/openwecd.service.d/admng-dcs.conf` (`IPAddressAllow=` DC addresses) | root:root | 0644 | admin (12.2) |
 
 Startup checks (`Hosting/PosixPermissionCheck.cs` replacing `DataDirectoryAcl` on Linux; exit codes as spec 19.1 plus
 8, 9, 10; systemd itself reports `243/CREDENTIALS` when `LoadCredentialEncrypted=` fails – section 10):
@@ -1064,8 +1197,8 @@ Documentation=file:/usr/share/doc/admng-watchdog/README.Debian
 After=network-online.target nss-lookup.target time-sync.target openwecd.service
 Wants=network-online.target time-sync.target
 ConditionPathExists=/etc/admng-watchdog/admng-wd.keytab
-StartLimitIntervalSec=900
-StartLimitBurst=5
+StartLimitIntervalSec=0
+OnFailure=admng-watchdog-failed.service
 
 [Service]
 Type=notify
@@ -1093,7 +1226,8 @@ RuntimeDirectory=admng-watchdog
 RuntimeDirectoryMode=0700
 UMask=0077
 Restart=on-failure
-RestartSec=10s
+RestartSec=30s
+RestartPreventExitStatus=2 3 4 5 6 7 8 9 10 243
 TimeoutStartSec=15min
 TimeoutStopSec=90s
 WatchdogSec=120s
@@ -1147,9 +1281,29 @@ Notes (MUST be honoured by B1/B2 tests):
   the service tests under `systemd-run --property=…` with the same filter.
 - `WatchdogSec=120s`: a `SystemdWatchdogNotifier` (`BackgroundService`) sends `WATCHDOG=1` through `ISystemdNotifier`
   every 30 s **only** while the job hosts report progress within their expected interval (a hung detection loop gets
-  the service restarted). `Type=notify`: `UseSystemd()` sends `READY=1` after the startup checks (spec 19.1) –
+  the service restarted).
+- **Restarts never stop on their own** (MUST): with a start limit (the earlier `StartLimitIntervalSec=900`,
+  `StartLimitBurst=5`) five crashes or watchdog timeouts within 15 minutes would leave the unit in `failed`
+  (`start-limit-hit`) until a human runs `systemctl start` – and the only alerting component would be the dead
+  process. `StartLimitIntervalSec=0` disables the limit, `RestartSec=30s` keeps a crash loop cheap, and input that
+  re-triggers a crash at every start is skipped after 3 attempts (7.5 "Poison input"). Only the start-up exit codes
+  that need a human (2 configuration, 3 newer database, 4 TLS key, 5 data folder, 6 bootstrap file writable,
+  7 development auth, 8 privileged account, 9 missing credential, 10 keytab – 11, spec 19.1 – and systemd's
+  `243/CREDENTIALS` when the credential cannot be decrypted – section 10) are excluded from restarts
+  (`RestartPreventExitStatus=`); the unit then enters `failed`. (The `notify-failure` helper cannot read the SMTP
+  password after a 243 either; it still logs at `crit`.)
+- `OnFailure=admng-watchdog-failed.service` (SHOULD, B1): a oneshot that runs only when the unit enters `failed` (with
+  `Restart=` and no start limit: a `RestartPreventExitStatus=` exit). It logs at priority `crit` (`systemd-cat -p
+  crit`) and, best effort, runs `AdMng.Watchdog notify-failure` as `admng-watchdog` in the same sandbox and with the
+  same `LoadCredentialEncrypted=`: it reads the channel configuration read-only and sends one fixed plain-text message
+  without directory data („AdMng Watchdog zatrzymany – sprawdź `systemctl status admng-watchdog`”) through the health
+  channels (e-mail to the health recipients, Teams if configured). Failure of this unit is only logged. `Type=notify`: `UseSystemd()` sends `READY=1` after the startup checks (spec 19.1) –
   migrations run before, hence `TimeoutStartSec=15min`.
 - `AF_NETLINK` is needed by `NetworkInterface.GetAllNetworkInterfaces` (own addresses for `/healthz`).
+- No `IPAddressDeny=`/`IPAddressAllow=` (unlike 12.2): Teams and the CRL/OCSP URLs of the SMTP relay certificate have
+  no fixed addresses, so an allow-list would have to contain `any` (4.3, "The `admng-watchdog` process"). Egress is
+  limited by the nftables output chain of 16 (DCs, SMTP relay, 80/443 only for `root`, `_apt` and `admng-watchdog`);
+  an outbound proxy with a host allowlist would allow `IPAddressDeny=any` here – open user decision Q23.
 - `SocketBindAllow=`/`SocketBindDeny=` (here and in 12.2) are effective only when `systemctl --version` shows
   `+BPF_FRAMEWORK`; otherwise systemd skips them with a debug-level message only. B1 records this for Debian 12 and 13.
   nftables (16) and the Kestrel / openwec listen settings remain the binding controls, and the exposure-score target
@@ -1208,10 +1362,23 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources
 SocketBindAllow=tcp:5985
 SocketBindDeny=any
+IPAddressDeny=any
+MemorySwapMax=0
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+`IPAddressDeny=any` (MUST, 4.3 item 3) filters ingress (source address) and egress (destination address) of every
+socket of the unit's processes (cgroup BPF; unlike `SocketBind*` it does not depend on `+BPF_FRAMEWORK` – B1 still
+records that it is effective on Debian 12 and 13, because systemd ignores it silently where cgroup BPF is missing).
+The DC addresses are site data, so the package cannot ship them: the admin writes the drop-in
+`/etc/systemd/system/openwecd.service.d/admng-dcs.conf` with `[Service]` / `IPAddressAllow=10.0.1.10 10.0.1.11` – the
+same addresses as the nftables `DCS` define plus `Watchdog:Collector:AdditionalSourceAddresses` (instructions 4.3).
+Without it the unit is fail-closed: no DC can connect (Forwarding/Operational 105, `wec.<dc>.notForwarding`). The
+DC addresses stay reachable for `openwecd` as far as systemd is concerned (KDC, LDAP, DNS on the DCs); the nftables
+rule `meta skuid "openwec" drop` (16) blocks those new outbound connections too. `MemorySwapMax=0`: `openwecd` holds
+the long-term `HTTP/` key in memory, so it gets the same second layer against swap as 12.1 and 12.3 (16).
 
 `StateDirectory=` is deliberately **not** used: systemd would re-own `/var/lib/openwec` recursively when the top-level
 owner differs and could reset the `admng-watchdog` group of `out/`. Directories come from tmpfiles (13.3).
@@ -1333,7 +1500,7 @@ deletion by `MAX_UNCONSUMED_DAYS` and a start while `admng-watchdog` is stopped.
 /usr/sbin/admng-watchdog                     wrapper: runs the service binary as admng-watchdog for CLI verbs (--check-config, --health,
                                              cert-fingerprint, print-wec-subscription) and root-only verbs (reset-secrets-key, cert-renew-self-signed)
 /usr/sbin/admng-watchdog-keytab              -> /usr/lib/admng-watchdog/admng-watchdog-keytab
-/lib/systemd/system/admng-watchdog.service, admng-watchdog-keytab.{service,timer}, admng-wec-rotate.{service,timer}
+/lib/systemd/system/admng-watchdog.service, admng-watchdog-failed.service, admng-watchdog-keytab.{service,timer}, admng-wec-rotate.{service,timer}
 /usr/lib/sysusers.d/admng-watchdog.conf      u admng-watchdog - "AdMng Watchdog" /var/lib/admng-watchdog /usr/sbin/nologin
                                              g admng-keytab -
                                              m admng-watchdog admng-keytab
@@ -1345,7 +1512,7 @@ deletion by `MAX_UNCONSUMED_DAYS` and a start while `admng-watchdog` is stopped.
                                              d /var/lib/openwec/out 2750 openwec admng-watchdog -
                                              z /etc/admng-watchdog/admng-wd.keytab 0640 root admng-keytab -
 /etc/admng-watchdog/appsettings.json, krb5.conf, ldap.conf, smb-client.conf      conffiles (placeholders = fixed names of section 2)
-/etc/default/admng-wec-rotate                conffile (MAX_UNCONSUMED_DAYS=7)
+/etc/default/admng-wec-rotate                conffile (MAX_UNCONSUMED_DAYS=7, MAX_UNCONSUMED_MB=8192)
 /usr/share/admng-watchdog/nftables/admng-watchdog.nft   example firewall (16)
 /usr/share/doc/admng-watchdog/               copyright, changelog.Debian.gz, README.Debian (pointer to docs/WATCHDOG-LINUX.md)
 ```
@@ -1367,7 +1534,9 @@ then fail with `FileNotFoundException`. `debian/admng-watchdog.triggers`:
 `postinst triggered)` runs `deb-systemd-invoke try-restart admng-watchdog.service || true`.
 
 Maintainer scripts (`set -e`, idempotent, no network):
-- `postinst configure`: `systemd-sysusers admng-watchdog.conf`; `systemd-tmpfiles --create admng-watchdog.conf`;
+- `postinst configure`: `systemd-sysusers admng-watchdog.conf` (an `admng-watchdog` system user that already exists –
+  the instructions create it in 3.3 so that the firewall rule of 16 can name it – is kept unchanged; only the
+  membership is added); `systemd-tmpfiles --create admng-watchdog.conf`;
   ownership/modes of `/etc/admng-watchdog` per section 11; `credentials/dp-key.cred` if missing (10); self-signed
   certificate if `Hosting.Certificate.Path` does not exist (6.3) – prints the fingerprint; `deb-systemd-helper enable`
   for the service and both timers; on **first install** nothing is started (no keytab yet; message "next: sudo
@@ -1388,7 +1557,9 @@ Maintainer scripts (`set -e`, idempotent, no network):
 (7.2), the empty directory `/etc/openwec/subscriptions/` (0755 root; **no file in it** – anything shipped there would
 be a conffile and leave `.dpkg-dist`/`.dpkg-old` copies that OpenWEC would load, 7.1),
 `/usr/share/admng-openwec/admng-dc-security.toml.example` (7.3 with placeholders, not a conffile), sysusers
-`u openwec - "OpenWEC" /var/lib/openwec /usr/sbin/nologin` + `g admng-keytab -` + `m openwec admng-keytab`, tmpfiles
+`u openwec - "OpenWEC" /var/lib/openwec /usr/sbin/nologin` + `g admng-keytab -` + `m openwec admng-keytab` (an
+`openwec` system user that already exists – the instructions create it in 3.3 so that the firewall rule of 16 can name
+it before the package is installed – is kept unchanged by `systemd-sysusers`; only the membership is added), tmpfiles
 `d /var/lib/openwec 0751 openwec openwec -` (others may traverse to `out/` but not list; `admng-watchdog` needs the
 search bit), `d /var/lib/openwec/db 0700 openwec openwec -`. `postinst`: db init /
 upgrade, enable `openwecd.service` (started by the instructions after the keytab exists – `ConditionPathExists`).
@@ -1449,7 +1620,11 @@ both packages, `SHA256SUMS` and the OpenWEC source tarball.
       "FileName": "security.jsonl",
       "SubscriptionUuid": "4f7c2e1a-9b3d-4c55-8e21-6a0d9c7b3e10",
       "ProgressFile": "/run/admng-watchdog/wec-progress.json",
-      "AdditionalSourceAddresses": []
+      "AdditionalSourceAddresses": [],
+      "MaxLogonRecordsPerDcPerMinute": 20000
+    },
+    "Retention": {
+      "MinEventsDays": 1095
     },
     "Sysvol": {
       "Enabled": true,
@@ -1469,12 +1644,30 @@ refused when running under systemd (`INVOCATION_ID` / `NOTIFY_SOCKET` present).
 
 ### 14.2 Runtime configuration defaults that change
 
-`Retention.EventsDays` **1095** (validator range unchanged: 7–3650); `Retention.LogonRecordsHours` 48;
-`Retention.SecurityEventsDays` 30; `Retention.BackupsToKeep` 7; `Attribution.Source` `OpenWec`;
-`Attribution.DropComputerLogons` / `DropAnonymousLogons` true; `Directory.GpoContent.Enabled` true; built-in rules
-`tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self`, `tier0-gpo` (section 9). Size guide for 3 years: events
-≈ 0.6 KB → 1 000/day ≈ 0.7 GB; backups 7 × database; a 60 GB disk with at least 40 GB for `/var` is recommended
-(health `storage.free` below 1 GiB).
+`Retention.EventsDays` **1095** (validator range 7–3650, plus the floor below); `Retention.LogonRecordsHours` 48;
+`Retention.SecurityEventsDays` 30; `Retention.BackupsToKeep` 7; `Retention.MaxDatabaseMb` **4096** on Linux (below);
+`Attribution.Source` `OpenWec`; `Attribution.DropComputerLogons` / `DropAnonymousLogons` true;
+`Directory.GpoContent.Enabled` true; built-in rules `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self`,
+`tier0-gpo` (section 9).
+
+**Retention floor** (MUST): the 3-year history is a user decision with evidence value, while any Watchdog admin – or
+anyone holding a forged admin ticket (4.3) – could otherwise set `EventsDays` to 7, and the next daily maintenance
+deletes the older events with `secure_delete` (the local backups that could restore them rotate out after 7 nights).
+New bootstrap setting `Watchdog:Retention:MinEventsDays` (root-owned `appsettings.json`, default 1095): the validator
+rejects a lower `EventsDays` with the code `retentionBelowFloor`; only root can lower the floor. Every **decrease** of
+`EventsDays`, `SecurityEventsDays`, `LogonRecordsHours` or `BackupsToKeep` is a Critical `WatchdogConfigurationChanged`
+(added to the "weakening" cases of spec 7 / ConfigChangeAuditor). SHOULD: a decreased `EventsDays` takes effect only
+7 days after the change (pending value shown in Status and in the digest), so the previous recipients can react.
+
+**Size cap and disk** (MUST): `MaxDatabaseMb` bounds `watchdog.db`, and the nightly `VACUUM INTO` keeps
+`BackupsToKeep` copies of it next to the database, so `(BackupsToKeep + 2) × MaxDatabaseMb` must fit the free space of
+`/var` (the recommended 40 GB `/var` → 4096 MB with 7 backups; the 10 240 MB default of spec 5.4 would need 90 GB).
+`RetentionJob` skips the backup when the free space is below 1.5 × the database size and raises health Error
+`storage.backupSkipped`. The cap purges only `security_events`; Watchdog events are never purged by size.
+
+Size guide for 3 years: events ≈ 0.6 KB → 1 000/day ≈ 0.7 GB; logon records ≈ 120 MB (7.7); backups 7 × database; a
+60 GB disk with at least 40 GB for `/var` is recommended (health `storage.free` below 1 GiB). Raw OpenWEC files are
+bounded separately by `MAX_UNCONSUMED_MB` (7.4).
 
 ---
 
@@ -1498,28 +1691,51 @@ refused when running under systemd (`INVOCATION_ID` / `NOTIFY_SOCKET` present).
 
 ## 16. Host hardening (input for the instructions)
 
+- **Hosting (MUST):** the VM runs only on the Tier 0 virtualization platform – the same hosts or cluster and the same
+  administrators as the DCs – or on a dedicated host whose administrators, console access, snapshots/backups and vTPM
+  key protector are Tier 0. Hypervisor administrators can open the console, mount or copy the disk, snapshot or dump
+  memory, read the vTPM state and roll the VM back: that is the keytab, `/var/lib/systemd/credential.secret`, the Data
+  Protection keys and the 3-year history, a forged Watchdog-admin ticket, or a blinded Watchdog – a Tier 1 → Tier 0
+  escalation on a general (Tier 1) cluster. Hypervisor disk encryption only protects against theft of the storage,
+  not against the hypervisor's administrators. The pilot checklist (20.6) records it.
 - Debian 13 netinst with only "SSH server" and "standard system utilities"; static IP 10.0.1.25; `/etc/hosts`:
   `10.0.1.25 admng-wd.contoso.com admng-wd` (`hostname --fqdn` = `admng-wd.contoso.com`); `/etc/resolv.conf` →
   10.0.1.10, 10.0.1.11, `search contoso.com`; chrony with `server DC01.contoso.com iburst` and `server DC02.contoso.com
   iburst` only, plus `maxdistance 16.0` (below).
 - Local admin accounts for the 1–3 Tier 0 people, SSH keys only (`PasswordAuthentication no`, `PermitRootLogin no`,
   `AllowGroups ssh-admins`), `sudo` only for them; unattended-upgrades for security updates (incl.
-  packages.microsoft.com for the runtime, pattern `site=packages.microsoft.com`); swap disabled after installation;
-  disk encryption by the hypervisor preferred – LUKS needs a console passphrase at every boot (replaces the BitLocker
-  advice of ADR-0008).
+  packages.microsoft.com for the runtime, pattern `site=packages.microsoft.com`); swap disabled for good after
+  installation – `swapoff -a`, the fstab entry commented out, `RESUME=none` **and** `systemd.gpt_auto=0` in
+  `GRUB_CMDLINE_LINUX` (once fstab lists no swap, `systemd-gpt-auto-generator` activates a GPT swap partition of the
+  root disk at every boot – `add_partition_swap()` only backs off when fstab has a swap entry; systemd v252 and v257
+  source, both honour `systemd.gpt_auto=`), checked after a reboot (`swapon --show` empty, the parameter in
+  `/proc/cmdline`); `MemorySwapMax=0` on the units that hold key material (12.1–12.3) stays as a second layer;
+  disk encryption by the hypervisor preferred (against stolen storage only – see "Hosting") – LUKS needs a console
+  passphrase at every boot (replaces the BitLocker advice of ADR-0008).
 - chrony: Windows time servers report a large root dispersion (seconds), above chrony's default `maxdistance` of 3 s,
   so chrony would refuse to select the DCs (chrony FAQ 3.6 "Using a Windows NTP server?"). The instructions add
   `maxdistance 16.0` in `/etc/chrony/conf.d/admng-ad.conf` (Debian's `confdir`; `sources.d` files may contain only
   `server`/`pool`/`peer`) and check `chronyc ntpdata <DC address>` (root dispersion) and `chronyc -N sources`.
 - nftables – the shipped example `/usr/share/admng-watchdog/nftables/admng-watchdog.nft` MUST equal the ruleset of the
   instructions (3.3) byte for byte, including the defines, the forward chain, the SMTP rule limited to the relay and
-  outbound echo-request (validated with `nft -c -f` in CI):
+  outbound echo-request (validated with `nft -c -f` in CI, in a container where the users `openwec` and
+  `admng-watchdog` exist). SSH is accepted only from the Tier 0 PAW addresses (`PAWS`), the API from the whole admin
+  subnet. `meta skuid "openwec" drop` sits before the loopback and DC accepts and drops every packet of the `openwec`
+  user that does not belong to an established connection (4.3 item 3; replies to the DCs' inbound WEF connections are
+  `established`). TCP 80/443 to any address is accepted only for `root` and `_apt` (apt runs its download methods as
+  `_apt`; the instructions' `curl` checks run as root) and for `admng-watchdog` (Teams, SMTP revocation check – 4.3,
+  "The `admng-watchdog` process"); every other local user reaches only the DCs and the SMTP relay. nft resolves user
+  names when the rules are loaded and refuses an unknown user ("User does not exist", nftables 1.0.9; checked in a
+  namespace: `meta skuid { "root", "_apt", "admng-watchdog" }` loads as a set of three uids), so the instructions
+  create the system users `openwec` and `admng-watchdog` in 3.3, before the first load; the packages keep them (13.1
+  sysusers, 13.2):
 
   ```
   #!/usr/sbin/nft -f
   flush ruleset
 
   define DCS        = { 10.0.1.10, 10.0.1.11 }
+  define PAWS       = { 10.0.20.15 }
   define ADMIN_NET  = 10.0.20.0/24
   define SMTP_RELAY = 10.0.1.30
 
@@ -1529,7 +1745,8 @@ refused when running under systemd (`INVOCATION_ID` / `NOTIFY_SOCKET` present).
           ct state established,related accept
           ct state invalid drop
           iif lo accept
-          ip saddr $ADMIN_NET tcp dport { 22, 8443 } accept
+          ip saddr $PAWS tcp dport 22 accept
+          ip saddr $ADMIN_NET tcp dport 8443 accept
           ip saddr $DCS tcp dport 5985 accept
           icmp type { echo-request, destination-unreachable, time-exceeded } accept
       }
@@ -1539,11 +1756,12 @@ refused when running under systemd (`INVOCATION_ID` / `NOTIFY_SOCKET` present).
       chain output {
           type filter hook output priority filter; policy drop;
           ct state established,related accept
+          meta skuid "openwec" drop
           oif lo accept
           ip daddr $DCS udp dport { 53, 88, 123, 464 } accept
           ip daddr $DCS tcp dport { 53, 88, 389, 445, 464, 636 } accept
           ip daddr $SMTP_RELAY tcp dport 587 accept
-          tcp dport { 80, 443 } accept
+          meta skuid { "root", "_apt", "admng-watchdog" } tcp dport { 80, 443 } accept
           icmp type echo-request accept
       }
   }
@@ -1651,10 +1869,16 @@ same DCs; RPC cursors are ignored.
    with the Microsoft repository; `systemd-analyze verify` of every unit; `systemd-analyze security --offline=true`
    with an exposure score **≤ 2.0** for `admng-watchdog.service` and ≤ 3.0 for `openwecd.service` (recorded per
    release; without relying on `SocketBind*`); `admng-watchdog --check-config` with the shipped placeholders must fail
-   with the documented message; `--smoke-test` as user `admng-watchdog` inside the container; purge keeps
+   with the documented message, while `admng-watchdog print-wec-subscription --dc …` with the same placeholders must
+   succeed and emit the shipped `SubscriptionUuid` (7.3); `--smoke-test` as user `admng-watchdog` inside the container; purge keeps
    `/var/lib/admng-watchdog`; `rotate` through the real unit (`systemctl start admng-watchdog-keytab.service`, lock
    in the StateDirectory); `openwecd` started under its unit's sandbox creates nothing outside `db/` and `out/`;
-   the wec-rotate unit test of 12.4; a simulated runtime upgrade fires the dpkg trigger and restarts the service.
+   the wec-rotate unit test of 12.4 (incl. the `MAX_UNCONSUMED_MB` limit); a simulated runtime upgrade fires the dpkg
+   trigger and restarts the service; the unit restarts after repeated crashes and watchdog timeouts without reaching
+   `failed`, a `RestartPreventExitStatus=` exit runs `admng-watchdog-failed.service`; on the lab VM with the ruleset of
+   16 and the drop-in of 12.2: as user `openwec`, `curl https://packages.microsoft.com` and `kinit -k` fail, `openwecd`
+   cannot open any outbound connection, and WEF from a DC address still arrives; as `nobody` the same `curl` fails,
+   as `admng-watchdog` and as root it succeeds, and `apt-get update` works.
 5. **Windows CI**: AD Manager UI tests (certificate dialog, new Status sections) unchanged in approach.
 6. **Pilot checklist (lab: WS2025 evaluation DC + Debian 13 + ADM-WS01 workstation, then the customer test domain
    with WS2025 + WS2022)** –
@@ -1663,8 +1887,10 @@ same DCs; RPC cursors are ignored.
    `Get-WinEvent -FilterXml` on both DCs; Forwarding/Operational without event 105; measured 4624/4776 volume per hour
    and Security log sizing; restart of `openwecd` under load (no loss); rotation across DC01/DC02 replication;
    `tokenGroups` readable in the customer's hardening; SACL coverage (`Stan → Atrybucja`); one GPO edit of each
-   category; dMSA creation and link change raise Critical within one cycle; certificate confirmation in AD Manager;
-   VM restore drill (secrets re-entry).
+   category; dMSA creation and link change raise Critical within one cycle; a test audit entry added to and removed
+   from the domain head's SACL raises `SecurityDescriptorChanged` with tag `auditSettings` (9.4); certificate
+   confirmation in AD Manager; VM restore drill (secrets re-entry); production VM placed on the Tier 0 virtualization
+   platform (16, "Hosting").
 
 ---
 
@@ -1701,7 +1927,7 @@ What only the pilot on real Windows DCs can prove is marked **(pilot)**.
 | Q5 | **(pilot)** Can the computer account change its own password right after the admin set the one-time password (minPwdAge 1 day; Samba allowed it)? | `init` fallback `otpActive` already designed |
 | Q6 | **(pilot)** Does `Data[@Name='Status']!='0x0'` filter 4776 correctly (field name, value format)? | validate with `Get-WinEvent -FilterXml` on both DCs before loading |
 | Q7 | **(pilot)** 4624 type 3/10 and 4776 volume per hour on DC01/DC02 → Security log size, WEF bandwidth, ingest rate | measure for one week; size logs to cover the longest tolerated collector outage |
-| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3)? | **closed** (user decision 2026-10-20, ADR-0009): the keytab is shared; mitigations = API only from the admin subnet (nftables + `AllowedRemoteSubnets`, loopback not exempt – 6.1) and isolation of the `openwec` user (4.3, 12.2) |
+| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3)? | **closed** (user decision 2026-10-20, ADR-0009): the keytab is shared; mitigations = API only from the admin subnet (nftables + `AllowedRemoteSubnets`, loopback not exempt – 6.1), isolation of the `openwec` user and no outbound connections for it (4.3, 12.2, 16); open user decision: admin role only from PAW addresses (4.3 item 1) |
 | Q9 | Does the customer's hypervisor back up/restore the vTPM state? Without it a restore loses the Data Protection key ring (secrets re-entered). | document; `reset-secrets-key` recovery |
 | Q10 | Can a dMSA be created below a computer object (computer default SD gives SELF CreateChild)? | **closed**: no – the effective possible superiors of a dMSA, inherited along `computer` → `user` → `organizationalPerson` → `person` → `top`, are `domainDNS`, `organizationalUnit`, `container`, `builtinDomain`, `organization` and `lostAndFound` (9.1; verified on the Samba schema for the inherited part, MS-ADSC for the dMSA class itself); the audit script (A.4) computes the set from each forest's schema and audits every object of those classes |
 | Q11 | **(pilot)** Default SPNs and `msDS-KeyVersionNumber` after `New-ADComputer -ServicePrincipalNames …`; whether `New-ADComputer -AccountPassword` honours the domain password policy for computer accounts | `setspn -L`, `Get-ADComputer -Properties *` in the lab |
@@ -1716,6 +1942,7 @@ What only the pilot on real Windows DCs can prove is marked **(pilot)**.
 | Q20 | **(pilot)** Which 4624 pattern do ADWS changes (PowerShell AD module, ADAC) leave on WS2025/WS2022 – loopback only, or also a network logon with the client address? | instructions test 18; decides whether the `AdwsSourceCorrelator` (7.8) is built |
 | Q21 | **(pilot)** Which actor do 4742/4723 show for the kpasswd change of `ADMNG-WD$` on WS2025/WS2022? | the `watchdog-self` exclusion no longer depends on it (9.3); record for the docs |
 | Q22 | **(pilot)** Does the Deny ACE for SELF (4.1) leave the kpasswd change of the own password working on Windows DCs? | the instructions apply the ACE before the first change (3.6 tests it at once); fallback: remove the ACE and keep `watchdog-self` as the only control |
+| Q23 | **Open user decision:** contain the Internet egress of `admng-watchdog` (today TCP 80/443 to any address, for Teams and the SMTP revocation check – 4.3, 16)? | options: an outbound proxy with a host allowlist (Power Automate host, CRL/OCSP hosts), after which `admng-watchdog.service` can get `IPAddressDeny=any` with the DCs, the relay and the proxy in `IPAddressAllow=` (12.1; B1 would have to confirm that the .NET revocation download honours the proxy); or Teams dropped and the relay certificate's CRL served internally; until decided: accepted residual risk (ADR-0009) |
 
 Further risks: OpenWEC is a small upstream project pinned to an unreleased commit (mitigation: own build, source
 attached, upgrade only through reviewed commits); the WEF path makes attribution depend on DC GPO configuration that
@@ -1726,11 +1953,13 @@ between Samba versions (mitigation: parser tests on both Debian versions).
 
 ## 23. Documentation deliverables and amendments (B8)
 
-- `docs/dev/watchdog-spec.md`: D1, D5, D8 (decision table), section 2 (diagram), 3.3 (file list), 8.4 (bootstrap),
-  11.1 / 11.4 / 11.7 (collector mode, store lookups, reasons), 12.4 (built-in rules), 7 (catalog rows), 16 (migrations
-  0004/0005, retention of logon records), 17.3 (Linux role resolution), 18 (secrets), 19 (hosting – replaced by
-  sections 11–15 here), 21 (packages: `Microsoft.Extensions.Hosting.Systemd`), 22–24 (tests, lab, CI). Each amended
-  section points here.
+- `docs/dev/watchdog-spec.md`: D1, D5, D8 (decision table), section 2 (diagram), 3.3 (file list), 5.4 (Linux default
+  `MaxDatabaseMb` 4096), 8.3 (`retentionBelowFloor`), 8.4 (bootstrap incl. `Retention.MinEventsDays`,
+  `Collector.MaxLogonRecordsPerDcPerMinute`), 11.1 / 11.4 / 11.7 (collector mode, store lookups, reasons, ingest
+  budget), 12.4 (built-in rules), 7 (catalog rows; retention decreases as Critical `WatchdogConfigurationChanged`;
+  SACL changes in `SecurityDescriptorChanged`, 9.4), 16 (migrations 0004/0005, retention of logon records, backup
+  skipped on low space), 17.3 (Linux role resolution), 18 (secrets), 19 (hosting – replaced by sections 11–15 here), 21
+  (packages: `Microsoft.Extensions.Hosting.Systemd`), 22–24 (tests, lab, CI). Each amended section points here.
 - `docs/adr/0008-…`: a short "Zmieniona przez ADR-0009" note in the header (B8).
 - `CLAUDE.md`: rule 1 exception text (Linux data folder, OpenWEC output, GPO snapshots), rule 2 exception (keytab of the
   service account, systemd credential), layout table (`AdMng.Watchdog.Keytab`, `packaging/`), commands (`build-deb.sh`).
@@ -1770,8 +1999,10 @@ New-ADComputer -Name 'ADMNG-WD' -SamAccountName 'ADMNG-WD$' -Path $ou `
     -ServicePrincipalNames 'HTTP/admng-wd.contoso.com','HOST/admng-wd.contoso.com','HOST/ADMNG-WD' `
     -KerberosEncryptionType AES128,AES256 `
     -AccountNotDelegated $true -PasswordNotRequired $false `
-    -AccountPassword $otp -Enabled $true `
+    -AccountPassword $otp -Enabled $false `
     -Description 'AdMng Watchdog (Debian admng-wd, 10.0.1.25) - konto usługi Tier 0, tylko odczyt'
+# still disabled: Deny ACE for SELF (A.5) and, with an enterprise CA, the certificate-template Deny ACEs (A.5)
+Enable-ADAccount -Identity 'ADMNG-WD$'
 $plain    # hand over once to the Debian administrator, then close the session
 Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes,userAccountControl,servicePrincipalName,mS-DS-CreatorSID,memberOf |
     Format-List Name,DistinguishedName,msDS-SupportedEncryptionTypes,userAccountControl,servicePrincipalName,mS-DS-CreatorSID,memberOf
@@ -1809,7 +2040,13 @@ DeleteTree, ExtendedRight or Self held by a SID outside the Tier 0 set, with its
 User-Force-Change-Password `00299570-246d-11d0-a768-00aa006e0529`, msDS-DelegatedManagedServiceAccount
 `0feb936f-47b3-49f2-9386-1dedc2c23765`); flags Account Operators (`S-1-5-32-548`) and Print Operators (`S-1-5-32-550`)
 as "keep empty" and annotates default entries (SELF, CREATOR OWNER, Everyone change-password, Authenticated Users
-Send-To on groups). The dMSA audit (`Test-AdMngDmsaCreators.ps1`) first computes the effective possible superiors of the
+Send-To on groups). It also walks the **ancestors** of the Tier 0 OU up to and including the domain head (column
+`Przodek`): an owner outside the Tier 0 set, and every explicit Allow ACE (any inheritance) held by a SID outside the
+set with GenericAll, WriteDacl, WriteOwner, GenericWrite, or WriteProperty on all properties or on `gPLink`
+(`f30e3bbe-9ff0-11d1-b603-0000f80367c1`) / `gPOptions` (`f30e3bbf-9ff0-11d1-b603-0000f80367c1`; neither is in a
+property set – lab). Such an owner or holder can add an inheritable ACE that flows into the Tier 0 OU, and a gPLink
+write links a GPO that applies to every computer below (e.g. Tier 0 PAWs), although nothing below the OU shows it; a
+fresh domain yields no ancestor rows (lab: the domain head and a new OU carry only Tier 0 SIDs with such rights). The dMSA audit (`Test-AdMngDmsaCreators.ps1`) first computes the effective possible superiors of the
 dMSA class by walking `subClassOf` up to `top` and collecting `systemPossSuperiors` + `possSuperiors` of every class
 (falls back to `computer` when the schema has no dMSA class) – on the Windows Server 2025 schema `domainDNS`,
 `organizationalUnit`, `container`, `builtinDomain`, `organization`, `lostAndFound` – and then reads the SD of every
@@ -1826,15 +2063,26 @@ also makes `tokenGroups` readable in hardened domains – no Windows Authorizati
 Debian with a non-protected account (instructions 2.6). Deny ACE on the own object (instructions 2.5):
 `SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). With an enterprise CA (instructions 2.1/2.5, Enterprise
 Admins or a root-domain Domain Admin): Deny `Certificate-Enrollment` and `Certificate-AutoEnrollment` for `ADMNG-WD$`
-on every certificate template that Everyone, Authenticated Users or Domain Computers may enroll in (4.1).
+on **every** certificate template (4.1) – both Deny steps while the account is still disabled (A.2, 4.2); afterwards
+the per-CA `certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$,Disposition=20'` query must return no
+certificate.
 MachineAccountQuota = 0 is a deployment prerequisite: list who joins computers today (`mS-DS-CreatorSID` of existing
-computers), delegate computer creation to them (`dsacls "<computers OU>" /I:T /G "CONTOSO\<group>:CC;computer"`) –
+computers) and delegate computer creation to them (`dsacls "<computers OU>" /I:T /G "CONTOSO\<group>:CC;computer"`),
 also on the default computers container `(Get-ADDomain).ComputersContainer` (usually `CN=Computers`, where joins
 without an OU land) unless `redircmp` points it to the OU – or pre-stage the objects with the joining group as "the
 user or group that can join this computer" (Reset Password, validated writes to DNS host name and SPN, Account
 Restrictions; since KB5020276 re-use of an existing computer account is allowed for its creator, for accounts created
-by Domain Admins and for owners in the "Domain controller: Allow computer account re-use during domain join" list),
-then `Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}` (instructions 2.8).
+by Domain Admins and for owners in the "Domain controller: Allow computer account re-use during domain join" list);
+then `Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}` (instructions 2.8). No grant
+where the group already has the right: the check counts only Allow ACEs with CreateChild, object type empty or
+`computer`, no inherited object type and an inheritance type that covers the object itself (`None`, `All`,
+`SelfAndChildren`), explicit **or inherited** – an explicit "Full Control – Descendant Computer objects" ACE (the usual
+Delegate Control result) is inherit-only with inherited object type `computer` and does not allow creating computers
+in the OU. The rollback removes exactly the granted ACE with `RemoveAccessRuleSpecific` and re-runs the check
+(expected `False` where the grant was made). `RemoveAccessRule` MUST NOT be used: when the group also holds such an
+inherit-only ACE without object type, .NET refuses the removal (same `RemoveQualifiedAces` conflict as in A.7),
+returns `false` and keeps the grant. Never `dsacls /R` either – it deletes every ACE of the group on the object, e.g.
+its LAPS or BitLocker read delegations.
 
 ### A.6 Logon restrictions (domain GPO "AdMng - ograniczenia konta Watchdog")
 
@@ -1859,11 +2107,22 @@ this object and all descendants" – it covers OUs, containers (`CN=Managed Serv
 `CN=Policies,CN=System`, the Password Settings Container, `CN=System` for trusts) and the domain head itself. The
 instructions save the pre-deployment state first (`auditpol /backup` per DC, the SACL SDDL of every touched object)
 and roll back **only what they added**: the SACL rollback rebuilds the same `ActiveDirectoryAuditRule` objects,
-removes them with `RemoveAuditRule` and re-adds whatever an identical-key entry held before (the snapshot is only a
-reference – a full restore would delete entries added later, e.g. MDI's); removing the audit GPO does **not** revert
-advanced audit policy (it stays in the local audit configuration), so the audit rollback first sets every subcategory
-in the GPO back to its value from the backup (not "No Auditing"), runs gpupdate, compares `auditpol /get` with the
-backup and only then removes the GPO (alternatively `auditpol /restore` on each DC after the removal). The Remote
+removes each with `RemoveAuditRuleSpecific` (exact mask, flags, object type, inherited object type), re-adds whatever
+an identical-key entry held before (the snapshot is only a reference – a full restore would delete entries added
+later, e.g. MDI's) and then verifies: per object, no explicit ACE equal to a rule of 2.11 may remain unless the first
+backup had it (`pozostało wpisów z 2.11: 0`). `RemoveAuditRule` MUST NOT be used: for DS ACLs .NET refuses to remove
+an entry when another entry of the same SID shares object-typed access bits (CreateChild/DeleteChild) with a
+conflicting object type or inherited object type (`CommonAcl.RemoveQualifiedAces` – `GetAccessMaskForRemoval` /
+`GetInheritanceFlagsForRemoval`), returns `false` and changes nothing – with the two per-class families of 2.11 on
+the domain head, 22 of the 23 removals fail (replayed with the dotnet/runtime `ACL.cs`). Removing the audit GPO does
+**not** revert advanced audit policy (it stays in the local audit configuration), so the audit rollback first sets
+every subcategory in the GPO back to its value from the backup (not "No Auditing"), runs gpupdate, compares
+`auditpol /get` with the backup and only then removes the GPO. The backup CSV is read by column position, not by
+header name: `auditpol /backup` writes the header row in the DC's UI language (e.g. German
+`Unterkategorie-GUID`), so a header-based filter silently returns nothing on a non-English DC. The alternative
+`auditpol /restore` on each DC after the removal restores the **whole** policy as of the backup (every subcategory and
+option, also changes made later by other GPOs or tools), so the instructions save the current state first, run
+gpupdate right after the restore and compare `auditpol /get /category:*` with the saved state. The Remote
 Event Log Management firewall rules and the Event Log Readers membership of the 0.2.0 guide are **not** needed any
 more (A.10).
 
@@ -1876,33 +2135,41 @@ certificate and confirm its fingerprint in AD Manager on each workstation's firs
 
 ### A.9 Debian side (order)
 
-Same order as the instructions (`docs/WATCHDOG-LINUX.md` 0.4 and chapter 3):
+Same order as the instructions (`docs/WATCHDOG-LINUX.md` 0.4 and chapters 3–6):
 
-1. Base system, `/etc/hosts`, swap off, unattended-upgrades, `packages-microsoft-prod.deb` + runtime, tpm2-tss
-   libraries whenever a TPM is present (instructions 3.1); admin accounts and SSH (3.2); nftables with the timed rescue
-   (3.3 – early, before any service listens; transient timer with `RemainAfterElapse=no`, rules loaded only with `&&`
-   after an armed timer); DNS and chrony with `maxdistance 16.0` (3.4).
+1. Base system, `/etc/hosts`, swap off for good (`systemd.gpt_auto=0`, checked after a reboot – 16),
+   unattended-upgrades, `packages-microsoft-prod.deb` + runtime, tpm2-tss libraries whenever a TPM is present
+   (instructions 3.1); admin accounts and SSH (3.2); the system users `openwec` and `admng-watchdog` and nftables with
+   the timed rescue (3.3 – early, before any service listens; SSH only from `PAWS`; 80/443 only for `root`, `_apt` and
+   `admng-watchdog`; transient timer with `RemainAfterElapse=no`, rules loaded only with `&&` after an armed timer);
+   DNS and chrony with `maxdistance 16.0` (3.4).
 2. Private `/etc/admng-watchdog/krb5.conf`, `ldap.conf`, `smb-client.conf` created by hand (3.5); `dpkg` later keeps
    them (answer `N` at the conffile prompt).
-3. Keytab right after A.2 (3.6: manual MIT procedure until the package exists – the same block, which reads an
-   existing keytab first, also serves the manual change and the minimum-password-age fallback; afterwards
-   `sudo admng-watchdog-keytab init` + `verify`).
-4. AD part two (right after the keytab: the certificate-template Deny ACEs of A.5 and the logon-restriction GPO of
-   A.6; then A.4–A.7), then certificate (3.8) and backups (3.9).
-5. `apt install ./admng-openwec_…~deb13_amd64.deb ./admng-watchdog_…_amd64.deb`; edit `appsettings.json` (SIDs from A.3,
-   servers, URL).
+3. Keytab right after A.2 – the account is enabled only after its Deny ACEs (SELF, certificate templates) are in
+   place (3.6: manual MIT procedure until the package exists – the same block, which reads an existing keytab first,
+   also serves the manual change and the minimum-password-age fallback; afterwards `sudo admng-watchdog-keytab init`
+   + `verify`).
+4. AD part two (right after the keytab: no certificate issued to the account (A.5), the logon-restriction GPO of A.6;
+   then A.4–A.7), then certificate (3.8) and backups (3.9).
+5. `apt install ./admng-openwec_…~deb13_amd64.deb ./admng-watchdog_…_amd64.deb`; the `openwecd` drop-in with
+   `IPAddressAllow=` = the DC addresses (12.2) (instructions 4.2–4.3).
 6. `sudo admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' --dc 'DC02$@CONTOSO.COM' |
-   sudo install -m 0644 /dev/stdin /etc/openwec/subscriptions/admng-dc-security.toml`; validate the query on the DCs
-   (7.3); `sudo -u openwec openwec subscriptions load -y /etc/openwec/subscriptions/admng-dc-security.toml` (the single
-   file, 7.1).
-7. `sudo systemctl start openwecd admng-watchdog`; `sudo admng-watchdog --health`; `journalctl -u admng-watchdog`;
-   AD Manager: address `https://admng-wd.contoso.com:8443`, confirm the fingerprint.
+   sudo install -m 0644 /dev/stdin /etc/openwec/subscriptions/admng-dc-security.toml` – on the shipped
+   `appsettings.json` (reads only `Watchdog:Collector`, 7.3); validate the query on the DCs (7.3);
+   `sudo -u openwec openwec subscriptions load -y /etc/openwec/subscriptions/admng-dc-security.toml` (the single
+   file, 7.1); `sudo systemctl start openwecd` and check WEF arrival (instructions 4.4–4.6).
+7. Edit `appsettings.json` (SIDs from A.3, servers, URL; **not** `Collector:SubscriptionUuid`, which must stay equal
+   to the loaded subscription's uuid); `sudo admng-watchdog --check-config` (instructions 5.2).
+8. `sudo systemctl start openwecd admng-watchdog`; `sudo admng-watchdog --health`; `journalctl -u admng-watchdog`;
+   AD Manager: address `https://admng-wd.contoso.com:8443`, confirm the fingerprint (instructions 5.3, 6).
 
 ### A.10 Migration from the 0.2.0 Windows service (optional)
 
 Preparation while the 0.2.0 Windows service keeps running (instructions 0.4, "Migracja z wersji 0.2.0"): the 0.2.0 role
 groups already exist – move them to the Tier 0 OU (`Move-ADObject`, SIDs unchanged) instead of A.3; the Debian host gets
-a temporary address (e.g. 10.0.1.26) while the A record `admng-wd` still points to the old server; A.2 creates
+a temporary address (e.g. 10.0.1.26) while the A record `admng-wd` still points to the old server, so until cut-over
+every `ssh`/`scp`/`Test-NetConnection` of instructions 3.2, 3.3 and 3.8 targets that address, not the name (after
+cut-over the first connection by name shows a new host key: compare it with the console, `ssh-keygen -R` the old one); A.2 creates
 `ADMNG-WD` **without** `HTTP/admng-wd.contoso.com` (DCs reject the duplicate SPN held by the gMSA; the keytab contains
 `HTTP/` anyway – same account key), and the manual keytab procedure reads the kvno from `host/admng-wd.contoso.com` (a
 ticket for `HTTP/` would still come from the gMSA); the WEF GPO is created with its link disabled. Cut-over: stop the
@@ -1935,7 +2202,7 @@ it stays a live credential on the old host – and the 0.2.0 host group (`Remove
 - VM 3 (**required** – added to the agreed "1 DC + 1 Debian", confirmed by the user on 2026-10-20): ADM-WS01,
   Windows 11 Enterprise evaluation (or WS2025) with RSAT, 10.0.20.15 – AD Manager (Windows only) and the source of
   pilot changes (changes made on the DC show "lokalnie na DC"). A flat lab network with ADM-WS01 at 10.0.1.50 and
-  `AllowedRemoteSubnets`/nftables `10.0.1.50/32` is the simplest variant.
+  `AllowedRemoteSubnets`/nftables `ADMIN_NET` `10.0.1.50/32` and `PAWS` `10.0.1.50` is the simplest variant.
 - Optional: DC02 – Windows Server 2022 evaluation (10.0.1.11) for the replication, failover and WinRM-version tests;
   `smtp` – a small Debian VM (10.0.1.30) with Mailpit (pinned version and SHA-256 of `tools/testlab/watchdog`,
   STARTTLS, self-signed certificate pinned in the SMTP settings) for the e-mail tests; an enterprise CA on DC01 (lab
