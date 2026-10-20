@@ -32,7 +32,9 @@ public sealed record ServiceAccountPaths(string Keytab, string? Krb5Config)
 /// reader, no keys kept) and the keytab tool's <c>status.json</c>, and reports the <c>serviceAccount.*</c> health checks,
 /// the Status section „Konto usługi” and <c>host.primaryKdcNotPdc</c> (4.8). A check that turns Warning or Error raises
 /// a HealthServiceAccount event once. A privileged account found by the first run stops the service with exit code 8
-/// unless <c>Watchdog:AllowPrivilegedServiceAccount</c> is set (4.7 item 1).
+/// unless <c>Watchdog:AllowPrivilegedServiceAccount</c> is set (4.7 item 1). The account's objectGUID and SID are handed
+/// to <see cref="WatchdogAccountSource"/>, which connects the detection's <c>watchdog-self</c> rule (9.3) with this monitor:
+/// the monitor checks the account's state hourly, the rule reports every change of it as it happens.
 /// </summary>
 public sealed partial class ServiceAccountMonitor : IWatchdogJob
 {
@@ -48,7 +50,7 @@ public sealed partial class ServiceAccountMonitor : IWatchdogJob
 
     private static readonly string[] AccountAttributes =
     [
-        Attr.ObjectSid, Attr.UserAccountControl, Attr.SupportedEncryptionTypes, Attr.ServicePrincipalName, Attr.DnsHostName,
+        Attr.ObjectGuid, Attr.ObjectSid, Attr.UserAccountControl, Attr.SupportedEncryptionTypes, Attr.ServicePrincipalName, Attr.DnsHostName,
         Attr.PwdLastSet, "msDS-KeyVersionNumber",
     ];
 
@@ -62,6 +64,7 @@ public sealed partial class ServiceAccountMonitor : IWatchdogJob
     private readonly ServiceAccountPaths _paths;
     private readonly TimeProvider _time;
     private readonly ILogger<ServiceAccountMonitor> _logger;
+    private readonly WatchdogAccountSource? _accountSource;
     private readonly Dictionary<string, HealthState> _lastStates = new(StringComparer.Ordinal);
     private bool _firstRunDone;
 
@@ -75,7 +78,8 @@ public sealed partial class ServiceAccountMonitor : IWatchdogJob
         IProcessTerminator terminator,
         ServiceAccountPaths paths,
         TimeProvider time,
-        ILogger<ServiceAccountMonitor> logger)
+        ILogger<ServiceAccountMonitor> logger,
+        WatchdogAccountSource? accountSource = null)
     {
         _sessions = sessions;
         _options = options;
@@ -87,6 +91,7 @@ public sealed partial class ServiceAccountMonitor : IWatchdogJob
         _paths = paths;
         _time = time;
         _logger = logger;
+        _accountSource = accountSource;
     }
 
     public string Name => "service-account";
@@ -181,6 +186,8 @@ public sealed partial class ServiceAccountMonitor : IWatchdogJob
             return new ServiceAccountFacts { Principal = principal, AccountMissing = true, Keytab = keytab, KeytabError = keytabError, ToolStatus = status, ToolStatusError = statusError };
         }
 
+        // The detection's watchdogAccount tag follows the account by GUID once known (design 9.3).
+        _accountSource?.Update(account.ObjectGuid, account.ObjectSid);
         var groups = await ReadTokenGroupsAsync(session, account.DistinguishedName, cancellationToken).ConfigureAwait(false);
         var dacl = await ReadDaclAsync(session, account.DistinguishedName, cancellationToken).ConfigureAwait(false);
         var privileged = groups is null ? [] : await PrivilegedSidsAsync(session, groups, account.ObjectSid, cancellationToken).ConfigureAwait(false);

@@ -44,7 +44,7 @@ public class ConfigChangeAuditorTests
         var updated = _old with
         {
             General = _old.General with { InstanceName = "Nadzór AD – Gdańsk", RolloutEnded = true },
-            Retention = _old.Retention with { EventsDays = 180 },
+            Retention = _old.Retention with { EventsDays = 1500 },
             BusinessHours = _old.BusinessHours with { ExtraHolidays = [new DateOnly(2026, 11, 2)] },
         };
 

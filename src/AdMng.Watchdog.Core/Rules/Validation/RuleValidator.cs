@@ -58,7 +58,8 @@ internal static class RuleValidator
                 run.Error(path + ".kinds", ConfigValidationCodes.LockedRule, $"The kinds of the locked rule \"{shipped.Id}\" cannot be changed.", shipped.Id);
             }
 
-            LockedDelivery(run, path, rule, shipped);
+            DeliveryWeakenings(run.Configuration.Notifications, rule, shipped, (property, what) =>
+                run.Error(path + "." + property, ConfigValidationCodes.LockedRule, $"The {what} of the locked rule \"{shipped.Id}\" cannot be weakened.", shipped.Id));
         }
     }
 
@@ -70,13 +71,13 @@ internal static class RuleValidator
     /// <c>notifications.aggregationWindow</c>, and a severity override cannot lower them below Critical (throttling exempts
     /// only Critical). Re-targeting to other recipients and strengthening stay allowed.
     /// </summary>
-    private static void LockedDelivery(ValidationRun run, string path, RuleSettings rule, RuleSettings shipped)
+    /// <remarks>Also used for the Tier-0 suppression of the stage B rules (<see cref="Tier0SuppressionValidator"/>):
+    /// <paramref name="weakened"/> gets the property path below the rule and a description.</remarks>
+    internal static void DeliveryWeakenings(NotificationSettings notifications, RuleSettings rule, RuleSettings shipped, Action<string, string> weakened)
     {
         var delivery = rule.Delivery;
         var expected = shipped.Delivery;
-        var notifications = run.Configuration.Notifications;
-        void Weakened(string property, string what) =>
-            run.Error(path + "." + property, ConfigValidationCodes.LockedRule, $"The {what} of the locked rule \"{shipped.Id}\" cannot be weakened.", shipped.Id);
+        void Weakened(string property, string what) => weakened(property, what);
 
         if (expected.Immediate && !delivery.Immediate)
         {

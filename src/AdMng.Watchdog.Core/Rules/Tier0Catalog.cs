@@ -15,12 +15,26 @@ public static class Tier0Catalog
     /// warned about (<c>tier0Exclusion</c>) and they notify immediately even in rollout mode (12.5).</summary>
     public const string RuleIdPrefix = "tier0-";
 
+    /// <summary>
+    /// The built-in rules of stage B (design 9.1–9.3, 8.6): disabling or weakening them (<c>enabled</c> false, kinds,
+    /// tags, scope or minimum severity narrowed, exclusions, delivery weakened) is a <c>tier0Suppression</c> error without
+    /// the bootstrap flag <c>Authorization.AllowTier0Suppression</c>, and every such change is a Critical
+    /// WatchdogConfigurationChanged.
+    /// </summary>
+    public static IReadOnlySet<string> SuppressionProtectedRules { get; } = new[]
+    {
+        DefaultRules.Tier0BadSuccessor, DefaultRules.Tier0MachineQuota, DefaultRules.WatchdogSelf, DefaultRules.Tier0Gpo,
+    }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Every kind of the categories Security, Domain and AuditLog, plus PrivilegeGranted/PrivilegeRevoked,
-    /// AccountFlagsChanged and DelegationChanged.</summary>
+    /// AccountFlagsChanged, DelegationChanged and ServiceAccountCreated (dMSA creation, BadSuccessor – design 9.1).</summary>
     public static IReadOnlySet<WatchEventKind> Kinds { get; } = EventKindCatalog.All
         .Where(k => k.Category is EventCategory.Security or EventCategory.Domain or EventCategory.AuditLog)
         .Select(k => k.Kind)
-        .Concat([WatchEventKind.PrivilegeGranted, WatchEventKind.PrivilegeRevoked, WatchEventKind.AccountFlagsChanged, WatchEventKind.DelegationChanged])
+        .Concat([
+            WatchEventKind.PrivilegeGranted, WatchEventKind.PrivilegeRevoked, WatchEventKind.AccountFlagsChanged, WatchEventKind.DelegationChanged,
+            WatchEventKind.ServiceAccountCreated,
+        ])
         .ToFrozenSet();
 
     /// <summary>The attributes the ChangeClassifier consumes for the Tier-0 kinds (10.6, 9.2), case-insensitive.</summary>
@@ -32,6 +46,9 @@ public static class Tier0Catalog
         "msDS-ManagedAccountPrecededByLink", "msDS-DelegatedMSAState", "msDS-SupersededManagedAccountLink",
         "msDS-SupersededServiceAccountState", "altSecurityIdentities", "msDS-GroupMSAMembership", "nTSecurityDescriptor",
         "sAMAccountName",
+
+        // the service's own account (watchdog-self, design 9.3): RC4 re-enabled by a self-write
+        "msDS-SupportedEncryptionTypes",
 
         // computer name spoofing (dNSHostName conflict, 9.3: always evaluated)
         "dNSHostName",
@@ -85,7 +102,13 @@ public static class Tier0Catalog
         return Attributes.Contains(separator < 0 ? name : name[..separator]);
     }
 
-    /// <summary>True for a rule id starting with <see cref="RuleIdPrefix"/> (case-insensitive).</summary>
+    /// <summary>True for a rule id starting with <see cref="RuleIdPrefix"/> and for <c>watchdog-self</c> (design 9.3: a
+    /// Tier-0 rule without the prefix), case-insensitive.</summary>
     public static bool IsTier0Rule(string? ruleId) =>
-        ruleId is not null && ruleId.StartsWith(RuleIdPrefix, StringComparison.OrdinalIgnoreCase);
+        ruleId is not null
+        && (ruleId.StartsWith(RuleIdPrefix, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(ruleId, DefaultRules.WatchdogSelf, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>True for one of <see cref="SuppressionProtectedRules"/>.</summary>
+    public static bool IsSuppressionProtectedRule(string? ruleId) => ruleId is not null && SuppressionProtectedRules.Contains(ruleId);
 }

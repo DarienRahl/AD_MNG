@@ -145,12 +145,15 @@ public static class RuleMatcher
     /// <summary>
     /// True for a change of a computer that touches only computer-noise attributes (9.3: pwdLastSet, operating system,
     /// dNSHostName, encryption types, userCertificate, and servicePrincipalName values naming the computer itself) – the
-    /// changes <c>Attribution.SuppressComputerSelfChanges</c> excludes when the computer made them itself.
+    /// changes <c>Attribution.SuppressComputerSelfChanges</c> excludes when the computer made them itself. Never for the
+    /// service's own account (tag <c>watchdogAccount</c>, stage B design 9.3): its self-writes (RC4 re-enabled, an extra
+    /// SPN) are what <c>watchdog-self</c> reports.
     /// </summary>
     public static bool IsComputerNoiseChange(WatchEvent watchEvent)
     {
         ArgumentNullException.ThrowIfNull(watchEvent);
-        if (watchEvent.Object is not { Kind: WatchObjectKind.Computer } computer || (watchEvent.Changes ?? []).Count == 0)
+        if (watchEvent.Object is not { Kind: WatchObjectKind.Computer } computer || (watchEvent.Changes ?? []).Count == 0
+            || HasTag(watchEvent, EventTags.WatchdogAccount))
         {
             return false;
         }

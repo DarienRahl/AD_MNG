@@ -19,4 +19,7 @@ internal sealed record TaggingContext
 
     /// <summary>Events of a full scan (Resync / Reconciliation) – tag reconciliation.</summary>
     public bool Reconciliation { get; init; }
+
+    /// <summary>The service's own account (tag watchdogAccount, design 9.3); null when the host has none.</summary>
+    public WatchdogAccountIdentity? WatchdogAccount { get; init; }
 }

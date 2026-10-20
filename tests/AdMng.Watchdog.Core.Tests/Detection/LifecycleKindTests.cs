@@ -51,7 +51,7 @@ public class LifecycleKindTests
     }
 
     [Fact]
-    public async Task ServiceAccountCreated_IsMediumForGmsaAndHighForDmsa()
+    public async Task ServiceAccountCreated_IsMediumForGmsaAndCriticalWithTagBadSuccessorForDmsa()
     {
         await using var scenario = new DetectionScenario();
         await scenario.BaselineAsync();
@@ -60,8 +60,12 @@ public class LifecycleKindTests
         var dmsa = scenario.Builder.AddServiceAccount("dmsa-app01", ObjectClasses.DelegatedManagedServiceAccount);
         var events = await scenario.SettleAsync();
 
-        Assert.Equal(Severity.Medium, Assert.Single(events, e => e.Object.Dn == gmsa && e.Kind == WatchEventKind.ServiceAccountCreated).Severity);
-        Assert.Equal(Severity.High, Assert.Single(events, e => e.Object.Dn == dmsa && e.Kind == WatchEventKind.ServiceAccountCreated).Severity);
+        var gmsaCreated = Assert.Single(events, e => e.Object.Dn == gmsa && e.Kind == WatchEventKind.ServiceAccountCreated);
+        var dmsaCreated = Assert.Single(events, e => e.Object.Dn == dmsa && e.Kind == WatchEventKind.ServiceAccountCreated);
+        Assert.Equal(Severity.Medium, gmsaCreated.Severity);
+        Assert.DoesNotContain(EventTags.BadSuccessor, gmsaCreated.Tags);
+        Assert.Equal(Severity.Critical, dmsaCreated.Severity);
+        Assert.Contains(EventTags.BadSuccessor, dmsaCreated.Tags);
     }
 
     [Fact]

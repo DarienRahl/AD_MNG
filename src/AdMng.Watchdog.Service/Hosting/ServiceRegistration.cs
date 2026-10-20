@@ -57,6 +57,7 @@ public static class ServiceRegistration
         AddDelivery(services);
         AddDirectory(services, configuration);
         AddApi(services);
+        AddWatchdogAccount(services, startupOptions);
         services.AddWatchdogCore();
 
         services.TryAddSingleton<IProcessTerminator, EnvironmentProcessTerminator>();
@@ -156,6 +157,22 @@ public static class ServiceRegistration
 
         // The watchdog's own role and host groups are High-tier privileged roots (spec 10.8 step 1).
         services.TryAddSingleton(provider => DetectionHostOptionsFrom(provider.GetRequiredService<IOptions<ServiceOptions>>().Value));
+    }
+
+    /// <summary>
+    /// The own computer account for the detection (stage B design 9.3: tag watchdogAccount, rule watchdog-self) whenever
+    /// the bootstrap file names a Kerberos principal and the directory is watched – registered before
+    /// <c>AddWatchdogCore()</c>, whose default knows no account.
+    /// </summary>
+    private static void AddWatchdogAccount(IServiceCollection services, ServiceOptions startupOptions)
+    {
+        if (startupOptions.Directory.Disabled || string.IsNullOrWhiteSpace(startupOptions.Kerberos.ServicePrincipal))
+        {
+            return;
+        }
+
+        services.TryAddSingleton<WatchdogAccountSource>();
+        services.TryAddSingleton<IWatchdogAccountSource>(provider => provider.GetRequiredService<WatchdogAccountSource>());
     }
 
     /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and watchdog host group SIDs.</summary>

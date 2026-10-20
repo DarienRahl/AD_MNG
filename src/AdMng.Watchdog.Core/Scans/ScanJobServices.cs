@@ -22,6 +22,9 @@ internal sealed record ScanJobServices
     public required PermissionSelfCheck SelfCheck { get; init; }
     public DetectionHostOptions HostOptions { get; init; } = new();
 
+    /// <summary>The service's own account (tag watchdogAccount on scan events, design 9.3).</summary>
+    public IWatchdogAccountSource WatchdogAccount { get; init; } = NoWatchdogAccount.Instance;
+
     /// <summary>Null when the host registers no Security-log reader (password-spray detection unavailable).</summary>
     public ISecurityEventSource? SecurityEvents { get; init; }
 }

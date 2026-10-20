@@ -1,4 +1,5 @@
 using AdMng.Core.Ldap;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 
 namespace AdMng.Watchdog.Core.Rules.Validation;
@@ -10,7 +11,11 @@ namespace AdMng.Watchdog.Core.Rules.Validation;
 /// <see cref="Tier0Catalog.ProtectedSubtrees"/> (<c>{domain}</c>, <c>OU=Domain Controllers</c>, <c>CN=System</c>,
 /// <c>CN=Users</c>, <c>CN=Builtin</c>) – allowed only with the bootstrap
 /// flag <c>Authorization.AllowTier0Suppression</c>. Health kinds can never be disabled (the detector records them
-/// regardless), so listing one is an error even with the flag.
+/// regardless), so listing one is an error even with the flag. The same flag guards the stage B rules
+/// (<see cref="Tier0Catalog.SuppressionProtectedRules"/>, design 9.1–9.3): compared with the shipped rule they cannot be
+/// disabled, their matching cannot be narrowed (kinds, object kinds, scope, attributes, tags, group filter, minimum
+/// severity, actor exclusions, exclusions), the <c>watchdog-self</c> override cannot leave Critical, and their delivery
+/// cannot be weakened (the checks of the locked rules).
 /// </summary>
 internal static class Tier0SuppressionValidator
 {
@@ -39,6 +44,7 @@ internal static class Tier0SuppressionValidator
             return;
         }
 
+        ProtectedRules(run);
         for (var i = 0; i < directory.IgnoredAttributes.Count; i++)
         {
             if (Tier0Catalog.IsTier0Attribute(directory.IgnoredAttributes[i]))
@@ -70,6 +76,93 @@ internal static class Tier0SuppressionValidator
             }
         }
     }
+
+    private static void ProtectedRules(ValidationRun run)
+    {
+        var rules = run.Configuration.Rules;
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (rules[i] is not { } rule || !Tier0Catalog.IsSuppressionProtectedRule(rule.Id) || DefaultRules.Find(rule.Id) is not { } shipped)
+            {
+                continue;
+            }
+
+            var path = ValidationRun.Item("rules", i);
+            void Suppressed(string property, string what) =>
+                run.Error(path + "." + property, ConfigValidationCodes.Tier0Suppression,
+                    $"The {what} of the built-in rule \"{shipped.Id}\" can be weakened only when the bootstrap setting Authorization.AllowTier0Suppression is true.",
+                    shipped.Id);
+
+            if (!rule.Enabled)
+            {
+                run.Error(path + ".enabled", ConfigValidationCodes.Tier0Suppression,
+                    $"The built-in rule \"{shipped.Id}\" can be disabled only when the bootstrap setting Authorization.AllowTier0Suppression is true.",
+                    shipped.Id);
+            }
+
+            Matching(rule, shipped, Suppressed);
+            RuleValidator.DeliveryWeakenings(run.Configuration.Notifications, rule, shipped, Suppressed);
+        }
+    }
+
+    /// <summary>Narrowed matching of a protected rule compared with the shipped one (an empty list = any).</summary>
+    private static void Matching(RuleSettings rule, RuleSettings shipped, Action<string, string> suppressed)
+    {
+        if (Narrows(rule.Kinds, shipped.Kinds))
+        {
+            suppressed("kinds", "event kinds");
+        }
+
+        if (Narrows(rule.ObjectKinds, shipped.ObjectKinds))
+        {
+            suppressed("objectKinds", "object kinds");
+        }
+
+        if (rule.Scope.IncludeSubtrees.Count > shipped.Scope.IncludeSubtrees.Count || rule.Scope.ExcludeSubtrees.Count > shipped.Scope.ExcludeSubtrees.Count)
+        {
+            suppressed("scope", "scope");
+        }
+
+        if (rule.Attributes.Count > 0 && shipped.Attributes.Count == 0)
+        {
+            suppressed("attributes", "attribute filter");
+        }
+
+        if (rule.RequiredTags.Any(t => !shipped.RequiredTags.Contains(t, StringComparer.OrdinalIgnoreCase))
+            || (rule.AnyTags.Count > 0 && shipped.AnyTags.Count == 0))
+        {
+            suppressed("requiredTags", "tag filter");
+        }
+
+        if (rule.Groups != shipped.Groups)
+        {
+            suppressed("groups", "group filter");
+        }
+
+        if ((rule.MinSeverity ?? Severity.Info) > (shipped.MinSeverity ?? Severity.Info))
+        {
+            suppressed("minSeverity", "minimum severity");
+        }
+
+        if (shipped.Severity is { } shippedOverride && rule.Severity != shippedOverride)
+        {
+            suppressed("severity", "notification severity");
+        }
+
+        if (rule.Actors.ExcludeActors.Count > 0 || (rule.Actors.ExcludeSelfChanges && !shipped.Actors.ExcludeSelfChanges))
+        {
+            suppressed("actors", "actor filter");
+        }
+
+        if (rule.Exclusions.Count > 0)
+        {
+            suppressed("exclusions", "exclusion list");
+        }
+    }
+
+    /// <summary>True when <paramref name="configured"/> matches less than <paramref name="shipped"/> (empty = any).</summary>
+    private static bool Narrows<T>(IReadOnlyList<T> configured, IReadOnlyList<T> shipped) =>
+        configured.Count > 0 && (shipped.Count == 0 || shipped.Any(k => !configured.Contains(k)));
 
     /// <summary>True when the excluded subtree equals or contains the protected entry. "{domain}" on both sides: both
     /// expand with the placeholder domain. When one side is literal (DC=contoso,DC=com), the other side's token expands to

@@ -116,7 +116,8 @@ public static class EventKindCatalog
         Entry(WatchEventKind.PrimaryGroupChanged, EventCategory.Security, Severity.High, Accounts),
         Entry(WatchEventKind.SecurityDescriptorChanged, EventCategory.Security, Severity.Critical, []),
         Entry(WatchEventKind.ComputerNameSpoofing, EventCategory.Security, Severity.Critical, [WatchObjectKind.Computer]),
-        Entry(WatchEventKind.ManagedAccountLinkChanged, EventCategory.Security, Severity.High, Accounts),
+        // BadSuccessor (stage B design 9.1): every change of a dMSA migration link or state is Critical.
+        Entry(WatchEventKind.ManagedAccountLinkChanged, EventCategory.Security, Severity.Critical, Accounts),
         Entry(WatchEventKind.CertificateMappingChanged, EventCategory.Security, Severity.High, [WatchObjectKind.User, WatchObjectKind.Computer]),
         Entry(WatchEventKind.ManagedPasswordReadersChanged, EventCategory.Security, Severity.High, [WatchObjectKind.ServiceAccount]),
 

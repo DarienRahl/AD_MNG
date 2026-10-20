@@ -23,6 +23,7 @@ internal static class DetectionRegistration
     {
         // Shared state of the detection pipeline.
         services.TryAddSingleton(new DetectionHostOptions());
+        services.TryAddSingleton<IWatchdogAccountSource>(NoWatchdogAccount.Instance);
         services.TryAddSingleton<ExclusionSuggestionRegistry>();
         services.TryAddSingleton<SeverityResolver>();
         services.TryAddSingleton<DomainControllerDirectory>();
@@ -81,6 +82,7 @@ internal static class DetectionRegistration
             LockoutPolicies = services.GetRequiredService<LockoutPolicyResolver>(),
             Severity = services.GetRequiredService<SeverityResolver>(),
             HostOptions = services.GetRequiredService<DetectionHostOptions>(),
+            WatchdogAccount = services.GetRequiredService<IWatchdogAccountSource>(),
         },
         services.GetRequiredService<DcStateReader>(),
         services.GetRequiredService<ChangeNotificationWaker>());
@@ -103,6 +105,7 @@ internal static class DetectionRegistration
             Calendar = services.GetRequiredService<IBusinessDayCalendar>(),
             SelfCheck = services.GetRequiredService<PermissionSelfCheck>(),
             HostOptions = services.GetRequiredService<DetectionHostOptions>(),
+            WatchdogAccount = services.GetRequiredService<IWatchdogAccountSource>(),
             SecurityEvents = services.GetService<ISecurityEventSource>(),
         },
         Logger<ScheduledScanJob>(services));

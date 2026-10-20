@@ -21,6 +21,9 @@ internal sealed class CommitChunk
 
     public int EventCount => _events.Count;
 
+    /// <summary>The events added to this chunk so far.</summary>
+    public IReadOnlyList<WatchEvent> Events => _events;
+
     /// <summary>Pending upsert of an object (latest wins).</summary>
     public SnapshotObject? PendingUpsert(Guid guid) => _upserts.TryGetValue(guid, out var snapshot) ? snapshot : null;
 

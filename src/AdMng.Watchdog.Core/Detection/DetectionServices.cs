@@ -18,4 +18,5 @@ internal sealed record DetectionServices
     public EventTagger Tagger { get; init; } = new();
     public ObjectDiffer Differ { get; init; } = new();
     public DetectionHostOptions HostOptions { get; init; } = new();
+    public IWatchdogAccountSource WatchdogAccount { get; init; } = NoWatchdogAccount.Instance;
 }

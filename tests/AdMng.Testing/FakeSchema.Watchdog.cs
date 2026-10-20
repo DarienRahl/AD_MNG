@@ -4,8 +4,11 @@ namespace AdMng.Testing;
 
 /// <summary>
 /// Schema additions for the AdMng Watchdog emulation (watchdog specification 4.3): the attributes the watchdog diffs
-/// with their real syntaxes and the classes of the configuration, schema and PKI objects. Adding definitions only
-/// relaxes the fake (more attributes are known and allowed), so existing tests keep their behaviour.
+/// with their real syntaxes and the classes of the configuration, schema and PKI objects, plus the Windows Server 2025
+/// schema of delegated managed service accounts (dMSA, BadSuccessor – stage B design 9.1): the migration links with
+/// their back links, the managed password attributes and the possible superiors a dMSA inherits along
+/// <c>computer → user → organizationalPerson → person → top</c>. Adding definitions only relaxes the fake (more
+/// attributes are known and allowed), so existing tests keep their behaviour.
 /// </summary>
 public static partial class FakeSchema
 {
@@ -22,7 +25,8 @@ public static partial class FakeSchema
             "msDS-AllowedToDelegateTo", "msDS-AllowedToActOnBehalfOfOtherIdentity", "msDS-KeyCredentialLink",
             "userCertificate", "altSecurityIdentities", "logonHours", "employeeType", "badPasswordTime",
             "msDS-SupersededManagedAccountLink", "msDS-SupersededServiceAccountState", "msDS-ResultantPSO",
-            "msDS-UserPasswordExpiryTimeComputed",
+            "msDS-UserPasswordExpiryTimeComputed", "msDS-KeyVersionNumber", "msDS-ManagedAccountPrecededByLinkBL",
+            "msDS-SupersededManagedAccountLinkBL",
         ],
         ["computer"] = ["mS-DS-CreatorSID"],
         ["organizationalUnit"] = ["gPOptions"],
@@ -100,12 +104,20 @@ public static partial class FakeSchema
         Def("msDS-ReplAttributeMetaData", AttributeSyntax.UnicodeString, single: false, constructed: true),
         Def("replPropertyMetaData", AttributeSyntax.OctetString, systemOnly: true),
 
-        // Managed service accounts (gMSA / dMSA)
+        // Managed service accounts (gMSA / dMSA, Windows Server 2025 schema): msDS-DelegatedMSAState and
+        // msDS-SupersededServiceAccountState are 0 unknown, 1 migration in progress, 2 migration completed, 3 standalone.
         Def("msDS-GroupMSAMembership", AttributeSyntax.SecurityDescriptor),
         Def("msDS-ManagedAccountPrecededByLink", AttributeSyntax.DistinguishedName, linkId: 2210),
+        Def("msDS-ManagedAccountPrecededByLinkBL", AttributeSyntax.DistinguishedName, single: false, linkId: 2211),
         Def("msDS-DelegatedMSAState", AttributeSyntax.Integer),
         Def("msDS-SupersededManagedAccountLink", AttributeSyntax.DistinguishedName, linkId: 2212),
+        Def("msDS-SupersededManagedAccountLinkBL", AttributeSyntax.DistinguishedName, single: false, linkId: 2213),
         Def("msDS-SupersededServiceAccountState", AttributeSyntax.Integer),
+        Def("msDS-ManagedPasswordInterval", AttributeSyntax.Integer),
+        Def("msDS-ManagedPasswordId", AttributeSyntax.OctetString, systemOnly: true),
+        Def("msDS-ManagedPasswordPreviousId", AttributeSyntax.OctetString, systemOnly: true),
+        Def("msDS-ManagedPassword", AttributeSyntax.OctetString, constructed: true),
+        Def("msDS-KeyVersionNumber", AttributeSyntax.Integer, constructed: true),
 
         // PKI
         Def("msPKI-Certificate-Name-Flag", AttributeSyntax.Integer),
@@ -123,6 +135,23 @@ public static partial class FakeSchema
         Def("dNSTombstoned", AttributeSyntax.Boolean),
     ];
 
+    /// <summary>The managed password attributes of gMSA and dMSA.</summary>
+    private static readonly string[] ManagedPasswordAttributes =
+        ["msDS-ManagedPasswordInterval", "msDS-ManagedPasswordId", "msDS-ManagedPasswordPreviousId", "msDS-ManagedPassword"];
+
+    /// <summary>
+    /// possSuperiors + systemPossSuperiors of the real schema that the base fake leaves out. A dMSA defines none itself:
+    /// its effective parents are inherited – domainDNS, organizationalUnit, container, builtinDomain (user),
+    /// organization (organizationalPerson) and lostAndFound (top) – which the BadSuccessor audit of the instructions
+    /// computes per forest (design 9.1).
+    /// </summary>
+    private static readonly Dictionary<string, string[]> WatchdogPossibleSuperiors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["top"] = ["lostAndFound"],
+        ["organizationalPerson"] = ["organization", "container", "organizationalUnit"],
+        ["user"] = ["builtinDomain"],
+    };
+
     private static void ExtendForWatchdog(List<ClassDefinition> classes, string schemaNc)
     {
         for (var i = 0; i < classes.Count; i++)
@@ -131,14 +160,20 @@ public static partial class FakeSchema
             {
                 classes[i] = classes[i] with { MayContain = [.. classes[i].MayContain, .. extra] };
             }
+
+            if (WatchdogPossibleSuperiors.TryGetValue(classes[i].LdapName, out var superiors))
+            {
+                classes[i] = classes[i] with { PossibleSuperiors = [.. classes[i].PossibleSuperiors.Concat(superiors).Distinct(StringComparer.OrdinalIgnoreCase)] };
+            }
         }
 
         classes.AddRange(
         [
             Class("msDS-ManagedServiceAccount", "computer", schemaNc, "ms-DS-Managed-Service-Account", ["msDS-GroupMSAMembership"]),
-            Class("msDS-GroupManagedServiceAccount", "computer", schemaNc, "ms-DS-Group-Managed-Service-Account", ["msDS-GroupMSAMembership"]),
+            Class("msDS-GroupManagedServiceAccount", "computer", schemaNc, "ms-DS-Group-Managed-Service-Account",
+                ["msDS-GroupMSAMembership", .. ManagedPasswordAttributes]),
             Class("msDS-DelegatedManagedServiceAccount", "computer", schemaNc, "ms-DS-Delegated-Managed-Service-Account",
-                ["msDS-GroupMSAMembership", "msDS-ManagedAccountPrecededByLink", "msDS-DelegatedMSAState"]),
+                ["msDS-GroupMSAMembership", "msDS-ManagedAccountPrecededByLink", "msDS-DelegatedMSAState", .. ManagedPasswordAttributes]),
             Class("groupPolicyContainer", "container", schemaNc, "Group-Policy-Container", ["versionNumber", "gPCFileSysPath", "flags", "gPOptions"]),
             Class("trustedDomain", "top", schemaNc, "Trusted-Domain", ["trustDirection", "trustType", "trustAttributes", "flatName", "trustPartner"]),
             Class("msDS-PasswordSettings", "top", schemaNc, "ms-DS-Password-Settings",

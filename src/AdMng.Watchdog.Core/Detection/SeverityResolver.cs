@@ -116,7 +116,7 @@ public sealed class SeverityResolver
             WatchEventKind.AccountExpirationChanged => ClearedToNever(watchEvent) ? Severity.Medium : catalog,
             WatchEventKind.AdminCountSet => Has(tags, EventTags.Privileged) ? Severity.Info : Severity.High,
             WatchEventKind.AttributesChanged => watchEvent.Changes.Any(c => LogonSettingsAttributes.Contains(c.Attribute)) ? Severity.Medium : catalog,
-            WatchEventKind.ServiceAccountCreated => IsDelegatedMsa(watchEvent) ? Severity.High : catalog,
+            WatchEventKind.ServiceAccountCreated => IsDelegatedMsa(watchEvent) ? Severity.Critical : catalog,
             WatchEventKind.GroupPolicyChanged => IsDefaultPolicy(watchEvent.Object.Dn) ? Severity.Medium : catalog,
             WatchEventKind.GroupPolicyLinkChanged => IsDomainControllersOu(watchEvent.Object.Dn, context) ? Severity.High : catalog,
             WatchEventKind.CertificateMappingChanged => Has(tags, EventTags.Privileged) ? Severity.Critical : catalog,
@@ -173,6 +173,12 @@ public sealed class SeverityResolver
         if (e.Kind == WatchEventKind.GroupMemberRemoved && e.Object.Sid is { } groupSid && context.ProtectRemovalSids.Contains(groupSid))
         {
             result = Severity.High;
+        }
+
+        // BadSuccessor (stage B design 9.1): a dMSA creation or migration link change is Critical whatever else applies.
+        if (Has(tags, EventTags.BadSuccessor))
+        {
+            result = Severity.Critical;
         }
 
         return result;

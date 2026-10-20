@@ -1,3 +1,4 @@
+using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
@@ -29,6 +30,7 @@ internal sealed class ObjectProcessor
     private readonly DetectionCycle _cycle;
     private readonly SnapshotBuilder _builder;
     private readonly TaggingContext _tagging;
+    private readonly WatchdogAccountIdentity? _watchdogAccount;
     private readonly Dictionary<Guid, bool> _exists = [];
     private bool _dcDirectoryRefreshed;
 
@@ -42,6 +44,7 @@ internal sealed class ObjectProcessor
         Changes = new AttributeChangeBuilder(configuration.Notifications.MaxValueLength, configuration.Directory.MaxValuesPerAttribute, cycle.Session.Schema);
         Classifier = new ChangeClassifier(Changes);
         Factory = new EventFactory(services.Time, services.Severity);
+        _watchdogAccount = services.WatchdogAccount.Identity;
         _tagging = new TaggingContext
         {
             IsPrivileged = cycle.IsPrivileged,
@@ -50,6 +53,7 @@ internal sealed class ObjectProcessor
             ServiceAccountSubtrees = cycle.Settings.ServiceAccountSubtrees,
             DisabledAccountsSubtrees = cycle.Settings.DisabledAccountsSubtrees,
             Reconciliation = cycle.Source == DetectionSource.Reconciliation,
+            WatchdogAccount = _watchdogAccount,
         };
     }
 
@@ -122,7 +126,9 @@ internal sealed class ObjectProcessor
         }
 
         var settings = _cycle.Settings;
-        var critical = settings.IsCritical(entry.DistinguishedName);
+
+        // The service's own account (design 9.3) is tracked like a critical object: owner and DACL (the Deny ACE for SELF).
+        var critical = settings.IsCritical(entry.DistinguishedName) || IsWatchdogAccount(entry);
         if (critical)
         {
             entry = await WithSecurityDescriptorAsync(entry, cancellationToken).ConfigureAwait(false);
@@ -621,6 +627,11 @@ internal sealed class ObjectProcessor
 
         var input = await ClassificationInputAsync(diff, entry, metadata, cancellationToken).ConfigureAwait(false);
         var drafts = new List<EventDraft>(Classifier.Classify(input));
+        if (input.IsWatchdogAccount)
+        {
+            await MarkPlannedRotationAsync(drafts, diff, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
+        }
+
         drafts.AddRange(memberDrafts);
         var longDisabled = drafts.Any(d => d.Kind == WatchEventKind.AccountEnabled)
             && await IsLongDisabledAsync(old, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
@@ -699,7 +710,55 @@ internal sealed class ObjectProcessor
             DnsHostNameConflict = dnsConflict,
             GroupPolicyNames = gpoNames,
             DsaHostName = _services.DomainControllers.ResolveHostByDsaDn,
+            IsWatchdogAccount = _watchdogAccount is { } own && own.Matches(diff.New.ObjectGuid, diff.New.Sid, diff.New.SamAccountName),
         };
+    }
+
+    private bool IsWatchdogAccount(DirectoryObject entry) =>
+        _watchdogAccount is { } own && own.Matches(entry.ObjectGuid, entry.ObjectSid, entry.GetString(Attr.SamAccountName));
+
+    /// <summary>
+    /// Design 9.3: a password change of the service's own account whose new msDS-KeyVersionNumber and pwdLastSet match the
+    /// keytab tool's status.json is its planned rotation – recorded without tag watchdogAccount (the watchdog-self rule
+    /// does not alert). msDS-KeyVersionNumber is constructed, so it is read from the cycle's DC now.
+    /// </summary>
+    private async Task MarkPlannedRotationAsync(List<EventDraft> drafts, RawObjectDiff diff, string dn, CancellationToken cancellationToken)
+    {
+        var index = drafts.FindIndex(d => d.Kind is WatchEventKind.PasswordChanged or WatchEventKind.PasswordAgeReset);
+        if (index < 0 || diff.Get(Attr.PwdLastSet) is not { NewValue: { } newValue }
+            || !long.TryParse(newValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fileTime)
+            || AdConvert.FromFileTime(fileTime) is not { } passwordLastSet)
+        {
+            return;
+        }
+
+        int? kvno;
+        try
+        {
+            kvno = (await _cycle.Session.GetAsync(dn, [WatchdogAttributes.KeyVersionNumber], cancellationToken).ConfigureAwait(false))
+                ?.GetInt32(WatchdogAttributes.KeyVersionNumber);
+        }
+        catch (DirectoryException ex) when (!ex.IsTransient)
+        {
+            kvno = null;            // unreadable: not provably the planned rotation, so it alerts
+        }
+
+        if (kvno is null)
+        {
+            return;
+        }
+
+        var record = await _services.WatchdogAccount.GetRotationAsync(kvno.Value, cancellationToken).ConfigureAwait(false);
+        if (WatchdogSelfRotation.IsPlanned(record, kvno, passwordLastSet))
+        {
+            for (var i = 0; i < drafts.Count; i++)
+            {
+                if (drafts[i].Kind is WatchEventKind.PasswordChanged or WatchEventKind.PasswordAgeReset)
+                {
+                    drafts[i] = drafts[i] with { PlannedServiceAccountRotation = true };
+                }
+            }
+        }
     }
 
     /// <summary>

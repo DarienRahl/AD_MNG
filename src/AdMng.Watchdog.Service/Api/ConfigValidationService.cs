@@ -28,7 +28,8 @@ public sealed class ConfigValidationService(
     IConfigTokenSource tokens,
     IHostEnvironment environment,
     IOptionsMonitor<ServiceOptions> options,
-    DetectionHostOptions? hostOptions = null)
+    DetectionHostOptions? hostOptions = null,
+    IWatchdogAccountSource? watchdogAccount = null)
 {
     /// <summary>The well-known accounts protected besides the privileged groups and their members: the built-in
     /// Administrator (RID 500) and krbtgt (RID 502).</summary>
@@ -114,8 +115,9 @@ public sealed class ConfigValidationService(
     /// <c>CN=Builtin</c> and the configured DNs, but tiered environments move privileged groups and admin accounts into
     /// their own OUs. A newly added <c>excludedSubtrees</c> entry that equals or contains a privileged object of the
     /// snapshot – a privileged root group (critical/high SIDs, the watchdog's own role and host groups, the additional
-    /// DNs), a group on a path to one, a privileged principal of the current privilege state, krbtgt or the built-in
-    /// Administrator – would silence the detection of exactly those objects, so it needs the bootstrap flag as well. Only
+    /// DNs), a group on a path to one, a privileged principal of the current privilege state, krbtgt, the built-in
+    /// Administrator or the service's own account (<c>watchdog-self</c>, stage B design 9.3) – would silence the detection
+    /// of exactly those objects, so it needs the bootstrap flag as well. Only
     /// entries added by this save are checked: an existing exclusion never blocks an unrelated save.
     /// </summary>
     private async Task<IReadOnlyList<ConfigIssue>> PrivilegedSubtreeIssuesAsync(WatchdogConfiguration configuration, WatchdogConfiguration previous,
@@ -137,7 +139,7 @@ public sealed class ConfigValidationService(
                 Path = $"directory.excludedSubtrees[{i}]",
                 Code = ConfigValidationCodes.Tier0Suppression,
                 Severity = IssueSeverity.Error,
-                Message = "The subtree contains a privileged group, a privileged account, krbtgt or the built-in Administrator; excluding it needs Authorization.AllowTier0Suppression.",
+                Message = "The subtree contains a privileged group, a privileged account, krbtgt, the built-in Administrator or the service's own account; excluding it needs Authorization.AllowTier0Suppression.",
             })];
     }
 
@@ -161,6 +163,19 @@ public sealed class ConfigValidationService(
                 && await snapshot.FindBySidAsync(exact, cancellationToken).ConfigureAwait(false) is { IsDeleted: false } found)
             {
                 Add(found.Dn);
+            }
+        }
+
+        if (watchdogAccount?.Identity is { } own)
+        {
+            if (own.ObjectGuid is { } guid
+                && (await snapshot.GetSnapshotsAsync([guid], cancellationToken).ConfigureAwait(false)).TryGetValue(guid, out var account) && !account.IsDeleted)
+            {
+                Add(account.Dn);
+            }
+            else if (own.Sid is { } sid && await snapshot.FindBySidAsync(sid, cancellationToken).ConfigureAwait(false) is { IsDeleted: false } bySid)
+            {
+                Add(bySid.Dn);
             }
         }
 

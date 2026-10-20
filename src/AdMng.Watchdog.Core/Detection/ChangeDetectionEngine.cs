@@ -43,6 +43,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
     private readonly Reconciler _reconciler;
     private readonly ConfigurationPartitionWatcher _configurationPartition;
     private readonly PrivilegeEvaluator _privileges;
+    private readonly KeyObjectMonitor _keyObjects;
     private readonly SemaphoreSlim _cycleGate = new(1, 1);
     private bool _firstCycle = true;
     private DateTimeOffset? _lastPersistedPoll;
@@ -74,6 +75,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         _reconciler = new Reconciler(services, _deletions);
         _configurationPartition = new ConfigurationPartitionWatcher(services);
         _privileges = new PrivilegeEvaluator(services);
+        _keyObjects = new KeyObjectMonitor(health, services.Time);
     }
 
     public string Name => JobName;
@@ -187,6 +189,8 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         {
             processor.Emit([draft], null, objectRef, ReplicationMetadata.Empty, null);
         }
+
+        await _keyObjects.RunAsync(processor, cycle, _services.Store, cancellationToken).ConfigureAwait(false);
 
         AddFinalHealthEvents(processor, cycle, decision);
         var newState = NewState(cycle, state, dc, now);

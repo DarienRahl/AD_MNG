@@ -30,6 +30,7 @@ public sealed partial class FakeDirectorySession
     private const string ReplAttributeMetaData = "msDS-ReplAttributeMetaData";
     private const string UserPasswordExpiryTimeComputed = "msDS-UserPasswordExpiryTimeComputed";
     private const string ResultantPso = "msDS-ResultantPSO";
+    private const string KeyVersionNumber = "msDS-KeyVersionNumber";
 
     /// <summary>Attributes without replication metadata: non-replicated bookkeeping and linked values (LVR).</summary>
     private static readonly HashSet<string> NonReplicated = new(StringComparer.OrdinalIgnoreCase)
@@ -263,6 +264,18 @@ public sealed partial class FakeDirectorySession
         }
     }
 
+    /// <summary>
+    /// A write of the security descriptor that leaves owner and DACL as they are – a SACL change (stage B design 9.4): the
+    /// stored bytes stay, nTSecurityDescriptor gets a new metadata version and the object a USN bump.
+    /// </summary>
+    public void SimulateSaclChange(string distinguishedName)
+    {
+        lock (_gate)
+        {
+            Touch(FindExisting(distinguishedName), [Attr.NtSecurityDescriptor]);
+        }
+    }
+
     /// <summary>What msDS-ResultantPSO returns for the object (null removes it).</summary>
     public void SetResultantPso(string distinguishedName, string? passwordSettingsDn)
     {
@@ -424,6 +437,16 @@ public sealed partial class FakeDirectorySession
         if (string.Equals(name, ResultantPso, StringComparison.OrdinalIgnoreCase))
         {
             values = _resultantPsos.TryGetValue(entry, out var pso) ? [pso] : [];
+            return true;
+        }
+
+        if (string.Equals(name, KeyVersionNumber, StringComparison.OrdinalIgnoreCase))
+        {
+            // Like a DC: the key version follows the unicodePwd metadata version (every password write bumps it).
+            values = entry.HasClass(ObjectClasses.User) && _metadata.TryGetValue(entry, out var written)
+                && written.TryGetValue(Attr.UnicodePwd, out var password)
+                ? [password.Version.ToString(CultureInfo.InvariantCulture)]
+                : [];
             return true;
         }
 

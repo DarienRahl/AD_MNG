@@ -73,6 +73,9 @@ public static class WatchdogAttributes
     public const string SupersededManagedAccountLink = "msDS-SupersededManagedAccountLink";
     public const string SupersededServiceAccountState = "msDS-SupersededServiceAccountState";
 
+    /// <summary>Constructed key version of an account (the watchdog-self rotation check, stage B design 9.3).</summary>
+    public const string KeyVersionNumber = "msDS-KeyVersionNumber";
+
     // PKI (Configuration NC)
     public const string CertificateNameFlag = "msPKI-Certificate-Name-Flag";
     public const string EnrollmentFlag = "msPKI-Enrollment-Flag";

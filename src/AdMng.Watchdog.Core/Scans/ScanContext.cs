@@ -11,7 +11,8 @@ internal sealed class ScanContext
 {
     private readonly HashSet<string> _privileged;
 
-    public ScanContext(IDirectorySession session, DetectionSettings settings, DcSnapshot dc, DateTimeOffset now, PrivilegeState? privileges)
+    public ScanContext(IDirectorySession session, DetectionSettings settings, DcSnapshot dc, DateTimeOffset now, PrivilegeState? privileges,
+        WatchdogAccountIdentity? watchdogAccount = null)
     {
         Session = session;
         Settings = settings;
@@ -28,6 +29,7 @@ internal sealed class ScanContext
             Containers = dc.Containers,
             ServiceAccountSubtrees = settings.ServiceAccountSubtrees,
             DisabledAccountsSubtrees = settings.DisabledAccountsSubtrees,
+            WatchdogAccount = watchdogAccount,
         };
     }
 

@@ -165,6 +165,23 @@ public sealed class NotificationPlannerTests
         Assert.Equal("tier0-privilege", Assert.Single(planned).RuleId);
     }
 
+    [Theory]
+    [InlineData("tier0-badsuccessor")]
+    [InlineData("tier0-machine-quota")]
+    [InlineData("watchdog-self")]
+    [InlineData("tier0-gpo")]
+    public async Task RolloutMode_StillNotifiesTheStageBRules(string ruleId)
+    {
+        var stageB = Rule(ruleId);
+        var other = Rule("new-users", groups: [SecurityGroup]);
+        var harness = new NotificationHarness(ConfigWith(stageB, other));
+        harness.Health.ReportDirectory(new DirectoryStatusDto { State = HealthState.Ok, BaselineCompletedAt = Now.AddDays(-2) });
+
+        var (_, planned) = await harness.PlanAsync(Event(severity: Severity.Critical), new PlannedMatch(stageB, Severity.Critical), new PlannedMatch(other, Severity.Critical));
+
+        Assert.Equal(ruleId, Assert.Single(planned).RuleId);
+    }
+
     [Fact]
     public async Task RepeatSuppression_SkipsAnObjectNotifiedWithinThePeriod()
     {

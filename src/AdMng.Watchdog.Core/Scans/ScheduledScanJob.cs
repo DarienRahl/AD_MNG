@@ -87,7 +87,7 @@ public sealed class ScheduledScanJob : IWatchdogJob
         var settings = new DetectionSettings(configuration, dc.Facts, session.Schema, _services.HostOptions);
         var now = _services.Time.GetUtcNow();
         var privileges = await _services.Store.GetPrivilegeStateAsync(cancellationToken).ConfigureAwait(false);
-        var context = new ScanContext(session, settings, dc, now, privileges);
+        var context = new ScanContext(session, settings, dc, now, privileges, _services.WatchdogAccount.Identity);
         var appended = _writer.Appended;
 
         await RunDueAsync(SelfCheckScan, scans.PermissionSelfCheckInterval, now, () => _services.SelfCheck.RunAsync(session, dc.Facts, cancellationToken)).ConfigureAwait(false);

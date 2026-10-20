@@ -34,9 +34,10 @@ public static class DefaultRules
     public const string Expiry = "expiry";
     public const string Health = "health";
 
-    // Built-in rules of stage B (docs/dev/watchdog-linux-design.md 9.1–9.3, 8.6, 14.2) – ids only; the rules are added
-    // to Create() by the tracks that implement their detections. watchdog-self has no "tier0-" prefix but is treated
-    // like a Tier-0 rule (immediate in rollout mode, suppression only with AllowTier0Suppression – instructions 6.2).
+    // Built-in rules of stage B (docs/dev/watchdog-linux-design.md 9.1–9.3, 8.6, 14.2), shipped after the stage A rules
+    // (an existing document gets them appended by MergeMissing in the same order). watchdog-self has no "tier0-" prefix
+    // but is a Tier-0 rule (Tier0Catalog.IsTier0Rule: immediate in rollout mode); all four can be disabled or weakened
+    // only with AllowTier0Suppression (Tier0Catalog.SuppressionProtectedRules).
     public const string Tier0BadSuccessor = "tier0-badsuccessor";
     public const string Tier0MachineQuota = "tier0-machine-quota";
     public const string WatchdogSelf = "watchdog-self";
@@ -56,6 +57,10 @@ public static class DefaultRules
         WatchEventKind.SecurityDescriptorChanged, WatchEventKind.ComputerNameSpoofing, WatchEventKind.ManagedAccountLinkChanged,
         WatchEventKind.CertificateMappingChanged, WatchEventKind.ManagedPasswordReadersChanged, WatchEventKind.ServiceAccountCreated,
     ];
+
+    /// <summary>The GPO content kinds of <see cref="Tier0Gpo"/> (design 8.6).</summary>
+    public static IReadOnlyList<WatchEventKind> GpoContentKinds { get; } =
+        [WatchEventKind.GroupPolicySettingsChanged, WatchEventKind.GroupPolicyPathRedirected, WatchEventKind.GroupPolicyContentOutOfBand];
 
     /// <summary>The logon-settings attributes (<see cref="LogonSettings"/>, 12.4).</summary>
     public static IReadOnlyList<string> LogonSettingsAttributes { get; } =
@@ -199,6 +204,32 @@ public static class DefaultRules
             Locked = true,
             Delivery = Immediate(ItAdminsGroup, DeliveryHours.Always) with { AllEnabledChannels = true },
         },
+
+        // Stage B (design 9.1–9.3, 8.6): immediate around the clock, no aggregation of their own.
+        Rule(Tier0BadSuccessor, "BadSuccessor – konta dMSA", [WatchEventKind.ServiceAccountCreated, WatchEventKind.ManagedAccountLinkChanged]) with
+        {
+            RequiredTags = [EventTags.BadSuccessor],
+            MinSeverity = Severity.Critical,
+            Delivery = Tier0Immediate(),
+        },
+        Rule(Tier0MachineQuota, "Limit kont komputerów (MachineAccountQuota)", [WatchEventKind.DomainPolicyChanged]) with
+        {
+            RequiredTags = [EventTags.MachineAccountQuota],
+            MinSeverity = Severity.High,
+            Delivery = Tier0Immediate(),
+        },
+        Rule(WatchdogSelf, "Konto usługi Watchdog", []) with
+        {
+            RequiredTags = [EventTags.WatchdogAccount],
+            MinSeverity = Severity.Info,
+            Severity = Severity.Critical,
+            Delivery = Tier0Immediate(),
+        },
+        Rule(Tier0Gpo, "Treść GPO", GpoContentKinds) with
+        {
+            MinSeverity = Severity.High,
+            Delivery = Tier0Immediate(),
+        },
     ];
 
     /// <summary>The ids of every built-in rule in shipping order.</summary>
@@ -238,4 +269,7 @@ public static class DefaultRules
     };
 
     private static RuleDelivery DigestOnly() => new() { Immediate = false, IncludeInDigest = true };
+
+    /// <summary>Immediate to it-admins, Always, without an aggregation window of the rule (stage B rules).</summary>
+    private static RuleDelivery Tier0Immediate() => Immediate(ItAdminsGroup, DeliveryHours.Always) with { AggregationWindow = TimeSpan.Zero };
 }
