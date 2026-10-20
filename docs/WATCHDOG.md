@@ -311,9 +311,15 @@ zanim usługa je odczyta (przyczyna „LOG_OVERWRITTEN”). Po zmianie członkos
 
 ### 4.5 Zasady inspekcji na kontrolerach domeny
 
-GPO na OU „Domain Controllers” → Konfiguracja zaawansowanych zasad inspekcji. Włącz (S = sukces, F = niepowodzenie):
+GPO na OU „Domain Controllers” → Konfiguracja zaawansowanych zasad inspekcji. Tabela to **minimum** – nigdy nie obniżaj
+wartości, która już obowiązuje (S = sukces, F = niepowodzenie). Ustawienia podkategorii z kilku GPO łączą się osobno
+dla każdej podkategorii i wygrywa GPO o wyższym priorytecie, więc najprościej ustawić każdą podkategorię z tabeli na
+„Sukces i niepowodzenie” – tak robi instrukcja wersji linuksowej ([`WATCHDOG-LINUX.md`](WATCHDOG-LINUX.md), 2.10, razem
+z kopią stanu sprzed zmiany). Kontrolery mają domyślnie sukces dla Kerberos Authentication Service i Credential
+Validation, a Defender for Identity wymaga dla Credential Validation sukcesu i niepowodzenia – samo „F” w GPO o wysokim
+priorytecie by je wyłączyło.
 
-| Podkategoria (nazwa angielska) | GUID (do `auditpol`) | Ustawienie | Po co |
+| Podkategoria (nazwa angielska) | GUID (do `auditpol`) | Co najmniej | Po co |
 |---|---|---|---|
 | User Account Management | `{0CCE9235-69AE-11D9-BED3-505054503030}` | S, F | 4720–4726, 4738, 4740, 4767, 4781, 4794 |
 | Computer Account Management | `{0CCE9236-69AE-11D9-BED3-505054503030}` | S | 4741–4743 |
@@ -321,8 +327,8 @@ GPO na OU „Domain Controllers” → Konfiguracja zaawansowanych zasad inspekc
 | Distribution Group Management | `{0CCE9238-69AE-11D9-BED3-505054503030}` | S | 4744–4763 |
 | Directory Service Changes | `{0CCE923C-69AE-11D9-BED3-505054503030}` | S | 5136–5141 (wymaga SACL – 4.6) |
 | Logon | `{0CCE9215-69AE-11D9-BED3-505054503030}` | S, F | 4624 – komputer źródłowy; 4625 – źródło blokad |
-| Kerberos Authentication Service | `{0CCE9242-69AE-11D9-BED3-505054503030}` | F | 4771 – źródło błędnych haseł (blokady, „password spraying”) |
-| Credential Validation | `{0CCE923F-69AE-11D9-BED3-505054503030}` | F | 4776 – źródło błędnych haseł NTLM |
+| Kerberos Authentication Service | `{0CCE9242-69AE-11D9-BED3-505054503030}` | S, F | 4771 – źródło błędnych haseł (blokady, „password spraying”); sukces – domyślne ustawienie kontrolera |
+| Credential Validation | `{0CCE923F-69AE-11D9-BED3-505054503030}` | S, F | 4776 – źródło błędnych haseł NTLM; sukces – domyślne ustawienie kontrolera |
 | Audit Policy Change | `{0CCE922F-69AE-11D9-BED3-505054503030}` | S | 4719 |
 
 Zostaw włączone „Inspekcja: wymuś ustawienia podkategorii zasad inspekcji…”. Sprawdzenie na DC:
@@ -357,11 +363,16 @@ $acl = Get-Acl -Path "AD:\$domain" -Audit
 foreach ($guid in $classes.Values) {
   $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, $rights, 'Success', [guid]::Empty, 'Descendents', [guid]$guid)))
 }
-# 2) sam obiekt domeny (zasady haseł i blokad, gPLink, ms-DS-MachineAccountQuota) – „tylko ten obiekt”
+# 2) utworzenie i usunięcie obiektu tych klas w dowolnym miejscu domeny – zdarzenie 5137 kontroler zapisuje według SACL
+#    obiektu nadrzędnego (OU, kontenery takie jak CN=Users, CN=Managed Service Accounts, CN=Policies, sam obiekt domeny)
+foreach ($guid in $classes.Values) {
+  $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'CreateChild, DeleteChild', 'Success', [guid]$guid, 'All')))
+}
+# 3) sam obiekt domeny (zasady haseł i blokad, gPLink, ms-DS-MachineAccountQuota) – „tylko ten obiekt”
 $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'WriteProperty, WriteDacl, WriteOwner', 'Success', [guid]::Empty, 'None')))
 Set-Acl -Path "AD:\$domain" -AclObject $acl
 
-# 3) AdminSDHolder (szablon uprawnień kont chronionych)
+# 4) AdminSDHolder (szablon uprawnień kont chronionych)
 $p = "AD:\CN=AdminSDHolder,CN=System,$domain"
 $acl = Get-Acl -Path $p -Audit
 $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'WriteProperty, WriteDacl, WriteOwner', 'Success', [guid]::Empty, 'None')))

@@ -60,10 +60,14 @@ libldap/SASL.
    (root:admng-keytab 0640) i co 30 dni zmienia hasło (timer `admng-watchdog-keytab.timer`, sprawdzenie codzienne).
    Hasło nie jest nigdzie zapisywane – tylko klucze w keytabie (bieżąca i poprzednia wersja). Konto nie należy do
    żadnej grupy uprzywilejowanej (usługa odmawia startu, gdy należy), ma odebrane prawa logowania lokalnego, RDP,
-   wsadowego i jako usługa i ma nadane w AD wyłącznie prawa odczytu. Zapisy, które każde konto komputera ma domyślnie
-   we własnym obiekcie (obiekty podrzędne, SPN, nazwa DNS, kilka atrybutów), blokuje wpis „Odmów” dla SELF; tworzenie
-   kont komputerów – `ms-DS-MachineAccountQuota` = 0 (warunek wdrożenia; prawo tworzenia obiektów komputerów
-   dostają przez delegację ci, którzy dziś dołączają komputery). Zostaje zmiana własnego hasła. Nie używamy msktutil
+   wsadowego i jako usługa oraz ma nadane w AD wyłącznie prawa odczytu. Zapisy, które każde konto komputera ma
+   domyślnie we własnym obiekcie (obiekty podrzędne, SPN, nazwa DNS, kilka atrybutów), blokuje wpis „Odmów” dla SELF
+   (usługa co godzinę sprawdza, czy nadal istnieje); tworzenie kont komputerów – `ms-DS-MachineAccountQuota` = 0
+   (warunek wdrożenia; prawo tworzenia obiektów komputerów dostają przez delegację ci, którzy dziś dołączają
+   komputery); wystawienie certyfikatu na konto (jako członek Domain Computers mogłoby poprosić o certyfikat według
+   szablonu „Computer” każdego urzędu Enterprise, a certyfikat przetrwałby wszystkie zmiany hasła) – wpisy „Odmów”
+   dla prawa rejestracji (Enroll) w szablonach, gdy w lesie jest urząd Enterprise. Zostaje zmiana własnego hasła oraz to, co może każde
+   uwierzytelnione konto domeny (np. dodanie nowego rekordu w strefie DNS zintegrowanej z AD). Nie używamy msktutil
    ani adcli (zapisy LDAP do własnego obiektu, których skutków na DC Windows nie dało się zweryfikować, pliki
    tymczasowe w `/tmp`, własne timery pakietów) – potwierdzone przez użytkownika 2026-10-20.
 3. **LDAP.** Domyślnie port 389, SASL GSSAPI (Kerberos) z podpisywaniem i szyfrowaniem wymuszonym w `ldap.conf`
@@ -114,7 +118,8 @@ libldap/SASL.
 
 - Na serwerze Watchdog nie ma żadnego komponentu Windows; serwer i jego administratorzy są zasobami Tier 0 (root
   serwera = tożsamość `ADMNG-WD$` i wszystkie dane usługi).
-- Po stronie AD potrzebne są: konto komputera z wpisem odmowy dla SELF i dwie grupy w OU Tier 0, rekord A (i PTR),
+- Po stronie AD potrzebne są: konto komputera z wpisem odmowy dla SELF (i – gdy jest urząd Enterprise – z wpisami
+  odmowy na szablonach certyfikatów) i dwie grupy w OU Tier 0, rekord A (i PTR),
   jawne prawa odczytu (jak dotąd, dla `ADMNG-WD$`; one dają też odczyt `tokenGroups` – grupa Windows Authorization
   Access Group nie jest potrzebna), `ms-DS-MachineAccountQuota` = 0 (z delegacją prawa tworzenia obiektów komputerów
   dla tych, którzy dziś dołączają komputery), GPO ograniczające logowanie konta, GPO na kontrolerach (menedżer
@@ -149,6 +154,9 @@ libldap/SASL.
   Odtworzenie tej samej maszyny wirtualnej razem z dyskiem i stanem vTPM zachowuje wszystko.
 - Nieudana rotacja hasła niczego nie psuje (hasło i keytab zostają); jedyny groźny przypadek (hasło zmienione, zapis
   keytabu nieudany) jest wykrywany natychmiast i naprawiany jednorazowym hasłem od administratora Tier 0.
+- Zmiana hasła co 30 dni ogranicza wartość skradzionego keytabu, ale nie unieważnia certyfikatu, o który ktoś z
+  keytabem zdążyłby poprosić u urzędu certyfikacji – stąd wpisy odmowy na szablonach; po wycieku keytabu konto trzeba
+  wyłączyć, a certyfikaty wystawione na nie odwołać, zanim dostanie nowe hasło.
 - OpenWEC to mały projekt zewnętrzny przypięty do niewydanej wersji: budujemy go sami, dołączamy źródła (GPL-3.0)
   i aktualizujemy tylko po przeglądzie. OpenWEC działa jako osobny proces – licencja GPL nie obejmuje kodu AdMng.
 - Zespół utrzymuje jedną platformę usługi; testy jednostkowe, testy usługi, testy integracyjne z laboratorium Samba
@@ -179,8 +187,8 @@ w projekcie (`watchdog-linux-design.md`) i w instrukcji (`WATCHDOG-LINUX.md`) be
    ustaloną `tier0-badsuccessor` także `tier0-machine-quota` (podniesienie `ms-DS-MachineAccountQuota` z 0) i
    `watchdog-self` (każda zmiana konta usługi poza jego rotacją hasła). Wymagania wdrożenia:
    `ms-DS-MachineAccountQuota` = 0 (z delegacją prawa tworzenia obiektów komputerów dla tych, którzy dziś dołączają
-   komputery) i wpis odmowy dla SELF na koncie usługi – żeby konto rzeczywiście nie mogło niczego zmienić w AD poza
-   własnym hasłem.
+   komputery) i wpis odmowy dla SELF na koncie usługi – żeby konto nie mogło zmienić w AD niczego poza własnym hasłem,
+   ponad to, co może każde uwierzytelnione konto domeny (np. dodanie nowego rekordu w strefie DNS zintegrowanej z AD).
 4. **Wspólny keytab API i OpenWEC.** OpenWEC używa tego samego konta `ADMNG-WD$`, nazwy `HTTP/admng-wd.contoso.com`
    i keytabu co API; drugiego konta komputera ani drugiej nazwy DNS dla kolektora nie tworzymy. Ryzyko (sfałszowany
    bilet do API po przejęciu konta `openwec`) jest opisane w „Konsekwencjach”; ograniczają je dostęp do API wyłącznie

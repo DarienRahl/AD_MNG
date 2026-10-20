@@ -188,10 +188,10 @@ writes LDAP.
 What remains is what every authenticated principal may do – notably creating new records in AD-integrated DNS zones
 (default `Create all child objects` for Authenticated Users on the zone objects). Stolen keys therefore give no write
 beyond an ordinary domain account; the Watchdog does not watch the DNS application partitions (outside its detection
-scope; `dnsNode` tombstones are dropped as noise, spec 10.9). The instructions (2.5) offer an optional Deny `CC` for `ADMNG-WD$` on each AD-integrated zone. Compromise
-recovery: disable the account (blocks password and PKINIT logons alike), revoke certificates issued to it
-(`certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$'`, `certutil -revoke <serial> 1`), then a new one-time
-password and `init`.
+scope; `dnsNode` tombstones are dropped as noise, spec 10.9). The instructions (2.5) offer an optional Deny `CC` for
+`ADMNG-WD$` on each AD-integrated zone. Compromise recovery: disable the account (blocks password and PKINIT logons
+alike), revoke certificates issued to it (`certutil -view -restrict 'RequesterName=CONTOSO\ADMNG-WD$'`, `certutil
+-revoke <serial> 1`), then a new one-time password and `init`.
 
 ### 4.2 Creation (Tier 0 admin on a Tier 0 PAW) and handover
 
@@ -263,9 +263,9 @@ manual runs and writable as `StateDirectory=` inside the unit, so both share the
 `ProtectSystem=strict`).
 
 **Entry order (MUST):** every keytab written by `init` or `rotate` begins with the `ADMNG-WD$@REALM` entries (SHOULD:
-newest kvno first), followed by the `HTTP/` and `host/` entries. gssapi initiators that use `KRB5_CLIENT_KTNAME` with an empty
-ccache (libldap through Cyrus SASL, i.e. every LDAP bind of the service) take the client principal from the **first**
-keytab entry – lab: a keytab starting with the `HTTP/` entries made `ldapsearch -Y GSSAPI` fail with `Client
+newest kvno first), followed by the `HTTP/` and `host/` entries. gssapi initiators that use `KRB5_CLIENT_KTNAME` with an
+empty ccache (libldap through Cyrus SASL, i.e. every LDAP bind of the service) take the client principal from the
+**first** keytab entry – lab: a keytab starting with the `HTTP/` entries made `ldapsearch -Y GSSAPI` fail with `Client
 'HTTP/admng-wd.contoso.test@CONTOSO.TEST' not found in Kerberos database`, the same keys in the order above gave `SASL
 username: ADMNG-WD$@CONTOSO.TEST`. `verify` checks the order and fails (`verifyFailed`) otherwise; the service reports
 it as health Error `serviceAccount.keytabOrder` (4.7). B2 integration test: an LDAP bind through `KRB5_CLIENT_KTNAME`
@@ -366,10 +366,11 @@ alone):
 `primary_kdc` and `kpasswd_server` name the PDC emulator (update when the role moves – the service warns with
 `host.primaryKdcNotPdc` when `fSMORoleOwner` differs). Environment of the service (systemd unit, section 12.1 – .NET
 `Environment.SetEnvironmentVariable` does **not** reach libkrb5/libldap, lab): `KRB5_CONFIG`,
-`KRB5_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab` (acceptor), `KRB5_CLIENT_KTNAME=FILE:…same…` (gssapi acquires
-the TGT automatically, as the principal of the **first** keytab entry – hence the entry order of 4.4), `KRB5CCNAME=FILE:/run/admng-watchdog/krb5cc` (tmpfs, 0600, needed by the `smbclient` child
-process – smbclient does **not** use the client keytab, it needs a valid TGT in this ccache, 8.3),
-`KRB5RCACHEDIR=/var/tmp` (private through `PrivateTmp=yes`; MIT replay cache).
+`KRB5_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab` (acceptor), `KRB5_CLIENT_KTNAME=FILE:…same…` (gssapi acquires the
+TGT automatically, as the principal of the **first** keytab entry – hence the entry order of 4.4),
+`KRB5CCNAME=FILE:/run/admng-watchdog/krb5cc` (tmpfs, 0600, needed by the `smbclient` child process – smbclient does
+**not** use the client keytab, it needs a valid TGT in this ccache, 8.3), `KRB5RCACHEDIR=/var/tmp` (private through
+`PrivateTmp=yes`; MIT replay cache).
 
 ---
 
@@ -937,8 +938,8 @@ is kept `DeletedSnapshotDays` (restore diff), then purged. Events with their cha
   4.6). The instructions add the Tier 0 OU / BadSuccessor delegation audit (appendix A.4) and the requirement that
   DC01 has the August 2025 or later cumulative update (CVE-2025-53779).
 - SHOULD (B6, if time allows): weekly digest section "Kto może tworzyć dMSA" – the objects of the effective dMSA parent
-  classes above whose DACL grants `CreateChild` (all or the dMSA class), `GenericAll` or `WriteDacl`/`WriteOwner` to a principal
-  outside Tier 0 (SDs read with SD flags 7, readable by the computer account – lab).
+  classes above whose DACL grants `CreateChild` (all or the dMSA class), `GenericAll` or `WriteDacl`/`WriteOwner` to a
+  principal outside Tier 0 (SDs read with SD flags 7, readable by the computer account – lab).
 
 ### 9.2 ms-DS-MachineAccountQuota
 
@@ -970,11 +971,12 @@ exception), so a self-write of `ADMNG-WD$` (e.g. RC4 re-enabled, an extra SPN) i
 ### 9.4 Contracts summary
 
 New `WatchEventKind` 510–512 (section 8.6), `HealthServiceAccount = 909` (rotation failing, password age, keytab stale,
-keytab entry order, privileged, drift incl. a missing Deny ACE for SELF), new tags `badSuccessor`, `machineAccountQuota`, `watchdogAccount`, `gppPassword`, new reason
-`SYSVOL_NOT_AUDITED`, `AttributionSourceKind.OpenWec = 3`, `SecurityEventCriteria.LogonId`, `RetentionSettings.LogonRecordsHours`,
-`RetentionSettings.EventsDays` default **1095**, `AttributionSettings` collector fields (7.8), `GpoContentSettings`
-(`Enabled` true, `SysvolLagTolerance` 2 h, `MaxFileMb` 5, `MaxTotalMb` 50, `MaxFiles` 2000) in `DirectorySettings`,
-`StatusDto` sections (service account, collector per DC, GPO content, host). All localization keys en + pl.
+keytab entry order, privileged, drift incl. a missing Deny ACE for SELF), new tags `badSuccessor`,
+`machineAccountQuota`, `watchdogAccount`, `gppPassword`, new reason `SYSVOL_NOT_AUDITED`,
+`AttributionSourceKind.OpenWec = 3`, `SecurityEventCriteria.LogonId`, `RetentionSettings.LogonRecordsHours`,
+`RetentionSettings.EventsDays` default **1095**, `AttributionSettings` collector fields (7.8), `GpoContentSettings` (`Enabled` true, `SysvolLagTolerance` 2 h,
+`MaxFileMb` 5, `MaxTotalMb` 50, `MaxFiles` 2000) in `DirectorySettings`, `StatusDto` sections (service account,
+collector per DC, GPO content, host). All localization keys en + pl.
 
 ---
 
@@ -1508,7 +1510,7 @@ refused when running under systemd (`INVOCATION_ID` / `NOTIFY_SOCKET` present).
 - chrony: Windows time servers report a large root dispersion (seconds), above chrony's default `maxdistance` of 3 s,
   so chrony would refuse to select the DCs (chrony FAQ 3.6 "Using a Windows NTP server?"). The instructions add
   `maxdistance 16.0` in `/etc/chrony/conf.d/admng-ad.conf` (Debian's `confdir`; `sources.d` files may contain only
-  `server`/`pool`/`peer`) and check `chronyc ntpdata <DC>` (root dispersion) and `chronyc -N sources`.
+  `server`/`pool`/`peer`) and check `chronyc ntpdata <DC address>` (root dispersion) and `chronyc -N sources`.
 - nftables – the shipped example `/usr/share/admng-watchdog/nftables/admng-watchdog.nft` MUST equal the ruleset of the
   instructions (3.3) byte for byte, including the defines, the forward chain, the SMTP rule limited to the relay and
   outbound echo-request (validated with `nft -c -f` in CI):
@@ -1799,21 +1801,22 @@ Members: the people's administrative accounts used on the 10.0.20.0/24 workstati
 ### A.4 Tier 0 OU and BadSuccessor audit (scripts `Test-AdMngTier0Delegation.ps1` and `Test-AdMngDmsaCreators.ps1`, listed in full in the instructions 2.2 and 2.9)
 
 Builds the Tier 0 SID set (`S-1-5-18`, `S-1-5-32-544`, `S-1-5-9`, domain `-512`, `-516`, `-526`, forest root `-498`,
-`-518`, `-519`, `-527`; DnsAdmins in the dMSA script); maps `schemaIDGUID` and `rightsGuid` to names; for the Tier 0
-OU, every object below it (including computers and containers) and `CN=AdminSDHolder,CN=System,DC=contoso,DC=com` reads `nTSecurityDescriptor`
-(`Get-Acl "AD:\<DN>"`) and reports: owners outside the Tier 0 set; every Allow ACE (explicit and inherited) with
-GenericAll, GenericWrite, WriteProperty, WriteDacl, WriteOwner, CreateChild, DeleteChild, Delete, DeleteTree,
-ExtendedRight or Self held by a SID outside the Tier 0 set, with its object type name (e.g. User-Force-Change-Password
-`00299570-246d-11d0-a768-00aa006e0529`, msDS-DelegatedManagedServiceAccount `0feb936f-47b3-49f2-9386-1dedc2c23765`);
-flags Account Operators (`S-1-5-32-548`) and Print Operators (`S-1-5-32-550`) as "keep empty" and annotates default
-entries (SELF, CREATOR OWNER, Everyone change-password, Authenticated Users Send-To on groups). The dMSA audit
-(`Test-AdMngDmsaCreators.ps1`) first computes the effective possible superiors of the dMSA class by walking
-`subClassOf` up to `top` and collecting `systemPossSuperiors` + `possSuperiors` of every class (falls back to
-`computer` when the schema has no dMSA class) – on the Windows Server 2025 schema `domainDNS`, `organizationalUnit`,
-`container`, `builtinDomain`, `organization`, `lostAndFound` – and then reads the SD of every object of those classes;
-ACEs that apply to "this object only" on the domain head (e.g. Exchange Windows Permissions with WriteDacl) never show
-on an OU, and `CN=Builtin` is easy to miss otherwise. Akamai's `Get-BadSuccessorOUPermissions.ps1` checks OUs only. Also: DC01 must have the August 2025 or later
-cumulative update (CVE-2025-53779).
+`-518`, `-519`, `-527`; DnsAdmins in the dMSA script); maps `schemaIDGUID` and `rightsGuid` to names; for the Tier 0 OU,
+every object below it (including computers and containers) and `CN=AdminSDHolder,CN=System,DC=contoso,DC=com` reads
+`nTSecurityDescriptor` (`Get-Acl "AD:\<DN>"`) and reports: owners outside the Tier 0 set; every Allow ACE (explicit and
+inherited) with GenericAll, GenericWrite, WriteProperty, WriteDacl, WriteOwner, CreateChild, DeleteChild, Delete,
+DeleteTree, ExtendedRight or Self held by a SID outside the Tier 0 set, with its object type name (e.g.
+User-Force-Change-Password `00299570-246d-11d0-a768-00aa006e0529`, msDS-DelegatedManagedServiceAccount
+`0feb936f-47b3-49f2-9386-1dedc2c23765`); flags Account Operators (`S-1-5-32-548`) and Print Operators (`S-1-5-32-550`)
+as "keep empty" and annotates default entries (SELF, CREATOR OWNER, Everyone change-password, Authenticated Users
+Send-To on groups). The dMSA audit (`Test-AdMngDmsaCreators.ps1`) first computes the effective possible superiors of the
+dMSA class by walking `subClassOf` up to `top` and collecting `systemPossSuperiors` + `possSuperiors` of every class
+(falls back to `computer` when the schema has no dMSA class) – on the Windows Server 2025 schema `domainDNS`,
+`organizationalUnit`, `container`, `builtinDomain`, `organization`, `lostAndFound` – and then reads the SD of every
+object of those classes; ACEs that apply to "this object only" on the domain head (e.g. Exchange Windows Permissions
+with WriteDacl) never show on an OU, and `CN=Builtin` is easy to miss otherwise. Akamai's
+`Get-BadSuccessorOUPermissions.ps1` checks OUs only. Also: DC01 must have the August 2025 or later cumulative update
+(CVE-2025-53779).
 
 ### A.5 Read rights, MachineAccountQuota
 
@@ -1821,17 +1824,28 @@ As `docs/WATCHDOG.md` 4.3 with `$a = 'CONTOSO\ADMNG-WD$'` (per-class `GR`, domai
 Container, `LCRP` on Deleted Objects after `/takeownership`). The per-class `GR` on `user`/`inetOrgPerson`/`computer`
 also makes `tokenGroups` readable in hardened domains – no Windows Authorization Access Group (6.2). Verified from
 Debian with a non-protected account (instructions 2.6). Deny ACE on the own object (instructions 2.5):
-`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). MachineAccountQuota = 0 is a deployment prerequisite:
-list who joins computers today (`mS-DS-CreatorSID` of existing computers), delegate "Create Computer objects" on the
-computers OU to them (or pre-stage the objects), then
-`Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}` (instructions 2.8).
+`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). With an enterprise CA (instructions 2.1/2.5, Enterprise
+Admins or a root-domain Domain Admin): Deny `Certificate-Enrollment` and `Certificate-AutoEnrollment` for `ADMNG-WD$`
+on every certificate template that Everyone, Authenticated Users or Domain Computers may enroll in (4.1).
+MachineAccountQuota = 0 is a deployment prerequisite: list who joins computers today (`mS-DS-CreatorSID` of existing
+computers), delegate computer creation to them (`dsacls "<computers OU>" /I:T /G "CONTOSO\<group>:CC;computer"`) –
+also on the default computers container `(Get-ADDomain).ComputersContainer` (usually `CN=Computers`, where joins
+without an OU land) unless `redircmp` points it to the OU – or pre-stage the objects with the joining group as "the
+user or group that can join this computer" (Reset Password, validated writes to DNS host name and SPN, Account
+Restrictions; since KB5020276 re-use of an existing computer account is allowed for its creator, for accounts created
+by Domain Admins and for owners in the "Domain controller: Allow computer account re-use during domain join" list),
+then `Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}` (instructions 2.8).
 
 ### A.6 Logon restrictions (domain GPO "AdMng - ograniczenia konta Watchdog")
 
 Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → User Rights Assignment:
 "Deny log on locally", "Deny log on through Remote Desktop Services", "Deny log on as a batch job", "Deny log on as a
-service" = `CONTOSO\ADMNG-WD$`. If another GPO already defines these rights, add the account there (rights assignments
-do not merge).
+service" = `CONTOSO\ADMNG-WD$`. User rights assignments do not merge: per right, the highest-precedence GPO that
+defines it wins, and it replaces the local list. Therefore the new domain-linked GPO always defines **all four** rights
+(plus `BUILTIN\Guests` in "Deny log on locally" to keep the local default that denies the Guest account), and the
+account is **also** added to every existing GPO that defines any of the four rights (e.g. an OU-linked tiering GPO,
+which wins on the computers it covers). The check (`secedit /export`) runs on one machine per such OU. Applied after
+the keytab exists (instructions 2.5 – the one-time password must live as briefly as possible).
 
 ### A.7 DC GPO for WEF, audit policy, SACLs
 
@@ -1839,9 +1853,19 @@ Section 7.10 plus `docs/WATCHDOG.md` 4.5 (audit subcategories) and 4.6 (SACLs in
 entry "Everyone, success, write/delete/create/delete-child/DACL/owner, this object and all descendants" on
 `CN=Public Key Services,CN=Services,<configuration NC>` (Enterprise Admins in a multi-domain forest; optionally
 `CN=Sites`) – the configuration NC does not inherit the domain SACLs, so PKI template changes would otherwise stay
-`SACL_MISSING`. Removing the audit GPO does **not** revert advanced audit policy on the DCs (it stays in the local
-audit configuration); the rollback sets the subcategories to "No Auditing" first. The Remote Event Log Management
-firewall rules and the Event Log Readers membership of the 0.2.0 guide are **not** needed any more (A.10).
+`SACL_MISSING`. Creation auditing (5137) is evaluated on the parent's SACL, so the domain head also gets, for every
+watched class, an object-specific audit entry "Everyone, success, CreateChild + DeleteChild, objectType = the class,
+this object and all descendants" – it covers OUs, containers (`CN=Managed Service Accounts`, `CN=Users`,
+`CN=Policies,CN=System`, the Password Settings Container, `CN=System` for trusts) and the domain head itself. The
+instructions save the pre-deployment state first (`auditpol /backup` per DC, the SACL SDDL of every touched object)
+and roll back **only what they added**: the SACL rollback rebuilds the same `ActiveDirectoryAuditRule` objects,
+removes them with `RemoveAuditRule` and re-adds whatever an identical-key entry held before (the snapshot is only a
+reference – a full restore would delete entries added later, e.g. MDI's); removing the audit GPO does **not** revert
+advanced audit policy (it stays in the local audit configuration), so the audit rollback first sets every subcategory
+in the GPO back to its value from the backup (not "No Auditing"), runs gpupdate, compares `auditpol /get` with the
+backup and only then removes the GPO (alternatively `auditpol /restore` on each DC after the removal). The Remote
+Event Log Management firewall rules and the Event Log Readers membership of the 0.2.0 guide are **not** needed any
+more (A.10).
 
 ### A.8 Certificate (company CA variant)
 
@@ -1854,36 +1878,48 @@ certificate and confirm its fingerprint in AD Manager on each workstation's firs
 
 Same order as the instructions (`docs/WATCHDOG-LINUX.md` 0.4 and chapter 3):
 
-1. Base system, `/etc/hosts`, swap off, unattended-upgrades, `packages-microsoft-prod.deb` + runtime (instructions 3.1);
-   admin accounts and SSH (3.2); nftables with the timed rescue (3.3 – early, before any service listens); DNS and
-   chrony (3.4).
+1. Base system, `/etc/hosts`, swap off, unattended-upgrades, `packages-microsoft-prod.deb` + runtime, tpm2-tss
+   libraries whenever a TPM is present (instructions 3.1); admin accounts and SSH (3.2); nftables with the timed rescue
+   (3.3 – early, before any service listens; transient timer with `RemainAfterElapse=no`, rules loaded only with `&&`
+   after an armed timer); DNS and chrony with `maxdistance 16.0` (3.4).
 2. Private `/etc/admng-watchdog/krb5.conf`, `ldap.conf`, `smb-client.conf` created by hand (3.5); `dpkg` later keeps
    them (answer `N` at the conffile prompt).
-3. Keytab right after A.2 (3.6: manual MIT procedure until the package exists; afterwards
+3. Keytab right after A.2 (3.6: manual MIT procedure until the package exists – the same block, which reads an
+   existing keytab first, also serves the manual change and the minimum-password-age fallback; afterwards
    `sudo admng-watchdog-keytab init` + `verify`).
-4. AD part two (A.4–A.7), then certificate (3.8) and backups (3.9).
+4. AD part two (right after the keytab: the certificate-template Deny ACEs of A.5 and the logon-restriction GPO of
+   A.6; then A.4–A.7), then certificate (3.8) and backups (3.9).
 5. `apt install ./admng-openwec_…~deb13_amd64.deb ./admng-watchdog_…_amd64.deb`; edit `appsettings.json` (SIDs from A.3,
    servers, URL).
-6. `sudo admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' --dc 'DC02$@CONTOSO.COM' >
-   /etc/openwec/subscriptions/admng-dc-security.toml`; validate the query on the DCs (7.3);
-   `sudo -u openwec openwec subscriptions load /etc/openwec/subscriptions`.
+6. `sudo admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' --dc 'DC02$@CONTOSO.COM' |
+   sudo install -m 0644 /dev/stdin /etc/openwec/subscriptions/admng-dc-security.toml`; validate the query on the DCs
+   (7.3); `sudo -u openwec openwec subscriptions load -y /etc/openwec/subscriptions/admng-dc-security.toml` (the single
+   file, 7.1).
 7. `sudo systemctl start openwecd admng-watchdog`; `sudo admng-watchdog --health`; `journalctl -u admng-watchdog`;
    AD Manager: address `https://admng-wd.contoso.com:8443`, confirm the fingerprint.
 
 ### A.10 Migration from the 0.2.0 Windows service (optional)
 
-Stop the Windows service; copy `%ProgramData%\AdMng\Watchdog\data\watchdog.db` (after `sqlite3 … "PRAGMA
+Preparation while the 0.2.0 Windows service keeps running (instructions 0.4, "Migracja z wersji 0.2.0"): the 0.2.0 role
+groups already exist – move them to the Tier 0 OU (`Move-ADObject`, SIDs unchanged) instead of A.3; the Debian host gets
+a temporary address (e.g. 10.0.1.26) while the A record `admng-wd` still points to the old server; A.2 creates
+`ADMNG-WD` **without** `HTTP/admng-wd.contoso.com` (DCs reject the duplicate SPN held by the gMSA; the keytab contains
+`HTTP/` anyway – same account key), and the manual keytab procedure reads the kvno from `host/admng-wd.contoso.com` (a
+ticket for `HTTP/` would still come from the gMSA); the WEF GPO is created with its link disabled. Cut-over: stop the
+Windows service; copy `%ProgramData%\AdMng\Watchdog\data\watchdog.db` (after `sqlite3 … "PRAGMA
 wal_checkpoint(TRUNCATE)"` or with the service stopped) to `/var/lib/admng-watchdog/watchdog.db`
 (`admng-watchdog:admng-watchdog 0600`); do **not** copy `keys\`. Move `HTTP/admng-wd.contoso.com` from the gMSA to
-`ADMNG-WD` (`setspn -D` then A.2), point the DNS A record to 10.0.1.25, remove the gMSA's Event Log Readers membership and
-the DC firewall rules for remote event log access, start the Linux service, re-enter the SMTP password and Teams URL in
-AD Manager. Then remove every right of the old gMSA (instructions 2.12, "Migracja z wersji 0.2.0"): `dsacls <DN> /R
-'CONTOSO\svc-admngwd$'` on the domain head, AdminSDHolder (propagated to every protected account), the Password
-Settings Container and Deleted Objects; its Event Log Readers (`S-1-5-32-573`) membership; NETWORK SERVICE
-(`CN=S-1-5-20,CN=ForeignSecurityPrincipals,…`) in Event Log Readers when 0.2.0 variant B was used (`ChannelAccess`
-replaces it); disable the `RemoteEventLogSvc*` firewall rules on the DCs; detach a 0.2.0 subscription-manager GPO.
-Uninstall the Windows service (`Uninstall-AdMngWatchdog.ps1 -RemoveData` after verifying the Linux service) and
-delete the gMSA (`Remove-ADServiceAccount svc-admngwd`) – otherwise it stays a live credential on the old host.
+`ADMNG-WD` (`setspn -D … svc-admngwd$`, `setspn -S … ADMNG-WD$`); replace the A and PTR records with the Debian address
+– never add a second A record (A.1) – or move the old address to the Debian host after the old server is off; enable the
+WEF GPO link; remove the gMSA's Event Log Readers membership and the DC firewall rules for remote event log access,
+start the Linux service, re-enter the SMTP password and Teams URL in AD Manager. Then remove every right of the old gMSA
+(instructions 2.12, "Migracja z wersji 0.2.0"): `dsacls <DN> /R 'CONTOSO\svc-admngwd$'` on the domain head,
+AdminSDHolder (propagated to every protected account), the Password Settings Container and Deleted Objects; its Event
+Log Readers (`S-1-5-32-573`) membership; NETWORK SERVICE (`CN=S-1-5-20,CN=ForeignSecurityPrincipals,…`) in Event Log
+Readers when 0.2.0 variant B was used (`ChannelAccess` replaces it); disable the `RemoteEventLogSvc*` firewall rules on
+the DCs; detach a 0.2.0 subscription-manager GPO. Uninstall the Windows service (`Uninstall-AdMngWatchdog.ps1
+-RemoveData` after verifying the Linux service) and delete the gMSA (`Remove-ADServiceAccount svc-admngwd`) – otherwise
+it stays a live credential on the old host – and the 0.2.0 host group (`Remove-ADGroup AdMng-Watchdog-Hosts`).
 
 ---
 
@@ -1901,8 +1937,14 @@ delete the gMSA (`Remove-ADServiceAccount svc-admngwd`) – otherwise it stays a
   pilot changes (changes made on the DC show "lokalnie na DC"). A flat lab network with ADM-WS01 at 10.0.1.50 and
   `AllowedRemoteSubnets`/nftables `10.0.1.50/32` is the simplest variant.
 - Optional: DC02 – Windows Server 2022 evaluation (10.0.1.11) for the replication, failover and WinRM-version tests;
-  `smtp` – a small Linux VM (10.0.1.30) with Mailpit (STARTTLS, self-signed certificate pinned in the SMTP settings)
-  for the e-mail tests; Teams only with a Microsoft 365 tenant.
+  `smtp` – a small Debian VM (10.0.1.30) with Mailpit (pinned version and SHA-256 of `tools/testlab/watchdog`,
+  STARTTLS, self-signed certificate pinned in the SMTP settings) for the e-mail tests; an enterprise CA on DC01 (lab
+  only, instructions 1.7) to exercise certificate variant A and the template Deny ACEs; Teams only with a Microsoft 365
+  tenant.
+- Hypervisor notes (instructions 1.1): Hyper-V internal switch + `New-NetNat` for the flat 10.0.1.0/24 network (the
+  NAT does not answer DNS – DC01 forwards to a public or company resolver); a two-subnet lab needs a router without
+  NAT, otherwise the source address seen by Debian and the DCs is the router's; Debian on Hyper-V needs Generation 2
+  with the "Microsoft UEFI Certificate Authority" Secure Boot template.
 - Then appendix A in order; lab scenario: create/modify/delete users, a GPO edit per category, a dMSA creation and
   `msDS-ManagedAccountPrecededByLink` change, MachineAccountQuota 0 → 10, a change of `ADMNG-WD$`'s
   `msDS-SupportedEncryptionTypes` – each must arrive in AD Manager with actor and source.

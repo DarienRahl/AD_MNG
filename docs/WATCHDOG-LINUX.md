@@ -194,8 +194,8 @@ Watchdog **nigdy**:
    tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), wystawienie certyfikatu na to konto –
    wpisy odmowy na szablonach certyfikatów (2.5, gdy w lesie jest urząd Enterprise), a każda zmiana konta i tak jest
    alarmem krytycznym. Wpisy na szablonach są ważne, bo certyfikat pozwala logować się jako to konto bez hasła przez
-   cały okres swojej ważności (zwykle rok) – zmiana hasła co 30 dni by go nie unieważniła. Jest jednak wyjątek poza AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako
-   dowolny użytkownik domeny (tzw. *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć
+   cały okres swojej ważności (zwykle rok) – zmiana hasła co 30 dni by go nie unieważniła. Jest jednak wyjątek poza
+   AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako dowolny użytkownik domeny (tzw. *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć
    alarmy. Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja (4.3); podrobiony bilet zadziała tylko
    z podsieci administratorów, bo tylko z niej API przyjmuje połączenia. Dlatego keytab, konta systemowe, które go
    czytają (usługa i OpenWEC), kopie maszyny i root serwera są zasobami Tier 0, a każda zmiana konfiguracji Watchdoga
@@ -216,9 +216,9 @@ Watchdog **nigdy**:
 1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz; 1.7 – opcjonalny urząd certyfikacji).
 2. AD, część pierwsza – 2.1 (czy jest CA), 2.2 (audyt OU Tier 0), 2.3 (grupy), 2.4 (DNS).
 3. Debian – 3.1 do 3.5 (system, konta, zapora, DNS i czas, konfiguracja Kerberos).
-4. Konto usługi – 2.5 (utworzenie konta, wpis odmowy, szablony certyfikatów) na PAW i **od razu** 3.6 na Debianie
-   (hasło jednorazowe ma żyć kilka minut). GPO z końca 2.5 – dopiero po 3.6.
-5. AD, część druga – GPO z końca 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy
+4. Konto usługi – 2.5 (utworzenie konta i wpis odmowy dla SELF) na PAW i **od razu** 3.6 na Debianie (hasło
+   jednorazowe ma żyć kilka minut). Szablony certyfikatów i GPO z 2.5 – zaraz po 3.6.
+5. AD, część druga – szablony certyfikatów i GPO z 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy
    odczytu), na końcu lista kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia
    w produkcji (usługa uruchomi się także bez niego, ale zakładka Stan ostrzega – 2.8).
 6. Debian – 3.7 (na razie tylko zmiana ręczna), 3.8 (wariant A, jeśli jest urząd certyfikacji), 3.9 (dziennik
@@ -227,7 +227,8 @@ Watchdog **nigdy**:
 8. **[od 0.3.0]** Pilotaż – rozdz. 7.
 
 > **Migracja z wersji 0.2.0 (usługa Windows).** Jeśli działa już Watchdog 0.2.0, usługa Windows pracuje dalej aż do
-> przełączenia (po rozdz. 5), a część kroków wykonujesz inaczej – inaczej zepsujesz działającą usługę:
+> przełączenia (po rozdz. 5). Część kroków wykonujesz wtedy inaczej niż w opisie – w przeciwnym razie zepsujesz
+> działającą usługę:
 >
 > - **2.3** – grup nie twórz (już istnieją), przenieś je do OU Tier 0; SID-y się nie zmieniają:
 >   `Move-ADObject -Identity (Get-ADGroup AdMng-Watchdog-Admins).DistinguishedName -TargetPath 'OU=Groups,OU=Tier 0,OU=Admin,DC=contoso,DC=com'`
@@ -243,9 +244,9 @@ Watchdog **nigdy**:
 > - **Przełączenie** (po rozdz. 5): zatrzymaj usługę Windows; `setspn -D HTTP/admng-wd.contoso.com svc-admngwd$`;
 >   `setspn -S HTTP/admng-wd.contoso.com ADMNG-WD$`; zmień rekord A i PTR `admng-wd` na adres Debiana (2.4) – albo,
 >   po wyłączeniu starego serwera, przenieś jego adres na Debiana (`/etc/network/interfaces` i `/etc/hosts`, z konsoli
->   maszyny), wtedy rekordy DNS zostają bez zmian; włącz
->   połączenie GPO WEF (`Set-GPLink -Name 'AdMng - WEF' -Target 'OU=Domain Controllers,DC=contoso,DC=com' -LinkEnabled Yes`);
->   potem 5.3 i 6.1. Na końcu usuń pozostałości starej usługi – „Migracja z wersji 0.2.0” na końcu 2.12.
+>   maszyny), wtedy rekordy DNS zostają bez zmian; włącz połączenie GPO WEF:
+>   `Set-GPLink -Name 'AdMng - WEF' -Target 'OU=Domain Controllers,DC=contoso,DC=com' -LinkEnabled Yes`; potem 5.3
+>   i 6.1. Na końcu usuń pozostałości starej usługi – „Migracja z wersji 0.2.0” na końcu 2.12.
 
 ---
 
@@ -400,7 +401,7 @@ HostName, OperatingSystem, IPv4Address` – dwa kontrolery.
 > **Bez DC02.** Jeśli nie budujesz drugiego kontrolera, usuń `DC02.contoso.com` z `krb5.conf` (3.5), z pliku źródeł
 > czasu `ad-dcs.sources` i z `resolv.conf` (3.4), adres 10.0.1.11 z `DCS` w zaporze (3.3), `--dc 'DC02$@CONTOSO.COM'`
 > przy generowaniu subskrypcji (4.4) i `DC02.contoso.com` z `Directory.Servers` (5.2). Kroki i sprawdzenia dotyczące
-> DC02 (m.in. w 2.4, 2.9, 2.10, 2.12, 3.4, 3.6 i 4.6) pomiń.
+> DC02 (m.in. w 2.4, 2.9, 2.10 – także z pętli kopii zasad inspekcji – 2.12, 3.4, 3.6 i 4.6) pomiń.
 
 ### 1.4 Czas w domenie
 
@@ -429,9 +430,9 @@ W VMware wyłącz w ustawieniach maszyny „Synchronize guest time with host”.
 
 ### 1.5 Struktura OU, konta i grupy testowe
 
-**Gdzie:** DC01, jako `CONTOSO\Administrator` (ADM-WS01 powstaje dopiero w 1.6). **Co i po co:** minimalna struktura z OU Tier 0
-(miejsce na konto usługi i grupy ról), OU dla zwykłych kont i OU „Pilot” na testy dMSA oraz kilka kont do testów
-z rozdz. 7. W produkcji OU Tier 0 już istnieje – nie twórz nowej, użyj swojej.
+**Gdzie:** DC01, jako `CONTOSO\Administrator` (ADM-WS01 powstaje dopiero w 1.6). **Co i po co:** minimalna struktura
+z OU Tier 0 (miejsce na konto usługi i grupy ról), OU dla zwykłych kont i OU „Pilot” na testy dMSA oraz kilka kont do
+testów z rozdz. 7. W produkcji OU Tier 0 już istnieje – nie twórz nowej, użyj swojej.
 
 ```powershell
 $d = 'DC=contoso,DC=com'
@@ -513,7 +514,7 @@ Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName 'Conto
 **Sprawdzenie:** polecenie z 2.1 pokazuje urząd `Contoso-Issuing-CA` z `dNSHostName : DC01.contoso.com` i szablonem
 `WebServer` na liście `certificateTemplates`. W laboratorium ciąg konfiguracji urzędu to
 `DC01.contoso.com\Contoso-Issuing-CA` – wpisuj go wszędzie tam, gdzie instrukcja podaje
-`CA01.contoso.com\Contoso-Issuing-CA` (2.1, 3.8).
+`CA01.contoso.com\Contoso-Issuing-CA` (2.1, 2.5, 3.8).
 
 ---
 
@@ -784,9 +785,9 @@ Get-DnsServerResourceRecord -ComputerName DC01.contoso.com -ZoneName 'contoso.co
   w sprawdzeniu niżej brakuje rekordu PTR, dodaj go:
   `Add-DnsServerResourceRecordPtr -ComputerName DC01.contoso.com -ZoneName '1.0.10.in-addr.arpa' -Name '25' -PtrDomainName 'admng-wd.contoso.com'`.
 - **Rekord wskazuje inny serwer albo jest aliasem CNAME** (zwykle stary serwer Watchdog 0.2.0 – w jego instrukcji
-  pod tym samym adresem 10.0.1.25) – **nie** dodawaj drugiego rekordu A: klienci i kontrolery dostawaliby na przemian oba adresy i połowa połączeń trafiałaby na stary
-  serwer. Przy migracji rekord zmieniasz dopiero przy przełączeniu (ramka w 0.4) – wtedy usuń stary rekord i jego PTR
-  i dodaj nowe:
+  pod tym samym adresem 10.0.1.25) – **nie** dodawaj drugiego rekordu A: klienci i kontrolery dostawaliby na przemian
+  oba adresy i połowa połączeń trafiałaby na stary serwer. Przy migracji rekord zmieniasz dopiero przy przełączeniu
+  (ramka w 0.4) – wtedy usuń stary rekord i jego PTR i dodaj nowe:
 
   ```powershell
   Remove-DnsServerResourceRecord -ComputerName DC01.contoso.com -ZoneName 'contoso.com' -Name 'admng-wd' -RRType A -RecordData '<stary adres>' -Force
@@ -812,9 +813,9 @@ pokaże jako źródło tylko adres IP.
 
 ### 2.5 Konto usługi `ADMNG-WD$`
 
-> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0, wpis odmowy dla SELF na tym obiekcie, wpisy odmowy na
-> szablonach certyfikatów (tylko gdy w lesie jest urząd Enterprise), a po 3.6 – GPO z odmową logowania. Gdzie: PAW
-> (Domain Admin), zaraz potem 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema
+> **W skrócie.** Co zmienia: nowy obiekt komputera w OU Tier 0 i wpis odmowy dla SELF na tym obiekcie, a po 3.6 –
+> wpisy odmowy na szablonach certyfikatów (tylko gdy w lesie jest urząd Enterprise) i GPO z odmową logowania. Gdzie:
+> PAW (Domain Admin), między tymi częściami 3.6 na Debianie. Ile trwa: ok. 15 minut bez GPO. Wynik: konto `ADMNG-WD$` z trzema
 > SPN-ami, tylko AES, bez prawa zapisu we własnym obiekcie. Wycofanie: 2.13, wiersze 4, 5 i 13.
 
 #### Czym jest i dlaczego tak
@@ -925,13 +926,14 @@ istnieje (5.4).
 
 #### Szablony certyfikatów (gdy w lesie jest urząd Enterprise)
 
-**Gdzie:** PAW, konto z Enterprise Admins (w lesie z jedną domeną wystarczy Domain Admin) – szablony leżą w partycji
-konfiguracji. Tylko gdy 2.1 pokazało urząd typu Enterprise (w laboratorium – po 1.7). **Co i po co:** konto
-`ADMNG-WD$` należy do Domain Computers, a ta grupa ma domyślnie prawo zapisu (Enroll) do szablonu „Computer”
-(`Machine`), opublikowanego na każdym urzędzie Enterprise. Kto ukradnie keytab, może więc poprosić o certyfikat
+**Kiedy:** zaraz po 3.6 – nie opóźniaj przez ten krok 3.6. **Gdzie:** PAW, konto z Enterprise Admins (w lesie z jedną
+domeną wystarczy Domain Admin) – szablony leżą w partycji konfiguracji. Tylko gdy 2.1 pokazało urząd typu Enterprise
+(w laboratorium – po 1.7). **Co i po co:** konto
+`ADMNG-WD$` należy do Domain Computers, a ta grupa ma domyślnie prawo rejestracji (Enroll) w szablonie „Computer”
+(`Machine`), opublikowanym na każdym urzędzie Enterprise. Kto ukradnie keytab, może więc poprosić o certyfikat
 komputera dla `admng-wd.contoso.com` i logować się nim jako `ADMNG-WD$` (PKINIT) przez cały okres ważności certyfikatu –
 zwykle rok. Zmiana hasła co 30 dni tego nie unieważnia; unieważnia dopiero wyłączenie konta albo odwołanie
-certyfikatu. Wpis „Odmów” dla praw Enroll i Autoenroll na każdym szablonie, do którego mogą się zapisywać Everyone,
+certyfikatu. Wpis „Odmów” dla praw Enroll i Autoenroll na każdym szablonie, w którym mogą się rejestrować Everyone,
 Authenticated Users albo Domain Computers, zamyka tę drogę. Usługa nie potrzebuje certyfikatu z urzędu (certyfikat API
 z 3.8 wnioskuje administrator Tier 0).
 
@@ -963,7 +965,7 @@ Get-ADObject -SearchBase "CN=Certificate Templates,CN=Public Key Services,CN=Ser
 ```
 
 Skrypt wypisuje nazwy szablonów, na których dodał wpis odmowy – na świeżym urzędzie co najmniej `Machine`. Ponowne
-uruchomienie niczego nie dubluje; uruchom go znowu po opublikowaniu nowego szablonu, do którego zapisują się szerokie
+uruchomienie niczego nie dubluje; uruchom go znowu po opublikowaniu nowego szablonu, w którym rejestrują się szerokie
 grupy (Watchdog zgłasza zmiany szablonów – 2.11).
 
 **Sprawdzenie:**
@@ -1003,9 +1005,10 @@ partycji DNS. Jeśli chcesz odebrać to prawo także temu kontu, dodaj wpis odmo
 (także na strefach odwrotnych i na `_msdcs.contoso.com` w `ForestDnsZones`), np.:
 `dsacls "DC=contoso.com,CN=MicrosoftDNS,DC=DomainDnsZones,DC=contoso,DC=com" /D "CONTOSO\ADMNG-WD$:CC"`.
 
-Kto ma keytab, ma tę tożsamość – i może też podrobić bilet do API Watchdoga (0.3, punkt 2). **[od 0.3.0]**
-Niezależnie od wpisów odmowy Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną (reguła
-`watchdog-self`) – poza jego własną, zaplanowaną zmianą hasła.
+Kto ma keytab, ma tę tożsamość – i może też podrobić bilet do API Watchdoga (0.3, punkt 2).
+
+**[od 0.3.0]** Niezależnie od wpisów odmowy Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną
+(reguła `watchdog-self`) – poza jego własną, zaplanowaną zmianą hasła.
 
 #### Jak działa zmiana hasła
 
@@ -1226,6 +1229,8 @@ dsacls 'OU=Komputery,OU=Firma,DC=contoso,DC=com' /I:T /G 'CONTOSO\<grupa>:CC;com
   konto utworzył członek Domain Admins, albo gdy właściciel konta jest na liście zasady „Domain controller: Allow
   computer account re-use during domain join” – konto przygotowane przez administratora domeny spełnia ten warunek.
 
+Na koniec ustaw 0:
+
 ```powershell
 Set-ADDomain -Identity contoso.com -Replace @{ 'ms-DS-MachineAccountQuota' = 0 }
 ```
@@ -1302,9 +1307,9 @@ container, domainDNS, lostAndFound, organization, organizationalUnit` (bez kontr
 klasy `computer`). Skrypt sprawdza obiekty wszystkich tych klas – także łatwy do przeoczenia `CN=Builtin`. Jeśli w
 wierszu jest inna klasa (rozszerzenie schematu), skrypt uwzględnia ją sam. Każdy następny wiersz to miejsce, w którym
 podany podmiot może utworzyć dMSA (albo nadać sobie takie prawo). Świeża domena testowa zwykle nie daje żadnych
-wierszy. Typowe znaleziska w produkcji: zespoły z pełną kontrolą nad „swoimi” OU,
-konta narzędzi do zarządzania tożsamością, właściciele OU będący kontami osób, a na samym obiekcie domeny – np.
-`Exchange Windows Permissions` z `WriteDacl` (2.2). Co zrobić: zawęź `CreateChild` do potrzebnych klas (użytkownik,
+wierszy. Typowe znaleziska w produkcji: zespoły z pełną kontrolą nad „swoimi” OU, konta narzędzi do zarządzania
+tożsamością, właściciele OU będący kontami osób, a na samym obiekcie domeny – np. `Exchange Windows Permissions`
+z `WriteDacl` (2.2). Co zrobić: zawęź `CreateChild` do potrzebnych klas (użytkownik,
 grupa, komputer), odbierz `GenericAll`/`WriteDacl`/`WriteOwner`, zmień właściciela na Domain Admins. Zanim cokolwiek
 zmienisz, zapisz SDDL obiektu do pliku tak jak w 2.2 – to Twój plan wycofania (polecenie przywracania – pod tabelą
 w 2.13). Do porównania możesz uruchomić skrypt Akamai `Get-BadSuccessorOUPermissions.ps1`
@@ -1345,10 +1350,12 @@ ustawienia; poniższy blok sam to sprawdza:
 foreach ($dc in 'DC01.contoso.com', 'DC02.contoso.com') {
     $n = $dc.Split('.')[0]
     if (Test-Path "$env:USERPROFILE\Documents\admng-auditpol-before-$n.csv") { "Kopia dla $n już istnieje – nie tworzę nowej"; continue }
-    Invoke-Command -ComputerName $dc {
+    $bytes = Invoke-Command -ComputerName $dc {
         auditpol /backup /file:C:\Windows\Temp\admng-auditpol-before.csv | Out-Null
-        Get-Content C:\Windows\Temp\admng-auditpol-before.csv; Remove-Item C:\Windows\Temp\admng-auditpol-before.csv
-    } | Out-File "$env:USERPROFILE\Documents\admng-auditpol-before-$n.csv" -Encoding utf8
+        , [System.IO.File]::ReadAllBytes('C:\Windows\Temp\admng-auditpol-before.csv')     # plik bez zmian (do auditpol /restore)
+        Remove-Item C:\Windows\Temp\admng-auditpol-before.csv
+    }
+    [System.IO.File]::WriteAllBytes("$env:USERPROFILE\Documents\admng-auditpol-before-$n.csv", [byte[]]$bytes)
     Invoke-Command -ComputerName $dc { wevtutil gl security } | Select-String 'maxSize' |
         ForEach-Object { "$n $_" } | Tee-Object -FilePath "$env:USERPROFILE\Documents\admng-auditpol-before-maxsize.txt" -Append
 }
@@ -1390,8 +1397,9 @@ i RDP – typ 10), 4625, 4771 i nieudane 4776 – więc dziennik zapełnia się 
 z najdłuższej przerwy w pracy odbiornika, jaką akceptujesz – po przerwie kontroler wysyła zaległe zdarzenia od
 miejsca, w którym skończył. Na start dziennik ma mieć **co najmniej 1 GB**, a w pilotażu zmierz rzeczywisty przyrost
 (7.4). Jeśli któryś zapisany wyżej wiersz `maxSize` jest mniejszy niż `1073741824`, ustaw rozmiar w tym GPO – 1 GB albo
-więcej, ale nie mniej niż największa zapisana wartość. Jeśli wszystkie DC mają co najmniej 1 GB, zostaw to ustawienie
-nieskonfigurowane: GPO o najwyższym priorytecie zmniejszyłoby rozmiar ustawiony gdzie indziej. Ustawienie: Szablony
+więcej, ale nie mniej niż największa zapisana wartość (GPO podaje rozmiar w KB: `maxSize` podzielone przez 1024). Jeśli
+wszystkie DC mają co najmniej 1 GB, zostaw to ustawienie nieskonfigurowane: GPO o najwyższym priorytecie zmniejszyłoby
+rozmiar ustawiony gdzie indziej. Ustawienie: Szablony
 administracyjne → Składniki systemu Windows → Usługa dziennika zdarzeń → Zabezpieczenia (Administrative Templates →
 Windows Components → Event Log Service → Security) → „Specify the maximum log file size (KB)” = `1048576` (albo więcej).
 Odpowiednik w PowerShell:
@@ -1679,7 +1687,7 @@ Remove-ADGroupMember -Identity 'S-1-5-32-573' -Members (Get-ADServiceAccount svc
 | 6 | Prawa odczytu `dsacls` (2.6) | domena, AdminSDHolder, Password Settings Container, Deleted Objects | `dsacls … \| Select-String ADMNG-WD`, test z Debiana | **przed** usunięciem konta: `dsacls <DN> /R 'CONTOSO\ADMNG-WD$'` na każdym z czterech obiektów (zmiany właściciela Deleted Objects nie cofamy) |
 | 7 | Odczyt GPO dla Domain Computers (2.7, tylko gdy potrzebne) | wybrane GPO | skrypt 2.7 | `Set-GPPermission -Guid <Id> -TargetName $dc -TargetType Group -PermissionLevel None -Replace` (`$dc` jak w 2.7; bez `-Replace` polecenie niczego nie zmienia) |
 | 8 | `ms-DS-MachineAccountQuota` = 0 (2.8) | obiekt domeny | odczyt atrybutu | `Set-ADDomain -Identity contoso.com -Replace @{ 'ms-DS-MachineAccountQuota' = <poprzednia> }` |
-| 9 | Poprawki prawa tworzenia dMSA (2.9) | ACL obiektu domeny, OU i kontenerów | skrypt 2.9 | jak 1 – zwykle nie wycofujesz |
+| 9 | Poprawki prawa tworzenia dMSA (2.9) | ACL obiektu domeny, OU, kontenerów, `CN=Builtin` | skrypt 2.9 | jak 1 – zwykle nie wycofujesz |
 | 10 | GPO „AdMng - inspekcja DC” + rozmiar dziennika (2.10) | OU Domain Controllers | `auditpol`, `wevtutil gl security` | GPO zostaw (zalecane – inspekcja przydaje się niezależnie od Watchdoga). Samo `Remove-GPO` **nie** przywraca poprzednich zasad – kontrolery zachowują ostatnie ustawienia w lokalnej konfiguracji. Jeśli trzeba wycofać: w tym GPO ustaw każdą podkategorię na wartość z kopii z 2.10 (polecenie pod tabelą; „No Auditing” tylko tam, gdzie kopia tak mówi), rozmiar dziennika – jak w kopii albo nieskonfigurowany; na DC `gpupdate /target:computer /force`, porównaj `auditpol /get /category:*` z kopią i dopiero potem `Remove-GPO -Name 'AdMng - inspekcja DC'` |
 | 11 | SACL (2.11) | obiekt domeny, AdminSDHolder, `CN=Public Key Services` | blok sprawdzenia z 2.11 | blok „Wycofanie” z 2.11 – usuwa tylko wpisy dodane w 2.11 |
 | 12 | GPO „AdMng - WEF” (2.12) | OU Domain Controllers | rejestr, `wevtutil`, Forwarding/Operational | `Remove-GPO -Name 'AdMng - WEF'` i `gpupdate /force` na DC – kontrolery przestają wysyłać zdarzenia, dostęp NETWORK SERVICE do Security wraca do stanu domyślnego |
@@ -1692,9 +1700,10 @@ $guids = '{0CCE9235-69AE-11D9-BED3-505054503030}', '{0CCE9236-69AE-11D9-BED3-505
          '{0CCE9238-69AE-11D9-BED3-505054503030}', '{0CCE923C-69AE-11D9-BED3-505054503030}', '{0CCE9215-69AE-11D9-BED3-505054503030}',
          '{0CCE9242-69AE-11D9-BED3-505054503030}', '{0CCE923F-69AE-11D9-BED3-505054503030}', '{0CCE922F-69AE-11D9-BED3-505054503030}'
 Import-Csv "$env:USERPROFILE\Documents\admng-auditpol-before-DC01.csv" |
-    Where-Object { $guids -contains $_.'Subcategory GUID' } | Format-Table Subcategory, 'Inclusion Setting'
+    Where-Object { $guids -contains $_.'Subcategory GUID' } | Format-Table Subcategory, 'Inclusion Setting', 'Setting Value'
 ```
 
+`Setting Value`: `0` – brak inspekcji (No Auditing), `1` – sukces, `2` – niepowodzenie, `3` – sukces i niepowodzenie.
 Zamiast ustawiania wartości w GPO możesz po `Remove-GPO` przywrócić kopię na każdym DC: skopiuj na niego jego plik
 kopii i wykonaj `auditpol /restore /file:<plik>`.
 
@@ -1870,8 +1879,8 @@ ssh -o PreferredAuthentications=publickey adm-jan@admng-wd.contoso.com
 ```
 
 Dopiero wtedy wyłącz hasła i roota. **Nie zamykaj tej sesji**, dopóki sprawdzenie niżej nie przejdzie. Wycofanie
-(z otwartej sesji albo z konsoli maszyny wirtualnej): `sudo rm /etc/ssh/sshd_config.d/10-admng.conf && sudo systemctl
-reload ssh`.
+(z otwartej sesji albo z konsoli maszyny wirtualnej):
+`sudo rm /etc/ssh/sshd_config.d/10-admng.conf && sudo systemctl reload ssh`.
 
 ```bash
 cat > /etc/ssh/sshd_config.d/10-admng.conf <<'EOF'
@@ -1900,7 +1909,7 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
 | Kierunek | Port | Druga strona | Po co |
 |---|---|---|---|
 | przychodzący | 22/tcp | 10.0.20.0/24 (w tym PAW) | SSH administratorów |
-| przychodzący | 8443/tcp | 10.0.20.0/24 | API Watchdog (HTTPS + Kerberos) dla AD Manager |
+| przychodzący | 8443/tcp | 10.0.20.0/24 | API Watchdog (HTTPS + Kerberos) dla AD Managera |
 | przychodzący | 5985/tcp | 10.0.1.10, 10.0.1.11 | OpenWEC – zdarzenia z kontrolerów |
 | wychodzący | 53/udp+tcp | kontrolery | DNS |
 | wychodzący | 88/udp+tcp | kontrolery | Kerberos |
@@ -2025,7 +2034,7 @@ getent hosts DC01.contoso.com DC02.contoso.com
 host -t SRV _kerberos._tcp.contoso.com
 host admng-wd.contoso.com; host 10.0.1.25
 chronyc -N sources; chronyc tracking | grep -E 'Leap status|System time'
-chronyc ntpdata DC01.contoso.com | grep -E 'Root (delay|dispersion)'
+chronyc ntpdata 10.0.1.10 | grep -E 'Root (delay|dispersion)'
 ```
 
 Oczekiwane: adresy 10.0.1.10 i 10.0.1.11; rekordy SRV obu kontrolerów na porcie 88; `admng-wd.contoso.com has address
@@ -2547,8 +2556,8 @@ tylko **czyta** te pliki; niczego w nich nie zmienia.
 
 ### 4.2 Instalacja
 
-**Gdzie:** Debian. Pakiet `admng-openwec` (osobne kompilacje dla Debiana 12 i 13)
-instaluje się razem z pakietem Watchdoga (rozdz. 5), który od niego zależy:
+**Gdzie:** Debian. Pakiet `admng-openwec` (osobne kompilacje dla Debiana 12 i 13) instaluje się razem z pakietem
+Watchdoga (rozdz. 5), który od niego zależy:
 
 ```bash
 apt install ./admng-openwec_<wersja>~deb13_amd64.deb ./admng-watchdog_<wersja>_amd64.deb
@@ -2905,13 +2914,13 @@ jeśli macie Zabbix lub SIEM, podepnijcie pod nie `journalctl` (priorytet warnin
 
    Oczekiwane: bilet `Server: HTTP/admng-wd.contoso.com @ CONTOSO.COM` z `KerbTicket Encryption Type:
    AES-256-CTS-HMAC-SHA1-96`; `TcpTestSucceeded : True`.
-2. W AD Manager: **Narzędzia → Watchdog** (Ctrl+Shift+A) → adres `https://admng-wd.contoso.com:8443` → **Połącz**.
+2. W AD Managerze: **Narzędzia → Watchdog** (Ctrl+Shift+A) → adres `https://admng-wd.contoso.com:8443` → **Połącz**.
    Zawsze pełna nazwa z rekordu A – nie adres IP, nie alias (wtedy Windows próbuje NTLM, który usługa odrzuca).
 3. **Wariant A** (certyfikat z firmowego CA) – połączenie od razu.
-   **Wariant B** (certyfikat własny serwera) – AD Manager pokaże okno z odciskiem
-   SHA-256 (w grupach po 4 znaki), nazwą i datami ważności. Na serwerze uruchom `sudo admng-watchdog cert-fingerprint`,
-   porównaj **cały** odcisk i dopiero wtedy kliknij „Ufam temu certyfikatowi”. Odcisk zostaje zapamiętany w
-   ustawieniach AD Manager (Ustawienia → Watchdog, z przyciskiem „Usuń przypięcie”); potwierdzenie robisz na każdej
+   **Wariant B** (certyfikat własny serwera) – AD Manager pokaże okno z odciskiem SHA-256 (w grupach po 4 znaki),
+   nazwą i datami ważności. Na serwerze uruchom `sudo admng-watchdog cert-fingerprint`, porównaj **cały** odcisk
+   i dopiero wtedy kliknij „Ufam temu certyfikatowi”. Odcisk zostaje zapamiętany w ustawieniach AD Managera
+   (Ustawienia → Watchdog, z przyciskiem „Usuń przypięcie”); potwierdzenie robisz na każdej
    stacji raz. Zmieniony certyfikat AD Manager pokaże jako zmianę (stary i nowy odcisk) – nie akceptuj go bez
    sprawdzenia na serwerze.
 4. Role: członkowie `AdMng-Watchdog-Admins` widzą wszystko i mogą zmieniać konfigurację; `AdMng-Watchdog-Viewers` – tylko
@@ -3001,7 +3010,7 @@ zakończeniu trybu wdrożenia (godziny pracy: pon.–pt. 7:00–17:00).
 | 13 | `Set-ADDomain -Identity contoso.com -Replace @{ 'ms-DS-MachineAccountQuota' = 10 }` (z 0) | „Zmieniono zasady domeny” – `ms-DS-MachineAccountQuota: 0 → 10`, **krytyczne** (reguła `tier0-machine-quota`); powrót do 0 – wysokie | adm-jan / ADM-WS01 | e-mail natychmiast |
 | 14 | `Set-ADComputer ADMNG-WD -KerberosEncryptionType RC4, AES128, AES256`, potem z powrotem `-KerberosEncryptionType AES128, AES256` | zmiana konta usługi – **krytyczne** (reguła `watchdog-self`) – oba kroki; Stan → Konto usługi chwilowo pokazuje rozbieżność typów szyfrowania | adm-jan / ADM-WS01 | e-mail natychmiast |
 | 15 | `Add-ADGroupMember AdMng-Watchdog-Viewers -Members hd-ewa` | „Dodano do grupy uprzywilejowanej” (grupy ról Watchdoga są traktowane jak uprzywilejowane); po ≤ 5 min `hd-ewa` może się połączyć jako Viewer | adm-jan / ADM-WS01 | e-mail natychmiast |
-| 16 | W AD Manager zmień dowolną regułę i zapisz | „Zmieniono konfigurację Watchdog” (kto, co) | adm-jan | e-mail także do dotychczasowych odbiorców |
+| 16 | W AD Managerze zmień dowolną regułę i zapisz | „Zmieniono konfigurację Watchdog” (kto, co) | adm-jan | e-mail także do dotychczasowych odbiorców |
 | 17 | (opcjonalnie) na DC02: `wevtutil cl Security` | „Wyczyszczono dziennik zabezpieczeń” (krytyczne) | konto, które wyczyściło dziennik | e-mail natychmiast |
 | 18 | Ta sama zmiana dwiema drogami: w AD Managerze zmień opis konta `anna.nowak` na „test LDAP”, potem w PowerShell `Set-ADUser anna.nowak -Description 'test ADWS'` | dwa zdarzenia „Zmiana parametrów konta” – `description`: było → jest | pierwsze: adm-jan / ADM-WS01 (DNS); drugie: adm-jan / ADM-WS01 albo „lokalnie na DC” – zanotuj wynik (7.4) | raport dzienny |
 
@@ -3143,7 +3152,7 @@ zespołem.
 
 | Objaw | Przyczyna | Rozwiązanie |
 |---|---|---|
-| `Clock skew too great` | zegar Debiana lub DC różni się o więcej niż 5 min: chrony odrzuca kontrolery (brak `maxdistance` z 3.4, duży rozrzut czasu DC) albo emulator PDC nie ma źródła czasu | `chronyc tracking`, `chronyc -N sources`, `chronyc ntpdata DC01.contoso.com` (`Root dispersion`), plik `/etc/chrony/conf.d/admng-ad.conf` (3.4); na DC01 `w32tm /query /status` (1.4) |
+| `Clock skew too great` | zegar Debiana lub DC różni się o więcej niż 5 min: chrony odrzuca kontrolery (brak `maxdistance` z 3.4, duży rozrzut czasu DC) albo emulator PDC nie ma źródła czasu | `chronyc tracking`, `chronyc -N sources`, `chronyc ntpdata 10.0.1.10` (`Root dispersion`), plik `/etc/chrony/conf.d/admng-ad.conf` (3.4); na DC01 `w32tm /query /status` (1.4) |
 | `Cannot contact any KDC for realm 'CONTOSO.COM'` | DNS, zapora (88/tcp), zła nazwa KDC w `krb5.conf` | `getent hosts DC01.contoso.com`, `nft list ruleset`, `KRB5_CONFIG` ustawione? |
 | `Client not found in Kerberos database` | zła nazwa konta (brak `$`, literówka, małe litery obszaru) | `ADMNG-WD$@CONTOSO.COM` – w apostrofach (znak `$`) |
 | `Client's credentials have been revoked` | konto wyłączone (np. hasło jednorazowe nie spełniło zasad i konto powstało wyłączone) | `Get-ADComputer ADMNG-WD -Properties Enabled` (2.5) |
