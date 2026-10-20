@@ -1,0 +1,8 @@
+Machine Name,Policy Target,Subcategory,Subcategory GUID,Inclusion Setting,Exclusion Setting,Setting Value
+,System,Audit Credential Validation,{0cce923f-69ae-11d9-bed3-505054503030},Success and Failure,,3
+,System,Audit Security Group Management,{0cce9237-69ae-11d9-bed3-505054503030},Success,,1
+,System,Audit Directory Service Changes,{0cce923c-69ae-11d9-bed3-505054503030},Success,,1
+,System,Audit Audit Policy Change,{0CCE922F-69AE-11D9-BED3-505054503030},Success and Failure,,3
+,System,Audit Other Object Access Events,{0cce9227-69ae-11d9-bed3-505054503030},No Auditing,,0
+,,Option:CrashOnAuditFail,,Disabled,,0
+,,"Option:AuditBaseObjects",,Enabled,,1

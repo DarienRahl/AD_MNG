@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GPP Local Users and Groups ([MS-GPPREF] 2.2.1.5 "Groups"; written by hand from the schema). The cpassword is made up. -->
+<Groups clsid="{3125E937-EB16-4b4c-9934-544FC6D24D26}">
+  <User clsid="{DF5F1855-51E5-4d24-8B1A-D9BDE98BA1D1}" name="Administrator (built-in)" image="2" changed="2026-10-01 09:15:00" uid="{A1B2C3D4-0000-4000-8000-000000000001}">
+    <Properties action="U" newName="" fullName="" description="Konto lokalnego administratora – stacje w Łodzi" cpassword="Zm9vYmFyLW5vdC1hLXJlYWwtY3Bhc3N3b3JkLTIwMjY=" changeLogon="0" noChange="1" neverExpires="1" acctDisabled="0" subAuthority="RID_ADMIN" userName="Administrator (built-in)"/>
+  </User>
+  <Group clsid="{6D4A79E4-529C-4481-ABD0-F5BD7EA93BA7}" name="Administrators (built-in)" image="2" changed="2026-10-01 09:16:00" uid="{A1B2C3D4-0000-4000-8000-000000000002}" userContext="0" removePolicy="0">
+    <Properties action="U" newName="" description="" deleteAllUsers="0" deleteAllGroups="0" removeAccounts="0" groupSid="S-1-5-32-544" groupName="Administrators (built-in)">
+      <Members>
+        <Member name="CONTOSO\Administratorzy stacji" action="ADD" sid="S-1-5-21-1004336348-1177238915-682003330-1110"/>
+        <Member name="CONTOSO\Łukasz.Żak" action="ADD" sid="S-1-5-21-1004336348-1177238915-682003330-1111"/>
+      </Members>
+    </Properties>
+    <Filters>
+      <FilterOrgUnit bool="AND" not="0" name="OU=Stacje robocze,DC=contoso,DC=com" userContext="0" directMember="0"/>
+    </Filters>
+  </Group>
+</Groups>
