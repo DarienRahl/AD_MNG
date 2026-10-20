@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a, B6)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a, B6, B7)
 
 **B1.**
 
@@ -2309,6 +2309,78 @@ Service `Identity/WatchdogAccountSource.cs` (new), `ServiceAccountMonitor`, `Ser
 - **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests 2172 passed (4 skipped without the lab
   environment), Watchdog.Service.Tests 672 passed (16 skipped); AdMng.Core.Tests and AdMng.Presentation.Tests (the shared
   `AdMng.Testing` changed) green.
+
+**B7 (AD Manager, section 18).** Code: Client `WatchdogHttpHandlerFactory` (`IsTrusted` public and tightened,
+`Create(options, capture)`), new `WatchdogServerCertificate` + `WatchdogCertificateCapture`, `WatchdogClientErrors`,
+`WatchdogClientException` (kinds `CertificateUntrusted`/`CertificateChanged`, `Certificate`, `PinnedCertificateSha256`),
+`WatchdogHttpClient`; Presentation `Watchdog/WatchdogCertificateTrustViewModel.cs`, `WatchdogStatusSectionViewModel.cs`,
+`WatchdogSourcesViewModel.cs` (new), `WatchdogConnectionService`, `WatchdogDocumentViewModel`, `WatchdogStatusViewModel`,
+`WatchdogChangeRowViewModel` (+ `WatchdogChangeContext`), `WatchdogEventDetailsViewModel`, `WatchdogDisplay`,
+`WatchdogSubTab.Sources`, `Settings/SettingsViewModel.cs`, `IDialogService.ShowWatchdogCertificateTrustAsync`, 30 new
+keys en + pl (`L.WatchdogLinux`); App `Views/Watchdog/WatchdogCertificateTrustWindow` and `WatchdogSourcesView` (new),
+`WatchdogView`, `WatchdogStatusView`, `SettingsWindow`, `AppHost` (`AddWindow`), `Services/DialogService.cs`,
+`SmokeTest`; test support `FakeWatchdogClient.ServerCertificate`, `SampleStatus.CreateLinux()`, `.Certificate`,
+`.PreviousCertificateSha256`; tests `WatchdogCertificateTests`, `WatchdogStageBTests` (Presentation),
+`WatchdogHttpClientTests` (Service), UI tests in `WatchdogViewTests` / `ToolWindowTests`, screenshots 15 and 16.
+
+- **Handler (18 item 1) as specified:** accepted when system validation passes, otherwise only when the errors are exactly
+  `RemoteCertificateChainErrors` and the leaf SHA-256 equals the pin (a name mismatch or a missing certificate never, also
+  with a matching pin). Every handshake records its verdict in the handler's `WatchdogCertificateCapture` (the leaf when
+  it was refused for its chain only, else nothing – a later name mismatch clears it); `WatchdogHttpClient` turns an
+  `AuthenticationException` with a captured leaf into `CertificateUntrusted` (no pin) or `CertificateChanged` (another
+  pin, `PinnedCertificateSha256` normalized), else `CertificateInvalid` as before. The capture is per handler, not per
+  request: two concurrent handshakes to the same service show the same leaf.
+- **Connection state:** the two kinds map to the existing state `CertificateInvalid` (no new `WatchdogConnectionState`;
+  own banner texts `Watchdog.Connection.CertificateUntrusted/Changed`). The dialog opens by itself once per connection
+  attempt (opening the tab, Connect, Retry/F5); a certificate failure of a poll or of one request while connected only
+  changes the banner, which offers „Sprawdź certyfikat…” (`ReviewCertificateCommand`). "Ufam temu certyfikatowi" stores
+  `PinnedCertificateSha256` (64 upper-case hex digits) and connects once more without asking again; "Anuluj" changes
+  nothing. Enter and Esc cancel (the focus starts on "Anuluj") – the confirmation needs the explicit button.
+  `WatchdogConnectionService.EnsureConfigured` reconfigures the client when the pin in the settings differs from the
+  one it was configured with.
+- **Additions not in 18:** setting the address of another host or port removes the pin (it belongs to the service it was
+  confirmed for; the other service is a first connection, not a "changed" certificate); a certificate outside its
+  validity period gets a red note in the dialog. "Usuń przypięcie" in Settings → Watchdog removes the pin on Save (Cancel
+  keeps it) and counts from the next connection.
+- **Fingerprint format:** 16 groups of four hex digits, eight per line (18 item 1). The server's
+  `admng-watchdog cert-fingerprint` prints the openssl form `3F:2A:9C:…`; the same digits, but B8 should say "compare
+  digit by digit" in WATCHDOG-LINUX (or print groups of four as well).
+- **Status (18 item 2):** four cards below the existing ones, built from `StatusDto.ServiceAccount`, `.Collector`,
+  `.GpoContent`, `.Host`; a section the service does not report (null – today Collector and GpoContent, the Windows
+  service all four) reads „Usługa nie raportuje tej sekcji…” in state Unknown, `GpoContent.Enabled = false` reads
+  "Disabled". Each card lists the Warning/Error checks of its codes with their Polish remedies (`serviceAccount.*`;
+  `wec.*`; `gpo.*` + `sysvol.*`; `host.*` + `directory.notSealed` – the Host card's state is the worst of them, Host has
+  no state of its own); free space is `Storage.FreeBytes`. „Kolektor WEF” shows one line per DC (last record, lag,
+  backlog, stored, rejected; the error code as tool tip). The attribution card names the source localized
+  ("OpenWEC (WEF)").
+- **Events (18 item 3):** kinds 510–512 and 909 had their texts since the contract step; the GUI has no per-kind icons,
+  the list shows the object kind's icon (GroupPolicy → container, Watchdog → watchdog), so no new icons. Rows of 510/512:
+  the key split at '/' and at the last '!' of a registry key, joined by " › " (raw key as tool tip), `File/…` rows with
+  `unreadable` → „nie udało się odczytać”, the summary row `gpo.moreChanges` → "Pozostałe ustawienia – nie pokazano N z
+  M zmienionych ustawień"; the value-less nTSecurityDescriptor row of an `auditSettings` event → `Value.AuditSettingsChanged`
+  (like `AlertContentBuilder`). In collector mode (status source OpenWec) the details pane shows the collector variant of
+  `DC_UNREACHABLE` and its remedy; the feed's actor column keeps the plain reason text.
+- **Configuration (18 item 4):** the v1 GUI had no editor for Attribution, Directory or Retention, so a new sub-tab
+  „Źródła i retencja” (`WatchdogSubTab.Sources`, appended so stored indexes stay) edits through the shared config session:
+  attribution on/off, source (offers OpenWEC (WEF) only; a stored Windows source is listed too, with a hint, until it is
+  replaced), `DropComputerLogons`, `DropAnonymousLogons`, `CollectorSilenceWarning/Error` (minutes), `GpoContent`
+  (enabled, SYSVOL lag tolerance in minutes, `MaxFileMb`, `MaxTotalMb`, `MaxFiles`) and `Retention.LogonRecordsHours`.
+  Validation issues bind by path (`attribution.*`, `directory.gpoContent*`, `retention.logonRecordsHours`); Core has no
+  range checks for the collector, GPO and logon-record fields yet (B4/B5b). The four new built-in rules need no GUI code:
+  they come with the service's configuration (built-in badge, Tier-0 protection reported as `tier0Suppression`); the fake
+  client's sample configuration was not extended (its 25 rules are counted by UI tests).
+- **Localization:** `WatchdogStageBTests.EveryContractValue_HasALocalizedText` checks en and pl texts of every kind,
+  tag, reason (+ remedy), `ConfigValidationCodes` value, keytab result, secrets-key variant, attribution source, sub-tab,
+  `wec.<dc>.*` / `gpo.<guid>.*` check and client error kind, on top of the existing key-family tests.
+- **Windows-only parts:** the certificate window is registered with `AddWindow`, opened from `DialogService`, rendered by
+  `SmokeTest` (both variants) and covered by UI tests (`CertificateConfirmation_*`, `LinuxService_StatusSections_*`,
+  `Settings_ShowTheWatchdogPin_*`); screenshots `15-watchdog-certificate.png`, `16-watchdog-sources.png`, and
+  `13-watchdog-status.png` now shows the Linux status of today (`SampleStatus.CreateLinux()`). They compile here; running
+  them and reviewing the screenshots is the Windows CI's part of the acceptance.
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings (the WPF projects and `AdMng.App.UiTests` compile on Linux);
+  AdMng.Presentation.Tests 858 passed, Watchdog.Service.Tests 682 passed (16 skipped), Watchdog.Core.Tests 2172 passed
+  (4 skipped; the shared `AdMng.Watchdog.Testing` changed). Not run here: `AdMng.App.UiTests`, `AdMng.exe --smoke-test`
+  and the screenshots (Windows CI).
 
 ---
 
