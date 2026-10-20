@@ -63,5 +63,10 @@
     "file": "13-watchdog-status.png",
     "title_pl": "Watchdog – stan usługi",
     "title_en": "Watchdog – service status"
+  },
+  {
+    "file": "14-logon-hours.png",
+    "title_pl": "Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy",
+    "title_en": "Logon hours – the weekly schedule of an account in local time, office hours selected"
   }
 ]
