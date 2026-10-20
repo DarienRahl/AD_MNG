@@ -315,3 +315,42 @@ jobs:
           done
           echo "::error::Could not push to $branch after 3 attempts."
           exit 1
+
+  linux-package:
+    # AdMng Watchdog on Linux (docs/dev/watchdog-linux-design.md 13, 20 item 4, 21 B1): one amd64 .deb for Debian 12 and
+    # 13, installed into plain Debian containers with the Microsoft repository (no systemd as PID 1 there: the units are
+    # checked offline with systemd-analyze verify / security).
+    name: Linux package (Debian 12 and 13)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build admng-watchdog .deb
+        run: tools/packaging/build-deb.sh --output artifacts/deb
+      - name: Install test on Debian 12 and 13
+        # Users, modes, credential, certificate, idempotent postinst, systemd-analyze verify + security (exposure <= 2.0),
+        # nft -c of the example ruleset, --check-config (placeholders fail, real SIDs pass), --smoke-test as
+        # admng-watchdog, a Production start with the credential (/healthz over TLS), remove keeps the configuration,
+        # purge keeps /var/lib/admng-watchdog.
+        run: |
+          deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
+          for release in 12 13; do
+            echo "::group::Debian $release"
+            docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" "mirror.gcr.io/library/debian:$release" \
+              bash /src/tools/packaging/test-deb-install.sh "/src/artifacts/deb/$deb" /src/packaging/admng-watchdog
+            echo "::endgroup::"
+          done
+      - name: lintian (Debian 13)
+        run: |
+          deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
+          docker run --rm -v "$PWD:/src:ro" mirror.gcr.io/library/debian:13 bash -c \
+            "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends lintian >/dev/null \
+             && lintian --fail-on error --no-tag-display-limit /src/artifacts/deb/$deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admng-watchdog-deb
+          path: artifacts/deb/*.deb
+          retention-days: 14
