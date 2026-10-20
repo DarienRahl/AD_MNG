@@ -1,5 +1,7 @@
 # Build output
 bin/
+# ... except the package's shell wrappers (packaging/admng-watchdog/bin: admng-watchdog, admng-watchdog-functions)
+!packaging/**/bin/
 obj/
 artifacts/
 publish/

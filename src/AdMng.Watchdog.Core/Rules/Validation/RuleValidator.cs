@@ -1,10 +1,12 @@
 using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Contracts.Events;
 
 namespace AdMng.Watchdog.Core.Rules.Validation;
 
 /// <summary>
-/// Rules (8.3, 12.3): <c>lockedRule</c> (the shipped locked rules exist, stay locked and enabled and keep their kinds;
-/// any locked rule stays enabled), <c>exclusionReason</c>, the delivery ranges, and the warnings <c>tier0Exclusion</c>,
+/// Rules (8.3, 12.3): <c>lockedRule</c> (the shipped locked rules exist, stay locked and enabled, keep their kinds and
+/// their delivery is not weakened; any locked rule stays enabled), <c>exclusionReason</c>, the delivery ranges, and the
+/// warnings <c>tier0Exclusion</c>,
 /// <c>noRecipients</c> and <c>smtpDisabledButUsed</c>.
 /// </summary>
 internal static class RuleValidator
@@ -55,8 +57,80 @@ internal static class RuleValidator
             {
                 run.Error(path + ".kinds", ConfigValidationCodes.LockedRule, $"The kinds of the locked rule \"{shipped.Id}\" cannot be changed.", shipped.Id);
             }
+
+            DeliveryWeakenings(run.Configuration.Notifications, rule, shipped, (property, what) =>
+                run.Error(path + "." + property, ConfigValidationCodes.LockedRule, $"The {what} of the locked rule \"{shipped.Id}\" cannot be weakened.", shipped.Id));
         }
     }
+
+    /// <summary>
+    /// A locked rule whose delivery is switched off is a disabled rule in disguise: compared with the shipped rule,
+    /// <c>immediate</c>, <c>includeInDigest</c> and <c>allEnabledChannels</c> cannot be turned off, <c>hours</c> cannot
+    /// become narrower, at least one recipient group or channel stays, notifications cannot be suppressed per object,
+    /// capped below <c>notifications.maxMessagesPerRulePerHour</c> or aggregated longer than
+    /// <c>notifications.aggregationWindow</c>, and a severity override cannot lower them below Critical (throttling exempts
+    /// only Critical). Re-targeting to other recipients and strengthening stay allowed.
+    /// </summary>
+    /// <remarks>Also used for the Tier-0 suppression of the stage B rules (<see cref="Tier0SuppressionValidator"/>):
+    /// <paramref name="weakened"/> gets the property path below the rule and a description.</remarks>
+    internal static void DeliveryWeakenings(NotificationSettings notifications, RuleSettings rule, RuleSettings shipped, Action<string, string> weakened)
+    {
+        var delivery = rule.Delivery;
+        var expected = shipped.Delivery;
+        void Weakened(string property, string what) => weakened(property, what);
+
+        if (expected.Immediate && !delivery.Immediate)
+        {
+            Weakened("delivery.immediate", "immediate delivery");
+        }
+
+        if (expected.IncludeInDigest && !delivery.IncludeInDigest)
+        {
+            Weakened("delivery.includeInDigest", "digest delivery");
+        }
+
+        if (expected.AllEnabledChannels && !delivery.AllEnabledChannels)
+        {
+            Weakened("delivery.allEnabledChannels", "delivery to every enabled channel");
+        }
+
+        if (HoursRank(delivery.Hours) < HoursRank(expected.Hours))
+        {
+            Weakened("delivery.hours", "delivery hours");
+        }
+
+        if (expected.RecipientGroupIds.Count + expected.ChannelIds.Count > 0 && delivery.RecipientGroupIds.Count + delivery.ChannelIds.Count == 0)
+        {
+            Weakened("delivery.recipientGroupIds", "recipient list");
+        }
+
+        if (delivery.RepeatSuppression is { } suppression && suppression > (expected.RepeatSuppression ?? TimeSpan.Zero))
+        {
+            Weakened("delivery.repeatSuppression", "repeat suppression");
+        }
+
+        if (delivery.MaxMessagesPerHour is { } cap && cap < (expected.MaxMessagesPerHour ?? notifications.MaxMessagesPerRulePerHour))
+        {
+            Weakened("delivery.maxMessagesPerHour", "hourly message cap");
+        }
+
+        if (delivery.AggregationWindow is { } window && window > (expected.AggregationWindow ?? notifications.AggregationWindow))
+        {
+            Weakened("delivery.aggregationWindow", "aggregation window");
+        }
+
+        if (shipped.Severity is null && rule.Severity is { } severity && severity < Severity.Critical)
+        {
+            Weakened("severity", "notification severity");
+        }
+    }
+
+    private static int HoursRank(DeliveryHours hours) => hours switch
+    {
+        DeliveryHours.Always => 2,
+        DeliveryHours.Default => 1,
+        _ => 0,
+    };
 
     private static void Rule(ValidationRun run, string path, RuleSettings rule)
     {

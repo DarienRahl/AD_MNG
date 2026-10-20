@@ -22,4 +22,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- GPO content fixtures (stage B design 8.4), written by hand from the Microsoft format specifications. -->
+    <None Update="Gpo\Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

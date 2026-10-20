@@ -29,6 +29,7 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     private readonly Lock _gate = new();
     private HttpClient? _client;
     private WatchdogClientOptions? _options;
+    private WatchdogCertificateCapture? _capture;
 
     public WatchdogHttpClient(TimeProvider timeProvider, ILogger<WatchdogHttpClient> logger)
     {
@@ -63,9 +64,11 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     public void Configure(WatchdogClientOptions? options)
     {
         HttpClient? client = null;
+        WatchdogCertificateCapture? capture = null;
         if (options is not null)
         {
-            var handler = WatchdogHttpHandlerFactory.Create(options);
+            capture = new WatchdogCertificateCapture();
+            var handler = WatchdogHttpHandlerFactory.Create(options, capture);
             var baseAddress = options.BaseAddress.AbsoluteUri.EndsWith('/') ? options.BaseAddress : new Uri(options.BaseAddress.AbsoluteUri + "/");
             client = new HttpClient(handler, disposeHandler: true)
             {
@@ -85,6 +88,7 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
             previous = _client;
             _client = client;
             _options = options;
+            _capture = capture;
         }
 
         previous?.Dispose();
@@ -215,10 +219,14 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     {
         HttpClient client;
         TimeSpan requestTimeout;
+        WatchdogCertificateCapture? capture;
+        string? pin;
         lock (_gate)
         {
             client = _client ?? throw new WatchdogClientException(WatchdogClientErrorKind.NotConfigured, "The watchdog service address is not configured.");
             requestTimeout = timeout ?? _options!.RequestTimeout;
+            capture = _capture;
+            pin = _options!.PinnedCertificateSha256;
         }
 
         using var timer = new CancellationTokenSource(requestTimeout, _timeProvider);
@@ -255,7 +263,7 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
         {
             Log.Failed(_logger, method.Method, route, ex.GetType().Name);
-            throw WatchdogClientErrors.FromException(ex, cancellationToken.IsCancellationRequested);
+            throw WatchdogClientErrors.FromException(ex, cancellationToken.IsCancellationRequested, capture?.Rejected, pin);
         }
     }
 

@@ -14,6 +14,9 @@ namespace AdMng.Watchdog.Core.Scans;
 /// contacts against <c>MassComputerDeletion</c> (High), per resolved actor first, otherwise overall. Cooldown = window,
 /// restart-safe (an existing burst event of the same kind/class in the window suppresses another). A computer burst
 /// attributed to one actor offers that actor as a <c>computerCleanupAccount</c> exclusion suggestion for <c>bursts</c>.
+/// The candidates are the events detected within the window; they are a burst only when the changes themselves happened
+/// within one window (<see cref="ChangeTime"/>) – deletions or lockouts spread over hours and found together (catch-up
+/// after an outage, Resync, the reconciliation) are not.
 /// </summary>
 internal sealed class BurstDetector
 {
@@ -66,7 +69,7 @@ internal sealed class BurstDetector
             return;
         }
 
-        var locked = Distinct(recent.Where(e => e.Kind == WatchEventKind.AccountLockedOut && e.DetectedAt >= since));
+        var locked = LargestBurst(recent.Where(e => e.Kind == WatchEventKind.AccountLockedOut && e.DetectedAt >= since), settings.Window);
         if (locked.Count < settings.Threshold)
         {
             return;
@@ -93,11 +96,11 @@ internal sealed class BurstDetector
         var byActor = deletions
             .Where(e => e.Attribution is { Status: AttributionStatus.Resolved, Actor.Sid: not null })
             .GroupBy(e => e.Attribution.Actor!.Sid!, StringComparer.OrdinalIgnoreCase)
-            .Select(g => (Actor: g.First().Attribution, Objects: Distinct(g)))
+            .Select(g => (Actor: g.First().Attribution, Objects: LargestBurst(g, settings.Window)))
             .Where(g => g.Objects.Count >= settings.Threshold)
             .OrderByDescending(g => g.Objects.Count)
             .FirstOrDefault();
-        var overall = Distinct(deletions);
+        var overall = LargestBurst(deletions, settings.Window);
         if (byActor.Actor is null && overall.Count < settings.Threshold)
         {
             return;
@@ -150,10 +153,62 @@ internal sealed class BurstDetector
         return count;
     }
 
-    /// <summary>Distinct objects (by GUID, else DN), latest event first.</summary>
-    private static List<ObjectRef> Distinct(IEnumerable<WatchEvent> events) =>
-        events.OrderByDescending(e => e.DetectedAt)
+    /// <summary>
+    /// When the change itself happened: the lockout time of AccountLockedOut, otherwise the DC's whenChanged (the
+    /// tombstone's for ObjectDeleted) or the originating time; the detection time only when neither is known.
+    /// </summary>
+    public static DateTimeOffset ChangeTime(WatchEvent watchEvent)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        return watchEvent.Kind == WatchEventKind.AccountLockedOut && watchEvent.Lockout is { } lockout
+            ? lockout.LockedAt
+            : watchEvent.LocalChangeTime ?? watchEvent.OriginatingTime ?? watchEvent.DetectedAt;
+    }
+
+    /// <summary>
+    /// The distinct objects (by GUID, else DN) of the window of length <paramref name="window"/> (by
+    /// <see cref="ChangeTime"/>) that holds the most of them, latest change first.
+    /// </summary>
+    private static List<ObjectRef> LargestBurst(IEnumerable<WatchEvent> events, TimeSpan window)
+    {
+        var ordered = events.OrderBy(ChangeTime).ToList();
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        var (bestStart, bestEnd, bestCount) = (0, -1, 0);
+        var start = 0;
+        for (var end = 0; end < ordered.Count; end++)
+        {
+            Increment(counts, Key(ordered[end].Object), 1);
+            while (ChangeTime(ordered[end]) - ChangeTime(ordered[start]) > window)
+            {
+                Increment(counts, Key(ordered[start].Object), -1);
+                start++;
+            }
+
+            if (counts.Count > bestCount)
+            {
+                (bestStart, bestEnd, bestCount) = (start, end, counts.Count);
+            }
+        }
+
+        return ordered.Skip(bestStart).Take(bestEnd - bestStart + 1)
+            .OrderByDescending(ChangeTime)
             .Select(e => e.Object)
-            .DistinctBy(o => o.ObjectGuid?.ToString("N") ?? o.Dn.ToUpperInvariant())
+            .DistinctBy(Key)
             .ToList();
+    }
+
+    private static void Increment(Dictionary<string, int> counts, string key, int delta)
+    {
+        var count = counts.GetValueOrDefault(key) + delta;
+        if (count == 0)
+        {
+            counts.Remove(key);
+        }
+        else
+        {
+            counts[key] = count;
+        }
+    }
+
+    private static string Key(ObjectRef reference) => reference.ObjectGuid?.ToString("N") ?? reference.Dn.ToUpperInvariant();
 }

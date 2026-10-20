@@ -1,11 +1,13 @@
 <!--
-  The "Status" sub-tab (WatchdogStatusViewModel): cards for the service, the watched DC, storage, the last 24 hours,
+  The "Status" sub-tab (WatchdogStatusViewModel): cards for the service, the watched DC, storage, the last 24 hours, the
+  stage B sections (service account, WEF collector, GPO content, host – "not reported" while the service has no data),
   attribution per DC, the health checks (localized, with remedies) and the channels; for Admins the delivery log
   (filter, retry of failed deliveries) and the configuration audit.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogStatusView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:b="clr-namespace:AdMng.App.Behaviors"
              xmlns:c="clr-namespace:AdMng.App.Controls"
              xmlns:l="clr-namespace:AdMng.App.Localization"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -30,6 +32,101 @@
       <Setter Property="Margin" Value="0,0,12,12" />
       <Setter Property="VerticalAlignment" Value="Stretch" />
     </Style>
+
+    <!-- A stage B section (WatchdogStatusSectionViewModel): state, values, DCs of the collector, problems with remedies. -->
+    <DataTemplate x:Key="SectionTemplate" DataType="{x:Type wd:WatchdogStatusSectionViewModel}">
+      <StackPanel>
+        <DockPanel Margin="0,0,0,8">
+          <TextBlock Margin="0,0,8,0"
+                     DockPanel.Dock="Left"
+                     Style="{StaticResource Wd.HealthGlyph}"
+                     Tag="{Binding State, Mode=OneWay}" />
+          <TextBlock VerticalAlignment="Center"
+                     FontWeight="SemiBold"
+                     TextWrapping="Wrap">
+            <Run Text="{Binding Title, Mode=OneWay}" />
+            <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding StateText, Mode=OneWay}" />
+          </TextBlock>
+        </DockPanel>
+        <TextBlock Style="{StaticResource Wd.Hint}"
+                   Text="{Binding Message, Mode=OneWay}"
+                   Visibility="{Binding HasMessage, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <ItemsControl Focusable="False"
+                      Grid.IsSharedSizeScope="True"
+                      ItemsSource="{Binding Fields, Mode=OneWay}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogStatusField}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto" SharedSizeGroup="SectionLabel" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock MaxWidth="170"
+                           Style="{StaticResource CardLabel}"
+                           Text="{Binding Label, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Grid.Column="1"
+                           Style="{StaticResource CardValue}"
+                           Text="{Binding Value, Mode=OneWay}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl Margin="0,6,0,0"
+                      Focusable="False"
+                      ItemsSource="{Binding DomainControllers, Mode=OneWay}"
+                      Visibility="{Binding HasDomainControllers, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogCollectorDcRowViewModel}">
+              <DockPanel Margin="0,4,0,0">
+                <TextBlock Margin="0,0,8,0"
+                           VerticalAlignment="Top"
+                           DockPanel.Dock="Left"
+                           Style="{StaticResource Wd.HealthGlyph}"
+                           Tag="{Binding State, Mode=OneWay}" />
+                <StackPanel>
+                  <TextBlock FontWeight="SemiBold"
+                             Text="{Binding Dc, Mode=OneWay}"
+                             ToolTip="{Binding ErrorCode, Mode=OneWay}" />
+                  <TextBlock Style="{StaticResource Wd.Hint}">
+                    <Run Text="{l:Tr Watchdog.Ui.CollectorLastRecord}" /><Run Text=": " /><Run Text="{Binding LastRecordText, Mode=OneWay}" />
+                    <Run Text=" · " /><Run Text="{l:Tr Watchdog.Ui.CollectorLag}" /><Run Text=": " /><Run Text="{Binding LagText, Mode=OneWay}" />
+                    <Run Text=" · " /><Run Text="{l:Tr Watchdog.Ui.CollectorBacklog}" /><Run Text=": " /><Run Text="{Binding BacklogText, Mode=OneWay}" />
+                    <Run Text=" · " /><Run Text="{l:Tr Watchdog.Ui.CollectorStored}" /><Run Text=": " /><Run Text="{Binding StoredText, Mode=OneWay}" />
+                    <Run Text=" · " /><Run Text="{l:Tr Watchdog.Ui.CollectorRejected}" /><Run Text=": " /><Run Text="{Binding RejectedText, Mode=OneWay}" />
+                  </TextBlock>
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <ItemsControl Margin="0,6,0,0"
+                      Focusable="False"
+                      ItemsSource="{Binding Problems, Mode=OneWay}"
+                      Visibility="{Binding HasProblems, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type wd:WatchdogHealthCheckRowViewModel}">
+              <DockPanel Margin="0,4,0,0">
+                <TextBlock Margin="0,0,8,0"
+                           VerticalAlignment="Top"
+                           DockPanel.Dock="Left"
+                           Style="{StaticResource Wd.HealthGlyph}"
+                           Tag="{Binding State, Mode=OneWay}" />
+                <StackPanel>
+                  <TextBlock FontWeight="SemiBold"
+                             Text="{Binding Title, Mode=OneWay}"
+                             TextWrapping="Wrap"
+                             ToolTip="{Binding Code, Mode=OneWay}" />
+                  <TextBlock Style="{StaticResource Wd.Value}"
+                             Text="{Binding Remedy, Mode=OneWay}"
+                             Visibility="{Binding Remedy, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                </StackPanel>
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </DataTemplate>
   </UserControl.Resources>
 
   <DockPanel>
@@ -222,6 +319,38 @@
                          Text="{l:Tr Watchdog.Ui.LastBackup}" />
               <TextBlock Style="{StaticResource CardValue}" Text="{Binding BackupText, Mode=OneWay}" />
             </StackPanel>
+          </Border>
+        </WrapPanel>
+
+        <!-- Stage B sections of the Linux service (design 18 item 2) -->
+        <WrapPanel x:Name="LinuxCards">
+          <Border x:Name="ServiceAccountCard"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.CardServiceAccount}"
+                  Style="{StaticResource StatusCard}">
+            <ContentControl Content="{Binding ServiceAccountSection, Mode=OneWay}"
+                            ContentTemplate="{StaticResource SectionTemplate}"
+                            Focusable="False" />
+          </Border>
+          <Border x:Name="CollectorCard"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.CardCollector}"
+                  Style="{StaticResource StatusCard}">
+            <ContentControl Content="{Binding CollectorSection, Mode=OneWay}"
+                            ContentTemplate="{StaticResource SectionTemplate}"
+                            Focusable="False" />
+          </Border>
+          <Border x:Name="GpoContentCard"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.CardGpoContent}"
+                  Style="{StaticResource StatusCard}">
+            <ContentControl Content="{Binding GpoContentSection, Mode=OneWay}"
+                            ContentTemplate="{StaticResource SectionTemplate}"
+                            Focusable="False" />
+          </Border>
+          <Border x:Name="HostCard"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.CardHost}"
+                  Style="{StaticResource StatusCard}">
+            <ContentControl Content="{Binding HostSection, Mode=OneWay}"
+                            ContentTemplate="{StaticResource SectionTemplate}"
+                            Focusable="False" />
           </Border>
         </WrapPanel>
 
@@ -434,8 +563,10 @@
                          Text="{l:Tr Watchdog.Ui.DeliveryLog}" />
             </DockPanel>
             <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Error, Mode=OneWay}" />
+            <!-- The columns fit the card (GridViewColumnFit): subject and error share what the others leave, 3 : 2. -->
             <ListView x:Name="DeliveryLogList"
                       MaxHeight="360"
+                      b:GridViewColumnFit.IsEnabled="True"
                       AutomationProperties.Name="{l:Tr Watchdog.Ui.DeliveryLog}"
                       ItemContainerStyle="{StaticResource Wd.ListRow}"
                       ItemsSource="{Binding Items, Mode=OneWay}"
@@ -445,14 +576,18 @@
                       VirtualizingPanel.VirtualizationMode="Recycling">
               <ListView.View>
                 <GridView AllowsColumnReorder="False">
-                  <GridViewColumn Width="150" Header="{l:Tr Watchdog.Ui.Created}">
+                  <GridViewColumn Width="150"
+                                  b:GridViewColumnFit.MinWidth="140"
+                                  Header="{l:Tr Watchdog.Ui.Created}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding CreatedText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="170" Header="{l:Tr Watchdog.Ui.Channel}">
+                  <GridViewColumn Width="150"
+                                  b:GridViewColumnFit.MinWidth="120"
+                                  Header="{l:Tr Watchdog.Ui.Channel}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock TextTrimming="CharacterEllipsis">
@@ -462,7 +597,9 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="120" Header="{l:Tr Watchdog.Ui.DeliveryStatus}">
+                  <GridViewColumn Width="140"
+                                  b:GridViewColumnFit.MinWidth="130"
+                                  Header="{l:Tr Watchdog.Ui.DeliveryStatus}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock x:Name="StatusCell"
@@ -477,21 +614,28 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="60" Header="{l:Tr Watchdog.Ui.Attempts}">
+                  <GridViewColumn Width="60"
+                                  b:GridViewColumnFit.MinWidth="56"
+                                  Header="{l:Tr Watchdog.Ui.Attempts}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding AttemptsText, Mode=OneWay}" TextAlignment="Right" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="170" Header="{l:Tr Watchdog.Ui.SentOrNext}">
+                  <GridViewColumn Width="180"
+                                  b:GridViewColumnFit.MinWidth="170"
+                                  Header="{l:Tr Watchdog.Ui.SentOrNext}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding TimeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="260" Header="{l:Tr Watchdog.Ui.Subject}">
+                  <GridViewColumn Width="260"
+                                  b:GridViewColumnFit.MinWidth="160"
+                                  b:GridViewColumnFit.Star="3"
+                                  Header="{l:Tr Watchdog.Ui.Subject}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Text="{Binding Subject, Mode=OneWay}"
@@ -500,7 +644,10 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="220" Header="{l:Tr Common.Error}">
+                  <GridViewColumn Width="220"
+                                  b:GridViewColumnFit.MinWidth="120"
+                                  b:GridViewColumnFit.Star="2"
+                                  Header="{l:Tr Common.Error}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}"
@@ -510,7 +657,7 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="110">
+                  <GridViewColumn Width="100" b:GridViewColumnFit.MinWidth="90">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type wd:WatchdogOutboxRowViewModel}">
                         <Button Padding="8,0"

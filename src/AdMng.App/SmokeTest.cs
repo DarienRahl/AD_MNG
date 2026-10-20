@@ -14,6 +14,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
+using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -21,8 +22,8 @@ namespace AdMng.App;
 
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
-/// the main window (disconnected) with the Watchdog tab (not configured) and the dialogs of this release off-screen in
-/// English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
+/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation and the
+/// dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
 /// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
 /// nothing touches a directory or a watchdog service.
 /// </summary>
@@ -151,6 +152,15 @@ internal static class SmokeTest
         var chooser = windows.CreateWindow(new ColumnChooserViewModel(localizer, null, ColumnSets.Search, ColumnSets.Container));
         UiTestSupport.ShowOffScreen(chooser);
 
+        // Logon Hours: a sample schedule (no directory involved), editable and read-only.
+        var office = Core.ActiveDirectory.LogonHours.FromLocalGrid(
+            Core.ActiveDirectory.LogonHoursGrid.Create((day, hour) => day is not (DayOfWeek.Saturday or DayOfWeek.Sunday) && hour is >= 8 and < 16), 0);
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new LogonHoursViewModel(localizer, office, TimeZoneInfo.Local, DateTimeOffset.UtcNow, "Jan Kowalski")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new LogonHoursViewModel(localizer, null, TimeZoneInfo.Local, DateTimeOffset.UtcNow, null, localizer[L.Fields.ReadOnlyPermission])));
+
+        // Watchdog: the certificate confirmation on the first connection and after a change (stage B design 18 item 1).
+        RenderWatchdogCertificateWindows(windows, localizer);
+
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
@@ -161,6 +171,26 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// "Potwierdź certyfikat usługi Watchdog" for a sample self-signed certificate: not trusted yet, and changed since it was
+    /// pinned (old and new fingerprint). No service is contacted.
+    /// </summary>
+    private static void RenderWatchdogCertificateWindows(IWindowService windows, ILocalizer localizer)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var certificate = new WatchdogServerCertificate
+        {
+            Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("admng-wd.contoso.com"))),
+            Subject = "CN=admng-wd.contoso.com",
+            DnsNames = ["admng-wd.contoso.com", "admng-wd"],
+            NotBefore = now.AddDays(-1),
+            NotAfter = now.AddYears(2),
+        };
+        var previous = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("previous")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WatchdogCertificateTrustViewModel(localizer, certificate, null, "admng-wd.contoso.com:8443", now, TimeZoneInfo.Local)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WatchdogCertificateTrustViewModel(localizer, certificate, previous, "admng-wd.contoso.com:8443", now, TimeZoneInfo.Local)));
     }
 
     /// <summary>
@@ -197,7 +227,7 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
     }
 
-    /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts) and Find.</summary>
+    /// <summary>C2a: property sheet, New Object (every kind), Reset Password (one and many accounts), Find and Change Domain Controller.</summary>
     private static void RenderObjectDialogs(IWindowService windows, IDialogViewModelFactory factory)
     {
         const string Parent = "OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test";
@@ -213,6 +243,7 @@ internal static class SmokeTest
             factory.CreateResetPassword([User]),
             factory.CreateResetPassword([User, "CN=Łukasz Wiśniewski," + Parent]),
             factory.CreateFind(null),
+            factory.CreateChangeDomainController(),
         ];
         foreach (var dialog in dialogs)
         {

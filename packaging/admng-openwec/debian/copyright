@@ -1,0 +1,35 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: OpenWEC
+Upstream-Contact: CEA-SEC <https://github.com/cea-sec/openwec>
+Source: https://github.com/cea-sec/openwec
+Comment:
+ This package contains OpenWEC built from upstream commit
+ @UPSTREAM_COMMIT@ without source changes. OpenWEC runs as a separate
+ process (openwecd) and is not linked into AdMng Watchdog.
+ .
+ Complete corresponding source: the release of AD_MNG that ships this package
+ carries, as a release asset, admng-openwec-@VERSION_NOREV@-source.tar.xz – the
+ upstream tree of that commit, every Rust crate it is built from (cargo vendor,
+ Cargo.lock as committed upstream) and the build recipe (packaging/admng-openwec
+ and tools/packaging/build-openwec-deb.sh of AD_MNG). The same tarball is
+ available on request from the maintainer for at least three years after the
+ last distribution of this package.
+
+Files: *
+Copyright: CEA-SEC and the OpenWEC contributors
+License: GPL-3.0
+ This program is free software: you can redistribute it and/or modify it under
+ the terms of the GNU General Public License as published by the Free Software
+ Foundation, version 3.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License version 3
+ can be found in "/usr/share/common-licenses/GPL-3".
+
+Files: debian/* etc/openwec.conf.toml usr/lib/systemd/system/openwecd.service
+Copyright: AD_MNG contributors
+License: GPL-3.0
+ The packaging files are distributed under the same license as OpenWEC.

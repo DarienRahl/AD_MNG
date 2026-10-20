@@ -17,30 +17,54 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// lower-case IDNA/punycode form without a trailing dot.
 /// A binding never contains a secret value: channel URLs contribute only their host.
 /// <list type="table">
-/// <item><term><c>smtp.password</c></term><description><c>smtp|&lt;host&gt;|&lt;port&gt;|&lt;userName&gt;|basic</c></description></item>
-/// <item><term><c>smtp.oauth.clientSecret</c></term><description><c>smtp-oauth|&lt;cloud&gt;|&lt;tenantId&gt;|&lt;clientId&gt;|&lt;host&gt;</c></description></item>
+/// <item><term><c>smtp.password</c></term><description><c>smtp|&lt;host&gt;|&lt;port&gt;|&lt;userName&gt;|basic[|&lt;tls&gt;]</c></description></item>
+/// <item><term><c>smtp.oauth.clientSecret</c></term><description><c>smtp-oauth|&lt;cloud&gt;|&lt;tenantId&gt;|&lt;clientId&gt;|&lt;host&gt;[|&lt;tls&gt;]</c></description></item>
 /// <item><term><c>channel.{id}.url</c></term><description><c>channel|&lt;id&gt;|&lt;type&gt;</c></description></item>
 /// <item><term><c>channel.{id}.clientSecret</c></term><description><c>teams-oauth|&lt;cloud&gt;|&lt;tenantId&gt;|&lt;clientId&gt;|&lt;scope&gt;|&lt;url host&gt;</c></description></item>
 /// <item><term><c>channel.{id}.signingSecret</c>, <c>…previousSigningSecret</c></term><description><c>webhook|&lt;id&gt;|&lt;url host&gt;</c></description></item>
 /// </list>
+/// <c>&lt;tls&gt;</c> is the TLS trust of the SMTP server (<see cref="SmtpTrust"/>): empty for the default (system
+/// validation with revocation checks – the form secrets were stored with before the component existed), otherwise
+/// <c>tls-&lt;mode&gt;[:&lt;pin&gt;]</c> and <c>revocation-off</c>. Whoever can change the trust (pin his own
+/// certificate) must enter the credential again.
 /// </remarks>
 public static class SecretBindings
 {
-    /// <summary>Binding of <see cref="SecretNames.SmtpPassword"/>: <c>smtp|&lt;host&gt;|&lt;port&gt;|&lt;userName&gt;|basic</c>.</summary>
+    /// <summary>Binding of <see cref="SecretNames.SmtpPassword"/>:
+    /// <c>smtp|&lt;host&gt;|&lt;port&gt;|&lt;userName&gt;|basic[|&lt;tls&gt;]</c>.</summary>
     public static string ForSmtpPassword(SmtpSettings smtp)
     {
         ArgumentNullException.ThrowIfNull(smtp);
-        return Join("smtp", Host(smtp.Host), smtp.Port.ToString(CultureInfo.InvariantCulture), Component(smtp.UserName), "basic");
+        return Join(["smtp", Host(smtp.Host), smtp.Port.ToString(CultureInfo.InvariantCulture), Component(smtp.UserName), "basic", .. SmtpTrust(smtp)]);
     }
 
     /// <summary>Binding of <see cref="SecretNames.SmtpOAuthClientSecret"/>:
-    /// <c>smtp-oauth|&lt;cloud&gt;|&lt;tenantId&gt;|&lt;clientId&gt;|&lt;host&gt;</c>. (That the host is one of the bootstrap
+    /// <c>smtp-oauth|&lt;cloud&gt;|&lt;tenantId&gt;|&lt;clientId&gt;|&lt;host&gt;[|&lt;tls&gt;]</c> – the XOAUTH2 token goes to the
+    /// SMTP server, so its TLS trust is bound as for the password. (That the host is one of the bootstrap
     /// <c>Notifications.OAuthSmtpHosts</c> is a separate check.)</summary>
     public static string ForSmtpOAuthClientSecret(SmtpSettings smtp)
     {
         ArgumentNullException.ThrowIfNull(smtp);
         var oauth = smtp.OAuth ?? new SmtpOAuthSettings();
-        return Join("smtp-oauth", Cloud(oauth.Cloud), Id(oauth.TenantId), Id(oauth.ClientId), Host(smtp.Host));
+        return Join(["smtp-oauth", Cloud(oauth.Cloud), Id(oauth.TenantId), Id(oauth.ClientId), Host(smtp.Host), .. SmtpTrust(smtp)]);
+    }
+
+    /// <summary>The TLS trust components of an SMTP binding: none for system validation with revocation checks (the
+    /// default), otherwise <c>tls-&lt;mode&gt;</c> (with <c>:&lt;pin&gt;</c> for <see cref="CertificateValidationMode.PinnedSha256"/>)
+    /// and <c>revocation-off</c> when revocation checks are off.</summary>
+    private static IEnumerable<string> SmtpTrust(SmtpSettings smtp)
+    {
+        if (smtp.CertificateValidation == CertificateValidationMode.System && smtp.CheckRevocation)
+        {
+            yield break;
+        }
+
+        var mode = "tls-" + Component(smtp.CertificateValidation.ToString());
+        yield return smtp.CertificateValidation == CertificateValidationMode.PinnedSha256 ? mode + ":" + Component(smtp.PinnedSha256) : mode;
+        if (!smtp.CheckRevocation)
+        {
+            yield return "revocation-off";
+        }
     }
 
     /// <summary>Binding of <see cref="SecretNames.ChannelUrl"/>: <c>channel|&lt;id&gt;|&lt;type&gt;</c> (the URL is its own
@@ -75,7 +99,7 @@ public static class SecretBindings
 
     /// <summary>The host of an absolute URL in binding form (lower-case IDNA, no trailing dot), or null when
     /// <paramref name="url"/> is not an absolute URL with a host. Also accepts a URL hint
-    /// (<c>scheme://host/first-segment/…</c>).</summary>
+    /// (<c>scheme://host[:port]/…</c>).</summary>
     public static string? UrlHost(string? url)
     {
         if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || string.IsNullOrEmpty(uri.Host))
@@ -212,7 +236,7 @@ public static class SecretBindings
             && !string.Equals(stored, secret.Binding, StringComparison.Ordinal);
     }
 
-    private static string Join(params string[] components) => string.Join('|', components);
+    private static string Join(params IEnumerable<string> components) => string.Join('|', components);
 
     private static string Cloud(EntraCloud cloud) => Component(cloud.ToString());
 

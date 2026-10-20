@@ -146,6 +146,10 @@ public sealed class EngineHost : IAsyncDisposable
             Clock.Advance(TimeSpan.FromMinutes(10));
         }
 
+        // The reconciliation is due only when the last full sync is older than today's moment, and the moment below is
+        // cut to whole seconds: a baseline that ran earlier in this same second would make it look done already. One
+        // second forward puts the moment after the clock, so after every earlier full sync.
+        Clock.Advance(TimeSpan.FromSeconds(1));
         var local = TimeZoneInfo.ConvertTime(Clock.GetUtcNow(), timeZone);
         var at = new TimeOnly(local.Hour, local.Minute, local.Second);
         await SaveConfigurationAsync(c => c with { Directory = c.Directory with { FullReconciliationTime = at } }, cancellationToken);

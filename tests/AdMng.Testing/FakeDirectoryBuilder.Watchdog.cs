@@ -233,15 +233,18 @@ public sealed partial class FakeDirectoryBuilder
     }
 
     /// <summary>Adds a managed service account (<c>msDS-ManagedServiceAccount</c>, <c>msDS-GroupManagedServiceAccount</c> or
-    /// <c>msDS-DelegatedManagedServiceAccount</c>) in CN=Managed Service Accounts.</summary>
-    public string AddServiceAccount(string name, string objectClass = ObjectClasses.GroupManagedServiceAccount, IReadOnlyDictionary<string, object?>? attributes = null)
+    /// <c>msDS-DelegatedManagedServiceAccount</c>) in CN=Managed Service Accounts (the default target of
+    /// <c>New-ADServiceAccount</c>) or under <paramref name="parentDn"/> – a dMSA may be created in any OU or container
+    /// whose DACL allows it (BadSuccessor, stage B design 9.1).</summary>
+    public string AddServiceAccount(string name, string objectClass = ObjectClasses.GroupManagedServiceAccount, IReadOnlyDictionary<string, object?>? attributes = null,
+        string? parentDn = null)
     {
-        if (!Session.Exists(ManagedServiceAccountsDn))
+        if (parentDn is null && !Session.Exists(ManagedServiceAccountsDn))
         {
             AddContainer("Managed Service Accounts", DomainDn);
         }
 
-        return Seed(Dn("CN", name, ManagedServiceAccountsDn), new Dictionary<string, object?>
+        return Seed(Dn("CN", name, parentDn ?? ManagedServiceAccountsDn), new Dictionary<string, object?>
         {
             [Attr.ObjectClass] = new[] { "top", "person", "organizationalPerson", ObjectClasses.User, ObjectClasses.Computer, objectClass },
             [Attr.SamAccountName] = name + "$",

@@ -2,6 +2,7 @@ using System.Windows.Threading;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
@@ -20,6 +21,7 @@ using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -122,6 +124,7 @@ public static class AppHost
         services.AddWindow<MessageDialogViewModel, MessageDialogWindow>();
         services.AddWindow<SavedViewEditorViewModel, SavedViewEditorWindow>();
         services.AddWindow<ColumnChooserViewModel, ColumnChooserWindow>();
+        services.AddWindow<LogonHoursViewModel, LogonHoursWindow>();
 
         // ---- C2a: object dialogs (view models from IDialogViewModelFactory, opened by DialogService) ----
         services.AddWindow<PropertySheetViewModel, PropertiesWindow>();
@@ -130,6 +133,7 @@ public static class AppHost
         services.AddWindow<ObjectPickerViewModel, ObjectPickerWindow>();
         services.AddWindow<ContainerPickerViewModel, ContainerPickerWindow>();
         services.AddWindow<FindViewModel, FindWindow>();
+        services.AddWindow<ChangeDomainControllerViewModel, ChangeDomainControllerWindow>();
 
         // ---- C2b: batch and tool windows (opened through ToolWindows) ----
         services.AddSingleton<ToolWindows>();
@@ -141,6 +145,9 @@ public static class AppHost
 
         // ---- AD Recycle Bin (opened through ToolWindows) ----
         services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
+
+        // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
+        services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
         return services;
     }
 

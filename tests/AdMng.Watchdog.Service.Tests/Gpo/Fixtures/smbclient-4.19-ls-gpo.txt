@@ -1,0 +1,56 @@
+  .                                   D        0  Tue Oct 20 18:01:15 2026
+  ..                                  D        0  Tue Oct 20 18:01:15 2026
+  Machine                             D        0  Tue Oct 20 18:01:21 2026
+  GPT.INI                             A       22  Tue Oct 20 18:01:15 2026
+  User                                D        0  Tue Oct 20 18:01:15 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:15 2026
+  Preferences                         D        0  Tue Oct 20 18:01:21 2026
+  Scripts                             D        0  Tue Oct 20 18:01:21 2026
+  Microsoft                           D        0  Tue Oct 20 18:01:21 2026
+  Registry.pol                        A      126  Tue Oct 20 18:12:40 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\User
+  .                                   D        0  Tue Oct 20 18:01:15 2026
+  ..                                  D        0  Tue Oct 20 18:01:15 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Preferences
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  Groups                              D        0  Tue Oct 20 18:01:21 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Scripts
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  Startup                             D        0  Tue Oct 20 18:01:21 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Microsoft
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  Windows NT                          D        0  Tue Oct 20 18:01:21 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Preferences\Groups
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  Groups.xml                          A      902  Tue Oct  6 08:05:09 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Scripts\Startup
+  .                                   D        0  Tue Oct 20 18:02:24 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  a b.txt                             A       12  Tue Oct 20 18:02:05 2026
+  zażółć  x                       A       12  Tue Oct 20 18:02:24 2026
+  -l.txt                              A       12  Tue Oct 20 18:14:01 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Microsoft\Windows NT
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  SecEdit                             D        0  Tue Oct 20 18:01:21 2026
+
+\contoso.test\Policies\{36F97CB4-4935-42E4-9950-A93B706A5C11}\Machine\Microsoft\Windows NT\SecEdit
+  .                                   D        0  Tue Oct 20 18:01:21 2026
+  ..                                  D        0  Tue Oct 20 18:01:21 2026
+  GptTmpl.inf                         A      350  Tue Oct 20 18:10:12 2026
+
+		264212084 blocks of size 1024. 14151244 blocks available

@@ -34,6 +34,9 @@ public sealed class WatchdogRulesTests
             var lockouts = rules.Rules[LockoutsIndex];
             Assert.Equal("lockouts", lockouts.Id);
             Assert.Equal("Blokady kont", lockouts.Name);
+
+            // A name cut in the narrow list is shown whole in the tool tip, with the rule's identifier.
+            Assert.Equal("Blokady kont\nlockouts", lockouts.NameToolTip);
             Assert.Equal(localizer[L.Watchdog.RulesBuiltIn], lockouts.BadgeText);
             Assert.Equal(localizer.KindName(WatchEventKind.AccountLockedOut), lockouts.KindsText);
             Assert.Equal(localizer.Format(L.Watchdog.RulesImmediate, "helpdesk") + " · " + localizer[L.Watchdog.RulesDigest], lockouts.DeliveryText);
@@ -233,6 +236,70 @@ public sealed class WatchdogRulesTests
     }
 
     [Fact]
+    public async Task EndingRollout_SavesOnlyTheRolloutFlag_AndKeepsOtherUnsavedEditsUnsaved()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        h.Client.Status = SampleStatus.Create(new DateTimeOffset(2026, 10, 21, 7, 0, 0, TimeSpan.Zero));
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            var rules = tab.Rules;
+            var version = tab.Config.Envelope!.Version;
+
+            // An experiment the Admin has not saved: the lockout rule switched off, the sender renamed.
+            rules.Rules[LockoutsIndex].IsEnabled = false;
+            tab.Config.Update(c => c with { Smtp = c.Smtp with { From = "Strażnik AD <straznik@contoso.com>" } });
+            Assert.True(tab.Config.IsDirty);
+
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(true);
+            await rules.EndRolloutCommand.ExecuteAsync(null);
+
+            // Only the rollout flag reached the service – on top of the configuration as last saved.
+            var sent = Assert.Single(h.Client.SavedEnvelopes);
+            Assert.Equal(version, sent.Version);
+            Assert.True(sent.Configuration.General.RolloutEnded);
+            Assert.True(sent.Configuration.Rules[LockoutsIndex].Enabled);
+            Assert.NotEqual("Strażnik AD <straznik@contoso.com>", sent.Configuration.Smtp.From);
+            Assert.False(rules.IsRolloutActive);
+
+            // The experiment is still there, unsaved, on top of the new version (which also ended rollout).
+            Assert.Equal(version + 1, tab.Config.Envelope!.Version);
+            Assert.True(tab.Config.IsDirty);
+            Assert.False(tab.Config.Working!.Rules[LockoutsIndex].Enabled);
+            Assert.Equal("Strażnik AD <straznik@contoso.com>", tab.Config.Working.Smtp.From);
+            Assert.True(tab.Config.Working.General.RolloutEnded);
+            Assert.False(rules.Rules[LockoutsIndex].IsEnabled);
+
+            // Saving it later is a normal save of the new version (no conflict with the rollout save).
+            Assert.True(await tab.Config.SaveAsync());
+            Assert.Equal(2, h.Client.SavedEnvelopes.Count);
+            Assert.Equal(version + 1, h.Client.SavedEnvelopes[1].Version);
+            Assert.False(h.Client.SavedEnvelopes[1].Configuration.Rules[LockoutsIndex].Enabled);
+            Assert.False(tab.Config.IsDirty);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task EndingRollout_WithoutOtherEdits_LeavesTheConfigurationClean()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        h.Client.Status = SampleStatus.Create(new DateTimeOffset(2026, 10, 21, 7, 0, 0, TimeSpan.Zero));
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(true);
+            await tab.Rules.EndRolloutCommand.ExecuteAsync(null);
+
+            Assert.True(Assert.Single(h.Client.SavedEnvelopes).Configuration.General.RolloutEnded);
+            Assert.False(tab.Config.IsDirty);
+            Assert.True(tab.Config.Working!.General.RolloutEnded);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
     public async Task Rollout_WouldSendCounts_OnlyForAdmins()
     {
         using var h = await WatchdogHarness.CreateAsync();
@@ -316,6 +383,7 @@ public sealed class WatchdogRulesTests
             rules.SelectedRule = rules.Rules[CustomIndex];
             rules.Editor!.Name = "Oddział Kraków – wszystkie zmiany";
             Assert.Equal("Oddział Kraków – wszystkie zmiany", rules.Rules[CustomIndex].Name);
+            Assert.Equal("Oddział Kraków – wszystkie zmiany\noddzial-krakow", rules.Rules[CustomIndex].NameToolTip);
 
             Assert.True(await tab.Config.SaveAsync());
 

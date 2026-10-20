@@ -46,6 +46,13 @@ public sealed record StorageStatusDto
     public long EventCount { get; init; }
     public DateTimeOffset? OldestEventAt { get; init; }
     public DateTimeOffset? LastBackupAt { get; init; }
+
+    /// <summary>A decreased <c>Retention.EventsDays</c> that is not in effect yet (stage B design 14.2, SHOULD: a decrease
+    /// applies 7 days after the change); null when none is pending.</summary>
+    public int? PendingEventsDays { get; init; }
+
+    /// <summary>When <see cref="PendingEventsDays"/> takes effect.</summary>
+    public DateTimeOffset? PendingEventsDaysFrom { get; init; }
 }
 
 public sealed record EventCountsDto
@@ -85,4 +92,19 @@ public sealed record StatusDto
     /// <summary>End of rollout mode (12.5); null when not active.</summary>
     public DateTimeOffset? RolloutModeUntil { get; init; }
     public IReadOnlyList<ExclusionSuggestionDto> Suggestions { get; init; } = [];
+
+    // Stage B sections (docs/dev/watchdog-linux-design.md 18 item 2) – null when the service does not report them (the
+    // Windows service, an older service, or before the first check).
+
+    /// <summary>„Konto usługi” – the own computer account and its keytab (4.7).</summary>
+    public ServiceAccountStatusDto? ServiceAccount { get; init; }
+
+    /// <summary>„Kolektor WEF” – OpenWEC ingestion per DC (7.9).</summary>
+    public CollectorStatusDto? Collector { get; init; }
+
+    /// <summary>„Zawartość GPO” – SYSVOL reading (8).</summary>
+    public GpoContentStatusDto? GpoContent { get; init; }
+
+    /// <summary>„Host” – the Linux server (10, 4.7 item 6, 5.1).</summary>
+    public HostStatusDto? Host { get; init; }
 }

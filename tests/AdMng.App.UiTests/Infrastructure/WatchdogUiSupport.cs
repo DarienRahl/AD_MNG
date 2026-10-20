@@ -1,6 +1,8 @@
 using System.Windows;
 using AdMng.App.Views;
 using AdMng.App.Views.Watchdog;
+using AdMng.Core.Csv;
+using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
@@ -19,10 +21,13 @@ internal static class WatchdogUiSupport
     /// <summary>The address stored in the settings (the fake accepts any https address).</summary>
     public const string ServiceUrl = "https://admng-wd.contoso.com:8443";
 
-    /// <summary>A sample client on the system clock; <paramref name="admin"/> chooses the caller's role.</summary>
-    public static FakeWatchdogClient CreateClient(bool admin = true, DateTimeOffset? rolloutUntil = null)
+    /// <summary>
+    /// A sample client on the system clock (or <paramref name="time"/>, see <see cref="UseClock"/>); <paramref name="admin"/>
+    /// chooses the caller's role.
+    /// </summary>
+    public static FakeWatchdogClient CreateClient(bool admin = true, DateTimeOffset? rolloutUntil = null, TimeProvider? time = null)
     {
-        var client = new FakeWatchdogClient(TimeProvider.System) { IsAdmin = admin };
+        var client = new FakeWatchdogClient(time ?? TimeProvider.System) { IsAdmin = admin };
         client.Status = SampleStatus.Create(rolloutUntil);
 
         // The application configures the client from the settings (WatchdogConnectionService).
@@ -33,6 +38,17 @@ internal static class WatchdogUiSupport
     /// <summary>Registers <paramref name="client"/> as the application's <see cref="IWatchdogClient"/>.</summary>
     public static Action<IServiceCollection> Use(FakeWatchdogClient client) =>
         services => services.Replace(ServiceDescriptor.Singleton<IWatchdogClient>(client));
+
+    /// <summary>
+    /// The Watchdog tab on <paramref name="time"/> (polling rounds, "now"): a test moves a fake clock to the next status
+    /// round instead of waiting 30 s. The rest of the application keeps the system clock.
+    /// </summary>
+    public static Action<IServiceCollection> UseClock(TimeProvider time) =>
+        services => services.Replace(ServiceDescriptor.Singleton(sp => new WatchdogServices(
+            sp.GetRequiredService<WatchdogConnectionService>(),
+            sp.GetRequiredService<DialogServices>(),
+            sp.GetRequiredService<ICsvCodec>(),
+            time)));
 
     /// <summary>Stores the service address, as the operator would in the tab's address editor.</summary>
     public static Task ConfigureAddressAsync(UiTestContext context) =>

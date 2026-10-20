@@ -1,0 +1,15 @@
+  .                                   D        0  Tue Oct 13 14:19:11 2026
+  ..                                  D        0  Tue Oct 20 19:02:00 2026
+  MACHINE                             D        0  Tue Oct 13 14:19:11 2026
+  GPT.INI                             N       20  Tue Oct 13 14:19:11 2026
+  USER                                D        0  Tue Oct 13 14:19:11 2026
+
+\contoso.test\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\MACHINE
+  .                                   D        0  Tue Oct 13 14:19:11 2026
+  ..                                  D        0  Tue Oct 13 14:19:11 2026
+
+\contoso.test\Policies\{31B2F340-016D-11D2-945F-00C04FB984F9}\USER
+  .                                   D        0  Tue Oct 13 14:19:11 2026
+  ..                                  D        0  Tue Oct 13 14:19:11 2026
+
+		264212084 blocks of size 1024. 14145732 blocks available

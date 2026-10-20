@@ -8,7 +8,6 @@ using AdMng.Presentation.Changes;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
-using AdMng.Presentation.Services;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Events;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -51,6 +50,13 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
     public partial WatchEvent? Event { get; private set; }
 
     public bool HasEvent => Event is not null;
+
+    /// <summary>
+    /// The service takes the DC Security events from OpenWEC (Linux, stage B design 7.8): reasons with a collector text
+    /// (<see cref="WatchdogDisplay.CollectorReasonCodes"/>) read e.g. "collector silent" instead of "DC unreachable".
+    /// </summary>
+    [ObservableProperty]
+    public partial bool CollectorMode { get; set; }
 
     [ObservableProperty]
     public partial bool IsLoading { get; private set; }
@@ -207,7 +213,15 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         }
     }
 
-    /// <summary>An AD session was opened or closed: "Otwórz w AD_MNG" and the unlock offer are re-evaluated.</summary>
+    partial void OnCollectorModeChanged(bool value)
+    {
+        if (Event is { } shown)
+        {
+            FillAttribution(shown.Attribution ?? EventAttribution.Pending);
+        }
+    }
+
+    /// <summary>An AD session was opened or closed: "Pokaż w AD Manager" and the unlock offer are re-evaluated.</summary>
     public void NotifySessionChanged()
     {
         OpenInAdMngCommand.NotifyCanExecuteChanged();
@@ -362,8 +376,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             text.AppendLine($"{change.Attribute}: {change.OldText} → {change.NewText} {change.ChangeText}".TrimEnd());
         }
 
-        _services.Ui.Clipboard.SetText(text.ToString().TrimEnd());
-        _services.Ui.Notifications.Show(NotificationSeverity.Info, localizer[L.Fields.Copied]);
+        // Confirmed like every other copy in the application ("Copied: Event details"), not when the clipboard was busy.
+        ClipboardCopy.Value(_services.Ui.Clipboard, _services.Ui.Notifications, localizer, text.ToString().TrimEnd(), localizer[L.Copy.EventDetails]);
     }
 
     private async Task ShowCoreAsync(WatchEvent? summary)
@@ -391,16 +405,13 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             Fill(details.Event, details);
             await CheckLockAsync(details.Event, token).ConfigureAwait(true);
         }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        catch (Exception ex) when (ex is not OutOfMemoryException && token.IsCancellationRequested)
         {
-            // Another event was selected.
+            // Another event was selected (OperationCanceledException or a WatchdogClientException of kind Cancelled).
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            if (!token.IsCancellationRequested)
-            {
-                Error = _services.Connection.Describe(ex);
-            }
+            Error = _services.Connection.Describe(ex);
         }
         finally
         {
@@ -507,8 +518,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             : string.Empty;
 
         var schema = _services.Sessions.Current?.Schema;
-        var useSchema = e.Object.Kind != WatchObjectKind.Watchdog;
-        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, useSchema)));
+        var context = WatchdogChangeContext.Of(e);
+        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, context)));
         FillAttribution(e.Attribution ?? EventAttribution.Pending);
         FillLockout(e.Lockout);
         if (details is not null)
@@ -528,8 +539,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         SourceText = WatchdogAttributionText.Source(localizer, attribution);
         SourceConfidenceText = SourceText.Length == 0 ? string.Empty : localizer.ConfidenceName(attribution.SourceConfidence);
         ConfidenceText = attribution.Status == AttributionStatus.NotApplicable ? string.Empty : localizer.ConfidenceName(attribution.Confidence);
-        ReasonText = localizer.ReasonText(attribution.Reason);
-        RemedyText = localizer.RemedyText(attribution.Reason) ?? string.Empty;
+        ReasonText = localizer.ReasonText(attribution.Reason, CollectorMode);
+        RemedyText = localizer.RemedyText(attribution.Reason, CollectorMode) ?? string.Empty;
         SourceReasonText = string.IsNullOrEmpty(attribution.SourceReason)
             ? string.Empty
             : $"{localizer.ReasonText(attribution.SourceReason)} – {localizer.RemedyText(attribution.SourceReason)}";

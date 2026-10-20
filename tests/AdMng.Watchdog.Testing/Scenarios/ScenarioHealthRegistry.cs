@@ -12,6 +12,10 @@ public sealed class ScenarioHealthRegistry : IHealthRegistry
     private readonly List<HealthCheckDto> _history = [];
     private DirectoryStatusDto _directory = new() { State = HealthState.Unknown };
     private AttributionStatusDto _attribution = new();
+    private ServiceAccountStatusDto? _serviceAccount;
+    private CollectorStatusDto? _collector;
+    private GpoContentStatusDto? _gpoContent;
+    private HostStatusDto? _host;
 
     public IReadOnlyList<HealthCheckDto> Checks
     {
@@ -69,6 +73,50 @@ public sealed class ScenarioHealthRegistry : IHealthRegistry
         }
     }
 
+    public ServiceAccountStatusDto? ServiceAccount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _serviceAccount;
+            }
+        }
+    }
+
+    public CollectorStatusDto? Collector
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _collector;
+            }
+        }
+    }
+
+    public GpoContentStatusDto? GpoContent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _gpoContent;
+            }
+        }
+    }
+
+    public HostStatusDto? Host
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _host;
+            }
+        }
+    }
+
     /// <summary>The latest check of <paramref name="code"/>, or null.</summary>
     public HealthCheckDto? Get(string code)
     {
@@ -112,6 +160,42 @@ public sealed class ScenarioHealthRegistry : IHealthRegistry
         lock (_gate)
         {
             _attribution = status;
+        }
+    }
+
+    public void ReportServiceAccount(ServiceAccountStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _serviceAccount = status;
+        }
+    }
+
+    public void ReportCollector(CollectorStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _collector = status;
+        }
+    }
+
+    public void ReportGpoContent(GpoContentStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _gpoContent = status;
+        }
+    }
+
+    public void ReportHost(HostStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _host = status;
         }
     }
 }

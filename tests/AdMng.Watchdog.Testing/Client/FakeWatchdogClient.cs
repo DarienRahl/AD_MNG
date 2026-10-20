@@ -10,7 +10,8 @@ namespace AdMng.Watchdog.Testing.Client;
 /// In-memory <see cref="IWatchdogClient"/> with the API semantics of the service (filters and paging of the event feed,
 /// long-poll with <see cref="EventQuery.WaitSeconds"/> on the injected <see cref="TimeProvider"/>, acknowledgements,
 /// optimistic concurrency of the configuration, redacted configuration for Viewers, write-only secrets, role checks,
-/// test sends with the destination-binding rule, delivery log and retry), pre-filled with the Polish sample data of
+/// test sends with the destination-binding rule, delivery log and retry; a cancelled call throws a
+/// <see cref="WatchdogClientException"/> of kind Cancelled like the real client), pre-filled with the Polish sample data of
 /// <see cref="SampleEvents"/>, <see cref="SampleConfiguration"/> and <see cref="SampleStatus"/>. Tests script failures
 /// per method (<see cref="FailWith"/>, <see cref="FailNext"/>), hold calls (<see cref="Hold"/>) and await calls
 /// (<see cref="Calls"/>). Never touches a network or a disk.
@@ -38,6 +39,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     private readonly List<RulePreviewRequest> _rulePreviews = [];
     private readonly List<OutboxQuery> _outboxQueries = [];
     private TaskCompletionSource _newEvent = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private (Func<EventQuery, bool> Match, TaskCompletionSource Release)? _eventHold;
     private WatchdogClientOptions? _options;
     private ConfigEnvelope _config;
     private long _nextId;
@@ -114,6 +116,13 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
     /// <summary>Number of <c>POST /digest/send</c> calls that succeeded.</summary>
     public int DigestSends { get; private set; }
+
+    /// <summary>
+    /// A self-signed service certificate (stage B design 18 item 1): while set, every call fails like the real client –
+    /// CertificateUntrusted without a pin, CertificateChanged with another pin – unless the configured
+    /// <see cref="WatchdogClientOptions.PinnedCertificateSha256"/> is its fingerprint.
+    /// </summary>
+    public WatchdogServerCertificate? ServerCertificate { get; set; }
 
     /// <summary>The options of the last <see cref="Configure"/> call (null = not configured).</summary>
     public WatchdogClientOptions? Options
@@ -238,6 +247,32 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         hold?.TrySetResult();
     }
 
+    /// <summary>
+    /// Calls of <see cref="GetEventsAsync"/> whose query matches <paramref name="match"/> wait (after being recorded) until
+    /// <see cref="ReleaseEvents"/> – e.g. only the "load older" pages while the live long-poll keeps running.
+    /// </summary>
+    public void HoldEvents(Func<EventQuery, bool> match)
+    {
+        ArgumentNullException.ThrowIfNull(match);
+        lock (_gate)
+        {
+            _eventHold = (match, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        }
+    }
+
+    /// <summary>Lets the calls held by <see cref="HoldEvents"/> continue.</summary>
+    public void ReleaseEvents()
+    {
+        TaskCompletionSource? release;
+        lock (_gate)
+        {
+            release = _eventHold?.Release;
+            _eventHold = null;
+        }
+
+        release?.TrySetResult();
+    }
+
     /// <summary>Appends an event (id assigned) and wakes long-polls. Returns the stored event.</summary>
     public WatchEvent AddEvent(WatchEvent watchEvent)
     {
@@ -322,6 +357,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         }
 
         await EnterAsync(nameof(GetEventsAsync), cancellationToken).ConfigureAwait(false);
+        Task? held;
+        lock (_gate)
+        {
+            held = _eventHold is { } hold && hold.Match(query) ? hold.Release.Task : null;
+        }
+
+        if (held is not null)
+        {
+            await WaitHeldAsync(held, cancellationToken).ConfigureAwait(false);
+        }
+
         if (query.After is { } after && query.WaitSeconds > 0)
         {
             await WaitForNewerAsync(after, deadline, cancellationToken).ConfigureAwait(false);
@@ -747,10 +793,14 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         if (hold is not null)
         {
-            await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await WaitHeldAsync(hold, cancellationToken).ConfigureAwait(false);
         }
 
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw Cancelled(null);
+        }
+
         Exception? failure = null;
         lock (_gate)
         {
@@ -765,6 +815,18 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             else if (_options is null)
             {
                 failure = new WatchdogClientException(WatchdogClientErrorKind.NotConfigured, "The watchdog service address is not configured.");
+            }
+            else if (ServerCertificate is { } certificate
+                     && WatchdogServerCertificate.NormalizeSha256(_options.PinnedCertificateSha256) is var pin
+                     && !string.Equals(pin, certificate.Sha256, StringComparison.Ordinal))
+            {
+                failure = pin is null
+                    ? new WatchdogClientException(WatchdogClientErrorKind.CertificateUntrusted, "Scripted failure: CertificateUntrusted.") { Certificate = certificate }
+                    : new WatchdogClientException(WatchdogClientErrorKind.CertificateChanged, "Scripted failure: CertificateChanged.")
+                    {
+                        Certificate = certificate,
+                        PinnedCertificateSha256 = pin,
+                    };
             }
         }
 
@@ -806,10 +868,30 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
         var winner = await Task.WhenAny(signal, delay).ConfigureAwait(false);
         await timeout.CancelAsync().ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (winner == delay && delay.IsCanceled)
+        if (cancellationToken.IsCancellationRequested || (winner == delay && delay.IsCanceled))
         {
-            throw new OperationCanceledException(cancellationToken);
+            throw Cancelled(null);
+        }
+    }
+
+    /// <summary>
+    /// The caller cancelled the request: like <see cref="WatchdogHttpClient"/> (<c>WatchdogClientErrors.FromException</c>)
+    /// the fake reports it as a <see cref="WatchdogClientException"/> of kind Cancelled, not as an
+    /// <see cref="OperationCanceledException"/> – view models must treat both as "superseded", never as an error.
+    /// </summary>
+    private static WatchdogClientException Cancelled(Exception? inner) =>
+        new(WatchdogClientErrorKind.Cancelled, "The request was cancelled.", inner);
+
+    /// <summary>Waits for a held call to be released; the caller's cancellation is reported like the real client does.</summary>
+    private static async Task WaitHeldAsync(Task hold, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await hold.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+        {
+            throw Cancelled(ex);
         }
     }
 }

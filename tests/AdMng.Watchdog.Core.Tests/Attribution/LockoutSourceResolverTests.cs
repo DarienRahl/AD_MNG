@@ -122,6 +122,44 @@ public sealed class LockoutSourceResolverTests : IDisposable
         Assert.Equal([Pdc], _source.Queries.Select(q => q.Host));
     }
 
+    [Theory]
+    [InlineData("józef.żak")]
+    [InlineData("o'neill")]
+    [InlineData("Łukasz.Wiśniewski")]
+    public async Task AccountNamesWithDiacriticsOrApostrophes_AreLookedUp(string sam)
+    {
+        // attribution-rules-16: Polish sAMAccountNames must not silently skip the bad-password lookup.
+        _store.Add(Parse(SecurityEventXml.Create(4740, NextId(), LockedAt, Dc1,
+            [("TargetUserName", sam), ("TargetDomainName", null), ("TargetSid", UserSid), .. LocalSystem])));
+        AddFailure(Pdc, id => SecurityEventXml.KerberosPreAuthFailed(id, LockedAt.AddMinutes(-1), Pdc, sam, "10.20.30.41"));
+        var lockout = Lockout() with { Object = Lockout().Object with { SamAccountName = sam } };
+
+        var resolution = await _resolver.ResolveAsync(lockout, Settings, Ct);
+
+        Assert.Equal([new LockoutSource("10.20.30.41", null, 1, 4771)], resolution.Lockout.Sources);
+        Assert.All(_source.Queries, q => Assert.Equal([("TargetUserName", sam)], q.Query.DataEquals));
+        Assert.True(resolution.Complete);
+    }
+
+    [Fact]
+    public async Task WithoutA4740_TheResolutionIsIncomplete()
+    {
+        var resolution = await _resolver.ResolveAsync(Lockout(), Settings, Ct);
+
+        Assert.False(resolution.Complete);
+    }
+
+    [Fact]
+    public async Task AnUnfinishedLookup_LeavesTheResolutionIncomplete()
+    {
+        Add4740(caller: null);
+        _source.Fail(Pdc);
+
+        var resolution = await _resolver.ResolveAsync(Lockout(), Settings, Ct);
+
+        Assert.False(resolution.Complete);
+    }
+
     [Fact]
     public async Task AnUnreachableDc_IsSkipped()
     {

@@ -7,6 +7,9 @@ public static partial class L
     {
         /// <summary>The session of the window ended (disconnect or a new connection): reopen the window.</summary>
         public const string Ended = "WindowSession.Ended";
+
+        /// <summary>{0} = the previous DC, {1} = the DC the session works with now ("Change domain controller").</summary>
+        public const string EndedOnPreviousDc = "WindowSession.EndedOnPreviousDc";
     }
 
     /// <summary>Commands that follow the operator's effective permissions (ADR-0006).</summary>

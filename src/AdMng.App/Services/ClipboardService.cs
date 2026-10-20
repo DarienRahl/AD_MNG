@@ -35,16 +35,18 @@ public sealed class ClipboardService(INotificationService notifications, ILocali
     private DispatcherTimer? _clearTimer;
     private string? _secret;
 
-    public void SetText(string text)
+    public bool SetText(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         try
         {
             Clipboard.SetText(text);
+            return true;
         }
         catch (ExternalException ex)
         {
             ReportBusy(ex);
+            return false;
         }
     }
 

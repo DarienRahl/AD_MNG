@@ -11,6 +11,11 @@ public sealed record DirectoryBootstrapOptions
     /// <summary>Null = locate a DC (the PDC emulator with <see cref="PreferPdc"/>).</summary>
     public string? Server { get; init; }
 
+    /// <summary>Linux (required there – no DC locator): ordered DC host names (FQDN, never IP literals). The first reachable
+    /// one is used; with <see cref="PreferPdc"/> the service reconnects to the PDC emulator when it is listed; failover
+    /// after <c>Directory.FailoverAfter</c> to the next (stage B design 5.3).</summary>
+    public string[] Servers { get; init; } = [];
+
     public bool PreferPdc { get; init; } = true;
 
     public AuthenticationMode Authentication { get; init; } = AuthenticationMode.CurrentUser;

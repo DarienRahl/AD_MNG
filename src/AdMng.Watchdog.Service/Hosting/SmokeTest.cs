@@ -16,7 +16,8 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// <c>--smoke-test</c> (CI, spec 19.1): a temporary data folder, loopback HTTP on an ephemeral port, the Development
+/// <c>--smoke-test</c> (CI, spec 19.1): independent of the machine's bootstrap file, a temporary data folder, loopback
+/// HTTP on an ephemeral port, the Development
 /// scheme with a smoke-test Viewer SID, directory and attribution disabled; runs the start-up checks (migrations),
 /// GETs <c>/healthz</c> and <c>/api/v1/status</c>, renders a sample event and a digest through every formatter and the
 /// test messages of every channel type; exit code 0/1. The temporary folder is deleted afterwards.
@@ -69,7 +70,8 @@ public static class SmokeTest
         await using var app = WatchdogHost.Build(
             [.. args, "--environment", Environments.Development],
             builder => builder.Configuration.AddInMemoryCollection(settings),
-            console: true);
+            console: true,
+            bootstrapFile: false);
         await app.StartAsync().ConfigureAwait(false);
         try
         {

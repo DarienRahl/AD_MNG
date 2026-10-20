@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly rotation and clean-up of the OpenWEC output files
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

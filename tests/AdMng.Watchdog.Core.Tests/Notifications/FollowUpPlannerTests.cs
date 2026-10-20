@@ -83,6 +83,40 @@ public sealed class FollowUpPlannerTests
         Assert.Equal(DetailLevel.Minimal, target.DetailLevel);
     }
 
+    [Fact]
+    public async Task EachEventOfAnAggregatedAlert_IsFollowedUpWithItsOwnSeverity_NotTheAlertsMaximum()
+    {
+        // One High alert showed a privilege grant as High and a second one as Medium, both actors pending.
+        var harness = new NotificationHarness(ConfigWith(Privileged));
+        var high = await harness.StoreAsync(Event(WatchEventKind.PrivilegeGranted, Severity.High, EventAttribution.Pending, "Zofia Ćwiklińska"));
+        var medium = await harness.StoreAsync(Event(WatchEventKind.PrivilegeGranted, Severity.Medium, EventAttribution.Pending, "Jędrzej Łęcki"));
+        var target = AdminsTarget(harness.Current);
+        var alert = NotificationRenderer.Alert(target, Privileged, [high, medium], 0, [high.Id, medium.Id], harness.Current, Now) with
+        {
+            EventStates = [new(high.Id, Severity.High, true), new(medium.Id, Severity.Medium, true)],
+        };
+        await harness.Store.EnqueueAsync(alert, Ct);
+
+        var forHigh = Assert.Single(await harness.FollowUps.PlanAsync(high with { Attribution = Resolved() }, Ct));
+        var forMedium = Assert.Single(await harness.FollowUps.PlanAsync(medium with { Attribution = Resolved() }, Ct));
+
+        Assert.Equal((Severity.High, Severity.Medium), (forHigh.Severity, forMedium.Severity));
+        Assert.Equal(alert.MessageId, forMedium.ReplyToMessageId);
+    }
+
+    [Fact]
+    public async Task AFollowUp_ShowsTheEventLowered_WhenTheAttributionLoweredIt()
+    {
+        // A raise is planned per target by the re-evaluation; the follow-up planner only ever lowers to the final severity.
+        var harness = new NotificationHarness(ConfigWith(Privileged));
+        var (e, _) = await SendAlertAsync(harness, Severity.High, AdminsTarget(harness.Current));
+
+        var lowered = Assert.Single(await harness.FollowUps.PlanAsync(e with { Attribution = Resolved(), Severity = Severity.Info }, Ct));
+        var raised = Assert.Single(await harness.FollowUps.PlanAsync(e with { Attribution = Resolved(), Severity = Severity.Critical }, Ct));
+
+        Assert.Equal((Severity.Info, Severity.High), (lowered.Severity, raised.Severity));
+    }
+
     private static async Task<(WatchEvent Event, OutboxMessage Message)> SendAlertAsync(NotificationHarness harness, Severity severity, NotificationTarget target,
         WatchEvent? existing = null, EventAttribution? attribution = null)
     {

@@ -8,6 +8,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.Services;
@@ -76,11 +77,27 @@ public sealed class DialogService : IDialogService
         return OnUiThreadAsync(() => ShowModal(chooser) && chooser.Result.Count > 0);
     }
 
+    public Task<bool> ShowLogonHoursAsync(LogonHoursViewModel editor)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        return OnUiThreadAsync(() => ShowModal(editor));
+    }
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(WatchdogCertificateTrustViewModel dialog)
+    {
+        ArgumentNullException.ThrowIfNull(dialog);
+        return OnUiThreadAsync(() => ShowModal(dialog));
+    }
+
     public Task ShowConnectAsync() => OnUiThreadAsync(() =>
     {
         _navigator.ShowConnect();
         return true;
     });
+
+    /// <summary>"Change Domain Controller" (modal). True when the session moved to another DC.</summary>
+    public Task<bool> ShowChangeDomainControllerAsync() =>
+        OnUiThreadAsync(() => ShowWindowModal(Factory.CreateChangeDomainController()));
 
     // ---- Dialogs of the next wave (property sheets, wizards, pickers) ----------------------------------------
 

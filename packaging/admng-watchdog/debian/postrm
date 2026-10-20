@@ -1,0 +1,42 @@
+#!/bin/sh
+# admng-watchdog postrm (docs/dev/watchdog-linux-design.md 13.1). Purge removes the configuration, keytab, certificate
+# and credential, but KEEPS the history in /var/lib/admng-watchdog (ADR-0008, decommissioning in the instructions).
+set -e
+
+UNITS="admng-watchdog.service admng-watchdog-keytab.timer admng-wec-rotate.timer"
+
+case "$1" in
+    remove)
+        if [ -d /run/systemd/system ]; then
+            systemctl --system daemon-reload >/dev/null || true
+        fi
+        if command -v deb-systemd-helper >/dev/null 2>&1; then
+            for unit in $UNITS; do
+                deb-systemd-helper mask "$unit" >/dev/null || true
+            done
+        fi
+        ;;
+    purge)
+        if command -v deb-systemd-helper >/dev/null 2>&1; then
+            for unit in $UNITS; do
+                deb-systemd-helper purge "$unit" >/dev/null || true
+                deb-systemd-helper unmask "$unit" >/dev/null || true
+            done
+        fi
+        rm -rf /etc/admng-watchdog /var/lib/admng-watchdog-keytab /run/admng-watchdog
+        echo "admng-watchdog: configuration, keytab, TLS certificate and key credential removed."
+        echo "admng-watchdog: the AD account ADMNG-WD\$ still exists - a Tier 0 administrator disables or deletes it."
+        if [ -d /var/lib/admng-watchdog ]; then
+            echo "admng-watchdog: the history in /var/lib/admng-watchdog is KEPT; delete it only when decommissioning:"
+            echo "admng-watchdog:   sudo rm -rf --one-file-system /var/lib/admng-watchdog"
+        fi
+        ;;
+    upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        ;;
+    *)
+        echo "postrm called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

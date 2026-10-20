@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Attribution;
@@ -67,6 +68,57 @@ public static class SecurityEventReducer
 
         return securityEvent with { Data = data };
     }
+
+    /// <summary>
+    /// Collector mode (stage B design 7.7): a logon or failure record (<see cref="SecurityEventCatalog.IsLogonRecord"/>)
+    /// reduced to <see cref="SecurityEventCatalog.LogonRetainedFields"/>; null when it is dropped – a 4624 whose
+    /// LogonType is not 3 or 10, of a computer account (<c>TargetUserName</c> ending in '$', with
+    /// <see cref="AttributionSettings.DropComputerLogons"/>) or of ANONYMOUS LOGON (S-1-5-7, with
+    /// <see cref="AttributionSettings.DropAnonymousLogons"/>), and any record of another event id.
+    /// </summary>
+    public static SecurityEvent? ReduceLogon(SecurityEvent securityEvent, AttributionSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(securityEvent);
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!SecurityEventCatalog.LogonRetainedFields.TryGetValue(securityEvent.EventCode, out var retained))
+        {
+            return null;
+        }
+
+        if (securityEvent.EventCode == SecurityEventCatalog.LogonSucceeded)
+        {
+            if (securityEvent.Get("LogonType")?.Trim() is not ("3" or "10"))
+            {
+                return null;
+            }
+
+            if (settings.DropComputerLogons && securityEvent.Get("TargetUserName")?.TrimEnd().EndsWith('$') == true)
+            {
+                return null;
+            }
+
+            if (settings.DropAnonymousLogons
+                && (string.Equals(securityEvent.Get("TargetUserSid"), AnonymousLogonSid, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(securityEvent.Get("TargetUserName"), "ANONYMOUS LOGON", StringComparison.OrdinalIgnoreCase)))
+            {
+                return null;
+            }
+        }
+
+        var data = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (name, value) in securityEvent.Data)
+        {
+            if (retained.Contains(name))
+            {
+                data[name] = value;
+            }
+        }
+
+        return securityEvent with { Data = data };
+    }
+
+    /// <summary>ANONYMOUS LOGON.</summary>
+    public const string AnonymousLogonSid = "S-1-5-7";
 
     private static bool IsRelevantDirectoryChange(SecurityEvent securityEvent, SecurityEventReduction reduction)
     {

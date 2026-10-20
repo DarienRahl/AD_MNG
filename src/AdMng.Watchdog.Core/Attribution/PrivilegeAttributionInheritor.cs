@@ -6,14 +6,21 @@ namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
 /// PrivilegeGranted / PrivilegeRevoked inherit the attribution of the change that caused them (section 11.2): the
-/// GroupMemberAdded/Removed, PrimaryGroupChanged or ObjectRestored (tag <c>restored</c>) event of the same change set,
-/// else the membership event on the path's first edge (the principal joined/left the first group of the nesting path,
-/// or the privileged group itself when the membership is direct).
+/// GroupMemberAdded/Removed, PrimaryGroupChanged or ObjectRestored (tag <c>restored</c>) event of the same change set;
+/// otherwise the membership change on <b>any edge</b> of the nesting path (privileged root ← … ← principal, in whatever
+/// order <see cref="WatchEvent.Via"/> lists the groups) or a PrimaryGroupChanged of the principal, detected within
+/// <see cref="CauseWindow"/> before the privilege event – the newest one. Nesting IT-Ops into Domain Admins is the cause of
+/// Bob's privilege, not the day-old addition of Bob to IT-Ops; a change long before the privilege event is never
+/// taken (better unresolved than the wrong actor).
 /// </summary>
 public sealed class PrivilegeAttributionInheritor(IEventStore events)
 {
-    /// <summary>How far before the privilege event the first-edge membership event is searched.</summary>
-    public static readonly TimeSpan FirstEdgeLookback = TimeSpan.FromDays(1);
+    /// <summary>How long before the privilege event its cause may have been detected (the privilege evaluation runs in
+    /// the detection cycle of the membership change, or a few cycles later for nested groups read on demand).</summary>
+    public static readonly TimeSpan CauseWindow = TimeSpan.FromMinutes(15);
+
+    /// <summary>Clock tolerance after the privilege event.</summary>
+    private static readonly TimeSpan After = TimeSpan.FromMinutes(1);
 
     /// <summary>The causing event, or null when none is stored.</summary>
     public async Task<WatchEvent?> FindCauseAsync(WatchEvent privilegeEvent, CancellationToken cancellationToken)
@@ -35,23 +42,34 @@ public sealed class PrivilegeAttributionInheritor(IEventStore events)
             }
         }
 
-        var firstGroup = privilegeEvent.Via is { Count: > 0 } via ? via[0] : privilegeEvent.Member;
-        if (firstGroup?.ObjectGuid is not { } groupGuid || privilegeEvent.Object.ObjectGuid is not { } principalGuid)
+        if (privilegeEvent.Object.ObjectGuid is not { } principalGuid)
         {
             return null;
         }
 
-        var page = await events.QueryAsync(new EventQuery
+        // The groups of the path and the members whose addition/removal can complete or break it.
+        var via = (privilegeEvent.Via ?? []).Select(g => g.ObjectGuid).OfType<Guid>().ToList();
+        var groups = new HashSet<Guid>(via);
+        if (privilegeEvent.Member?.ObjectGuid is { } root)
         {
-            ObjectGuid = groupGuid,
-            Kinds = [memberKind],
-            From = privilegeEvent.DetectedAt - FirstEdgeLookback,
-            To = privilegeEvent.DetectedAt + TimeSpan.FromMinutes(1),
-            Limit = 100,
-        }, cancellationToken).ConfigureAwait(false);
-        return page.Items
-            .Where(e => e.Member?.ObjectGuid == principalGuid)
+            groups.Add(root);
+        }
+
+        var members = new HashSet<Guid>(via) { principalGuid };
+        var from = privilegeEvent.DetectedAt - CauseWindow;
+        var to = privilegeEvent.DetectedAt + After;
+        var candidates = new List<WatchEvent>();
+        foreach (var group in groups)
+        {
+            var page = await QueryAsync(group, memberKind, from, to, cancellationToken).ConfigureAwait(false);
+            candidates.AddRange(page.Where(e => e.Member?.ObjectGuid is { } member && member != group && members.Contains(member)));
+        }
+
+        candidates.AddRange(await QueryAsync(principalGuid, WatchEventKind.PrimaryGroupChanged, from, to, cancellationToken).ConfigureAwait(false));
+        return candidates
+            .Where(e => e.EventId != privilegeEvent.EventId)
             .OrderByDescending(e => e.DetectedAt)
+            .ThenByDescending(e => e.Id)
             .FirstOrDefault();
     }
 
@@ -61,4 +79,9 @@ public sealed class PrivilegeAttributionInheritor(IEventStore events)
         ArgumentNullException.ThrowIfNull(cause);
         return cause with { ResolvedAt = cause.ResolvedAt ?? now };
     }
+
+    private async Task<IReadOnlyList<WatchEvent>> QueryAsync(Guid objectGuid, WatchEventKind kind, DateTimeOffset from, DateTimeOffset to,
+        CancellationToken cancellationToken) =>
+        (await events.QueryAsync(new EventQuery { ObjectGuid = objectGuid, Kinds = [kind], From = from, To = to, Limit = 100 }, cancellationToken)
+            .ConfigureAwait(false)).Items;
 }

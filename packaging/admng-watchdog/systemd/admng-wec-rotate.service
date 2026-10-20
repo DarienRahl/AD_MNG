@@ -1,0 +1,33 @@
+[Unit]
+Description=AdMng Watchdog - rotate and clean up OpenWEC output files
+After=openwecd.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/lib/admng-watchdog/wec-rotate
+ExecStartPost=+-/usr/bin/systemctl reload openwecd.service
+EnvironmentFile=-/etc/default/admng-wec-rotate
+UMask=0027
+LimitCORE=0
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+ProtectSystem=strict
+ReadWritePaths=/var/lib/openwec/out
+ReadOnlyPaths=-/run/admng-watchdog
+InaccessiblePaths=-/etc/admng-watchdog -/var/lib/admng-watchdog -/var/lib/openwec/db
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

@@ -1,0 +1,15 @@
+AdMng Watchdog for Debian
+=========================
+
+Installation, configuration, operation and decommissioning are described in the
+instructions docs/WATCHDOG-LINUX.md of the AD_MNG repository (in Polish).
+
+  Unit:           admng-watchdog.service (journalctl -u admng-watchdog)
+  Configuration:  /etc/admng-watchdog/appsettings.json (root:admng-watchdog 0640)
+  TLS:            /etc/admng-watchdog/tls/admng-wd.crt, admng-wd.key
+  Key credential: /etc/admng-watchdog/credentials/dp-key.cred (root 0600)
+  Data:           /var/lib/admng-watchdog (kept on purge)
+  Checks:         sudo admng-watchdog --check-config | --health | --smoke-test
+  Keytab:         sudo admng-watchdog-keytab init | verify | status (rotation: admng-watchdog-keytab.timer,
+                  daily, password older than 30 days; status in /var/lib/admng-watchdog-keytab/status.json)
+  Kerberos/LDAP:  /etc/admng-watchdog/krb5.conf (primary_kdc = PDC emulator), ldap.conf (SASL_SECPROPS minssf=56)

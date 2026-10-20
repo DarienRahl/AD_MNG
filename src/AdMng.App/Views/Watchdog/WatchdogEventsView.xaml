@@ -25,6 +25,11 @@
         <DataTrigger Binding="{Binding IsNew, Mode=OneWay}" Value="True">
           <Setter Property="FontWeight" Value="SemiBold" />
         </DataTrigger>
+        <!-- Selected while the service changed it so that it no longer matches the filter: dimmed until deselected. -->
+        <DataTrigger Binding="{Binding NoLongerMatches, Mode=OneWay}" Value="True">
+          <Setter Property="Opacity" Value="0.55" />
+          <Setter Property="ToolTip" Value="{l:Tr Watchdog.Ui.EventNoLongerMatches}" />
+        </DataTrigger>
       </Style.Triggers>
     </Style>
 
@@ -53,81 +58,106 @@
   </UserControl.Resources>
 
   <DockPanel>
-    <!-- Filter bar -->
-    <WrapPanel Margin="0,4,0,0" DockPanel.Dock="Top">
-      <Grid Width="240" Margin="0,0,8,6">
-        <TextBox x:Name="FilterTextBox"
-                 AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterText}"
-                 Text="{Binding Filter.Text, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Style="{StaticResource Ad.HintText}"
-                   Text="{l:Tr Watchdog.Ui.FilterTextHint}"
-                   Visibility="{Binding Text, ElementName=FilterTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
-      </Grid>
-      <ComboBox x:Name="SeverityBox"
-                MinWidth="160"
-                Margin="0,0,8,6"
-                AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSeverity}"
-                DisplayMemberPath="Text"
-                ItemsSource="{Binding Filter.Severities, Mode=OneWay}"
-                SelectedItem="{Binding Filter.MinSeverity}" />
-      <ToggleButton x:Name="UnresolvedToggle"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnresolved}"
-                    Content="{l:Tr Watchdog.Ui.FilterUnresolved}"
-                    IsChecked="{Binding Filter.UnresolvedOnly}"
-                    Style="{StaticResource Ad.ChipToggleButton}"
-                    ToolTip="{l:Tr Watchdog.Ui.FilterUnresolvedHint}" />
-      <ToggleButton x:Name="UnacknowledgedToggle"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
-                    Content="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
-                    IsChecked="{Binding Filter.UnacknowledgedOnly}"
-                    Style="{StaticResource Ad.ChipToggleButton}" />
-      <DatePicker x:Name="FromPicker"
-                  Width="150"
+    <!--
+      Filter bar: the filters wrap on the left; saved filters, "Więcej filtrów" and the reset button stay together at the
+      end of the first row, so the reset button is never alone on a row. At 1440 × 900 everything is one row.
+    -->
+    <Grid x:Name="FilterBar"
+          Margin="0,4,0,0"
+          DockPanel.Dock="Top">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <WrapPanel x:Name="FilterPanel">
+        <Grid Width="220" Margin="0,0,6,6">
+          <TextBox x:Name="FilterTextBox"
+                   AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterText}"
+                   Text="{Binding Filter.Text, UpdateSourceTrigger=PropertyChanged}"
+                   ToolTip="{l:Tr Watchdog.Ui.FilterTextHint}" />
+          <TextBlock Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.FilterTextHint}"
+                     Visibility="{Binding Text, ElementName=FilterTextBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <ComboBox x:Name="SeverityBox"
+                  MinWidth="160"
                   Margin="0,0,6,6"
-                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterFrom}"
-                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterFrom}"
-                  SelectedDate="{Binding Filter.From}" />
-      <DatePicker x:Name="ToPicker"
-                  Width="150"
-                  Margin="0,0,8,6"
-                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTo}"
-                  b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterTo}"
-                  SelectedDate="{Binding Filter.To}" />
-      <ToggleButton x:Name="MoreFiltersToggle"
+                  AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterSeverity}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding Filter.Severities, Mode=OneWay}"
+                  SelectedItem="{Binding Filter.MinSeverity}" />
+        <ToggleButton x:Name="UnresolvedToggle"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                      Content="{l:Tr Watchdog.Ui.FilterUnresolved}"
+                      IsChecked="{Binding Filter.UnresolvedOnly}"
+                      Style="{StaticResource Ad.ChipToggleButton}"
+                      ToolTip="{l:Tr Watchdog.Ui.FilterUnresolvedHint}" />
+        <ToggleButton x:Name="UnacknowledgedToggle"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                      Content="{l:Tr Watchdog.Ui.FilterUnacknowledged}"
+                      IsChecked="{Binding Filter.UnacknowledgedOnly}"
+                      Style="{StaticResource Ad.ChipToggleButton}" />
+        <DatePicker x:Name="FromPicker"
+                    Width="136"
                     Margin="0,0,6,6"
-                    Padding="10,4"
-                    AutomationProperties.Name="{l:Tr Watchdog.Ui.MoreFilters}"
-                    IsHitTestVisible="{Binding IsOpen, ElementName=MoreFiltersPopup, Converter={StaticResource Ad.InverseBool}}">
-        <StackPanel Orientation="Horizontal">
-          <TextBlock FontSize="12"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Filter}" />
-          <TextBlock Margin="6,0,0,0"
-                     VerticalAlignment="Center"
-                     Text="{l:Tr Watchdog.Ui.MoreFilters}" />
-          <TextBlock Margin="6,0,0,0"
-                     VerticalAlignment="Center"
-                     FontWeight="SemiBold"
-                     Text="{Binding Filter.ActiveCount, Mode=OneWay}"
-                     Visibility="{Binding Filter.HasActiveFilter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
-      </ToggleButton>
-      <Button x:Name="ClearFiltersButton"
-              Margin="0,0,8,6"
-              AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearFilters}"
-              Command="{Binding Filter.ClearCommand}"
-              Content="{x:Static c:Glyphs.Cancel}"
-              Style="{StaticResource Ad.IconButton}"
-              ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
-      <ComboBox x:Name="PresetBox"
-                MinWidth="170"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterFrom}"
+                    b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterFrom}"
+                    SelectedDate="{Binding Filter.From}" />
+        <DatePicker x:Name="ToPicker"
+                    Width="136"
+                    Margin="0,0,6,6"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.FilterTo}"
+                    b:DatePickerWatermark.Text="{l:Tr Watchdog.Ui.FilterTo}"
+                    SelectedDate="{Binding Filter.To}" />
+      </WrapPanel>
+      <StackPanel x:Name="FilterActions"
+                  Grid.Column="1"
+                  VerticalAlignment="Top"
+                  Orientation="Horizontal">
+        <!-- Saved filters: only when there are some (saved under "Więcej filtrów"); the placeholder names the list. -->
+        <Grid x:Name="PresetPanel"
+              Margin="0,0,6,6"
+              Visibility="{Binding Filter.HasPresets, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <ComboBox x:Name="PresetBox"
+                    MinWidth="170"
+                    AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
+                    DisplayMemberPath="Name"
+                    ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
+                    SelectedItem="{Binding Filter.SelectedPreset}"
+                    ToolTip="{l:Tr Watchdog.Ui.Presets}" />
+          <TextBlock x:Name="PresetPlaceholder"
+                     Style="{StaticResource Ad.HintText}"
+                     Text="{l:Tr Watchdog.Ui.Presets}"
+                     Visibility="{Binding SelectedItem, ElementName=PresetBox, Converter={StaticResource Ad.EmptyToVisible}}" />
+        </Grid>
+        <ToggleButton x:Name="MoreFiltersToggle"
+                      Margin="0,0,6,6"
+                      Padding="10,4"
+                      AutomationProperties.Name="{l:Tr Watchdog.Ui.MoreFilters}"
+                      IsHitTestVisible="{Binding IsOpen, ElementName=MoreFiltersPopup, Converter={StaticResource Ad.InverseBool}}">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="12"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Filter}" />
+            <TextBlock Margin="6,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="{l:Tr Watchdog.Ui.MoreFilters}" />
+            <TextBlock Margin="6,0,0,0"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{Binding Filter.ActiveCount, Mode=OneWay}"
+                       Visibility="{Binding Filter.HasActiveFilter, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+        </ToggleButton>
+        <Button x:Name="ClearFiltersButton"
                 Margin="0,0,0,6"
-                AutomationProperties.Name="{l:Tr Watchdog.Ui.Presets}"
-                DisplayMemberPath="Name"
-                ItemsSource="{Binding Filter.Presets, Mode=OneWay}"
-                SelectedItem="{Binding Filter.SelectedPreset}"
-                ToolTip="{l:Tr Watchdog.Ui.Presets}" />
-    </WrapPanel>
+                AutomationProperties.Name="{l:Tr Watchdog.Ui.ClearFilters}"
+                Command="{Binding Filter.ClearCommand}"
+                Content="{x:Static c:Glyphs.Cancel}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr Watchdog.Ui.ClearFilters}" />
+      </StackPanel>
+    </Grid>
 
     <!-- More filters -->
     <Popup x:Name="MoreFiltersPopup"
@@ -324,7 +354,7 @@
                 Content="{x:Static c:Glyphs.Refresh}"
                 Style="{StaticResource Ad.IconButton}"
                 ToolTip="{l:Tr Commands.Refresh}" />
-        <Grid Width="260" Margin="0,0,6,0">
+        <Grid Width="300" Margin="0,0,6,0">
           <TextBox x:Name="AcknowledgeCommentBox"
                    AutomationProperties.Name="{l:Tr Watchdog.Ui.AcknowledgeComment}"
                    MaxLength="500"
@@ -375,11 +405,18 @@
       </DockPanel>
     </Border>
 
+    <!--
+      Feed | splitter | details: the feed takes the rest. Its columns fit the feed (GridViewColumnFit): the event title takes
+      what severity, time and object leave (at least 244 px); ✓, actor, source, location and lockouts follow in this order
+      while their minimum width fits (their values are in the details pane). The four required columns fit at their minimum
+      (600 px together) in the main window's default size 1360 × 840 next to the 400 px details pane (a feed of about
+      634 px); at 1440 × 900 the title keeps at least 260 px with the preferred widths of the others.
+    -->
     <Grid>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" MinWidth="320" />
+        <ColumnDefinition Width="*" MinWidth="360" />
         <ColumnDefinition Width="5" />
-        <ColumnDefinition Width="430" MinWidth="260" />
+        <ColumnDefinition Width="400" MinWidth="300" />
       </Grid.ColumnDefinitions>
 
       <DockPanel>
@@ -392,6 +429,7 @@
                 Visibility="{Binding HasMore, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <Grid>
           <ListView x:Name="EventsList"
+                    b:GridViewColumnFit.IsEnabled="True"
                     AutomationProperties.Name="{l:Tr Watchdog.Tab.Events}"
                     BorderThickness="0,1,0,0"
                     ItemContainerStyle="{StaticResource EventRowStyle}"
@@ -410,7 +448,9 @@
             </ListView.ItemsPanel>
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="118" Header="{l:Tr Watchdog.Column.Severity}">
+                <GridViewColumn Width="104"
+                                b:GridViewColumnFit.MinWidth="100"
+                                Header="{l:Tr Watchdog.Column.Severity}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <StackPanel Orientation="Horizontal">
@@ -423,14 +463,19 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="150" Header="{l:Tr Watchdog.Column.Time}">
+                <GridViewColumn Width="144"
+                                b:GridViewColumnFit.MinWidth="132"
+                                Header="{l:Tr Watchdog.Column.Time}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding TimeText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Kind}">
+                <GridViewColumn Width="244"
+                                b:GridViewColumnFit.MinWidth="244"
+                                b:GridViewColumnFit.Star="1"
+                                Header="{l:Tr Watchdog.Column.Kind}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding KindText, Mode=OneWay}"
@@ -439,7 +484,9 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="210" Header="{l:Tr Watchdog.Column.Object}">
+                <GridViewColumn Width="150"
+                                b:GridViewColumnFit.MinWidth="124"
+                                Header="{l:Tr Watchdog.Column.Object}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <DockPanel ToolTip="{Binding ObjectPath, Mode=OneWay}">
@@ -455,14 +502,20 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="230" Header="{l:Tr Watchdog.Column.Path}">
+                <GridViewColumn Width="240"
+                                b:GridViewColumnFit.MinWidth="160"
+                                b:GridViewColumnFit.Priority="4"
+                                Header="{l:Tr Watchdog.Column.Path}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding ObjectPath, Mode=OneWay}" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Actor}">
+                <GridViewColumn Width="180"
+                                b:GridViewColumnFit.MinWidth="120"
+                                b:GridViewColumnFit.Priority="2"
+                                Header="{l:Tr Watchdog.Column.Actor}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Style="{StaticResource ActorTextStyle}"
@@ -471,7 +524,10 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="190" Header="{l:Tr Watchdog.Column.Source}">
+                <GridViewColumn Width="170"
+                                b:GridViewColumnFit.MinWidth="130"
+                                b:GridViewColumnFit.Priority="3"
+                                Header="{l:Tr Watchdog.Column.Source}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding SourceText, Mode=OneWay}"
@@ -480,14 +536,19 @@
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="80" Header="{l:Tr Watchdog.Ui.ColumnLockouts}">
+                <GridViewColumn Width="80"
+                                b:GridViewColumnFit.MinWidth="80"
+                                b:GridViewColumnFit.Priority="5"
+                                Header="{l:Tr Watchdog.Ui.ColumnLockouts}">
                   <GridViewColumn.CellTemplate>
                     <DataTemplate DataType="{x:Type wd:WatchdogEventRowViewModel}">
                       <TextBlock Text="{Binding LockoutText, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
                   </GridViewColumn.CellTemplate>
                 </GridViewColumn>
-                <GridViewColumn Width="44">
+                <GridViewColumn Width="44"
+                                b:GridViewColumnFit.MinWidth="40"
+                                b:GridViewColumnFit.Priority="1">
                   <GridViewColumn.Header>
                     <TextBlock FontSize="12"
                                Style="{StaticResource Ad.GlyphText}"
@@ -522,7 +583,8 @@
         </Grid>
       </DockPanel>
 
-      <GridSplitter Grid.Column="1"
+      <GridSplitter x:Name="DetailsSplitter"
+                    Grid.Column="1"
                     Width="5"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"

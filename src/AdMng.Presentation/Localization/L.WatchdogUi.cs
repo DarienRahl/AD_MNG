@@ -72,6 +72,7 @@ public static partial class L
         public const string DuplicateRule = "Watchdog.Ui.DuplicateRule";
         public const string EmptyIsDefault = "Watchdog.Ui.EmptyIsDefault";
         public const string EntraCloud = "Watchdog.Ui.EntraCloud";
+        public const string EventNoLongerMatches = "Watchdog.Ui.EventNoLongerMatches";
         public const string Evidence = "Watchdog.Ui.Evidence";
         public const string ExcludeActors = "Watchdog.Ui.ExcludeActors";
         public const string ExcludeSelfChanges = "Watchdog.Ui.ExcludeSelfChanges";

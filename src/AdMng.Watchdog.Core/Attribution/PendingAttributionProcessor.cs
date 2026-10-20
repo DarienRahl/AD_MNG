@@ -1,5 +1,7 @@
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Core.Model;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 
@@ -7,7 +9,9 @@ namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
 /// One correlation attempt for one pending event (section 11.4): kinds without an actor become NotApplicable (lockouts
-/// with their bad-password sources, 6b); privilege events inherit their cause's attribution; everything else is
+/// with their bad-password sources, 6b – retried at the <c>PendingRetries</c> steps while the 4740 is missing or a
+/// source query did not finish); privilege events and the GPO content kinds 510/511 (stage B design 8.7, through
+/// <see cref="GpoAttributionInheritor"/> when the host registers it) inherit their cause's attribution; everything else is
 /// correlated – resolved (actor, tags, logon source, attribution-dependent severity), ambiguous (candidates listed, no
 /// actor), or retried at <c>DetectedAt + PendingRetries[i]</c> and after the last retry ended Unknown with a reason
 /// (11.7).
@@ -20,7 +24,9 @@ public sealed class PendingAttributionProcessor(
     UnresolvedReasonResolver reasons,
     PrivilegeAttributionInheritor inheritor,
     DcLogHealthTracker tracker,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    GpoAttributionInheritor? gpoInheritor = null,
+    IGpoContentStore? gpoContent = null)
 {
     /// <summary>Processes <paramref name="watchEvent"/> (attribution Pending).</summary>
     /// <param name="watchEvent">The pending event.</param>
@@ -36,6 +42,12 @@ public sealed class PendingAttributionProcessor(
         if (watchEvent.Kind == WatchEventKind.AccountLockedOut)
         {
             var lockout = await lockoutSources.ResolveAsync(watchEvent, settings, cancellationToken).ConfigureAwait(false);
+            if (!lockout.Complete && NextAttempt(watchEvent.DetectedAt, settings.PendingRetries, timeProvider.GetUtcNow()) is { } retry)
+            {
+                // The 4740 (and the 4771/4776) may not be on the collector yet (WEF batches) or the PDC was unreachable.
+                return new ProcessedAttribution(watchEvent, new AttributionUpdate { Attribution = watchEvent.Attribution, NextAttemptAt = retry });
+            }
+
             return new ProcessedAttribution(watchEvent, new AttributionUpdate
             {
                 Attribution = EventAttribution.NotApplicable with { Evidence = lockout.Evidence },
@@ -118,7 +130,9 @@ public sealed class PendingAttributionProcessor(
 
     private async Task<ProcessedAttribution> InheritAsync(WatchEvent watchEvent, AttributionSettings settings, CancellationToken cancellationToken)
     {
-        var cause = await inheritor.FindCauseAsync(watchEvent, cancellationToken).ConfigureAwait(false);
+        var cause = watchEvent.Kind is WatchEventKind.GroupPolicySettingsChanged or WatchEventKind.GroupPolicyPathRedirected
+            ? await FindGpoCauseAsync(watchEvent, cancellationToken).ConfigureAwait(false)
+            : await inheritor.FindCauseAsync(watchEvent, cancellationToken).ConfigureAwait(false);
         if (cause is not null && cause.Attribution.Status != AttributionStatus.Pending)
         {
             return Final(watchEvent, PrivilegeAttributionInheritor.Inherit(cause.Attribution, timeProvider.GetUtcNow()));
@@ -131,6 +145,26 @@ public sealed class PendingAttributionProcessor(
         }
 
         return Final(watchEvent, new EventAttribution { Status = AttributionStatus.Unknown, Reason = AttributionReasons.NoMatch, ResolvedAt = now });
+    }
+
+    /// <summary>The GroupPolicyChanged (or ObjectRestored) cause of a GPO content event: its change set first; outside it
+    /// the GPC version the content was read for, from the stored snapshot of that read (same read time).</summary>
+    private async Task<WatchEvent?> FindGpoCauseAsync(WatchEvent watchEvent, CancellationToken cancellationToken)
+    {
+        if (gpoInheritor is null)
+        {
+            return null;
+        }
+
+        int? gpcVersion = null;
+        if (gpoContent is not null && GpoContentJob.TryGetGpoGuid(watchEvent.Object.Dn, out var gpoGuid)
+            && await gpoContent.GetGpoContentAsync(gpoGuid, cancellationToken).ConfigureAwait(false) is { } stored
+            && stored.Snapshot.ReadAt.ToUnixTimeMilliseconds() == watchEvent.DetectedAt.ToUnixTimeMilliseconds())
+        {
+            gpcVersion = stored.Snapshot.GpcVersion;
+        }
+
+        return await gpoInheritor.FindCauseAsync(watchEvent, gpcVersion, cancellationToken).ConfigureAwait(false);
     }
 
     private ProcessedAttribution Ambiguous(WatchEvent watchEvent, CorrelationOutcome outcome, AttributionSearchPlan plan)

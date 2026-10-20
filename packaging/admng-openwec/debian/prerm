@@ -1,0 +1,13 @@
+#!/bin/sh
+# admng-openwec prerm: stop the collector on removal (an upgrade restarts it in postinst).
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke stop openwecd.service >/dev/null || true
+        fi
+        ;;
+esac
+
+exit 0

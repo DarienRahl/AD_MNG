@@ -18,6 +18,14 @@ internal static class PropertyPageFactory
         Attr.AllowedToDelegateTo, Attr.ProxyAddresses, Attr.IsCriticalSystemObject, Attr.AdminCount,
     ];
 
+    /// <summary>Text fields with a one-click copy button: what helpdesk copies into tickets, e-mails and chats.</summary>
+    private static readonly HashSet<string> CopiedAttributes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        Attr.Mail, Attr.DisplayName, Attr.SamAccountName, Attr.TelephoneNumber, Attr.Mobile, Attr.HomePhone, Attr.Pager,
+        Attr.IpPhone, Attr.FacsimileTelephoneNumber, Attr.Title, Attr.Department, Attr.Company, Attr.Office,
+        Attr.EmployeeId, Attr.EmployeeNumber,
+    };
+
     private static readonly ObjectKind[] PersonKinds = [ObjectKind.User, ObjectKind.Contact];
     private static readonly ObjectKind[] ManagerKinds = [ObjectKind.User, ObjectKind.Contact, ObjectKind.Group];
 
@@ -162,6 +170,7 @@ internal static class PropertyPageFactory
                 Section(null,
                     Known(Attr.UserPrincipalName, () => new UpnFieldViewModel(context)),
                     Text(Attr.SamAccountName),
+                    Known(Attr.LogonHours, () => new LogonHoursFieldViewModel(context)),
                     unlock),
                 Section(Localizer[L.Labels.AccountOptions],
                     mustChange,
@@ -295,6 +304,10 @@ internal static class PropertyPageFactory
             {
                 IsMultiline = multiline,
                 Others = others is not null && context.IsKnown(others) ? new MultiValueFieldViewModel(context, others) : null,
+                CanCopy = CopiedAttributes.Contains(attribute),
+                QualifiedPrefix = attribute == Attr.SamAccountName && context.Session.Info.DomainNetBiosName is { Length: > 0 } netBios
+                    ? netBios + @"\"
+                    : null,
             };
         }
 

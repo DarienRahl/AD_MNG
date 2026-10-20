@@ -1,9 +1,11 @@
+using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications;
 
 namespace AdMng.Watchdog.Core.Detection;
 
@@ -18,10 +20,17 @@ internal sealed class ObjectProcessor
     private static readonly TimeSpan LongDisabledAge = TimeSpan.FromDays(30);
     private static readonly TimeSpan LastLogonLag = TimeSpan.FromDays(44);
 
+    /// <summary>
+    /// Resync: an unknown object created up to this long before the last poll is still a creation – it may have been
+    /// created on another DC and not yet replicated to the old one (inter-site replication, clock skew).
+    /// </summary>
+    internal static readonly TimeSpan ResyncCreationMargin = TimeSpan.FromHours(3);
+
     private readonly DetectionServices _services;
     private readonly DetectionCycle _cycle;
     private readonly SnapshotBuilder _builder;
     private readonly TaggingContext _tagging;
+    private readonly WatchdogAccountIdentity? _watchdogAccount;
     private readonly Dictionary<Guid, bool> _exists = [];
     private bool _dcDirectoryRefreshed;
 
@@ -35,6 +44,7 @@ internal sealed class ObjectProcessor
         Changes = new AttributeChangeBuilder(configuration.Notifications.MaxValueLength, configuration.Directory.MaxValuesPerAttribute, cycle.Session.Schema);
         Classifier = new ChangeClassifier(Changes);
         Factory = new EventFactory(services.Time, services.Severity);
+        _watchdogAccount = services.WatchdogAccount.Identity;
         _tagging = new TaggingContext
         {
             IsPrivileged = cycle.IsPrivileged,
@@ -43,6 +53,7 @@ internal sealed class ObjectProcessor
             ServiceAccountSubtrees = cycle.Settings.ServiceAccountSubtrees,
             DisabledAccountsSubtrees = cycle.Settings.DisabledAccountsSubtrees,
             Reconciliation = cycle.Source == DetectionSource.Reconciliation,
+            WatchdogAccount = _watchdogAccount,
         };
     }
 
@@ -74,7 +85,29 @@ internal sealed class ObjectProcessor
             await ProcessEntryAsync(entry, snapshots, containerPass, cancellationToken).ConfigureAwait(false);
         }
 
+        if (containerPass)
+        {
+            await MarkOccupiedRewritesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         await _cycle.CommitChunkAsync(_services.Store, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Before the container rewrites are committed: a new container DN that another object held at the start of the
+    /// cycle and that object did not move (deleted, left the scope) makes <see cref="DnRewriter.Original"/> ambiguous
+    /// below it – that object's former children were never rewritten.
+    /// </summary>
+    private async Task MarkOccupiedRewritesAsync(CancellationToken cancellationToken)
+    {
+        foreach (var (newDn, container) in _cycle.Rewriter.NewDns)
+        {
+            if (await _services.Store.FindByDnAsync(newDn, cancellationToken).ConfigureAwait(false) is { } occupant
+                && occupant.ObjectGuid != container && !_cycle.Rewriter.IsRecorded(occupant.ObjectGuid))
+            {
+                _cycle.Rewriter.MarkOccupied(newDn);
+            }
+        }
     }
 
     /// <summary>Processes one returned object (section 10.6).</summary>
@@ -87,13 +120,15 @@ internal sealed class ObjectProcessor
 
         _cycle.Seen.Add(guid);
         _cycle.ObjectsExamined++;
-        if (WatchObjectKinds.IsContainer(kind) != containerPass)
+        if (WatchObjectKinds.IsContainer(kind) != containerPass || _cycle.HandledWithContainer.Contains(guid))
         {
             return;
         }
 
         var settings = _cycle.Settings;
-        var critical = settings.IsCritical(entry.DistinguishedName);
+
+        // The service's own account (design 9.3) is tracked like a critical object: owner and DACL (the Deny ACE for SELF).
+        var critical = settings.IsCritical(entry.DistinguishedName) || IsWatchdogAccount(entry);
         if (critical)
         {
             entry = await WithSecurityDescriptorAsync(entry, cancellationToken).ConfigureAwait(false);
@@ -102,16 +137,26 @@ internal sealed class ObjectProcessor
         snapshots.TryGetValue(guid, out var old);
         var watched = settings.Watched(kind, critical);
         var current = _builder.Build(entry, kind, watched, old, _cycle.Now)!;
-        var oldDn = old is null ? null : _cycle.Rewriter.Rewrite(old.Dn);
-        if (containerPass && old is { IsDeleted: false } && oldDn is not null && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
-        {
-            _cycle.Rewriter.Add(oldDn, entry.DistinguishedName);
-        }
 
+        // Containers (pass 1) see the stored DNs of the start of the cycle: their DN after this cycle's container moves
+        // is compared. Pass 2 runs after the container chunk committed the rewrites: the stored DN is already the
+        // rewritten one, and the DN of the start of the cycle (PreviousDn) is mapped back.
+        var oldDn = old is null ? null : containerPass ? _cycle.Rewriter.Rewrite(old.Dn) : old.Dn;
+        var previousDn = old is null ? null : containerPass ? old.Dn : _cycle.Rewriter.Original(old.Dn);
         if (!_cycle.Scope.IsInScope(entry.DistinguishedName, kind))
         {
-            await LeaveScopeAsync(old, current, cancellationToken).ConfigureAwait(false);
+            await LeaveScopeAsync(entry, old, oldDn, previousDn, current, cancellationToken).ConfigureAwait(false);
             return;
+        }
+
+        if (containerPass && old is { IsDeleted: false } && oldDn is not null && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
+        {
+            _cycle.Rewriter.Add(old.Dn, entry.DistinguishedName, guid);
+        }
+
+        if (kind == WatchObjectKind.Group)
+        {
+            current = MemberListState.With(current, await TracksMembersAsync(current, cancellationToken).ConfigureAwait(false));
         }
 
         if (old is null)
@@ -122,7 +167,7 @@ internal sealed class ObjectProcessor
 
         if (old.IsDeleted)
         {
-            await RestoreAsync(entry, old, current, watched, cancellationToken).ConfigureAwait(false);
+            await RestoreAsync(entry, old with { Dn = previousDn! }, current, watched, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -133,7 +178,7 @@ internal sealed class ObjectProcessor
             return;
         }
 
-        await DiffAsync(entry, old, oldDn!, current, watched, cancellationToken).ConfigureAwait(false);
+        await DiffAsync(entry, old, oldDn!, previousDn!, current, watched, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -222,16 +267,24 @@ internal sealed class ObjectProcessor
         return metadata;
     }
 
-    private async Task LeaveScopeAsync(SnapshotObject? old, SnapshotObject current, CancellationToken cancellationToken)
+    /// <summary>
+    /// An object outside the scope with a stored row (10.6, 10.7): ObjectMoved (tag outOfScope) only when its DN really
+    /// changed – an object that stays where it was while an ExcludedSubtrees entry was added is removed silently – and
+    /// the row is removed. A container takes its descendants along: the stored descendants that are now below its new
+    /// DN are removed silently with it (its ObjectMoved covers the subtree; AD does not bump them, so no later pass would
+    /// see them), and no DN rewrite is recorded for it.
+    /// </summary>
+    private async Task LeaveScopeAsync(DirectoryObject entry, SnapshotObject? old, string? oldDn, string? previousDn, SnapshotObject current,
+        CancellationToken cancellationToken)
     {
         if (old is null)
         {
             return;
         }
 
-        if (!old.IsDeleted)
+        if (!old.IsDeleted && !DistinguishedName.AreEqual(oldDn, entry.DistinguishedName))
         {
-            var draft = new EventDraft { Kind = WatchEventKind.ObjectMoved, PreviousDn = old.Dn, ExtraTags = [EventTags.OutOfScope], MetadataAttributes = [Attr.Name] };
+            var draft = new EventDraft { Kind = WatchEventKind.ObjectMoved, PreviousDn = previousDn, ExtraTags = [EventTags.OutOfScope], MetadataAttributes = [Attr.Name] };
             Emit([draft], current, current.ToRef(), ReplicationMetadata.Empty, null);
         }
 
@@ -242,7 +295,162 @@ internal sealed class ObjectProcessor
             _cycle.PrivilegeRelevant = true;
         }
 
-        await Task.CompletedTask.ConfigureAwait(false);
+        if (WatchObjectKinds.IsContainer(current.Kind) && !old.IsDeleted)
+        {
+            await RemoveDescendantsAsync(old.Dn, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Removes the stored descendants of <paramref name="storedDn"/> (the container's DN at the start of the cycle) that
+    /// live below <paramref name="liveDn"/> now. Descendants found elsewhere (moved away or deleted in the same poll)
+    /// keep their rows for pass 2 and the deletion pass. When the new location cannot be read, every stored descendant
+    /// is taken to have gone with the container; one that moved away in the same poll then appears in pass 2.
+    /// </summary>
+    private async Task RemoveDescendantsAsync(string storedDn, string liveDn, CancellationToken cancellationToken)
+    {
+        var stored = new List<SnapshotObject>();
+        await foreach (var descendant in _services.Store.GetDescendantsAsync(storedDn, cancellationToken).ConfigureAwait(false))
+        {
+            stored.Add(descendant);
+        }
+
+        if (stored.Count == 0)
+        {
+            return;
+        }
+
+        HashSet<Guid>? below = [];
+        try
+        {
+            await foreach (var live in _cycle.Session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = liveDn,
+                Filter = DetectionFilters.ScopeClasses,
+                Attributes = [Attr.ObjectGuid],
+                PageSize = ChangeDetectionEngine.PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (live.ObjectGuid is { } guid)
+                {
+                    below.Add(guid);
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.AccessDenied or DirectoryErrorKind.NoSuchObject)
+        {
+            _cycle.Warnings.Add("outOfScopeSubtreeUnreadable");
+            below = null;
+        }
+
+        foreach (var descendant in stored.Where(d => below is null || below.Contains(d.ObjectGuid)))
+        {
+            _cycle.Chunk.Remove(descendant.ObjectGuid);
+
+            // Unreadable new location: a descendant that left the container in the same poll is among the removed rows;
+            // pass 2 returns it (its move bumped it) and finds it without a row, so it must not be skipped.
+            if (below is not null)
+            {
+                _cycle.HandledWithContainer.Add(descendant.ObjectGuid);
+            }
+
+            if (WatchObjectKinds.IsPrincipal(descendant.Kind))
+            {
+                _cycle.Chunk.MembershipRelevant = true;
+                _cycle.PrivilegeRelevant = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A container that appeared (moved in from outside the scope, an exclusion removed) brings its subtree: the
+    /// descendants without a stored row are adopted silently (the container's ObjectAppeared covers them) instead of
+    /// staying unknown until the reconciliation reports each of them. Descendants created since the last poll are left
+    /// to the ordinary processing, which reports them as created.
+    /// </summary>
+    private async Task AdoptDescendantsAsync(DirectoryObject container, CancellationToken cancellationToken)
+    {
+        var page = new List<DirectoryObject>(ChangeDetectionEngine.PageSize);
+        try
+        {
+            await foreach (var entry in _cycle.Session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = container.DistinguishedName,
+                Filter = DetectionFilters.ScopeClasses,
+                Attributes = _cycle.Settings.RequestAttributes,
+                ExtendedDn = true,
+                PageSize = ChangeDetectionEngine.PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (entry.ObjectGuid is { } guid && guid != container.ObjectGuid)
+                {
+                    page.Add(entry);
+                }
+
+                if (page.Count == ChangeDetectionEngine.PageSize)
+                {
+                    await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
+                    page.Clear();
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.AccessDenied or DirectoryErrorKind.NoSuchObject)
+        {
+            // The reconciliation finds what could not be read now.
+            _cycle.Warnings.Add("appearedSubtreeUnreadable");
+            return;
+        }
+
+        await AdoptAsync(page, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task AdoptAsync(IReadOnlyList<DirectoryObject> entries, CancellationToken cancellationToken)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var known = await _services.Store.GetSnapshotsAsync(entries.Select(e => e.ObjectGuid!.Value).ToList(), cancellationToken).ConfigureAwait(false);
+        foreach (var found in entries)
+        {
+            var entry = found;
+            var guid = entry.ObjectGuid!.Value;
+            if (known.ContainsKey(guid) || _cycle.Chunk.PendingUpsert(guid) is not null || _cycle.HandledWithContainer.Contains(guid)
+                || WatchObjectKinds.FromObjectClasses(entry.GetStrings(Attr.ObjectClass)) is not { } kind
+                || !_cycle.Scope.IsInScope(entry.DistinguishedName, kind))
+            {
+                continue;
+            }
+
+            // A descendant created since the last poll is a creation, not part of the move: the cycle's own search
+            // returns it (uSNChanged ≥ uSNCreated > W), or the next cycle does, and AddNewAsync starts its settle window.
+            if (IsCreatedSinceLastPoll(entry.GetInt64(Attr.UsnCreated) ?? 0, entry.GetGeneralizedTime(Attr.WhenCreated)))
+            {
+                continue;
+            }
+
+            var critical = _cycle.Settings.IsCritical(entry.DistinguishedName);
+            if (critical)
+            {
+                entry = await WithSecurityDescriptorAsync(entry, cancellationToken).ConfigureAwait(false);
+            }
+
+            var adopted = _builder.Build(entry, kind, _cycle.Settings.Watched(kind, critical), null, _cycle.Now)!;
+            if (kind == WatchObjectKind.Group)
+            {
+                adopted = MemberListState.With(adopted, await TracksMembersAsync(adopted, cancellationToken).ConfigureAwait(false));
+            }
+
+            _cycle.Chunk.Upsert(adopted);
+            await UpdateMembersAsync(entry, adopted, null, emit: false, cancellationToken).ConfigureAwait(false);
+            _cycle.HandledWithContainer.Add(guid);
+            _cycle.Seen.Add(guid);
+            if (WatchObjectKinds.IsPrincipal(kind))
+            {
+                _cycle.PrivilegeRelevant = true;
+            }
+        }
     }
 
     private async Task AddNewAsync(DirectoryObject entry, SnapshotObject current, CancellationToken cancellationToken)
@@ -262,41 +470,72 @@ internal sealed class ObjectProcessor
             return;
         }
 
+        var metadata = _cycle.EmitEvents ? await ReadMetadataAsync(entry.DistinguishedName, cancellationToken).ConfigureAwait(false) : ReplicationMetadata.Empty;
+        var movedIn = WasMovedIn(entry, metadata);
         var draft = new EventDraft
         {
             Kind = WatchEventKind.ObjectAppeared,
-            ExtraTags = _cycle.Settings.ExcludedSubtrees.Count > 0 ? [EventTags.OutOfScope] : [],
+            ExtraTags = movedIn ? [EventTags.OutOfScope] : [],
+            MetadataAttributes = movedIn ? [Attr.Name] : [],
         };
-        Emit([draft], current, current.ToRef(), ReplicationMetadata.Empty, entry.GetGeneralizedTime(Attr.WhenChanged));
+        Emit([draft], current, current.ToRef(), metadata, entry.GetGeneralizedTime(Attr.WhenChanged));
         _cycle.Chunk.Upsert(current);
         await UpdateMembersAsync(entry, current, null, emit: false, cancellationToken).ConfigureAwait(false);
         if (WatchObjectKinds.IsPrincipal(current.Kind))
         {
             _cycle.PrivilegeRelevant = true;
         }
+
+        if (WatchObjectKinds.IsContainer(current.Kind))
+        {
+            await AdoptDescendantsAsync(entry, cancellationToken).ConfigureAwait(false);
+        }
     }
 
-    /// <summary>A new GUID is a creation when uSNCreated &gt; W on this DC (Resync: created after the last poll).</summary>
-    private bool IsCreatedSinceLastPoll(SnapshotObject current)
+    /// <summary>
+    /// Tag outOfScope of ObjectAppeared (10.6): the object was moved in – the move or rename stamp of <c>name</c> is
+    /// above W (a move is replicated through the <c>name</c> metadata); without metadata or W, it changed after the
+    /// last poll. Never decided from the configuration.
+    /// </summary>
+    private bool WasMovedIn(DirectoryObject entry, ReplicationMetadata metadata)
+    {
+        if (!metadata.IsEmpty && _cycle.MetadataWatermark is { } watermark)
+        {
+            return metadata.Get(Attr.Name) is { } name && name.UsnLocal > watermark;
+        }
+
+        return _cycle.State?.LastPollAt is { } lastPoll && entry.GetGeneralizedTime(Attr.WhenChanged) is { } changed && changed > lastPoll;
+    }
+
+    /// <summary>
+    /// A new GUID is a creation when uSNCreated &gt; W on this DC. Resync (W belongs to another DC): created after the
+    /// last poll minus <see cref="ResyncCreationMargin"/> – an object created on another DC shortly before the last poll
+    /// may not have reached the old DC.
+    /// </summary>
+    private bool IsCreatedSinceLastPoll(SnapshotObject current) => IsCreatedSinceLastPoll(current.UsnCreated, current.WhenCreated);
+
+    private bool IsCreatedSinceLastPoll(long usnCreated, DateTimeOffset? whenCreated)
     {
         if (_cycle.Mode == DetectionMode.Resync)
         {
             var since = _cycle.State?.LastPollAt ?? _cycle.State?.LastFullSyncAt;
-            return since is not null && current.WhenCreated > since;
+            return since is not null && whenCreated > since - ResyncCreationMargin;
         }
 
-        return current.UsnCreated > _cycle.Decision.Watermark;
+        return usnCreated > _cycle.Decision.Watermark;
     }
 
     private async Task RestoreAsync(DirectoryObject entry, SnapshotObject old, SnapshotObject current, IReadOnlySet<string> watched, CancellationToken cancellationToken)
     {
         var changeSet = Factory.NewChangeSetId();
-        var context = _services.Differ.Diff(old, old.Dn, current, watched);
+
+        // The marker row of an object created and deleted between two polls has no last live state to compare with.
+        var context = DeletedObjectsScanner.IsDeletedMarker(old) ? [] : _services.Differ.Diff(old, old.Dn, current, watched).Attributes;
         var draft = new EventDraft
         {
             Kind = WatchEventKind.ObjectRestored,
             PreviousDn = old.Dn,
-            Changes = context.Attributes.Select(Changes.FromDelta).ToList(),
+            Changes = context.Select(Changes.FromDelta).ToList(),
             ChangeSetId = changeSet,
             MetadataAttributes = [Attr.IsDeleted, Attr.Name],
         };
@@ -334,9 +573,16 @@ internal sealed class ObjectProcessor
         }
 
         var reference = new MemberReference { Key = restored.ObjectGuid.ToString("N"), ObjectGuid = restored.ObjectGuid, Sid = restored.Sid, Dn = restored.Dn };
-        foreach (var group in values.Select(ValueCanonicalizer.ToMemberReference))
+        var groupGuids = values.Select(ValueCanonicalizer.ToMemberReference).Select(g => g.ObjectGuid).OfType<Guid>().Distinct().ToList();
+        var groups = groupGuids.Count == 0
+            ? new Dictionary<Guid, SnapshotObject>()
+            : await _services.Store.GetSnapshotsAsync(groupGuids, cancellationToken).ConfigureAwait(false);
+        foreach (var groupGuid in groupGuids)
         {
-            if (group.ObjectGuid is not { } groupGuid)
+            // Only stored lists: a list started with the restored member alone would hide the group's other members from
+            // the PrivilegeEvaluator, which reads groups without a stored list live (10.8).
+            var group = _cycle.Chunk.PendingUpsert(groupGuid) ?? groups.GetValueOrDefault(groupGuid);
+            if (group is null || group.IsDeleted || MemberListState.IsUntracked(group))
             {
                 continue;
             }
@@ -349,13 +595,16 @@ internal sealed class ObjectProcessor
         }
     }
 
-    private async Task DiffAsync(DirectoryObject entry, SnapshotObject old, string oldDn, SnapshotObject current, IReadOnlySet<string> watched, CancellationToken cancellationToken)
+    private async Task DiffAsync(DirectoryObject entry, SnapshotObject old, string oldDn, string previousDn, SnapshotObject current, IReadOnlySet<string> watched,
+        CancellationToken cancellationToken)
     {
-        var diff = _services.Differ.Diff(old, oldDn, current, watched);
+        // The diff's old side carries the DN of the start of the cycle: ObjectMoved/ObjectRenamed take it as PreviousDn.
+        var diff = _services.Differ.Diff(SameDnLiteral(previousDn, old.Dn) ? old : old with { Dn = previousDn }, oldDn, current, watched);
         var memberDrafts = await UpdateMembersAsync(entry, current, old, emit: _cycle.EmitEvents, cancellationToken).ConfigureAwait(false);
         if (diff.IsEmpty && memberDrafts.Count == 0)
         {
-            if (!SameDnLiteral(old.Dn, current.Dn) && !SameDnLiteral(oldDn, current.Dn))
+            if ((!SameDnLiteral(old.Dn, current.Dn) && !SameDnLiteral(oldDn, current.Dn))
+                || MemberListState.IsUntracked(old) != MemberListState.IsUntracked(current))
             {
                 _cycle.Chunk.Upsert(current);
             }
@@ -378,6 +627,11 @@ internal sealed class ObjectProcessor
 
         var input = await ClassificationInputAsync(diff, entry, metadata, cancellationToken).ConfigureAwait(false);
         var drafts = new List<EventDraft>(Classifier.Classify(input));
+        if (input.IsWatchdogAccount)
+        {
+            await MarkPlannedRotationAsync(drafts, diff, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
+        }
+
         drafts.AddRange(memberDrafts);
         var longDisabled = drafts.Any(d => d.Kind == WatchEventKind.AccountEnabled)
             && await IsLongDisabledAsync(old, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
@@ -430,8 +684,9 @@ internal sealed class ObjectProcessor
         if (diff.Get(Attr.LockoutTime) is not null)
         {
             lockout = await _services.LockoutPolicies.ResolveAsync(_cycle.Session, entry.DistinguishedName, cancellationToken).ConfigureAwait(false);
-            var local = TimeZoneInfo.ConvertTime(_cycle.Now, _cycle.Settings.TimeZone);
-            var midnight = new DateTimeOffset(local.Date, local.Offset);
+            // The local midnight with the offset valid at midnight, not now's (a DST change day is 23 or 25 hours long).
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(_cycle.Now, _cycle.Settings.TimeZone).DateTime);
+            var midnight = Schedule.OnDate(today, TimeOnly.MinValue, _cycle.Settings.TimeZone);
             lockoutsToday = await _services.Events.CountForObjectAsync(diff.New.ObjectGuid, WatchEventKind.AccountLockedOut, midnight, cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -455,35 +710,98 @@ internal sealed class ObjectProcessor
             DnsHostNameConflict = dnsConflict,
             GroupPolicyNames = gpoNames,
             DsaHostName = _services.DomainControllers.ResolveHostByDsaDn,
+            IsWatchdogAccount = _watchdogAccount is { } own && own.Matches(diff.New.ObjectGuid, diff.New.Sid, diff.New.SamAccountName),
         };
     }
 
+    private bool IsWatchdogAccount(DirectoryObject entry) =>
+        _watchdogAccount is { } own && own.Matches(entry.ObjectGuid, entry.ObjectSid, entry.GetString(Attr.SamAccountName));
+
     /// <summary>
-    /// Reads and stores a group's members when its membership is tracked; returns the member drafts (only when
-    /// <paramref name="emit"/> and an old list exists).
+    /// Design 9.3: a password change of the service's own account whose new msDS-KeyVersionNumber and pwdLastSet match the
+    /// keytab tool's status.json is its planned rotation – recorded without tag watchdogAccount (the watchdog-self rule
+    /// does not alert). msDS-KeyVersionNumber is constructed, so it is read from the cycle's DC now.
+    /// </summary>
+    private async Task MarkPlannedRotationAsync(List<EventDraft> drafts, RawObjectDiff diff, string dn, CancellationToken cancellationToken)
+    {
+        var index = drafts.FindIndex(d => d.Kind is WatchEventKind.PasswordChanged or WatchEventKind.PasswordAgeReset);
+        if (index < 0 || diff.Get(Attr.PwdLastSet) is not { NewValue: { } newValue }
+            || !long.TryParse(newValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var fileTime)
+            || AdConvert.FromFileTime(fileTime) is not { } passwordLastSet)
+        {
+            return;
+        }
+
+        int? kvno;
+        try
+        {
+            kvno = (await _cycle.Session.GetAsync(dn, [WatchdogAttributes.KeyVersionNumber], cancellationToken).ConfigureAwait(false))
+                ?.GetInt32(WatchdogAttributes.KeyVersionNumber);
+        }
+        catch (DirectoryException ex) when (!ex.IsTransient)
+        {
+            kvno = null;            // unreadable: not provably the planned rotation, so it alerts
+        }
+
+        if (kvno is null)
+        {
+            return;
+        }
+
+        var record = await _services.WatchdogAccount.GetRotationAsync(kvno.Value, cancellationToken).ConfigureAwait(false);
+        if (WatchdogSelfRotation.IsPlanned(record, kvno, passwordLastSet))
+        {
+            for (var i = 0; i < drafts.Count; i++)
+            {
+                if (drafts[i].Kind is WatchEventKind.PasswordChanged or WatchEventKind.PasswordAgeReset)
+                {
+                    drafts[i] = drafts[i] with { PlannedServiceAccountRotation = true };
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads and stores a group's members when its membership is tracked (<see cref="MemberListState"/> of
+    /// <paramref name="current"/>); returns the member drafts (only when <paramref name="emit"/> and a stored old list
+    /// exists). The first tracked read of a group whose list was not stored stores it silently – every member would
+    /// otherwise look added; the PrivilegeEvaluator reports the privileges that matter. A group that is no longer
+    /// tracked drops its stored list.
     /// </summary>
     private async Task<IReadOnlyList<EventDraft>> UpdateMembersAsync(DirectoryObject entry, SnapshotObject current, SnapshotObject? old, bool emit, CancellationToken cancellationToken)
     {
-        if (current.Kind != WatchObjectKind.Group || !await TracksMembersAsync(current, cancellationToken).ConfigureAwait(false))
+        if (current.Kind != WatchObjectKind.Group)
         {
             return [];
         }
 
+        if (MemberListState.IsUntracked(current))
+        {
+            if (old is not null && !MemberListState.IsUntracked(old)
+                && (await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false)).Count > 0)
+            {
+                _cycle.Chunk.ReplaceMembers(current.ObjectGuid, []);
+            }
+
+            return [];
+        }
+
+        var stored = old is not null && !MemberListState.IsUntracked(old);
         var members = await _services.Members.ReadAsync(_cycle.Session, entry, cancellationToken).ConfigureAwait(false);
-        var before = old is null ? [] : await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false);
-        if (old is null || !MembershipReader.AreSame(before, members))
+        var before = stored ? await _services.Store.GetMembersAsync(current.ObjectGuid, cancellationToken).ConfigureAwait(false) : [];
+        if (!stored || !MembershipReader.AreSame(before, members))
         {
             _cycle.Chunk.ReplaceMembers(current.ObjectGuid, members);
         }
 
-        if (MembershipReader.HaveSameKeys(before, members) && old is not null)
+        if (stored && MembershipReader.HaveSameKeys(before, members))
         {
             return [];
         }
 
         _cycle.Chunk.MembershipRelevant = true;
         _cycle.PrivilegeRelevant = true;
-        if (!emit || old is null)
+        if (!emit || !stored)
         {
             return [];
         }
@@ -493,6 +811,7 @@ internal sealed class ObjectProcessor
         var gone = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var member in removed)
         {
+            _cycle.RemovedMemberDns[member.Key] = member.Dn;
             if (await IsGoneAsync(member, cancellationToken).ConfigureAwait(false))
             {
                 gone.Add(member.Key);
@@ -519,10 +838,13 @@ internal sealed class ObjectProcessor
         return containing.Count > 0;
     }
 
-    /// <summary>A removed member no longer exists live (deleted in this cycle, or not found): its removal is no event.</summary>
+    /// <summary>
+    /// A removed member no longer exists live (deleted in this cycle, or not found): its removal is no event. A member of
+    /// another domain of the forest is never "not found" – a search of this domain cannot see it.
+    /// </summary>
     private async Task<bool> IsGoneAsync(MemberReference member, CancellationToken cancellationToken)
     {
-        if (member.ObjectGuid is not { } guid)
+        if (member.ObjectGuid is not { } guid || _cycle.Scope.IsOtherDomain(member.Dn))
         {
             return false;
         }

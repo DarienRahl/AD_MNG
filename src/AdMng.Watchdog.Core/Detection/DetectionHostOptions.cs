@@ -9,4 +9,9 @@ namespace AdMng.Watchdog.Core.Detection;
 public sealed record DetectionHostOptions
 {
     public IReadOnlyList<string> RoleGroupSids { get; init; } = [];
+
+    /// <summary>The API resolves its callers' roles from <c>tokenGroups</c> (Linux, stage B design 6.2 step 3): the
+    /// permission self-check then also probes that attribute on a non-protected user
+    /// (<see cref="PermissionSelfCheck.TokenGroups"/>).</summary>
+    public bool ProbeTokenGroups { get; init; }
 }

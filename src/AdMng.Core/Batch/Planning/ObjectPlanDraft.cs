@@ -107,7 +107,7 @@ internal sealed class ObjectPlanDraft
 
         var definition = schema.FindAttribute(attribute);
         var name = definition?.LdapName ?? attribute;
-        edit = new AttributeEdit(name, Current?.GetStrings(name) ?? [], definition);
+        edit = new AttributeEdit(name, Current is null ? [] : PipelineValues.Read(Current, name), definition);
         _edits[attribute] = edit;
         _edits[name] = edit;
         _editOrder.Add(edit);
@@ -118,7 +118,7 @@ internal sealed class ObjectPlanDraft
 
     /// <summary>Values of an attribute after the operations applied so far (what templates see).</summary>
     public IReadOnlyList<string> CurrentValues(string attribute) =>
-        FindEdit(attribute)?.Current ?? Current?.GetStrings(attribute) ?? [];
+        FindEdit(attribute)?.Current ?? (Current is null ? [] : PipelineValues.Read(Current, attribute));
 
     public void FinalizeAttributes() =>
         AttributeChanges = _editOrder.Select(e => e.ToChange()).OfType<AttributeChange>().ToArray();

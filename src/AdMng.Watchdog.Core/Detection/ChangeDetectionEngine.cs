@@ -43,6 +43,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
     private readonly Reconciler _reconciler;
     private readonly ConfigurationPartitionWatcher _configurationPartition;
     private readonly PrivilegeEvaluator _privileges;
+    private readonly KeyObjectMonitor _keyObjects;
     private readonly SemaphoreSlim _cycleGate = new(1, 1);
     private bool _firstCycle = true;
     private DateTimeOffset? _lastPersistedPoll;
@@ -74,6 +75,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         _reconciler = new Reconciler(services, _deletions);
         _configurationPartition = new ConfigurationPartitionWatcher(services);
         _privileges = new PrivilegeEvaluator(services);
+        _keyObjects = new KeyObjectMonitor(health, services.Time);
     }
 
     public string Name => JobName;
@@ -145,6 +147,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         var now = _services.Time.GetUtcNow();
         var configuration = _configuration.Current.Configuration;
         var dc = await _dcStateReader.ReadAsync(session, cancellationToken).ConfigureAwait(false);
+        ReportClockSkew(dc);
         var settings = new DetectionSettings(configuration, dc.Facts, session.Schema, _services.HostOptions);
         var state = await _services.Store.GetDcStateAsync(dc.Facts.DomainDnsName, cancellationToken).ConfigureAwait(false);
         var known = state is null || DistinguishedName.AreEqual(state.DsServiceName, dc.DsServiceName)
@@ -182,6 +185,13 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         await _settler.SettleDueAsync(processor, cycle, cancellationToken).ConfigureAwait(false);
         await cycle.CommitChunkAsync(_services.Store, cancellationToken).ConfigureAwait(false);
         var privileges = await EvaluatePrivilegesAsync(processor, cycle, cancellationToken).ConfigureAwait(false);
+        foreach (var (draft, objectRef) in cycle.FinalDrafts)
+        {
+            processor.Emit([draft], null, objectRef, ReplicationMetadata.Empty, null);
+        }
+
+        await _keyObjects.RunAsync(processor, cycle, _services.Store, cancellationToken).ConfigureAwait(false);
+
         AddFinalHealthEvents(processor, cycle, decision);
         var newState = NewState(cycle, state, dc, now);
         var final = cycle.Chunk.ToCommit(cycle.PendingRewrites) with
@@ -389,6 +399,19 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
             .Select(c => DetectionTokens.Expand(c, facts.DomainDn, facts.DomainSid, facts.RootDomainSid))
             .ToList();
         await _waker.EnsureAsync(session, containers, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Stage B design 4.7 item 6: RootDSE currentTime against the local clock, every cycle.</summary>
+    private void ReportClockSkew(DcSnapshot dc)
+    {
+        if (dc.CurrentTime is not { } dcTime)
+        {
+            return;
+        }
+
+        var now = _services.Time.GetUtcNow();
+        _health.Report(ClockSkewCheck.Evaluate(dcTime, now, dc.DnsHostName));
+        _health.ReportHost((_health.Host ?? new HostStatusDto()) with { ClockSkew = dcTime - now });
     }
 
     private void ReportHints(DcSnapshot dc, DateTimeOffset now)

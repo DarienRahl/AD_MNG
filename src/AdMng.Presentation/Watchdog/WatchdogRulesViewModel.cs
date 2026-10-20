@@ -237,7 +237,10 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
         Editor?.AddExclusion(suggestion.Suggestion.ActorSid, suggestion.Suggestion.ActorAccount, _services.Localizer.SuggestionText(suggestion.Suggestion.ReasonCode));
     }
 
-    /// <summary>Ends rollout mode early (General.RolloutEnded = true) and saves the configuration.</summary>
+    /// <summary>
+    /// Ends rollout mode early: saves General.RolloutEnded = true alone (the confirmation names only that), other unsaved
+    /// edits of the configuration stay unsaved.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanEndRollout))]
     private async Task EndRolloutAsync()
     {
@@ -247,8 +250,7 @@ public sealed partial class WatchdogRulesViewModel : ObservableObject, IDisposab
             return;
         }
 
-        Session.Update(c => c with { General = c.General with { RolloutEnded = true } });
-        if (await Session.SaveAsync().ConfigureAwait(true))
+        if (await Session.SaveChangeAsync(c => c with { General = c.General with { RolloutEnded = true } }).ConfigureAwait(true))
         {
             RolloutUntil = null;
             foreach (var row in Rules)

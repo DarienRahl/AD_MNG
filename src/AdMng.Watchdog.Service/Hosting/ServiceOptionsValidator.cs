@@ -6,10 +6,27 @@ using AdMng.Watchdog.Contracts.Api;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>Checks of the bootstrap settings (<c>--check-config</c>): listener URLs, certificate selection for https,
-/// SID syntax of every role list, CIDR syntax of the subnet lists, the Development scheme only in Development, the lab
-/// simple bind only with its user.</summary>
+/// SID syntax of every role list, the shipped placeholder SID (stage B design 14.1), CIDR syntax of the subnet lists, the
+/// Development scheme only in Development, the lab simple bind only with its user.</summary>
 public static partial class ServiceOptionsValidator
 {
+    /// <summary>The role group SID of the shipped Linux <c>appsettings.json</c> (14.1): <c>--check-config</c> and the start
+    /// fail until the administrator enters the real SIDs (appendix A.3 prints them).</summary>
+    public const string PlaceholderSid = "S-1-5-21-0-0-0-0";
+
+    /// <summary>The documented message of the placeholder check.</summary>
+    public const string PlaceholderSidMessage =
+        "Replace the role group SIDs: Watchdog:Authorization still holds the shipped placeholder " + PlaceholderSid + " (see the instructions, appendix A.3).";
+
+    /// <summary>True when an Admin, Viewer or Denied list still holds <see cref="PlaceholderSid"/>.</summary>
+    public static bool HasPlaceholderSids(ServiceOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var authorization = options.Authorization ?? new AuthorizationOptions();
+        return (authorization.AdminSids ?? []).Concat(authorization.ViewerSids ?? []).Concat(authorization.DeniedSids ?? [])
+            .Any(sid => string.Equals(sid?.Trim(), PlaceholderSid, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static IReadOnlyList<ConfigIssue> Validate(ServiceOptions options, string environmentName)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -35,9 +52,15 @@ public static partial class ServiceOptionsValidator
         }
 
         if (options.Hosting.Server == WatchdogServer.Kestrel && endpoints.Any(e => e.Https)
+            && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Path)
             && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Thumbprint) && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Subject))
         {
-            issues.Add(Error("Watchdog:Hosting:Certificate", "required", "An https listener needs Hosting.Certificate.Thumbprint or Subject."));
+            issues.Add(Error("Watchdog:Hosting:Certificate", "required", "An https listener needs Hosting.Certificate.Path (PEM, Linux) or Thumbprint or Subject."));
+        }
+
+        if (HasPlaceholderSids(options))
+        {
+            issues.Add(Error("Watchdog:Authorization", "placeholderSid", PlaceholderSidMessage));
         }
 
         CheckSids(issues, "Watchdog:Authorization:ViewerSids", options.Authorization.ViewerSids);
@@ -74,7 +97,54 @@ public static partial class ServiceOptionsValidator
             issues.Add(Error("Watchdog:Directory:AllowInsecureLab", "labOnly", "Directory.AllowInsecureLab is refused outside the Development environment."));
         }
 
+        CheckDirectoryServers(issues, options.Directory, OperatingSystem.IsLinux());
+        CheckLinuxAuthorization(issues, options, OperatingSystem.IsLinux());
         return issues;
+    }
+
+    /// <summary>Stage B design 6.2: on Linux with Negotiate the API resolves callers of <c>Kerberos.Realm</c> only, so the
+    /// realm is required; <c>Authorization.WatchdogHostGroupSids</c> (the gMSA host group) is obsolete there and ignored.</summary>
+    internal static void CheckLinuxAuthorization(List<ConfigIssue> issues, ServiceOptions options, bool linux)
+    {
+        if (!linux)
+        {
+            return;
+        }
+
+        if (options.Authentication == WatchdogAuthenticationMode.Negotiate && string.IsNullOrWhiteSpace(options.Kerberos.Realm))
+        {
+            issues.Add(Error("Watchdog:Kerberos:Realm", "required", "Kerberos.Realm is required on Linux: the API resolves the roles of principals of this realm only."));
+        }
+
+        if (options.Authorization.WatchdogHostGroupSids.Length > 0)
+        {
+            issues.Add(Warning("Watchdog:Authorization:WatchdogHostGroupSids", "obsoleteOnLinux", ObsoleteHostGroupMessage));
+        }
+    }
+
+    /// <summary>The start-up warning and <c>--check-config</c> text of an obsolete <c>WatchdogHostGroupSids</c> on Linux.</summary>
+    public const string ObsoleteHostGroupMessage =
+        "Authorization.WatchdogHostGroupSids (the gMSA host group of the Windows service) is ignored on Linux; remove it.";
+
+    /// <summary>Stage B design 5.1/5.3: Linux has no DC locator, so <c>Directory.Servers</c> (or <c>Server</c>) is required
+    /// there, and Kerberos needs DC host names (<c>ldap/&lt;fqdn&gt;</c>) – IP literals are refused.</summary>
+    internal static void CheckDirectoryServers(List<ConfigIssue> issues, DirectoryBootstrapOptions directory, bool linux)
+    {
+        if (directory.Disabled)
+        {
+            return;
+        }
+
+        var servers = (directory.Servers ?? []).Append(directory.Server).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).ToList();
+        if (linux && servers.Count == 0)
+        {
+            issues.Add(Error("Watchdog:Directory:Servers", "required", "Directory.Servers (DC host names) is required on Linux (there is no DC locator)."));
+        }
+
+        if (directory.Authentication == AuthenticationMode.CurrentUser && servers.Any(s => System.Net.IPAddress.TryParse(s.Trim('[', ']'), out _)))
+        {
+            issues.Add(Error("Watchdog:Directory:Servers", "ipLiteral", "Kerberos needs the DC host names (FQDN) in Directory.Servers, not IP addresses."));
+        }
     }
 
     private static void CheckSids(List<ConfigIssue> issues, string path, IReadOnlyList<string> sids)

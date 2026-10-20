@@ -133,19 +133,28 @@ public static class AlertContentBuilder
         return name.Length == 0 && e.Object.Kind == WatchObjectKind.Watchdog ? context.InstanceName : name;
     }
 
-    /// <summary>The changes table of a sanitized event.</summary>
+    /// <summary>The changes table of a sanitized event. The value-less nTSecurityDescriptor row of an event tagged
+    /// <c>auditSettings</c> (stage B design 9.4: a SACL change the service cannot read) reads
+    /// <c>Value.AuditSettingsChanged</c>.</summary>
     public static IReadOnlyList<AlertChangeRow> ChangeRows(WatchEvent e, NotificationContext context)
     {
         ArgumentNullException.ThrowIfNull(e);
         ArgumentNullException.ThrowIfNull(context);
+        var auditSettings = e.Kind == WatchEventKind.SecurityDescriptorChanged && e.Tags.Contains(EventTags.AuditSettings, StringComparer.Ordinal);
         var rows = new List<AlertChangeRow>(e.Changes.Count);
         foreach (var change in e.Changes)
         {
-            rows.Add(ChangeRow(change, context));
+            rows.Add(auditSettings && IsAuditSettingsRow(change)
+                ? new AlertChangeRow(context.Attributes.Name(change.Attribute), null, context.Text.Get("Value.AuditSettingsChanged"))
+                : ChangeRow(change, context));
         }
 
         return rows;
     }
+
+    private static bool IsAuditSettingsRow(AttributeChange change) =>
+        string.Equals(change.Attribute, "nTSecurityDescriptor", StringComparison.OrdinalIgnoreCase)
+        && change.OldValues.Count == 0 && change.NewValues.Count == 0 && change.Added.Count == 0 && change.Removed.Count == 0;
 
     /// <summary>One row of the changes table.</summary>
     public static AlertChangeRow ChangeRow(AttributeChange change, NotificationContext context)
@@ -155,6 +164,12 @@ public static class AlertContentBuilder
         var text = context.Text;
         var display = context.Attributes;
         var name = display.Name(change.Attribute);
+        if (string.Equals(change.Attribute, Gpo.GpoSettingsDiffer.SummaryAttribute, StringComparison.Ordinal) && change.Truncated)
+        {
+            // Stage B design 8.6: more than 200 changed settings – counts only (rows left out, all changed settings).
+            return new AlertChangeRow(name, null, text.Format("Value.GpoMoreChanges", change.OldCount, change.NewCount));
+        }
+
         switch (DetailLevelFilter.Visibility(change, context.DetailLevel))
         {
             case ValueVisibility.Secret:

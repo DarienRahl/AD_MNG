@@ -3,11 +3,11 @@ using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Testing.Stores;
 
-// ISecurityEventStore: security_events (unique per computer + record id), eventlog_cursors.
+// ISecurityEventStore: security_events (unique per computer + record id + time created – migration 0004), eventlog_cursors.
 public sealed partial class InMemoryWatchdogStore
 {
     private readonly List<SecurityEvent> _securityEvents = [];
-    private readonly HashSet<(string Computer, long RecordId)> _securityEventKeys = [];
+    private readonly HashSet<(string Computer, long RecordId, DateTimeOffset TimeCreated)> _securityEventKeys = [];
     private readonly Dictionary<string, EventLogCursor> _cursors = new(StringComparer.OrdinalIgnoreCase);
 
     public Task<EventLogCursor?> GetCursorAsync(string source, CancellationToken cancellationToken)
@@ -28,7 +28,7 @@ public sealed partial class InMemoryWatchdogStore
         {
             foreach (var securityEvent in events)
             {
-                if (_securityEventKeys.Add((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId)))
+                if (_securityEventKeys.Add((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId, StoredTime(securityEvent.TimeCreated))))
                 {
                     _securityEvents.Add(Copy(securityEvent));
                 }
@@ -57,6 +57,8 @@ public sealed partial class InMemoryWatchdogStore
                     .Where(e => criteria.TargetUserName is null
                         || string.Equals(e.Get("TargetUserName"), criteria.TargetUserName, StringComparison.OrdinalIgnoreCase))
                     .Where(e => criteria.ObjectDn is null || DistinguishedName.AreEqual(e.Get("ObjectDN"), criteria.ObjectDn))
+                    .Where(e => criteria.LogonId is null
+                        || (e.EventCode == 4624 && string.Equals(e.TargetLogonId, SecurityEvent.NormalizeLogonId(criteria.LogonId) ?? criteria.LogonId, StringComparison.Ordinal)))
                     .OrderBy(e => e.TimeCreated).ThenBy(e => e.RecordId)
                     .Take(Math.Max(0, criteria.Limit))
                     .Select(Copy),
@@ -77,4 +79,7 @@ public sealed partial class InMemoryWatchdogStore
             return Task.FromResult(last);
         }
     }
+
+    /// <summary>The time as the SQLite store keeps it (Unix milliseconds) – the uniqueness key of migration 0004.</summary>
+    private static DateTimeOffset StoredTime(DateTimeOffset time) => DateTimeOffset.FromUnixTimeMilliseconds(time.ToUnixTimeMilliseconds());
 }

@@ -34,8 +34,9 @@ internal sealed class NotificationHarness
         Rollout = new RolloutGate(Health, Store);
         Targets = new NotificationTargetResolver(Store);
         Planner = new NotificationPlanner(Store, Targets, Calendars, Rollout);
-        Matcher = new RuleEngineHeldMatcher(new RuleEngine(Config, new AdMng.Watchdog.Core.Tests.Rules.Fakes.FixedTokenSource(ConfigTokens.Unknown), Clock));
-        Dispatch = new NotificationDispatchJob(Store, Store, Store, Config, Matcher, Planner, Rollout, new ThrottlePolicy(Store), Signals, Clock,
+        Rules = new RuleEngine(Config, new AdMng.Watchdog.Core.Tests.Rules.Fakes.FixedTokenSource(ConfigTokens.Unknown), Clock);
+        Matcher = new RuleEngineHeldMatcher(Rules);
+        Dispatch = new NotificationDispatchJob(Store, Store, Store, Config, Matcher, Planner, Rules, Rollout, new ThrottlePolicy(Store), Signals, Clock,
             NullLogger<NotificationDispatchJob>.Instance);
         FollowUps = new FollowUpPlanner(Store, Config, Clock);
     }
@@ -57,6 +58,8 @@ internal sealed class NotificationHarness
     public NotificationTargetResolver Targets { get; }
 
     public NotificationPlanner Planner { get; }
+
+    public RuleEngine Rules { get; }
 
     public IHeldNotificationMatcher Matcher { get; }
 

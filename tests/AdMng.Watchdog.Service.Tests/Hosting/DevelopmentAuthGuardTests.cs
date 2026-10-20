@@ -32,6 +32,12 @@ public sealed class DevelopmentAuthGuardTests
     }
 
     [Fact]
+    public void AsASystemdUnit_IsRefused()
+    {
+        Assert.NotNull(DevelopmentAuthGuard.Check(Development, "Development", Context("http://127.0.0.1:5080") with { IsSystemdService = true }));
+    }
+
+    [Fact]
     public void OtherModes_AreNotConcerned()
     {
         Assert.Null(DevelopmentAuthGuard.Check(new ServiceOptions(), "Production", Context("https://+:8443") with { IsWindowsService = true }));

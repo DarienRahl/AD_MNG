@@ -9,7 +9,7 @@ namespace AdMng.App.Views;
 
 /// <summary>
 /// Session log (<see cref="SessionLogViewModel"/>): the changes of this session, newest first, updated live. Double-click
-/// or Enter opens the object's properties, Ctrl+C copies its distinguished name.
+/// or Enter opens the object's properties, Ctrl+C copies the entry, Ctrl+Shift+C its distinguished name.
 /// </summary>
 public partial class SessionLogWindow : Window, IDialogResultWindow
 {

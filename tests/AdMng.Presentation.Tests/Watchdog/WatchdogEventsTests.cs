@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Specialized;
 using System.Text;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -85,8 +86,16 @@ public sealed class WatchdogEventsTests
             Assert.True(feed.HasMore);
             Assert.True(feed.LoadOlderCommand.CanExecute(null));
 
+            var selected = feed.Items[42];
+            feed.SelectedItem = selected;
+            var changes = Record(feed);
             await feed.LoadOlderCommand.ExecuteAsync(null);
 
+            // Appended row by row below the loaded ones (a Reset would scroll the list back to the top).
+            Assert.Equal(50, changes.Count);
+            Assert.All(changes, c => Assert.Equal(NotifyCollectionChangedAction.Add, c.Action));
+            Assert.Equal(Enumerable.Range(100, 50), changes.Select(c => c.NewStartingIndex));
+            Assert.Same(selected, feed.SelectedItem);
             Assert.Equal(150, feed.Items.Count);
             Assert.Equal(1, feed.Items[^1].Id);
             Assert.False(feed.HasMore);
@@ -115,14 +124,17 @@ public sealed class WatchdogEventsTests
             Assert.Equal(0, feed.NewCount);
             Assert.False(feed.HasNewEvents);
 
-            // Scrolled away from the top: new events are marked and counted ("2 new").
+            // Scrolled away from the top: new events are marked and counted ("2 new"), each inserted on its own (the list
+            // keeps the operator's place; a Reset would scroll it back to the top).
             feed.IsScrolledAway = true;
+            var changes = Record(feed);
             h.Client.AddEvent(SampleEvents.NewUser("Dorota Kruk", h.Time.GetUtcNow()));
             await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count == 32, "the second event");
             h.Client.AddEvent(SampleEvents.NewUser("Edward Sowa", h.Time.GetUtcNow()));
             await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count == 33, "the third event");
 
             Assert.Equal(2, feed.NewCount);
+            Assert.Equal([NotifyCollectionChangedAction.Add, NotifyCollectionChangedAction.Add], changes.Select(c => c.Action));
             Assert.True(feed.HasNewEvents);
             Assert.Equal(h.Ad.Localizer.Format(L.Watchdog.EventsNew, 2), feed.NewEventsText);
             Assert.True(feed.Items[0].IsNew);
@@ -152,7 +164,7 @@ public sealed class WatchdogEventsTests
             var shown = feed.Items.Count;
             Assert.All(feed.Items, r => Assert.True(r.Severity >= Severity.High));
 
-            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries[^1] is { After: not null, MinSeverity: Severity.High }, "the filtered long-poll");
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { MinSeverity: Severity.High }, "the filtered long-poll");
 
             h.Client.AddEvent(SampleEvents.NewUser("Filip Niski", h.Time.GetUtcNow(), Severity.Low));
             h.Client.AddEvent(SampleEvents.NewUser("Gerard Wysoki", h.Time.GetUtcNow(), Severity.Critical));
@@ -160,6 +172,38 @@ public sealed class WatchdogEventsTests
 
             Assert.Equal("Gerard Wysoki", feed.Items[0].ObjectName);
             Assert.DoesNotContain(feed.Items, r => r.ObjectName == "Filip Niski");
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveFeed_FilteredByWhatTheServiceFillsInLater_ShowsAnEventOnceItMatches()
+    {
+        // The service stores an event with the actor pending and evaluates/attributes it afterwards (same id): with a filter
+        // on the actor the live long-poll skips it, so the status round must pick it up once it matches.
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            var resolved = h.Client.Events.Single(e => e.Id == SampleEvents.PrivilegeGrantedId).Attribution;
+            feed.Filter.ActorSid = resolved.Actor!.Sid;
+            await feed.Loading;
+            var shown = feed.Items.Select(r => r.Id).ToList();
+            Assert.NotEmpty(shown);
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { ActorSid: not null }, "the filtered long-poll");
+
+            var added = h.Client.AddEvent(SampleEvents.NewUser("Zenon Łęcki", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.LastOrDefault(q => q.After is not null) is { After: { } after } && after >= added.Id, "the cursor past the pending event");
+            Assert.DoesNotContain(feed.Items, r => r.Id == added.Id);
+
+            h.Client.UpdateEvent(added.Id, e => e with { Attribution = resolved });
+            h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Any(r => r.Id == added.Id), "the late match");
+
+            Assert.Equal(added.Id, feed.Items[0].Id);
+            Assert.Equal(@"CONTOSO\jan.kowalski", feed.Items[0].ActorText);
+            Assert.Equal([added.Id, .. shown], feed.Items.Select(r => r.Id));
         });
         h.AssertNoUiErrors();
     }
@@ -306,5 +350,247 @@ public sealed class WatchdogEventsTests
             Assert.False(tab.Events.ExportCsvCommand.CanExecute(null));
             Assert.Equal(string.Empty, tab.Events.StatusText);
         });
+    }
+
+    [Fact]
+    public async Task SupersededLoad_LeavesNoErrorOverTheReloadedFeed()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync(visible: false);
+            var feed = tab.Events;
+            h.Client.Hold(nameof(IWatchdogClient.GetEventsAsync));
+
+            // Two quick filter changes: the second load cancels the first one, which the client reports as a
+            // WatchdogClientException of kind Cancelled (like the real HTTP client).
+            var first = feed.LoadAsync();
+            var second = feed.LoadAsync();
+            await first;
+            h.Client.Release(nameof(IWatchdogClient.GetEventsAsync));
+            await second;
+
+            Assert.Null(feed.Error);
+            Assert.Equal(30, feed.Items.Count);
+            Assert.False(feed.IsLoading);
+            Assert.True(tab.IsConnected);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveEvents_ArrivingWhileOlderEventsLoad_AreNotLost()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        for (var i = 0; i < 120; i++)
+        {
+            h.Client.AddEvent(SampleEvents.NewUser($"Użytkownik {i:D3}", SampleEvents.Now.AddMinutes(-5)));
+        }
+
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            Assert.True(feed.HasMore);
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
+
+            // "Wczytaj starsze" is on its way while the live long-poll keeps running.
+            h.Client.HoldEvents(q => q.Before is not null);
+            var older = feed.LoadOlderCommand.ExecuteAsync(null);
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.Any(q => q.Before is not null), "the older page request");
+            Assert.True(feed.IsLoading);
+
+            // A new event arrives meanwhile: the long-poll answers and the poller's cursor moves past it.
+            var added = h.Client.AddEvent(SampleEvents.NewUser("Bożena Wróbel", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries[^1].After == added.Id, "the next long-poll");
+            await h.Ui.IdleAsync();
+
+            h.Client.ReleaseEvents();
+            await older;
+
+            Assert.Equal(added.Id, feed.Items[0].Id);
+            Assert.Equal("Bożena Wróbel", feed.Items[0].ObjectName);
+            Assert.Equal(151, feed.Items.Count);
+            Assert.Equal(feed.Items.Count, feed.Items.Select(r => r.Id).Distinct().Count());
+            Assert.False(feed.HasMore);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveFeed_KeepsTheFilterOfTheLoadedPage_WhileTheFilterListsAreRebuilt()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            feed.Filter.KindGroups.SelectMany(g => g.Options).Single(o => o.Value == WatchEventKind.UserCreated).IsChecked = true;
+            await feed.Loading;
+            await WatchdogTestWait.UntilAsync(
+                h,
+                () => h.Client.EventQueries[^1] is { After: not null } q && q.Kinds.SequenceEqual([WatchEventKind.UserCreated]),
+                "the filtered long-poll");
+
+            // The kind lists are rebuilt (a reconnect brings the catalog again; here without the selected kind - the
+            // state a poll round on another thread could see in the middle of the rebuild). No reload is started.
+            feed.Filter.SetCatalog([.. EventKindCatalog.All.Where(k => k.Kind != WatchEventKind.UserCreated)]);
+            var disabled = h.Client.AddEvent(SampleEvents.NewUser("Ireneusz Szary", h.Time.GetUtcNow()) with { Kind = WatchEventKind.AccountDisabled });
+            var created = h.Client.AddEvent(SampleEvents.NewUser("Halina Kos", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Any(r => r.Id == created.Id), "the new user");
+
+            Assert.DoesNotContain(feed.Items, r => r.Id == disabled.Id);
+            Assert.All(feed.Items, r => Assert.Equal(WatchEventKind.UserCreated, r.Event.Kind));
+            Assert.Equal([WatchEventKind.UserCreated], h.Client.EventQueries[^1].Kinds);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveFeed_IsCapped_PagesAreInsertedRowByRow_NeverReset()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
+
+            // The tab is in the background while a lockout storm happens; when it is shown again the poller catches up
+            // in pages of 500.
+            tab.IsVisible = false;
+            WatchEvent last = null!;
+            for (var i = 0; i < 2100; i++)
+            {
+                last = h.Client.AddEvent(SampleEvents.NewUser($"Konto {i:D4}", SampleEvents.Now.AddSeconds(i)));
+            }
+
+            var before = feed.Items.Count;
+            var changes = Record(feed);
+            tab.IsVisible = true;
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count > 0 && feed.Items[0].Id == last.Id, "the catch-up");
+
+            Assert.Equal(WatchdogEventsViewModel.MaxLiveItems, feed.Items.Count);
+            Assert.True(feed.HasMore);
+
+            // One notification per row that came or went (the oldest leave from the end), never a Reset.
+            var added = changes.Count(c => c.Action == NotifyCollectionChangedAction.Add);
+            var removed = changes.Count(c => c.Action == NotifyCollectionChangedAction.Remove);
+            Assert.Equal(changes.Count, added + removed);
+            Assert.Equal(2100, added);
+            Assert.Equal(before + added - removed, feed.Items.Count);
+            Assert.Equal(feed.Items.Select(r => r.Id).OrderDescending(), feed.Items.Select(r => r.Id));
+
+            // The trimmed (oldest) events are still reachable with "Wczytaj starsze".
+            await feed.LoadOlderCommand.ExecuteAsync(null);
+            Assert.Equal(feed.Items[WatchdogEventsViewModel.MaxLiveItems - 1].Id - 1, feed.Items[WatchdogEventsViewModel.MaxLiveItems].Id);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task LiveEvents_AtTheCap_WhileOlderEventsLoad_LeaveNoGapInTheFeed()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
+            tab.IsVisible = false;
+            WatchEvent last = null!;
+            for (var i = 0; i < 2100; i++)
+            {
+                last = h.Client.AddEvent(SampleEvents.NewUser($"Konto {i:D4}", SampleEvents.Now.AddSeconds(i)));
+            }
+
+            tab.IsVisible = true;
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items.Count > 0 && feed.Items[0].Id == last.Id, "the catch-up");
+            Assert.Equal(WatchdogEventsViewModel.MaxLiveItems, feed.Items.Count);
+            var oldest = feed.Items[^1].Id;
+
+            // "Wczytaj starsze" asks for the events before the oldest row while a live event arrives: the feed is full,
+            // but the oldest row must not be trimmed under the running request (the page continues below it).
+            h.Client.HoldEvents(q => q.Before is not null);
+            var older = feed.LoadOlderCommand.ExecuteAsync(null);
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.Any(q => q.Before == oldest), "the older page request");
+            var added = h.Client.AddEvent(SampleEvents.NewUser("Józef Łęcki", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items[0].Id == added.Id, "the live event");
+            h.Client.ReleaseEvents();
+            await older;
+
+            var ids = feed.Items.Select(r => r.Id).ToList();
+            Assert.Contains(oldest, ids);
+            Assert.Equal(Enumerable.Range(0, ids.Count).Select(i => ids[0] - i), ids);
+            Assert.Equal(WatchdogEventsViewModel.MaxLiveItems + 1 + WatchdogEventsViewModel.PageSize, ids.Count);
+
+            // The next live page trims the feed back to what it held before (the oldest rows go, "Wczytaj starsze" offers them).
+            var next = h.Client.AddEvent(SampleEvents.NewUser("Marianna Śląska", h.Time.GetUtcNow()));
+            await WatchdogTestWait.UntilAsync(h, () => feed.Items[0].Id == next.Id, "the next live event");
+            Assert.Equal(ids.Count, feed.Items.Count);
+            Assert.True(feed.HasMore);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task Refresh_ReplacesTheRowsWithOneReset_AndSelectsTheSameEventAgain()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            var selected = feed.Items[5];
+            feed.SelectedItem = selected;
+            var changes = Record(feed);
+
+            // Only a full load replaces the rows (the list view then finds the same event again by its id).
+            await feed.RefreshCommand.ExecuteAsync(null);
+
+            var change = Assert.Single(changes);
+            Assert.Equal(NotifyCollectionChangedAction.Reset, change.Action);
+            Assert.NotSame(selected, feed.SelectedItem);
+            Assert.Equal(selected.Id, feed.SelectedItem?.Id);
+            Assert.Same(feed.SelectedItem, feed.Items[5]);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    /// <summary>Records the collection notifications of the feed from now on.</summary>
+    internal static List<NotifyCollectionChangedEventArgs> Record(WatchdogEventsViewModel feed)
+    {
+        var changes = new List<NotifyCollectionChangedEventArgs>();
+        feed.Items.CollectionChanged += (_, e) => changes.Add(e);
+        return changes;
+    }
+
+    [Fact]
+    public async Task LateAttribution_ReplacesThePendingActor_InTheFeedAndTheDetails()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var feed = tab.Events;
+            var row = feed.Items.Single(r => r.Id == SampleEvents.PendingAttributionId);
+            Assert.True(row.IsActorPending);
+            feed.SelectedItem = row;
+            await feed.Details.Loading;
+            Assert.Equal(h.Ad.Localizer.AttributionStatusName(AttributionStatus.Pending), feed.Details.AttributionStatusText);
+
+            // The attribution engine resolves the actor a few seconds later (the stored event is updated, no new id).
+            var resolved = h.Client.Events.Single(e => e.Id == SampleEvents.PrivilegeGrantedId).Attribution;
+            h.Client.UpdateEvent(SampleEvents.PendingAttributionId, e => e with { Attribution = resolved });
+
+            // The next status round of the visible tab re-reads the rows still waiting for attribution.
+            h.Time.Advance(WatchdogPoller.VisibleStatusInterval);
+            await WatchdogTestWait.UntilAsync(h, () => !row.IsActorPending, "the late attribution");
+
+            Assert.Equal(@"CONTOSO\jan.kowalski", row.ActorText);
+            Assert.Equal(h.Ad.Localizer.AttributionStatusName(AttributionStatus.Resolved), feed.Details.AttributionStatusText);
+            Assert.Equal(SampleEvents.PendingAttributionId, feed.Details.Event?.Id);
+        });
+        h.AssertNoUiErrors();
     }
 }

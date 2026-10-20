@@ -109,6 +109,40 @@ public class LabDetectionTests
         }
     }
 
+    [Fact]
+    public async Task Tombstone_ItsMangledNameGivesTheOriginalRdn()
+    {
+        var lab = Lab();
+        var token = TestContext.Current.CancellationToken;
+        var ou = NewOu("rdn");
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var name = "Żaneta Ślęzak " + suffix;
+        var user = DistinguishedName.Parse(ou).Child("CN", name).ToString();
+        try
+        {
+            await lab.ModifyAsync(AddOu(ou), token);
+            await lab.ModifyAsync(Add(user, ("objectClass", "user"), ("sAMAccountName", "wdr" + suffix), ("userAccountControl", "514")), token);
+            var userGuid = new Guid(Assert.Single(await lab.SearchAsync(user, "base", "(objectClass=*)", [Attr.ObjectGuid], false, token)).Attributes[Attr.ObjectGuid][0]);
+
+            await lab.DeleteAsync(user, token);
+
+            var filter = LdapFilter.And(LdapFilter.Equal(Attr.IsDeleted, "TRUE"), LdapFilter.EqualGuid(Attr.ObjectGuid, userGuid));
+            var tombstone = Assert.Single(await lab.SearchAsync($"CN=Deleted Objects,{LabLdap.DomainDn}", "one", filter,
+                [Attr.MsDsLastKnownRdn, Attr.IsRecycled], showDeleted: true, token));
+            // Without the Recycle Bin (the Samba lab) there is no msDS-LastKnownRDN: the scanner falls back to the DN.
+            Assert.Equal(name, DeletedObjectsScanner.UnmangledName(tombstone.Dn));
+            if (tombstone.Attributes.TryGetValue(Attr.MsDsLastKnownRdn, out var lastKnownRdn))
+            {
+                Assert.Equal(name, Encoding.UTF8.GetString(lastKnownRdn[0]));
+            }
+        }
+        finally
+        {
+            await lab.DeleteAsync(user, CancellationToken.None);
+            await lab.DeleteAsync(ou, CancellationToken.None);
+        }
+    }
+
     private static LabLdap Lab()
     {
         var lab = LabLdap.FromEnvironment();

@@ -46,7 +46,7 @@ public sealed record ChannelSettings
     public required ChannelType Type { get; init; }
     public required string Name { get; init; }
     public bool Enabled { get; init; } = true;
-    public SecretField Url { get; init; } = new();           // Hint = scheme://host/first-path-segment/…
+    public SecretField Url { get; init; } = new();           // Hint = scheme://host[:port]/… (never a path segment)
     public DetailLevel DetailLevel { get; init; } = DetailLevel.Standard;   // Teams Standard, webhook Minimal (defaults factory)
     public TeamsChannelOptions? Teams { get; init; }
     public WebhookChannelOptions? Webhook { get; init; }

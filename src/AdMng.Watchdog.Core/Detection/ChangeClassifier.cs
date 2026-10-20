@@ -8,7 +8,9 @@ namespace AdMng.Watchdog.Core.Detection;
 /// <summary>
 /// <see cref="RawObjectDiff"/> → event drafts (section 10.6 table). Each attribute is consumed by the first matching
 /// line; the leftovers go into one AttributesChanged event. Computer noise is dropped unless enabled (9.3), but
-/// ComputerNameSpoofing, foreign-host SPNs and every Tier-0 attribute are always evaluated.
+/// ComputerNameSpoofing, foreign-host SPNs and every Tier-0 attribute are always evaluated – and nothing is dropped for
+/// the service's own account (stage B design 9.3). Stage B tags: <c>badSuccessor</c> on a dMSA creation and on every
+/// migration link change (Critical, 9.1), <c>machineAccountQuota</c> on a quota change (Critical when raised from 0, 9.2).
 /// </summary>
 internal sealed class ChangeClassifier
 {
@@ -130,7 +132,7 @@ internal sealed class ChangeClassifier
     {
         ArgumentNullException.ThrowIfNull(created);
         var changes = created.Attributes
-            .Where(a => a.Key != WatchSignature.Key && a.Value.Values.Count > 0)
+            .Where(a => !WatchSignature.IsReserved(a.Key) && a.Value.Values.Count > 0)
             .OrderBy(a => a.Key, StringComparer.OrdinalIgnoreCase)
             .Select(a => _changes.Build(a.Key, null, a.Value))
             .ToList();
@@ -153,9 +155,11 @@ internal sealed class ChangeClassifier
             return drafts;
         }
 
+        var badSuccessor = false;
         if (created.Kind == WatchObjectKind.ServiceAccount)
         {
             changes.Insert(0, _changes.Text(Attr.ObjectClass, [created.ObjectClasses.LastOrDefault() ?? string.Empty]));
+            badSuccessor = created.ObjectClasses.Contains(ObjectClasses.DelegatedManagedServiceAccount, StringComparer.OrdinalIgnoreCase);
         }
 
         if (createdKind is WatchEventKind.GroupPolicyChanged or WatchEventKind.TrustChanged or WatchEventKind.PasswordSettingsChanged)
@@ -163,7 +167,13 @@ internal sealed class ChangeClassifier
             changes.Insert(0, _changes.Text("operation", ["created"]));
         }
 
-        drafts.Add(new EventDraft { Kind = createdKind, Changes = changes, MetadataAttributes = [Attr.ObjectClass] });
+        drafts.Add(new EventDraft
+        {
+            Kind = createdKind,
+            Changes = changes,
+            MetadataAttributes = [Attr.ObjectClass],
+            ExtraTags = badSuccessor ? [EventTags.BadSuccessor] : [],
+        });
         if (WatchObjectKinds.IsAccount(created.Kind) && created.Attributes.TryGetValue(Attr.UserAccountControl, out var uac))
         {
             drafts.AddRange(_uac.ClassifyCreated(uac));
@@ -223,10 +233,28 @@ internal sealed class ChangeClassifier
 
         var before = Number(pwd.OldValue) ?? 0;
         var after = Number(pwd.NewValue) ?? 0;
+        var kind = diff.New.Kind;
+        var suppressed = !input.IsWatchdogAccount
+            && ((kind == WatchObjectKind.Computer && !input.Directory.TrackComputerPasswordChanges)
+                || (kind == WatchObjectKind.ServiceAccount && !input.Directory.TrackManagedPasswordRollover));
         if (after == 0 && before != 0)
         {
             consumed.Add(Attr.PwdLastSet);
             drafts.Add(Single(WatchEventKind.PasswordMustChangeSet, pwd));
+
+            // A reset with "must change at next logon" (unicodePwd, then pwdLastSet = 0 – the usual helpdesk reset) is
+            // also a password write; only the metadata can tell (must-change alone must never look like one).
+            if (!suppressed && !input.Metadata.IsEmpty && input.Watermark is { } since
+                && input.Metadata.Get(Attr.UnicodePwd) is { } reset && reset.UsnLocal > since)
+            {
+                drafts.Add(new EventDraft
+                {
+                    Kind = WatchEventKind.PasswordChanged,
+                    Changes = [_changes.FromDelta(pwd)],
+                    MetadataAttributes = [Attr.UnicodePwd, Attr.PwdLastSet],
+                });
+            }
+
             return;
         }
 
@@ -236,9 +264,7 @@ internal sealed class ChangeClassifier
         }
 
         consumed.Add(Attr.PwdLastSet);
-        var kind = diff.New.Kind;
-        if ((kind == WatchObjectKind.Computer && !input.Directory.TrackComputerPasswordChanges)
-            || (kind == WatchObjectKind.ServiceAccount && !input.Directory.TrackManagedPasswordRollover))
+        if (suppressed)
         {
             return;
         }
@@ -331,7 +357,7 @@ internal sealed class ChangeClassifier
             return;
         }
 
-        if (kind == WatchObjectKind.Computer && !input.Directory.TrackComputerOsChanges)
+        if (kind == WatchObjectKind.Computer && !input.Directory.TrackComputerOsChanges && !input.IsWatchdogAccount)
         {
             var dns = First(input.Diff.New, Attr.DnsHostName) ?? First(input.Diff.Old, Attr.DnsHostName);
             var sam = input.Diff.New.SamAccountName ?? input.Diff.Old.SamAccountName;
@@ -355,11 +381,13 @@ internal sealed class ChangeClassifier
             .SelectMany(d => d.AddedValues.Concat(d.RemovedValues).Concat(d.New?.Values ?? []))
             .Select(ValueCanonicalizer.GuidOf)
             .Any(g => g is { } guid && input.IsPrivileged(guid.ToString("N")));
+        // BadSuccessor (design 9.1): Critical always; a link to a privileged principal also tags the event privileged.
         drafts.Add(new EventDraft
         {
             Kind = WatchEventKind.ManagedAccountLinkChanged,
             Changes = deltas.Select(_changes.FromDelta).ToList(),
-            BaseSeverity = linkedPrivileged || input.IsPrivileged(input.Diff.New.ObjectGuid.ToString("N")) ? Severity.Critical : Severity.High,
+            BaseSeverity = Severity.Critical,
+            ExtraTags = linkedPrivileged ? [EventTags.BadSuccessor, EventTags.Privileged] : [EventTags.BadSuccessor],
             MetadataAttributes = ManagedAccountLinkAttributes,
         });
     }
@@ -447,11 +475,28 @@ internal sealed class ChangeClassifier
             _ => (default(WatchEventKind), (IReadOnlyList<string>)[]),
         };
         var deltas = TakeAll(diff, consumed, attributes);
-        if (deltas.Count > 0)
+        if (deltas.Count == 0)
         {
-            drafts.Add(new EventDraft { Kind = kind, Changes = deltas.Select(_changes.FromDelta).ToList(), MetadataAttributes = attributes });
+            return;
         }
+
+        var draft = new EventDraft { Kind = kind, Changes = deltas.Select(_changes.FromDelta).ToList(), MetadataAttributes = attributes };
+        if (diff.New.Kind == WatchObjectKind.Domain
+            && deltas.FirstOrDefault(d => d.Attribute.Equals(WatchdogAttributes.MachineAccountQuota, StringComparison.OrdinalIgnoreCase)) is { } quota)
+        {
+            draft = draft with
+            {
+                ExtraTags = [EventTags.MachineAccountQuota],
+                BaseSeverity = MachineAccountQuotaSeverity(quota),
+            };
+        }
+
+        drafts.Add(draft);
     }
+
+    /// <summary>Design 9.2: Critical when the quota was 0 and is now above 0 (a hardening reverted), High otherwise.</summary>
+    internal static Severity MachineAccountQuotaSeverity(AttributeDelta quota) =>
+        Number(quota.OldValue) == 0 && Number(quota.NewValue) is > 0 ? Severity.Critical : Severity.High;
 
     private void ClassifyLeftovers(ClassificationInput input, HashSet<string> consumed, List<EventDraft> drafts)
     {
@@ -459,7 +504,7 @@ internal sealed class ChangeClassifier
         var leftovers = diff.Attributes.Where(a => !consumed.Contains(a.Attribute)).ToList();
         if (diff.New.Kind == WatchObjectKind.Computer)
         {
-            leftovers = leftovers.Where(a => !NoiseAttributes.IsDroppedComputerChange(a.Attribute, input.Directory)
+            leftovers = leftovers.Where(a => input.IsWatchdogAccount || !NoiseAttributes.IsDroppedComputerChange(a.Attribute, input.Directory)
                 || a.Attribute.Equals(Attr.ServicePrincipalName, StringComparison.OrdinalIgnoreCase)).ToList();
             if (input.DnsHostNameConflict && diff.Get(Attr.DnsHostName) is { } dns)
             {

@@ -22,7 +22,9 @@ namespace AdMng.Watchdog.IntegrationTests.EndToEnd;
 /// AD_MNG client (<see cref="WatchdogHttpClient"/>) – SMTP to Mailpit (or the in-process sink), a signed webhook to
 /// <see cref="HttpSink"/> – then a user with a hostile display name created in the lab: the event appears in the API,
 /// the Polish e-mail carries the HTML-encoded value and no secret, the webhook signature verifies, the status shows the
-/// directory Ok and attribution SOURCE_DISABLED (Linux), and the log stays free of directory values and secrets.
+/// directory Ok and attribution in collector mode (the Linux service's OpenWEC tailer, stage B design 7.8) with the lab DC
+/// not forwarding – Samba has no Windows Event Forwarding – so the event ends Unknown (AUDIT_POLICY_MISSING: no 4720 of
+/// that DC ever arrived) after its retries, and the log stays free of directory values and secrets.
 /// </summary>
 public sealed class ServiceEndToEndTests(LabFixture lab)
 {
@@ -39,6 +41,7 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
     public async Task LabChange_IsDetectedNotifiedAndVisibleThroughTheApi()
     {
         WatchdogLab.RequireLab();
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The service under test is the Linux one (OpenWEC collector mode).");
         var run = Guid.NewGuid().ToString("N")[..8];
         var recipient = $"zespol.it.{run}@contoso.test";
         var smtpPassword = $"Hasło-SMTP-Żuraw-{run}!";
@@ -102,29 +105,34 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
             r => r is not null, Timeout, "the signed webhook", Ct);
         AssertSigned(delivery!, signingSecret, webhookToken, created.EventId);
 
-        // Final attribution on Linux: no Security-log reader.
+        // Final attribution on Linux: collector mode, but the lab DC forwards nothing to OpenWEC – after the (shortened)
+        // retries the event ends Unknown, the 4720 family never having been seen from that DC.
         var details = await Poll.UntilAsync(() => client.GetEventAsync(created.Id, Ct), d => d.Event.Attribution.Status != AttributionStatus.Pending,
             Timeout, "the final attribution", Ct);
         Assert.Equal(AttributionStatus.Unknown, details.Event.Attribution.Status);
-        Assert.Equal(AttributionReasons.SourceDisabled, details.Event.Attribution.Reason);
+        Assert.Equal(AttributionReasons.AuditPolicyMissing, details.Event.Attribution.Reason);
 
         var status = await client.GetStatusAsync(Ct);
+        var dc = await LabDcAsync();
         Assert.Equal(HealthState.Ok, status.Directory.State);
-        Assert.Equal(await LabDcAsync(), status.Directory.DcHostName, StringComparer.OrdinalIgnoreCase);
-        Assert.False(status.Attribution.Enabled);
-        Assert.Contains(status.Checks, c => c.Code == "attribution.source" && c.State == HealthState.Disabled);
+        Assert.Equal(dc, status.Directory.DcHostName, StringComparer.OrdinalIgnoreCase);
+        Assert.True(status.Attribution.Enabled);
+        Assert.Equal(nameof(AttributionSourceKind.OpenWec), status.Attribution.Source);
+        Assert.DoesNotContain(status.Checks, c => c.Code == "attribution.source");
+        Assert.Contains(status.Checks, c => c.Code == HealthCheckCodes.Wec(dc, HealthCheckCodes.WecNotForwarding) && c.State == HealthState.Error);
 
         AssertLogIsClean(service.Log, smtpPassword, signingSecret, webhookToken, recipient);
     }
 
     /// <summary>The test's settings on top of the stored document: SMTP, recipients, the webhook on the new-accounts rule
-    /// (limited to <paramref name="scope"/>, always, without aggregation or hourly cap), rollout ended, short poll intervals.</summary>
+    /// (limited to <paramref name="scope"/>, always, without aggregation or hourly cap), rollout ended, short poll intervals
+    /// and a single attribution retry.</summary>
     private static WatchdogConfiguration Configure(WatchdogConfiguration current, SmtpSettings smtp, string recipient, string webhookUrl,
         string signingSecret, Uri publicBaseUrl, string scope) => current with
         {
             General = current.General with { InstanceName = "AD Watchdog – test e2e", Language = "pl", PublicBaseUrl = publicBaseUrl.ToString().TrimEnd('/'), RolloutEnded = true },
             Directory = current.Directory with { PollInterval = TimeSpan.FromSeconds(5), CreationSettleWindow = TimeSpan.Zero },
-            Attribution = current.Attribution with { PollInterval = TimeSpan.FromSeconds(10) },
+            Attribution = current.Attribution with { PollInterval = TimeSpan.FromSeconds(10), PendingRetries = [TimeSpan.FromSeconds(15)] },
             Notifications = current.Notifications with { AggregationWindow = TimeSpan.Zero, AttributionGrace = TimeSpan.Zero, HighSeverityFlushDelay = TimeSpan.Zero },
             Smtp = smtp with { From = "AD Watchdog <watchdog@contoso.test>", LocalDomain = "watchdog.contoso.test" },
             RecipientGroups = [.. current.RecipientGroups.Select(g => g.Id == DefaultRules.ItAdminsGroup ? g with { Addresses = [recipient] } : g)],

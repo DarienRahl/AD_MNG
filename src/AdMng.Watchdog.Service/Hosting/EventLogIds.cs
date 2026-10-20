@@ -6,7 +6,8 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// Stable Application-log event ids (source "AdMng Watchdog", spec 19.8) for SCOM / Zabbix / SIEM – the values of
 /// <see cref="WatchdogEventIds"/>, which the Core jobs use for the conditions they detect. The EventLog provider writes
 /// <c>EventId.Id</c> as the event id, so only these ids are used for Warning/Error entries; Information-level diagnostics
-/// use ids from 2000 up (console only – the EventLog provider logs Warning and above).
+/// use ids from 2000 up (console only – the EventLog provider logs Warning and above plus the Information entries of
+/// <see cref="LoggingSetup.EventLogInformationCategories"/>: 1000, 1006, 2301 and the access log 2600/2601).
 /// </summary>
 public static class EventLogIds
 {
@@ -36,4 +37,16 @@ public static class EventLogIds
 
     /// <summary>Error: fatal start-up check failed (exit code in the message).</summary>
     public const int FatalStartupCheck = WatchdogEventIds.FatalStartupCheck;
+
+    /// <summary>Information: TLS certificate fingerprint at every start (stage B).</summary>
+    public const int CertificateFingerprint = WatchdogEventIds.CertificateFingerprint;
+
+    /// <summary>Warning/Error: service account or keytab check failed (stage B).</summary>
+    public const int ServiceAccountProblem = WatchdogEventIds.ServiceAccountProblem;
+
+    /// <summary>Warning/Error: WEF collector problem (stage B).</summary>
+    public const int CollectorProblem = WatchdogEventIds.CollectorProblem;
+
+    /// <summary>Warning/Error: GPO content problem (stage B).</summary>
+    public const int GpoContentProblem = WatchdogEventIds.GpoContentProblem;
 }

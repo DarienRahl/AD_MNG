@@ -31,12 +31,22 @@
 
     <!-- Navigation tree nodes -->
     <HierarchicalDataTemplate DataType="{x:Type nav:ContainerNodeViewModel}" ItemsSource="{Binding Children}">
-      <StackPanel Orientation="Horizontal" ToolTip="{Binding Description, Mode=OneWay}">
+      <StackPanel Orientation="Horizontal" ToolTip="{Binding ToolTipText, Mode=OneWay}">
         <c:ObjectIconView Margin="0,0,6,0"
                           VerticalAlignment="Center"
                           Icon="{Binding Icon, Mode=OneWay}"
                           Size="16" />
         <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" />
+        <!-- Well-known container (wellKnownObjects): default container of new users/computers, System... -->
+        <TextBlock x:Name="WellKnownBadge"
+                   Margin="6,0,0,0"
+                   VerticalAlignment="Center"
+                   AutomationProperties.Name="{Binding WellKnownText, Mode=OneWay, TargetNullValue=''}"
+                   FontSize="11"
+                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.WellKnown}"
+                   Visibility="{Binding IsWellKnown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <TextBlock Margin="6,0,0,0"
                    FontSize="10"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -214,6 +224,25 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+
+    <!--
+      Details pane entries (attribute lines, location, DN): the pane is narrow, so the label is a small caption above its
+      value and the value gets the full width, with its copy button at the right. One entry = DetailsEntry panel holding
+      a DetailsCaption and a DockPanel [value | copy button].
+    -->
+    <Style x:Key="DetailsEntry" TargetType="StackPanel">
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style x:Key="DetailsCaption" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="0,0,0,1" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <!-- Centred on the copy button for one line; a wrapped value fills the line's height and starts at its top. -->
+    <Style x:Key="DetailsValue" TargetType="TextBox" BasedOn="{StaticResource Ad.SelectableText}">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
   </Window.Resources>
 
   <Grid>
@@ -231,6 +260,7 @@
                   Click="OnConnectClick"
                   Header="{l:Tr Ui.Connect}"
                   Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <MenuItem b:CommandMenu.Id="session.changeDc" />
         <MenuItem b:CommandMenu.Id="session.disconnect" />
         <Separator />
         <MenuItem b:CommandMenu.Id="nav.newTab" />
@@ -264,7 +294,20 @@
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />
-        <MenuItem b:CommandMenu.Id="object.copyDn" />
+        <MenuItem b:CommandMenu.Id="object.copyRows" />
+        <MenuItem b:CommandMenu.Id="object.copyRowsWithHeaders" />
+        <MenuItem x:Name="CopyAsMenuItem" Header="{l:Tr CommandCategories.CopyAs}">
+          <MenuItem b:CommandMenu.Id="copyAs.mail" />
+          <MenuItem b:CommandMenu.Id="copyAs.upn" />
+          <MenuItem b:CommandMenu.Id="copyAs.login" />
+          <MenuItem b:CommandMenu.Id="copyAs.domainLogin" />
+          <MenuItem b:CommandMenu.Id="copyAs.name" />
+          <MenuItem b:CommandMenu.Id="copyAs.displayName" />
+          <MenuItem b:CommandMenu.Id="object.copyDn" />
+          <MenuItem b:CommandMenu.Id="copyAs.path" />
+          <MenuItem b:CommandMenu.Id="copyAs.guid" />
+          <MenuItem b:CommandMenu.Id="copyAs.sid" />
+        </MenuItem>
         <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
@@ -363,6 +406,37 @@
         <Button b:CommandMenu.Id="nav.find" Content="{x:Static c:Glyphs.Search}" Style="{StaticResource Ad.IconButton}" />
         <Button b:CommandMenu.Id="object.batchEdit" Content="{x:Static c:Glyphs.Batch}" Style="{StaticResource Ad.IconButton}" />
         <Button b:CommandMenu.Id="view.export" Content="{x:Static c:Glyphs.Export}" Style="{StaticResource Ad.IconButton}" />
+        <!-- "Kopiuj jako…" of the selection: the button opens the same menu as the object's context menu. -->
+        <Button x:Name="CopyAsButton"
+                AutomationProperties.Name="{l:Tr CommandCategories.CopyAs}"
+                Click="OnCopyAsButtonClick"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr CommandCategories.CopyAs}">
+          <Button.ContextMenu>
+            <ContextMenu>
+              <MenuItem b:CommandMenu.Id="object.copyRows" />
+              <MenuItem b:CommandMenu.Id="object.copyRowsWithHeaders" />
+              <Separator />
+              <MenuItem b:CommandMenu.Id="copyAs.mail" />
+              <MenuItem b:CommandMenu.Id="copyAs.upn" />
+              <MenuItem b:CommandMenu.Id="copyAs.login" />
+              <MenuItem b:CommandMenu.Id="copyAs.domainLogin" />
+              <MenuItem b:CommandMenu.Id="copyAs.name" />
+              <MenuItem b:CommandMenu.Id="copyAs.displayName" />
+              <MenuItem b:CommandMenu.Id="object.copyDn" />
+              <MenuItem b:CommandMenu.Id="copyAs.path" />
+              <MenuItem b:CommandMenu.Id="copyAs.guid" />
+              <MenuItem b:CommandMenu.Id="copyAs.sid" />
+            </ContextMenu>
+          </Button.ContextMenu>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Ad.GlyphText}" Text="{x:Static c:Glyphs.Copy}" />
+            <TextBlock Margin="2,0,0,0"
+                       FontSize="8"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.ChevronDown}" />
+          </StackPanel>
+        </Button>
         <Rectangle Style="{StaticResource Ad.VerticalDivider}" />
         <ToggleButton x:Name="FilterToggle"
                       AutomationProperties.Name="{l:Tr Ui.ShowFilters}"
@@ -496,6 +570,8 @@
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
             <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+            <!-- The tooltip (well-known role, description) for keyboard and screen reader users. -->
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding HelpText, Mode=OneWay, TargetNullValue=''}" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="2" />
             <Style.Triggers>
@@ -705,10 +781,21 @@
                                     Icon="{Binding Icon, Mode=OneWay}"
                                     Size="32" />
                   <StackPanel>
-                    <TextBlock FontSize="15"
+                    <!-- Values are selectable with the mouse; the copy buttons copy them with one click. -->
+                    <DockPanel>
+                      <Button x:Name="CopyNameButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding NameField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding NameField.Label, Mode=OneWay}"
+                              Visibility="{Binding NameField.CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}, FallbackValue=Collapsed}" />
+                      <TextBox AutomationProperties.Name="{Binding Name, Mode=OneWay, TargetNullValue=''}"
+                               FontSize="15"
                                FontWeight="SemiBold"
-                               Text="{Binding Name, Mode=OneWay}"
-                               TextWrapping="Wrap" />
+                               Style="{StaticResource Ad.SelectableText}"
+                               Text="{Binding Name, Mode=OneWay}" />
+                    </DockPanel>
                     <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding TypeText, Mode=OneWay}" />
                   </StackPanel>
                 </DockPanel>
@@ -727,55 +814,70 @@
                   </DockPanel>
                 </Border>
 
-                <TextBlock Margin="0,10,0,0"
-                           Text="{Binding Description, Mode=OneWay}"
-                           TextWrapping="Wrap"
-                           Visibility="{Binding Description, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                <TextBox Margin="0,10,0,0"
+                         AutomationProperties.Name="{l:Tr Attribute.description}"
+                         Style="{StaticResource Ad.SelectableText}"
+                         Text="{Binding Description, Mode=OneWay}"
+                         Visibility="{Binding Description, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
 
                 <ItemsControl Margin="0,10,0,0"
                               Focusable="False"
-                              Grid.IsSharedSizeScope="True"
                               ItemsSource="{Binding Fields, Mode=OneWay}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type shell:SummaryField}">
-                      <Grid Margin="0,2">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
-                          <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <!-- An Auto column measures with unlimited width: the label itself must be bounded to wrap. -->
-                        <TextBlock MaxWidth="140"
-                                   Margin="0,0,10,0"
-                                   VerticalAlignment="Top"
-                                   Style="{StaticResource Ad.SecondaryText}"
-                                   Text="{Binding Label, Mode=OneWay}"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Grid.Column="1"
-                                   Text="{Binding Value, Mode=OneWay}"
-                                   TextWrapping="Wrap" />
-                      </Grid>
+                      <StackPanel Style="{StaticResource DetailsEntry}">
+                        <TextBlock Style="{StaticResource DetailsCaption}" Text="{Binding Label, Mode=OneWay}" />
+                        <!-- Selectable with the mouse; the copy button copies the whole value with one click. -->
+                        <DockPanel>
+                          <Button Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  DockPanel.Dock="Right"
+                                  Style="{StaticResource Ad.CopyButton}"
+                                  Tag="{Binding Label, Mode=OneWay}"
+                                  Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
+                                   Style="{StaticResource DetailsValue}"
+                                   Text="{Binding Value, Mode=OneWay}" />
+                        </DockPanel>
+                      </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <StackPanel Visibility="{Binding DistinguishedName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-                  <TextBlock Margin="0,12,0,2"
-                             Style="{StaticResource Ad.SecondaryText}"
-                             Text="{l:Tr Details.Path}" />
-                  <TextBlock Text="{Binding Path, Mode=OneWay}" TextWrapping="Wrap" />
-                  <DockPanel Margin="0,10,0,2">
-                    <Button b:CommandMenu.Id="object.copyDn"
-                            Content="{x:Static c:Glyphs.Copy}"
-                            DockPanel.Dock="Right"
-                            Style="{StaticResource Ad.SmallIconButton}" />
-                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.DistinguishedName}" />
-                  </DockPanel>
-                  <TextBlock FontSize="11"
-                             Text="{Binding DistinguishedName, Mode=OneWay}"
-                             TextWrapping="Wrap" />
+                  <StackPanel Style="{StaticResource DetailsEntry}">
+                    <TextBlock Style="{StaticResource DetailsCaption}" Text="{l:Tr Details.Path}" />
+                    <DockPanel>
+                      <Button x:Name="CopyPathButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding PathField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding PathField.Label, Mode=OneWay}" />
+                      <TextBox AutomationProperties.Name="{l:Tr Details.Path}"
+                               Style="{StaticResource DetailsValue}"
+                               Text="{Binding Path, Mode=OneWay}" />
+                    </DockPanel>
+                  </StackPanel>
+                  <StackPanel Style="{StaticResource DetailsEntry}">
+                    <TextBlock Style="{StaticResource DetailsCaption}" Text="{l:Tr Details.DistinguishedName}" />
+                    <DockPanel>
+                      <Button x:Name="CopyDnButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding DnField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding DnField.Label, Mode=OneWay}" />
+                      <TextBox x:Name="DetailsDnText"
+                               AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
+                               FontSize="11"
+                               Style="{StaticResource DetailsValue}"
+                               Text="{Binding DistinguishedName, Mode=OneWay}" />
+                    </DockPanel>
+                  </StackPanel>
                 </StackPanel>
 
-                <TextBlock Margin="0,14,0,6"
+                <TextBlock Margin="0,6,0,6"
                            Style="{StaticResource Ad.SectionHeader}"
                            Text="{l:Tr Details.QuickActions}" />
                 <WrapPanel>
@@ -914,6 +1016,28 @@
 
       <StatusBarItem DockPanel.Dock="Left" Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
         <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{Binding SecurityText, Mode=OneWay}" />
+      </StatusBarItem>
+
+      <!-- Very large container shown as a virtual list (VLV): rows are read while scrolling. -->
+      <StatusBarItem x:Name="VirtualListBadge"
+                     DockPanel.Dock="Left"
+                     AutomationProperties.HelpText="{l:Tr List.Virtual.BadgeToolTip}"
+                     AutomationProperties.Name="{l:Tr List.Virtual.Badge}"
+                     ToolTip="{l:Tr List.Virtual.BadgeToolTip}"
+                     Visibility="{Binding IsVirtualListShown, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+        <Border Padding="6,0" Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="3">
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Margin="0,0,4,0"
+                       VerticalAlignment="Center"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Style="{StaticResource Ad.GlyphText}"
+                       Text="{x:Static c:Glyphs.Columns}" />
+            <TextBlock VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                       Text="{l:Tr List.Virtual.Badge}" />
+          </StackPanel>
+        </Border>
       </StatusBarItem>
 
       <StatusBarItem DockPanel.Dock="Left">

@@ -34,6 +34,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
     private PrivilegeState? _privileges;
     private int _commitCount;
     private int? _failOnCommit;
+    private bool _failFinalCommit;
 
     public ScenarioDetectionStore(TimeProvider timeProvider)
     {
@@ -106,6 +107,18 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
         lock (_gate)
         {
             _failOnCommit = _commitCount + commitNumber;
+        }
+    }
+
+    /// <summary>
+    /// Throws an <see cref="IOException"/> instead of applying the next final commit of a cycle (the one that writes
+    /// <see cref="DetectionCommit.NewState"/>) – a crash after the chunk commits, before W moves.
+    /// </summary>
+    public void FailNextFinalCommit()
+    {
+        lock (_gate)
+        {
+            _failFinalCommit = true;
         }
     }
 
@@ -269,6 +282,12 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
                 throw new IOException("Injected store failure (simulated crash).");
             }
 
+            if (_failFinalCommit && commit.NewState is not null)
+            {
+                _failFinalCommit = false;
+                throw new IOException("Injected failure of the final commit (simulated crash).");
+            }
+
             foreach (var rewrite in commit.DnRewrites)
             {
                 ApplyRewrite(rewrite);
@@ -307,7 +326,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
             var stored = new List<WatchEvent>();
             foreach (var watchEvent in commit.Events)
             {
-                var withId = watchEvent with { Id = _events.Count + 1 };
+                var withId = watchEvent with { Id = _events.Count + 1, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
                 _events.Add(withId);
                 stored.Add(withId);
             }
@@ -346,7 +365,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
         ArgumentNullException.ThrowIfNull(watchEvent);
         lock (_gate)
         {
-            var withId = watchEvent with { Id = _events.Count + 1 };
+            var withId = watchEvent with { Id = _events.Count + 1, OwnSeverity = watchEvent.OwnSeverity ?? watchEvent.Severity };
             _events.Add(withId);
             return Task.FromResult(withId.Id);
         }
@@ -419,13 +438,7 @@ public sealed class ScenarioDetectionStore : IDetectionStore, IEventStore, IExpi
             if (index >= 0)
             {
                 var current = _events[index];
-                _events[index] = current with
-                {
-                    Attribution = update.Attribution,
-                    Tags = [.. current.Tags.Concat(update.AddedTags).Distinct(StringComparer.Ordinal)],
-                    Severity = update.Severity ?? current.Severity,
-                    Lockout = update.Lockout ?? current.Lockout,
-                };
+                _events[index] = EventSeverities.WithAttribution(current, update);
             }
 
             return Task.CompletedTask;

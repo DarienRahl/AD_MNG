@@ -66,6 +66,27 @@ public sealed class TestSendApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task EmailTest_WithAnotherPinnedCertificate_AndTheStoredPassword_Is400_AndNothingIsSent()
+    {
+        // security-smtp-binding-ignores-tls: an Admin pins his own certificate for the same host – an unsaved test send
+        // must not release the stored password to whoever presents that certificate.
+        using var admin = _factory.Admin();
+        await SaveAsync(admin, Smtp());
+        var attackerPin = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData("certyfikat napastnika"u8));
+        var repinned = Smtp() with { PinnedSha256 = attackerPin, Password = new SecretField { IsSet = true } };
+
+        using var response = await admin.PostAsync(
+            WatchdogRoutes.TestEmail,
+            ApiJson.Content(new TestEmailRequest { Recipients = ["jan.kowalski@contoso.test"], Settings = repinned }),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("secretRebindRequired", await ApiJson.IssueCodesAsync(response));
+        Assert.Empty(_sink.AuthenticationAttempts);
+        Assert.Empty(_sink.Messages);
+    }
+
+    [Fact]
     public async Task EmailTest_WithOAuthToAForeignHost_RequestsNoToken()
     {
         using var admin = _factory.Admin();

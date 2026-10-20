@@ -33,4 +33,7 @@ internal sealed record ClassificationInput
 
     /// <summary>NTDS Settings DN → DC host name (FsmoRoleChanged); null when unknown.</summary>
     public Func<string, string?> DsaHostName { get; init; } = _ => null;
+
+    /// <summary>The object is the service's own account (design 9.3): exempt from the computer-noise filter.</summary>
+    public bool IsWatchdogAccount { get; init; }
 }

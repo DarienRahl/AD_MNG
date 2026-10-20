@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Presentation.Lists;
+using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Watchdog;
@@ -104,6 +105,120 @@ public sealed class WatchdogShellTests
             var reopened = shell.OpenWatchdog()!;
             Assert.NotSame(watchdog, reopened);
             await reopened.Connecting;
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task DetailsPane_IsHiddenOnTheWatchdogTab_AndKeepsTheOperatorsChoiceForLists()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var list = shell.SelectedTab;
+            Assert.True(shell.IsDetailsPaneVisible);
+            Assert.True(shell.IsDetailsPaneShown);
+            var changed = new List<string?>();
+            shell.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+            // The Watchdog tab has its own details pane: the main window's object pane would stay empty.
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            Assert.False(shell.IsDetailsPaneShown);
+            Assert.True(shell.IsDetailsPaneVisible);
+            Assert.Contains(nameof(ShellViewModel.IsDetailsPaneShown), changed);
+            Assert.True(h.Ad.Settings.Current.ShowDetailsPane);
+
+            // Back on a list: the operator's choice again – shown, or hidden after Ctrl+D.
+            shell.SelectedTab = list;
+            Assert.True(shell.IsDetailsPaneShown);
+            await shell.ToggleDetailsPaneCommand.ExecuteAsync(null);
+            Assert.False(shell.IsDetailsPaneShown);
+            shell.SelectedTab = watchdog;
+            Assert.False(shell.IsDetailsPaneShown);
+            shell.SelectedTab = list;
+            Assert.False(shell.IsDetailsPaneShown);
+            await shell.ToggleDetailsPaneCommand.ExecuteAsync(null);
+            Assert.True(shell.IsDetailsPaneShown);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task CtrlW_OnUnsavedWatchdogConfiguration_AsksBeforeDiscardingIt()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            await watchdog.Config.Loading;
+            var question = "confirm:" + h.Ad.Localizer[L.Watchdog.ConfigDiscard];
+            Assert.False(shell.HasUnsavedDocuments);
+
+            // Unsaved edits (a typed SMTP password among them).
+            watchdog.Channels.Smtp!.Password.SetNewValue("Hasło-Łódź-2026");
+            watchdog.Config.Update(c => c with { Smtp = c.Smtp with { From = "Strażnik AD <straznik@contoso.com>" } });
+            Assert.True(watchdog.HasUnsavedChanges);
+            Assert.True(shell.HasUnsavedDocuments);
+
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(false);
+            await shell.CloseTabCommand.ExecuteAsync(null);
+
+            Assert.Contains(watchdog, shell.Documents);
+            Assert.Same(watchdog, shell.SelectedTab);
+            Assert.True(watchdog.Config.IsDirty);
+            Assert.Equal(1, h.Ad.Dialogs.Shown.Count(s => s == question));
+
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(true);
+            await shell.CloseTabCommand.ExecuteAsync(watchdog);
+
+            Assert.DoesNotContain(watchdog, shell.Documents);
+            Assert.IsType<ObjectListViewModel>(shell.SelectedTab);
+            Assert.Equal(2, h.Ad.Dialogs.Shown.Count(s => s == question));
+            Assert.False(shell.HasUnsavedDocuments);
+
+            // A tab without unsaved changes closes without a question.
+            var reopened = shell.OpenWatchdog()!;
+            await reopened.Connecting;
+            await reopened.Config.Loading;
+            await shell.CloseTabCommand.ExecuteAsync(reopened);
+            Assert.DoesNotContain(reopened, shell.Documents);
+            Assert.Equal(2, h.Ad.Dialogs.Shown.Count(s => s == question));
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task ClosingTheWindow_AsksForEveryTabWithUnsavedChanges()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            using var shell = h.CreateShell();
+            await shell.InitializeAsync();
+            var list = shell.SelectedTab;
+            Assert.True(await shell.CanCloseDocumentsAsync());
+
+            var watchdog = shell.OpenWatchdog()!;
+            await watchdog.Connecting;
+            await watchdog.Config.Loading;
+            watchdog.Config.Update(c => c with { Smtp = c.Smtp with { From = "Strażnik AD <straznik@contoso.com>" } });
+            shell.SelectedTab = list;
+
+            // Declined: the window stays open and shows the tab the question was about.
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(false);
+            Assert.False(await shell.CanCloseDocumentsAsync());
+            Assert.Same(watchdog, shell.SelectedTab);
+            Assert.Contains(watchdog, shell.Documents);
+
+            h.Ad.Dialogs.ConfirmAnswers.Enqueue(true);
+            Assert.True(await shell.CanCloseDocumentsAsync());
+            Assert.Equal(2, h.Ad.Dialogs.Shown.Count(s => s == "confirm:" + h.Ad.Localizer[L.Watchdog.ConfigDiscard]));
         });
         h.AssertNoUiErrors();
     }

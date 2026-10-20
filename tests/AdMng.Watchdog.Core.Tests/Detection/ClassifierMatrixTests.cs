@@ -53,7 +53,9 @@ public class ClassifierMatrixTests
         var linked = Assert.Single(await scenario.CycleEventsAsync());
 
         Assert.Equal(WatchEventKind.ManagedAccountLinkChanged, linked.Kind);
-        Assert.Equal(Severity.High, linked.Severity);
+        Assert.Equal(Severity.Critical, linked.Severity);              // stage B design 9.1: Critical always
+        Assert.Contains(EventTags.BadSuccessor, linked.Tags);
+        Assert.DoesNotContain(EventTags.Privileged, linked.Tags);
     }
 
     [Fact]

@@ -83,6 +83,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _detailsPaneVisible = Settings.Current.ShowDetailsPane;
         Tree.NodeActivated += OnNodeActivated;
+        Tree.PropertyChanged += OnTreePropertyChanged;
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -106,7 +107,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The selected tab (bound to the tab strip).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedDocument))]
+    [NotifyPropertyChangedFor(nameof(SelectedDocument), nameof(IsDetailsPaneShown))]
     public partial IShellDocument? SelectedTab { get; set; }
 
     /// <summary>
@@ -162,7 +163,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial ObjectSummaryViewModel? SelectedObject { get; private set; }
 
+    /// <summary>The operator's choice (Ctrl+D, View → Details pane), kept in the settings.</summary>
     public bool IsDetailsPaneVisible => Settings.Current.ShowDetailsPane;
+
+    /// <summary>
+    /// The window shows the object details pane: the operator's choice while an object list (or no tab) is selected;
+    /// never on a tab that shows no directory objects (the Watchdog tab has its own details pane) – the choice is
+    /// kept for the lists.
+    /// </summary>
+    public bool IsDetailsPaneShown => IsDetailsPaneVisible && (SelectedTab is null or ObjectListViewModel);
 
     public bool ShowAdvancedFeatures => Settings.Current.ShowAdvancedFeatures;
 
@@ -273,11 +282,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         return location is null ? Task.CompletedTask : OpenLocationInNewTabAsync(location);
     }
 
-    [RelayCommand]
-    private void CloseTab(IShellDocument? document)
+    /// <summary>
+    /// Ctrl+W, the tab's close button: a tab with unsaved changes asks first (<see cref="IShellDocument.CanCloseAsync"/>),
+    /// then the tab is removed and disposed.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task CloseTabAsync(IShellDocument? document)
     {
         document ??= SelectedTab;
-        if (document is null)
+        if (document is null || !Documents.Contains(document))
+        {
+            return;
+        }
+
+        if (document.HasUnsavedChanges && (!await document.CanCloseAsync().ConfigureAwait(true) || !Documents.Contains(document)))
         {
             return;
         }
@@ -294,6 +312,32 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             SelectedTab = Documents.Count == 0 ? null : Documents[Math.Clamp(index, 0, Documents.Count - 1)];
         }
+    }
+
+    /// <summary>An open tab holds unsaved changes (the main window asks before it closes).</summary>
+    public bool HasUnsavedDocuments => Documents.Any(d => d.HasUnsavedChanges);
+
+    /// <summary>
+    /// The main window is closing: every tab with unsaved changes is selected and asked in turn. False when one of them
+    /// keeps its changes (the window stays open); nothing is disposed here.
+    /// </summary>
+    public async Task<bool> CanCloseDocumentsAsync()
+    {
+        foreach (var document in Documents.Where(d => d.HasUnsavedChanges).ToList())
+        {
+            if (!Documents.Contains(document))
+            {
+                continue;
+            }
+
+            SelectedTab = document;
+            if (!await document.CanCloseAsync().ConfigureAwait(true))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -367,12 +411,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>Double click / Enter on a row: containers open in the current tab, other objects show properties.</summary>
-    [RelayCommand(AllowConcurrentExecutions = true)]
+    /// <summary>
+    /// Double click / Enter on a row: containers open in the current tab, other objects show properties. A virtual list's
+    /// "Loading…" placeholder has no object behind it and is never opened.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanOpenItem), AllowConcurrentExecutions = true)]
     private async Task OpenItemAsync(ObjectRowViewModel? row)
     {
         row ??= SelectedDocument?.SelectedItem;
-        if (row is null)
+        if (row is null or { IsPlaceholder: true })
         {
             return;
         }
@@ -386,6 +433,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             await _dialogs.ShowPropertiesAsync(row.Dn).ConfigureAwait(true);
         }
     }
+
+    private static bool CanOpenItem(ObjectRowViewModel? row) => row is not { IsPlaceholder: true };
 
     [RelayCommand(CanExecute = nameof(CanGoBack), AllowConcurrentExecutions = true)]
     private Task GoBackAsync() => SelectedDocument?.GoBackCommand.ExecuteAsync(null) ?? Task.CompletedTask;
@@ -416,6 +465,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         Tree.NodeActivated -= OnNodeActivated;
+        Tree.PropertyChanged -= OnTreePropertyChanged;
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -429,6 +479,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _searchDebouncer.Cancel();
         _detailsDebouncer.Cancel();
+        CopyAsCommand.Cancel();
         ObserveDocument(null);
         ObserveTab(null);
         foreach (var document in Documents)
@@ -460,6 +511,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(SelectionText));
         OnPropertyChanged(nameof(IsBusy));
+        OnPropertyChanged(nameof(IsVirtualListShown));
         UpdateDetailsAsync().Forget();
 
         // The tree highlights what the active tab shows: with another tab's container still selected, a click on that
@@ -547,7 +599,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>"Otwórz w AD_MNG" in the Watchdog tab: the object's current DN, located in a list tab.</summary>
+    /// <summary>"Pokaż w AD Manager" in the Watchdog tab: the object's current DN, located in a list tab.</summary>
     private void OnWatchdogLocateRequested(object? sender, string distinguishedName) => LocateAsync(distinguishedName).Forget();
 
     /// <summary>"Historia zmian (Watchdog)" from an object (list, details pane, property sheet).</summary>
@@ -611,6 +663,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 break;
             case nameof(ObjectListViewModel.Location):
                 RefreshCommandStates();
+                break;
+            case nameof(ObjectListViewModel.IsVirtual):
+                OnPropertyChanged(nameof(IsVirtualListShown));
                 break;
         }
     }
@@ -727,10 +782,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private void OnSessionChanged(object? sender, EventArgs e) => _ = _lists.Dispatcher.RunAsync(() =>
     {
+        // A "Copy as" read of the previous session's objects is abandoned (its list goes away).
+        CopyAsCommand.Cancel();
         RaiseHeaderChanged();
         if (Sessions.Current is { } session && !ReferenceEquals(session, _initializedFor))
         {
-            InitializeAsync().Forget();
+            if (!TryReloadAfterDomainControllerChange(session))
+            {
+                InitializeAsync().Forget();
+            }
+
             return;
         }
 
@@ -750,6 +811,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
         OnPropertyChanged(nameof(IsDetailsPaneVisible));
+        OnPropertyChanged(nameof(IsDetailsPaneShown));
         OnPropertyChanged(nameof(ShowAdvancedFeatures));
         OnPropertyChanged(nameof(RecentContainers));
         if (_detailsPaneVisible != IsDetailsPaneVisible)
@@ -836,7 +898,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 {
                     SelectedObject = obj is null
                         ? null
-                        : ObjectSummaryViewModel.Create(obj, Localizer, Sessions.Formatter, session.Schema, policy, _lists.Time.GetUtcNow());
+                        : ObjectSummaryViewModel.Create(obj, Localizer, Sessions.Formatter, session.Schema, policy, _lists.Time.GetUtcNow(), session.Info.DomainNetBiosName);
                 }
             }
             catch (DirectoryException) when (!token.IsCancellationRequested)

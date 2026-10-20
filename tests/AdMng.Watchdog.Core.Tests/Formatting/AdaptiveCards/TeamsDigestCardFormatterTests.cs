@@ -1,5 +1,6 @@
 using System.Text;
 using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Formatting.AdaptiveCards;
 using AdMng.Watchdog.Core.Notifications.Digest;
 
@@ -26,6 +27,16 @@ public sealed class TeamsDigestCardFormatterTests
         Assert.StartsWith("AD Watchdog: [AD Watchdog] Raport dzienny contoso.com – 14.10.2026", card["fallbackText"]!.GetValue<string>(), StringComparison.Ordinal);
         Assert.Equal("https://admng-wd.contoso.com:8443/", Assert.Single(card["actions"]!.AsArray())!["url"]!.GetValue<string>());
         EmailAlertFormatterTests.AssertNoMissingKeys(Encoding.UTF8.GetString(message.Body));
+    }
+
+    [Fact]
+    public void Attention_SaysWhenTheSeverityWasRaisedAfterTheAlert()
+    {
+        var model = DigestSamples.Full() with { SeverityChanges = new Dictionary<long, Severity> { [18350] = Severity.Medium } };
+
+        var text = TeamsCardFormatterTests.AllText(TeamsCardFormatterTests.AssertValidMessage(TeamsDigestCardFormatter.Format(model, FormattingSamples.Context())));
+
+        Assert.Contains("(priorytet: Średni → Wysoki)", text, StringComparison.Ordinal);
     }
 
     [Fact]

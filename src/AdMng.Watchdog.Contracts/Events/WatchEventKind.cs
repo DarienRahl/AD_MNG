@@ -19,11 +19,15 @@ public enum WatchEventKind
     DomainPolicyChanged = 500, PasswordSettingsChanged = 501, GroupPolicyLinkChanged = 502, GroupPolicyChanged = 503,
     TrustChanged = 504, DomainControllerAdded = 505, SchemaChanged = 506,
     DomainControllerRemoved = 507, FsmoRoleChanged = 508, CertificateTemplateChanged = 509,
+    GroupPolicySettingsChanged = 510,     // GPO content in SYSVOL: "setting: was → is" (stage B design 8.6)
+    GroupPolicyPathRedirected = 511,      // gPCFileSysPath outside \\<domain>\SysVol\<domain>\Policies\{GUID} (8.2)
+    GroupPolicyContentOutOfBand = 512,    // SYSVOL content changed without a versionNumber change (8.1, 8.6)
     AccountExpiring = 600, AccountExpired = 601, PasswordExpiring = 602, MassLockout = 603, MassDeletion = 604,
     PasswordSprayingSuspected = 605,      // optional detector on failed-logon events (10.15), not recorded by default
     SecurityLogCleared = 700, AuditPolicyChanged = 701, DsrmPasswordChanged = 702,
     HealthDirectoryUnavailable = 900, HealthResync = 901, HealthPermissionGap = 902, HealthAttributionDegraded = 903,
     HealthEventLogGap = 904, HealthDeliveryFailing = 905, HealthStorage = 906, HealthBaselineCompleted = 907,
     WatchdogConfigurationChanged = 908,   // runtime configuration saved through the API (17.2)
+    HealthServiceAccount = 909,           // own computer account ADMNG-WD$ and its keytab (stage B design 4.6, 4.7)
     Test = 999,
 }

@@ -597,7 +597,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
             return [];
         }
 
-        return values.Name.Contains(";range=", StringComparison.OrdinalIgnoreCase) ? null : values.Strings;
+        // The plan's old values are pipeline values (hex for logonHours), so the read is compared in the same form.
+        return values.Name.Contains(";range=", StringComparison.OrdinalIgnoreCase) ? null : PipelineValues.Read(_loaded, attribute);
     }
 
     private static bool SameValues(IReadOnlyList<string> a, IReadOnlyList<string> b) =>

@@ -31,4 +31,7 @@ public sealed record DirectorySettings
     public TimeSpan FailoverAfter { get; init; } = TimeSpan.FromMinutes(10);       // pinned DC down → another DC
     /// <summary>Changes to an object younger than this (whenCreated) are folded into its Created event (10.6.3).</summary>
     public TimeSpan CreationSettleWindow { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>GPO content tracking from SYSVOL (stage B design 8).</summary>
+    public GpoContentSettings GpoContent { get; init; } = new();
 }

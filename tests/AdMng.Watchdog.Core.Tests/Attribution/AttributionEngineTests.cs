@@ -4,8 +4,10 @@ using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Attribution;
 using AdMng.Watchdog.Core.Diagnostics;
+using AdMng.Watchdog.Core.Rules;
 using AdMng.Watchdog.Testing.Attribution;
 using AdMng.Watchdog.Testing.Fixtures.SecurityEvents;
+using Microsoft.Extensions.Logging.Abstractions;
 using static AdMng.Watchdog.Core.Tests.Attribution.Records;
 using static AdMng.Watchdog.Core.Tests.Rules.TestEvents;
 
@@ -95,6 +97,24 @@ public sealed class AttributionEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task OneSourceFailingToStore_DoesNotDiscardTheOthers()
+    {
+        // attribution-rules-8: a store error on DC02 must not drop DC01's Critical detection, nor stop correlation.
+        _h.Source.Add(Dc1, id => SecurityEventXml.LogCleared(id, Now.AddMinutes(-1), Dc1, AdminSid, "adm.jkowalska", "CONTOSO", AdminLogonId));
+        AddRecord(4725, T, Admin, Dc2);
+        _h.SecurityStore.AppendFailure = cursor => cursor.Source == Dc2 ? new InvalidOperationException("SQLite Error 13: database or disk is full") : null;
+        var pending = _h.Events.Add(Disabled());
+
+        var result = await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.False(result.Failed);
+        Assert.Single(_h.Events.All, e => e.Kind == WatchEventKind.SecurityLogCleared);
+        Assert.Equal(HealthState.Error, _h.Health.Find("eventlog." + Dc2)!.State);
+        Assert.Equal(Now.AddSeconds(30), _h.Events.NextAttributionAt(pending.Id));   // correlated (and retried later)
+        Assert.Contains(WatchdogSignal.EventsStored, _h.Signals.Raised);
+    }
+
+    [Fact]
     public async Task AnOperationDisambiguatesItsSiblings()
     {
         var changeSet = Guid.NewGuid();
@@ -152,6 +172,185 @@ public sealed class AttributionEngineTests : IDisposable
 
         Assert.Equal(2, _h.Queue.Added.Count);
         Assert.Equal(1, _h.Queue.AddCalls);
+    }
+
+    private WatchEvent ShadowCredentials(bool evaluated) => _h.Events.Add(Create(WatchEventKind.KeyCredentialChanged, severity: Severity.Medium) with
+    {
+        OriginatingTime = T,
+        OriginatingDc = Dc1,
+        Changes = [new AttributeChange { Attribute = "msDS-KeyCredentialLink", Redacted = true }],
+        MatchedRules = evaluated ? [DefaultRules.SecurityReview] : [],
+    }, evaluated);
+
+    [Fact]
+    public async Task ASeverityRaisedByAttribution_IsMatchedAgainstTheRulesAgain()
+    {
+        // Shadow credentials on an ordinary user: the provisional Medium matched only security-review (digest); written by
+        // another account the final severity is High (10.6.4) and tier0-security must alert immediately.
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        var attributed = _h.Events.Get(pending.Id);
+        Assert.Equal(Severity.High, attributed.Severity);
+        Assert.Equal([DefaultRules.SecurityReview, DefaultRules.Tier0Security], attributed.MatchedRules);
+        var (evaluation, _) = Assert.Single(_h.Planner.Calls);
+        Assert.Equal([DefaultRules.Tier0Security], evaluation.Matches.Select(m => m.Rule.Id));   // never the rules that already matched
+        Assert.Equal(AttributionStatus.Resolved, evaluation.Event.Attribution.Status);
+        var notification = Assert.Single(_h.Events.Notifications);
+        Assert.Equal((pending.Id, DefaultRules.Tier0Security), (notification.EventId, notification.RuleId));
+        Assert.Contains(WatchdogSignal.NotificationsQueued, _h.Signals.Raised);
+    }
+
+    [Fact]
+    public async Task TagsAddedByAttribution_AreMatchedAgainstTheRulesAgain()
+    {
+        var resets = new RuleSettings
+        {
+            Id = "resety-hasel",
+            Name = "Resety haseł przez helpdesk",
+            Kinds = [WatchEventKind.PasswordChanged],
+            RequiredTags = [EventTags.PasswordReset],
+            Delivery = new RuleDelivery { Immediate = true, RecipientGroupIds = [DefaultRules.ItAdminsGroup], Hours = DeliveryHours.Always },
+        };
+        var defaults = new DefaultConfigurationFactory().Create();
+        _h.Config.Set(defaults with { Rules = [.. defaults.Rules, resets] });
+        AddRecord(4724, T, Admin);
+        var pending = _h.Events.Add(Create(WatchEventKind.PasswordChanged) with { OriginatingTime = T, OriginatingDc = Dc1, MatchedRules = [DefaultRules.Passwords] }, evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Contains(EventTags.PasswordReset, _h.Events.Get(pending.Id).Tags);
+        Assert.Equal([DefaultRules.Passwords, "resety-hasel"], _h.Events.Get(pending.Id).MatchedRules);
+        Assert.Equal("resety-hasel", Assert.Single(_h.Events.Notifications).RuleId);
+    }
+
+    [Fact]
+    public async Task AnEventNotEvaluatedYet_IsEvaluatedOnceWithItsFinalState()
+    {
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: false);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Equal([DefaultRules.Tier0Security, DefaultRules.SecurityReview], _h.Events.Get(pending.Id).MatchedRules);
+        Assert.Empty(await _h.Events.GetUnevaluatedAsync(10, Ct));
+        Assert.Equal(DefaultRules.Tier0Security, Assert.Single(_h.Events.Notifications).RuleId);
+    }
+
+    [Fact]
+    public async Task AnUnchangedSeverity_IsNotEvaluatedAgain()
+    {
+        AddRecord(4725, T, Admin);
+        _h.Events.Add(Disabled(), evaluated: true);
+
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.Empty(_h.Planner.Calls);
+        Assert.Equal(0, _h.Events.CommitCalls);
+    }
+
+    [Fact]
+    public async Task TheRulesJobAndTheReevaluation_DoNotOverwriteEachOther()
+    {
+        // Both jobs wake on EventsStored: the rules job reads the event while its attribution is pending and commits that
+        // evaluation only after the engine stored the final match – the stale evaluation overwrote the severity and the
+        // matched rules (and a rule matched by both could be planned twice).
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: false);
+        var planner = new GatedPlanner();
+        var job = new RuleEvaluationJob(_h.Events, _h.Rules, [planner], _h.Config, _h.Tokens, _h.Signals, _h.Health, _h.Time,
+            NullLogger<RuleEvaluationJob>.Instance);
+
+        var evaluating = job.RunOnceAsync(Ct);
+        await planner.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);   // the job holds the pending state
+        var attributing = _h.Engine.RunOnceAsync(Ct);
+        await Task.WhenAny(attributing, Task.Delay(TimeSpan.FromMilliseconds(200), Ct));
+        planner.Release.SetResult();
+        await Task.WhenAll(evaluating, attributing).WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        var stored = _h.Events.Get(pending.Id);
+        Assert.Equal(AttributionStatus.Resolved, stored.Attribution.Status);
+        Assert.Equal(Severity.High, stored.Severity);
+        Assert.Contains(DefaultRules.Tier0Security, stored.MatchedRules);
+        Assert.Single(_h.Events.Notifications, n => n.RuleId == DefaultRules.Tier0Security);
+    }
+
+    /// <summary>A planner that holds the rules job inside its read → commit sequence until released.</summary>
+    private sealed class GatedPlanner : IRuleMatchPlanner
+    {
+        private readonly Rules.Fakes.RecordingPlanner _inner = new();
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async ValueTask<IReadOnlyList<AdMng.Watchdog.Core.Model.PendingNotification>> PlanAsync(RuleEvaluationResult evaluation,
+            WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
+        {
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await _inner.PlanAsync(evaluation, configuration, now, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    [Fact]
+    public async Task APassInterruptedAfterTheReevaluation_DoesNotPlanTheRuleTwice()
+    {
+        _h.SecurityStore.Add(Modified(T, Admin, "msDS-KeyCredentialLink", null, added: true));
+        var pending = ShadowCredentials(evaluated: true);
+        _h.Events.UpdateAttributionFailure = _ => new InvalidOperationException("SQLite Error 5: database is locked");
+
+        var failed = await _h.Engine.RunOnceAsync(Ct);
+        _h.Events.UpdateAttributionFailure = null;
+        await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.True(failed.Failed);
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(pending.Id).Attribution.Status);
+        Assert.Equal(Severity.High, _h.Events.Get(pending.Id).Severity);
+        Assert.Single(_h.Events.Notifications);
+        Assert.Single(_h.Planner.Calls);
+    }
+
+    [Fact]
+    public async Task APassInterruptedByAStoreError_StillQueuesTheFollowUpsOfEventsAlreadyAttributed()
+    {
+        // notifications-6: the first event is final in the store; its follow-up must not be lost with the pass.
+        AddRecord(4725, T, Admin);
+        var first = _h.Events.Add(Disabled());
+        var second = _h.Events.Add(Disabled());
+        _h.Events.UpdateAttributionFailure = id => id == second.Id ? new InvalidOperationException("SQLite Error 13: disk full") : null;
+
+        var result = await _h.Engine.RunOnceAsync(Ct);
+
+        Assert.True(result.Failed);
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(first.Id).Attribution.Status);
+        Assert.Equal(first.Id, Assert.Single(_h.Queue.Added).EventId);
+        Assert.Equal(AttributionStatus.Pending, _h.Events.Get(second.Id).Attribution.Status);
+    }
+
+    [Fact]
+    public async Task AStopDuringTheStorePhase_DoesNotInterruptIt()
+    {
+        AddRecord(4725, T, Admin);
+        var first = _h.Events.Add(Disabled());
+        var second = _h.Events.Add(Disabled());
+        using var stop = new CancellationTokenSource();
+        _h.Events.UpdateAttributionFailure = id =>
+        {
+            if (id == first.Id)
+            {
+                stop.Cancel();   // the service stops while the pass stores its results
+            }
+
+            return null;
+        };
+
+        await _h.Engine.RunOnceAsync(stop.Token);
+
+        Assert.Equal(AttributionStatus.Resolved, _h.Events.Get(second.Id).Attribution.Status);
+        Assert.Equal(2, _h.Queue.Added.Count);
     }
 
     [Fact]

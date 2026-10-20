@@ -139,6 +139,9 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Func<ColumnChooserViewModel, bool>? ColumnChooserHandler { get; set; }
 
+    /// <summary>Plays the Logon Hours dialog (null: Cancel).</summary>
+    public Func<Presentation.Dialogs.LogonHoursViewModel, bool>? LogonHoursHandler { get; set; }
+
     public string? NewObjectResult { get; set; }
 
     public Task ShowInfoAsync(string title, string message)
@@ -225,9 +228,29 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    public Task<bool> ShowChangeDomainControllerAsync()
+    {
+        Shown.Add("changeDc");
+        return Task.FromResult(false);
+    }
+
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) =>
         Task.FromResult(ViewEditorHandler?.Invoke(editor) ?? false);
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) =>
         Task.FromResult(ColumnChooserHandler?.Invoke(chooser) ?? false);
+
+    public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) =>
+        Task.FromResult(LogonHoursHandler?.Invoke(editor) ?? false);
+
+    /// <summary>Plays the Watchdog certificate confirmation (null: Cancel); every dialog shown is recorded.</summary>
+    public Func<Presentation.Watchdog.WatchdogCertificateTrustViewModel, bool>? CertificateTrustHandler { get; set; }
+
+    public List<Presentation.Watchdog.WatchdogCertificateTrustViewModel> CertificateDialogs { get; } = [];
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog)
+    {
+        CertificateDialogs.Add(dialog);
+        return Task.FromResult(CertificateTrustHandler?.Invoke(dialog) ?? false);
+    }
 }

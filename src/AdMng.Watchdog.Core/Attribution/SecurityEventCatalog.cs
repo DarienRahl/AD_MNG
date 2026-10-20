@@ -6,8 +6,9 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// <summary>
 /// Security event ids per watch-event kind and the ingestion set (section 11.2). Account-management events (47xx) are
 /// matched by the strong key <c>TargetSid</c> (membership events: group SID + <c>MemberSid</c>), directory-service
-/// events (5136–5141) by <c>ObjectGUID</c>. 4624/4771/4776/4625 are never ingested – they are only queried on demand,
-/// bounded (11.4 #6).
+/// events (5136–5141) by <c>ObjectGUID</c>. 4624/4771/4776/4625 are queried on demand, bounded (11.4 #6), from the DC
+/// logs; in collector mode (Linux, stage B design 7.7) the DCs forward them and they are stored reduced to
+/// <see cref="LogonRetainedFields"/> for <c>Retention.LogonRecordsHours</c>.
 /// </summary>
 public static class SecurityEventCatalog
 {
@@ -54,8 +55,34 @@ public static class SecurityEventCatalog
         4750, 4751, 4752, 4753, 4759, 4760, 4761, 4762, 4763, 4719, 5136, 5137, 5138, 5139, 5141, 1102, 1104, 1100,
     ];
 
-    /// <summary>Ids that are only queried on demand (logon source, lockout sources, spraying) – never ingested.</summary>
+    /// <summary>Ids that are only queried on demand (logon source, lockout sources, spraying) – never ingested from a DC log
+    /// read over RPC; in collector mode they are the logon and failure records of <see cref="LogonRecordCodes"/>.</summary>
     public static IReadOnlyList<int> OnDemandSet { get; } = [LogonSucceeded, LogonFailed, KerberosPreAuthFailed, CredentialValidation];
+
+    /// <summary>Collector mode (stage B design 7.7): the logon and failure records stored for
+    /// <c>Retention.LogonRecordsHours</c> and limited by <c>Watchdog:Collector:MaxLogonRecordsPerDcPerMinute</c>.</summary>
+    public static IReadOnlyList<int> LogonRecordCodes => OnDemandSet;
+
+    /// <summary>True for 4624, 4625, 4771 and 4776 (<see cref="LogonRecordCodes"/>).</summary>
+    public static bool IsLogonRecord(int eventCode) =>
+        eventCode is LogonSucceeded or LogonFailed or KerberosPreAuthFailed or CredentialValidation;
+
+    /// <summary>The EventData fields a stored logon or failure record keeps (stage B design 7.7); every other field is
+    /// dropped at ingestion.</summary>
+    public static IReadOnlyDictionary<int, IReadOnlySet<string>> LogonRetainedFields { get; } = new Dictionary<int, IReadOnlySet<string>>
+    {
+        [LogonSucceeded] = new[]
+        {
+            "TargetUserSid", "TargetUserName", "TargetDomainName", "TargetLogonId", "LogonType", "IpAddress", "WorkstationName",
+            "AuthenticationPackageName",
+        }.ToFrozenSet(StringComparer.Ordinal),
+        [LogonFailed] = new[]
+        {
+            "TargetUserName", "TargetDomainName", "Status", "SubStatus", "LogonType", "IpAddress", "WorkstationName",
+        }.ToFrozenSet(StringComparer.Ordinal),
+        [KerberosPreAuthFailed] = new[] { "TargetUserName", "TargetSid", "Status", "IpAddress" }.ToFrozenSet(StringComparer.Ordinal),
+        [CredentialValidation] = new[] { "TargetUserName", "Workstation", "Status" }.ToFrozenSet(StringComparer.Ordinal),
+    }.ToFrozenDictionary();
 
     /// <summary>The directory-service change events (keyed by ObjectGUID).</summary>
     public static IReadOnlyList<int> DirectoryServiceCodes { get; } = [ObjectModified, ObjectCreated, ObjectUndeleted, ObjectMoved, ObjectDeleted];
@@ -120,9 +147,12 @@ public static class SecurityEventCatalog
     public static bool IsAttributable(WatchEventKind kind) => !NotAttributable.Contains(kind);
 
     /// <summary>True for PrivilegeGranted/PrivilegeRevoked (attribution inherited from the membership change, primary
-    /// group change or restore that caused it).</summary>
+    /// group change or restore that caused it) and for GroupPolicySettingsChanged/GroupPolicyPathRedirected (inherited
+    /// from the GroupPolicyChanged event of the same <c>versionNumber</c> / <c>gPCFileSysPath</c> change – stage B design
+    /// 8.7). GroupPolicyContentOutOfBand is created final (Unknown, <c>SYSVOL_NOT_AUDITED</c>).</summary>
     public static bool InheritsAttribution(WatchEventKind kind) =>
-        kind is WatchEventKind.PrivilegeGranted or WatchEventKind.PrivilegeRevoked;
+        kind is WatchEventKind.PrivilegeGranted or WatchEventKind.PrivilegeRevoked
+            or WatchEventKind.GroupPolicySettingsChanged or WatchEventKind.GroupPolicyPathRedirected;
 
     /// <summary>The account-management ids (keyed by TargetSid) that can attribute <paramref name="kind"/> on an
     /// object of <paramref name="objectKind"/>.</summary>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Service.Storage;
@@ -19,4 +20,6 @@ namespace AdMng.Watchdog.Service.Storage;
 [JsonSerializable(typeof(UpcomingExpiry))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(List<long>))]
+[JsonSerializable(typeof(List<GpoInventoryEntry>))]
+[JsonSerializable(typeof(List<GpoSetting>))]
 internal sealed partial class WatchdogStorageJsonContext : JsonSerializerContext;

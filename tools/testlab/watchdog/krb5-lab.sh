@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Optional real Kerberos for the watchdog API on the Samba lab (spec 22.4, KerberosNegotiateTests).
+# Manual Negotiate experiments against the watchdog API on the Samba lab (the automated KerberosNegotiateTests use
+# keytab-lab.sh env and a computer account of their own – tools/testlab/watchdog/README.md).
 #
 #   sudo -E tools/testlab/watchdog/krb5-lab.sh            # prints the export lines
 #   eval "$(sudo -E tools/testlab/watchdog/krb5-lab.sh)"  # … or applies them to the current shell
@@ -9,7 +10,6 @@
 # SPN HTTP/localhost), exports its keys with samba-tool on the DC host into a keytab and writes a private krb5.conf
 # (kdc = 127.0.0.1, no DNS lookups) – both in ~/.cache/admng/watchdog-lab/kerberos (mode 0700). Prints KRB5_CONFIG,
 # KRB5_KTNAME (server keytab) and KRB5CCNAME (a private client cache: kinit odczyt.test@CONTOSO.TEST into it).
-# Then: ADMNG_TEST_KERBEROS=1 dotnet test tests/AdMng.Watchdog.IntegrationTests --filter KerberosNegotiateTests
 # Needs root (samba-tool reads the local sam.ldb) and runs only on the lab DC itself.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,7 +21,7 @@ for arg in "$@"; do
   case "$arg" in
     --cleanup) cleanup_only=true ;;
     -h | --help)
-      sed -n '2,15p' "$0"
+      sed -n '2,13p' "$0"
       exit 0
       ;;
     *) die "Unknown option: $arg" ;;

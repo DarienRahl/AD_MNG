@@ -167,6 +167,9 @@
   <data name="Attribute.logonCount" xml:space="preserve">
     <value>Logon count</value>
   </data>
+  <data name="Attribute.logonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
   <data name="Attribute.mail" xml:space="preserve">
     <value>E-mail</value>
   </data>
@@ -389,6 +392,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Columns.Type" xml:space="preserve">
     <value>Type</value>
   </data>
+  <data name="CommandCategories.CopyAs" xml:space="preserve">
+    <value>Copy as</value>
+  </data>
   <data name="CommandCategories.Navigation" xml:space="preserve">
     <value>Navigation</value>
   </data>
@@ -419,6 +425,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Commands.CancelLoad" xml:space="preserve">
     <value>Stop loading</value>
   </data>
+  <data name="Commands.ChangeDomainController" xml:space="preserve">
+    <value>Change Domain Controller...</value>
+  </data>
   <data name="Commands.ChooseColumns" xml:space="preserve">
     <value>Add/Remove Columns...</value>
   </data>
@@ -430,6 +439,102 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Copy distinguished name</value>
+  </data>
+  <data name="Copy.CanonicalPath" xml:space="preserve">
+    <value>Canonical path</value>
+  </data>
+  <data name="Copy.CopiedMail" xml:space="preserve">
+    <value>Copied e-mail addresses: {0}.</value>
+  </data>
+  <data name="Copy.CopiedRows" xml:space="preserve">
+    <value>Copied rows: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValue" xml:space="preserve">
+    <value>Copied: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValues" xml:space="preserve">
+    <value>Copied {1} values: {0}.</value>
+  </data>
+  <data name="Copy.CopyAddress" xml:space="preserve">
+    <value>Copy address</value>
+  </data>
+  <data name="Copy.CopyAllMail" xml:space="preserve">
+    <value>Copy members' e-mail addresses</value>
+  </data>
+  <data name="Copy.CopyEntry" xml:space="preserve">
+    <value>Copy entry</value>
+  </data>
+  <data name="Copy.CopyMail" xml:space="preserve">
+    <value>Copy e-mail address</value>
+  </data>
+  <data name="Copy.CopyName" xml:space="preserve">
+    <value>Copy name</value>
+  </data>
+  <data name="Copy.CopyValue" xml:space="preserve">
+    <value>Copy: {0}</value>
+  </data>
+  <data name="Copy.DisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Copy.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name (DN)</value>
+  </data>
+  <data name="Copy.DomainLogin" xml:space="preserve">
+    <value>DOMAIN\logon name</value>
+  </data>
+  <data name="Copy.DomainLogon" xml:space="preserve">
+    <value>Domain logon name</value>
+  </data>
+  <data name="Copy.Entry" xml:space="preserve">
+    <value>Session log entry</value>
+  </data>
+  <data name="Copy.EventDetails" xml:space="preserve">
+    <value>Event details</value>
+  </data>
+  <data name="Copy.Guid" xml:space="preserve">
+    <value>GUID (objectGUID)</value>
+  </data>
+  <data name="Copy.Login" xml:space="preserve">
+    <value>Logon name (sAMAccountName)</value>
+  </data>
+  <data name="Copy.Mail" xml:space="preserve">
+    <value>E-mail address</value>
+  </data>
+  <data name="Copy.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Copy.NoMail" xml:space="preserve">
+    <value>None of the objects has an e-mail address.</value>
+  </data>
+  <data name="Copy.NoValue" xml:space="preserve">
+    <value>None of the objects has a value: {0}.</value>
+  </data>
+  <data name="Copy.Rows" xml:space="preserve">
+    <value>Copy rows</value>
+  </data>
+  <data name="Copy.RowsWithHeaders" xml:space="preserve">
+    <value>Copy rows with headers</value>
+  </data>
+  <data name="Copy.SecretColumnsLeftOut" xml:space="preserve">
+    <value>Columns with confidential values were not copied: {0}.</value>
+  </data>
+  <data name="Copy.Sid" xml:space="preserve">
+    <value>SID (objectSid)</value>
+  </data>
+  <data name="Copy.SkippedLoading" xml:space="preserve">
+    <value>Rows still loading were not copied: {0}.</value>
+  </data>
+  <data name="Copy.SkippedNoMail" xml:space="preserve">
+    <value>Skipped objects without an e-mail address: {0}.</value>
+  </data>
+  <data name="Copy.SkippedNoValue" xml:space="preserve">
+    <value>Skipped objects without a value: {0}.</value>
+  </data>
+  <data name="Copy.TypedAddress" xml:space="preserve">
+    <value>{0} address</value>
+  </data>
+  <data name="Copy.Upn" xml:space="preserve">
+    <value>User principal name (UPN)</value>
   </data>
   <data name="Commands.Delete" xml:space="preserve">
     <value>Delete</value>
@@ -715,6 +820,93 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Connect.UserNameRequired" xml:space="preserve">
     <value>Enter the user name.</value>
+  </data>
+  <data name="ChangeDc.WindowTitle" xml:space="preserve">
+    <value>Change Domain Controller</value>
+  </data>
+  <data name="ChangeDc.Domain" xml:space="preserve">
+    <value>Domain: {0}</value>
+  </data>
+  <data name="ChangeDc.Current" xml:space="preserve">
+    <value>Current domain controller: {0}</value>
+  </data>
+  <data name="ChangeDc.ListLabel" xml:space="preserve">
+    <value>Domain controllers of the domain</value>
+  </data>
+  <data name="ChangeDc.ColumnYourSite" xml:space="preserve">
+    <value>Your site</value>
+  </data>
+  <data name="ChangeDc.ColumnRoles" xml:space="preserve">
+    <value>Roles</value>
+  </data>
+  <data name="ChangeDc.RoleCurrent" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
+    <value>PDC emulator</value>
+  </data>
+  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
+    <value>The list of domain controllers could not be read. Type the name of a domain controller.</value>
+  </data>
+  <data name="ChangeDc.ThisDomainController" xml:space="preserve">
+    <value>This domain controller:</value>
+  </data>
+  <data name="ChangeDc.ServerPlaceholder" xml:space="preserve">
+    <value>Name or address, e.g. dc02.contoso.com</value>
+  </data>
+  <data name="ChangeDc.AnyWritableInSite" xml:space="preserve">
+    <value>Any writable domain controller in my site</value>
+  </data>
+  <data name="ChangeDc.AnyWritableTarget" xml:space="preserve">
+    <value>Connects to {0} in your site {1}.</value>
+  </data>
+  <data name="ChangeDc.AnyWritableIsCurrent" xml:space="preserve">
+    <value>The current domain controller {0} is already a writable domain controller in your site.</value>
+  </data>
+  <data name="ChangeDc.ClientSiteUnknown" xml:space="preserve">
+    <value>The site of this computer is unknown (no domain controller locator). Choose a domain controller from the list.</value>
+  </data>
+  <data name="ChangeDc.NoWritableInSite" xml:space="preserve">
+    <value>No writable domain controller of your site {0} is known.</value>
+  </data>
+  <data name="ChangeDc.InvalidName" xml:space="preserve">
+    <value>Enter the host name or IP address of a domain controller, without a port or ldap://.</value>
+  </data>
+  <data name="ChangeDc.IsCurrent" xml:space="preserve">
+    <value>This is the current domain controller.</value>
+  </data>
+  <data name="ChangeDc.ReadOnlyWarning" xml:space="preserve">
+    <value>{0} is a read-only domain controller (RODC): you can browse, but changes will be refused.</value>
+  </data>
+  <data name="ChangeDc.UpdateProfile" xml:space="preserve">
+    <value>Remember the choice in the connection profile '{0}'</value>
+  </data>
+  <data name="ChangeDc.ChangeButton" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="ChangeDc.Changed" xml:space="preserve">
+    <value>Connected to domain controller {0}.</value>
+  </data>
+  <data name="ChangeDc.AlreadyConnected" xml:space="preserve">
+    <value>Already connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.OtherDomain" xml:space="preserve">
+    <value>{0} is a domain controller of {1}, not of {2}.</value>
+  </data>
+  <data name="ChangeDc.NotSupported" xml:space="preserve">
+    <value>This connection cannot be moved to another domain controller. Disconnect and connect to the chosen domain controller.</value>
+  </data>
+  <data name="ChangeDc.StaysOn" xml:space="preserve">
+    <value>The session stays connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.RunningOperations" xml:space="preserve">
+    <value>Background operations are still running. They will be cancelled when the session moves to the other domain controller. Continue?</value>
+  </data>
+  <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
+    <value>The domain controller was changed, but the connection profile could not be saved: {0}</value>
+  </data>
+  <data name="ChangeDc.SessionLogAction" xml:space="preserve">
+    <value>Change domain controller</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
     <value>Are you sure you want to delete these {0} objects?</value>
@@ -1052,6 +1244,18 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="List.ServerFilters" xml:space="preserve">
     <value>Filters</value>
   </data>
+  <data name="List.Virtual.Badge" xml:space="preserve">
+    <value>Virtual list (VLV)</value>
+  </data>
+  <data name="List.Virtual.BadgeToolTip" xml:space="preserve">
+    <value>Very large container: rows are read from the domain controller while you scroll (VLV). Sorting, type-to-find and the quick filter run on the server; Select all and Export are not available - use Find (Ctrl+F) or a saved view to export.</value>
+  </data>
+  <data name="List.Virtual.FilterMatches" xml:space="preserve">
+    <value>{0} objects match (filtered on the server)</value>
+  </data>
+  <data name="List.Virtual.Summary" xml:space="preserve">
+    <value>{0} objects · virtual list (VLV), sorted on the server by {1} · as of {2}</value>
+  </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
     <value>Move {0} object(s) to {1}?</value>
   </data>
@@ -1247,8 +1451,86 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
     <value>Background operations are still running. Disconnect anyway? Running operations will be interrupted.</value>
   </data>
+  <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
+    <value>Domain controller logs (Windows service)</value>
+  </data>
+  <data name="Watchdog.AttributionSource.ForwardedEvents" xml:space="preserve">
+    <value>Windows event collector (Windows service)</value>
+  </data>
+  <data name="Watchdog.AttributionSource.None" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Watchdog.AttributionSource.OpenWec" xml:space="preserve">
+    <value>OpenWEC (WEF)</value>
+  </data>
+  <data name="Watchdog.Certificate.Changed" xml:space="preserve">
+    <value>The server certificate changed since the last connection. Do not accept it without checking it on the server.</value>
+  </data>
+  <data name="Watchdog.Certificate.Compare" xml:space="preserve">
+    <value>Compare with the output of sudo admng-watchdog cert-fingerprint on the server</value>
+  </data>
+  <data name="Watchdog.Certificate.DnsNames" xml:space="preserve">
+    <value>DNS names (SAN)</value>
+  </data>
+  <data name="Watchdog.Certificate.Fingerprint" xml:space="preserve">
+    <value>SHA-256 fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.NewFingerprint" xml:space="preserve">
+    <value>New fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.Pinned" xml:space="preserve">
+    <value>Pinned certificate fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.PreviousFingerprint" xml:space="preserve">
+    <value>Previous fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.RemovePin" xml:space="preserve">
+    <value>Remove pin</value>
+  </data>
+  <data name="Watchdog.Certificate.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Watchdog.Certificate.Title" xml:space="preserve">
+    <value>Confirm the certificate of the Watchdog service</value>
+  </data>
+  <data name="Watchdog.Certificate.Trust" xml:space="preserve">
+    <value>I trust this certificate</value>
+  </data>
+  <data name="Watchdog.Certificate.Untrusted" xml:space="preserve">
+    <value>The server certificate is not issued by a trusted certification authority. Trust it only when its fingerprint matches the one shown on the server.</value>
+  </data>
+  <data name="Watchdog.Certificate.Validity" xml:space="preserve">
+    <value>Valid from {0} to {1}</value>
+  </data>
+  <data name="Watchdog.CredentialKey.host" xml:space="preserve">
+    <value>host key</value>
+  </data>
+  <data name="Watchdog.CredentialKey.tpm2+host" xml:space="preserve">
+    <value>TPM2 + host key</value>
+  </data>
+  <data name="Watchdog.KeytabResult.changeFailed" xml:space="preserve">
+    <value>password change failed</value>
+  </data>
+  <data name="Watchdog.KeytabResult.keytabWriteFailed" xml:space="preserve">
+    <value>password changed, but the keytab was not written</value>
+  </data>
+  <data name="Watchdog.KeytabResult.ok" xml:space="preserve">
+    <value>OK – keytab matches AD</value>
+  </data>
+  <data name="Watchdog.KeytabResult.otpActive" xml:space="preserve">
+    <value>the one-time password is still in use – changed at the next opportunity</value>
+  </data>
+  <data name="Watchdog.KeytabResult.replicationPending" xml:space="preserve">
+    <value>waiting for replication to the other DCs</value>
+  </data>
+  <data name="Watchdog.KeytabResult.verifyFailed" xml:space="preserve">
+    <value>keytab verification failed</value>
+  </data>
   <data name="WindowSession.Ended" xml:space="preserve">
     <value>The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.</value>
+  </data>
+  <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
+    <value>This window belongs to the previous domain controller {0}. The session is now connected to {1} – close this window and open it again.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>You do not have permission to create objects of type '{0}' in this container.</value>
@@ -1309,6 +1591,45 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Tree.Views" xml:space="preserve">
     <value>Views</value>
+  </data>
+  <data name="Tree.WellKnown.Computers" xml:space="preserve">
+    <value>Default container for new computers</value>
+  </data>
+  <data name="Tree.WellKnown.DeletedObjects" xml:space="preserve">
+    <value>Deleted objects (AD Recycle Bin)</value>
+  </data>
+  <data name="Tree.WellKnown.DomainControllers" xml:space="preserve">
+    <value>Default container for domain controllers</value>
+  </data>
+  <data name="Tree.WellKnown.ForeignSecurityPrincipals" xml:space="preserve">
+    <value>Security principals from trusted domains</value>
+  </data>
+  <data name="Tree.WellKnown.Infrastructure" xml:space="preserve">
+    <value>Infrastructure master settings</value>
+  </data>
+  <data name="Tree.WellKnown.Keys" xml:space="preserve">
+    <value>Key credentials of devices (Windows Hello for Business)</value>
+  </data>
+  <data name="Tree.WellKnown.LostAndFound" xml:space="preserve">
+    <value>Orphaned objects (LostAndFound)</value>
+  </data>
+  <data name="Tree.WellKnown.ManagedServiceAccounts" xml:space="preserve">
+    <value>Default container for managed service accounts</value>
+  </data>
+  <data name="Tree.WellKnown.Microsoft" xml:space="preserve">
+    <value>Microsoft application data</value>
+  </data>
+  <data name="Tree.WellKnown.NtdsQuotas" xml:space="preserve">
+    <value>Object creation quotas (NTDS Quotas)</value>
+  </data>
+  <data name="Tree.WellKnown.ProgramData" xml:space="preserve">
+    <value>Application data</value>
+  </data>
+  <data name="Tree.WellKnown.System" xml:space="preserve">
+    <value>System settings of the domain</value>
+  </data>
+  <data name="Tree.WellKnown.Users" xml:space="preserve">
+    <value>Default container for new users and groups</value>
   </data>
   <data name="Uac.AccountDisable" xml:space="preserve">
     <value>Account is disabled</value>
@@ -2911,6 +3232,12 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Labels.LogOnTo" xml:space="preserve">
     <value>Log On To</value>
   </data>
+  <data name="Labels.LogonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
+  <data name="Labels.LogonHoursButton" xml:space="preserve">
+    <value>Logon Hours…</value>
+  </data>
   <data name="Labels.MustChangePassword" xml:space="preserve">
     <value>User must change password at next logon</value>
   </data>
@@ -2964,6 +3291,114 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="Labels.Value" xml:space="preserve">
     <value>Value</value>
+  </data>
+  <data name="LogonHours.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="LogonHours.Always" xml:space="preserve">
+    <value>All hours</value>
+  </data>
+  <data name="LogonHours.Cell" xml:space="preserve">
+    <value>{0} {1}–{2}: {3}</value>
+  </data>
+  <data name="LogonHours.Day.Friday" xml:space="preserve">
+    <value>Friday</value>
+  </data>
+  <data name="LogonHours.Day.Monday" xml:space="preserve">
+    <value>Monday</value>
+  </data>
+  <data name="LogonHours.Day.Saturday" xml:space="preserve">
+    <value>Saturday</value>
+  </data>
+  <data name="LogonHours.Day.Sunday" xml:space="preserve">
+    <value>Sunday</value>
+  </data>
+  <data name="LogonHours.Day.Thursday" xml:space="preserve">
+    <value>Thursday</value>
+  </data>
+  <data name="LogonHours.Day.Tuesday" xml:space="preserve">
+    <value>Tuesday</value>
+  </data>
+  <data name="LogonHours.Day.Wednesday" xml:space="preserve">
+    <value>Wednesday</value>
+  </data>
+  <data name="LogonHours.DayRange" xml:space="preserve">
+    <value>{0} through {1}</value>
+  </data>
+  <data name="LogonHours.DayShort.Friday" xml:space="preserve">
+    <value>Fri</value>
+  </data>
+  <data name="LogonHours.DayShort.Monday" xml:space="preserve">
+    <value>Mon</value>
+  </data>
+  <data name="LogonHours.DayShort.Saturday" xml:space="preserve">
+    <value>Sat</value>
+  </data>
+  <data name="LogonHours.DayShort.Sunday" xml:space="preserve">
+    <value>Sun</value>
+  </data>
+  <data name="LogonHours.DayShort.Thursday" xml:space="preserve">
+    <value>Thu</value>
+  </data>
+  <data name="LogonHours.DayShort.Tuesday" xml:space="preserve">
+    <value>Tue</value>
+  </data>
+  <data name="LogonHours.DayShort.Wednesday" xml:space="preserve">
+    <value>Wed</value>
+  </data>
+  <data name="LogonHours.Denied" xml:space="preserve">
+    <value>Logon Denied</value>
+  </data>
+  <data name="LogonHours.Grid" xml:space="preserve">
+    <value>Logon hours of the week</value>
+  </data>
+  <data name="LogonHours.Invalid" xml:space="preserve">
+    <value>Invalid value ({0} bytes)</value>
+  </data>
+  <data name="LogonHours.InvalidStored" xml:space="preserve">
+    <value>The stored value is invalid (it is not 21 bytes long), so the grid cannot show it – every hour is marked as permitted.</value>
+  </data>
+  <data name="LogonHours.KeyboardHint" xml:space="preserve">
+    <value>Select hours by dragging over the grid or by clicking a day or an hour. With the keyboard: arrow keys move the cursor, Shift with an arrow key extends the selection, Home and End go to the start and end of the day, Ctrl+A selects the whole week, and Space switches the selected hours between permitted and denied.</value>
+  </data>
+  <data name="LogonHours.Never" xml:space="preserve">
+    <value>No hours (logon denied)</value>
+  </data>
+  <data name="LogonHours.NoneWarning" xml:space="preserve">
+    <value>No hour is permitted: the user will not be able to log on at all.</value>
+  </data>
+  <data name="LogonHours.Permitted" xml:space="preserve">
+    <value>Logon Permitted</value>
+  </data>
+  <data name="LogonHours.SelectAll" xml:space="preserve">
+    <value>Select all hours of the week</value>
+  </data>
+  <data name="LogonHours.SelectDay" xml:space="preserve">
+    <value>Select all hours of {0}</value>
+  </data>
+  <data name="LogonHours.SelectHour" xml:space="preserve">
+    <value>Select {0}–{1} on every day</value>
+  </data>
+  <data name="LogonHours.Selection" xml:space="preserve">
+    <value>Selected: {0}, {1}–{2} ({3})</value>
+  </data>
+  <data name="LogonHours.StateDenied" xml:space="preserve">
+    <value>logon denied</value>
+  </data>
+  <data name="LogonHours.StateMixed" xml:space="preserve">
+    <value>partly permitted</value>
+  </data>
+  <data name="LogonHours.StatePermitted" xml:space="preserve">
+    <value>logon permitted</value>
+  </data>
+  <data name="LogonHours.TimeZoneNote" xml:space="preserve">
+    <value>Hours in this computer's local time (UTC{0}). The domain controller applies them in UTC, so after a change between summer and winter time they move by one hour.</value>
+  </data>
+  <data name="LogonHours.WindowTitle" xml:space="preserve">
+    <value>Logon Hours for {0}</value>
+  </data>
+  <data name="LogonHours.WindowTitleBatch" xml:space="preserve">
+    <value>Logon Hours</value>
   </data>
   <data name="Membership.Direct" xml:space="preserve">
     <value>Direct</value>
@@ -3065,6 +3500,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Operation.FindReplace" xml:space="preserve">
     <value>Find and replace</value>
   </data>
+  <data name="Operation.LogonHours" xml:space="preserve">
+    <value>Set logon hours</value>
+  </data>
   <data name="Operation.Move" xml:space="preserve">
     <value>Move to container</value>
   </data>
@@ -3115,6 +3553,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="OperationHint.FindReplace" xml:space="preserve">
     <value>Replaces text in every value (plain text or regular expression).</value>
+  </data>
+  <data name="OperationHint.LogonHours" xml:space="preserve">
+    <value>Sets one weekly logon schedule for user accounts (the Logon Hours dialog).</value>
   </data>
   <data name="OperationHint.Move" xml:space="preserve">
     <value>Moves the objects to another container or organizational unit.</value>
@@ -3832,6 +4273,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>none</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>The Watchdog configuration has unsaved changes (typed passwords and secrets included). Discard them?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>The configuration was not saved – correct the marked fields.</value>
   </data>
@@ -3869,7 +4313,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The service {0} cannot be reached – check the address, the firewall and whether the service is running.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>The service uses another API version – update AD_MNG or the watchdog service.</value>
+    <value>The service uses another API version – update AD Manager or the watchdog service.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Always</value>
@@ -4048,6 +4492,42 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.attribution.actorConditionsUnreliable.Remedy" xml:space="preserve">
     <value>A rule excludes actors for events whose actor cannot be determined – fix the audit policy or SACL.</value>
   </data>
+  <data name="Watchdog.Health.attribution.collector" xml:space="preserve">
+    <value>Event collector (WEF)</value>
+  </data>
+  <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
+    <value>ForwardedEvents mode needs a collector – enter it in the attribution settings by its DNS host name (FQDN recommended), not an IP address: the service connects to it with Kerberos only.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory" xml:space="preserve">
+    <value>Domain controller discovery</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory.Remedy" xml:space="preserve">
+    <value>Only the configured DCs are read – list every writable DC in the attribution settings or grant read access to CN=Sites in the configuration partition.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source" xml:space="preserve">
+    <value>Attribution source</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source.Remedy" xml:space="preserve">
+    <value>Attribution is off or the event log reader is unavailable – enable it in the configuration (Windows service only).</value>
+  </data>
+  <data name="Watchdog.Health.certificate" xml:space="preserve">
+    <value>TLS certificate</value>
+  </data>
+  <data name="Watchdog.Health.certificate.Remedy" xml:space="preserve">
+    <value>Check the TLS certificate of the watchdog service (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry" xml:space="preserve">
+    <value>TLS certificate expires soon</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry.Remedy" xml:space="preserve">
+    <value>Renew the service's TLS certificate before it expires – with an expired certificate the Watchdog tab cannot connect.</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key" xml:space="preserve">
+    <value>TLS certificate private key unusable</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key.Remedy" xml:space="preserve">
+    <value>Grant the service account read access to the certificate's private key (certlm.msc → Manage Private Keys).</value>
+  </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Channel delivery</value>
   </data>
@@ -4072,11 +4552,29 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.directory.connection.Remedy" xml:space="preserve">
     <value>Check that the DC is reachable (LDAP 389, Kerberos) and that the service account is enabled.</value>
   </data>
+  <data name="Watchdog.Health.directory.notSealed" xml:space="preserve">
+    <value>LDAP connection without encryption</value>
+  </data>
+  <data name="Watchdog.Health.directory.notSealed.Remedy" xml:space="preserve">
+    <value>The LDAP bind negotiated no encryption (SSF below 56) – check SASL_SECPROPS minssf=56 in /etc/admng-watchdog/ldap.conf and the AES keys of the service account.</value>
+  </data>
   <data name="Watchdog.Health.directory.notSynchronized" xml:space="preserve">
     <value>Domain controller not synchronized</value>
   </data>
   <data name="Watchdog.Health.directory.notSynchronized.Remedy" xml:space="preserve">
     <value>The DC reports isSynchronized = FALSE – check replication.</value>
+  </data>
+  <data name="Watchdog.Health.domain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="Watchdog.Health.domain.Remedy" xml:space="preserve">
+    <value>Check the domain settings.</value>
+  </data>
+  <data name="Watchdog.Health.domain.machineAccountQuota" xml:space="preserve">
+    <value>ms-DS-MachineAccountQuota above 0</value>
+  </data>
+  <data name="Watchdog.Health.domain.machineAccountQuota.Remedy" xml:space="preserve">
+    <value>Every domain user – also the service account with a stolen keytab – can create computer accounts: delegate computer creation, then set ms-DS-MachineAccountQuota = 0 (WATCHDOG-LINUX.md, 2.8).</value>
   </data>
   <data name="Watchdog.Health.eventlog" xml:space="preserve">
     <value>Security log of {0}</value>
@@ -4089,6 +4587,60 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Health.eventlog.foreignRecords.Remedy" xml:space="preserve">
     <value>The collector forwards events of computers that are not DCs of this domain – check the WEF subscription.</value>
+  </data>
+  <data name="Watchdog.Health.gpo" xml:space="preserve">
+    <value>GPO content {0}</value>
+  </data>
+  <data name="Watchdog.Health.gpo.Remedy" xml:space="preserve">
+    <value>Check the SYSVOL access of the service (WATCHDOG-LINUX.md, 2.7 and 9.4).</value>
+  </data>
+  <data name="Watchdog.Health.gpo.parseError" xml:space="preserve">
+    <value>GPO {0} could not be read</value>
+  </data>
+  <data name="Watchdog.Health.gpo.parseError.Remedy" xml:space="preserve">
+    <value>A file of the GPO is damaged or in an unknown format – it is read again after the next change of the GPO version.</value>
+  </data>
+  <data name="Watchdog.Health.gpo.sysvolLag" xml:space="preserve">
+    <value>SYSVOL lag for GPO {0}</value>
+  </data>
+  <data name="Watchdog.Health.gpo.sysvolLag.Remedy" xml:space="preserve">
+    <value>SYSVOL replication (DFSR) does not keep up with the GPO version change – check dfsrdiag backlog on the DC; the service retries the read for up to 2 hours.</value>
+  </data>
+  <data name="Watchdog.Health.gpo.tooLarge" xml:space="preserve">
+    <value>GPO {0} exceeds the read limits</value>
+  </data>
+  <data name="Watchdog.Health.gpo.tooLarge.Remedy" xml:space="preserve">
+    <value>The GPO has more files or data than the GPO content limits – changes are found only in the part that was read; raise the limits in the configuration or simplify the GPO.</value>
+  </data>
+  <data name="Watchdog.Health.host" xml:space="preserve">
+    <value>Service host</value>
+  </data>
+  <data name="Watchdog.Health.host.Remedy" xml:space="preserve">
+    <value>Check the configuration of the Debian server (WATCHDOG-LINUX.md, chapter 3).</value>
+  </data>
+  <data name="Watchdog.Health.host.clockSkew" xml:space="preserve">
+    <value>Clock skew to the DC</value>
+  </data>
+  <data name="Watchdog.Health.host.clockSkew.Remedy" xml:space="preserve">
+    <value>Check chrony (chronyc tracking, chronyc -N sources) and maxdistance 16.0 in /etc/chrony/conf.d/admng-ad.conf – Kerberos stops working at 5 minutes of skew.</value>
+  </data>
+  <data name="Watchdog.Health.host.credentialKey" xml:space="preserve">
+    <value>Channel secrets key</value>
+  </data>
+  <data name="Watchdog.Health.host.credentialKey.Remedy" xml:space="preserve">
+    <value>"TPM2 + host key" binds the key to the TPM of this machine; "host key" only to /var/lib/systemd/credential.secret – a copy of the whole disk then holds the key.</value>
+  </data>
+  <data name="Watchdog.Health.host.hardening" xml:space="preserve">
+    <value>Hardening of the service process</value>
+  </data>
+  <data name="Watchdog.Health.host.hardening.Remedy" xml:space="preserve">
+    <value>Run the service only through its systemd unit (UMask=0077, LimitCORE=0); /etc/admng-watchdog/credentials must not be readable by the service account (root, 0700).</value>
+  </data>
+  <data name="Watchdog.Health.host.primaryKdcNotPdc" xml:space="preserve">
+    <value>primary_kdc is not the PDC emulator</value>
+  </data>
+  <data name="Watchdog.Health.host.primaryKdcNotPdc.Remedy" xml:space="preserve">
+    <value>The PDC emulator role moved to another DC – correct primary_kdc and kpasswd_server in /etc/admng-watchdog/krb5.conf.</value>
   </data>
   <data name="Watchdog.Health.permission" xml:space="preserve">
     <value>Read permissions</value>
@@ -4132,11 +4684,41 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.permission.replicationMetadata.Remedy" xml:space="preserve">
     <value>Without replication metadata the originating DC and time are unknown – check the read permissions.</value>
   </data>
+  <data name="Watchdog.Health.permission.search" xml:space="preserve">
+    <value>Change search in the directory</value>
+  </data>
+  <data name="Watchdog.Health.permission.search.Remedy" xml:space="preserve">
+    <value>The domain controller refused the change search – check that the service account is enabled and can read the domain (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.permission.tokenGroupsUnreadable" xml:space="preserve">
+    <value>Reading tokenGroups (roles of API users)</value>
+  </data>
+  <data name="Watchdog.Health.permission.tokenGroupsUnreadable.Remedy" xml:space="preserve">
+    <value>The service account cannot read tokenGroups of the operators' accounts – grant read (GR) for the classes user, inetOrgPerson and computer (WATCHDOG-LINUX.md, 2.6).</value>
+  </data>
   <data name="Watchdog.Health.permission.uSNChanged" xml:space="preserve">
     <value>uSNChanged readable on all accounts</value>
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Some objects are invisible to change tracking – delegate GenericRead to the service account.</value>
+  </data>
+  <data name="Watchdog.Health.rules" xml:space="preserve">
+    <value>Rules</value>
+  </data>
+  <data name="Watchdog.Health.rules.Remedy" xml:space="preserve">
+    <value>Check the rule configuration on the Rules tab.</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
+    <value>Configured DNs that no longer exist</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
+    <value>An OU or group named in the configuration was renamed, moved or deleted – rules, privileged groups and subtrees that use the old DN match nothing. Correct the distinguished names listed in the details.</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner" xml:space="preserve">
+    <value>Notification planning</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner.Remedy" xml:space="preserve">
+    <value>The service is installed incompletely – events are recorded but no notifications are sent; reinstall the service.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Runtime</value>
@@ -4162,6 +4744,48 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.secret.unreadable.Remedy" xml:space="preserve">
     <value>The service account changed – enter the channel passwords and secrets again.</value>
   </data>
+  <data name="Watchdog.Health.serviceAccount" xml:space="preserve">
+    <value>Service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.Remedy" xml:space="preserve">
+    <value>Check the service account and its keytab (WATCHDOG-LINUX.md, chapters 2.5, 3.6 and 3.7).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.drift" xml:space="preserve">
+    <value>Service account settings differ from the required ones</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.drift.Remedy" xml:space="preserve">
+    <value>Restore the settings of 2.5: AES128 + AES256 only (msDS-SupportedEncryptionTypes = 24), "sensitive and cannot be delegated", the three SPNs, dNSHostName and the Deny entry for SELF on the account object.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabOrder" xml:space="preserve">
+    <value>Order of the keytab entries</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabOrder.Remedy" xml:space="preserve">
+    <value>The first keytab entry must be the computer account itself (LDAP and SMB take the name from it) – write the keytab again with sudo admng-watchdog-keytab init (3.6).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabStale" xml:space="preserve">
+    <value>Keytab older than AD</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabStale.Remedy" xml:space="preserve">
+    <value>The key version (kvno) in the keytab is older than msDS-KeyVersionNumber of the account, e.g. after a VM restore. A Tier 0 admin sets a new one-time password (Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp), then run sudo admng-watchdog-keytab init.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.passwordAge" xml:space="preserve">
+    <value>Password age of the service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.passwordAge.Remedy" xml:space="preserve">
+    <value>The password was not changed for more than 32 days – check the timer (systemctl list-timers 'admng-*') and sudo admng-watchdog-keytab status.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.privileged" xml:space="preserve">
+    <value>Service account in a privileged group</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.privileged.Remedy" xml:space="preserve">
+    <value>Remove the service account from the privileged group – it may only be a member of Domain Computers (2.5).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.rotation" xml:space="preserve">
+    <value>Password change of the service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.rotation.Remedy" xml:space="preserve">
+    <value>The last password change failed – check ports 88/464 to the DCs and sudo admng-watchdog-keytab status. If the keytab could not be written: a Tier 0 admin sets a new one-time password (Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp), then run sudo admng-watchdog-keytab init.</value>
+  </data>
   <data name="Watchdog.Health.smtp" xml:space="preserve">
     <value>E-mail delivery</value>
   </data>
@@ -4180,11 +4804,95 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.storage.acl.Remedy" xml:space="preserve">
     <value>The data folder has a wider ACL than allowed – restore the protected ACL (docs/WATCHDOG.md).</value>
   </data>
+  <data name="Watchdog.Health.storage.backupSkipped" xml:space="preserve">
+    <value>Database backup skipped</value>
+  </data>
+  <data name="Watchdog.Health.storage.backupSkipped.Remedy" xml:space="preserve">
+    <value>Not enough free space for the next database backup (1.5 × the database size is required) – free space in /var or lower Retention.MaxDatabaseMb / BackupsToKeep.</value>
+  </data>
   <data name="Watchdog.Health.storage.free" xml:space="preserve">
     <value>Free disk space</value>
   </data>
   <data name="Watchdog.Health.storage.free.Remedy" xml:space="preserve">
     <value>Free space on the data disk or lower the retention.</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance" xml:space="preserve">
+    <value>Database maintenance</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance.Remedy" xml:space="preserve">
+    <value>Retention or database maintenance failed – check the Application log on the service host.</value>
+  </data>
+  <data name="Watchdog.Health.storage.size" xml:space="preserve">
+    <value>Database size</value>
+  </data>
+  <data name="Watchdog.Health.storage.size.Remedy" xml:space="preserve">
+    <value>The database approaches Retention.MaxDatabaseMb – shorten the retention or raise the limit.</value>
+  </data>
+  <data name="Watchdog.Health.sysvol" xml:space="preserve">
+    <value>SYSVOL access</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.Remedy" xml:space="preserve">
+    <value>Check SYSVOL access through smbclient with Kerberos (WATCHDOG-LINUX.md, 9.4).</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.accessDenied" xml:space="preserve">
+    <value>No access to SYSVOL</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.accessDenied.Remedy" xml:space="preserve">
+    <value>A GPO folder is not readable for the service account – grant read to Authenticated Users or Domain Computers (WATCHDOG-LINUX.md, 2.7).</value>
+  </data>
+  <data name="Watchdog.Health.wec" xml:space="preserve">
+    <value>WEF collector – {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.Remedy" xml:space="preserve">
+    <value>Check event forwarding from this DC (Forwarding/Operational on the DC, subscription GPO, firewall 5985) – WATCHDOG-LINUX.md, 9.2.</value>
+  </data>
+  <data name="Watchdog.Health.wec.backlog" xml:space="preserve">
+    <value>Unread event files from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.backlog.Remedy" xml:space="preserve">
+    <value>The service does not keep up with reading the OpenWEC files – check the load of the server and the service log; unread files are deleted after MAX_UNCONSUMED_DAYS.</value>
+  </data>
+  <data name="Watchdog.Health.wec.collectorFileLost" xml:space="preserve">
+    <value>Event file of {0} lost</value>
+  </data>
+  <data name="Watchdog.Health.wec.collectorFileLost.Remedy" xml:space="preserve">
+    <value>An OpenWEC file was deleted before the service read it (MAX_UNCONSUMED_DAYS / MAX_UNCONSUMED_MB in /etc/default/admng-wec-rotate) – changes of that period have no actor.</value>
+  </data>
+  <data name="Watchdog.Health.wec.identityMismatch" xml:space="preserve">
+    <value>Rejected records from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.identityMismatch.Remedy" xml:space="preserve">
+    <value>Records failed the identity checks (subscription, account, computer name or IP address of the DC) – for NAT or several network cards add the addresses to Watchdog.Collector.AdditionalSourceAddresses; otherwise treat it as a foreign sender.</value>
+  </data>
+  <data name="Watchdog.Health.wec.lag" xml:space="preserve">
+    <value>Events from {0} arrive late</value>
+  </data>
+  <data name="Watchdog.Health.wec.lag.Remedy" xml:space="preserve">
+    <value>The median forwarding delay is above 5 minutes – check the load of the DC, the network and Refresh in the subscription GPO.</value>
+  </data>
+  <data name="Watchdog.Health.wec.malformedLines" xml:space="preserve">
+    <value>Damaged lines from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.malformedLines.Remedy" xml:space="preserve">
+    <value>Some lines of the OpenWEC files could not be read (e.g. after an openwecd crash) and were skipped – check journalctl -u openwecd.</value>
+  </data>
+  <data name="Watchdog.Health.wec.notForwarding" xml:space="preserve">
+    <value>DC {0} does not forward events</value>
+  </data>
+  <data name="Watchdog.Health.wec.notForwarding.Remedy" xml:space="preserve">
+    <value>The DC does not forward events – check the subscription GPO (WATCHDOG-LINUX.md, 2.12) and IPAddressAllow of the openwecd unit (4.3).</value>
+  </data>
+  <data name="Watchdog.Health.wec.service" xml:space="preserve">
+    <value>OpenWEC receiver</value>
+  </data>
+  <data name="Watchdog.Health.wec.service.Remedy" xml:space="preserve">
+    <value>No DC has written events for 10 minutes – check systemctl status openwecd and journalctl -u openwecd.</value>
+  </data>
+  <data name="Watchdog.Health.wec.silent" xml:space="preserve">
+    <value>Domain controller {0} is silent</value>
+  </data>
+  <data name="Watchdog.Health.wec.silent.Remedy" xml:space="preserve">
+    <value>No events from this DC – a DC always has network logons, so silence means broken forwarding: check the subscription GPO, WinRM and the firewall 5985 (9.2).</value>
   </data>
   <data name="Watchdog.HealthState.Disabled" xml:space="preserve">
     <value>Disabled</value>
@@ -4315,8 +5023,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Kind.GroupPolicyChanged" xml:space="preserve">
     <value>Group Policy object changed</value>
   </data>
+  <data name="Watchdog.Kind.GroupPolicyContentOutOfBand" xml:space="preserve">
+    <value>GPO files changed without a version change</value>
+  </data>
   <data name="Watchdog.Kind.GroupPolicyLinkChanged" xml:space="preserve">
     <value>Group Policy link changed</value>
+  </data>
+  <data name="Watchdog.Kind.GroupPolicyPathRedirected" xml:space="preserve">
+    <value>GPO file path redirected</value>
+  </data>
+  <data name="Watchdog.Kind.GroupPolicySettingsChanged" xml:space="preserve">
+    <value>GPO settings changed</value>
   </data>
   <data name="Watchdog.Kind.GroupTypeChanged" xml:space="preserve">
     <value>Group type changed</value>
@@ -4341,6 +5058,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Kind.HealthResync" xml:space="preserve">
     <value>Full resynchronization</value>
+  </data>
+  <data name="Watchdog.Kind.HealthServiceAccount" xml:space="preserve">
+    <value>Service account problem</value>
   </data>
   <data name="Watchdog.Kind.HealthStorage" xml:space="preserve">
     <value>Storage problem</value>
@@ -4543,6 +5263,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Reason.DC_UNREACHABLE" xml:space="preserve">
     <value>DC log unreachable</value>
   </data>
+  <data name="Watchdog.Reason.DC_UNREACHABLE.Collector" xml:space="preserve">
+    <value>WEF collector receives nothing from the DC</value>
+  </data>
+  <data name="Watchdog.Reason.DC_UNREACHABLE.Collector.Remedy" xml:space="preserve">
+    <value>Check that the DC forwards events (subscription GPO, WinRM, firewall 5985) – Status → WEF collector.</value>
+  </data>
   <data name="Watchdog.Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
     <value>Check the firewall (Remote Event Log Management) and the service account's membership in Event Log Readers.</value>
   </data>
@@ -4599,6 +5325,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Reason.SYSTEM.Remedy" xml:space="preserve">
     <value>The change was made by the domain controller itself (e.g. SDProp).</value>
+  </data>
+  <data name="Watchdog.Reason.SYSVOL_NOT_AUDITED" xml:space="preserve">
+    <value>SYSVOL file changes are not audited</value>
+  </data>
+  <data name="Watchdog.Reason.SYSVOL_NOT_AUDITED.Remedy" xml:space="preserve">
+    <value>SYSVOL files changed without a GPO version change – the actor is unknown; check who can write to SYSVOL.</value>
   </data>
   <data name="Watchdog.Requires.Admin" xml:space="preserve">
     <value>Requires the watchdog administrator role</value>
@@ -4741,6 +5473,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.SourceOrigin.4776" xml:space="preserve">
     <value>from NTLM 4776 – client-supplied</value>
   </data>
+  <data name="Watchdog.SourceOrigin.adws" xml:space="preserve">
+    <value>via ADWS – address from a logon of the same person</value>
+  </data>
   <data name="Watchdog.SourceOrigin.dns" xml:space="preserve">
     <value>from DNS – unverified</value>
   </data>
@@ -4861,6 +5596,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.adminCountOrphan" xml:space="preserve">
     <value>adminCount orphan</value>
   </data>
+  <data name="Watchdog.Tag.auditSettings" xml:space="preserve">
+    <value>audit settings (SACL)</value>
+  </data>
+  <data name="Watchdog.Tag.badSuccessor" xml:space="preserve">
+    <value>BadSuccessor (dMSA)</value>
+  </data>
   <data name="Watchdog.Tag.builtinAdministrator" xml:space="preserve">
     <value>built-in Administrator</value>
   </data>
@@ -4876,11 +5617,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.domainController" xml:space="preserve">
     <value>domain controller</value>
   </data>
+  <data name="Watchdog.Tag.gppPassword" xml:space="preserve">
+    <value>password in GPO preferences (cpassword)</value>
+  </data>
   <data name="Watchdog.Tag.krbtgt" xml:space="preserve">
     <value>krbtgt</value>
   </data>
   <data name="Watchdog.Tag.longDisabled" xml:space="preserve">
     <value>long disabled</value>
+  </data>
+  <data name="Watchdog.Tag.machineAccountQuota" xml:space="preserve">
+    <value>machine account quota</value>
   </data>
   <data name="Watchdog.Tag.otherDomain" xml:space="preserve">
     <value>other domain</value>
@@ -4915,6 +5662,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.unexpectedContainer" xml:space="preserve">
     <value>unexpected container</value>
   </data>
+  <data name="Watchdog.Tag.watchdogAccount" xml:space="preserve">
+    <value>Watchdog service account</value>
+  </data>
   <data name="Watchdog.TeamsAuthMode.EntraClientCredentials" xml:space="preserve">
     <value>Entra ID application (OAuth)</value>
   </data>
@@ -4938,6 +5688,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Title" xml:space="preserve">
     <value>Watchdog</value>
+  </data>
+  <data name="Watchdog.Ui.AccountDn" xml:space="preserve">
+    <value>Account (DN)</value>
   </data>
   <data name="Watchdog.Ui.Acknowledge" xml:space="preserve">
     <value>Acknowledge</value>
@@ -5008,14 +5761,26 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.CardChecks" xml:space="preserve">
     <value>Health checks</value>
   </data>
+  <data name="Watchdog.Ui.CardCollector" xml:space="preserve">
+    <value>WEF collector</value>
+  </data>
   <data name="Watchdog.Ui.CardDirectory" xml:space="preserve">
     <value>Watched domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.CardGpoContent" xml:space="preserve">
+    <value>GPO content</value>
+  </data>
+  <data name="Watchdog.Ui.CardHost" xml:space="preserve">
+    <value>Host</value>
   </data>
   <data name="Watchdog.Ui.CardLast24Hours" xml:space="preserve">
     <value>Last 24 hours</value>
   </data>
   <data name="Watchdog.Ui.CardService" xml:space="preserve">
     <value>Service</value>
+  </data>
+  <data name="Watchdog.Ui.CardServiceAccount" xml:space="preserve">
+    <value>Service account</value>
   </data>
   <data name="Watchdog.Ui.CardStorage" xml:space="preserve">
     <value>Service data</value>
@@ -5058,6 +5823,24 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.ClientSecret" xml:space="preserve">
     <value>Client secret</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorBacklog" xml:space="preserve">
+    <value>Backlog</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorLag" xml:space="preserve">
+    <value>Delay</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorLastRecord" xml:space="preserve">
+    <value>Last record</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorRejected" xml:space="preserve">
+    <value>Rejected records</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorSilenceError" xml:space="preserve">
+    <value>Error when a DC is silent for longer than</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorSilenceWarning" xml:space="preserve">
+    <value>Warning when a DC is silent for longer than</value>
   </data>
   <data name="Watchdog.Ui.ColumnLockouts" xml:space="preserve">
     <value>Lockouts</value>
@@ -5128,8 +5911,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.DigestTime" xml:space="preserve">
     <value>Time to send (HH:mm)</value>
   </data>
+  <data name="Watchdog.Ui.DirectoryKvno" xml:space="preserve">
+    <value>Key version in AD (msDS-KeyVersionNumber)</value>
+  </data>
   <data name="Watchdog.Ui.DomainController" xml:space="preserve">
     <value>Domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.DropAnonymousLogons" xml:space="preserve">
+    <value>Skip anonymous logons (ANONYMOUS LOGON)</value>
+  </data>
+  <data name="Watchdog.Ui.DropComputerLogons" xml:space="preserve">
+    <value>Skip logons of computer accounts</value>
   </data>
   <data name="Watchdog.Ui.DuplicateRule" xml:space="preserve">
     <value>Duplicate</value>
@@ -5137,8 +5929,14 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.EmptyIsDefault" xml:space="preserve">
     <value>An empty field uses the service default.</value>
   </data>
+  <data name="Watchdog.Ui.EncryptionTypes" xml:space="preserve">
+    <value>Encryption types</value>
+  </data>
   <data name="Watchdog.Ui.EntraCloud" xml:space="preserve">
     <value>Entra ID cloud</value>
+  </data>
+  <data name="Watchdog.Ui.EventNoLongerMatches" xml:space="preserve">
+    <value>No longer matches the filter – leaves the list once it is deselected</value>
   </data>
   <data name="Watchdog.Ui.Evidence" xml:space="preserve">
     <value>Evidence (security log events)</value>
@@ -5233,6 +6031,33 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.GitHubSignature" xml:space="preserve">
     <value>Also send the X-Hub-Signature-256 header (GitHub compatible)</value>
   </data>
+  <data name="Watchdog.Ui.GpoContentEnabled" xml:space="preserve">
+    <value>Track GPO content (settings in SYSVOL)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoFailures" xml:space="preserve">
+    <value>Read errors</value>
+  </data>
+  <data name="Watchdog.Ui.GpoLastRead" xml:space="preserve">
+    <value>Last read</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxFileMb" xml:space="preserve">
+    <value>Largest GPO file (MB)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxFiles" xml:space="preserve">
+    <value>Most files per GPO</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxTotalMb" xml:space="preserve">
+    <value>Largest GPO content (MB)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgress" xml:space="preserve">
+    <value>Read progress</value>
+  </data>
+  <data name="Watchdog.Ui.GpoSysvolLag" xml:space="preserve">
+    <value>SYSVOL lag</value>
+  </data>
+  <data name="Watchdog.Ui.GpoSysvolLagTolerance" xml:space="preserve">
+    <value>Tolerated SYSVOL lag</value>
+  </data>
   <data name="Watchdog.Ui.GroupAddresses" xml:space="preserve">
     <value>E-mail addresses (one per line)</value>
   </data>
@@ -5251,6 +6076,24 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.HighestUsn" xml:space="preserve">
     <value>Highest USN</value>
   </data>
+  <data name="Watchdog.Ui.HostClockSkew" xml:space="preserve">
+    <value>Clock skew to the DC</value>
+  </data>
+  <data name="Watchdog.Ui.HostCredentialKey" xml:space="preserve">
+    <value>Secrets key variant</value>
+  </data>
+  <data name="Watchdog.Ui.HostFreeSpace" xml:space="preserve">
+    <value>Free space</value>
+  </data>
+  <data name="Watchdog.Ui.HostLdapSsf" xml:space="preserve">
+    <value>LDAP encryption strength (SSF)</value>
+  </data>
+  <data name="Watchdog.Ui.HostOperatingSystem" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="Watchdog.Ui.HostRuntime" xml:space="preserve">
+    <value>.NET runtime</value>
+  </data>
   <data name="Watchdog.Ui.Immediate" xml:space="preserve">
     <value>Notify immediately</value>
   </data>
@@ -5262,6 +6105,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.Issues" xml:space="preserve">
     <value>Configuration issues</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabKvno" xml:space="preserve">
+    <value>Key version in the keytab (kvno)</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabMatchesDirectory" xml:space="preserve">
+    <value>Keytab matches AD</value>
   </data>
   <data name="Watchdog.Ui.LastBackup" xml:space="preserve">
     <value>Last backup</value>
@@ -5275,6 +6124,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.LastFullSync" xml:space="preserve">
     <value>Last full sync</value>
   </data>
+  <data name="Watchdog.Ui.LastPasswordChange" xml:space="preserve">
+    <value>Last password change</value>
+  </data>
   <data name="Watchdog.Ui.LastPoll" xml:space="preserve">
     <value>Last poll</value>
   </data>
@@ -5286,6 +6138,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.LoadOlder" xml:space="preserve">
     <value>Load older</value>
+  </data>
+  <data name="Watchdog.Ui.LogonRecordsHours" xml:space="preserve">
+    <value>Logon records (hours)</value>
   </data>
   <data name="Watchdog.Ui.MatchedRules" xml:space="preserve">
     <value>Matched rules</value>
@@ -5320,6 +6175,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.NextDigest" xml:space="preserve">
     <value>Next digest</value>
   </data>
+  <data name="Watchdog.Ui.NextPasswordChange" xml:space="preserve">
+    <value>Next password change</value>
+  </data>
   <data name="Watchdog.Ui.NoChannels" xml:space="preserve">
     <value>No Teams or webhook channels – notifications go by e-mail only.</value>
   </data>
@@ -5342,7 +6200,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>History of:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Open in AD_MNG</value>
+    <value>Show in AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Opens the object at its current location (needs a connection to that domain); a deleted object opens the AD Recycle Bin.</value>
@@ -5376,6 +6234,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.PreviousSigningSecret" xml:space="preserve">
     <value>Previous signing secret (rotation)</value>
+  </data>
+  <data name="Watchdog.Ui.PrivilegedMembership" xml:space="preserve">
+    <value>Membership in privileged groups</value>
   </data>
   <data name="Watchdog.Ui.Queue" xml:space="preserve">
     <value>Failures and queue</value>
@@ -5412,6 +6273,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.Revert" xml:space="preserve">
     <value>Revert</value>
+  </data>
+  <data name="Watchdog.Ui.RotationResult" xml:space="preserve">
+    <value>Result of the password change</value>
   </data>
   <data name="Watchdog.Ui.RuleActors" xml:space="preserve">
     <value>Actors</value>
@@ -5668,6 +6532,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.lockedRule" xml:space="preserve">
     <value>A locked rule cannot be disabled, deleted or narrowed.</value>
   </data>
+  <data name="Watchdog.Validation.logonRetentionTooShort" xml:space="preserve">
+    <value>Logon records must be kept at least as long as the source search window (LogonLookback) plus the last attribution retry.</value>
+  </data>
   <data name="Watchdog.Validation.noRecipients" xml:space="preserve">
     <value>The rule notifies immediately but has no recipients or channels.</value>
   </data>
@@ -5692,6 +6559,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.required" xml:space="preserve">
     <value>This field is required.</value>
   </data>
+  <data name="Watchdog.Validation.retentionBelowFloor" xml:space="preserve">
+    <value>The event retention is shorter than the minimum in the server start-up settings (Retention.MinEventsDays) – only root on the server can lower it.</value>
+  </data>
   <data name="Watchdog.Validation.retiredTeamsUrl" xml:space="preserve">
     <value>Office 365 connector URLs were retired – use a Power Automate Workflows URL.</value>
   </data>
@@ -5713,6 +6583,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.smtpDisabledButUsed" xml:space="preserve">
     <value>Recipient groups are used while e-mail is disabled.</value>
   </data>
+  <data name="Watchdog.Validation.sourceUnsupportedOnHost" xml:space="preserve">
+    <value>This attribution source does not work on this server – on Linux the DC events arrive through OpenWEC (WEF).</value>
+  </data>
   <data name="Watchdog.Validation.teamsUrlFormat" xml:space="preserve">
     <value>Not a standard Power Automate Workflows URL.</value>
   </data>
@@ -5731,6 +6604,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.unknownReference" xml:space="preserve">
     <value>The referenced recipient group or channel does not exist.</value>
   </data>
+  <data name="Watchdog.Value.AuditSettingsChanged" xml:space="preserve">
+    <value>audit list (SACL) or another security setting changed – the service account cannot read its content</value>
+  </data>
   <data name="Watchdog.Value.Empty" xml:space="preserve">
     <value>(empty)</value>
   </data>
@@ -5739,5 +6615,98 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Value.Truncated" xml:space="preserve">
     <value>(shortened)</value>
+  </data>
+  <data name="Watchdog.Value.Unreadable" xml:space="preserve">
+    <value>could not be read</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateUntrusted" xml:space="preserve">
+    <value>The certificate of {0} is not trusted yet – compare its fingerprint with the one shown on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateChanged" xml:space="preserve">
+    <value>The certificate of {0} differs from the pinned one – check it on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Certificate.Review" xml:space="preserve">
+    <value>Check certificate…</value>
+  </data>
+  <data name="Watchdog.Certificate.Service" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Watchdog.Certificate.NotPinned" xml:space="preserve">
+    <value>No certificate is pinned.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinRemovedOnSave" xml:space="preserve">
+    <value>The pin is removed when you save; the next connection asks for a confirmation again.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinHint" xml:space="preserve">
+    <value>Used only while the certificate is not issued by a trusted certification authority.</value>
+  </data>
+  <data name="Watchdog.Certificate.OutsideValidity" xml:space="preserve">
+    <value>The certificate is outside its validity period.</value>
+  </data>
+  <data name="Watchdog.Ui.SectionNotReported" xml:space="preserve">
+    <value>The service does not report this section (Windows service, a version before 0.3.0, or no data yet).</value>
+  </data>
+  <data name="Watchdog.Ui.Principal" xml:space="preserve">
+    <value>Kerberos principal</value>
+  </data>
+  <data name="Watchdog.Ui.NotDelegated" xml:space="preserve">
+    <value>Delegation blocked</value>
+  </data>
+  <data name="Watchdog.Ui.DenySelfAce" xml:space="preserve">
+    <value>Deny ACE for SELF</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabEncryptionTypes" xml:space="preserve">
+    <value>Keys in the keytab</value>
+  </data>
+  <data name="Watchdog.Ui.LastCheck" xml:space="preserve">
+    <value>Last check</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorStored" xml:space="preserve">
+    <value>Stored (24 h)</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorNoDcs" xml:space="preserve">
+    <value>No domain controller has been seen yet.</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgressValue" xml:space="preserve">
+    <value>{0} of {1} GPOs, {2} queued</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReconciliation" xml:space="preserve">
+    <value>Last reconciliation</value>
+  </data>
+  <data name="Watchdog.Ui.GpoContentDisabled" xml:space="preserve">
+    <value>GPO content tracking is turned off.</value>
+  </data>
+  <data name="Watchdog.Ui.HostSystemd" xml:space="preserve">
+    <value>systemd unit</value>
+  </data>
+  <data name="Watchdog.Ui.CredentialKeyNone" xml:space="preserve">
+    <value>not a systemd credential</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChangesName" xml:space="preserve">
+    <value>Other settings</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChanges" xml:space="preserve">
+    <value>{0} of {1} changed settings are not listed</value>
+  </data>
+  <data name="Watchdog.Tab.Sources" xml:space="preserve">
+    <value>Sources and retention</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSettings" xml:space="preserve">
+    <value>Who and from where</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionEnabled" xml:space="preserve">
+    <value>Determine who made each change and from where (DC Security events)</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceLabel" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceUnsupported" xml:space="preserve">
+    <value>This source works only with the Windows service – choose OpenWEC (WEF).</value>
+  </data>
+  <data name="Watchdog.Ui.RetentionSettings" xml:space="preserve">
+    <value>Retention</value>
+  </data>
+  <data name="Watchdog.Ui.UnitMinutes" xml:space="preserve">
+    <value>minutes</value>
   </data>
 </root>

@@ -1,6 +1,9 @@
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Attribution;
+using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Testing.Stores;
 using AdMng.Watchdog.Testing.Scenarios;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,10 +34,37 @@ public class PasswordSprayDetectorTests
         Assert.Equal(21, spray.Burst!.Count);
         Assert.Equal("10.20.30.40", spray.Attribution.IpAddress);
         Assert.Contains(spray.Burst.Objects, o => o.Dn == scenario.Company.JanKowalski);
-        Assert.Contains(spray.Burst.Objects, o => o.SamAccountName == "uzytkownik07" && o.Dn.Length == 0);
+        // Unknown names are masked (first character + length): they may be passwords typed into the user name field.
+        Assert.Contains(spray.Burst.Objects, o => o.Name == "u…(12)" && o.SamAccountName is null && o.Dn.Length == 0);
+        Assert.DoesNotContain(spray.Burst.Objects, o => o.Name == "uzytkownik07" || o.SamAccountName == "uzytkownik07");
         Assert.Equal(pdc, _securityLog.Queries[0].Host);
         Assert.Equal([4771, 4776], _securityLog.Queries[0].Query.EventCodes);
         Assert.Empty(cooling);
+    }
+
+    [Fact]
+    public async Task UnknownAccountNames_AreNeverStoredOrNotified()
+    {
+        await using var scenario = await StartAsync(enabled: true);
+        var now = scenario.Time.GetUtcNow();
+        foreach (var i in Enumerable.Range(1, 19))
+        {
+            _securityLog.Add(scenario.Directory.Info.Server, 4776, now.AddMinutes(-2), FailedLogonXml.Ntlm($"konto{i:D2}", "RDS-BRAMA", now.AddMinutes(-2), recordId: i));
+        }
+
+        // A password typed into the user name field of the RDS gateway: 4776 with 0xC0000064 (no such user).
+        _securityLog.Add(scenario.Directory.Info.Server, 4776, now.AddMinutes(-1),
+            FailedLogonXml.Ntlm("Żółw!Lato2026", "RDS-BRAMA", now.AddMinutes(-1), status: "0xC0000064", recordId: 20));
+        _securityLog.Add(scenario.Directory.Info.Server, 4776, now.AddMinutes(-1),
+            FailedLogonXml.Ntlm("jan.kowalski", "RDS-BRAMA", now.AddMinutes(-1), recordId: 21));
+
+        var spray = Assert.Single(await scenario.ScanEventsAsync());
+
+        Assert.Equal(21, spray.Burst!.Count);
+        Assert.Contains(spray.Burst.Objects, o => o.Dn == scenario.Company.JanKowalski);
+        Assert.Contains(spray.Burst.Objects, o => string.Equals(o.Name, "Ż…(13)", StringComparison.OrdinalIgnoreCase));
+        var stored = Assert.Single(scenario.Store.Events, e => e.Kind == WatchEventKind.PasswordSprayingSuspected);
+        Assert.DoesNotContain("Lato2026", System.Text.Json.JsonSerializer.Serialize(stored), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,11 +131,48 @@ public class PasswordSprayDetectorTests
         Assert.Empty(scenario.TakeEvents());
     }
 
-    private async Task<DetectionScenario> StartAsync(bool enabled)
+    [Fact]
+    public async Task CollectorMode_ReadsTheStoredFailuresOfEveryDc()
+    {
+        // Linux (stage B design 7.8): the DCs forward 4771/4776, the tailer stores them; no DC log is queried.
+        var store = new InMemoryWatchdogStore(TimeProvider.System);
+        await using var scenario = await StartAsync(enabled: true, s =>
+        {
+            s.AddSingleton<ISecurityEventStore>(store);
+            s.AddSingleton<ISecurityEventCollector>(new AvailableCollector());
+        });
+        var now = scenario.Time.GetUtcNow();
+        var parser = new SecurityEventParser();
+        var records = Enumerable.Range(1, 21)
+            .Select(i => (Dc: i % 2 == 0 ? "dc01.contoso.test" : "dc02.contoso.test",
+                Xml: FailedLogonXml.Kerberos(i == 21 ? "jan.kowalski" : $"uzytkownik{i:D2}", "10.20.30.40", now.AddMinutes(-2), recordId: i)))
+            .Select(r => parser.Parse(r.Xml, r.Dc)!.Event with { Computer = r.Dc })
+            .Select(e => SecurityEventReducer.ReduceLogon(e, new AttributionSettings())!)
+            .ToList();
+        await store.AppendAsync(records, new EventLogCursor { Source = "wec:test" }, TestContext.Current.CancellationToken);
+
+        var spray = Assert.Single(await scenario.ScanEventsAsync());
+
+        Assert.Equal(21, spray.Burst!.Count);
+        Assert.Equal("10.20.30.40", spray.Attribution.IpAddress);
+        Assert.Contains(spray.Burst.Objects, o => o.Dn == scenario.Company.JanKowalski);
+        Assert.Empty(_securityLog.Queries);
+    }
+
+    private sealed class AvailableCollector : ISecurityEventCollector
+    {
+        public bool IsAvailable => true;
+    }
+
+    private async Task<DetectionScenario> StartAsync(bool enabled, Action<IServiceCollection>? services = null)
     {
         var scenario = new DetectionScenario(
             configuration: new WatchdogConfiguration { Scans = new ScanSettings { PasswordSpray = new PasswordSprayDetection { Enabled = enabled } } },
-            services: s => s.AddSingleton<ISecurityEventSource>(_securityLog));
+            services: s =>
+            {
+                s.AddSingleton<ISecurityEventSource>(_securityLog);
+                services?.Invoke(s);
+            });
         await scenario.BaselineAsync();
         await scenario.Scans.RunOnceAsync(TestContext.Current.CancellationToken);
         scenario.TakeEvents();

@@ -10,13 +10,18 @@ using AdMng.Presentation.Settings;
 namespace AdMng.Presentation.Tests.TestDoubles;
 
 /// <summary>Runs dispatched actions inline, serialized by a lock (tests have no UI thread).</summary>
+/// <remarks>
+/// "On the UI thread" means inside a dispatched action, as in the app: a caller outside one goes through the lock, so
+/// <c>RunAsync</c> from two pool threads (e.g. the tree merging children while the well-known containers are applied)
+/// never runs two actions at once.
+/// </remarks>
 internal sealed class SynchronousUiDispatcher : IUiDispatcher
 {
     private readonly Lock _gate = new();
 
     public int InvokeCount { get; private set; }
 
-    public bool CheckAccess() => true;
+    public bool CheckAccess() => _gate.IsHeldByCurrentThread;
 
     public Task InvokeAsync(Action action)
     {
@@ -267,6 +272,15 @@ internal sealed class RecordingNotificationService : INotificationService
             _items.Add((severity, message));
         }
     }
+
+    /// <summary>Forgets the toasts shown so far (e.g. those of the setup).</summary>
+    public void Clear()
+    {
+        lock (_items)
+        {
+            _items.Clear();
+        }
+    }
 }
 
 internal sealed class FakeClipboard : IClipboardService
@@ -279,13 +293,16 @@ internal sealed class FakeClipboard : IClipboardService
     /// <summary>Simulates a clipboard held by another process: writes fail.</summary>
     public bool IsBusy { get; set; }
 
-    public void SetText(string text)
+    public bool SetText(string text)
     {
-        if (!IsBusy)
+        if (IsBusy)
         {
-            Text = text;
-            IsSecret = false;
+            return false;
         }
+
+        Text = text;
+        IsSecret = false;
+        return true;
     }
 
     public bool SetSecret(string secret)

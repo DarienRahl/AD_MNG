@@ -38,6 +38,7 @@ public sealed class ConfigurationValidator : IConfigurationValidator
         DnAndSidValidator.Validate(run);
         AttributeNameValidator.Validate(run);
         Tier0SuppressionValidator.Validate(run);
+        AttributionValidator.Validate(run);
         SmtpValidator.Validate(run);
         ChannelValidator.Validate(run);
         SecretFieldValidator.Validate(run);
