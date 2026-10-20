@@ -3,11 +3,20 @@
 Status: **binding for stage B** (implementation of the Linux service), in the same way as `docs/dev/watchdog-spec.md`
 is binding for v1. Where this document and `watchdog-spec.md` disagree, this document wins for everything the Linux
 service does; sections of the spec that are replaced are listed in section 23 and get amended during B8.
-Date: 2026-10-19. Decision record: `docs/adr/0009-watchdog-na-linuksie.md` (Polish; status "proposed" until the user
-confirms the deviations listed there). Deployment instructions: `docs/WATCHDOG-LINUX.md` (Polish, written in stage A);
-feature description: `docs/WATCHDOG.md` (Polish, its Windows chapters replaced in B8). Inputs: the user decisions of
-2026-10-19, the Linux lab verification (Samba lab, 2026-10-19, appendix C), the review of 2026-10-20 and the web
-research on OpenWEC, Windows Event Forwarding, Kerberos on Linux and BadSuccessor.
+Date: 2026-10-19 (user confirmations: 2026-10-20). Decision record: `docs/adr/0009-watchdog-na-linuksie.md` (Polish;
+status "accepted" – the five changes to the decisions of 2026-10-19 were confirmed by the user on 2026-10-20, ADR
+section „Ustalenia potwierdzone 2026-10-20”). Deployment instructions: `docs/WATCHDOG-LINUX.md` (Polish, written in
+stage A); feature description: `docs/WATCHDOG.md` (Polish, its Windows chapters replaced in B8). Inputs: the user
+decisions of 2026-10-19 and their confirmations of 2026-10-20, the Linux lab verification (Samba lab, 2026-10-19,
+appendix C), the review of 2026-10-20 and the web research on OpenWEC, Windows Event Forwarding, Kerberos on Linux and
+BadSuccessor.
+
+The confirmations of 2026-10-20 are binding: (1) the account is created by a Tier 0 admin on the PAW and the password
+and keytab are handled by `admng-watchdog-keytab` (no msktutil/adcli); (2) raw logon records are kept 48 h; (3) the
+collected events include 4625 and RDP logons (4624 type 10), the rules `tier0-machine-quota` and `watchdog-self` exist,
+and `ms-DS-MachineAccountQuota` = 0 (with delegated computer creation for whoever joins computers) plus the Deny ACE
+for SELF are deployment prerequisites; (4) OpenWEC **shares** the account, principal `HTTP/admng-wd.contoso.com` and
+keytab with the API (4.3); (5) the lab recipe has three VMs including ADM-WS01 (appendix B).
 
 Language rules from `CLAUDE.md` apply: code, comments, commits and this document in English; product docs, ADRs and
 instructions in Polish; every user-visible string through resx (en + pl). **MUST** = requirement, **SHOULD** = strong
@@ -21,14 +30,14 @@ default that an implementer may deviate from only with a reason in the final rep
 |---|---|---|
 | L1 | The Watchdog service runs **only on Linux**: Debian 13 (recommended) or Debian 12, amd64, as the systemd unit `admng-watchdog.service` (`Type=notify`, full hardening, section 12), shipped as the `.deb` package `admng-watchdog` (framework-dependent .NET 10, `Depends: aspnetcore-runtime-10.0 (>= 10.0.13)` from packages.microsoft.com). The Windows service stays available as release 0.2.0 and is **removed from the code after the first Linux release** (section 17). | User decision. One platform to secure and test; the server is a Tier 0 asset that the customer wants to run as a minimal Linux VM. |
 | L2 | The server `admng-wd.contoso.com` (10.0.1.25) is **not joined to the domain**. Kerberos (`krb5.conf`), DNS and time (chrony against the DCs) are configured by hand; the service has a private `krb5.conf`, `ldap.conf` and `smb-client.conf`. | No SSSD/realmd, no domain GPOs on a Tier 0 box, no interactive domain logons, fewer moving parts. |
-| L3 | Service identity = the **computer account `ADMNG-WD$`** with a **keytab**, created by a **Tier 0 administrator on Windows** with a one-time password (`New-ADComputer … -KerberosEncryptionType AES128,AES256 -AccountNotDelegated $true`) in the existing Tier 0 OU. The Debian host replaces the one-time password with a random 120-character password and writes the keytab; the password is **rotated every 30 days** by `admng-watchdog-keytab.timer`. No AD write grants (the inherent self-writes of a computer account are removed by a Deny ACE for SELF on its own object, computer creation by `ms-DS-MachineAccountQuota` = 0 – section 4.1), not privileged, no interactive logon. (Deviation from the agreed msktutil/adcli creation – to be confirmed, ADR-0009.) | A gMSA cannot be used by a non-joined Linux host without a second identity anyway; a computer account + keytab is the standard Linux pattern and was verified in the lab (kinit from keytab, self password change, kvno handling, acceptor without restart). |
+| L3 | Service identity = the **computer account `ADMNG-WD$`** with a **keytab**, created by a **Tier 0 administrator on Windows** with a one-time password (`New-ADComputer … -KerberosEncryptionType AES128,AES256 -AccountNotDelegated $true`) in the existing Tier 0 OU. The Debian host replaces the one-time password with a random 120-character password and writes the keytab; the password is **rotated every 30 days** by `admng-watchdog-keytab.timer`. No AD write grants (the inherent self-writes of a computer account are removed by a Deny ACE for SELF on its own object, computer creation by `ms-DS-MachineAccountQuota` = 0 – section 4.1), not privileged, no interactive logon. (Replaces the msktutil/adcli creation agreed on 2026-10-19; confirmed by the user on 2026-10-20, ADR-0009.) | A gMSA cannot be used by a non-joined Linux host without a second identity anyway; a computer account + keytab is the standard Linux pattern and was verified in the lab (kinit from keytab, self password change, kvno handling, acceptor without restart). |
 | L4 | Password rotation and keytab writing are done by our own small tool **`admng-watchdog-keytab`** (separate .NET console project, MIT libkrb5 through P/Invoke: change-password protocol on port 464, key derivation with the AD salt, keytab append, verification against every DC). **Not** msktutil or adcli. | Both tools need LDAP self-writes whose effect on Windows DCs was not verifiable in the lab (operatingSystem, SPN, enctype writes), write temporary krb5.conf files to `/tmp`, and the msktutil package enables its own timer. The MIT primitives were verified. |
 | L5 | LDAP from Linux: **port 389, SASL GSSAPI (Kerberos) with sign + seal**, enforced through a service-private `ldap.conf` (`SASL_SECPROPS minssf=56`, `SASL_NOCANON on`) passed with `LDAPCONF`; the negotiated SSF is checked after every bind. **LDAPS (636) is an option**, not the default. One DC per session, PDC emulator preferred (unchanged rule 4). | Works with the enforced LDAP signing of Windows Server 2025 and with 2022, needs no PKI and no channel binding. |
 | L6 | API: **Kestrel + Negotiate with the keytab** (`KRB5_KTNAME`), Kerberos only (no NTLM), HTTPS 8443, admin subnet only. On Linux the Negotiate handler yields only the principal name, so **roles are resolved by the service itself from AD**: `sAMAccountName` → `objectSid` + `tokenGroups` over its own LDAP session, cached 5 minutes, then the unchanged SID role handler (`DeniedSids` first). The handler's `EnableLdap` role lookup is **never** used. | Lab: the Negotiate identity carries no SIDs; `EnableLdap` roles are group CN names and a look-alike group spoofed a role in the lab. tokenGroups by SID is spoof-proof and refreshes faster than Kerberos tickets. |
-| L7 | Attribution events come from the DCs by **Windows Event Forwarding (source-initiated)** to **OpenWEC** (cea-sec/openwec, GPL-3.0, separate process and package `admng-openwec`, unit `openwecd.service`) on the same server, port 5985, Kerberos with the same principal `HTTP/admng-wd.contoso.com`. OpenWEC writes **RawJson** (one JSON line per event, raw event XML inside) into one file per DC; Watchdog **tails** the files with an at-least-once cursor committed in the same SQLite transaction as the normalized records. | No RPC access to DC logs from Linux; WEF is built into Windows (no agents on DCs); OpenWEC is the only maintained open-source WEF collector; RawJson lets the existing, fixture-tested XML parser do the work; the Files driver is the only output that stays durable across a Watchdog outage. |
-| L8 | The Security events used for **source lookups** (4624 logon types 3/10, failed 4625/4771/4776) are now **ingested** (they used to be queried on demand over RPC) and kept briefly (`Retention.LogonRecordsHours`, proposed default 48 h – the user agreed 30 days for DC log records, to be confirmed: 720 h is inside the allowed range); change-related records keep the 30-day retention; Watchdog events (who / what / when / from where / old → new) are kept **1095 days**. | Push delivery cannot be queried later; the attribution copies the resolved source into the event, so raw logon records do not need to live long (ADR-0008 data minimisation). |
+| L7 | Attribution events come from the DCs by **Windows Event Forwarding (source-initiated)** to **OpenWEC** (cea-sec/openwec, GPL-3.0, separate process and package `admng-openwec`, unit `openwecd.service`) on the same server, port 5985, Kerberos with **the same account, principal `HTTP/admng-wd.contoso.com` and keytab as the API** (shared keytab – user decision 2026-10-20; risk and mitigation in 4.3). OpenWEC writes **RawJson** (one JSON line per event, raw event XML inside) into one file per DC; Watchdog **tails** the files with an at-least-once cursor committed in the same SQLite transaction as the normalized records. | No RPC access to DC logs from Linux; WEF is built into Windows (no agents on DCs); OpenWEC is the only maintained open-source WEF collector; RawJson lets the existing, fixture-tested XML parser do the work; the Files driver is the only output that stays durable across a Watchdog outage. |
+| L8 | The Security events used for **source lookups** (4624 logon types 3 and 10, 4625, 4771 and failed 4776) are now **ingested** together with the change-related events (they used to be queried on demand over RPC) and kept briefly (`Retention.LogonRecordsHours`, default **48 h** – confirmed by the user on 2026-10-20); change-related DC log records keep the **30-day** retention; Watchdog events (who / what / when / from where / old → new) are kept **1095 days**. | Push delivery cannot be queried later; the attribution copies the resolved source into the event, so raw logon records do not need to live long (ADR-0008 data minimisation). |
 | L9 | **GPO content tracking**: the service reads the GPO folders on SYSVOL of its pinned DC **read-only over SMB 3 with Kerberos and mandatory signing** (the `smbclient` process, output only through a pipe into memory), parses `GptTmpl.inf`, `Registry.pol`, Group Policy Preferences XML, `scripts.ini`/`psscripts.ini`, `audit.csv` and comments, and reports changes as **"setting: was → is"**. Trigger: `versionNumber` / `gPCFileSysPath` of the GPC; daily reconciliation also finds out-of-band SYSVOL edits; attribution is inherited from the 5136 on the GPC. | User decision ("full GPO content tracking"). A managed SMB library with Kerberos + SMB3 encryption was not verifiable; smbclient was verified in the lab. |
-| L10 | New / changed rules: **BadSuccessor** (dMSA created → Critical; any change of `msDS-ManagedAccountPrecededByLink` / `msDS-DelegatedMSAState` / the superseded attributes → Critical; built-in rule `tier0-badsuccessor`), **ms-DS-MachineAccountQuota** (`tier0-machine-quota`, Critical when raised from 0), **the service's own account** (`watchdog-self`, any change of `ADMNG-WD$` except its own password rotation → Critical), GPO settings rules (`tier0-gpo`). | User decision + lab finding: the computer account may raise its own `msDS-SupportedEncryptionTypes` (RC4 back on) and add SPNs for its own host name. |
+| L10 | New / changed rules: **BadSuccessor** (dMSA created → Critical; any change of `msDS-ManagedAccountPrecededByLink` / `msDS-DelegatedMSAState` / the superseded attributes → Critical; built-in rule `tier0-badsuccessor`), **ms-DS-MachineAccountQuota** (`tier0-machine-quota`, Critical when raised from 0), **the service's own account** (`watchdog-self`, any change of `ADMNG-WD$` except its own password rotation → Critical), GPO settings rules (`tier0-gpo`). | User decisions (BadSuccessor 2026-10-19; `tier0-machine-quota` and `watchdog-self` confirmed 2026-10-20) + lab finding: the computer account may raise its own `msDS-SupportedEncryptionTypes` (RC4 back on) and add SPNs for its own host name. |
 | L11 | Channel secrets: `ISecretStore` unchanged (ASP.NET Core Data Protection); the **key ring is encrypted with AES-256-GCM using a 256-bit key held as a systemd encrypted credential** (`systemd-creds encrypt --with-key=auto`: TPM2 + host key when a TPM2 is present, host key otherwise; chosen by the installer). Restore onto another host without the same host key/TPM → secrets are re-entered (existing `secret.unreadable` path). | Replaces DPAPI-NG; no plaintext key on disk; no user decision needed. |
 | L12 | Data folder `/var/lib/admng-watchdog` (owner `admng-watchdog`, mode **0700**, enforced at every start) replaces the NTFS ACL of ADR-0008; configuration in `/etc/admng-watchdog` owned by root and **not writable by the service**; logs to **journald**, value-free as before. | Same guarantees as ADR-0008 with POSIX means (ADR-0009 amends ADR-0008). |
 | L13 | TLS certificate of the API: **the company CA when one exists** (CSR on Debian, `certreq` by a Tier 0 admin), otherwise a **self-signed certificate generated by the package**; AD Manager asks the operator to **confirm the SHA-256 fingerprint on the first connection** and pins it; a changed certificate is never accepted silently. | The customer does not know whether AD CS exists; both variants must work. |
@@ -45,8 +54,8 @@ default that an implementer may deviate from only with a reason in the final rep
    component on the Watchdog server.
 2. Keep every guarantee of ADR-0008 (one data folder, data minimisation, no secrets of the directory, retention,
    enforced access, value-free logs) and of `CLAUDE.md` rules 1–6, with the amendments of ADR-0009.
-3. Attribute changes to the account **and** the source computer/IP (4624 network/RDP logons, 4771/4776/4625 failures)
-   through WEF; keep the history (who, what, when, from where, old → new) for 3 years.
+3. Attribute changes to the account **and** the source computer/IP (4624 logon types 3 and 10, 4625, 4771 and failed
+   4776) through WEF; keep the history (who, what, when, from where, old → new) for 3 years (1095 days).
 4. Track GPO **content** ("setting: was → is") in addition to the GPC attributes and links.
 5. Add the BadSuccessor, MachineAccountQuota and own-account detections.
 6. Install, upgrade and remove cleanly as `.deb` packages; build and test them in Linux CI; give the instruction writers
@@ -206,20 +215,29 @@ Linux needs **no** AD rights and **no** LDAP for steps 2 and later rotations: on
   and `openwec` (supplementary group `admng-keytab`). Only the root-run keytab tool writes it, always as a new file in the
   same directory followed by an atomic `rename` (group and mode set before the rename), so readers never see a partial
   file. The MIT acceptor re-reads the keytab on every accept (lab: no restart after rotation).
-- **Sharing with OpenWEC** (fixed layout, to be confirmed by the user – Q8): one account and one keytab serve both the
-  API and the WEF receiver, because both run on this Tier 0 host and the DCs address the same name. Consequence: a
-  compromise of the `openwec` user (e.g. through a parser bug in the network-facing OpenWEC) yields the long-term key of
-  `HTTP/admng-wd.contoso.com`, the API's acceptor key. With it anyone can forge a service ticket (silver ticket) for
-  `HTTP/admng-wd.contoso.com` with any client name, e.g. `adm-jan@CONTOSO.COM`; the API resolves roles from that name
-  (6.2) and the MIT acceptor does not validate the PAC against the KDC, so a forged ticket for a member of
-  `AdMng-Watchdog-Admins` gives full Watchdog admin. It also yields the `ADMNG-WD$` identity (directory and SYSVOL read),
-  not the Watchdog database (0700). Splitting the keytab by principal does not help (one key per account).
-  Mitigation inside the fixed layout: on Linux loopback is **not** exempt from `AllowedRemoteSubnets` (6.1), so a forged
-  request has to come from the admin subnet, not from the server itself. Full separation: a second A record
-  `wec.contoso.com` (same IP), a second computer account `ADMNG-WEC$` (SPNs `HTTP/wec.contoso.com`,
-  `HOST/wec.contoso.com`, no read grants needed), its own keytab `/etc/admng-watchdog/admng-wec.keytab` readable only by
-  `openwec`, rotated by the same tool; the GPO then uses
-  `Server=http://wec.contoso.com:5985/wsman/SubscriptionManager/WEC,Refresh=60`.
+- **Sharing with OpenWEC** (user decision 2026-10-20, ADR-0009; Q8 closed): one account and one keytab serve both the
+  API and the WEF receiver, because both run on this Tier 0 host and the DCs address the same name. No second computer
+  account, DNS name or keytab is created for the collector. Accepted risk: a compromise of the `openwec` user (e.g.
+  through a parser bug in the network-facing OpenWEC) yields the long-term key of `HTTP/admng-wd.contoso.com`, the
+  API's acceptor key. With it anyone can forge a service ticket (silver ticket) for `HTTP/admng-wd.contoso.com` with any
+  client name, e.g. `adm-jan@CONTOSO.COM`; the API resolves roles from that name (6.2) and the MIT acceptor does not
+  validate the PAC against the KDC, so a forged ticket for a member of `AdMng-Watchdog-Admins` gives full Watchdog admin
+  (rule and channel changes are still announced to the previous recipients). It also yields the `ADMNG-WD$` identity
+  (directory and SYSVOL read), not the Watchdog database (0700), the channel secrets (systemd credential, root 0700)
+  or any AD write. Splitting the keytab by principal does not help (one key per account). Mitigations (MUST):
+  1. **API reachable only from the admin subnet** – nftables accepts 8443 only from `10.0.20.0/24` (16) and
+     `AllowedRemoteSubnets` repeats it in the service; on Linux loopback and the host's own addresses are **not**
+     exempt (6.1), so a forged ticket cannot be used from the server itself.
+  2. **Isolation of the `openwec` user** – separate system user without a shell, only supplementary group
+     `admng-keytab`; `openwecd` runs in the sandbox of 12.2 (no capabilities, `ProtectSystem=strict`, writes only
+     `/var/lib/openwec`, binds only 5985); nftables accepts 5985 only from the DC addresses (16), so the network-facing
+     parser is reachable only from the DCs; the Watchdog data folder, `/run/admng-watchdog` and
+     `/etc/admng-watchdog/credentials` are not readable by `openwec` (11).
+
+  Residual risk: an OpenWEC bug triggered by traffic from a DC address, or another local path to the `openwec` user,
+  combined with access to the admin subnet. The `openwec` user is therefore a Tier 0 asset like the keytab itself.
+  Optional hardening (not a default, not part of stage B): a separate computer account with its own DNS name and
+  keytab for the collector would remove the API key from OpenWEC.
 
 ### 4.4 `admng-watchdog-keytab` (new project `src/AdMng.Watchdog.Keytab`)
 
@@ -553,11 +571,12 @@ format = "RawJson"
 config = { path = "/var/lib/openwec/out/{client}/security.jsonl" }
 ```
 
-Notes: 4625 is added to the user's list (failed logons at the DC – lockout sources, spec 11.4 #6b). 4771 is a failure
-event by definition. The Windows XPath subset cannot exclude machine accounts (`ends-with` is unsupported), so 4624 of
-computer accounts are forwarded and dropped by Watchdog (7.7) – size the DC Security log and measure the volume in the
-pilot (Q7). `{client}` is the Kerberos principal with characters outside `[a-zA-Z0-9.\-_@]` removed:
-`DC01$@CONTOSO.COM` → directory `DC01@CONTOSO.COM`.
+Notes: the event list is the change-related set plus 4624 logon types 3 and 10, 4625, 4771 and failed 4776. 4625
+(failed logons at the DC – lockout sources, spec 11.4 #6b) and RDP logons (4624 type 10) were added to the list of
+2026-10-19 and confirmed by the user on 2026-10-20. 4771 is a failure event by definition. The Windows XPath subset
+cannot exclude machine accounts (`ends-with` is unsupported), so 4624 of computer accounts are forwarded and dropped by
+Watchdog (7.7) – size the DC Security log and measure the volume in the pilot (Q7). `{client}` is the Kerberos
+principal with characters outside `[a-zA-Z0-9.\-_@]` removed: `DC01$@CONTOSO.COM` → directory `DC01@CONTOSO.COM`.
 
 ### 7.4 Output files, rotation and deletion
 
@@ -878,10 +897,10 @@ is kept `DeletedSnapshotDays` (restore diff), then purged. Events with their cha
 
 `DomainPolicyChanged` with a change of `ms-DS-MachineAccountQuota` gets tag `machineAccountQuota` and severity
 **Critical** when the new value > 0 and the old value was 0 (a hardening reverted), **High** otherwise. New built-in
-rule `tier0-machine-quota` (MinSeverity High, immediate, Always). The quota 0 is a deployment prerequisite (appendix
-A.5: after checking who joins computers today): any authenticated principal – also `ADMNG-WD$` with a stolen keytab –
-can otherwise create computer accounts. Health Warning `domain.machineAccountQuota` while the value is > 0 (read with
-the domain head each detection cycle).
+rule `tier0-machine-quota` (MinSeverity High, immediate, Always). The quota 0 is a deployment prerequisite (confirmed
+by the user on 2026-10-20; appendix A.5: whoever joins computers today first gets a delegated "Create Computer objects"
+right): any authenticated principal – also `ADMNG-WD$` with a stolen keytab – can otherwise create computer accounts.
+Health Warning `domain.machineAccountQuota` while the value is > 0 (read with the domain head each detection cycle).
 
 ### 9.3 The service's own account (`watchdog-self`)
 
@@ -1563,7 +1582,8 @@ same DCs; RPC cursors are ignored.
    in the StateDirectory); `openwecd` started under its unit's sandbox creates nothing outside `db/` and `out/`;
    the wec-rotate unit test of 12.4; a simulated runtime upgrade fires the dpkg trigger and restarts the service.
 5. **Windows CI**: AD Manager UI tests (certificate dialog, new Status sections) unchanged in approach.
-6. **Pilot checklist (lab: WS2025 evaluation DC + Debian 13, then the customer test domain with WS2025 + WS2022)** –
+6. **Pilot checklist (lab: WS2025 evaluation DC + Debian 13 + ADM-WS01 workstation, then the customer test domain
+   with WS2025 + WS2022)** –
    everything section 22 marks "pilot only", plus: LDAP signing enforcement on WS2025 with GSSAPI sealing; `HOST/` vs
    `HTTP/` tickets from WinRM on both DC versions (`klist` on the DCs, openwecd debug); subscription XML validated with
    `Get-WinEvent -FilterXml` on both DCs; Forwarding/Operational without event 105; measured 4624/4776 volume per hour
@@ -1586,7 +1606,7 @@ same DCs; RPC cursors are ignored.
 | B6 | Rules: BadSuccessor, MachineAccountQuota, `watchdog-self`, `tier0-gpo`, catalog severities, localization | rule tests green; rollout mode still notifies them; config change disabling them is Critical and needs `AllowTier0Suppression` |
 | B7 | AD Manager: certificate confirmation flow, handler tightening, Status sections, new kinds/tags/reasons, configuration UI | Presentation tests green on Linux; UI tests + smoke test green on Windows CI; screenshots reviewed |
 | B8 | Documentation: `docs/WATCHDOG-LINUX.md` brought in line with the built packages (removing the "(pakiet powstaje)" marks), `docs/WATCHDOG.md` Windows installation chapters replaced by a pointer to it, `CLAUDE.md` (rules 1–2 exceptions, layout table, commands), ADR-0008 amendment note, spec sections of 23 amended, release notes | docs review by the lead; every command of appendix A executed once in the lab |
-| B9 | Lab pilot (WS2025 eval DC + Debian 13) then customer test domain (WS2025 + WS2022) – checklist 20.6 | all checklist items green or recorded as accepted risks; open questions Q1–Q22 answered or carried with an owner |
+| B9 | Lab pilot (WS2025 eval DC + Debian 13 + ADM-WS01 workstation, appendix B) then customer test domain (WS2025 + WS2022) – checklist 20.6 | all checklist items green or recorded as accepted risks; open questions Q1–Q22 answered or carried with an owner |
 | B10 | Release 0.3.0 (Linux packages); afterwards removal of the Windows service code (section 17) | release artifacts published with `SHA256SUMS`; after removal: build 0 warnings, all Linux tests green, AD Manager CI green |
 
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
@@ -1607,7 +1627,7 @@ What only the pilot on real Windows DCs can prove is marked **(pilot)**.
 | Q5 | **(pilot)** Can the computer account change its own password right after the admin set the one-time password (minPwdAge 1 day; Samba allowed it)? | `init` fallback `otpActive` already designed |
 | Q6 | **(pilot)** Does `Data[@Name='Status']!='0x0'` filter 4776 correctly (field name, value format)? | validate with `Get-WinEvent -FilterXml` on both DCs before loading |
 | Q7 | **(pilot)** 4624 type 3/10 and 4776 volume per hour on DC01/DC02 → Security log size, WEF bandwidth, ingest rate | measure for one week; size logs to cover the longest tolerated collector outage |
-| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3), or second account `ADMNG-WEC$` with A record `wec.contoso.com`? | fixed layout = shared, loopback no longer exempt (6.1); **user decision before B2/B4** (ADR-0009 deviations); the design for the second account is in 4.3 |
+| Q8 | Shared keytab OpenWEC + API: accept the silver-ticket risk (4.3)? | **closed** (user decision 2026-10-20, ADR-0009): the keytab is shared; mitigations = API only from the admin subnet (nftables + `AllowedRemoteSubnets`, loopback not exempt – 6.1) and isolation of the `openwec` user (4.3, 12.2) |
 | Q9 | Does the customer's hypervisor back up/restore the vTPM state? Without it a restore loses the Data Protection key ring (secrets re-entered). | document; `reset-secrets-key` recovery |
 | Q10 | Can a dMSA be created below a computer object (computer default SD gives SELF CreateChild)? | **closed**: no – computer's possible superiors are Domain-DNS, OU and Container and dMSA is its subclass (9.1); the audit script (A.4) covers the domain head, OUs and containers, the instructions check the schema per forest |
 | Q11 | **(pilot)** Default SPNs and `msDS-KeyVersionNumber` after `New-ADComputer -ServicePrincipalNames …`; whether `New-ADComputer -AccountPassword` honours the domain password policy for computer accounts | `setspn -L`, `Get-ADComputer -Properties *` in the lab |
@@ -1721,8 +1741,10 @@ As `docs/WATCHDOG.md` 4.3 with `$a = 'CONTOSO\ADMNG-WD$'` (per-class `GR`, domai
 Container, `LCRP` on Deleted Objects after `/takeownership`). The per-class `GR` on `user`/`inetOrgPerson`/`computer`
 also makes `tokenGroups` readable in hardened domains – no Windows Authorization Access Group (6.2). Verified from
 Debian with a non-protected account (instructions 2.6). Deny ACE on the own object (instructions 2.5):
-`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). MachineAccountQuota = 0 is a deployment prerequisite,
-after checking who joins computers today: `Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}`.
+`SELF: CreateChild, DeleteChild, Self, WriteProperty` (Deny). MachineAccountQuota = 0 is a deployment prerequisite:
+list who joins computers today (`mS-DS-CreatorSID` of existing computers), delegate "Create Computer objects" on the
+computers OU to them (or pre-stage the objects), then
+`Set-ADDomain -Identity contoso.com -Replace @{'ms-DS-MachineAccountQuota'='0'}` (instructions 2.8).
 
 ### A.6 Logon restrictions (domain GPO "AdMng - ograniczenia konta Watchdog")
 
@@ -1794,9 +1816,9 @@ delete the gMSA (`Remove-ADServiceAccount svc-admngwd`) – otherwise it stays a
   for 10.0.1.0/24 and 10.0.20.0/24 (PTR of the admin workstation = source name).
 - VM 2: Debian 13 netinst ("SSH server" + "standard system utilities"), 2 vCPU, 4 GB RAM, 60 GB disk, vTPM optional
   (tests the `tpm2+host` credential variant), static IP 10.0.1.25, DNS → 10.0.1.10, chrony → DC01.
-- VM 3 (**required** – beyond the agreed "1 DC + 1 Debian", noted as a deviation in ADR-0009): ADM-WS01, Windows 11
-  Enterprise evaluation (or WS2025), 10.0.20.15 – AD Manager (Windows only) and the source of pilot changes (changes
-  made on the DC show "lokalnie na DC"). A flat lab network with ADM-WS01 at 10.0.1.50 and
+- VM 3 (**required** – added to the agreed "1 DC + 1 Debian", confirmed by the user on 2026-10-20): ADM-WS01,
+  Windows 11 Enterprise evaluation (or WS2025) with RSAT, 10.0.20.15 – AD Manager (Windows only) and the source of
+  pilot changes (changes made on the DC show "lokalnie na DC"). A flat lab network with ADM-WS01 at 10.0.1.50 and
   `AllowedRemoteSubnets`/nftables `10.0.1.50/32` is the simplest variant.
 - Optional: DC02 – Windows Server 2022 evaluation (10.0.1.11) for the replication, failover and WinRM-version tests;
   `smtp` – a small Linux VM (10.0.1.30) with Mailpit (STARTTLS, self-signed certificate pinned in the SMTP settings)

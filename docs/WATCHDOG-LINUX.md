@@ -129,15 +129,16 @@ Watchdog **widzi**:
 - **co** się zmieniło w AD: nowe, zmienione, przeniesione i usunięte konta, grupy, komputery, OU, członkostwa, flagi
   kont, atrybuty krytyczne (delegowanie, SPN, Shadow Credentials, SID History, dMSA), zasady domeny, GPO, relacje
   zaufania, PKI, schemat – zawsze ze starą i nową wartością (pełna lista: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 1);
-- **kto** to zrobił i **skąd** – konto wykonawcy z dziennika Security kontrolera oraz komputer i adres IP, z którego
-  przyszła zmiana (z logowań 4624 i nieudanych logowań 4625/4771/4776);
+- **kto** to zrobił i **skąd** – konto wykonawcy z dziennika Security kontrolera (zdarzenia zmian) oraz komputer
+  i adres IP, z którego przyszła zmiana – ustalane ze zdarzeń 4624 (logowania sieciowe – typ 3 – i RDP – typ 10), 4625,
+  4771 i nieudanych 4776;
 - **kiedy** i **na którym DC**;
 - **treść GPO** – ustawienia w postaci „ustawienie: było → jest” (nowość wersji 0.3.0);
 - **stan własny**: konto usługi, keytab, odbiór zdarzeń z każdego DC, czas, certyfikat.
 
 Historia zmian (kto, co, kiedy, skąd, było → jest) jest przechowywana **3 lata** (1095 dni). Rekordy z dzienników DC
-potrzebne do dopasowania zmian – 30 dni, rekordy logowań – 48 godzin (ustalone źródło jest kopiowane do zdarzenia, więc
-zostaje z nim na 3 lata; 48 godzin to propozycja do potwierdzenia – ADR-0009, „Odstępstwa od ustaleń”).
+potrzebne do dopasowania zmian – 30 dni, rekordy logowań i nieudanych logowań (4624/4625/4771/4776) – 48 godzin
+(ustalone źródło jest kopiowane do zdarzenia, więc zostaje z nim na 3 lata).
 
 Watchdog **nigdy**:
 
@@ -163,8 +164,10 @@ Watchdog **nigdy**:
    tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), a każda zmiana konta i tak jest alarmem
    krytycznym. Jest jednak wyjątek poza AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako
    dowolny użytkownik domeny (tzw. *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć
-   alarmy. Dlatego keytab, konta systemowe, które go czytają (usługa i OpenWEC), kopie maszyny i root serwera są
-   zasobami Tier 0, a każda zmiana konfiguracji Watchdoga trafia też do dotychczasowych odbiorców (punkt 3).
+   alarmy. Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja (4.3); podrobiony bilet zadziała tylko
+   z podsieci administratorów, bo tylko z niej API przyjmuje połączenia. Dlatego keytab, konta systemowe, które go
+   czytają (usługa i OpenWEC), kopie maszyny i root serwera są zasobami Tier 0, a każda zmiana konfiguracji Watchdoga
+   trafia też do dotychczasowych odbiorców (punkt 3).
 3. **Administratorzy Watchdoga to nie to samo co Domain Admins.** Grupa `AdMng-Watchdog-Admins` zarządza regułami,
    kanałami i wyjątkami w Watchdogu; jej członkowie nie potrzebują żadnych praw w AD. Członkostwo w Domain Admins nie
    daje żadnej roli w Watchdogu. Powód: osoby, których zmiany są monitorowane, nie powinny po cichu wyłączać
@@ -1098,12 +1101,13 @@ Security Options) → „Audit: Force audit policy subcategory settings (Windows
 category settings” = Enabled (zwykle już włączone). Ustawienia podkategorii z kilku GPO łączą się; przy konflikcie wygrywa GPO o wyższym priorytecie – dlatego
 sprawdzasz wynik na każdym DC.
 
-**Rozmiar dziennika Security.** Kontrolery wysyłają teraz także logowania sieciowe (4624), więc dziennik zapełnia się
-szybciej. Dziennik musi pomieścić zdarzenia z najdłuższej przerwy w pracy odbiornika, jaką akceptujesz – po przerwie
-kontroler wysyła zaległe zdarzenia od miejsca, w którym skończył. Na start ustaw **co najmniej 1 GB**, a w pilotażu
-zmierz rzeczywisty przyrost (7.4). W tym samym GPO: Szablony administracyjne → Składniki systemu Windows → Usługa
-dziennika zdarzeń → Zabezpieczenia (Administrative Templates → Windows Components → Event Log Service → Security) →
-„Specify the maximum log file size (KB)” = `1048576` (albo więcej). Odpowiednik w PowerShell:
+**Rozmiar dziennika Security.** Kontrolery wysyłają teraz także zdarzenia logowań – 4624 (logowania sieciowe – typ 3 –
+i RDP – typ 10), 4625, 4771 i nieudane 4776 – więc dziennik zapełnia się szybciej. Dziennik musi pomieścić zdarzenia
+z najdłuższej przerwy w pracy odbiornika, jaką akceptujesz – po przerwie kontroler wysyła zaległe zdarzenia od
+miejsca, w którym skończył. Na start ustaw **co najmniej 1 GB**, a w pilotażu zmierz rzeczywisty przyrost (7.4).
+W tym samym GPO: Szablony administracyjne → Składniki systemu Windows → Usługa dziennika zdarzeń → Zabezpieczenia
+(Administrative Templates → Windows Components → Event Log Service → Security) → „Specify the maximum log file size
+(KB)” = `1048576` (albo więcej). Odpowiednik w PowerShell:
 
 ```powershell
 Set-GPRegistryValue -Name 'AdMng - inspekcja DC' -Key 'HKLM\Software\Policies\Microsoft\Windows\EventLog\Security' `
@@ -2180,21 +2184,29 @@ garbage_collect_interval = 600
 files_descriptor_close_timeout = 600
 ```
 
-Wspólny keytab ma ważną konsekwencję. Kto przejmie konto systemowe `openwec` (np. przez błąd w OpenWEC, który przyjmuje
-dane z sieci), ma klucz `HTTP/admng-wd.contoso.com` – ten sam, którym API Watchdoga sprawdza bilety. Może nim podrobić
-bilet do API jako dowolny użytkownik domeny, także administrator Watchdoga, i zmienić reguły albo wyciszyć alarmy; ma
-też tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL). Nie ma natomiast dostępu do bazy Watchdoga (katalog 0700).
-Usługa zawęża to ryzyko: zapytania do API z samego serwera – także przez adres pętli zwrotnej – są odrzucane (poza
-`/healthz`), więc podrobiony bilet zadziała tylko z podsieci administratorów. Pełne rozdzielenie daje osobne konto
-komputera dla OpenWEC (`ADMNG-WEC$`, rekord A `wec.contoso.com` na ten sam adres, własny keytab czytany tylko przez
-`openwec`) – wtedy w GPO z 2.12 wpisuje się nazwę `wec.contoso.com`. To decyzja do podjęcia przed etapem B (ADR-0009,
-„Odstępstwa od ustaleń”); domyślnie keytab jest wspólny.
+**Wspólny keytab to przyjęte rozwiązanie (ADR-0009), ze świadomie zaakceptowanym ryzykiem.** Kto przejmie konto
+systemowe `openwec` (np. przez błąd w OpenWEC, który przyjmuje dane z sieci), ma klucz `HTTP/admng-wd.contoso.com` –
+ten sam, którym API Watchdoga sprawdza bilety. Może nim podrobić bilet do API jako dowolny użytkownik domeny, także
+administrator Watchdoga, i zmienić reguły albo wyciszyć alarmy (każda zmiana konfiguracji trafia jednak do
+dotychczasowych odbiorców); ma też tożsamość `ADMNG-WD$` (odczyt katalogu i SYSVOL). Nie ma natomiast dostępu do bazy
+Watchdoga (katalog 0700 innego konta), sekretów kanałów ani praw zapisu w AD. Ryzyko ograniczają:
+
+- **API tylko z podsieci administratorów** – zapora (3.3) przepuszcza port 8443 wyłącznie z 10.0.20.0/24, a usługa
+  sprawdza to samo ustawieniem `AllowedRemoteSubnets` (5.2). Zapytania do API z samego serwera – także przez adres
+  pętli zwrotnej – są odrzucane (poza `/healthz`), więc podrobiony bilet zadziała tylko z podsieci administratorów;
+- **izolacja konta `openwec`** – osobne konto systemowe bez powłoki, usługa w piaskownicy systemd (bez uprawnień,
+  zapis tylko w `/var/lib/openwec`), port 5985 przyjmuje połączenia tylko od kontrolerów domeny (zapora, 3.3); konto
+  nie czyta bazy, biletów ani sekretów usługi Watchdog.
+
+Dlatego konto `openwec` traktuj jak keytab – jako zasób Tier 0. Opcjonalnym utwardzeniem na przyszłość byłoby osobne
+konto komputera z własną nazwą DNS i keytabem dla kolektora; wersja 0.3.0 go nie przewiduje i nie musisz niczego
+w tym kierunku przygotowywać.
 
 ### 4.4 Subskrypcja dla kontrolerów
 
-Subskrypcja mówi kontrolerom, **które** zdarzenia wysyłać. Obejmuje dotychczasowy zestaw zdarzeń potrzebnych do
+Subskrypcja mówi kontrolerom, **które** zdarzenia wysyłać. Obejmuje dotychczasowy zestaw zdarzeń zmian potrzebnych do
 ustalania wykonawców (zmiany kont, grup, komputerów, obiektów katalogu, czyszczenie dziennika, zmiana zasad inspekcji)
-oraz źródła zmian: 4624 tylko dla logowań sieciowych (typ 3) i RDP (typ 10), 4625, 4771 i nieudane 4776. Zmiany
+oraz źródła zmian: 4624 (logowania sieciowe – typ 3 – i RDP – typ 10), 4625, 4771 i nieudane 4776. Zmiany
 `dSCorePropagationData` (szum SDProp) są pomijane już na kontrolerze. Obejmuje tylko konta `DC01$` i `DC02$` – inne
 komputery nie dostaną tej subskrypcji.
 
