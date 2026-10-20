@@ -4,8 +4,8 @@ set -e
 
 . /usr/lib/admng-watchdog/admng-watchdog-functions
 
-# The keytab service is started by its timer only (12.3).
-UNITS="admng-watchdog.service admng-watchdog-keytab.timer"
+# The keytab service and the OpenWEC file rotation are started by their timers only (12.3, 12.4).
+UNITS="admng-watchdog.service admng-watchdog-keytab.timer admng-wec-rotate.timer"
 
 enable_units() {
     for unit in $UNITS; do
@@ -32,6 +32,8 @@ case "$1" in
             systemctl --system daemon-reload >/dev/null || true
             # The daily rotation check; its service is a no-op until init created the keytab (ConditionPathExists).
             deb-systemd-invoke start admng-watchdog-keytab.timer >/dev/null || true
+            # Hourly rotation and clean-up of /var/lib/openwec/out (7.4).
+            deb-systemd-invoke start admng-wec-rotate.timer >/dev/null || true
         fi
         if [ -z "$2" ]; then
             echo "admng-watchdog: installed. Next: sudo admng-watchdog-keytab init, edit /etc/admng-watchdog/appsettings.json"

@@ -1,0 +1,6 @@
+# AdMng Watchdog – clean-up of the OpenWEC output files by admng-wec-rotate.timer (docs/dev/watchdog-linux-design.md 7.4).
+# A rotated file the service has read completely is deleted after the next hourly run. A file the service has NOT read
+# is deleted anyway once it is older than MAX_UNCONSUMED_DAYS (1–30 days, ADR-0009), and the oldest ones while all
+# rotated files together exceed MAX_UNCONSUMED_MB – the service then reports "wec.<dc>.collectorFileLost".
+MAX_UNCONSUMED_DAYS=7
+MAX_UNCONSUMED_MB=8192

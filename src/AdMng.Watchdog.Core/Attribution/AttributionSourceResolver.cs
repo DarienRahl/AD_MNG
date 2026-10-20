@@ -4,14 +4,16 @@ using AdMng.Watchdog.Contracts.Configuration;
 namespace AdMng.Watchdog.Core.Attribution;
 
 /// <summary>
-/// Which logs to ingest (section 11.1): ForwardedEvents mode → the collector's ForwardedEvents log; otherwise
+/// Which logs to ingest (section 11.1): collector mode (<see cref="Abstractions.CollectorMode"/>, stage B design 7.5) → none,
+/// the WEF tailer stores the forwarded records and correlation considers the writable DCs; ForwardedEvents mode → the collector's ForwardedEvents log; otherwise
 /// <c>Attribution.DomainControllers</c> – every entry must be a writable DC of this domain known to the DC directory,
 /// unknown hosts are skipped with health Error <c>eventlog.&lt;host&gt;</c> "notADomainController" – or, when empty, the
 /// directory's attribution sources. Also reports <c>attribution.dcDirectory</c> (Warning while only the degraded
 /// fallback catalog is available). A collector or DC that is not a host name (<see cref="HostNames.IsHostName"/>: IP
 /// literals) is never read – the session would offer the service identity's credentials without Kerberos.
 /// </summary>
-public sealed class AttributionSourceResolver(IDomainControllerCatalog domainControllers, Abstractions.IHealthRegistry health, TimeProvider timeProvider)
+public sealed class AttributionSourceResolver(IDomainControllerCatalog domainControllers, Abstractions.IHealthRegistry health, TimeProvider timeProvider,
+    Abstractions.ISecurityEventCollector? collector = null)
 {
     /// <summary>Detail/argument of a configured host that is not a writable DC of this domain.</summary>
     public const string NotADomainController = "notADomainController";
@@ -31,6 +33,11 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
             Detail = domainControllers.IsAuthoritative ? null : "Domain controller discovery is not available – only the configured DCs and the watched DC are used.",
             CheckedAt = now,
         });
+
+        if (Abstractions.CollectorMode.IsActive(settings, collector))
+        {
+            return [];   // the WEF tailer ingests the forwarded records (stage B design 7.5)
+        }
 
         if (settings.Source == AttributionSourceKind.ForwardedEvents)
         {
@@ -89,7 +96,7 @@ public sealed class AttributionSourceResolver(IDomainControllerCatalog domainCon
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(sources);
-        if (settings.Source != AttributionSourceKind.ForwardedEvents)
+        if (settings.Source != AttributionSourceKind.ForwardedEvents && !Abstractions.CollectorMode.IsActive(settings, collector))
         {
             return [.. sources.Select(s => s.Host)];
         }

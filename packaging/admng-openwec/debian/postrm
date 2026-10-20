@@ -1,0 +1,24 @@
+#!/bin/sh
+# admng-openwec postrm (docs/dev/watchdog-linux-design.md 13.2): purge removes /var/lib/openwec – raw WEF data has no
+# long-term value (ADR-0009); the subscription files below /etc/openwec/subscriptions belong to the admin and stay.
+set -e
+
+case "$1" in
+    remove)
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        deb-systemd-helper mask openwecd.service >/dev/null || true
+        ;;
+    purge)
+        deb-systemd-helper purge openwecd.service >/dev/null || true
+        deb-systemd-helper unmask openwecd.service >/dev/null || true
+        rm -rf --one-file-system /var/lib/openwec
+        rmdir /etc/openwec/subscriptions /etc/openwec 2>/dev/null || true
+        if [ -d /etc/openwec ]; then
+            echo "admng-openwec: /etc/openwec/subscriptions still holds your subscription files - remove them if no longer needed."
+        fi
+        ;;
+esac
+
+exit 0

@@ -10,7 +10,7 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// Composition root of the watchdog service (spec 19.1): configuration sources, logging, data folder, Data Protection,
 /// authentication, Kestrel or HTTP.sys, <c>AddWatchdogCore()</c>, stores, transports, job hosts, start-up checks and
 /// the API. <see cref="RunAsync"/> dispatches the command line (<c>--smoke-test</c>, <c>--check-config</c>,
-/// <c>--health</c>) and maps failed start-up checks to their exit codes.
+/// <c>--health</c>, <c>print-wec-subscription</c>) and maps failed start-up checks to their exit codes.
 /// </summary>
 public static class WatchdogHost
 {
@@ -76,6 +76,7 @@ public static class WatchdogHost
             HostCommandKind.SmokeTest => await SmokeTest.RunAsync(hostArgs).ConfigureAwait(false),
             HostCommandKind.CheckConfig => await CheckConfigCommand.RunAsync(hostArgs).ConfigureAwait(false),
             HostCommandKind.Health => await HealthCommand.RunAsync(hostArgs).ConfigureAwait(false),
+            HostCommandKind.PrintWecSubscription => PrintWecSubscriptionCommand.Run(hostArgs, Console.Out, Console.Error),
             _ => await RunServiceAsync(hostArgs, command.Console).ConfigureAwait(false),
         };
     }

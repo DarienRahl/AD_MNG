@@ -1,0 +1,37 @@
+# OpenWEC configuration of AdMng Watchdog (docs/dev/watchdog-linux-design.md 7.2) – conffile of admng-openwec,
+# root:openwec 0640. Replace admng-wd.contoso.com / CONTOSO.COM by the Watchdog server's FQDN and the realm (WATCHDOG-LINUX
+# 4.4); the keytab is the one admng-watchdog-keytab maintains (HTTP/ and host/ principals of the ADMNG-WD$ account).
+
+[server]
+keytab = "/etc/admng-watchdog/admng-wd.keytab"
+db_sync_interval = 5
+flush_heartbeats_interval = 5
+
+[logging]
+verbosity = "warn"
+server_logs = "stderr"          # journald through the unit
+# access_logs: leave unset – absent key = no access log ("None" would be parsed as a file name: LoggingType::from_str
+# only knows stdout/stderr; under ProtectSystem=strict opening "/None" fails and openwecd panics in a restart loop)
+
+[database]
+type = "SQLite"
+path = "/var/lib/openwec/db/openwec.sqlite"
+
+[cli]
+read_only_subscriptions = true  # subscriptions only from files (openwec subscriptions load)
+
+[[collectors]]
+hostname = "admng-wd.contoso.com"
+listen_address = "0.0.0.0"
+listen_port = 5985
+max_content_length = 512000
+
+[collectors.authentication]
+type = "Kerberos"
+service_principal_name = "HTTP/admng-wd.contoso.com@CONTOSO.COM"
+
+[outputs]
+garbage_collect_interval = 600
+
+[outputs.files]
+files_descriptor_close_timeout = 600

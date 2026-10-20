@@ -17,8 +17,10 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// </summary>
 /// <remarks>The "known server" caller case of the specification (tag <c>server</c> in the snapshot) is not detected –
 /// the snapshot cannot be searched by computer name through the store abstraction; such callers are reported as is.</remarks>
+/// <remarks>Collector mode (<see cref="CollectorMode"/>, stage B design 7.8): the failures come from the stored records of the same DCs
+/// (<see cref="ISecurityEventLookup.FindFailuresForAccountAsync"/>, one bounded read per DC through the gate).</remarks>
 public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEventSource source, SourceQueryGate gate,
-    IDomainControllerCatalog domainControllers, ILockoutPolicySource lockoutPolicy)
+    IDomainControllerCatalog domainControllers, ILockoutPolicySource lockoutPolicy, ISecurityEventLookup? lookup = null)
 {
     /// <summary>Sources kept per lockout (by count).</summary>
     public const int MaxSources = 10;
@@ -108,6 +110,11 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             dcs.Add(HostNames.Normalize(lockoutRecord.Computer));
         }
 
+        if (settings.Source == AttributionSourceKind.OpenWec && lookup is { IsAvailable: true })
+        {
+            return await QueryStoredFailuresAsync(dcs, sam, from, to, settings, cancellationToken).ConfigureAwait(false);
+        }
+
         var forwarded = settings.Source == AttributionSourceKind.ForwardedEvents;
         var hosts = forwarded ? (settings.Collector is { Length: > 0 } collector ? [collector] : []) : dcs;
         var query = new SecurityEventQuery
@@ -128,6 +135,28 @@ public sealed class LockoutSourceResolver(ISecurityEventStore store, ISecurityEv
             if (result.Completed && result.Value is { } records)
             {
                 failures.AddRange(records.Where(r => !forwarded || dcs.Any(dc => HostNames.AreEqual(dc, r.Computer))));
+            }
+            else
+            {
+                finished = false;
+            }
+        }
+
+        return (failures, finished);
+    }
+
+    private async Task<(List<SecurityEvent> Failures, bool Finished)> QueryStoredFailuresAsync(List<string> dcs, string sam, DateTimeOffset from,
+        DateTimeOffset to, AttributionSettings settings, CancellationToken cancellationToken)
+    {
+        var failures = new List<SecurityEvent>();
+        var finished = dcs.Count > 0;
+        foreach (var dc in dcs)
+        {
+            var result = await gate.RunAsync(dc, settings.SourceQueryTimeout,
+                token => lookup!.FindFailuresForAccountAsync(sam, FailureCodes, from, to, [dc], MaxRecords, token), cancellationToken).ConfigureAwait(false);
+            if (result.Completed && result.Value is { } records)
+            {
+                failures.AddRange(records);
             }
             else
             {

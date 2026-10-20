@@ -1,0 +1,53 @@
+# OpenWEC collector of AdMng Watchdog (docs/dev/watchdog-linux-design.md 12.2) – hardened replacement of the upstream
+# unit. The DC addresses are site data: the admin writes /etc/systemd/system/openwecd.service.d/admng-dcs.conf with
+# [Service] IPAddressAllow=<DC addresses> (instructions 4.3); without it no DC can connect (fail-closed).
+[Unit]
+Description=OpenWEC Windows Event Collector (AdMng)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/admng-watchdog/admng-wd.keytab
+
+[Service]
+Type=simple
+User=openwec
+Group=openwec
+SupplementaryGroups=admng-keytab
+ExecStart=/usr/bin/openwecd -c /etc/openwec.conf.toml
+ExecReload=/bin/kill -HUP $MAINPID
+Environment=KRB5_CONFIG=/etc/admng-watchdog/krb5.conf
+Environment=KRB5RCACHEDIR=/var/tmp
+UMask=0027
+Restart=always
+RestartSec=5s
+LimitNOFILE=65536
+LimitCORE=0
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ReadWritePaths=/var/lib/openwec
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SocketBindAllow=tcp:5985
+SocketBindDeny=any
+IPAddressDeny=any
+MemorySwapMax=0
+
+[Install]
+WantedBy=multi-user.target

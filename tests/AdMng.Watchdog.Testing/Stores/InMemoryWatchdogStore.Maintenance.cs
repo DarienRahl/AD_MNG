@@ -98,7 +98,7 @@ public sealed partial class InMemoryWatchdogStore
         var purged = _securityEvents.Where(e => e.TimeCreated < cutoff).ToList();
         foreach (var securityEvent in purged)
         {
-            _securityEventKeys.Remove((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId));
+            _securityEventKeys.Remove((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId, StoredTime(securityEvent.TimeCreated)));
         }
 
         _securityEvents.RemoveAll(e => e.TimeCreated < cutoff);

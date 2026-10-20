@@ -18,7 +18,10 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// updates, plans follow-ups for final attributions (<see cref="IAttributionFollowUpPlanner"/> →
 /// <c>INotificationQueueStore.AddAsync</c>), raises <see cref="WatchdogSignal.AttributionUpdated"/>, and reports
 /// <see cref="AttributionStatusDto"/>, HealthAttributionDegraded and <c>attribution.actorConditionsUnreliable</c>.
-/// With attribution off, source None or an unavailable reader (non-Windows host), pending events older than
+/// In collector mode (<see cref="CollectorMode"/>: <c>OpenWec</c> on the Linux service) nothing is ingested here – the WEF
+/// tailer stores the forwarded records – and correlation considers the writable DCs; <c>OpenWec</c> without a collector (the
+/// Windows service) reads the DC logs like <c>DomainControllers</c>. With attribution off, source None or an unavailable
+/// reader (a Windows source on Linux), pending events older than
 /// <see cref="DisabledGrace"/> end Unknown(SOURCE_DISABLED) (NotApplicable kinds NotApplicable).
 /// </summary>
 /// <remarks>
@@ -63,7 +66,8 @@ public sealed partial class AttributionEngine(
     RuleEngine ruleEngine,
     IEnumerable<IRuleMatchPlanner> ruleMatchPlanners,
     TimeProvider timeProvider,
-    ILogger<AttributionEngine> logger) : IWatchdogJob
+    ILogger<AttributionEngine> logger,
+    ISecurityEventCollector? collector = null) : IWatchdogJob
 {
     /// <summary>Pending events correlated per run (the job runs again at once when the batch was full).</summary>
     public const int CorrelationBatchSize = 200;
@@ -95,7 +99,7 @@ public sealed partial class AttributionEngine(
         var settings = configuration.Attribution ?? new AttributionSettings();
         try
         {
-            if (!settings.Enabled || settings.Source == AttributionSourceKind.None || !source.IsAvailable)
+            if (!settings.Enabled || settings.Source == AttributionSourceKind.None || !IsAvailable(settings))
             {
                 await DisabledAsync(settings, cancellationToken).ConfigureAwait(false);
                 return new JobResult(settings.PollInterval);
@@ -118,7 +122,7 @@ public sealed partial class AttributionEngine(
             health.ReportAttribution(new AttributionStatusDto
             {
                 Enabled = true,
-                Source = settings.Source.ToString(),
+                Source = CollectorMode.Effective(settings, collector).ToString(),
                 DomainControllers = tracker.Snapshot(hosts.Concat(sources.Select(s => s.Host))),
             });
             if (appended > 0)
@@ -139,6 +143,10 @@ public sealed partial class AttributionEngine(
             return new JobResult(settings.PollInterval, Failed: true, FailureCode: SafeExceptionLog.ErrorCode(ex));
         }
     }
+
+    /// <summary>Collector mode (stage B design 7.8) needs the WEF tailer of the Linux service; the Windows sources need the
+    /// Windows event log reader.</summary>
+    private bool IsAvailable(AttributionSettings settings) => CollectorMode.IsActive(settings, collector) || source.IsAvailable;
 
     private async Task<int> IngestAsync(WatchdogConfiguration configuration, AttributionSettings settings, IReadOnlyList<IngestionSource> sources,
         string? domain, CancellationToken cancellationToken)
@@ -229,7 +237,11 @@ public sealed partial class AttributionEngine(
         {
             Code = "attribution.source",
             State = HealthState.Disabled,
-            Detail = source.IsAvailable ? "Attribution is disabled in the configuration." : "Attribution needs the Windows event log reader.",
+            Detail = !settings.Enabled || settings.Source == AttributionSourceKind.None || IsAvailable(settings)
+                ? "Attribution is disabled in the configuration."
+                : settings.Source == AttributionSourceKind.OpenWec
+                    ? "Attribution needs the OpenWEC collector of the Linux service (or the Windows event log reader)."
+                    : "Attribution needs the Windows event log reader.",
             CheckedAt = now,
         });
         health.ReportAttribution(new AttributionStatusDto { Enabled = false, Source = settings.Source.ToString() });

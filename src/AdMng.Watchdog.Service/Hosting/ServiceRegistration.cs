@@ -58,6 +58,7 @@ public static class ServiceRegistration
         AddDirectory(services, configuration);
         AddApi(services);
         AddWatchdogAccount(services, startupOptions);
+        AddCollector(services, startupOptions);
         services.AddWatchdogCore();
 
         services.TryAddSingleton<IProcessTerminator, EnvironmentProcessTerminator>();
@@ -173,6 +174,31 @@ public static class ServiceRegistration
 
         services.TryAddSingleton<WatchdogAccountSource>();
         services.TryAddSingleton<IWatchdogAccountSource>(provider => provider.GetRequiredService<WatchdogAccountSource>());
+    }
+
+    /// <summary>
+    /// The WEF tailer of the Linux service (stage B design 7.5) whenever the directory is watched: the job, the collector
+    /// availability for the attribution engine (registered before <c>AddWatchdogCore()</c>, whose default has no
+    /// collector) and the DC facts of the identity checks (7.6).
+    /// </summary>
+    private static void AddCollector(IServiceCollection services, ServiceOptions startupOptions)
+    {
+        if (!OperatingSystem.IsLinux() || startupOptions.Directory.Disabled || startupOptions.Collector.Kind != CollectorKind.OpenWec)
+        {
+            return;
+        }
+
+        AddLinuxCollector(services);
+    }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    private static void AddLinuxCollector(IServiceCollection services)
+    {
+        services.TryAddSingleton<IHostAddressResolver, SystemHostAddressResolver>();
+        services.TryAddSingleton<ICollectorDomainControllerSource, DirectoryCollectorDcSource>();
+        services.TryAddSingleton<WecFileIngestionJob>();
+        services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<WecFileIngestionJob>());
+        services.TryAddSingleton<ISecurityEventCollector>(provider => provider.GetRequiredService<WecFileIngestionJob>());
     }
 
     /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and (Windows only – obsolete on Linux, stage B

@@ -20,9 +20,13 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// or loopback address → SourceMethod "local" (on the DC: ADWS, PowerShell, console); LogonType 10 → the RDP client
 /// (possibly a jump host); LogonType 8 → simple bind. SourceConfidence never exceeds the actor's confidence and is
 /// capped at Low for DNS and NTLM workstation names.
+/// In collector mode (<see cref="CollectorMode"/>, stage B design 7.8) the 4624 comes from the stored records of the DC that logged the
+/// evidence (<see cref="ISecurityEventLookup.FindLogonAsync"/>, through the same gate, cache and caps); a session that is
+/// not found ends <c>SOURCE_NOT_COLLECTED</c> when that DC stored no 4624 since <c>evidence time − LogonLookback</c>, else
+/// <c>SOURCE_LOGON_NOT_FOUND</c>.
 /// </summary>
 public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQueryGate gate, IReverseDnsResolver dns, TimeProvider timeProvider,
-    DcLogHealthTracker? tracker = null)
+    DcLogHealthTracker? tracker = null, ISecurityEventLookup? lookup = null)
 {
     /// <summary>Lifetime of cached lookups (positive and negative).</summary>
     public static readonly TimeSpan CacheDuration = TimeSpan.FromHours(24);
@@ -46,6 +50,11 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
         if (!settings.LookupLogonSource || logonId is null or "0x3e7" or "0x0" || !SecurityEventQueryBuilder.IsAllowedValue(logonId))
         {
             return null;
+        }
+
+        if (settings.Source == AttributionSourceKind.OpenWec && lookup is { IsAvailable: true })
+        {
+            return await ResolveStoredAsync(evidence, logonId, actorConfidence, settings, cancellationToken).ConfigureAwait(false);
         }
 
         var forwarded = settings.Source == AttributionSourceKind.ForwardedEvents;
@@ -88,6 +97,48 @@ public sealed class LogonSourceResolver(ISecurityEventSource source, SourceQuery
             ? await InterpretAsync(logon, settings, cancellationToken).ConfigureAwait(false)
             : LogonSource.NotFound(AttributionReasons.SourceLogonNotFound);
         _cache[key] = new CachedLookup(found, now, result.Value?.TimeCreated, query.From!.Value, query.To!.Value);
+        return Cap(found, actorConfidence);
+    }
+
+    /// <summary>Collector mode: the 4624 of <paramref name="logonId"/> from the stored records of the evidence's DC.</summary>
+    private async Task<LogonSource?> ResolveStoredAsync(SecurityEvent evidence, string logonId, AttributionConfidence actorConfidence,
+        AttributionSettings settings, CancellationToken cancellationToken)
+    {
+        if (lookup is null)
+        {
+            return null;
+        }
+
+        var host = HostNames.Normalize(evidence.Computer);
+        var key = (host, host, logonId);
+        var now = timeProvider.GetUtcNow();
+        if (_cache.TryGetValue(key, out var cached) && now - cached.At < CacheDuration && Covers(cached, evidence, settings))
+        {
+            return Cap(cached.Source, actorConfidence);
+        }
+
+        var from = evidence.TimeCreated - settings.LogonLookback;
+        var to = evidence.TimeCreated;
+        var result = await gate.RunAsync(host, settings.SourceQueryTimeout,
+            token => lookup.FindLogonAsync(host, logonId, from, to, token), cancellationToken).ConfigureAwait(false);
+        if (!result.Completed)
+        {
+            return LogonSource.NotFound(AttributionReasons.DcUnreachable);   // timeout – not cached, retried later
+        }
+
+        if (result.Value is null)
+        {
+            var lastSeen = await lookup.LastSeenAsync(host, SecurityEventCatalog.LogonSucceeded, cancellationToken).ConfigureAwait(false);
+            if (lastSeen is null || lastSeen < from)
+            {
+                return LogonSource.NotFound(AttributionReasons.SourceNotCollected);   // not cached: forwarding may start
+            }
+        }
+
+        var found = result.Value is { } logon
+            ? await InterpretAsync(logon, settings, cancellationToken).ConfigureAwait(false)
+            : LogonSource.NotFound(AttributionReasons.SourceLogonNotFound);
+        _cache[key] = new CachedLookup(found, now, result.Value?.TimeCreated, from, to);
         return Cap(found, actorConfidence);
     }
 

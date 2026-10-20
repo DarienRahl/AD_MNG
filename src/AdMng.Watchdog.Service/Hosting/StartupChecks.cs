@@ -1,6 +1,8 @@
 using System.Globalization;
 using AdMng.Watchdog.Contracts.Api;
+using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
+using AdMng.Watchdog.Core.Configuration;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Service.Secrets;
 using AdMng.Watchdog.Service.Storage;
@@ -339,6 +341,11 @@ public sealed partial class StartupChecks : IHostedLifecycleService
     {
         try
         {
+            if (OperatingSystem.IsLinux())
+            {
+                await MigrateConfigurationForLinuxAsync(_services.GetRequiredService<IConfigStore>(), cancellationToken).ConfigureAwait(false);
+            }
+
             await _services.GetRequiredService<IWatchdogConfigProvider>().ReloadAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
@@ -346,6 +353,25 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             SafeExceptionLog.LogError(_logger, ex, "configuration load", new EventId(EventLogIds.StorageProblem));
             throw new StartupCheckException(StartupExitCodes.Migration, "The stored configuration could not be read.");
         }
+    }
+
+    /// <summary>
+    /// The configuration migration of stage B design 7.8: a stored schema version 1 document (Windows service 0.2.0) is
+    /// saved once as version 2 – a Windows attribution source becomes OpenWec – with the audit summary
+    /// <see cref="ConfigurationMigration.LinuxSummary"/>. Returns true when it saved.
+    /// </summary>
+    public static async Task<bool> MigrateConfigurationForLinuxAsync(IConfigStore store, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var stored = await store.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (stored?.Configuration is not { } configuration || ConfigurationMigration.ForLinux(configuration) is not { } migrated)
+        {
+            return false;
+        }
+
+        await store.SaveAsync(migrated, stored.Version, new PrincipalRef { Account = ConfigurationMigration.MigrationAccount },
+            ConfigurationMigration.LinuxSummary, [], cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     private void CheckListeners()

@@ -1,0 +1,7 @@
+admng-openwec (@VERSION@) stable; urgency=medium
+
+  * OpenWEC built from upstream commit @UPSTREAM_COMMIT@ (2026-09-08: SPNEGO
+    support, filter rework) for AdMng Watchdog on Linux (stage B, milestone B4).
+  * Hardened openwecd.service, AdMng configuration, system user openwec.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 20 Oct 2026 12:00:00 +0000

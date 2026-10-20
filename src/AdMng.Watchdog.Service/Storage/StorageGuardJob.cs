@@ -8,7 +8,8 @@ namespace AdMng.Watchdog.Service.Storage;
 
 /// <summary>
 /// The hourly part of retention (spec 16.3): enforces <c>Retention.MaxDatabaseMb</c> between the daily maintenance runs
-/// (security events, then Dead outbox rows, oldest first, down to 90 %) and reports the health checks
+/// (security events, then Dead outbox rows, oldest first, down to 90 %), purges the logon and failure records older than
+/// <c>Retention.LogonRecordsHours</c> (collector mode, stage B design 7.7) and reports the health checks
 /// <c>storage.size</c> and <c>storage.free</c> exactly as the retention job does (<see cref="StorageHealth"/> over the
 /// same <see cref="IStoreMaintenance.GetStatusAsync"/>: database file + WAL against the cap, Warning from 80 %, Error
 /// above it; Error below 1 GiB free) – two definitions of one check would make it flap every hour.
@@ -58,6 +59,12 @@ public sealed partial class StorageGuardJob : IWatchdogJob
         }
 
         var now = _timeProvider.GetUtcNow();
+        var logons = await _maintenance.PurgeLogonRecordsAsync(retention.LogonRecordsHours, now, cancellationToken).ConfigureAwait(false);
+        if (logons > 0)
+        {
+            Log.LogonRecordsPurged(_logger, logons, retention.LogonRecordsHours);
+        }
+
         var status = await _maintenance.GetStatusAsync(cancellationToken).ConfigureAwait(false);
         var free = StorageHealth.FreeCheck(status, now);
         if (free.State != HealthState.Ok)
@@ -75,6 +82,9 @@ public sealed partial class StorageGuardJob : IWatchdogJob
         [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Warning,
             Message = "Database size cap ({MaxMb} MB) reached: purged {SecurityEvents} security event(s) and {Outbox} dead outbox message(s).")]
         public static partial void SizeCapPurged(ILogger logger, int securityEvents, int outbox, int maxMb);
+
+        [LoggerMessage(Level = LogLevel.Debug, Message = "Retention: purged {Count} logon record(s) older than {Hours} hours.")]
+        public static partial void LogonRecordsPurged(ILogger logger, int count, int hours);
 
         [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Error, Message = "Low disk space on the data volume: {FreeMb} MiB free.")]
         public static partial void LowDiskSpace(ILogger logger, long freeMb);

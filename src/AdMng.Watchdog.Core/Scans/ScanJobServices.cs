@@ -27,4 +27,8 @@ internal sealed record ScanJobServices
 
     /// <summary>Null when the host registers no Security-log reader (password-spray detection unavailable).</summary>
     public ISecurityEventSource? SecurityEvents { get; init; }
+
+    /// <summary>Collector mode (stage B design 7.8): the stored failure records the password-spray detector reads instead
+    /// of querying the PDC's log.</summary>
+    public ISecurityEventLookup? SecurityEventLookup { get; init; }
 }

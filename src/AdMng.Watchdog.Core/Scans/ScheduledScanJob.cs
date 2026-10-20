@@ -43,7 +43,8 @@ public sealed class ScheduledScanJob : IWatchdogJob
         _passwordExpiry = new PasswordExpiryScanner(evaluator, services.Notices, services.Calendar);
         _lockouts = new LockoutMonitor(_writer, services.LockoutPolicies);
         _bursts = new BurstDetector(services.Events, _writer, services.Suggestions);
-        _spray = new PasswordSprayDetector(services.SecurityEvents, services.Events, _writer, services.DomainControllers, services.Time, logger);
+        _spray = new PasswordSprayDetector(services.SecurityEvents, services.Events, _writer, services.DomainControllers, services.Time, logger,
+            services.SecurityEventLookup);
     }
 
     public string Name => JobName;

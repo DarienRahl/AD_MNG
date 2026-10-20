@@ -335,24 +335,8 @@ public sealed partial class SecurityLogIngestor(
                 continue;
             }
 
-            var computer = HostNames.Normalize(record.Event.Computer);
-            tracker.RecordComputerName(computer, record.Event.Computer);
-            if (EventLogGapDetector.ReasonOf(record.Event) is { } reason)
-            {
-                if (reason is EventLogGapDetector.LogCleared or EventLogGapDetector.LogFull)
-                {
-                    tracker.RecordOverwritten(computer, record.Event.TimeCreated);
-                }
-                else if (reason == EventLogGapDetector.ServiceShutdown)
-                {
-                    tracker.RecordShutdown(computer, record.Event.TimeCreated);   // logon ids restart (LogonSourceResolver cache)
-                }
-
-                await AddAsync(pass, gaps.Gap(computer, reason, context.Domain, record.Event), cancellationToken).ConfigureAwait(false);
-            }
-
-            if (await eventLogOnly.DetectAsync(record.Event, context.Domain, cancellationToken).ConfigureAwait(false) is { } detected
-                && !context.DisabledKinds.Contains(detected.Kind))
+            tracker.RecordComputerName(HostNames.Normalize(record.Event.Computer), record.Event.Computer);
+            foreach (var detected in await DetectAsync(record.Event, context, cancellationToken).ConfigureAwait(false))
             {
                 await AddAsync(pass, detected, cancellationToken).ConfigureAwait(false);
             }
@@ -371,6 +355,41 @@ public sealed partial class SecurityLogIngestor(
             Malformed = pass.Result.Malformed + malformed,
         };
         return new ProcessedPage(batch, maxRecordId, maxTime);
+    }
+
+    /// <summary>
+    /// The detections of one accepted record (also used by the collector path, stage B design 7.5): the HealthEventLogGap of
+    /// an event-log service record (1102/1104 mark the DC's log as overwritten from that time, 1100 records a shutdown –
+    /// logon ids restart) and the event-log-only detection unless its kind is disabled. Not yet appended.
+    /// </summary>
+    internal async Task<IReadOnlyList<WatchEvent>> DetectAsync(SecurityEvent record, IngestionContext context, CancellationToken cancellationToken)
+    {
+        var detections = new List<WatchEvent>(1);
+        var computer = HostNames.Normalize(record.Computer);
+        if (EventLogGapDetector.ReasonOf(record) is { } reason)
+        {
+            if (reason is EventLogGapDetector.LogCleared or EventLogGapDetector.LogFull)
+            {
+                tracker.RecordOverwritten(computer, record.TimeCreated);
+            }
+            else if (reason == EventLogGapDetector.ServiceShutdown)
+            {
+                tracker.RecordShutdown(computer, record.TimeCreated);   // logon ids restart (LogonSourceResolver cache)
+            }
+
+            if (gaps.Gap(computer, reason, context.Domain, record) is { } gap)
+            {
+                detections.Add(gap);
+            }
+        }
+
+        if (await eventLogOnly.DetectAsync(record, context.Domain, cancellationToken).ConfigureAwait(false) is { } detected
+            && !context.DisabledKinds.Contains(detected.Kind))
+        {
+            detections.Add(detected);
+        }
+
+        return detections;
     }
 
     private async Task<List<string>> ReadPageAsync(string host, SecurityEventQuery query, CancellationToken cancellationToken)

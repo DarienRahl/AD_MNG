@@ -15,6 +15,9 @@ Usage: admng-watchdog COMMAND
   --check-config            validate appsettings.json and the stored configuration (exit 0 / 2)
   --health                  GET /healthz on the configured listener (exit 0 / 1)
   --smoke-test              self-test with a temporary data folder and loopback HTTP (exit 0 / 1)
+  print-wec-subscription --dc 'DC01$@CONTOSO.COM' [--dc …] [--query-only]
+                            the OpenWEC subscription admng-dc-security with the configured uuid (stdout); --query-only
+                            prints just the QueryList for Get-WinEvent -FilterXml on the DCs
   cert-fingerprint          print the SHA-256 fingerprint of the TLS certificate
   cert-renew-self-signed    replace the self-signed TLS certificate (root; confirm the new fingerprint in AD Manager)
   reset-secrets-key         new Data Protection key credential after a restore onto another host (root; stored
@@ -74,6 +77,10 @@ reset_secrets_key() {
 case "${1:-}" in
     --check-config|--health|--smoke-test)
         run_as_service "$1"
+        ;;
+    print-wec-subscription)
+        # Reads only Watchdog:Collector of appsettings.json (7.3) – works with the shipped placeholders.
+        run_as_service "$@"
         ;;
     cert-fingerprint)
         admng_print_fingerprint "$(admng_certificate_path)"

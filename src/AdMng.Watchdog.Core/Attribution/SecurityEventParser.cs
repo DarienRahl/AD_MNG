@@ -84,6 +84,7 @@ public sealed class SecurityEventParser
         _ = int.TryParse(system.Element(Ns + "Version")?.Value, NumberStyles.None, CultureInfo.InvariantCulture, out var version);
         var provider = system.Element(Ns + "Provider")?.Attribute("Name")?.Value ?? string.Empty;
         var data = ReadData(root, eventCode);
+        var channel = Clean(system.Element(Ns + "Channel")?.Value)?.Trim();
         record = new ParsedSecurityRecord(provider, new SecurityEvent
         {
             Source = source,
@@ -93,7 +94,7 @@ public sealed class SecurityEventParser
             Version = version,
             TimeCreated = timeCreated,
             Data = data,
-        });
+        }, string.IsNullOrEmpty(channel) ? null : channel);
         return true;
     }
 

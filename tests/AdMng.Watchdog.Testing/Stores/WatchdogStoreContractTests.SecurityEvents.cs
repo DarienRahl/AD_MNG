@@ -128,6 +128,44 @@ public abstract partial class WatchdogStoreContractTests<TStore>
         Assert.Null(await store.GetLastSeenAsync(Dc02, 4738, Ct));
     });
 
+    [Fact]
+    public Task SecurityEvents_AreUniquePerComputerRecordAndTime() => WithStoreAsync(async store =>
+    {
+        // Migration 0004: a cleared log restarts its record numbers – the same number at another time is another record;
+        // OpenWEC delivering a record twice is ignored.
+        var original = SecurityRecord(Dc01, 7, 4724, Now);
+        await store.AppendAsync([original, original, SecurityRecord(Dc01, 7, 4725, Now.AddHours(2))], Cursor("wec:DC01@CONTOSO.TEST", 1), Ct);
+        await store.AppendAsync([original with { EventCode = 4720 }], Cursor("wec:DC01@CONTOSO.TEST", 2), Ct);
+
+        var all = await store.FindAsync(new SecurityEventCriteria { From = Now.AddDays(-1), To = Now.AddDays(1) }, Ct);
+
+        Assert.Equal([4724, 4725], all.Select(e => e.EventCode));
+    });
+
+    [Fact]
+    public Task SecurityEvents_FindTheLogonSessionByItsNormalizedLogonId() => WithStoreAsync(async store =>
+    {
+        await store.AppendAsync(
+        [
+            SecurityRecord(Dc01, 1, 4624, Now.AddMinutes(-30), ("TargetLogonId", "0x0005A3F1"), ("TargetUserName", "adm.łukasz"), ("LogonType", "3")),
+            SecurityRecord(Dc02, 2, 4624, Now.AddMinutes(-20), ("TargetLogonId", "0x5a3f1"), ("TargetUserName", "inny"), ("LogonType", "3")),
+            SecurityRecord(Dc01, 3, 4625, Now.AddMinutes(-10), ("TargetUserName", "adm.łukasz"), ("Status", "0xc000006d")),
+            SecurityRecord(Dc01, 4, 4724, Now.AddMinutes(-5), ("SubjectLogonId", "0x5a3f1"), ("TargetUserName", "zofia")),
+        ], Cursor("wec:DC01@CONTOSO.TEST", 4), Ct);
+
+        var logon = Assert.Single(await store.FindAsync(new SecurityEventCriteria
+        {
+            EventCodes = [4624], Computer = Dc01, LogonId = "0x5A3F1", From = Now.AddHours(-1), To = Now,
+        }, Ct));
+        var failures = await store.FindAsync(new SecurityEventCriteria
+        {
+            EventCodes = [4625, 4771, 4776], TargetUserName = "ADM.ŁUKASZ", From = Now.AddHours(-1), To = Now,
+        }, Ct);
+
+        Assert.Equal(1, logon.RecordId);
+        Assert.Equal(3, Assert.Single(failures).RecordId);
+    });
+
     private static SecurityEvent SecurityRecord(string computer, long recordId, int eventCode, DateTimeOffset time, params (string Name, string Value)[] data) => new()
     {
         Source = computer,

@@ -1,0 +1,21 @@
+Package: admng-openwec
+Version: @VERSION@
+Architecture: amd64
+Maintainer: AD_MNG contributors <admng-watchdog@contoso.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: @SHLIBS_DEPENDS@, systemd (>= 252), util-linux
+Provides: openwec
+Conflicts: openwec
+Replaces: openwec
+Section: admin
+Priority: optional
+Homepage: https://github.com/cea-sec/openwec
+Description: OpenWEC Windows Event Collector for AdMng Watchdog
+ OpenWEC (CEA-SEC) receives Windows Event Forwarding (WinRM, Kerberos) from the
+ domain controllers and writes the events as RawJson files that AdMng Watchdog
+ reads. Built from the pinned upstream commit @UPSTREAM_SHORT@ with a hardened
+ systemd unit (openwecd.service), the AdMng configuration and the system user
+ openwec.
+ .
+ OpenWEC is free software under the GNU GPL version 3; the complete source code
+ is published next to this package (see /usr/share/doc/admng-openwec/copyright).

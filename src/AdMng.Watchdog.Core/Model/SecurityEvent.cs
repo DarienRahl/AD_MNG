@@ -36,21 +36,25 @@ public sealed record SecurityEvent
     }
 
     /// <summary>SubjectLogonId normalized to "0x…" lower-case hex without leading zeros; null when absent or not hex.</summary>
-    public string? SubjectLogonId
-    {
-        get
-        {
-            var value = Get("SubjectLogonId")?.Trim();
-            if (string.IsNullOrEmpty(value))
-            {
-                return null;
-            }
+    public string? SubjectLogonId => NormalizeLogonId(Get("SubjectLogonId"));
 
-            var hex = value.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? value[2..] : value;
-            return ulong.TryParse(hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var logonId)
-                ? "0x" + logonId.ToString("x", CultureInfo.InvariantCulture)
-                : null;
+    /// <summary>4624 TargetLogonId normalized like <see cref="SubjectLogonId"/> (collector mode: the stored lookup key of
+    /// the logon session, stage B design 7.7).</summary>
+    public string? TargetLogonId => NormalizeLogonId(Get("TargetLogonId"));
+
+    /// <summary>A logon id as "0x…" lower-case hex without leading zeros; null when empty or not hex.</summary>
+    public static string? NormalizeLogonId(string? value)
+    {
+        var trimmed = value?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return null;
         }
+
+        var hex = trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? trimmed[2..] : trimmed;
+        return ulong.TryParse(hex, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var logonId)
+            ? "0x" + logonId.ToString("x", CultureInfo.InvariantCulture)
+            : null;
     }
 
     public string? TargetSid => Get("TargetSid");

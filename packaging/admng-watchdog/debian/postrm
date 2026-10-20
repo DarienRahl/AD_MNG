@@ -3,7 +3,7 @@
 # and credential, but KEEPS the history in /var/lib/admng-watchdog (ADR-0008, decommissioning in the instructions).
 set -e
 
-UNITS="admng-watchdog.service admng-watchdog-keytab.timer"
+UNITS="admng-watchdog.service admng-watchdog-keytab.timer admng-wec-rotate.timer"
 
 case "$1" in
     remove)

@@ -2,3 +2,4 @@
 /etc/admng-watchdog/krb5.conf
 /etc/admng-watchdog/ldap.conf
 /etc/admng-watchdog/smb-client.conf
+/etc/default/admng-wec-rotate

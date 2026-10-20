@@ -5,7 +5,23 @@ using System.Runtime.Versioning;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>Owner, group and mode of a path (<c>lstat</c>: a symbolic link is reported as such, not followed).</summary>
-public sealed record PosixFileStatus(uint Uid, uint Gid, UnixFileMode Mode, bool IsDirectory, bool IsSymbolicLink);
+public sealed record PosixFileStatus(uint Uid, uint Gid, UnixFileMode Mode, bool IsDirectory, bool IsSymbolicLink)
+{
+    /// <summary><c>st_dev</c>.</summary>
+    public ulong Device { get; init; }
+
+    /// <summary><c>st_ino</c>.</summary>
+    public ulong Inode { get; init; }
+
+    /// <summary><c>st_size</c>.</summary>
+    public long Size { get; init; }
+
+    /// <summary><c>st_mtim</c> (seconds).</summary>
+    public DateTimeOffset ModifiedAt { get; init; }
+
+    /// <summary>A regular file (<c>S_IFREG</c>).</summary>
+    public bool IsRegularFile { get; init; }
+}
 
 /// <summary>
 /// The POSIX start-up checks of the Linux service (stage B design 11), replacing <see cref="DataDirectoryAcl"/> and
@@ -62,6 +78,47 @@ public static partial class PosixPermissionCheck
             return errno == ENOENT ? null : throw new IOException("lstat failed (errno " + errno.ToString(CultureInfo.InvariantCulture) + ").");
         }
 
+        return FromBuffer(buffer);
+    }
+
+    /// <summary><c>fstat</c> of an open file: the identity of what was actually opened (no race with a rename).</summary>
+    /// <exception cref="IOException">The status could not be read.</exception>
+    public static PosixFileStatus FStat(Microsoft.Win32.SafeHandles.SafeFileHandle handle)
+    {
+        ArgumentNullException.ThrowIfNull(handle);
+        Span<byte> buffer = stackalloc byte[256];
+        buffer.Clear();
+        int result;
+        var added = false;
+        try
+        {
+            handle.DangerousAddRef(ref added);
+            unsafe
+            {
+                fixed (byte* pointer = buffer)
+                {
+                    result = FStatNative((int)handle.DangerousGetHandle(), pointer);
+                }
+            }
+        }
+        finally
+        {
+            if (added)
+            {
+                handle.DangerousRelease();
+            }
+        }
+
+        if (result != 0)
+        {
+            throw new IOException("fstat failed (errno " + Marshal.GetLastPInvokeError().ToString(CultureInfo.InvariantCulture) + ").");
+        }
+
+        return FromBuffer(buffer);
+    }
+
+    private static PosixFileStatus FromBuffer(ReadOnlySpan<byte> buffer)
+    {
         // struct stat: x86_64 st_mode @24, st_uid @28, st_gid @32; aarch64 (asm-generic) st_mode @16, st_uid @24, st_gid @28.
         var (modeOffset, uidOffset, gidOffset) = RuntimeInformation.ProcessArchitecture switch
         {
@@ -71,12 +128,21 @@ public static partial class PosixPermissionCheck
         };
         var mode = BitConverter.ToUInt32(buffer.Slice(modeOffset, 4));
         var type = mode & 0xF000;
+
+        // Both layouts: st_dev @0, st_ino @8, st_size @48, st_mtim.tv_sec @88.
         return new PosixFileStatus(
             BitConverter.ToUInt32(buffer.Slice(uidOffset, 4)),
             BitConverter.ToUInt32(buffer.Slice(gidOffset, 4)),
             (UnixFileMode)(mode & 0xFFF),
             IsDirectory: type == 0x4000,
-            IsSymbolicLink: type == 0xA000);
+            IsSymbolicLink: type == 0xA000)
+        {
+            Device = BitConverter.ToUInt64(buffer[..8]),
+            Inode = BitConverter.ToUInt64(buffer.Slice(8, 8)),
+            Size = BitConverter.ToInt64(buffer.Slice(48, 8)),
+            ModifiedAt = DateTimeOffset.FromUnixTimeSeconds(BitConverter.ToInt64(buffer.Slice(88, 8))),
+            IsRegularFile = type == 0x8000,
+        };
     }
 
     /// <summary>True when <paramref name="path"/> carries POSIX ACL entries (<c>system.posix_acl_access</c>).</summary>
@@ -319,6 +385,9 @@ public static partial class PosixPermissionCheck
 
     [LibraryImport("libc", EntryPoint = "lstat", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static unsafe partial int LStat(string path, byte* buffer);
+
+    [LibraryImport("libc", EntryPoint = "fstat", SetLastError = true)]
+    private static unsafe partial int FStatNative(int fd, byte* buffer);
 
     [LibraryImport("libc", EntryPoint = "lgetxattr", StringMarshalling = StringMarshalling.Utf8, SetLastError = true)]
     private static partial nint LGetXattr(string path, string name, IntPtr value, UIntPtr size);

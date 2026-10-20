@@ -4,7 +4,7 @@ using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Tests.Attribution.Fakes;
 
-/// <summary>In-memory <see cref="ISecurityEventStore"/> (duplicates by computer + record id ignored, criteria applied
+/// <summary>In-memory <see cref="ISecurityEventStore"/> (duplicates by computer + record id + time ignored, criteria applied
 /// like the SQLite store: codes, computer, time window, strong and weak keys, limit).</summary>
 internal sealed class FakeSecurityEventStore : ISecurityEventStore
 {
@@ -33,7 +33,8 @@ internal sealed class FakeSecurityEventStore : ISecurityEventStore
         {
             foreach (var e in events)
             {
-                if (!_events.Any(x => string.Equals(x.Computer, e.Computer, StringComparison.OrdinalIgnoreCase) && x.RecordId == e.RecordId))
+                if (!_events.Any(x => string.Equals(x.Computer, e.Computer, StringComparison.OrdinalIgnoreCase) && x.RecordId == e.RecordId
+                    && x.TimeCreated.ToUnixTimeMilliseconds() == e.TimeCreated.ToUnixTimeMilliseconds()))
                 {
                     _events.Add(e);
                 }
@@ -92,6 +93,7 @@ internal sealed class FakeSecurityEventStore : ISecurityEventStore
                 .Where(e => criteria.MemberSid is null || string.Equals(e.Get("MemberSid"), criteria.MemberSid, StringComparison.OrdinalIgnoreCase))
                 .Where(e => criteria.TargetUserName is null || string.Equals(e.Get("TargetUserName"), criteria.TargetUserName, StringComparison.OrdinalIgnoreCase))
                 .Where(e => criteria.ObjectDn is null || DistinguishedName.AreEqual(e.Get("ObjectDN"), criteria.ObjectDn))
+                .Where(e => criteria.LogonId is null || (e.EventCode == 4624 && e.TargetLogonId == SecurityEvent.NormalizeLogonId(criteria.LogonId)))
                 .OrderBy(e => e.TimeCreated)
                 .Take(criteria.Limit)];
             return Task.FromResult(found);

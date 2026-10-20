@@ -51,14 +51,16 @@ cp -a "$publish"/. "$lib"/
 # Windows-only and development files do not ship in the Linux package.
 rm -rf "$lib/Deploy" "$lib/appsettings.Development.json" "$lib"/*.pdb "$lib"/*.xml
 install -m 0644 "$src/bin/admng-watchdog-functions" "$lib/admng-watchdog-functions"
+# Rotation and clean-up of the OpenWEC output files (7.4, 12.4), run by admng-wec-rotate.service.
+install -m 0755 "$src/bin/wec-rotate" "$lib/wec-rotate"
 # Native libraries ship stripped (lintian unstripped-binary-or-object); the apphost is left as published.
 find "$lib" -name '*.so' -exec strip --strip-unneeded {} +
 
 install -D -m 0755 "$src/bin/admng-watchdog" "$stage/usr/sbin/admng-watchdog"
 # The keytab tool (4.4) is run by root: /usr/sbin/admng-watchdog-keytab → the apphost in /usr/lib/admng-watchdog.
 ln -s ../lib/admng-watchdog/admng-watchdog-keytab "$stage/usr/sbin/admng-watchdog-keytab"
-# B4 adds admng-wec-rotate.service/.timer together with its wec-rotate binary.
-for unit in admng-watchdog.service admng-watchdog-failed.service admng-watchdog-keytab.service admng-watchdog-keytab.timer; do
+for unit in admng-watchdog.service admng-watchdog-failed.service admng-watchdog-keytab.service admng-watchdog-keytab.timer \
+            admng-wec-rotate.service admng-wec-rotate.timer; do
     install -D -m 0644 "$src/systemd/$unit" "$stage/usr/lib/systemd/system/$unit"
 done
 install -D -m 0644 "$src/sysusers.d/admng-watchdog.conf" "$stage/usr/lib/sysusers.d/admng-watchdog.conf"
@@ -67,6 +69,7 @@ install -D -m 0640 "$src/etc/appsettings.json" "$stage/etc/admng-watchdog/appset
 for conf in krb5.conf ldap.conf smb-client.conf; do
     install -D -m 0644 "$src/etc/$conf" "$stage/etc/admng-watchdog/$conf"
 done
+install -D -m 0644 "$src/default/admng-wec-rotate" "$stage/etc/default/admng-wec-rotate"
 install -D -m 0644 "$src/nftables/admng-watchdog.nft" "$stage/usr/share/admng-watchdog/nftables/admng-watchdog.nft"
 
 doc="$stage/usr/share/doc/admng-watchdog"
@@ -78,7 +81,7 @@ chmod 0644 "$doc/changelog.Debian.gz"
 # Normalised modes: directories 0755, files 0644, executables 0755 (the apphost and the wrapper).
 find "$stage" -type d -exec chmod 0755 {} +
 find "$lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$lib/AdMng.Watchdog" "$lib/admng-watchdog-keytab"
+chmod 0755 "$lib/AdMng.Watchdog" "$lib/admng-watchdog-keytab" "$lib/wec-rotate"
 
 control="$stage/DEBIAN"
 mkdir -p "$control"

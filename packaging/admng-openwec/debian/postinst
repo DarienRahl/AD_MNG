@@ -1,0 +1,74 @@
+#!/bin/sh
+# admng-openwec postinst (docs/dev/watchdog-linux-design.md 7.1, 13.2): user, folders, database, subscription, unit.
+set -e
+
+CONF=/etc/openwec.conf.toml
+SUBS=/etc/openwec/subscriptions
+SUBSCRIPTION=$SUBS/admng-dc-security.toml
+DB=/var/lib/openwec/db/openwec.sqlite
+
+as_openwec() {
+    (umask 027 && /usr/bin/setpriv --reuid=openwec --regid=openwec --init-groups --inh-caps=-all -- "$@")
+}
+
+load_subscription() {
+    [ -f "$SUBSCRIPTION" ] || { echo "admng-openwec: no $SUBSCRIPTION yet (admng-watchdog print-wec-subscription, WATCHDOG-LINUX 4.4)."; return 0; }
+    if grep -qi 'contoso\.com' "$SUBSCRIPTION"; then
+        echo "admng-openwec: $SUBSCRIPTION still holds the example names (CONTOSO.COM) - not loaded."
+        return 0
+    fi
+    # The pinned OpenWEC loads every file below a directory regardless of its extension (7.1): refuse when anything else
+    # is there - a .dpkg-dist, a backup or a second copy with the same uuid would replace the live subscription.
+    others=$(find "$SUBS" -mindepth 1 ! -path "$SUBSCRIPTION" -print -quit)
+    if [ -n "$others" ]; then
+        echo "admng-openwec: $SUBS holds other files besides admng-dc-security.toml ($others) - subscription not loaded; remove them and run:"
+        echo "  sudo -u openwec openwec -c $CONF subscriptions load -y $SUBSCRIPTION"
+        return 0
+    fi
+    if as_openwec /usr/bin/openwec -c "$CONF" subscriptions load -y "$SUBSCRIPTION"; then
+        echo "admng-openwec: subscription admng-dc-security loaded."
+    else
+        echo "admng-openwec: loading $SUBSCRIPTION failed - check it with: sudo -u openwec openwec -c $CONF subscriptions load -y $SUBSCRIPTION" >&2
+    fi
+}
+
+case "$1" in
+    configure)
+        systemd-sysusers admng-openwec.conf
+        systemd-tmpfiles --create admng-openwec.conf
+        chown root:openwec "$CONF"
+        chmod 0640 "$CONF"
+        install -d -m 0755 -o root -g root /etc/openwec "$SUBS"
+        if [ -f "$DB" ]; then
+            as_openwec /usr/bin/openwec -c "$CONF" db upgrade > /dev/null
+        else
+            as_openwec /usr/bin/openwec -c "$CONF" db init > /dev/null
+        fi
+        load_subscription
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        # Removes only masks created by deb-systemd-helper on removal; was-enabled defaults to true on first install.
+        deb-systemd-helper unmask openwecd.service >/dev/null || true
+        if deb-systemd-helper --quiet was-enabled openwecd.service; then
+            deb-systemd-helper enable openwecd.service >/dev/null || true
+        else
+            deb-systemd-helper update-state openwecd.service >/dev/null || true
+        fi
+        if [ -n "$2" ] && [ -d /run/systemd/system ]; then
+            deb-systemd-invoke try-restart openwecd.service >/dev/null || true
+        elif [ -z "$2" ]; then
+            echo "admng-openwec: openwecd.service is enabled; it starts once /etc/admng-watchdog/admng-wd.keytab exists"
+            echo "  (edit $CONF: hostname and service_principal_name; the DC addresses go to"
+            echo "   /etc/systemd/system/openwecd.service.d/admng-dcs.conf as IPAddressAllow=; WATCHDOG-LINUX 4.3/4.4)."
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+    *)
+        echo "postinst called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

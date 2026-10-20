@@ -16,6 +16,7 @@ w prawdziwej domenie.
 | `lab-scenario.sh` | scenariusz demonstracyjny w `OU=WatchdogDemo` (Zofia Żak, Łukasz Wiśniewski, Paweł Lewandowski, Grażyna Dąbrowska); `--verify` sprawdza zdarzenia w API, e-maile w Mailpit i podpisy w odbiorniku; `--cleanup` usuwa OU |
 | `krb5-lab.sh` | ręczne próby Negotiate (testy go nie używają): konto usługi z SPN `HTTP/localhost` w `OU=WatchdogKerberos`, keytab (`samba-tool domain exportkeytab`) i prywatny `krb5.conf`; `--cleanup` |
 | `keytab-lab.sh` | środowisko Kerberos dla narzędzia `admng-watchdog-keytab`, LDAP przez SASL GSSAPI i API z Negotiate (`KeytabLabTests`, `KerberosNegotiateTests`): prywatne `krb5.conf` i `ldap.conf` (jak w pakiecie), zmienne `KRB5_*`, `LDAPCONF`; `env [--admin]`, `cleanup` |
+| `wec-units-lab.sh` | etap B4: pakiety `admng-openwec` i `admng-watchdog` w uprzywilejowanym kontenerze z systemd jako PID 1 – `openwecd.service` w swojej piaskownicy z keytabem świeżego konta (własne OU, usuwane na końcu; `admng-watchdog-keytab init` z pakietu) przyjmuje SPNEGO z hosta, nie pisze logu dostępu; prawdziwa jednostka `admng-wec-rotate.service`: zmiana nazwy, przeładowanie `openwecd`, usuwanie tylko przeczytanych plików, `MAX_UNCONSUMED_DAYS`, przebieg przy zatrzymanej usłudze |
 | `common.sh` | wspólne ustawienia i funkcje (dołączany przez pozostałe skrypty) |
 
 Wymagania: laboratorium z `tools/testlab/setup-samba-dc.sh`, .NET SDK 10, `ldap-utils`, `curl`, `jq`, `openssl`,
@@ -126,6 +127,26 @@ Zmienne muszą być w środowisku procesu testów (libkrb5, libldap i Cyrus SASL
 i rozwiązywalnej nazwy DC – patrz [`../README.md`](../README.md) („Kerberos (SASL GSSAPI) przez LDAP”). Samba zwalnia
 konto komputera z minimalnego wieku hasła, więc ścieżki `otpActive` nie da się tu wywołać (sprawdzają ją testy
 jednostkowe); jeden DC – opóźnienie replikacji test symuluje drugim, nieosiągalnym KDC w `krb5.conf`.
+
+## Kolektor WEF (OpenWEC)
+
+Etap B4 (`docs/dev/watchdog-linux-design.md` 7, 12.2, 12.4): `OpenWecLabTests` uruchamia `openwecd` z przypiętego
+commitu OpenWEC z konfiguracją pakietu (`packaging/admng-openwec/etc/openwec.conf.toml`) i keytabem świeżego konta
+(`admng-watchdog-keytab init`), ładuje subskrypcję z `print-wec-subscription` prawdziwym CLI `openwec` i sprawdza, że
+bilety dla `HTTP/` i `host/` konta są przyjmowane (schematy `Kerberos` i `Negotiate`, token wzajemnego uwierzytelnienia),
+a żądanie bez biletu i bilet innej usługi – nie. `openwecd` buduje `tools/packaging/build-openwec-deb.sh` (w CI dla
+Debiana 12 i 13) albo `cargo build --release --locked` w klonie z commitu `86de07f`.
+
+```bash
+export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
+eval "$(tools/testlab/watchdog/keytab-lab.sh env)"
+export ADMNG_TEST_OPENWECD=/ścieżka/do/openwec/target/release/openwecd   # obok niego binarka openwec
+dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~OpenWecLabTests"
+
+# jednostki pod systemd (obraz z systemd >= 252 i aspnetcore-runtime-10.0, np. obraz laboratorium B1)
+eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"
+tools/testlab/watchdog/wec-units-lab.sh <obraz> admng-openwec_<wersja>_amd64.deb admng-watchdog_<wersja>_amd64.deb
+```
 
 ## Testy integracyjne
 

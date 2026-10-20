@@ -13,22 +13,30 @@ namespace AdMng.Watchdog.Core.Tests.Attribution;
 /// <see cref="TestEvents.Now"/>).</summary>
 internal sealed class AttributionHarness : IDisposable
 {
-    public AttributionHarness(WatchdogConfiguration? configuration = null)
+    /// <param name="configuration">The runtime configuration (default: the record defaults – source OpenWec).</param>
+    /// <param name="collector">Collector mode (stage B design 7.8): a WEF collector is available, the logon and failure
+    /// lookups read the stored records; otherwise OpenWec falls back to the live DC-log queries of the fake source.</param>
+    public AttributionHarness(WatchdogConfiguration? configuration = null, bool collector = false)
     {
         Config = new FakeConfigProvider(configuration ?? new WatchdogConfiguration());
+        Collector = new FakeCollector { IsAvailable = collector };
+        Lookup = new StoredSecurityEventLookup(SecurityStore, Collector);
         Tracker = new DcLogHealthTracker(Time);
         Gate = new SourceQueryGate(Tracker, Time);
         Actors = new ActorResolver(Detection, new FakeSyncAccounts(TestEvents.SyncSid));
         Processor = new PendingAttributionProcessor(
             new AttributionCorrelator(SecurityStore),
             Actors,
-            new LogonSourceResolver(Source, Gate, Dns, Time, Tracker),
-            new LockoutSourceResolver(SecurityStore, Source, Gate, DomainControllers, new FixedLockoutPolicy(TimeSpan.FromMinutes(30))),
+            new LogonSourceResolver(Source, Gate, Dns, Time, Tracker, Lookup),
+            new LockoutSourceResolver(SecurityStore, Source, Gate, DomainControllers, new FixedLockoutPolicy(TimeSpan.FromMinutes(30)), Lookup),
             new UnresolvedReasonResolver(SecurityStore, Tracker, Time),
             new PrivilegeAttributionInheritor(Events),
             Tracker,
             Time);
-        var gaps = new EventLogGapDetector(Time);
+        Gaps = new EventLogGapDetector(Time);
+        Reductions = new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), Tokens,
+            new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(Config));
+        var gaps = Gaps;
         Rules = new AdMng.Watchdog.Core.Rules.RuleEngine(Config, Tokens, Time);
         Engine = new AttributionEngine(
             Config,
@@ -36,9 +44,9 @@ internal sealed class AttributionHarness : IDisposable
             Events,
             Queue,
             DomainControllers,
-            new AttributionSourceResolver(DomainControllers, Health, Time),
-            new SecurityEventReductionFactory(new FakeSessionProvider(new AdMng.Testing.FakeDirectorySession()), Tokens, new AdMng.Watchdog.Core.Detection.WatchedAttributeCatalog(Config)),
-            new SecurityLogIngestor(Source, SecurityStore, Events, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
+            new AttributionSourceResolver(DomainControllers, Health, Time, Collector),
+            Reductions,
+            Ingestor = new SecurityLogIngestor(Source, SecurityStore, Events, new SecurityEventParser(), gaps, new EventLogOnlyDetector(Actors, Time), Tracker, Health, Time,
                 NullLogger<SecurityLogIngestor>.Instance),
             Processor,
             Tracker,
@@ -51,8 +59,25 @@ internal sealed class AttributionHarness : IDisposable
             Rules,
             [Planner],
             Time,
-            NullLogger<AttributionEngine>.Instance);
+            NullLogger<AttributionEngine>.Instance,
+            Collector);
+        CollectorIngestor = new CollectorIngestor(Ingestor, Events, gaps, Tracker);
     }
+
+    /// <summary>The WEF collector (available in collector mode).</summary>
+    public FakeCollector Collector { get; }
+
+    /// <summary>The stored-record lookups of collector mode.</summary>
+    public StoredSecurityEventLookup Lookup { get; }
+
+    public EventLogGapDetector Gaps { get; }
+
+    public SecurityLogIngestor Ingestor { get; }
+
+    /// <summary>The Core part of the WEF tailer over the same stores.</summary>
+    public CollectorIngestor CollectorIngestor { get; }
+
+    public SecurityEventReductionFactory Reductions { get; }
 
     /// <summary>The rule engine of the re-evaluation after attribution (shared with a rules job in race tests).</summary>
     public AdMng.Watchdog.Core.Rules.RuleEngine Rules { get; }

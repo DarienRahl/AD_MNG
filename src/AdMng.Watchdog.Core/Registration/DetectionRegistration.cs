@@ -108,6 +108,7 @@ internal static class DetectionRegistration
             HostOptions = services.GetRequiredService<DetectionHostOptions>(),
             WatchdogAccount = services.GetRequiredService<IWatchdogAccountSource>(),
             SecurityEvents = services.GetService<ISecurityEventSource>(),
+            SecurityEventLookup = services.GetService<ISecurityEventLookup>(),
         },
         Logger<ScheduledScanJob>(services));
 

@@ -273,6 +273,20 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
         return (pages - free) * size;
     }
 
+    /// <summary>
+    /// Collector mode (stage B design 7.7): the logon and failure records (4624, 4625, 4771, 4776) older than
+    /// <paramref name="hours"/> – run hourly by <see cref="StorageGuardJob"/>, in batches of <see cref="BatchSize"/> (with
+    /// <c>secure_delete</c>). Returns the deleted rows.
+    /// </summary>
+    public Task<int> PurgeLogonRecordsAsync(int hours, DateTimeOffset now, CancellationToken cancellationToken) =>
+        DeleteInBatchesAsync(
+            "security_events",
+            "rowid",
+            string.Create(CultureInfo.InvariantCulture,
+                $"event_code IN ({string.Join(", ", AdMng.Watchdog.Core.Attribution.SecurityEventCatalog.LogonRecordCodes)}) AND time_created < $cutoff"),
+            SqliteValues.ToUnixMs(now - TimeSpan.FromHours(Math.Max(1, hours))),
+            cancellationToken);
+
     private static long Cutoff(DateTimeOffset now, int days) => SqliteValues.ToUnixMs(now.AddDays(-Math.Max(0, days)));
 
     private static long FileSize(string path) => File.Exists(path) ? new FileInfo(path).Length : 0;

@@ -316,11 +316,51 @@ jobs:
           echo "::error::Could not push to $branch after 3 attempts."
           exit 1
 
+  openwec-package:
+    # admng-openwec (docs/dev/watchdog-linux-design.md 7.1, 13.2, 21 B4): OpenWEC from the pinned upstream commit, built in
+    # the release's Rust image so that it links that release's libssl/libkrb5/libsasl2 (libssl3 vs libssl3t64 in Depends,
+    # from dpkg-shlibdeps). The Debian 13 job also writes the GPL-3.0 corresponding source (upstream tree, vendored crates,
+    # the recipe) – a release asset next to the packages.
+    name: OpenWEC package (Debian ${{ matrix.release }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - release: 12
+            image: mirror.gcr.io/library/rust:slim-bookworm
+          - release: 13
+            image: mirror.gcr.io/library/rust:slim-trixie
+    container: ${{ matrix.image }}
+    steps:
+      - name: Build dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git ca-certificates pkgconf clang make libssl-dev libkrb5-dev libsasl2-dev dpkg-dev binutils xz-utils >/dev/null
+      - uses: actions/checkout@v4
+      - name: Build admng-openwec
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          extra=""
+          if [ "${{ matrix.release }}" = 13 ]; then extra=--source-tarball; fi
+          tools/packaging/build-openwec-deb.sh --release ${{ matrix.release }} --output artifacts/deb $extra
+          dpkg-deb -I artifacts/deb/admng-openwec_*_amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admng-openwec-deb${{ matrix.release }}
+          path: |
+            artifacts/deb/admng-openwec_*.deb
+            artifacts/deb/admng-openwec-*-source.tar.xz
+          retention-days: 14
+
   linux-package:
-    # AdMng Watchdog on Linux (docs/dev/watchdog-linux-design.md 13, 20 item 4, 21 B1): one amd64 .deb for Debian 12 and
-    # 13, installed into plain Debian containers with the Microsoft repository (no systemd as PID 1 there: the units are
-    # checked offline with systemd-analyze verify / security).
+    # AdMng Watchdog on Linux (docs/dev/watchdog-linux-design.md 13, 20 item 4, 21 B1/B4): one amd64 .deb for Debian 12 and
+    # 13, installed together with that release's admng-openwec into plain Debian containers with the Microsoft repository
+    # (no systemd as PID 1 there: the units are checked offline with systemd-analyze verify / security).
     name: Linux package (Debian 12 and 13)
+    needs: openwec-package
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -328,6 +368,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: admng-openwec-deb*
+          path: artifacts/openwec
+          merge-multiple: true
       - name: Build admng-watchdog .deb
         run: tools/packaging/build-deb.sh --output artifacts/deb
       - name: Install test on Debian 12 and 13
@@ -339,16 +384,19 @@ jobs:
           deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
           for release in 12 13; do
             echo "::group::Debian $release"
+            openwec=$(basename artifacts/openwec/admng-openwec_*~deb${release}_amd64.deb)
             docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" "mirror.gcr.io/library/debian:$release" \
-              bash /src/tools/packaging/test-deb-install.sh "/src/artifacts/deb/$deb" /src/packaging/admng-watchdog
+              bash /src/tools/packaging/test-deb-install.sh "/src/artifacts/deb/$deb" /src/packaging/admng-watchdog \
+              "/src/artifacts/openwec/$openwec"
             echo "::endgroup::"
           done
       - name: lintian (Debian 13)
         run: |
           deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
+          openwec=$(basename artifacts/openwec/admng-openwec_*~deb13_amd64.deb)
           docker run --rm -v "$PWD:/src:ro" mirror.gcr.io/library/debian:13 bash -c \
             "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends lintian >/dev/null \
-             && lintian --fail-on error --no-tag-display-limit /src/artifacts/deb/$deb"
+             && lintian --fail-on error --no-tag-display-limit /src/artifacts/deb/$deb /src/artifacts/openwec/$openwec"
       - uses: actions/upload-artifact@v4
         with:
           name: admng-watchdog-deb
