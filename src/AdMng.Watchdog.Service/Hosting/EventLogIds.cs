@@ -37,4 +37,16 @@ public static class EventLogIds
 
     /// <summary>Error: fatal start-up check failed (exit code in the message).</summary>
     public const int FatalStartupCheck = WatchdogEventIds.FatalStartupCheck;
+
+    /// <summary>Information: TLS certificate fingerprint at every start (stage B).</summary>
+    public const int CertificateFingerprint = WatchdogEventIds.CertificateFingerprint;
+
+    /// <summary>Warning/Error: service account or keytab check failed (stage B).</summary>
+    public const int ServiceAccountProblem = WatchdogEventIds.ServiceAccountProblem;
+
+    /// <summary>Warning/Error: WEF collector problem (stage B).</summary>
+    public const int CollectorProblem = WatchdogEventIds.CollectorProblem;
+
+    /// <summary>Warning/Error: GPO content problem (stage B).</summary>
+    public const int GpoContentProblem = WatchdogEventIds.GpoContentProblem;
 }

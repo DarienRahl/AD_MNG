@@ -23,4 +23,16 @@ public static class StartupExitCodes
 
     /// <summary>Development authentication requested where it is never allowed.</summary>
     public const int DevelopmentAuthentication = 7;
+
+    /// <summary>Linux: the service account (<c>ADMNG-WD$</c>) is in a privileged group and
+    /// <c>Watchdog:AllowPrivilegedServiceAccount</c> is not set (stage B design 4.7 item 1).</summary>
+    public const int PrivilegedServiceAccount = 8;
+
+    /// <summary>Linux: production start without the systemd credential <c>$CREDENTIALS_DIRECTORY/dp-key</c> (stage B
+    /// design 10). systemd itself reports <c>243/CREDENTIALS</c> when the credential cannot be decrypted.</summary>
+    public const int MissingCredential = 9;
+
+    /// <summary>Linux: the keytab has the wrong owner, is writable by group/other or not readable by the service (stage B
+    /// design 11 item 3).</summary>
+    public const int Keytab = 10;
 }

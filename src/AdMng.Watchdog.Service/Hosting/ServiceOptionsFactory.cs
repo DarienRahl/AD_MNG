@@ -6,7 +6,8 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// <summary>
 /// Creates <see cref="ServiceOptions"/> from the live (watched) configuration, but pins every setting the host consumed
 /// when it was built to its start-up value: <c>DataDirectory</c>, <c>AllowInsecureDataDirectoryAcl</c>,
-/// <c>Authentication</c>, <c>Hosting</c> except the two subnet lists, <c>Directory</c> and <c>Development</c>. So an edit of
+/// <c>AllowPrivilegedServiceAccount</c>, <c>Authentication</c>, <c>Hosting</c> except the two subnet lists,
+/// <c>Directory</c>, <c>Kerberos</c>, <c>Collector</c>, <c>Retention</c>, <c>Sysvol</c> and <c>Development</c>. So an edit of
 /// the bootstrap file applies <c>Authorization</c> (incl. the emergency revocation <c>DeniedSids</c>),
 /// <c>Notifications</c> and <c>Hosting.AllowedRemoteSubnets</c>/<c>MonitoringSubnets</c> immediately, and never leaves
 /// the running host half-switched (e.g. Kerberos enforcement off while HTTP.sys still runs with its start-up scheme).
@@ -68,6 +69,7 @@ public sealed partial class ServiceOptionsFactory : IOptionsFactory<ServiceOptio
         {
             DataDirectory = startup.DataDirectory,
             AllowInsecureDataDirectoryAcl = startup.AllowInsecureDataDirectoryAcl,
+            AllowPrivilegedServiceAccount = startup.AllowPrivilegedServiceAccount,
             Authentication = startup.Authentication,
             Hosting = (startup.Hosting ?? new HostingOptions()) with
             {
@@ -75,6 +77,10 @@ public sealed partial class ServiceOptionsFactory : IOptionsFactory<ServiceOptio
                 MonitoringSubnets = liveHosting.MonitoringSubnets ?? [],
             },
             Directory = startup.Directory,
+            Kerberos = startup.Kerberos,
+            Collector = startup.Collector,
+            Retention = startup.Retention,
+            Sysvol = startup.Sysvol,
             Development = startup.Development,
         };
     }

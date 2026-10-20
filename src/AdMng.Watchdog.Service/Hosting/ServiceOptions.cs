@@ -16,6 +16,10 @@ public sealed record ServiceOptions
     /// <summary>Local-admin escape hatch: a data folder ACL outside the allow-list only raises health Warning <c>storage.acl</c>.</summary>
     public bool AllowInsecureDataDirectoryAcl { get; init; }
 
+    /// <summary>Linux: start although the service account is in a privileged group (otherwise exit code 8; at run time the
+    /// account stays health Error <c>serviceAccount.privileged</c>) – stage B design 4.7 item 1.</summary>
+    public bool AllowPrivilegedServiceAccount { get; init; }
+
     public WatchdogAuthenticationMode Authentication { get; init; } = WatchdogAuthenticationMode.Negotiate;
 
     public HostingOptions Hosting { get; init; } = new();
@@ -25,6 +29,18 @@ public sealed record ServiceOptions
     public NotificationBootstrapOptions Notifications { get; init; } = new();
 
     public DirectoryBootstrapOptions Directory { get; init; } = new();
+
+    /// <summary>Linux: Kerberos identity of the service (stage B design 4.7, 6.2, 14.1).</summary>
+    public KerberosBootstrapOptions Kerberos { get; init; } = new();
+
+    /// <summary>Linux: OpenWEC output read by the service (stage B design 7.3–7.6, 14.1).</summary>
+    public CollectorBootstrapOptions Collector { get; init; } = new();
+
+    /// <summary>Root-owned retention floor (stage B design 14.2).</summary>
+    public RetentionBootstrapOptions Retention { get; init; } = new();
+
+    /// <summary>Linux: SYSVOL reading through smbclient (stage B design 8.3, 14.1).</summary>
+    public SysvolBootstrapOptions Sysvol { get; init; } = new();
 
     public DevelopmentOptions Development { get; init; } = new();
 }

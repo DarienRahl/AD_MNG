@@ -34,6 +34,11 @@ public sealed class ConfigValidationService(
     /// Administrator (RID 500) and krbtgt (RID 502).</summary>
     private static readonly string[] ProtectedAccountSids = [ConfigTokens.DomainSidToken + "-500", ConfigTokens.DomainSidToken + "-502"];
 
+    /// <summary>The attribution sources of this host (stage B design 7.8): the Linux service reads OpenWEC files only; the
+    /// Windows service (until 0.3.0) keeps every source.</summary>
+    public static IReadOnlyList<AttributionSourceKind> SupportedAttributionSources { get; } =
+        OperatingSystem.IsLinux() ? [AttributionSourceKind.OpenWec, AttributionSourceKind.None] : [];
+
     /// <summary>Validates <paramref name="configuration"/> (with <paramref name="previous"/> for the schema check).</summary>
     public async Task<ValidationOutcome> ValidateAsync(WatchdogConfiguration configuration, WatchdogConfiguration? previous, CancellationToken cancellationToken)
     {
@@ -47,6 +52,8 @@ public sealed class ConfigValidationService(
             IsDevelopment = environment.IsDevelopment(),
             AllowTier0Suppression = settings.Authorization.AllowTier0Suppression,
             OAuthSmtpHosts = settings.Notifications.EffectiveOAuthSmtpHosts,
+            MinEventsDays = settings.Retention.MinEventsDays,
+            SupportedAttributionSources = SupportedAttributionSources,
         };
 
         var issues = validator.Validate(configuration, context).Issues.ToList();
