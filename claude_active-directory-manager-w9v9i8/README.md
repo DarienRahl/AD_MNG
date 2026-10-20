@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`f2389c9`](https://github.com/DarienRahl/AD_MNG/commit/f2389c959ae59e8f2dd870ad72a496ab30b5ff36) (`f2389c959ae59e8f2dd870ad72a496ab30b5ff36`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/39445252638
+- Commit: [`2ad768d`](https://github.com/DarienRahl/AD_MNG/commit/2ad768da047e275efd18a95ddd3cc5c6ee7742bc) (`2ad768da047e275efd18a95ddd3cc5c6ee7742bc`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/39450296831
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -59,4 +59,12 @@
 ## Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy
 
 ![Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy](14-logon-hours.png)
+
+## Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)
+
+![Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)](15-watchdog-certificate.png)
+
+## Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)
+
+![Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)](16-watchdog-sources.png)
 

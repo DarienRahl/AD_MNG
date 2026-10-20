@@ -68,5 +68,15 @@
     "file": "14-logon-hours.png",
     "title_pl": "Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy",
     "title_en": "Logon hours – the weekly schedule of an account in local time, office hours selected"
+  },
+  {
+    "file": "15-watchdog-certificate.png",
+    "title_pl": "Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)",
+    "title_en": "Watchdog – confirming the service certificate on the first connection (SHA-256 fingerprint to compare with the server)"
+  },
+  {
+    "file": "16-watchdog-sources.png",
+    "title_pl": "Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)",
+    "title_en": "Watchdog – sources and retention (OpenWEC, GPO content, logon records)"
   }
 ]
