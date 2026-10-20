@@ -90,6 +90,18 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Inner.ShowLogonHoursAsync(editor);
 
+    /// <summary>The certificate confirmations asked (the operator's answer is <see cref="TrustCertificate"/>).</summary>
+    public List<Presentation.Watchdog.WatchdogCertificateTrustViewModel> CertificateConfirmations { get; } = [];
+
+    /// <summary>Answer of <see cref="ShowWatchdogCertificateTrustAsync"/> (default: Cancel).</summary>
+    public bool TrustCertificate { get; set; }
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog)
+    {
+        CertificateConfirmations.Add(dialog);
+        return Task.FromResult(TrustCertificate);
+    }
+
     /// <summary>A UI test context whose IDialogService is a <see cref="TestDialogService"/> over the real one.</summary>
     /// <param name="language">UI language ("en" / "pl").</param>
     /// <param name="configure">Further replacements of services (e.g. the sample watchdog client).</param>

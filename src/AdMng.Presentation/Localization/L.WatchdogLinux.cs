@@ -5,7 +5,7 @@ public static partial class L
     /// <summary>
     /// Texts of the Watchdog stage B additions (docs/dev/watchdog-linux-design.md 18): the Status sections „Konto usługi”,
     /// „Kolektor WEF”, „Zawartość GPO”, „Host”, the certificate confirmation on first connection, the collector / GPO
-    /// content / logon-record settings and new value texts. The dynamic families (health codes, tags, reasons, kinds,
+    /// content / logon-record settings (sub-tab „Źródła i retencja”) and new value texts. The dynamic families (health codes, tags, reasons, kinds,
     /// attribution sources, keytab results, secrets-key variants) are built by <c>WatchdogDisplay</c>.
     /// </summary>
     public static class WatchdogLinux
@@ -46,6 +46,21 @@ public static partial class L
         public const string HostFreeSpace = "Watchdog.Ui.HostFreeSpace";
         public const string HostClockSkew = "Watchdog.Ui.HostClockSkew";
         public const string HostLdapSsf = "Watchdog.Ui.HostLdapSsf";
+        public const string HostSystemd = "Watchdog.Ui.HostSystemd";
+        public const string CredentialKeyNone = "Watchdog.Ui.CredentialKeyNone";
+
+        // every section
+        public const string SectionNotReported = "Watchdog.Ui.SectionNotReported";
+        public const string LastCheck = "Watchdog.Ui.LastCheck";
+        public const string Principal = "Watchdog.Ui.Principal";
+        public const string NotDelegated = "Watchdog.Ui.NotDelegated";
+        public const string DenySelfAce = "Watchdog.Ui.DenySelfAce";
+        public const string KeytabEncryptionTypes = "Watchdog.Ui.KeytabEncryptionTypes";
+        public const string CollectorStored = "Watchdog.Ui.CollectorStored";
+        public const string CollectorNoDcs = "Watchdog.Ui.CollectorNoDcs";
+        public const string GpoReadProgressValue = "Watchdog.Ui.GpoReadProgressValue";
+        public const string GpoReconciliation = "Watchdog.Ui.GpoReconciliation";
+        public const string GpoContentDisabled = "Watchdog.Ui.GpoContentDisabled";
 
         // certificate confirmation on first connection (18 item 1)
         public const string CertificateTitle = "Watchdog.Certificate.Title";
@@ -61,6 +76,14 @@ public static partial class L
         public const string CertificateTrust = "Watchdog.Certificate.Trust";
         public const string CertificatePinned = "Watchdog.Certificate.Pinned";
         public const string CertificateRemovePin = "Watchdog.Certificate.RemovePin";
+        public const string CertificateReview = "Watchdog.Certificate.Review";
+        public const string CertificateService = "Watchdog.Certificate.Service";
+        public const string CertificateNotPinned = "Watchdog.Certificate.NotPinned";
+        public const string CertificatePinRemovedOnSave = "Watchdog.Certificate.PinRemovedOnSave";
+        public const string CertificatePinHint = "Watchdog.Certificate.PinHint";
+        public const string CertificateOutsideValidity = "Watchdog.Certificate.OutsideValidity";
+        public const string ConnectionCertificateUntrusted = "Watchdog.Connection.CertificateUntrusted";
+        public const string ConnectionCertificateChanged = "Watchdog.Connection.CertificateChanged";
 
         // configuration (7.8, 8.5, 7.7)
         public const string DropComputerLogons = "Watchdog.Ui.DropComputerLogons";
@@ -73,9 +96,17 @@ public static partial class L
         public const string GpoMaxTotalMb = "Watchdog.Ui.GpoMaxTotalMb";
         public const string GpoMaxFiles = "Watchdog.Ui.GpoMaxFiles";
         public const string LogonRecordsHours = "Watchdog.Ui.LogonRecordsHours";
+        public const string AttributionSettings = "Watchdog.Ui.AttributionSettings";
+        public const string AttributionEnabled = "Watchdog.Ui.AttributionEnabled";
+        public const string AttributionSourceLabel = "Watchdog.Ui.AttributionSourceLabel";
+        public const string AttributionSourceUnsupported = "Watchdog.Ui.AttributionSourceUnsupported";
+        public const string RetentionSettings = "Watchdog.Ui.RetentionSettings";
+        public const string UnitMinutes = "Watchdog.Ui.UnitMinutes";
 
         // values (8.4, 9.4)
         public const string ValueUnreadable = "Watchdog.Value.Unreadable";
         public const string ValueAuditSettingsChanged = "Watchdog.Value.AuditSettingsChanged";
+        public const string ValueGpoMoreChangesName = "Watchdog.Value.GpoMoreChangesName";
+        public const string ValueGpoMoreChanges = "Watchdog.Value.GpoMoreChanges";
     }
 }

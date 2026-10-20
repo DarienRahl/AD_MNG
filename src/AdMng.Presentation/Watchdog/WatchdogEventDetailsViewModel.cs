@@ -51,6 +51,13 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
 
     public bool HasEvent => Event is not null;
 
+    /// <summary>
+    /// The service takes the DC Security events from OpenWEC (Linux, stage B design 7.8): reasons with a collector text
+    /// (<see cref="WatchdogDisplay.CollectorReasonCodes"/>) read e.g. "collector silent" instead of "DC unreachable".
+    /// </summary>
+    [ObservableProperty]
+    public partial bool CollectorMode { get; set; }
+
     [ObservableProperty]
     public partial bool IsLoading { get; private set; }
 
@@ -203,6 +210,14 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         if (Event is { } shown)
         {
             Fill(shown, null);
+        }
+    }
+
+    partial void OnCollectorModeChanged(bool value)
+    {
+        if (Event is { } shown)
+        {
+            FillAttribution(shown.Attribution ?? EventAttribution.Pending);
         }
     }
 
@@ -503,8 +518,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
             : string.Empty;
 
         var schema = _services.Sessions.Current?.Schema;
-        var useSchema = e.Object.Kind != WatchObjectKind.Watchdog;
-        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, useSchema)));
+        var context = WatchdogChangeContext.Of(e);
+        Replace(Changes, e.Changes.Select(c => WatchdogChangeRowViewModel.Create(c, localizer, schema, context)));
         FillAttribution(e.Attribution ?? EventAttribution.Pending);
         FillLockout(e.Lockout);
         if (details is not null)
@@ -524,8 +539,8 @@ public sealed partial class WatchdogEventDetailsViewModel : ObservableObject, ID
         SourceText = WatchdogAttributionText.Source(localizer, attribution);
         SourceConfidenceText = SourceText.Length == 0 ? string.Empty : localizer.ConfidenceName(attribution.SourceConfidence);
         ConfidenceText = attribution.Status == AttributionStatus.NotApplicable ? string.Empty : localizer.ConfidenceName(attribution.Confidence);
-        ReasonText = localizer.ReasonText(attribution.Reason);
-        RemedyText = localizer.RemedyText(attribution.Reason) ?? string.Empty;
+        ReasonText = localizer.ReasonText(attribution.Reason, CollectorMode);
+        RemedyText = localizer.RemedyText(attribution.Reason, CollectorMode) ?? string.Empty;
         SourceReasonText = string.IsNullOrEmpty(attribution.SourceReason)
             ? string.Empty
             : $"{localizer.ReasonText(attribution.SourceReason)} – {localizer.RemedyText(attribution.SourceReason)}";

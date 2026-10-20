@@ -117,6 +117,13 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     /// <summary>Number of <c>POST /digest/send</c> calls that succeeded.</summary>
     public int DigestSends { get; private set; }
 
+    /// <summary>
+    /// A self-signed service certificate (stage B design 18 item 1): while set, every call fails like the real client –
+    /// CertificateUntrusted without a pin, CertificateChanged with another pin – unless the configured
+    /// <see cref="WatchdogClientOptions.PinnedCertificateSha256"/> is its fingerprint.
+    /// </summary>
+    public WatchdogServerCertificate? ServerCertificate { get; set; }
+
     /// <summary>The options of the last <see cref="Configure"/> call (null = not configured).</summary>
     public WatchdogClientOptions? Options
     {
@@ -808,6 +815,18 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             else if (_options is null)
             {
                 failure = new WatchdogClientException(WatchdogClientErrorKind.NotConfigured, "The watchdog service address is not configured.");
+            }
+            else if (ServerCertificate is { } certificate
+                     && WatchdogServerCertificate.NormalizeSha256(_options.PinnedCertificateSha256) is var pin
+                     && !string.Equals(pin, certificate.Sha256, StringComparison.Ordinal))
+            {
+                failure = pin is null
+                    ? new WatchdogClientException(WatchdogClientErrorKind.CertificateUntrusted, "Scripted failure: CertificateUntrusted.") { Certificate = certificate }
+                    : new WatchdogClientException(WatchdogClientErrorKind.CertificateChanged, "Scripted failure: CertificateChanged.")
+                    {
+                        Certificate = certificate,
+                        PinnedCertificateSha256 = pin,
+                    };
             }
         }
 

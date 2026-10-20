@@ -1,3 +1,4 @@
+using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -172,6 +173,120 @@ public static class SampleStatus
             },
         ],
     };
+
+    /// <summary>The self-signed certificate of the sample Linux service (first connection, stage B design 18 item 1).</summary>
+    public static WatchdogServerCertificate Certificate { get; } = new()
+    {
+        Sha256 = "3F2A9C1E0B7D4A559E8C1F206A3B5D7E9F0C2B4D6E8A1C3F5B7D9E0A2C4F6B8D",
+        Subject = "CN=admng-wd.contoso.test",
+        DnsNames = ["admng-wd.contoso.test", "admng-wd"],
+        NotBefore = new DateTimeOffset(2026, 10, 1, 8, 0, 0, TimeSpan.Zero),
+        NotAfter = new DateTimeOffset(2028, 10, 1, 8, 0, 0, TimeSpan.Zero),
+    };
+
+    /// <summary>The fingerprint pinned before the sample certificate was renewed (<c>CertificateChanged</c>).</summary>
+    public const string PreviousCertificateSha256 = "9B41D07C2E6F8A13C5B7E9D1F3A2C4E6081B3D5F7A9C1E2B4D6F8A0C2E4B6D8F";
+
+    /// <summary>
+    /// The status of the Linux service (stage B) as it reports today: attribution from OpenWEC, „Konto usługi” and „Host”
+    /// filled, „Kolektor WEF” and „Zawartość GPO” not reported yet (null) – or, with <paramref name="collectorAndGpo"/>,
+    /// also those two sections (milestones B4/B5b) with a DC that never delivered and a GPO that cannot be parsed.
+    /// </summary>
+    public static StatusDto CreateLinux(bool collectorAndGpo = false)
+    {
+        var status = Create();
+        HealthCheckDto[] linuxChecks =
+        [
+            new() { Code = "serviceAccount.passwordAge", State = HealthState.Ok, Args = ["12"], CheckedAt = Now.AddMinutes(-40) },
+            new() { Code = "serviceAccount.drift", State = HealthState.Warning, Args = ["denySelfAceMissing"], CheckedAt = Now.AddMinutes(-40) },
+            new() { Code = "host.credentialKey", State = HealthState.Ok, Args = [HostCredentialKeys.Tpm2Host], CheckedAt = Now.AddDays(-3) },
+            new() { Code = "host.clockSkew", State = HealthState.Ok, Args = ["2"], CheckedAt = Now.AddSeconds(-9) },
+            new() { Code = "domain.machineAccountQuota", State = HealthState.Warning, Args = ["10"], CheckedAt = Now.AddMinutes(-10) },
+        ];
+        HealthCheckDto[] collectorChecks = collectorAndGpo
+            ?
+            [
+                new() { Code = "wec.dc02.contoso.test.notForwarding", State = HealthState.Error, CheckedAt = Now.AddMinutes(-2) },
+                new() { Code = "gpo.6ac1786c-016f-11d2-945f-00c04fb984f9.parseError", State = HealthState.Warning, Args = ["parseError"], CheckedAt = Now.AddHours(-1) },
+            ]
+            : [];
+        return status with
+        {
+            ServiceVersion = "0.3.0",
+            Attribution = new AttributionStatusDto { Enabled = true, Source = nameof(AttributionSourceKind.OpenWec) },
+            Checks = [.. status.Checks.Where(c => !c.Code.StartsWith("eventlog.", StringComparison.Ordinal)), .. linuxChecks, .. collectorChecks],
+            Storage = status.Storage with { DataDirectory = "/var/lib/admng-watchdog", FreeBytes = 38_654_705_664 },
+            ServiceAccount = new ServiceAccountStatusDto
+            {
+                State = HealthState.Warning,
+                Principal = "ADMNG-WD$@CONTOSO.TEST",
+                AccountDn = "CN=ADMNG-WD,OU=Tier0 Serwery," + DomainDn,
+                KeytabKvno = 7,
+                DirectoryKvno = 7,
+                PasswordLastSetAt = Now.AddDays(-12),
+                LastRotationAt = Now.AddDays(-12),
+                LastRotationAttemptAt = Now.AddDays(-12),
+                NextRotationDueAt = Now.AddDays(18),
+                RotationResult = KeytabStatusResults.Ok,
+                SupportedEncryptionTypes = 0x18,
+                KeytabEncryptionTypes = ["aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"],
+                NotDelegated = true,
+                Privileged = false,
+                DenySelfAcePresent = false,
+                KeytabOrderValid = true,
+                CheckedAt = Now.AddMinutes(-40),
+            },
+            Host = new HostStatusDto
+            {
+                OperatingSystem = "Debian GNU/Linux 13 (trixie)",
+                Runtime = ".NET 10.0.13",
+                CredentialKey = HostCredentialKeys.Tpm2Host,
+                ClockSkew = TimeSpan.FromSeconds(2),
+                LdapSsf = 256,
+                LdapSecurity = "SignAndSeal",
+                Systemd = true,
+            },
+            Collector = collectorAndGpo
+                ? new CollectorStatusDto
+                {
+                    State = HealthState.Error,
+                    SubscriptionUuid = Guid.Parse("5e0b8f7a-2c41-4d3e-9a6b-1f0c2d3e4a5b"),
+                    BacklogBytes = 1_572_864,
+                    DomainControllers =
+                    [
+                        new CollectorDcStatusDto
+                        {
+                            Dc = "dc01.contoso.test",
+                            State = HealthState.Ok,
+                            Client = "DC01$@CONTOSO.TEST",
+                            LastRecordAt = Now.AddSeconds(-14),
+                            LastReceivedAt = Now.AddSeconds(-12),
+                            MedianLag = TimeSpan.FromSeconds(4),
+                            BacklogBytes = 1_572_864,
+                            RecordsStored24h = 184_220,
+                            RejectedRecords24h = 0,
+                        },
+                        new CollectorDcStatusDto { Dc = "dc02.contoso.test", State = HealthState.Error, ErrorCode = "notForwarding" },
+                    ],
+                }
+                : null,
+            GpoContent = collectorAndGpo
+                ? new GpoContentStatusDto
+                {
+                    State = HealthState.Warning,
+                    Enabled = true,
+                    Dc = "dc01.contoso.test",
+                    TotalGpos = 14,
+                    ReadGpos = 14,
+                    BaselineCompletedAt = Now.AddDays(-3),
+                    LastReadAt = Now.AddHours(-1),
+                    LastReconciliationAt = Now.AddHours(-7),
+                    FailedGpos = 1,
+                    SysvolLaggingGpos = 0,
+                }
+                : null,
+        };
+    }
 
     /// <summary>The digest as it would be sent now.</summary>
     public static DigestPreviewDto Digest() => new()

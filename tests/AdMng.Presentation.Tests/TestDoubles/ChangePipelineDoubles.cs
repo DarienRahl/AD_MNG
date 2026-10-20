@@ -242,4 +242,15 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) =>
         Task.FromResult(LogonHoursHandler?.Invoke(editor) ?? false);
+
+    /// <summary>Plays the Watchdog certificate confirmation (null: Cancel); every dialog shown is recorded.</summary>
+    public Func<Presentation.Watchdog.WatchdogCertificateTrustViewModel, bool>? CertificateTrustHandler { get; set; }
+
+    public List<Presentation.Watchdog.WatchdogCertificateTrustViewModel> CertificateDialogs { get; } = [];
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog)
+    {
+        CertificateDialogs.Add(dialog);
+        return Task.FromResult(CertificateTrustHandler?.Invoke(dialog) ?? false);
+    }
 }

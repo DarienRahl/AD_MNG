@@ -113,6 +113,16 @@ public sealed class ScreenshotTests
         "Watchdog – stan usługi",
         "Watchdog – service status");
 
+    private static readonly ScreenshotInfo WatchdogCertificate = new(
+        "15-watchdog-certificate.png",
+        "Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)",
+        "Watchdog – confirming the service certificate on the first connection (SHA-256 fingerprint to compare with the server)");
+
+    private static readonly ScreenshotInfo WatchdogSources = new(
+        "16-watchdog-sources.png",
+        "Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)",
+        "Watchdog – sources and retention (OpenWEC, GPO content, logon records)");
+
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
         ShootAsync(ThemePreference.Light, context => ShootMainWindowAsync(context, MainWindowLight, dark: false));
@@ -268,15 +278,38 @@ public sealed class ScreenshotTests
     {
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
         await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0 && tab.Status.Audit.Count > 0, "the status");
+    }, client => client.Status = SampleStatus.CreateLinux());
+
+    [Fact]
+    public Task Screenshot15_Watchdog_CertificateConfirmation() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        var dialog = new WatchdogCertificateTrustViewModel(
+            context.Services.GetRequiredService<ILocalizer>(), SampleStatus.Certificate, null, "admng-wd.contoso.test:8443", SampleEvents.Now,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw"));
+        var window = (WatchdogCertificateTrustWindow)Windows(context).CreateWindow(dialog);
+        await ScreenshotWriter.ShowAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.StartsWith("3F2A 9C1E", window.FingerprintText.Text, StringComparison.Ordinal);
+
+        await ScreenshotWriter.SaveAsync(window, WatchdogCertificate, dark: false);
+    }, connect: false);
+
+    [Fact]
+    public Task Screenshot16_Watchdog_Sources() => ShootWatchdogAsync(WatchdogSources, async (tab, _) =>
+    {
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Sources);
+        await UiWait.UntilAsync(() => tab.Sources.SourceOptions.Count > 0, "the sources settings");
     });
 
     /// <summary>
     /// The main window with the Watchdog tab over the sample watchdog client (Polish data, Admin), the AD session of the
-    /// sample company open; <paramref name="arrange"/> picks the sub-tab and the selection.
+    /// sample company open; <paramref name="setup"/> adjusts the client (e.g. the status of the Linux service), <paramref name="arrange"/>
+    /// picks the sub-tab and the selection.
     /// </summary>
-    private static Task ShootWatchdogAsync(ScreenshotInfo shot, Func<WatchdogDocumentViewModel, WatchdogView, Task> arrange)
+    private static Task ShootWatchdogAsync(ScreenshotInfo shot, Func<WatchdogDocumentViewModel, WatchdogView, Task> arrange, Action<FakeWatchdogClient>? setup = null)
     {
         var client = WatchdogUiSupport.CreateClient();
+        setup?.Invoke(client);
         return ShootAsync(ThemePreference.Light, configure: WatchdogUiSupport.Use(client), shoot: async context =>
         {
             await WatchdogUiSupport.ConfigureAddressAsync(context);

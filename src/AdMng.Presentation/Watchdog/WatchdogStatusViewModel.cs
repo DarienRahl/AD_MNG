@@ -10,8 +10,9 @@ namespace AdMng.Presentation.Watchdog;
 
 /// <summary>
 /// The "Stan" sub-tab: cards for the service, the watched DC, attribution per DC, the health checks (localized code,
-/// state, remedy), channels, storage and the counts of the last 24 hours; for Admins the delivery log (filter, retry of
-/// dead deliveries) and the configuration audit.
+/// state, remedy), channels, storage and the counts of the last 24 hours, the stage B sections „Konto usługi”, „Kolektor
+/// WEF”, „Zawartość GPO” and „Host” (design 18 item 2; "not reported" while the service has no data for them); for Admins
+/// the delivery log (filter, retry of dead deliveries) and the configuration audit.
 /// </summary>
 public sealed partial class WatchdogStatusViewModel : ObservableObject
 {
@@ -23,6 +24,7 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
     {
         _services = services ?? throw new ArgumentNullException(nameof(services));
         DeliveryLog = new WatchdogDeliveryLogViewModel(services);
+        ResetSections();
     }
 
     /// <summary>A service call failed.</summary>
@@ -103,6 +105,24 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
 
     public ObservableCollection<WatchdogChannelHealthRowViewModel> Channels { get; } = [];
 
+    // ---- Stage B sections (design 18 item 2) --------------------------------------------------------------------
+
+    /// <summary>„Konto usługi”.</summary>
+    [ObservableProperty]
+    public partial WatchdogStatusSectionViewModel ServiceAccountSection { get; private set; }
+
+    /// <summary>„Kolektor WEF”.</summary>
+    [ObservableProperty]
+    public partial WatchdogStatusSectionViewModel CollectorSection { get; private set; }
+
+    /// <summary>„Zawartość GPO”.</summary>
+    [ObservableProperty]
+    public partial WatchdogStatusSectionViewModel GpoContentSection { get; private set; }
+
+    /// <summary>„Host”.</summary>
+    [ObservableProperty]
+    public partial WatchdogStatusSectionViewModel HostSection { get; private set; }
+
     // ---- Storage and counts ------------------------------------------------------------------------------------
 
     [ObservableProperty]
@@ -174,6 +194,10 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         {
             Fill(status);
         }
+        else
+        {
+            ResetSections();
+        }
 
         DeliveryLog.Relocalize();
     }
@@ -232,7 +256,7 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         SnapshotText = directory.SnapshotObjects.ToString("N0", culture);
 
         AttributionText = status.Attribution.Enabled
-            ? localizer.Format(L.Watchdog.StatusAttributionEnabled, status.Attribution.Source)
+            ? localizer.Format(L.Watchdog.StatusAttributionEnabled, localizer.AttributionSourceName(status.Attribution.Source))
             : localizer[L.Watchdog.StatusAttributionDisabled];
         Replace(DomainControllers, status.Attribution.DomainControllers.Select(d => new WatchdogDcLogRowViewModel(d, localizer, zone)));
         Replace(Checks, status.Checks.OrderByDescending(c => Rank(c.State)).ThenBy(c => c.Code, StringComparer.Ordinal).Select(c => new WatchdogHealthCheckRowViewModel(c, localizer, zone)));
@@ -243,9 +267,24 @@ public sealed partial class WatchdogStatusViewModel : ObservableObject
         StorageText = localizer.Format(L.Watchdog.StatusStorage, FormatBytes(storage.DatabaseBytes, culture), FormatBytes(storage.FreeBytes, culture), storage.EventCount.ToString("N0", culture), localizer.FormatTime(storage.OldestEventAt, zone));
         BackupText = localizer.FormatTime(storage.LastBackupAt, zone);
 
+        ServiceAccountSection = WatchdogStatusSectionViewModel.ServiceAccount(status, localizer, zone);
+        CollectorSection = WatchdogStatusSectionViewModel.Collector(status, localizer, zone);
+        GpoContentSection = WatchdogStatusSectionViewModel.GpoContent(status, localizer, zone);
+        HostSection = WatchdogStatusSectionViewModel.Host(status, localizer, zone);
+
         var counts = status.Last24Hours;
         CountsText = localizer.Format(L.Watchdog.StatusCounts, counts.Total, counts.Unacknowledged, counts.UnacknowledgedHighOrAbove);
         Replace(Counts, Enum.GetValues<Severity>().Reverse().Select(s => new WatchdogSeverityCountViewModel(s, localizer.SeverityName(s), counts.BySeverity.TryGetValue(s, out var n) ? n : 0)));
+    }
+
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(ServiceAccountSection), nameof(CollectorSection), nameof(GpoContentSection), nameof(HostSection))]
+    private void ResetSections()
+    {
+        var localizer = _services.Localizer;
+        ServiceAccountSection = WatchdogStatusSectionViewModel.Empty(localizer[L.WatchdogLinux.CardServiceAccount]);
+        CollectorSection = WatchdogStatusSectionViewModel.Empty(localizer[L.WatchdogLinux.CardCollector]);
+        GpoContentSection = WatchdogStatusSectionViewModel.Empty(localizer[L.WatchdogLinux.CardGpoContent]);
+        HostSection = WatchdogStatusSectionViewModel.Empty(localizer[L.WatchdogLinux.CardHost]);
     }
 
     /// <summary>"46,0 MB".</summary>

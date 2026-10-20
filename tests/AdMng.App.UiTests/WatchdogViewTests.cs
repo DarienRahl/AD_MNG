@@ -9,8 +9,10 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
+using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
@@ -118,6 +120,123 @@ public sealed class WatchdogViewTests
         Assert.Equal(Visibility.Visible, view.StatusView.DeliveryLogCard.Visibility);
         Assert.Equal(Visibility.Visible, view.StatusView.AuditCard.Visibility);
         Assert.False(tab.Config.IsDirty);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// Stage B design 18 item 1: a self-signed service certificate opens "Potwierdź certyfikat usługi Watchdog" with the
+    /// fingerprint in groups of four; Cancel pins nothing and leaves "Sprawdź certyfikat…" in the banner, "Ufam temu
+    /// certyfikatowi" pins the fingerprint and connects.
+    /// </summary>
+    [Fact]
+    public Task CertificateConfirmation_OnTheFirstConnection_PinsOnlyAfterTrust() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        client.ServerCertificate = SampleStatus.Certificate;
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: false);
+        var settings = context.Services.GetRequiredService<AdMng.Presentation.Settings.ISettingsStore>();
+
+        var cancel = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(async w =>
+        {
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.Equal("Potwierdź certyfikat usługi Watchdog", w.Title);
+            Assert.Equal("3F2A 9C1E 0B7D 4A55 9E8C 1F20 6A3B 5D7E\n9F0C 2B4D 6E8A 1C3F 5B7D 9E0A 2C4F 6B8D", w.FingerprintText.Text);
+            Assert.True(w.FingerprintPanel.IsVisible);
+            Assert.False(w.ChangedPanel.IsVisible);
+            Assert.Equal("Porównaj z wynikiem sudo admng-watchdog cert-fingerprint na serwerze", w.CompareText.Text);
+            Assert.True(w.CancelButton.IsDefault);
+            Assert.False(w.TrustButton.IsDefault);
+            Assert.False(w.ValidityWarningText.IsVisible);
+            w.CancelButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        });
+        var (tab, view) = await WatchdogUiSupport.OpenAsync(window);
+        await cancel;
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal(WatchdogConnectionState.CertificateInvalid, tab.ConnectionState);
+        Assert.Equal(Visibility.Visible, view.ReviewCertificateButton.Visibility);
+        Assert.Null(settings.Current.Watchdog.PinnedCertificateSha256);
+
+        var trust = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(w =>
+        {
+            w.TrustButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            return Task.CompletedTask;
+        });
+        await tab.ReviewCertificateCommand.ExecuteAsync(null);
+        await trust;
+        await tab.Events.Loading;
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.True(tab.IsConnected);
+        Assert.Equal(SampleStatus.Certificate.Sha256, settings.Current.Watchdog.PinnedCertificateSha256);
+        Assert.Equal(Visibility.Collapsed, view.ReviewCertificateButton.Visibility);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task CertificateConfirmation_OfAChangedCertificate_ShowsBothFingerprints() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync("pl");
+        var localizer = context.Services.GetRequiredService<AdMng.Presentation.Localization.ILocalizer>();
+        var dialog = new WatchdogCertificateTrustViewModel(
+            localizer, SampleStatus.Certificate, SampleStatus.PreviousCertificateSha256, "admng-wd.contoso.com:8443", SampleEvents.Now, TimeZoneInfo.Utc);
+        var window = (WatchdogCertificateTrustWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(dialog);
+        UiTestSupport.ShowOffScreen(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        Assert.False(window.FingerprintPanel.IsVisible);
+        Assert.True(window.ChangedPanel.IsVisible);
+        Assert.StartsWith("9B41 D07C", window.PreviousFingerprintText.Text, StringComparison.Ordinal);
+        Assert.StartsWith("3F2A 9C1E", window.NewFingerprintText.Text, StringComparison.Ordinal);
+        Assert.Equal(dialog.Message, window.MessageText.Text);
+        Assert.Equal("CN=admng-wd.contoso.test", window.SubjectText.Text);
+        Assert.False(string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(window.TrustButton)));
+
+        window.TrustButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Assert.True(window.Result);
+        context.AssertHealthy();
+    });
+
+    /// <summary>Stage B design 18 items 2 and 4: the Linux sections of "Stan" and the "Źródła i retencja" sub-tab.</summary>
+    [Fact]
+    public Task LinuxService_StatusSections_AndSourcesTab_Render() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        client.Status = SampleStatus.CreateLinux(collectorAndGpo: true);
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: true);
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.ServiceAccountSection.IsReported, "the status of the Linux service");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var status = view.StatusView;
+        foreach (var card in new FrameworkElement[] { status.ServiceAccountCard, status.CollectorCard, status.GpoContentCard, status.HostCard })
+        {
+            Assert.True(card.IsVisible);
+        }
+
+        var texts = UiWait.Descendants<TextBlock>(status.LinuxCards).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+        Assert.Contains("ADMNG-WD$@CONTOSO.TEST", texts);
+        Assert.Contains("Debian GNU/Linux 13 (trixie)", texts);
+        Assert.Contains("dc02.contoso.test", texts);
+        Assert.Contains("14 z 14 GPO, w kolejce: 0", texts);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Sources);
+        var sources = view.SourcesView;
+        Assert.True(sources.IsVisible);
+        Assert.Single(sources.SourceBox.Items);
+        Assert.Equal("48", sources.LogonRecordsHoursBox.Text);
+        Assert.Equal("15", sources.SilenceWarningBox.Text);
+        Assert.True(sources.GpoContentEnabledBox.IsChecked);
+        Assert.True(sources.GpoContentEnabledBox.IsEnabled);
+        sources.LogonRecordsHoursBox.Text = "72";
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.Config.IsDirty);
+        Assert.True(sources.ConfigBar.SaveButton.IsEnabled);
         context.AssertHealthy();
     });
 

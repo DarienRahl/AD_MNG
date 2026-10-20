@@ -8,6 +8,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.Services;
@@ -80,6 +81,12 @@ public sealed class DialogService : IDialogService
     {
         ArgumentNullException.ThrowIfNull(editor);
         return OnUiThreadAsync(() => ShowModal(editor));
+    }
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(WatchdogCertificateTrustViewModel dialog)
+    {
+        ArgumentNullException.ThrowIfNull(dialog);
+        return OnUiThreadAsync(() => ShowModal(dialog));
     }
 
     public Task ShowConnectAsync() => OnUiThreadAsync(() =>

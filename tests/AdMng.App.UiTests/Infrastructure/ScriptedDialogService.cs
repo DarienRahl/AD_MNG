@@ -61,4 +61,6 @@ internal sealed class ScriptedDialogService : IDialogService
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
 
     public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Task.FromResult(false);
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog) => Task.FromResult(false);
 }

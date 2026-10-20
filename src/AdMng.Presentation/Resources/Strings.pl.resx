@@ -6619,4 +6619,94 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Watchdog.Value.Unreadable" xml:space="preserve">
     <value>nie udało się odczytać</value>
   </data>
+  <data name="Watchdog.Connection.CertificateUntrusted" xml:space="preserve">
+    <value>Certyfikat usługi {0} nie jest jeszcze zaufany – porównaj jego odcisk z odciskiem na serwerze, zanim mu zaufasz.</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateChanged" xml:space="preserve">
+    <value>Certyfikat usługi {0} różni się od przypiętego – sprawdź go na serwerze, zanim mu zaufasz.</value>
+  </data>
+  <data name="Watchdog.Certificate.Review" xml:space="preserve">
+    <value>Sprawdź certyfikat…</value>
+  </data>
+  <data name="Watchdog.Certificate.Service" xml:space="preserve">
+    <value>Usługa</value>
+  </data>
+  <data name="Watchdog.Certificate.NotPinned" xml:space="preserve">
+    <value>Żaden certyfikat nie jest przypięty.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinRemovedOnSave" xml:space="preserve">
+    <value>Przypięcie zostanie usunięte po zapisaniu – następne połączenie znowu poprosi o potwierdzenie.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinHint" xml:space="preserve">
+    <value>Używany tylko wtedy, gdy certyfikat nie pochodzi z zaufanego urzędu certyfikacji.</value>
+  </data>
+  <data name="Watchdog.Certificate.OutsideValidity" xml:space="preserve">
+    <value>Certyfikat jest poza okresem ważności.</value>
+  </data>
+  <data name="Watchdog.Ui.SectionNotReported" xml:space="preserve">
+    <value>Usługa nie raportuje tej sekcji (usługa na Windows, wersja sprzed 0.3.0 albo jeszcze brak danych).</value>
+  </data>
+  <data name="Watchdog.Ui.Principal" xml:space="preserve">
+    <value>Podmiot Kerberos</value>
+  </data>
+  <data name="Watchdog.Ui.NotDelegated" xml:space="preserve">
+    <value>Delegowanie zablokowane</value>
+  </data>
+  <data name="Watchdog.Ui.DenySelfAce" xml:space="preserve">
+    <value>Odmowa zapisu dla SELF (ACE)</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabEncryptionTypes" xml:space="preserve">
+    <value>Klucze w keytabie</value>
+  </data>
+  <data name="Watchdog.Ui.LastCheck" xml:space="preserve">
+    <value>Ostatnie sprawdzenie</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorStored" xml:space="preserve">
+    <value>Zapisane (24 h)</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorNoDcs" xml:space="preserve">
+    <value>Nie widać jeszcze żadnego kontrolera domeny.</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgressValue" xml:space="preserve">
+    <value>{0} z {1} GPO, w kolejce: {2}</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReconciliation" xml:space="preserve">
+    <value>Ostatnie uzgodnienie</value>
+  </data>
+  <data name="Watchdog.Ui.GpoContentDisabled" xml:space="preserve">
+    <value>Śledzenie treści GPO jest wyłączone.</value>
+  </data>
+  <data name="Watchdog.Ui.HostSystemd" xml:space="preserve">
+    <value>jednostka systemd</value>
+  </data>
+  <data name="Watchdog.Ui.CredentialKeyNone" xml:space="preserve">
+    <value>bez poświadczenia systemd</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChangesName" xml:space="preserve">
+    <value>Pozostałe ustawienia</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChanges" xml:space="preserve">
+    <value>nie pokazano {0} z {1} zmienionych ustawień</value>
+  </data>
+  <data name="Watchdog.Tab.Sources" xml:space="preserve">
+    <value>Źródła i retencja</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSettings" xml:space="preserve">
+    <value>Kto i skąd</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionEnabled" xml:space="preserve">
+    <value>Ustalaj, kto i skąd wprowadził zmianę (zdarzenia zabezpieczeń DC)</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceLabel" xml:space="preserve">
+    <value>Źródło</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceUnsupported" xml:space="preserve">
+    <value>To źródło działa tylko z usługą na Windows – wybierz OpenWEC (WEF).</value>
+  </data>
+  <data name="Watchdog.Ui.RetentionSettings" xml:space="preserve">
+    <value>Przechowywanie danych</value>
+  </data>
+  <data name="Watchdog.Ui.UnitMinutes" xml:space="preserve">
+    <value>minut</value>
+  </data>
 </root>

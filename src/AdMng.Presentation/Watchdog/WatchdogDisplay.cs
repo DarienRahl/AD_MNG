@@ -198,6 +198,16 @@ public static class WatchdogDisplay
     public static string AttributionSourceName(this ILocalizer localizer, AttributionSourceKind source) =>
         Text(localizer, AttributionSourceKey(source), source.ToString());
 
+    /// <summary>"OpenWEC (WEF)" for the <see cref="AttributionStatusDto.Source"/> text of a status, or the text itself.</summary>
+    public static string AttributionSourceName(this ILocalizer localizer, string? source) =>
+        Enum.TryParse<AttributionSourceKind>(source, ignoreCase: true, out var kind) && Enum.IsDefined(kind)
+            ? localizer.AttributionSourceName(kind)
+            : source ?? string.Empty;
+
+    /// <summary>The service takes the DC Security events from OpenWEC (<see cref="AttributionStatusDto.Source"/>).</summary>
+    public static bool IsCollectorSource(string? source) =>
+        string.Equals(source, nameof(AttributionSourceKind.OpenWec), StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Localized keytab tool result, or the value itself (a newer tool).</summary>
     public static string KeytabResultName(this ILocalizer localizer, string result) => Text(localizer, KeytabResultKey(result), result);
 
@@ -230,6 +240,15 @@ public static class WatchdogDisplay
         ArgumentNullException.ThrowIfNull(localizer);
         return string.IsNullOrEmpty(code) || !localizer.Contains(RemedyKey(code)) ? null : localizer[RemedyKey(code)];
     }
+
+    /// <summary>The reason text; in collector mode (Linux service, OpenWEC) the collector variant of a code that has one
+    /// (<see cref="CollectorReasonCodes"/>: "DC_UNREACHABLE" reads "collector silent").</summary>
+    public static string ReasonText(this ILocalizer localizer, string? code, bool collectorMode) =>
+        localizer.ReasonText(CollectorCode(localizer, code, collectorMode));
+
+    /// <summary>The remedy; in collector mode that of the collector variant (<see cref="ReasonText(ILocalizer, string?, bool)"/>).</summary>
+    public static string? RemedyText(this ILocalizer localizer, string? code, bool collectorMode) =>
+        localizer.RemedyText(CollectorCode(localizer, code, collectorMode));
 
     /// <summary>The source origin ("z logowania 4624", "z DNS – niepotwierdzone"), or the method code.</summary>
     public static string SourceOriginText(this ILocalizer localizer, string? method) =>
@@ -327,6 +346,18 @@ public static class WatchdogDisplay
         duration.TotalSeconds >= 1
             ? duration.TotalSeconds.ToString("0.0", culture) + " s"
             : duration.TotalMilliseconds.ToString("0", culture) + " ms";
+
+    private static string? CollectorCode(ILocalizer localizer, string? code, bool collectorMode)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        if (!collectorMode || string.IsNullOrEmpty(code) || !CollectorReasonCodes.Contains(code, StringComparer.Ordinal))
+        {
+            return code;
+        }
+
+        var variant = AttributionReasons.CollectorVariant(code);
+        return localizer.Contains(ReasonKey(variant)) ? variant : code;
+    }
 
     private static string Text(ILocalizer localizer, string key, string fallback)
     {

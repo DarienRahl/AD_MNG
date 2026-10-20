@@ -76,6 +76,12 @@ public interface IDialogService
 
     /// <summary>Shows the Logon Hours dialog (modal). Returns true when the operator pressed OK.</summary>
     Task<bool> ShowLogonHoursAsync(Dialogs.LogonHoursViewModel editor);
+
+    /// <summary>
+    /// "Potwierdź certyfikat usługi Watchdog" (modal, stage B design 18 item 1). Returns true only when the operator chose
+    /// "Ufam temu certyfikatowi".
+    /// </summary>
+    Task<bool> ShowWatchdogCertificateTrustAsync(Watchdog.WatchdogCertificateTrustViewModel dialog);
 }
 
 /// <summary>What the batch editor should open with.</summary>

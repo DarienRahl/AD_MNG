@@ -2,6 +2,7 @@ using System.Windows.Threading;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
@@ -20,6 +21,7 @@ using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -143,6 +145,9 @@ public static class AppHost
 
         // ---- AD Recycle Bin (opened through ToolWindows) ----
         services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
+
+        // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
+        services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
         return services;
     }
 

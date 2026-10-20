@@ -6619,4 +6619,94 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Value.Unreadable" xml:space="preserve">
     <value>could not be read</value>
   </data>
+  <data name="Watchdog.Connection.CertificateUntrusted" xml:space="preserve">
+    <value>The certificate of {0} is not trusted yet – compare its fingerprint with the one shown on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateChanged" xml:space="preserve">
+    <value>The certificate of {0} differs from the pinned one – check it on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Certificate.Review" xml:space="preserve">
+    <value>Check certificate…</value>
+  </data>
+  <data name="Watchdog.Certificate.Service" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Watchdog.Certificate.NotPinned" xml:space="preserve">
+    <value>No certificate is pinned.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinRemovedOnSave" xml:space="preserve">
+    <value>The pin is removed when you save; the next connection asks for a confirmation again.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinHint" xml:space="preserve">
+    <value>Used only while the certificate is not issued by a trusted certification authority.</value>
+  </data>
+  <data name="Watchdog.Certificate.OutsideValidity" xml:space="preserve">
+    <value>The certificate is outside its validity period.</value>
+  </data>
+  <data name="Watchdog.Ui.SectionNotReported" xml:space="preserve">
+    <value>The service does not report this section (Windows service, a version before 0.3.0, or no data yet).</value>
+  </data>
+  <data name="Watchdog.Ui.Principal" xml:space="preserve">
+    <value>Kerberos principal</value>
+  </data>
+  <data name="Watchdog.Ui.NotDelegated" xml:space="preserve">
+    <value>Delegation blocked</value>
+  </data>
+  <data name="Watchdog.Ui.DenySelfAce" xml:space="preserve">
+    <value>Deny ACE for SELF</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabEncryptionTypes" xml:space="preserve">
+    <value>Keys in the keytab</value>
+  </data>
+  <data name="Watchdog.Ui.LastCheck" xml:space="preserve">
+    <value>Last check</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorStored" xml:space="preserve">
+    <value>Stored (24 h)</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorNoDcs" xml:space="preserve">
+    <value>No domain controller has been seen yet.</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgressValue" xml:space="preserve">
+    <value>{0} of {1} GPOs, {2} queued</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReconciliation" xml:space="preserve">
+    <value>Last reconciliation</value>
+  </data>
+  <data name="Watchdog.Ui.GpoContentDisabled" xml:space="preserve">
+    <value>GPO content tracking is turned off.</value>
+  </data>
+  <data name="Watchdog.Ui.HostSystemd" xml:space="preserve">
+    <value>systemd unit</value>
+  </data>
+  <data name="Watchdog.Ui.CredentialKeyNone" xml:space="preserve">
+    <value>not a systemd credential</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChangesName" xml:space="preserve">
+    <value>Other settings</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChanges" xml:space="preserve">
+    <value>{0} of {1} changed settings are not listed</value>
+  </data>
+  <data name="Watchdog.Tab.Sources" xml:space="preserve">
+    <value>Sources and retention</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSettings" xml:space="preserve">
+    <value>Who and from where</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionEnabled" xml:space="preserve">
+    <value>Determine who made each change and from where (DC Security events)</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceLabel" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceUnsupported" xml:space="preserve">
+    <value>This source works only with the Windows service – choose OpenWEC (WEF).</value>
+  </data>
+  <data name="Watchdog.Ui.RetentionSettings" xml:space="preserve">
+    <value>Retention</value>
+  </data>
+  <data name="Watchdog.Ui.UnitMinutes" xml:space="preserve">
+    <value>minutes</value>
+  </data>
 </root>

@@ -1,7 +1,7 @@
 <!--
   The Watchdog document tab (WatchdogDocumentViewModel): the connection banner (state, the host the tab talks to, the
   caller's role, live-update errors, retry / change address), the rollout banner, the address editor (https only) while
-  no service is configured, and the sub-tabs Events / Rules / Channels / Digest / Status once connected.
+  no service is configured, and the sub-tabs Events / Rules / Channels / Digest / Status / Sources once connected.
 -->
 <UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -63,6 +63,11 @@
                     VerticalAlignment="Center"
                     DockPanel.Dock="Right"
                     Orientation="Horizontal">
+          <Button x:Name="ReviewCertificateButton"
+                  Margin="0,0,6,0"
+                  Command="{Binding ReviewCertificateCommand}"
+                  Content="{l:Tr Watchdog.Certificate.Review}"
+                  Visibility="{Binding CanReviewCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
           <Button x:Name="RetryButton"
                   Margin="0,0,6,0"
                   Command="{Binding RefreshNowCommand}"
@@ -203,6 +208,11 @@
                Header="{l:Tr Watchdog.Tab.Status}"
                Style="{StaticResource SubTabStyle}">
         <wdv:WatchdogStatusView x:Name="StatusView" DataContext="{Binding Status}" />
+      </TabItem>
+      <TabItem x:Name="SourcesTab"
+               Header="{l:Tr Watchdog.Tab.Sources}"
+               Style="{StaticResource SubTabStyle}">
+        <wdv:WatchdogSourcesView x:Name="SourcesView" DataContext="{Binding Sources}" />
       </TabItem>
     </TabControl>
   </DockPanel>

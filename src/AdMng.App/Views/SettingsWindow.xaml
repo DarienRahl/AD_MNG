@@ -1,4 +1,5 @@
-<!-- Settings (SettingsViewModel, modal): language, theme, directory, batch and view options. Save applies them at once. -->
+<!-- Settings (SettingsViewModel, modal): language, theme, directory, batch and view options, the Watchdog certificate pin.
+     Save applies them at once. -->
 <Window x:Class="AdMng.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -156,6 +157,33 @@
                 Margin="0,6,0,0"
                 Content="{l:Tr Commands.ToggleAdvancedFeatures}"
                 IsChecked="{Binding ShowAdvancedFeatures}" />
+
+      <!-- Watchdog: the pinned certificate of the service (stage B design 18 item 1) -->
+      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Watchdog.Title}" />
+      <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Certificate.Pinned}" />
+      <DockPanel Margin="0,4,0,0">
+        <Button x:Name="RemovePinButton"
+                Margin="12,0,0,0"
+                VerticalAlignment="Top"
+                Command="{Binding RemovePinCommand}"
+                Content="{l:Tr Watchdog.Certificate.RemovePin}"
+                DockPanel.Dock="Right" />
+        <TextBlock x:Name="PinnedCertificateText"
+                   AutomationProperties.Name="{l:Tr Watchdog.Certificate.Pinned}"
+                   FontFamily="Cascadia Mono, Consolas"
+                   Text="{Binding PinnedCertificateText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+      <TextBlock Margin="0,4,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr Watchdog.Certificate.PinRemovedOnSave}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding IsPinRemoved, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+      <TextBlock Margin="0,4,0,0"
+                 Style="{StaticResource Ad.SecondaryText}"
+                 Text="{l:Tr Watchdog.Certificate.PinHint}"
+                 TextWrapping="Wrap"
+                 Visibility="{Binding HasPinnedCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
 
       <!-- Range errors of the numeric settings -->
       <Border Margin="0,14,0,0"
