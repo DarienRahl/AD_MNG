@@ -4,7 +4,8 @@ set -e
 
 . /usr/lib/admng-watchdog/admng-watchdog-functions
 
-UNITS="admng-watchdog.service"
+# The keytab service is started by its timer only (12.3).
+UNITS="admng-watchdog.service admng-watchdog-keytab.timer"
 
 enable_units() {
     for unit in $UNITS; do
@@ -29,6 +30,8 @@ case "$1" in
         enable_units
         if admng_systemd_running; then
             systemctl --system daemon-reload >/dev/null || true
+            # The daily rotation check; its service is a no-op until init created the keytab (ConditionPathExists).
+            deb-systemd-invoke start admng-watchdog-keytab.timer >/dev/null || true
         fi
         if [ -z "$2" ]; then
             echo "admng-watchdog: installed. Next: sudo admng-watchdog-keytab init, edit /etc/admng-watchdog/appsettings.json"

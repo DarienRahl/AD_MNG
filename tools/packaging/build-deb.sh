@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Builds admng-watchdog_<version>-1_amd64.deb (one package for Debian 12 and 13) from packaging/admng-watchdog and a
-# framework-dependent linux-x64 publish of src/AdMng.Watchdog.Service (docs/dev/watchdog-linux-design.md 13.1, 13.3).
+# Builds admng-watchdog_<version>-1_amd64.deb (one package for Debian 12 and 13) from packaging/admng-watchdog and
+# framework-dependent linux-x64 publishes of src/AdMng.Watchdog.Service and src/AdMng.Watchdog.Keytab into one folder
+# (docs/dev/watchdog-linux-design.md 4.4, 13.1, 13.3). --no-publish takes a folder that already holds both.
 #
 #   tools/packaging/build-deb.sh [--output DIR] [--version X.Y.Z] [--revision N] [--no-publish PUBLISH_DIR]
 #
@@ -41,7 +42,10 @@ if [ -z "$publish" ]; then
     rm -rf "$publish"
     dotnet publish "$repo/src/AdMng.Watchdog.Service/AdMng.Watchdog.Service.csproj" -c Release -r linux-x64 \
         --self-contained false -p:DebugType=none -o "$publish" -nologo
+    dotnet publish "$repo/src/AdMng.Watchdog.Keytab/AdMng.Watchdog.Keytab.csproj" -c Release -r linux-x64 \
+        --self-contained false -p:DebugType=none -o "$publish" -nologo
 fi
+[ -f "$publish/admng-watchdog-keytab" ] || { echo "$publish lacks admng-watchdog-keytab (src/AdMng.Watchdog.Keytab)" >&2; exit 2; }
 mkdir -p "$lib"
 cp -a "$publish"/. "$lib"/
 # Windows-only and development files do not ship in the Linux package.
@@ -51,7 +55,10 @@ install -m 0644 "$src/bin/admng-watchdog-functions" "$lib/admng-watchdog-functio
 find "$lib" -name '*.so' -exec strip --strip-unneeded {} +
 
 install -D -m 0755 "$src/bin/admng-watchdog" "$stage/usr/sbin/admng-watchdog"
-for unit in admng-watchdog.service admng-watchdog-failed.service; do
+# The keytab tool (4.4) is run by root: /usr/sbin/admng-watchdog-keytab → the apphost in /usr/lib/admng-watchdog.
+ln -s ../lib/admng-watchdog/admng-watchdog-keytab "$stage/usr/sbin/admng-watchdog-keytab"
+# B4 adds admng-wec-rotate.service/.timer together with its wec-rotate binary.
+for unit in admng-watchdog.service admng-watchdog-failed.service admng-watchdog-keytab.service admng-watchdog-keytab.timer; do
     install -D -m 0644 "$src/systemd/$unit" "$stage/usr/lib/systemd/system/$unit"
 done
 install -D -m 0644 "$src/sysusers.d/admng-watchdog.conf" "$stage/usr/lib/sysusers.d/admng-watchdog.conf"
@@ -71,7 +78,7 @@ chmod 0644 "$doc/changelog.Debian.gz"
 # Normalised modes: directories 0755, files 0644, executables 0755 (the apphost and the wrapper).
 find "$stage" -type d -exec chmod 0755 {} +
 find "$lib" -type f -exec chmod 0644 {} +
-chmod 0755 "$lib/AdMng.Watchdog"
+chmod 0755 "$lib/AdMng.Watchdog" "$lib/admng-watchdog-keytab"
 
 control="$stage/DEBIAN"
 mkdir -p "$control"

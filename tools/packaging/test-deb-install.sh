@@ -66,29 +66,38 @@ expect_stat /var/lib/openwec/out "openwec:admng-watchdog 2750"
 openssl x509 -noout -checkend 0 -ext extendedKeyUsage -in /etc/admng-watchdog/tls/admng-wd.crt
 admng-watchdog cert-fingerprint | grep -Eq '^([0-9A-F]{2}:){31}[0-9A-F]{2}$' || fail "cert-fingerprint"
 
+step "Keytab tool (4.4, B2): binary, /usr/sbin link, timer enabled"
+expect_stat /usr/lib/admng-watchdog/admng-watchdog-keytab "root:root 755"
+[ "$(readlink -f /usr/sbin/admng-watchdog-keytab)" = /usr/lib/admng-watchdog/admng-watchdog-keytab ] || fail "/usr/sbin/admng-watchdog-keytab link"
+[ -L /etc/systemd/system/timers.target.wants/admng-watchdog-keytab.timer ] || fail "admng-watchdog-keytab.timer not enabled"
+admng-watchdog-keytab --help | grep -q 'rotate' || fail "admng-watchdog-keytab --help"
+set +e
+admng-watchdog-keytab init < /dev/null > /dev/null 2>&1; code_init=$?
+admng-watchdog-keytab status > /dev/null 2>&1; code_status=$?
+set -e
+[ "$code_init" = 1 ] || fail "init with a non-terminal stdin exited $code_init, expected 1 (refused)"
+[ "$code_status" = 2 ] || fail "status without init exited $code_status, expected 2"
+
 step "Postinst is idempotent"
 dpkg-reconfigure admng-watchdog >/dev/null
 expect_stat /etc/admng-watchdog/credentials/dp-key.cred "root:root 600"
 
 step "systemd-analyze verify and security (12.x)"
 verify_root=$(mktemp -d)
-for unit in admng-watchdog-keytab.service admng-watchdog-keytab.timer admng-wec-rotate.service admng-wec-rotate.timer; do
+for unit in admng-wec-rotate.service admng-wec-rotate.timer; do
     cp "$packaging/systemd/$unit" /etc/systemd/system/
 done
-# The keytab tool (B2) and wec-rotate (B4) are not in this package yet: stubs for the executable checks.
-for stub in admng-watchdog-keytab wec-rotate; do
-    [ -e "/usr/lib/admng-watchdog/$stub" ] || { printf '#!/bin/sh\nexit 0\n' > "/usr/lib/admng-watchdog/$stub"; chmod 0755 "/usr/lib/admng-watchdog/$stub"; }
-done
+# wec-rotate (B4) is not in this package yet: a stub for the executable check.
+[ -e /usr/lib/admng-watchdog/wec-rotate ] || { printf '#!/bin/sh\nexit 0\n' > /usr/lib/admng-watchdog/wec-rotate; chmod 0755 /usr/lib/admng-watchdog/wec-rotate; }
 # OpenWEC (admng-openwec, B4) is ordered After= but not required.
 SYSTEMD_LOG_LEVEL=notice systemd-analyze verify \
     /usr/lib/systemd/system/admng-watchdog.service /usr/lib/systemd/system/admng-watchdog-failed.service \
-    /etc/systemd/system/admng-watchdog-keytab.service /etc/systemd/system/admng-watchdog-keytab.timer \
+    /usr/lib/systemd/system/admng-watchdog-keytab.service /usr/lib/systemd/system/admng-watchdog-keytab.timer \
     /etc/systemd/system/admng-wec-rotate.service /etc/systemd/system/admng-wec-rotate.timer 2>&1 | tee "$verify_root/verify.txt"
 if grep -v -e 'openwecd.service' -e '^$' "$verify_root/verify.txt" | grep -q .; then
     fail "systemd-analyze verify reported problems"
 fi
-rm -f /etc/systemd/system/admng-watchdog-keytab.* /etc/systemd/system/admng-wec-rotate.* \
-    /usr/lib/admng-watchdog/admng-watchdog-keytab /usr/lib/admng-watchdog/wec-rotate
+rm -f /etc/systemd/system/admng-wec-rotate.* /usr/lib/admng-watchdog/wec-rotate
 systemd-analyze security --offline=true --no-pager admng-watchdog.service | tail -n 1 | tee "$verify_root/security.txt"
 exposure=$(sed -n 's/.*exposure level for admng-watchdog.service: \([0-9.]*\).*/\1/p' "$verify_root/security.txt")
 awk -v e="$exposure" 'BEGIN { exit !(e != "" && e <= 2.0) }' || fail "exposure $exposure > 2.0"
@@ -149,6 +158,8 @@ apt-get remove -y admng-watchdog >/dev/null
 apt-get purge -y admng-watchdog
 [ ! -e /etc/admng-watchdog ] || fail "/etc/admng-watchdog left after purge"
 [ ! -e /var/lib/admng-watchdog-keytab ] || fail "/var/lib/admng-watchdog-keytab left after purge"
+[ ! -e /usr/sbin/admng-watchdog-keytab ] || fail "/usr/sbin/admng-watchdog-keytab left after purge"
+[ ! -e /etc/systemd/system/timers.target.wants/admng-watchdog-keytab.timer ] || fail "timer link left after purge"
 [ -f /var/lib/admng-watchdog/watchdog.db ] || fail "purge deleted the history"
 getent passwd admng-watchdog >/dev/null || fail "purge removed the system user"
 echo
