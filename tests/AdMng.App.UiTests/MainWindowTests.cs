@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
@@ -99,9 +100,10 @@ public sealed class MainWindowTests
     });
 
     [Fact]
-    public Task MainWindow_DetailsPane_WrapsLongLabelsInsteadOfClippingThem() => WpfTestHost.RunAsync(async () =>
+    public Task MainWindow_DetailsPane_ShowsLabelsAsCaptionsAboveFullWidthValues() => WpfTestHost.RunAsync(async () =>
     {
-        // Polish labels such as "Nazwa logowania użytkownika" are wider than the label column.
+        // Polish labels such as "Nazwa logowania (starsza niż Windows 2000)" are long and the pane is narrow: a label
+        // column would leave the values ~110 px. The label is a caption above its value, the value gets the full width.
         await using var context = await UiTestContext.CreateAsync("pl");
         await context.ConnectAsync();
         var window = context.Services.GetRequiredService<MainWindow>();
@@ -120,6 +122,28 @@ public sealed class MainWindowTests
         Assert.NotEmpty(labels);
         Assert.Contains(labels, t => t.Text.Length > 20);
         Assert.All(labels, t => Assert.Null(LayoutInformation.GetLayoutClip(t)));
+
+        var content = window.DetailsContent;
+        var values = UiWait.Descendants<TextBox>(content).Where(t => t.DataContext is SummaryField).ToList();
+        Assert.Equal(labels.Count, values.Count);
+        foreach (var label in labels)
+        {
+            var value = values.Single(t => ReferenceEquals(t.DataContext, label.DataContext));
+            var labelBounds = BoundsIn(label, content);
+            var valueBounds = BoundsIn(value, content);
+            Assert.True(labelBounds.Bottom <= valueBounds.Top + 0.5, $"'{label.Text}' is above its value");
+            Assert.Equal(labelBounds.Left, valueBounds.Left, 0.5);
+
+            // The value and its copy button fill the entry's width (no label column next to the value).
+            var row = (FrameworkElement)VisualTreeHelper.GetParent(value);
+            var entry = (FrameworkElement)VisualTreeHelper.GetParent(label);
+            Assert.Same(entry, VisualTreeHelper.GetParent(row));
+            Assert.Equal(entry.ActualWidth, row.ActualWidth, 0.5);
+            Assert.Equal(BoundsIn(row, content).Left, valueBounds.Left, 0.5);
+        }
+
+        // Location and DN: the same caption-above-value entries, values at the same left edge.
+        Assert.Equal(BoundsIn(labels[0], content).Left, BoundsIn(window.DetailsDnText, content).Left, 0.5);
         context.AssertHealthy();
     });
 
@@ -364,6 +388,9 @@ public sealed class MainWindowTests
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
     });
+
+    private static Rect BoundsIn(FrameworkElement element, Visual ancestor) =>
+        element.TransformToAncestor(ancestor).TransformBounds(new Rect(element.RenderSize));
 
     private static IEnumerable<object> LogicalDescendants(object? root)
     {
