@@ -318,6 +318,17 @@ public sealed class KeytabTool
         Info($"Keytab {_args.Keytab} written: {principals.Count} principals with kvno {kvno}"
             + (kept.Count > 0 ? $", previous kvno {string.Join(", ", kept)} kept." : "."));
 
+        KeytabStatus StatusOf(string statusResult, string? statusError) => new()
+        {
+            Principal = account.Principal,
+            Kvno = kvno,
+            LastChange = passwordChanged || statusResult == KeytabResults.OtpActive ? now : previous?.LastChange,
+            LastAttempt = now,
+            Result = statusResult,
+            ErrorCode = statusError,
+            NextDue = statusResult == KeytabResults.OtpActive ? now : now + _args.IfOlderThan,
+        };
+
         string? error = resultError;
         if (primaryCode != 0)
         {
@@ -327,6 +338,15 @@ public sealed class KeytabTool
         }
         else
         {
+            if (result == KeytabResults.Ok && config.Kdcs.Any(k => !string.Equals(k, config.PrimaryKdc, StringComparison.OrdinalIgnoreCase)))
+            {
+                // The new kvno and change time are known now: the service's watchdog-self exclusion (design 9.3) re-reads
+                // status.json for only 30 s after it sees the change, while the replication wait below can take up to
+                // --replication-timeout. The final result replaces this one.
+                StatusOf(KeytabResults.ReplicationPending, null).Write(_args.StateDirectory);
+                _host.FaultPoint?.Invoke("replicating");
+            }
+
             var (allReplicated, pendingError) = WaitForReplication(config, account);
             if (!allReplicated && result == KeytabResults.Ok)
             {
@@ -335,16 +355,7 @@ public sealed class KeytabTool
             }
         }
 
-        var status = new KeytabStatus
-        {
-            Principal = account.Principal,
-            Kvno = kvno,
-            LastChange = passwordChanged || result == KeytabResults.OtpActive ? now : previous?.LastChange,
-            LastAttempt = now,
-            Result = result,
-            ErrorCode = error,
-            NextDue = result == KeytabResults.OtpActive ? now : now + _args.IfOlderThan,
-        };
+        var status = StatusOf(result, error);
         status.Write(_args.StateDirectory);
         Info($"Status: {result}" + (error is null ? "." : $" ({error})."));
         return result is KeytabResults.Ok or KeytabResults.ReplicationPending or KeytabResults.OtpActive ? ExitOk : ExitFailure;

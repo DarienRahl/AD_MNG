@@ -241,9 +241,20 @@ public sealed class KeytabLabTests(LabFixture lab)
 
         // A second KDC that has not replicated (unreachable): replicationPending is not an error.
         var twoKdcs = WriteKrb5Config(state, "two-kdcs.conf", kdcs: [Server, "127.0.0.1:1"], primary: Server);
-        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", twoKdcs]);
+        KeytabToolStatus? interim = null;
+        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", twoKdcs],
+            fault: step => interim = step == "replicating" ? KeytabToolStatus.Read(state.StatusFile) : interim);
         Assert.True(exit == 0, output);
-        Assert.Equal(KeytabStatusResults.ReplicationPending, KeytabToolStatus.Read(state.StatusFile)!.Result);
+        var final = KeytabToolStatus.Read(state.StatusFile)!;
+        Assert.Equal(KeytabStatusResults.ReplicationPending, final.Result);
+
+        // The new kvno and change time are in status.json before the replication wait (up to --replication-timeout): the
+        // service's watchdog-self exclusion re-reads the file for only 30 s after it sees the change (design 9.3).
+        Assert.NotNull(interim);
+        Assert.Equal(KeytabStatusResults.ReplicationPending, interim.Result);
+        Assert.Equal(await DirectoryKvnoAsync(account), interim.Kvno);
+        Assert.Equal(final.Kvno, interim.Kvno);
+        Assert.Equal(final.LastChange, interim.LastChange);
         await using (var monitor = MonitorHarness.Create(account, state, health, configuration))
         {
             await monitor.RunAsync();

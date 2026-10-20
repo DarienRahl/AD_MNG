@@ -22,7 +22,8 @@ public sealed class KeytabToolHost
     public TimeSpan ReplicationPollInterval { get; init; } = TimeSpan.FromSeconds(30);
 
     /// <summary>Lab tests: called at named steps (<c>changed</c> after a successful password change, <c>written</c>
-    /// before the new keytab is committed); an exception thrown there simulates the failure of that step.</summary>
+    /// before the new keytab is committed, <c>replicating</c> after the interim status before the replication wait); an
+    /// exception thrown there simulates the failure of that step.</summary>
     internal Action<string>? FaultPoint { get; init; }
 
     /// <summary>The real console of the process.</summary>
