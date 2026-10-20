@@ -1976,7 +1976,9 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 B1 as built (2026-10-20): deviations and lab findings
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2)
+
+**B1.**
 
 Code: `Service/Hosting/SystemdSetup.cs`, `SystemdNotifySocket.cs`, `SystemdWatchdogNotifier.cs`, `JobProgress.cs`,
 `PosixPermissionCheck.cs`, `PemCertificateSource.cs` (+ `CertificateSelector`), `StartupChecks.cs`, `LoggingSetup.cs`,
@@ -2051,6 +2053,93 @@ Code: `Service/Hosting/SystemdSetup.cs`, `SystemdNotifySocket.cs`, `SystemdWatch
   remove/purge) passed in `ubuntu:24.04` locally; the CI job runs the same script in `debian:12` and `debian:13`.
   The service tests read the machine's `/etc/admng-watchdog/appsettings.json` when the package is installed on the test
   machine (bootstrap overrides the test settings) – run them on a machine without the package.
+
+**B2.** Code: `src/AdMng.Watchdog.Keytab` (`KeytabTool`, `Native/Krb5Native.cs`, `Krb5Context.cs`, `KerberosConfig.cs`,
+`SecretBuffer.cs`), `Service/Identity/` (`ServiceAccountMonitor`, `ServiceAccountChecks`, `KeytabFile`,
+`KeytabToolStatus`, `Krb5ConfigFile`), `Service/Hosting/LdapConfigCheck.cs`, `Service/Directory/
+ServiceDirectorySessionProvider.cs` (Servers, failover, SSF health), `Core/Detection/ClockSkewCheck.cs`; the SSF check of
+`AdMng.Directory` (`OpenLdapSasl`, `LdapConnectionFactory.EnsureSealed`) came with the B2 start. Lab: `tools/testlab/
+watchdog/keytab-lab.sh`, `KeytabLabTests` (Watchdog.IntegrationTests), `GssapiTests` (Directory.IntegrationTests).
+
+- **One KDC at a time (4.4):** MIT has no API to address a single KDC. The tool builds every krb5 context from an explicit
+  profile (`profile_init_path` + `krb5_init_context_profile`) – the main file is `--krb5-config`, else `KRB5_CONFIG`
+  as .NET sees it, else `/etc/admng-watchdog/krb5.conf` (so a plain `sudo` that drops the environment still uses the
+  service's file) – and, per KDC, prepends a temporary overlay (`[realms] REALM = { kdc = X  primary_kdc = X
+  kpasswd_server = … }*`) whose final marker hides the main file's KDC list (lab: an overlay with an unreachable KDC
+  gives `KRB5_KDC_UNREACH`, no fallback). Overlays hold no secret and live in a private temp folder (`PrivateTmp`). The
+  tool uses its own `MEMORY` ccaches (`krb5_cc_new_unique`); the unit's `KRB5CCNAME` is not used.
+- **Change, kvno, commit (4.4, 4.6):** `kadmin/changepw` credentials and the change go to `primary_kdc`; `init` first
+  reads the one-time password's kvno from a service ticket for `host/<fqdn>` and expects + 1, `rotate` expects the
+  keytab's newest + 1; the kvno is then confirmed from a fresh ticket obtained with the new password (a failed
+  confirmation falls back to the expected kvno with a warning instead of losing the password). Keys:
+  `krb5_c_string_to_key` with the AD salt; the password buffer is zeroed right after the derivation. The new keytab is
+  written with `krb5_kt_add_entry` into `.<name>.new-<random>` (created 0600 with the 0x502 header, then 0640, group
+  `admng-keytab` when the tool runs as root and the group exists, fsync, `rename`, directory fsync). Kept entries: the
+  old keytab's newest kvno (for `rotate` that is new − 1; it also keeps live tickets when the account was changed
+  elsewhere in between). The pre-commit check at `primary_kdc` does not block the commit: if it fails the keytab is
+  still committed (otherwise the new password would be lost for certain) and the status is `verifyFailed`; there is no
+  salt fallback through `krb5_get_etype_info`. Only a failure between the change and the rename yields
+  `keytabWriteFailed` with the exact remedy text of 4.6 (lab: injected write failure → AD kvno + 1, keytab unchanged,
+  health Errors `serviceAccount.rotation` and `serviceAccount.keytabStale`; new one-time password + `init` recovers).
+- **Exit codes and status:** `init` that ends in `otpActive` exits 0 with a warning (the keytab works); `rotate` that is
+  still refused in `otpActive` keeps `otpActive` (errorCode = the kpasswd result) and exits 2; `verify` updates
+  `status.json` but keeps `otpActive`, `changeFailed` and `keytabWriteFailed` unless its own check fails;
+  `replicationPending` exits 0. Output lines carry journald priorities (`<3>`, `<4>`, `<6>`) when `JOURNAL_STREAM` is
+  set. Lab-only seams: `--password-stdin` and an internal fault hook (`KeytabToolHost.FaultPoint`) used by the tests.
+- **Unit 12.3 under systemd:** verified as shipped (no change) in a privileged Ubuntu 24.04 container with systemd 255 as
+  PID 1 and the B2 package installed against the lab DC: `init` as root, then the hardened
+  `admng-watchdog-keytab.service` (drop-in `--if-older-than 0`) rotated kvno 3 → 4 with result `success`, keytab
+  root:admng-keytab 0640, `status.json` root:admng-watchdog 0640, journald priority 6. Unlike 12.1 it needs no
+  `SystemCallErrorNumber=EPERM` (it does not deny `@resources`; the run also succeeded with the errno reset). In the
+  same container `admng-watchdog.service` (B1's `CREDENTIALS_DIRECTORY` drop-in for the container, 21.1 B1) started
+  with the shipped `ldap.conf` (LDAPCONF check passed), bound over SASL GSSAPI as the account from
+  `KRB5_CLIENT_KTNAME`, ran the baseline and the own-account monitor (`serviceAccount.drift` Warning: no Deny ACE in
+  that probe), and kept working through a rotation by the timer's unit (kvno + 1, `NRestarts=0`, LDAP activity and
+  `/healthz` ok afterwards).
+- **Own-account monitor (4.7):** job `service-account` (hourly, 5 min after a directory error), registered on Linux when
+  `Kerberos.ServicePrincipal` is set and the directory is enabled; it runs over the provider's current session (rule 4).
+  The expected SPNs and `dNSHostName` come from the keytab's `HTTP/`/`host/` principal (`RestrictedKrbHost/` ignored).
+  Privileged = the fixed SIDs/RIDs of 4.7 item 1 (root-domain RIDs in any domain SID), DnsAdmins by name, and the
+  SID-configured roots of `PrivilegedGroups` (DN-configured roots cannot match `tokenGroups`, which yields SIDs only);
+  the check's Args are the count, never SIDs. Exit code 8 comes from the first run of the job (it needs LDAP), i.e. after
+  `READY=1`, through `IProcessTerminator`. A check that turns Warning/Error appends one `HealthServiceAccount` event. An
+  account that is not found is `serviceAccount.drift` Error (`accountMissing`); unreadable `tokenGroups` is
+  `serviceAccount.privileged` Warning. `host.primaryKdcNotPdc` is checked by the same job (first file of `KRB5_CONFIG`).
+- **Clock skew (4.7 item 6):** evaluated in Core's detection cycle from the RootDSE `currentTime` that `DcStateReader`
+  already reads – also on Windows; `HostStatusDto.ClockSkew` is updated there.
+- **LDAP (5.1–5.3):** the `LDAPCONF` start-up check (exit 2) runs for the systemd unit and Production starts on Linux
+  with Kerberos; besides `minssf ≥ 56` (`SignAndSeal`) / `maxssf=0` (`Tls`) it refuses `LDAPNOINIT`, `LDAPRC`,
+  `ldaprc`/`.ldaprc` in `HOME` and the working directory, takes `LDAPSASL_SECPROPS` as the effective value when set
+  (libldap applies `LDAP<option>` variables after the files) and refuses `Security = None/StartTls` with Kerberos.
+  LDAPS needs no code beyond that: trust comes from `TLS_CACERT` with `TLS_REQCERT demand` (the shipped `ldap.conf`
+  documents the LDAPS lines); `StartNewTlsSessionContext` is not used. `--check-config` requires `Directory.Servers`
+  (or `Server`) on Linux and refuses IP literals with Kerberos. The provider tries the list in order, switches to the
+  PDC emulator only when it is listed (and ≥ 2 servers), retries the pinned DC alone until `Directory.FailoverAfter`
+  and then the following ones; a refused unsealed bind is health Error `directory.notSealed` (Ok with the SSF after a
+  sealed bind) and every connect reports `LdapSsf`/`LdapSecurity` in „Host” (lab: SSF 256).
+- **Package (13.1):** the keytab tool is a second framework-dependent publish into `/usr/lib/admng-watchdog`,
+  `/usr/sbin/admng-watchdog-keytab` a relative symlink; `admng-watchdog-keytab.service/.timer` ship in
+  `/usr/lib/systemd/system`, `postinst` enables and starts the timer, `prerm` stops it, `postrm` masks/purges it.
+  B1 fix: `packaging/admng-watchdog/bin/` (the wrapper and `admng-watchdog-functions`) was matched by `.gitignore`'s
+  `bin/` and never committed – `build-deb.sh` and the CI job could not have worked from a clean clone; now committed
+  with a `.gitignore` exception.
+- **Lab findings (Samba):** the `ldap/` SPN fix (9cee61d) is applied to the running lab (`ldap/vm.contoso.test`
+  present); the computer account reads its own `msDS-KeyVersionNumber`, `tokenGroups` and DACL (SD flags 7) over
+  GSSAPI; `init` changes the password right after the admin reset (minPwdAge exemption – `otpActive` is not
+  reproducible on Samba and is covered by unit tests); with one DC, `replicationPending` was produced with an
+  unreachable second KDC; a Negotiate exchange (`NegotiateAuthentication`, the API's acceptor path) succeeded with the
+  cached ticket of the previous kvno and with a fresh ticket of the new kvno after `rotate`, and the open LDAP session
+  kept working, all without restart.
+- **Verification in this milestone:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests and
+  Watchdog.Service.Tests green on Linux; on the Samba lab `KeytabLabTests` (3, with `keytab-lab.sh env`) and
+  `GssapiTests` (4, with `env --admin`) pass, and so do the full suites (Watchdog integration 28 passed, 2 skipped –
+  `KerberosNegotiateTests` need `ADMNG_TEST_KERBEROS`; Directory integration 249 passed); the package install test
+  (`test-deb-install.sh` with the new keytab checks) passed in an `ubuntu:24.04` container (exposure 1.4) – Debian 12
+  and 13 are the CI job's.
+- **Left for later milestones:** the Status tab section „Konto usługi” and the Host values in AD Manager (B7); the
+  `CLAUDE.md` layout row for `src/AdMng.Watchdog.Keytab` (B8); `otpActive` against a real Windows DC (Q5) and a real
+  second DC for `replicationPending` (B9 pilot); the struct offsets of the P/Invoke layer are LP64 (x86_64 and aarch64)
+  but only x86_64 was run.
 
 ---
 
