@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B3, B5a, B6, B7)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B3, B4, B5a, B6, B7)
 
 **B1.**
 
@@ -2449,6 +2449,123 @@ keys en + pl (`L.WatchdogLinux`); App `Views/Watchdog/WatchdogCertificateTrustWi
   AdMng.Presentation.Tests 858 passed, Watchdog.Service.Tests 682 passed (16 skipped), Watchdog.Core.Tests 2172 passed
   (4 skipped; the shared `AdMng.Watchdog.Testing` changed). Not run here: `AdMng.App.UiTests`, `AdMng.exe --smoke-test`
   and the screenshots (Windows CI).
+
+**B4 (WEF ingestion through OpenWEC, 7, 12.2, 12.4, 13.2).** Code: Core `Abstractions/ISecurityEventLookup.cs`
+(`ISecurityEventLookup`, `ISecurityEventCollector`, `CollectorMode`), `Attribution/WecRecordReader.cs`,
+`CollectorIdentityPolicy.cs`, `CollectorIngestor.cs` (+ `CollectorLogonBudget`), `StoredSecurityEventLookup.cs`,
+`WecSubscription.cs`, `SecurityEventReducer.ReduceLogon`, `SecurityEventCatalog.LogonRecordCodes/LogonRetainedFields`,
+`SecurityEvent.TargetLogonId`, `SecurityEventCriteria.LogonId`, `ParsedSecurityRecord.Channel`, collector branches in
+`LogonSourceResolver`, `LockoutSourceResolver`, `PasswordSprayDetector`, `AttributionSourceResolver`,
+`AttributionEngine`, `Configuration/ConfigurationMigration.cs`, `RangeValidator`/`AttributionValidator`; Service
+`Attribution/WecFileIngestionJob.cs`, `WecFileCursor.cs`, `WecFiles.cs`, `WecProgressFile.cs`,
+`CollectorDomainControllerSource.cs`, `Storage/Migrations/Migration0004SecurityEventsV2.cs`, `SqliteSecurityEventStore`
+(`logon_id`), `SqliteStoreMaintenance.PurgeLogonRecordsAsync` + `StorageGuardJob`, `Hosting/PrintWecSubscriptionCommand.cs`,
+`PosixPermissionCheck.FStat` (+ device, inode, size, mtime), `StartupChecks.MigrateConfigurationForLinuxAsync`,
+`ServiceRegistration.AddCollector`; packaging `packaging/admng-openwec/` (unit 12.2, `openwec.conf.toml` 7.2, sysusers,
+tmpfiles, maintainer scripts, example subscription, copyright with the GPL-3.0 source offer),
+`packaging/admng-watchdog/bin/wec-rotate`, `default/admng-wec-rotate`, `tools/packaging/build-openwec-deb.sh`, CI job
+`openwec-package`; test fixtures `Testing/Fixtures/OpenWec/WecRawJson.cs` (lines exactly as `raw_json.rs` of 86de07f
+writes them) and `WindowsEventXml.cs` (Raw-format records of 4624 v2 types 3/10, 4625, 4771, 4776, 4720, 47xx, 4728,
+4740, 5136–5141, 1102); tests `Watchdog.Core.Tests/Attribution/Collector/*`, `Rules/CollectorValidationTests`,
+`Scans/PasswordSprayDetectorTests` (collector mode), store contract tests, `Watchdog.Service.Tests/Collector/*`, lab
+`OpenWecLabTests` and `tools/testlab/watchdog/wec-units-lab.sh`.
+
+- **Collector mode = `OpenWec` + an available collector.** The tailer job registers as `ISecurityEventCollector` on Linux
+  when the directory is watched. `OpenWec` without a collector – the Windows service until section 17 (the contracts'
+  default source is `OpenWec`, so a fresh Windows install would otherwise attribute nothing) and every test host – reads
+  the DC logs over RPC like `DomainControllers`; Status then reports `DomainControllers`. No `LiveSecurityEventLookup`
+  was extracted: the resolvers keep their live code and branch to `ISecurityEventLookup` in collector mode (section 17
+  deletes the live branch). The interface has `IsAvailable` and `LastSeenAsync` besides the three lookups of 7.8.
+- **`SOURCE_NOT_COLLECTED`** is decided after a miss: no 4624 of that DC stored since `evidence − LogonLookback` (7.8 says
+  "in the last hour") – computer-account logons are dropped at ingestion, so a quiet DC would otherwise read "not
+  collected" after an idle hour. Lookups go through `SourceQueryGate` per DC with the same cache and caps.
+  `PasswordSprayDetector` in collector mode reads the stored 4771/4776 of every DC (not only the PDC); duplicates of a
+  relayed check do not change distinct accounts per source.
+- **Identity (7.6):** the account name is the `sAMAccountName` of the server object's `serverReference` (read once per DC
+  list refresh – a renamed DC keeps its old account name), falling back to NetBIOS name + `$`; addresses are resolved at
+  every refresh and at least every 15 minutes (a failed lookup keeps the last ones). Added: the record's client must be the
+  one of its directory (`sanitize_name`). A client directory that maps to no writable DC is **not read at all** (no record
+  is dropped for it; `wec.<pseudo-host>.identityMismatch` Error, e.g. `wec.srv01.contoso.com.identityMismatch`), so a DC
+  added since the last refresh is read once the list knows it; while the DC list was never read nothing is read (Status
+  Unknown). Records of a known DC that fail checks 1, 3, 4 or 5 are dropped and counted per check (log 1012, directory name and count only).
+- **Reduction (7.7):** the noisy 5136 attributes the DC-log query suppresses (`SecurityLogIngestor.SuppressedAttributes`)
+  are dropped at ingestion – the subscription suppresses only `dSCorePropagationData`, as designed. Logon records keep
+  exactly the fields of 7.7; `Source` is the DC FQDN. The budget counts per DC and minute of `TimeCreated` (a backlog
+  replay is judged by the rate at the DC); "flooding" is one HealthEventLogGap per DC and hour. Not done (SHOULD): the
+  per-(DC, source, minute) counters for 0xC0000064.
+- **RawJson (7.5/7.6):** field order confirmed in the pinned source – `{"meta":{"IpAddress","TimeReceived","Principal",
+  "Client","Subscription":{"Uuid","Version","Name",…},"Node"?},"data":…}`, `TimeReceived` chrono RFC 3339 with
+  `+00:00`, uuid lower case, one record per `write_all` ending in `\n` – so the resync token `{"meta":` holds. A rotated
+  file whose last line never got its line feed (openwecd died before the rotation) and that was not written for 5 minutes
+  has that tail consumed as one malformed line.
+- **Tailer (7.5):** polls every 2 s (`JobResult`) – no `FileSystemWatcher`; 20 batches per directory and run, then it runs
+  again at once. Files are identified through `fstat` of the opened handle (no race with a rename). Poison input: the
+  attempt is recorded per offset; after 3 the batch runs line by line inside a `PoisonEnd` window, each line with its own
+  attempt record and commit; a line is skipped only when an **earlier process** recorded its attempt (a crash or a
+  watchdog kill) or its parsing throws – a store failure is retried and never skips a line (in-memory marker of the own
+  attempts). Loss (`wec.<dc>.collectorFileLost` – per DC, the table's `wec.collectorFileLost` – + HealthEventLogGap
+  `collectorFileLost`): the cursor's file is gone although its committed offset was below its size at that commit, or a
+  file this process listed with unread bytes vanished; a file consumed completely and then deleted by the rotation is no
+  loss. Limitation: files created and deleted by `MAX_UNCONSUMED_*` entirely while the service was stopped are not seen –
+  only the rotation's journald warning names them. Silence counts from the last accepted record's `TimeReceived` (from the
+  service start after a restart); a DC silent beyond `CollectorSilenceError` – or a writable DC that never forwarded – is
+  recorded as a read failure, so attribution reports DC_UNREACHABLE (collector text of B7) and the engine raises
+  HealthAttributionDegraded. `wec.service` needs 10 minutes of uptime, the directory Ok and a known DC list.
+- **Progress file and rotation (7.4):** `wec-progress.json` is JSON with one file entry per line in a fixed key order, so
+  the bash script reads it with `sed` (no `jq` on a minimal Debian); an entry is `complete` for a rotated file consumed to
+  its size. `wec-rotate` additionally requires the same device, inode, first-line hash **and size**, 5 idle minutes, and a
+  file rotated in an **earlier** run (OpenWEC may append to the file renamed in this run until the `ExecStartPost`
+  reload). Rotated names use seconds (`security.jsonl.20261019T030000Z`, 7.4; 7.5's example omits them).
+  `MAX_UNCONSUMED_DAYS` is clamped to 1–30 and `MAX_UNCONSUMED_MB` to ≥ 64 with a warning. Test seams of the script:
+  `WEC_OUT_DIR`, `WEC_PROGRESS_FILE`, `WEC_ROTATE_NOW`.
+- **Storage (7.7):** migration 0004 copies the table in its transaction (pre-migration backup as for every migration);
+  `logon_id` is filled only for 4624. `StorageGuardJob` purges 4624/4625/4771/4776 older than `LogonRecordsHours` hourly.
+  Validation: `retention.logonRecordsHours` 12–720 and `logonRetentionTooShort` (≥ `LogonLookback` + the largest
+  `PendingRetries` step, rounded up to hours), `attribution.collectorSilenceWarning` 5 min–1 day, `…Error` 5 min–7 days
+  and not below the warning (`range`), `sourceUnsupportedOnHost` against the host's list
+  (`ConfigValidationService.SupportedAttributionSources`).
+- **Configuration migration (7.8):** at start on Linux only (`StartupChecks`, before the first load): a stored version 1
+  document is saved once as version 2 (Windows sources → `OpenWec`) with the audit summary "migrated for Linux" by
+  "AdMng Watchdog". The Windows service keeps version 1 documents.
+- **`print-wec-subscription`:** as specified (configured uuid, only `Watchdog:Collector` of the bootstrap file plus
+  `--Watchdog:Collector:…` arguments, exit 2 for a missing/invalid `--dc` or an unreadable section) and `--query-only`
+  (the `QueryList` for `Get-WinEvent -FilterXml`). The generated file equals the example of 7.3 byte for byte (golden
+  test) and loads with the pinned `openwec` CLI; the shipped example is generated by it and checked against it in the
+  install test.
+- **`admng-openwec` (7.1, 13.2):** built by `tools/packaging/build-openwec-deb.sh` (staged tree + `dpkg-deb`, like
+  `admng-watchdog`) instead of `cargo deb`; `Depends` from `dpkg-shlibdeps` of the release (libssl3 / libssl3t64).
+  The GPL-3.0 corresponding source is `admng-openwec-<version>-source.tar.xz` (upstream tree of the commit, `cargo
+  vendor` of its `Cargo.lock`, the recipe; 45 MB), produced by the Debian 13 CI job; attaching it with the packages and
+  `SHA256SUMS` to the GitHub release is the release workflow of B10. `postinst` loads the subscription only when it is
+  the single file below `/etc/openwec/subscriptions/` and holds no `contoso.com`; `openwec.sqlite` is 0644 (SQLite
+  `fchmod`s its files whatever the umask) inside the 0700 `db/` folder. `admng-watchdog` now `Depends: admng-openwec
+  (>= 0.3.0+git20260908)` and ships `wec-rotate`, `/etc/default/admng-wec-rotate` (conffile) and the 12.4 units (timer
+  enabled and started by `postinst`).
+- **Lab findings (Samba, `OpenWecLabTests`, pinned openwecd built here):** openwecd accepts tickets for the account's
+  `HTTP/` **and** `host/` principals (MIT's acceptor takes any key of the keytab although `service_principal_name` names
+  `HTTP/`), in WinRM's `Kerberos` scheme and in SPNEGO, and answers with the mutual-authentication token; a ticket for
+  another account's service and a request without a ticket get 401 with both challenges. OpenWEC authenticates a TCP
+  connection once (later requests on it carry no `Authorization`), and answers 200 to an authenticated empty request.
+- **Under systemd (`wec-units-lab.sh`, Ubuntu 24.04 container, systemd 255, both packages):** `admng-watchdog-keytab init`
+  of the package wrote the keytab (3 principals); `openwecd.service` ran under the 12.2 sandbox with
+  `SupplementaryGroups=admng-keytab`, no restart, no access-log file, 401 without a ticket and SPNEGO accepted from the host
+  through the `IPAddressAllow=` drop-in; exposure 1.2 (1.1 offline). `admng-wec-rotate.service` renamed the active file,
+  reloaded openwecd (same PID), deleted the consumed file, kept the unconsumed one, deleted a 9-day-old file with a warning
+  and succeeded with `/run/admng-watchdog` missing; exposure 1.7. `SocketBind*` is ignored there (no BPF framework, as in
+  B1).
+- **Not done here / pilot:** the Debian 12/13 builds of `admng-openwec` run only in CI (Debian mirrors are not reachable
+  from the agent; the local tests used a package of the same recipe built from Ubuntu 24.04 binaries,
+  `~ubuntu24.04local`); a real DC forwarding through WinRM to openwecd (B9 pilot – the replay fixtures stand in);
+  `AdwsSourceCorrelator` (SHOULD, Q20); the release assets (B10).
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests 2254 passed (4 skipped) – among them the
+  replay tests: 11 scenarios run through both paths with identical records and give identical attributions, lockout
+  sources and detections; Watchdog.Service.Tests 763 passed (16 skipped) – among them a crash at every step of the tailer
+  (attempt, prepared, detected, committed, progress; first and later batches) followed by a restart loses and duplicates
+  nothing (records, SecurityLogCleared, gaps, progress), poison input, rotation script decisions; lab `OpenWecLabTests`
+  passed; `wec-units-lab.sh` passed; the package install test (`test-deb-install.sh` with both packages) passed in
+  `ubuntu:24.04` (Debian 12 and 13 are the CI job's). One unrelated flaky run of
+  `StorageGuard_ReportsTheSameSizeAndFreeChecks_AsTheRetentionJob` (free disk bytes changing between its two reads while
+  other builds ran) passed on rerun.
 
 ---
 
