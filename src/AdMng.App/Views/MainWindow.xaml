@@ -224,6 +224,25 @@
         </DataTrigger>
       </Style.Triggers>
     </Style>
+
+    <!--
+      Details pane entries (attribute lines, location, DN): the pane is narrow, so the label is a small caption above its
+      value and the value gets the full width, with its copy button at the right. One entry = DetailsEntry panel holding
+      a DetailsCaption and a DockPanel [value | copy button].
+    -->
+    <Style x:Key="DetailsEntry" TargetType="StackPanel">
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style x:Key="DetailsCaption" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="0,0,0,1" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <!-- Centred on the copy button for one line; a wrapped value fills the line's height and starts at its top. -->
+    <Style x:Key="DetailsValue" TargetType="TextBox" BasedOn="{StaticResource Ad.SelectableText}">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
   </Window.Resources>
 
   <Grid>
@@ -803,71 +822,62 @@
 
                 <ItemsControl Margin="0,10,0,0"
                               Focusable="False"
-                              Grid.IsSharedSizeScope="True"
                               ItemsSource="{Binding Fields, Mode=OneWay}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type shell:SummaryField}">
-                      <Grid Margin="0,1">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="Auto" SharedSizeGroup="Label" />
-                          <ColumnDefinition Width="*" />
-                          <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <!-- An Auto column measures with unlimited width: the label itself must be bounded to wrap. -->
-                        <TextBlock MaxWidth="140"
-                                   Margin="0,2,10,0"
-                                   VerticalAlignment="Top"
-                                   Style="{StaticResource Ad.SecondaryText}"
-                                   Text="{Binding Label, Mode=OneWay}"
-                                   TextWrapping="Wrap" />
+                      <StackPanel Style="{StaticResource DetailsEntry}">
+                        <TextBlock Style="{StaticResource DetailsCaption}" Text="{Binding Label, Mode=OneWay}" />
                         <!-- Selectable with the mouse; the copy button copies the whole value with one click. -->
-                        <TextBox Grid.Column="1"
-                                 Margin="0,2,0,0"
-                                 VerticalAlignment="Top"
-                                 AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
-                                 Style="{StaticResource Ad.SelectableText}"
-                                 Text="{Binding Value, Mode=OneWay}" />
-                        <Button Grid.Column="2"
-                                Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
-                                CommandParameter="{Binding Mode=OneWay}"
-                                Style="{StaticResource Ad.CopyButton}"
-                                Tag="{Binding Label, Mode=OneWay}"
-                                Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-                      </Grid>
+                        <DockPanel>
+                          <Button Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  DockPanel.Dock="Right"
+                                  Style="{StaticResource Ad.CopyButton}"
+                                  Tag="{Binding Label, Mode=OneWay}"
+                                  Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
+                                   Style="{StaticResource DetailsValue}"
+                                   Text="{Binding Value, Mode=OneWay}" />
+                        </DockPanel>
+                      </StackPanel>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <StackPanel Visibility="{Binding DistinguishedName, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-                  <DockPanel Margin="0,12,0,2">
-                    <Button x:Name="CopyPathButton"
-                            Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
-                            CommandParameter="{Binding PathField, Mode=OneWay}"
-                            DockPanel.Dock="Right"
-                            Style="{StaticResource Ad.CopyButton}"
-                            Tag="{Binding PathField.Label, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.Path}" />
-                  </DockPanel>
-                  <TextBox AutomationProperties.Name="{l:Tr Details.Path}"
-                           Style="{StaticResource Ad.SelectableText}"
-                           Text="{Binding Path, Mode=OneWay}" />
-                  <DockPanel Margin="0,10,0,2">
-                    <Button x:Name="CopyDnButton"
-                            Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
-                            CommandParameter="{Binding DnField, Mode=OneWay}"
-                            DockPanel.Dock="Right"
-                            Style="{StaticResource Ad.CopyButton}"
-                            Tag="{Binding DnField.Label, Mode=OneWay}" />
-                    <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Details.DistinguishedName}" />
-                  </DockPanel>
-                  <TextBox x:Name="DetailsDnText"
-                           AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
-                           FontSize="11"
-                           Style="{StaticResource Ad.SelectableText}"
-                           Text="{Binding DistinguishedName, Mode=OneWay}" />
+                  <StackPanel Style="{StaticResource DetailsEntry}">
+                    <TextBlock Style="{StaticResource DetailsCaption}" Text="{l:Tr Details.Path}" />
+                    <DockPanel>
+                      <Button x:Name="CopyPathButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding PathField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding PathField.Label, Mode=OneWay}" />
+                      <TextBox AutomationProperties.Name="{l:Tr Details.Path}"
+                               Style="{StaticResource DetailsValue}"
+                               Text="{Binding Path, Mode=OneWay}" />
+                    </DockPanel>
+                  </StackPanel>
+                  <StackPanel Style="{StaticResource DetailsEntry}">
+                    <TextBlock Style="{StaticResource DetailsCaption}" Text="{l:Tr Details.DistinguishedName}" />
+                    <DockPanel>
+                      <Button x:Name="CopyDnButton"
+                              Command="{Binding Data.CopyDetailsValueCommand, Source={StaticResource ShellProxy}}"
+                              CommandParameter="{Binding DnField, Mode=OneWay}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.CopyButton}"
+                              Tag="{Binding DnField.Label, Mode=OneWay}" />
+                      <TextBox x:Name="DetailsDnText"
+                               AutomationProperties.Name="{l:Tr Details.DistinguishedName}"
+                               FontSize="11"
+                               Style="{StaticResource DetailsValue}"
+                               Text="{Binding DistinguishedName, Mode=OneWay}" />
+                    </DockPanel>
+                  </StackPanel>
                 </StackPanel>
 
-                <TextBlock Margin="0,14,0,6"
+                <TextBlock Margin="0,6,0,6"
                            Style="{StaticResource Ad.SectionHeader}"
                            Text="{l:Tr Details.QuickActions}" />
                 <WrapPanel>

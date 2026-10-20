@@ -20,12 +20,17 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
 * All values in the pane are **selectable with the mouse** (`Ad.SelectableText`: a read-only, borderless `TextBox`
   that looks like a `TextBlock`, not a tab stop – keyboard users use the copy buttons, which are tab stops with an
   automation name "Copy: <label>").
+* Layout of the pane (narrow): every line, the path and the DN are an entry with the label as a small secondary caption
+  above the value; the value takes the full width with its copy button at the right (a label column left the values
+  about 110 px and broke them inside words).
 * **Property pages:** copy buttons on the text fields e-mail, display name, sAMAccountName (plus a `NETBIOS\` button
   left of the box, like ADUC's pre-Windows 2000 prefix, that copies `NETBIOS\login`), all phone numbers, title,
   department, company and office; on the UPN field (`prefix@suffix` as it will be written) and the Manager field (the
   manager's name). The Object page already had copy buttons (canonical name, GUID, SID, DN...). Employee ID / number
   have no field on ADUC's pages; they are copied from the details pane or the Attribute Editor. The tab order follows
-  the screen, not the markup (the copy button is docked first): `NETBIOS\` button, value, "Other...", copy button.
+  the screen (explicit tab indexes in the row): `NETBIOS\` button, value, "Other...", copy button. The copy buttons
+  stand in a copy column shared by the page (`FieldCopy` group of `FieldChrome`); every field reserves it, so the
+  editors of a page end at the same x with or without a copy button (the column is empty on pages without one).
   The `NETBIOS\` prefix is shown in a `TextBlock`, not as a string `Content`: a button would read the `_` of a NetBIOS
   name such as `MY_CORP` as an access key and show `MYCORP\`.
 * Confirmation: a short non-modal toast **"Skopiowano: <label>" / "Copied: <label>"** (Info, auto-dismissed, read by

@@ -170,7 +170,7 @@ public sealed class CopyUiTests
         var mailButton = UiWait.Descendants<Button>(window).Single(b => b.Name == "CopyButton" && b.DataContext is FieldViewModel { Attribute: Attr.Mail });
         Assert.Equal(Visibility.Visible, mailButton.Visibility);
 
-        // Tab order follows the screen, not the markup (the copy button is docked first): the value, then its copy button.
+        // Tab order follows the screen: the value, then its copy button (one row, explicit tab indexes).
         var mailBox = UiWait.Descendants<TextBox>(window).Single(t => t.Name == "ValueBox" && t.DataContext is FieldViewModel { Attribute: Attr.Mail });
         var row = (DependencyObject)VisualTreeHelper.GetParent(mailButton);
         Assert.Same(row, VisualTreeHelper.GetParent(mailBox));
@@ -197,6 +197,48 @@ public sealed class CopyUiTests
         await UiWait.UntilAsync(() => manager.IsEnabled, "manager resolved");
         await ClickAsync(manager);
         Assert.Equal("Jan Kowalski", clipboard.Text);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PropertySheet_CopyColumnIsReservedOnEveryRow_SoTheInputsOfAPageEndAtTheSameX() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync("pl");
+        await context.ConnectAsync();
+        var window = await OpenSheetAsync(context, context.Company.LukaszWisniewski);
+        var sheet = window.ViewModel;
+
+        foreach (var key in new[] { L.Pages.General, L.Pages.Account, L.Pages.Telephones, L.Pages.Organization, L.Pages.Object })
+        {
+            sheet.SelectedPage = sheet.Pages.Single(p => p.Key == key);
+            await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+            // Right edges of the inputs: a value box (or its "Other..." toggle), the UPN suffix, the manager's name.
+            var edges = new List<(string Input, double Right)>();
+            foreach (var box in UiWait.Descendants<TextBox>(window).Where(t => t.Name == "ValueBox" && t.IsVisible))
+            {
+                var others = UiWait.Descendants<ToggleButton>(VisualTreeHelper.GetParent(box)).Single(t => t.Name == "OthersToggle");
+                edges.Add((((FieldViewModel)box.DataContext).Label, RightEdge(others.IsVisible ? others : box, window)));
+            }
+
+            edges.AddRange(UiWait.Descendants<ComboBox>(window)
+                .Where(c => c.DataContext is UpnFieldViewModel && c.IsVisible)
+                .Select(c => ("UPN suffix", RightEdge(c, window))));
+            edges.AddRange(UiWait.Descendants<TextBox>(window)
+                .Where(t => t.DataContext is DnFieldViewModel && t.IsVisible)
+                .Select(t => (((DnFieldViewModel)t.DataContext).Label, RightEdge(t, window))));
+            Assert.True(edges.Count >= 2, $"{key}: inputs found");
+
+            // Rows with and without a copy button end at the same x; the copy buttons stand in one column after it.
+            var right = edges[0].Right;
+            Assert.All(edges, e => Assert.True(Math.Abs(e.Right - right) < 0.5, $"{key}: '{e.Input}' ends at {e.Right}, the first input at {right}"));
+            var copyButtons = UiWait.Descendants<Button>(window)
+                .Where(b => b.Name is "CopyButton" or "CopyUpnButton" or "CopyReferenceButton" && b.IsVisible)
+                .ToList();
+            Assert.NotEmpty(copyButtons);
+            Assert.All(copyButtons, b => Assert.Equal(right + b.Margin.Left, RightEdge(b, window) - b.ActualWidth, 0.5));
+        }
+
         context.AssertHealthy();
     });
 
@@ -299,6 +341,9 @@ public sealed class CopyUiTests
         Assert.Null(window.ViewModel.LoadError);
         return window;
     }
+
+    private static double RightEdge(FrameworkElement element, Visual ancestor) =>
+        element.TransformToAncestor(ancestor).Transform(new Point(element.ActualWidth, 0)).X;
 
     /// <summary>Clicks like the operator (UI Automation invoke): the Click event and then the command.</summary>
     private static async Task ClickAsync(Button button)
