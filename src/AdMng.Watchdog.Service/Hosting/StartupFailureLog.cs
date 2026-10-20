@@ -13,8 +13,11 @@ public static class StartupFailureLog
     /// <summary>The message for <paramref name="errorCode"/> (<c>SafeExceptionLog.ErrorCode</c>).</summary>
     public static string Message(string errorCode) =>
         $"AdMng Watchdog: the service could not be configured (exit code {StartupExitCodes.InvalidSettings}): {errorCode}. "
-        + @"Check %ProgramData%\AdMng\Watchdog\config\appsettings.json (JSON syntax, setting names and values) and the data folder; "
-        + "AdMng.Watchdog.exe --check-config lists the issues.";
+        + (OperatingSystem.IsLinux()
+            ? $"Check {ConfigurationSetup.LinuxBootstrapFilePath} (JSON syntax, setting names and values) and the data folder; "
+              + "sudo admng-watchdog --check-config lists the issues."
+            : @"Check %ProgramData%\AdMng\Watchdog\config\appsettings.json (JSON syntax, setting names and values) and the data folder; "
+              + "AdMng.Watchdog.exe --check-config lists the issues.");
 
     public static void Report(string errorCode)
     {

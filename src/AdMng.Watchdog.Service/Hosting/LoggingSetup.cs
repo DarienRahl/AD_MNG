@@ -1,24 +1,35 @@
 using System.Runtime.Versioning;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Logging.EventLog;
+using Microsoft.Extensions.Options;
 
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// Logging of the service (spec 19.1): console only when interactive (or <c>--console</c>), the Windows Application log
-/// (source <see cref="EventLogSource"/>, <see cref="EventLogFilter"/>, identical entries throttled by
-/// <see cref="ThrottlingLoggerProvider"/>) on Windows, both wrapped by
-/// <see cref="RedactingLoggerProvider"/>. No file logs, no request/response body logging.
+/// Logging of the service (spec 19.1, stage B design 15): as a systemd unit the console with the systemd formatter
+/// (<c>&lt;priority&gt;Category[EventId] message</c> lines that journald stores with their priority; identical warnings
+/// throttled by <see cref="ThrottlingLoggerProvider"/>), otherwise the console only when interactive (or
+/// <c>--console</c>), the Windows Application log (source <see cref="EventLogSource"/>, <see cref="EventLogFilter"/>,
+/// throttled) on Windows – every provider wrapped by <see cref="RedactingLoggerProvider"/>. No file logs, no
+/// request/response body logging.
 /// </summary>
 public static class LoggingSetup
 {
     /// <summary>The Application log source created by the install script.</summary>
     public const string EventLogSource = "AdMng Watchdog";
 
-    public static void Configure(WebApplicationBuilder builder, bool console)
+    public static void Configure(WebApplicationBuilder builder, bool console) => Configure(builder, console, journald: false);
+
+    /// <summary>The providers; <paramref name="journald"/> = running as a systemd unit (stdout goes to the journal).</summary>
+    public static void Configure(WebApplicationBuilder builder, bool console, bool journald)
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.Logging.ClearProviders();
-        if (console)
+        if (journald)
+        {
+            AddJournal(builder.Logging);
+        }
+        else if (console)
         {
             builder.Logging.AddSimpleConsole(options =>
             {
@@ -72,6 +83,30 @@ public static class LoggingSetup
     public static bool EventLogFilter(string? category, LogLevel level) =>
         level is >= LogLevel.Warning and < LogLevel.None
         || (level == LogLevel.Information && category is not null && EventLogInformationCategories.Contains(category, StringComparer.Ordinal));
+
+    /// <summary>
+    /// journald through stdout: the console logger with the systemd formatter (syslog priority prefix, no timestamp – the
+    /// journal adds it, one line per entry), behind <see cref="ThrottlingLoggerProvider"/> like the Application log: a DC
+    /// outage would otherwise repeat the same warning every cycle.
+    /// </summary>
+    private static void AddJournal(ILoggingBuilder logging)
+    {
+        logging.AddSystemdConsole(options =>
+        {
+            options.IncludeScopes = false;
+            options.TimestampFormat = null;
+        });
+        for (var i = 0; i < logging.Services.Count; i++)
+        {
+            var descriptor = logging.Services[i];
+            if (descriptor.ServiceType == typeof(ILoggerProvider) && descriptor.ImplementationType == typeof(ConsoleLoggerProvider))
+            {
+                logging.Services[i] = ServiceDescriptor.Singleton<ILoggerProvider>(provider => new ThrottlingLoggerProvider(
+                    new ConsoleLoggerProvider(provider.GetRequiredService<IOptionsMonitor<ConsoleLoggerOptions>>(), provider.GetServices<ConsoleFormatter>()),
+                    provider.GetService<TimeProvider>() ?? TimeProvider.System));
+            }
+        }
+    }
 
     /// <summary>The Application log, behind <see cref="ThrottlingLoggerProvider"/> (identical warnings once per window).</summary>
     [SupportedOSPlatform("windows")]

@@ -1,7 +1,7 @@
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>Where the Development authentication scheme is refused (spec 8.4, 17.3): outside the Development
-/// environment, under the Windows service control manager, and with any listener that is not loopback.</summary>
+/// environment, under a service manager (Windows SCM, systemd), and with any listener that is not loopback.</summary>
 public static class DevelopmentAuthGuard
 {
     /// <summary>Null when allowed, otherwise the constant reason.</summary>
@@ -22,6 +22,11 @@ public static class DevelopmentAuthGuard
         if (context.IsWindowsService)
         {
             return "Development authentication is never allowed for the Windows service.";
+        }
+
+        if (context.IsSystemdService)
+        {
+            return "Development authentication is never allowed for the systemd unit.";
         }
 
         if (context.Endpoints.Count == 0 || context.Endpoints.Any(e => !e.IsLoopback))

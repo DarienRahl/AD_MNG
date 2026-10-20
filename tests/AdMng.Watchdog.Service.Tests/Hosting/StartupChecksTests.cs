@@ -72,15 +72,23 @@ public sealed class StartupChecksTests
         Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("loopback", StringComparison.Ordinal));
     }
 
+    /// <summary>Linux: without the systemd credential (exit 9, stage B design 10); other non-Windows hosts: exit 5. The data
+    /// folder is private, so the POSIX check (exit 5 on Linux, LinuxStartupChecksTests) does not decide it.</summary>
     [Fact]
-    public async Task Production_WithoutProtectedKeys_RefusesToStart_WithExitCode5()
+    public async Task Production_WithoutProtectedKeys_RefusesToStart()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows the key ring is protected with DPAPI-NG.");
-        await using var factory = new WatchdogFactory(environment: "Production");
+        using var directory = new TestDataDirectory();
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(directory.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        await using var factory = new WatchdogFactory(environment: "Production", dataDirectory: directory);
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
+        Assert.Equal(OperatingSystem.IsLinux() ? StartupExitCodes.MissingCredential : StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
     }
 
     [Fact]

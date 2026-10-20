@@ -10,12 +10,14 @@ using Microsoft.Extensions.Options;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// Everything that must hold before the service serves a request or runs a job (spec 19.1) – runs in
-/// <see cref="IHostedLifecycleService.StartingAsync"/>, i.e. before any hosted service (Kestrel, job hosts) starts:
-/// bootstrap file guard (exit 6), data-folder ACL and key protection (exit 5), migrations (exit 3), listeners and the
-/// TLS certificate (exit 4), Development-authentication guard (exit 7), readable secrets, the stored runtime
-/// configuration loaded into <see cref="IWatchdogConfigProvider"/> (exit 3 when unreadable), runtime version. A failure is
-/// logged as Application-log event 1010 and thrown as <see cref="StartupCheckException"/>.
+/// Everything that must hold before the service serves a request or runs a job (spec 19.1, stage B design 11) – runs in
+/// <see cref="IHostedLifecycleService.StartingAsync"/>, i.e. before any hosted service (Kestrel, job hosts) starts, and so
+/// before systemd gets <c>READY=1</c>: bootstrap file guard (exit 6), placeholder role SIDs (exit 2), data-folder ACL or
+/// POSIX owner/mode (exit 5) and key protection (Linux: the systemd credential, exit 9), keytab (Linux unit, exit 10),
+/// migrations (exit 3), listeners and the TLS certificate (exit 4), Development-authentication guard (exit 7), readable
+/// secrets, the stored runtime configuration loaded into <see cref="IWatchdogConfigProvider"/> (exit 3 when unreadable),
+/// runtime version. A failure is logged as event 1010 (Application log / journald) and thrown as
+/// <see cref="StartupCheckException"/>.
 /// </summary>
 public sealed partial class StartupChecks : IHostedLifecycleService
 {
@@ -53,7 +55,9 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         try
         {
             CheckBootstrapFile();
+            CheckBootstrapSettings();
             CheckDataDirectory();
+            CheckLinuxHost();
             RunMigrations();
             CheckListeners();
             CheckDevelopmentAuthentication();
@@ -98,14 +102,14 @@ public sealed partial class StartupChecks : IHostedLifecycleService
 
     private void CheckBootstrapFile()
     {
-        if (!_context.IsWindowsService)
+        if (!_context.IsManagedService)
         {
             return;
         }
 
         if (_context.ExtraConfigFile is not null)
         {
-            throw new StartupCheckException(StartupExitCodes.BootstrapFile, "ADMNG_WATCHDOG_CONFIG is not allowed for the Windows service.");
+            throw new StartupCheckException(StartupExitCodes.BootstrapFile, "ADMNG_WATCHDOG_CONFIG is not allowed for the Windows service or the systemd unit.");
         }
 
         if (OperatingSystem.IsWindows() && _context.BootstrapFile is { } file && BootstrapFileGuard.IsWritableByCurrentIdentity(file))
@@ -113,6 +117,24 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             throw new StartupCheckException(
                 StartupExitCodes.BootstrapFile,
                 "The service account can write its bootstrap configuration (config\\appsettings.json); grant it Read only.");
+        }
+
+        if (OperatingSystem.IsLinux() && _context.BootstrapFile is { } linuxFile
+            && PosixPermissionCheck.CheckBootstrapFile(linuxFile) is { Count: > 0 } problems)
+        {
+            throw new StartupCheckException(
+                StartupExitCodes.BootstrapFile,
+                "The bootstrap file or its folder is not owned by root or is writable by the service user (" + string.Join(", ", problems)
+                + "); expected /etc/admng-watchdog root:root 0755 and appsettings.json root:admng-watchdog 0640.");
+        }
+    }
+
+    /// <summary>The shipped placeholders of the role groups (stage B design 14.1) stop the start like <c>--check-config</c>.</summary>
+    private void CheckBootstrapSettings()
+    {
+        if (ServiceOptionsValidator.HasPlaceholderSids(_options))
+        {
+            throw new StartupCheckException(StartupExitCodes.InvalidSettings, ServiceOptionsValidator.PlaceholderSidMessage);
         }
     }
 
@@ -137,13 +159,136 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             return;
         }
 
-        // Linux/macOS (lab and development only): the Data Protection key ring is not encrypted at rest.
+        if (OperatingSystem.IsLinux())
+        {
+            CheckPosixDataDirectory();
+            CheckDataProtectionKey();
+            return;
+        }
+
+        // Other platforms (development only): the Data Protection key ring is not encrypted at rest.
         if (_environment.IsProduction())
         {
-            throw new StartupCheckException(StartupExitCodes.DataDirectory, "Unprotected secret keys are refused in Production; run the service on Windows.");
+            throw new StartupCheckException(StartupExitCodes.DataDirectory, "Unprotected secret keys are refused in Production; run the service on Linux or Windows.");
         }
 
         Log.KeysUnprotected(_logger);
+    }
+
+    /// <summary>Item 1 of design 11: refused (exit 5) in Production unless <c>AllowInsecureDataDirectoryAcl</c>; elsewhere
+    /// (lab, development, tests – no <c>UMask=0077</c>) and with the escape hatch a health Warning <c>storage.acl</c>.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    private void CheckPosixDataDirectory()
+    {
+        var problems = PosixPermissionCheck.CheckDataDirectory(_dataDirectory.ProtectedPaths(), PosixPermissionCheck.EffectiveUserId());
+        if (problems.Count == 0)
+        {
+            return;
+        }
+
+        var list = string.Join(", ", problems);
+        if (!_options.AllowInsecureDataDirectoryAcl && _environment.IsProduction())
+        {
+            Log.PosixProblem(_logger, list);
+            throw new StartupCheckException(
+                StartupExitCodes.DataDirectory,
+                "The data folder is not private to the service user (owner, no group/other bits, no ACL, local file system): " + list + ".");
+        }
+
+        Log.PosixWarning(_logger, list);
+        Report("storage.acl", HealthState.Warning, "The data folder is not private to the service user (AllowInsecureDataDirectoryAcl or not Production).", [.. problems]);
+    }
+
+    /// <summary>Design 10: the key ring is encrypted with the systemd credential <c>dp-key</c>; a Production start without
+    /// it is refused (exit 9). Reports the credential variant (<c>host.credentialKey</c>, Status „Host”).</summary>
+    private void CheckDataProtectionKey()
+    {
+        var keys = _services.GetService<DataProtectionKeySource>();
+        string? variant = null;
+        if (keys?.Key is null)
+        {
+            if (_environment.IsProduction())
+            {
+                throw new StartupCheckException(
+                    StartupExitCodes.MissingCredential,
+                    keys?.Problem == "invalid"
+                        ? "The systemd credential dp-key does not hold a 32-byte key; recreate it (sudo admng-watchdog reset-secrets-key)."
+                        : "The systemd credential dp-key is missing ($CREDENTIALS_DIRECTORY/dp-key); start the service through admng-watchdog.service.");
+            }
+
+            Log.KeysUnprotected(_logger);
+        }
+        else
+        {
+            variant = keys.ReadVariant();
+            Report(HealthCheckCodes.HostCredentialKey, HealthState.Ok, "The secret key ring is encrypted with the systemd credential dp-key.", variant is null ? [] : [variant]);
+        }
+
+        _health.ReportHost(new HostStatusDto
+        {
+            OperatingSystem = OperatingSystemName(),
+            Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+            CredentialKey = variant,
+            Systemd = _context.IsSystemdService,
+        });
+    }
+
+    /// <summary>Design 11 items 3 and 6 for the systemd unit: the keytab (exit 10) and the hardening warnings
+    /// (<c>host.hardening</c>: umask, core dumps, readable credentials folder).</summary>
+    private void CheckLinuxHost()
+    {
+        if (!OperatingSystem.IsLinux() || !_context.IsSystemdService)
+        {
+            return;
+        }
+
+        var keytab = KeytabPath(Environment.GetEnvironmentVariable("KRB5_KTNAME"));
+        if (PosixPermissionCheck.CheckKeytab(keytab) is { Count: > 0 } problems)
+        {
+            throw new StartupCheckException(
+                StartupExitCodes.Keytab,
+                "The keytab must be owned by root, not writable by group or others and readable by the service (root:admng-keytab 0640): "
+                + string.Join(", ", problems) + ".");
+        }
+
+        var hardening = PosixPermissionCheck.CheckHardening(
+            PosixPermissionCheck.ReadUmask(), PosixPermissionCheck.CoreDumpsEnabled(), PosixPermissionCheck.DefaultCredentialsDirectory);
+        if (hardening.Count > 0)
+        {
+            Log.HardeningWarning(_logger, string.Join(", ", hardening));
+            Report(HealthCheckCodes.HostHardening, HealthState.Warning, "The unit's hardening is incomplete (umask 0077, no core dumps, credentials folder root-only).", [.. hardening]);
+        }
+    }
+
+    /// <summary>The keytab of <c>KRB5_KTNAME</c> (<c>FILE:</c> prefix optional), else the package default.</summary>
+    internal static string KeytabPath(string? krb5KtName)
+    {
+        var value = krb5KtName?.Trim();
+        if (string.IsNullOrEmpty(value))
+        {
+            return KerberosBootstrapOptions.DefaultKeytabPath;
+        }
+
+        return value.StartsWith("FILE:", StringComparison.OrdinalIgnoreCase) ? value[5..] : value;
+    }
+
+    private static string OperatingSystemName()
+    {
+        try
+        {
+            foreach (var line in File.ReadLines("/etc/os-release"))
+            {
+                if (line.StartsWith("PRETTY_NAME=", StringComparison.Ordinal))
+                {
+                    return line["PRETTY_NAME=".Length..].Trim('"');
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+
+        return System.Runtime.InteropServices.RuntimeInformation.OSDescription;
     }
 
     private void RunMigrations()
@@ -198,11 +343,25 @@ public sealed partial class StartupChecks : IHostedLifecycleService
             return;
         }
 
+        var settings = _options.Hosting.Certificate;
+        var pem = CertificateSelector.IsPem(settings);
+        if (pem && OperatingSystem.IsLinux()
+            && PosixPermissionCheck.IsWorldReadable(string.IsNullOrWhiteSpace(settings.KeyPath) ? settings.Path! : settings.KeyPath))
+        {
+            throw new StartupCheckException(StartupExitCodes.Certificate, "The TLS key file must not be readable by everyone (expected root:admng-watchdog 0640).");
+        }
+
         var certificate = _services.GetRequiredService<CertificateSelector>().Reload();
         if (certificate is null)
         {
-            throw new StartupCheckException(StartupExitCodes.Certificate, "No valid TLS certificate matches Hosting.Certificate (LocalMachine\\My, serverAuth, private key).");
+            throw new StartupCheckException(
+                StartupExitCodes.Certificate,
+                pem
+                    ? "No valid TLS certificate in Hosting.Certificate.Path/KeyPath (matching PEM certificate and key, serverAuth, not expired)."
+                    : "No valid TLS certificate matches Hosting.Certificate (LocalMachine\\My, serverAuth, private key).");
         }
+
+        Log.CertificateFingerprint(_logger, PemCertificateSource.Fingerprint(certificate));
 
         if (!CertificateSelector.CanUsePrivateKey(certificate))
         {
@@ -276,7 +435,19 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Error, Message = "{Count} stored secret(s) cannot be decrypted; re-enter them in the configuration.")]
         public static partial void SecretsUnreadable(ILogger logger, int count);
 
-        [LoggerMessage(EventId = 2001, Level = LogLevel.Warning, Message = "The secret key ring is not encrypted at rest on this platform (lab/development only).")]
+        [LoggerMessage(EventId = 2001, Level = LogLevel.Warning, Message = "The secret key ring is not encrypted at rest (no systemd credential dp-key; lab/development only).")]
         public static partial void KeysUnprotected(ILogger logger);
+
+        [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Error, Message = "The data folder is not private to the service user: {Problems}.")]
+        public static partial void PosixProblem(ILogger logger, string problems);
+
+        [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Warning, Message = "The data folder is not private to the service user: {Problems} (allowed outside Production or by AllowInsecureDataDirectoryAcl).")]
+        public static partial void PosixWarning(ILogger logger, string problems);
+
+        [LoggerMessage(EventId = EventLogIds.PermissionGap, Level = LogLevel.Warning, Message = "Unit hardening incomplete: {Problems} (expected UMask=0077, LimitCORE=0, /etc/admng-watchdog/credentials root 0700).")]
+        public static partial void HardeningWarning(ILogger logger, string problems);
+
+        [LoggerMessage(EventId = EventLogIds.CertificateFingerprint, Level = LogLevel.Information, Message = "TLS certificate SHA-256 fingerprint {Fingerprint}.")]
+        public static partial void CertificateFingerprint(ILogger logger, string fingerprint);
     }
 }

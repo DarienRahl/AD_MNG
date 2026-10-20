@@ -7,6 +7,9 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// </summary>
 public sealed record KerberosBootstrapOptions
 {
+    /// <summary>The keytab of the package (root:admng-keytab 0640) – the unit's <c>KRB5_KTNAME</c>.</summary>
+    public const string DefaultKeytabPath = "/etc/admng-watchdog/admng-wd.keytab";
+
     /// <summary>The keytab tool's status file (root:admng-watchdog 0640, no secrets).</summary>
     public const string DefaultKeytabStatusFile = "/var/lib/admng-watchdog-keytab/status.json";
 

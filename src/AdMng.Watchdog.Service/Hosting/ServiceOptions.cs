@@ -1,17 +1,25 @@
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// Bootstrap settings (spec 8.4), bound from the "Watchdog" section of <c>appsettings.json</c>,
-/// <c>%ProgramData%\AdMng\Watchdog\config\appsettings.json</c> and <c>ADMNG_WATCHDOG__…</c>. Editable only by local
-/// administrators, never through the API. Collections default to empty (the configuration binder appends to non-empty
+/// Bootstrap settings (spec 8.4), bound from the "Watchdog" section of <c>appsettings.json</c>, the bootstrap file
+/// (<see cref="ConfigurationSetup.BootstrapFilePath"/>: <c>/etc/admng-watchdog/appsettings.json</c> on Linux,
+/// <c>%ProgramData%\AdMng\Watchdog\config\appsettings.json</c> on Windows) and <c>ADMNG_WATCHDOG__…</c>. Editable only by
+/// root / local administrators, never through the API. Collections default to empty (the configuration binder appends to non-empty
 /// defaults); effective defaults are applied by the consumers (e.g. <see cref="NotificationBootstrapOptions.EffectiveOAuthSmtpHosts"/>).
 /// </summary>
 public sealed record ServiceOptions
 {
     public const string SectionName = "Watchdog";
 
-    /// <summary>Environment variables are expanded (<c>DataDirectory.Resolve</c>).</summary>
-    public string DataDirectory { get; init; } = @"%ProgramData%\AdMng\Watchdog\data";
+    /// <summary>The data folder of the Linux package (stage B design 11).</summary>
+    public const string DefaultLinuxDataDirectory = "/var/lib/admng-watchdog";
+
+    /// <summary>The data folder of the 0.2.0 Windows service (spec 19.5).</summary>
+    public const string DefaultWindowsDataDirectory = @"%ProgramData%\AdMng\Watchdog\data";
+
+    /// <summary>Environment variables are expanded (<c>DataDirectory.Resolve</c>). Defaults to
+    /// <see cref="DefaultLinuxDataDirectory"/> on Linux and <see cref="DefaultWindowsDataDirectory"/> elsewhere.</summary>
+    public string DataDirectory { get; init; } = OperatingSystem.IsLinux() ? DefaultLinuxDataDirectory : DefaultWindowsDataDirectory;
 
     /// <summary>Local-admin escape hatch: a data folder ACL outside the allow-list only raises health Warning <c>storage.acl</c>.</summary>
     public bool AllowInsecureDataDirectoryAcl { get; init; }
