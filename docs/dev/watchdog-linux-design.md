@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a, B6)
 
 **B1.**
 
@@ -2227,6 +2227,88 @@ or localization keys were needed (510–512, `gppPassword`, `SYSVOL_NOT_AUDITED`
   every parser with valid, Polish-diacritic and hostile inputs – billion laughs, XXE, deep nesting, wrong encodings,
   truncated/oversized Registry.pol, traversal paths, 12 000-value files – and scan the serialized snapshot for the
   fixture secrets, their hashes and Base64 forms).
+
+**B6 (rules of section 9, catalog severities, retention floor).** Code: Contracts `EventKindCatalog`
+(ManagedAccountLinkChanged Critical); Core `Rules/DefaultRules.cs`, `Tier0Catalog.cs`, `RolloutMode.cs`,
+`RuleMatcher.cs`, `Validation/Tier0SuppressionValidator.cs` (+ `RuleValidator.DeliveryWeakenings`, shared with the locked
+rules), `Validation/RangeValidator.cs`, `Configuration/ConfigChangeAuditor.cs`, `Detection/ChangeClassifier.cs`,
+`SeverityResolver.cs`, `EventTagger.cs`, `ObjectProcessor.cs`, new `KeyObjectMonitor.cs` and `WatchdogSelfRotation.cs`,
+new `Abstractions/IWatchdogAccountSource.cs` + `Model/WatchdogAccountIdentity.cs`, `Formatting/AlertContentBuilder.cs`;
+Service `Identity/WatchdogAccountSource.cs` (new), `ServiceAccountMonitor`, `ServiceRegistration`,
+`Api/ConfigValidationService.cs`; test fixtures `FakeSchema.Watchdog.cs`, `FakeDirectorySession.Watchdog.cs`
+(`SimulateSaclChange`, constructed `msDS-KeyVersionNumber`), `FakeDirectoryBuilder.AddServiceAccount(parentDn)`,
+`Watchdog.Testing/Scenarios/ScenarioWatchdogAccount.cs`; tests `StageBDetectionTests`, `StageBUnitTests`,
+`StageBRulesTests` (Core), `WatchdogAccountSourceTests` (Service).
+
+- **Shipping order and recipients:** the four rules follow `health` (the order `MergeMissing` appends them to a stored
+  stage A document; the stage A rule indexes stay). "Immediate to it-admins and security" (9.1, 9.3) is it-admins only:
+  the default document (spec 8.1) has no security group, and a rule that `MergeMissing` appends must not reference a group
+  a stored document lacks (`unknownReference`) – the operators add the security team to it-admins or to the rules.
+  "Aggregation ignored" is `AggregationWindow` 0 on the rules; events ≥ High still wait the global
+  `HighSeverityFlushDelay` like every Tier-0 rule.
+- **BadSuccessor (9.1):** `badSuccessor` on ServiceAccountCreated of a dMSA (anywhere – detection is per object class) and
+  on every ManagedAccountLinkChanged; a link to a privileged principal adds `privileged`. The tag raises any event to
+  Critical (`SeverityResolver` bump). ServiceAccountCreated became a Tier-0 kind, so `directory.disabledKinds` cannot
+  silence dMSA creations without `AllowTier0Suppression`. The fake schema got the Windows Server 2025 dMSA attributes
+  (back links 2211/2213, managed password attributes) and the inherited possible superiors of 9.1. Not done (SHOULD):
+  the digest section „Kto może tworzyć dMSA”.
+- **MachineAccountQuota (9.2):** tag and severity on the DomainPolicyChanged of the domain head (Critical only for
+  0 → > 0; any other change of the quota High). Health `domain.machineAccountQuota` (Args: the value; no report when the
+  attribute is absent) is read in the first cycle and in every cycle with changes – an idle cycle (H = W) cannot have
+  changed it, and it keeps idle cycles at their two base reads.
+- **`watchdog-self` (9.3), connected with the own-account monitor (4.7) without duplicating its checks:** Core asks
+  `IWatchdogAccountSource` (default: no account). The Linux service's `WatchdogAccountSource` takes the sAMAccountName from
+  `Kerberos.ServicePrincipal` at once and objectGUID/SID from the monitor's hourly lookup; an object is the account when
+  its GUID, SID or sAMAccountName matches (a renamed account by GUID, a re-created one by name). The rule has no kinds
+  (= every kind); the tagger uses the object, for membership kinds the member, for privilege kinds the principal. The
+  account is tracked like a critical object (owner/DACL summary – a removed Deny ACE for SELF is a
+  SecurityDescriptorChanged); its computer-noise attributes (pwdLastSet, OS/host attributes, own-host SPNs) are never
+  dropped by the classifier, and `RuleMatcher.IsComputerNoiseChange` is false for events tagged `watchdogAccount`
+  (instead of an objectGUID exception in `NoiseAttributes`). `msDS-SupportedEncryptionTypes` became a Tier-0 attribute
+  (`ignoredAttributes`), and a newly added `excludedSubtrees` entry containing the account is `tier0Suppression` (service
+  check against the snapshot).
+- **Rotation exclusion decided at detection:** when the account's pwdLastSet changed, `msDS-KeyVersionNumber` is read from
+  the cycle's DC and status.json through `IWatchdogAccountSource.GetRotationAsync`; while status.json still names an
+  older kvno (the tool writes it seconds after the change, a change notification can wake the detection first) the
+  service re-reads it every second for up to 30 s. A match (`WatchdogSelfRotation.IsPlanned`) is recorded as
+  PasswordChanged **without** `watchdogAccount` – history and the passwords digest keep it, `watchdog-self` does not
+  match; no new tag constant. No status file, an unreadable kvno or any mismatch keeps the tag (Critical through the
+  rule's override); an admin reset is reported after the 30 s wait.
+- **Suppression protection (B6 acceptance):** `Tier0Catalog.SuppressionProtectedRules` = the four rules. Without
+  `AllowTier0Suppression` the validator rejects (`tier0Suppression`, Args the rule id) disabling them and every narrowing
+  compared with the shipped rule: kinds, object kinds, scope, attribute filter, required/any tags, group filter, a
+  higher MinSeverity, a changed `watchdog-self` override (others: below Critical), actor exclusions or
+  ExcludeSelfChanges, any exclusion, and the delivery weakenings of the locked rules. Removing one is not an error
+  (`MergeMissing` restores it enabled) but, like every such change, a Critical WatchdogConfigurationChanged
+  (`ConfigChangeAuditor` protects `watchdog-self` like `tier0-*`). The stage A `tier0-*` rules keep their behaviour
+  (disabling allowed, Critical audit); 9.4's "not suppressible" for `tier0-security` holds through
+  SecurityDescriptorChanged (Tier-0 kind) and nTSecurityDescriptor (Tier-0 attribute). `watchdog-self` is a Tier-0 rule
+  for rollout mode and the `tier0Exclusion` warning.
+- **Audit settings (9.4), no new store state:** `KeyObjectMonitor` reads the metadata of the five objects after the object
+  passes and reports a write whose nTSecurityDescriptor local USN lies in the cycle's window (W < usnLocal ≤ H at the
+  start of the cycle) unless the object pass emitted a SecurityDescriptorChanged for it in the same cycle. The committed
+  watermark is the state (a failed cycle repeats the window, a committed one never re-reports); `UsnOverlap` is not
+  applied (it re-reported seeding writes below W), so a write committed late below W is missed. Incremental, Failback and
+  Reconciliation only (not Baseline/Resync, not NoChange – the five reads happen only in cycles with changes). The two
+  configuration containers have no stored owner/DACL summary: any write there is reported this way (the row text covers
+  "another security setting"). A rewrite of an unchanged descriptor (reordered ACEs, until now no event) is reported too,
+  as 9.4 says. The change row is nTSecurityDescriptor without values; `AlertContentBuilder` renders
+  `Value.AuditSettingsChanged` for it when the event carries `auditSettings`. The coverage re-check needs no trigger of
+  its own: the commit raises EventsStored, which runs the attribution engine and its `AttributionDegradedMonitor` at once.
+- **Retention (14.2):** `retentionBelowFloor` at `retention.eventsDays` (Args the floor; floor 0 = none), independent of
+  the 7–3650 range. Every decrease of a numeric retention value (all `*Days`, `LogonRecordsHours`, `BackupsToKeep`,
+  `MaxDatabaseMb` – 14.2 names four, the milestone task asked for any) is a Critical configuration change;
+  `MaintenanceTime` stays Medium. Not done: the SHOULD 7-day delay of a decreased `EventsDays`; `RetentionJob` does not
+  apply the floor itself (validation only, as 14.2 specifies).
+- **Localization:** every text the rules and formatters use existed since the contract step (`Rule.*`,
+  `Value.AuditSettingsChanged`, the GUI's tag and health texts, en + pl); no new keys.
+- **Lab (Samba, own OU, deleted afterwards):** a SACL-only write (SD flags 8) adding and then removing an audit ACE raised
+  the nTSecurityDescriptor metadata version 1 → 2 → 3 with the local USN equal to the new uSNChanged, while owner and DACL
+  read with SD flags 7 stayed identical – the mechanism of 9.4. The key objects themselves were not written (B9 pilot
+  item 20.6); the dMSA classes do not exist in the Samba schema (unit tests only).
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Core.Tests 2172 passed (4 skipped without the lab
+  environment), Watchdog.Service.Tests 672 passed (16 skipped); AdMng.Core.Tests and AdMng.Presentation.Tests (the shared
+  `AdMng.Testing` changed) green.
 
 ---
 
