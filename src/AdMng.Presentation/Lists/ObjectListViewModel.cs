@@ -1666,7 +1666,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         {
             var updated = new RowContext(_services.Localizer, _services.Sessions.Formatter, context.Policy, context.Now);
             _rowContext = updated;
-            foreach (var row in _allRows.Concat(_virtualRows?.LoadedRows ?? []).Concat(_virtualRows?.Placeholders ?? []))
+            var virtualRows = _virtualRows is { } rows ? rows.LoadedRows.Concat(rows.Placeholders).Concat(rows.ReleasedRows) : [];
+            foreach (var row in _allRows.Concat(virtualRows))
             {
                 row.Reformat(updated);
             }

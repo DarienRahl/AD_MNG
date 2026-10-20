@@ -724,7 +724,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   (paczkami po 100) – przy bardzo dużym zaznaczeniu trwa to chwilę i nie ma wskaźnika postępu (rozłączenie sesji lub
   zmiana DC przerywa odczyt). Ctrl+C na liście obiektów kopiuje wiersze, a nie – jak wcześniej – DN; DN zaznaczonych
   obiektów kopiuje Ctrl+Shift+C. Na liście wirtualnej (VLV) kopiowane są tylko wczytane zaznaczone wiersze (wiersze
-  „Ładowanie…” są pomijane), a całego kontenera nie da się zaznaczyć – do tego służy Znajdź albo zapisany widok.
+  „Ładowanie…” są pomijane, a komunikat mówi, ile ich było), a całego kontenera nie da się zaznaczyć – do tego służy
+  Znajdź albo zapisany widok.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain

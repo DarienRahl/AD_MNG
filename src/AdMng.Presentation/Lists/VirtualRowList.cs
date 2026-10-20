@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Services;
@@ -55,6 +56,14 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
 
     // Rows of dropped pages (refresh, count change): reused by DN so that a row keeps its identity (WPF selection).
     private Dictionary<string, ObjectRowViewModel> _reuse = new(StringComparer.Ordinal);
+
+    // Rows of pages that left the cache (or of an older reuse set), by DN, as long as something else still holds them -
+    // the view's selection: a page read again gives them back instead of new rows, so a selected row keeps its identity
+    // (the list control shows it selected again). Weak: the cache bound is not lifted.
+    private readonly Dictionary<string, WeakReference<ObjectRowViewModel>> _released = new(StringComparer.Ordinal);
+
+    // The index each row had when it was last stored (rows only, weak): orders a selection whose rows' pages left the cache.
+    private readonly ConditionalWeakTable<ObjectRowViewModel, StrongBox<int>> _lastIndex = new();
     private byte[]? _contextId;
     private int _count;
     private int _generation;
@@ -154,6 +163,21 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
             lock (_gate)
             {
                 return [.. _placeholders.Values];
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rows that left the cache but are given back by DN when their page is read again (kept for reuse after a refresh,
+    /// or still held elsewhere - the view's selection): relocalized on a language switch like the loaded rows.
+    /// </summary>
+    internal IReadOnlyList<ObjectRowViewModel> ReleasedRows
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _reuse.Values, .. _released.Values.Select(r => r.TryGetTarget(out var row) ? row : null).OfType<ObjectRowViewModel>()];
             }
         }
     }
@@ -300,6 +324,32 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
     }
 
     public bool Contains(object? value) => IndexOf(value) >= 0;
+
+    /// <summary>
+    /// Position of <paramref name="row"/> for ordering a selection in the list's order, without reading anything: its
+    /// index while it is shown, else the index of the row loaded for its DN, else the index it had when its page was last
+    /// read (a page that left the cache; after the content changed it may be a few rows off). -1 for a row this list
+    /// never held.
+    /// </summary>
+    public int PositionOf(ObjectRowViewModel row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        var index = IndexOf(row);
+        if (index >= 0 || row.IsPlaceholder)
+        {
+            return index;
+        }
+
+        lock (_gate)
+        {
+            if (_indexByKey.TryGetValue(row.Key, out var loaded))
+            {
+                return loaded;
+            }
+        }
+
+        return _lastIndex.TryGetValue(row, out var last) ? last.Value : -1;
+    }
 
     /// <summary>
     /// Enumerates the rows without reading anything: loaded rows and fresh placeholders (an enumeration - UI Automation,
@@ -855,7 +905,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
         {
             var obj = items[i];
             var key = DnKey.For(obj.DistinguishedName);
-            if (_reuse.Remove(key, out var existing))
+            if (_reuse.Remove(key, out var existing) || TakeReleased(key, out existing))
             {
                 existing.Update(obj);
                 rows[i] = existing;
@@ -866,6 +916,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
             }
 
             _indexByKey[rows[i].Key] = start + i;
+            _lastIndex.AddOrUpdate(rows[i], new StrongBox<int>(start + i));
         }
 
         _pages[page] = rows;
@@ -898,8 +949,40 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
                         _indexByKey.Remove(rows[i].Key);
                     }
                 }
+
+                Release(rows);
             }
         }
+    }
+
+    /// <summary>Remembers rows that leave the cache, weakly (see <see cref="_released"/>).</summary>
+    private void Release(IEnumerable<ObjectRowViewModel> rows)
+    {
+        foreach (var row in rows)
+        {
+            _released[row.Key] = new WeakReference<ObjectRowViewModel>(row);
+        }
+
+        // Entries of rows nobody holds any more are dropped once there are more than the cache could show.
+        if (_released.Count > 2 * MaxCachedPages * PageSize)
+        {
+            foreach (var key in _released.Where(e => !e.Value.TryGetTarget(out _)).Select(e => e.Key).ToList())
+            {
+                _released.Remove(key);
+            }
+        }
+    }
+
+    private bool TakeReleased(string key, out ObjectRowViewModel row)
+    {
+        if (_released.Remove(key, out var weak) && weak.TryGetTarget(out var target))
+        {
+            row = target;
+            return true;
+        }
+
+        row = null!;
+        return false;
     }
 
     /// <summary>Forgets some cached pages without a notification (their rows stay reusable by DN).</summary>
@@ -934,6 +1017,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
             }
         }
 
+        Release(_reuse.Values.Where(r => !reuse.ContainsKey(r.Key)));
         _reuse = reuse;
     }
 
@@ -946,6 +1030,7 @@ public sealed class VirtualRowList : IList, IReadOnlyList<ObjectRowViewModel>, I
             reuse[row.Key] = row;
         }
 
+        Release(_reuse.Values.Where(r => !reuse.ContainsKey(r.Key)));
         _reuse = reuse;
         _pages.Clear();
         _recent.Clear();

@@ -521,6 +521,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Copy.Sid" xml:space="preserve">
     <value>SID (objectSid)</value>
   </data>
+  <data name="Copy.SkippedLoading" xml:space="preserve">
+    <value>Rows still loading were not copied: {0}.</value>
+  </data>
   <data name="Copy.SkippedNoMail" xml:space="preserve">
     <value>Skipped objects without an e-mail address: {0}.</value>
   </data>

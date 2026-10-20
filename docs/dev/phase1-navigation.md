@@ -66,7 +66,10 @@ lab's `wellKnownObjects` and `otherWellKnownObjects` parse into all 13 roles wit
   placeholders with Replace notifications; a changed count raises Reset. A list control unselects an item a Replace
   swaps out, so a selected placeholder (End, PageDown onto rows not read yet) hands its selection to its row once
   the page arrived. The cache holds at most 12 pages (LRU);
-  evicted pages are fetched again when shown. Placeholders are bounded as well: beyond 12 × 200 handed out
+  evicted pages are fetched again when shown; rows of an evicted page that something still holds (the view's
+  selection) are given back by DN when the page is read again (weak references – the bound stays), so a selected row
+  keeps its identity and the list control shows it selected, and every row remembers its last index (selection order
+  of copies, `PositionOf`). Placeholders are bounded as well: beyond 12 × 200 handed out
   (a fast drag of the scroll thumb over a slow DC), those of pages that are neither recently shown nor pending are
   forgotten (the view no longer shows them; asked again, the index gets a new placeholder). The server context id of the last response is sent with the next
   request (AD keeps the sorted result set); the content count estimate is not sent, so offsets are never rescaled.

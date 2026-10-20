@@ -29,6 +29,9 @@ public sealed partial class ObjectListViewModel
     private const int MaxReselectedPlaceholders = 1000;
 
     private VirtualRowList? _virtualRows;
+
+    // The session the virtual list reads its pages through (one DC per session).
+    private IDirectorySession? _virtualSession;
     private Debouncer? _serverFilter;
     private List<string>? _virtualSelection;
 
@@ -230,6 +233,7 @@ public sealed partial class ObjectListViewModel
         rows.Reloaded += OnVirtualReloaded;
         rows.PlaceholdersReplaced += OnVirtualPlaceholdersReplaced;
         _virtualRows = rows;
+        _virtualSession = session;
         IsVirtual = true;
         LoadedCount = rows.Count;
         OnPropertyChanged(nameof(TotalCount));
@@ -251,6 +255,7 @@ public sealed partial class ObjectListViewModel
         rows.PlaceholdersReplaced -= OnVirtualPlaceholdersReplaced;
         rows.Dispose();
         _virtualRows = null;
+        _virtualSession = null;
         _virtualSelection = null;
         _replacedSelection = null;
         IsVirtual = false;
@@ -471,7 +476,9 @@ public sealed partial class ObjectListViewModel
 
     private void OnVirtualFetchFailed(object? sender, Exception e)
     {
-        if (ReferenceEquals(sender, _virtualRows))
+        // A page of a session that was replaced meanwhile ("Change domain controller", disconnect) fails because that
+        // session is closed: the list is about to reload from the current one, so there is nothing to report.
+        if (ReferenceEquals(sender, _virtualRows) && ReferenceEquals(_virtualSession, _session()))
         {
             Error = _services.Errors.Translate(e);
         }

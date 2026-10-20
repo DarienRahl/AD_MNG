@@ -81,6 +81,11 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
   Pominięto obiekty bez wartości: 1."). Nothing found → warning, clipboard untouched. A directory error → error dialog.
 * `object.copyDn` keeps its own confirmation ("Skopiowano do schowka nazwy wyróżniające: 2.") but, like the other
   formats, emits the DNs in the list's order.
+* **Virtual lists (VLV)**: the list's order is the rows' position in the server's sort order
+  (`VirtualRowList.PositionOf` – also for a selected row whose page left the cache; no page is read). "Ładowanie…"
+  rows the list control selected (End, PageDown, Shift+End onto rows not read yet) have no object: they are not
+  copied, a selection of only such rows leaves the copy commands disabled, and a copy that left some out says how
+  many ("Nie skopiowano wierszy, które jeszcze się wczytywały: 2.", warning) – Ctrl+C, "Kopiuj jako" and the DN copy.
 * Shown in the list context menu and the Action menu as the submenu **"Kopiuj jako"**, in the toolbar as a copy button
   that opens the same menu, and in the palette (Ctrl+K).
 
@@ -95,8 +100,9 @@ session's pinned DC); nothing is written to disk (CLAUDE.md rule 1) and nothing 
   (the filtered list, pending removals excluded) as a `"; "` list, skipping members without mail (groups without mail,
   computers, unresolved DNs) with the skipped count in the toast.
 * **Session log**: Ctrl+C / context menu "Kopiuj wpis" copy the selected entry as labelled lines (time, operator, DC,
-  object + DN, action, attribute, before → after, result, error). Copy DN moves to Ctrl+Shift+C. Secret values are
-  never in the log (the executor records them as null).
+  object + DN, action, attribute, before → after, result, error). Entries without an attribute keep their before →
+  after values too (old/new DN of a move, rename or restore; previous/new DC of "Zmień kontroler domeny"). Copy DN
+  moves to Ctrl+Shift+C. Secret values are never in the log (the executor records them as null).
 * **Watchdog event details**: `CopyDetails` now goes through the same helper (toast "Skopiowano: Szczegóły
   zdarzenia", no toast when the clipboard is busy) and its button gets the check-mark feedback.
 

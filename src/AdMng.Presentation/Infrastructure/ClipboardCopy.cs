@@ -32,7 +32,8 @@ public static class ClipboardCopy
     /// Copies several values joined by <paramref name="separator"/>; <paramref name="skipped"/> objects had no value. The
     /// confirmation says how many values were copied and how many objects were skipped; when there is nothing to copy the
     /// operator is warned and the clipboard is left alone. E-mail addresses (<paramref name="isMail"/>) get their own
-    /// wording ("ready for Outlook").
+    /// wording ("ready for Outlook"). A <paramref name="note"/> (e.g. selected rows that were still loading) is appended
+    /// to the message and makes it a warning.
     /// </summary>
     public static bool Values(
         IClipboardService clipboard,
@@ -42,7 +43,8 @@ public static class ClipboardCopy
         int skipped,
         string separator,
         string label,
-        bool isMail = false)
+        bool isMail = false,
+        string? note = null)
     {
         ArgumentNullException.ThrowIfNull(clipboard);
         ArgumentNullException.ThrowIfNull(notifications);
@@ -50,7 +52,9 @@ public static class ClipboardCopy
         ArgumentNullException.ThrowIfNull(values);
         if (values.Count == 0)
         {
-            notifications.Show(NotificationSeverity.Warning, isMail ? localizer[L.Copy.NoMail] : localizer.Format(L.Copy.NoValue, label));
+            notifications.Show(
+                NotificationSeverity.Warning,
+                Append(isMail ? localizer[L.Copy.NoMail] : localizer.Format(L.Copy.NoValue, label), note));
             return false;
         }
 
@@ -68,13 +72,16 @@ public static class ClipboardCopy
             message += " " + localizer.Format(isMail ? L.Copy.SkippedNoMail : L.Copy.SkippedNoValue, skipped);
         }
 
-        notifications.Show(skipped > 0 ? NotificationSeverity.Warning : NotificationSeverity.Info, message);
+        notifications.Show(skipped > 0 || note is not null ? NotificationSeverity.Warning : NotificationSeverity.Info, Append(message, note));
         _confirmed++;
         return true;
     }
 
-    /// <summary>Copies a text and shows <paramref name="confirmation"/> once it is on the clipboard.</summary>
-    public static bool Text(IClipboardService clipboard, INotificationService notifications, string? text, string confirmation)
+    /// <summary>
+    /// Copies a text and shows <paramref name="confirmation"/> once it is on the clipboard (with <paramref name="note"/>
+    /// appended as a warning, e.g. selected rows that were still loading).
+    /// </summary>
+    public static bool Text(IClipboardService clipboard, INotificationService notifications, string? text, string confirmation, string? note = null)
     {
         ArgumentNullException.ThrowIfNull(clipboard);
         ArgumentNullException.ThrowIfNull(notifications);
@@ -83,7 +90,7 @@ public static class ClipboardCopy
             return false;
         }
 
-        notifications.Show(NotificationSeverity.Info, confirmation);
+        notifications.Show(note is null ? NotificationSeverity.Info : NotificationSeverity.Warning, Append(confirmation, note));
         _confirmed++;
         return true;
     }
@@ -105,6 +112,8 @@ public static class ClipboardCopy
         _confirmed++;
         return true;
     }
+
+    private static string Append(string message, string? note) => note is null ? message : $"{message} {note}";
 
     private static string Message(ILocalizer localizer, string key, string label)
     {

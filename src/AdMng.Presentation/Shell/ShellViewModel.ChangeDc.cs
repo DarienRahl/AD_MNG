@@ -35,6 +35,16 @@ public sealed partial class ShellViewModel
     private async Task ReloadAfterDomainControllerChangeAsync(IDirectorySession session)
     {
         SelectedObject = null;
+
+        // The lists do not depend on the tree: they move to the new DC at once. Until they reload they still read through
+        // the previous session, which is closed right after the switch - a virtual list (VLV) would fail every page the
+        // operator scrolls to while the tree of a slow DC loads.
+        var lists = ListDocuments.ToList();
+        foreach (var list in lists)
+        {
+            list.LoadAsync().Forget();
+        }
+
         try
         {
             await Tree.InitializeAsync().ConfigureAwait(true);
@@ -58,11 +68,6 @@ public sealed partial class ShellViewModel
                 .NavigateAsync(ListLocation.ForContainer(session.Info.DefaultNamingContext, session.Info.DomainDnsName, ObjectIcon.Domain))
                 .ConfigureAwait(true);
             return;
-        }
-
-        foreach (var list in ListDocuments.ToList())
-        {
-            list.LoadAsync().Forget();
         }
 
         if (SelectedDocument?.Location is { } location)

@@ -142,4 +142,24 @@ public class ShellChangeDomainControllerTests
         Assert.Equal("dc02.contoso.test", entry.NewValue);
         Assert.Equal("dc02.contoso.test", entry.Server);
     }
+
+    [Fact]
+    public async Task SessionLog_CopiedEntryOfTheSwitch_NamesBothControllers()
+    {
+        var harness = await B2Harness.CreateOnDomainControllerAsync();
+        harness.AuditLog.Record(new AuditEntry(
+            harness.Time.GetUtcNow(), @"CONTOSO\Administrator", "dc02.contoso.test", "DC=contoso,DC=test",
+            DomainControllerSwitch.SessionLogAction, null, "dc01.contoso.test", "dc02.contoso.test", true, null));
+        using var log = harness.Factory.CreateSessionLog();
+        log.SelectedEntry = Assert.Single(log.Entries);
+
+        log.CopyEntryCommand.Execute(null);
+
+        // The entry has no attribute, but its values say where the session came from and went to (as the grid shows).
+        var lines = harness.Clipboard.Text!.Split(Environment.NewLine);
+        Assert.Contains("Action: Change domain controller", lines);
+        Assert.Contains("Before: dc01.contoso.test", lines);
+        Assert.Contains("After: dc02.contoso.test", lines);
+        Assert.DoesNotContain(lines, l => l.StartsWith("Attribute:", StringComparison.Ordinal));
+    }
 }

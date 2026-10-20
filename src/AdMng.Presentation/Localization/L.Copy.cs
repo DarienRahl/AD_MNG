@@ -64,6 +64,12 @@ public static partial class L
         /// <summary>{0} = number of objects skipped.</summary>
         public const string SkippedNoMail = "Copy.SkippedNoMail";
 
+        /// <summary>
+        /// {0} = number of selected rows of a virtual list (VLV) that were still "Loading…" (their objects are not read yet)
+        /// and were therefore left out of a copy.
+        /// </summary>
+        public const string SkippedLoading = "Copy.SkippedLoading";
+
         /// <summary>{0} = what was to be copied.</summary>
         public const string NoValue = "Copy.NoValue";
 

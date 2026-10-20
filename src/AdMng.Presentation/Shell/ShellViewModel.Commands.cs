@@ -510,7 +510,8 @@ public sealed partial class ShellViewModel
                 _clipboard,
                 _notifications,
                 string.Join(Environment.NewLine, selection.Select(r => r.Dn)),
-                Localizer.Format(L.Shell.CopiedDn, selection.Count));
+                Localizer.Format(L.Shell.CopiedDn, selection.Count),
+                LoadingRowsNote());
         }
     }
 

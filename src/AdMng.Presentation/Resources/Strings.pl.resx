@@ -521,6 +521,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Copy.Sid" xml:space="preserve">
     <value>SID (objectSid)</value>
   </data>
+  <data name="Copy.SkippedLoading" xml:space="preserve">
+    <value>Nie skopiowano wierszy, które jeszcze się wczytywały: {0}.</value>
+  </data>
   <data name="Copy.SkippedNoMail" xml:space="preserve">
     <value>Pominięto obiekty bez adresu e-mail: {0}.</value>
   </data>

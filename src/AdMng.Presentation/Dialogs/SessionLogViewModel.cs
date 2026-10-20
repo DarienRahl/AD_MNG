@@ -156,6 +156,12 @@ public sealed partial class SessionLogViewModel : WindowViewModelBase
         if (target.Attribute.Length > 0)
         {
             lines.Add($"{Localizer[L.Labels.Attribute]}: {target.Attribute}");
+        }
+
+        // Entries without an attribute carry values too, as the grid shows them: the old and new DN of a move, rename or
+        // restore, the previous and the new domain controller of "Change domain controller".
+        if (target.Attribute.Length > 0 || target.OldValue.Length > 0 || target.NewValue.Length > 0)
+        {
             lines.Add($"{Localizer[L.Batch.Before]}: {target.OldValue}");
             lines.Add($"{Localizer[L.Batch.After]}: {target.NewValue}");
         }

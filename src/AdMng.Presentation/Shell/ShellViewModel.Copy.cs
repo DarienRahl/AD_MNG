@@ -36,6 +36,8 @@ public sealed partial class ShellViewModel
             return;
         }
 
+        var loading = LoadingRowsNote();
+
         var label = Localizer[ObjectCopyFormats.LabelKey(format)];
         var attributes = ObjectCopyFormats.Attributes(format);
         List<DirectoryObject?> objects;
@@ -96,7 +98,7 @@ public sealed partial class ShellViewModel
             values = [.. values.Distinct(StringComparer.OrdinalIgnoreCase)];
         }
 
-        ClipboardCopy.Values(_clipboard, _notifications, Localizer, values, skipped, ObjectCopyFormats.Separator(format), label, isMail);
+        ClipboardCopy.Values(_clipboard, _notifications, Localizer, values, skipped, ObjectCopyFormats.Separator(format), label, isMail, loading);
     }
 
     private bool CanCopyAs(CopyFormat format)
@@ -154,6 +156,7 @@ public sealed partial class ShellViewModel
             return;
         }
 
+        var loading = LoadingRowsNote();
         var schema = Sessions.Current?.Schema;
         var columns = document.VisibleColumns.ToList();
         var secret = columns.Where(c => SecretAttributes.IsSecret(c.Attribute, schema)).ToList();
@@ -180,18 +183,66 @@ public sealed partial class ShellViewModel
             return;
         }
 
-        var message = Localizer.Format(L.Copy.CopiedRows, rows.Count);
-        _notifications.Show(
-            leftOut is null ? NotificationSeverity.Info : NotificationSeverity.Warning,
-            leftOut is null ? message : $"{message} {leftOut}");
+        var message = string.Join(' ', new[] { Localizer.Format(L.Copy.CopiedRows, rows.Count), leftOut, loading }.OfType<string>());
+        _notifications.Show(leftOut is null && loading is null ? NotificationSeverity.Info : NotificationSeverity.Warning, message);
     }
 
     /// <summary>
-    /// Something is selected - without copying the selection (the menu items of every copy format ask on each selection
-    /// change, and a list may have tens of thousands of rows selected).
+    /// An object is selected - without copying the selection (the menu items of every copy format ask on each selection
+    /// change, and a list may have tens of thousands of rows selected). The view's selection may hold "Loading…" rows of a
+    /// virtual list (End, PageDown, Shift+End onto rows not read yet): they have no object, so a selection of only such
+    /// rows copies nothing. The scan stops at the first real row - at once in a loaded list, which has no placeholders.
     /// </summary>
-    private bool HasCopySelection() =>
-        SelectedDocument is { } document && (document.SelectedItems is { Count: > 0 } || document.SelectedItem is { IsPlaceholder: false });
+    private bool HasCopySelection()
+    {
+        if (SelectedDocument is not { } document)
+        {
+            return false;
+        }
+
+        if (document.SelectedItems is not { Count: > 0 } items)
+        {
+            return document.SelectedItem is { IsPlaceholder: false };
+        }
+
+        if (document.SelectedItem is { IsPlaceholder: false })
+        {
+            return true;
+        }
+
+        foreach (var item in items)
+        {
+            if (item is ObjectRowViewModel { IsPlaceholder: false })
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// "Rows still loading were not copied: N." when the view's selection holds "Loading…" rows of a virtual list (their
+    /// objects are not read yet, see <see cref="ObjectListViewModel.Selection"/>), else null. Counted once per copy.
+    /// </summary>
+    private string? LoadingRowsNote()
+    {
+        if (SelectedDocument is not { IsVirtual: true, SelectedItems: { Count: > 0 } items })
+        {
+            return null;
+        }
+
+        var loading = 0;
+        foreach (var item in items)
+        {
+            if (item is ObjectRowViewModel { IsPlaceholder: true })
+            {
+                loading++;
+            }
+        }
+
+        return loading == 0 ? null : Localizer.Format(L.Copy.SkippedLoading, loading);
+    }
 
     /// <summary>The selection in the list's order (the view's selection is in click order).</summary>
     private List<ObjectRowViewModel> OrderedSelection()
@@ -204,9 +255,9 @@ public sealed partial class ShellViewModel
 
         if (document.VirtualRows is { } virtualRows)
         {
-            // A virtual list (VLV) holds no Items: its loaded rows know their position in the server's sort order
-            // (a lookup - walking the whole list would read every page of the container).
-            return [.. selection.OrderBy(r => virtualRows.IndexOf(r) is var index and >= 0 ? index : int.MaxValue)];
+            // A virtual list (VLV) holds no Items: its rows know their position in the server's sort order - also a row
+            // whose page left the cache meanwhile (a lookup - walking the whole list would read every page of the container).
+            return [.. selection.OrderBy(r => virtualRows.PositionOf(r) is var index and >= 0 ? index : int.MaxValue)];
         }
 
         var positions = new Dictionary<ObjectRowViewModel, int>(document.Items.Count);

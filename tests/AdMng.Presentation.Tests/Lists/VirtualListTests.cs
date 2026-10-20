@@ -452,6 +452,32 @@ public class VirtualListTests
     }
 
     [Fact]
+    public async Task PageFailure_OfASessionReplacedMeanwhile_IsNotReported()
+    {
+        var harness = await TestHarness.ConnectedAsync(bulkUsers: Users);
+        var current = harness.Sessions.Current;
+        var list = harness.Lists.CreateList(() => current);
+        list.VirtualThreshold = 50;
+        list.VirtualPageSize = 10;
+        await list.NavigateAsync(ListLocation.ForContainer(Masowe));
+        var rows = list.VirtualRows!;
+        harness.Directory.FailVirtualList = (_, _) => new ObjectDisposedException("LdapDirectorySession");
+
+        // "Change domain controller" (or a disconnect) closed the list's session before the list reloaded: the page
+        // fails, but the list is about to move to the new session - no error banner.
+        current = null;
+        _ = rows[55];
+        await TestWait.UntilAsync(() => rows.Idle.IsCompleted && rows.PendingPages.Count == 0);
+        await rows.Idle;
+        Assert.Null(list.Error);
+
+        // Its own session failing is reported as before.
+        current = harness.Sessions.Current;
+        _ = rows[85];
+        await TestWait.UntilAsync(() => list.Error is not null);
+    }
+
+    [Fact]
     public async Task Refresh_RereadsTheShownPages_EvenWhenTheyWereNotCached()
     {
         var (_, list) = await OpenAsync();

@@ -53,8 +53,10 @@ password). This note describes the in-session switch.
   `ErrorTranslator.TranslateConnectError`).
 * **After the switch**
   * the shell recognises a DC switch (previous and new session: same domain NC and bound identity) and, instead of
-    the full re-initialisation used after a reconnect, keeps the open tabs: the tree is rebuilt and every list tab
-    reloads its location from the new DC; the header/status bar shows the new DC; the details pane is refreshed;
+    the full re-initialisation used after a reconnect, keeps the open tabs: every list tab reloads its location from
+    the new DC at once (not after the tree – until then a virtual list would read its pages through the closed
+    session; a page failing that way is not reported), the tree is rebuilt; the header/status bar shows the new DC;
+    the details pane is refreshed;
   * windows opened in the previous session stay pinned to it (existing `WindowViewModelBase` behaviour: no reads,
     no writes); their "session ended" text now says they belong to the previous DC `X` and that the session works
     with `Y` – reopen to continue;
