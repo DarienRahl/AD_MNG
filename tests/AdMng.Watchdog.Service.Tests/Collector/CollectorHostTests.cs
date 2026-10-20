@@ -139,4 +139,33 @@ public sealed class CollectorHostTests
         Assert.Equal(ConfigurationMigration.LinuxSummary, migration.Summary);
         Assert.Equal(ConfigurationMigration.MigrationAccount, migration.ByAccount);
     }
+
+    [Fact]
+    public async Task AStoredEventRetentionBelowTheFloor_IsRaisedOnceAtStart_WithAnAuditEntry()
+    {
+        var store = new InMemoryWatchdogStore(TimeProvider.System);
+        var stored = new WatchdogConfiguration { SchemaVersion = 1, Retention = new RetentionSettings { EventsDays = 365 } };
+        await store.SaveAsync(stored, 0, new PrincipalRef { Account = "CONTOSO\\adm.łukasz" }, "zapis", [], Ct);
+
+        Assert.False(await StartupChecks.ApplyRetentionFloorAsync(store, 0, Ct));
+        Assert.True(await StartupChecks.ApplyRetentionFloorAsync(store, RetentionBootstrapOptions.DefaultMinEventsDays, Ct));
+        Assert.False(await StartupChecks.ApplyRetentionFloorAsync(store, RetentionBootstrapOptions.DefaultMinEventsDays, Ct));
+
+        var current = (await store.GetAsync(Ct))!;
+        Assert.Equal(2, current.Version);
+        Assert.Equal(RetentionBootstrapOptions.DefaultMinEventsDays, current.Configuration.Retention.EventsDays);
+        var entry = Assert.Single((await store.GetAuditAsync(null, 10, Ct)).Items, a => a.Version == 2);
+        Assert.Equal(ConfigurationMigration.RetentionFloorSummary, entry.Summary);
+        Assert.Equal(ConfigurationMigration.MigrationAccount, entry.ByAccount);
+    }
+
+    [Fact]
+    public async Task WithoutAStoredConfiguration_TheRetentionFloorSavesNothing()
+    {
+        var store = new InMemoryWatchdogStore(TimeProvider.System);
+
+        Assert.False(await StartupChecks.ApplyRetentionFloorAsync(store, RetentionBootstrapOptions.DefaultMinEventsDays, Ct));
+        Assert.Null(await store.GetAsync(Ct));
+    }
 }
+

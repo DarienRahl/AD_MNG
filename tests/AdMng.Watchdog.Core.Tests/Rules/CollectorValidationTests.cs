@@ -90,4 +90,25 @@ public sealed class CollectorValidationTests
         Assert.Null(ConfigurationMigration.ForLinux(result));
         Assert.DoesNotContain(Issues(result), i => i.Code == ConfigValidationCodes.SourceUnsupportedOnHost);
     }
+
+    [Fact]
+    public void AStoredEventRetentionBelowTheFloor_IsRaisedToIt_AndThenValid()
+    {
+        // Every document saved by 0.2.0 carries its default of 365 days.
+        var stored = With(retention: new RetentionSettings { EventsDays = 365, SecurityEventsDays = 14 }) with { SchemaVersion = 1 };
+        var floor = Linux with { MinEventsDays = 1095 };
+        Assert.Contains(Issues(stored, floor), i => i.Code == ConfigValidationCodes.RetentionBelowFloor);
+
+        var raised = ConfigurationMigration.RaiseEventsDaysToFloor(stored, 1095)!;
+
+        Assert.Equal(1095, raised.Retention.EventsDays);
+        Assert.Equal(14, raised.Retention.SecurityEventsDays);
+        Assert.DoesNotContain(Issues(raised, floor), i => i.Code == ConfigValidationCodes.RetentionBelowFloor);
+        Assert.Null(ConfigurationMigration.RaiseEventsDaysToFloor(raised, 1095));
+        Assert.Null(ConfigurationMigration.RaiseEventsDaysToFloor(stored, 0));       // no floor
+        Assert.Null(ConfigurationMigration.RaiseEventsDaysToFloor(stored, 365));
+        Assert.Null(ConfigurationMigration.RaiseEventsDaysToFloor(With(retention: new RetentionSettings { EventsDays = 2000 }), 1095));
+        Assert.Equal(3650, ConfigurationMigration.RaiseEventsDaysToFloor(stored, 5000)!.Retention.EventsDays);   // the validator's maximum
+    }
 }
+

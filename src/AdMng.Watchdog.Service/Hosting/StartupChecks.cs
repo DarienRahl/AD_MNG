@@ -341,9 +341,15 @@ public sealed partial class StartupChecks : IHostedLifecycleService
     {
         try
         {
+            var store = _services.GetRequiredService<IConfigStore>();
             if (OperatingSystem.IsLinux())
             {
-                await MigrateConfigurationForLinuxAsync(_services.GetRequiredService<IConfigStore>(), cancellationToken).ConfigureAwait(false);
+                await MigrateConfigurationForLinuxAsync(store, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (await ApplyRetentionFloorAsync(store, _options.Retention.MinEventsDays, cancellationToken).ConfigureAwait(false))
+            {
+                Log.RetentionRaisedToFloor(_logger, _options.Retention.MinEventsDays);
             }
 
             await _services.GetRequiredService<IWatchdogConfigProvider>().ReloadAsync(cancellationToken).ConfigureAwait(false);
@@ -371,6 +377,26 @@ public sealed partial class StartupChecks : IHostedLifecycleService
 
         await store.SaveAsync(migrated, stored.Version, new PrincipalRef { Account = ConfigurationMigration.MigrationAccount },
             ConfigurationMigration.LinuxSummary, [], cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// The retention floor of stage B design 14.2 for a stored document (both platforms): <c>retention.eventsDays</c>
+    /// below <c>Watchdog:Retention:MinEventsDays</c> – e.g. the 365 days every 0.2.0 document carries – is raised to the
+    /// floor and saved once with the audit summary <see cref="ConfigurationMigration.RetentionFloorSummary"/>. Returns true
+    /// when it saved.
+    /// </summary>
+    public static async Task<bool> ApplyRetentionFloorAsync(IConfigStore store, int floor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var stored = await store.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (stored?.Configuration is not { } configuration || ConfigurationMigration.RaiseEventsDaysToFloor(configuration, floor) is not { } raised)
+        {
+            return false;
+        }
+
+        await store.SaveAsync(raised, stored.Version, new PrincipalRef { Account = ConfigurationMigration.MigrationAccount },
+            ConfigurationMigration.RetentionFloorSummary, [], cancellationToken).ConfigureAwait(false);
         return true;
     }
 
@@ -499,6 +525,10 @@ public sealed partial class StartupChecks : IHostedLifecycleService
 
         [LoggerMessage(EventId = EventLogIds.PermissionGap, Level = LogLevel.Warning, Message = "Unit hardening incomplete: {Problems} (expected UMask=0077, LimitCORE=0, /etc/admng-watchdog/credentials root 0700).")]
         public static partial void HardeningWarning(ILogger logger, string problems);
+
+        [LoggerMessage(EventId = EventLogIds.ConfigurationChanged, Level = LogLevel.Warning,
+            Message = "The stored event retention was below Watchdog:Retention:MinEventsDays and has been raised to {Days} days.")]
+        public static partial void RetentionRaisedToFloor(ILogger logger, int days);
 
         [LoggerMessage(EventId = EventLogIds.CertificateFingerprint, Level = LogLevel.Information, Message = "TLS certificate SHA-256 fingerprint {Fingerprint}.")]
         public static partial void CertificateFingerprint(ILogger logger, string fingerprint);
