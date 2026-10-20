@@ -3,7 +3,7 @@ Version: @VERSION@
 Architecture: amd64
 Maintainer: AD_MNG contributors <admng-watchdog@contoso.com>
 Installed-Size: @INSTALLED_SIZE@
-Depends: @SHLIBS_DEPENDS@, systemd (>= 252), util-linux
+Depends: @SHLIBS_DEPENDS@, systemd (>= 252), procps
 Provides: openwec
 Conflicts: openwec
 Replaces: openwec
