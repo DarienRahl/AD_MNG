@@ -1132,6 +1132,46 @@ tags `badSuccessor`, `machineAccountQuota`, `watchdogAccount`, `gppPassword`, `a
 `MaxFileMb` 5, `MaxTotalMb` 50, `MaxFiles` 2000) in `DirectorySettings`, `StatusDto` sections (service account,
 collector per DC, GPO content, host). All localization keys en + pl.
 
+**Contract step (2026-10-20, before the tracks split).** The items above, the bootstrap records of 14.1 and the
+localization keys were added in one commit; the code is the reference (`Contracts/Api/HealthCheckCodes.cs`,
+`StatusDto` sections `ServiceAccount`/`Collector`/`GpoContent`/`Host`, `KeytabStatusResults`, `HostCredentialKeys`,
+`Service/Hosting/*BootstrapOptions.cs`). Names this document did not fix, and the deviations, with their reasons:
+
+- Health codes with a subject are `wec.<dc>.<check>` / `gpo.<guid>.<check>` (`HealthCheckCodes.Wec`/`Gpo`); the GUI
+  resolves them by first and last segment, so `wec.collectorFileLost` (7.9) and the per-DC form of 7.5 share one text.
+  New family codes `serviceAccount`, `host`, `wec`, `gpo`, `sysvol`, `domain` carry the fallback text of unknown checks.
+  The self-check code of 6.2 is `permission.tokenGroupsUnreadable` (all `PermissionSelfCheck` codes carry the
+  `permission.` prefix). The start-up warnings of 11 items 3 and 6 are one code, `host.hardening` (Args `umask`,
+  `coreDumps`, `credentialsReadable`); `host.credentialKey` is an Ok check carrying the variant of 10 in its Args.
+- The collector-mode remedy of `DC_UNREACHABLE` (7.8) is a localization **variant** (`Reason.DC_UNREACHABLE.Collector`
+  and `.Remedy`, `AttributionReasons.CollectorVariant`) instead of a changed text: the stored reason stays, and
+  AD Manager 0.3.0 still shows the right text for a 0.2.0 Windows service.
+- Catalog defaults: `GroupPolicySettingsChanged` starts at **Low** (the unlinked case of 8.6 – the GPO classifier only
+  raises), `GroupPolicyContentOutOfBand` High, `GroupPolicyPathRedirected` Critical, `HealthServiceAccount` **High**
+  (not stated above; like the other failing-health kinds). The severity changes of 9.1 stay with B6. The three GPO kinds
+  are Domain kinds, hence Tier-0 kinds (12.6), and are added to the `ou-gpo` digest rule now (8.6: "`ou-gpo` digest gets
+  them too") so that every recorded kind reaches a digest; `tier0-gpo` and the other new rules are B5/B6 (only their
+  ids exist in `DefaultRules`).
+- Record defaults are the Linux values **unconditionally** (`Attribution.Source` OpenWec, `EventsDays` 1095,
+  `MaxDatabaseMb` 4096 – 14.2 says "on Linux"): host-dependent record defaults would make Windows and Linux CI disagree,
+  and no Windows service is shipped from this branch (17). On the Windows service OpenWec behaves like
+  DomainControllers until its removal. `WatchdogConfiguration.CurrentSchemaVersion` is already 2; the v1 → v2 migration
+  is B4's.
+- The fixed limits of 8.3 that are not runtime settings (depth 12, 10 000 settings) are constants
+  `GpoContentSettings.MaxDepth` / `MaxSettings`.
+- `ConfigValidationContext` gets `MinEventsDays` (0 = no floor) and `SupportedAttributionSources` (empty = every
+  source; the Linux service passes OpenWec and None), both filled by `ConfigValidationService`; the checks themselves
+  are B4/B6.
+- Bootstrap `Watchdog:Collector:SubscriptionUuid` defaults to the shipped uuid of 7.3, so a file without the key still
+  matches the loaded subscription. `Kerberos`, `Collector`, `Retention`, `Sysvol` and `AllowPrivilegedServiceAccount`
+  apply at restart (`ServiceOptionsFactory.Pin`); `Authorization.RoleCache*` apply live like the rest of
+  `Authorization`.
+- 6.2's 503 has the problem type `https://admng/problems/role-lookup-unavailable` (`ApiProblem.RoleLookupUnavailable`);
+  exit codes 8–10 are `StartupExitCodes.PrivilegedServiceAccount`/`MissingCredential`/`Keytab`; the event ids of 15 are
+  `WatchdogEventIds.CertificateFingerprint` (1008), `ServiceAccountProblem` (1011), `CollectorProblem` (1012),
+  `GpoContentProblem` (1013); webhook types of 510–512 are `ad.gpo.settings_changed`, `ad.gpo.path_redirected`,
+  `ad.gpo.content_out_of_band`.
+
 ---
 
 ## 10. Secrets on Linux
