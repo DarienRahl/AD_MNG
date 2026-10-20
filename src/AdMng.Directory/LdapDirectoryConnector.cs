@@ -248,6 +248,7 @@ public sealed class LdapDirectoryConnector : IDirectoryConnector
             BoundIdentity = FallbackIdentity(settings),
             Authentication = settings.Options.Authentication,
             Security = settings.Options.Security,
+            SecurityStrengthFactor = factory.SecurityStrengthFactor(connection),
             IsGlobalCatalog = settings.Options.GlobalCatalog,
             DomainFunctionality = rootDse.DomainFunctionality,
             ForestFunctionality = rootDse.ForestFunctionality,

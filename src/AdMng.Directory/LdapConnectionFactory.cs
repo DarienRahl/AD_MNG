@@ -1,4 +1,5 @@
 using System.DirectoryServices.Protocols;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using AdMng.Core.Directory;
@@ -8,8 +9,21 @@ using DirectoryException = AdMng.Core.Directory.DirectoryException;
 namespace AdMng.Directory;
 
 /// <summary>Opens and binds LDAP connections to one domain controller with the session's settings.</summary>
+/// <remarks>
+/// On Linux/macOS a Kerberos (SASL GSSAPI) bind with <see cref="TransportSecurity.SignAndSeal"/> must have installed a
+/// confidential SASL security layer: libldap enforces <c>SASL_SECPROPS minssf=56</c> from <c>LDAPCONF</c>, and after
+/// every bind the factory reads the negotiated security strength factor itself and refuses a connection below
+/// <see cref="OpenLdapSasl.MinimumSealedSsf"/> (<see cref="DirectoryErrorKind.StrongAuthRequired"/>) – a misconfigured
+/// or missing <c>LDAPCONF</c> must not silently yield an unsealed session (AdMng Watchdog Linux design 5.1).
+/// </remarks>
 internal sealed class LdapConnectionFactory
 {
+    /// <summary>
+    /// Lab tests only (fault injection, Linux): SASL SSF limits set on every connection opened in the current async flow
+    /// before its bind; they override <c>SASL_SECPROPS</c> of <c>LDAPCONF</c> for that handle. Null in production.
+    /// </summary>
+    internal static readonly AsyncLocal<(int Minimum, int Maximum)?> SaslSecurityLimitsForTests = new();
+
     private readonly ConnectionSettings _settings;
     private readonly ILogger _logger;
     private readonly bool _isHostName;
@@ -67,6 +81,7 @@ internal sealed class LdapConnectionFactory
             Configure(connection);
             bind = Task.Run(() => Bind(connection), CancellationToken.None);
             await bind.WaitAsync(_settings.Options.RequestTimeout, cancellationToken).ConfigureAwait(false);
+            EnsureSealed(connection);
             return connection;
         }
         catch (Exception ex)
@@ -113,9 +128,22 @@ internal sealed class LdapConnectionFactory
             return false;
         }
 
-        // Windows reports the negotiated sealing state. With OpenLDAP the GSSAPI SASL layer negotiates
-        // confidentiality by default (maxssf is unlimited), which the option API cannot query.
-        return !OperatingSystem.IsWindows() || connection.SessionOptions.Sealing;
+        // Windows reports the negotiated sealing state; libldap reports the SASL security strength factor.
+        return OperatingSystem.IsWindows()
+            ? connection.SessionOptions.Sealing
+            : SecurityStrengthFactor(connection) >= OpenLdapSasl.MinimumSealedSsf;
+    }
+
+    /// <summary>
+    /// The SASL security strength factor of a bound Kerberos (Negotiate) connection on Linux/macOS (0 = no security
+    /// layer); null on Windows (SSPI reports sealing instead), for simple binds and when libldap cannot be reached.
+    /// </summary>
+    public int? SecurityStrengthFactor(LdapConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        return OperatingSystem.IsWindows() || _settings.AuthType != AuthType.Negotiate
+            ? null
+            : OpenLdapSasl.TryGetSecurityStrengthFactor(connection);
     }
 
     private LdapConnection Create(NetworkCredential? credential)
@@ -150,6 +178,13 @@ internal sealed class LdapConnectionFactory
             session.SecureSocketLayer = true;
         }
 
+        if (!OperatingSystem.IsWindows() && _settings.AuthType == AuthType.Negotiate
+            && SaslSecurityLimitsForTests.Value is { } limits
+            && !OpenLdapSasl.TrySetSecurityStrengthLimits(connection, limits.Minimum, limits.Maximum))
+        {
+            throw new InvalidOperationException("The SASL security limits of the test could not be applied.");
+        }
+
         if (OperatingSystem.IsWindows())
         {
             if (options.Security == TransportSecurity.SignAndSeal && _settings.AuthType == AuthType.Negotiate)
@@ -163,6 +198,34 @@ internal sealed class LdapConnectionFactory
                 session.VerifyServerCertificate = static (_, _) => true;
             }
         }
+    }
+
+    /// <summary>
+    /// Linux/macOS, Kerberos with sign and seal: refuses a bound connection whose SASL layer is weaker than
+    /// <see cref="OpenLdapSasl.MinimumSealedSsf"/> (or unknown). Windows signs and seals through SSPI (Configure).
+    /// </summary>
+    /// <exception cref="DirectoryException">The negotiated SSF is below the minimum.</exception>
+    private void EnsureSealed(LdapConnection connection)
+    {
+        if (OperatingSystem.IsWindows()
+            || _settings.AuthType != AuthType.Negotiate
+            || _settings.Options.Security != TransportSecurity.SignAndSeal)
+        {
+            return;
+        }
+
+        var ssf = SecurityStrengthFactor(connection);
+        if (ssf is >= OpenLdapSasl.MinimumSealedSsf)
+        {
+            return;
+        }
+
+        Log.SessionNotSealed(_logger, Host, ssf ?? -1, OpenLdapSasl.MinimumSealedSsf);
+        var negotiated = ssf is { } value ? value.ToString(CultureInfo.InvariantCulture) : "unknown";
+        throw new DirectoryException(
+            DirectoryErrorKind.StrongAuthRequired,
+            $"The LDAP session negotiated a SASL security strength factor of {negotiated}; signing and sealing needs at least "
+            + $"{OpenLdapSasl.MinimumSealedSsf.ToString(CultureInfo.InvariantCulture)} (SASL_SECPROPS minssf=56 in LDAPCONF).");
     }
 
     private void Bind(LdapConnection connection)
