@@ -2648,6 +2648,23 @@ writes them) and `WindowsEventXml.cs` (Raw-format records of 4624 v2 types 3/10,
   `StorageGuard_ReportsTheSameSizeAndFreeChecks_AsTheRetentionJob` (free disk bytes changing between its two reads while
   other builds ran) passed on rerun.
 
+**Stage B review (2026-10-20), fixes across milestones:**
+
+- **Stored documents of 0.2.0 (B6, 14.2):** the locked `health` rule of a stored document carries the shipped kinds in the
+  effective document (`DefaultRules.MergeMissing`) – before, HealthServiceAccount (909) matched no rule and every save
+  failed `lockedRule`. A stored `retention.eventsDays` below `Watchdog:Retention:MinEventsDays` (every 0.2.0 document has
+  365) is raised to the floor at start on both platforms and saved once (audit summary "event retention raised to the
+  floor"); before, the maintenance deleted events the floor protects and every save failed `retentionBelowFloor` (AD
+  Manager has no editor for the value). A stored `MaxDatabaseMb` of 10 240 is kept (not a floor).
+- **Keytab rotation and `watchdog-self` (B2/B6, 9.3):** with more than one KDC the tool writes `status.json` (new kvno,
+  change time, `replicationPending`) right after the commit and the final result after the replication wait; before, the
+  file appeared only after that wait (≥ 30 s with a second DC, up to `--replication-timeout`), longer than the service's
+  30 s re-read, so the monthly rotation was a Critical `watchdog-self` alert.
+- **GPO content (B5b, 8.2):** a GPO whose `gPCFileSysPath` is redirected or empty never gets a snapshot; the baseline
+  re-queued it in every run (a Critical 511 per run for a hijack present at the baseline) and never completed, so the
+  daily reconciliation never ran. Such GPOs count as done for the baseline; a redirected one is queued for its 511 only
+  while its newest 511 does not name the current path.
+
 ---
 
 ## 22. Risks and open questions
