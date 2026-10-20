@@ -1,0 +1,19 @@
+#!/bin/sh
+# admng-watchdog prerm (docs/dev/watchdog-linux-design.md 13.1): stop on removal; an upgrade restarts in postinst.
+set -e
+
+case "$1" in
+    remove)
+        if [ -d /run/systemd/system ]; then
+            deb-systemd-invoke stop admng-watchdog.service >/dev/null || true
+        fi
+        ;;
+    upgrade|deconfigure|failed-upgrade)
+        ;;
+    *)
+        echo "prerm called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

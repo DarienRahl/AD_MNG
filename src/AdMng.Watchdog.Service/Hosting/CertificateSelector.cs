@@ -9,10 +9,12 @@ using Microsoft.Extensions.Options;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
-/// The Kestrel TLS certificate (spec 19.3): LocalMachine\My (configurable store) by <c>Thumbprint</c>, else by
-/// <c>Subject</c> – the valid certificate with serverAuth EKU and a private key that expires last. Reloaded every
-/// 10 minutes (renewals are picked up without a restart); <see cref="Current"/> is what the server certificate selector
-/// returns. A newly found certificate is adopted only when the service account can sign with its private key (an AD CS
+/// The Kestrel TLS certificate (spec 19.3): PEM files when <c>Path</c> is set (Linux, stage B design 6.3 –
+/// <see cref="PemCertificateSource"/>, reloaded also on file change), else LocalMachine\My (configurable store) by
+/// <c>Thumbprint</c>, else by <c>Subject</c> – the valid certificate with serverAuth EKU and a private key that expires
+/// last. Reloaded every 10 minutes (renewals are picked up without a restart); <see cref="Current"/> is what the server
+/// certificate selector returns. A PEM key that does not belong to its certificate is never applied: the current
+/// certificate keeps serving and health <see cref="KeyHealthCode"/> is an Error until a reload finds a matching pair. A newly found certificate is adopted only when the service account can sign with its private key (an AD CS
 /// renewal gives the new key the default ACL): otherwise the previous certificate stays while it is valid, and health
 /// <see cref="KeyHealthCode"/> plus Application-log event 1007 (once per thumbprint while the previous certificate serves,
 /// once more as an Error when none usable remains and handshakes fail) tell the administrator. Every
@@ -32,6 +34,9 @@ public sealed partial class CertificateSelector : IDisposable
     /// <summary>Health check: the certificate in use expires within <see cref="ExpiryWarning"/>.</summary>
     public const string ExpiryHealthCode = "certificate.expiry";
 
+    /// <summary>Delay between a change of the PEM files and the reload (a renewal renames two files).</summary>
+    public static readonly TimeSpan FileChangeDelay = TimeSpan.FromSeconds(2);
+
     private const string ServerAuthOid = "1.3.6.1.5.5.7.3.1";
 
     private readonly ICertificateStore _store;
@@ -48,6 +53,9 @@ public sealed partial class CertificateSelector : IDisposable
     private bool _keyProblemReported;
     private bool _currentKeyUnusable;
     private bool _expiryReported;
+    private string? _pemProblem;
+    private FileSystemWatcher? _watcher;
+    private ITimer? _fileChangeTimer;
 
     public CertificateSelector(ICertificateStore store, IOptionsMonitor<ServiceOptions> options, TimeProvider timeProvider)
         : this(store, options, timeProvider, null, null)
@@ -105,10 +113,27 @@ public sealed partial class CertificateSelector : IDisposable
     /// <summary>Selects again now (see the class remarks) and starts the periodic reload.</summary>
     public X509Certificate2? Reload()
     {
-        var found = Find();
+        var settings = _options.CurrentValue.Hosting.Certificate;
         var now = _timeProvider.GetUtcNow();
+        X509Certificate2? found;
+        string? pemProblem = null;
+        if (IsPem(settings))
+        {
+            (found, pemProblem) = FindPem(settings, now);
+        }
+        else
+        {
+            found = Find();
+        }
+
         lock (_gate)
         {
+            if (IsPem(settings))
+            {
+                WatchPemFiles(settings);
+                ReportPemProblem(pemProblem);
+            }
+
             var current = _current;
             var isCurrent = found is not null && string.Equals(found.Thumbprint, current?.Thumbprint, StringComparison.OrdinalIgnoreCase);
             if (found is not null && (!isCurrent || _currentKeyUnusable))
@@ -131,16 +156,26 @@ public sealed partial class CertificateSelector : IDisposable
                 }
             }
 
+            if (IsPem(settings) && found is not null && !ReferenceEquals(found, _current))
+            {
+                found.Dispose();   // a fresh copy of the certificate in use (or one that was not applied)
+            }
+
             CheckExpiry(_current, now);
             _timer ??= _timeProvider.CreateTimer(static state => ((CertificateSelector)state!).ReloadFromTimer(), this, ReloadInterval, ReloadInterval);
             return _current;
         }
     }
 
-    /// <summary>The matching certificate of the configured store (no side effects).</summary>
+    /// <summary>The matching certificate of the PEM files or the configured store (no side effects).</summary>
     public X509Certificate2? Find()
     {
         var settings = _options.CurrentValue.Hosting.Certificate;
+        if (IsPem(settings))
+        {
+            return FindPem(settings, _timeProvider.GetUtcNow()).Certificate;
+        }
+
         var storeName = Enum.TryParse<StoreName>(settings.Store, ignoreCase: true, out var name) ? name : StoreName.My;
         var location = Enum.TryParse<StoreLocation>(settings.Location, ignoreCase: true, out var loc) ? loc : StoreLocation.LocalMachine;
         return Select(_store.GetCertificates(storeName, location), settings, _timeProvider.GetUtcNow());
@@ -193,13 +228,106 @@ public sealed partial class CertificateSelector : IDisposable
         }
     }
 
+    /// <summary>True when the certificate comes from PEM files (<see cref="CertificateOptions.Path"/> set).</summary>
+    public static bool IsPem(CertificateOptions settings) => !string.IsNullOrWhiteSpace(settings?.Path);
+
     public void Dispose()
     {
         lock (_gate)
         {
             _timer?.Dispose();
             _timer = null;
+            _fileChangeTimer?.Dispose();
+            _fileChangeTimer = null;
+            _watcher?.Dispose();
+            _watcher = null;
         }
+    }
+
+    /// <summary>The PEM pair when it is valid now and carries serverAuth; otherwise null with the reason (a pair problem of
+    /// <see cref="PemCertificateSource"/>, or <c>expired</c> / <c>noServerAuth</c>).</summary>
+    private static (X509Certificate2? Certificate, string? Problem) FindPem(CertificateOptions settings, DateTimeOffset now)
+    {
+        var loaded = PemCertificateSource.Load(settings.Path!, settings.KeyPath);
+        if (loaded.Certificate is not { } certificate)
+        {
+            return (null, loaded.Problem);
+        }
+
+        if (!IsValid(certificate, now))
+        {
+            certificate.Dispose();
+            return (null, "expired");
+        }
+
+        if (!HasServerAuth(certificate))
+        {
+            certificate.Dispose();
+            return (null, "noServerAuth");
+        }
+
+        return (certificate, null);
+    }
+
+    /// <summary>Reloads shortly after a change of the PEM files (watcher of their folder, started once).</summary>
+    private void WatchPemFiles(CertificateOptions settings)
+    {
+        if (_watcher is not null || Path.GetDirectoryName(Path.GetFullPath(settings.Path!)) is not { } folder || !System.IO.Directory.Exists(folder))
+        {
+            return;
+        }
+
+        try
+        {
+            _fileChangeTimer = _timeProvider.CreateTimer(static state => ((CertificateSelector)state!).ReloadFromTimer(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            _watcher = new FileSystemWatcher(folder)
+            {
+                NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.CreationTime | NotifyFilters.Size,
+                IncludeSubdirectories = false,
+            };
+            _watcher.Changed += OnPemFileChanged;
+            _watcher.Created += OnPemFileChanged;
+            _watcher.Renamed += OnPemFileChanged;
+            _watcher.Deleted += OnPemFileChanged;
+            _watcher.EnableRaisingEvents = true;
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            // No change notifications (e.g. inotify limit): the 10-minute reload still picks the renewal up.
+            _watcher?.Dispose();
+            _watcher = null;
+            Log.WatchFailed(_logger, ex.GetType().Name);
+        }
+    }
+
+    private void OnPemFileChanged(object sender, FileSystemEventArgs e)
+    {
+        lock (_gate)
+        {
+            _fileChangeTimer?.Change(FileChangeDelay, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    /// <summary>A PEM pair that cannot be applied: Error <see cref="KeyHealthCode"/> while the current certificate (if any)
+    /// keeps serving; logged once per problem. A missing or expired file is left to the start-up check (exit code 4) and
+    /// the expiry warning.</summary>
+    private void ReportPemProblem(string? problem)
+    {
+        if (problem is PemCertificateSource.KeyMismatch or PemCertificateSource.Invalid or PemCertificateSource.Unreadable)
+        {
+            _keyProblemReported = true;
+            Report(KeyHealthCode, HealthState.Error, "The TLS key file does not belong to the certificate file or cannot be read; the current certificate stays in use.", problem);
+            if (!string.Equals(_pemProblem, problem, StringComparison.Ordinal))
+            {
+                Log.PemPairUnusable(_logger, problem);
+            }
+        }
+        else if (_pemProblem is not null && problem is null)
+        {
+            ClearKeyProblem();
+        }
+
+        _pemProblem = problem;
     }
 
     private static bool IsValid(X509Certificate2 certificate, DateTimeOffset now) =>
@@ -305,5 +433,12 @@ public sealed partial class CertificateSelector : IDisposable
 
         [LoggerMessage(EventId = EventLogIds.RuntimeOrCertificate, Level = LogLevel.Warning, Message = "The certificate store could not be read ({ErrorType}); the current TLS certificate stays in use.")]
         public static partial void ReloadFailed(ILogger logger, string errorType);
+
+        [LoggerMessage(EventId = EventLogIds.RuntimeOrCertificate, Level = LogLevel.Error,
+            Message = "The TLS certificate and key files cannot be used together ({Problem}); the current certificate stays in use. Install a matching pair (admng-wd.crt / admng-wd.key).")]
+        public static partial void PemPairUnusable(ILogger logger, string problem);
+
+        [LoggerMessage(EventId = 2003, Level = LogLevel.Warning, Message = "The TLS certificate folder cannot be watched ({ErrorType}); renewals are picked up by the 10-minute reload.")]
+        public static partial void WatchFailed(ILogger logger, string errorType);
     }
 }

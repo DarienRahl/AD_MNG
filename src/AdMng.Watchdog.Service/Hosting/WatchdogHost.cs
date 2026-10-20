@@ -18,29 +18,34 @@ public static class WatchdogHost
     public const string ServiceName = "AdMngWatchdog";
 
     /// <summary>Builds the application; <paramref name="configure"/> runs before the registrations read the configuration
-    /// (tests, smoke test).</summary>
-    public static WebApplication Build(string[] args, Action<WebApplicationBuilder>? configure = null, bool console = false)
+    /// (tests, smoke test). <paramref name="bootstrapFile"/> = false leaves the bootstrap file and
+    /// <c>ADMNG_WATCHDOG_CONFIG</c> out (<c>--smoke-test</c>).</summary>
+    public static WebApplication Build(string[] args, Action<WebApplicationBuilder>? configure = null, bool console = false, bool bootstrapFile = true)
     {
         ArgumentNullException.ThrowIfNull(args);
         var isService = WindowsServiceHelpers.IsWindowsService();
+        var isSystemd = SystemdSetup.IsSystemdService();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             Args = args,
             ContentRootPath = isService ? AppContext.BaseDirectory : null,
         });
         builder.Services.AddWindowsService(o => o.ServiceName = ServiceName);
-        var extraConfig = ConfigurationSetup.AddSources(builder.Configuration, args, isService);
+        var extraConfig = bootstrapFile
+            ? ConfigurationSetup.AddSources(builder.Configuration, args, isService || isSystemd)
+            : ConfigurationSetup.AddSources(builder.Configuration, args, isService || isSystemd, bootstrapFilePath: null, reloadBootstrapFile: false, extraConfigFile: null);
         configure?.Invoke(builder);
 
         var options = builder.Configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>() ?? new ServiceOptions();
-        LoggingSetup.Configure(builder, console || (Environment.UserInteractive && !isService));
+        LoggingSetup.Configure(builder, console || (Environment.UserInteractive && !isService && !isSystemd), isSystemd);
+        SystemdSetup.Configure(builder.Services, isSystemd);
 
         var dataDirectory = new DataDirectory(DataDirectory.Resolve(options));
         dataDirectory.Ensure();
         DataProtectionSetup.Configure(builder.Services, dataDirectory);
         AuthenticationSetup.Configure(builder.Services, options);
 
-        var context = CreateContext(options, isService, extraConfig);
+        var context = CreateContext(options, isService, isSystemd, extraConfig);
         if (options.Hosting.Server == WatchdogServer.HttpSys && OperatingSystem.IsWindows())
         {
             HttpSysSetup.Configure(builder, options.Hosting, context.Endpoints);
@@ -133,7 +138,7 @@ public static class WatchdogHost
         }
     }
 
-    private static StartupContext CreateContext(ServiceOptions options, bool isService, string? extraConfig)
+    private static StartupContext CreateContext(ServiceOptions options, bool isService, bool isSystemd, string? extraConfig)
     {
         IReadOnlyList<ListenerEndpoint> endpoints = [];
         string? error = null;
@@ -153,6 +158,7 @@ public static class WatchdogHost
         return new StartupContext
         {
             IsWindowsService = isService,
+            IsSystemdService = isSystemd,
             Endpoints = endpoints,
             Server = options.Hosting.Server,
             ExtraConfigFile = extraConfig,

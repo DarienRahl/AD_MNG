@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily check of the ADMNG-WD$ password age
+
+[Timer]
+OnCalendar=*-*-* 04:20:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

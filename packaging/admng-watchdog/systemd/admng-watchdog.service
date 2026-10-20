@@ -1,0 +1,83 @@
+[Unit]
+Description=AdMng Watchdog - Active Directory change monitor
+Documentation=file:/usr/share/doc/admng-watchdog/README.Debian
+After=network-online.target nss-lookup.target time-sync.target openwecd.service
+Wants=network-online.target time-sync.target
+ConditionPathExists=/etc/admng-watchdog/admng-wd.keytab
+StartLimitIntervalSec=0
+OnFailure=admng-watchdog-failed.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+User=admng-watchdog
+Group=admng-watchdog
+SupplementaryGroups=admng-keytab
+ExecStart=/usr/lib/admng-watchdog/AdMng.Watchdog --contentRoot /usr/lib/admng-watchdog
+WorkingDirectory=/var/lib/admng-watchdog
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_EnableDiagnostics=0
+Environment=DOTNET_DbgEnableMiniDump=0
+Environment=DOTNET_gcServer=0
+Environment=HOME=/var/lib/admng-watchdog
+Environment=KRB5_CONFIG=/etc/admng-watchdog/krb5.conf
+Environment=KRB5_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab
+Environment=KRB5_CLIENT_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab
+Environment=KRB5CCNAME=FILE:/run/admng-watchdog/krb5cc
+Environment=KRB5RCACHEDIR=/var/tmp
+Environment=LDAPCONF=/etc/admng-watchdog/ldap.conf
+LoadCredentialEncrypted=dp-key:/etc/admng-watchdog/credentials/dp-key.cred
+StateDirectory=admng-watchdog
+StateDirectoryMode=0700
+RuntimeDirectory=admng-watchdog
+RuntimeDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=30s
+RestartPreventExitStatus=2 3 4 5 6 7 8 9 10 243
+TimeoutStartSec=15min
+TimeoutStopSec=90s
+WatchdogSec=120s
+LimitCORE=0
+LimitNOFILE=65536
+MemorySwapMax=0
+
+# Sandboxing
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+DevicePolicy=closed
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot @raw-io @module @obsolete @cpu-emulation @debug
+# CoreCLR refuses to start when sched_setaffinity (in @resources) fails ("Failed to create CoreCLR, 0x8007054F", B1 lab)
+SystemCallFilter=sched_setaffinity
+SystemCallErrorNumber=EPERM
+KeyringMode=private
+RemoveIPC=yes
+SocketBindAllow=tcp:8443
+SocketBindDeny=any
+ReadOnlyPaths=/etc/admng-watchdog /var/lib/openwec/out /var/lib/admng-watchdog-keytab
+InaccessiblePaths=-/var/lib/openwec/db
+
+[Install]
+WantedBy=multi-user.target

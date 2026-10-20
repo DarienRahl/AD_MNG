@@ -33,7 +33,7 @@ public sealed class BootstrapReloadTests
         await File.WriteAllTextAsync(file, Bootstrap(denied: [], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
 
         using var configuration = new ConfigurationManager();
-        ConfigurationSetup.AddSources(configuration, [], isWindowsService: false, file, reloadBootstrapFile: true);
+        ConfigurationSetup.AddSources(configuration, [], isManagedService: false, file, reloadBootstrapFile: true);
         var startup = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>()!;
         var services = new ServiceCollection();
         ServiceRegistration.AddServiceOptions(services, configuration, startup);
@@ -73,7 +73,7 @@ public sealed class BootstrapReloadTests
         await File.WriteAllTextAsync(file, Bootstrap(denied: [], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
 
         using var configuration = new ConfigurationManager();
-        ConfigurationSetup.AddSources(configuration, [], isWindowsService: false, file, reloadBootstrapFile: true);
+        ConfigurationSetup.AddSources(configuration, [], isManagedService: false, file, reloadBootstrapFile: true);
         var startup = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>()!;
         var services = new ServiceCollection();
         ServiceRegistration.AddServiceOptions(services, configuration, startup);
@@ -121,7 +121,7 @@ public sealed class BootstrapReloadTests
         await File.WriteAllTextAsync(file, Bootstrap(denied: [], urls: "https://admng-wd.contoso.test:8443", requireKerberos: true), Ct);
 
         using var configuration = new ConfigurationManager();
-        ConfigurationSetup.AddSources(configuration, [], isWindowsService: false, file, reloadBootstrapFile: true);
+        ConfigurationSetup.AddSources(configuration, [], isManagedService: false, file, reloadBootstrapFile: true);
         var startup = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>()!;
         var log = new TestLog();
         var services = new ServiceCollection();

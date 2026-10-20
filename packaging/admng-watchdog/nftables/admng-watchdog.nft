@@ -1,0 +1,34 @@
+#!/usr/sbin/nft -f
+flush ruleset
+
+define DCS        = { 10.0.1.10, 10.0.1.11 }
+define PAWS       = { 10.0.20.15 }
+define ADMIN_NET  = 10.0.20.0/24
+define SMTP_RELAY = 10.0.1.30
+
+table inet admng {
+    chain input {
+        type filter hook input priority filter; policy drop;
+        ct state established,related accept
+        ct state invalid drop
+        iif lo accept
+        ip saddr $PAWS tcp dport 22 accept
+        ip saddr $ADMIN_NET tcp dport 8443 accept
+        ip saddr $DCS tcp dport 5985 accept
+        icmp type { echo-request, destination-unreachable, time-exceeded } accept
+    }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+    }
+    chain output {
+        type filter hook output priority filter; policy drop;
+        ct state established,related accept
+        meta skuid "openwec" drop
+        oif lo accept
+        ip daddr $DCS udp dport { 53, 88, 123, 464 } accept
+        ip daddr $DCS tcp dport { 53, 88, 389, 445, 464, 636 } accept
+        ip daddr $SMTP_RELAY tcp dport 587 accept
+        meta skuid { "root", "_apt", "admng-watchdog" } tcp dport { 80, 443 } accept
+        icmp type echo-request accept
+    }
+}

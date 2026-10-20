@@ -61,7 +61,8 @@ public sealed class StatusAndPageApiTests
         Assert.Null(before.ServiceAccount);
         Assert.Null(before.Collector);
         Assert.Null(before.GpoContent);
-        Assert.Null(before.Host);
+        // The Linux start-up checks report the Host section (OS, runtime, no credential in tests); Windows reports none yet.
+        Assert.Null(before.Host?.CredentialKey);
         Assert.Equal(2, after.ServiceAccount?.KeytabKvno);
         Assert.Equal(3, Assert.Single(after.Collector!.DomainControllers).RejectedRecords24h);
         Assert.Equal(1, after.GpoContent?.SysvolLaggingGpos);

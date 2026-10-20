@@ -6,10 +6,27 @@ using AdMng.Watchdog.Contracts.Api;
 namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>Checks of the bootstrap settings (<c>--check-config</c>): listener URLs, certificate selection for https,
-/// SID syntax of every role list, CIDR syntax of the subnet lists, the Development scheme only in Development, the lab
-/// simple bind only with its user.</summary>
+/// SID syntax of every role list, the shipped placeholder SID (stage B design 14.1), CIDR syntax of the subnet lists, the
+/// Development scheme only in Development, the lab simple bind only with its user.</summary>
 public static partial class ServiceOptionsValidator
 {
+    /// <summary>The role group SID of the shipped Linux <c>appsettings.json</c> (14.1): <c>--check-config</c> and the start
+    /// fail until the administrator enters the real SIDs (appendix A.3 prints them).</summary>
+    public const string PlaceholderSid = "S-1-5-21-0-0-0-0";
+
+    /// <summary>The documented message of the placeholder check.</summary>
+    public const string PlaceholderSidMessage =
+        "Replace the role group SIDs: Watchdog:Authorization still holds the shipped placeholder " + PlaceholderSid + " (see the instructions, appendix A.3).";
+
+    /// <summary>True when an Admin, Viewer or Denied list still holds <see cref="PlaceholderSid"/>.</summary>
+    public static bool HasPlaceholderSids(ServiceOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var authorization = options.Authorization ?? new AuthorizationOptions();
+        return (authorization.AdminSids ?? []).Concat(authorization.ViewerSids ?? []).Concat(authorization.DeniedSids ?? [])
+            .Any(sid => string.Equals(sid?.Trim(), PlaceholderSid, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static IReadOnlyList<ConfigIssue> Validate(ServiceOptions options, string environmentName)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -35,9 +52,15 @@ public static partial class ServiceOptionsValidator
         }
 
         if (options.Hosting.Server == WatchdogServer.Kestrel && endpoints.Any(e => e.Https)
+            && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Path)
             && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Thumbprint) && string.IsNullOrWhiteSpace(options.Hosting.Certificate.Subject))
         {
-            issues.Add(Error("Watchdog:Hosting:Certificate", "required", "An https listener needs Hosting.Certificate.Thumbprint or Subject."));
+            issues.Add(Error("Watchdog:Hosting:Certificate", "required", "An https listener needs Hosting.Certificate.Path (PEM, Linux) or Thumbprint or Subject."));
+        }
+
+        if (HasPlaceholderSids(options))
+        {
+            issues.Add(Error("Watchdog:Authorization", "placeholderSid", PlaceholderSidMessage));
         }
 
         CheckSids(issues, "Watchdog:Authorization:ViewerSids", options.Authorization.ViewerSids);
