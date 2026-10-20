@@ -648,6 +648,29 @@ public class ConfigurationValidatorTests
     }
 
     [Fact]
+    public void LockedRule_AStoredStageADocument_GetsTheNewHealthKinds_AndCanBeSavedAgain()
+    {
+        // A document stored by 0.2.0 (stage A): the health rule without HealthServiceAccount, no stage B rules.
+        var stageB = new[] { DefaultRules.Tier0BadSuccessor, DefaultRules.Tier0MachineQuota, DefaultRules.WatchdogSelf, DefaultRules.Tier0Gpo };
+        var stored = WithRule(Valid(), DefaultRules.Health, r => r with { Kinds = [.. r.Kinds.Where(k => k != WatchEventKind.HealthServiceAccount)] });
+        stored = stored with { Rules = [.. stored.Rules.Where(r => !stageB.Contains(r.Id))] };
+        AssertIssue(Validate(stored), ConfigValidationCodes.LockedRule, "rules[23].kinds");
+
+        // GET returns the effective document, AD Manager sends it back unchanged: it must be valid, and the rule engine
+        // (which also evaluates the effective document) must deliver the new health kind.
+        var effective = WatchdogConfigProvider.Effective(stored);
+        var health = Assert.Single(effective.Rules, r => r.Id == DefaultRules.Health);
+        Assert.Contains(WatchEventKind.HealthServiceAccount, health.Kinds);
+        Assert.Equal(DefaultRules.Find(DefaultRules.Health)!.Kinds.Order(), health.Kinds.Order());
+        Assert.Empty(Validate(effective).Issues);
+
+        // Only the kinds are refreshed: an edited delivery of the stored rule stays as stored.
+        var retargeted = WithRule(stored, DefaultRules.Health, r => r with { Delivery = r.Delivery with { RecipientGroupIds = [DefaultRules.HelpdeskGroup] } });
+        Assert.Equal([DefaultRules.HelpdeskGroup],
+            Assert.Single(WatchdogConfigProvider.Effective(retargeted).Rules, r => r.Id == DefaultRules.Health).Delivery.RecipientGroupIds);
+    }
+
+    [Fact]
     public void LockedRule_TheDeliveryOfTheHealthRuleCannotBeWeakened()
     {
         var c = Valid();

@@ -242,13 +242,22 @@ public static class DefaultRules
     /// <summary>
     /// Section 8.2: <paramref name="stored"/> unchanged (it is authoritative, also for disabled or edited built-in
     /// rules) followed by every built-in rule whose id is missing, with <c>Enabled</c> as shipped. Null entries of a
-    /// broken stored document are dropped.
+    /// broken stored document are dropped. Exception: the kinds of a stored locked built-in rule (<c>health</c>) are the
+    /// shipped ones – they cannot be edited, and a document stored by an older version (stage A: no
+    /// <c>HealthServiceAccount</c>) would otherwise neither match the new health kinds nor pass the validator's
+    /// <c>lockedRule</c> check on its next save.
     /// </summary>
     public static IReadOnlyList<RuleSettings> MergeMissing(IReadOnlyList<RuleSettings>? stored)
     {
-        var rules = (stored ?? []).Where(r => r is not null).ToList();
+        var shipped = Create();
+        var locked = shipped.Where(r => r.Locked).ToDictionary(r => r.Id, StringComparer.OrdinalIgnoreCase);
+        var rules = (stored ?? []).Where(r => r is not null)
+            .Select(r => r.Locked && locked.TryGetValue(r.Id ?? string.Empty, out var builtIn) && !(r.Kinds ?? []).ToHashSet().SetEquals(builtIn.Kinds)
+                ? r with { Kinds = [.. builtIn.Kinds] }
+                : r)
+            .ToList();
         var ids = new HashSet<string>(rules.Select(r => r.Id ?? string.Empty), StringComparer.OrdinalIgnoreCase);
-        rules.AddRange(Create().Where(r => !ids.Contains(r.Id)));
+        rules.AddRange(shipped.Where(r => !ids.Contains(r.Id)));
         return rules;
     }
 
