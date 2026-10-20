@@ -1324,6 +1324,7 @@ MemoryDenyWriteExecute=no
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @mount @swap @reboot @raw-io @module @obsolete @cpu-emulation @debug
+SystemCallFilter=sched_setaffinity
 SystemCallErrorNumber=EPERM
 KeyringMode=private
 RemoveIPC=yes
@@ -1974,6 +1975,82 @@ same DCs; RPC cursors are ignored.
 
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
+
+### 21.1 B1 as built (2026-10-20): deviations and lab findings
+
+Code: `Service/Hosting/SystemdSetup.cs`, `SystemdNotifySocket.cs`, `SystemdWatchdogNotifier.cs`, `JobProgress.cs`,
+`PosixPermissionCheck.cs`, `PemCertificateSource.cs` (+ `CertificateSelector`), `StartupChecks.cs`, `LoggingSetup.cs`,
+`Secrets/DataProtectionMasterKey.cs`, `DataProtectionKeySource.cs`, `SystemdCredentialXmlEncryptor.cs` /
+`…Decryptor.cs`; packaging in `packaging/admng-watchdog/`, `tools/packaging/build-deb.sh` and
+`tools/packaging/test-deb-install.sh` (the install test of the CI job `linux-package`).
+
+- **No `UseSystemd()` call.** `SystemdHelpers.IsSystemdService()` reads `/proc/<parent>/comm`, which
+  `ProtectProc=invisible` hides (PID 1 belongs to root): the unit would never send `READY=1`. `SystemdSetup` registers
+  the same parts itself – `SystemdLifetime` (`READY=1` after the start-up checks and the listeners, `STOPPING=1`), an
+  `ISystemdNotifier` over `NOTIFY_SOCKET` and the console logger with the systemd formatter – when `INVOCATION_ID` or
+  `NOTIFY_SOCKET` is set **and** the parent process is PID 1 (`/proc/self/stat`): a CI step or test run below a runner
+  that itself runs as a unit inherits `INVOCATION_ID` but has another parent. "Managed service" (ADMNG_WATCHDOG_CONFIG
+  refused, exit 6 checks, Development scheme refused) now means Windows SCM **or** this unit.
+- **Watchdog notifier:** `WATCHDOG=1` every `min(WATCHDOG_USEC / 4, 30 s)` (`WATCHDOG_PID` honoured), only after
+  `ApplicationStarted` and only while no job loop is stalled: a running iteration may last 6 h (`detection`, `scans`,
+  `retention` – a baseline of a large domain) or 1 h (others), a wait or backoff its interval + 2 min. A stalled job is
+  logged once (1010, Critical) so the journal says why systemd restarted the service.
+- **`SystemCallFilter=sched_setaffinity` added to 12.1** after the `~@resources` line: CoreCLR refuses to start
+  ("Failed to create CoreCLR, HRESULT: 0x8007054F") when `sched_setaffinity` returns `EPERM` (bisected in the lab,
+  systemd 255, .NET 10.0.13). `SystemCallErrorNumber=EPERM` is required as well: without it `@system-service` alone kills
+  the runtime (`mincore`, x86_64 syscall 27, is outside the set; with `EPERM` the runtime copes). `ProcSubset=pid` is
+  kept: runtime, GC, Kestrel and `/healthz` work, and the whole `AdMng.Watchdog.Service.Tests` suite ran under
+  `systemd-run` with the unit's sandbox properties (12.1 note) with no sandbox-specific failure (the only differences to
+  an unsandboxed run in the same container were 24 tests that need DNS, failing in both, and one test that relied on the
+  test runner's umask, fixed).
+- **Lab run of the unit under systemd 255 (PID 1 in a privileged container):** `Type=notify` reaches `active`,
+  watchdog timestamps advance every 30 s, journald gets `<4>`/`<6>` priorities, `Umask: 0077`, seccomp on; SIGKILL →
+  `auto-restart`; an exit-6 start (appsettings.json owned by `admng-watchdog`) → `failed` without restart and
+  `admng-watchdog-failed.service` logs the crit line. `LoadCredential*=` directories did not appear for *any* unit in
+  that container (also `LoadCredential=x:/etc/hostname`), so the run used a drop-in `CREDENTIALS_DIRECTORY` with the
+  `systemd-creds decrypt` output; the real `LoadCredentialEncrypted=` path is part of the VM pilot (B9). Exposure
+  (`systemd-analyze security --offline=true`, systemd 255): **1.3**; `SocketBind*`: Ubuntu 24.04's systemd 255 shows
+  `-BPF_FRAMEWORK`; the Debian 12/13 values are printed by the CI job.
+- **POSIX checks (11):** item 1 exits 5 only in Production; elsewhere (lab, development, tests – no `UMask=0077`) and
+  with `AllowInsecureDataDirectoryAcl` it is health Warning `storage.acl`. Items 2, 3 and 6 run only as the systemd
+  unit (like the Windows check under the SCM). Under `ProtectSystem=strict` `access(W_OK)` always fails (`EROFS`), so
+  under the unit item 2 is decided by the owners (root) – an `appsettings.json` owned by the service user → exit 6.
+  Item 3's credentials-folder test and item 6 are one Warning `host.hardening` (contract step). Item 5 (`ldap.conf`,
+  exit 2) belongs to B2 (LDAP over GSSAPI). Owners come from `lstat(2)` (`LibraryImport`, x86_64 and aarch64 layouts;
+  .NET has no owner API), ACLs from `lgetxattr`, network file systems from `DriveInfo.DriveFormat`.
+- **Shipped placeholders (14.1):** `--check-config` reports `placeholderSid` ("Replace the role group SIDs …") and the
+  start exits 2. `--smoke-test` no longer reads the bootstrap file or `ADMNG_WATCHDOG_CONFIG` (it must not depend on
+  the machine's configuration nor need read access to the 0640 file).
+- **Credential variant:** the service cannot read `credentials/`, so `postinst` / `reset-secrets-key` record the variant
+  actually used in `/etc/admng-watchdog/dp-key.variant` (root:root 0644, no secret; new file of table 11); the service
+  reports it as `host.credentialKey` and in Status „Host”. The key-element ciphertext is bound to purpose, algorithm and
+  `kid` as AES-GCM associated data.
+- **PEM certificate:** `KeyPath` is optional (key in the `Path` file). Kestrel serves the leaf; intermediates come from
+  the system store (company-CA chain installed on Debian, A.8). Reload on file change (2 s after the last change) and
+  every 10 minutes; a key of another certificate, an unreadable or invalid file → Error `certificate.key` (Args: the
+  problem) while the current certificate keeps serving; an expired certificate or one without serverAuth is not
+  applied. 1008 is logged at every Kestrel start (Windows too). `--health` pins the file's leaf.
+- **Package (13.1):** units in `/usr/lib/systemd/system` instead of `/lib/systemd/system` (Debian 13 `/usr` merge,
+  lintian `aliased-location`; both releases search it). `Depends` has no `admng-openwec` until B4 builds it (the
+  sysusers line `m openwec admng-keytab` creates `openwec` when it is missing) and gains `libc6 (>= 2.34)`,
+  `libgcc-s1`, `libstdc++6` (lintian); `util-linux` (setpriv) is essential. Not in the B1 package: the keytab tool and
+  `/usr/sbin/admng-watchdog-keytab` (B2), `wec-rotate` and `/etc/default/admng-wec-rotate` (B4), and the units of 12.3 /
+  12.4 – they are in `packaging/` and verified by the CI job, but shipping them would enable timers whose binaries do
+  not exist yet. `print-wec-subscription` (B4) and `notify-failure` (12.1 SHOULD) are not implemented:
+  `admng-watchdog-failed.service` only logs at crit. The wrapper `/usr/sbin/admng-watchdog` runs `--check-config`,
+  `--health`, `--smoke-test` as `admng-watchdog` (setpriv, the unit's environment, `KRB5CCNAME=MEMORY:`) and implements
+  `cert-fingerprint`, `cert-renew-self-signed` and `reset-secrets-key` in shell (`/usr/lib/admng-watchdog/
+  admng-watchdog-functions`, shared with `postinst`). The version is the AdMng `VersionPrefix` (`0.2.0-1` today).
+  lintian (Ubuntu 24.04's, Debian mirrors are not reachable from the agent lab) reports no errors; reviewed warnings:
+  `non-standard-file-perm` of `appsettings.json` (0640 by design), `no-manual-page`, `initial-upload-closes-no-bugs`,
+  the nft example's `#!/usr/sbin/nft -f` line (kept: byte-for-byte equal to the instructions).
+- **Verification in this milestone:** the install test (users, modes, credential, certificate, idempotent `postinst`,
+  `systemd-analyze verify` of every unit incl. 12.3/12.4 with stub binaries, exposure ≤ 2.0, `nft -c`,
+  `--check-config` failing on the placeholders and passing with real SIDs, `--smoke-test` as `admng-watchdog`, a
+  Production start with the credential serving `/healthz` over TLS with an encrypted key ring and a 0600 database,
+  remove/purge) passed in `ubuntu:24.04` locally; the CI job runs the same script in `debian:12` and `debian:13`.
+  The service tests read the machine's `/etc/admng-watchdog/appsettings.json` when the package is installed on the test
+  machine (bootstrap overrides the test settings) – run them on a machine without the package.
 
 ---
 
