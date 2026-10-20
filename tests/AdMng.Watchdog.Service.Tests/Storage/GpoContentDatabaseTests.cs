@@ -167,11 +167,22 @@ public sealed class GpoContentDatabaseTests : IAsyncDisposable
         }
 
         Assert.True(cells > 10);
-        foreach (var file in System.IO.Directory.EnumerateFiles(_directory, "watchdog.db*"))
+        // The files that hold pages (the -shm index holds none). The store's pooled connections keep them open: on Windows a
+        // plain File.ReadAllBytes (FileShare.Read) fails with a sharing violation.
+        var database = _store.Database.DatabasePath;
+        foreach (var file in new[] { database, database + "-wal", database + "-journal" }.Where(File.Exists))
         {
-            var raw = File.ReadAllBytes(file);
+            var raw = ReadShared(file);
             Assert.All(needles, needle => Assert.True(raw.AsSpan().IndexOf(needle) < 0, "a secret was found in " + Path.GetFileName(file)));
         }
+    }
+
+    private static byte[] ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var buffer = new MemoryStream();
+        stream.CopyTo(buffer);
+        return buffer.ToArray();
     }
 
     private static byte[] Inflate(byte[] blob)

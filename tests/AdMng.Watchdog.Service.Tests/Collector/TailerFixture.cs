@@ -39,6 +39,8 @@ internal sealed class TailerFixture : IAsyncDisposable
 
     public TailerFixture(WatchdogConfiguration? configuration = null)
     {
+        // The tailer is hosted by the Linux service only (CollectorHost): it reads the files with lstat/fstat of libc.
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "The WEF tailer is the Linux service's (lstat/fstat of libc).");
         Store = TestStore.Create();
         Output = Path.Combine(Store.Directory.Path, "openwec-out");
         System.IO.Directory.CreateDirectory(Output);
