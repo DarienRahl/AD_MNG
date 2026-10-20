@@ -142,32 +142,38 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
 ## AdMng Watchdog – usługa monitorująca
 
 AD_MNG jest konsolą bez lokalnych danych, więc wykrywanie zmian w katalogu (kto, co, kiedy, skąd) działa w osobnym
-procesie: usłudze Windows **AdMng Watchdog** (`AdMng.Watchdog.exe`, ASP.NET Core + Worker, 24/7, konto gMSA tylko do
-odczytu). Zakładka **Watchdog** w AD_MNG jest jej klientem. Wdrożenie i obsługa: [WATCHDOG.md](WATCHDOG.md); wiążąca
-specyfikacja implementacji: [dev/watchdog-spec.md](dev/watchdog-spec.md).
+procesie: usłudze **AdMng Watchdog** (ASP.NET Core + Worker, 24/7). Od wersji 0.3.0 działa ona wyłącznie na Linuksie –
+jednostka systemd `admng-watchdog.service` na serwerze Debian 12/13 poza domeną, z kontem komputera `ADMNG-WD$`
+(keytab, hasło zmieniane co 30 dni) i odbiornikiem zdarzeń OpenWEC; usługa Windows z gMSA była wydaniem 0.2.0
+([ADR-0009](adr/0009-watchdog-na-linuksie.md)). Zakładka **Watchdog** w AD_MNG jest jej klientem. Funkcje:
+[WATCHDOG.md](WATCHDOG.md), wdrożenie: [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md); wiążące specyfikacje implementacji:
+[dev/watchdog-spec.md](dev/watchdog-spec.md) i [dev/watchdog-linux-design.md](dev/watchdog-linux-design.md).
 
-```
-              ┌──────────────── serwer w domenie (Tier 0), gMSA CONTOSO\svc-admngwd$ ──────────────┐
-              │ AdMng.Watchdog.exe (usługa "AdMngWatchdog"; tryb konsolowy w laboratorium)          │
-  DC (PDC) ◄──┤ ChangeDetectionEngine: RootDSE, uSNChanged, Extended DN, metadane replikacji,       │
-  LDAP 389    │   kosz/Deleted Objects, partycje Configuration i Schema ──┐                         │
-  podpis+szyfr│ ScheduledScanJob: wygasanie kont i haseł, blokady,        ├──► SQLite (WAL) w       │
-  wszystkie DC│   samokontrola uprawnień, serie (masowe blokady/usunięcia) │    <DataDir>\watchdog.db│
-  ◄── RPC ────┤ AttributionEngine: dzienniki Security DC (47xx, 5136…)  ──┘    zdarzenia, migawki,  │
-  (Event Log  │ RuleEvaluationJob → NotificationDispatchJob → OutboxSenderJob   kolejka, sekrety (DP)│
-   Readers)   │   ──► SMTP (MailKit) / Teams Workflows / webhook (Standard Webhooks)               │
-              │ DigestJob, HeartbeatJob, RetentionJob                                               │
-              │ API HTTPS (Kestrel lub HTTP.sys), Kerberos (Negotiate), role wg SID grup AD         │
-              └──────────────────────────────────▲──────────────────────────────────────────────────┘
-                                                 │ HTTPS 8443, Kerberos
-                               AD_MNG – zakładka Watchdog (IWatchdogClient)
+```text
+serwer Debian 12/13 poza domeną (Tier 0), konto komputera CONTOSO\ADMNG-WD$ z keytabem
+├─ admng-watchdog.service (AdMng.Watchdog, konto admng-watchdog, piaskownica systemd)
+│   ├─ ChangeDetectionEngine ──► DC (PDC): LDAP 389, SASL GSSAPI podpis + szyfrowanie – RootDSE, uSNChanged,
+│   │    Extended DN, metadane replikacji, Deleted Objects, partycje Configuration i Schema
+│   ├─ GpoContentJob ──► DC (PDC): SMB 3 (smbclient, Kerberos, podpisywanie) – pliki GPO z SYSVOL
+│   ├─ WecFileIngestionJob ◄── /var/lib/openwec/out/<DC>/security.jsonl (pliki OpenWEC)
+│   ├─ AttributionEngine (rekordy 47xx, 5136…, 4624/4625/4771/4776 z magazynu), ScheduledScanJob, ServiceAccountMonitor
+│   ├─ RuleEvaluationJob → NotificationDispatchJob → OutboxSenderJob ──► SMTP (MailKit) / Teams / webhook
+│   ├─ DigestJob, HeartbeatJob, RetentionJob, StorageGuardJob
+│   ├─ SQLite (WAL) /var/lib/admng-watchdog/watchdog.db: zdarzenia, migawki, rekordy DC, kolejka, sekrety (DP)
+│   └─ API HTTPS 8443 (Kestrel), Kerberos (Negotiate, keytab), role z tokenGroups po SID grup AD
+├─ openwecd.service (OpenWEC, konto openwec) ◄── WEF z każdego DC: HTTP 5985 + Kerberos
+└─ admng-watchdog-keytab.timer (zmiana hasła), admng-wec-rotate.timer (rotacja plików OpenWEC)
+                      ▲ HTTPS 8443, Kerberos
+   AD_MNG – zakładka Watchdog (IWatchdogClient)
 ```
 
 | Projekt | Rola |
 |---|---|
 | `AdMng.Watchdog.Contracts` | model zdarzenia, DTO API, konfiguracja, trasy, JSON (bez zależności) |
 | `AdMng.Watchdog.Core` | cała logika (wykrywanie, migawki, atrybucja, reguły, planowanie powiadomień, formatery e-mail/Teams/webhook, raport dzienny) – testowana na Linuksie z `FakeDirectorySession` i zarejestrowanymi zdarzeniami; rejestracja `AddWatchdogCore()` |
-| `AdMng.Watchdog.Service` | host: API, autoryzacja, magazyn SQLite, Data Protection, transporty (MailKit, `HttpClient`), czytnik dzienników Windows, hosty zadań, skrypty instalacyjne |
+| `AdMng.Watchdog.Service` | host: API, autoryzacja (role z `tokenGroups`), magazyn SQLite, Data Protection (klucz w poświadczeniu systemd), transporty (MailKit, `HttpClient`), odczyt plików OpenWEC, czytnik SYSVOL (smbclient), samokontrola konta usługi, hosty zadań; do usunięcia po 0.3.0 – hosting Windows, HTTP.sys, DPAPI-NG, czytnik dzienników przez RPC, skrypty instalacyjne |
+| `AdMng.Watchdog.Keytab` | narzędzie `admng-watchdog-keytab`: zmiana hasła konta `ADMNG-WD$` i keytab (MIT libkrb5) |
+| `packaging/`, `tools/packaging` | pakiety Debiana `admng-watchdog` i `admng-openwec`: jednostki systemd, skrypty instalacyjne, budowanie i test instalacji |
 | `AdMng.Watchdog.Client` | klient HTTPS/Kerberos API (`IWatchdogClient`) używany przez AD_MNG |
 | `AdMng.Presentation/Watchdog`, `AdMng.App/Views/Watchdog` | ViewModele i widoki zakładki Watchdog |
 
@@ -177,24 +183,28 @@ z `AdMng.Core` (DN, filtry, sesja katalogu), usługa – z `AdMng.Directory` (LD
 Zasady, które odróżniają usługę od reszty rozwiązania:
 
 - **Dane tylko w folderze usługi** ([ADR-0008](adr/0008-watchdog-dane-w-osobnym-folderze.md), częściowo zmienia
-  ADR-0003): migawki obserwowanych atrybutów, zdarzenia, rekordy dzienników DC i kolejka wysyłek leżą w jednej bazie
-  SQLite (`secure_delete`, retencja, kopie `VACUUM INTO`) w folderze z wymuszoną listą ACL (usługa nie startuje przy
-  szerszych uprawnieniach). AD_MNG, Presentation, Core i klient niczego z usługi nie zapisują.
+  ADR-0003; na Linuksie wg [ADR-0009](adr/0009-watchdog-na-linuksie.md)): migawki obserwowanych atrybutów i ustawień
+  GPO, zdarzenia (3 lata), rekordy dzienników DC (logowania 48 h) i kolejka wysyłek leżą w jednej bazie SQLite
+  (`secure_delete`, retencja, kopie `VACUUM INTO`) w `/var/lib/admng-watchdog` (0700, sprawdzane przy starcie – usługa
+  nie startuje przy szerszych uprawnieniach); surowe zdarzenia z DC leżą w plikach OpenWEC tylko do ich odczytu. AD_MNG,
+  Presentation, Core i klient niczego z usługi nie zapisują.
 - **Sekrety kanałów** (hasło SMTP, sekret OAuth, adresy Teams/webhooków, klucze podpisu) tylko w `ISecretStore` –
-  ASP.NET Core Data Protection z kluczami chronionymi DPAPI-NG dla gMSA – i **powiązane z miejscem docelowym**: zmiana
+  ASP.NET Core Data Protection z kluczami szyfrowanymi kluczem z poświadczenia systemd (TPM2 + klucz hosta albo klucz
+  hosta) – i **powiązane z miejscem docelowym**: zmiana
   serwera lub adresu bez ponownego wpisania sekretu jest odrzucana. API nigdy ich nie zwraca.
 - **Wykrywanie** odpytuje `uSNChanged` jednego DC (domyślnie PDC) z migawką kluczowaną `objectGUID`; atrybuty DN są
   czytane z kontrolką Extended DN (porównanie po GUID – zmiana nazwy członka nie jest zmianą grupy); znacznik postępu
   (watermark) jest zapamiętywany per DC, pełna resynchronizacja tylko dla nowego DC, przywrócenia DC lub cofnięcia USN;
   codzienne uzgodnienie wykrywa obiekty, które „zniknęły”.
-- **Atrybucja** (kto i skąd) jest osobnym, asynchronicznym wzbogaceniem z dzienników Security kontrolerów; metadane
-  replikacji wskazują DC i czas. Gdy nie da się ustalić wykonawcy, zdarzenie pokazuje „nieustalony” z kodem przyczyny –
+- **Atrybucja** (kto i skąd) jest osobnym, asynchronicznym wzbogaceniem z dzienników Security kontrolerów, które
+  kontrolery przekazują przez Windows Event Forwarding do OpenWEC; metadane replikacji wskazują DC i czas. Gdy nie da się ustalić wykonawcy, zdarzenie pokazuje „nieustalony” z kodem przyczyny –
   nigdy zgadywanie.
 - **Dyscyplina szumu:** tryb wdrożenia przez pierwsze 7 dni, okno ustalania przy zakładaniu kont (wieloetapowe
   założenie = jedno zdarzenie), ważność zależna od wykonawcy, tłumienie powtórzeń, agregacja, godziny pracy wg
   kalendarza polskich świąt.
 - **API:** HTTPS (TLS 1.2/1.3), wyłącznie Kerberos (NTLM odrzucany – Kestrel w .NET 10 nie ma channel binding),
-  role Viewer/Admin wg SID-ów grup z lokalnego pliku startowego, którego konto usługi nie może zmienić; ochrona CSRF
+  role Viewer/Admin wg SID-ów grup z lokalnego pliku startowego, którego konto usługi nie może zmienić (członkostwo
+  usługa czyta sama z `tokenGroups`); ochrona CSRF
   nagłówkiem `X-AdMng-Client`; zmiany konfiguracji same są zdarzeniem (Tier 0 nie da się wyciszyć przez API).
 - **Dzienniki diagnostyczne bez wartości z katalogu** – wyjątki tylko przez `SafeExceptionLog` (typ, kody, stos –
   nigdy `Message`), filtr redakcji na dostawcach logów.
@@ -207,8 +217,9 @@ Zasady, które odróżniają usługę od reszty rozwiązania:
 | Integracyjne | `AdMng.Directory.IntegrationTests` | Samba AD DC z `tools/testlab` (lokalnie i w CI na Ubuntu) |
 | Dymne UI | CI Windows | `AdMng.exe --smoke-test` tworzy wszystkie widoki z danymi testowymi |
 | Watchdog – silnik | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` z emulacją USN, metadanych i kontrolera; zarejestrowane zdarzenia 47xx/5136; fałszywy zegar |
-| Watchdog – usługa | `AdMng.Watchdog.Service.Tests` | host w procesie (`WebApplicationFactory`), SQLite w folderze tymczasowym, odbiorniki SMTP/HTTP, testy higieny dzienników; testy tylko-Windows (dzienniki Security, DPAPI-NG) w CI Windows |
-| Watchdog – laboratorium | `AdMng.Watchdog.IntegrationTests` | prawdziwe silniki z `AddWatchdogCore()` przeciw Samba AD DC (konto tylko do odczytu), scenariusze z 22.4 specyfikacji w jednorazowym OU, usługa end-to-end z Mailpit i podpisanym webhookiem, opcjonalnie prawdziwy Kerberos |
+| Watchdog – usługa | `AdMng.Watchdog.Service.Tests` | host w procesie (`WebApplicationFactory`), SQLite w folderze tymczasowym, odbiorniki SMTP/HTTP, testy higieny dzienników, odczyt plików OpenWEC z awarią na każdym kroku, rozbiór listingu smbclient, role z `tokenGroups`; testy tylko-Windows w CI Windows |
+| Watchdog – laboratorium | `AdMng.Watchdog.IntegrationTests` | prawdziwe silniki z `AddWatchdogCore()` przeciw Samba AD DC (konto tylko do odczytu), scenariusze z 22.4 specyfikacji w jednorazowym OU, usługa end-to-end z Mailpit i podpisanym webhookiem, konto komputera z keytabem (zmiana hasła, GSSAPI, Negotiate z rolami), OpenWEC, treść GPO z SYSVOL |
+| Watchdog – pakiety | CI Ubuntu (`openwec-package`, `linux-package`) | budowanie `admng-openwec` (Debian 12 i 13, źródła GPL-3.0) i `admng-watchdog`, test instalacji w kontenerach Debian 12 i 13 (konta, tryby, poświadczenie, `systemd-analyze verify` i `security`, `--smoke-test`, start z TLS, usunięcie), lintian |
 | Watchdog – narzędzia | `tools/testlab/watchdog` | usługa w trybie laboratoryjnym, Mailpit, odbiornik webhooków, scenariusz `lab-scenario.sh --verify` (także w CI) |
-| Watchdog – dymny | CI Windows | `AdMng.Watchdog.exe --smoke-test` opublikowanej usługi (migracje, `/healthz`, `/api/v1/status`, wszystkie formatery); artefakt `AdMng-Watchdog-win-x64` |
+| Watchdog – dymny | CI (Windows i test instalacji pakietu) | `--smoke-test` opublikowanej usługi (migracje, `/healthz`, `/api/v1/status`, wszystkie formatery); w pakiecie jako konto `admng-watchdog` |
 | Statyczne | build | ostrzeżenia = błędy, analiza stylu kodu |

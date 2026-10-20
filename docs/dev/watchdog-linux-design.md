@@ -2665,6 +2665,31 @@ writes them) and `WindowsEventXml.cs` (Raw-format records of 4624 v2 types 3/10,
   daily reconciliation never ran. Such GPOs count as done for the baseline; a redirected one is queued for its 511 only
   while its newest 511 does not name the current path.
 
+**B8 and the release part of B10 (2026-10-20, release 0.3.0).**
+
+- **Instructions (`docs/WATCHDOG-LINUX.md`):** the "Stan prac" table and every "[od 0.3.0]" mark are gone; the order is
+  package-first – the packages are downloaded from the release (checked against `SHA256SUMS.txt`) and installed at the
+  end of 3.1, so the system users, `admng-keytab`, the conffiles and the self-signed certificate exist before the
+  firewall (3.3 no longer creates users by hand), 3.5 overwrites the shipped `krb5.conf`/`smb-client.conf` (ldap.conf
+  unchanged), 3.6 is `admng-watchdog-keytab init` with a result table (`otpActive`, `changeFailed`, `keytabWriteFailed`,
+  `replicationPending`, `verifyFailed`) and keeps the MIT procedure only as an emergency fallback, 3.7 describes the
+  shipped timer, `rotate --if-older-than 0` and the repair through a new one-time password. Corrections against the
+  built packages: postinst fixes only the `tls/` directory, not the key file (variant A now sets `root:admng-watchdog
+  0640` itself); `admng-watchdog-failed.service` only logs at crit (no notification – 12.1 SHOULD not implemented);
+  the timers start at install; exit code 7 added; `cert-fingerprint` prints `3F:2A:…` pairs while AD Manager shows
+  groups of four (compare digit by digit); the 0.2.0 migration box now copies `watchdog.db` (A.10). Not done: "every
+  command of appendix A executed once in the lab" needs the Windows lab of B9.
+- **Findings for the known limitations:** the Exchange Online OAuth2 certificate is looked up in `LocalMachine\My`,
+  which is empty on Linux – only the client secret works (documented, `docs/WATCHDOG.md` 5.2/9); AD Manager has no editor
+  for `EventsDays` and `MaxDatabaseMb`, so a migrated 0.2.0 document keeps 10 240 MB (needs up to ~90 GB of `/var` with
+  7 backups, otherwise `storage.backupSkipped`).
+- **Release workflow (`.github/workflows/release.yml`):** the Windows job no longer publishes or zips the Watchdog;
+  new jobs `openwec-package` and `linux-package` repeat the CI jobs of the same names on the release commit (build,
+  install test on Debian 12 and 13, lintian) and hand over `admng-watchdog_<version>-1_amd64.deb`, both
+  `admng-openwec` packages and the GPL-3.0 source tarball. GitHub renames uploaded release assets whose names have
+  special characters, so the job publishes them with `+` replaced by `.` and `~` by `-` (package versions unchanged);
+  `SHA256SUMS.txt` is computed by the release job over all files.
+
 ---
 
 ## 22. Risks and open questions

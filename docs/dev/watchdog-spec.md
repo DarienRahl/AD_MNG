@@ -3,6 +3,10 @@
 Status: binding for the scaffold step and the implementation agents (W-core – split into W-detect, W-rules and W-notify, see 25.5 – W-service, W-gui, W-testenv).
 Revision 2 (after the operations, security and implementability reviews – see "Critique resolution" at the end).
 Date: 2026-10-14. Product docs: `docs/WATCHDOG.md` (Polish), decision record: `docs/adr/0008-watchdog-dane-w-osobnym-folderze.md`.
+**Stage B amendments (2026-10-20, release 0.3.0):** the Linux service is specified by `docs/dev/watchdog-linux-design.md`,
+which wins where the two disagree; the sections it replaces or changes (D1, D5, D8, 2, 3.3, 5.4, 7, 8.3, 8.4, 11.1, 11.4,
+11.7, 12.4, 16, 17.3, 18, 19, 21, 22–24) start with an "Amended by stage B" note. Deployment: `docs/WATCHDOG-LINUX.md`
+(Polish); decision record of the move: `docs/adr/0009-watchdog-na-linuksie.md`.
 Language rules from `CLAUDE.md` apply: code/comments/commits in English, product docs in Polish, every user-visible
 string through resx (en + pl).
 
@@ -16,14 +20,14 @@ reason in its final report.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | A separate Windows service **AdMng Watchdog** (`AdMng.Watchdog.exe`, .NET 10, ASP.NET Core + Worker) runs 24/7 under a **gMSA** with read-only AD rights. The WPF app gets a **Watchdog document tab** that talks to the service over **HTTPS + Kerberos (Negotiate)**. | User decision. Detection needs a continuously running process and history; the WPF app must stay storage-free. |
+| D1 | A separate Windows service **AdMng Watchdog** (`AdMng.Watchdog.exe`, .NET 10, ASP.NET Core + Worker) runs 24/7 under a **gMSA** with read-only AD rights. The WPF app gets a **Watchdog document tab** that talks to the service over **HTTPS + Kerberos (Negotiate)**. **Stage B (from 0.3.0):** the service runs only on Linux (Debian 12/13, systemd unit `admng-watchdog.service`) as the computer account `ADMNG-WD$` with a keytab, not a gMSA (`docs/dev/watchdog-linux-design.md` 0, L1–L3). | User decision. Detection needs a continuously running process and history; the WPF app must stay storage-free. |
 | D2 | **Detection = uSNChanged polling** pinned to one DC (PDC emulator by default) with an **objectGUID-keyed snapshot of watched attributes only**, baseline on first run (no events), watermark stored **per DC** (dsServiceName + invocationId), full resync only for a never-seen DC / invocationId change / USN rollback (failback to a known DC continues incrementally), daily reconciliation. Change notifications are only an optional wake-up. DirSync is not used in v1. | Works for a read-only account, verified on the Samba lab; DirSync hides deletions from non-admins and its cookies are DC-bound. |
 | D3 | **DN-valued attributes are read with the Extended DN control** (`<GUID=…>;<SID=…>;dn`) and compared by GUID. | Moves/renames of a referenced object rewrite DN values without bumping the referencing object's USN – plain DN comparison would produce false "manager changed"/"member changed" events. |
 | D4 | **Attribution** (who / from where) is a separate, asynchronous enrichment from DC **Security logs** (4720…4781, 4741-4743, group events, 5136-5141, 4624 for the source computer). LDAP is the source of truth for *what* changed; replication metadata tells *which DC* and *when* to look. Attribution may arrive later; events are updated in place; notifications wait a short grace period. | Netwrix-style "System" mis-attribution must never happen; the actor is shown as "nieustalony" with a reason code instead of a guess. |
-| D5 | Storage: one **SQLite** database (WAL, `secure_delete`, `temp_store = MEMORY`) in the watchdog's **own data folder** (`%ProgramData%\AdMng\Watchdog\data` by default; protected DACL SYSTEM / Administrators / gMSA, **enforced at start** – the service refuses to run with a wider ACL). The bootstrap file lives in a separate `config\` folder the gMSA can only read. Secrets (SMTP password, OAuth client secret, Teams/webhook URLs, webhook signing keys) are encrypted with **ASP.NET Core Data Protection, keys protected with DPAPI-NG to the gMSA SID** and **bound to their destination** (host, account, tenant) – changing the destination without re-entering the secret is rejected. | ADR-0008 relaxes ADR-0003 only for this folder and only for the service host project. |
+| D5 | Storage: one **SQLite** database (WAL, `secure_delete`, `temp_store = MEMORY`) in the watchdog's **own data folder** (`%ProgramData%\AdMng\Watchdog\data` by default; protected DACL SYSTEM / Administrators / gMSA, **enforced at start** – the service refuses to run with a wider ACL). The bootstrap file lives in a separate `config\` folder the gMSA can only read. Secrets (SMTP password, OAuth client secret, Teams/webhook URLs, webhook signing keys) are encrypted with **ASP.NET Core Data Protection, keys protected with DPAPI-NG to the gMSA SID** and **bound to their destination** (host, account, tenant) – changing the destination without re-entering the secret is rejected. **Stage B:** data folder `/var/lib/admng-watchdog` (0700, checked at start), bootstrap file in root-owned `/etc/admng-watchdog`, key ring under a systemd encrypted credential instead of DPAPI-NG (design L11, L12, 10, 11; ADR-0009). | ADR-0008 relaxes ADR-0003 only for this folder and only for the service host project. |
 | D6 | Channels per rule: **immediate e-mail (aggregated)**, **daily digest e-mail**, **Microsoft Teams (Power Automate Workflows webhook, Adaptive Card 1.4)**, **generic webhook (Standard Webhooks v1 HMAC)**. No Windows Event Log channel. Office 365 Connector URLs (`*.webhook.office.com`) were retired on 2026-05-22 and are rejected. | User decision + research. |
 | D7 | E-mail via **MailKitLite 4.18.1** (never `System.Net.Mail`, TLS 1.2/1.3 only); modes: anonymous relay (STARTTLS required by default), Basic (TLS only), **Exchange Online OAuth2 client credentials (MSAL 4.90.1, XOAUTH2, fixed Entra cloud authority/scope, XOAUTH2 only to allow-listed hosts)**. Graph sendMail and Integrated Windows auth are phase 2. | Exchange Online SMTP AUTH Basic is disabled by default from end of December 2026. |
-| D8 | API host: **Kestrel + Negotiate, Kerberos only, HTTP/1.1, TLS 1.2/1.3, certificate from LocalMachine\My**; SPN `HTTP/<dedicated A record>` on the gMSA. **HTTP.sys** is a supported alternative selected in `appsettings.json` (Windows only; scheme Kerberos, not Negotiate). A server-agnostic middleware rejects every non-Kerberos identity. Authorization by **AD group SIDs** from the Windows token (roles Viewer, Admin, plus an emergency deny list), configured locally in a bootstrap file the service account cannot write (never editable through the API). | One stack for Windows service, console mode and Linux tests; real Negotiate can be tested against Samba. .NET 10 has no channel binding on Kestrel, so NTLM is rejected everywhere. |
+| D8 | API host: **Kestrel + Negotiate, Kerberos only, HTTP/1.1, TLS 1.2/1.3, certificate from LocalMachine\My**; SPN `HTTP/<dedicated A record>` on the gMSA. **HTTP.sys** is a supported alternative selected in `appsettings.json` (Windows only; scheme Kerberos, not Negotiate). A server-agnostic middleware rejects every non-Kerberos identity. Authorization by **AD group SIDs** from the Windows token (roles Viewer, Admin, plus an emergency deny list), configured locally in a bootstrap file the service account cannot write (never editable through the API). **Stage B:** Kestrel + Negotiate with the keytab (`KRB5_KTNAME`), PEM certificate files, roles resolved by the service from `tokenGroups` over LDAP (no SIDs in the Linux identity); HTTP.sys and `LocalMachine\My` are Windows-only and removed after 0.3.0 (design L6, 6, 17). | One stack for Windows service, console mode and Linux tests; real Negotiate can be tested against Samba. .NET 10 has no channel binding on Kestrel, so NTLM is rejected everywhere. |
 | D9 | Live updates in the GUI by **cursor polling with optional long-poll** (`GET /api/v1/events?after=N&wait=25`). No SignalR. SSE is phase 2. | Simple, restart-safe, testable. |
 | D10 | Everything is split **one feature per file**: pure logic in `AdMng.Watchdog.Core` (net10.0, unit-tested on Linux with `FakeDirectorySession` and XML fixtures), infrastructure in `AdMng.Watchdog.Service`, DTOs/config in `AdMng.Watchdog.Contracts`, HTTP client in `AdMng.Watchdog.Client`, view models in `AdMng.Presentation/Watchdog`, XAML in `AdMng.App/Views/Watchdog`. | User request + parallel implementation. |
 | D11 | **Noise discipline by default**: a 7-day **rollout mode** after the baseline (only tier0, bursts and health notify immediately; everything else goes to the digest with "would have sent N" counters), creation **settle window** (multi-step account creation = one event), attribution-dependent severities (a privileged user's own password change is not an alert), per-object repeat suppression (lockouts), deletion and privilege rules that ignore system churn (BitLocker children, DNS, SDProp). | Ops review: an alerting tool that pages for routine activity gets disabled – together with its real detections. |
@@ -99,6 +103,8 @@ reason in its final report.
 ---
 
 ## 2. Architecture
+
+> **Amended by stage B (Linux, release 0.3.0):** the service runs only on Debian 12/13 under systemd, outside the domain, as the computer account `ADMNG-WD$` with a keytab; DC Security events arrive through WEF and OpenWEC instead of RPC; GPO content is read from SYSVOL. The diagram of the Linux service is `docs/dev/watchdog-linux-design.md` section 3.
 
 ```
                     ┌──────────────── Windows server (domain member), gMSA CONTOSO\svc-admngwd$ ───────────────┐
@@ -390,6 +396,8 @@ Resources/NotificationStrings.pl.resx                        pl
 ```
 
 ### 3.3 `src/AdMng.Watchdog.Service` (Microsoft.NET.Sdk.Web, net10.0, AssemblyName `AdMng.Watchdog`) – owner W-service
+
+> **Amended by stage B:** the Linux files (hosting `SystemdSetup`, `PosixPermissionCheck`, `PemCertificateSource`, `Secrets/SystemdCredential*`, `Identity/`, `Attribution/WecFile*`, `Gpo/SmbClient*`, migrations 0004/0005, `Auth/KerberosSidClaimsTransformation` …) are listed in `docs/dev/watchdog-linux-design.md` sections 19 and 21.1; the new project `src/AdMng.Watchdog.Keytab` and `packaging/` are described there (4.4, 13). The Windows-only files below are removed after 0.3.0 (design 17).
 
 ```
 AdMng.Watchdog.Service.csproj                       [S]
@@ -1395,6 +1403,8 @@ public static class ApiProblem
 ```
 
 ### 5.4 Configuration model
+
+> **Amended by stage B:** schema version 2 – `Retention.EventsDays` default **1095**, `Retention.LogonRecordsHours` 48, `Retention.MaxDatabaseMb` default **4096** (a stored 10 240 is kept), `Attribution.Source` `OpenWec` (a stored Windows source is migrated at start on Linux), the collector fields (`CollectorSilenceWarning/Error`, `DropComputerLogons`, `DropAnonymousLogons`) and `Directory.GpoContent` – `docs/dev/watchdog-linux-design.md` 7.8, 8.5 and 14.2.
 
 ```csharp
 namespace AdMng.Watchdog.Contracts.Configuration;
@@ -2541,6 +2551,8 @@ against the scaffold shells before W-core is merged.
 
 ## 7. Event catalog (defaults)
 
+> **Amended by stage B:** new kinds 510–512 (GPO settings changed, GPO path redirected, out-of-band SYSVOL change) and 909 (`HealthServiceAccount`); `ManagedAccountLinkChanged` is Critical and `ServiceAccountCreated` a Tier-0 kind (BadSuccessor); every decrease of a numeric retention value is a Critical `WatchdogConfigurationChanged`; SACL-only changes of the key objects are reported as `SecurityDescriptorChanged` with the tag `auditSettings` – `docs/dev/watchdog-linux-design.md` 8.6, 9 and 14.2.
+
 "Rec." = recorded by default (else only when listed in `Directory.EnabledOptionalKinds`). Severity is the catalog
 default before tag bumps and overrides (section 12.2). "Rule" = built-in rule that notifies (section 12.4); "digest" =
 only in the daily digest by default. During **rollout mode** (12.5) only tier0-*, bursts and health notify immediately.
@@ -2764,6 +2776,8 @@ document keeps the tokens.
 
 ### 8.3 Validation (`ConfigurationValidator`, Core) – codes and rules
 
+> **Amended by stage B:** new codes `retentionBelowFloor` (below `Watchdog:Retention:MinEventsDays`), `logonRetentionTooShort`, `sourceUnsupportedOnHost`, the ranges of the collector, GPO-content and logon-record fields, and `tier0Suppression` for disabling or narrowing `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self` and `tier0-gpo` – `docs/dev/watchdog-linux-design.md` 14.2 and 21.1 (B4, B6).
+
 `Validate(configuration, ConfigValidationContext)`; the Service builds the context (stored secret bindings,
 environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 
@@ -2814,6 +2828,8 @@ Warnings (save allowed):
 | `rolloutOff` | `rolloutDays = 0` on a configuration whose baseline is younger than 7 days |
 
 ### 8.4 Bootstrap settings (`appsettings.json`) – `ServiceOptions` (Service)
+
+> **Amended by stage B:** on Linux the bootstrap file is `/etc/admng-watchdog/appsettings.json` (root:admng-watchdog 0640) with `Kerberos.Realm` / `ServicePrincipal`, `Directory.Servers` (FQDNs only), `Collector.SubscriptionUuid` / `AdditionalSourceAddresses` / `MaxLogonRecordsPerDcPerMinute`, `Retention.MinEventsDays` (1095), `Sysvol.*` and the PEM certificate (`Hosting.Certificate.Path` / `KeyPath`); `WatchdogHostGroupSids` is obsolete there – `docs/dev/watchdog-linux-design.md` 14.1.
 
 ```json
 {
@@ -3609,6 +3625,8 @@ and the first `MaxRowsPerSection` rows (name, last logon date, OU).
 
 ### 11.1 Ingestion (`AttributionEngine`, every `Attribution.PollInterval`, wake on `EventsStored`)
 
+> **Amended by stage B:** in collector mode (`OpenWec` with an available collector – the Linux service) the records come from the OpenWEC RawJson files through the tailer `WecFileIngestionJob` (identity checks, reduction, ingest budget per DC and minute, at-least-once cursor in the same transaction) instead of the RPC reader; 4624/4625/4771/4776 are ingested and kept `LogonRecordsHours` – `docs/dev/watchdog-linux-design.md` 7.5–7.7.
+
 ```
 if !Attribution.Enabled or !securityEventSource.IsAvailable:
     mark pending events older than 30 s as Unknown(SOURCE_DISABLED) (except NotApplicable kinds); return
@@ -3756,6 +3774,8 @@ DnsHostName→dNSHostName, ServicePrincipalNames→servicePrincipalName.
 
 ### 11.4 Correlation (`AttributionCorrelator`, `AttributionScorer`, `OriginatingDcResolver`)
 
+> **Amended by stage B:** in collector mode the source and lockout lookups read the stored records (`ISecurityEventLookup`, `StoredSecurityEventLookup`) instead of live RPC queries; password spraying reads the stored 4771/4776 of every DC; GPO content events inherit the attribution of the GPC change (`GpoAttributionInheritor`) – `docs/dev/watchdog-linux-design.md` 7.8 and 8.7.
+
 For each pending watch event (Status Pending, `Attribution` kind not NotApplicable), at `DetectedAt` + each
 `PendingRetries` step:
 
@@ -3890,6 +3910,8 @@ Attribution of these events is Resolved at creation (the record itself is the ev
 
 ### 11.7 Reason codes when unresolved (shown with a one-line remedy in the GUI/e-mail)
 
+> **Amended by stage B:** new `SOURCE_NOT_COLLECTED` (no 4624 of the DC stored since the lookup window), the collector variant of `DC_UNREACHABLE` (a DC silent beyond `CollectorSilenceError`) and `SYSVOL_NOT_AUDITED` (SYSVOL edit without a GPC change) – `docs/dev/watchdog-linux-design.md` 7.8, 8.7 and 21.1 (B4, B7).
+
 | Reason | Condition (checked in this order) | Remedy text (pl) |
 |---|---|---|
 | SOURCE_DISABLED | attribution disabled or non-Windows host | „Włącz atrybucję (konfiguracja) – usługa musi działać na Windows.” |
@@ -4002,6 +4024,8 @@ Suggestions (`ExclusionSuggestionDto`: detected sync accounts for `tier0-securit
 `bursts`) are shown in the Rules tab and never applied automatically.
 
 ### 12.4 Built-in rules (`DefaultRules`) – shipped enabled unless noted
+
+> **Amended by stage B:** four more built-in rules after `health` – `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self` and `tier0-gpo` (`MergeMissing` appends them to stored documents); they are protected against suppression like Tier-0 detections – `docs/dev/watchdog-linux-design.md` 9 and 21.1 (B6).
 
 | Id | Name (pl) | Kinds | Other conditions | Delivery |
 |---|---|---|---|---|
@@ -4630,6 +4654,8 @@ writes to the outbox; Teams test card says "Wiadomość testowa AD Watchdog" and
 
 ## 16. SQLite storage (W-service)
 
+> **Amended by stage B:** migrations 0004 (security events v2 with `logon_id`) and 0005 (GPO content snapshots and queue); logon records (4624/4625/4771/4776) are purged hourly after `LogonRecordsHours`; the nightly backup is skipped with health Error `storage.backupSkipped` when the free space is below 1.5 × the database size; the data folder is `/var/lib/admng-watchdog` – `docs/dev/watchdog-linux-design.md` 7.7, 8.8, 11 and 14.2.
+
 ### 16.1 Database rules
 
 - One file `<DataDirectory>\watchdog.db`, Microsoft.Data.Sqlite 10.0.13 (SQLitePCLRaw 2.1.13, e_sqlite3 3.53.x). On
@@ -4896,6 +4922,8 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 
 ### 17.3 Authentication and authorization (`Auth/*`)
 
+> **Amended by stage B:** on Linux the Negotiate identity carries only a name, so the service resolves the caller's SIDs itself from AD (`objectSid` + `tokenGroups` over its own LDAP session, cached 5 minutes; `KerberosSidClaimsTransformation`, `PrincipalSidResolver`, `RoleCache`), an unavailable lookup gives 503 `role-lookup-unavailable`, and loopback is no longer exempt from `AllowedRemoteSubnets` – `docs/dev/watchdog-linux-design.md` 6.1, 6.2 and 21.1 (B3).
+
 - `Watchdog:Authentication = Negotiate` (default): `AddAuthentication(NegotiateDefaults.AuthenticationScheme)
   .AddNegotiate(o => { o.PersistKerberosCredentials = false; o.Events = KerberosOnlyEvents; })` –
   `PersistKerberosCredentials` stays **false** (upstream: must not be used when connections may be shared by
@@ -4936,6 +4964,8 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 ---
 
 ## 18. Secrets (W-service)
+
+> **Amended by stage B:** on Linux the Data Protection key ring is encrypted with AES-256-GCM under the 32-byte key of the systemd encrypted credential `dp-key` (TPM2 + host key or host key) instead of DPAPI-NG; restore onto another host → `admng-watchdog reset-secrets-key` and the secrets are entered again; the keytab of `ADMNG-WD$` is the second exception of `CLAUDE.md` rule 2 – `docs/dev/watchdog-linux-design.md` 10.
 
 - ASP.NET Core Data Protection: `AddDataProtection().SetApplicationName("AdMng.Watchdog")
   .PersistKeysToFileSystem(<data>\keys)`; on Windows **`.ProtectKeysWithDpapiNG()`** (rule `SID={gMSA SID}` – the KDS
@@ -4979,6 +5009,8 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 ---
 
 ## 19. Hosting (W-service)
+
+> **Amended by stage B:** for the Linux service this section is replaced by `docs/dev/watchdog-linux-design.md` sections 11–15 (file layout and start-up checks with exit codes 8, 9, 10, systemd units, Debian packages, default configuration, journald logging) and 21.1 (B1: no `UseSystemd()` call, `SystemdSetup`). The Windows service of 19.4–19.6 ships only as release 0.2.0 and is removed after 0.3.0 (design 17).
 
 ### 19.1 Program flow (`Program.cs`, `WatchdogHost`)
 
@@ -5324,6 +5356,8 @@ acknowledge.
 
 ## 21. Packages (`Directory.Packages.props`, scaffold)
 
+> **Amended by stage B:** `Microsoft.Extensions.Hosting.Systemd` 10.0.13 is referenced by the service (its parts are registered by `SystemdSetup`, `docs/dev/watchdog-linux-design.md` 21.1 B1); `Microsoft.Extensions.Hosting.WindowsServices` goes with the Windows hosting code after 0.3.0 (design 17).
+
 Verified on NuGet on 2026-10-14. **All Microsoft 10.0.x packages – the existing ones (System.DirectoryServices.Protocols,
 Microsoft.Extensions.Hosting/Logging.Abstractions/DependencyInjection(.Abstractions)) and the new ones – move to
 10.0.13** (security release 2026-10-13, 13 ASP.NET Core CVEs) in one scaffold commit. Microsoft.AspNetCore.Authentication.Negotiate
@@ -5375,6 +5409,8 @@ NuGet lock files (`RestorePackagesWithLockFile` + `--locked-mode`) are deferred 
 ---
 
 ## 22. Test plan
+
+> **Amended by stage B:** the Linux tests (replay fixtures of the collector path, keytab tool, Negotiate role resolution, GPO parsers, package install test) are listed in `docs/dev/watchdog-linux-design.md` 20 and 21.1; the authentication-only Kerberos test of 22.4 (`krb5-lab.sh`, `ADMNG_TEST_KERBEROS`) is replaced by `KeytabLabTests` and `KerberosNegotiateTests` with `tools/testlab/watchdog/keytab-lab.sh`.
 
 Conventions: xUnit v3 `Assert`, fakes over mocks, Polish data with diacritics, `TestContext.Current.CancellationToken`,
 no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
@@ -5502,6 +5538,8 @@ with ldapsearch as odczyt.test from a throwaway object) and `windows-xml.txt` (X
 
 ## 23. Test environment (`tools/testlab/watchdog`, W-testenv)
 
+> **Amended by stage B:** new lab scripts `keytab-lab.sh` (Kerberos environment of the keytab, GSSAPI and Negotiate tests) and `wec-units-lab.sh` (packages under systemd); see `tools/testlab/watchdog/README.md` and `docs/dev/watchdog-linux-design.md` 21.1.
+
 | File | Purpose |
 |---|---|
 | `README.md` (Polish) | how to run the watchdog against the Samba lab, Mailpit UI (http://127.0.0.1:8025), webhook sink, scenario script, Kerberos option, cleanup |
@@ -5521,6 +5559,8 @@ variable after the other configuration files, section 19.1). The lab is shared: 
 ---
 
 ## 24. CI (`.github/workflows/ci.yml`, W-testenv)
+
+> **Amended by stage B:** CI adds the jobs `openwec-package` (Debian 12 and 13, GPL source tarball) and `linux-package` (admng-watchdog .deb, install test on Debian 12 and 13, lintian); from 0.3.0 the release workflow publishes these packages instead of the Windows service zip (`docs/dev/watchdog-linux-design.md` 13.3, 21 B10).
 
 - **windows** job (existing): `dotnet test AdMng.slnx` now includes the watchdog test projects (env
   `ADMNG_UI_TESTS=1`, new `ADMNG_WINDOWS_EVENTLOG_TESTS=1`); after the app publish add:

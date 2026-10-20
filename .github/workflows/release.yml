@@ -6,9 +6,13 @@ name: Release
 #    branch history). The workflow creates the tag on that commit and the GitHub release. Changing the notes of a tag
 #    that already exists only updates the release description;
 #  - push a tag v<major>.<minor>.<patch>[-suffix] (notes from docs/releases/<tag>.md at that commit).
-# The build job builds, tests and publishes AdMng.exe and the AdMng Watchdog service on Windows and renders screenshots
-# of exactly that commit; the release gets both zips, the screenshots and SHA256SUMS.txt. Tags v0.* and tags with a
-# suffix are pre-releases.
+# The build job builds, tests and publishes AdMng.exe on Windows and renders screenshots of exactly that commit; the
+# openwec-package and linux-package jobs build the Debian packages of AdMng Watchdog from the same commit exactly like
+# the CI jobs of the same names (admng-openwec for Debian 12 and 13 with its GPL-3.0 source tarball, admng-watchdog with
+# the install test on Debian 12 and 13 and lintian). The release gets the AD Manager zip, the screenshots, the three
+# .deb packages, the OpenWEC source tarball and SHA256SUMS.txt of all of them. From 0.3.0 the Watchdog service is
+# Linux-only (docs/dev/watchdog-linux-design.md L1): no Windows Watchdog zip is published any more. Tags v0.* and tags
+# with a suffix are pre-releases.
 # Creating releases needs the repository secret RELEASE_TOKEN (a fine-grained token for this repository with Contents
 # and Workflows: read and write): the workflow token is refused here with 403 "Resource not accessible by integration"
 # and cannot create a tag on a commit that changes .github/workflows anyway. The plan job fails early without it.
@@ -175,28 +179,6 @@ jobs:
           if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
             "::warning::AdMng.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
           }
-      - name: Publish AdMng Watchdog (framework-dependent)
-        # Framework-dependent, so Microsoft Update services the ASP.NET Core runtime on the server (spec 19.7).
-        run: >-
-          dotnet publish src/AdMng.Watchdog.Service/AdMng.Watchdog.Service.csproj -c Release -r win-x64 --self-contained false
-          -p:Version=${{ needs.plan.outputs.version }} -o publish-watchdog
-      - name: Smoke test published AdMng Watchdog
-        # Temporary data folder, loopback HTTP, Development authentication, directory and attribution disabled:
-        # migrations, /healthz, /api/v1/status and every formatter (spec 19.1).
-        shell: pwsh
-        env:
-          VERSION: ${{ needs.plan.outputs.version }}
-        run: |
-          & publish-watchdog/AdMng.Watchdog.exe --smoke-test
-          if ($LASTEXITCODE -ne 0) { throw "AdMng Watchdog smoke test failed with exit code $LASTEXITCODE" }
-          foreach ($script in 'Install-AdMngWatchdog.ps1', 'AdMngWatchdog.Install.psm1', 'Uninstall-AdMngWatchdog.ps1') {
-            if (-not (Test-Path "publish-watchdog/Deploy/$script")) { throw "Deploy/$script is missing from the publish output" }
-          }
-          $info = (Get-Item publish-watchdog/AdMng.Watchdog.exe).VersionInfo
-          "AdMng.Watchdog.exe file version $($info.FileVersion), product version $($info.ProductVersion)"
-          if (-not "$($info.ProductVersion)".StartsWith($env:VERSION)) {
-            "::warning::AdMng.Watchdog.exe reports product version '$($info.ProductVersion)', expected $($env:VERSION)."
-          }
       - name: Screenshots
         shell: pwsh
         run: |
@@ -214,19 +196,12 @@ jobs:
         run: |
           $version = $env:VERSION
           New-Item -ItemType Directory -Path dist | Out-Null
-          # Symbols are not shipped in the zip.
+          # Symbols are not shipped in the zip. SHA256SUMS.txt of all release files is written by the release job.
           $files = Get-ChildItem -Path publish -File | Where-Object { $_.Extension -ne '.pdb' }
           Compress-Archive -Path $files.FullName -DestinationPath "dist/AdMng-$version-win-x64.zip"
-          # The service keeps its folder layout (Deploy\, pl\); its symbols are not shipped either.
-          Get-ChildItem -Path publish-watchdog -Recurse -File -Filter *.pdb | Remove-Item
-          Compress-Archive -Path publish-watchdog/* -DestinationPath "dist/AdMng-Watchdog-$version-win-x64.zip"
           Get-ChildItem screenshots -Filter *.png | ForEach-Object {
             Copy-Item $_.FullName "dist/AdMng-$version-$($_.Name)"
           }
-          $sums = Get-ChildItem dist -File | Sort-Object Name | ForEach-Object {
-            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant(), $_.Name
-          }
-          $sums | Set-Content -Path dist/SHA256SUMS.txt -Encoding ascii
           Get-ChildItem dist | ForEach-Object { "{0}  ({1:N0} bytes)" -f $_.Name, $_.Length }
       - uses: actions/upload-artifact@v4
         with:
@@ -234,9 +209,127 @@ jobs:
           path: dist/
           retention-days: 7
 
+  openwec-package:
+    # As the CI job "openwec-package": OpenWEC from the pinned upstream commit, built in the release's Rust image so that
+    # it links that release's libssl/libkrb5/libsasl2; the Debian 13 job also writes the GPL-3.0 corresponding source.
+    name: OpenWEC package (Debian ${{ matrix.release }})
+    needs: plan
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - release: 12
+            image: mirror.gcr.io/library/rust:slim-bookworm
+          - release: 13
+            image: mirror.gcr.io/library/rust:slim-trixie
+    container: ${{ matrix.image }}
+    steps:
+      - name: Build dependencies
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+            git ca-certificates pkgconf clang make libssl-dev libkrb5-dev libsasl2-dev dpkg-dev binutils xz-utils >/dev/null
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      - name: Build admng-openwec
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          extra=""
+          if [ "${{ matrix.release }}" = 13 ]; then extra=--source-tarball; fi
+          tools/packaging/build-openwec-deb.sh --release ${{ matrix.release }} --output artifacts/deb $extra
+          dpkg-deb -I artifacts/deb/admng-openwec_*_amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: admng-openwec-deb${{ matrix.release }}
+          path: |
+            artifacts/deb/admng-openwec_*.deb
+            artifacts/deb/admng-openwec-*-source.tar.xz
+          retention-days: 7
+
+  linux-package:
+    # As the CI job "linux-package": the admng-watchdog .deb (one amd64 package for Debian 12 and 13, version =
+    # VersionPrefix), installed together with that release's admng-openwec into plain Debian containers, and lintian.
+    name: Linux package (Debian 12 and 13)
+    needs: [plan, openwec-package]
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: admng-openwec-deb*
+          path: artifacts/openwec
+          merge-multiple: true
+      - name: Build admng-watchdog .deb
+        run: tools/packaging/build-deb.sh --output artifacts/deb
+      - name: Check the version
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          # build-deb.sh takes the version from VersionPrefix (the build job checks that the tag starts with it).
+          expected="artifacts/deb/admng-watchdog_${VERSION%%-*}-1_amd64.deb"
+          ls -l artifacts/deb/*.deb
+          if [ ! -f "$expected" ]; then
+            echo "::error::$expected was not built (release $VERSION)."
+            exit 1
+          fi
+      - name: Install test on Debian 12 and 13
+        run: |
+          deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
+          for release in 12 13; do
+            echo "::group::Debian $release"
+            openwec=$(basename artifacts/openwec/admng-openwec_*~deb${release}_amd64.deb)
+            docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" "mirror.gcr.io/library/debian:$release" \
+              bash /src/tools/packaging/test-deb-install.sh "/src/artifacts/deb/$deb" /src/packaging/admng-watchdog \
+              "/src/artifacts/openwec/$openwec"
+            echo "::endgroup::"
+          done
+      - name: lintian (Debian 13)
+        run: |
+          deb=$(basename artifacts/deb/admng-watchdog_*_amd64.deb)
+          openwec=$(basename artifacts/openwec/admng-openwec_*~deb13_amd64.deb)
+          docker run --rm -v "$PWD:/src:ro" mirror.gcr.io/library/debian:13 bash -c \
+            "apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends lintian >/dev/null \
+             && lintian --fail-on error --no-tag-display-limit /src/artifacts/deb/$deb /src/artifacts/openwec/$openwec"
+      - name: Collect the release files
+        # GitHub renames uploaded release assets whose names have special characters (the '+' and '~' of the
+        # admng-openwec versions), so the files get plain names here ('+' -> '.', '~' -> '-') and SHA256SUMS.txt lists
+        # exactly the published names. The package versions inside the .deb files do not change.
+        run: |
+          set -euo pipefail
+          mkdir -p dist-linux
+          shopt -s nullglob
+          files=(artifacts/deb/admng-watchdog_*_amd64.deb artifacts/openwec/admng-openwec_*.deb artifacts/openwec/admng-openwec-*-source.tar.xz)
+          if [ "${#files[@]}" -ne 4 ]; then
+            echo "::error::Expected 4 Linux release files (admng-watchdog, admng-openwec for Debian 12 and 13, OpenWEC source), found ${#files[@]}: ${files[*]}"
+            exit 1
+          fi
+          for f in "${files[@]}"; do
+            name=$(basename "$f")
+            name=${name//+/.}
+            name=${name//\~/-}
+            cp -- "$f" "dist-linux/$name"
+          done
+          ls -l dist-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release-files
+          path: dist-linux/
+          retention-days: 7
+
   release:
     name: Create the GitHub release
-    needs: [plan, build]
+    needs: [plan, build, linux-package]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -247,6 +340,19 @@ jobs:
         with:
           name: release-files
           path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-release-files
+          path: dist
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          rm -f SHA256SUMS.txt
+          export LC_ALL=C
+          files=(*)
+          sha256sum -- "${files[@]}" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - name: Create or update the release
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}

@@ -4,6 +4,13 @@
 - Data: 2026-10-14 (uzupełniona tego samego dnia po przeglądach: operacyjnym, bezpieczeństwa i implementacyjnym)
 - Zmienia: [ADR-0003](0003-brak-lokalnych-danych.md) (tylko w zakresie usługi AdMng Watchdog) oraz zasadę 2 w
   `CLAUDE.md` (tylko sekrety kanałów Watchdoga)
+- **Zmieniona przez [ADR-0009](0009-watchdog-na-linuksie.md)** (2026-10-20; obowiązuje od wydania 0.3.0, w którym
+  usługa działa wyłącznie na Linuksie): warunki tej decyzji obowiązują nadal, ale realizujemy je inaczej – folder
+  danych `/var/lib/admng-watchdog` (0700, sprawdzany przy każdym starcie) zamiast ACL NTFS, drugie krótkotrwałe miejsce
+  na pliki wyjściowe OpenWEC (`/var/lib/openwec/out`), migawka ustawień GPO bez sekretów, rekordy logowań 48 godzin,
+  retencja zdarzeń 1095 dni z progiem `MinEventsDays`, klucze sekretów chronione poświadczeniem systemd (TPM2 + klucz
+  hosta albo klucz hosta) zamiast DPAPI-NG, keytab konta usługi jako nowy wyjątek od zasady 2, dzienniki w journald.
+  Szczegóły: ADR-0009, sekcja „Zmiana ADR-0008”. Opis poniżej dotyczy usługi Windows z wydania 0.2.0.
 
 ## Kontekst
 

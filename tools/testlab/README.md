@@ -73,7 +73,7 @@ LDAPCONF=… ldapsearch -Y GSSAPI -H "ldap://$dc" -b 'DC=contoso,DC=test' -s bas
 ```
 
 `LDAPCONF` wskazuje plik z `SASL_NOCANON on` i `SASL_SECPROPS minssf=56,noanonymous,noplain` (jak
-`packaging/etc/admng-watchdog/ldap.conf`). Testy narzędzia keytabu i GSSAPI opisuje
+`packaging/admng-watchdog/etc/ldap.conf`, w pakiecie `/etc/admng-watchdog/ldap.conf`). Testy narzędzia keytabu i GSSAPI opisuje
 [`watchdog/README.md`](watchdog/README.md) („Konto usługi i keytab”).
 
 ### Sprzątanie po testach

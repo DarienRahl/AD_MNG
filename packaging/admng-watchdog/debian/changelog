@@ -1,7 +1,12 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
-  * Linux host basics (stage B, milestone B1): systemd unit with notify and
-    watchdog, journald logging, POSIX start-up checks, PEM certificate,
-    Data Protection key ring under a systemd encrypted credential.
+  * First release of AdMng Watchdog for Debian 12 and 13 (AdMng 0.3.0):
+    systemd unit with notify and watchdog, journald logging, POSIX start-up
+    checks, PEM certificate, Data Protection key ring under a systemd
+    encrypted credential.
+  * Service account ADMNG-WD$ with a keytab: admng-watchdog-keytab (init,
+    rotate, verify, status) and the daily rotation timer (30 days).
+  * WEF ingestion through admng-openwec, OpenWEC file rotation timer, GPO
+    content tracking over SMB 3 (smbclient), Kerberos LDAP sign and seal.
 
  -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 20 Oct 2026 12:00:00 +0000

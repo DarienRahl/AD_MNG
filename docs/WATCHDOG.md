@@ -1,12 +1,20 @@
 # AdMng Watchdog – monitor zmian w Active Directory
 
-AdMng Watchdog to osobna usługa Windows, która przez całą dobę obserwuje domenę Active Directory, zapisuje historię
-zmian w swoim własnym folderze danych i powiadamia administratorów (e-mail, raport dzienny, Microsoft Teams,
-webhook). W aplikacji AD Manager (AD_MNG) usługa ma własną zakładkę **Watchdog**: podgląd zdarzeń, reguły
-powiadomień, konfigurację SMTP i kanałów oraz stan usługi.
+AdMng Watchdog to osobna usługa, która przez całą dobę obserwuje domenę Active Directory, zapisuje historię zmian
+(kto, co, kiedy, skąd, było → jest – domyślnie 3 lata) w swoim własnym folderze danych i powiadamia administratorów
+(e-mail, raport dzienny, Microsoft Teams, webhook). Od wersji **0.3.0** działa wyłącznie na Linuksie – jako usługa
+systemd `admng-watchdog` na serwerze **Debian 12 lub 13** poza domeną, z kontem komputera `ADMNG-WD$` i keytabem,
+z odbiorem zdarzeń kontrolerów przez Windows Event Forwarding i OpenWEC. W aplikacji AD Manager (AD_MNG) usługa ma
+własną zakładkę **Watchdog**: podgląd zdarzeń, reguły powiadomień, konfigurację SMTP i kanałów oraz stan usługi.
 
-Decyzję o przechowywaniu danych przez usługę opisuje [ADR-0008](adr/0008-watchdog-dane-w-osobnym-folderze.md).
-Specyfikacja implementacyjna (dla programistów, po angielsku) powstała razem z tym dokumentem.
+Ten dokument opisuje funkcje. Wdrożenie krok po kroku (AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie):
+[WATCHDOG-LINUX.md](WATCHDOG-LINUX.md). Usługa Windows (gMSA, skrypt PowerShell) była dostępna w wersji 0.2.0 – jej
+instrukcja jest w [WATCHDOG.md z wersji 0.2.0](https://github.com/DarienRahl/AD_MNG/blob/v0.2.0/docs/WATCHDOG.md).
+
+Decyzje o przechowywaniu danych przez usługę i o przejściu na Linuksa opisują
+[ADR-0008](adr/0008-watchdog-dane-w-osobnym-folderze.md) i [ADR-0009](adr/0009-watchdog-na-linuksie.md). Specyfikacje
+implementacyjne (dla programistów, po angielsku): [dev/watchdog-spec.md](dev/watchdog-spec.md) i
+[dev/watchdog-linux-design.md](dev/watchdog-linux-design.md).
 
 ---
 
@@ -26,6 +34,8 @@ Specyfikacja implementacyjna (dla programistów, po angielsku) powstała razem z
 | Atrybuty krytyczne | adminCount, SID History, delegowanie Kerberos, SPN na koncie użytkownika, msDS-KeyCredentialLink (Shadow Credentials), zmiana grupy podstawowej, powiązania migracji kont dMSA (po obu stronach – BadSuccessor), jawne mapowania certyfikatów (`altSecurityIdentities`), lista odczytujących hasło gMSA, zmiana uprawnień (ACL) obiektów krytycznych (domena, AdminSDHolder, OU kontrolerów) | wysoki / krytyczny | e-mail natychmiast, całą dobę |
 | Domena i las | zasady haseł i blokad, zasady szczegółowe (PSO), powiązania GPO z domeną i OU kontrolerów, relacje zaufania, nowy lub usunięty kontroler domeny (awansowanie serwera na DC w jednym kroku daje tylko „nowy kontroler domeny”, bez dodatkowego krytycznego zdarzenia o delegowaniu), przeniesienie ról FSMO, szablony certyfikatów i usługi PKI (NTAuth), włączenie Kosza AD, `dSHeuristics`, `tombstoneLifetime`, zmiany schematu (jedno zdarzenie na cykl, nigdy powtórzone po błędzie cyklu; zapisy wykonane w trakcie cyklu zgłasza następny) | wysoki / krytyczny | e-mail natychmiast |
 | Dzienniki DC | wyczyszczenie dziennika zabezpieczeń (1102), zmiana zasad inspekcji (4719), zmiana hasła DSRM (4794) | krytyczny / wysoki | e-mail natychmiast |
+| Treść GPO (od 0.3.0) | zmiany ustawień GPO jako **„ustawienie: było → jest”** (szablon zabezpieczeń – prawa użytkowników, grupy z ograniczeniami, zasady kont; `Registry.pol`; preferencje GPP – np. zaplanowane zadania i konta lokalne; skrypty z ich skrótem SHA-256; zasady inspekcji; komentarze), przekierowanie folderu GPO (`gPCFileSysPath`) na inny serwer, zmiana plików w SYSVOL z pominięciem GPMC (dobowe uzgodnienie), obecność haseł GPP (`cpassword`, MS14-025 – wartość nigdy nie jest zapisywana) | ustawienia wrażliwe – wysoki (GPO połączone z domeną lub OU kontrolerów – krytyczny), pozostałe – niski; przekierowanie i `cpassword` – krytyczny | e-mail natychmiast (reguła `tier0-gpo`) |
+| Nowe reguły Tier 0 (od 0.3.0) | utworzenie konta dMSA i każda zmiana powiązania migracji (**BadSuccessor**, Windows Server 2025), podniesienie `ms-DS-MachineAccountQuota` z 0, każda zmiana konta usługi `ADMNG-WD$` poza jego zaplanowaną zmianą hasła (`watchdog-self`), zmiana samej listy SACL (inspekcji) domeny, AdminSDHolder, OU kontrolerów, `CN=Public Key Services` i `CN=Sites` | krytyczny (inna zmiana limitu kont komputerów – wysoki) | e-mail natychmiast, całą dobę (reguły `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self`, `tier0-security`) |
 | Terminy | konto wygasa za 14 / 7 / 1 dzień (dni kalendarzowe do ostatniego dnia ważności; gdy termin wypada w weekend lub święto – w poprzedzającym dniu roboczym), konto wygasło, hasło konta uprzywilejowanego lub serwisowego wygasa | informacja (uprzywilejowane ≤ 7 dni – wysoki) | helpdesk: e-mail w godzinach pracy; raport dzienny; opcjonalnie przełożony konta |
 | Stan usługi | brak połączenia z DC, ponowna synchronizacja, braki uprawnień, problemy z dziennikami DC, nieudane wysyłki, mało miejsca, przestarzałe środowisko .NET, **zmiana konfiguracji Watchdoga** | wysoki / średni | e-mail i wszystkie kanały Teams/webhook zawsze (reguła zablokowana – nie da się jej wyłączyć ani osłabić jej doręczania) |
 
@@ -95,20 +105,21 @@ domeny, więc nie traktuje ich jako usuniętych.
 
 ## 2. Jak to działa
 
-```
-            ┌──────────── serwer członkowski domeny (Tier 0), konto gMSA CONTOSO\svc-admngwd$ ───────┐
-            │ AdMng.Watchdog.exe (usługa „AdMng Watchdog”)                                          │
-  DC (PDC) ◄┼─ LDAP 389, Kerberos + podpis + szyfrowanie: co 15 s sprawdzenie highestCommittedUSN,     │
-            │  pobranie tylko zmienionych obiektów (uSNChanged), porównanie z migawką                  │
-  zapisywalne◄┼─ RPC (Remote Event Log): zdarzenia 4720…4781, 5136…5141; na żądanie 4624/4771/4776     │
-  DC domeny │  → kto i skąd                                                                            │
-            │  reguły → kolejka powiadomień → SMTP / Teams / webhook (ponawianie, limity)              │
-            │  %ProgramData%\AdMng\Watchdog\data   (SQLite, klucze, kopie zapasowe)                     │
-            │  %ProgramData%\AdMng\Watchdog\config (ustawienia startowe – tylko do odczytu dla gMSA)   │
-            │  API HTTPS 8443 (Kerberos, dostęp tylko dla wskazanych grup AD), /healthz dla monitoringu │
-            └──────────────────────────────────────▲───────────────────────────────────────────────┘
-                                                   │ HTTPS + Kerberos
-                              AD Manager → Narzędzia → Watchdog (Ctrl+Shift+A)
+```text
+serwer Debian 12/13 poza domeną (Tier 0), konto komputera CONTOSO\ADMNG-WD$ z keytabem (hasło zmieniane co 30 dni)
+├─ admng-watchdog.service (systemd, konto admng-watchdog)
+│   ├─► DC (PDC): LDAP 389, Kerberos + podpis + szyfrowanie (SASL GSSAPI) – co 15 s highestCommittedUSN, tylko zmienione
+│   │   obiekty (uSNChanged), porównanie z migawką
+│   ├─► DC (PDC): SMB 3 z podpisywaniem i Kerberosem – odczyt GPO z SYSVOL (tylko odczyt)
+│   ├── czyta pliki OpenWEC: 47xx, 5136–5141, 4624/4625/4771/4776 → kto i skąd
+│   ├── reguły → kolejka powiadomień → SMTP / Teams / webhook (ponawianie, limity)
+│   ├── /var/lib/admng-watchdog (SQLite, klucze sekretów, kopie) · /etc/admng-watchdog (ustawienia – tylko root)
+│   └── API HTTPS 8443 (Kerberos, role z grup AD), /healthz dla monitoringu
+├─ openwecd.service (OpenWEC, konto openwec) ◄── WEF z każdego DC: HTTP 5985 + Kerberos (wiadomości szyfrowane)
+│   └── /var/lib/openwec/out/<DC>/security.jsonl (pliki przejściowe, usuwane po odczycie)
+└─ timery: zmiana hasła konta usługi (codziennie, gdy hasło ma > 30 dni), porządkowanie plików OpenWEC (co godzinę)
+                                   ▲ HTTPS + Kerberos
+              AD Manager → Narzędzia → Watchdog (Ctrl+Shift+A)
 ```
 
 1. **Wykrywanie (LDAP).** Usługa jest „przypięta” do jednego kontrolera (domyślnie emulatora PDC – tam trafiają
@@ -118,11 +129,15 @@ domeny, więc nie traktuje ich jako usuniętych.
    konta nie wygląda jak zmiana członkostwa. Usunięte obiekty widzi w kontenerze `Deleted Objects`, a raz na dobę
    (domyślnie 02:30) wykonuje pełne uzgodnienie. Postęp zapamiętuje osobno dla każdego DC, więc powrót na PDC po
    awarii lub przeniesieniu roli nie wymaga ponownego pełnego skanu.
-2. **Atrybucja (dzienniki DC).** Z metadanych replikacji usługa wie, na którym DC i kiedy powstała zmiana. Czyta
-   dziennik Security tego kontrolera i dopasowuje zdarzenie (np. 4738 dla konta, 4728 dla grupy, 5136 dla atrybutu).
-   Komputer źródłowy ustala z logowania 4624 tej samej sesji (najpierw adres IP, potem nazwa stacji), a dla blokad –
-   z pola „Caller Computer Name” zdarzenia 4740 oraz zdarzeń 4771/4776/4625 z PDC (adresy, z których szły błędne
-   hasła, z liczbą prób). Dziennik bywa opóźniony – wtedy zdarzenie ma status „ustalanie…”, a po dopasowaniu jest
+2. **Atrybucja (dzienniki DC).** Kontrolery same wysyłają wybrane zdarzenia dziennika Security mechanizmem Windows
+   Event Forwarding (bez agentów) do odbiornika OpenWEC na serwerze Watchdog; usługa czyta jego pliki na bieżąco,
+   sprawdza nadawcę (zapisywalny DC tej domeny, subskrypcja, adres) i przechowuje znormalizowane rekordy (związane ze
+   zmianami – 30 dni, logowania – 48 godzin). Z metadanych replikacji usługa wie, na którym DC i kiedy powstała
+   zmiana, i dopasowuje zdarzenie tego kontrolera (np. 4738 dla konta, 4728 dla grupy, 5136 dla atrybutu). Komputer
+   źródłowy ustala z logowania 4624 tej samej sesji (logowania sieciowe – typ 3 – i RDP – typ 10; najpierw adres IP,
+   potem nazwa stacji), a dla blokad – z pola „Caller Computer Name” zdarzenia 4740 oraz zdarzeń 4771/4776/4625
+   (adresy, z których szły błędne hasła, z liczbą prób). Ustalone źródło jest kopiowane do zdarzenia i zostaje z nim
+   na cały okres przechowywania historii. Dziennik bywa opóźniony – wtedy zdarzenie ma status „ustalanie…”, a po dopasowaniu jest
    uzupełniane (dla zdarzeń krytycznych przychodzi dodatkowe „Uzupełnienie” w tym samym wątku – dopiero gdy pierwotny
    alarm został doręczony; czeka, dopóki alarm jest ponawiany, i nie jest wysyłane wcale, gdy alarm ostatecznie się
    nie powiódł; uzupełnienie powstaje także wtedy, gdy wykonawcę ustalono w trakcie przygotowywania alarmu). Gdy
@@ -138,9 +153,14 @@ domeny, więc nie traktuje ich jako usuniętych.
    - **Dostęp uprzywilejowany** (uzyskanie / odebranie): wykonawcą jest autor zmiany dowolnego ogniwa ścieżki
      zagnieżdżeń albo zmiany grupy podstawowej konta, wykonanej najwyżej 15 minut wcześniej. W przeciwnym razie
      wykonawca pozostaje „nieustalony” – usługa nie przypisuje starszego, niezwiązanego dodania do grupy.
-   - Usługa łączy się z DC i z kolektorem WEF **wyłącznie przez Kerberos** (bez NTLM), dlatego DC i kolektor muszą być
-     podane jako nazwy DNS (rozdział 4.4).
-3. **Powiadomienia.** Reguły decydują, które zdarzenia i komu są wysyłane: natychmiast (zbiorczo w krótkim oknie,
+   - Usługa łączy się z DC **wyłącznie przez Kerberos** (bez NTLM), dlatego kontrolery są podane jako nazwy DNS
+     (`Directory.Servers`); OpenWEC przyjmuje od kontrolerów tylko uwierzytelnienie Kerberos.
+3. **Treść GPO (SYSVOL).** Po zmianie wersji GPO (`versionNumber`) albo jego ścieżki usługa czyta folder GPO z SYSVOL
+   swojego kontrolera (SMB 3, tylko odczyt), rozbiera pliki ustawień i porównuje je z poprzednią migawką – zdarzenie
+   pokazuje „ustawienie: było → jest”, a wykonawcę dziedziczy ze zmiany obiektu GPO (5136). Dobowe uzgodnienie
+   znajduje zmiany plików wykonane z pominięciem GPMC (bez zmiany wersji; wykonawca „nieustalony –
+   SYSVOL_NOT_AUDITED”). Folder GPO wskazujący inny serwer nie jest w ogóle czytany – to zdarzenie krytyczne.
+4. **Powiadomienia.** Reguły decydują, które zdarzenia i komu są wysyłane: natychmiast (zbiorczo w krótkim oknie,
    z limitem wiadomości na godzinę i z uwzględnieniem godzin pracy i polskich świąt), w raporcie dziennym albo do
    Teams / webhooka. Wysyłki czekają w trwałej kolejce i są ponawiane po błędach.
 
@@ -148,431 +168,50 @@ domeny, więc nie traktuje ich jako usuniętych.
 
 ## 3. Wymagania
 
-- Serwer Windows Server 2022 lub nowszy (zalecany; 2019 jest obsługiwany), członek domeny (nie musi i nie powinien być
-  kontrolerem domeny), zainstalowany **ASP.NET Core Runtime 10 (x64) w wersji co najmniej 10.0.13** (poprawki
-  bezpieczeństwa z października 2026) – aktualizacje przez Microsoft Update/WSUS; usługa ostrzega przy starszej wersji.
-- Serwer i konto usługi traktuj jako zasoby **Tier 0** (jak kontrolery domeny): kto administruje serwerem, może czytać
-  dzienniki DC, odszyfrować sekrety kanałów i wyciszyć alarmy. Administruj nim tylko z PAW, bez agentów Tier 1
-  działających jako SYSTEM.
-- Konto usługi: **gMSA** (zalecane) z uprawnieniami tylko do odczytu, opisane niżej. Nie jest potrzebne prawo
-  „Replicating Directory Changes”.
-- Rekord DNS typu **A** dla usługi (np. `admng-wd.contoso.com`) – nie CNAME – i certyfikat TLS z tą nazwą
-  (z wewnętrznego CA).
-- Poziom funkcjonalności lasu dowolny wspierany przez Windows Server 2016+; Kerberos AES włączony (RC4 jest
-  wyłączane na DC w 2026 r.).
-- Dla atrybucji: zasady inspekcji na kontrolerach, SACL na obiektach i dostęp do dzienników (rozdział 4.4–4.6).
-- Dla e-maili: serwer SMTP (Exchange Online, Exchange w firmie albo przekaźnik) z TLS.
-- Stacje administratorów z AD Manager muszą mieć dostęp do portu usługi (domyślnie 8443/TCP); przed usługą nie może stać
-  serwer pośredniczący ani urządzenie inspekcji TLS.
+- **Serwer:** maszyna wirtualna z **Debianem 13** (zalecany) albo 12, amd64, 2 vCPU, 4 GB RAM, dysk 60 GB (co najmniej
+  40 GB na `/var` – historia z 3 lat i kopie bazy), opcjonalnie vTPM; **niedołączona do domeny**, na platformie
+  wirtualizacji Tier 0. **ASP.NET Core Runtime 10 w wersji co najmniej 10.0.13** z repozytorium packages.microsoft.com
+  (aktualizacje automatyczne). Pakiety `admng-watchdog` i `admng-openwec` z wydania.
+- Serwer, jego kopie zapasowe, keytab i konto usługi traktuj jako zasoby **Tier 0** (jak kontrolery domeny): kto ma
+  roota na serwerze, ma tożsamość konta usługi, historię zmian i może wyciszyć alarmy. Administruj nim tylko kluczami
+  SSH ze stacji PAW.
+- **Konto usługi:** obiekt komputera `ADMNG-WD$` utworzony przez administratora Tier 0 (tylko AES, „nie może być
+  delegowane”, w OU Tier 0), z prawami tylko do odczytu; hasło zmienia narzędzie `admng-watchdog-keytab` na serwerze.
+  Warunki wdrożenia w produkcji: `ms-DS-MachineAccountQuota` = 0 i wpis odmowy zapisu dla SELF na obiekcie konta. Nie
+  jest potrzebne prawo „Replicating Directory Changes”.
+- Rekord DNS typu **A** dla usługi (np. `admng-wd.contoso.com`) – nie CNAME – i PTR; czas serwera z kontrolerów (chrony).
+- **Certyfikat TLS:** z firmowego CA albo generowany przez pakiet (z podpisem własnym – AD Manager 0.3.0 prosi wtedy
+  o potwierdzenie odcisku przy pierwszym połączeniu).
+- **Kontrolery domeny:** Windows Server 2016 lub nowszy (pilotaż – 2025 i 2022), Kerberos AES (RC4 jest wyłączane na DC
+  w 2026 r.); dla atrybucji – zasady inspekcji, SACL i GPO Windows Event Forwarding (bez agentów na DC).
+- Dla e-maili: serwer SMTP (Exchange Online, Exchange w firmie albo przekaźnik) z TLS; Teams – opcjonalnie.
+- Stacje administratorów z **AD Manager 0.3.0** w podsieci, z której zapora serwera przepuszcza port 8443/TCP; przed
+  usługą nie może stać serwer pośredniczący ani urządzenie inspekcji TLS.
+
+Szczegóły (porty, uprawnienia, inspekcja, kolejność kroków): [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md), rozdziały 0–3.
 
 ---
 
 ## 4. Wdrożenie krok po kroku
 
-Polecenia PowerShell wymagają modułu ActiveDirectory (RSAT) i uprawnień administratora domeny tam, gdzie zmieniają
-AD. Nazwy w przykładach: domena `contoso.com`, serwer `SRV-WD01`, gMSA `svc-admngwd`, adres usługi
-`admng-wd.contoso.com:8443`.
+Wdrożenie wersji 0.3.0 opisuje [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md):
 
-### 4.1 Grupy AD i rekord DNS
+| Etap | Rozdział |
+|---|---|
+| Domena testowa (laboratorium z kontrolerami Windows Server 2025 i 2022) | 1 |
+| Przygotowanie AD: grupy ról, DNS, konto `ADMNG-WD$`, prawa odczytu, SYSVOL, `ms-DS-MachineAccountQuota`, BadSuccessor, inspekcja, SACL, GPO WEF | 2 |
+| Serwer Debian: system, .NET, pakiety, SSH, zapora, DNS i czas, Kerberos, keytab, zmiana hasła co 30 dni, certyfikat, kopie | 3 |
+| OpenWEC – odbiór zdarzeń z kontrolerów | 4 |
+| Usługa: ustawienia startowe (`/etc/admng-watchdog/appsettings.json`), pierwsze uruchomienie, kody wyjścia, kontrole stanu | 5 |
+| AD Manager: połączenie, potwierdzenie certyfikatu, pierwsze kroki | 6 |
+| Pilotaż – lista kontrolna | 7 |
+| Wycofanie, rozwiązywanie problemów | 8, 9 |
 
-```powershell
-# Grupy ról (ich SID-y trafią do appsettings.json usługi)
-New-ADGroup -Name "AdMng-Watchdog-Admins"  -GroupScope Global -GroupCategory Security -Path "OU=Grupy,OU=Firma,DC=contoso,DC=com"
-New-ADGroup -Name "AdMng-Watchdog-Viewers" -GroupScope Global -GroupCategory Security -Path "OU=Grupy,OU=Firma,DC=contoso,DC=com"
-# Grupa serwerów, które mogą pobrać hasło gMSA
-New-ADGroup -Name "AdMng-Watchdog-Hosts" -GroupScope Global -GroupCategory Security -Path "OU=Grupy,OU=Firma,DC=contoso,DC=com"
-Add-ADGroupMember "AdMng-Watchdog-Hosts" -Members (Get-ADComputer SRV-WD01)
-(Get-ADGroup "AdMng-Watchdog-Admins").SID.Value
-(Get-ADGroup "AdMng-Watchdog-Viewers").SID.Value
-(Get-ADGroup "AdMng-Watchdog-Hosts").SID.Value
-
-# Rekord A (nie CNAME!) – Kerberos buduje SPN z nazwy kanonicznej
-Add-DnsServerResourceRecordA -ZoneName contoso.com -Name admng-wd -IPv4Address 10.0.1.25
-```
-
-Rola **Admin** może zmieniać konfigurację, testować kanały i ponawiać wysyłki; rola **Viewer** tylko przegląda
-zdarzenia i stan (bez danych osobowych spoza poziomu „standardowego”, bez wyjątków i adresów odbiorców) oraz
-potwierdza zdarzenia. Członkowie grupy Admin mają też uprawnienia Viewer. Zmiana członkostwa działa po odnowieniu
-biletu Kerberos (wylogowanie albo `klist purge` na stacji); do natychmiastowego odebrania dostępu służy lista
-`DeniedSids` w `appsettings.json`. Zmiany członkostwa tych trzech grup Watchdog sam zgłasza jako zmiany dostępu
-uprzywilejowanego.
-
-### 4.2 Konto gMSA ze SPN-em
-
-```powershell
-# Raz na las (w laboratorium można użyć -EffectiveTime ((Get-Date).AddHours(-10)))
-Add-KdsRootKey -EffectiveImmediately
-
-New-ADServiceAccount -Name svc-admngwd `
-    -DNSHostName admng-wd.contoso.com `
-    -PrincipalsAllowedToRetrieveManagedPassword "AdMng-Watchdog-Hosts" `
-    -ServicePrincipalNames "HTTP/admng-wd.contoso.com" `
-    -KerberosEncryptionType AES128,AES256
-
-# Na serwerze SRV-WD01 (po restarcie lub klist -li 0x3e7 purge, aby serwer „zobaczył” nową grupę)
-Install-ADServiceAccount svc-admngwd
-Test-ADServiceAccount svc-admngwd        # musi zwrócić True
-
-setspn -Q HTTP/admng-wd.contoso.com     # SPN musi należeć wyłącznie do svc-admngwd$
-```
-
-- **Nie** używaj `-RestrictToOutboundAuthenticationOnly` – klienci AD Manager uwierzytelniają się do usługi Kerberosem.
-- Nie dodawaj `HTTP/SRV-WD01…` do gMSA (zepsułoby to inne usługi HTTP serwera, np. WinRM).
-- Gdy zespół AD nie zgadza się na SPN na koncie usługi, użyj trybu **HTTP.sys** (rozdział 4.10) – wtedy Kerberos
-  obsługuje konto komputera i SPN nie jest potrzebny.
-
-### 4.3 Uprawnienia do odczytu katalogu
-
-W wielu domenach zwykły użytkownik czyta konta dzięki grupie „Pre-Windows 2000 Compatible Access”. W domenach
-utwardzonych tak nie jest i obiekty, których konto nie może odczytać (np. `uSNChanged`, `lockoutTime`), **po cichu
-znikają** ze śledzenia. Dlatego nadaj uprawnienia jawnie:
-
-```powershell
-$d = "DC=contoso,DC=com"; $a = "CONTOSO\svc-admngwd$"
-$classes = "user","inetOrgPerson","computer","group","organizationalUnit","contact",
-           "msDS-ManagedServiceAccount","msDS-GroupManagedServiceAccount","msDS-DelegatedManagedServiceAccount"
-$schema = (Get-ADRootDSE).schemaNamingContext
-foreach ($c in $classes) {
-    # klasa dMSA istnieje tylko w schemacie Windows Server 2025 – brakujące klasy pomijamy
-    if (Get-ADObject -SearchBase $schema -LDAPFilter "(lDAPDisplayName=$c)") { dsacls $d /I:S /G "${a}:GR;;$c" }
-}
-dsacls $d /G "${a}:GR"                                   # obiekt domeny: zasady haseł i blokad, role FSMO
-dsacls "CN=AdminSDHolder,CN=System,$d" /G "${a}:GR"     # konta chronione (adminCount=1) dziedziczą ACL z AdminSDHolder (SDProp, do 60 min)
-dsacls "CN=Password Settings Container,CN=System,$d" /I:T /G "${a}:GR"   # zalecane: PSO – właściwy czas blokady kont
-```
-
-Dlaczego jawne nadanie po klasach: wpisy dziedziczone „dla obiektów klasy X” dotyczą klasy strukturalnej obiektu, więc
-konta `inetOrgPerson` i dMSA nie są objęte wpisem dla `user`.
-
-**Usunięte obiekty** (zalecane – bez tego usunięcia są wykrywane dopiero przy dobowym uzgodnieniu jako
-„obiekt zniknął”):
-
-```powershell
-dsacls "CN=Deleted Objects,$d" /takeownership           # zmienia właściciela kontenera systemowego – wymaga zgody zespołu AD
-dsacls "CN=Deleted Objects,$d" /G "${a}:LCRP"
-```
-
-Uprawnienie do zapisu w AD **nie jest** potrzebne. Usługa po starcie i raz na dobę sprawdza, czy widzi wszystko, czego
-potrzebuje (zakładka Watchdog → Stan → „Kontrola uprawnień”).
-
-### 4.4 Dostęp do dzienników kontrolerów (atrybucja)
-
-Dwie możliwości:
-
-**A. Odczyt bezpośrednio z DC (domyślnie, najprostsze).**
-
-```powershell
-# Wbudowana grupa domenowa „Event Log Readers” (S-1-5-32-573) – jedna dla wszystkich DC domeny
-Add-ADGroupMember -Identity (Get-ADGroup -Identity "S-1-5-32-573") -Members (Get-ADServiceAccount svc-admngwd)
-```
-
-Na kontrolerach (najlepiej GPO dla OU „Domain Controllers”) włącz reguły zapory „Remote Event Log Management”
-(nazwy reguł są niezależne od języka systemu) i **ogranicz je do adresu serwera Watchdog**:
-
-```powershell
-Get-NetFirewallRule -Name "RemoteEventLogSvc*" | Set-NetFirewallRule -RemoteAddress 10.0.1.25 -PassThru | Enable-NetFirewallRule
-```
-
-Uwaga: członkostwo w „Event Log Readers” daje odczyt **wszystkich** dzienników na wszystkich DC domeny (także linii
-poleceń z 4688, skryptów PowerShell, Sysmon). Usługa czyta tylko zdarzenia z listy (rozdział 4.5) i tylko z
-zapisywalnych DC tej domeny (RODC i DC innych domen lasu są pomijane). Kontrolery wpisane ręcznie w ustawieniach
-atrybucji (`attribution.domainControllers`) muszą być nazwami DNS (zalecane FQDN) – usługa łączy się z nimi wyłącznie
-przez Kerberos, więc adres IP jest odrzucany przy zapisie, a `localhost` lub nazwa bez SPN kończy się błędem
-połączenia. Gdy usługa nie może odczytać `CN=Sites` w partycji konfiguracji, czyta tylko te wpisane kontrolery (Stan →
-„Wykrywanie kontrolerów domeny”).
-
-**B. Windows Event Forwarding (zalecane w środowiskach utwardzonych i dużych).** Kontrolery wysyłają do kolektora
-(np. sam serwer Watchdog) wyłącznie potrzebne zdarzenia, a gMSA czyta lokalny dziennik „ForwardedEvents” – bez praw
-na DC:
-
-1. Na kontrolerach: konto `NETWORK SERVICE` w grupie „Event Log Readers” (wymóg WEF dla dziennika Security) i GPO
-   „Configure target Subscription Manager” wskazująca kolektor.
-2. Na kolektorze: subskrypcja inicjowana przez źródła, tryb „Minimize Latency”, zapytanie XPath ograniczone do:
-   4720 4722 4723 4724 4725 4726 4738 4740 4767 4781 4765 4766 4794 4741 4742 4743 4727–4737 4744–4764 4719 5136 5137
-   5138 5139 5141 1102 1104 1100 oraz – jeśli ma być ustalany komputer źródłowy – 4624 (tylko LogonType 3 i 10; duży
-   wolumen, zwiększ dziennik kolektora) i 4771/4776 (tylko niepowodzenia).
-3. W konfiguracji Watchdog: Atrybucja → źródło „ForwardedEvents”, kolektor = nazwa DNS serwera (zalecana pełna
-   nazwa FQDN; nie adres IP, nie `localhost` – usługa łączy się z kolektorem i z DC wyłącznie przez Kerberos, więc
-   nazwa musi mieć SPN); gMSA w lokalnej grupie „Event Log Readers” kolektora. Adres IP jest odrzucany przy zapisie, a
-   konfiguracja zapisana wcześniej z adresem IP blokuje każdy zapis, dopóki go nie poprawisz; błąd pokazuje Stan →
-   „Kolektor zdarzeń (WEF)”. Bez 4624/4771/4776 w subskrypcji komputer źródłowy ma przyczynę „SOURCE_NOT_COLLECTED”.
-   Zdarzenia przekazane przez WEF zachowują numery rekordów swoich DC, dlatego usługa czyta kolektor według czasu
-   zdarzeń: przy każdym odczycie ponownie przegląda ostatnie 15 minut (ustawienie „replicationLatencyBound”), aby nie
-   pominąć zdarzeń dostarczonych z opóźnieniem. Zdarzenia dostarczone później (np. po dłuższej przerwie łączności DC
-   z kolektorem) nie zostaną uwzględnione w atrybucji – w razie potrzeby zwiększ to ustawienie. Po zalewie zdarzeń
-   większym niż `maxRecordsPerPoll` (domyślnie 50 000 na odczyt; zdarzenie „Luka w dzienniku zabezpieczeń DC” z
-   przyczyną „flooding”) usługa
-   przez pewien czas czyta tylko zdarzenia nowsze od ostatnio odczytanego – zdarzenia dostarczone z opóźnieniem w
-   trakcie zalewu mogą zostać pominięte; potem wraca 15-minutowe nakładanie odczytów.
-
-W obu wariantach ustaw rozmiar dziennika Security na DC na co najmniej **1 GB** (GPO: Konfiguracja komputera →
-Zasady → Ustawienia systemu Windows → Ustawienia zabezpieczeń → Dziennik zdarzeń) – mały dziennik nadpisuje zdarzenia,
-zanim usługa je odczyta (przyczyna „LOG_OVERWRITTEN”). Po zmianie członkostwa zrestartuj usługę Watchdog.
-
-### 4.5 Zasady inspekcji na kontrolerach domeny
-
-GPO na OU „Domain Controllers” → Konfiguracja zaawansowanych zasad inspekcji. Tabela to **minimum** – nigdy nie obniżaj
-wartości, która już obowiązuje (S = sukces, F = niepowodzenie). Ustawienia podkategorii z kilku GPO łączą się osobno
-dla każdej podkategorii i wygrywa GPO o wyższym priorytecie, więc najprościej ustawić każdą podkategorię z tabeli na
-„Sukces i niepowodzenie” – tak robi instrukcja wersji linuksowej ([`WATCHDOG-LINUX.md`](WATCHDOG-LINUX.md), 2.10, razem
-z kopią stanu sprzed zmiany). Kontrolery mają domyślnie sukces dla Kerberos Authentication Service i Credential
-Validation, a Defender for Identity wymaga dla Credential Validation sukcesu i niepowodzenia – samo „F” w GPO o wysokim
-priorytecie by je wyłączyło.
-
-| Podkategoria (nazwa angielska) | GUID (do `auditpol`) | Co najmniej | Po co |
-|---|---|---|---|
-| User Account Management | `{0CCE9235-69AE-11D9-BED3-505054503030}` | S, F | 4720–4726, 4738, 4740, 4767, 4781, 4794 |
-| Computer Account Management | `{0CCE9236-69AE-11D9-BED3-505054503030}` | S | 4741–4743 |
-| Security Group Management | `{0CCE9237-69AE-11D9-BED3-505054503030}` | S | 4727–4737, 4754–4758, 4764 |
-| Distribution Group Management | `{0CCE9238-69AE-11D9-BED3-505054503030}` | S | 4744–4763 |
-| Directory Service Changes | `{0CCE923C-69AE-11D9-BED3-505054503030}` | S | 5136–5141 (wymaga SACL – 4.6) |
-| Logon | `{0CCE9215-69AE-11D9-BED3-505054503030}` | S, F | 4624 – komputer źródłowy; 4625 – źródło blokad |
-| Kerberos Authentication Service | `{0CCE9242-69AE-11D9-BED3-505054503030}` | S, F | 4771 – źródło błędnych haseł (blokady, „password spraying”); sukces – domyślne ustawienie kontrolera |
-| Credential Validation | `{0CCE923F-69AE-11D9-BED3-505054503030}` | S, F | 4776 – źródło błędnych haseł NTLM; sukces – domyślne ustawienie kontrolera |
-| Audit Policy Change | `{0CCE922F-69AE-11D9-BED3-505054503030}` | S | 4719 |
-
-Zostaw włączone „Inspekcja: wymuś ustawienia podkategorii zasad inspekcji…”. Sprawdzenie na DC:
-`auditpol /get /category:*` (GUID-y podkategorii pokazuje `auditpol /list /subcategory:* /v`).
-
-### 4.6 SACL dla zdarzeń 5136 („kto zmienił atrybut”)
-
-Domyślne SACL-e w AD **nie** generują zdarzeń 5136/5137/5141 dla użytkowników, grup i komputerów. Wzorem Microsoft
-Defender for Identity dodaj wpisy inspekcji „Wszyscy – sukces” (uruchom jako administrator domeny – wymagane prawo
-„Zarządzanie inspekcją i dziennikiem zabezpieczeń”):
-
-```powershell
-Import-Module ActiveDirectory
-$domain = (Get-ADDomain).DistinguishedName
-$schema = (Get-ADRootDSE).schemaNamingContext
-$everyone = [System.Security.Principal.SecurityIdentifier]'S-1-1-0'
-$rights = [System.DirectoryServices.ActiveDirectoryRights]'WriteProperty, Delete, DeleteTree, WriteDacl, WriteOwner, CreateChild, DeleteChild, ExtendedRight, Self'
-$classes = @{
-  user  = 'bf967aba-0de6-11d0-a285-00aa003049e2'; group = 'bf967a9c-0de6-11d0-a285-00aa003049e2'
-  computer = 'bf967a86-0de6-11d0-a285-00aa003049e2'; organizationalUnit = 'bf967aa5-0de6-11d0-a285-00aa003049e2'
-  inetOrgPerson = '4828cc14-1437-45bc-9b07-ad6f015e5f28'
-  msa = 'ce206244-5827-4a86-ba1c-1c0c386c1b64'; gmsa = '7b8b558a-93a5-4af7-adca-c017e67f1057'
-  groupPolicyContainer = 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'; passwordSettings = '3bcd9db8-f84b-451c-952f-6c52b81f9ec6'
-  trustedDomain = 'bf967ab8-0de6-11d0-a285-00aa003049e2'
-}
-# dMSA (Windows Server 2025) – tylko gdy klasa istnieje w schemacie
-$dmsa = Get-ADObject -SearchBase $schema -LDAPFilter "(lDAPDisplayName=msDS-DelegatedManagedServiceAccount)" -Properties schemaIDGUID
-if ($dmsa) { $classes['dmsa'] = ([guid]$dmsa.schemaIDGUID).Guid }
-
-# 1) obiekty potomne wskazanych klas (dziedziczone z obiektu domeny)
-$acl = Get-Acl -Path "AD:\$domain" -Audit
-foreach ($guid in $classes.Values) {
-  $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, $rights, 'Success', [guid]::Empty, 'Descendents', [guid]$guid)))
-}
-# 2) utworzenie i usunięcie obiektu tych klas w dowolnym miejscu domeny – zdarzenie 5137 kontroler zapisuje według SACL
-#    obiektu nadrzędnego (OU, kontenery takie jak CN=Users, CN=Managed Service Accounts, CN=Policies, sam obiekt domeny)
-foreach ($guid in $classes.Values) {
-  $acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'CreateChild, DeleteChild', 'Success', [guid]$guid, 'All')))
-}
-# 3) sam obiekt domeny (zasady haseł i blokad, gPLink, ms-DS-MachineAccountQuota) – „tylko ten obiekt”
-$acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'WriteProperty, WriteDacl, WriteOwner', 'Success', [guid]::Empty, 'None')))
-Set-Acl -Path "AD:\$domain" -AclObject $acl
-
-# 4) AdminSDHolder (szablon uprawnień kont chronionych)
-$p = "AD:\CN=AdminSDHolder,CN=System,$domain"
-$acl = Get-Acl -Path $p -Audit
-$acl.AddAuditRule((New-Object System.DirectoryServices.ActiveDirectoryAuditRule($everyone, 'WriteProperty, WriteDacl, WriteOwner', 'Success', [guid]::Empty, 'None')))
-Set-Acl -Path $p -AclObject $acl
-```
-
-Odczyt SACL wymaga uprawnień, których konto usługi nie ma, więc Watchdog nie sprawdzi SACL bezpośrednio. Zamiast tego
-liczy pokrycie: jaki odsetek wykrytych zmian udało się przypisać wykonawcy (Stan → Atrybucja, przyczyna
-„SACL_MISSING”, gdy brakuje zdarzeń 5136). Usunięcie pojedynczych wpisów (np. tylko tworzenia dMSA albo GPO) pokrycie
-pokaże słabo albo wcale, a może to zrobić po cichu każdy posiadacz prawa „Zarządzanie inspekcją i dziennikiem
-zabezpieczeń” na DC – Administrators, a w organizacji z Exchange także grupa Exchange Servers. Wersja linuksowa
-(0.3.0) zgłasza dlatego jako krytyczną każdą zmianę zabezpieczeń – także samej SACL – na obiekcie domeny,
-AdminSDHolder, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites`; posiadaczy tego prawa i treść wpisów
-sprawdzaj okresowo ([`WATCHDOG-LINUX.md`](WATCHDOG-LINUX.md), 2.11). Do audytu SACL można użyć skryptu Microsoft `Get-ADAuditSaclReport.ps1`.
-Uwaga: reguły z warunkiem „z wyjątkiem wykonawcy X” działają niezawodnie dopiero wtedy, gdy wykonawca jest ustalany
-(przy brakującym SACL usługa pokaże ostrzeżenie w zakładce Stan).
-
-### 4.7 Certyfikat TLS
-
-Wystaw certyfikat serwera (EKU „Uwierzytelnianie serwera”) z nazwą `admng-wd.contoso.com` w magazynie
-`LocalMachine\My` serwera i nadaj gMSA prawo **odczytu klucza prywatnego**: certlm.msc → Osobisty → Certyfikaty →
-certyfikat → Wszystkie zadania → Zarządzaj kluczami prywatnymi… → dodaj `CONTOSO\svc-admngwd$` (Odczyt). Skrypt
-instalacyjny robi to automatycznie. Po automatycznym odnowieniu certyfikatu nowy klucz dostaje domyślne ACL – w
-szablonie AD CS zaznacz „Autoryzuj dodatkowe konta usług w celu uzyskania dostępu do klucza prywatnego” albo ponów
-nadanie uprawnień. Do czasu nadania uprawnień usługa używa poprzedniego, jeszcze ważnego certyfikatu i zgłasza to jako
-**ostrzeżenie** 1007 w dzienniku Application. Gdy poprzedni certyfikat wygaśnie, pojawia się **błąd** 1007 (połączenia
-TLS przestają działać) oraz stan „Klucz prywatny certyfikatu TLS niedostępny” (`certificate.key`) w zakładce Stan;
-zbliżające się wygaśnięcie certyfikatu pokazuje stan `certificate.expiry`. Usługa przyjmuje tylko TLS 1.2 i 1.3.
-
-### 4.8 Foldery usługi
-
-```
-%ProgramData%\AdMng\Watchdog\            SYSTEM, Administratorzy – pełna kontrola; gMSA – odczyt (tylko ten folder)
-  config\appsettings.json                ustawienia startowe: gMSA tylko ODCZYT (usługa nie wystartuje, jeśli może tu pisać)
-  data\                                  SYSTEM, Administratorzy – pełna kontrola; gMSA – modyfikacja
-    watchdog.db (+ -wal, -shm), keys\, backup\
-```
-
-Skrypt instalacyjny tworzy foldery z wyłączonym dziedziczeniem (SID-y zamiast nazw, bo polski Windows ma
-„Administratorzy” zamiast „Administrators”):
-
-```powershell
-$root = "$env:ProgramData\AdMng\Watchdog"
-icacls "$root\data"   /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "CONTOSO\svc-admngwd$:(OI)(CI)M"
-icacls "$root\config" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "CONTOSO\svc-admngwd$:(OI)(CI)R"
-```
-
-Skrypt instalacyjny (także przy aktualizacji) przywraca wszystkim plikom i podfolderom wewnątrz `config\` i folderu
-danych uprawnienia dziedziczone – jawne wpisy ACL nadane tam ręcznie są usuwane.
-
-Przy każdym starcie usługa sprawdza uprawnienia folderu `data\`, plików bazy oraz folderów `data\keys\` i
-`data\backup\`: jeśli dostęp ma ktokolwiek poza SYSTEM, Administratorami i kontem usługi, **nie uruchomi się**
-(dziennik Application, kod wyjścia 5). Folder musi
-leżeć na lokalnym dysku NTFS (nie na udziale sieciowym); zalecane jest szyfrowanie BitLocker woluminu. Baza SQLite
-nie tworzy plików tymczasowych poza folderem danych, a usuwane rekordy są nadpisywane.
-
-### 4.9 Instalacja usługi
-
-Rozpakuj archiwum `AdMng-Watchdog-<wersja>-win-x64.zip` z wydania (albo artefakt CI `AdMng-Watchdog-win-x64`). Skrypty nie
-są podpisane: archiwum pobrane z Internetu ma znacznik pochodzenia, który przechodzi na rozpakowane pliki, i zasada
-wykonywania RemoteSigned zablokuje wtedy `Install-AdMngWatchdog.ps1` – odblokuj pliki w folderze archiwum
-(`Get-ChildItem -Recurse | Unblock-File`). Potem uruchom jako administrator:
-
-```powershell
-.\Deploy\Install-AdMngWatchdog.ps1 `
-    -ServiceAccount 'CONTOSO\svc-admngwd$' `
-    -Url 'https://admng-wd.contoso.com:8443' `
-    -CertificateThumbprint '<odcisk>' `
-    -AdminGroupSid '<SID AdMng-Watchdog-Admins>' -ViewerGroupSid '<SID AdMng-Watchdog-Viewers>' `
-    -HostGroupSid '<SID AdMng-Watchdog-Hosts>' `
-    -AllowedSubnets '10.0.20.0/24' -MonitoringSubnets '10.0.30.5/32'
-```
-
-Skrypt: kopiuje pliki do `C:\Program Files\AdMng\Watchdog`, tworzy foldery `config\` i `data\` z ACL (4.8), zapisuje
-`config\appsettings.json`, tworzy źródło dziennika „AdMng Watchdog”, nadaje prawo „Logowanie w trybie usługi”,
-uprawnienie do klucza certyfikatu, wyłącza zrzuty awaryjne WER dla `AdMng.Watchdog.exe` (mogłyby zawierać sekrety),
-rejestruje usługę `AdMngWatchdog` (start „automatyczny – opóźniony”, konto gMSA bez hasła, automatyczny restart po
-awarii), dodaje regułę zapory dla wskazanych podsieci, sprawdza SPN, uruchamia usługę i sprawdza ją poleceniem
-`AdMng.Watchdog.exe --health`. Skrypt działa w Windows PowerShell 5.1 i PowerShell 7.
-
-Aktualizacja to ponowne uruchomienie skryptu: istniejący `config\appsettings.json` jest **scalany** – zmieniają się
-tylko ustawienia podane w parametrach, a ręczne wpisy (np. `DeniedSids`, `ViewerDetailLevel`, `Notifications`,
-`Directory`, `Server: "HttpSys"`) zostają; skrypt wypisuje zmienione ustawienia. `-Url` i `-AdminGroupSid` są
-wymagane i zawsze zastępują swoje wartości – **`-AdminGroupSid` zastępuje całą listę `AdminSids`**, więc druga grupa
-administratorów dopisana ręcznie znika przy aktualizacji (dopisz ją ponownie). `-ViewerGroupSid`, `-HostGroupSid`,
-`-AllowedSubnets` i `-MonitoringSubnets` zastępują swoje listy tylko wtedy, gdy zostały podane.
-
-Zanim skrypt cokolwiek zmieni, sprawdza istniejący `config\appsettings.json`: jeśli właścicielem pliku lub folderu nad
-nim (aż do `%ProgramData%\AdMng`) jest albo prawo zmiany ma konto inne niż SYSTEM i Administratorzy, skrypt
-**zatrzymuje się** i wypisuje te konta (taki plik mógł zostać podłożony, a scalenie przeniosłoby jego ustawienia do
-nowej konfiguracji). Przejrzyj plik, a potem usuń go albo uruchom skrypt ponownie z przełącznikiem
-`-TrustExistingConfig`.
-
-Bez `-CertificateThumbprint` skrypt sam znajduje certyfikat po nazwie hosta (ta sama reguła co usługa) i nadaje gMSA
-odczyt jego klucza. Właścicielem folderów `%ProgramData%\AdMng\…` zostają Administratorzy, a ich ACL są zastępowane w
-całości – nikt, kto utworzył te foldery lub plik przed instalacją, nie zachowuje do nich praw; wszystko wewnątrz
-`config\` i folderu danych dostaje z powrotem uprawnienia dziedziczone (4.8).
-
-**Aktualizacja z wersji, w której hasło SMTP lub sekret klienta XOAUTH2 zapisano przy niestandardowej weryfikacji
-certyfikatu serwera SMTP** (przypięty odcisk `PinnedSha256`, „akceptuj każdy” albo wyłączone sprawdzanie odwołań): po
-aktualizacji hasło/sekret trzeba wpisać ponownie (zakładka Kanały i SMTP). Do tego czasu e-mail nie jest wysyłany, a
-wysyłki kończą się kodem `secretRebindRequired` (5.2).
-
-Odpowiednik ręczny instalacji:
-
-```powershell
-sc.exe create AdMngWatchdog binPath= "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" start= delayed-auto obj= "CONTOSO\svc-admngwd$" DisplayName= "AdMng Watchdog"
-sc.exe sidtype AdMngWatchdog unrestricted
-sc.exe failure AdMngWatchdog reset= 86400 actions= restart/60000/restart/60000/restart/300000
-sc.exe failureflag AdMngWatchdog 1
-New-NetFirewallRule -Name AdMngWatchdog-HTTPS -DisplayName "AdMng Watchdog (HTTPS)" -Direction Inbound -Protocol TCP -LocalPort 8443 -Profile Domain -RemoteAddress 10.0.20.0/24,10.0.30.5 -Action Allow
-```
-
-Jeżeli prawo „Logowanie w trybie usługi” jest zdefiniowane w GPO domeny, dodaj gMSA do tej GPO (wpis w GPO zastępuje
-lokalne przypisania).
-
-### 4.10 Plik `config\appsettings.json` (ustawienia startowe)
-
-Edytowany tylko przez lokalnych administratorów serwera (nie przez API – w ten sposób administrator Watchdoga nie
-nada sobie innych uprawnień; konto usługi ma do niego tylko odczyt):
-
-```json
-{
-  "Watchdog": {
-    "DataDirectory": "%ProgramData%\\AdMng\\Watchdog\\data",
-    "Authentication": "Negotiate",
-    "Hosting": {
-      "Server": "Kestrel",
-      "Urls": "https://admng-wd.contoso.com:8443",
-      "Certificate": { "Thumbprint": "<odcisk>", "Store": "My", "Location": "LocalMachine" },
-      "RequireKerberos": true,
-      "AllowedRemoteSubnets": [ "10.0.20.0/24" ],
-      "MonitoringSubnets": [ "10.0.30.5/32" ]
-    },
-    "Authorization": {
-      "AdminSids": [ "S-1-5-21-…-1302" ], "ViewerSids": [ "S-1-5-21-…-1301" ], "DeniedSids": [],
-      "WatchdogHostGroupSids": [ "S-1-5-21-…-1303" ],
-      "ViewerDetailLevel": "Standard",
-      "AllowTier0Suppression": false
-    },
-    "Notifications": { "OAuthSmtpHosts": [ "smtp.office365.com" ] },
-    "Directory": { "Domain": null, "Server": null, "PreferPdc": true }
-  }
-}
-```
-
-- `Server: "HttpSys"` – alternatywa bez SPN na gMSA; wymaga `netsh http add urlacl url=https://+:8443/
-  user=CONTOSO\svc-admngwd$` i `netsh http add sslcert ipport=0.0.0.0:8443 certhash=<odcisk>
-  appid={…}` (po każdym odnowieniu certyfikatu powiązanie trzeba odświeżyć). HTTP.sys negocjuje schematem
-  Negotiate (z ochroną powiązania kanału); przy `RequireKerberos` usługa odrzuca każde logowanie, które nie odbyło
-  się przez Kerberos (dziennik Application, zdarzenie 2500). **Do potwierdzenia na laboratorium Windows:** czy w trybie
-  HTTP.sys każde logowanie rzeczywiście dociera do usługi jako Kerberos. Jeżeli każde logowanie jest odrzucane
-  zdarzeniem 2500 z pakietem „unknown (Negotiate)”, użyj Kestrel ze SPN-em na gMSA albo tymczasowo ustaw
-  `RequireKerberos: false` (wtedy NTLM jest przyjmowany).
-- `RequireKerberos: true` odrzuca NTLM w obu trybach (ochrona przed przekazywaniem NTLM; .NET 10 nie ma tu powiązania
-  kanału).
-- `DeniedSids` – natychmiastowe odebranie dostępu (SID użytkownika lub grupy), bez czekania na wygaśnięcie biletu i
-  bez restartu usługi.
-- Usługa obserwuje ten plik: zmiany w `Authorization`, `Notifications` oraz w listach `AllowedRemoteSubnets` i
-  `MonitoringSubnets` działają w ciągu kilku sekund. Pozostałe ustawienia (`Urls`, `Server`, `Certificate`,
-  `RequireKerberos`, `DataDirectory`, `Authentication`, `Directory`) wymagają restartu usługi
-  (`Restart-Service AdMngWatchdog`). Wyjątki od „w ciągu kilku sekund”:
-  - `AllowedRemoteSubnets` i `MonitoringSubnets` od razu zmieniają filtr samej usługi, ale **nie** regułę zapory
-    Windows `AdMngWatchdog-HTTPS`, którą skrypt instalacyjny zbudował z tych list – uruchom skrypt ponownie albo
-    popraw regułę ręcznie.
-  - `AdminSids`, `ViewerSids` i `WatchdogHostGroupSids` od razu zmieniają dostęp do API, ale obserwacja tych grup jako
-    grup uprzywilejowanych (zdarzenia wysokie) korzysta z wartości z ostatniego startu – po ich zmianie zrestartuj
-    usługę.
-- Gdy zapisanej zmiany pliku nie da się wczytać (błąd składni JSON) ani zastosować (błędna wartość, np. `"Minimalny"`
-  zamiast `"Minimal"` albo `"tak"` zamiast `true`), usługa **zachowuje poprzednie ustawienia** i po każdym takim zapisie
-  wpisuje ostrzeżenie **2002** do dziennika Application. Do czasu poprawienia pliku zmiana (np. nowy wpis w
-  `DeniedSids`) **nie działa**, a ten sam plik przy następnym starcie zatrzyma usługę (kod wyjścia 2, zdarzenie 1010).
-  Po każdej edycji sprawdź plik poleceniem `AdMng.Watchdog.exe --check-config` i dodaj zdarzenie 2002 do
-  monitorowanych (rozdział 10).
-- `ViewerDetailLevel` – ile danych widzi rola Viewer w zakładce i na stronie zdarzenia (5.6).
-- `AllowTier0Suppression` – tylko lokalnie można zezwolić na wyłączenie krytycznych zdarzeń przez API (domyślnie nie).
-  Bez tej zgody API odrzuca m.in. wykluczenie kontenerów `CN=Users` i `CN=Builtin` (grupy Domain Admins,
-  Administrators, konto krbtgt), poddrzew z dodatkowymi grupami uprzywilejowanymi oraz pominięcie atrybutów
-  `dNSHostName`, `versionNumber` i `gPCFileSysPath`. Odrzucane jest też każde nowe wykluczone poddrzewo, które według
-  bieżącej migawki zawiera grupę uprzywilejowaną, grupę zagnieżdżoną na ścieżce do grupy uprzywilejowanej, konto z
-  dostępem uprzywilejowanym, krbtgt albo wbudowane konto Administrator – to chroni OU warstwowego modelu
-  administracji (Tier 0), nie tylko `CN=Users` i `CN=Builtin`. Wykluczenia zapisane wcześniej nie są sprawdzane
-  ponownie.
-- `MonitoringSubnets` – adresy systemu monitorowania, które mogą anonimowo pytać `/healthz` (zwraca tylko „ok” albo
-  błąd 503).
-- `Directory.Server` pozwala wskazać konkretny DC; domyślnie usługa wybiera emulator PDC.
-
-### 4.11 Pierwsze uruchomienie
-
-1. Po starcie usługa tworzy bazę, zapisuje domyślną konfigurację i wykonuje **zrzut bazowy** (dla ~50 000 obiektów
-   kilka minut). Bez powiadomień o zmianach; na koniec zdarzenie „Zakończono zrzut bazowy”. Zaczyna się 7-dniowy
-   **tryb wdrożenia** (rozdział 1).
-2. W AD Manager: **Narzędzia → Watchdog** (Ctrl+Shift+A) → podaj adres `https://admng-wd.contoso.com:8443` → Połącz.
-3. Zakładka **Stan**: sprawdź połączenie z DC, kontrolę uprawnień i dostęp do dzienników każdego DC.
-4. Zakładka **Kanały i SMTP**: skonfiguruj SMTP, adresy grup odbiorców („Administratorzy IT”, „Helpdesk”), wyślij
-   wiadomość testową.
-5. Przez tydzień przeglądaj **Reguły** (przy każdej regule: „wysłałaby N wiadomości”, przycisk Podgląd), dodaj wyjątki
-   z podpowiedzi (np. konto synchronizacji Entra Connect) i zakończ tryb wdrożenia.
-6. Podłącz monitoring: `/healthz` z `MonitoringSubnets`, zdarzenia dziennika Application (rozdział 10, także 2002 –
-   nieprzyjęta edycja `appsettings.json`) i opcjonalnie sygnał „heartbeat” webhooka do SIEM.
+Usługa Windows (gMSA, `Install-AdMngWatchdog.ps1`, HTTP.sys, DPAPI-NG) jest dostępna tylko jako wydanie 0.2.0 – jej
+instrukcja: [WATCHDOG.md, rozdział 4 w wersji 0.2.0](https://github.com/DarienRahl/AD_MNG/blob/v0.2.0/docs/WATCHDOG.md#4-wdrożenie-krok-po-kroku).
+Po wydaniu 0.3.0 jej kod zostanie usunięty. Przejście z 0.2.0 na Linuksa z zachowaniem historii (kopia bazy
+`watchdog.db`, bez folderu `keys\` – hasło SMTP i adres Teams wpisuje się ponownie): WATCHDOG-LINUX.md, ramka
+„Migracja z wersji 0.2.0” w rozdziale 0.4.
 
 ---
 
@@ -663,7 +302,11 @@ automatycznie.
 (kto, co), wysyłane także do **dotychczasowych** odbiorców – usunięcie siebie z listy odbiorców nie przejdzie
 niezauważone. Wyłączenie przez API obserwacji atrybutów i zdarzeń krytycznych (np. `msDS-KeyCredentialLink`,
 dostęp uprzywilejowany) albo wykluczenie domeny lub OU kontrolerów, a także poddrzewa z grupami i kontami
-uprzywilejowanymi (4.10), jest niemożliwe bez lokalnej zgody (`AllowTier0Suppression` w `appsettings.json`).
+uprzywilejowanymi, a także wyłączenie albo zawężenie reguł `tier0-badsuccessor`, `tier0-machine-quota`,
+`watchdog-self` i `tier0-gpo` jest niemożliwe bez lokalnej zgody (`AllowTier0Suppression` w ustawieniach startowych
+`/etc/admng-watchdog/appsettings.json`, które zmienia tylko root serwera – [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 5.2).
+Tak samo retencji zdarzeń nie da się skrócić poniżej progu `MinEventsDays` (domyślnie 1095 dni), a każde skrócenie
+retencji jest zdarzeniem krytycznym.
 
 Godziny pracy: domyślnie pon.–pt. 7:00–17:00 (strefa Europe/Warsaw) z polskimi świętami (w tym Wigilia od 2025 r.).
 Poza godzinami pracy powiadomienia o priorytecie niższym niż wysoki trafiają tylko do raportu dziennego – dotyczy to
@@ -681,8 +324,9 @@ jest wysyłane, trafia tylko do raportu).
 Przygotowanie Exchange Online OAuth2 (jednorazowo, administrator Entra/Exchange):
 
 1. Entra ID → Rejestracje aplikacji → nowa aplikacja „AdMng Watchdog SMTP”; uprawnienie aplikacji **Office 365
-   Exchange Online → SMTP.SendAsApp**, zgoda administratora; dodaj certyfikat (zalecane – klucz prywatny w
-   `LocalMachine\My` serwera z odczytem dla gMSA) albo sekret klienta.
+   Exchange Online → SMTP.SendAsApp**, zgoda administratora; dodaj **sekret klienta** (usługa na Linuksie w wersji
+   0.3.0 obsługuje tylko sekret – certyfikat z magazynu `LocalMachine\My` działał wyłącznie w usłudze Windows 0.2.0;
+   sekret ma ograniczoną ważność, zapisz w kalendarzu termin jego wymiany).
 2. Nadawcą niech będzie **skrzynka współdzielona z zablokowanym logowaniem** (bez hasła, którym dałoby się zalogować).
    Exchange Online PowerShell:
    ```powershell
@@ -691,7 +335,7 @@ Przygotowanie Exchange Online OAuth2 (jednorazowo, administrator Entra/Exchange)
    Set-CASMailbox -Identity watchdog@contoso.com -SmtpClientAuthenticationDisabled $false
    ```
    (Object ID musi pochodzić z „Aplikacje dla przedsiębiorstw”, nie z „Rejestracje aplikacji”.)
-3. W zakładce: chmura, identyfikator dzierżawy, identyfikator aplikacji, odcisk certyfikatu (lub sekret), nadawca
+3. W zakładce: chmura, identyfikator dzierżawy, identyfikator aplikacji, sekret klienta, nadawca
    `AD Watchdog <watchdog@contoso.com>`. Token OAuth jest wysyłany tylko do serwerów z listy `OAuthSmtpHosts`.
 
 Hasła i sekrety są **powiązane z miejscem docelowym**: po zmianie serwera, portu, użytkownika, dzierżawy lub adresu
@@ -700,7 +344,7 @@ wiadomości testowej). Hasło SMTP i sekret klienta XOAUTH2 są powiązane takż
 każda zmiana przypiętego odcisku, trybu weryfikacji lub sprawdzania odwołań wymaga ponownego wpisania hasła/sekretu,
 również przed wiadomością testową (inaczej administrator Watchdoga mógłby przypiąć certyfikat własnego serwera i
 przechwycić hasło). Sekrety zapisane przez starsze wersje przy niestandardowej weryfikacji trzeba po aktualizacji
-wpisać ponownie (4.9).
+wpisać ponownie.
 
 Przycisk **Wyślij wiadomość testową** pokazuje każdy etap (połączenie, TLS z wersją i szyfrem, logowanie, nadawca,
 odbiorcy, treść) z kodami odpowiedzi i podpowiedziami, np. `5.7.139`/`5.7.30` – wyłączone SMTP AUTH,
@@ -717,7 +361,7 @@ odpowiadającą jej część pierwotnego alarmu.
 **Częściowe doręczenie.** Gdy serwer odrzuci tylko część odbiorców:
 
 - odrzucenie tymczasowe (4xx, np. greylisting) – pozostali dostają wiadomość, a ponowienie idzie wyłącznie do
-  odrzuconych, bez duplikatów u pozostałych (ostrzeżenie 2202 w dzienniku Application); po restarcie usługi ponowienie
+  odrzuconych, bez duplikatów u pozostałych (ostrzeżenie 2202 w dzienniku usługi); po restarcie usługi ponowienie
   może jednak trafić ponownie do wszystkich,
 - odrzucenie trwałe (5xx) – odrzucony adres jest pomijany (ostrzeżenie 2203), pozostali dostają wiadomość; wysyłka
   kończy się błędem trwałym tylko wtedy, gdy odrzucono wszystkich,
@@ -897,7 +541,14 @@ filtry.
 | Reguły | lista reguł, edytor, wyjątki i propozycje wyjątków, podgląd skutków, baner trybu wdrożenia |
 | Kanały i SMTP | SMTP, grupy odbiorców, kanały Teams i webhook, wysyłki testowe z diagnostyką |
 | Raport dzienny | harmonogram, odbiorcy, podgląd treści, „Wyślij teraz” |
-| Stan | połączenie z DC, znacznik USN, zrzut bazowy, kontrola uprawnień, dzienniki każdego DC (pokrycie atrybucji, liczba i czas zapytań o źródło), kanały, baza danych i kopie, dziennik wysyłek (ponawianie), historia zmian konfiguracji; każdy zgłaszany kod stanu ma opis i zalecenie – m.in. wygasający certyfikat TLS i jego klucz prywatny, rozmiar i konserwacja bazy, planowanie powiadomień, „Nieistniejące DN w konfiguracji”, kolektor WEF, wykrywanie kontrolerów domeny, źródło atrybucji, odmowa wyszukiwania zmian w katalogu (`permission.search`) |
+| Stan | połączenie z DC, znacznik USN, zrzut bazowy, kontrola uprawnień, dzienniki każdego DC (pokrycie atrybucji, liczba i czas zapytań o źródło), kanały, baza danych i kopie, dziennik wysyłek (ponawianie), historia zmian konfiguracji; od 0.3.0 także sekcje **Konto usługi** (kvno, ostatnia i następna zmiana hasła, typy szyfrowania, zgodność keytabu z AD, członkostwo w grupach uprzywilejowanych), **Kolektor WEF** (dla każdego DC: ostatni rekord, opóźnienie, zaległości, rekordy zapisane i odrzucone), **Zawartość GPO** (postęp odczytu, błędy, opóźnienie SYSVOL) i **Host** (system, środowisko .NET, wariant klucza sekretów, wolne miejsce, różnica zegara, szyfrowanie LDAP); każdy zgłaszany kod stanu ma opis i zalecenie – m.in. wygasający certyfikat TLS i jego klucz prywatny, rozmiar i konserwacja bazy, planowanie powiadomień, „Nieistniejące DN w konfiguracji”, wykrywanie kontrolerów domeny, źródło atrybucji, odmowa wyszukiwania zmian w katalogu (`permission.search`) |
+| Źródła i retencja (od 0.3.0) | atrybucja (włączona, źródło „OpenWEC (WEF)”, odrzucanie logowań kont komputerów i anonimowych, progi ciszy kolektora), treść GPO (włączona, tolerancja opóźnienia SYSVOL, limity plików) i czas przechowywania rekordów logowań |
+
+**Certyfikat usługi (od 0.3.0).** Gdy certyfikat usługi nie pochodzi z zaufanego urzędu (wariant z podpisem własnym),
+AD Manager przy pierwszym połączeniu pokazuje okno z odciskiem SHA-256, nazwą i datami ważności; operator porównuje
+odcisk z wynikiem `admng-watchdog cert-fingerprint` na serwerze i klika „Ufam temu certyfikatowi” – odcisk zostaje
+przypięty w ustawieniach (Ustawienia → Watchdog, „Usuń przypięcie”). Zmieniony certyfikat nigdy nie jest przyjmowany
+po cichu (okno pokazuje stary i nowy odcisk), a niezgodność nazwy – nigdy. Zmiana adresu usługi usuwa przypięcie.
 
 Rola Viewer widzi wszystko tylko do odczytu (bez wyjątków, adresów odbiorców i danych serwera SMTP); edycja wymaga
 roli Admin.
@@ -906,21 +557,29 @@ roli Admin.
 
 ## 7. Dane, retencja i kopie zapasowe
 
+Folder danych usługi to `/var/lib/admng-watchdog` (właściciel `admng-watchdog`, tryb 0700, sprawdzany przy każdym
+starcie – przy szerszych uprawnieniach usługa nie startuje).
+
 | Dane | Gdzie | Domyślna retencja |
 |---|---|---|
-| Migawka obserwowanych atrybutów (bez sekretów) i członkostw | `data\watchdog.db` | bieżący stan; obiekty usunięte 180 dni |
-| Zdarzenia (zmiany, atrybucja, potwierdzenia) | `data\watchdog.db` | 365 dni |
-| Znormalizowane zdarzenia z dzienników DC (tylko pola potrzebne do dopasowania; wartości wyłącznie obserwowanych, nietajnych atrybutów) | `data\watchdog.db` | 30 dni; najstarsze usuwane wcześniej, gdy baza przekroczy limit rozmiaru (domyślnie 10 GB) |
-| Kolejka wysyłek (treść wiadomości) | `data\watchdog.db` | treść usuwana zaraz po wysłaniu; nieudane 90 dni; metadane wysłanych 30 dni |
-| Konfiguracja i historia jej zmian | `data\watchdog.db` | konfiguracja bieżąca; historia 3 lata |
-| Sekrety kanałów (hasło SMTP, sekret OAuth, adresy Teams/webhook, klucze podpisu) | `data\watchdog.db`, zaszyfrowane Data Protection i powiązane z miejscem docelowym; klucze w `data\keys\` chronione DPAPI-NG dla gMSA | do usunięcia |
-| Kopie bazy | `data\backup\` (codziennie 3:15, 7 ostatnich; kopie sprzed migracji – najnowsza + 30 dni) | 7 kopii |
+| Migawka obserwowanych atrybutów (bez sekretów) i członkostw | `watchdog.db` | bieżący stan; obiekty usunięte 180 dni |
+| Zdarzenia (zmiany, atrybucja – kto i skąd, potwierdzenia) | `watchdog.db` | **1095 dni** (3 lata; próg `MinEventsDays` w ustawieniach startowych – krócej tylko po zmianie przez roota) |
+| Znormalizowane zdarzenia z dzienników DC związane ze zmianami (tylko pola potrzebne do dopasowania; wartości wyłącznie obserwowanych, nietajnych atrybutów) | `watchdog.db` | 30 dni; najstarsze usuwane wcześniej, gdy baza przekroczy limit rozmiaru (domyślnie 4096 MB) |
+| Rekordy logowań i nieudanych logowań (4624 typ 3 i 10, 4625, 4771, nieudane 4776 – bez logowań kont komputerów i anonimowych) | `watchdog.db` | 48 godzin (ustalone źródło jest kopiowane do zdarzenia) |
+| Migawka ustawień GPO (tylko najnowsza dla każdego GPO; hasła GPP i wartości wyglądające na hasła – wyłącznie informacja o obecności; skrypty – tylko skrót SHA-256) | `watchdog.db` | bieżący stan; usunięte GPO – do przywrócenia |
+| Kolejka wysyłek (treść wiadomości) | `watchdog.db` | treść usuwana zaraz po wysłaniu; nieudane 90 dni; metadane wysłanych 30 dni |
+| Konfiguracja i historia jej zmian | `watchdog.db` | konfiguracja bieżąca; historia 3 lata |
+| Sekrety kanałów (hasło SMTP, sekret OAuth, adresy Teams/webhook, klucze podpisu) | `watchdog.db`, zaszyfrowane Data Protection i powiązane z miejscem docelowym; klucze w `keys/` zaszyfrowane kluczem z poświadczenia systemd (`/etc/admng-watchdog/credentials/dp-key.cred`, TPM2 + klucz hosta albo klucz hosta) | do usunięcia |
+| Kopie bazy | `backup/` (codziennie 3:15, 7 ostatnich; kopie sprzed migracji – najnowsza + 30 dni); gdy na `/var` brakuje miejsca, kopia jest pomijana (`storage.backupSkipped`) | 7 kopii |
+| Surowe zdarzenia z kontrolerów (pliki OpenWEC) | `/var/lib/openwec/out/<DC>/` | do odczytu przez usługę (pliki rotowane co godzinę); nieprzeczytane – najwyżej 7 dni lub 8 GB razem |
 
-Retencję i limit rozmiaru ustawia się w konfiguracji. Usuwane rekordy są nadpisywane w pliku bazy (`secure_delete`).
-Do odtworzenia potrzebne są **baza i folder `keys\` oraz to samo konto gMSA** – po usunięciu i ponownym utworzeniu
-gMSA sekrety trzeba wpisać ponownie. Kopie zapasowe folderu mają te same ACL co oryginał i powinny być szyfrowane
-przez system kopii. Rozmiar: ok. 0,6 KB na zdarzenie (1 000 zdarzeń dziennie ≈ 230 MB rocznie) i ok. 0,6 KB na obiekt
-migawki.
+Retencję i limit rozmiaru zapisuje konfiguracja usługi (AD Manager 0.3.0 edytuje z nich tylko czas przechowywania
+rekordów logowań). Usuwane rekordy są nadpisywane w pliku bazy (`secure_delete`). Do odtworzenia potrzebne są **baza,
+folder `keys/` i poświadczenie systemd z tego samego hosta** (przy wariancie TPM2 – także ten sam vTPM); na innej
+maszynie `admng-watchdog reset-secrets-key` tworzy nowy klucz, a sekrety kanałów wpisuje się ponownie
+([WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 3.9). Zalecana jest kopia całej maszyny wirtualnej (zasób Tier 0). Rozmiar:
+ok. 0,6 KB na zdarzenie (1 000 zdarzeń dziennie ≈ 0,7 GB w 3 lata), ok. 0,6 KB na obiekt migawki, rekordy logowań
+ok. 120 MB.
 
 Codzienna kopia (3:15, `VACUUM INTO`) i kompaktowanie bazy **nie wstrzymują** wykrywania zmian ani wysyłania
 alarmów. Stan bazy pokazują dwa sprawdzenia o jednej definicji (stan nie zmienia się już co godzinę):
@@ -935,70 +594,91 @@ Nieudana retencja lub konserwacja bazy daje stan „Konserwacja bazy danych” (
 
 ## 8. Bezpieczeństwo
 
-- **Dane osobowe (RODO).** Folder danych i powiadomienia zawierają dane pracowników (nazwiska, działy, zmiany kont).
-  Uzgodnij z IOD cele, okres retencji, krąg odbiorców i kanały (Teams i Power Automate przechowują kopie poza
-  folderem – historia przepływu 30 dni). Wpisz przetwarzanie do rejestru czynności. Obowiązki z ustawy o KSC
-  (NIS2) dotyczące monitorowania i dowodów incydentów mogą przemawiać za dłuższą retencją zdarzeń. Odczyt
-  pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia) w dzienniku Application – zdarzenia 2600
-  (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu). Każde otwarcie szczegółów i każda
-  otwarta strona zdarzenia to jeden wpis – dobierz rozmiar dziennika Application albo przekazuj go do SIEM.
-- **Zero sekretów.** Wartości haseł, LAPS, BitLockera, TPM, gMSA, sekretów LSA (`currentValue`, `priorValue`) i
-  atrybutów oznaczonych w schemacie jako poufne nie są odczytywane, zapisywane ani wysyłane.
-- **Serwer Watchdog to zasób Tier 0** (rozdział 3). Konto usługi ma tylko odczyt AD i dzienników; nie ma uprawnień
-  zapisu ani replikacji. Jako gMSA nie ma hasła do wycieku.
-- **Dostęp do API**: HTTPS (TLS 1.2/1.3), wyłącznie Kerberos (NTLM odrzucany także w trybie HTTP.sys), role wg SID grup
-  AD z lokalnego `config\appsettings.json` (konto usługi nie może go zmienić), lista natychmiastowych odmów
-  (`DeniedSids`), dodatkowy nagłówek wymagany przy zmianach (ochrona przed CSRF z przeglądarki), zapora ograniczona do
-  podsieci administratorów i monitoringu, bez serwerów pośredniczących.
+- **Dane osobowe (RODO).** Folder danych i powiadomienia zawierają dane pracowników (nazwiska, działy, zmiany kont,
+  adresy i nazwy stacji). Uzgodnij z IOD cele, okres retencji (domyślnie 3 lata), krąg odbiorców i kanały (Teams i
+  Power Automate przechowują kopie poza folderem – historia przepływu 30 dni). Wpisz przetwarzanie do rejestru
+  czynności. Obowiązki z ustawy o KSC (NIS2) dotyczące monitorowania i dowodów incydentów przemawiają za dłuższą
+  retencją zdarzeń. Odczyt pojedynczych zdarzeń w API jest rejestrowany (kto, numer zdarzenia) w dzienniku usługi
+  (journald) – zdarzenia 2600 (szczegóły w zakładce) i 2601 (strona zdarzenia z linku w powiadomieniu). Każde otwarcie
+  szczegółów i każda otwarta strona zdarzenia to jeden wpis – dobierz rozmiar dziennika systemowego albo przekazuj go do
+  SIEM.
+- **Zero sekretów.** Wartości haseł, LAPS, BitLockera, TPM, gMSA, sekretów LSA (`currentValue`, `priorValue`),
+  atrybutów oznaczonych w schemacie jako poufne i haseł z preferencji GPO (`cpassword`) nie są zapisywane ani wysyłane.
+- **Serwer Watchdog to zasób Tier 0** (rozdział 3): poza domeną, administrowany tylko kluczami SSH ze stacji PAW, zapora
+  nftables (przychodzące tylko z kontrolerów i podsieci administratorów, połączenia wychodzące tylko do kontrolerów,
+  serwera SMTP i – dla usługi – Teams), usługi w piaskownicy systemd, bez pamięci wymiany i zrzutów pamięci.
+- **Konto usługi** `ADMNG-WD$` ma tylko odczyt AD i SYSVOL; nie ma uprawnień zapisu ani replikacji, nie należy do grup
+  uprzywilejowanych (usługa nie startuje, gdy należy), nie może być delegowane, używa tylko AES. Jego losowe hasło (120
+  znaków) nikt nie zna; zmienia się co 30 dni, a na dysku leżą tylko klucze w keytabie (`root:admng-keytab 0640`).
+  Każda zmiana konta poza zaplanowaną zmianą hasła jest alarmem krytycznym. Ryzyka przyjęte świadomie (ADR-0009):
+  certyfikat wystawiony na to konto po kradzieży keytabu przeżywa zmianę hasła, a keytab wspólny z OpenWEC pozwala
+  podrobić bilet do API z podsieci administratorów – szczegóły i ograniczenia w
+  [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 0.3 i 4.3.
+- **Dostęp do API**: HTTPS (TLS 1.2/1.3), wyłącznie Kerberos (NTLM odrzucany), role wg SID grup AD z lokalnego
+  `/etc/admng-watchdog/appsettings.json` (konto usługi nie może go zmienić) – usługa ustala członkostwo sama z
+  `tokenGroups` (pamięć podręczna 5 minut), lista natychmiastowych odmów (`DeniedSids`), dodatkowy nagłówek wymagany
+  przy zmianach (ochrona przed CSRF z przeglądarki), dostęp tylko z podsieci administratorów i monitoringu (także dla
+  połączeń z samego serwera), bez serwerów pośredniczących.
 - **Sekrety kanałów** są tylko do zapisu i powiązane z miejscem docelowym: API i zakładka nigdy ich nie zwracają,
   administrator Watchdoga nie może przekierować zapisanego hasła lub tokenu OAuth na inny serwer (także przez zmianę
   weryfikacji certyfikatu SMTP – przypięcie innego certyfikatu wymaga ponownego wpisania hasła); w zakładce i w
   dziennikach usługi widać z adresów kanałów wyłącznie `schemat://host/…` (bez ścieżki i parametrów).
-- **Dzienniki DC** są czytane wyłącznie przez Kerberos (bez NTLM) i tylko z kontrolerów i kolektora podanych jako nazwy
-  DNS (4.4).
+- **Połączenia z kontrolerami** wyłącznie przez Kerberos: LDAP z podpisem i szyfrowaniem (wymagana siła szyfrowania
+  ≥ 56 bitów – bez niej połączenie jest odrzucane), SYSVOL przez SMB 3 z podpisywaniem; WEF od kontrolerów tylko z ich
+  adresów i tylko z Kerberosem.
 - **Zmiany konfiguracji** są audytowane i zgłaszane (także dotychczasowym odbiorcom); krytycznych detekcji nie da się
-  wyłączyć przez API bez lokalnej zgody.
-- **Dzienniki diagnostyczne** usługi (dziennik Application, konsola) nie zawierają wartości z katalogu ani treści
-  wyjątków – testy automatyczne to sprawdzają. Zrzuty awaryjne WER są wyłączone dla usługi.
+  wyłączyć przez API bez lokalnej zgody, a retencji zdarzeń – skrócić poniżej progu z ustawień startowych.
+- **Dzienniki diagnostyczne** usługi (journald) nie zawierają wartości z katalogu, treści wyjątków ani treści plików GPO
+  – testy automatyczne to sprawdzają.
 - **Treści z AD są niezaufane**: w e-mailach kodowane HTML i „rozbrajane” (5.6), w kartach Teams wyświetlane jako
-  zwykły tekst (bez linków Markdown), w webhookach jako JSON. Nazwy komputerów podane przez klienta lub z DNS są
-  oznaczane i nigdy nie decydują o regułach.
-- **Źródła zdarzeń** są sprawdzane: przyjmowane są tylko rekordy dostawcy „Microsoft-Windows-Security-Auditing” z
-  kontrolerów znanych z AD.
+  zwykły tekst (bez linków Markdown), w webhookach jako JSON. Nazwy komputerów podane przez klient lub z DNS są
+  oznaczane i nigdy nie decydują o regułach. Pliki GPO są czytane z limitami rozmiaru i bez rozwijania encji XML.
+- **Źródła zdarzeń** są sprawdzane: przyjmowane są tylko rekordy dostawcy „Microsoft-Windows-Security-Auditing”
+  z zapisywalnych kontrolerów tej domeny, ze zgodną subskrypcją, nazwą komputera i adresem nadawcy. Kto przejmie konto
+  `openwec` na serwerze, może jednak rekordy podrobić lub pominąć – dlatego to konto jest izolowane (bez połączeń
+  wychodzących) i traktowane jak zasób Tier 0.
 - **Wyjątki od reguł** są audytowane i widoczne w każdym raporcie dziennym; wyjątki dla reguł krytycznych są
   oznaczane ostrzeżeniem.
-- **Monitoring usługi**: `/healthz` dla systemu monitorowania, zdarzenia dziennika Application (rozdział 10),
-  zdarzenia SCM 7036/7040 usługi `AdMngWatchdog` przekazywane do SIEM, opcjonalny heartbeat webhooka.
+- **Monitoring usługi**: `/healthz` dla systemu monitorowania, dziennik usługi (`journalctl -u admng-watchdog -p
+  warning`, rozdział 10), stan jednostek (`systemctl is-failed admng-watchdog openwecd`), opcjonalny heartbeat
+  webhooka, brak raportu dziennego jako sygnał awarii.
 
 ---
 
 ## 9. Ograniczenia
 
+- **Wersja zapoznawcza 0.3.0:** usługa na Linuksie nie przeszła jeszcze pilotażu na kontrolerach Windows Server 2025 i
+  2022 – atrybucję przez WEF i OpenWEC sprawdzono na zarejestrowanych zdarzeniach Windows (te same wyniki co w wersji
+  0.2.0) i na laboratorium Samba, nie na żywych kontrolerach. Listę spraw do rozstrzygnięcia w pilotażu podaje
+  [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 7.4.
 - Jedna instancja usługi monitoruje jedną domenę (w lesie z wieloma domenami – instancja na domenę); kontrolery
   innych domen pojawiają się tylko jako „nowy / usunięty kontroler” (priorytet wysoki).
 - Zmiany wykonane na DC w innych lokacjach są widoczne po replikacji międzylokacyjnej (domyślnie do 180 min).
 - Wygaśnięcie blokady po upływie czasu blokady niczego nie zapisuje w AD, a przy pierwszym udanym logowaniu DC zeruje
   `lockoutTime` – Watchdog nie traktuje tego jako odblokowania (opcjonalne zdarzenie „wygaśnięcie blokady” wylicza
-  sam). Czas blokady uwzględnia PSO, jeśli konto usługi może je odczytać (4.3).
-- Atrybucja wymaga zasad inspekcji, SACL i dostępu do dzienników; bez nich wykonawca jest „nieustalony” (z podaną
-  przyczyną). Zmiany wykonane przez ADWS (Centrum administracyjne AD, PowerShell) lub zdalną sesję na DC mogą wskazywać
-  jako źródło sam kontroler („lokalnie na DC”). Sesje logowania starsze niż 12 h nie są wyszukiwane (przyczyna
-  „SOURCE_LOGON_NOT_FOUND”).
+  sam). Czas blokady uwzględnia PSO, jeśli konto usługi może je odczytać (WATCHDOG-LINUX.md 2.6).
+- Atrybucja wymaga zasad inspekcji, SACL i działającego przekazywania zdarzeń (WEF); bez nich wykonawca jest
+  „nieustalony” (z podaną przyczyną). Zmiany wykonane przez ADWS (Centrum administracyjne AD, PowerShell) lub zdalną
+  sesję na DC mogą wskazywać jako źródło sam kontroler („lokalnie na DC”). Rekordy logowań są przechowywane 48 godzin –
+  sesji starszych źródło nie zostanie ustalone („SOURCE_LOGON_NOT_FOUND”).
+- Zdarzenia zapisane przez OpenWEC w ostatnich sekundach przed nagłą utratą zasilania serwera mogą przepaść (OpenWEC
+  nie wymusza zapisu na dysk); pliki OpenWEC utworzone i usunięte w całości, gdy usługa była zatrzymana (limit 7 dni lub
+  8 GB), nie są zgłaszane jako luka – nazywa je tylko dziennik jednostki porządkującej.
 - `lastLogonTimestamp` jest aktualizowany z opóźnieniem 9–14 dni – próg nieaktywności nie powinien być krótszy niż
   30 dni.
 - Bez prawa odczytu `CN=Deleted Objects` usunięcia są wykrywane dopiero przy dobowym uzgodnieniu (jako „obiekt
   zniknął”).
 - Członkostwa czasowe (PAM, TTL) wygasają bez śladu w AD – ich koniec jest wykrywany przy dobowym uzgodnieniu.
-- Zmiany GPO są wykrywane na poziomie obiektu GPO (wersja, powiązania), bez porównywania ustawień.
+- Treść GPO: zmiana plików w SYSVOL bez zmiany wersji GPO jest wykrywana dopiero przy dobowym uzgodnieniu, bez
+  wykonawcy (`SYSVOL_NOT_AUDITED` – inspekcja udziałów plików nie jest zbierana); zmianę wartości już istniejącego
+  sekretu (np. hasła w ustawieniach rejestru) widać tylko po dacie zmiany elementu GPP, nie po wartości; plik, którego
+  nie da się odczytać lub rozebrać, jest raportowany jako „nie udało się odczytać”.
 - Usługa niczego nie blokuje ani nie cofa – tylko raportuje.
-- Laboratorium Samba nie ma dzienników zabezpieczeń Windows: atrybucję testowano dotąd na zarejestrowanych zdarzeniach;
-  przebieg na laboratorium Windows Server jest jeszcze przed nami (wersja zapoznawcza 0.2.0 go nie przeszła).
-- Tryb HTTP.sys nie został jeszcze sprawdzony na laboratorium Windows: nie wiadomo, czy każde logowanie dociera do
-  usługi jako Kerberos (obejście – 4.10).
-- W trybie WEF po zalewie zdarzeń (więcej niż `maxRecordsPerPoll` w jednym odczycie) zdarzenia dostarczone z
-  opóźnieniem w trakcie zalewu mogą nie zostać uwzględnione w atrybucji (4.4).
-- Zmiana `AllowedRemoteSubnets`/`MonitoringSubnets` w `appsettings.json` nie aktualizuje reguły zapory Windows, a
-  zmiana grup ról działa na obserwację grup uprzywilejowanych dopiero po restarcie usługi (4.10).
+- AD Manager 0.3.0 nie ma edytora retencji zdarzeń ani limitu rozmiaru bazy (zmiana tylko przez API usługi);
+  konfiguracja przeniesiona z wersji 0.2.0 zachowuje limit 10 240 MB.
+- Exchange Online OAuth2 na Linuksie – tylko z sekretem klienta (bez certyfikatu, 5.2).
+- Zmiana grup ról działa na obserwację grup uprzywilejowanych dopiero po restarcie usługi; zmiana podsieci w
+  `appsettings.json` nie zmienia zapory nftables – popraw ją osobno (WATCHDOG-LINUX.md 3.3).
 
 ---
 
@@ -1006,20 +686,20 @@ Nieudana retencja lub konserwacja bazy daje stan „Konserwacja bazy danych” (
 
 | Objaw | Przyczyna i rozwiązanie |
 |---|---|
-| Zakładka: „Usługa odrzuciła uwierzytelnienie Kerberos” (401) | SPN `HTTP/<nazwa>` nie jest na gMSA lub klient używa aliasu CNAME/adresu IP (wtedy Windows próbuje NTLM, który jest odrzucany). Sprawdź `setspn -Q HTTP/admng-wd.contoso.com`, używaj nazwy z rekordu A; po zmianach `klist purge` na stacji. |
-| „Brak uprawnień” (403) | Konto nie należy do grup z `Authorization` w `config\appsettings.json`, jest na liście `DeniedSids` albo bilet Kerberos jest sprzed dodania do grupy (wyloguj się lub `klist purge`). |
-| „Usługa nieosiągalna” | Usługa zatrzymana, zapora (port 8443, `AllowedRemoteSubnets`), DNS. Na serwerze: `& "C:\Program Files\AdMng\Watchdog\AdMng.Watchdog.exe" --health` (kod 0 = działa) albo `Invoke-WebRequest https://admng-wd.contoso.com:8443/healthz -UseBasicParsing` (nazwa z certyfikatu, nie `localhost`). |
-| Błąd certyfikatu | Certyfikat nie pochodzi z zaufanego CA lub nazwa nie zgadza się z adresem. |
-| Usługa nie startuje (dziennik Application, źródło „AdMng Watchdog”, zdarzenie 1010) | Kod wyjścia 2 – błędny `config\appsettings.json` (składnia JSON, nazwa lub wartość ustawienia; szczegóły: `AdMng.Watchdog.exe --check-config`); 3 – baza w nowszej wersji niż program; 4 – brak odczytu klucza prywatnego certyfikatu albo `http://` na adresie innym niż lokalny; 5 – zbyt szerokie uprawnienia folderu `data\`, plików bazy albo folderów `data\keys\` lub `data\backup\` (obce konto – uruchom ponownie skrypt instalacyjny, który przywraca uprawnienia, 4.8); 6 – konto usługi może zapisywać `config\`; 7 – tryb deweloperski uruchomiony jako usługa; brak prawa „Logowanie w trybie usługi”. |
-| Ostrzeżenie 2002 w dzienniku Application po edycji `config\appsettings.json` | Plik ma błąd składni JSON albo niepoprawną wartość (np. `"Minimalny"` zamiast `"Minimal"`, `"tak"` zamiast `true`). Usługa działa dalej na poprzednich ustawieniach – zmiana **nie** obowiązuje, a przy następnym starcie usługa się zatrzyma (kod 2). Popraw plik i sprawdź go `AdMng.Watchdog.exe --check-config`. |
-| Instalacja/aktualizacja: skrypt zatrzymuje się i wymienia konta, które mogły zmienić `config\appsettings.json` | Właścicielem pliku lub folderu nad nim albo kontem z prawem zapisu jest ktoś inny niż SYSTEM i Administratorzy. Przejrzyj plik, usuń go albo uruchom skrypt z `-TrustExistingConfig` (4.9). |
-| Tryb HTTP.sys: każde logowanie odrzucone zdarzeniem 2500 „unknown (Negotiate)” | Użyj Kestrel ze SPN-em na gMSA albo tymczasowo `RequireKerberos: false` (NTLM jest wtedy przyjmowany) – 4.10. |
-| Stan: „Kolektor zdarzeń (WEF)” – błąd; zapis konfiguracji odrzucany | Kolektor lub kontroler w ustawieniach atrybucji podano jako adres IP (albo `localhost`, nazwę bez SPN). Wpisz nazwę DNS (FQDN) – usługa łączy się wyłącznie przez Kerberos. Dopóki zapisany jest adres IP, każdy zapis konfiguracji jest odrzucany. |
+| Zakładka: „Usługa odrzuciła uwierzytelnienie Kerberos” (401) | SPN `HTTP/<nazwa>` nie jest na koncie `ADMNG-WD$` (albo jest na dwóch kontach, np. jeszcze na gMSA z 0.2.0), keytab nie ma wersji klucza, której używa KDC, albo klient używa aliasu CNAME/adresu IP (wtedy Windows próbuje NTLM, który jest odrzucany). Sprawdź `setspn -Q HTTP/admng-wd.contoso.com`, `admng-watchdog-keytab verify` na serwerze (dziennik usługi: wpis 2501 z podpowiedzią), używaj nazwy z rekordu A; po zmianach `klist purge` na stacji. |
+| „Brak uprawnień” (403) | Konto nie należy do grup z `Authorization` w `/etc/admng-watchdog/appsettings.json` (członkostwo jest sprawdzane co 5 minut), jest na liście `DeniedSids` albo stacja jest spoza `AllowedRemoteSubnets`. |
+| Odpowiedź 503 `role-lookup-unavailable` (żądania odrzucane mimo poprawnego logowania) | Usługa nie może odczytać członkostwa operatora z AD (brak połączenia z DC) – spróbuj ponownie po chwili; na serwerze `journalctl -u admng-watchdog` (wpis 2506) i stan połączenia z DC. |
+| „Usługa nieosiągalna” | Usługa zatrzymana, zapora (port 8443 w nftables i `AllowedRemoteSubnets`), DNS. Na serwerze: `systemctl status admng-watchdog` i `sudo admng-watchdog --health` (kod 0 = działa). |
+| Błąd certyfikatu / okno „Potwierdź certyfikat” | Certyfikat nie pochodzi z zaufanego CA – porównaj odcisk z `admng-watchdog cert-fingerprint` na serwerze (rozdział 6); nazwa niezgodna z adresem nie jest nigdy przyjmowana. |
+| Usługa nie startuje (`systemctl status admng-watchdog` – `failed`, kod wyjścia) | Kody 2–10 i `243/CREDENTIALS` z przyczynami: [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 5.3; błędy ustawień pokazuje `sudo admng-watchdog --check-config`. |
+| Ostrzeżenie 2002 w dzienniku usługi po edycji `appsettings.json` | Plik ma błąd składni JSON albo niepoprawną wartość (np. `"Minimalny"` zamiast `"Minimal"`, `"tak"` zamiast `true`). Usługa działa dalej na poprzednich ustawieniach – zmiana **nie** obowiązuje, a przy następnym starcie usługa się zatrzyma (kod 2). Popraw plik i sprawdź go `sudo admng-watchdog --check-config`. |
 | Stan: „Nieistniejące DN w konfiguracji” | OU lub grupę wskazaną w konfiguracji przemianowano, przeniesiono albo usunięto – popraw wymienione DN (reguły, grupy uprzywilejowane, poddrzewa, wyjątki). |
-| Stan: „permission.uSNChanged” | Konto nie widzi części obiektów – nadaj uprawnienia z rozdziału 4.3 (także na AdminSDHolder). |
-| Stan: „eventlog.<DC>” z kodem 1722 / 5 | 1722 – zapora „Remote Event Log Management” na DC (także ograniczenie adresu); 5 – gMSA nie jest w Event Log Readers (lub usługa nie została zrestartowana po dodaniu). |
-| Wykonawca „nieustalony – AUDIT_POLICY_MISSING / SACL_MISSING / LOG_OVERWRITTEN / DC_UNREACHABLE” | Odpowiednio: zasady inspekcji (4.5), SACL (4.6), rozmiar dziennika (4.4) albo wyczyszczony dziennik Security (1102/1104 lub numeracja rekordów od nowa – zdarzenia sprzed wyczyszczenia nie są już dostępne), dostęp do dziennika DC. |
-| Źródło „SOURCE_LOGON_NOT_FOUND / SOURCE_NOT_COLLECTED” | Sesja logowania starsza niż 12 h lub dziennik nadpisany; w trybie WEF brak 4624/4771/4776 w subskrypcji (4.4). |
+| Stan: „permission.*” | Konto nie widzi części obiektów lub atrybutów – nadaj uprawnienia z [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md) 2.6 (także na AdminSDHolder; SDProp do 60 min). |
+| Stan: „Konto usługi” – `serviceAccount.*` | Keytab niezgodny z AD, hasło starsze niż 32/35 dni, brak wpisu odmowy dla SELF, konto w grupie uprzywilejowanej – opis i zalecenie przy każdym kodzie; WATCHDOG-LINUX.md 3.6, 3.7, 9.1. |
+| Stan: „Kolektor WEF” – `wec.<DC>.*` | DC milczy, rekordy odrzucone (niezgodna tożsamość nadawcy) albo utracony plik OpenWEC – WATCHDOG-LINUX.md 9.2. |
+| Stan: „Zawartość GPO” – `gpo.<GUID>.*`, `sysvol.*` | Brak odczytu SYSVOL, opóźnienie replikacji SYSVOL, plik zbyt duży lub nieczytelny – WATCHDOG-LINUX.md 2.7 i 9.4. |
+| Wykonawca „nieustalony – AUDIT_POLICY_MISSING / SACL_MISSING / LOG_OVERWRITTEN / DC_UNREACHABLE” | Odpowiednio: zasady inspekcji (WATCHDOG-LINUX.md 2.10), SACL (2.11), rozmiar dziennika (2.10) albo wyczyszczony dziennik Security (1102/1104 lub numeracja rekordów od nowa – zdarzenia sprzed wyczyszczenia nie są już dostępne), DC, który przestał przekazywać zdarzenia (2.12, 9.2). |
+| Źródło „SOURCE_LOGON_NOT_FOUND / SOURCE_NOT_COLLECTED” | Logowanie starsze niż czas przechowywania rekordów logowań (48 h) albo kontroler nie przysłał żadnego zdarzenia 4624 w oknie wyszukiwania – subskrypcja i GPO WEF (WATCHDOG-LINUX.md 2.12, 4.4). |
 | Zapis konfiguracji: „wpisz hasło/sekret ponownie” (`secretRebindRequired`) | Zmieniono serwer, port, użytkownika, dzierżawę, adres kanału albo weryfikację certyfikatu serwera SMTP (przypięty odcisk, tryb, sprawdzanie odwołań) – zapisany sekret jest powiązany ze starym miejscem docelowym. Po aktualizacji usługi także hasło SMTP / sekret XOAUTH2 zapisany przy niestandardowej weryfikacji certyfikatu (4.9): do jego ponownego wpisania e-mail nie jest wysyłany. |
 | Dziennik wysyłek: „Niedostarczone” z kodem `partial.smtp.4xx…` | Jeden z odbiorców przez ok. 22 h odrzucał wiadomość tymczasowo (4xx); pozostali ją dostali. Ponowienie (rola Admin, do 14 dni) wyśle ją tylko do brakujących odbiorców (5.2). |
 | Dziennik wysyłek: „Niedostarczone” z kodem `channel.disabled` / `channel.unknown` / `smtp.disabled` | Kanał wyłączono lub usunięto albo wyłączono SMTP, gdy wiadomość czekała w kolejce. Ponowne włączenie kanału jej nie dostarczy – ponów ręcznie (5.7). |
@@ -1029,12 +709,15 @@ Nieudana retencja lub konserwacja bazy daje stan „Konserwacja bazy danych” (
 | Teams: 401/403 z tekstem o „Shared Access scheme” lub „OAuth” | Niezgodny tryb uwierzytelniania wyzwalacza (SAS vs Entra) – zmień tryb kanału albo ustawienie przepływu. |
 | Brak raportu dziennego | Usługa nie działa, SMTP niesprawne (Stan → Kanały) lub raport wyłączony. |
 
-Zdarzenia dziennika Application (źródło „AdMng Watchdog”) do monitoringu (SCOM, Zabbix, SIEM): 1000 start usługi,
+Numery zdarzeń w dzienniku usługi (journald – `journalctl -u admng-watchdog`, w wierszu jako `Category[1003]`;
+w wersji 0.2.0 – dziennik Application, źródło „AdMng Watchdog”) do monitoringu (Zabbix, SIEM): 1000 start usługi,
 1001 brak połączenia z DC / przełączenie na inny DC, 1002 nieudane wysyłki, 1003 problem z magazynem (miejsce, limit,
 uprawnienia folderu), 1004 braki uprawnień, 1005 problemy z atrybucją / luka w dzienniku DC, 1006 zmiana konfiguracji,
 1007 przestarzałe środowisko .NET / wygasający certyfikat / niedostępny klucz odnowionego certyfikatu (ostrzeżenie,
-dopóki działa poprzedni certyfikat; błąd, gdy ten wygaśnie), 1010 nieudana kontrola startowa, **2002 nieprzyjęta
-edycja `config\appsettings.json`** (usługa działa na poprzednich ustawieniach), 2202/2203 odbiorcy e-maila odrzuceni
+dopóki działa poprzedni certyfikat; błąd, gdy ten wygaśnie), 1008 odcisk certyfikatu TLS (przy każdym starcie),
+1010 nieudana kontrola startowa albo zatrzymane zadanie, 1011 problem z kontem usługi, 1012 problem z kolektorem WEF,
+1013 problem z treścią GPO, **2002 nieprzyjęta edycja `appsettings.json`** (usługa działa na poprzednich ustawieniach),
+2501 odrzucone uwierzytelnienie Kerberos (z podpowiedzią), 2202/2203 odbiorcy e-maila odrzuceni
 tymczasowo / trwale (częściowe doręczenie), 2300 ostrzeżenie: zadanie usługi zawodzi (wpis przy pierwszym błędzie lub
 zmianie jego kodu, potem najwyżej co godzinę), 2301 zadanie znów działa; do rozliczalności (RODO) 2600/2601 odczyt
 pojedynczego zdarzenia (kto, numer zdarzenia).
@@ -1058,17 +741,17 @@ tools/testlab/watchdog/run-watchdog-lab.sh --stop
 ```
 
 - Profil `Lab` (`appsettings.Lab.json`): uwierzytelnianie `Development` (tylko pętla zwrotna, nigdy jako usługa
-  Windows), API `http://127.0.0.1:5089`, odczyt katalogu jako `odczyt.test` prostym wiązaniem bez TLS
+  systemd), API `http://127.0.0.1:5089`, odczyt katalogu jako `odczyt.test` prostym wiązaniem bez TLS
   (`AllowInsecureLab` – odrzucane poza środowiskiem Development); hasło wyłącznie w zmiennej
-  `ADMNG_WATCHDOG_LDAP_PASSWORD`, dane w `~/.local/share/admng-watchdog-lab`. Na Linuksie klucze Data Protection nie są
-  szyfrowane (ostrzeżenie przy starcie), a atrybucja jest wyłączona (`SOURCE_DISABLED`) – laboratorium Samba nie ma
+  `ADMNG_WATCHDOG_LDAP_PASSWORD`, dane w `~/.local/share/admng-watchdog-lab`. W tym profilu klucze Data Protection nie
+  są szyfrowane (ostrzeżenie przy starcie), a atrybucja jest wyłączona (`SOURCE_DISABLED`) – laboratorium Samba nie ma
   dzienników zabezpieczeń Windows.
 - Mailpit (http://127.0.0.1:8025) zbiera e-maile (STARTTLS, certyfikat przypinany przez `configure-lab.sh`), odbiornik
   webhooków sprawdza podpisy Standard Webhooks i koperty Teams Workflows.
 - Konfiguracja laboratoryjna celowo skraca okna agregacji i kończy tryb wdrożenia; ustawienia produkcyjne opisują
-  rozdziały 4 i 5.
+  rozdział 5 i [WATCHDOG-LINUX.md](WATCHDOG-LINUX.md).
 - Konto `odczyt.test` nie widzi `CN=Deleted Objects`, więc usunięcia w laboratorium pojawiają się dopiero przy
-  uzgodnieniu dobowym (stan `permission.deletedObjects`) – zgodnie z rozdziałem 4.3.
+  uzgodnieniu dobowym (stan `permission.deletedObjects`).
 
 Testy integracyjne (`tests/AdMng.Watchdog.IntegrationTests`) uruchamiają prawdziwe silniki i całą usługę przeciw
 laboratorium:
@@ -1079,11 +762,16 @@ export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@cont
 export ADMNG_TEST_LDAP_READONLY_USER='odczyt.test@contoso.test' ADMNG_TEST_LDAP_READONLY_PASSWORD='Passw0rd!Lab2026'
 export ADMNG_TEST_SMTP_HOST=127.0.0.1 ADMNG_TEST_SMTP_PORT=1025 ADMNG_TEST_MAILPIT_API=http://127.0.0.1:8025
 dotnet test tests/AdMng.Watchdog.IntegrationTests
-# opcjonalnie prawdziwy Kerberos (SPN HTTP/localhost, keytab): eval "$(sudo -E tools/testlab/watchdog/krb5-lab.sh)"
-# i ADMNG_TEST_KERBEROS=1 – na Linuksie sprawdzane jest tylko uwierzytelnienie (role po SID-ach: testy na Windows)
+# konto komputera z keytabem (narzędzie admng-watchdog-keytab), LDAP przez SASL GSSAPI, API z Negotiate i rolami
+# po SID-ach (KeytabLabTests, KerberosNegotiateTests), OpenWEC i SYSVOL: eval "$(tools/testlab/watchdog/keytab-lab.sh env)"
 ```
 
-CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows: czytnik dziennika
-Security, DPAPI-NG), publikacja usługi, `AdMng.Watchdog.exe --smoke-test` i artefakt **AdMng-Watchdog-win-x64**
-(14 dni); na Ubuntu z Samba DC – testy silnika i usługi, testy integracyjne z Mailpit oraz skrypty laboratorium
-(`lab-scenario.sh --verify`). Zrzuty ekranu zakładki Watchdog trafiają na gałąź `screenshots`.
+Pakiety Debiana buduje `tools/packaging/build-deb.sh` (`admng-watchdog`) i `tools/packaging/build-openwec-deb.sh`
+(`admng-openwec`, w obrazie Rust danej wersji Debiana); `tools/packaging/test-deb-install.sh` sprawdza instalację w
+czystym kontenerze Debian 12 lub 13.
+
+CI (`.github/workflows/ci.yml`): na Windows wszystkie projekty testów (także testy tylko-Windows), aplikacja AD Manager
+i zrzuty ekranu (także zakładki Watchdog – gałąź `screenshots`); na Ubuntu z Samba DC – testy silnika i usługi, testy
+integracyjne z Mailpit i skrypty laboratorium (`lab-scenario.sh --verify`); zadania `openwec-package` (Debian 12 i 13,
+źródła GPL-3.0) i `linux-package` (pakiet `admng-watchdog`, test instalacji na Debianie 12 i 13, lintian). Wydanie
+(`.github/workflows/release.yml`) publikuje te pakiety razem z AD Managerem.

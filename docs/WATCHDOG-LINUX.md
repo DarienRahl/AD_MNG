@@ -7,26 +7,16 @@ uruchamia całość w domenie **testowej**, a dopiero potem w produkcji.
 - Decyzja i jej uzasadnienie: [ADR-0009](adr/0009-watchdog-na-linuksie.md). Specyfikacja wykonawcza (po angielsku,
   wiążąca dla etapu B): [`dev/watchdog-linux-design.md`](dev/watchdog-linux-design.md).
 - Opis funkcji Watchdoga (wykrywane zdarzenia, reguły, kanały, zakładka w AD Managerze): [`WATCHDOG.md`](WATCHDOG.md).
-  Jego rozdziały o instalacji na Windows (gMSA, skrypt PowerShell, HTTP.sys, DPAPI-NG) dotyczą wydania 0.2.0 i na
-  Linuksie nie mają zastosowania.
-- **Stan prac.** Pakiety `admng-watchdog` i `admng-openwec`, narzędzie `admng-watchdog-keytab` i nowe okna
-  AD Managera 0.3.0 powstają w etapie B. Wszystko, co od nich zależy, ma oznaczenie **[od 0.3.0]** – na początku
-  akapitu albo punktu, którego dotyczy, a w nagłówku na jego końcu (wtedy dotyczy całej sekcji). Takie miejsca
-  opisują to, co ustala projekt; wykonasz je dopiero po wydaniu wersji 0.3.0. Zmianę hasła, keytab oraz testy 1 i 3
-  z rozdz. 3.6 sprawdziliśmy w laboratorium (Samba AD), test 2 (LDAP z szyfrowaniem GSSAPI) – na testowym serwerze
-  OpenLDAP; na kontrolerach Windows potwierdzi je pilotaż. Co możesz zrobić już teraz:
-
-  | Rozdział | Już teraz | Czeka na 0.3.0 |
-  |---|---|---|
-  | 1 – domena testowa | całość | okno odcisku certyfikatu w AD Managerze (1.6) |
-  | 2 – przygotowanie AD | całość | reguły Watchdoga i ostrzeżenia zakładki Stan, o których mówią kroki |
-  | 3.1–3.6 – Debian, keytab | całość (keytab procedurą MIT Kerberos) | `admng-watchdog-keytab init` |
-  | 3.7 – zmiana hasła | zmiana ręczna przez nowe hasło jednorazowe | timer i automatyczna zmiana co 30 dni |
-  | 3.8 – certyfikat | wariant A (gdy jest urząd certyfikacji, w laboratorium – 1.7) | wariant B |
-  | 3.9 – kopie | rozmiar dziennika systemowego, kopia maszyny wirtualnej | kopie bazy, scenariusze odtworzenia |
-  | 4 – OpenWEC | sprawdzenie zapytania XPath i filtra 4776 na kontrolerach (4.4) | reszta |
-  | 5–7 – usługa, AD Manager, pilotaż | – | całość |
-  | 8–9 – wycofanie, problemy | części dotyczące rozdz. 1–3 | części dotyczące pakietów |
+  Instrukcja usługi Windows (gMSA, skrypt PowerShell, HTTP.sys, DPAPI-NG) dotyczy tylko wydania 0.2.0 i jest dostępna
+  w [`WATCHDOG.md` z wersji 0.2.0](https://github.com/DarienRahl/AD_MNG/blob/v0.2.0/docs/WATCHDOG.md); od wydania
+  0.3.0 usługa działa wyłącznie na Linuksie.
+- **Wersja.** Instrukcja opisuje wydanie **0.3.0**: pakiety `admng-watchdog` (jeden dla Debiana 12 i 13, z narzędziem
+  `admng-watchdog-keytab`) i `admng-openwec` (osobne kompilacje dla Debiana 12 i 13) oraz AD Manager 0.3.0 (okno
+  potwierdzenia certyfikatu, nowe sekcje zakładki Stan, podzakładka „Źródła i retencja”). Pliki pobierzesz z
+  [wydania v0.3.0](https://github.com/DarienRahl/AD_MNG/releases/tag/v0.3.0) (3.1). To **wersja zapoznawcza**: pakiety
+  przeszły testy instalacji na Debianie 12 i 13 oraz testy w laboratorium Samba AD (zmiana hasła i keytab, LDAP
+  z szyfrowaniem GSSAPI, API z Kerberosem, OpenWEC, odczyt SYSVOL), ale **nie przeszły jeszcze pilotażu na kontrolerach
+  Windows Server 2025 i 2022** – to rozdz. 7. Zacznij od domeny testowej.
 
 ## Jak czytać tę instrukcję
 
@@ -113,8 +103,7 @@ Kerberos (`LAB.CONTOSO.COM`), DN (`DC=lab,DC=contoso,DC=com`), pełne nazwy (`DC
 
 ## 0. Przegląd
 
-Przegląd opisuje docelowe działanie wersji 0.3.0. Co możesz wykonać już teraz – tabela w „Stanie prac” na początku
-instrukcji.
+Przegląd opisuje działanie wersji 0.3.0.
 
 ### 0.1 Co działa gdzie
 
@@ -146,7 +135,7 @@ instrukcji.
 
 - **Na kontrolerach domeny** niczego nie instalujesz. Zdarzenia z dziennika Security kontrolery wysyłają same,
   wbudowanym mechanizmem Windows Event Forwarding (WEF), do odbiornika OpenWEC na serwerze Watchdog.
-- **Serwer Watchdog** to Debian 13 (pakiet obsłuży też Debian 12) **niedołączony do domeny**. Kerberos, DNS i czas
+- **Serwer Watchdog** to Debian 13 (pakiety są też dla Debiana 12) **niedołączony do domeny**. Kerberos, DNS i czas
   konfigurujemy na nim ręcznie. Działają tam dwie usługi systemd: `openwecd` (odbiera zdarzenia z DC) i
   `admng-watchdog` (wykrywa zmiany, ustala wykonawców, powiadamia, przechowuje historię) oraz dwa timery: zmiana hasła
   konta usługi i porządkowanie plików OpenWEC.
@@ -229,17 +218,19 @@ Watchdog **nigdy**:
 
 1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz; 1.7 – opcjonalny urząd certyfikacji).
 2. AD, część pierwsza – 2.1 (czy jest CA), 2.2 (audyt OU Tier 0), 2.3 (grupy), 2.4 (DNS).
-3. Debian – 3.1 do 3.5 (system, konta, zapora, DNS i czas, konfiguracja Kerberos).
+3. Debian – 3.1 do 3.5 (system, środowisko .NET i pakiety AdMng Watchdog, konta, zapora, DNS i czas, konfiguracja
+   Kerberos).
 4. Konto usługi – 2.5 na PAW (utworzenie **wyłączonego** konta, wpis odmowy dla SELF, dopiero potem włączenie konta
-   i przekazanie hasła jednorazowego) i **od razu** 3.6 na Debianie (hasło jednorazowe ma żyć kilka minut).
+   i przekazanie hasła jednorazowego) i **od razu** 3.6 na Debianie (`admng-watchdog-keytab init` – hasło jednorazowe
+   ma żyć kilka minut).
 5. AD, część druga – sprawdzenie certyfikatów wystawionych na konto (gdy jest urząd Enterprise) i GPO z 2.5, potem
    2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy odczytu), na końcu lista kontrolna 2.13. Krok 2.8
    (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia w produkcji (usługa uruchomi się także bez niego, ale
    zakładka Stan ostrzega – 2.8).
-6. Debian – 3.7 (na razie tylko zmiana ręczna), 3.8 (wariant A, jeśli jest urząd certyfikacji), 3.9 (dziennik
-   systemowy, kopia maszyny).
-7. **[od 0.3.0]** OpenWEC (4), Watchdog (5), AD Manager (6), pozostałe części 3.7–3.9.
-8. **[od 0.3.0]** Pilotaż – rozdz. 7.
+6. Debian – 3.7 (timer zmiany hasła), 3.8 (certyfikat: wariant A z firmowego CA albo B z pakietu), 3.9 (kopie,
+   dziennik systemowy).
+7. OpenWEC (4), usługa Watchdog (5), AD Manager (6).
+8. Pilotaż – rozdz. 7.
 
 > **Migracja z wersji 0.2.0 (usługa Windows).** Jeśli działa już Watchdog 0.2.0, usługa Windows pracuje dalej aż do
 > przełączenia (po rozdz. 5). Część kroków wykonujesz wtedy inaczej niż w opisie – w przeciwnym razie zepsujesz
@@ -260,8 +251,21 @@ Watchdog **nigdy**:
 >   (kontroler odrzuciłby SPN, który ma jeszcze gMSA `svc-admngwd$`). Keytab z 3.6 i tak zawiera nazwę `HTTP/…` – to
 >   ten sam klucz konta. Do przełączenia `setspn -Q HTTP/admng-wd.contoso.com` pokazuje jeszcze gMSA, a w teście 1
 >   z 3.6 wiersz `HTTP/…` kończy się błędem – to oczekiwane; wiersz `host/…` musi pokazać `keytab entry valid`.
+>   `admng-watchdog-keytab init` i timer zmiany hasła sprawdzają klucze biletem do `host/…`, więc działają normalnie,
+>   ale `admng-watchdog-keytab verify` porównuje kvno biletu do `HTTP/…` i do przełączenia kończy się wynikiem
+>   `verifyFailed` (zapisanym też w zakładce Stan) – wykonaj je dopiero po przełączeniu.
 > - **2.12** – GPO WEF utwórz z wyłączonym połączeniem (`New-GPLink … -LinkEnabled No`); włączasz je przy
 >   przełączeniu.
+> - **Historia z wersji 0.2.0** (opcjonalnie): przy przełączeniu, po zatrzymaniu usługi Windows, a **przed** pierwszym
+>   startem usługi na Debianie (5.3), skopiuj bazę `%ProgramData%\AdMng\Watchdog\data\watchdog.db` (zatrzymana usługa –
+>   plik jest spójny) na Debiana: `scp` na swoje konto, potem
+>   `install -o admng-watchdog -g admng-watchdog -m 0600 /home/adm-jan/watchdog.db /var/lib/admng-watchdog/watchdog.db`
+>   i usuń kopię z katalogu domowego oraz z PAW. Folderu `keys\` **nie** kopiuj – hasło SMTP i adres Teams wpiszesz
+>   ponownie w AD Managerze (6.2). Przy starcie usługa wykonuje kopię bazy i migracje, zapisana konfiguracja przechodzi
+>   na źródło zdarzeń OpenWEC, retencja zdarzeń 365 dni z wersji 0.2.0 jest podnoszona do progu 1095 dni, a wykrywanie
+>   zmian działa dalej przyrostowo wobec tych samych kontrolerów. Limit rozmiaru bazy z wersji 0.2.0 (10 240 MB)
+>   zostaje – baza i 7 kopii potrzebują wtedy do ok. 90 GB na `/var` (5.2); AD Manager 0.3.0 nie ma edytora tej
+>   wartości.
 > - **Przełączenie** (po rozdz. 5): zatrzymaj usługę Windows; `setspn -D HTTP/admng-wd.contoso.com svc-admngwd$`;
 >   `setspn -S HTTP/admng-wd.contoso.com ADMNG-WD$`; zmień rekord A i PTR `admng-wd` na adres Debiana (2.4) – albo,
 >   po wyłączeniu starego serwera, przenieś jego adres na Debiana (`/etc/network/interfaces` i `/etc/hosts`, z konsoli
@@ -513,8 +517,8 @@ Na Windows 11 doinstaluj RSAT (na Windows Server: `Install-WindowsFeature RSAT-A
     ForEach-Object { Add-WindowsCapability -Online -Name $_ }
 ```
 
-Zainstaluj AD Manager (wydanie 0.2.0 lub nowsze; okno potwierdzenia certyfikatu Watchdoga ma dopiero
-AD Manager 0.3.0). Loguj się na stacji kontem `CONTOSO\adm-jan`.
+Zainstaluj AD Manager 0.3.0 (archiwum `AdMng-0.3.0-win-x64.zip` z wydania v0.3.0 – starsze wersje nie mają okna
+potwierdzenia certyfikatu Watchdoga). Loguj się na stacji kontem `CONTOSO\adm-jan`.
 
 **Sprawdzenie:** `Get-ADDomain` działa na stacji; `nltest /sc_query:contoso.com` – `Trusted DC Connection Status
 Status = 0 0x0 NERR_Success`; po `ipconfig /registerdns` polecenie `Resolve-DnsName 10.0.20.15` (w sieci płaskiej:
@@ -523,8 +527,8 @@ Status = 0 0x0 NERR_Success`; po `ipconfig /registerdns` polecenie `Resolve-DnsN
 ### 1.7 Urząd certyfikacji w laboratorium (opcjonalnie)
 
 **Gdzie:** DC01, PowerShell jako `CONTOSO\Administrator`. **Co i po co:** bez urzędu certyfikacji krok 2.1 zawsze
-kończy się wariantem B (certyfikat generowany przez pakiet 0.3.0). Urząd typu Enterprise w laboratorium pozwala już
-teraz przećwiczyć wariant A z 3.8 oraz sprawdzanie i odwoływanie certyfikatów wystawionych na konto usługi z 2.5.
+kończy się wariantem B (certyfikat generowany przez pakiet). Urząd typu Enterprise w laboratorium pozwala
+przećwiczyć wariant A z 3.8 oraz sprawdzanie i odwoływanie certyfikatów wystawionych na konto usługi z 2.5.
 **Tylko w laboratorium** – w produkcji urząd certyfikacji nigdy nie działa na kontrolerze domeny.
 
 ```powershell
@@ -569,7 +573,7 @@ Jak czytać wynik:
 
 | Wynik | Znaczenie | Dalej |
 |---|---|---|
-| Pusty | W lesie nie ma urzędu typu Enterprise (w laboratorium bez 1.7 – zawsze). Urzędu Standalone to zapytanie nie pokaże – zapytaj zespół PKI. | **Wariant B** w 3.8 (**[od 0.3.0]**): certyfikat generowany na serwerze, odcisk potwierdzany w AD Managerze. |
+| Pusty | W lesie nie ma urzędu typu Enterprise (w laboratorium bez 1.7 – zawsze). Urzędu Standalone to zapytanie nie pokaże – zapytaj zespół PKI. | **Wariant B** w 3.8: certyfikat generowany na serwerze, odcisk potwierdzany w AD Managerze. |
 | Urząd z `WebServer` na liście `certificateTemplates` | Można wystawić certyfikat serwera WWW. | **Wariant A** w 3.8. Zanotuj ciąg konfiguracji `<dNSHostName>\<Name>`, np. `CA01.contoso.com\Contoso-Issuing-CA`. |
 | Urząd bez szablonu `WebServer` | Urząd jest, ale nie wystawia certyfikatów serwerów. | Poproś zespół PKI o opublikowanie szablonu (albo jego kopii) z prawem Enroll dla administratorów Tier 0 – albo wariant B. |
 
@@ -815,7 +819,7 @@ Zasady:
 - Nie ustawiaj atrybutu `ManagedBy` (menedżer grupy mógłby sam zmieniać jej członków). Członkami zarządza tylko Tier 0.
 - Grupy leżą w OU Tier 0, bo kto kontroluje te grupy, ten może wyciszać alarmy o Tier 0. Watchdog sam zgłasza każdą
   zmianę ich członkostwa jako zmianę dostępu uprzywilejowanego.
-- **[od 0.3.0]** Usługa ustala role sama, z AD (członkostwo sprawdza po SID, z pamięcią podręczną 5 minut) – dodanie
+- Usługa ustala role sama, z AD (członkostwo sprawdza po SID, z pamięcią podręczną 5 minut) – dodanie
   lub usunięcie członka działa w ciągu 5 minut, bez wylogowania. Do natychmiastowego odebrania dostępu służy lista
   `DeniedSids` w ustawieniach startowych (5.2).
 
@@ -966,7 +970,7 @@ Set-Acl -Path "AD:\$dn" -AclObject $acl
 ```
 
 Oczekiwane: wiersz `NT AUTHORITY\SELF  CreateChild, DeleteChild, Self, WriteProperty`. Administratorów ten wpis nie
-dotyczy (SELF oznacza wyłącznie samo konto `ADMNG-WD$`). **[od 0.3.0]** Usługa co godzinę sprawdza, czy wpis nadal
+dotyczy (SELF oznacza wyłącznie samo konto `ADMNG-WD$`). Usługa co godzinę sprawdza, czy wpis nadal
 istnieje (5.4).
 
 #### Włączenie konta i przekazanie hasła jednorazowego
@@ -1085,20 +1089,19 @@ partycji DNS. Jeśli chcesz odebrać to prawo także temu kontu, dodaj wpis odmo
 
 Kto ma keytab, ma tę tożsamość – i może też podrobić bilet do API Watchdoga (0.3, punkt 2).
 
-**[od 0.3.0]** Niezależnie od wpisu odmowy dla SELF Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną
+Niezależnie od wpisu odmowy dla SELF Watchdog zgłasza **każdą** zmianę konta `ADMNG-WD$` jako krytyczną
 (reguła `watchdog-self`) – poza jego własną, zaplanowaną zmianą hasła.
 
 #### Jak działa zmiana hasła
 
 - Hasło ma 120 losowych znaków, istnieje tylko w pamięci w chwili zmiany i nigdzie nie jest zapisywane – na dysku leży
   wyłącznie keytab z kluczami Kerberos wyprowadzonymi z hasła.
-- **[od 0.3.0]** Codzienny timer na Debianie sprawdza wiek hasła; gdy ma ponad 30 dni, zmienia je protokołem Kerberos
-  (port 464 na emulatorze PDC). Nie potrzeba do tego żadnych praw w AD ani zapisów LDAP. Do tego czasu hasło zmieniasz
-  ręcznie (3.7).
-- **[od 0.3.0]** Keytab zawiera klucze **bieżącej i poprzedniej** wersji (kvno) – bilety wystawione przed zmianą
-  nadal działają, a DC02 może przez chwilę, do replikacji, używać starego klucza. (Keytab z ręcznej procedury z 3.6
-  ma na początku jedną wersję, a po zmianie ręcznej z 3.7 – wszystkie dotychczasowe.)
-- **[od 0.3.0]** Nieudana zmiana niczego nie psuje: hasło i keytab zostają, timer spróbuje następnego dnia. Usługa
+- Codzienny timer na Debianie (`admng-watchdog-keytab.timer`, 3.7) sprawdza wiek hasła; gdy ma ponad 30 dni, zmienia
+  je protokołem Kerberos (port 464 na emulatorze PDC). Nie potrzeba do tego żadnych praw w AD ani zapisów LDAP.
+- Keytab zawiera klucze **bieżącej i poprzedniej** wersji (kvno) – bilety wystawione przed zmianą nadal działają, a
+  DC02 może przez chwilę, do replikacji, używać starego klucza. (Keytab z procedury awaryjnej z 3.6 zachowuje wszystkie
+  dotychczasowe wersje.)
+- Nieudana zmiana niczego nie psuje: hasło i keytab zostają, timer spróbuje następnego dnia. Usługa
   ostrzega, gdy hasło ma ponad 32 dni, i zgłasza błąd po 35 dniach.
 - Kontrolery domeny nie wymuszają wygasania haseł kont komputerów – 30 dni to nasza zasada, nie limit domeny.
 - Zmiana hasła unieważnia stare klucze, ale nie certyfikaty wystawione na konto – tego ryzyka nie blokujemy (wyżej,
@@ -1271,7 +1274,7 @@ niej ktoś, kto zdobędzie keytab, mógłby tworzyć konta komputerów. Komputer
 delegowanym prawem tworzenia obiektów komputerów albo osoby, którym administrator przygotował konto komputera (niżej).
 Jeśli nie możecie ustawić 0 od razu, zapiszcie to jako zaakceptowane ryzyko.
 
-**[od 0.3.0]** Zakładka Stan ostrzega, dopóki wartość jest większa od 0, a Watchdog zgłasza **podniesienie** tej
+Zakładka Stan ostrzega, dopóki wartość jest większa od 0, a Watchdog zgłasza **podniesienie** tej
 wartości z 0 jako zdarzenie krytyczne (reguła `tier0-machine-quota`).
 
 Najpierw sprawdź stan i kto dziś korzysta z limitu:
@@ -1358,7 +1361,7 @@ dowolnej OU, mógł w ten sposób uzyskać uprawnienia dowolnego konta, także D
 KDC w aktualizacji z sierpnia 2025 (CVE-2025-53779) – ale samo prawo tworzenia dMSA w rękach osób spoza Tier 0 pozostaje
 ryzykiem. Domena jest narażona, gdy ma choć jeden kontroler Windows Server 2025 (u nas DC01).
 
-**[od 0.3.0]** Watchdog zgłasza każde utworzenie dMSA i każdą zmianę powiązania migracji jako krytyczne (reguła
+Watchdog zgłasza każde utworzenie dMSA i każdą zmianę powiązania migracji jako krytyczne (reguła
 `tier0-badsuccessor`).
 
 **Gdzie może powstać dMSA i kto może je tworzyć.** Skrypt tylko czyta. Najpierw ustala ze schematu, pod obiektami
@@ -1683,7 +1686,7 @@ Każdy posiadacz tego prawa może po cichu wyłączyć atrybucję Watchdoga, wi�
 wyjaśnij i usuń z GPO, które go nadaje. Grupy Exchange Servers nie usuwaj (bez tego prawa Exchange nie zamontuje baz) –
 serwery Exchange są przez to zasobem Tier 0.
 
-**[od 0.3.0]** Watchdog zgłasza jako zdarzenie krytyczne (reguła `tier0-security`) każdą zmianę zabezpieczeń obiektu
+Watchdog zgłasza jako zdarzenie krytyczne (reguła `tier0-security`) każdą zmianę zabezpieczeń obiektu
 domeny, `AdminSDHolder`, OU Domain Controllers, `CN=Public Key Services` i `CN=Sites` – także zmianę samej listy SACL,
 choć jej treści nie widzi (wykrywanie potwierdzone – ADR-0009). Pokazuje też pokrycie – odsetek zmian przypisanych
 wykonawcy (Stan → Atrybucja). Treść wpisów sprawdzasz sam: blok „Sprawdzenie” (po bloku definicji) powtarzaj **raz
@@ -1919,7 +1922,8 @@ hoście, którego administratorzy, dostęp do konsoli, migawki, kopie zapasowe i
 Nie stawiaj jej na ogólnym klastrze (Tier 1): jego administratorzy mogliby skopiować dysk albo pamięć maszyny, a z nimi
 keytab, klucz sekretów i 3-letnią historię, albo cofnąć maszynę do migawki i „oślepić” Watchdoga (0.3, punkt 1).
 
-1. Obraz: Debian 13 „trixie” netinst amd64 (debian.org). Debian 12 „bookworm” też będzie obsługiwany przez pakiet.
+1. Obraz: Debian 13 „trixie” netinst amd64 (debian.org). Debian 12 „bookworm” też jest obsługiwany (osobny pakiet
+   `admng-openwec` dla Debiana 12).
 2. W instalatorze:
    - nazwa hosta `admng-wd`, domena `contoso.com`;
    - sieć statyczna: 10.0.1.25/24, brama 10.0.1.1, DNS 10.0.1.10 i 10.0.1.11;
@@ -1958,7 +1962,7 @@ Pakiet `krb5-user` przy instalacji interaktywnej pyta o domyślny obszar – nie
 polecenia tej instrukcji używają własnego pliku `/etc/admng-watchdog/krb5.conf` (3.5), a `/etc/krb5.conf` zostaje bez
 zmian. Nie instaluj `msktutil`, `adcli`, `realmd`, `sssd` ani `gss-ntlmssp`.
 
-**Środowisko .NET (ASP.NET Core Runtime 10)** – wymaganie pakietu Watchdog (wersja co najmniej 10.0.13), z repozytorium
+**Środowisko .NET (ASP.NET Core Runtime 10)** – wymaganie pakietu `admng-watchdog` (wersja co najmniej 10.0.13), z repozytorium
 Microsoft. Dla Debiana 12 w adresie zamiast `13` wpisz `12`:
 
 ```bash
@@ -1979,8 +1983,8 @@ Unattended-Upgrade::Origins-Pattern {
 EOF
 ```
 
-**[od 0.3.0]** Aktualizacja środowiska .NET usuwa z dysku pliki poprzedniej wersji – pakiet `admng-watchdog` sam
-restartuje wtedy usługę (wyzwalacz dpkg). Restart trwa kilka sekund; zakładka Stan pokazuje wersję środowiska.
+Aktualizacja środowiska .NET usuwa z dysku pliki poprzedniej wersji – pakiet `admng-watchdog` (niżej) sam restartuje
+wtedy usługę (wyzwalacz dpkg). Restart trwa kilka sekund; zakładka Stan pokazuje wersję środowiska.
 
 Uruchom serwer ponownie (`systemctl reboot`) i zaloguj się jeszcze raz (konsola albo SSH, potem `sudo -i`): dopiero
 po restarcie widać, czy pamięć wymiany na pewno jest wyłączona (a jądro z `full-upgrade` zaczyna działać).
@@ -2014,8 +2018,42 @@ dpkg -s libtss2-esys-3.0.2-0 libtss2-mu0 libtss2-rc0 libtss2-tcti-device0 | grep
 ```
 
 Oczekiwane: na Debianie 13 `systemd-creds has-tpm2` odpowiada `yes` (kod 0) z wierszem `+libraries`; na Debianie 12
-ostatnie polecenie wypisuje `4`. **[od 0.3.0]** Pakiet przy instalacji użyje wariantu „TPM2 + klucz hosta”, gdy
-maszyna ma TPM, a gdy to się nie uda – samego klucza hosta, i wypisze, którego wariantu użył i dlaczego.
+ostatnie polecenie wypisuje `4`. Pakiet `admng-watchdog` przy instalacji (niżej) użyje wariantu „TPM2 + klucz hosta”,
+gdy maszyna ma TPM, a gdy to się nie uda – samego klucza hosta, i wypisze, którego wariantu użył i dlaczego.
+
+**Pakiety AdMng Watchdog.** Pobierz z [wydania v0.3.0](https://github.com/DarienRahl/AD_MNG/releases/tag/v0.3.0) pakiet
+usługi, pakiet OpenWEC dla swojej wersji Debiana i listę sum kontrolnych – na serwerze (konto root może łączyć się
+z Internetem, także po włączeniu zapory z 3.3) albo na PAW i dalej przez `scp`. Dla Debiana 12 w nazwie pakietu
+OpenWEC zamiast `deb13` wpisz `deb12`:
+
+```bash
+install -d -m 0755 /var/tmp/admng-0.3.0 && cd /var/tmp/admng-0.3.0
+u=https://github.com/DarienRahl/AD_MNG/releases/download/v0.3.0
+curl -fsSLO "$u/SHA256SUMS.txt"
+curl -fsSLO "$u/admng-watchdog_0.3.0-1_amd64.deb"
+curl -fsSLO "$u/admng-openwec_0.3.0.git20260908.86de07f-1-deb13_amd64.deb"
+sha256sum --ignore-missing -c SHA256SUMS.txt
+apt install -y ./admng-openwec_0.3.0.git20260908.86de07f-1-deb13_amd64.deb ./admng-watchdog_0.3.0-1_amd64.deb
+cd / && rm -r /var/tmp/admng-0.3.0
+```
+
+Oczekiwane: `sha256sum` wypisuje `OK` przy obu pakietach (przy `FAILED` niczego nie instaluj – pobierz pliki ponownie);
+`apt` instaluje oba pakiety z zależnościami (m.in. `smbclient`, biblioteki MIT Kerberos i SASL GSSAPI) i wypisuje:
+
+- wariant klucza sekretów kanałów – `Data Protection key credential created (variant: tpm2+host)`, a bez (v)TPM albo
+  bibliotek tpm2-tss `(variant: host; …)` z przyczyną (3.9);
+- `self-signed TLS certificate for admng-wd.contoso.com created` i jego odcisk SHA-256 – certyfikat wariantu B z 3.8
+  dla nazwy z `hostname --fqdn` (w wariancie A zastąpisz go certyfikatem z firmowego CA);
+- dalsze kroki (`admng-watchdog-keytab init`, edycja `appsettings.json`, start usługi) – wykonasz je w 3.6 i rozdz. 5.
+
+Pakiety tworzą konta systemowe `admng-watchdog` i `openwec` (bez powłoki), grupę `admng-keytab` (czytelnicy keytabu:
+obie usługi), katalogi z właścicielami i trybami (5.1) oraz pliki konfiguracji z przykładowymi nazwami:
+`/etc/admng-watchdog/appsettings.json`, `krb5.conf`, `ldap.conf`, `smb-client.conf` i `/etc/openwec.conf.toml` (3.5,
+4.3, 5.2). Usługi `admng-watchdog` i `openwecd` są włączone, ale nie wystartują, dopóki nie ma keytabu (3.6); działają
+już tylko dwa timery: zmiana hasła konta usługi (do czasu keytabu niczego nie robi) i porządkowanie plików OpenWEC.
+**Sprawdzenie:** `dpkg -l admng-watchdog admng-openwec` – oba w stanie `ii`, wersja `0.3.0-1` i
+`0.3.0+git20260908.86de07f-1~deb13` (pliki w wydaniu mają w nazwie `.` i `-` zamiast `+` i `~`, bo GitHub zmienia
+nazwy plików z takimi znakami; wersja pakietu się nie zmienia).
 
 ### 3.2 Konta administratorów i SSH
 
@@ -2087,7 +2125,7 @@ Dopiero gdy nowe połączenie kluczem działa, zamknij starą sesję.
 ### 3.3 Zapora (nftables)
 
 **Gdzie:** Debian. **Co i po co:** domyślnie wszystko jest zablokowane w obie strony; otwieramy tylko porty potrzebne
-usłudze – przychodzące tylko od konkretnych nadawców. **[od 0.3.0]** Pakiet dostarczy ten sam zestaw reguł jako
+usłudze – przychodzące tylko od konkretnych nadawców. Pakiet `admng-watchdog` dostarcza ten sam zestaw reguł jako
 przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
 
 | Kierunek | Port | Druga strona | Po co |
@@ -2125,16 +2163,10 @@ przykład `/usr/share/admng-watchdog/nftables/admng-watchdog.nft`.
   (ADR-0009): połączenia idą bezpośrednio, bez serwera pośredniczącego (proxy), tylko z konta `admng-watchdog` (oraz
   root i `_apt` dla aktualizacji); konto `openwec` i pozostałe konta nie łączą się z Internetem wcale.
 - Zapora odwołuje się do kont po nazwie, a `nft` odrzuca regułę z nazwą nieistniejącego konta (`User does not exist`) –
-  dlatego konta systemowe `openwec` i `admng-watchdog` tworzysz już teraz (pakiety `admng-openwec` i `admng-watchdog`
-  przejmą je bez zmian).
+  dlatego włączasz ją po instalacji pakietów (3.1), które tworzą konta systemowe `openwec` i `admng-watchdog`.
 
 ```bash
-# konta systemowe OpenWEC i Watchdoga (bez powłoki i katalogu domowego) – potrzebne zaporze; pakiety z rozdz. 4 i 5
-# przejmą je bez zmian
-getent passwd openwec >/dev/null || useradd --system --user-group --home-dir /var/lib/openwec --no-create-home \
-    --shell /usr/sbin/nologin --comment 'OpenWEC' openwec
-getent passwd admng-watchdog >/dev/null || useradd --system --user-group --home-dir /var/lib/admng-watchdog \
-    --no-create-home --shell /usr/sbin/nologin --comment 'AdMng Watchdog' admng-watchdog
+getent passwd openwec admng-watchdog   # konta systemowe z pakietów (3.1) – zapora odwołuje się do nich po nazwie
 cp -a /etc/nftables.conf /etc/nftables.conf.orig        # kopia na wypadek wycofania (8.1)
 cat > /etc/nftables.conf <<'EOF'
 #!/usr/sbin/nft -f
@@ -2222,7 +2254,7 @@ sąsiadów); w przeciwnym razie ruch IPv6 jest blokowany.
 - **DNS.** Serwer pyta wyłącznie DNS kontrolerów AD – inaczej nie znajdzie nazw DC ani własnego rekordu.
 - **Czas.** Kerberos odrzuca uwierzytelnienie, gdy zegary różnią się o więcej niż **5 minut** – wtedy przestaje działać
   wszystko: LDAP, SYSVOL, API, WEF. Serwer synchronizuje czas z kontrolerami (tak jak komputery w domenie). Ten sam
-  czas jest też potrzebny do dopasowania zdarzeń z dzienników DC do zmian. **[od 0.3.0]** Watchdog ostrzega już przy
+  czas jest też potrzebny do dopasowania zdarzeń z dzienników DC do zmian. Watchdog ostrzega już przy
   różnicy 60 s, a od 240 s zgłasza błąd.
 - **Serwery czasu Windows** zgłaszają zwykle duży „rozrzut” (root dispersion – kilka sekund), a chrony domyślnie
   odrzuca źródło, którego łączny błąd przekracza 3 s. Dlatego podnosimy ten limit (`maxdistance 16`, zalecenie z FAQ
@@ -2271,14 +2303,14 @@ ułamka sekundy do kilku sekund. Gdy przy kontrolerze widać `?`, `x` albo `Leap
 ### 3.5 Klient Kerberos i prywatne pliki konfiguracji
 
 **Gdzie:** Debian. **Co i po co:** usługa, OpenWEC i narzędzie keytabu używają własnych plików w `/etc/admng-watchdog`
-(systemowe `/etc/krb5.conf` i `/etc/ldap/ldap.conf` zostają nietknięte) – tworząc je teraz, przygotowujesz dokładnie
-tę konfigurację, której użyje usługa. **[od 0.3.0]** Pakiet dostarczy pliki o tej samej treści (z przykładowymi
-nazwami); przy jego instalacji `dpkg` zapyta o te pliki („File on system created by you or by a script”) – odpowiedz
-`N`, żeby zachować swoje wersje.
+(systemowe `/etc/krb5.conf` i `/etc/ldap/ldap.conf` zostają nietknięte). Pakiet (3.1) zainstalował je z przykładowymi
+nazwami (`contoso.com`): `krb5.conf` i `smb-client.conf` nadpisz blokiem niżej – po zamianie nazw domeny, obszaru
+i kontrolerów na swoje (tabela „Zamień na swoje”). `ldap.conf` nie zawiera nazw i zostaje bez zmian (jego wiersze
+`SASL_NOCANON on`, `SASL_SECPROPS minssf=56,noanonymous,noplain`, `REFERRALS off`, `TLS_REQCERT demand` objaśnia tabela
+niżej; zakomentowane wiersze dotyczą opcji LDAPS). To pliki konfiguracji pakietu (conffiles): przy jego aktualizacji
+`dpkg` zapyta o nie tylko wtedy, gdy nowa wersja pakietu zmieni ich treść – odpowiedz wtedy `N`, żeby zachować swoje.
 
 ```bash
-install -d -m 0755 /etc/admng-watchdog
-
 cat > /etc/admng-watchdog/krb5.conf <<'EOF'
 [libdefaults]
     default_realm = CONTOSO.COM
@@ -2305,14 +2337,6 @@ cat > /etc/admng-watchdog/krb5.conf <<'EOF'
 [domain_realm]
     .contoso.com = CONTOSO.COM
     contoso.com = CONTOSO.COM
-EOF
-
-cat > /etc/admng-watchdog/ldap.conf <<'EOF'
-# AdMng Watchdog – private libldap configuration (LDAPCONF)
-SASL_NOCANON   on
-SASL_SECPROPS  minssf=56,noanonymous,noplain
-REFERRALS      off
-TLS_REQCERT    demand
 EOF
 
 cat > /etc/admng-watchdog/smb-client.conf <<'EOF'
@@ -2367,97 +2391,44 @@ Oczekiwane: po podaniu hasła `Authenticated to Kerberos v5`. Błędy – rozdz.
 > wyłączenie konta (8.2).
 
 **Gdzie:** Debian, zaraz po 2.5 (masz hasło jednorazowe). **Co i po co:** zastępujemy hasło jednorazowe losowym hasłem
-120 znaków, którego nikt nie zna, i zapisujemy keytab – plik z kluczami Kerberos konta. Hasło istnieje tylko w pamięci
-powłoki i zaraz jest usuwane; na dysk trafiają wyłącznie klucze.
-
-**[od 0.3.0]** Po instalacji pakietu ten krok wykona jedno polecenie: `sudo admng-watchdog-keytab init` (zapyta o
-hasło jednorazowe i zrobi to samo co niżej, łącznie ze sprawdzeniem na każdym DC).
-
-Do tego czasu – albo jako procedura awaryjna – użyj narzędzi MIT Kerberos. Zmianę hasła, keytab oraz testy 1 i 3
-sprawdziliśmy w laboratorium (Samba AD); test 2 (LDAP z szyfrowaniem GSSAPI) – na testowym serwerze OpenLDAP, bo
-laboratoryjny DC Samba nie ma SPN `ldap/`. Na kontrolerach Windows potwierdzi je pilotaż.
-
-Keytab musi zawierać trzy nazwy (konto oraz dwa SPN-y, z których korzystają API i OpenWEC), każdą w dwóch typach
-szyfrowania AES, z tą samą „solą”. Dla kont komputerów w AD sól to: `OBSZAR` + `host` + nazwa konta małymi literami
-bez `$` + `.` + domena małymi literami, czyli `CONTOSO.COMhostadmng-wd.contoso.com`. Błędna sól daje keytab, który
-wygląda poprawnie, ale nie działa – dlatego testy są obowiązkowe. Kolejność wpisów też ma znaczenie: pierwszy wpis to
-nazwa konta `ADMNG-WD$` – z niego biblioteka Kerberos bierze tożsamość, gdy usługa loguje się kluczem z keytabu
-(test 2). Blok niżej zachowuje tę kolejność.
-
-Ten sam blok służy do zmiany ręcznej (3.7) i do obejścia, gdy `kpasswd` odmawia (niżej): jeśli keytab już istnieje,
-blok najpierw wczytuje obecne klucze – zostają w nowym pliku, więc wystawione wcześniej bilety nadal działają.
-
-Wszystkie polecenia tego rozdziału wykonujesz w jednej powłoce roota. Jeśli otworzysz nową sesję (albo połączenie
-zostanie zerwane), zacznij od dwóch poleceń `export` z pierwszych wierszy bloku poniżej – inaczej narzędzia Kerberos
-użyją systemowego `/etc/krb5.conf` i pokażą mylące błędy.
+120 znaków, którego nikt nie zna, i zapisujemy keytab – plik z kluczami Kerberos konta. Robi to narzędzie
+`admng-watchdog-keytab` z pakietu (3.1): hasło jednorazowe wpisujesz bez echa, nowe hasło istnieje tylko w pamięci
+narzędzia i jest zerowane zaraz po wyprowadzeniu kluczy; na dysk trafiają wyłącznie klucze.
 
 ```bash
-umask 077                                              # nowe pliki tylko dla roota (do końca tej sesji)
-groupadd --system admng-keytab 2>/dev/null || true     # grupa czytelników keytabu (od 0.3.0 pakiet doda do niej usługi)
-export KRB5_CONFIG=/etc/admng-watchdog/krb5.conf
-export KRB5CCNAME=FILE:/dev/shm/admng-test-cc          # bilety w pamięci (tmpfs), nie na dysku
-trap 'kdestroy 2>/dev/null' EXIT                       # bilety znikają przy wyjściu z powłoki
-P='ADMNG-WD$@CONTOSO.COM'
-KT=/etc/admng-watchdog/admng-wd.keytab
-SALT='CONTOSO.COMhostadmng-wd.contoso.com'
-
-read -rs -p 'Hasło jednorazowe: ' OTP; echo
-NEW=$(openssl rand -base64 90 | tr -d '\n')            # 120 losowych znaków – tylko w pamięci powłoki
-
-# 1) zmiana hasła protokołem Kerberos (port 464 na DC01) – stare hasło, nowe, nowe;
-#    przy odmowie keytab powstaje z hasła jednorazowego (niżej: „Gdy kpasswd odmawia”)
-if ! printf '%s\n%s\n%s\n' "$OTP" "$NEW" "$NEW" | kpasswd "$P"; then
-    echo 'UWAGA: kpasswd odmówił – keytab powstanie z hasła jednorazowego'; NEW="$OTP"
-fi
-
-# 2) numer wersji klucza (kvno) – z biletu do własnego SPN host/
-KVNO=
-if printf '%s\n' "$NEW" | kinit "$P" >/dev/null; then
-    KVNO=$(kvno host/admng-wd.contoso.com | sed -n 's/.*kvno = \([0-9]*\).*/\1/p'); kdestroy
-fi
-echo "kvno: ${KVNO:-BRAK}"
-
-# 3) keytab: najpierw obecne klucze (jeśli plik już jest), potem 3 nazwy × 2 typy AES – do pliku tymczasowego
-# 4) uprawnienia, potem podmiana pliku jednym ruchem
-if [ -n "$KVNO" ]; then
-  rm -f "$KT.new"
-  { [ -f "$KT" ] && printf 'rkt %s\n' "$KT"
-    for pr in "$P" 'HTTP/admng-wd.contoso.com@CONTOSO.COM' 'host/admng-wd.contoso.com@CONTOSO.COM'; do
-      for e in aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96; do
-        printf 'addent -password -p %s -k %s -e %s -s %s\n%s\n' "$pr" "$KVNO" "$e" "$SALT" "$NEW"
-      done
-    done
-    printf 'wkt %s.new\nquit\n' "$KT"; } | ktutil >/dev/null
-  chown root:admng-keytab "$KT.new"; chmod 0640 "$KT.new"; mv "$KT.new" "$KT"
-else
-  echo 'Keytab NIE został zapisany – zobacz komunikat kpasswd/kinit powyżej'
-fi
-unset NEW OTP
+admng-watchdog-keytab init          # pyta o hasło jednorazowe z 2.5
+admng-watchdog-keytab status
 ```
 
-Oczekiwane: `kpasswd` kończy się wierszem `Password changed.`, a `kvno:` pokazuje liczbę (np. `3`). `kvno: BRAK` znaczy,
-że keytab nie powstał – przyczynę pokazuje komunikat `kpasswd` albo `kinit` (rozdz. 9.1). Wiersz `UWAGA: kpasswd
-odmówił…` – patrz niżej.
+`init` bierze konto `ADMNG-WD$` i obszar z `default_realm` w `/etc/admng-watchdog/krb5.conf`, a nazwę DNS – z nazwy
+konta i obszaru (`admng-wd.contoso.com`); przy innej nazwie konta albo domenie DNS innej niż obszar podaj
+`--principal 'NAZWA$@OBSZAR'` i `--fqdn nazwa.domena`. Narzędzie:
 
-#### Gdy `kpasswd` odmawia
+1. zmienia hasło protokołem Kerberos na emulatorze PDC (`primary_kdc`/`kpasswd_server` z `krb5.conf`, port 464);
+2. zapisuje keytab z trzema nazwami – najpierw `ADMNG-WD$@CONTOSO.COM`, potem `HTTP/admng-wd.contoso.com` i
+   `host/admng-wd.contoso.com` – w dwóch typach AES, z właściwą „solą” i numerem wersji klucza (kvno); nowy plik
+   powstaje obok starego (`root:admng-keytab 640`) i zastępuje go jednym ruchem, a klucze dotychczasowej wersji
+   z istniejącego keytabu zostają;
+3. sprawdza nowe klucze na każdym kontrolerze z `krb5.conf` (czeka na replikację do 15 minut) i zapisuje stan w
+   `/var/lib/admng-watchdog-keytab/status.json` (bez sekretów: nazwa, kvno, czas zmiany i próby, wynik, termin
+   następnej zmiany).
 
-Blok zapisuje wtedy keytab z **hasła jednorazowego** – usługa i testy będą działać, ale hasło zna człowiek. Co dalej,
-zależy od komunikatu `kpasswd` nad wierszem `UWAGA`:
+Oczekiwane: `init` kończy się kodem 0, a `status` pokazuje `"result": "ok"`, `"kvno"` (np. `3`) i `"nextDue"` za
+30 dni. Inne wyniki:
 
-- `Password change rejected` – minimalny wiek hasła w domenie liczy się od ustawienia hasła jednorazowego.
-  Administrator Tier 0 przechowuje hasło jednorazowe w menedżerze haseł do następnego dnia. Następnego dnia (gdy minie
-  minimalny wiek hasła) wykonaj na Debianie cały blok jeszcze raz z **tym samym** hasłem jednorazowym – **bez** nowego
-  resetu na PAW, bo reset znów uruchamia minimalny wiek hasła. Blok zachowa obecne klucze. Potem administrator usuwa
-  hasło z menedżera. **[od 0.3.0]** Narzędzie `admng-watchdog-keytab` robi to samo automatycznie i pokazuje stan
-  `otpActive`.
-- `Access denied` – inna sytuacja, rozdz. 9.1.
-- inny błąd (np. brak połączenia z portem 464 na DC01) – usuń przyczynę (9.1) i wykonaj cały blok jeszcze raz z tym
-  samym hasłem jednorazowym.
+| Wynik (`result`, `errorCode`) | Znaczenie | Co zrobić |
+|---|---|---|
+| `otpActive` (`KRB5_KPASSWD_SOFTERROR`; kod 0 z ostrzeżeniem) | kontroler odrzucił zmianę z powodu zasad haseł – zwykle minimalny wiek hasła liczony od ustawienia hasła jednorazowego. Keytab powstał z hasła jednorazowego i działa | nic – timer (3.7) próbuje zmiany przy każdym uruchomieniu, dopóki stan to `otpActive`; następnego dnia możesz ją wymusić: `systemctl start admng-watchdog-keytab.service`. Do tego czasu hasło zna człowiek – usuń je z menedżera haseł dopiero, gdy `status` pokaże `ok` |
+| `changeFailed` (kod 2) | zmiana odrzucona (np. `KRB5_KPASSWD_ACCESSDENIED`) albo port 464 nie odpowiada | przyczyna – 9.1; potem `init` jeszcze raz z **tym samym** hasłem jednorazowym (bez nowego resetu na PAW) |
+| `keytabWriteFailed` (kod 2) | hasło w AD zmienione, ale nowego keytabu nie udało się zapisać | komunikat narzędzia; nowe hasło jednorazowe na PAW (3.7, „Naprawa”) i `init` |
+| `replicationPending` (kod 0) | nowe klucze jeszcze nie dotarły na każdy DC | po kilku minutach `admng-watchdog-keytab verify` |
+| `verifyFailed` (kod 2) | keytab zapisany, ale sprawdzenie na emulatorze PDC się nie udało | `admng-watchdog-keytab verify`, testy niżej, 9.1 |
+
+Gdyby narzędzie nie działało, ten sam wynik daje procedura awaryjna narzędziami MIT Kerberos – na końcu tego punktu.
 
 #### Uprawnienia keytabu
 
-Plik czyta tylko root i członkowie grupy `admng-keytab` (**[od 0.3.0]** po instalacji pakietów: konto usługi
-`admng-watchdog` i konto `openwec`):
+Plik czyta tylko root i członkowie grupy `admng-keytab` (konta `admng-watchdog` i `openwec` – pakiety, 3.1):
 
 ```bash
 stat -c '%U:%G %a %n' /etc/admng-watchdog/admng-wd.keytab
@@ -2466,6 +2437,16 @@ stat -c '%U:%G %a %n' /etc/admng-watchdog/admng-wd.keytab
 Oczekiwane: `root:admng-keytab 640 /etc/admng-watchdog/admng-wd.keytab`.
 
 #### Testy
+
+Testy wykonujesz w jednej powłoce roota, z prywatną konfiguracją Kerberos i biletami tylko w pamięci (tmpfs). Jeśli
+otworzysz nową sesję (albo połączenie zostanie zerwane), zacznij od tych trzech poleceń – inaczej narzędzia Kerberos
+użyją systemowego `/etc/krb5.conf` i pokażą mylące błędy:
+
+```bash
+export KRB5_CONFIG=/etc/admng-watchdog/krb5.conf
+export KRB5CCNAME=FILE:/dev/shm/admng-test-cc          # bilety w pamięci (tmpfs), nie na dysku
+trap 'kdestroy 2>/dev/null' EXIT                       # bilety znikają przy wyjściu z powłoki
+```
 
 **Test 1 – zawartość i uwierzytelnienie kluczem:**
 
@@ -2500,11 +2481,11 @@ host/admng-wd.contoso.com@CONTOSO.COM: kvno = 3, keytab entry valid
 - W flagach biletu **nie ma `F`** (forwardable), choć `kinit -f` o nią prosił – to dowód, że flaga „konto jest poufne i
   nie może być delegowane” działa.
 - `aes256-cts-hmac-sha1-96` – konto używa AES.
-- Po zmianie ręcznej (3.7) albo obejściu (wyżej) keytab ma kilka wersji kluczy – pierwszy wiersz to nadal
-  `ADMNG-WD$@CONTOSO.COM`.
+- Po zmianie hasła (3.7) keytab ma dwie wersje kluczy (bieżącą i poprzednią; po procedurze awaryjnej – wszystkie
+  dotychczasowe) – pierwszy wiersz to nadal `ADMNG-WD$@CONTOSO.COM`.
 
 **Test 2 – LDAP z podpisem i szyfrowaniem.** Zmienna `KRB5_CLIENT_KTNAME` pozwala bibliotece Kerberos samej pobrać
-bilet z keytabu – tak będzie działać usługa:
+bilet z keytabu – tak działa usługa:
 
 ```bash
 kdestroy
@@ -2572,6 +2553,83 @@ Oczekiwane: `pwdLastSet` sprzed kilku minut (hasło jednorazowe już nie działa
 keytabu. Gdy w lesie jest urząd Enterprise, wykonaj też blok „Certyfikaty wystawione na konto” z 2.5 – na konto nie
 może być wystawiony żaden certyfikat (rejestracji nie blokujemy, a hasło jednorazowe działało przez kilka minut).
 
+#### Procedura awaryjna – keytab narzędziami MIT Kerberos
+
+Tylko wtedy, gdy `admng-watchdog-keytab` nie działa (zgłoś to zespołowi). Zmianę hasła, keytab oraz testy 1 i 3
+sprawdziliśmy w laboratorium (Samba AD); test 2 (LDAP z szyfrowaniem GSSAPI) – na testowym serwerze OpenLDAP i
+w laboratorium Samba z SPN-em `ldap/`. Na kontrolerach Windows potwierdzi je pilotaż.
+
+Keytab musi zawierać trzy nazwy (konto oraz dwa SPN-y, z których korzystają API i OpenWEC), każdą w dwóch typach
+szyfrowania AES, z tą samą „solą”. Dla kont komputerów w AD sól to: `OBSZAR` + `host` + nazwa konta małymi literami
+bez `$` + `.` + domena małymi literami, czyli `CONTOSO.COMhostadmng-wd.contoso.com`. Błędna sól daje keytab, który
+wygląda poprawnie, ale nie działa – dlatego testy są obowiązkowe. Kolejność wpisów też ma znaczenie: pierwszy wpis to
+nazwa konta `ADMNG-WD$` – z niego biblioteka Kerberos bierze tożsamość, gdy usługa loguje się kluczem z keytabu
+(test 2). Blok niżej zachowuje tę kolejność.
+
+Jeśli keytab już istnieje, blok najpierw wczytuje obecne klucze – zostają w nowym pliku, więc wystawione wcześniej
+bilety nadal działają. Blok jest samodzielny – ustawia te same zmienne co testy wyżej.
+
+```bash
+umask 077                                              # nowe pliki tylko dla roota (do końca tej sesji)
+export KRB5_CONFIG=/etc/admng-watchdog/krb5.conf
+export KRB5CCNAME=FILE:/dev/shm/admng-test-cc          # bilety w pamięci (tmpfs), nie na dysku
+trap 'kdestroy 2>/dev/null' EXIT                       # bilety znikają przy wyjściu z powłoki
+P='ADMNG-WD$@CONTOSO.COM'
+KT=/etc/admng-watchdog/admng-wd.keytab
+SALT='CONTOSO.COMhostadmng-wd.contoso.com'
+
+read -rs -p 'Hasło jednorazowe: ' OTP; echo
+NEW=$(openssl rand -base64 90 | tr -d '\n')            # 120 losowych znaków – tylko w pamięci powłoki
+
+# 1) zmiana hasła protokołem Kerberos (port 464 na DC01) – stare hasło, nowe, nowe;
+#    przy odmowie keytab powstaje z hasła jednorazowego (niżej: „Gdy kpasswd odmawia”)
+if ! printf '%s\n%s\n%s\n' "$OTP" "$NEW" "$NEW" | kpasswd "$P"; then
+    echo 'UWAGA: kpasswd odmówił – keytab powstanie z hasła jednorazowego'; NEW="$OTP"
+fi
+
+# 2) numer wersji klucza (kvno) – z biletu do własnego SPN host/
+KVNO=
+if printf '%s\n' "$NEW" | kinit "$P" >/dev/null; then
+    KVNO=$(kvno host/admng-wd.contoso.com | sed -n 's/.*kvno = \([0-9]*\).*/\1/p'); kdestroy
+fi
+echo "kvno: ${KVNO:-BRAK}"
+
+# 3) keytab: najpierw obecne klucze (jeśli plik już jest), potem 3 nazwy × 2 typy AES – do pliku tymczasowego
+# 4) uprawnienia, potem podmiana pliku jednym ruchem
+if [ -n "$KVNO" ]; then
+  rm -f "$KT.new"
+  { [ -f "$KT" ] && printf 'rkt %s\n' "$KT"
+    for pr in "$P" 'HTTP/admng-wd.contoso.com@CONTOSO.COM' 'host/admng-wd.contoso.com@CONTOSO.COM'; do
+      for e in aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96; do
+        printf 'addent -password -p %s -k %s -e %s -s %s\n%s\n' "$pr" "$KVNO" "$e" "$SALT" "$NEW"
+      done
+    done
+    printf 'wkt %s.new\nquit\n' "$KT"; } | ktutil >/dev/null
+  chown root:admng-keytab "$KT.new"; chmod 0640 "$KT.new"; mv "$KT.new" "$KT"
+else
+  echo 'Keytab NIE został zapisany – zobacz komunikat kpasswd/kinit powyżej'
+fi
+unset NEW OTP
+```
+
+Oczekiwane: `kpasswd` kończy się wierszem `Password changed.`, a `kvno:` pokazuje liczbę (np. `3`). `kvno: BRAK` znaczy,
+że keytab nie powstał – przyczynę pokazuje komunikat `kpasswd` albo `kinit` (rozdz. 9.1). Wiersz `UWAGA: kpasswd
+odmówił…` – patrz niżej.
+
+**Gdy `kpasswd` odmawia**
+
+Blok zapisuje wtedy keytab z **hasła jednorazowego** – usługa i testy będą działać, ale hasło zna człowiek. Co dalej,
+zależy od komunikatu `kpasswd` nad wierszem `UWAGA`:
+
+- `Password change rejected` – minimalny wiek hasła w domenie liczy się od ustawienia hasła jednorazowego.
+  Administrator Tier 0 przechowuje hasło jednorazowe w menedżerze haseł do następnego dnia. Następnego dnia (gdy minie
+  minimalny wiek hasła) wykonaj na Debianie cały blok jeszcze raz z **tym samym** hasłem jednorazowym – **bez** nowego
+  resetu na PAW, bo reset znów uruchamia minimalny wiek hasła. Blok zachowa obecne klucze. Potem administrator usuwa
+  hasło z menedżera. (Narzędzie `admng-watchdog-keytab` robi to samo automatycznie – stan `otpActive` wyżej.)
+- `Access denied` – inna sytuacja, rozdz. 9.1.
+- inny błąd (np. brak połączenia z portem 464 na DC01) – usuń przyczynę (9.1) i wykonaj cały blok jeszcze raz z tym
+  samym hasłem jednorazowym.
+
 ### 3.7 Zmiana hasła konta usługi co 30 dni
 
 **Gdzie:** Debian. **Co i po co:** regularna zmiana hasła ogranicza wartość skradzionego keytabu – po zmianie stare
@@ -2580,16 +2638,20 @@ zdążyłby poprosić u urzędu certyfikacji – tego nie blokujemy (ryzyko przy
 wycieku keytabu pomaga dopiero wyłączenie konta, odwołanie certyfikatów i odczekanie, aż kontrolery pobiorą nową listę
 odwołań (2.5, „Gdy keytab mógł wyciec”).
 
-**[od 0.3.0]** Pakiet zainstaluje:
+Pakiet `admng-watchdog` instaluje do tego:
 
-- narzędzie `admng-watchdog-keytab` z poleceniami `init`, `rotate --if-older-than 30d`, `verify`, `status`;
-- jednostkę `admng-watchdog-keytab.service` (uruchamiana jako root, z ograniczeniami systemd) i timer
+- narzędzie `admng-watchdog-keytab` (`/usr/sbin/admng-watchdog-keytab`) z poleceniami `init`, `rotate
+  [--if-older-than 30d]`, `verify`, `status` (kody wyjścia: 0 – w porządku, 1 – błędne wywołanie, 2 – błąd);
+- jednostkę `admng-watchdog-keytab.service` (uruchamiana jako root, z ograniczeniami systemd; wykonuje
+  `admng-watchdog-keytab rotate --if-older-than 30d` i niczego nie robi, dopóki nie ma keytabu) i timer
   `admng-watchdog-keytab.timer` – codziennie ok. 04:20 (z losowym przesunięciem do 30 minut; zaległe uruchomienie po
   starcie serwera); zmiana następuje tylko wtedy, gdy hasło ma ponad 30 dni – albo przy każdym uruchomieniu, dopóki
   keytab pochodzi z hasła jednorazowego (stan `otpActive`, 3.6);
-- plik stanu `/var/lib/admng-watchdog-keytab/status.json` (bez sekretów): wersja klucza, data ostatniej zmiany i próby,
-  wynik (`ok`, `otpActive`, `changeFailed`, `keytabWriteFailed`, `replicationPending`, `verifyFailed`), termin
-  następnej zmiany.
+- plik stanu `/var/lib/admng-watchdog-keytab/status.json` (`root:admng-watchdog 640`, bez sekretów): nazwa konta,
+  wersja klucza, data ostatniej zmiany i próby, wynik (`ok`, `otpActive`, `changeFailed`, `keytabWriteFailed`,
+  `replicationPending`, `verifyFailed`) z kodem błędu i termin następnej zmiany. Usługa czyta go i pokazuje w zakładce
+  Stan → Konto usługi; po swojej zaplanowanej zmianie hasła (kvno zgodne z `status.json`) nie zgłasza alarmu
+  `watchdog-self`.
 
 Przy zmianie narzędzie: zmienia hasło na PDC, zapisuje nowy keytab obok starego i podmienia go jednym ruchem
 (czytelnicy nigdy nie widzą połowy pliku), zachowuje klucze bieżącej i poprzedniej wersji, sprawdza nowe klucze na
@@ -2597,7 +2659,7 @@ każdym DC (czeka na replikację do 15 minut). Tak samo działa `init` przy napr
 dotychczasowej wersji z obecnego keytabu zostają, więc wystawione wcześniej bilety nadal działają. Usługi czytają
 keytab przy każdym uwierzytelnieniu – restart nie jest potrzebny.
 
-**[od 0.3.0]** Ręczne uruchomienie i sprawdzenie:
+Ręczne uruchomienie i sprawdzenie:
 
 ```bash
 systemctl list-timers admng-watchdog-keytab.timer
@@ -2608,24 +2670,25 @@ admng-watchdog-keytab verify
 klist -k /etc/admng-watchdog/admng-wd.keytab | awk 'NR>3 {print $1}' | sort -u    # wersje kluczy w keytabie
 ```
 
-Oczekiwane: timer z datą następnego uruchomienia; `status` z wynikiem `ok`; `verify` pokazuje nazwy, kvno i typy
-szyfrowania bez błędów; w keytabie utrzymywanym przez narzędzie najwyżej dwie wersje kluczy, z których nowsza równa się
-`msDS-KeyVersionNumber` (PAW: `Get-ADComputer ADMNG-WD -Properties msDS-KeyVersionNumber`, albo `ldapsearch` z 3.6).
+Oczekiwane: timer z datą następnego uruchomienia; `status` z wynikiem `ok`; `verify` kończy się kodem 0 (kolejność
+wpisów, uwierzytelnienie na każdym DC, kvno świeżego biletu); w keytabie najwyżej dwie wersje kluczy, z których
+nowsza równa się `msDS-KeyVersionNumber` (PAW: `Get-ADComputer ADMNG-WD -Properties msDS-KeyVersionNumber`, albo
+`ldapsearch` z 3.6). Wymuszenie zmiany przed upływem 30 dni (np. w pilotażu): `admng-watchdog-keytab rotate
+--if-older-than 0` – zmiana działa jak automatyczna, bez alarmu `watchdog-self`.
 
-**Zmiana ręczna przez nowe hasło jednorazowe** (do czasu pakietu – co 30 dni; tak samo naprawisz keytab, który
-przestał pasować do AD, np. po odtworzeniu maszyny z kopii):
+**Naprawa przez nowe hasło jednorazowe** – keytab, który przestał pasować do AD (np. po odtworzeniu maszyny z kopii,
+`keytabWriteFailed`), albo hasło zmienione w AD poza Debianem:
 
 1. PAW – nowe hasło jednorazowe (wygeneruj `$plain` i `$otp` jak w 2.5):
    `Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp`. Jeśli konto jest wyłączone (2.5, „Gdy keytab
    mógł wyciec”), włącz je zaraz po resecie: `Enable-ADAccount 'ADMNG-WD$'` – wyłączone konto nie zmieni hasła
    (`Client's credentials have been revoked`).
-2. Debian – **cały** blok z 3.6 z nowym hasłem jednorazowym. Keytab już istnieje, więc blok najpierw wczytuje obecne
-   klucze – poprzednia wersja zostaje. Jeśli `kpasswd` odmówi (minimalny wiek hasła), postępuj jak w 3.6, „Gdy
-   `kpasswd` odmawia” – następnego dnia ten sam blok z tym samym hasłem, bez nowego resetu.
-3. Sprawdzenie: `klist -k /etc/admng-watchdog/admng-wd.keytab` pokazuje starą i nową wersję. Nowa jest **o 2 wyższa** –
-   reset hasła przez administratora i zmiana na losowe hasło podnoszą kvno po jednym. Testy 1–3 z 3.6 przechodzą.
-   W ręcznej procedurze starszych wersji nie usuwamy (keytab może mieć więcej niż dwie wersje); narzędzie
-   `admng-watchdog-keytab` zostawia tylko wersję bieżącą i poprzednią.
+2. Debian – `admng-watchdog-keytab init` z nowym hasłem jednorazowym (3.6; przy `otpActive` – jak tam). Klucze
+   dotychczasowej wersji z obecnego keytabu zostają.
+3. Sprawdzenie: `admng-watchdog-keytab status` – `ok`; `klist -k /etc/admng-watchdog/admng-wd.keytab` pokazuje starą i
+   nową wersję. Nowa jest **o 2 wyższa** – reset hasła przez administratora i zmiana na losowe hasło podnoszą kvno po
+   jednym. Testy 1–3 z 3.6 przechodzą. Reset hasła przez administratora Watchdog zgłasza jako alarm krytyczny
+   `watchdog-self` – to oczekiwane.
 
 ### 3.8 Certyfikat TLS dla API
 
@@ -2636,12 +2699,14 @@ przestał pasować do AD, np. po odtworzeniu maszyny z kopii):
 
 #### Wariant A – certyfikat z firmowego CA (gdy 2.1 znalazło urząd z szablonem WebServer)
 
-Klucz prywatny powstaje na serwerze i nigdy go nie opuszcza; do CA trafia tylko wniosek (CSR).
+Klucz prywatny powstaje na serwerze i nigdy go nie opuszcza; do CA trafia tylko wniosek (CSR). Pierwszy blok nadpisuje
+klucz certyfikatu z podpisem własnym, który pakiet wygenerował przy instalacji (3.1) – to w porządku, dopóki usługa
+jeszcze nie działa (rozdz. 5). Gdy usługa już pracuje na certyfikacie z podpisem własnym i przechodzisz na certyfikat
+z CA, wykonaj zamiast tego „Odnowienie” niżej (nowa para powstaje obok działającej).
 
 Debian:
 
 ```bash
-install -d -m 0750 /etc/admng-watchdog/tls
 cd /etc/admng-watchdog/tls
 umask 077
 openssl req -new -newkey rsa:3072 -nodes -keyout admng-wd.key -out admng-wd.csr \
@@ -2674,12 +2739,13 @@ openssl x509 -in /home/adm-jan/admng-wd.cer -out admng-wd.pem 2>/dev/null || ope
 openssl pkcs7 -inform DER -in /home/adm-jan/chain.p7b -print_certs -out chain.pem 2>/dev/null || \
     openssl pkcs7 -inform PEM -in /home/adm-jan/chain.p7b -print_certs -out chain.pem
 cat admng-wd.pem chain.pem > admng-wd.crt            # najpierw certyfikat serwera, potem urzędy
-chmod 0644 admng-wd.crt; rm admng-wd.csr admng-wd.pem /home/adm-jan/admng-wd.c* /home/adm-jan/chain.p7b
+chmod 0644 admng-wd.crt; chown root:admng-watchdog admng-wd.key; chmod 0640 admng-wd.key
+rm admng-wd.csr admng-wd.pem /home/adm-jan/admng-wd.c* /home/adm-jan/chain.p7b
 ```
 
-**[od 0.3.0]** Po instalacji pakietu (rozdz. 5) grupa `admng-watchdog` musi móc czytać klucz – pakiet ustawia
-właściciela i tryby katalogu `/etc/admng-watchdog` sam; sprawdź to ostatnim poleceniem ze „Sprawdzenia”. Gdy
-certyfikat już leży w tym miejscu, pakiet nie generuje własnego.
+Usługa musi móc czytać klucz (`root:admng-watchdog 640` – ustawia to blok wyżej; klucz czytelny dla wszystkich
+zatrzymuje start usługi z kodem 4, 5.3). Pakiet przy instalacji i aktualizacji ustawia tylko katalog `tls/`
+(`root:admng-watchdog 750`), a gdy certyfikat już leży w tym miejscu, nie generuje własnego.
 
 **Sprawdzenie:**
 
@@ -2750,21 +2816,24 @@ rm -f admng-wd.new.csr admng-wd.new.pem /home/adm-jan/admng-wd.new.csr /home/adm
 ```
 
 Potem wykonaj „Sprawdzenie” wyżej. Jeśli urząd odrzuci wniosek, nic się nie zmienia – usuń pliki `admng-wd.new.*`.
-(Procedurę sprawdziliśmy w laboratorium z urzędem symulowanym przez `openssl`.) **[od 0.3.0]** Usługa wczytuje
+(Procedurę sprawdziliśmy w laboratorium z urzędem symulowanym przez `openssl`.) Usługa wczytuje
 podmienione pliki sama; gdyby trafiła na klucz, który nie pasuje do certyfikatu (np. między dwiema zmianami nazw),
-zostaje przy dotychczasowym certyfikacie, zgłasza błąd `certificate.key` i przyjmuje nową parę przy następnym odczycie.
+zostaje przy dotychczasowym certyfikacie, zgłasza błąd `certificate.key` i przyjmuje nową parę przy następnym odczycie
+(pliki sprawdza 2 s po ostatniej zmianie i co 10 minut; restart nie jest potrzebny).
 
-#### Wariant B – certyfikat generowany na serwerze (gdy nie ma CA) [od 0.3.0]
+#### Wariant B – certyfikat generowany na serwerze (gdy nie ma CA)
 
-W laboratorium bez urzędu certyfikacji (bez 1.7) ten wariant wykonasz dopiero z pakietem 0.3.0.
-
-Gdy w `/etc/admng-watchdog/tls/` nie ma certyfikatu, pakiet przy instalacji
-wygeneruje certyfikat z podpisem własnym (ECDSA P-256, ważny 825 dni, nazwa z `hostname --fqdn` – dlatego 3.1 ustawia
-`/etc/hosts`) i wypisze jego odcisk SHA-256. Odcisk pokaże też w każdej chwili `sudo admng-watchdog cert-fingerprint`
-(i wpis 1008 w dzienniku przy każdym starcie usługi); odnowienie: `sudo admng-watchdog cert-renew-self-signed`.
+Nic nie musisz robić: gdy w `/etc/admng-watchdog/tls/` nie było certyfikatu, pakiet przy instalacji (3.1) wygenerował
+certyfikat z podpisem własnym (ECDSA P-256, ważny 825 dni, nazwa z `hostname --fqdn` – dlatego 3.1 ustawia
+`/etc/hosts`; pliki `admng-wd.crt` i `admng-wd.key`) i wypisał jego odcisk SHA-256. Odcisk pokaże też w każdej chwili
+`admng-watchdog cert-fingerprint` (w postaci `3F:2A:9C:…` – 32 pary cyfr szesnastkowych) i wpis 1008 w dzienniku przy
+każdym starcie usługi. Odnowienie (przed upływem 825 dni albo gdy nazwa serwera się zmieniła):
+`admng-watchdog cert-renew-self-signed` – usługa przyjmuje nowy certyfikat w ciągu kilku sekund, a AD Manager poprosi
+o potwierdzenie nowego odcisku.
 
 Takiemu certyfikatowi stacje nie ufają, dlatego AD Manager przy **pierwszym** połączeniu pokaże okno z odciskiem
-certyfikatu. Porównaj go z wynikiem polecenia na serwerze (przez SSH) i dopiero wtedy kliknij „Ufam temu
+certyfikatu (grupy po 4 cyfry szesnastkowe). Porównaj go cyfra po cyfrze z wynikiem `admng-watchdog cert-fingerprint`
+na serwerze (przez SSH; dwukropki i podział na grupy nie mają znaczenia) i dopiero wtedy kliknij „Ufam temu
 certyfikatowi” – AD Manager zapamięta odcisk. Jeśli certyfikat się zmieni (odnowienie, podmiana), AD Manager **nie**
 przyjmie go po cichu: pokaże stary i nowy odcisk i znów poprosi o potwierdzenie. Niezgodność nazwy nigdy nie jest
 akceptowana. (6.1)
@@ -2774,8 +2843,9 @@ Odcisk dowolnego certyfikatu sprawdzisz też bez pakietu:
 
 ### 3.9 Kopie zapasowe
 
-**[od 0.3.0]** **Co zrobi usługa:** codziennie wykonuje lokalną kopię bazy (spójną kopię pliku bazy SQLite) do
-`/var/lib/admng-watchdog/backup/` i trzyma **7** ostatnich. Te kopie chronią przed błędem logicznym (np. uszkodzoną
+**Co robi usługa:** codziennie wykonuje lokalną kopię bazy (spójną kopię pliku bazy SQLite) do
+`/var/lib/admng-watchdog/backup/` i trzyma **7** ostatnich (gdy na `/var` brakuje miejsca na kolejną kopię, pomija ją
+i zgłasza błąd `storage.backupSkipped`). Te kopie chronią przed błędem logicznym (np. uszkodzoną
 migracją), ale **nie** przed utratą dysku czy maszyny – leżą na tym samym dysku.
 
 **Zalecenie (jedno, ale ważne):** historia zmian ma obejmować 3 lata, więc zrób **kopię zapasową całej maszyny
@@ -2792,7 +2862,7 @@ Co musi zawierać odtworzenie:
 | Poświadczenie systemd z kluczem | `/etc/admng-watchdog/credentials/dp-key.cred` | odszyfrujesz je tylko z tym samym kluczem hosta (plik `/var/lib/systemd/credential.secret` – jest w kopii dysku) i – w wariancie TPM2 – tym samym vTPM; nie zależy od stanu rozruchu (Secure Boot, aktualizacje UEFI) |
 | Konfiguracja, certyfikat, keytab | `/etc/admng-watchdog/` | keytab może być nieaktualny, jeśli po wykonaniu kopii nastąpiła zmiana hasła |
 
-**[od 0.3.0]** Scenariusze:
+Scenariusze:
 
 - **Odtworzenie tej samej maszyny wirtualnej** (dysk + vTPM): wszystko działa. Sprawdź tylko keytab – zakładka Stan →
   Konto usługi albo na Debianie:
@@ -2822,10 +2892,7 @@ journalctl --disk-usage
 
 ---
 
-## 4. OpenWEC – odbiór zdarzeń z kontrolerów [od 0.3.0]
-
-Cały rozdział opisuje pakiet `admng-openwec` 0.3.0. Już teraz możesz wykonać tylko sprawdzenie zapytania na
-kontrolerach z 4.4.
+## 4. OpenWEC – odbiór zdarzeń z kontrolerów
 
 ### 4.1 Co to jest i dlaczego osobna usługa
 
@@ -2835,7 +2902,10 @@ zapisuje każde zdarzenie jako jeden wiersz JSON z oryginalnym XML zdarzenia –
 tylko **czyta** te pliki; niczego w nich nie zmienia.
 
 - Działa jako osobny proces i osobne konto systemowe (`openwec`), w osobnym pakiecie `admng-openwec` budowanym przez nas
-  z przypiętej wersji źródeł (kod źródłowy dołączany do wydania). Licencja GPL nie obejmuje przez to kodu AdMng.
+  z przypiętej wersji źródeł (commit `86de07f` z 8 września 2026 – wersja pakietu `0.3.0+git20260908.86de07f-1~deb13`
+  albo `~deb12`). Kod źródłowy (GPL-3.0: źródła, użyte biblioteki Rust i nasz przepis budowania) jest dołączony do
+  wydania jako `admng-openwec-0.3.0.git20260908.86de07f-source.tar.xz`. Licencja GPL nie obejmuje przez to kodu
+  AdMng.
 - Pliki wyjściowe to jedyne miejsce, w którym surowe zdarzenia z DC leżą na dysku – tylko do czasu ich przetworzenia
   (szczegóły w 4.5).
 - Jeśli Watchdog na chwilę stanie, zdarzenia czekają w plikach; jeśli stanie OpenWEC, kontrolery przechowują zdarzenia
@@ -2843,19 +2913,21 @@ tylko **czyta** te pliki; niczego w nich nie zmienia.
 
 ### 4.2 Instalacja
 
-**Gdzie:** Debian. Pakiet `admng-openwec` (osobne kompilacje dla Debiana 12 i 13) instaluje się razem z pakietem
-Watchdoga (rozdz. 5), który od niego zależy:
+Pakiet `admng-openwec` (osobne kompilacje dla Debiana 12 i 13) zainstalowałeś w 3.1 razem z pakietem
+`admng-watchdog`, który od niego zależy. Pakiet:
 
-```bash
-apt install ./admng-openwec_<wersja>~deb13_amd64.deb ./admng-watchdog_<wersja>_amd64.deb
-```
-
-Pakiet `admng-openwec` przejmuje konto systemowe `openwec` z 3.3 (gdy go nie ma – tworzy je, bez powłoki), dodaje je
-do grupy `admng-keytab`, zakłada bazę stanu OpenWEC (`/var/lib/openwec/db/` – wyłącznie subskrypcje i stan klientów,
-bez zdarzeń) i jednostkę `openwecd.service` z ograniczeniami systemd. Katalog wyjściowy `/var/lib/openwec/out/` (właściciel `openwec`, grupa
-`admng-watchdog`, tryb 2750) tworzy pakiet `admng-watchdog` (rozdz. 5). Usługa nie wystartuje, dopóki nie ma keytabu
-(3.6). Katalog subskrypcji `/etc/openwec/subscriptions/` pakiet zostawia pusty – plik subskrypcji tworzysz sam (4.4);
-przykład leży w `/usr/share/admng-openwec/admng-dc-security.toml.example`.
+- tworzy konto systemowe `openwec` (bez powłoki) i dodaje je do grupy `admng-keytab`;
+- instaluje `openwecd` i polecenie `openwec` (`/usr/bin`), plik `/etc/openwec.conf.toml` (4.3) i jednostkę
+  `openwecd.service` z ograniczeniami systemd (bez uprawnień, zapis tylko w `/var/lib/openwec`, bez połączeń
+  wychodzących, `IPAddressDeny=any` z wyjątkiem adresów kontrolerów – 4.3);
+- zakłada bazę stanu OpenWEC (`/var/lib/openwec/db/openwec.sqlite` – wyłącznie subskrypcje i stan klientów, bez
+  zdarzeń; katalog 0700). Katalog wyjściowy `/var/lib/openwec/out/` (właściciel `openwec`, grupa `admng-watchdog`,
+  tryb 2750) tworzy pakiet `admng-watchdog`;
+- zostawia katalog subskrypcji `/etc/openwec/subscriptions/` pusty – plik subskrypcji generujesz w 4.4; przykład
+  leży w `/usr/share/admng-openwec/admng-dc-security.toml.example`. Przy instalacji i aktualizacji pakiet wczytuje
+  subskrypcję sam, ale tylko wtedy, gdy plik `admng-dc-security.toml` jest jedynym plikiem w tym katalogu i nie zawiera
+  już przykładowej nazwy `contoso.com`;
+- włącza `openwecd.service`; usługa nie wystartuje, dopóki nie ma keytabu (3.6).
 
 ### 4.3 Konfiguracja Kerberos z keytabem
 
@@ -2962,7 +3034,7 @@ komputery nie dostaną tej subskrypcji.
 
 Plik `/etc/openwec/subscriptions/admng-dc-security.toml` wygeneruje polecenie (lista zdarzeń pochodzi z tego samego
 katalogu zdarzeń co parser usługi, więc nie mogą się rozjechać). Z `appsettings.json` czyta ono tylko identyfikator
-subskrypcji (`Watchdog.Collector.SubscriptionUuid`), więc działa już teraz – zanim w 5.2 wpiszesz SID-y grup i
+subskrypcji (`Watchdog.Collector.SubscriptionUuid`), więc działa już przed 5.2 – zanim wpiszesz SID-y grup i
 pozostałe ustawienia. `install -m 0644` nadaje plikowi tryb czytelny dla konta `openwec` także wtedy, gdy w powłoce
 działa `umask 077` z 3.6:
 
@@ -3020,7 +3092,8 @@ config = { path = "/var/lib/openwec/out/{client}/security.jsonl" }
 `max_time = 30` – kontroler wysyła paczkę najpóźniej po 30 sekundach (krótkie opóźnienie alarmów);
 `heartbeat_interval = 900` – sygnał życia co 15 minut, gdy nie ma zdarzeń.
 
-**Sprawdź zapytanie na kontrolerach, zanim je wczytasz – możesz to zrobić już teraz.** **Gdzie:** DC01 i DC02. Zapisz
+**Sprawdź zapytanie na kontrolerach, zanim je wczytasz.** **Gdzie:** DC01 i DC02. Samo zapytanie (bez reszty pliku)
+wypisze też `admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' --query-only`. Zapisz
 część od `<QueryList>` do `</QueryList>` jako `admng-query.xml` i uruchom:
 
 ```powershell
@@ -3129,43 +3202,61 @@ także zapytania DNS tego konta), a zdarzenia z DC nadal przychodzą (liczba wie
 
 ---
 
-## 5. Instalacja Watchdoga [od 0.3.0]
+## 5. Usługa Watchdog – ustawienia i uruchomienie
 
-Cały rozdział opisuje pakiet, który powstaje w etapie B. Szczegóły ustala specyfikacja; tu jest to, co musisz o nim
-wiedzieć przed wdrożeniem.
+### 5.1 Co zainstalował pakiet
 
-### 5.1 Co zrobi pakiet
+Pakiet `admng-watchdog_0.3.0-1_amd64.deb` (3.1; jeden pakiet `amd64` dla Debiana 12 i 13; zależności: ASP.NET Core
+Runtime 10.0 ≥ 10.0.13, `admng-openwec`, biblioteki MIT Kerberos i SASL GSSAPI, `libldap`, `smbclient`, `openssl`,
+systemd ≥ 252; zalecane: `chrony`, `krb5-user`, `nftables`, biblioteki tpm2-tss; konflikt z `gss-ntlmssp`):
 
-Instalacja: `apt install ./admng-openwec_<wersja>~deb13_amd64.deb ./admng-watchdog_<wersja>_amd64.deb` (jeden pakiet
-`amd64` dla Debiana 12 i 13; zależności: ASP.NET Core Runtime 10.0 ≥ 10.0.13, `admng-openwec`, biblioteki MIT Kerberos
-i SASL GSSAPI, `smbclient`, `openssl`, systemd ≥ 252; konflikt z `gss-ntlmssp`). Pakiet:
-
-- przejmuje konto systemowe `admng-watchdog` z 3.3 (gdy go nie ma – tworzy je, bez powłoki) i dodaje je do grupy
-  `admng-keytab`;
+- tworzy konto systemowe `admng-watchdog` (bez powłoki) i grupę `admng-keytab` (członkowie: `admng-watchdog`,
+  `openwec`);
 - tworzy katalogi z właścicielami i trybami: dane `/var/lib/admng-watchdog` (0700, tylko konto usługi:
-  `watchdog.db`, `backup/`, `keys/`), konfiguracja `/etc/admng-watchdog` (właściciel root; `appsettings.json`
-  root:admng-watchdog 0640 – usługa może go czytać, ale nie zmienić);
-- instaluje pliki: usługę w `/usr/lib/admng-watchdog/`, polecenia `admng-watchdog` i `admng-watchdog-keytab`,
-  jednostki `admng-watchdog.service`, `admng-watchdog-keytab.service/.timer`, `admng-wec-rotate.service/.timer`,
-  przykład zapory;
+  `watchdog.db`, `backup/`, `keys/`), stan narzędzia keytabu `/var/lib/admng-watchdog-keytab` (`root:admng-watchdog`
+  0750), konfiguracja `/etc/admng-watchdog` (właściciel root; `appsettings.json` root:admng-watchdog 0640 – usługa
+  może go czytać, ale nie zmienić; `krb5.conf`, `ldap.conf`, `smb-client.conf` 0644; `tls/` root:admng-watchdog 0750;
+  `credentials/` tylko root), katalog wyjściowy OpenWEC `/var/lib/openwec/out` (2750 `openwec:admng-watchdog`);
+- instaluje usługę i narzędzie keytabu w `/usr/lib/admng-watchdog/`, polecenia `/usr/sbin/admng-watchdog` (niżej) i
+  `/usr/sbin/admng-watchdog-keytab` (3.6, 3.7), jednostki `admng-watchdog.service`, `admng-watchdog-failed.service`,
+  `admng-watchdog-keytab.service`/`.timer` i `admng-wec-rotate.service`/`.timer` (w `/usr/lib/systemd/system`),
+  ustawienia porządkowania plików OpenWEC `/etc/default/admng-wec-rotate` (4.5) i przykład zapory
+  `/usr/share/admng-watchdog/nftables/admng-watchdog.nft` (3.3);
 - tworzy klucz sekretów kanałów jako zaszyfrowane poświadczenie systemd
   (`/etc/admng-watchdog/credentials/dp-key.cred`) – gdy maszyna ma TPM, w wariancie „TPM2 + klucz hosta”, a gdy go nie
-  ma albo ten wariant się nie uda – „klucz hosta”; wypisuje, którego wariantu użył i dlaczego (3.1);
+  ma albo ten wariant się nie uda – „klucz hosta”; wypisuje, którego wariantu użył i dlaczego, i zapisuje go w
+  `/etc/admng-watchdog/dp-key.variant` (bez sekretu; zakładka Stan → Host);
 - gdy nie ma certyfikatu w `/etc/admng-watchdog/tls/` – generuje własny i wypisuje odcisk (3.8, wariant B);
 - po aktualizacji środowiska .NET (ASP.NET Core Runtime) restartuje usługę – stara wersja znika z dysku (wyzwalacz dpkg,
   3.1);
-- **przy pierwszej instalacji niczego nie uruchamia** (usługa czeka na keytab i ustawienia); przy aktualizacji
-  restartuje działającą usługę (migracje bazy wykonują się przy starcie, z kopią sprzed migracji);
-- przy `apt purge` usuwa `/etc/admng-watchdog` (także keytab) i `/var/lib/openwec`, ale **zostawia**
-  `/var/lib/admng-watchdog` – 3-letnią historię usuwasz tylko świadomie (8.1).
+- **przy pierwszej instalacji nie uruchamia usługi** (czeka na keytab i ustawienia) – włącza ją i uruchamia tylko dwa
+  timery; przy aktualizacji restartuje działającą usługę (migracje bazy wykonują się przy starcie, z kopią sprzed
+  migracji);
+- przy `apt remove` zatrzymuje usługę i timery, a konfigurację zostawia; przy `apt purge` usuwa `/etc/admng-watchdog`
+  (także keytab, certyfikat i poświadczenie z kluczem sekretów) i `/var/lib/admng-watchdog-keytab`, ale **zostawia**
+  `/var/lib/admng-watchdog` – 3-letnią historię usuwasz tylko świadomie (8.1). `apt purge admng-openwec` usuwa
+  `/var/lib/openwec`.
+
+Polecenie `admng-watchdog` (jako root; sprawdzenia uruchamia jako konto usługi, z jej środowiskiem):
+
+| Polecenie | Co robi |
+|---|---|
+| `admng-watchdog --check-config` | sprawdza `appsettings.json` i zapisaną konfigurację; kod 0 – w porządku, 2 – błędy (wypisane) |
+| `admng-watchdog --health` | pyta działającą usługę o `/healthz` na adresie z `Hosting.Urls`; kod 0 – działa, 1 – nie |
+| `admng-watchdog --smoke-test` | test samego programu (tymczasowy folder danych, pętla zwrotna, bez katalogu); kod 0 / 1 |
+| `admng-watchdog print-wec-subscription --dc 'DC01$@CONTOSO.COM' …` | plik subskrypcji OpenWEC (4.4); `--query-only` – samo zapytanie XPath |
+| `admng-watchdog cert-fingerprint` | odcisk SHA-256 certyfikatu TLS usługi |
+| `admng-watchdog cert-renew-self-signed` | nowy certyfikat z podpisem własnym (3.8, wariant B) |
+| `admng-watchdog reset-secrets-key` | nowe poświadczenie z kluczem sekretów po odtworzeniu na innej maszynie (3.9) |
 
 Usługa `admng-watchdog.service` działa jako `admng-watchdog` w piaskownicy systemd (bez uprawnień, tylko odczyt systemu
 plików poza swoim katalogiem, tylko port 8443) i zgłasza systemd, że żyje, tylko wtedy, gdy jej zadania faktycznie
 posuwają się naprzód – zawieszona usługa zostanie zrestartowana. systemd restartuje ją po awarii lub zawieszeniu co
 30 sekund, bez limitu prób; dane, które za każdym razem wywołują awarię (np. uszkodzony plik GPO), usługa po trzech
 próbach pomija i zgłasza. Nie restartuje jej tylko po błędzie konfiguracji (kody z tabeli w 5.3) – wtedy
-jednostka zostaje w stanie `failed`, a jednostka pomocnicza `admng-watchdog-failed.service` zapisuje błąd krytyczny
-w dzienniku systemowym i próbuje wysłać krótkie powiadomienie (bez danych z katalogu) kanałami Watchdoga.
+jednostka zostaje w stanie `failed`, a jednostka pomocnicza `admng-watchdog-failed.service` zapisuje w dzienniku
+systemowym błąd krytyczny „AdMng Watchdog zatrzymany – sprawdź systemctl status admng-watchdog” (powiadomienia
+kanałami Watchdoga w tej sytuacji wersja 0.3.0 nie wysyła – 5.4).
 
 ### 5.2 Ustawienia startowe (`/etc/admng-watchdog/appsettings.json`)
 
@@ -3197,7 +3288,8 @@ Po każdej edycji:
 admng-watchdog --check-config
 ```
 
-Retencję, SMTP, Teams i reguły ustawiasz w AD Managerze (rozdz. 6) – zapisują się w bazie usługi. Domyślna retencja
+SMTP, Teams, reguły i czas przechowywania rekordów logowań ustawiasz w AD Managerze (rozdz. 6) – zapisują się w bazie
+usługi. Pozostałe wartości retencji mają wartości domyślne (AD Manager 0.3.0 nie ma ich edytora). Domyślna retencja
 w 0.3.0: zdarzenia **1095 dni**, rekordy dzienników DC związane ze zmianami 30 dni, rekordy logowań 48 godzin, 7 kopii
 bazy, limit rozmiaru bazy 4 GB (`MaxDatabaseMb` 4096 – baza i 7 kopii mieszczą się wtedy na zalecanych 40 GB `/var`).
 Krótszej retencji zdarzeń niż `MinEventsDays` usługa nie przyjmie (`retentionBelowFloor`), a każde skrócenie retencji
@@ -3215,7 +3307,8 @@ admng-watchdog --health; echo "kod: $?"
 systemctl list-timers 'admng-*'
 ```
 
-Oczekiwane: obie usługi `active (running)`; w dzienniku start bez błędów i wpis 1008 z odciskiem certyfikatu;
+Oczekiwane: obie usługi `active (running)`; w dzienniku start bez błędów i wpis 1008 z odciskiem certyfikatu
+(`Category[1008]`);
 `--health` – kod 0; dwa timery (`admng-watchdog-keytab`, `admng-wec-rotate`) z datą następnego uruchomienia.
 
 Po starcie usługa tworzy bazę i robi **zrzut bazowy** domeny (bez powiadomień o zmianach; dla ok. 50 000 obiektów kilka
@@ -3232,6 +3325,7 @@ kodach systemd **nie** ponawia startu – trzeba usunąć przyczynę i wykonać 
 | 4 | klucz certyfikatu dostępny dla wszystkich albo nieczytelny | 3.8 – tryby plików |
 | 5 | folder danych z za szerokimi uprawnieniami, z wpisami ACL, na udziale sieciowym albo dowiązanie | `stat /var/lib/admng-watchdog` – właściciel `admng-watchdog`, tryb 700 |
 | 6 | konto usługi może zapisywać plik ustawień lub jego katalog | właściciel root, tryby jak w 5.1 |
+| 7 | uwierzytelnianie `Development` (tylko laboratorium) w ustawieniach usługi produkcyjnej | `"Authentication": "Negotiate"` (5.2) |
 | 8 | konto `ADMNG-WD$` należy do grupy uprzywilejowanej | usuń je z grupy (2.5) |
 | 9 | usługa uruchomiona bez poświadczenia z kluczem sekretów (np. poza jednostką systemd albo po zmianie jednostki) | uruchamiaj tylko przez `systemctl`; 3.9 |
 | 10 | keytab: zły właściciel, zapisywalny dla grupy, nieczytelny dla usługi | 3.6 – `root:admng-keytab 640` |
@@ -3250,19 +3344,22 @@ kodach systemd **nie** ponawia startu – trzeba usunąć przyczynę i wykonać 
   nazwie konta (3.6), różnica zegara względem DC. Szablonów certyfikatów usługa nie sprawdza (ryzyko przyjęte – 2.5,
   „Certyfikaty a konto usługi”).
 - **Dziennik systemowy:** `journalctl -u admng-watchdog -p warning --since today` – ostrzeżenia i błędy z dziś (bez
-  wartości z katalogu). Numery zdarzeń są takie jak w wersji 0.2.0 ([`WATCHDOG.md`](WATCHDOG.md), rozdz. 10), nowe:
-  1008 odcisk certyfikatu, 1011 problem z kontem usługi, 1012 problem z kolektorem WEF, 1013 problem z treścią GPO.
+  wartości z katalogu). Numery zdarzeń (w dzienniku jako `Category[1003]`) są takie jak w wersji 0.2.0
+  ([`WATCHDOG.md`](WATCHDOG.md), rozdz. 10); nowe: 1008 odcisk certyfikatu, 1011 problem z kontem usługi, 1012 problem
+  z kolektorem WEF, 1013 problem z treścią GPO; 1010 – nieudana kontrola startowa albo zatrzymane zadanie (wtedy systemd
+  restartuje usługę).
 - **Raport dzienny** (7:30, także w weekendy) – jego brak oznacza problem z usługą albo z wysyłką: sprawdź wtedy
   `systemctl status admng-watchdog`.
 
 Restart po awarii jest automatyczny i nie ma limitu prób. Jednostka w stanie `failed` (błąd konfiguracji – 5.3) nie
-wraca jednak sama: wtedy zwykle przychodzi krótkie powiadomienie „AdMng Watchdog zatrzymany” (5.1), a gdy i ono nie
-dotrze – jedynym sygnałem jest brak raportu dziennego. Jeśli macie Zabbix lub SIEM, podepnijcie pod nie `journalctl`
-(priorytet warning i wyżej).
+wraca jednak sama: wtedy w dzienniku systemowym pojawia się błąd krytyczny „AdMng Watchdog zatrzymany” (5.1), a
+powiadomień nie ma – jedynym sygnałem poza serwerem jest brak raportu dziennego. Jeśli macie Zabbix lub SIEM,
+podepnijcie pod nie `journalctl` (priorytet warning i wyżej) albo przynajmniej codziennie sprawdzajcie
+`systemctl is-failed admng-watchdog`.
 
 ---
 
-## 6. AD Manager [od 0.3.0]
+## 6. AD Manager
 
 ### 6.1 Połączenie z usługą
 
@@ -3280,9 +3377,10 @@ dotrze – jedynym sygnałem jest brak raportu dziennego. Jeśli macie Zabbix lu
 2. W AD Managerze: **Narzędzia → Watchdog** (Ctrl+Shift+A) → adres `https://admng-wd.contoso.com:8443` → **Połącz**.
    Zawsze pełna nazwa z rekordu A – nie adres IP, nie alias (wtedy Windows próbuje NTLM, który usługa odrzuca).
 3. **Wariant A** (certyfikat z firmowego CA) – połączenie od razu.
-   **Wariant B** (certyfikat własny serwera) – AD Manager pokaże okno z odciskiem SHA-256 (w grupach po 4 znaki),
-   nazwą i datami ważności. Na serwerze uruchom `sudo admng-watchdog cert-fingerprint`, porównaj **cały** odcisk
-   i dopiero wtedy kliknij „Ufam temu certyfikatowi”. Odcisk zostaje zapamiętany w ustawieniach AD Managera
+   **Wariant B** (certyfikat własny serwera) – AD Manager pokaże okno z odciskiem SHA-256 (16 grup po 4 cyfry
+   szesnastkowe), nazwą i datami ważności. Na serwerze uruchom `sudo admng-watchdog cert-fingerprint` (wypisuje te same
+   cyfry w parach rozdzielonych dwukropkami: `3F:2A:9C:…`), porównaj **cały** odcisk cyfra po cyfrze i dopiero wtedy
+   kliknij „Ufam temu certyfikatowi” (Enter i Esc zamykają okno bez zaufania). Odcisk zostaje zapamiętany w ustawieniach AD Managera
    (Ustawienia → Watchdog, z przyciskiem „Usuń przypięcie”); potwierdzenie robisz na każdej
    stacji raz. Zmieniony certyfikat AD Manager pokaże jako zmianę (stary i nowy odcisk) – nie akceptuj go bez
    sprawdzenia na serwerze.
@@ -3322,9 +3420,11 @@ Opis wszystkich opcji: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 5 i 6. Minimum na st
    `watchdog-self` (konto usługi), `tier0-gpo` (treść GPO) – powiadamiają natychmiast i całą dobę, także w trybie
    wdrożenia; ich wyłączenie przez API wymaga lokalnej zgody na serwerze (`AllowTier0Suppression`) i samo jest
    zdarzeniem krytycznym. Przy każdej regule widać, ile wiadomości by wysłała (przycisk Podgląd).
-6. **Retencja** (Konfiguracja): sprawdź, że zdarzenia mają 1095 dni. Trzy lata historii to dane osobowe pracowników –
-   uzgodnij cel i okres z IOD i wpisz przetwarzanie do rejestru czynności. Krótszy okres niż `MinEventsDays` z ustawień
-   startowych (5.2) ustawi tylko root serwera.
+6. **Źródła i retencja**: atrybucja włączona ze źródłem „OpenWEC (WEF)”, odrzucanie logowań kont komputerów
+   i anonimowych, progi ciszy kolektora, treść GPO (włączona; tolerancja opóźnienia SYSVOL, limity rozmiaru) i czas
+   przechowywania rekordów logowań (48 godzin). Zdarzenia są przechowywane 1095 dni – tej wartości AD Manager 0.3.0 nie
+   edytuje, a krótszej niż `MinEventsDays` z ustawień startowych (5.2) usługa nie przyjmie. Trzy lata historii to dane
+   osobowe pracowników – uzgodnij cel i okres z IOD i wpisz przetwarzanie do rejestru czynności.
 7. **Tryb wdrożenia** (7 dni): w produkcji przez tydzień przeglądaj Reguły i dodawaj wyjątki z podpowiedzi (np. konto
    synchronizacji Entra Connect), potem „Zakończ tryb wdrożenia”. W domenie testowej zakończ go od razu po zrzucie
    bazowym – inaczej w pilotażu (rozdz. 7) zobaczysz tylko alarmy krytyczne.
@@ -3332,7 +3432,7 @@ Opis wszystkich opcji: [`WATCHDOG.md`](WATCHDOG.md), rozdz. 5 i 6. Minimum na st
 
 ---
 
-## 7. Pilotaż – lista kontrolna [od 0.3.0]
+## 7. Pilotaż – lista kontrolna
 
 ### 7.1 Przygotowanie
 
@@ -3400,7 +3500,7 @@ przywróć `0`.
 | 1 | Restart odbiornika pod obciążeniem | w trakcie testów z 7.2: `systemctl restart openwecd` | Stan → Kolektor WEF bez luki; zdarzenia z czasu restartu docierają (kontrolery je ponawiają) |
 | 2 | Przerwa w pracy usługi | `systemctl stop admng-watchdog`, zmiana testowa, po 10 min `systemctl start admng-watchdog` | zmiana zgłoszona po starcie, z wykonawcą (pliki OpenWEC czekały) |
 | 3 | Awaria DC01 | wyłącz DC01 na 30 min | usługa przechodzi na DC02 (Stan, zdarzenie „Kontroler domeny niedostępny”), Kerberos działa przez DC02; po powrocie DC01 usługa zostaje na DC02, dopóki ten działa – na PDC wraca po restarcie usługi albo awarii DC02, bez pełnego ponownego skanowania |
-| 4 | Zmiana hasła konta usługi | pierwsza automatyczna zmiana po 30 dniach – albo szybciej ścieżka z 3.7 (nowe hasło jednorazowe + `admng-watchdog-keytab init`) | AD Manager, LDAP i WEF działają bez restartu; Stan → Konto usługi pokazuje nowe kvno równe AD. Automatyczna zmiana nie wywołuje alarmu `watchdog-self`; reset hasła przez administratora w ścieżce z hasłem jednorazowym – wywołuje (alarm krytyczny, oczekiwany) |
+| 4 | Zmiana hasła konta usługi | pierwsza automatyczna zmiana po 30 dniach – albo szybciej `admng-watchdog-keytab rotate --if-older-than 0` (3.7); potem naprawa z 3.7 (nowe hasło jednorazowe + `admng-watchdog-keytab init`) | AD Manager, LDAP i WEF działają bez restartu; Stan → Konto usługi pokazuje nowe kvno równe AD. Zmiana przez narzędzie nie wywołuje alarmu `watchdog-self`; reset hasła przez administratora w ścieżce z hasłem jednorazowym – wywołuje (alarm krytyczny, oczekiwany) |
 | 5 | Certyfikat (wariant B) | połączenie z drugiej stacji; potem `cert-renew-self-signed` | okno odcisku przy pierwszym połączeniu; po odnowieniu – ostrzeżenie o zmianie z dwoma odciskami |
 | 6 | Odtworzenie na innej maszynie | wariant TPM2: odtwórz dysk na nowej VM bez tego samego vTPM; wariant „klucz hosta”: nowa VM z Debianem z 3.1, skopiuj tylko `/etc/admng-watchdog` i `/var/lib/admng-watchdog` (bez `/var/lib/systemd/credential.secret`) | `systemctl status admng-watchdog` pokazuje `status=243/CREDENTIALS`; po `reset-secrets-key` usługa startuje, historia jest, SMTP i Teams trzeba wpisać ponownie. (Kopia całego dysku w wariancie „klucz hosta” zawiera klucz – usługa startuje normalnie, to oczekiwane.) |
 | 7 | Role | `Add-ADGroupMember AdMng-Watchdog-Viewers -Members anna.nowak`, logowanie AD Managerem z jej kontem; potem jej SID w `DeniedSids` | po ≤ 5 min dostęp tylko do odczytu; po wpisie w `DeniedSids` – odmowa w ciągu sekund |
@@ -3438,15 +3538,15 @@ Zapisz wyniki – część decyzji etapu B zależy od nich:
 
 ```bash
 systemctl disable --now admng-watchdog admng-watchdog-keytab.timer admng-wec-rotate.timer openwecd
-apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watchdog z keytabem i /var/lib/openwec
+apt purge admng-watchdog admng-openwec        # usuwa /etc/admng-watchdog (keytab, certyfikat, klucz) i /var/lib/openwec
 ```
 
 - Historia (`/var/lib/admng-watchdog`) **zostaje** po `purge`. Usuń ją dopiero po decyzji, co dalej z 3-letnią historią
   (archiwum, przekazanie, RODO) – usunięcie jest nieodwracalne:
   `rm -rf --one-file-system /var/lib/admng-watchdog`.
-- Przed pakietem (tylko ręczny keytab z 3.6): `rm /etc/admng-watchdog/admng-wd.keytab` i pozostałe pliki z
-  `/etc/admng-watchdog`. Keytab przestaje mieć wartość, gdy konto w AD zostanie wyłączone albo usunięte (8.2) – zrób to
-  zawsze.
+- `purge` usuwa też `/var/lib/admng-watchdog-keytab`; katalog `/etc/openwec/subscriptions` z Twoim plikiem
+  subskrypcji zostaje (`rm -r /etc/openwec`). Keytab przestaje mieć wartość dopiero, gdy konto w AD zostanie wyłączone
+  albo usunięte (8.2) – zrób to zawsze.
 - Zapora, chrony, DNS: przywróć kopie z 3.3 i 3.4 albo usuń całą maszynę:
 
   ```bash
@@ -3457,8 +3557,8 @@ apt purge admng-watchdog admng-openwec        # od 0.3.0: usuwa /etc/admng-watch
   ```
 - Pozostałości, których pakiety nie usuwają (po przywróceniu zapory – jej reguły odwołują się do kont `openwec`
   i `admng-watchdog`): `rm -r /etc/systemd/system/openwecd.service.d && systemctl daemon-reload` (plik z 4.3),
-  `userdel openwec` (konto z 3.3) i – dopiero po usunięciu historii – `userdel admng-watchdog` (konto z 3.3; katalog
-  historii należy do niego).
+  `userdel openwec` i – dopiero po usunięciu historii – `userdel admng-watchdog` (konta utworzone przez pakiety, 3.1;
+  katalog historii należy do drugiego), na końcu `groupdel admng-keytab`.
 - Jeśli maszyna była przeznaczona tylko dla Watchdoga – usuń całą VM i jej kopie zapasowe (to dane Tier 0).
 
 ### 8.2 AD i kontrolery
@@ -3527,11 +3627,11 @@ zespołem.
 | `Client's credentials have been revoked` | konto wyłączone: nie włączono go po wpisie odmowy dla SELF (2.5, „Włączenie konta…”) albo wyłączono je po wycieku keytabu | `Get-ADComputer ADMNG-WD -Properties Enabled`; `Enable-ADAccount 'ADMNG-WD$'` (po wycieku – dopiero według 2.5, „Gdy keytab mógł wyciec”) |
 | `Preauthentication failed` przy `kinit -k` | klucze w keytabie nie pasują do hasła w AD: zła sól, keytab sprzed zmiany hasła, zmiana hasła w AD poza Debianem | 3.6 (sól), porównaj kvno: `klist -k` vs `msDS-KeyVersionNumber`; naprawa – nowe hasło jednorazowe i 3.7 |
 | `kvno -k` bez `keytab entry valid` / AD Manager „Usługa odrzuciła uwierzytelnienie Kerberos” (401) przy poprawnym bilecie | keytab nie zawiera wersji klucza, którą KDC szyfruje bilety (kvno), albo brak nazwy `HTTP/…` w keytabie | `klist -k -e` – trzy nazwy, aktualne kvno; dziennik usługi, wpis 2501 z podpowiedzią |
-| `KDC has no support for encryption type` | konto nie ma kluczy AES (typy szyfrowania ustawione, ale hasło nie zmienione od tego czasu) albo klient wymusza AES, a konto ma tylko RC4 | `Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes` = 24; zmień hasło (3.7) |
+| `KDC has no support for encryption type` | konto nie ma kluczy AES (typy szyfrowania ustawione, ale hasło nie zmienione od tego czasu) albo klient wymusza AES, a konto ma tylko RC4 | `Get-ADComputer ADMNG-WD -Properties msDS-SupportedEncryptionTypes` = 24; nowe hasło jednorazowe i `init` (3.7, „Naprawa”) |
 | `Server not found in Kerberos database` | SPN nie istnieje albo klient używa aliasu (CNAME), adresu IP lub nazwy z innej domeny | `setspn -Q HTTP/admng-wd.contoso.com`; łącz się nazwą z rekordu A (2.4) |
 | Ten sam SPN na dwóch kontach (np. stary gMSA z 0.2.0) | KDC nie wie, kluczem którego konta szyfrować; uwierzytelnianie zawodzi | `setspn -X` (duplikaty), `setspn -Q HTTP/admng-wd.contoso.com`, `setspn -D …` na starym koncie |
-| `kpasswd`: `Password change rejected` | zasady haseł domeny – minimalny wiek hasła liczy się od ustawienia hasła jednorazowego | 3.6 – keytab z hasła jednorazowego, następnego dnia zmiana z **tym samym** hasłem jednorazowym, bez nowego resetu na PAW |
-| `kpasswd`: `Access denied` | zmiana hasła zablokowana – np. przez wpis odmowy dla SELF z 2.5 (pytanie pilotażu) | usuń wpis (blok z 2.5 z `RemoveAccessRuleSpecific` w miejscu `AddAccessRule` – usuwa dokładnie ten wpis), powtórz 3.6 i zgłoś wynik zespołowi |
+| `admng-watchdog-keytab`: `otpActive` / `KRB5_KPASSWD_SOFTERROR`; `kpasswd`: `Password change rejected` | zasady haseł domeny – minimalny wiek hasła liczy się od ustawienia hasła jednorazowego | 3.6 – keytab z hasła jednorazowego; timer zmieni hasło sam, gdy minie minimalny wiek (w procedurze awaryjnej: następnego dnia ten sam blok z **tym samym** hasłem jednorazowym, bez nowego resetu na PAW) |
+| `admng-watchdog-keytab`: `changeFailed` / `KRB5_KPASSWD_ACCESSDENIED`; `kpasswd`: `Access denied` | zmiana hasła zablokowana – np. przez wpis odmowy dla SELF z 2.5 (pytanie pilotażu) | usuń wpis (blok z 2.5 z `RemoveAccessRuleSpecific` w miejscu `AddAccessRule` – usuwa dokładnie ten wpis), powtórz 3.6 i zgłoś wynik zespołowi |
 | Usługa przestała się uwierzytelniać po odtworzeniu VM | keytab starszy niż hasło w AD (zmiana nastąpiła po wykonaniu kopii) | Stan → Konto usługi (`keytabStale`); nowe hasło jednorazowe + `init` (3.7) |
 
 ### 9.2 WEF (przekazywanie zdarzeń)

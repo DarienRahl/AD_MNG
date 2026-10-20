@@ -9,7 +9,7 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.2.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.3.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
@@ -73,13 +73,17 @@ podglądem zmian, raportem i cofaniem.
   pierwotnego lub wskazanego miejsca, całe poddrzewo OU jednym planem w kolejności rodzic → dzieci.
 - 🔎 **Przejrzystość** – dziennik sesji, historia równoważnych poleceń PowerShell, centrum aktywności z postępem i
   anulowaniem, komunikaty błędów AD po polsku.
-- 🛡 **AdMng Watchdog – monitor zmian w AD** – osobna usługa Windows (24/7, konto gMSA tylko do odczytu) wykrywa nowe i
+- 🛡 **AdMng Watchdog – monitor zmian w AD** – osobna usługa (24/7) na serwerze **Debian 12/13** poza domeną (od 0.3.0;
+  pakiety `.deb`, systemd, konto komputera tylko do odczytu z keytabem i hasłem zmienianym co 30 dni) wykrywa nowe i
   usunięte obiekty, zmiany atrybutów (stara → nowa wartość), blokady, wygasające konta, zmiany członkostwa i
-  **uprzywilejowanego dostępu** (także przez grupy zagnieżdżone) oraz zmiany Tier 0; ustala wykonawcę z dzienników
-  zabezpieczeń kontrolerów domeny i powiadamia e-mailem (od razu i raportem dziennym), w Microsoft Teams (Workflows) i
-  podpisanym webhookiem (SIEM). W AD_MNG zakładka **Watchdog** (Narzędzia → Watchdog) pokazuje zdarzenia, reguły,
-  kanały i stan usługi. Usługa jako jedyna część rozwiązania przechowuje dane – we własnym, chronionym folderze
-  ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md)). Wdrożenie: [docs/WATCHDOG.md](docs/WATCHDOG.md).
+  **uprzywilejowanego dostępu** (także przez grupy zagnieżdżone), zmiany Tier 0 i **treści GPO** („ustawienie: było →
+  jest”); ustala **kto i skąd** z dzienników zabezpieczeń kontrolerów przekazywanych przez Windows Event Forwarding
+  (OpenWEC, bez agentów na DC), przechowuje historię 3 lata i powiadamia e-mailem (od razu i raportem dziennym),
+  w Microsoft Teams (Workflows) i podpisanym webhookiem (SIEM). W AD_MNG zakładka **Watchdog** (Narzędzia → Watchdog)
+  pokazuje zdarzenia, reguły, kanały i stan usługi. Usługa jako jedyna część rozwiązania przechowuje dane – we własnym,
+  chronionym folderze ([ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md),
+  [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md)). Funkcje: [docs/WATCHDOG.md](docs/WATCHDOG.md), wdrożenie:
+  [docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md).
 
 Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV, „Kopiuj użytkownika”): zob.
 [znane ograniczenia](#znane-ograniczenia).
@@ -133,8 +137,9 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów). Aktualny komplet CI publikuje przy
-każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
+<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.3.0 – także okno
+potwierdzenia certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są dołączone do wydania. Aktualny komplet CI
+publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
 
@@ -188,7 +193,7 @@ flowchart TB
 | 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
-| W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa Windows wykrywająca zmiany w AD z ustaleniem wykonawcy, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 zaimplementowane, czeka na laboratorium Windows Server i pilotaż |
+| W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza 0.3.0 (pakiety Debian), czeka na pilotaż na kontrolerach Windows Server |
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | ⬜ |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
@@ -528,8 +533,11 @@ karty ADUC.
 ### AdMng Watchdog – monitor zmian w AD 🟡
 
 **Cel:** wiedzieć w ciągu minut, co zmieniło się w katalogu, kto i skąd to zrobił – bez czytania dzienników DC i bez
-alarmów o rutynie. Osobna usługa Windows ([WATCHDOG.md](docs/WATCHDOG.md), [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md),
-specyfikacja [dev/watchdog-spec.md](docs/dev/watchdog-spec.md)); AD_MNG dostaje zakładkę Watchdog.
+alarmów o rutynie. Osobna usługa – od wersji 0.3.0 wyłącznie na Linuksie (Debian 12/13, systemd;
+[WATCHDOG.md](docs/WATCHDOG.md), wdrożenie [WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md),
+[ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md), [ADR-0009](docs/adr/0009-watchdog-na-linuksie.md),
+specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
+[dev/watchdog-linux-design.md](docs/dev/watchdog-linux-design.md)); AD_MNG ma zakładkę Watchdog.
 
 <details>
 <summary><b>Szczegóły ścieżki W</b> – wykrywanie, atrybucja, powiadomienia, usługa, plan przed wersją stabilną</summary>
@@ -537,33 +545,43 @@ specyfikacja [dev/watchdog-spec.md](docs/dev/watchdog-spec.md)); AD_MNG dostaje 
 - 🟡 **Wykrywanie:** odpytywanie `uSNChanged` jednego DC z migawką obserwowanych atrybutów (Extended DN, metadane
   replikacji, watermark per DC, uzgodnienie dobowe), nowe/usunięte/przywrócone/przeniesione obiekty, zmiany atrybutów
   stara → nowa wartość, flagi konta, blokady i odblokowania, członkostwo i **dostęp uprzywilejowany przez zagnieżdżenia**,
-  zmiany Tier 0 (delegowanie, SPN, KeyCredentialLink, sIDHistory, ACL obiektów krytycznych, DC, FSMO, PKI, schemat,
-  zasady domeny), wygasające konta i hasła, serie (masowe blokady i usunięcia), samokontrola uprawnień konta usługi.
-- 🟡 **Atrybucja:** dzienniki Security kontrolerów (47xx, 5136–5141, 4624 dla stacji źródłowej, 4771/4776 dla źródeł
-  blokad), poziom pewności i kody przyczyn, gdy wykonawcy nie da się ustalić; uzupełnienia wysyłane w tym samym wątku.
+  zmiany Tier 0 (delegowanie, SPN, KeyCredentialLink, sIDHistory, ACL i SACL obiektów krytycznych, DC, FSMO, PKI,
+  schemat, zasady domeny), **BadSuccessor** (dMSA), `ms-DS-MachineAccountQuota`, zmiany własnego konta usługi,
+  wygasające konta i hasła, serie (masowe blokady i usunięcia), samokontrola uprawnień konta usługi.
+- 🟡 **Treść GPO** (od 0.3.0): odczyt SYSVOL przez SMB 3 z Kerberosem, szablon zabezpieczeń, `Registry.pol`, preferencje
+  GPP, skrypty, zasady inspekcji – zmiany jako „ustawienie: było → jest”, przekierowanie folderu GPO, zmiany z pominięciem
+  GPMC, hasła GPP (`cpassword`) nigdy nie zapisywane.
+- 🟡 **Atrybucja:** dzienniki Security kontrolerów przekazywane przez **Windows Event Forwarding do OpenWEC** (bez agentów
+  na DC): 47xx, 5136–5141, 4624 (typ 3 i 10) / 4625 / 4771 / 4776 dla stacji źródłowej i źródeł blokad – „kto i skąd”;
+  poziom pewności i kody przyczyn, gdy wykonawcy nie da się ustalić; uzupełnienia wysyłane w tym samym wątku.
 - 🟡 **Powiadomienia:** reguły z zakresem, wyjątkami i godzinami pracy (polskie święta), agregacja i limity, e-mail
   (relay, Basic, Exchange Online OAuth2), raport dzienny, Microsoft Teams (Workflows, Adaptive Card 1.4), webhook
   podpisany Standard Webhooks, heartbeat; tryb wdrożenia przez pierwsze 7 dni.
-- 🟡 **Usługa:** API HTTPS tylko z Kerberosem, role wg grup AD, SQLite z retencją i kopiami, sekrety w Data Protection
-  (DPAPI-NG) powiązane z miejscem docelowym, skrypty instalacyjne, test dymny; archiwum w wydaniach (od 0.2.0) i artefakt
-  CI `AdMng-Watchdog-win-x64`.
-- 🟡 **Zakładka Watchdog w AD_MNG** (wersja zapoznawcza 0.2.0): zdarzenia z filtrami i szczegółami, reguły z podglądem, kanały i testowe wysyłki,
-  raport dzienny, stan usługi, dziennik wysyłek.
+- 🟡 **Usługa** (od 0.3.0): pakiety `admng-watchdog` i `admng-openwec` dla Debiana 12 i 13, jednostki systemd
+  z pełnymi ograniczeniami, konto komputera `ADMNG-WD$` z keytabem i zmianą hasła co 30 dni (`admng-watchdog-keytab`),
+  LDAP z Kerberosem, podpisem i szyfrowaniem, API HTTPS tylko z Kerberosem i rolami z grup AD, SQLite z retencją
+  (historia 3 lata, próg retencji w ustawieniach startowych) i kopiami, sekrety w Data Protection z kluczem
+  w poświadczeniu systemd (TPM2) powiązane z miejscem docelowym, testy instalacji pakietów w CI. Usługa Windows
+  (gMSA, DPAPI-NG, HTTP.sys) jest dostępna tylko jako wydanie 0.2.0 i zostanie usunięta z kodu.
+- 🟡 **Zakładka Watchdog w AD_MNG**: zdarzenia z filtrami i szczegółami, reguły z podglądem, kanały i testowe wysyłki,
+  raport dzienny, stan usługi (od 0.3.0 także konto usługi, kolektor WEF, treść GPO, host), dziennik wysyłek,
+  „Źródła i retencja”, potwierdzanie odcisku certyfikatu przy pierwszym połączeniu.
 - ✅ **Środowisko testowe:** testy silnika i usługi na Linuksie, testy integracyjne na laboratorium Samba (scenariusze
-  wykrywania z kontem tylko do odczytu, usługa end-to-end z Mailpit i podpisanym webhookiem, opcjonalnie prawdziwy
-  Kerberos), skrypty laboratoryjne (`tools/testlab/watchdog`: usługa, Mailpit, odbiornik webhooków, scenariusz
-  z weryfikacją) uruchamiane także w CI.
+  wykrywania z kontem tylko do odczytu, usługa end-to-end z Mailpit i podpisanym webhookiem, konto komputera z keytabem,
+  LDAP przez GSSAPI, API z Negotiate i rolami, OpenWEC, SYSVOL), skrypty laboratoryjne (`tools/testlab/watchdog`)
+  uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
-**Do zrobienia przed wersją stabilną (0.2.0 jest wersją zapoznawczą):** przebieg na laboratorium Windows Server 2022/2025 (odczyt `msDS-ReplAttributeMetaData`
-przez konto bez uprawnień administratora, zdarzenia 4624 dla zmian przez ADWS/PowerShell, 4740 na DC innych niż PDC,
-pokrycie SACL dla 5136/5137, czytnik dzienników przez „Event Log Readers” – wyłącznie Kerberos, DC i kolektor WEF po
-nazwach DNS –, HTTP.sys: czy każde logowanie dociera do usługi jako Kerberos, a klient tylko-NTLM jest odrzucany) z zapisem
-prawdziwych zdarzeń jako danych testowych; sprawdzenie Teams Workflows na żywej dzierżawie (wersja karty, SAS vs OAuth);
-akceptacja zakresu danych w powiadomieniach przez IOD (RODO); pilotaż w jednej domenie.
+**Do zrobienia przed wersją stabilną (0.3.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
+z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – lista kontrolna
+[WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
+DC do OpenWEC i atrybucja „kto i skąd”, zmiana hasła konta komputera przy wpisie odmowy dla SELF, pierwsza
+automatyczna zmiana po 30 dniach, podpisywanie LDAP na Windows Server 2025 z GSSAPI, `tokenGroups` po nadaniu praw,
+prawdziwa treść GPO, zmiana SACL, kopia i odtworzenie vTPM); sprawdzenie Teams Workflows na żywej dzierżawie;
+akceptacja zakresu danych i 3-letniej retencji przez IOD (RODO); po wydaniu 0.3.0 – usunięcie kodu usługi Windows.
 
-**Faza 2 Watchdoga:** Microsoft Graph `sendMail`, uwierzytelnianie zintegrowane SMTP, strumień zdarzeń (SSE), korelacja
-z planami zmian AD_MNG (mniej szumu przy edycji zbiorczej), atrybucja z dziennika audytu Samba (JSON), więcej domen w
-jednej instancji, wartości czasowe członkostwa (PAM TTL).
+**Faza 2 Watchdoga:** Microsoft Graph `sendMail`, certyfikat dla Exchange Online OAuth2 na Linuksie, strumień zdarzeń
+(SSE), korelacja z planami zmian AD_MNG (mniej szumu przy edycji zbiorczej), atrybucja zmian przez ADWS, więcej domen
+w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety i repozytorium APT.
 
 </details>
 
@@ -699,10 +717,13 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   potwierdzeniu). Gdy lokacja komputera jest nieznana (komputer spoza domeny, lokator DsGetDcName nie odpowiada), opcja
   „dowolny zapisywalny DC w mojej lokacji” jest niedostępna, a lista DC pochodzi tylko z katalogu. Kontrolera innej
   domeny nie da się wybrać – to wymaga nowego połączenia.
-- **AdMng Watchdog – nie sprawdzone na Windows:** tryb HTTP.sys może odrzucać każde logowanie (zdarzenie 2500
-  „unknown (Negotiate)”; obejście: Kestrel ze SPN-em albo tymczasowo `RequireKerberos: false`); w trybie WEF zdarzenia
-  dostarczone z opóźnieniem w trakcie zalewu (więcej niż `maxRecordsPerPoll`) mogą ominąć atrybucję; zmiana podsieci
-  w `appsettings.json` nie aktualizuje reguły zapory. Szczegóły: [WATCHDOG.md, rozdział 9](docs/WATCHDOG.md#9-ograniczenia).
+- **AdMng Watchdog 0.3.0 – nie sprawdzony na kontrolerach Windows:** usługa na Linuksie przeszła testy instalacji na
+  Debianie 12 i 13 i testy na laboratorium Samba, ale przekazywanie zdarzeń z prawdziwych kontrolerów (WEF → OpenWEC),
+  zmiana hasła konta komputera przy wpisie odmowy dla SELF, szyfrowanie sekretów z vTPM (systemd) i treść GPO
+  prawdziwej domeny potwierdzi dopiero pilotaż (lista: [WATCHDOG-LINUX.md, 7.4](docs/WATCHDOG-LINUX.md#74-co-pilotaż-ma-rozstrzygnąć)).
+  AD Manager nie ma jeszcze edytora retencji zdarzeń i limitu rozmiaru bazy; Exchange Online OAuth2 działa na Linuksie
+  tylko z sekretem klienta; powiadomienia o zatrzymaniu usługi przez błąd konfiguracji trafiają tylko do dziennika
+  systemowego. Szczegóły: [WATCHDOG.md, rozdział 9](docs/WATCHDOG.md#9-ograniczenia).
 - **Kontenery dobrze znane** – domyślny kontener z `wellKnownObjects` dotyczy poleceń „Nowy” bez wskazanego kontenera
   (karta domeny, wyniki wyszukiwania, widoki); jednostki organizacyjne nie mają kontenera domyślnego. Gdy atrybutu nie da
   się odczytać, drzewo nie pokazuje znaczników, a obiekty powstają w bieżącym kontenerze (nazwy nie są zgadywane).
@@ -806,19 +827,24 @@ workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14
 Windows albo podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos
 z podpisywaniem i szyfrowaniem). Profil połączenia można zapisać – bez hasła.
 
-**AdMng Watchdog** (od wersji 0.2.0) jest w tym samym wydaniu jako archiwum `AdMng-Watchdog-<wersja>-win-x64.zip`,
-a między wydaniami jako artefakt CI **AdMng-Watchdog-win-x64**. Usługa jest zależna od środowiska uruchomieniowego:
-wymaga ASP.NET Core Runtime ≥ 10.0.13 x64 na serwerze, aktualizowanego przez Microsoft Update; w archiwum są skrypty
-`Deploy\Install-AdMngWatchdog.ps1` / `Uninstall-AdMngWatchdog.ps1`. Instalacja krok po kroku (gMSA, SPN,
-certyfikat, uprawnienia, inspekcja): [docs/WATCHDOG.md](docs/WATCHDOG.md#4-wdrożenie-krok-po-kroku).
+**AdMng Watchdog** (od wersji 0.3.0 – serwer Debian 12 lub 13, amd64) jest w tym samym wydaniu jako pakiety
+`admng-watchdog_<wersja>-1_amd64.deb` (jeden dla obu wersji Debiana) i `admng-openwec_…-deb12_amd64.deb` /
+`admng-openwec_…-deb13_amd64.deb` (odbiornik zdarzeń z kontrolerów, GPL-3.0 – jego źródła są dołączone jako
+`admng-openwec-…-source.tar.xz`), a między wydaniami jako artefakty CI **admng-watchdog-deb** i
+**admng-openwec-deb12/13**. Usługa wymaga ASP.NET Core Runtime ≥ 10.0.13 z repozytorium packages.microsoft.com.
+Instalacja krok po kroku (konto usługi i keytab, uprawnienia, inspekcja, WEF, certyfikat, pilotaż):
+[docs/WATCHDOG-LINUX.md](docs/WATCHDOG-LINUX.md). Usługa Windows (archiwum `AdMng-Watchdog-0.2.0-win-x64.zip`) jest
+tylko w wydaniu 0.2.0 i nie będzie rozwijana.
 
 <details>
 <summary><b>Jak powstaje wydanie</b></summary>
 
 Wydanie tworzy workflow `.github/workflows/release.yml`, gdy na gałąź wydań trafi nowy opis
 `docs/releases/v<wersja>.md` (pierwsza linia może wskazać commit: `<!-- release-commit: <sha> -->`) albo gdy zostanie
-wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows, tworzy tag oraz wydanie z archiwami
-aplikacji i usługi Watchdog, zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu aktualizuje tylko opis wydania.
+wypchnięty tag `v<wersja>`. Workflow buduje i testuje wskazany commit na Windows (AD Manager, zrzuty ekranu) i na
+Linuksie (pakiety Debian Watchdoga i OpenWEC z testem instalacji na Debianie 12 i 13), tworzy tag oraz wydanie
+z archiwum aplikacji, pakietami, źródłami OpenWEC, zrzutami ekranu i sumami SHA-256; późniejsza zmiana opisu
+aktualizuje tylko opis wydania.
 
 </details>
 
@@ -859,11 +885,14 @@ tools/testlab/watchdog/configure-lab.sh --test
 tools/testlab/watchdog/lab-scenario.sh --verify
 ```
 
-Publikacja usługi i jej test dymny (tymczasowy folder danych, pętla zwrotna, bez katalogu – jak w CI):
+Pakiety Debiana (na Linuksie; wersja z `VersionPrefix`) i test instalacji jak w CI:
 
-```powershell
-dotnet publish src/AdMng.Watchdog.Service -c Release -r win-x64 --self-contained false -o publish-watchdog
-publish-watchdog\AdMng.Watchdog.exe --smoke-test
+```bash
+tools/packaging/build-deb.sh --output artifacts/deb                 # admng-watchdog_<wersja>-1_amd64.deb
+# admng-openwec – w obrazie rust:slim-trixie (Debian 13) albo rust:slim-bookworm (12):
+tools/packaging/build-openwec-deb.sh --release 13 --output artifacts/deb --source-tarball
+docker run --rm --cap-add=NET_ADMIN -v "$PWD:/src:ro" debian:13 bash /src/tools/packaging/test-deb-install.sh \
+    /src/artifacts/deb/admng-watchdog_<wersja>-1_amd64.deb /src/packaging/admng-watchdog /src/artifacts/deb/admng-openwec_<wersja>~deb13_amd64.deb
 ```
 
 </details>
@@ -897,7 +926,8 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🏗 [Architektura](docs/ARCHITECTURE.md) | warstwy, sesja katalogu, potok zmian, interfejs, bezpieczeństwo, AdMng Watchdog, testy |
 | 📐 [Decyzje architektoniczne (ADR)](docs/adr/) | dlaczego WPF .NET 10, S.DS.P, brak lokalnych danych, jeden potok zmian, sesja przypięta do DC … |
 | 🔬 [Wyniki analizy](docs/RESEARCH.md) | `dsa.msc`, ADAC, produkty konkurencyjne, techniki LDAP |
-| 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | wdrożenie i konfiguracja usługi monitorującej |
+| 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
+| 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
 
