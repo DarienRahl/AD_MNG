@@ -1,0 +1,56 @@
+#!/bin/sh
+# admng-watchdog postinst (docs/dev/watchdog-linux-design.md 13.1): idempotent, no network.
+set -e
+
+. /usr/lib/admng-watchdog/admng-watchdog-functions
+
+UNITS="admng-watchdog.service"
+
+enable_units() {
+    for unit in $UNITS; do
+        # Removes only masks created by deb-systemd-helper on removal; was-enabled defaults to true on first install.
+        deb-systemd-helper unmask "$unit" >/dev/null || true
+        if deb-systemd-helper --quiet was-enabled "$unit"; then
+            deb-systemd-helper enable "$unit" >/dev/null || true
+        else
+            deb-systemd-helper update-state "$unit" >/dev/null || true
+        fi
+    done
+}
+
+case "$1" in
+    configure)
+        # An admng-watchdog user created beforehand (instructions 3.3) is kept; only the memberships are added.
+        systemd-sysusers admng-watchdog.conf
+        systemd-tmpfiles --create admng-watchdog.conf
+        admng_fix_etc_permissions
+        admng_create_credential
+        admng_create_self_signed
+        enable_units
+        if admng_systemd_running; then
+            systemctl --system daemon-reload >/dev/null || true
+        fi
+        if [ -z "$2" ]; then
+            echo "admng-watchdog: installed. Next: sudo admng-watchdog-keytab init, edit /etc/admng-watchdog/appsettings.json"
+            echo "admng-watchdog: (sudo admng-watchdog --check-config), then: sudo systemctl start admng-watchdog"
+        elif admng_systemd_running; then
+            # Upgrade: the migrations run at start, after the pre-migration backup (spec 16.1).
+            deb-systemd-invoke try-restart admng-watchdog.service >/dev/null || true
+        fi
+        ;;
+    triggered)
+        # A .NET runtime update replaced the shared framework the running service loaded its assemblies from.
+        if admng_systemd_running; then
+            deb-systemd-invoke try-restart admng-watchdog.service >/dev/null || true
+        fi
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        enable_units
+        ;;
+    *)
+        echo "postinst called with unknown argument '$1'" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
