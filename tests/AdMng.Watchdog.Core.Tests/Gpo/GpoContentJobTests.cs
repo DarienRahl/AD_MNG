@@ -136,6 +136,39 @@ public sealed class GpoContentJobTests
     }
 
     [Fact]
+    public async Task AGpoRedirectedOrWithoutPathAtTheBaseline_IsReportedOnce_AndDoesNotBlockTheBaseline()
+    {
+        var hijack = @"\\evil.example\share\{" + Gpo.ToString().ToUpperInvariant() + "}";
+        var empty = new Guid(8, 0, 0, new byte[8]);
+        var valid = new Guid(9, 0, 0, new byte[8]);
+        _sysvol.SetFile(valid, "GPT.INI", Encoding.ASCII.GetBytes("[General]\r\nVersion=0\r\n"));
+        await SeedAsync([Gpc(Gpo, 131075, path: hijack), Gpc(empty, 0, Guid.NewGuid(), path: string.Empty), Gpc(valid, 0, Guid.NewGuid())]);
+
+        for (var i = 0; i < 5; i++)
+        {
+            await RunAsync();
+        }
+
+        // The hijack that exists already is Critical once – not again in every run (each event wakes the job again).
+        var redirected = Assert.Single(await ContentEventsAsync());
+        Assert.Equal((WatchEventKind.GroupPolicyPathRedirected, Severity.Critical), (redirected.Kind, redirected.Severity));
+        Assert.DoesNotContain(_sysvol.Calls, c => c.Folder.GpoGuid == Gpo || c.Folder.GpoGuid == empty);
+        Assert.NotNull(_health.GpoContent!.BaselineCompletedAt);   // neither GPO can ever be read: they do not block it
+        Assert.Empty(await _store.GetGpoQueueAsync(Ct));
+
+        // A restart (new job instance) does not repeat it either.
+        var sessions = new ScenarioSessionProvider(new FakeDirectorySession(FakeDirectorySession.CreateInfo(GpoFixtures.Domain, GpoFixtures.Dc)));
+        var restarted = new GpoContentJob(_store, _store, _store, _sysvol, sessions, _config, _health, _signals, _clock, NullLogger<GpoContentJob>.Instance);
+        await restarted.RunOnceAsync(Ct);
+        Assert.Single(await ContentEventsAsync());
+
+        // Redirected elsewhere: reported again.
+        await GpcChangedAsync(Gpo, 131075, ("gPCFileSysPath", hijack, hijack + "x"), path: hijack + "x");
+        await restarted.RunOnceAsync(Ct);
+        Assert.Equal(2, (await ContentEventsAsync()).Count);
+    }
+
+    [Fact]
     public async Task OutOfBandEdit_IsFoundByTheReconciliation_DailyOrForced()
     {
         await BaselineAsync();

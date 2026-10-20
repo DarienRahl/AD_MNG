@@ -298,8 +298,18 @@ public sealed partial class GpoContentJob : IWatchdogJob
         var queued = queue.Select(q => q.GpoGuid).ToHashSet();
         var parked = queue.Where(q => q.Attempts >= MaxAttempts).Select(q => q.GpoGuid).ToHashSet();
         var missing = gpos.Where(g => !stored.Contains(g.Key) && !queued.Contains(g.Key)).ToList();
+
+        // A GPO whose path is missing or redirected is never read (8.2), so it never gets a snapshot: it does not block the
+        // baseline, and it is queued only for the 511 of a hijack that exists already – once per path, not in every run.
+        var unreadable = gpos.Where(g => PathCheck(g.Key, g.Value, context) != GpoPathCheck.Valid).Select(g => g.Key).ToHashSet();
         foreach (var (guid, gpc) in missing)
         {
+            if (unreadable.Contains(guid)
+                && (PathCheck(guid, gpc, context) == GpoPathCheck.Missing || await RedirectReportedAsync(gpc, cancellationToken).ConfigureAwait(false)))
+            {
+                continue;
+            }
+
             await _store.EnqueueGpoContentAsync(new GpoQueueEntry
             {
                 GpoGuid = guid,
@@ -310,13 +320,29 @@ public sealed partial class GpoContentJob : IWatchdogJob
             }, cancellationToken).ConfigureAwait(false);
         }
 
-        if (state.BaselineCompletedAt is null && gpos.Keys.All(g => stored.Contains(g) || parked.Contains(g)))
+        if (state.BaselineCompletedAt is null && gpos.Keys.All(g => stored.Contains(g) || parked.Contains(g) || unreadable.Contains(g)))
         {
             // The first reconciliation follows a day after the baseline.
             return state with { BaselineCompletedAt = context.Now, LastReconciliationAt = state.LastReconciliationAt ?? context.Now };
         }
 
         return state;
+    }
+
+    private static GpoPathCheck PathCheck(Guid guid, SnapshotObject gpc, GpoRunContext context) =>
+        GpoPathValidator.Validate(Single(gpc, WatchdogAttributes.GpcFileSysPath), context.Domain, "{" + guid.ToString("D", CultureInfo.InvariantCulture) + "}");
+
+    /// <summary>True when the newest GroupPolicyPathRedirected of the GPO names its current path (already reported).</summary>
+    private async Task<bool> RedirectReportedAsync(SnapshotObject gpc, CancellationToken cancellationToken)
+    {
+        var path = Single(gpc, WatchdogAttributes.GpcFileSysPath);
+        var page = await _events.QueryAsync(new EventQuery
+        {
+            Kinds = [WatchEventKind.GroupPolicyPathRedirected],
+            ObjectGuid = gpc.ObjectGuid,
+            Limit = 1,
+        }, cancellationToken).ConfigureAwait(false);
+        return page.Items is [var last] && last.Changes.Any(c => c.NewValues.Contains(path, StringComparer.OrdinalIgnoreCase));
     }
 
     // ---- queue ------------------------------------------------------------------------------------------------------------
