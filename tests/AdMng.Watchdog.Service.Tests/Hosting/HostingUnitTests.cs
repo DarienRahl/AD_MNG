@@ -54,6 +54,7 @@ public sealed class HostingUnitTests
             },
             Authorization = new RoleOptions { ViewerSids = [TestRoles.ViewerGroup], AdminSids = [TestRoles.AdminGroup] },
             Directory = new DirectoryBootstrapOptions { Servers = ["dc01.contoso.com", "dc02.contoso.com"] },
+            Kerberos = new KerberosBootstrapOptions { Realm = "CONTOSO.COM" },
         };
 
         Assert.DoesNotContain(ServiceOptionsValidator.Validate(options, "Production"), i => i.Severity == IssueSeverity.Error);

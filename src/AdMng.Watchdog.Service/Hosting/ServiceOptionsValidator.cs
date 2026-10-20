@@ -98,8 +98,33 @@ public static partial class ServiceOptionsValidator
         }
 
         CheckDirectoryServers(issues, options.Directory, OperatingSystem.IsLinux());
+        CheckLinuxAuthorization(issues, options, OperatingSystem.IsLinux());
         return issues;
     }
+
+    /// <summary>Stage B design 6.2: on Linux with Negotiate the API resolves callers of <c>Kerberos.Realm</c> only, so the
+    /// realm is required; <c>Authorization.WatchdogHostGroupSids</c> (the gMSA host group) is obsolete there and ignored.</summary>
+    internal static void CheckLinuxAuthorization(List<ConfigIssue> issues, ServiceOptions options, bool linux)
+    {
+        if (!linux)
+        {
+            return;
+        }
+
+        if (options.Authentication == WatchdogAuthenticationMode.Negotiate && string.IsNullOrWhiteSpace(options.Kerberos.Realm))
+        {
+            issues.Add(Error("Watchdog:Kerberos:Realm", "required", "Kerberos.Realm is required on Linux: the API resolves the roles of principals of this realm only."));
+        }
+
+        if (options.Authorization.WatchdogHostGroupSids.Length > 0)
+        {
+            issues.Add(Warning("Watchdog:Authorization:WatchdogHostGroupSids", "obsoleteOnLinux", ObsoleteHostGroupMessage));
+        }
+    }
+
+    /// <summary>The start-up warning and <c>--check-config</c> text of an obsolete <c>WatchdogHostGroupSids</c> on Linux.</summary>
+    public const string ObsoleteHostGroupMessage =
+        "Authorization.WatchdogHostGroupSids (the gMSA host group of the Windows service) is ignored on Linux; remove it.";
 
     /// <summary>Stage B design 5.1/5.3: Linux has no DC locator, so <c>Directory.Servers</c> (or <c>Server</c>) is required
     /// there, and Kerberos needs DC host names (<c>ldap/&lt;fqdn&gt;</c>) – IP literals are refused.</summary>

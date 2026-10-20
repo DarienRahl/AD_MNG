@@ -39,9 +39,6 @@ internal static class WatchdogLab
     /// <summary>Mailpit REST API (GET /api/v1/messages) when <see cref="SmtpHost"/> is Mailpit.</summary>
     public static Uri? MailpitApi => Environment.GetEnvironmentVariable("ADMNG_TEST_MAILPIT_API") is { Length: > 0 } a ? new Uri(a) : null;
 
-    /// <summary>The optional real-Kerberos tests (tools/testlab/watchdog/krb5-lab.sh).</summary>
-    public static bool KerberosEnabled => Environment.GetEnvironmentVariable("ADMNG_TEST_KERBEROS") == "1";
-
     /// <summary>Skips the calling test when no lab is configured.</summary>
     public static void RequireLab() => Assert.SkipUnless(IsConfigured, SkipReason);
 

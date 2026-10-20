@@ -1,10 +1,8 @@
 using System.Globalization;
 using System.Runtime.Versioning;
-using System.Security.Cryptography;
 using System.Text;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
-using AdMng.Core.Ldap;
 using AdMng.Directory;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -38,30 +36,29 @@ namespace AdMng.Watchdog.IntegrationTests.Identity;
 /// the account authenticates from the keytab the tests write).
 /// </remarks>
 [SupportedOSPlatform("linux")]
+[Collection(KeytabLabCollection.Name)]
 public sealed class KeytabLabTests(LabFixture lab)
 {
-    private const string SkipReason = "The keytab lab environment is not set - eval \"$(tools/testlab/watchdog/keytab-lab.sh env)\" (tools/testlab/watchdog/README.md).";
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static string KeytabPath => StartupChecks.KeytabPath(Environment.GetEnvironmentVariable("KRB5_CLIENT_KTNAME"));
+    private static string KeytabPath => KeytabLab.KeytabPath;
 
-    private static string Krb5Config => Environment.GetEnvironmentVariable("KRB5_CONFIG")!;
+    private static string Krb5Config => KeytabLab.Krb5Config;
 
-    private static string Server => Environment.GetEnvironmentVariable("ADMNG_TEST_GSSAPI_SERVER")!;
+    private static string Server => KeytabLab.Server;
 
-    private static string Realm => WatchdogLab.DomainDns.ToUpperInvariant();
+    private static string Realm => KeytabLab.Realm;
 
     [Fact]
     public async Task InitAndRotate_KeepTheLdapSessionAndNegotiateClientsWorking()
     {
-        RequireKeytabLab();
-        using var state = new TempDirectory();
-        var otp = OneTimePassword();
-        var account = await CreateAccountAsync(otp);
+        KeytabLab.Require();
+        using var state = new KeytabTempDirectory();
+        var otp = KeytabLab.OneTimePassword();
+        var account = await KeytabLab.CreateAccountAsync(lab, otp, Ct);
 
         // init: the one-time password is replaced by a random one; the keytab starts with the account principal.
-        var (exit, output) = RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], otp);
+        var (exit, output) = KeytabLab.RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], otp);
         Assert.True(exit == 0, output);
         var kvno = await DirectoryKvnoAsync(account);
         var status = KeytabToolStatus.Read(state.StatusFile)!;
@@ -81,7 +78,7 @@ public sealed class KeytabLabTests(LabFixture lab)
         Assert.Equal(account.Principal, NativeKerberos.Negotiate(account.HttpSpn), StringComparer.OrdinalIgnoreCase);
 
         // rotate: kvno + 1 in AD and in the keytab, the previous kvno kept, account entries first.
-        (exit, output) = RunTool(state, ["rotate", "--if-older-than", "0"]);
+        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0"]);
         Assert.True(exit == 0, output);
         Assert.Equal(kvno + 1, await DirectoryKvnoAsync(account));
         var rotated = KeytabFile.Read(KeytabPath);
@@ -104,7 +101,7 @@ public sealed class KeytabLabTests(LabFixture lab)
         Assert.Equal(account.Principal, fresh, StringComparer.OrdinalIgnoreCase);
 
         // verify: order, KDC, and a fresh ticket's kvno = the keytab's newest.
-        (exit, output) = RunTool(state, ["verify"]);
+        (exit, output) = KeytabLab.RunTool(state, ["verify"]);
         Assert.True(exit == 0, output);
         Assert.Contains(string.Create(CultureInfo.InvariantCulture, $"has kvno {kvno + 1} = the keytab's newest kvno"), output, StringComparison.Ordinal);
     }
@@ -112,11 +109,11 @@ public sealed class KeytabLabTests(LabFixture lab)
     [Fact]
     public async Task FaultInjection_ProducesTheHealthCodesOfTheServiceAccount()
     {
-        RequireKeytabLab();
-        using var state = new TempDirectory();
-        var otp = OneTimePassword();
-        var account = await CreateAccountAsync(otp);
-        var (exit, output) = RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], otp);
+        KeytabLab.Require();
+        using var state = new KeytabTempDirectory();
+        var otp = KeytabLab.OneTimePassword();
+        var account = await KeytabLab.CreateAccountAsync(lab, otp, Ct);
+        var (exit, output) = KeytabLab.RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], otp);
         Assert.True(exit == 0, output);
 
         var tier0 = await lab.Writer.CreateGroupAsync(account.Ou, "KT Tier0 " + account.Name, Ct);
@@ -202,7 +199,7 @@ public sealed class KeytabLabTests(LabFixture lab)
         // kpasswd/KDC unreachable: changeFailed, nothing changed → rotation Warning.
         var unreachable = WriteKrb5Config(state, "unreachable.conf", kdcs: ["127.0.0.1:1"], primary: "127.0.0.1:1");
         var kvnoBefore = await DirectoryKvnoAsync(account);
-        (exit, output) = RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", unreachable]);
+        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", unreachable]);
         Assert.Equal(2, exit);
         Assert.Equal(KeytabStatusResults.ChangeFailed, KeytabToolStatus.Read(state.StatusFile)!.Result);
         Assert.Equal(kvnoBefore, await DirectoryKvnoAsync(account));
@@ -215,7 +212,7 @@ public sealed class KeytabLabTests(LabFixture lab)
 
         // The keytab cannot be written after the change (4.6 "lost password"): keytabWriteFailed, stale keytab → Errors.
         var keytabBefore = File.ReadAllBytes(KeytabPath);
-        (exit, output) = RunTool(state, ["rotate", "--if-older-than", "0"], fault: step =>
+        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0"], fault: step =>
         {
             if (step == "written")
             {
@@ -237,14 +234,14 @@ public sealed class KeytabLabTests(LabFixture lab)
         }
 
         // Recovery: a new one-time password set by the administrator, then init.
-        var newOtp = OneTimePassword();
+        var newOtp = KeytabLab.OneTimePassword();
         await lab.Writer.ResetPasswordAsync(account.Dn, newOtp, Ct);
-        (exit, output) = RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], newOtp);
+        (exit, output) = KeytabLab.RunTool(state, ["init", "--password-stdin", "--principal", account.Principal, "--fqdn", account.Fqdn], newOtp);
         Assert.True(exit == 0, output);
 
         // A second KDC that has not replicated (unreachable): replicationPending is not an error.
         var twoKdcs = WriteKrb5Config(state, "two-kdcs.conf", kdcs: [Server, "127.0.0.1:1"], primary: Server);
-        (exit, output) = RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", twoKdcs]);
+        (exit, output) = KeytabLab.RunTool(state, ["rotate", "--if-older-than", "0", "--krb5-config", twoKdcs]);
         Assert.True(exit == 0, output);
         Assert.Equal(KeytabStatusResults.ReplicationPending, KeytabToolStatus.Read(state.StatusFile)!.Result);
         await using (var monitor = MonitorHarness.Create(account, state, health, configuration))
@@ -256,7 +253,7 @@ public sealed class KeytabLabTests(LabFixture lab)
 
         // A keytab that starts with the HTTP/ entries: verify fails, the monitor reports keytabOrder.
         ReorderKeytab(account);
-        (exit, output) = RunTool(state, ["verify"]);
+        (exit, output) = KeytabLab.RunTool(state, ["verify"]);
         Assert.Equal(2, exit);
         Assert.Equal("keytabOrder", KeytabToolStatus.Read(state.StatusFile)!.ErrorCode);
         await using (var monitor = MonitorHarness.Create(account, state, health, configuration))
@@ -297,8 +294,8 @@ public sealed class KeytabLabTests(LabFixture lab)
     [Fact]
     public void PerKdcProfile_DoesNotFallBackToTheOtherKdcs()
     {
-        RequireKeytabLab();
-        using var state = new TempDirectory();
+        KeytabLab.Require();
+        using var state = new KeytabTempDirectory();
         using var config = KerberosConfig.Load(Krb5Config, Realm);
         using var context = Krb5Context.Open(config.ProfileFor("127.0.0.1:1"));
         using var client = context.ParseName("Administrator@" + Realm);
@@ -315,46 +312,7 @@ public sealed class KeytabLabTests(LabFixture lab)
 
     // ---- helpers -----------------------------------------------------------------------------------------------------------
 
-    private static void RequireKeytabLab()
-    {
-        Assert.SkipUnless(OperatingSystem.IsLinux(), "MIT Kerberos and SASL GSSAPI are the Linux path.");
-        WatchdogLab.RequireLab();
-        Assert.SkipWhen(
-            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ADMNG_TEST_KEYTAB_DIR"))
-            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ADMNG_TEST_GSSAPI_SERVER"))
-            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KRB5_CLIENT_KTNAME"))
-            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KRB5_CONFIG"))
-            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LDAPCONF"))
-            || Environment.GetEnvironmentVariable("KRB5CCNAME")?.StartsWith("MEMORY:", StringComparison.Ordinal) != true,
-            SkipReason);
-
-        // The process-wide MEMORY ccache may hold a ticket of an earlier test's account.
-        NativeKerberos.DestroyDefaultCcache();
-    }
-
-    private async Task<TestAccount> CreateAccountAsync(string otp)
-    {
-        var ou = await lab.CreateTestOuAsync("Keytab", Ct);
-        var name = "WD" + Convert.ToHexString(RandomNumberGenerator.GetBytes(3));
-        var fqdn = name.ToLowerInvariant() + "." + WatchdogLab.DomainDns;
-        var dn = DistinguishedName.Parse(ou).Child("CN", name).ToString();
-        await lab.Admin.AddAsync(dn, new Dictionary<string, IReadOnlyList<object>>
-        {
-            [Attr.ObjectClass] = ["top", "person", "organizationalPerson", ObjectClasses.User, ObjectClasses.Computer],
-            [Attr.SamAccountName] = [name + "$"],
-            [Attr.UserAccountControl] = [Flags(UserAccountControl.WorkstationTrustAccount | UserAccountControl.AccountDisable | UserAccountControl.NotDelegated)],
-            [Attr.DnsHostName] = [fqdn],
-            [Attr.ServicePrincipalName] = ["HTTP/" + fqdn, "HOST/" + fqdn, "HOST/" + name],
-            [Attr.SupportedEncryptionTypes] = ["24"],
-        }, Ct);
-
-        // Design 4.2: created disabled with the one-time password, enabled only then.
-        await lab.Writer.ResetPasswordAsync(dn, otp, Ct);
-        await lab.Writer.SetAccountControlAsync(dn, UserAccountControl.WorkstationTrustAccount | UserAccountControl.NotDelegated, Ct);
-        return new TestAccount(ou, dn, name + "$", name + "$@" + Realm, fqdn);
-    }
-
-    private async Task<int> DirectoryKvnoAsync(TestAccount account) =>
+    private async Task<int> DirectoryKvnoAsync(KeytabTestAccount account) =>
         (await lab.Admin.GetAsync(account.Dn, ["msDS-KeyVersionNumber"], Ct))!.GetInt32("msDS-KeyVersionNumber")!.Value;
 
     private static async Task<IDirectorySession> ConnectKerberosAsync() =>
@@ -368,38 +326,8 @@ public sealed class KeytabLabTests(LabFixture lab)
             ConnectTimeout = TimeSpan.FromSeconds(5),
         }, null, Ct);
 
-    /// <summary>Runs the keytab tool in-process against the test's keytab, configuration and state folder.</summary>
-    private static (int Exit, string Output) RunTool(TempDirectory state, string[] args, string? stdin = null, Action<string>? fault = null)
-    {
-        using var output = new StringWriter(CultureInfo.InvariantCulture);
-        using var input = new MemoryStream(Encoding.UTF8.GetBytes((stdin ?? string.Empty) + "\n"));
-        var host = new KeytabToolHost
-        {
-            Out = output,
-            Error = output,
-            Input = input,
-            InputIsTerminal = false,
-            ReplicationPollInterval = TimeSpan.FromSeconds(1),
-            FaultPoint = fault,
-        };
-        var common = new List<string>(args);
-        if (!args.Contains("--krb5-config"))
-        {
-            common.AddRange(["--krb5-config", Krb5Config]);
-        }
-
-        common.AddRange(["--keytab", KeytabPath, "--state-dir", state.Path]);
-        if (args[0] is "init" or "rotate")
-        {
-            common.AddRange(["--replication-timeout", "0"]);
-        }
-
-        var exit = KeytabTool.Run(common, host, null);
-        return (exit, output.ToString());
-    }
-
     /// <summary>The keytab rewritten with the account's entries last (the wrong order of design 4.4).</summary>
-    private static void ReorderKeytab(TestAccount account)
+    private static void ReorderKeytab(KeytabTestAccount account)
     {
         var temp = KeytabPath + ".reordered";
         File.WriteAllBytes(temp, [0x05, 0x02]);
@@ -420,7 +348,7 @@ public sealed class KeytabLabTests(LabFixture lab)
         File.Move(temp, KeytabPath, overwrite: true);
     }
 
-    private static string WriteKrb5Config(TempDirectory state, string name, IReadOnlyList<string> kdcs, string primary)
+    private static string WriteKrb5Config(KeytabTempDirectory state, string name, IReadOnlyList<string> kdcs, string primary)
     {
         var path = System.IO.Path.Combine(state.Path, name);
         var lines = new List<string>
@@ -449,24 +377,6 @@ public sealed class KeytabLabTests(LabFixture lab)
         Assert.True(check is not null, $"No health check {code}.");
         Assert.True(check.State == state, $"{code}: {check.State} ({check.Detail}; {string.Join(", ", check.Args)}), expected {state}.");
         return check;
-    }
-
-    private static string OneTimePassword() => "Otp-" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)) + "-9a!";
-
-    private static string Flags(UserAccountControl flags) => ((int)flags).ToString(CultureInfo.InvariantCulture);
-
-    private sealed record TestAccount(string Ou, string Dn, string Name, string Principal, string Fqdn)
-    {
-        public string HttpSpn => "HTTP/" + Fqdn;
-    }
-
-    private sealed class TempDirectory : IDisposable
-    {
-        public string Path { get; } = System.IO.Directory.CreateTempSubdirectory("admng-keytab-it-").FullName;
-
-        public string StatusFile => System.IO.Path.Combine(Path, "status.json");
-
-        public void Dispose() => System.IO.Directory.Delete(Path, recursive: true);
     }
 
     private sealed class OffsetTimeProvider(TimeSpan offset) : TimeProvider
@@ -510,7 +420,7 @@ public sealed class KeytabLabTests(LabFixture lab)
         public RecordingTerminator Terminator { get; }
 
         public static MonitorHarness Create(
-            TestAccount account, TempDirectory state, HealthRegistry health, ScenarioConfigProvider configuration, string? krb5Config = null, TimeProvider? time = null)
+            KeytabTestAccount account, KeytabTempDirectory state, HealthRegistry health, ScenarioConfigProvider configuration, string? krb5Config = null, TimeProvider? time = null)
         {
             time ??= TimeProvider.System;
             var options = new StaticOptions<ServiceOptions>(new ServiceOptions

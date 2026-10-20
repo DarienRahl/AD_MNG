@@ -13,7 +13,8 @@ namespace AdMng.Watchdog.Core.Detection;
 /// <summary>
 /// Read-permission probes of the service account (section 10.12), run after the baseline and every
 /// <c>PermissionSelfCheckInterval</c>: change tracking (uSNChanged readable on every user), account restrictions,
-/// replication metadata, Deleted Objects, domain policy, the PSO container and the configuration partition. Results
+/// replication metadata, Deleted Objects, domain policy, the PSO container and the configuration partition, and – with
+/// <see cref="DetectionHostOptions.ProbeTokenGroups"/> (Linux API roles, stage B design 6.2) – tokenGroups. Results
 /// go to <see cref="IHealthRegistry"/>; a transition from Ok to Warning/Error appends one
 /// <see cref="WatchEventKind.HealthPermissionGap"/> (not repeated while the state stays bad).
 /// </summary>
@@ -27,6 +28,10 @@ public sealed partial class PermissionSelfCheck
     public const string PasswordSettings = "permission.passwordSettings";
     public const string ConfigurationPartition = "permission.configurationPartition";
 
+    /// <summary>tokenGroups of a non-protected user (the Linux API's role source); remedy: the per-class read grants of
+    /// the instructions, appendix A.5.</summary>
+    public const string TokenGroups = HealthCheckCodes.PermissionTokenGroupsUnreadable;
+
     /// <summary>Users sampled by the account-restrictions probe.</summary>
     public const int SampleUsers = 20;
 
@@ -37,16 +42,20 @@ public sealed partial class PermissionSelfCheck
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<PermissionSelfCheck> _logger;
+    private readonly bool _probeTokenGroups;
     private readonly Dictionary<string, HealthState> _previous = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public PermissionSelfCheck(IHealthRegistry health, IEventStore events, IWatchdogSignals signals, TimeProvider timeProvider, ILogger<PermissionSelfCheck> logger)
+    public PermissionSelfCheck(
+        IHealthRegistry health, IEventStore events, IWatchdogSignals signals, TimeProvider timeProvider, ILogger<PermissionSelfCheck> logger,
+        DetectionHostOptions? hostOptions = null)
     {
         _health = health;
         _events = events;
         _signals = signals;
         _timeProvider = timeProvider;
         _logger = logger;
+        _probeTokenGroups = hostOptions?.ProbeTokenGroups == true;
     }
 
     /// <summary>When the probes last ran (null = never).</summary>
@@ -72,6 +81,11 @@ public sealed partial class PermissionSelfCheck
                 await ProbeAsync(PasswordSettings, HealthState.Warning, now, () => PasswordSettingsAsync(session, facts, cancellationToken)).ConfigureAwait(false),
                 await ProbeAsync(ConfigurationPartition, HealthState.Warning, now, () => ConfigurationPartitionAsync(session, facts, cancellationToken)).ConfigureAwait(false),
             };
+            if (_probeTokenGroups)
+            {
+                results.Add(await ProbeAsync(TokenGroups, HealthState.Error, now, () => TokenGroupsAsync(session, facts, cancellationToken)).ConfigureAwait(false));
+            }
+
             foreach (var result in results)
             {
                 _health.Report(result);
@@ -218,6 +232,33 @@ public sealed partial class PermissionSelfCheck
         return (false, []);
     }
 
+    /// <summary>A base read of the constructed tokenGroups on a user that is not protected by AdminSDHolder (protected
+    /// accounts inherit its read for Authenticated Users and always pass); no such user = nothing to test.</summary>
+    private static async Task<(bool, string[])> TokenGroupsAsync(IDirectorySession session, DirectoryFacts facts, CancellationToken cancellationToken)
+    {
+        string? dn = null;
+        await foreach (var entry in session.SearchAsync(new DirectorySearch
+        {
+            BaseDn = facts.DomainDn,
+            Filter = LdapFilter.And(DetectionFilters.Users, LdapFilter.Not(LdapFilter.Equal(Attr.AdminCount, 1))),
+            Attributes = [Attr.ObjectGuid],
+            PageSize = 1,
+            SizeLimit = 1,
+        }, cancellationToken).ConfigureAwait(false))
+        {
+            dn = entry.DistinguishedName;
+            break;
+        }
+
+        if (dn is null)
+        {
+            return (true, []);
+        }
+
+        var user = await session.GetAsync(dn, [Attr.TokenGroups], cancellationToken).ConfigureAwait(false);
+        return (user is not null && user.TryGet(Attr.TokenGroups, out var values) && values.Count > 0, []);
+    }
+
     private static async Task<Dictionary<Guid, string>> GuidsAsync(IDirectorySession session, string domainDn, string filter, CancellationToken cancellationToken)
     {
         var result = new Dictionary<Guid, string>();
@@ -281,6 +322,7 @@ public sealed partial class PermissionSelfCheck
         DomainPolicy => "The domain lockout and password policy is not readable.",
         PasswordSettings => "The Password Settings Container is not readable; the domain lockout duration is used for everyone.",
         ConfigurationPartition => "Domain controllers in the configuration partition are not readable.",
+        TokenGroups => "tokenGroups of users is not readable; API callers get no roles (grant read as in the instructions, appendix A.5).",
         _ => "Read permission missing.",
     };
 }

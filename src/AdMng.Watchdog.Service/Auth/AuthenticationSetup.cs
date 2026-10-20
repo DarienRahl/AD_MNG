@@ -11,7 +11,13 @@ namespace AdMng.Watchdog.Service.Auth;
 /// <see cref="KerberosOnlyEvents"/> on Kestrel (credentials never persisted across requests), the HTTP.sys Windows scheme
 /// on HTTP.sys; <c>Development</c> – <see cref="DevelopmentAuthenticationHandler"/>; <c>Test</c> – only the default
 /// scheme name, the handler is registered by the tests (the Negotiate handler cannot run under TestServer). Policies
-/// from <see cref="WatchdogPolicies"/>.
+/// from <see cref="WatchdogPolicies"/>, outcomes through <see cref="WatchdogAuthorizationResultHandler"/>.
+/// <para>
+/// Linux with Negotiate on Kestrel (stage B design 6.1–6.2): the acceptor keys come from <c>KRB5_KTNAME</c> (the unit's
+/// environment), <c>EnableLdap</c> stays off – its roles are group CNs, spoofable by anyone who may name a group – and
+/// the caller's SIDs come from <see cref="KerberosSidClaimsTransformation"/> (objectSid + tokenGroups over the service's
+/// LDAP session, cached in <see cref="RoleCache"/>).
+/// </para>
 /// </summary>
 public static class AuthenticationSetup
 {
@@ -40,6 +46,11 @@ public static class AuthenticationSetup
                         negotiate.PersistNtlmCredentials = false;
                         negotiate.EventsType = typeof(KerberosOnlyEvents);
                     });
+                if (OperatingSystem.IsLinux())
+                {
+                    AddLinuxRoleResolution(services);
+                }
+
                 break;
             case WatchdogAuthenticationMode.Development:
                 services.AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
@@ -51,6 +62,17 @@ public static class AuthenticationSetup
         }
 
         services.AddSingleton<IAuthorizationHandler, SidRoleHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, WatchdogAuthorizationResultHandler>();
         services.AddAuthorization(WatchdogPolicies.Configure);
+    }
+
+    /// <summary>The SID claims of Kerberos callers from the directory (stage B design 6.2) – also used by tests that run
+    /// the pipeline with another scheme.</summary>
+    public static void AddLinuxRoleResolution(IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<RoleCache>();
+        services.TryAddSingleton<IPrincipalSidResolver, PrincipalSidResolver>();
+        services.AddSingleton<IClaimsTransformation, KerberosSidClaimsTransformation>();
     }
 }

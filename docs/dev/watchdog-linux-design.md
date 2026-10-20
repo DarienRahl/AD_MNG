@@ -1976,7 +1976,7 @@ same DCs; RPC cursors are ignored.
 Parallelism: B2 and B4 can run in parallel after B1; B5 after B2 (needs Kerberos SMB); B6 after B4/B5 contracts; B7
 after the Contracts changes of B4–B6 are merged.
 
-### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B5a, B6, B7)
+### 21.1 As built (2026-10-20): deviations and lab findings (B1, B2, B3, B5a, B6, B7)
 
 **B1.**
 
@@ -2140,6 +2140,74 @@ watchdog/keytab-lab.sh`, `KeytabLabTests` (Watchdog.IntegrationTests), `GssapiTe
   `CLAUDE.md` layout row for `src/AdMng.Watchdog.Keytab` (B8); `otpActive` against a real Windows DC (Q5) and a real
   second DC for `replicationPending` (B9 pilot); the struct offsets of the P/Invoke layer are LP64 (x86_64 and aarch64)
   but only x86_64 was run.
+
+**B3 (API authentication on Linux, 6.1–6.2).** Code: `Service/Auth/KerberosSidClaimsTransformation.cs`,
+`PrincipalSidResolver.cs` (`IPrincipalSidResolver`, `PrincipalLookup`), `RoleCache.cs`,
+`WatchdogAuthorizationResultHandler.cs`; changed `SidRoleHandler`, `RemoteAddressFilter`, `KerberosOnlyEvents`,
+`AuthenticationSetup` (`AddLinuxRoleResolution`), `ServiceOptionsValidator`, `ServiceRegistration.DetectionHostOptionsFrom`,
+`StartupChecks`; Core `PermissionSelfCheck.TokenGroups` behind `DetectionHostOptions.ProbeTokenGroups`. Tests:
+Service.Tests `Auth/KerberosRoleResolutionTests` (whole pipeline, fake directory) and `Auth/LinuxApiAuthorizationTests`;
+Core.Tests `PermissionSelfCheckTests`; lab `KerberosNegotiateTests` (rewritten) with the shared
+`Infrastructure/KeytabLab.cs` (helpers moved out of `KeytabLabTests`).
+
+- **Registration:** transformation, resolver and cache exist only on Linux with Negotiate on Kestrel. Windows (Kestrel or
+  HTTP.sys) keeps the WindowsIdentity with the SIDs of its token, unchanged. `EnableLdap` stays off. The transformation
+  removes SID claims of any other origin (and a foreign `admng:sidSource`) before it adds its own, so only the service's
+  LDAP lookup can grant a role. NTLM identities are not resolved; `RequireKerberos` rejects them anyway.
+- **503 path:** the transformation cannot answer a request, so it marks the identity `admng:sidSource = unavailable`
+  (other values: `ldap`, `none` for a foreign realm, an invalid name, or no unique account). `SidRoleHandler` checks
+  `DeniedSids` first, then fails with `RoleLookupUnavailableReason`. An `IAuthorizationMiddlewareResultHandler` turns that
+  failure into 503 `role-lookup-unavailable` with `Retry-After: 30`. Anonymous `/healthz` is never affected.
+- **Lookup and cache details:** the search reads at most 2 entries (0 or 2 → negative entry). A `tokenGroups` that cannot
+  be read gives the caller only its user SID, i.e. no role (fail closed, Warning 2504), not a 503. Each lookup is bounded
+  by 15 s (`LookupTimeout`). Transient errors call `ReportFailure`. Concurrent first requests of one caller are not
+  coalesced (each looks up; idempotent). Cache key `name(lower-case)@REALM`. At most 10 000 entries: entries past their
+  stale window go first, then the oldest. During an outage negative entries are used stale as well, so a known
+  non-member gets 403 instead of 503. With `Directory.Disabled` every Kerberos caller gets 503 (no role source).
+  6.2 gives no rule for this case, so B3 fails closed. The name check is the regex of 6.2 step 1 with control
+  characters also excluded. On Linux the audit trail records the caller as `name@REALM`, not `DOMAIN\name`.
+- **Event ids** (15 names only 2501/2502): 2502 rejected principal (realm only), 2503 role lookup failed (exception
+  type only), 2504 tokenGroups unreadable, 2505 stale entry used, 2506 lookup unavailable (→ 503), 2004 obsolete setting.
+  2501 (`OnAuthenticationFailed` → 401, already in 0.2.0) now names the kvno hint. Lab finding: before the event runs,
+  ASP.NET Core's `NegotiateHandler` logs one Error "An exception occurred while processing the authentication request"
+  (the exception is reduced to its type by `RedactingLoggerProvider`). A bad ticket therefore writes Error + Warning 2501
+  to the journal. This is kept as a diagnostic and not filtered.
+- **Loopback (6.1):** the exemption is removed only on Linux with `Authentication = Negotiate`. Development and Test (the
+  loopback-only lab and test modes) and Windows keep it. On Linux with Negotiate, an empty `AllowedRemoteSubnets` still
+  admits every remote address but no longer loopback or the host's own addresses. The "forged-name ticket over loopback
+  → 403" service test is a middleware test (`LinuxApiAuthorizationTests`), because TestServer has no Negotiate. The lab
+  test repeats it on real Kestrel: 403 and no challenge.
+- **Validation:** on Linux with Negotiate, `--check-config` requires `Kerberos.Realm` (Error `required`).
+  `WatchdogHostGroupSids` gives Warning `obsoleteOnLinux` and start-up log 2004, and the detection ignores it on Linux.
+- **`permission.tokenGroupsUnreadable`** has severity **Error**, because API roles then fail closed for every
+  non-protected caller. The probe takes the first user of `DetectionFilters.Users` with `(!(adminCount=1))` and reads its
+  `tokenGroups` at base scope. It runs only with `ProbeTokenGroups` (Linux + Negotiate) and is covered by Core tests, not
+  by the lab test (jobs are off there).
+- **Lab (Samba, `KerberosNegotiateTests`):** fresh computer account + `init` (keytab of `keytab-lab.sh env`), the
+  service on Kestrel with Negotiate, LDAP over GSSAPI sign and seal as the account, users logging in with passwords
+  (`NetworkCredential` → `gss_acquire_cred_with_password`, own MEMORY ccache; diacritics in passwords and CNs work). The
+  account name is not in DNS, so clients connect to 127.0.0.1 and send the account's FQDN as the `Host` header: .NET
+  builds the SPN from the header without a DNS lookup. Results:
+  - a Viewer (member through a nested group) reads Status but gets 403 on `config/audit`;
+  - an Admin reaches `config/audit` and `outbox`;
+  - a non-member gets 403;
+  - an Admin who is also in the `DeniedSids` group gets 403;
+  - a ticket for a keytab with the same principals and kvnos but other keys gets **401** with 2501 and no
+    exception-handler log; access works again after the keytab is restored;
+  - an NTLM-only client gets 401;
+  - a loopback caller outside `AllowedRemoteSubnets` gets 403.
+  With the default ACLs, the computer account reads `tokenGroups` of ordinary users on Samba, so the lab needs no A.5
+  grant. `KeytabLabTests` and `KerberosNegotiateTests` write the same keytab and use the process MEMORY ccache, so they
+  share the xUnit collection `Keytab lab`. Removed: the old authentication-only test (`krb5-lab.sh`, `ADMNG_TEST_KERBEROS`,
+  `IdentityProbeStartupFilter`); `krb5-lab.sh` itself stays for manual experiments.
+- **Left for B8:** spec 22.4 and `docs/WATCHDOG.md` (test chapter) still describe the authentication-only Kerberos test
+  with `krb5-lab.sh` and `ADMNG_TEST_KERBEROS`.
+- **Verification:** `dotnet build AdMng.slnx` 0 warnings; Watchdog.Service.Tests 719 passed (16 skipped);
+  Watchdog.Core.Tests 2173 passed (4 skipped). On the Samba lab, with `ADMNG_TEST_LDAP_SERVER/USER/PASSWORD` and
+  `eval "$(tools/testlab/watchdog/keytab-lab.sh env)"`, `KerberosNegotiateTests` (3) and `KeytabLabTests` (3) passed in
+  two runs. The full Watchdog integration suite ran for 22 min: 29 passed and both `KeytabLabTests` failed. The errors
+  were `KRB5_KDC_UNREACH` from `init` and a GSSAPI connect error of the monitor. Both happened while the parallel suites
+  loaded the shared lab DC, and both tests pass when run alone.
 
 **B5a (GPO content, pure Core part of B5).** B5 is split: B5a is the Core logic of section 8 without I/O; **B5b** adds
 `Service/Gpo/SmbClientSysvolReader.cs` (8.3 over smbclient, TGT handling, listing parser and its Debian 12/13

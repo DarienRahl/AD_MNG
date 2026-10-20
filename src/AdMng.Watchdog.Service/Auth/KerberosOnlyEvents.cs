@@ -6,7 +6,10 @@ namespace AdMng.Watchdog.Service.Auth;
 
 /// <summary>
 /// Negotiate events of the Kestrel server (spec 17.3): with <c>Hosting.RequireKerberos</c> an identity authenticated by
-/// anything but Kerberos (NTLM) fails; a failed handshake answers 401 with a log hint about the SPN instead of a 500.
+/// anything but Kerberos (NTLM) fails; a failed handshake answers 401 with a log hint about the SPN instead of a 500. On
+/// Linux every GSS failure of the MIT acceptor (a ticket encrypted with a key the keytab does not hold, an SPN or CNAME
+/// mismatch, a malformed token) arrives here as an exception or a credential/client error – without this handler it
+/// would be an HTTP 500 (stage B design 6.1, lab). The exception text is never logged (it may name hosts and principals).
 /// </summary>
 public sealed partial class KerberosOnlyEvents : NegotiateEvents
 {
@@ -52,7 +55,7 @@ public sealed partial class KerberosOnlyEvents : NegotiateEvents
         public static partial void NotKerberos(ILogger logger, string authenticationType);
 
         [LoggerMessage(EventId = 2501, Level = LogLevel.Warning,
-            Message = "Negotiate authentication failed: check the SPN HTTP/<host> on the service account and that clients use the host's A record.")]
+            Message = "Negotiate authentication failed: check the SPN HTTP/<host> on the service account, that clients use the host's A record (not a CNAME) and that the keytab's kvno matches msDS-KeyVersionNumber in AD.")]
         public static partial void HandshakeFailed(ILogger logger);
     }
 }

@@ -175,14 +175,20 @@ public static class ServiceRegistration
         services.TryAddSingleton<IWatchdogAccountSource>(provider => provider.GetRequiredService<WatchdogAccountSource>());
     }
 
-    /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and watchdog host group SIDs.</summary>
-    public static DetectionHostOptions DetectionHostOptionsFrom(ServiceOptions options)
+    /// <summary>The detection inputs of the bootstrap file: the Viewer, Admin and (Windows only – obsolete on Linux, stage B
+    /// design 6.2) watchdog host group SIDs; on Linux the permission self-check also probes tokenGroups (6.2 step 3).</summary>
+    public static DetectionHostOptions DetectionHostOptionsFrom(ServiceOptions options) => DetectionHostOptionsFrom(options, OperatingSystem.IsLinux());
+
+    /// <summary><see cref="DetectionHostOptionsFrom(ServiceOptions)"/> for the given platform.</summary>
+    public static DetectionHostOptions DetectionHostOptionsFrom(ServiceOptions options, bool linux)
     {
         ArgumentNullException.ThrowIfNull(options);
         var authorization = options.Authorization ?? new AuthorizationOptions();
+        var hostGroups = linux ? [] : authorization.WatchdogHostGroupSids ?? [];
         return new DetectionHostOptions
         {
-            RoleGroupSids = [.. (authorization.ViewerSids ?? []).Concat(authorization.AdminSids ?? []).Concat(authorization.WatchdogHostGroupSids ?? [])
+            ProbeTokenGroups = linux && options.Authentication == WatchdogAuthenticationMode.Negotiate,
+            RoleGroupSids = [.. (authorization.ViewerSids ?? []).Concat(authorization.AdminSids ?? []).Concat(hostGroups)
                 .Where(sid => !string.IsNullOrWhiteSpace(sid)).Select(sid => sid.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)],
         };
     }

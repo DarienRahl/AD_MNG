@@ -137,6 +137,12 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         {
             throw new StartupCheckException(StartupExitCodes.InvalidSettings, ServiceOptionsValidator.PlaceholderSidMessage);
         }
+
+        // Stage B design 6.2: the gMSA host group is obsolete on Linux (ignored by the detection, see ServiceRegistration).
+        if (OperatingSystem.IsLinux() && (_options.Authorization.WatchdogHostGroupSids?.Length ?? 0) > 0)
+        {
+            Log.ObsoleteSetting(_logger, ServiceOptionsValidator.ObsoleteHostGroupMessage);
+        }
     }
 
     /// <summary>Design 5.1/5.2 and 11 item 5: Kerberos LDAP on Linux needs an <c>LDAPCONF</c> that enforces sealing (or no
@@ -452,6 +458,9 @@ public sealed partial class StartupChecks : IHostedLifecycleService
 
         [LoggerMessage(EventId = EventLogIds.StorageProblem, Level = LogLevel.Error, Message = "{Count} stored secret(s) cannot be decrypted; re-enter them in the configuration.")]
         public static partial void SecretsUnreadable(ILogger logger, int count);
+
+        [LoggerMessage(EventId = 2004, Level = LogLevel.Warning, Message = "{Message}")]
+        public static partial void ObsoleteSetting(ILogger logger, string message);
 
         [LoggerMessage(EventId = 2001, Level = LogLevel.Warning, Message = "The secret key ring is not encrypted at rest (no systemd credential dp-key; lab/development only).")]
         public static partial void KeysUnprotected(ILogger logger);

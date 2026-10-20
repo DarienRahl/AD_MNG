@@ -14,8 +14,8 @@ w prawdziwej domenie.
 | `run-watchdog-lab.sh` | uruchamia Mailpit, odbiornik i usługę (`dotnet run --launch-profile Lab`); hasło LDAP trafia do usługi wyłącznie przez zmienną `ADMNG_WATCHDOG_LDAP_PASSWORD` (z `ADMNG_TEST_LDAP_READONLY_PASSWORD`), nigdy do pliku; `--reset` usuwa folder danych (nowy baseline), `--background` uruchamia usługę w tle, `--stop` zatrzymuje wszystko |
 | `configure-lab.sh` | konfiguruje usługę przez jej API: SMTP → Mailpit (certyfikat przypięty SHA-256), grupy odbiorców `it-admins` = `admin@contoso.test`, `helpdesk` = `helpdesk@contoso.test`, kanały `siem-lab` (webhook) i `teams-lab` (Teams) → odbiornik, raport dzienny za 2 minuty; `--test` wysyła wiadomości testowe |
 | `lab-scenario.sh` | scenariusz demonstracyjny w `OU=WatchdogDemo` (Zofia Żak, Łukasz Wiśniewski, Paweł Lewandowski, Grażyna Dąbrowska); `--verify` sprawdza zdarzenia w API, e-maile w Mailpit i podpisy w odbiorniku; `--cleanup` usuwa OU |
-| `krb5-lab.sh` | opcjonalny prawdziwy Kerberos dla testu `KerberosNegotiateTests`: konto usługi z SPN `HTTP/localhost` w `OU=WatchdogKerberos`, keytab (`samba-tool domain exportkeytab`) i prywatny `krb5.conf`; `--cleanup` |
-| `keytab-lab.sh` | środowisko Kerberos klienta dla narzędzia `admng-watchdog-keytab` i LDAP przez SASL GSSAPI: prywatne `krb5.conf` i `ldap.conf` (jak w pakiecie), zmienne `KRB5_*`, `LDAPCONF`; `env [--admin]`, `cleanup` |
+| `krb5-lab.sh` | ręczne próby Negotiate (testy go nie używają): konto usługi z SPN `HTTP/localhost` w `OU=WatchdogKerberos`, keytab (`samba-tool domain exportkeytab`) i prywatny `krb5.conf`; `--cleanup` |
+| `keytab-lab.sh` | środowisko Kerberos dla narzędzia `admng-watchdog-keytab`, LDAP przez SASL GSSAPI i API z Negotiate (`KeytabLabTests`, `KerberosNegotiateTests`): prywatne `krb5.conf` i `ldap.conf` (jak w pakiecie), zmienne `KRB5_*`, `LDAPCONF`; `env [--admin]`, `cleanup` |
 | `common.sh` | wspólne ustawienia i funkcje (dołączany przez pozostałe skrypty) |
 
 Wymagania: laboratorium z `tools/testlab/setup-samba-dc.sh`, .NET SDK 10, `ldap-utils`, `curl`, `jq`, `openssl`,
@@ -79,18 +79,28 @@ kolejne przebiegi scenariusza nie trafiały wyłącznie do raportu dziennego.
 
 ## Kerberos (opcjonalnie)
 
-Domyślnie laboratorium używa uwierzytelniania `Development`. Prawdziwy Kerberos (Negotiate) sprawdza test
-`KerberosNegotiateTests` – na Linuksie tylko uwierzytelnienie (handler Negotiate nie daje tu SID-ów grup, więc
-`/api/v1/me` odpowiada 403, nie 401); ścieżkę ról po SID-ach sprawdzają testy na Windows w CI.
+Domyślnie laboratorium używa uwierzytelniania `Development`. Prawdziwy Kerberos API (etap B3,
+`docs/dev/watchdog-linux-design.md` 6.1–6.2) sprawdza test `KerberosNegotiateTests`: zakłada we własnym OU świeże konto
+komputera, wykonuje `admng-watchdog-keytab init` (keytab ze środowiska `keytab-lab.sh env`), uruchamia usługę z
+`Negotiate` na Kestrelu (akceptor z `KRB5_KTNAME`, odczyt katalogu przez SASL GSSAPI jako to konto) i loguje się hasłami
+użytkowników testowych (bilet dla `HTTP/<fqdn konta>`). Role pochodzą wyłącznie z odczytu `objectSid` i `tokenGroups`
+przez samą usługę: Viewer (przez grupę zagnieżdżoną) czyta, Admin dostaje punkty końcowe administratora, osoba spoza
+grup dostaje 403, członek grupy z `DeniedSids` – 403 mimo członkostwa w grupie Adminów; bilet zaszyfrowany kluczem,
+którego keytab nie zawiera, daje 401 (nie 500), klient tylko-NTLM – 401, a wywołanie z pętli zwrotnej spoza
+`AllowedRemoteSubnets` – 403 jeszcze przed uwierzytelnieniem.
 
 ```bash
-eval "$(sudo -E tools/testlab/watchdog/krb5-lab.sh)"   # konto wd-krb-http, SPN HTTP/localhost, keytab, krb5.conf
-ADMNG_TEST_KERBEROS=1 ADMNG_TEST_LDAP_SERVER=127.0.0.1 dotnet test tests/AdMng.Watchdog.IntegrationTests \
-  --filter "FullyQualifiedName~KerberosNegotiateTests"
-sudo -E tools/testlab/watchdog/krb5-lab.sh --cleanup
+export ADMNG_TEST_LDAP_SERVER=127.0.0.1 ADMNG_TEST_LDAP_USER='Administrator@contoso.test' ADMNG_TEST_LDAP_PASSWORD='P@ssw0rd!2026'
+eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # pusty bufor MEMORY: – tożsamość usługi z keytabu testu
+dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~KerberosNegotiateTests"
 ```
 
-Keytab i `krb5.conf` leżą w `~/.cache/admng/watchdog-lab/kerberos` (uprawnienia 0700) i znikają z `--cleanup`.
+Nazwy konta testowego nie ma w DNS: klienci łączą się z `127.0.0.1` i podają FQDN konta w nagłówku `Host` (.NET buduje
+z niego SPN bez zapytania DNS). `KerberosNegotiateTests` i `KeytabLabTests` zapisują ten sam keytab, dlatego działają w
+jednej kolekcji xUnit (po kolei).
+
+`krb5-lab.sh` zostaje do ręcznych prób Negotiate (konto `wd-krb-http` z SPN `HTTP/localhost`, keytab i prywatny
+`krb5.conf` w `~/.cache/admng/watchdog-lab/kerberos`, uprawnienia 0700; `--cleanup` usuwa konto i pliki).
 
 ## Konto usługi i keytab
 

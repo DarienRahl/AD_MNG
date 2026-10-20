@@ -114,6 +114,35 @@ public class PermissionSelfCheckTests
         Assert.Equal(HealthState.Error, Assert.Single(results, r => r.Code == PermissionSelfCheck.AccountRestrictions).State);
     }
 
+    /// <summary>Linux API roles come from tokenGroups (stage B design 6.2): the probe runs only when the host says so,
+    /// and fails while users' tokenGroups cannot be read (the fake computes none unless seeded).</summary>
+    [Fact]
+    public async Task TokenGroupsProbe_RunsWhenTheHostResolvesRolesFromIt()
+    {
+        await using var scenario = new DetectionScenario(services: s => s.AddSingleton(new DetectionHostOptions { ProbeTokenGroups = true }));
+
+        var unreadable = await RunAsync(scenario);
+
+        Assert.Equal(8, unreadable.Count);
+        Assert.Equal(HealthState.Error, Assert.Single(unreadable, r => r.Code == HealthCheckCodes.PermissionTokenGroupsUnreadable).State);
+        Assert.Single(scenario.TakeEvents(), e => e.Kind == WatchEventKind.HealthPermissionGap);
+
+        var token = TestContext.Current.CancellationToken;
+        var users = new List<string>();
+        await foreach (var user in scenario.Directory.SearchAsync(new AdMng.Core.Directory.DirectorySearch { BaseDn = scenario.Builder.DomainDn, Filter = DetectionFilters.Users }, token))
+        {
+            users.Add(user.DistinguishedName);
+        }
+
+        foreach (var user in users)
+        {
+            scenario.Directory.SetValues(user, Attr.TokenGroups, AdConvert.SidToBytes(scenario.Builder.DomainSid + "-513"));
+        }
+
+        var readable = await RunAsync(scenario);
+        Assert.Equal(HealthState.Ok, Assert.Single(readable, r => r.Code == PermissionSelfCheck.TokenGroups).State);
+    }
+
     private static async Task<IReadOnlyList<HealthCheckDto>> RunAsync(DetectionScenario scenario)
     {
         var token = TestContext.Current.CancellationToken;

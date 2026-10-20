@@ -9,7 +9,13 @@ namespace AdMng.Watchdog.Service.Auth;
 /// Network allow-lists on <c>Connection.RemoteIpAddress</c> only – forwarded headers are never honoured (spec 17.1,
 /// 17.3): <c>/healthz</c> answers loopback, the machine's own addresses and <c>Hosting.MonitoringSubnets</c>; every other
 /// path, when <c>Hosting.AllowedRemoteSubnets</c> is set, answers only those subnets and loopback. Others get 403. A
-/// request without a remote IP (in-process transport) counts as local.
+/// request without a remote IP (in-process transport, <c>--smoke-test</c>) counts as local.
+/// <para>
+/// Linux with Negotiate (stage B design 4.3 item 1, 6.1): loopback and the machine's own addresses are <b>not</b> exempt
+/// on other paths than <c>/healthz</c> – they pass only when they fall into <c>AllowedRemoteSubnets</c> (also when the
+/// list is empty), so a local process holding the shared keytab cannot use a forged ticket against the API from the
+/// server itself. The check runs before authentication: such a request never reaches the Negotiate handler.
+/// </para>
 /// </summary>
 public sealed class RemoteAddressFilter(RequestDelegate next, IOptionsMonitor<ServiceOptions> options, MachineAddresses machine)
 {
@@ -17,21 +23,26 @@ public sealed class RemoteAddressFilter(RequestDelegate next, IOptionsMonitor<Se
     {
         ArgumentNullException.ThrowIfNull(context);
         var remote = context.Connection.RemoteIpAddress;
-        if (remote is null || IPAddress.IsLoopback(Normalize(remote)))
+        if (remote is null)
         {
             return next(context);
         }
 
         var address = Normalize(remote);
-        var hosting = options.CurrentValue.Hosting;
+        var settings = options.CurrentValue;
+        var hosting = settings.Hosting;
         bool allowed;
         if (IsHealthRequest(context))
         {
-            allowed = machine.IsOwnAddress(address) || InSubnets(address, hosting.MonitoringSubnets);
+            allowed = IPAddress.IsLoopback(address) || machine.IsOwnAddress(address) || InSubnets(address, hosting.MonitoringSubnets);
+        }
+        else if (!ExemptsLocalCallers(settings, OperatingSystem.IsLinux()) && (IPAddress.IsLoopback(address) || machine.IsOwnAddress(address)))
+        {
+            allowed = InSubnets(address, hosting.AllowedRemoteSubnets);
         }
         else
         {
-            allowed = hosting.AllowedRemoteSubnets.Length == 0 || InSubnets(address, hosting.AllowedRemoteSubnets);
+            allowed = IPAddress.IsLoopback(address) || hosting.AllowedRemoteSubnets.Length == 0 || InSubnets(address, hosting.AllowedRemoteSubnets);
         }
 
         if (allowed)
@@ -41,6 +52,15 @@ public sealed class RemoteAddressFilter(RequestDelegate next, IOptionsMonitor<Se
 
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         return Task.CompletedTask;
+    }
+
+    /// <summary>False on Linux with Negotiate authentication: loopback and the machine's own addresses must then be in
+    /// <c>AllowedRemoteSubnets</c> like any other caller (stage B design 6.1). Development and Test authentication keep the
+    /// exemption (loopback-only lab and test modes), and so does Windows.</summary>
+    public static bool ExemptsLocalCallers(ServiceOptions options, bool linux)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return !(linux && options.Authentication == WatchdogAuthenticationMode.Negotiate);
     }
 
     /// <summary>True when <paramref name="address"/> is in one of the CIDR <paramref name="subnets"/> (invalid entries

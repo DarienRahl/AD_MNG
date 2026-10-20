@@ -18,6 +18,7 @@ public sealed class CheckConfigCommandTests
             "--Watchdog:Hosting:Certificate:Subject=admng-wd.contoso.com",
             $"--Watchdog:Authorization:AdminSids:0={TestRoles.AdminGroup}",
             "--Watchdog:Directory:Servers:0=dc01.contoso.com",
+            "--Watchdog:Kerberos:Realm=CONTOSO.COM",
         ]);
 
         Assert.Equal(0, exitCode);

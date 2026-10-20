@@ -39,7 +39,8 @@ internal static class DetectionRegistration
             sp.GetRequiredService<IEventStore>(),
             sp.GetRequiredService<IWatchdogSignals>(),
             sp.GetRequiredService<TimeProvider>(),
-            Logger<PermissionSelfCheck>(sp)));
+            Logger<PermissionSelfCheck>(sp),
+            sp.GetRequiredService<DetectionHostOptions>()));
 
         // Each job once, also when AddWatchdogCore() is called again (the job host would run it twice).
         if (!services.Any(d => d.ServiceType == typeof(ChangeDetectionEngine)))
