@@ -15,6 +15,7 @@ w prawdziwej domenie.
 | `configure-lab.sh` | konfiguruje usługę przez jej API: SMTP → Mailpit (certyfikat przypięty SHA-256), grupy odbiorców `it-admins` = `admin@contoso.test`, `helpdesk` = `helpdesk@contoso.test`, kanały `siem-lab` (webhook) i `teams-lab` (Teams) → odbiornik, raport dzienny za 2 minuty; `--test` wysyła wiadomości testowe |
 | `lab-scenario.sh` | scenariusz demonstracyjny w `OU=WatchdogDemo` (Zofia Żak, Łukasz Wiśniewski, Paweł Lewandowski, Grażyna Dąbrowska); `--verify` sprawdza zdarzenia w API, e-maile w Mailpit i podpisy w odbiorniku; `--cleanup` usuwa OU |
 | `krb5-lab.sh` | opcjonalny prawdziwy Kerberos dla testu `KerberosNegotiateTests`: konto usługi z SPN `HTTP/localhost` w `OU=WatchdogKerberos`, keytab (`samba-tool domain exportkeytab`) i prywatny `krb5.conf`; `--cleanup` |
+| `keytab-lab.sh` | środowisko Kerberos klienta dla narzędzia `admng-watchdog-keytab` i LDAP przez SASL GSSAPI: prywatne `krb5.conf` i `ldap.conf` (jak w pakiecie), zmienne `KRB5_*`, `LDAPCONF`; `env [--admin]`, `cleanup` |
 | `common.sh` | wspólne ustawienia i funkcje (dołączany przez pozostałe skrypty) |
 
 Wymagania: laboratorium z `tools/testlab/setup-samba-dc.sh`, .NET SDK 10, `ldap-utils`, `curl`, `jq`, `openssl`,
@@ -90,6 +91,31 @@ sudo -E tools/testlab/watchdog/krb5-lab.sh --cleanup
 ```
 
 Keytab i `krb5.conf` leżą w `~/.cache/admng/watchdog-lab/kerberos` (uprawnienia 0700) i znikają z `--cleanup`.
+
+## Konto usługi i keytab
+
+Etap B2 wersji linuksowej (`docs/dev/watchdog-linux-design.md` 4.4–4.7, 5.1): narzędzie `admng-watchdog-keytab` ustawia
+hasło konta komputera z hasła jednorazowego (`init`) i je rotuje (`rotate`), a usługa łączy się z DC przez LDAP 389 z
+Kerberosem i szyfrowaniem SASL (SSF ≥ 56) jako to konto. Testy `KeytabLabTests` zakładają we własnym OU świeże konto
+komputera (wyłączone, z hasłem jednorazowym, SPN `HTTP/` i `HOST/`, AES, `NOT_DELEGATED`), wykonują `init` i `rotate`
+w procesie testu i sprawdzają, że otwarta sesja LDAP oraz klient Negotiate (akceptor z `KRB5_KTNAME`) działają dalej
+bez restartu, a monitor konta usługi zgłasza kody zdrowia 4.6/4.7 dla wstrzykniętych błędów.
+
+```bash
+export ADMNG_TEST_LDAP_SERVER=127.0.0.1
+eval "$(tools/testlab/watchdog/keytab-lab.sh env)"          # pusty bufor MEMORY: – tożsamość z keytabu testu
+dotnet test tests/AdMng.Watchdog.IntegrationTests --filter "FullyQualifiedName~KeytabLabTests"
+
+eval "$(tools/testlab/watchdog/keytab-lab.sh env --admin)"  # bilet Administratora – testy GssapiTests
+dotnet test tests/AdMng.Directory.IntegrationTests --filter "FullyQualifiedName~GssapiTests"
+tools/testlab/watchdog/keytab-lab.sh cleanup
+```
+
+Zmienne muszą być w środowisku procesu testów (libkrb5, libldap i Cyrus SASL czytają je natywnie; zmiana w procesie
+.NET do nich nie dociera). Pliki leżą w `~/.cache/admng/watchdog-lab/keytab` (0700). Wymaga SPN-ów `ldap/<nazwa DC>`
+i rozwiązywalnej nazwy DC – patrz [`../README.md`](../README.md) („Kerberos (SASL GSSAPI) przez LDAP”). Samba zwalnia
+konto komputera z minimalnego wieku hasła, więc ścieżki `otpActive` nie da się tu wywołać (sprawdzają ją testy
+jednostkowe); jeden DC – opóźnienie replikacji test symuluje drugim, nieosiągalnym KDC w `krb5.conf`.
 
 ## Testy integracyjne
 

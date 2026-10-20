@@ -5,10 +5,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <!-- LibraryImport of gss_krb5_ccache_name / krb5_cc_destroy (keytab lab tests). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Service\AdMng.Watchdog.Service.csproj" />
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Core\AdMng.Watchdog.Core.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Keytab\AdMng.Watchdog.Keytab.csproj" />
     <ProjectReference Include="..\..\src\AdMng.Directory\AdMng.Directory.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Testing\AdMng.Watchdog.Testing.csproj" />
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
