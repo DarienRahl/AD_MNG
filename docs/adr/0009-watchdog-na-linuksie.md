@@ -94,9 +94,10 @@ libldap/SASL.
    podniesieniu z 0) i `watchdog-self` (każda zmiana własnego konta `ADMNG-WD$` poza jego rotacją hasła – krytyczna);
    istotne zmiany treści GPO (`tier0-gpo`) – wysokie lub krytyczne.
 8. **Sekrety.** `ISecretStore` bez zmian (ASP.NET Core Data Protection); pierścień kluczy jest szyfrowany AES-256-GCM
-   kluczem przechowywanym jako zaszyfrowane poświadczenie systemd (`systemd-creds --with-key=auto --tpm2-pcrs=`: TPM2
-   + klucz hosta, gdy TPM2 jest dostępny, w przeciwnym razie klucz hosta; bez wiązania ze stanem rozruchu, więc
-   aktualizacja UEFI nie blokuje usługi). Instalator wybiera wariant sam.
+   kluczem przechowywanym jako zaszyfrowane poświadczenie systemd (`systemd-creds --tpm2-pcrs=`: TPM2 + klucz hosta,
+   gdy maszyna ma TPM2, w przeciwnym razie – albo gdy szyfrowanie z TPM2 się nie uda – sam klucz hosta; bez wiązania
+   ze stanem rozruchu, więc aktualizacja UEFI nie blokuje usługi). Instalator wybiera wariant sam i wypisuje, którego
+   faktycznie użył (tryb `auto` systemd 252 po cichu pomija TPM2, gdy brakuje bibliotek).
 9. **Certyfikat.** Certyfikat z firmowego CA (wniosek z Debiana, `certreq` po stronie Tier 0), a gdy CA nie ma –
    certyfikat samodzielnie podpisany, wygenerowany przy instalacji; AD Manager przy pierwszym połączeniu pokazuje odcisk
    SHA-256 do porównania z `sudo admng-watchdog cert-fingerprint` i zapamiętuje go dopiero po potwierdzeniu; zmiana
