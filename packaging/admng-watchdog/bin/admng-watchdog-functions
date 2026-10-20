@@ -1,0 +1,136 @@
+# shellcheck shell=sh
+# AdMng Watchdog - shared helpers of the maintainer scripts and /usr/sbin/admng-watchdog (sourced, POSIX sh).
+# docs/dev/watchdog-linux-design.md 6.3 (self-signed certificate), 10 (Data Protection key credential), 11 (modes).
+
+ADMNG_ETC=/etc/admng-watchdog
+ADMNG_DATA=/var/lib/admng-watchdog
+ADMNG_CREDENTIALS="$ADMNG_ETC/credentials"
+ADMNG_CREDENTIAL="$ADMNG_CREDENTIALS/dp-key.cred"
+ADMNG_VARIANT="$ADMNG_ETC/dp-key.variant"
+ADMNG_SETTINGS="$ADMNG_ETC/appsettings.json"
+ADMNG_DEFAULT_CRT="$ADMNG_ETC/tls/admng-wd.crt"
+ADMNG_DEFAULT_KEY="$ADMNG_ETC/tls/admng-wd.key"
+
+# Ownership and modes of /etc/admng-watchdog (section 11). The keytab belongs to admng-watchdog-keytab (tmpfiles "z").
+admng_fix_etc_permissions() {
+    install -d -m 0755 -o root -g root "$ADMNG_ETC"
+    install -d -m 0750 -o root -g admng-watchdog "$ADMNG_ETC/tls"
+    install -d -m 0700 -o root -g root "$ADMNG_CREDENTIALS"
+    if [ -f "$ADMNG_SETTINGS" ]; then
+        chown root:admng-watchdog "$ADMNG_SETTINGS"
+        chmod 0640 "$ADMNG_SETTINGS"
+    fi
+    for f in krb5.conf ldap.conf smb-client.conf; do
+        if [ -f "$ADMNG_ETC/$f" ]; then
+            chown root:root "$ADMNG_ETC/$f"
+            chmod 0644 "$ADMNG_ETC/$f"
+        fi
+    done
+    if [ -f "$ADMNG_CREDENTIAL" ]; then
+        chown root:root "$ADMNG_CREDENTIAL"
+        chmod 0600 "$ADMNG_CREDENTIAL"
+    fi
+}
+
+# Hosting.Certificate.Path / KeyPath of appsettings.json (the shipped values when not found).
+admng_setting() {
+    # $1 = JSON key (Path or KeyPath), $2 = default
+    value=""
+    if [ -r "$ADMNG_SETTINGS" ]; then
+        value=$(sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$ADMNG_SETTINGS" | head -n 1)
+    fi
+    if [ -n "$value" ]; then echo "$value"; else echo "$2"; fi
+}
+
+admng_certificate_path() { admng_setting Path "$ADMNG_DEFAULT_CRT"; }
+admng_key_path() { admng_setting KeyPath "$ADMNG_DEFAULT_KEY"; }
+
+admng_fqdn() {
+    name=$(hostname --fqdn 2>/dev/null || true)
+    case "$name" in
+        ""|localhost|localhost.*) name=$(uname -n) ;;
+    esac
+    echo "$name"
+}
+
+admng_print_fingerprint() {
+    openssl x509 -noout -fingerprint -sha256 -in "$1" | sed 's/^.*=//'
+}
+
+# Self-signed ECDSA P-256 certificate, 825 days, CN/SAN = FQDN, EKU serverAuth (6.3). Writes the key and certificate
+# next to the live files and renames them into place (key first). $1 = "force" replaces existing files.
+admng_create_self_signed() {
+    crt=$(admng_certificate_path)
+    key=$(admng_key_path)
+    if [ "$1" != "force" ] && [ -e "$crt" ]; then
+        return 0
+    fi
+    fqdn=$(admng_fqdn)
+    dir=$(dirname "$crt")
+    keydir=$(dirname "$key")
+    install -d -m 0750 -o root -g admng-watchdog "$dir"
+    [ "$keydir" = "$dir" ] || install -d -m 0750 -o root -g admng-watchdog "$keydir"
+    tmpkey="$keydir/.admng-wd.new.key.$$"
+    tmpcrt="$dir/.admng-wd.new.crt.$$"
+    (
+        umask 077
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -sha256 -days 825 \
+            -subj "/CN=$fqdn" -addext "subjectAltName=DNS:$fqdn" -addext "extendedKeyUsage=serverAuth" \
+            -addext "keyUsage=critical,digitalSignature" -keyout "$tmpkey" -out "$tmpcrt" 2>/dev/null
+    )
+    chown root:admng-watchdog "$tmpkey" "$tmpcrt"
+    chmod 0640 "$tmpkey"
+    chmod 0644 "$tmpcrt"
+    mv -f "$tmpkey" "$key"
+    mv -f "$tmpcrt" "$crt"
+    echo "admng-watchdog: self-signed TLS certificate for $fqdn created ($crt)."
+    echo "admng-watchdog: SHA-256 fingerprint $(admng_print_fingerprint "$crt")"
+    echo "admng-watchdog: confirm this fingerprint in AD Manager when it first connects."
+}
+
+# True when the machine has a TPM2 (10): a resource manager device or systemd-creds reporting firmware/driver support.
+admng_has_tpm2() {
+    if [ -n "$(ls /sys/class/tpmrm 2>/dev/null)" ]; then
+        return 0
+    fi
+    systemd-creds has-tpm2 2>/dev/null | grep -Eq '^\+(firmware|driver)$'
+}
+
+# The 32-byte Data Protection key as an encrypted systemd credential (10). Never --with-key=auto: the variant actually
+# used is printed and recorded in dp-key.variant (no secret; the service shows it in Status). $1 = "force" replaces it.
+admng_create_credential() {
+    if [ "$1" != "force" ] && [ -e "$ADMNG_CREDENTIAL" ]; then
+        return 0
+    fi
+    install -d -m 0700 -o root -g root "$ADMNG_CREDENTIALS"
+    tmp="$ADMNG_CREDENTIALS/.dp-key.cred.$$"
+    variant=""
+    reason=""
+    if admng_has_tpm2; then
+        if head -c 32 /dev/urandom | systemd-creds encrypt --name=dp-key --with-key=host+tpm2 --tpm2-pcrs= - "$tmp" 2>/dev/null; then
+            variant="tpm2+host"
+        else
+            rm -f "$tmp"
+            reason="TPM2 sealing failed - tpm2-tss libraries missing?"
+        fi
+    else
+        reason="no TPM2 found"
+    fi
+    if [ -z "$variant" ]; then
+        head -c 32 /dev/urandom | systemd-creds encrypt --name=dp-key --with-key=host - "$tmp"
+        variant="host"
+    fi
+    chown root:root "$tmp"
+    chmod 0600 "$tmp"
+    mv -f "$tmp" "$ADMNG_CREDENTIAL"
+    printf '%s\n' "$variant" > "$ADMNG_VARIANT.tmp"
+    chmod 0644 "$ADMNG_VARIANT.tmp"
+    mv -f "$ADMNG_VARIANT.tmp" "$ADMNG_VARIANT"
+    if [ -n "$reason" ] && [ "$variant" = "host" ]; then
+        echo "admng-watchdog: Data Protection key credential created (variant: host; $reason)."
+    else
+        echo "admng-watchdog: Data Protection key credential created (variant: $variant)."
+    fi
+}
+
+admng_systemd_running() { [ -d /run/systemd/system ]; }

@@ -1,0 +1,96 @@
+#!/bin/sh
+# AdMng Watchdog command-line wrapper (docs/dev/watchdog-linux-design.md 13.1): runs the service binary as the service
+# user with the environment of admng-watchdog.service for the checks, and the root-only maintenance verbs.
+set -eu
+
+. /usr/lib/admng-watchdog/admng-watchdog-functions
+
+BIN=/usr/lib/admng-watchdog/AdMng.Watchdog
+SERVICE_USER=admng-watchdog
+
+usage() {
+    cat <<'USAGE'
+Usage: admng-watchdog COMMAND
+
+  --check-config            validate appsettings.json and the stored configuration (exit 0 / 2)
+  --health                  GET /healthz on the configured listener (exit 0 / 1)
+  --smoke-test              self-test with a temporary data folder and loopback HTTP (exit 0 / 1)
+  cert-fingerprint          print the SHA-256 fingerprint of the TLS certificate
+  cert-renew-self-signed    replace the self-signed TLS certificate (root; confirm the new fingerprint in AD Manager)
+  reset-secrets-key         new Data Protection key credential after a restore onto another host (root; stored
+                            secrets must be entered again in AD Manager)
+USAGE
+}
+
+require_root() {
+    if [ "$(id -u)" -ne 0 ]; then
+        echo "admng-watchdog: $1 must run as root (sudo)." >&2
+        exit 1
+    fi
+}
+
+# The service binary as the service user with the unit's environment (12.1); never with ADMNG_WATCHDOG_CONFIG.
+run_as_service() {
+    set -- /usr/bin/env -i \
+        PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+        HOME=/var/lib/admng-watchdog \
+        LANG=C.UTF-8 \
+        ASPNETCORE_ENVIRONMENT=Production \
+        DOTNET_EnableDiagnostics=0 \
+        DOTNET_gcServer=0 \
+        KRB5_CONFIG=/etc/admng-watchdog/krb5.conf \
+        KRB5_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab \
+        KRB5_CLIENT_KTNAME=FILE:/etc/admng-watchdog/admng-wd.keytab \
+        KRB5CCNAME=MEMORY:admng-watchdog-cli \
+        LDAPCONF=/etc/admng-watchdog/ldap.conf \
+        "$BIN" --contentRoot /usr/lib/admng-watchdog "$@"
+    if [ "$(id -u)" -eq 0 ]; then
+        exec /usr/bin/setpriv --reuid="$SERVICE_USER" --regid="$SERVICE_USER" --init-groups --inh-caps=-all -- "$@"
+    elif [ "$(id -un)" = "$SERVICE_USER" ]; then
+        exec "$@"
+    fi
+    echo "admng-watchdog: run as root (sudo) or as $SERVICE_USER." >&2
+    exit 1
+}
+
+reset_secrets_key() {
+    require_root reset-secrets-key
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    if admng_systemd_running; then
+        systemctl stop admng-watchdog.service || true
+    fi
+    if [ -d "$ADMNG_DATA/keys" ]; then
+        mv "$ADMNG_DATA/keys" "$ADMNG_DATA/keys.unreadable-$stamp"
+        echo "admng-watchdog: previous key ring moved to $ADMNG_DATA/keys.unreadable-$stamp (deleted after 30 days)."
+    fi
+    install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$ADMNG_DATA/keys"
+    admng_create_credential force
+    if admng_systemd_running; then
+        systemctl start admng-watchdog.service
+    fi
+    echo "admng-watchdog: enter the SMTP password / Teams URL again in AD Manager (Status shows secret.unreadable until then)."
+}
+
+case "${1:-}" in
+    --check-config|--health|--smoke-test)
+        run_as_service "$1"
+        ;;
+    cert-fingerprint)
+        admng_print_fingerprint "$(admng_certificate_path)"
+        ;;
+    cert-renew-self-signed)
+        require_root cert-renew-self-signed
+        admng_create_self_signed force
+        echo "admng-watchdog: the service picks the new certificate up within seconds (no restart needed)."
+        ;;
+    reset-secrets-key)
+        reset_secrets_key
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    *)
+        usage >&2
+        exit 2
+        ;;
+esac
