@@ -16,7 +16,7 @@ public sealed class RetentionAndBackupTests
     public async Task Purge_DeletesInBatches_AndKeepsRecentEvents()
     {
         await using var store = TestStore.Create();
-        var old = Enumerable.Range(0, 12_001).Select(_ => TestData.Event(WatchEventKind.AttributesChanged, detectedAt: TestStore.Start.AddDays(-400))).ToArray();
+        var old = Enumerable.Range(0, 12_001).Select(_ => TestData.Event(WatchEventKind.AttributesChanged, detectedAt: TestStore.Start.AddDays(-1200))).ToArray();
         await store.Store.CommitAsync(new DetectionCommit { Events = old }, Ct);
         var recent = await store.Store.AppendAsync(TestData.Event(WatchEventKind.UserCreated), Ct);
 
@@ -138,7 +138,7 @@ public sealed class RetentionAndBackupTests
         await using var store = TestStore.Create();
         const string Marker = "Grzegorz Brzęczyszczykiewicz";
         var target = TestData.User(Marker, "OU=Chrząszczyrzewoszyce,DC=contoso,DC=test");
-        await store.Store.AppendAsync(TestData.Event(WatchEventKind.UserCreated, target, TestStore.Start.AddDays(-400)), Ct);
+        await store.Store.AppendAsync(TestData.Event(WatchEventKind.UserCreated, target, TestStore.Start.AddDays(-1200)), Ct);
         await store.Store.AppendAsync(TestData.Event(WatchEventKind.UserCreated, TestData.Zofia), Ct);
         Assert.True(FilesContain(store, Marker), "the marker must be on disk before the purge");
 

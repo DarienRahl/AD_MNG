@@ -130,6 +130,13 @@ public static class EventKindCatalog
         Entry(WatchEventKind.DomainControllerRemoved, EventCategory.Domain, Severity.High, [WatchObjectKind.DomainController]),
         Entry(WatchEventKind.FsmoRoleChanged, EventCategory.Domain, Severity.High, [WatchObjectKind.Domain, WatchObjectKind.Configuration]),
         Entry(WatchEventKind.CertificateTemplateChanged, EventCategory.Domain, Severity.High, [WatchObjectKind.PublicKeyInfrastructure]),
+
+        // GPO content (stage B design 8.6): GroupPolicySettingsChanged starts at Low (an unlinked GPO) and is raised by the
+        // GPO classifier (Medium linked, High sensitive category, Critical on the domain head / DC OU or cpassword);
+        // GroupPolicyContentOutOfBand is Critical when linked to the domain head / DC OU.
+        Entry(WatchEventKind.GroupPolicySettingsChanged, EventCategory.Domain, Severity.Low, [WatchObjectKind.GroupPolicy]),
+        Entry(WatchEventKind.GroupPolicyPathRedirected, EventCategory.Domain, Severity.Critical, [WatchObjectKind.GroupPolicy]),
+        Entry(WatchEventKind.GroupPolicyContentOutOfBand, EventCategory.Domain, Severity.High, [WatchObjectKind.GroupPolicy]),
         Entry(WatchEventKind.SchemaChanged, EventCategory.Domain, Severity.High, [WatchObjectKind.Schema]),
 
         // Expiry and bursts
@@ -155,6 +162,7 @@ public static class EventKindCatalog
         Entry(WatchEventKind.HealthStorage, EventCategory.Health, Severity.High, WatchdogOnly),
         Entry(WatchEventKind.HealthBaselineCompleted, EventCategory.Health, Severity.Info, WatchdogOnly),
         Entry(WatchEventKind.WatchdogConfigurationChanged, EventCategory.Health, Severity.Medium, WatchdogOnly),
+        Entry(WatchEventKind.HealthServiceAccount, EventCategory.Health, Severity.High, WatchdogOnly),
         Entry(WatchEventKind.Test, EventCategory.Health, Severity.Info, WatchdogOnly),
     ];
 

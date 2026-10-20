@@ -49,13 +49,15 @@ public abstract partial class WatchdogStoreContractTests<TStore>
     public Task EventIds_AreNeverReused_AfterRetentionDeletes() => WithStoreAsync(async store =>
     {
         var user = Snapshot();
-        await store.AppendAsync(Event(WatchEventKind.UserCreated, user, Now.AddDays(-400)), Ct);
-        var newest = await store.AppendAsync(Event(WatchEventKind.AccountEnabled, user, Now.AddDays(-400)), Ct);
+        // Older than the default event retention (1095 days), so the purge deletes both.
+        await store.AppendAsync(Event(WatchEventKind.UserCreated, user, Now.AddDays(-1200)), Ct);
+        var newest = await store.AppendAsync(Event(WatchEventKind.AccountEnabled, user, Now.AddDays(-1200)), Ct);
 
         await store.PurgeAsync(new RetentionSettings(), Now, Ct);
         var next = await store.AppendAsync(Event(WatchEventKind.AccountDisabled, user, Now), Ct);
 
         Assert.True(next > newest);
+        Assert.Null(await store.GetAsync(newest, Ct));
         Assert.Equal(next, await store.GetLatestIdAsync(Ct));
     });
 

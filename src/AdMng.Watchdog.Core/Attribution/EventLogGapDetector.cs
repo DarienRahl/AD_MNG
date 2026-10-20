@@ -22,6 +22,9 @@ public sealed class EventLogGapDetector(TimeProvider timeProvider)
     public const string LogFull = "logFull";
     public const string ServiceShutdown = "serviceShutdown";
 
+    /// <summary>Collector mode: the OpenWEC file of the cursor was deleted before it was consumed (stage B design 7.5).</summary>
+    public const string CollectorFileLost = "collectorFileLost";
+
     /// <summary>Minimum distance between two gap events of one DC and reason.</summary>
     public static readonly TimeSpan RepeatAfter = TimeSpan.FromHours(1);
 

@@ -89,6 +89,10 @@ public static class StatusEndpoints
             NextDigestAt = digest.NextScheduledAt,
             RolloutModeUntil = await rollout.ActiveUntilAsync(config, watchedDomain, now, cancellationToken).ConfigureAwait(false),
             Suggestions = suggestions.Current,
+            ServiceAccount = health.ServiceAccount,
+            Collector = health.Collector,
+            GpoContent = health.GpoContent,
+            Host = health.Host,
         });
     }
 

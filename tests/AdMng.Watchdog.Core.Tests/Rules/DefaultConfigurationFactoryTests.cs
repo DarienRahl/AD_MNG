@@ -9,10 +9,12 @@ namespace AdMng.Watchdog.Core.Tests.Rules;
 public class DefaultConfigurationFactoryTests
 {
     /// <summary>The default document of section 8.1 without the rules (compared as a subset: properties the
-    /// specification lists must have exactly these values).</summary>
+    /// specification lists must have exactly these values), with the defaults of the Linux service (stage B design 7.8,
+    /// 8.5, 14.2): schema version 2, attribution source OpenWec with the collector fields, directory.gpoContent, retention
+    /// 1095 days / logon records 48 h / 4096 MB.</summary>
     private const string Section81 = """
         {
-          "schemaVersion": 1,
+          "schemaVersion": 2,
           "general": { "instanceName": "AD Watchdog", "language": "pl", "timeZone": "Europe/Warsaw", "publicBaseUrl": null,
                        "rolloutDays": 7, "rolloutEnded": false },
           "directory": {
@@ -25,16 +27,19 @@ public class DefaultConfigurationFactoryTests
             "additionalWatchedAttributes": [], "ignoredAttributes": [],
             "enabledOptionalKinds": [], "disabledKinds": [],
             "trackComputerPasswordChanges": false, "trackManagedPasswordRollover": false, "trackComputerOsChanges": false,
-            "maxValuesPerAttribute": 100, "failoverAfter": "00:10:00", "creationSettleWindow": "00:02:00"
+            "maxValuesPerAttribute": 100, "failoverAfter": "00:10:00", "creationSettleWindow": "00:02:00",
+            "gpoContent": { "enabled": true, "sysvolLagTolerance": "02:00:00", "maxFileMb": 5, "maxTotalMb": 50, "maxFiles": 2000 }
           },
           "attribution": {
-            "enabled": true, "source": "DomainControllers", "collector": null, "domainControllers": [],
+            "enabled": true, "source": "OpenWec", "collector": null, "domainControllers": [],
             "pollInterval": "00:00:30", "matchWindow": "00:00:03", "fallbackWindow": "00:02:00",
             "replicationLatencyBound": "00:15:00",
             "pendingRetries": ["00:00:30", "00:02:00", "00:10:00", "00:30:00"],
             "lookupLogonSource": true, "lookupLockoutSources": true, "logonLookback": "12:00:00",
             "sourceQueryTimeout": "00:00:10", "maxRecordsPerPoll": 50000,
-            "resolveReverseDns": true, "suppressComputerSelfChanges": true
+            "resolveReverseDns": true, "suppressComputerSelfChanges": true,
+            "dropComputerLogons": true, "dropAnonymousLogons": true,
+            "collectorSilenceWarning": "00:15:00", "collectorSilenceError": "01:00:00"
           },
           "scans": {
             "accountExpiry": { "enabled": true, "thresholdsDays": [14, 7, 1], "includeDisabled": false, "interval": "01:00:00",
@@ -87,9 +92,9 @@ public class DefaultConfigurationFactoryTests
             "maxRowsPerSection": 50, "weeklySectionsDay": "Monday", "upcomingExpiryDays": 14, "coverNonBusinessDays": true
           },
           "retention": {
-            "eventsDays": 365, "securityEventsDays": 30, "outboxSentDays": 30, "outboxDeadDays": 90,
+            "eventsDays": 1095, "securityEventsDays": 30, "logonRecordsHours": 48, "outboxSentDays": 30, "outboxDeadDays": 90,
             "deletedSnapshotDays": 180, "configAuditDays": 1095, "backupsToKeep": 7, "preMigrationBackupDays": 30,
-            "maxDatabaseMb": 10240, "maintenanceTime": "03:15"
+            "maxDatabaseMb": 4096, "maintenanceTime": "03:15"
           }
         }
         """;

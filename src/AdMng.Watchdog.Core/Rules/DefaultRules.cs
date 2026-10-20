@@ -34,6 +34,14 @@ public static class DefaultRules
     public const string Expiry = "expiry";
     public const string Health = "health";
 
+    // Built-in rules of stage B (docs/dev/watchdog-linux-design.md 9.1–9.3, 8.6, 14.2) – ids only; the rules are added
+    // to Create() by the tracks that implement their detections. watchdog-self has no "tier0-" prefix but is treated
+    // like a Tier-0 rule (immediate in rollout mode, suppression only with AllowTier0Suppression – instructions 6.2).
+    public const string Tier0BadSuccessor = "tier0-badsuccessor";
+    public const string Tier0MachineQuota = "tier0-machine-quota";
+    public const string WatchdogSelf = "watchdog-self";
+    public const string Tier0Gpo = "tier0-gpo";
+
     /// <summary>Recipient group of the administrators (default document, 8.1).</summary>
     public const string ItAdminsGroup = "it-admins";
 
@@ -170,7 +178,10 @@ public static class DefaultRules
             Delivery = Immediate(ItAdminsGroup, DeliveryHours.Default),
         },
         Rule(OuGpo, "OU i GPO",
-            [WatchEventKind.OrganizationalUnitCreated, WatchEventKind.GroupPolicyLinkChanged, WatchEventKind.GroupPolicyChanged]) with
+        [
+            WatchEventKind.OrganizationalUnitCreated, WatchEventKind.GroupPolicyLinkChanged, WatchEventKind.GroupPolicyChanged,
+            WatchEventKind.GroupPolicySettingsChanged, WatchEventKind.GroupPolicyPathRedirected, WatchEventKind.GroupPolicyContentOutOfBand,
+        ]) with
         {
             Delivery = DigestOnly(),
         },

@@ -20,6 +20,16 @@ public sealed partial class WatchdogDisplayTests
     [InlineData("channel.teams-it", "channel")]
     [InlineData("storage.free", "storage.free")]
     [InlineData("future.check", null)]
+    [InlineData("wec.dc01.contoso.com.silent", "wec.silent")]
+    [InlineData("wec.dc01.contoso.com.collectorFileLost", "wec.collectorFileLost")]
+    [InlineData("wec.dc01.contoso.com.somethingNew", "wec")]
+    [InlineData("wec.service", "wec.service")]
+    [InlineData("gpo.31b2f340-016d-11d2-945f-00c04fb984f9.parseError", "gpo.parseError")]
+    [InlineData("serviceAccount.keytabStale", "serviceAccount.keytabStale")]
+    [InlineData("serviceAccount.somethingNew", "serviceAccount")]
+    [InlineData("host.clockSkew", "host.clockSkew")]
+    [InlineData("sysvol.accessDenied", "sysvol.accessDenied")]
+    [InlineData("storage.backupSkipped", "storage.backupSkipped")]
     public void HealthPrefix_IsTheLongestKnownPrefix(string code, string? expected) =>
         Assert.Equal(expected, WatchdogDisplay.HealthPrefix(code));
 
@@ -32,6 +42,33 @@ public sealed partial class WatchdogDisplayTests
         Assert.Equal("Obce rekordy w dzienniku dc02.contoso.test", localizer.HealthText("eventlog.dc02.contoso.test.foreignRecords"));
         Assert.Equal("Odczyt kontenera Deleted Objects", localizer.HealthText("permission.deletedObjects"));
         Assert.StartsWith("Kolektor przekazuje zdarzenia", localizer.HealthRemedy("eventlog.dc02.contoso.test.foreignRecords"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HealthText_NamesTheSubjectInTheMiddleOfAStageBCode()
+    {
+        var localizer = new ResxLocalizer(Polish);
+
+        Assert.Equal("Kontroler dc01.contoso.com milczy", localizer.HealthText(HealthCheckCodes.Wec("dc01.contoso.com", HealthCheckCodes.WecSilent)));
+        Assert.Equal("Odrzucone rekordy z dc02.contoso.com", localizer.HealthText(HealthCheckCodes.Wec("DC02.contoso.com", HealthCheckCodes.WecIdentityMismatch)));
+        Assert.Equal("Opóźnienie SYSVOL dla GPO 31b2f340-016d-11d2-945f-00c04fb984f9",
+            localizer.HealthText(HealthCheckCodes.Gpo(Guid.Parse("31b2f340-016d-11d2-945f-00c04fb984f9"), HealthCheckCodes.GpoSysvolLag)));
+        Assert.Equal("Odbiornik OpenWEC", localizer.HealthText(HealthCheckCodes.WecService));
+        Assert.Equal("Keytab nieaktualny względem AD", localizer.HealthText(HealthCheckCodes.ServiceAccountKeytabStale));
+        Assert.Contains("Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp", localizer.HealthRemedy(HealthCheckCodes.ServiceAccountKeytabStale), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HealthCodes_OfStageB_AreAllKnownPrefixes()
+    {
+        var codes = typeof(HealthCheckCodes).GetFields()
+            .Where(f => f.IsLiteral && ((string)f.GetRawConstantValue()!).Contains('.', StringComparison.Ordinal))
+            .Select(f => ((string)f.GetRawConstantValue()!).TrimEnd('.'))
+            .ToList();
+
+        Assert.Contains("wec", codes);
+        Assert.Contains("serviceAccount.drift", codes);
+        Assert.Equal([], codes.Except(WatchdogDisplay.HealthCodes, StringComparer.Ordinal));
     }
 
     [Fact]
@@ -103,7 +140,7 @@ public sealed partial class WatchdogDisplayTests
         var literal = HealthCodeLiteral();
         var constant = HealthCodeConstant();
         var codes = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var project in new[] { "AdMng.Watchdog.Core", "AdMng.Watchdog.Service" })
+        foreach (var project in new[] { "AdMng.Watchdog.Contracts", "AdMng.Watchdog.Core", "AdMng.Watchdog.Service" })
         {
             var directory = Path.Combine(root.FullName, "src", project);
             foreach (var file in Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))

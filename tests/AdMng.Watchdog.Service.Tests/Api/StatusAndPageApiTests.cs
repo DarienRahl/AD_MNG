@@ -41,6 +41,34 @@ public sealed class StatusAndPageApiTests
     }
 
     [Fact]
+    public async Task Status_CarriesTheStageBSections_OnceReported()
+    {
+        await using var factory = new WatchdogFactory();
+        using var viewer = factory.Viewer();
+
+        var before = await ApiJson.ReadAsync<StatusDto>(await viewer.GetAsync(WatchdogRoutes.Status, Ct));
+        var health = factory.Services.GetRequiredService<IHealthRegistry>();
+        health.ReportServiceAccount(new ServiceAccountStatusDto { State = HealthState.Ok, Principal = "ADMNG-WD$@CONTOSO.TEST", KeytabKvno = 2, DirectoryKvno = 2 });
+        health.ReportCollector(new CollectorStatusDto
+        {
+            State = HealthState.Error,
+            DomainControllers = [new CollectorDcStatusDto { Dc = "dc01.contoso.test", State = HealthState.Error, RejectedRecords24h = 3 }],
+        });
+        health.ReportGpoContent(new GpoContentStatusDto { State = HealthState.Warning, Enabled = true, TotalGpos = 4, ReadGpos = 4, SysvolLaggingGpos = 1 });
+        health.ReportHost(new HostStatusDto { OperatingSystem = "Debian GNU/Linux 13 (trixie)", CredentialKey = HostCredentialKeys.Tpm2Host, LdapSsf = 256 });
+        var after = await ApiJson.ReadAsync<StatusDto>(await viewer.GetAsync(WatchdogRoutes.Status, Ct));
+
+        Assert.Null(before.ServiceAccount);
+        Assert.Null(before.Collector);
+        Assert.Null(before.GpoContent);
+        Assert.Null(before.Host);
+        Assert.Equal(2, after.ServiceAccount?.KeytabKvno);
+        Assert.Equal(3, Assert.Single(after.Collector!.DomainControllers).RejectedRecords24h);
+        Assert.Equal(1, after.GpoContent?.SysvolLaggingGpos);
+        Assert.Equal(HostCredentialKeys.Tpm2Host, after.Host?.CredentialKey);
+    }
+
+    [Fact]
     public async Task EventPage_IsRenderedWithStrictHeaders_AtTheViewerLevel()
     {
         var renderer = new CapturingRenderer();

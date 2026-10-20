@@ -785,6 +785,9 @@
   <data name="Email.OpenInBrowser" xml:space="preserve">
     <value>Otwórz w przeglądarce</value>
   </data>
+  <data name="Email.ServiceStopped" xml:space="preserve">
+    <value>AdMng Watchdog zatrzymany – sprawdź systemctl status admng-watchdog</value>
+  </data>
   <data name="Email.TestBody" xml:space="preserve">
     <value>To jest wiadomość testowa usługi {0}. Wysłano: {1}. Jeśli ją widzisz, dostarczanie poczty działa.</value>
   </data>
@@ -1121,6 +1124,15 @@
   <data name="Kind.GroupPolicyChanged.TitlePlural" xml:space="preserve">
     <value>Zmiany obiektów zasad grupy</value>
   </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.Sentence" xml:space="preserve">
+    <value>Pliki obiektu zasad grupy {0} w SYSVOL zmieniono bez zmiany wersji GPO.</value>
+  </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.Title" xml:space="preserve">
+    <value>Zmieniono pliki GPO bez zmiany wersji</value>
+  </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.TitlePlural" xml:space="preserve">
+    <value>Zmiany plików GPO bez zmiany wersji</value>
+  </data>
   <data name="Kind.GroupPolicyLinkChanged.Sentence" xml:space="preserve">
     <value>Połączenia obiektów zasad grupy z {0} zostały zmienione.</value>
   </data>
@@ -1129,6 +1141,24 @@
   </data>
   <data name="Kind.GroupPolicyLinkChanged.TitlePlural" xml:space="preserve">
     <value>Zmiany połączeń GPO</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.Sentence" xml:space="preserve">
+    <value>Ścieżka plików (gPCFileSysPath) obiektu zasad grupy {0} wskazuje poza SYSVOL domeny.</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.Title" xml:space="preserve">
+    <value>Przekierowano ścieżkę plików GPO</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.TitlePlural" xml:space="preserve">
+    <value>Przekierowania ścieżek plików GPO</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.Sentence" xml:space="preserve">
+    <value>Zmieniono ustawienia w obiekcie zasad grupy {0}.</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.Title" xml:space="preserve">
+    <value>Zmieniono ustawienia GPO</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.TitlePlural" xml:space="preserve">
+    <value>Zmiany ustawień GPO</value>
   </data>
   <data name="Kind.GroupTypeChanged.Sentence" xml:space="preserve">
     <value>Typ lub zakres grupy {0} został zmieniony.</value>
@@ -1201,6 +1231,15 @@
   </data>
   <data name="Kind.HealthResync.TitlePlural" xml:space="preserve">
     <value>Pełne resynchronizacje</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.Sentence" xml:space="preserve">
+    <value>Kontrola konta usługi Watchdog lub jego keytabu wykryła problem.</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.Title" xml:space="preserve">
+    <value>Problem z kontem usługi Watchdog</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.TitlePlural" xml:space="preserve">
+    <value>Problemy z kontem usługi Watchdog</value>
   </data>
   <data name="Kind.HealthStorage.Sentence" xml:space="preserve">
     <value>Brakuje miejsca na bazę danych usługi Watchdog lub osiągnęła ona limit rozmiaru.</value>
@@ -1643,6 +1682,12 @@
   <data name="Reason.DC_UNREACHABLE" xml:space="preserve">
     <value>Nie można odczytać dziennika kontrolera domeny</value>
   </data>
+  <data name="Reason.DC_UNREACHABLE.Collector" xml:space="preserve">
+    <value>Kolektor WEF nie otrzymuje zdarzeń z kontrolera domeny</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE.Collector.Remedy" xml:space="preserve">
+    <value>Sprawdź, czy DC przekazuje zdarzenia (GPO subskrypcji, WinRM, zapora 5985) – Stan → Kolektor WEF.</value>
+  </data>
   <data name="Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
     <value>Sprawdź zaporę (Remote Event Log Management) i członkostwo konta usługi w Event Log Readers.</value>
   </data>
@@ -1700,6 +1745,12 @@
   <data name="Reason.SYSTEM.Remedy" xml:space="preserve">
     <value>Zmianę wykonał sam kontroler domeny (np. SDProp) – działanie nie jest wymagane.</value>
   </data>
+  <data name="Reason.SYSVOL_NOT_AUDITED" xml:space="preserve">
+    <value>Zmiany plików SYSVOL nie są objęte inspekcją</value>
+  </data>
+  <data name="Reason.SYSVOL_NOT_AUDITED.Remedy" xml:space="preserve">
+    <value>Zmiana plików SYSVOL bez zmiany wersji GPO – wykonawca nieznany; sprawdź, kto ma zapis do SYSVOL.</value>
+  </data>
   <data name="Rule.account-attributes" xml:space="preserve">
     <value>Zmiany parametrów kont</value>
   </data>
@@ -1754,11 +1805,20 @@
   <data name="Rule.security-review" xml:space="preserve">
     <value>Zmiany bezpieczeństwa do przeglądu</value>
   </data>
+  <data name="Rule.tier0-badsuccessor" xml:space="preserve">
+    <value>BadSuccessor – konta dMSA</value>
+  </data>
   <data name="Rule.tier0-domain" xml:space="preserve">
     <value>Domena, zaufania, schemat, PKI, zasady</value>
   </data>
   <data name="Rule.tier0-eventlog" xml:space="preserve">
     <value>Dzienniki zabezpieczeń DC</value>
+  </data>
+  <data name="Rule.tier0-gpo" xml:space="preserve">
+    <value>Treść GPO</value>
+  </data>
+  <data name="Rule.tier0-machine-quota" xml:space="preserve">
+    <value>Limit kont komputerów (MachineAccountQuota)</value>
   </data>
   <data name="Rule.tier0-privilege" xml:space="preserve">
     <value>Dostęp uprzywilejowany</value>
@@ -1768,6 +1828,9 @@
   </data>
   <data name="Rule.unlocks" xml:space="preserve">
     <value>Odblokowania</value>
+  </data>
+  <data name="Rule.watchdog-self" xml:space="preserve">
+    <value>Konto usługi Watchdog</value>
   </data>
   <data name="Rule.watchlist-groups" xml:space="preserve">
     <value>Grupy obserwowane</value>
@@ -1801,6 +1864,9 @@
   </data>
   <data name="SeverityName.Medium" xml:space="preserve">
     <value>Średni</value>
+  </data>
+  <data name="Source.Adws" xml:space="preserve">
+    <value>przez ADWS – adres z logowania tej samej osoby</value>
   </data>
   <data name="Source.ClientReported" xml:space="preserve">
     <value>zgłoszona przez klienta</value>
@@ -1856,6 +1922,9 @@
   <data name="Subject.Events" xml:space="preserve">
     <value>Zdarzenia</value>
   </data>
+  <data name="Subject.ServiceStopped" xml:space="preserve">
+    <value>AdMng Watchdog zatrzymany</value>
+  </data>
   <data name="Subject.Test" xml:space="preserve">
     <value>Wiadomość testowa</value>
   </data>
@@ -1870,6 +1939,9 @@
   </data>
   <data name="Value.ActorUnknown" xml:space="preserve">
     <value>nieustalony – {0} ({1})</value>
+  </data>
+  <data name="Value.AuditSettingsChanged" xml:space="preserve">
+    <value>lista inspekcji (SACL) albo inne ustawienie zabezpieczeń zmienione – treści konto usługi nie odczyta</value>
   </data>
   <data name="Value.Binary" xml:space="preserve">
     <value>wartość binarna</value>
@@ -1939,6 +2011,9 @@
   </data>
   <data name="Value.Unknown" xml:space="preserve">
     <value>nieustalony</value>
+  </data>
+  <data name="Value.Unreadable" xml:space="preserve">
+    <value>nie udało się odczytać</value>
   </data>
   <data name="Value.UntilUnlocked" xml:space="preserve">
     <value>odblokowania przez administratora</value>

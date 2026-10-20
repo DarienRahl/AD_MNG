@@ -16,6 +16,10 @@ public sealed class HealthRegistry : IHealthRegistry
     private readonly Dictionary<string, ChannelHealthDto> _channels = new(StringComparer.OrdinalIgnoreCase);
     private DirectoryStatusDto _directory = new() { State = HealthState.Unknown };
     private AttributionStatusDto _attribution = new();
+    private ServiceAccountStatusDto? _serviceAccount;
+    private CollectorStatusDto? _collector;
+    private GpoContentStatusDto? _gpoContent;
+    private HostStatusDto? _host;
 
     /// <summary>Raised after every report (outside the lock); the argument is the code or channel id.</summary>
     public event EventHandler<string>? Changed;
@@ -69,6 +73,54 @@ public sealed class HealthRegistry : IHealthRegistry
     }
 
     /// <inheritdoc/>
+    public ServiceAccountStatusDto? ServiceAccount
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _serviceAccount;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public CollectorStatusDto? Collector
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _collector;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public GpoContentStatusDto? GpoContent
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _gpoContent;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public HostStatusDto? Host
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _host;
+            }
+        }
+    }
+
+    /// <inheritdoc/>
     public void Report(HealthCheckDto check)
     {
         ArgumentNullException.ThrowIfNull(check);
@@ -116,6 +168,54 @@ public sealed class HealthRegistry : IHealthRegistry
         }
 
         Changed?.Invoke(this, "attribution");
+    }
+
+    /// <inheritdoc/>
+    public void ReportServiceAccount(ServiceAccountStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _serviceAccount = status;
+        }
+
+        Changed?.Invoke(this, "serviceAccount");
+    }
+
+    /// <inheritdoc/>
+    public void ReportCollector(CollectorStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _collector = status;
+        }
+
+        Changed?.Invoke(this, "collector");
+    }
+
+    /// <inheritdoc/>
+    public void ReportGpoContent(GpoContentStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _gpoContent = status;
+        }
+
+        Changed?.Invoke(this, "gpoContent");
+    }
+
+    /// <inheritdoc/>
+    public void ReportHost(HostStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        lock (_gate)
+        {
+            _host = status;
+        }
+
+        Changed?.Invoke(this, "host");
     }
 
     /// <summary>The latest report of one check, or null.</summary>

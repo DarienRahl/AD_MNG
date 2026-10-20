@@ -11,8 +11,10 @@ public static class DigestSections
     /// <summary>The section of <paramref name="kind"/>, or null.</summary>
     public static DigestSectionKind? For(WatchEventKind kind) => Map.TryGetValue(kind, out var section) ? section : null;
 
-    /// <summary>Health kinds (always reported, independent of rules).</summary>
-    public static bool IsHealth(WatchEventKind kind) => (int)kind is >= 900 and < 908;
+    /// <summary>Health kinds (always reported, independent of rules): every Health kind of the catalog except
+    /// WatchdogConfigurationChanged (its own section) and Test.</summary>
+    public static bool IsHealth(WatchEventKind kind) =>
+        (int)kind is >= 900 and < 999 && kind != WatchEventKind.WatchdogConfigurationChanged;
 
     private static Dictionary<WatchEventKind, DigestSectionKind> Build()
     {
@@ -41,7 +43,8 @@ public static class DigestSections
         Add(DigestSectionKind.DomainPolicy, WatchEventKind.DomainPolicyChanged, WatchEventKind.PasswordSettingsChanged, WatchEventKind.GroupPolicyLinkChanged,
             WatchEventKind.GroupPolicyChanged, WatchEventKind.TrustChanged, WatchEventKind.DomainControllerAdded, WatchEventKind.DomainControllerRemoved,
             WatchEventKind.SchemaChanged, WatchEventKind.FsmoRoleChanged, WatchEventKind.CertificateTemplateChanged, WatchEventKind.SecurityLogCleared,
-            WatchEventKind.AuditPolicyChanged, WatchEventKind.DsrmPasswordChanged);
+            WatchEventKind.AuditPolicyChanged, WatchEventKind.DsrmPasswordChanged, WatchEventKind.GroupPolicySettingsChanged,
+            WatchEventKind.GroupPolicyPathRedirected, WatchEventKind.GroupPolicyContentOutOfBand);
         Add(DigestSectionKind.SecurityReview, WatchEventKind.AdminCountSet, WatchEventKind.SidHistoryChanged, WatchEventKind.DelegationChanged,
             WatchEventKind.ServicePrincipalNameAdded, WatchEventKind.KeyCredentialChanged, WatchEventKind.PrimaryGroupChanged,
             WatchEventKind.SecurityDescriptorChanged, WatchEventKind.ComputerNameSpoofing, WatchEventKind.ManagedAccountLinkChanged,

@@ -8,4 +8,8 @@ public static class ApiProblem
     public const string ClientHeaderMissing = "https://admng/problems/client-header"; // 400
     public const string NotFound = "https://admng/problems/not-found";             // 404
     public const string Unavailable = "https://admng/problems/unavailable";         // 503 (store/directory down)
+
+    /// <summary>503: the caller's roles cannot be resolved – LDAP unavailable and no usable cached entry (Linux role
+    /// resolution, stage B design 6.2 step 5). Never a role is granted instead.</summary>
+    public const string RoleLookupUnavailable = "https://admng/problems/role-lookup-unavailable";
 }

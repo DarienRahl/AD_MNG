@@ -785,6 +785,9 @@
   <data name="Email.OpenInBrowser" xml:space="preserve">
     <value>Open in the browser</value>
   </data>
+  <data name="Email.ServiceStopped" xml:space="preserve">
+    <value>AdMng Watchdog stopped – check systemctl status admng-watchdog</value>
+  </data>
   <data name="Email.TestBody" xml:space="preserve">
     <value>This is a test message of {0}. Sent: {1}. If you can read it, e-mail delivery works.</value>
   </data>
@@ -1121,6 +1124,15 @@
   <data name="Kind.GroupPolicyChanged.TitlePlural" xml:space="preserve">
     <value>Group Policy changes</value>
   </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.Sentence" xml:space="preserve">
+    <value>The SYSVOL files of the Group Policy object {0} were changed without a GPO version change.</value>
+  </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.Title" xml:space="preserve">
+    <value>GPO files changed without a version change</value>
+  </data>
+  <data name="Kind.GroupPolicyContentOutOfBand.TitlePlural" xml:space="preserve">
+    <value>GPO file changes without a version change</value>
+  </data>
   <data name="Kind.GroupPolicyLinkChanged.Sentence" xml:space="preserve">
     <value>The Group Policy links of {0} were changed.</value>
   </data>
@@ -1129,6 +1141,24 @@
   </data>
   <data name="Kind.GroupPolicyLinkChanged.TitlePlural" xml:space="preserve">
     <value>GPO link changes</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.Sentence" xml:space="preserve">
+    <value>The file path (gPCFileSysPath) of the Group Policy object {0} points outside the SYSVOL of the domain.</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.Title" xml:space="preserve">
+    <value>GPO file path redirected</value>
+  </data>
+  <data name="Kind.GroupPolicyPathRedirected.TitlePlural" xml:space="preserve">
+    <value>GPO file path redirections</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.Sentence" xml:space="preserve">
+    <value>Settings in the Group Policy object {0} were changed.</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.Title" xml:space="preserve">
+    <value>GPO settings changed</value>
+  </data>
+  <data name="Kind.GroupPolicySettingsChanged.TitlePlural" xml:space="preserve">
+    <value>GPO settings changes</value>
   </data>
   <data name="Kind.GroupTypeChanged.Sentence" xml:space="preserve">
     <value>The type or scope of the group {0} was changed.</value>
@@ -1201,6 +1231,15 @@
   </data>
   <data name="Kind.HealthResync.TitlePlural" xml:space="preserve">
     <value>Full resynchronizations</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.Sentence" xml:space="preserve">
+    <value>A check of the Watchdog service account or its keytab found a problem.</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.Title" xml:space="preserve">
+    <value>Watchdog service account problem</value>
+  </data>
+  <data name="Kind.HealthServiceAccount.TitlePlural" xml:space="preserve">
+    <value>Watchdog service account problems</value>
   </data>
   <data name="Kind.HealthStorage.Sentence" xml:space="preserve">
     <value>The watchdog database is running out of space or reached its size limit.</value>
@@ -1643,6 +1682,12 @@
   <data name="Reason.DC_UNREACHABLE" xml:space="preserve">
     <value>The domain controller log could not be read</value>
   </data>
+  <data name="Reason.DC_UNREACHABLE.Collector" xml:space="preserve">
+    <value>The WEF collector receives no events from the domain controller</value>
+  </data>
+  <data name="Reason.DC_UNREACHABLE.Collector.Remedy" xml:space="preserve">
+    <value>Check that the DC forwards events (subscription GPO, WinRM, firewall 5985) – Status → WEF collector.</value>
+  </data>
   <data name="Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
     <value>Check the firewall (Remote Event Log Management) and the service account's membership of Event Log Readers.</value>
   </data>
@@ -1700,6 +1745,12 @@
   <data name="Reason.SYSTEM.Remedy" xml:space="preserve">
     <value>The change was made by the domain controller itself (e.g. SDProp) – no action is needed.</value>
   </data>
+  <data name="Reason.SYSVOL_NOT_AUDITED" xml:space="preserve">
+    <value>SYSVOL file changes are not audited</value>
+  </data>
+  <data name="Reason.SYSVOL_NOT_AUDITED.Remedy" xml:space="preserve">
+    <value>SYSVOL files changed without a GPO version change – the actor is unknown; check who can write to SYSVOL.</value>
+  </data>
   <data name="Rule.account-attributes" xml:space="preserve">
     <value>Account attribute changes</value>
   </data>
@@ -1754,11 +1805,20 @@
   <data name="Rule.security-review" xml:space="preserve">
     <value>Security changes to review</value>
   </data>
+  <data name="Rule.tier0-badsuccessor" xml:space="preserve">
+    <value>BadSuccessor – dMSA accounts</value>
+  </data>
   <data name="Rule.tier0-domain" xml:space="preserve">
     <value>Domain, trusts, schema, PKI, policies</value>
   </data>
   <data name="Rule.tier0-eventlog" xml:space="preserve">
     <value>Domain controller security logs</value>
+  </data>
+  <data name="Rule.tier0-gpo" xml:space="preserve">
+    <value>GPO content</value>
+  </data>
+  <data name="Rule.tier0-machine-quota" xml:space="preserve">
+    <value>Machine account quota</value>
   </data>
   <data name="Rule.tier0-privilege" xml:space="preserve">
     <value>Privileged access</value>
@@ -1768,6 +1828,9 @@
   </data>
   <data name="Rule.unlocks" xml:space="preserve">
     <value>Unlocks</value>
+  </data>
+  <data name="Rule.watchdog-self" xml:space="preserve">
+    <value>Watchdog service account</value>
   </data>
   <data name="Rule.watchlist-groups" xml:space="preserve">
     <value>Watched groups</value>
@@ -1801,6 +1864,9 @@
   </data>
   <data name="SeverityName.Medium" xml:space="preserve">
     <value>Medium</value>
+  </data>
+  <data name="Source.Adws" xml:space="preserve">
+    <value>via ADWS – address from a logon of the same person</value>
   </data>
   <data name="Source.ClientReported" xml:space="preserve">
     <value>client-reported</value>
@@ -1856,6 +1922,9 @@
   <data name="Subject.Events" xml:space="preserve">
     <value>Events</value>
   </data>
+  <data name="Subject.ServiceStopped" xml:space="preserve">
+    <value>AdMng Watchdog stopped</value>
+  </data>
   <data name="Subject.Test" xml:space="preserve">
     <value>Test message</value>
   </data>
@@ -1870,6 +1939,9 @@
   </data>
   <data name="Value.ActorUnknown" xml:space="preserve">
     <value>unknown – {0} ({1})</value>
+  </data>
+  <data name="Value.AuditSettingsChanged" xml:space="preserve">
+    <value>audit list (SACL) or another security setting changed – the service account cannot read its content</value>
   </data>
   <data name="Value.Binary" xml:space="preserve">
     <value>binary value</value>
@@ -1939,6 +2011,9 @@
   </data>
   <data name="Value.Unknown" xml:space="preserve">
     <value>unknown</value>
+  </data>
+  <data name="Value.Unreadable" xml:space="preserve">
+    <value>could not be read</value>
   </data>
   <data name="Value.UntilUnlocked" xml:space="preserve">
     <value>an administrator unlocks it</value>

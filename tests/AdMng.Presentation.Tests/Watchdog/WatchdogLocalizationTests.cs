@@ -21,6 +21,9 @@ public sealed class WatchdogLocalizationTests
         "Watchdog.Title", "Watchdog.ObjectKind.Watchdog", "Watchdog.ChannelType.Email", "Watchdog.ChannelType.Teams",
         "Watchdog.ChannelType.Webhook", "Watchdog.EntraCloud.UsGovernment", "Watchdog.HealthState.Ok", "Watchdog.Role.Admin",
         "Watchdog.Stage.Tls", "Watchdog.Stage.Token", "Watchdog.Tag.krbtgt", "Watchdog.Ui.SmtpPort",
+
+        // stage B: attack, product and section names
+        "Watchdog.Tag.badSuccessor", "Watchdog.AttributionSource.OpenWec", "Watchdog.Ui.CardHost",
     };
 
     public static TheoryData<string, string[]> Families() => new()
@@ -55,6 +58,14 @@ public sealed class WatchdogLocalizationTests
         { "Tab", [.. Enum.GetValues<WatchdogSubTab>().Select(WatchdogDisplay.SubTabKey)] },
         { "Role", [.. Enum.GetValues<WatchdogRole>().Select(WatchdogDisplay.RoleKey)] },
         { "ExpiryKind", [.. Enum.GetValues<ExpiryKind>().Select(WatchdogDisplay.ExpiryKindKey)] },
+        { "AttributionSource", [.. Enum.GetValues<AttributionSourceKind>().Select(WatchdogDisplay.AttributionSourceKey)] },
+        { "KeytabResult", [.. KeytabStatusResults.All.Select(WatchdogDisplay.KeytabResultKey)] },
+        { "CredentialKey", [.. HostCredentialKeys.All.Select(WatchdogDisplay.CredentialKeyKey)] },
+        {
+            "CollectorReason",
+            [.. WatchdogDisplay.CollectorReasonCodes.Select(AttributionReasons.CollectorVariant)
+                .SelectMany(c => new[] { WatchdogDisplay.ReasonKey(c), WatchdogDisplay.RemedyKey(c) })]
+        },
     };
 
     [Theory]
@@ -93,6 +104,32 @@ public sealed class WatchdogLocalizationTests
 
         Assert.True(en.Keys.Count(k => k.StartsWith("Watchdog.", StringComparison.Ordinal)) > 600);
         Assert.Equal([], untranslated);
+    }
+
+    [Fact]
+    public void StageBTexts_FollowTheDesign()
+    {
+        var pl = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+
+        Assert.Equal("Konto usługi", pl[L.WatchdogLinux.CardServiceAccount]);
+        Assert.Equal("Kolektor WEF", pl[L.WatchdogLinux.CardCollector]);
+        Assert.Equal("Zawartość GPO", pl[L.WatchdogLinux.CardGpoContent]);
+        Assert.Equal("Host", pl[L.WatchdogLinux.CardHost]);
+        Assert.Equal("Ufam temu certyfikatowi", pl[L.WatchdogLinux.CertificateTrust]);
+        Assert.Equal("Usuń przypięcie", pl[L.WatchdogLinux.CertificateRemovePin]);
+        Assert.Equal("Porównaj z wynikiem sudo admng-watchdog cert-fingerprint na serwerze", pl[L.WatchdogLinux.CertificateCompare]);
+        Assert.Equal("OpenWEC (WEF)", pl.AttributionSourceName(AttributionSourceKind.OpenWec));
+        Assert.Equal("Sprawdź, czy DC przekazuje zdarzenia (GPO subskrypcji, WinRM, zapora 5985) – Stan → Kolektor WEF.",
+            pl.RemedyText(AttributionReasons.CollectorVariant(AttributionReasons.DcUnreachable)));
+        Assert.Equal("Zmiana plików SYSVOL bez zmiany wersji GPO – wykonawca nieznany; sprawdź, kto ma zapis do SYSVOL.",
+            pl.RemedyText(AttributionReasons.SysvolNotAudited));
+        Assert.Equal("przez ADWS – adres z logowania tej samej osoby", pl.SourceOriginText("adws"));
+        Assert.Equal("nie udało się odczytać", pl[L.WatchdogLinux.ValueUnreadable]);
+        Assert.StartsWith("DC nie przekazuje zdarzeń – sprawdź GPO subskrypcji", pl.HealthRemedy("wec.dc01.contoso.com.notForwarding"), StringComparison.Ordinal);
+        Assert.Equal("Zmieniono ustawienia GPO", pl.KindName(WatchEventKind.GroupPolicySettingsChanged));
+        Assert.Equal("TPM2 + klucz hosta", pl.CredentialKeyName(HostCredentialKeys.Tpm2Host));
+        Assert.Equal("nowyWariant", pl.CredentialKeyName("nowyWariant"));
+        Assert.Equal("nowyWynik", pl.KeytabResultName("nowyWynik"));
     }
 
     [Theory]
