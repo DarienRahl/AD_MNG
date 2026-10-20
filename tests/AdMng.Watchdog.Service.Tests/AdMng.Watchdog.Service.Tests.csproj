@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Service\AdMng.Watchdog.Service.csproj" />
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Keytab\AdMng.Watchdog.Keytab.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Testing\AdMng.Watchdog.Testing.csproj" />
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
   </ItemGroup>

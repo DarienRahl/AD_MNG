@@ -53,6 +53,7 @@ public sealed class HostingUnitTests
                 AllowedRemoteSubnets = ["10.10.0.0/16"],
             },
             Authorization = new RoleOptions { ViewerSids = [TestRoles.ViewerGroup], AdminSids = [TestRoles.AdminGroup] },
+            Directory = new DirectoryBootstrapOptions { Servers = ["dc01.contoso.com", "dc02.contoso.com"] },
         };
 
         Assert.DoesNotContain(ServiceOptionsValidator.Validate(options, "Production"), i => i.Severity == IssueSeverity.Error);

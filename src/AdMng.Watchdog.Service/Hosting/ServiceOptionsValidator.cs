@@ -97,7 +97,29 @@ public static partial class ServiceOptionsValidator
             issues.Add(Error("Watchdog:Directory:AllowInsecureLab", "labOnly", "Directory.AllowInsecureLab is refused outside the Development environment."));
         }
 
+        CheckDirectoryServers(issues, options.Directory, OperatingSystem.IsLinux());
         return issues;
+    }
+
+    /// <summary>Stage B design 5.1/5.3: Linux has no DC locator, so <c>Directory.Servers</c> (or <c>Server</c>) is required
+    /// there, and Kerberos needs DC host names (<c>ldap/&lt;fqdn&gt;</c>) – IP literals are refused.</summary>
+    internal static void CheckDirectoryServers(List<ConfigIssue> issues, DirectoryBootstrapOptions directory, bool linux)
+    {
+        if (directory.Disabled)
+        {
+            return;
+        }
+
+        var servers = (directory.Servers ?? []).Append(directory.Server).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim()).ToList();
+        if (linux && servers.Count == 0)
+        {
+            issues.Add(Error("Watchdog:Directory:Servers", "required", "Directory.Servers (DC host names) is required on Linux (there is no DC locator)."));
+        }
+
+        if (directory.Authentication == AuthenticationMode.CurrentUser && servers.Any(s => System.Net.IPAddress.TryParse(s.Trim('[', ']'), out _)))
+        {
+            issues.Add(Error("Watchdog:Directory:Servers", "ipLiteral", "Kerberos needs the DC host names (FQDN) in Directory.Servers, not IP addresses."));
+        }
     }
 
     private static void CheckSids(List<ConfigIssue> issues, string path, IReadOnlyList<string> sids)

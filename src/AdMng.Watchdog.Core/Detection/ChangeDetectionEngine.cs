@@ -145,6 +145,7 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
         var now = _services.Time.GetUtcNow();
         var configuration = _configuration.Current.Configuration;
         var dc = await _dcStateReader.ReadAsync(session, cancellationToken).ConfigureAwait(false);
+        ReportClockSkew(dc);
         var settings = new DetectionSettings(configuration, dc.Facts, session.Schema, _services.HostOptions);
         var state = await _services.Store.GetDcStateAsync(dc.Facts.DomainDnsName, cancellationToken).ConfigureAwait(false);
         var known = state is null || DistinguishedName.AreEqual(state.DsServiceName, dc.DsServiceName)
@@ -394,6 +395,19 @@ public sealed class ChangeDetectionEngine : IWatchdogJob
             .Select(c => DetectionTokens.Expand(c, facts.DomainDn, facts.DomainSid, facts.RootDomainSid))
             .ToList();
         await _waker.EnsureAsync(session, containers, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Stage B design 4.7 item 6: RootDSE currentTime against the local clock, every cycle.</summary>
+    private void ReportClockSkew(DcSnapshot dc)
+    {
+        if (dc.CurrentTime is not { } dcTime)
+        {
+            return;
+        }
+
+        var now = _services.Time.GetUtcNow();
+        _health.Report(ClockSkewCheck.Evaluate(dcTime, now, dc.DnsHostName));
+        _health.ReportHost((_health.Host ?? new HostStatusDto()) with { ClockSkew = dcTime - now });
     }
 
     private void ReportHints(DcSnapshot dc, DateTimeOffset now)

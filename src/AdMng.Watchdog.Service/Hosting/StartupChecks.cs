@@ -56,6 +56,7 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         {
             CheckBootstrapFile();
             CheckBootstrapSettings();
+            CheckLdapConfiguration();
             CheckDataDirectory();
             CheckLinuxHost();
             RunMigrations();
@@ -135,6 +136,23 @@ public sealed partial class StartupChecks : IHostedLifecycleService
         if (ServiceOptionsValidator.HasPlaceholderSids(_options))
         {
             throw new StartupCheckException(StartupExitCodes.InvalidSettings, ServiceOptionsValidator.PlaceholderSidMessage);
+        }
+    }
+
+    /// <summary>Design 5.1/5.2 and 11 item 5: Kerberos LDAP on Linux needs an <c>LDAPCONF</c> that enforces sealing (or no
+    /// SASL layer over LDAPS) – exit 2 otherwise. Applies to the systemd unit and to Production runs.</summary>
+    private void CheckLdapConfiguration()
+    {
+        var directory = _options.Directory;
+        if (!OperatingSystem.IsLinux() || directory.Disabled || directory.Authentication != AdMng.Core.Directory.AuthenticationMode.CurrentUser
+            || !(_context.IsSystemdService || _environment.IsProduction()))
+        {
+            return;
+        }
+
+        if (LdapConfigCheck.Check(directory.Security, LdapConfigCheck.Inputs.FromEnvironment()) is { } reason)
+        {
+            throw new StartupCheckException(StartupExitCodes.InvalidSettings, reason);
         }
     }
 

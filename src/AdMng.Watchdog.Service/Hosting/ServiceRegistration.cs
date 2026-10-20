@@ -7,6 +7,7 @@ using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Service.Api;
 using AdMng.Watchdog.Service.Attribution;
 using AdMng.Watchdog.Service.Directory;
+using AdMng.Watchdog.Service.Identity;
 using AdMng.Watchdog.Service.Notifications;
 using AdMng.Watchdog.Service.Storage;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -62,6 +63,14 @@ public static class ServiceRegistration
         services.AddSingleton<FatalErrorHandler>();
         services.AddSingleton<StorageGuardJob>();
         services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<StorageGuardJob>());
+
+        // Linux: self-checks of the own computer account and its keytab (stage B design 4.7), hourly.
+        if (OperatingSystem.IsLinux() && !startupOptions.Directory.Disabled && !string.IsNullOrWhiteSpace(startupOptions.Kerberos.ServicePrincipal))
+        {
+            services.TryAddSingleton(_ => ServiceAccountPaths.FromEnvironment());
+            services.AddSingleton<ServiceAccountMonitor>();
+            services.AddSingleton<IWatchdogJob>(provider => provider.GetRequiredService<ServiceAccountMonitor>());
+        }
 
         // Start-up checks first (their StartingAsync runs before any StartAsync), then the job hosts.
         services.AddHostedService<StartupChecks>();
