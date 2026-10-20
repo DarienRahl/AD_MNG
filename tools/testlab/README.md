@@ -46,6 +46,36 @@ Linuksie. Aplikacja produkcyjnie używa Negotiate (Kerberos) z podpisywaniem i s
 Jeśli laboratorium nie odpowiada na porcie 389 (np. po restarcie kontenera), uruchom je ponownie poleceniem
 `samba -D` i poczekaj, aż port 389 zacznie przyjmować połączenia.
 
+### Kerberos (SASL GSSAPI) przez LDAP
+
+AdMng Watchdog na Linuksie łączy się z DC przez LDAP 389 z Kerberosem i szyfrowaniem SASL (GSSAPI, SSF ≥ 56). Do tego
+konto DC musi mieć SPN-y `ldap/<nazwa DC>` (np. `ldap/vm.contoso.test`), a pełna nazwa DC musi się rozwiązywać.
+Wcześniej laboratorium miało tylko SPN-y `HOST/…` i GSSAPI kończyło się błędem `Server not found in Kerberos
+database`. Przyczyna: Samba dopisuje SPN-y `ldap/` zadaniem `dnsupdate`, które uruchamia `samba_spnupdate` przez
+`#!/usr/bin/python3`; gdy `/usr/bin/python3` to inna wersja niż ta, dla której zbudowano moduły Samby (tu 3.13 zamiast
+3.12), skrypt kończy się po cichu błędem `No module named 'ldb'`. Dodatkowo `--dns-backend=NONE` nie daje żadnego
+rekordu dla nazwy DC.
+
+`setup-samba-dc.sh` robi teraz oba kroki sam (bez zmiany `smb.conf`). W działającym, starszym laboratorium wystarczy
+raz (jako root):
+
+```bash
+dc=$(ldapsearch -x -LLL -H ldap://127.0.0.1 -b '' -s base dnsHostName | sed -n 's/^dnsHostName: //p')
+getent hosts "$dc" || echo "127.0.0.1 $dc" >> /etc/hosts
+/usr/bin/python3.12 /usr/sbin/samba_spnupdate --verbose      # interpreter z modułami Samby
+```
+
+Sprawdzenie (prywatny `krb5.conf` z `kdc = <nazwa DC>`, bilet w prywatnej pamięci podręcznej):
+
+```bash
+KRB5_CONFIG=… KRB5CCNAME=FILE:… kinit Administrator@CONTOSO.TEST
+LDAPCONF=… ldapsearch -Y GSSAPI -H "ldap://$dc" -b 'DC=contoso,DC=test' -s base dn   # SASL SSF: 256
+```
+
+`LDAPCONF` wskazuje plik z `SASL_NOCANON on` i `SASL_SECPROPS minssf=56,noanonymous,noplain` (jak
+`packaging/etc/admng-watchdog/ldap.conf`). Testy narzędzia keytabu i GSSAPI opisuje
+[`watchdog/README.md`](watchdog/README.md) („Konto usługi i keytab”).
+
 ### Sprzątanie po testach
 
 Każdy przebieg testów pracuje we własnym OU bezpośrednio pod domeną: `OU=AdMngIntegration-<czas UTC>-<losowe>`

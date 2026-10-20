@@ -73,6 +73,18 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
+# Kerberos (SASL GSSAPI) LDAP against the lab needs the DC's ldap/<fqdn> SPNs and a resolvable DC name
+# (AdMng Watchdog on Linux, docs/dev/watchdog-linux-design.md 5.1). Samba registers those SPNs from its "dnsupdate"
+# task by running samba_spnupdate through its "#!/usr/bin/python3" shebang; where /usr/bin/python3 is not the
+# interpreter of the samba bindings (Ubuntu 24.04 with a newer python3 alternative) the script dies on "import ldb"
+# and the DC keeps only the HOST/ SPNs of the provision. --dns-backend=NONE also leaves the DC's FQDN unresolvable.
+# Both steps are idempotent and change nothing else (no smb.conf change).
+dc_fqdn="$(ldapsearch -x -LLL -H ldap://127.0.0.1 -b '' -s base dnsHostName 2>/dev/null | sed -n 's/^dnsHostName: //p' | head -n 1)"
+if [ -n "$dc_fqdn" ] && ! getent hosts "$dc_fqdn" >/dev/null; then
+  echo "127.0.0.1 $dc_fqdn" >> /etc/hosts
+fi
+"$samba_python" /usr/sbin/samba_spnupdate >/dev/null
+
 # Lab password policy: lockout after 5 bad attempts so that "unlock" can be tested.
 samba_tool domain passwordsettings set --account-lockout-threshold=5 \
   --account-lockout-duration=30 --reset-account-lockout-after=30 >/dev/null
@@ -121,6 +133,7 @@ done
 cat <<EOF
 Samba AD DC is running.
   LDAP:           ldap://127.0.0.1:389  (ldaps://127.0.0.1:636, self-signed)
+  DC host name:   ${dc_fqdn:-?}  (ldap/ SPNs registered: Kerberos/GSSAPI LDAP works)
   Base DN:        $base_dn
   Administrator:  $admin_upn / $ADMIN_PASS
   Helpdesk:       helpdesk.test@$dns_domain / Passw0rd!Lab2026 (delegated on OU=Pracownicy)
