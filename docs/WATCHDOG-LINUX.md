@@ -9,12 +9,24 @@ uruchamia całość w domenie **testowej**, a dopiero potem w produkcji.
 - Opis funkcji Watchdoga (wykrywane zdarzenia, reguły, kanały, zakładka w AD Manager): [`WATCHDOG.md`](WATCHDOG.md).
   Jego rozdziały o instalacji na Windows (gMSA, skrypt PowerShell, HTTP.sys, DPAPI-NG) dotyczą wydania 0.2.0 i na
   Linuksie nie mają zastosowania.
-- **Stan prac.** Domenę testową (rozdz. 1), przygotowanie AD (rozdz. 2) i serwer Debian łącznie z keytabem konta usługi
-  (rozdz. 3) możesz przygotować już teraz. Zmianę hasła, keytab oraz testy 1 i 3 z rozdz. 3.6 sprawdziliśmy
-  w laboratorium (Samba AD), test 2 (LDAP z szyfrowaniem GSSAPI) – na testowym serwerze OpenLDAP; na kontrolerach
-  Windows potwierdzi je pilotaż. Pakiety `admng-watchdog` i `admng-openwec`, narzędzie `admng-watchdog-keytab` oraz nowe
-  okna AD Manager powstają w etapie B. Takie miejsca mają oznaczenie **(pakiet powstaje - wersja 0.3.0)** i opisują
-  tylko to, co ustala projekt.
+- **Stan prac.** Pakiety `admng-watchdog` i `admng-openwec`, narzędzie `admng-watchdog-keytab` i nowe okna
+  AD Managera 0.3.0 powstają w etapie B. Wszystko, co od nich zależy, ma **na początku** nagłówka, akapitu albo punktu
+  oznaczenie **[od 0.3.0]** – takie miejsca opisują to, co ustala projekt, i wykonasz je dopiero po wydaniu wersji
+  0.3.0. Zmianę hasła, keytab oraz testy 1 i 3 z rozdz. 3.6 sprawdziliśmy w laboratorium (Samba AD), test 2 (LDAP
+  z szyfrowaniem GSSAPI) – na testowym serwerze OpenLDAP; na kontrolerach Windows potwierdzi je pilotaż. Co możesz
+  zrobić już teraz:
+
+  | Rozdział | Już teraz | Czeka na 0.3.0 |
+  |---|---|---|
+  | 1 – domena testowa | całość | okno odcisku certyfikatu w AD Managerze (1.6) |
+  | 2 – przygotowanie AD | całość | reguły Watchdoga i ostrzeżenia zakładki Stan, o których mówią kroki |
+  | 3.1–3.6 – Debian, keytab | całość (keytab procedurą MIT Kerberos) | `admng-watchdog-keytab init` |
+  | 3.7 – zmiana hasła | zmiana ręczna przez nowe hasło jednorazowe | timer i automatyczna zmiana co 30 dni |
+  | 3.8 – certyfikat | wariant A (gdy jest urząd certyfikacji, w laboratorium – 1.7) | wariant B |
+  | 3.9 – kopie | rozmiar dziennika systemowego, kopia maszyny wirtualnej | kopie bazy, scenariusze odtworzenia |
+  | 4 – OpenWEC | sprawdzenie zapytania XPath i filtra 4776 na kontrolerach (4.4) | reszta |
+  | 5–7 – usługa, AD Manager, pilotaż | – | całość |
+  | 8–9 – wycofanie, problemy | części dotyczące rozdz. 1–3 | części dotyczące pakietów |
 
 ## Jak czytać tę instrukcję
 
@@ -43,6 +55,21 @@ Pojęcia, które wracają w całej instrukcji:
 | **SACL** | lista inspekcji obiektu – mówi kontrolerowi, które operacje na obiekcie zapisać w dzienniku Security |
 | **WEF** | Windows Event Forwarding – wbudowany w Windows mechanizm wysyłania zdarzeń z dziennika do kolektora |
 | **SSF** | siła szyfrowania połączenia LDAP w bitach (0 = bez szyfrowania) |
+| **SASL GSSAPI** | logowanie do LDAP biletem Kerberos, z podpisem i szyfrowaniem połączenia |
+| **PTR** | rekord odwrotnego DNS: adres IP → nazwa komputera |
+| **kerberoasting** | łamanie offline haseł kont, które mają SPN – na podstawie biletów, o które może poprosić każdy użytkownik |
+| **SDProp** | proces na emulatorze PDC, który co godzinę kopiuje uprawnienia z `AdminSDHolder` na konta chronione (`adminCount=1`) |
+| **FSMO, emulator PDC** | role wykonywane przez jeden wybrany kontroler; emulator PDC m.in. przyjmuje zmiany haseł i jest źródłem czasu domeny |
+| **UBR** | numer poprawki w numerze kompilacji Windows (np. 26100.**4946**) – pokazuje poziom aktualizacji |
+| **XPath** | język filtrów, którym subskrypcja WEF wybiera zdarzenia z dziennika |
+| **zakładka WEF (bookmark)** | zapamiętane przez kontroler miejsce w dzienniku, do którego wysłał już zdarzenia |
+| **tmpfs** (`/dev/shm`, `/run`) | system plików w pamięci RAM – zawartość znika przy restarcie i nie trafia na dysk |
+| **umask** | maska domyślnych uprawnień nowych plików (`077` = tylko właściciel) |
+| **jednostka / timer systemd** | usługa systemowa Linuksa / jej harmonogram (odpowiednik zadania w Harmonogramie zadań) |
+| **journald** (`journalctl`) | dziennik systemowy Linuksa i polecenie do jego przeglądania |
+| **nftables** (`nft`) | zapora systemu Linux |
+| **chrony** (`chronyc`) | usługa synchronizacji czasu na Debianie i polecenie do sprawdzania jej stanu |
+| **conffile** | plik konfiguracji z pakietu `.deb`; gdy go zmienisz, `dpkg` przy aktualizacji pyta, którą wersję zachować |
 
 ## Zamień na swoje
 
@@ -70,11 +97,11 @@ Pojęcia, które wracają w całej instrukcji:
 | Microsoft Teams | przepływ Workflows (adres URL jest sekretem) | 6.2 |
 | Adres API Watchdoga | `https://admng-wd.contoso.com:8443` | AD Manager |
 | Adres WEF (OpenWEC) | `http://admng-wd.contoso.com:5985/wsman/SubscriptionManager/WEC` | GPO na kontrolerach |
-| Urząd certyfikacji (wariant A) | `CA01.contoso.com\Contoso-Issuing-CA` | 2.1, 3.8 |
+| Urząd certyfikacji (wariant A) | `CA01.contoso.com\Contoso-Issuing-CA` (w laboratorium z 1.7: `DC01.contoso.com\Contoso-Issuing-CA`) | 1.7, 2.1, 2.5, 3.8 |
 | OU testowa pilotażu | `OU=Pilot,OU=Firma,DC=contoso,DC=com` | 1.5, 7 |
 | Konta testowe | `jan.kowalski`, `anna.nowak`, `józef.żak`, `svc-pilot`, `hd-ewa` | 1.5, 7 |
 | Obiekty tworzone w pilotażu | `test.pilot1`, `dmsa-pilot`, GPO „Pilot - test” | 7 |
-| Konto gMSA wersji 0.2.0 (tylko przy migracji z usługi Windows) | `svc-admngwd$` | 2.5, 2.12 |
+| Konto gMSA wersji 0.2.0 (tylko przy migracji z usługi Windows) | `svc-admngwd$` | 0.4 (migracja), 2.12 |
 
 Inna nazwa domeny w laboratorium (np. `lab.contoso.com`) jest w porządku, ale zmień wtedy **wszystko** razem: obszar
 Kerberos (`LAB.CONTOSO.COM`), DN (`DC=lab,DC=contoso,DC=com`), pełne nazwy (`DC01.lab.contoso.com`,
@@ -84,6 +111,9 @@ Kerberos (`LAB.CONTOSO.COM`), DN (`DC=lab,DC=contoso,DC=com`), pełne nazwy (`DC
 ---
 
 ## 0. Przegląd
+
+Przegląd opisuje docelowe działanie wersji 0.3.0. Co możesz wykonać już teraz – tabela w „Stanie prac” na początku
+instrukcji.
 
 ### 0.1 Co działa gdzie
 
@@ -113,8 +143,8 @@ Kerberos (`LAB.CONTOSO.COM`), DN (`DC=lab,DC=contoso,DC=com`), pełne nazwy (`DC
 └────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Kontrolery domeny** niczego nie instalują. Zdarzenia z dziennika Security wysyłają same, wbudowanym mechanizmem
-  Windows Event Forwarding (WEF), do odbiornika OpenWEC na serwerze Watchdog.
+- **Na kontrolerach domeny** niczego nie instalujesz. Zdarzenia z dziennika Security kontrolery wysyłają same,
+  wbudowanym mechanizmem Windows Event Forwarding (WEF), do odbiornika OpenWEC na serwerze Watchdog.
 - **Serwer Watchdog** to Debian 13 (pakiet obsłuży też Debian 12) **niedołączony do domeny**. Kerberos, DNS i czas
   konfigurujemy na nim ręcznie. Działają tam dwie usługi systemd: `openwecd` (odbiera zdarzenia z DC) i
   `admng-watchdog` (wykrywa zmiany, ustala wykonawców, powiadamia, przechowuje historię) oraz dwa timery: zmiana hasła
@@ -133,7 +163,7 @@ Watchdog **widzi**:
   i adres IP, z którego przyszła zmiana – ustalane ze zdarzeń 4624 (logowania sieciowe – typ 3 – i RDP – typ 10), 4625,
   4771 i nieudanych 4776;
 - **kiedy** i **na którym DC**;
-- **treść GPO** – ustawienia w postaci „ustawienie: było → jest” (nowość wersji 0.3.0);
+- **treść GPO** – ustawienia w postaci „ustawienie: było → jest” (nowa funkcja w stosunku do wersji 0.2.0);
 - **stan własny**: konto usługi, keytab, odbiór zdarzeń z każdego DC, czas, certyfikat.
 
 Historia zmian (kto, co, kiedy, skąd, było → jest) jest przechowywana **3 lata** (1095 dni). Rekordy z dzienników DC
@@ -161,8 +191,10 @@ Watchdog **nigdy**:
    RDP, nie może być delegowane, używa tylko AES. Jego hasło ma 120 losowych znaków, nikt go nie zna i zmienia się co
    30 dni. Przejęcie tego konta daje napastnikowi odczyt katalogu i SYSVOL – to samo, co ma każdy zalogowany
    użytkownik domeny, plus kilka jawnie nadanych praw odczytu. Zapis we własnym obiekcie blokuje wpis odmowy (2.5),
-   tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), a każda zmiana konta i tak jest alarmem
-   krytycznym. Jest jednak wyjątek poza AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako
+   tworzenie kont komputerów – limit `ms-DS-MachineAccountQuota` = 0 (2.8), wystawienie certyfikatu na to konto –
+   wpisy odmowy na szablonach certyfikatów (2.5, gdy w lesie jest urząd Enterprise), a każda zmiana konta i tak jest
+   alarmem krytycznym. Wpisy na szablonach są ważne, bo certyfikat pozwala logować się jako to konto bez hasła przez
+   cały okres swojej ważności (zwykle rok) – zmiana hasła co 30 dni by go nie unieważniła. Jest jednak wyjątek poza AD: kto ma keytab tego konta, może podrobić bilet Kerberos do API Watchdoga jako
    dowolny użytkownik domeny (tzw. *silver ticket*), także jako administrator Watchdoga, i zmienić reguły albo wyciszyć
    alarmy. Keytab jest wspólny dla usługi i OpenWEC – to świadoma decyzja (4.3); podrobiony bilet zadziała tylko
    z podsieci administratorów, bo tylko z niej API przyjmuje połączenia. Dlatego keytab, konta systemowe, które go
@@ -181,15 +213,37 @@ Watchdog **nigdy**:
 
 ### 0.4 Kolejność prac
 
-1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz).
+1. Domena testowa – rozdz. 1 (jeśli jej jeszcze nie masz; 1.7 – opcjonalny urząd certyfikacji).
 2. AD, część pierwsza – 2.1 (czy jest CA), 2.2 (audyt OU Tier 0), 2.3 (grupy), 2.4 (DNS).
 3. Debian – 3.1 do 3.5 (system, konta, zapora, DNS i czas, konfiguracja Kerberos).
-4. Konto usługi – 2.5 na PAW i **od razu** 3.6 na Debianie (hasło jednorazowe ma żyć kilka minut).
-5. AD, część druga – 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy odczytu), na końcu lista
-   kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem uruchomienia usługi w produkcji.
-6. Debian – 3.7 do 3.9 (rotacja hasła, certyfikat, kopie).
-7. Po wydaniu pakietów 0.3.0: OpenWEC (4), Watchdog (5), AD Manager (6).
-8. Pilotaż – rozdz. 7.
+4. Konto usługi – 2.5 (utworzenie konta, wpis odmowy, szablony certyfikatów) na PAW i **od razu** 3.6 na Debianie
+   (hasło jednorazowe ma żyć kilka minut). GPO z końca 2.5 – dopiero po 3.6.
+5. AD, część druga – GPO z końca 2.5, potem 2.6 do 2.12 (po 2.6 i 2.7 wykonaj na Debianie opisane tam testy
+   odczytu), na końcu lista kontrolna 2.13. Krok 2.8 (`ms-DS-MachineAccountQuota` = 0) jest warunkiem wdrożenia
+   w produkcji (usługa uruchomi się także bez niego, ale zakładka Stan ostrzega – 2.8).
+6. Debian – 3.7 (na razie tylko zmiana ręczna), 3.8 (wariant A, jeśli jest urząd certyfikacji), 3.9 (dziennik
+   systemowy, kopia maszyny).
+7. **[od 0.3.0]** OpenWEC (4), Watchdog (5), AD Manager (6), pozostałe części 3.7–3.9.
+8. **[od 0.3.0]** Pilotaż – rozdz. 7.
+
+> **Migracja z wersji 0.2.0 (usługa Windows).** Jeśli działa już Watchdog 0.2.0, usługa Windows pracuje dalej aż do
+> przełączenia (po rozdz. 5), a część kroków wykonujesz inaczej – inaczej zepsujesz działającą usługę:
+>
+> - **2.3** – grup nie twórz (już istnieją), przenieś je do OU Tier 0; SID-y się nie zmieniają:
+>   `Move-ADObject -Identity (Get-ADGroup AdMng-Watchdog-Admins).DistinguishedName -TargetPath 'OU=Groups,OU=Tier 0,OU=Admin,DC=contoso,DC=com'`
+>   i to samo dla `AdMng-Watchdog-Viewers`.
+> - **2.4 i 3.1** – Debian dostaje tymczasowy adres (np. 10.0.1.26); rekord A `admng-wd` wskazuje stary serwer aż do
+>   przełączenia (2.4, „Rekord już istnieje”).
+> - **2.5** – utwórz konto **bez** SPN `HTTP/…`: `-ServicePrincipalNames 'HOST/admng-wd.contoso.com', 'HOST/ADMNG-WD'`
+>   (kontroler odrzuciłby SPN, który ma jeszcze gMSA `svc-admngwd$`). Keytab z 3.6 i tak zawiera nazwę `HTTP/…` – to
+>   ten sam klucz konta. Do przełączenia `setspn -Q HTTP/admng-wd.contoso.com` pokazuje jeszcze gMSA, a w teście 1
+>   z 3.6 wiersz `HTTP/…` kończy się błędem – to oczekiwane; wiersz `host/…` musi pokazać `keytab entry valid`.
+> - **2.12** – GPO WEF utwórz z wyłączonym połączeniem (`New-GPLink … -LinkEnabled No`); włączasz je przy
+>   przełączeniu.
+> - **Przełączenie** (po rozdz. 5): zatrzymaj usługę Windows; `setspn -D HTTP/admng-wd.contoso.com svc-admngwd$`;
+>   `setspn -S HTTP/admng-wd.contoso.com ADMNG-WD$`; zmień rekord A i PTR `admng-wd` na adres Debiana (2.4); włącz
+>   połączenie GPO WEF (`Set-GPLink -Name 'AdMng - WEF' -Target 'OU=Domain Controllers,DC=contoso,DC=com' -LinkEnabled Yes`);
+>   potem 5.3 i 6.1. Na końcu usuń pozostałości starej usługi – „Migracja z wersji 0.2.0” na końcu 2.12.
 
 ---
 
@@ -206,22 +260,50 @@ OU Tier 0), na której bezpiecznie przećwiczysz wszystkie kroki tej instrukcji.
 | admng-wd – **wymagana** | Debian 13 netinst | 2 / 4 GB / 60 GB, vTPM opcjonalnie | 10.0.1.25 | serwer Watchdog |
 | ADM-WS01 – **wymagana** | Windows 11 Enterprise (ewaluacyjna) lub Windows Server 2025 | 2 / 4 GB / 60 GB | 10.0.20.15 | stacja administratora: RSAT, AD Manager; w laboratorium także PAW. AD Manager działa tylko na Windows, a zmiana zrobiona na samym DC ma jako źródło kontroler – bez tej stacji nie sprawdzisz „skąd” |
 | DC02 – opcjonalna | Windows Server 2022 (ewaluacyjna) | 2 / 4 GB / 60 GB | 10.0.1.11 | drugi kontroler – replikacja hasła konta usługi, przełączenie DC, starszy klient WinRM |
-| smtp – opcjonalna | dowolny mały Linux z Mailpit | 1 / 1 GB / 10 GB | 10.0.1.30 | przekaźnik SMTP laboratorium (wiadomości oglądasz w przeglądarce) – potrzebny do testów e-mail w 6.2 i 7.2 |
+| smtp – opcjonalna | Debian 13 netinst z Mailpit | 1 / 1 GB / 10 GB | 10.0.1.30 | przekaźnik SMTP laboratorium (wiadomości oglądasz w przeglądarce) – potrzebny do testów e-mail w 6.2 i 7.2 |
 
 - Wersje ewaluacyjne pobierzesz z Microsoft Evaluation Center. Windows Server 2025 w wersji ewaluacyjnej działa 180
   dni, ale wymaga **aktywacji online w ciągu 10 dni** – bez dostępu do Internetu zacznie się okresowo wyłączać. Daj
-  maszynom dostęp do Internetu przez router hiperwizora (NAT).
+  maszynom dostęp do Internetu przez router hiperwizora (NAT) – przykład dla Hyper-V niżej.
 - **Sieć – w laboratorium najprościej jedna płaska sieć** 10.0.1.0/24: ADM-WS01 pod adresem 10.0.1.50 (brama 10.0.1.1).
   Wtedy wszędzie, gdzie instrukcja podaje podsieć 10.0.20.0/24 albo adres 10.0.20.15, wpisz `10.0.1.50/32` albo
   `10.0.1.50`: adres i brama w 1.6, zapora Debiana (`ADMIN_NET`, 3.3), `AllowedRemoteSubnets` (5.2), oczekiwane źródło
   w pilotażu (7.2); strefa odwrotna 10.0.20.0/24 z 1.2 jest wtedy zbędna. Dwie podsieci jak w przykładach (10.0.1.0/24
-  dla serwerów, 10.0.20.0/24 dla stacji) wymagają routera między nimi – np. maszyny z dwiema kartami sieciowymi albo
-  routera hiperwizora.
+  dla serwerów, 10.0.20.0/24 dla stacji) wymagają routera między nimi (np. małej maszyny z Linuksem z dwiema kartami
+  sieciowymi), który przekazuje ruch między podsieciami **bez NAT** (bez maskarady). Debian i kontrolery muszą widzieć
+  prawdziwy adres stacji 10.0.20.15 – za NAT-em widziałyby adres routera: zapora Debiana odrzuciłaby SSH i API, a
+  pilotaż pokazałby router jako źródło zmian.
+- **Sieć w Hyper-V** (na hoście, PowerShell jako administrator) – przełącznik wewnętrzny z NAT dla płaskiej sieci
+  10.0.1.0/24; host dostaje adres bramy 10.0.1.1:
+
+  ```powershell
+  New-VMSwitch -Name LAB -SwitchType Internal
+  New-NetIPAddress -InterfaceAlias 'vEthernet (LAB)' -IPAddress 10.0.1.1 -PrefixLength 24
+  New-NetNat -Name LAB -InternalIPInterfaceAddressPrefix 10.0.1.0/24
+  ```
+
+  NAT Hyper-V nie odpowiada na zapytania DNS – w 1.2 ustaw przekazywanie zapytań z DC01 na firmowy albo publiczny
+  serwer DNS (np. `9.9.9.9`), a nie na 10.0.1.1. Maszyna z Debianem: **generacja 2**, Secure Boot z szablonem
+  „Microsoft UEFI Certificate Authority” (domyślny szablon „Microsoft Windows” nie uruchomi Debiana):
+
+  ```powershell
+  Set-VMFirmware -VMName admng-wd -SecureBootTemplate MicrosoftUEFICertificateAuthority
+  Set-VMKeyProtector -VMName admng-wd -NewLocalKeyProtector; Enable-VMTPM -VMName admng-wd     # vTPM (opcjonalnie)
+  ```
 - vTPM dla Debiana jest opcjonalny: z nim sprawdzisz wariant „TPM2 + klucz hosta” szyfrowania sekretów (rozdz. 3.9).
-- **Przekaźnik SMTP w laboratorium.** Na maszynie `smtp` skopiuj program `mailpit` z wydania Mailpit
-  (<https://github.com/axllent/mailpit>, wersja jak w `tools/testlab/watchdog/start-mailpit.sh`) do `/usr/local/bin/`
-  i jako root utwórz stały certyfikat samopodpisany dla `smtp.contoso.com` (stały, bo jego odcisk przypniesz w 6.2),
-  potem uruchom Mailpit z wymaganym STARTTLS:
+- **Przekaźnik SMTP w laboratorium.** Na maszynie `smtp` (Debian, jako root) pobierz Mailpit, sprawdź sumę SHA-256
+  i zainstaluj program (wersja i suma jak w `tools/testlab/watchdog/common.sh` – `MAILPIT_VERSION` – i
+  `tools/testlab/watchdog/start-mailpit.sh`; tam też znajdziesz nowsze wersje):
+
+  ```bash
+  apt install -y curl ca-certificates openssl
+  cd /root && curl -fsSLO https://github.com/axllent/mailpit/releases/download/v1.31.5/mailpit-linux-amd64.tar.gz
+  echo '5924ace84f38c83c29f941a644a2d7be6c11f339eb4a9a12ab526414897ceed1  mailpit-linux-amd64.tar.gz' | sha256sum -c
+  tar -xzf mailpit-linux-amd64.tar.gz mailpit && install -m 0755 mailpit /usr/local/bin/
+  ```
+
+  Oczekiwane: `mailpit-linux-amd64.tar.gz: OK`. Potem utwórz stały certyfikat samopodpisany dla `smtp.contoso.com`
+  (stały, bo jego odcisk przypniesz w 6.2) i uruchom Mailpit z wymaganym STARTTLS:
 
   ```bash
   openssl req -x509 -newkey rsa:2048 -nodes -days 825 -subj '/CN=smtp.contoso.com' \
@@ -256,14 +338,16 @@ Install-ADDSForest -DomainName contoso.com -DomainNetbiosName CONTOSO `
     -SafeModeAdministratorPassword (Read-Host -AsSecureString 'Hasło DSRM')
 ```
 
-Serwer uruchomi się ponownie jako DC01.contoso.com. Następnie skonfiguruj przekazywanie zapytań DNS na zewnątrz (na
-adres DNS routera laboratorium) i strefy odwrotne dla rekordów PTR – serwerów i stacji administratorów (z rekordu PTR
-Watchdog bierze nazwę komputera, z którego przyszła zmiana – 7.2):
+Serwer uruchomi się ponownie jako DC01.contoso.com. Następnie skonfiguruj przekazywanie zapytań DNS na zewnątrz i
+strefy odwrotne dla rekordów PTR – serwerów i stacji administratorów (z rekordu PTR Watchdog bierze nazwę komputera,
+z którego przyszła zmiana – 7.2). DC01 rejestruje swój rekord PTR dopiero przy następnej rejestracji w DNS – stąd
+ostatnie polecenie:
 
 ```powershell
-Set-DnsServerForwarder -IPAddress 10.0.1.1
+Set-DnsServerForwarder -IPAddress 10.0.1.1          # DNS routera laboratorium; przy NAT Hyper-V – np. 9.9.9.9 (1.1)
 Add-DnsServerPrimaryZone -NetworkId '10.0.1.0/24'  -ReplicationScope Domain -DynamicUpdate Secure
 Add-DnsServerPrimaryZone -NetworkId '10.0.20.0/24' -ReplicationScope Domain -DynamicUpdate Secure   # pomiń w płaskiej sieci (1.1)
+ipconfig /registerdns
 ```
 
 **Sprawdzenie:**
@@ -272,11 +356,13 @@ Add-DnsServerPrimaryZone -NetworkId '10.0.20.0/24' -ReplicationScope Domain -Dyn
 Get-ADDomain | Format-List DNSRoot, NetBIOSName, DomainMode, PDCEmulator
 Get-ADForest | Format-List ForestMode, SchemaMaster
 Resolve-DnsName deb.debian.org
+Resolve-DnsName 10.0.1.10
 ```
 
 Oczekiwane: `DNSRoot : contoso.com`, `NetBIOSName : CONTOSO`, `DomainMode : Windows2016Domain`,
 `PDCEmulator : DC01.contoso.com`, `ForestMode : Windows2016Forest`; `Resolve-DnsName` zwraca adresy (przekazywanie
-zapytań działa – Debian pobierze przez ten DNS aktualizacje). Nowa domena na Windows Server 2025 domyślnie
+zapytań działa – Debian pobierze przez ten DNS aktualizacje); `Resolve-DnsName 10.0.1.10` zwraca `DC01.contoso.com`
+(rekord PTR – po kilku minutach od `ipconfig /registerdns`). Nowa domena na Windows Server 2025 domyślnie
 **wymaga podpisywania LDAP** – Watchdog to spełnia (szyfrowanie Kerberos/GSSAPI, rozdz. 3.6).
 
 ### 1.3 DC02 – drugi kontroler (opcjonalnie)
@@ -303,6 +389,7 @@ Na koniec ustaw na obu kontrolerach DNS wzajemnie – najpierw partner, potem w�
 ```powershell
 Set-DnsClientServerAddress -InterfaceAlias 'Ethernet' -ServerAddresses 10.0.1.11, 127.0.0.1    # na DC01
 Set-DnsClientServerAddress -InterfaceAlias 'Ethernet' -ServerAddresses 10.0.1.10, 127.0.0.1    # na DC02
+ipconfig /registerdns                                                                          # na DC02 (rekord PTR)
 ```
 
 **Sprawdzenie** (na DC01): `repadmin /replsummary` – brak błędów; `Get-ADDomainController -Filter * | Format-Table
@@ -340,7 +427,7 @@ W VMware wyłącz w ustawieniach maszyny „Synchronize guest time with host”.
 
 ### 1.5 Struktura OU, konta i grupy testowe
 
-**Gdzie:** DC01 albo ADM-WS01 z RSAT, jako `CONTOSO\Administrator`. **Co i po co:** minimalna struktura z OU Tier 0
+**Gdzie:** DC01, jako `CONTOSO\Administrator` (ADM-WS01 powstaje dopiero w 1.6). **Co i po co:** minimalna struktura z OU Tier 0
 (miejsce na konto usługi i grupy ról), OU dla zwykłych kont i OU „Pilot” na testy dMSA oraz kilka kont do testów
 z rozdz. 7. W produkcji OU Tier 0 już istnieje – nie twórz nowej, użyj swojej.
 
@@ -389,6 +476,8 @@ Set-ADDefaultDomainPasswordPolicy -Identity contoso.com -LockoutThreshold 5 `
 
 ```powershell
 New-NetIPAddress -InterfaceAlias 'Ethernet' -IPAddress 10.0.20.15 -PrefixLength 24 -DefaultGateway 10.0.20.1
+# w sieci płaskiej (1.1) zamiast wiersza wyżej:
+# New-NetIPAddress -InterfaceAlias 'Ethernet' -IPAddress 10.0.1.50 -PrefixLength 24 -DefaultGateway 10.0.1.1
 Set-DnsClientServerAddress -InterfaceAlias 'Ethernet' -ServerAddresses 10.0.1.10, 10.0.1.11
 Add-Computer -DomainName contoso.com -NewName ADM-WS01 -Credential CONTOSO\Administrator -Restart
 ```
@@ -400,12 +489,29 @@ Na Windows 11 doinstaluj RSAT (na Windows Server: `Install-WindowsFeature RSAT-A
     ForEach-Object { Add-WindowsCapability -Online -Name $_ }
 ```
 
-Zainstaluj AD Manager (wydanie 0.2.0 lub nowsze; okno potwierdzenia certyfikatu Watchdoga –
-**(pakiet powstaje - wersja 0.3.0)**). Loguj się na stacji kontem `CONTOSO\adm-jan`.
+Zainstaluj AD Manager (wydanie 0.2.0 lub nowsze; okno potwierdzenia certyfikatu Watchdoga ma dopiero
+AD Manager 0.3.0). Loguj się na stacji kontem `CONTOSO\adm-jan`.
 
 **Sprawdzenie:** `Get-ADDomain` działa na stacji; `nltest /sc_query:contoso.com` – `Trusted DC Connection Status
-Status = 0 0x0 NERR_Success`; po `ipconfig /registerdns` polecenie `Resolve-DnsName 10.0.20.15` zwraca
-`ADM-WS01.contoso.com` (rekord PTR – z niego Watchdog bierze nazwę stacji).
+Status = 0 0x0 NERR_Success`; po `ipconfig /registerdns` polecenie `Resolve-DnsName 10.0.20.15` (w sieci płaskiej:
+`Resolve-DnsName 10.0.1.50`) zwraca `ADM-WS01.contoso.com` (rekord PTR – z niego Watchdog bierze nazwę stacji).
+
+### 1.7 Urząd certyfikacji w laboratorium (opcjonalnie)
+
+**Gdzie:** DC01, PowerShell jako `CONTOSO\Administrator`. **Co i po co:** bez urzędu certyfikacji krok 2.1 zawsze
+kończy się wariantem B (certyfikat generowany przez pakiet 0.3.0). Urząd typu Enterprise w laboratorium pozwala już
+teraz przećwiczyć wariant A z 3.8 i wpisy odmowy na szablonach certyfikatów z 2.5. **Tylko w laboratorium** – w
+produkcji urząd certyfikacji nigdy nie działa na kontrolerze domeny.
+
+```powershell
+Install-WindowsFeature ADCS-Cert-Authority -IncludeManagementTools
+Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -CACommonName 'Contoso-Issuing-CA' -Force
+```
+
+**Sprawdzenie:** polecenie z 2.1 pokazuje urząd `Contoso-Issuing-CA` z `dNSHostName : DC01.contoso.com` i szablonem
+`WebServer` na liście `certificateTemplates`. W laboratorium ciąg konfiguracji urzędu to
+`DC01.contoso.com\Contoso-Issuing-CA` – wpisuj go wszędzie tam, gdzie instrukcja podaje
+`CA01.contoso.com\Contoso-Issuing-CA` (2.1, 3.8).
 
 ---
 
@@ -439,9 +545,9 @@ Jak czytać wynik:
 
 | Wynik | Znaczenie | Dalej |
 |---|---|---|
-| Pusty | W lesie nie ma urzędu typu Enterprise. (Urzędu Standalone to zapytanie nie pokaże – zapytaj zespół PKI.) | **Wariant B** w 3.8: certyfikat generowany na serwerze, odcisk potwierdzany w AD Manager. |
-| Urząd z `WebServer` na liście `certificateTemplates` | Można wystawić certyfikat serwera WWW. | **Wariant A** w 3.8. Zanotuj ciąg konfiguracji `<dNSHostName>\<Name>`, np. `CA01.contoso.com\Contoso-Issuing-CA`. |
-| Urząd bez szablonu `WebServer` | Urząd jest, ale nie wystawia certyfikatów serwerów. | Poproś zespół PKI o opublikowanie szablonu (albo jego kopii) z prawem Enroll dla administratorów Tier 0 – albo wariant B. |
+| Pusty | W lesie nie ma urzędu typu Enterprise (w laboratorium bez 1.7 – zawsze). Urzędu Standalone to zapytanie nie pokaże – zapytaj zespół PKI. | **Wariant B** w 3.8 (**[od 0.3.0]**): certyfikat generowany na serwerze, odcisk potwierdzany w AD Managerze. |
+| Urząd z `WebServer` na liście `certificateTemplates` | Można wystawić certyfikat serwera WWW. | **Wariant A** w 3.8. Zanotuj ciąg konfiguracji `<dNSHostName>\<Name>`, np. `CA01.contoso.com\Contoso-Issuing-CA`. Wykonaj też wpisy odmowy na szablonach z 2.5. |
+| Urząd bez szablonu `WebServer` | Urząd jest, ale nie wystawia certyfikatów serwerów. | Poproś zespół PKI o opublikowanie szablonu (albo jego kopii) z prawem Enroll dla administratorów Tier 0 – albo wariant B. Wpisy odmowy na szablonach z 2.5 wykonaj i tak. |
 
 Gdy urząd jest, sprawdź, czy odpowiada:
 
@@ -453,6 +559,10 @@ Oczekiwane: `Server "Contoso-Issuing-CA" ICertRequest2 interface is alive` i `Ce
 successfully.` (Polecenie `certutil -config - -ping` robi to samo, ale otwiera okno wyboru urzędu.)
 
 ### 2.2 Audyt delegacji w OU Tier 0
+
+> **W skrócie.** Co zmienia: nic – skrypt tylko czyta listy ACL; poprawki wprowadzasz sam, po zapisaniu kopii ACL.
+> Gdzie: PAW. Ile trwa: kilka minut, plus czas na poprawki. Wynik: lista wpisów do poprawienia albo pusta lista.
+> Wycofanie poprawek: z zapisanego pliku SDDL (pod tabelą w 2.13).
 
 **Gdzie:** PAW. **Co i po co:** konto usługi i grupy ról trafią do istniejącej OU Tier 0. Jeżeli ktoś spoza Tier 0
 (helpdesk, konto aplikacji, grupa Exchange) ma tam prawa zapisu – choćby odziedziczone z wyższej OU – może przejąć
@@ -618,8 +728,8 @@ dsacls 'OU=Tier 0,OU=Admin,DC=contoso,DC=com' /R 'CONTOSO\Helpdesk'
 
 ```powershell
 $g = 'OU=Groups,OU=Tier 0,OU=Admin,DC=contoso,DC=com'
-New-ADGroup -Name 'AdMng-Watchdog-Admins'  -GroupScope Global -GroupCategory Security -Path $g -Description 'AdMng Watchdog - administratorzy (reguly, kanaly)'
-New-ADGroup -Name 'AdMng-Watchdog-Viewers' -GroupScope Global -GroupCategory Security -Path $g -Description 'AdMng Watchdog - podglad i potwierdzanie zdarzen'
+New-ADGroup -Name 'AdMng-Watchdog-Admins'  -GroupScope Global -GroupCategory Security -Path $g -Description 'AdMng Watchdog - administratorzy (reguły, kanały)'
+New-ADGroup -Name 'AdMng-Watchdog-Viewers' -GroupScope Global -GroupCategory Security -Path $g -Description 'AdMng Watchdog - podgląd i potwierdzanie zdarzeń'
 Add-ADGroupMember -Identity 'AdMng-Watchdog-Admins' -Members 'adm-jan'
 (Get-ADGroup 'AdMng-Watchdog-Admins').SID.Value      # -> Authorization.AdminSids  (rozdz. 5.2)
 (Get-ADGroup 'AdMng-Watchdog-Viewers').SID.Value     # -> Authorization.ViewerSids (rozdz. 5.2)
@@ -632,9 +742,9 @@ Zasady:
 - Nie ustawiaj atrybutu `ManagedBy` (menedżer grupy mógłby sam zmieniać jej członków). Członkami zarządza tylko Tier 0.
 - Grupy leżą w OU Tier 0, bo kto kontroluje te grupy, ten może wyciszać alarmy o Tier 0. Watchdog sam zgłasza każdą
   zmianę ich członkostwa jako zmianę dostępu uprzywilejowanego.
-- Usługa ustala role sama, z AD (członkostwo sprawdza po SID, z pamięcią podręczną 5 minut) – dodanie lub usunięcie
-  członka działa w ciągu 5 minut, bez wylogowania. Do natychmiastowego odebrania dostępu służy lista `DeniedSids` w
-  ustawieniach startowych (5.2). **(pakiet powstaje - wersja 0.3.0)**
+- **[od 0.3.0]** Usługa ustala role sama, z AD (członkostwo sprawdza po SID, z pamięcią podręczną 5 minut) – dodanie
+  lub usunięcie członka działa w ciągu 5 minut, bez wylogowania. Do natychmiastowego odebrania dostępu służy lista
+  `DeniedSids` w ustawieniach startowych (5.2).
 
 **Sprawdzenie:**
 
