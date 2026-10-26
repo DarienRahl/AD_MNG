@@ -139,6 +139,12 @@ jobs:
           ADMNG_TEST_SMTP_HOST: 127.0.0.1
           ADMNG_TEST_SMTP_PORT: "1025"
           ADMNG_TEST_MAILPIT_API: http://127.0.0.1:8025
+      - name: Messages to users – direct SMTP (Mailpit)
+        run: dotnet test tests/AdMng.Mail.Tests -c Release
+        env:
+          ADMNG_TEST_SMTP_HOST: 127.0.0.1
+          ADMNG_TEST_SMTP_PORT: "1025"
+          ADMNG_TEST_MAILPIT_API: http://127.0.0.1:8025
       - name: Watchdog lab scenario (service, Mailpit, webhook sink)
         # The lab scripts end to end, so they never rot: the Lab launch profile in the background, the API
         # configuration, the scenario with its own verification (events, Polish e-mails, signed webhooks) and cleanup.
