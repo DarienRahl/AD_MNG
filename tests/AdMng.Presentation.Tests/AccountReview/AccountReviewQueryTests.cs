@@ -1,6 +1,7 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Testing;
@@ -63,6 +64,33 @@ public class AccountReviewQueryTests
         Assert.Contains("(objectSid=S-1-5-21-1-2-3-512)", protectedGroups, StringComparison.Ordinal);
         Assert.DoesNotContain("S-1-5-21-", AccountReviewQuery.ProtectedGroupsFilter(null), StringComparison.Ordinal);
         Assert.Throws<ArgumentException>(() => AccountReviewQuery.Filter([], null, new(), Now));
+    }
+
+    [Theory]
+    [InlineData(AccountCheck.Inactive)]
+    [InlineData(AccountCheck.NeverLoggedOn)]
+    public void InactiveFindings_MeetTheConditionOfTheMessageTheReviewOpens(AccountCheck check)
+    {
+        // 90 days and a few hours: on the review's list (lastLogonTimestamp <= now - 90 days), so the message opened from
+        // it ("Wyślij wiadomość…" → inactive-disable with N = 90) must not skip the account as "condition not met".
+        var parameters = new AccountReviewParameters();
+        var boundary = AdConvert.ToFileTime(Now.AddDays(-parameters.InactiveDays).AddHours(-3)).ToString(CultureInfo.InvariantCulture);
+        AttributeValues[] values =
+        [
+            new(Attr.ObjectClass, ["top", "person", "organizationalPerson", "user"]),
+            new(Attr.UserAccountControl, ["512"]),
+            new(Attr.UserAccountControlComputed, ["0"]),
+            new(Attr.WhenCreated, [check == AccountCheck.NeverLoggedOn
+                ? AdConvert.ToGeneralizedTime(Now.AddDays(-parameters.InactiveDays).AddHours(-3))
+                : "20200101000000.0Z"]),
+            .. check == AccountCheck.Inactive ? [new AttributeValues(Attr.LastLogonTimestamp, [boundary])] : Array.Empty<AttributeValues>(),
+        ];
+        var facts = AccountReviewFacts.From(new DirectoryObject("CN=Żaneta Nowak,OU=Pracownicy,DC=contoso,DC=test", values), Now, TimeZoneInfo.Utc, null, null, null);
+        var request = Presentation.UserMessages.UserMessageRequest.For([facts.DistinguishedName], check, parameters);
+        var template = Core.Messaging.BuiltInMessageTemplates.Get(request.TemplateId!, Core.Messaging.MessageLanguage.Polish)!;
+
+        Assert.True(AccountReviewQuery.Matches(check, facts, parameters));
+        Assert.True(Core.Messaging.MessageConditions.IsMet(template.Condition, request.ConditionDays!.Value, facts.Status));
     }
 
     [Fact]

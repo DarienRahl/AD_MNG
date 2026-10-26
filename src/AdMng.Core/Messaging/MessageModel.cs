@@ -82,7 +82,10 @@ public enum MessageConditionKind
     /// <summary>"User must change password at next logon".</summary>
     MustChangePassword,
 
-    /// <summary>No logon (lastLogonTimestamp) for more than N days, or never logged on and created more than N days ago.</summary>
+    /// <summary>
+    /// No logon (lastLogonTimestamp) for N days or more, or never logged on and created N days ago or earlier – the same
+    /// boundary as the account review's "Inactive &gt; N days" and the Inactive chip (<c>lastLogonTimestamp &lt;= now − N</c>).
+    /// </summary>
     InactiveFor,
 }
 
@@ -110,8 +113,8 @@ public static class MessageConditions
             MessageConditionKind.NotLocked => !status.IsLocked,
             MessageConditionKind.MustChangePassword => status.Password == PasswordState.MustChange,
             MessageConditionKind.InactiveFor => status.DaysSinceLogon is { } since
-                ? since > days
-                : status.DaysSinceCreated is { } created && created > days,
+                ? since >= days
+                : status.DaysSinceCreated is { } created && created >= days,
             _ => false,
         };
     }
