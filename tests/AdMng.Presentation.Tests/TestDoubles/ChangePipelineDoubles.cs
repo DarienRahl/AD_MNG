@@ -20,10 +20,18 @@ internal sealed class RecordingChangePlanner : IChangePlanner
 
     public Func<BatchRequest, ChangePlan>? PlanFactory { get; set; }
 
-    public Task<ChangePlan> PlanAsync(IDirectorySession session, BatchRequest request, PlanningOptions? options, IProgress<int>? progress, CancellationToken cancellationToken)
+    /// <summary>Awaited before the plan is built (on the planning thread) - lets a test change the session meanwhile.</summary>
+    public Func<CancellationToken, Task>? BeforePlan { get; set; }
+
+    public async Task<ChangePlan> PlanAsync(IDirectorySession session, BatchRequest request, PlanningOptions? options, IProgress<int>? progress, CancellationToken cancellationToken)
     {
         _requests.Enqueue(request);
-        return Task.FromResult(PlanFactory?.Invoke(request) ?? DefaultPlan(request));
+        if (BeforePlan is { } before)
+        {
+            await before(cancellationToken);
+        }
+
+        return PlanFactory?.Invoke(request) ?? DefaultPlan(request);
     }
 
     public static ChangePlan DefaultPlan(BatchRequest request) => new()

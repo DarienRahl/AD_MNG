@@ -171,6 +171,9 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
 
     public int ConnectCount { get; private set; }
 
+    /// <summary>What the following connects return instead of the directory itself (e.g. another identity).</summary>
+    public IDirectorySession? NextSession { get; set; }
+
     public IReadOnlyList<DomainControllerInfo> DomainControllers { get; set; } =
     [
         new("dc02.contoso.test", "Kraków", true, false, false),
@@ -192,7 +195,7 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
             throw error;
         }
 
-        return Task.FromResult<IDirectorySession>(session);
+        return Task.FromResult(NextSession ?? session);
     }
 }
 

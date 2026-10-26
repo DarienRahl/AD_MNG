@@ -10,13 +10,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AdMng.Presentation.Session;
 
-/// <summary>Owns the directory sessions of the application.</summary>
+/// <summary>
+/// Owns the directory session of one connection window (one manager per window, scoped; several windows - several
+/// domains or identities - each have their own).
+/// </summary>
 public interface ISessionManager
 {
     /// <summary>The active session, or null when disconnected.</summary>
     IDirectorySession? Current { get; }
 
-    /// <summary>All open sessions (one today; multiple concurrent sessions are a later phase).</summary>
+    /// <summary>The open sessions: at most one (one manager per connection window).</summary>
     IReadOnlyList<IDirectorySession> Sessions { get; }
 
     bool IsConnected { get; }
@@ -27,7 +30,11 @@ public interface ISessionManager
     /// <summary>Raised after <see cref="Current"/> changed (on the thread that connected/disconnected).</summary>
     event EventHandler? SessionChanged;
 
-    /// <summary>Connects (bind + RootDSE + schema) and makes the new session current.</summary>
+    /// <summary>
+    /// Connects (bind + RootDSE + schema), makes the new session current and then closes the previous one (off the UI
+    /// thread). A bind that completes after the call was cancelled or the manager was disposed is closed at once and
+    /// never becomes current.
+    /// </summary>
     /// <exception cref="DirectoryException">Bind failed.</exception>
     Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken);
 
@@ -63,7 +70,7 @@ public interface ISessionManager
     Task<WellKnownObjectMap> GetWellKnownObjectsAsync(CancellationToken cancellationToken) => Task.FromResult(WellKnownObjectMap.Empty);
 }
 
-/// <summary>Default <see cref="ISessionManager"/>.</summary>
+/// <summary>Default <see cref="ISessionManager"/> (scoped: one per connection window).</summary>
 public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposable
 {
     private readonly IDirectoryConnector _connector;
@@ -74,6 +81,7 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
     private readonly Lock _gate = new();
     private SessionEntry? _current;
     private IAttributeFormatter? _disconnectedFormatter;
+    private bool _disposed;
 
     public SessionManager(
         IDirectoryConnector connector,
@@ -110,20 +118,51 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
     public async Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
+
         // Locating the DC and binding may block (DNS, DsGetDcName, Kerberos) - never on the UI thread.
         var session = await Task.Run(() => _connector.ConnectAsync(options, credential, cancellationToken), cancellationToken)
             .ConfigureAwait(true);
-        var entry = new SessionEntry(session, new LocalizedAttributeFormatter(_formatterFactory.Create(session.Schema), _localizer));
+        bool abandoned;
+        SessionEntry? previous = null;
         lock (_gate)
         {
-            _sessions.Add(entry);
-            _current = entry;
+            // The bind may complete after its window closed (manager disposed) or after the connect was cancelled: such a
+            // session never becomes current - it would be a connection with a credential and without a window.
+            abandoned = _disposed || cancellationToken.IsCancellationRequested;
+            if (!abandoned)
+            {
+                var entry = new SessionEntry(session, new LocalizedAttributeFormatter(_formatterFactory.Create(session.Schema), _localizer));
+                previous = _current;
+                _sessions.Clear();
+                _sessions.Add(entry);
+                _current = entry;
+            }
+        }
+
+        if (abandoned)
+        {
+            await CloseLateAsync(session).ConfigureAwait(true);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
+            throw new OperationCanceledException(cancellationToken);
         }
 
         SessionChanged?.Invoke(this, EventArgs.Empty);
+
+        // One session per window: the previous one is closed (windows pinned to it see it end). A test double that hands
+        // out one shared session object is not closed while it is the new session.
+        if (previous is not null && !ReferenceEquals(previous.Session, session))
+        {
+            await CloseAsync(previous.Session).ConfigureAwait(true);
+        }
+
         return session;
     }
 
+    /// <summary>
+    /// Closes the current session. Afterwards the manager is always disconnected (<see cref="Current"/> is null) - it
+    /// never falls back to an older session, which could belong to another identity or another domain.
+    /// </summary>
     public async Task DisconnectAsync()
     {
         SessionEntry? closing;
@@ -136,7 +175,7 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
             }
 
             _sessions.Remove(closing);
-            _current = _sessions.Count > 0 ? _sessions[^1] : null;
+            _current = null;
         }
 
         SessionChanged?.Invoke(this, EventArgs.Empty);
@@ -146,6 +185,7 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
     public async Task<DomainControllerSwitch> SwitchDomainControllerAsync(string server, Func<Task>? beforeSwitch, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(server);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed), this);
         var from = _current ?? throw new InvalidOperationException("Not connected to a directory.");
         var previous = from.Session;
 
@@ -174,6 +214,9 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
             var entry = new SessionEntry(session, new LocalizedAttributeFormatter(_formatterFactory.Create(session.Schema), _localizer));
             lock (_gate)
             {
+                // The window closed during the switch (manager disposed): the new session is closed below, never current.
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                cancellationToken.ThrowIfCancellationRequested();
                 var index = _sessions.IndexOf(from);
                 if (!ReferenceEquals(_current, from) || index < 0)
                 {
@@ -230,11 +273,16 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
         }
     }
 
+    /// <summary>
+    /// Closes every session. Idempotent; afterwards a connect or a domain controller switch that is still binding closes
+    /// its new session instead of making it current, and new calls throw <see cref="ObjectDisposedException"/>.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         SessionEntry[] all;
         lock (_gate)
         {
+            _disposed = true;
             all = [.. _sessions];
             _sessions.Clear();
             _current = null;
@@ -248,6 +296,16 @@ public sealed class SessionManager : ISessionManager, IAsyncDisposable, IDisposa
 
     /// <summary>Synchronous disposal for hosts that dispose the container synchronously (closes all sessions).</summary>
     public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Closes a session whose bind completed too late (cancelled, or the manager was disposed). A test double that hands
+    /// out one shared session object is not closed while that object is still the current session.
+    /// </summary>
+    private Task CloseLateAsync(IDirectorySession session)
+    {
+        _logger.LogInformation("A directory session that completed after its connect was abandoned is closed.");
+        return ReferenceEquals(_current?.Session, session) ? Task.CompletedTask : CloseAsync(session);
+    }
 
     /// <summary>Closes a session off the UI thread; failures are logged (type only), never thrown.</summary>
     private async Task CloseAsync(IDirectorySession session)

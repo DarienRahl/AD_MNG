@@ -55,8 +55,9 @@ public interface IChangeCoordinator
 {
     /// <summary>
     /// Plans the request; small error-free plans (≤ <see cref="AppSettings.ConfirmationThreshold"/> objects) execute
-    /// directly as a background activity, larger ones open the batch editor on the preview step.
-    /// Must be called on the UI thread.
+    /// directly as a background activity, larger ones open the batch editor on the preview step. The plan executes only
+    /// in the session it was planned in: when that session was closed or replaced meanwhile, nothing is written and the
+    /// operator is told that the session ended. Must be called on the UI thread.
     /// </summary>
     Task<ChangeOutcome> ApplyAsync(ChangeRequest request, CancellationToken cancellationToken = default);
 
@@ -205,7 +206,10 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         BatchResult result;
         try
         {
-            result = await ExecutePlanAsync(plan, request.Title, cancellationToken).ConfigureAwait(true);
+            // Pinned to the session the plan was made in: planning is not an activity, so "Rozłącz" does not wait for it,
+            // and a reconnect (another identity, or another domain) may have replaced the session meanwhile. Then nothing
+            // is written (SessionEndedException, shown as "the session ended").
+            result = await ExecutePlanAsync(plan, request.Title, session, started: null, cancellationToken).ConfigureAwait(true);
         }
         catch (OperationCanceledException)
         {
