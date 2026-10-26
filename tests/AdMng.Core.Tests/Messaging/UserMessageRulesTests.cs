@@ -123,4 +123,17 @@ public class UserMessageRulesTests
         Assert.StartsWith("<html><body><p>x</p><hr ", own, StringComparison.Ordinal);
         Assert.EndsWith("We never ask</p>\n</body></html>", own, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData(MessageLanguage.Polish)]
+    [InlineData(MessageLanguage.English)]
+    public void GeneratedDocuments_PassTheHtmlCheck(MessageLanguage language)
+    {
+        // AdMng Watchdog checks the whole HTML body of a message with the same rules (U1b): the document AD Manager wraps
+        // around every message must not trip them, or every message sent through the service is rejected.
+        var html = UserMessageRules.HtmlDocument(UserMessageRules.TextToHtml("Dzień dobry Łukasz,\n\nhasło wygasa jutro."), BuiltInMessageTemplates.Footer(language), language);
+
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(html));
+        Assert.Contains("\n<body style=\"font-family:", html, StringComparison.Ordinal);
+    }
 }

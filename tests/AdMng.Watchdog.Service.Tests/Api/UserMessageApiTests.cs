@@ -1,4 +1,5 @@
 using System.Net;
+using AdMng.Core.Messaging;
 using AdMng.Watchdog.Contracts;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -95,6 +96,29 @@ public sealed class UserMessageApiTests : IAsyncLifetime
         Assert.DoesNotContain(Zofia, log, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("wygasa", log, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(row.Hash, log, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task AMessageRenderedLikeAdManagerDoes_IsAccepted_AndDelivered()
+    {
+        // AD Manager always sends a complete HTML document with its fixed footer (UserMessageRules.HtmlDocument) and the
+        // text with the footer – the service's HTML check must accept what AD Manager itself produces.
+        await ConfigureAsync(_sink.Port);
+        using var viewer = _factory.Viewer();
+        var footer = BuiltInMessageTemplates.Footer(MessageLanguage.Polish);
+        var body = "Dzień dobry Zofio,\n\nTwoje hasło wygasa 5 listopada 2026. Zażółć gęślą jaźń.";
+        var request = Request() with
+        {
+            TextBody = UserMessageRules.TextDocument(body, footer),
+            HtmlBody = UserMessageRules.HtmlDocument(UserMessageRules.TextToHtml(body), footer, MessageLanguage.Polish),
+        };
+
+        using var response = await viewer.PostAsync(WatchdogRoutes.UserMessages, ApiJson.Content(request), Ct);
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
+        Assert.Equal(UserMessageState.Delivered, (await ApiJson.ReadAsync<UserMessageResult>(response)).State);
+        var mime = MimeMessage.Load(new MemoryStream(Assert.Single(_sink.Messages).Data), Ct);
+        Assert.Contains("Nigdy nie prosimy o podanie hasła", mime.HtmlBody, StringComparison.Ordinal);
     }
 
     [Fact]

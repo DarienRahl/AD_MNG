@@ -229,7 +229,8 @@ public static partial class UserMessageRules
 
     /// <summary>
     /// The complete HTML document of a message: <paramref name="bodyHtml"/> (a fragment or a document) with the fixed footer
-    /// before <c>&lt;/body&gt;</c>.
+    /// before <c>&lt;/body&gt;</c>. The document itself passes <see cref="FindForbiddenHtml"/> (AdMng Watchdog checks the
+    /// whole HTML body again), so it has no <c>&lt;meta charset&gt;</c> – the MIME part declares UTF-8.
     /// </summary>
     public static string HtmlDocument(string bodyHtml, string footer, MessageLanguage language)
     {
@@ -246,7 +247,6 @@ public static partial class UserMessageRules
         return string.Create(CultureInfo.InvariantCulture, $"""
             <!DOCTYPE html>
             <html lang="{MessageLanguages.Code(language)}">
-            <head><meta charset="utf-8"></head>
             <body style="font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1b1b1b">
             {bodyHtml}
             {footerHtml}
