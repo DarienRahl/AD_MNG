@@ -83,22 +83,44 @@
       <EventSetter Event="MouseDoubleClick" Handler="OnPrivilegeDoubleClick" />
     </Style>
 
-    <!-- The level as a small badge; the colour follows the level. -->
+    <!-- The level as a small badge; the colour follows the level (the Watchdog's severity palette: Tier 0 critical,
+         high caution, elevated accent, minor secondary text – a coloured frame, so every level is told apart). -->
     <Style x:Key="LevelBadge" TargetType="Border">
-      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="Padding" Value="6,0" />
       <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource TextFillColorSecondaryBrush}" />
       <Style.Triggers>
         <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Tier0}">
           <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
         </DataTrigger>
         <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.High}">
           <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCautionBrush}" />
         </DataTrigger>
         <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Elevated}">
           <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- The coloured strip of a level tile: the solid colour of the badge frame. -->
+    <Style x:Key="LevelStrip" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Tier0}">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.High}">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Elevated}">
+          <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
         </DataTrigger>
       </Style.Triggers>
     </Style>
@@ -139,7 +161,7 @@
             <ColumnDefinition Width="4" />
             <ColumnDefinition Width="*" />
           </Grid.ColumnDefinitions>
-          <Border Margin="0,6" CornerRadius="2" Style="{StaticResource LevelBadge}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Padding="0" />
+          <Border Margin="0,6" CornerRadius="2" Style="{StaticResource LevelStrip}" />
           <StackPanel Grid.Column="1" Margin="10,4,6,4" HorizontalAlignment="Left">
             <TextBlock FontSize="20"
                        FontWeight="SemiBold"
