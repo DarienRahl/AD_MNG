@@ -15,6 +15,7 @@ public sealed partial class FakeDirectoryBuilder
         public static readonly Guid User = new("bf967aba-0de6-11d0-a285-00aa003049e2");
         public static readonly Guid Group = new("bf967a9c-0de6-11d0-a285-00aa003049e2");
         public static readonly Guid Computer = new("bf967a86-0de6-11d0-a285-00aa003049e2");
+        public static readonly Guid OrganizationalUnit = new("bf967aa5-0de6-11d0-a285-00aa003049e2");
         public static readonly Guid InetOrgPerson = new("4828cc14-1437-45bc-9b07-ad6f015e5f28");
         public static readonly Guid PrintQueue = new("bf967aa8-0de6-11d0-a285-00aa003049e2");
         public static readonly Guid GroupPolicyContainer = new("f30e3bc2-9ff0-11d1-b603-0000f80367c1");

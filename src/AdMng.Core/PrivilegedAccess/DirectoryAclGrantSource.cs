@@ -15,8 +15,9 @@ namespace AdMng.Core.PrivilegedAccess;
 /// with <see cref="PrivilegedAccessOptions.DeepAclScan"/> - plus the resource-based delegation of every account. ACEs of the
 /// class's <c>defaultSecurityDescriptor</c> (schema) and of the default trustees (SYSTEM, Administrators, Domain Admins,
 /// Enterprise Admins, the domain controllers …) are not reported; an inherited ACE is reported once, at the scanned
-/// container it comes from. Every trustee becomes a grant (<see cref="PrivilegeFindingKind.AclRight"/>, scope = the object)
-/// that the evaluator expands to the members with the path. All reads on the session's DC, nothing kept after the run.
+/// container it comes from (and again at a Tier 0 object where it is worth more). Every trustee becomes a grant
+/// (<see cref="PrivilegeFindingKind.AclRight"/>, scope = the object) that the evaluator expands to the members with the
+/// path. All reads on the session's DC, nothing kept after the run.
 /// </summary>
 public sealed class DirectoryAclGrantSource : IPrivilegeGrantSource
 {
@@ -504,14 +505,12 @@ internal sealed class DirectoryAclScan
                 continue;
             }
 
-            if (ace.IsInherited ? IsCovered(target, ace) : IsDefault(target, ace))
+            if (ace.IsInherited ? IsReportedAtSource(target, ace) : IsDefault(target, ace))
             {
                 continue;
             }
 
-            // Inherit-only: for the children only - unless they include the domain controllers' accounts.
-            var childrenOnly = ace.IsInheritOnly && !(target.HoldsDomainControllers
-                && (ace.InheritedObjectType is not { } inherited || _types.IsClass(inherited, ObjectClasses.Computer)));
+            var childrenOnly = ChildrenOnly(target, ace);
             foreach (var (right, detail) in RightsOf(ace, target))
             {
                 Add(target, ace.Sid, right, detail, LevelOf(right, target, childrenOnly));
@@ -522,6 +521,18 @@ internal sealed class DirectoryAclScan
         {
             Add(target, owner, AclRight.Owner, null, LevelOf(AclRight.Owner, target, childrenOnly: false));
         }
+    }
+
+    /// <summary>Inherit-only: for the children only - unless they include the domain controllers' accounts.</summary>
+    private bool ChildrenOnly(AclTarget target, SecurityDescriptorAce ace) =>
+        ace.IsInheritOnly && !(target.HoldsDomainControllers
+            && (ace.InheritedObjectType is not { } inherited || _types.IsClass(inherited, ObjectClasses.Computer)));
+
+    /// <summary>The level the target's grant gets from the ACE (<see cref="PrivilegeLevel.None"/> without a right that matters).</summary>
+    private PrivilegeLevel LevelAt(AclTarget target, SecurityDescriptorAce ace)
+    {
+        var childrenOnly = ChildrenOnly(target, ace);
+        return PrivilegeLevels.Max(RightsOf(ace, target).Select(r => LevelOf(r.Right, target, childrenOnly)));
     }
 
     /// <summary>The rights of an allow ACE that matter on the target (mask, object type, inherited object type).</summary>
@@ -729,9 +740,12 @@ internal sealed class DirectoryAclScan
 
     /// <summary>
     /// An inherited ACE whose source is scanned: the nearest scanned ancestor holds an inheritable ACE of the same trustee
-    /// and object type with at least these rights (reported - or left out as a default - there).
+    /// and object type with at least these rights (reported - or left out as a default - there). It is reported here as
+    /// well when it is worth more here: it applies to this object (not inherit-only) and gives it a higher level than at
+    /// the source - member write on a Tier 0 group of CN=Users, full control of OU=Domain Controllers from the domain head,
+    /// reset password on a Tier 0 account of the deep scan (not protected by AdminSDHolder, so it inherits).
     /// </summary>
-    private bool IsCovered(AclTarget target, SecurityDescriptorAce ace)
+    private bool IsReportedAtSource(AclTarget target, SecurityDescriptorAce ace)
     {
         var parent = target.Parsed.Parent;
         while (parent is { IsRoot: false })
@@ -739,11 +753,14 @@ internal sealed class DirectoryAclScan
             if (_index.TryGetValue(GroupGraph.Key(parent.ToString()), out var source))
             {
                 var mask = DirectoryAccessMask.Normalize(ace.Mask);
-                return source.Aces.Any(a => a.IsAllow
+                var covering = source.Aces.FirstOrDefault(a => a.IsAllow
                     && a.IsContainerInherit
                     && string.Equals(a.Sid, ace.Sid, StringComparison.OrdinalIgnoreCase)
                     && a.ObjectType == ace.ObjectType
                     && (mask & ~DirectoryAccessMask.Normalize(a.Mask)) == 0);
+                return covering is not null
+                    && (ace.IsInheritOnly || IsDefaultTrustee(covering.Sid, source) || (!covering.IsInherited && IsDefault(source, covering))
+                        || LevelAt(target, ace) <= LevelAt(source, covering));
             }
 
             parent = parent.Parent;

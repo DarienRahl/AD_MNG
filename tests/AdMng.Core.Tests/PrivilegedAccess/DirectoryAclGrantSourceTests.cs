@@ -187,6 +187,40 @@ public class DirectoryAclGrantSourceTests
     }
 
     [Fact]
+    public async Task InheritedAces_AreReportedAgain_AtTier0ObjectsWhereTheyAreWorthMoreThanAtTheirSource()
+    {
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var da = $"{builder.DomainSid}-{WellKnownRids.DomainAdmins}";
+        var member = builder.Session.Schema.FindAttribute(Attr.Member)!.SchemaIdGuid;
+        var bozena = new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x10000000, builder.SidOf(scenario.Privileged.BozenaGalazka), null, FakeDirectoryBuilder.AclGuids.Computer);
+
+        // "Modify the membership of a group" delegated on CN=Users: DnsAdmins (Tier 0, not protected by AdminSDHolder) inherits it.
+        var groups = new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x20, builder.SidOf(scenario.Privileged.HalinaZrebiec), member, FakeDirectoryBuilder.AclGuids.Group);
+        builder.SetSecurityDescriptor(builder.UsersDn, da, FakeAce.FullControl(da), groups);
+        builder.SetSecurityDescriptor(scenario.Privileged.DnsAdmins, da, FakeAce.FullControl(da), groups with { Flags = 0x12 });
+
+        // Full control of the OUs below the domain head (inherit-only): OU=Domain Controllers inherits it (no longer inherit-only),
+        // the DC's computer object only passes it on; Bożena's full control of the DCs arrives there with the same level.
+        var ous = new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x10000000, builder.SidOf(scenario.Privileged.EwaBlaszczyk), null, FakeDirectoryBuilder.AclGuids.OrganizationalUnit);
+        builder.SetSecurityDescriptor(builder.DomainDn, da, FakeAce.FullControl(da), ous);
+        builder.SetSecurityDescriptor(builder.DomainControllersDn, da, FakeAce.FullControl(da), ous with { Flags = 0x12 }, bozena);
+        builder.SetSecurityDescriptor(builder.DomainControllerDn, da, FakeAce.FullControl(da), ous with { Flags = 0x1A }, bozena with { Flags = 0x12 });
+
+        var rendered = Render(scenario, await CollectAsync(scenario));
+
+        string[] changed = [builder.DomainDn, builder.DomainControllersDn, builder.DomainControllerDn, builder.UsersDn, scenario.Privileged.DnsAdmins];
+        Assert.Equal(Sorted(
+        [
+            $"{builder.DomainDn} | Ewa Błaszczyk | High | GenericAll:organizationalUnit",
+            $"{builder.DomainControllersDn} | Bożena Gałązka | Tier0 | GenericAll:computer",
+            $"{builder.DomainControllersDn} | Ewa Błaszczyk | Tier0 | GenericAll:organizationalUnit",
+            $"{builder.UsersDn} | Halina Źrebiec | High | WriteMember:group",
+            $"{scenario.Privileged.DnsAdmins} | Halina Źrebiec | Tier0 | WriteMember:group",
+        ]), [.. rendered.Where(r => changed.Any(dn => r.StartsWith(dn + " |", StringComparison.Ordinal)))]);
+    }
+
+    [Fact]
     public async Task TheOtherRights_GetTheLevelsOfTheDesignNote()
     {
         var scenario = Scenario.Create();

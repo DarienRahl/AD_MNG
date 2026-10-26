@@ -187,7 +187,11 @@ like never show.
 
 **Inheritance.** An inherited ACE is left out when the nearest read ancestor holds an inheritable (CI) ACE of the same
 trustee and object type with at least its rights – it is reported (or left out as a default) there, once. When the source
-was not read (an ACE set on CN=System arrives at CN=Policies) it is reported at the object where it was found.
+was not read (an ACE set on CN=System arrives at CN=Policies) it is reported at the object where it was found. It is
+reported at the object as well when it applies there (not inherit-only) with a higher level than at its source: Tier 0
+objects that AdminSDHolder does not protect inherit (DnsAdmins and the Exchange groups in their containers, OU=Domain
+Controllers below the domain head) – member write on the groups of CN=Users is High at CN=Users and Tier 0 at DnsAdmins,
+full control of the OUs (inherit-only on the domain head) High there and Tier 0 at OU=Domain Controllers.
 
 **Rights → values and levels** (`AclRight`, value `Right` or `Right:detail`, the detail being the class the ACE is limited
 to, the class that may be created or the attribute; the UI shows them in its language). One grant per object and trustee
@@ -354,7 +358,8 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
 * App: UI tests (tab, windows, chips), smoke test entries, screenshot `19-privileged-access.png`.
 * U4b Core: binary descriptors built in the tests on the Polish sample (`AddAclDelegationSample`): every delegation
   type with its level, defaults of the class (CREATOR OWNER = owner) and of the default trustees, inherited copies reported
-  once, a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
+  once, again at Tier 0 objects where they are worth more (DnsAdmins in CN=Users, OU=Domain Controllers below the domain
+  head), a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
   remaining rights and levels (owner of krbtgt, `gPLink` write on the DCs' OU and an ordinary OU, RBCD write,
   Self-Membership, all extended rights, a GPO of the DCs with an enabled and one with a disabled link), the
   scanner's paths through groups, Authenticated Users not in the graph, LAPS resolved from the schema, the fixed GUIDs

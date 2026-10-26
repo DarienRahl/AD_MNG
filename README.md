@@ -857,7 +857,8 @@ ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne
 - ✅ Pomijane wartości domyślne: ACE z `defaultSecurityDescriptor` klasy w schemacie (*CREATOR OWNER* = właściciel
   obiektu), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
   i to, co AD nadaje przy instalacji (Operatorzy kont i drukowania na `CN=Users`/`CN=Computers`, Group Policy Creator
-  Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi.
+  Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi, i dodatkowo
+  przy obiekcie Tier 0, który je dziedziczy (np. DnsAdmins w `CN=Users`, OU kontrolerów domeny) – tam z poziomem Tier 0.
 - ✅ Prawa i poziomy: pełna kontrola, WriteDacl, WriteOwner i właściciel (Tier 0 na domenie, AdminSDHolder, obiekcie
   Tier 0 i GPO dołączonym do domeny lub OU kontrolerów, inaczej wysoki), DCSync (`DS-Replication-Get-Changes-All`,
   Tier 0), reset hasła, zmiana członków grup, wszystkie prawa rozszerzone, zapis wszystkich właściwości, `gPLink`,
