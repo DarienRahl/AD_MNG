@@ -1,6 +1,4 @@
 using System.Net;
-using AdMng.Core.Model;
-using AdMng.Core.Schema;
 
 namespace AdMng.Core.Directory;
 
@@ -42,33 +40,13 @@ public interface IDirectoryConnector
 /// Implementations are thread-safe and support concurrent requests.
 /// Every call goes to the server - there is no client side cache of directory data.
 /// </summary>
-public interface IDirectorySession : IAsyncDisposable
+public interface IDirectorySession : IDirectoryReader, IAsyncDisposable
 {
-    SessionInfo Info { get; }
-
-    /// <summary>Schema metadata (attributes, classes, display names) loaded once per session, in memory.</summary>
-    ISchemaCatalog Schema { get; }
-
-    /// <summary>
-    /// Streams search results page by page (paged results control). Results arrive as soon as the first page is
-    /// received, so the UI can render progressively. Cancellation abandons the server side paging.
-    /// </summary>
-    IAsyncEnumerable<DirectoryObject> SearchAsync(DirectorySearch search, CancellationToken cancellationToken);
-
     /// <summary>
     /// Returns one window of a server sorted virtual list (VLV). Requires <see cref="DirectorySearch.Sort"/>.
     /// Use for very large containers where loading everything would be slow.
     /// </summary>
     Task<VirtualListPage> GetVirtualListPageAsync(DirectorySearch search, VirtualListRequest window, CancellationToken cancellationToken);
-
-    /// <summary>Reads one object (base scope). Returns null when it does not exist.</summary>
-    Task<DirectoryObject?> GetAsync(string distinguishedName, IReadOnlyList<string> attributes, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Reads all values of a large multi-valued attribute (e.g. group "member" beyond 1500 values)
-    /// using ranged retrieval.
-    /// </summary>
-    IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, CancellationToken cancellationToken);
 
     /// <summary>Ranged retrieval with options. The default implementation supports only <see cref="AttributeReadOptions.Default"/>.</summary>
     IAsyncEnumerable<string> GetAllValuesAsync(string distinguishedName, string attribute, AttributeReadOptions options, CancellationToken cancellationToken)

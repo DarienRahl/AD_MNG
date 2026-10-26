@@ -102,4 +102,25 @@ public class DistinguishedNameTests
         Assert.Equal(@"contoso.test/Firma/IT/Jan\/Kowalski", dn.ToCanonicalName());
         Assert.Equal("contoso.test/", DistinguishedName.Parse("DC=contoso,DC=test").ToCanonicalName());
     }
+
+    [Theory]
+    [InlineData("CN=Łukasz Wiśniewski,OU=IT,OU=Firma,DC=contoso,DC=test", "CN=Łukasz Wiśniewski,OU=IT,OU=Firma,{domain}")]
+    [InlineData("DC=contoso,DC=test", "{domain}")]
+    [InlineData(@"CN=Kowalski\, Jan,ou=Sprzedaż,dc=CONTOSO,dc=TEST", @"CN=Kowalski\, Jan,ou=Sprzedaż,{domain}")]
+    [InlineData("CN=Schema,CN=Configuration,DC=contoso,DC=test", "CN=Schema,CN=Configuration,{domain}")]
+    [InlineData("CN=Jan Kowalski,OU=IT,DC=fabrikam,DC=test", "CN=Jan Kowalski,OU=IT,DC=fabrikam,DC=test")]
+    [InlineData("not a dn", "not a dn")]
+    public void ToPortable_ReplacesTheNamingContext(string dn, string expected)
+    {
+        Assert.Equal(expected, DistinguishedName.ToPortable(dn, "DC=contoso,DC=test"));
+    }
+
+    [Fact]
+    public void Portable_RoundTripsToAnotherDomain()
+    {
+        var portable = DistinguishedName.ToPortable("CN=Żaneta Szymańska,OU=Sprzedaż,DC=contoso,DC=test", "DC=contoso,DC=test");
+
+        Assert.Equal("CN=Żaneta Szymańska,OU=Sprzedaż,DC=fabrikam,DC=test", DistinguishedName.FromPortable(portable, "DC=fabrikam,DC=test"));
+        Assert.Equal("{domain}", DistinguishedName.DomainPlaceholder);
+    }
 }
