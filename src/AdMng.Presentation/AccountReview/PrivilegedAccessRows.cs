@@ -95,13 +95,16 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
         return Localizer.Format(PrivilegedAccessText.KindKey(finding.Kind), subject);
     }
 
-    /// <summary>"Administratorzy" (a local group by its Windows name) or "Debugowanie programów (SeDebugPrivilege)".</summary>
+    /// <summary>
+    /// "Administratorzy" (a local group by its Windows name, a domain group by its catalogue name) or "Debugowanie programów
+    /// (SeDebugPrivilege)".
+    /// </summary>
     public string RightName(LocalRightDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        return definition.Kind == LocalRightKind.LocalGroup
-            ? Localizer[PrivilegedAccessText.GroupNameKey(definition.Id)]
-            : Localizer.Format(L.PrivilegedAccess.UserRight, Localizer[PrivilegedAccessText.UserRightNameKey(definition.Id)], definition.Key);
+        return definition.Kind == LocalRightKind.UserRight
+            ? Localizer.Format(L.PrivilegedAccess.UserRight, Localizer[PrivilegedAccessText.UserRightNameKey(definition.Id)], definition.Key)
+            : Localizer[PrivilegedAccessText.GroupNameKey(definition.Id)];
     }
 
     /// <summary>
@@ -114,11 +117,17 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
         var culture = Localizer.Culture;
         var computers = Localizer.Format(L.PrivilegedAccess.LocalRightComputers, gpo.Computers.ToString("N0", culture),
             gpo.DomainControllers.ToString("N0", culture), gpo.Servers.ToString("N0", culture), gpo.Workstations.ToString("N0", culture));
+        var domainGroup = gpo.Definition.Kind == LocalRightKind.DomainGroup;
+        var gives = Localizer[domainGroup ? PrivilegedAccessText.GroupKey(gpo.Definition.Id) : PrivilegedAccessText.LocalRightKey(gpo.Definition.Id)];
         var parts = new List<string>
         {
-            Localizer.Format(L.PrivilegedAccess.LocalRightGrants, Localizer[PrivilegedAccessText.LocalRightKey(gpo.Definition.Id)],
-                Localizer[PrivilegedAccessText.MechanismKey(gpo.Mechanism)], gpo.GpoName, computers),
+            Localizer.Format(L.PrivilegedAccess.LocalRightGrants, gives, Localizer[PrivilegedAccessText.MechanismKey(gpo.Mechanism)], gpo.GpoName, computers),
         };
+        if (domainGroup)
+        {
+            parts.Add(Localizer[L.PrivilegedAccess.DomainGroupEnforced]);
+        }
+
         if (gpo.LinkEnforced)
         {
             parts.Add(Localizer[L.PrivilegedAccess.LinkEnforced]);

@@ -8611,6 +8611,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.ConditionalWmi" xml:space="preserve">
     <value>Warunkowo: GPO ma filtr WMI – dotyczy tylko komputerów, na których zapytanie jest prawdziwe.</value>
   </data>
+  <data name="PrivilegedAccess.DomainGroupEnforced" xml:space="preserve">
+    <value>Na kontrolerach domeny GPO wymusza to członkostwo w grupie domeny: usunięcie z grupy zostanie cofnięte przy następnym odświeżeniu zasad – zmień GPO.</value>
+  </data>
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.NotSupported" xml:space="preserve">
     <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: pliki zasad grupy z SYSVOL na {0} można odczytać tylko w systemie Windows.</value>
   </data>

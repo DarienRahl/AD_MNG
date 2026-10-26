@@ -33,7 +33,10 @@ public sealed record GroupPolicyGrantDetails
 
     public required LocalRightMechanism Mechanism { get; init; }
 
-    /// <summary>The local group's SID (memberships) or the user right's constant (<c>SeDebugPrivilege</c>).</summary>
+    /// <summary>
+    /// The local group's SID (memberships), the user right's constant (<c>SeDebugPrivilege</c>) or the SID of a domain group
+    /// whose membership the GPO enforces on the DCs.
+    /// </summary>
     public required string Right { get; init; }
 
     /// <summary>The catalogue entry of the right (<see cref="LocalRightsCatalog"/>).</summary>
@@ -65,11 +68,17 @@ public sealed record GroupPolicyGrantDetails
     public int Computers => DomainControllers + Servers + Workstations;
 }
 
-/// <summary>What a local right is: a local group (by SID) or a user right (by constant).</summary>
+/// <summary>What a local right is: a local group (by SID), a user right (by constant) or a group of the domain.</summary>
 public enum LocalRightKind
 {
     LocalGroup,
     UserRight,
+
+    /// <summary>
+    /// A privileged group of the domain (catalogue, not built-in) whose membership Restricted Groups enforce on the domain
+    /// controllers (their "local" groups are the domain's groups); <see cref="LocalRightDefinition.Id"/> is the catalogue id.
+    /// </summary>
+    DomainGroup,
 }
 
 /// <summary>
@@ -220,8 +229,22 @@ public static class LocalRightsCatalog
     }
 
     /// <summary>
+    /// A privileged group of the domain as the target of Restricted Groups: it has an effect only on the domain controllers,
+    /// where its level is the catalogue's (with the operator's override).
+    /// </summary>
+    /// <param name="group">The catalogue entry (a domain group, not a built-in one).</param>
+    /// <param name="sid">The group's SID in this domain.</param>
+    public static LocalRightDefinition DomainGroup(PrivilegedGroupDefinition group, string sid)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sid);
+        return new LocalRightDefinition(group.Id, LocalRightKind.DomainGroup, sid, PrivilegeLevel.None, PrivilegeLevel.None, PrivilegeLevel.None);
+    }
+
+    /// <summary>
     /// The level of a right on a computer of <paramref name="role"/>: on a DC the catalogue level of the built-in group
-    /// (with the operator's override) when the group is in <see cref="PrivilegedGroupCatalog"/>, else the definition's.
+    /// (with the operator's override) when the group is in <see cref="PrivilegedGroupCatalog"/>, else the definition's; a
+    /// domain group has its catalogue level on the DCs and none elsewhere.
     /// </summary>
     public static PrivilegeLevel LevelOn(LocalRightDefinition definition, ComputerRole role, PrivilegedAccessOptions options)
     {
@@ -229,6 +252,8 @@ public static class LocalRightsCatalog
         ArgumentNullException.ThrowIfNull(options);
         return role switch
         {
+            ComputerRole.DomainController when definition.Kind == LocalRightKind.DomainGroup
+                && PrivilegedGroupCatalog.Find(definition.Id) is { } domainGroup => options.LevelOf(domainGroup),
             ComputerRole.DomainController when definition.Kind == LocalRightKind.LocalGroup
                 && PrivilegedGroupCatalog.Match(definition.Key, null, null, null) is { } group => options.LevelOf(group),
             ComputerRole.DomainController => definition.DomainControllerLevel,

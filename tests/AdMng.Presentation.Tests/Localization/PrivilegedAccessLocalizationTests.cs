@@ -63,6 +63,33 @@ public class PrivilegedAccessLocalizationTests
     }
 
     [Fact]
+    public void Polish_ADomainGroupEnforcedByAGpo_IsNamedAndExplained()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var formatter = new PrivilegedAccessFormatter(l, "contoso.test");
+        var definition = LocalRightsCatalog.DomainGroup(PrivilegedGroupCatalog.Find("DomainAdmins")!, "S-1-5-21-1-2-3-512");
+        var gpo = new GroupPolicyGrantDetails
+        {
+            GpoId = Guid.Empty,
+            GpoName = "Kontrolery – Utrzymanie członkostwa",
+            GpoDn = "CN={00000000-0000-0000-0000-000000000000},CN=Policies,CN=System,DC=contoso,DC=test",
+            Mechanism = LocalRightMechanism.RestrictedGroupMemberOf,
+            Right = definition.Key,
+            Definition = definition,
+            LinkDn = "OU=Domain Controllers,DC=contoso,DC=test",
+            DomainControllers = 2,
+        };
+
+        Assert.Equal("Administratorzy domeny", formatter.RightName(definition));
+        Assert.Equal(
+            "Pełna kontrola nad wszystkimi obiektami i komputerami domeny. Źródło: Grupy z ograniczeniami (członek grupy) w GPO "
+            + "„Kontrolery – Utrzymanie członkostwa”; komputery: 2 (kontrolery domeny: 2, serwery: 0, stacje robocze: 0). "
+            + "Na kontrolerach domeny GPO wymusza to członkostwo w grupie domeny: usunięcie z grupy zostanie cofnięte przy "
+            + "następnym odświeżeniu zasad – zmień GPO.",
+            formatter.LocalRight(gpo));
+    }
+
+    [Fact]
     public void Polish_NamesTheBuiltInGroupsAsPolishWindowsDoes()
     {
         var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));

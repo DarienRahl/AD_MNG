@@ -86,6 +86,7 @@ public static partial class L
         public const string LinkEnforced = "PrivilegedAccess.LinkEnforced";
         public const string ConditionalTargeting = "PrivilegedAccess.ConditionalTargeting";
         public const string ConditionalWmi = "PrivilegedAccess.ConditionalWmi";
+        public const string DomainGroupEnforced = "PrivilegedAccess.DomainGroupEnforced";
     }
 
     /// <summary>

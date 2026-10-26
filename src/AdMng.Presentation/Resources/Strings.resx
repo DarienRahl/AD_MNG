@@ -8611,6 +8611,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PrivilegedAccess.ConditionalWmi" xml:space="preserve">
     <value>Conditional: the GPO has a WMI filter - only the computers where the query is true get it.</value>
   </data>
+  <data name="PrivilegedAccess.DomainGroupEnforced" xml:space="preserve">
+    <value>On the domain controllers the GPO enforces this membership of the domain group: a removal from the group is undone at the next policy refresh - change the GPO.</value>
+  </data>
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.NotSupported" xml:space="preserve">
     <value>Local rights from GPOs were not checked: the group policy files in SYSVOL of {0} can be read on Windows only.</value>
   </data>

@@ -206,6 +206,44 @@ public class GroupPolicyGrantSourceTests
     }
 
     [Fact]
+    public async Task RestrictedGroups_OnAPrivilegedDomainGroup_AreReportedForTheDomainControllers()
+    {
+        var builder = new FakeDirectoryBuilder();
+        var company = builder.AddSampleCompany();
+        var sysvol = new FakeSysvolFileReader();
+        var domainAdmins = builder.SidOf(builder.DomainAdminsDn);
+
+        // A GPO on OU=Domain Controllers keeps Małgorzata in Domain Admins (MemberOf by SID) and sets its members by name;
+        // the same kind of line on OU=Komputery changes nothing (member computers cannot set domain groups).
+        var dcPolicy = builder.AddGroupPolicyObject("Kontrolery – Utrzymanie członkostwa");
+        sysvol.PutSecurityTemplate(dcPolicy, FakeDirectoryBuilder.Template(
+            "[Group Membership]",
+            $"*{builder.SidOf(company.MalgorzataWojcik)}__Memberof = *{domainAdmins}",
+            $"*{builder.SidOf(company.MalgorzataWojcik)}__Members =",
+            $@"CONTOSO\Domain Admins__Members = *{builder.SidOf(company.PawelLewandowski)}"));
+        var workstations = builder.AddGroupPolicyObject("Stacje – Administratorzy domeny");
+        sysvol.PutSecurityTemplate(workstations, FakeDirectoryBuilder.Template(
+            "[Group Membership]",
+            $"*{builder.SidOf(company.BartlomiejKozlowski)}__Memberof = *{domainAdmins}"));
+        builder.SetGroupPolicyLinks(builder.DomainControllersDn, [(dcPolicy, 0)]);
+        builder.SetGroupPolicyLinks(company.ComputersOu, [(workstations, 0)]);
+
+        var (results, scanner) = await ScanAsync(builder, sysvol);
+
+        Assert.Empty(scanner.Notices);
+        var malgorzata = Assert.Single(LocalRights(results, company.MalgorzataWojcik));
+        Assert.Equal(
+            (LocalRightKind.DomainGroup, "DomainAdmins", domainAdmins, LocalRightMechanism.RestrictedGroupMemberOf, PrivilegeLevel.Tier0),
+            (malgorzata.GroupPolicy!.Definition.Kind, malgorzata.GroupPolicy.Definition.Id, malgorzata.GroupPolicy.Right, malgorzata.GroupPolicy.Mechanism, malgorzata.Level));
+        Assert.Equal((1, 0, 0), (malgorzata.GroupPolicy.DomainControllers, malgorzata.GroupPolicy.Servers, malgorzata.GroupPolicy.Workstations));
+        Assert.Equal(builder.DomainControllersDn, malgorzata.ScopeDn);
+        var pawel = Assert.Single(LocalRights(results, company.PawelLewandowski));
+        Assert.Equal(("DomainAdmins", LocalRightMechanism.RestrictedGroupMembers, PrivilegeLevel.Tier0),
+            (pawel.GroupPolicy!.Definition.Id, pawel.GroupPolicy.Mechanism, pawel.Level));
+        Assert.Empty(LocalRights(results, company.BartlomiejKozlowski));
+    }
+
+    [Fact]
     public async Task NoGpoReachesAComputer_NothingIsReadFromSysvol()
     {
         var builder = new FakeDirectoryBuilder();

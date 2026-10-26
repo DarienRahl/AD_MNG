@@ -34,7 +34,9 @@ public sealed record GroupPolicyDomainNames(string DnsName, string? NetBiosName)
 /// left out).</item>
 /// <item>User Rights Assignment and Restricted Groups follow the security engine: per right, per restricted group (Members)
 /// and per member (MemberOf) the highest-precedence GPO wins; the effective members of a local group are the Members list
-/// plus every MemberOf entry naming it.</item>
+/// plus every MemberOf entry naming it. On the DCs the "local" groups are the domain's groups: a line about a privileged
+/// domain group of the catalogue (<c>Domain Admins__Members</c>, <c>X__Memberof = Domain Admins</c>) is reported there, at
+/// the group's level - the GPO undoes a removal of the membership at every refresh.</item>
 /// <item>GPP local groups are applied item by item in that order: ADD/REMOVE, "delete all member users/groups", Replace and
 /// Delete remove what earlier items added. Items with item-level targeting are kept but marked conditional, next to (never
 /// instead of) an unconditional add of the same member; their removals are not applied (they may not match). Restricted
@@ -105,7 +107,7 @@ public sealed class GroupPolicyRightsResolver
             {
                 principals.AddRange(template.PrivilegeRights.SelectMany(r => r.Principals));
                 principals.AddRange(template.GroupMembership.SelectMany(g => g.Principals));
-                principals.AddRange(template.GroupMembership.Where(g => g.Relation == RestrictedGroupRelation.MemberOf).Select(g => g.Group));
+                principals.AddRange(template.GroupMembership.Select(g => g.Group));
             }
 
             principals.AddRange(gpo.LocalGroups.SelectMany(g => g.Members).Where(m => m.Sid is null && m.Name is not null).Select(m => m.Name!));
@@ -254,10 +256,10 @@ public sealed class GroupPolicyRightsResolver
                 {
                     if (entry.Relation == RestrictedGroupRelation.Members)
                     {
-                        // Members of a local group; a domain group on the left is a domain membership, not a local right.
-                        if (LocalGroupSid(entry.Group) is { } localGroup)
+                        // Members of a local group, or of a domain group (enforced on the DCs only).
+                        if ((LocalGroupSid(entry.Group) ?? DomainAccountSid(entry.Group)) is { } group)
                         {
-                            members[localGroup] = (gpo, entry.Principals);
+                            members[group] = (gpo, entry.Principals);
                         }
                     }
                     else
@@ -332,19 +334,19 @@ public sealed class GroupPolicyRightsResolver
             }
         }
 
-        foreach (var (localGroup, (gpo, principals)) in members)
+        foreach (var (group, (gpo, principals)) in members)
         {
-            if (LocalRightsCatalog.Find(localGroup) is { Kind: LocalRightKind.LocalGroup } definition)
+            if (RestrictedGroupRight(group) is { } definition)
             {
                 AddPrincipals(result, principals, definition, LocalRightMechanism.RestrictedGroupMembers, gpo, targeted: false);
             }
         }
 
-        foreach (var (_, (gpo, principal, localGroups)) in memberOf)
+        foreach (var (_, (gpo, principal, groups)) in memberOf)
         {
-            foreach (var localGroup in localGroups)
+            foreach (var group in groups)
             {
-                if (LocalGroupSid(localGroup) is { } sid && LocalRightsCatalog.Find(sid) is { Kind: LocalRightKind.LocalGroup } definition)
+                if ((LocalGroupSid(group) ?? DomainAccountSid(group)) is { } sid && RestrictedGroupRight(sid) is { } definition)
                 {
                     AddPrincipals(result, [principal], definition, LocalRightMechanism.RestrictedGroupMemberOf, gpo, targeted: false);
                 }
@@ -368,6 +370,40 @@ public sealed class GroupPolicyRightsResolver
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// What a Restricted Groups line about <paramref name="groupSid"/> grants: a local group of the catalogue, or a privileged
+    /// group of the domain (on the DCs Restricted Groups set the domain's groups: a GPO that keeps an account in Domain
+    /// Admins undoes its removal at every refresh); null for anything else.
+    /// </summary>
+    private LocalRightDefinition? RestrictedGroupRight(string groupSid)
+    {
+        if (LocalRightsCatalog.Find(groupSid) is { Kind: LocalRightKind.LocalGroup } local)
+        {
+            return local;
+        }
+
+        if (!groupSid.StartsWith("S-1-5-21-", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return PrivilegedGroupCatalog.Match(groupSid, _groups.FindBySid(groupSid)?.SamAccountName, _options.DomainSid, _options.RootDomainSid) is { BuiltinSid: null } group
+            ? LocalRightsCatalog.DomainGroup(group, groupSid)
+            : null;
+    }
+
+    /// <summary>The SID of a name of this domain the directory resolved (not reported when unknown: it may be a local name).</summary>
+    private string? DomainAccountSid(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var text = SecurityTemplate.Principal(name);
+        return !SecurityTemplate.IsSid(text) && AccountName(text, _domain) is { } account && _sidsByName.TryGetValue(account, out var sid) ? sid : null;
     }
 
     private void AddPrincipals(List<RawGrant> result, IEnumerable<string> principals, LocalRightDefinition definition, LocalRightMechanism mechanism,

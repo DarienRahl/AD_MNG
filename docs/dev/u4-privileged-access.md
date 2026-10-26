@@ -181,8 +181,13 @@ The comparison runs after the stream over all accounts of the scope (also those 
   all member users / groups (users vs groups by the group graph), Replace and Delete clear what earlier items added;
   items with item-level targeting are kept but conditional - next to, never instead of, an unconditional add of the
   same member (that one keeps its GPO and its computers) - and their removals are not applied. Restricted Groups and
-  GPP are evaluated independently (both reported; the CSE order between them is not modelled). A domain group on the
-  left of a Members line is a domain membership (in the graph already), not a local right.
+  GPP are evaluated independently (both reported; the CSE order between them is not modelled). On the DCs the "local"
+  groups are the domain's groups: a Members line of a privileged domain group of the catalogue (Domain Admins, Group
+  Policy Creator Owners …) and a MemberOf line naming one are reported for the DCs the GPO reaches, at the group's
+  level, kind `LocalRightKind.DomainGroup` (the tab: the group's catalogue name and description and "the GPO enforces
+  this membership: a removal is undone at the next refresh"), so that a *Usuń z grupy…* the DCs revert is explained
+  (added after the review); on member computers such lines change nothing. Other domain groups on the left of a
+  Members line are a domain membership (in the graph already), not a local right.
 * **Principals.** SIDs of the domain; Everyone and Authenticated Users (by SID or by English/Polish name) and Users
   (545, through the graph) - the evaluator now gives grants on Everyone / Authenticated Users to every account even
   when no group of the domain nests them; names `DOMAIN\x`, `x@dns`, `x` of this domain through their SIDs; local groups
