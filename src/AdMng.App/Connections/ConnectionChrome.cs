@@ -149,7 +149,8 @@ public static class ConnectionChrome
             return;
         }
 
-        if (BindingOperations.GetBindingBase(window, Window.TitleProperty) is null)
+        if (BindingOperations.GetBindingBase(window, Window.TitleProperty) is null
+            && !(window.Title ?? string.Empty).EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
         {
             window.Title += suffix;
         }
@@ -185,13 +186,17 @@ public static class ConnectionChrome
         return copy;
     }
 
-    /// <summary>Title text + suffix.</summary>
+    /// <summary>Title text + suffix (unless the title already ends with it: "Kosz Active Directory – contoso.test").</summary>
     private sealed class TitleWithSuffix : IMultiValueConverter
     {
         public static readonly TitleWithSuffix Instance = new();
 
-        public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
-            string.Concat(values.Length > 0 && values[0] is string title ? title : string.Empty, parameter as string);
+        public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
+        {
+            var title = values.Length > 0 && values[0] is string text ? text : string.Empty;
+            var suffix = parameter as string ?? string.Empty;
+            return title.EndsWith(suffix, StringComparison.OrdinalIgnoreCase) ? title : title + suffix;
+        }
 
         public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
             throw new NotSupportedException();

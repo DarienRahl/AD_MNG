@@ -229,6 +229,10 @@ public sealed class ConnectionWindowManager : IConnectionWindows, IAppErrorPrese
             .Show(NotificationSeverity.Warning, _localizer.Format(L.Connections.DialogWaiting, label));
     }
 
+    /// <summary>The services (scope) of an open connection window, or null (tests look into a window's services).</summary>
+    internal IServiceProvider? ServicesOf(Guid connectionId) =>
+        _entries.FirstOrDefault(e => e.Id == connectionId && !e.IsClosing)?.Scope.ServiceProvider;
+
     /// <summary>A new connection scope with its context and navigator (used by <see cref="OpenNewConnection"/> and tests).</summary>
     internal ConnectionWindowEntry CreateEntry()
     {

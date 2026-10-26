@@ -25,6 +25,10 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <!-- One list of the per-connection services for the Presentation and the App registration tests. -->
+    <Compile Include="..\AdMng.Presentation.Tests\Connections\ConnectionLifetimes.cs" Link="Infrastructure\ConnectionLifetimes.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- The XAML sources, for checks of the localization keys they use. -->
     <AssemblyMetadata Include="AdMng.AppSourceDirectory" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\src\AdMng.App'))" />
   </ItemGroup>

@@ -320,7 +320,9 @@ public sealed class MainWindowTests
             await appearance.SetLanguageCommand.ExecuteAsync("pl");
             await UiTestSupport.WaitForIdleAsync();
             Assert.Equal("pl-PL", localizer.Culture.Name);
-            Assert.StartsWith("Użytkownicy i komputery usługi Active Directory", window.Title, StringComparison.Ordinal);
+            // The domain first (several connection windows may be open), then the account and the application.
+            Assert.StartsWith(@"contoso.test – CONTOSO\Administrator – ", window.Title, StringComparison.Ordinal);
+            Assert.EndsWith("Użytkownicy i komputery usługi Active Directory", window.Title, StringComparison.Ordinal);
         }
         finally
         {

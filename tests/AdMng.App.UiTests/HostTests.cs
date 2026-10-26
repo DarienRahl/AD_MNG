@@ -1,3 +1,5 @@
+using System.Windows;
+using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Localization;
 using AdMng.App.Services;
@@ -6,10 +8,12 @@ using AdMng.App.Views;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Tests.Connections;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.UiTests;
@@ -43,6 +47,70 @@ public sealed class HostTests
         Assert.True(windows.IsRegistered(typeof(SavedViewEditorViewModel)));
         Assert.True(windows.IsRegistered(typeof(ColumnChooserViewModel)));
         Assert.Same(services.GetRequiredService<ILocalizer>(), TranslationSource.Localizer);
+        context.AssertHealthy();
+    });
+
+    /// <summary>The App's services of one connection window (with <see cref="ConnectionLifetimes.PerConnection"/>).</summary>
+    private static readonly Type[] PerConnectionApp =
+    [
+        typeof(IWindowService),
+        typeof(DialogService),
+        typeof(IDialogService),
+        typeof(ToolWindows),
+        typeof(NotificationService),
+        typeof(INotificationService),
+        typeof(IClipboardService),
+        typeof(IFileDialogService),
+        typeof(ConnectionNavigator),
+        typeof(IUserMessageLauncher),
+    ];
+
+    [Fact]
+    public Task EveryRegistration_ResolvesInItsLifetime() => WpfTestHost.RunAsync(async () =>
+    {
+        // The host does not expose its service collection: the configure callback gets the same list object.
+        IServiceCollection? registrations = null;
+        await using var context = await UiTestContext.CreateAsync(configure: services => registrations = services);
+        var root = context.Host.Services;
+        var connection = context.CreateConnection();
+
+        foreach (var descriptor in registrations!.Where(d => !d.ServiceType.IsGenericTypeDefinition))
+        {
+            // Windows need their view model (the smoke test and the window tests create them).
+            if (typeof(Window).IsAssignableFrom(descriptor.ImplementationType ?? descriptor.ServiceType))
+            {
+                continue;
+            }
+
+            var provider = descriptor.Lifetime == ServiceLifetime.Singleton ? root : connection;
+            Assert.True(provider.GetService(descriptor.ServiceType) is not null, $"{descriptor.ServiceType.Name} ({descriptor.Lifetime}) did not resolve.");
+        }
+
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PerConnectionServices_AreScoped_AndTwoWindowsHaveTheirOwn() => WpfTestHost.RunAsync(async () =>
+    {
+        IServiceCollection? registrations = null;
+        await using var context = await UiTestContext.CreateAsync(configure: services => registrations = services);
+        var first = context.Services;
+        var second = context.CreateConnection();
+
+        foreach (var type in ConnectionLifetimes.PerConnection.Concat(PerConnectionApp))
+        {
+            // The descriptor itself: a singleton registered first would pre-empt AddAdMngPresentation's TryAddScoped.
+            var descriptor = Assert.Single(registrations!, d => d.ServiceType == type);
+            Assert.True(descriptor.Lifetime == ServiceLifetime.Scoped, $"{type.Name} is {descriptor.Lifetime}, not Scoped.");
+            Assert.NotSame(first.GetRequiredService(type), second.GetRequiredService(type));
+            Assert.Throws<InvalidOperationException>(() => context.Host.Services.GetRequiredService(type));
+        }
+
+        foreach (var type in ConnectionLifetimes.Shared.Append(typeof(ConnectionWindowManager)).Append(typeof(AppearanceService)))
+        {
+            Assert.Same(first.GetRequiredService(type), second.GetRequiredService(type));
+        }
+
         context.AssertHealthy();
     });
 
