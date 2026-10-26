@@ -112,24 +112,26 @@ public sealed class AccountReviewWindowTests
         Assert.Equal(tab.StatusText, window.StatusText.Text);
 
         // The details of an account: every finding with its path.
-        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Henryk Żuławski");
+        var henryk = tab.Items.Single(r => r.Name == "Henryk Żuławski");
+        Assert.Equal(sample.HenrykZulawski, henryk.Dn);
+        window.PrivilegesList.SelectedItem = henryk;
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(tab.Findings.Count, window.FindingsList.Items.Count);
         Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Henryk Żuławski → GG_Helpdesk → GG_Wsparcie_IT → Operatorzy kont");
         Assert.Equal("Rights of Henryk Żuławski", window.DetailsTitleText.Text);
         Assert.True(window.RemoveFromGroupButton.IsEnabled);
 
-        // A level tile off: those accounts leave the list.
+        // A level tile off: those accounts leave the list (Henryk is Tier 0 through Account Operators – the selection goes).
         tab.LevelTiles.Single(t => t.Level == Core.PrivilegedAccess.PrivilegeLevel.Tier0).IsActive = false;
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(tab.Items.Count, window.PrivilegesList.Items.Count);
         Assert.DoesNotContain(tab.Items, r => r.Level == Core.PrivilegedAccess.PrivilegeLevel.Tier0);
+        Assert.DoesNotContain(henryk, tab.Items);
 
         // The settings expander: the built-in groups with their levels.
         window.PrivilegesSettingsExpander.IsExpanded = true;
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(Core.PrivilegedAccess.PrivilegedGroupCatalog.All.Count, window.GroupLevelsList.Items.Count);
-        Assert.Equal(sample.HenrykZulawski, tab.Items.Concat([tab.SelectedItem!]).First(r => r.Name == "Henryk Żuławski").Dn);
         context.AssertHealthy();
     });
 
