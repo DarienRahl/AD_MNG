@@ -3,8 +3,8 @@
 Roadmap item U4 (README, "Ścieżka U"). A second tab of the *Przegląd kont* window lists every account that has **any**
 right beyond a plain domain user – "even minimally more than others" – with a level per finding and the path that explains
 where it comes from (konto → grupa A → grupa B → Account Operators). Four sources were chosen with the user; **U4a**
-(this change) implements sources 1 and 2, the peer comparison and the shared model, **U4b** adds ACL delegations and
-**U4c** local rights from GPOs. The same work brings the filter builder with saved filters, used by the review, the object
+implements sources 1 and 2, the peer comparison and the shared model, **U4b** adds ACL delegations (as built: section
+6.1) and **U4c** local rights from GPOs. The same work brings the filter builder with saved filters, used by the review, the object
 lists and the privilege rules.
 
 Rules of CLAUDE.md that shape the design: results only in memory (1), every filter through `LdapFilter` (3), all reads on
@@ -24,7 +24,9 @@ the window's DC (4), every action through the change plan (5), streaming and can
 | `FilterDefinition`, `FilterCompiler`, `FilterEvaluator` | Core (`Filters/`) | The filter builder's model, compilation through `LdapFilter`, server/client split, client evaluation. |
 | `PrivilegedAccessViewModel` (+ rows, formatter) | Presentation (`AccountReview/`) | The tab: run, tiles, filters, details, actions, settings. |
 | `SavedFilter`, `SavedFilterPlan`, `FilterLibrary`, `FilterEditorViewModel`, `SavedFiltersViewModel` | Presentation (`Filters/`) | Saved filters, their combined plan, the library (JSON export/import), the builder and the list window. |
-| `PrivilegedAccessSettings` | Presentation (`Settings/`) | Level overrides, marks, rules, peers, account types. |
+| `PrivilegedAccessSettings` | Presentation (`Settings/`) | Level overrides, marks, rules, peers, account types, the ACL deep scan (U4b). |
+| `DirectoryAclGrantSource`, `AclObjectTypes`, `AclRight` / `AclRights` | Core (`PrivilegedAccess/`) | U4b: the ACL delegations source, the meaning of object-type GUIDs (schema, CN=Extended-Rights), the reported rights and their value format. |
+| `SecurityDescriptorSummary`, `SecurityDescriptorAce`, `Sddl`, `DirectoryAccessMask` | Core (`Security/`) | Binary descriptor parser (moved from AdMng.Watchdog.Core, which keeps using it), the SDDL reader of `defaultSecurityDescriptor`, access mask bits and the generic mapping. |
 | `AccountReviewWindow` (tab), `FilterEditorWindow`, `SavedFiltersWindow`, chips in `ObjectListView` | App | XAML. |
 
 ## 2. Model
@@ -153,6 +155,81 @@ Both only add a source class, enum values already exist (`DirectoryAcl`, `GroupP
 passes none – U4b/U4c register theirs in DI and hand them from `DialogViewModelFactory.CreateAccountReview` through
 `AccountReviewViewModel` to the tab).
 
+### 6.1 U4b as built
+
+**Reads** (all on the session's DC, descriptors with the SD flags control OWNER | GROUP | DACL – the existing
+`DirectorySearch.ReadSecurityDescriptor`; the group SID is not used):
+
+| Read | Objects |
+|---|---|
+| base | the domain head (also `gPLink`, `wellKnownObjects`), CN=Users and CN=Computers (where `wellKnownObjects` points), `CN=AdminSDHolder,CN=System`, `CN=Policies,CN=System` |
+| subtree, paged | `(|(objectCategory=organizationalUnit)(objectCategory=builtinDomain))` – every OU (OU=Domain Controllers flagged Tier 0, its `gPLink` read) and CN=Builtin |
+| one level of CN=Policies | `(objectClass=groupPolicyContainer)` with `displayName` |
+| subtree, paged | Tier 0: the DC filter of the scanner, `objectSid` = domain-500 / domain-502, the SIDs of the graph's catalogue groups that are protected or Tier 0 |
+| schema, one level | `classSchema` of the classes read: `lDAPDisplayName`, `defaultSecurityDescriptor` |
+| configuration, one level | `CN=Extended-Rights`: `cn`, `rightsGuid`, `validAccesses` |
+| subtree, DN only | server computers (`operatingSystem=*server*`) – only when the schema has a LAPS password attribute |
+| subtree, paged | `(msDS-AllowedToActOnBehalfOfOtherIdentity=*)` – the principals of resource-based delegation |
+| subtree, paged (deep scan only) | users, computers and groups, evaluated as they come, nothing kept |
+
+On the Samba lab (400 users, 250 computers) a run with the deep scan takes about 2.5 s.
+
+**Defaults that are not reported.** (1) ACEs of the default trustees: SYSTEM, PRINCIPAL SELF, CREATOR OWNER/GROUP,
+OWNER RIGHTS, Enterprise Domain Controllers, Administrators, Domain Admins, Domain Controllers, Read-only DCs, Key Admins,
+and in the forest root Enterprise/Schema Admins, Enterprise Read-only DCs, Enterprise Key Admins (any domain while the root
+SID is unknown); the object's own SID. (2) Explicit ACEs of the class's `defaultSecurityDescriptor` (read from the schema,
+SDDL with the domain/root SID): same trustee (CREATOR OWNER there = the object's owner here, as AD puts the creator in),
+type and object types, no more rights, no wider inheritance. (3) What AD and Samba set up beyond the class defaults:
+Account and Print Operators on CN=Users and CN=Computers, Group Policy Creator Owners on CN=Policies. On the fresh Samba lab
+only its seeded helpdesk delegation (reset password on OU=Pracownicy) is left – also with the deep scan. Read rights are
+never reported (only the rights below), so Pre-Windows 2000 access, RAS servers, Cert Publishers' `userCertificate` and the
+like never show.
+
+**Inheritance.** An inherited ACE is left out when the nearest read ancestor holds an inheritable (CI) ACE of the same
+trustee and object type with at least its rights – it is reported (or left out as a default) there, once. When the source
+was not read (an ACE set on CN=System arrives at CN=Policies) it is reported at the object where it was found.
+
+**Rights → values and levels** (`AclRight`, value `Right` or `Right:detail`, the detail being the class the ACE is limited
+to, the class that may be created or the attribute; the UI shows them in its language). One grant per object and trustee
+with every right, level = the highest:
+
+| Right | Level |
+|---|---|
+| `GenericAll`, `WriteDacl`, `WriteOwner`, `Owner`, `AllExtendedRights`, `WriteAllProperties`, `ResetPassword`, `WriteMember`, `AddSelfToGroup` (Self-Membership), `WriteGpLink`, `WriteGpoProperty`, `WriteKeyCredentialLink`, `WriteAllowedToActOnBehalf` | Tier 0 on the domain head (not for inherit-only ACEs: protected accounts do not inherit), AdminSDHolder, a Tier 0 object, OU=Domain Controllers (also inherit-only) and a GPO with an enabled link on the domain head or OU=Domain Controllers; High on other containers and GPOs; on single objects (deep scan) what the object has: at least Elevated, High for a server, the catalogue level the account or group reaches (reset password on a Domain Admin is Tier 0) |
+| `ReplicationGetChangesAll` (domain head only) | Tier 0 |
+| `ReplicationGetChanges`, `ReplicationGetChangesInFilteredSet` (domain head only) | High |
+| `CreateChild`, `DeleteChild` | Elevated |
+| `ReadLapsPassword` (control access on a LAPS password attribute of the schema) | High when the container holds a server (or the object is one), else Elevated |
+| `ActOnBehalfOfOtherIdentity` (listed in the RBCD descriptor of the object) | Tier 0 towards a DC, High towards a server, else Elevated |
+
+Object types come from the session's schema (attribute and class `schemaIDGUID`, property sets by `attributeSecurityGUID`)
+and `CN=Extended-Rights` (`rightsGuid`); the fixed GUIDs of the base schema are a fallback, the LAPS attributes are only
+known from the schema. `member` write counts through the attribute or its property set (Membership), only where it reaches
+groups; `gPLink` write only on the domain head and OUs; any other written attribute of a GPO is `WriteGpoProperty`.
+
+**Model additions.** `PrivilegeGrant.ScopeName` / `PrivilegeFinding.ScopeName` (the GPO's display name); the finding's
+title names the object whose permissions hold the right ("Uprawnienie w zabezpieczeniach obiektu Firma", the domain head
+by its DNS name). `PrivilegedAccessOptions.DeepAclScan` (setting `DeepAclScan`, off by default, "Głębokie skanowanie"
+with the note that it is slower, shown only when the source is registered). The evaluator gives grants on Everyone /
+Authenticated Users to every account also when the graph has no node for them (not nested anywhere), with the implicit
+group on the path.
+
+**Deviations from the plan above, with the reasons.**
+
+* DCSync: only `DS-Replication-Get-Changes-All` is Tier 0; Get-Changes alone (and In-Filtered-Set) is High – without
+  `-All` no secrets replicate (directory sync tools hold it).
+* The Tier 0 level covers every takeover right on a Tier 0 object (reset password, member write on a protected group,
+  shadow credentials, RBCD write, `gPLink` on the domain head or the DCs' OU), not only GenericAll/WriteDacl/WriteOwner –
+  each of them is a path to Tier 0. Inherit-only ACEs on the domain head are High.
+* Owners: besides Tier 0 objects (Tier 0), owners of containers and GPOs are reported (High: the owner may change the
+  DACL); owners of ordinary users, groups and computers are not – AD makes every creator the owner (computers joined by
+  users, `ms-DS-MachineAccountQuota`), which would flood the list.
+* The deep scan reads computers too (not only users and groups): RBCD and shadow-credential delegations sit on computers;
+  the joiner's CREATOR OWNER defaults are not reported.
+* Account/Print Operators on CN=Users and CN=Computers and Group Policy Creator Owners on CN=Policies are defaults although
+  no class default holds them (the lab showed them as the only false findings otherwise).
+* The levels of RBCD principals were not specified; they follow the target (DC / server / other).
+
 ## 7. Queries and performance
 
 All on the session's DC; one window = one session (rule 4).
@@ -254,6 +331,11 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
 * `LDAP_MATCHING_RULE_IN_CHAIN` (filter builder, scope "group members") does not follow primary groups; the graph does.
 * A peer set is limited to the scope of the run (an OU scope compares within it).
 * Domain controllers are Tier 0 by their primary group and are listed; their own unconstrained delegation is not reported.
+* U4b: deny ACEs are not evaluated (an allowed right a deny cancels is still reported); objects of class `container` other
+  than CN=Users/CN=Computers (CN=Managed Service Accounts, own containers, CN=System) and the configuration partition
+  (sites, PKI) are not read – with the deep scan the ACEs they pass on show at the objects below; GPO edit is judged by
+  the ACL of the GPO object in AD, not by the SYSVOL file permissions; links of sites to GPOs do not make them Tier 0;
+  rights on Everyone / Authenticated Users give every account the finding.
 * Samba (lab) accepts every filter of the scanner and the builder (bit filters, in-chain, SID strings, negative and
   2147483648 group types) and lets the administrator set delegation flags, SPNs and adminCount.
 
@@ -269,6 +351,17 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
   link from U2, session ended; the filter editor, library (cascade delete, export/import), window, list chips and saved
   views; dynamic resource families in both languages.
 * App: UI tests (tab, windows, chips), smoke test entries, screenshot `19-privileged-access.png`.
+* U4b Core: binary descriptors built in the tests on the Polish sample (`AddAclDelegationSample`): every delegation
+  type with its level, defaults of the class (CREATOR OWNER = owner) and of the default trustees, inherited copies reported
+  once, a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
+  scanner's paths through groups, Authenticated Users not in the graph, LAPS resolved from the schema, the fixed GUIDs
+  without schema and configuration; SDDL reader and access mask.
+* U4b Presentation: the tab with the source (titles, rights in Polish, paths, scope, source filter, CSV line), the deep
+  scan setting saved and used, no source without registration, DI registration, the `AclRight` resource family; UI test of
+  the setting.
+* U4b lab (Samba): `samba-tool dsacl` delegates reset password on the users and member write on the groups of the run's OU,
+  full control of one user (deep scan only) and DCSync on the domain head to a test account (removed in `finally`); the
+  source finds them once, at their source, the members get the path, the lab's defaults stay quiet.
 * Lab (Samba): nested membership to Account Operators through two groups of the run's OU, a minor built-in group, SPN,
   unconstrained and constrained delegation with protocol transition towards the DC, orphaned adminCount, no
   pre-authentication, rules; every builder operator accepted by the server, the client check of a constructed attribute.

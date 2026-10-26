@@ -169,7 +169,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4a: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4a, U4b: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -195,7 +195,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont i U4a – uprawnienia z grup i ustawień kont z kreatorem filtrów: 🟡; U3, U4b – delegowania w ACL, U4c – uprawnienia lokalne z GPO: ⬜) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4a – uprawnienia z grup i ustawień kont z kreatorem filtrów i U4b – delegowania w ACL: 🟡; U3, U4c – uprawnienia lokalne z GPO: ⬜) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -469,14 +469,14 @@ na żywo i wiele domen.
   wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
   *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
 - 🟡 Kreator zapytań: ✅ kreator filtrów (warunki ↔ LDAP, grupy I/LUB) z zapisanymi filtrami, chipami na listach
-  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)); ⬜ zapisane zapytania jako
+  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a-i-u4b--u4c-)); ⬜ zapisane zapytania jako
   foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
   [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4a-); konta z uprawnieniami
   ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji) – zakładka
-  *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)).
+  *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-i-u4b--u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
@@ -590,7 +590,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4a: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2, U4a i U4b: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -792,7 +792,7 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Wymaga uzupełnienia [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md): kolejka wysyłek usługi przechowuje
   wtedy także wiadomości do użytkowników (retencja, ACL).
 
-#### U4 – Uprawnienia kont 🟡 (U4a: 🟡, U4b i U4c: ⬜)
+#### U4 – Uprawnienia kont 🟡 (U4a i U4b: 🟡, U4c: ⬜)
 
 **Cel:** jedna lista wszystkich kont, które mają jakiekolwiek uprawnienia ponad zwykłego użytkownika domeny – „nawet
 minimalnie więcej niż inni” – z poziomem każdego ustalenia (Tier 0 / wysoki / podwyższony / drobny), ścieżką „skąd to
@@ -800,7 +800,7 @@ ma” (konto → grupa A → grupa B → Operatorzy kont) i zakresem. Cztery źr
 ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne z GPO – U4c. Opis techniczny:
 [docs/dev/u4-privileged-access.md](docs/dev/u4-privileged-access.md).
 
-**Stan realizacji – U4a (grupy, ustawienia kont, podobne konta, kreator filtrów) gotowe; czeka na pilotaż.**
+**Stan realizacji – U4a (grupy, ustawienia kont, podobne konta, kreator filtrów) i U4b (delegowania w ACL) gotowe; czekają na pilotaż.**
 
 - ✅ Zakładka *Uprawnienia* w oknie *Przegląd kont*: ten sam zakres co U2 (domena, OU z poddrzewem, zapisany widok,
   członkowie grupy) i nowe pole *Filtr* (zapisany filtr, dla obu zakładek); *Sprawdź* (F5) uruchamia wybraną zakładkę,
@@ -847,12 +847,32 @@ ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne
 - 🟡 Do weryfikacji na Windows Server: czas dla 10 000 kont bez zamrożeń UI, domena podrzędna (Enterprise / Schema
   Admins z domeny głównej lasu), zgodność z `Get-ADGroupMember -Recursive` i raportami narzędzi audytowych.
 
-**U4b – delegowania w ACL** ⬜: kto ma na domenie, OU, kontenerach i obiektach Tier 0 (AdminSDHolder, grupy chronione,
-`krbtgt`, kontrolery domeny, obiekty GPO) prawa ponad domyślne ze schematu – pełna kontrola, WriteDacl / WriteOwner,
-DCSync (replikacja zmian katalogu), reset haseł, zmiana członkostwa grup, tworzenie i usuwanie obiektów, edycja GPO
-i `gPLink`, odczyt haseł LAPS, zapis `msDS-KeyCredentialLink` i RBCD, właściciel obiektu Tier 0; zakres = kontener,
-uprawnienia dziedziczone pokazane raz, przy kontenerze źródłowym; także podmioty wpisane w RBCD konta. Członkowie
-grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa.
+**U4b – delegowania w ACL** 🟡 (gotowe, czeka na pilotaż):
+
+- ✅ Źródło *Delegacje w AD*: deskryptory zabezpieczeń (właściciel i DACL, kontrolka SD flags) domeny, wszystkich OU,
+  `CN=Users`, `CN=Computers`, `CN=Builtin`, `CN=Policies` i każdego obiektu GPO, AdminSDHolder i obiektów Tier 0
+  (kontrolery domeny, Administrator, `krbtgt`, grupy chronione i grupy Tier 0) – kilka zapytań na przebieg, na
+  kontrolerze sesji, tylko w pamięci. Użytkownicy, grupy i komputery pojedynczo tylko z opcją *Głębokie skanowanie*
+  w ustawieniach zakładki (domyślnie wyłączona, wolniejsza).
+- ✅ Pomijane wartości domyślne: ACE z `defaultSecurityDescriptor` klasy w schemacie (*CREATOR OWNER* = właściciel
+  obiektu), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
+  i to, co AD nadaje przy instalacji (Operatorzy kont i drukowania na `CN=Users`/`CN=Computers`, Group Policy Creator
+  Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi.
+- ✅ Prawa i poziomy: pełna kontrola, WriteDacl, WriteOwner i właściciel (Tier 0 na domenie, AdminSDHolder, obiekcie
+  Tier 0 i GPO dołączonym do domeny lub OU kontrolerów, inaczej wysoki), DCSync (`DS-Replication-Get-Changes-All`,
+  Tier 0), reset hasła, zmiana członków grup, wszystkie prawa rozszerzone, zapis wszystkich właściwości, `gPLink`,
+  edycja GPO, zapis `msDS-KeyCredentialLink` i RBCD (wysoki), tworzenie i usuwanie obiektów (podwyższony), odczyt hasła
+  LAPS (wysoki dla serwerów, inaczej podwyższony); GUID-y typów obiektów rozpoznawane ze schematu i `CN=Extended-Rights`.
+  Podmioty wpisane w RBCD konta dostają „może podszywać się pod dowolnego użytkownika wobec tego konta” (Tier 0 wobec
+  kontrolera domeny, wysoki wobec serwera).
+- ✅ Członkowie grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa (konto → grupa A → grupa B), także
+  *Użytkownicy uwierzytelnieni* / *Wszyscy*; tytuł „Uprawnienie w zabezpieczeniach obiektu Firma”, prawa po polsku,
+  zakres = obiekt. Parser deskryptorów przeniesiony z Watchdoga do AdMng.Core (Watchdog korzysta z niego dalej).
+- ✅ Testy: jednostkowe na prawdziwych binarnych deskryptorach (polskie nazwy, wartości domyślne, dziedziczenie,
+  głębokie skanowanie, LAPS, SDDL), modeli widoku zakładki, test UI, test na laboratorium Samba z delegowaniem przez
+  `samba-tool dsacl` (reset hasła i członkostwo na OU testu, DCSync dla konta testowego – usuwany po teście).
+- 🟡 Do weryfikacji na Windows Server: brak fałszywych ustaleń na świeżej domenie Windows (domyślne ACL różnią się od
+  Samby), Exchange, LAPS (legacy i Windows LAPS), czas głębokiego skanowania dla 10 000 kont.
 
 **U4c – uprawnienia lokalne z GPO** ⬜: członkostwa w lokalnych grupach komputerów (Administratorzy, Użytkownicy
 pulpitu zdalnego, Operatorzy kopii zapasowych, Remote Management Users) przez *Grupy z ograniczeniami* i *Preferencje
