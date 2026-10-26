@@ -8566,9 +8566,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Filters.ChipsLabel" xml:space="preserve">
     <value>Zapisane filtry:</value>
   </data>
-  <data name="Filters.Summary" xml:space="preserve">
-    <value>Filtr</value>
-  </data>
   <data name="Filters.Operator.Equals" xml:space="preserve">
     <value>równa się</value>
   </data>
@@ -8649,5 +8646,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Filters.Issue.InvalidRawFilter" xml:space="preserve">
     <value>Filtr LDAP jest niepoprawny (nawiasy, sekwencje ucieczki).</value>
+  </data>
+  <data name="Filters.Conditions" xml:space="preserve">
+    <value>Warunki</value>
   </data>
 </root>

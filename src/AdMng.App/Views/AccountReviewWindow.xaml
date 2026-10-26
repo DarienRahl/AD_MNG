@@ -1,19 +1,22 @@
 <!--
-  Account review (AccountReviewViewModel, modeless, one window, README U2): scope, parameters and checks, one run with
-  streamed results, tiles with the number of findings per check and the list of the selected check with its own columns
-  (built by the code-behind from ViewModel.Columns). Every action goes through the change plan or the batch editor; the
-  results exist only in memory.
+  Account review (AccountReviewViewModel, modeless, one window, README U2 and U4): scope and extra filter shared by two tabs,
+  "Sprawdź" runs the selected one. "Stan kont": parameters and checks, one run with streamed results, tiles with the number
+  of findings per check and the list of the selected check with its own columns (built by the code-behind from
+  ViewModel.Columns). "Uprawnienia" (PrivilegedAccessViewModel): accounts with any right beyond a plain domain user, level
+  tiles and source filters, the findings of the selected account with their path. Every action goes through the change plan
+  or the batch editor; the results exist only in memory.
 -->
 <Window x:Class="AdMng.App.Views.AccountReviewWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ar="clr-namespace:AdMng.Presentation.AccountReview;assembly=AdMng.Presentation"
+        xmlns:pa="clr-namespace:AdMng.Core.PrivilegedAccess;assembly=AdMng.Core"
         xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
-        Width="1240"
-        Height="800"
+        Width="1280"
+        Height="840"
         MinWidth="860"
         MinHeight="560"
         WindowStartupLocation="CenterOwner">
@@ -63,6 +66,125 @@
                    Text="{Binding Name, Mode=OneWay}"
                    TextTrimming="CharacterEllipsis" />
       </DockPanel>
+    </DataTemplate>
+
+    <Style x:Key="SettingsHeader" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="0,10,0,4" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style x:Key="PrivilegeRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnPrivilegeDoubleClick" />
+    </Style>
+
+    <!-- The level as a small badge; the colour follows the level. -->
+    <Style x:Key="LevelBadge" TargetType="Border">
+      <Setter Property="Padding" Value="6,1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Tier0}">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCriticalBackgroundBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.High}">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorCautionBackgroundBrush}" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Level, Mode=OneWay}" Value="{x:Static pa:PrivilegeLevel.Elevated}">
+          <Setter Property="Background" Value="{DynamicResource SystemFillColorAttentionBackgroundBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
+    <!-- The name column of the privileged accounts: icon and name; the DN as tooltip. -->
+    <DataTemplate x:Key="PrivilegeNameCell" DataType="{x:Type ar:PrivilegedAccountRowViewModel}">
+      <DockPanel ToolTip="{Binding Dn, Mode=OneWay}">
+        <c:ObjectIconView Margin="0,0,6,0"
+                          VerticalAlignment="Center"
+                          DockPanel.Dock="Left"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="16" />
+        <TextBlock VerticalAlignment="Center"
+                   Text="{Binding [Name], Mode=OneWay}"
+                   TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="PrivilegeLevelCell" DataType="{x:Type ar:PrivilegedAccountRowViewModel}">
+      <Border Style="{StaticResource LevelBadge}">
+        <TextBlock Text="{Binding [Level], Mode=OneWay}" />
+      </Border>
+    </DataTemplate>
+
+    <!-- A level tile: the level, the number of accounts; a toggle that filters the list. -->
+    <DataTemplate x:Key="LevelTileTemplate" DataType="{x:Type ar:PrivilegeLevelTileViewModel}">
+      <ToggleButton Width="150"
+                    Height="62"
+                    Margin="0,0,6,0"
+                    Padding="0"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                    IsChecked="{Binding IsActive}"
+                    ToolTip="{Binding Hint, Mode=OneWay}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Border Margin="0,6" CornerRadius="2" Style="{StaticResource LevelBadge}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Padding="0" />
+          <StackPanel Grid.Column="1" Margin="10,4,6,4" HorizontalAlignment="Left">
+            <TextBlock FontSize="20"
+                       FontWeight="SemiBold"
+                       Text="{Binding CountText, Mode=OneWay}" />
+            <TextBlock Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Grid>
+      </ToggleButton>
+    </DataTemplate>
+
+    <!-- A finding in the details pane: level, what, where from, scope, what it gives, values, note. -->
+    <DataTemplate x:Key="FindingTemplate" DataType="{x:Type ar:PrivilegeFindingViewModel}">
+      <StackPanel Margin="0,4,0,8">
+        <DockPanel>
+          <Border Margin="0,0,8,0" DockPanel.Dock="Left" Style="{StaticResource LevelBadge}">
+            <TextBlock Text="{Binding LevelText, Mode=OneWay}" />
+          </Border>
+          <TextBlock FontWeight="SemiBold"
+                     Text="{Binding Title, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
+        <TextBlock Margin="0,2,0,0"
+                   Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding SourceText, Mode=OneWay}" />
+        <DockPanel Margin="0,4,0,0" Visibility="{Binding HasPath, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+          <TextBlock Width="70" DockPanel.Dock="Left" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PrivilegedAccess.PathLabel}" />
+          <TextBlock Text="{Binding PathText, Mode=OneWay}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DockPanel Margin="0,2,0,0">
+          <TextBlock Width="70" DockPanel.Dock="Left" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PrivilegedAccess.ScopeLabel}" />
+          <TextBlock Text="{Binding ScopeText, Mode=OneWay}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DockPanel Margin="0,2,0,0" Visibility="{Binding GrantsText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock Width="70" DockPanel.Dock="Left" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PrivilegedAccess.GrantsLabel}" />
+          <TextBlock Text="{Binding GrantsText, Mode=OneWay}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DockPanel Margin="0,2,0,0" Visibility="{Binding ValuesText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock Width="70" DockPanel.Dock="Left" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PrivilegedAccess.ValuesLabel}" />
+          <TextBlock Text="{Binding ValuesText, Mode=OneWay}" TextWrapping="Wrap" />
+        </DockPanel>
+        <DockPanel Margin="0,2,0,0" Visibility="{Binding NoteText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <TextBlock Width="70" DockPanel.Dock="Left" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr PrivilegedAccess.NoteLabel}" />
+          <TextBlock Text="{Binding NoteText, Mode=OneWay}" TextWrapping="Wrap" />
+        </DockPanel>
+      </StackPanel>
     </DataTemplate>
 
     <!-- A tile: area, number of findings, check; the accent follows the severity while there are findings. -->
@@ -141,11 +263,17 @@
           <TextBlock x:Name="StatusText"
                      AutomationProperties.LiveSetting="Polite"
                      Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding StatusText, Mode=OneWay}" />
+                     Text="{Binding FooterText, Mode=OneWay}" />
           <TextBlock x:Name="SelectionText"
                      Margin="16,0,0,0"
                      Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding SelectionText, Mode=OneWay}" />
+                     Text="{Binding SelectionText, Mode=OneWay}"
+                     Visibility="{Binding IsPrivilegesTab, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          <TextBlock x:Name="PrivilegesSelectionText"
+                     Margin="16,0,0,0"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding Privileges.SelectionText, Mode=OneWay}"
+                     Visibility="{Binding IsPrivilegesTab, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         </StackPanel>
       </DockPanel>
     </Border>
@@ -156,6 +284,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.ScopeLabel}" />
@@ -188,7 +317,17 @@
                    ToolTip="{Binding ScopeDn, Mode=OneWay}"
                    Visibility="{Binding IsViewScope, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
       </DockPanel>
-      <StackPanel Grid.Column="3" Orientation="Horizontal">
+      <!-- A saved filter on top of the scope (both tabs). -->
+      <StackPanel Grid.Column="3" Margin="0,0,12,0" Orientation="Horizontal">
+        <TextBlock Style="{StaticResource Label}" Text="{l:Tr PrivilegedAccess.ScopeFilter}" />
+        <ComboBox x:Name="ScopeFilterBox"
+                  MinWidth="170"
+                  AutomationProperties.Name="{l:Tr PrivilegedAccess.ScopeFilter}"
+                  DisplayMemberPath="Text"
+                  ItemsSource="{Binding ScopeFilters, Mode=OneWay}"
+                  SelectedItem="{Binding ScopeFilter}" />
+      </StackPanel>
+      <StackPanel Grid.Column="4" Orientation="Horizontal">
         <Button x:Name="StopButton"
                 Margin="0,0,8,0"
                 Command="{Binding StopCommand}"
@@ -201,79 +340,6 @@
                 Style="{StaticResource Ad.AccentDialogButton}" />
       </StackPanel>
     </Grid>
-
-    <!-- Parameters, checks and named check sets. -->
-    <Expander x:Name="ParametersExpander"
-              Margin="16,10,16,0"
-              DockPanel.Dock="Top"
-              Header="{l:Tr AccountReview.Parameters}"
-              IsExpanded="True">
-      <StackPanel Margin="0,8,0,0">
-        <WrapPanel>
-          <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.PasswordExpiringDays}" />
-          <TextBox x:Name="PasswordExpiringDaysBox"
-                   AutomationProperties.Name="{l:Tr AccountReview.PasswordExpiringDays}"
-                   Style="{StaticResource DaysBox}"
-                   Text="{Binding PasswordExpiringDays, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.AccountExpiringDays}" />
-          <TextBox AutomationProperties.Name="{l:Tr AccountReview.AccountExpiringDays}"
-                   Style="{StaticResource DaysBox}"
-                   Text="{Binding AccountExpiringDays, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.InactiveDays}" />
-          <TextBox AutomationProperties.Name="{l:Tr AccountReview.InactiveDays}"
-                   Style="{StaticResource DaysBox}"
-                   Text="{Binding InactiveDays, UpdateSourceTrigger=PropertyChanged}" />
-          <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.PasswordAgeDays}" />
-          <TextBox AutomationProperties.Name="{l:Tr AccountReview.PasswordAgeDays}"
-                   Style="{StaticResource DaysBox}"
-                   Text="{Binding PasswordAgeDays, UpdateSourceTrigger=PropertyChanged}" />
-        </WrapPanel>
-        <TextBlock Margin="0,10,0,4"
-                   Style="{StaticResource Ad.SecondaryText}"
-                   Text="{l:Tr AccountReview.Checks}" />
-        <ItemsControl x:Name="CheckOptionsList" Focusable="False" ItemsSource="{Binding CheckOptions, Mode=OneWay}">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-              <WrapPanel />
-            </ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate DataType="{x:Type ar:AccountCheckOptionViewModel}">
-              <CheckBox Width="236"
-                        Margin="0,0,8,0"
-                        AutomationProperties.Name="{Binding Title, Mode=OneWay}"
-                        Content="{Binding Title, Mode=OneWay}"
-                        IsChecked="{Binding IsEnabled}"
-                        ToolTip="{Binding AreaTitle, Mode=OneWay}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <DockPanel Margin="0,8,0,0">
-          <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.CheckSet}" />
-          <ComboBox x:Name="CheckSetBox"
-                    MinWidth="220"
-                    AutomationProperties.Name="{l:Tr AccountReview.CheckSet}"
-                    DisplayMemberPath="Text"
-                    ItemsSource="{Binding CheckSets, Mode=OneWay}"
-                    SelectedItem="{Binding SelectedCheckSet}" />
-          <Button Margin="6,0,0,0"
-                  Command="{Binding DeleteCheckSetCommand}"
-                  Content="{x:Static c:Glyphs.Delete}"
-                  AutomationProperties.Name="{l:Tr AccountReview.DeleteCheckSet}"
-                  Style="{StaticResource Ad.IconButton}"
-                  ToolTip="{l:Tr AccountReview.DeleteCheckSet}" />
-          <TextBox x:Name="CheckSetNameBox"
-                   MinWidth="220"
-                   Margin="18,0,6,0"
-                   AutomationProperties.Name="{l:Tr AccountReview.CheckSetName}"
-                   Text="{Binding CheckSetName, UpdateSourceTrigger=PropertyChanged}" />
-          <Button x:Name="SaveCheckSetButton"
-                  HorizontalAlignment="Left"
-                  Command="{Binding SaveCheckSetCommand}"
-                  Content="{l:Tr AccountReview.SaveCheckSet}" />
-        </DockPanel>
-      </StackPanel>
-    </Expander>
 
     <!-- Session ended (the window belongs to the previous session) or the run failed. -->
     <Border x:Name="SessionEndedBar"
@@ -294,156 +360,704 @@
                  TextWrapping="Wrap" />
     </Border>
 
-    <!-- Tiles: one per check of the run; the selected one shows its list. -->
-    <ListBox x:Name="TilesList"
-             MaxHeight="190"
-             Margin="16,10,16,0"
-             AutomationProperties.Name="{l:Tr AccountReview.Checks}"
-             DockPanel.Dock="Top"
-             ItemTemplate="{StaticResource TileTemplate}"
-             ItemsSource="{Binding Tiles, Mode=OneWay}"
-             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-             SelectedItem="{Binding SelectedTile}"
-             Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-      <ListBox.ItemsPanel>
-        <ItemsPanelTemplate>
-          <WrapPanel />
-        </ItemsPanelTemplate>
-      </ListBox.ItemsPanel>
-      <ListBox.ItemContainerStyle>
-        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
-          <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
-          <Setter Property="Margin" Value="0,0,6,6" />
-          <Setter Property="Padding" Value="0" />
-        </Style>
-      </ListBox.ItemContainerStyle>
-    </ListBox>
+    <!-- The tabs: "Stan kont" (the checks) and "Uprawnienia" (privileged access, README U4); "Sprawdź" runs the selected one. -->
+    <TabControl x:Name="Tabs"
+                Margin="16,10,16,12"
+                SelectedIndex="{Binding SelectedTabIndex}">
+      <TabItem x:Name="AccountsTab" Header="{l:Tr PrivilegedAccess.TabAccounts}">
+        <DockPanel>
+          <!-- Parameters, checks and named check sets. -->
+          <Expander x:Name="ParametersExpander"
+                    Margin="0,10,0,0"
+                    DockPanel.Dock="Top"
+                    Header="{l:Tr AccountReview.Parameters}"
+                    IsExpanded="True">
+            <StackPanel Margin="0,8,0,0">
+              <WrapPanel>
+                <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.PasswordExpiringDays}" />
+                <TextBox x:Name="PasswordExpiringDaysBox"
+                         AutomationProperties.Name="{l:Tr AccountReview.PasswordExpiringDays}"
+                         Style="{StaticResource DaysBox}"
+                         Text="{Binding PasswordExpiringDays, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.AccountExpiringDays}" />
+                <TextBox AutomationProperties.Name="{l:Tr AccountReview.AccountExpiringDays}"
+                         Style="{StaticResource DaysBox}"
+                         Text="{Binding AccountExpiringDays, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.InactiveDays}" />
+                <TextBox AutomationProperties.Name="{l:Tr AccountReview.InactiveDays}"
+                         Style="{StaticResource DaysBox}"
+                         Text="{Binding InactiveDays, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.PasswordAgeDays}" />
+                <TextBox AutomationProperties.Name="{l:Tr AccountReview.PasswordAgeDays}"
+                         Style="{StaticResource DaysBox}"
+                         Text="{Binding PasswordAgeDays, UpdateSourceTrigger=PropertyChanged}" />
+              </WrapPanel>
+              <TextBlock Margin="0,10,0,4"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr AccountReview.Checks}" />
+              <ItemsControl x:Name="CheckOptionsList" Focusable="False" ItemsSource="{Binding CheckOptions, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type ar:AccountCheckOptionViewModel}">
+                    <CheckBox Width="236"
+                              Margin="0,0,8,0"
+                              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                              Content="{Binding Title, Mode=OneWay}"
+                              IsChecked="{Binding IsEnabled}"
+                              ToolTip="{Binding AreaTitle, Mode=OneWay}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <DockPanel Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource Label}" Text="{l:Tr AccountReview.CheckSet}" />
+                <ComboBox x:Name="CheckSetBox"
+                          MinWidth="220"
+                          AutomationProperties.Name="{l:Tr AccountReview.CheckSet}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding CheckSets, Mode=OneWay}"
+                          SelectedItem="{Binding SelectedCheckSet}" />
+                <Button Margin="6,0,0,0"
+                        Command="{Binding DeleteCheckSetCommand}"
+                        Content="{x:Static c:Glyphs.Delete}"
+                        AutomationProperties.Name="{l:Tr AccountReview.DeleteCheckSet}"
+                        Style="{StaticResource Ad.IconButton}"
+                        ToolTip="{l:Tr AccountReview.DeleteCheckSet}" />
+                <TextBox x:Name="CheckSetNameBox"
+                         MinWidth="220"
+                         Margin="18,0,6,0"
+                         AutomationProperties.Name="{l:Tr AccountReview.CheckSetName}"
+                         Text="{Binding CheckSetName, UpdateSourceTrigger=PropertyChanged}" />
+                <Button x:Name="SaveCheckSetButton"
+                        HorizontalAlignment="Left"
+                        Command="{Binding SaveCheckSetCommand}"
+                        Content="{l:Tr AccountReview.SaveCheckSet}" />
+              </DockPanel>
+            </StackPanel>
+          </Expander>
 
-    <!-- The list of the selected check with its actions. -->
-    <Grid Margin="16,10,16,12">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="Auto" />
-        <RowDefinition Height="*" />
-      </Grid.RowDefinitions>
-      <WrapPanel x:Name="ActionsPanel" Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-        <Button x:Name="PropertiesButton"
-                Command="{Binding OpenCommand}"
-                Content="{l:Tr Commands.Properties}"
-                Style="{StaticResource ActionButton}" />
-        <Button x:Name="BatchEditButton"
-                Command="{Binding BatchEditCommand}"
-                Content="{l:Tr Commands.BatchEdit}"
-                Style="{StaticResource ActionButton}" />
-        <Button x:Name="ExportButton"
-                Command="{Binding ExportCsvCommand}"
-                Content="{l:Tr AccountReview.ExportCsv}"
-                Style="{StaticResource ActionButton}" />
-        <Button x:Name="UnlockButton"
-                Command="{Binding UnlockCommand}"
-                Content="{l:Tr Commands.Unlock}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowUnlock, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="RequirePasswordChangeButton"
-                Command="{Binding RequirePasswordChangeCommand}"
-                Content="{l:Tr AccountReview.RequirePasswordChange}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowRequirePasswordChange, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="ExtendButton"
-                Command="{Binding ExtendCommand}"
-                Content="{l:Tr AccountReview.Extend}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowExtend, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="DisableButton"
-                Command="{Binding DisableCommand}"
-                Content="{l:Tr Commands.Disable}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowDisable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="ExactLastLogonButton"
-                Command="{Binding ReadExactLastLogonCommand}"
-                Content="{l:Tr AccountReview.ExactLastLogon}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowExactLastLogon, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="ClearFlagButton"
-                Command="{Binding ClearFlagCommand}"
-                Content="{l:Tr AccountReview.ClearFlag}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowClearFlag, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="RemoveFromGroupsButton"
-                Command="{Binding RemoveFromGroupsCommand}"
-                Content="{l:Tr AccountReview.RemoveFromGroups}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowRemoveFromGroups, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <Button x:Name="HideFromGalButton"
-                Command="{Binding HideFromGalCommand}"
-                Content="{l:Tr AccountReview.HideFromGal}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding ShowHideFromGal, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <!-- U1: the message window with the template matching the check (hidden without a message launcher). -->
-        <Button x:Name="SendMessageButton"
-                Command="{Binding SendMessageCommand}"
-                Content="{l:Tr AccountReview.SendMessage}"
-                Style="{StaticResource ActionButton}"
-                Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      </WrapPanel>
-      <TextBlock x:Name="ListHintText"
-                 Grid.Row="1"
-                 Margin="0,0,0,6"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{Binding ListHint, Mode=OneWay}"
-                 TextWrapping="Wrap"
-                 Visibility="{Binding ListHint, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-      <ListView x:Name="ItemsList"
-                Grid.Row="2"
-                AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
-                ItemContainerStyle="{StaticResource ReviewRowStyle}"
-                ItemsSource="{Binding Items, Mode=OneWay}"
-                SelectedItem="{Binding SelectedItem}"
-                SelectionChanged="OnItemsSelectionChanged"
-                SelectionMode="Extended"
-                VirtualizingPanel.IsVirtualizing="True"
-                VirtualizingPanel.VirtualizationMode="Recycling">
-        <ListView.InputBindings>
-          <KeyBinding Key="Enter" Command="{Binding Data.OpenCommand, Source={StaticResource ReviewProxy}}" />
-        </ListView.InputBindings>
-        <ListView.ContextMenu>
-          <ContextMenu>
-            <MenuItem Command="{Binding Data.OpenCommand, Source={StaticResource ReviewProxy}}"
-                      FontWeight="SemiBold"
-                      Header="{l:Tr Commands.Properties}"
-                      InputGestureText="Enter" />
-            <MenuItem Command="{Binding Data.BatchEditCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr Commands.BatchEdit}" />
-            <MenuItem Command="{Binding Data.ExportCsvCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr AccountReview.ExportCsv}" />
-          </ContextMenu>
-        </ListView.ContextMenu>
-        <ListView.View>
-          <GridView x:Name="ItemsGrid" AllowsColumnReorder="False" />
-        </ListView.View>
-      </ListView>
-      <ProgressBar Grid.Row="2"
-                   Height="3"
-                   VerticalAlignment="Top"
-                   IsIndeterminate="True"
-                   Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="EmptyHint"
-                 Grid.Row="2"
-                 Margin="0,60,0,0"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Top"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{l:Tr AccountReview.Empty}"
-                 Visibility="{Binding IsEmpty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock x:Name="NotRunHint"
-                 Grid.Row="2"
-                 MaxWidth="520"
-                 Margin="0,60,0,0"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Top"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{l:Tr AccountReview.NotRun}"
-                 TextAlignment="Center"
-                 TextWrapping="Wrap"
-                 Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-    </Grid>
+          <!-- Tiles: one per check of the run; the selected one shows its list. -->
+          <ListBox x:Name="TilesList"
+                   MaxHeight="190"
+                   Margin="0,10,0,0"
+                   AutomationProperties.Name="{l:Tr AccountReview.Checks}"
+                   DockPanel.Dock="Top"
+                   ItemTemplate="{StaticResource TileTemplate}"
+                   ItemsSource="{Binding Tiles, Mode=OneWay}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   SelectedItem="{Binding SelectedTile}"
+                   Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <ListBox.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+                <Setter Property="Margin" Value="0,0,6,6" />
+                <Setter Property="Padding" Value="0" />
+              </Style>
+            </ListBox.ItemContainerStyle>
+          </ListBox>
+
+          <!-- The list of the selected check with its actions. -->
+          <Grid Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <WrapPanel x:Name="ActionsPanel" Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <Button x:Name="PropertiesButton"
+                      Command="{Binding OpenCommand}"
+                      Content="{l:Tr Commands.Properties}"
+                      Style="{StaticResource ActionButton}" />
+              <Button x:Name="BatchEditButton"
+                      Command="{Binding BatchEditCommand}"
+                      Content="{l:Tr Commands.BatchEdit}"
+                      Style="{StaticResource ActionButton}" />
+              <Button x:Name="ExportButton"
+                      Command="{Binding ExportCsvCommand}"
+                      Content="{l:Tr AccountReview.ExportCsv}"
+                      Style="{StaticResource ActionButton}" />
+              <Button x:Name="UnlockButton"
+                      Command="{Binding UnlockCommand}"
+                      Content="{l:Tr Commands.Unlock}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowUnlock, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="RequirePasswordChangeButton"
+                      Command="{Binding RequirePasswordChangeCommand}"
+                      Content="{l:Tr AccountReview.RequirePasswordChange}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowRequirePasswordChange, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="ExtendButton"
+                      Command="{Binding ExtendCommand}"
+                      Content="{l:Tr AccountReview.Extend}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowExtend, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="DisableButton"
+                      Command="{Binding DisableCommand}"
+                      Content="{l:Tr Commands.Disable}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowDisable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="ExactLastLogonButton"
+                      Command="{Binding ReadExactLastLogonCommand}"
+                      Content="{l:Tr AccountReview.ExactLastLogon}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowExactLastLogon, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="ClearFlagButton"
+                      Command="{Binding ClearFlagCommand}"
+                      Content="{l:Tr AccountReview.ClearFlag}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowClearFlag, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="RemoveFromGroupsButton"
+                      Command="{Binding RemoveFromGroupsCommand}"
+                      Content="{l:Tr AccountReview.RemoveFromGroups}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowRemoveFromGroups, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <Button x:Name="HideFromGalButton"
+                      Command="{Binding HideFromGalCommand}"
+                      Content="{l:Tr AccountReview.HideFromGal}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding ShowHideFromGal, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <!-- U1: the message window with the template matching the check (hidden without a message launcher). -->
+              <Button x:Name="SendMessageButton"
+                      Command="{Binding SendMessageCommand}"
+                      Content="{l:Tr AccountReview.SendMessage}"
+                      Style="{StaticResource ActionButton}"
+                      Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            </WrapPanel>
+            <DockPanel Grid.Row="1" Margin="0,0,0,6">
+              <!-- "Konta uprzywilejowane z problemem": the way to every privileged account (the Uprawnienia tab). -->
+              <Button x:Name="ShowPrivilegesButton"
+                      Margin="12,0,0,0"
+                      VerticalAlignment="Top"
+                      Command="{Binding ShowPrivilegesCommand}"
+                      Content="{Binding PrivilegesLinkText, Mode=OneWay}"
+                      DockPanel.Dock="Right"
+                      Visibility="{Binding ShowPrivilegesLink, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+              <TextBlock x:Name="ListHintText"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding ListHint, Mode=OneWay}"
+                         TextWrapping="Wrap"
+                         Visibility="{Binding ListHint, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            </DockPanel>
+            <ListView x:Name="ItemsList"
+                      Grid.Row="2"
+                      AutomationProperties.Name="{Binding WindowTitle, Mode=OneWay}"
+                      ItemContainerStyle="{StaticResource ReviewRowStyle}"
+                      ItemsSource="{Binding Items, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedItem}"
+                      SelectionChanged="OnItemsSelectionChanged"
+                      SelectionMode="Extended"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling">
+              <ListView.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding Data.OpenCommand, Source={StaticResource ReviewProxy}}" />
+              </ListView.InputBindings>
+              <ListView.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Command="{Binding Data.OpenCommand, Source={StaticResource ReviewProxy}}"
+                            FontWeight="SemiBold"
+                            Header="{l:Tr Commands.Properties}"
+                            InputGestureText="Enter" />
+                  <MenuItem Command="{Binding Data.BatchEditCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr Commands.BatchEdit}" />
+                  <MenuItem Command="{Binding Data.ExportCsvCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr AccountReview.ExportCsv}" />
+                </ContextMenu>
+              </ListView.ContextMenu>
+              <ListView.View>
+                <GridView x:Name="ItemsGrid" AllowsColumnReorder="False" />
+              </ListView.View>
+            </ListView>
+            <ProgressBar Grid.Row="2"
+                         Height="3"
+                         VerticalAlignment="Top"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock x:Name="EmptyHint"
+                       Grid.Row="2"
+                       Margin="0,60,0,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr AccountReview.Empty}"
+                       Visibility="{Binding IsEmpty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock x:Name="NotRunHint"
+                       Grid.Row="2"
+                       MaxWidth="520"
+                       Margin="0,60,0,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr AccountReview.NotRun}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <TabItem x:Name="PrivilegesTab" Header="{l:Tr PrivilegedAccess.TabPrivileges}">
+        <DockPanel x:Name="PrivilegesPanel" DataContext="{Binding Privileges, Mode=OneWay}">
+          <!-- Settings of the tab: account types, peers, levels of the built-in groups, marks and filter rules (saved at once). -->
+          <Expander x:Name="PrivilegesSettingsExpander"
+                    Margin="0,10,0,0"
+                    DockPanel.Dock="Top"
+                    Header="{l:Tr PrivilegedAccess.Settings}"
+                    IsExpanded="False">
+            <Grid Margin="0,8,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="1.4*" />
+              </Grid.ColumnDefinitions>
+
+              <StackPanel>
+                <TextBlock Margin="0,0,0,4"
+                           Style="{StaticResource SettingsHeader}"
+                           Text="{l:Tr PrivilegedAccess.AccountTypes}" />
+                <CheckBox x:Name="IncludeComputersBox"
+                          AutomationProperties.Name="{l:Tr PrivilegedAccess.IncludeComputers}"
+                          Content="{l:Tr PrivilegedAccess.IncludeComputers}"
+                          IsChecked="{Binding IncludeComputers}" />
+                <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
+                          Content="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
+                          IsChecked="{Binding IncludeServiceAccounts}" />
+                <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.Peers}" />
+                <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersByOu}"
+                          Content="{l:Tr PrivilegedAccess.PeersByOu}"
+                          IsChecked="{Binding PeersByOu}" />
+                <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersByDepartment}"
+                          Content="{l:Tr PrivilegedAccess.PeersByDepartment}"
+                          IsChecked="{Binding PeersByDepartment}" />
+                <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersByTitle}"
+                          Content="{l:Tr PrivilegedAccess.PeersByTitle}"
+                          IsChecked="{Binding PeersByTitle}" />
+                <DockPanel Margin="0,6,0,0">
+                  <TextBox Width="64"
+                           Margin="8,0,0,0"
+                           AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersMinimum}"
+                           DockPanel.Dock="Right"
+                           HorizontalContentAlignment="Right"
+                           Text="{Binding PeersMinimum}" />
+                  <TextBlock VerticalAlignment="Center"
+                             Text="{l:Tr PrivilegedAccess.PeersMinimum}"
+                             TextWrapping="Wrap" />
+                </DockPanel>
+                <DockPanel Margin="0,6,0,0">
+                  <TextBox Width="64"
+                           Margin="8,0,0,0"
+                           AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersShare}"
+                           DockPanel.Dock="Right"
+                           HorizontalContentAlignment="Right"
+                           Text="{Binding PeersShare}" />
+                  <TextBlock VerticalAlignment="Center"
+                             Text="{l:Tr PrivilegedAccess.PeersShare}"
+                             TextWrapping="Wrap" />
+                </DockPanel>
+              </StackPanel>
+
+              <DockPanel Grid.Column="2">
+                <TextBlock Margin="0,0,0,4"
+                           DockPanel.Dock="Top"
+                           Style="{StaticResource SettingsHeader}"
+                           Text="{l:Tr PrivilegedAccess.GroupLevels}" />
+                <ListBox x:Name="GroupLevelsList"
+                         MaxHeight="250"
+                         AutomationProperties.Name="{l:Tr PrivilegedAccess.GroupLevels}"
+                         HorizontalContentAlignment="Stretch"
+                         ItemsSource="{Binding GroupLevels, Mode=OneWay}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True">
+                  <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+                      <Setter Property="Padding" Value="4,2" />
+                    </Style>
+                  </ListBox.ItemContainerStyle>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate DataType="{x:Type ar:PrivilegedGroupLevelViewModel}">
+                      <DockPanel ToolTip="{Binding Description, Mode=OneWay}">
+                        <ComboBox Width="130"
+                                  Margin="8,0,0,0"
+                                  AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                                  DisplayMemberPath="Text"
+                                  DockPanel.Dock="Right"
+                                  ItemsSource="{Binding Levels, Mode=OneWay}"
+                                  SelectedItem="{Binding Level}" />
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock x:Name="GroupName" Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock FontSize="11"
+                                     Style="{StaticResource Ad.SecondaryText}"
+                                     Text="{Binding Identity, Mode=OneWay}" />
+                        </StackPanel>
+                      </DockPanel>
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsChanged, Mode=OneWay}" Value="True">
+                          <Setter TargetName="GroupName" Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </DockPanel>
+
+              <StackPanel Grid.Column="4">
+                <TextBlock Margin="0,0,0,4"
+                           Style="{StaticResource SettingsHeader}"
+                           Text="{l:Tr PrivilegedAccess.Marks}" />
+                <ItemsControl x:Name="MarksList" Focusable="False" ItemsSource="{Binding Marks, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type ar:PrivilegedMarkViewModel}">
+                      <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="120" />
+                          <ColumnDefinition Width="150" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock VerticalAlignment="Center"
+                                   Text="{Binding Name, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Dn, Mode=OneWay}" />
+                        <ComboBox Grid.Column="1"
+                                  Margin="6,0,0,0"
+                                  AutomationProperties.Name="{l:Tr PrivilegedAccess.LevelLabel}"
+                                  DisplayMemberPath="Text"
+                                  ItemsSource="{Binding Levels, Mode=OneWay}"
+                                  SelectedItem="{Binding Level}" />
+                        <TextBox Grid.Column="2"
+                                 Margin="6,0,0,0"
+                                 AutomationProperties.Name="{l:Tr PrivilegedAccess.Note}"
+                                 Text="{Binding Note}"
+                                 ToolTip="{l:Tr PrivilegedAccess.Note}" />
+                        <Button Grid.Column="3"
+                                Margin="4,0,0,0"
+                                AutomationProperties.Name="{l:Tr PrivilegedAccess.RemoveMark}"
+                                Command="{Binding Data.Privileges.RemoveMarkCommand, Source={StaticResource ReviewProxy}}"
+                                CommandParameter="{Binding Mode=OneWay}"
+                                Content="{x:Static c:Glyphs.Delete}"
+                                Style="{StaticResource Ad.IconButton}"
+                                ToolTip="{l:Tr PrivilegedAccess.RemoveMark}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <WrapPanel>
+                  <Button x:Name="MarkGroupButton"
+                          Command="{Binding MarkGroupCommand}"
+                          Content="{l:Tr PrivilegedAccess.MarkGroup}"
+                          Style="{StaticResource ActionButton}" />
+                  <Button x:Name="MarkAccountButton"
+                          Command="{Binding MarkAccountCommand}"
+                          Content="{l:Tr PrivilegedAccess.MarkAccount}"
+                          Style="{StaticResource ActionButton}" />
+                </WrapPanel>
+
+                <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.Rules}" />
+                <ItemsControl x:Name="RulesList" Focusable="False" ItemsSource="{Binding Rules, Mode=OneWay}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type ar:PrivilegedRuleViewModel}">
+                      <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="150" />
+                          <ColumnDefinition Width="110" />
+                          <ColumnDefinition Width="110" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox AutomationProperties.Name="{l:Tr PrivilegedAccess.RuleFilter}"
+                                  DisplayMemberPath="Text"
+                                  ItemsSource="{Binding Filters, Mode=OneWay}"
+                                  SelectedItem="{Binding Filter}" />
+                        <ComboBox Grid.Column="1"
+                                  Margin="6,0,0,0"
+                                  AutomationProperties.Name="{l:Tr PrivilegedAccess.RuleTarget}"
+                                  DisplayMemberPath="Text"
+                                  ItemsSource="{Binding Targets, Mode=OneWay}"
+                                  SelectedItem="{Binding Target}" />
+                        <ComboBox Grid.Column="2"
+                                  Margin="6,0,0,0"
+                                  AutomationProperties.Name="{l:Tr PrivilegedAccess.LevelLabel}"
+                                  DisplayMemberPath="Text"
+                                  ItemsSource="{Binding Levels, Mode=OneWay}"
+                                  SelectedItem="{Binding Level}" />
+                        <TextBox Grid.Column="3"
+                                 Margin="6,0,0,0"
+                                 AutomationProperties.Name="{l:Tr PrivilegedAccess.Note}"
+                                 Text="{Binding Note}"
+                                 ToolTip="{l:Tr PrivilegedAccess.Note}" />
+                        <Button Grid.Column="4"
+                                Margin="4,0,0,0"
+                                AutomationProperties.Name="{l:Tr PrivilegedAccess.RemoveRule}"
+                                Command="{Binding Data.Privileges.RemoveRuleCommand, Source={StaticResource ReviewProxy}}"
+                                CommandParameter="{Binding Mode=OneWay}"
+                                Content="{x:Static c:Glyphs.Delete}"
+                                Style="{StaticResource Ad.IconButton}"
+                                ToolTip="{l:Tr PrivilegedAccess.RemoveRule}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Margin="0,0,0,4"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr PrivilegedAccess.NoFilters}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding HasFilters, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+                <WrapPanel>
+                  <Button x:Name="AddRuleButton"
+                          Command="{Binding AddRuleCommand}"
+                          Content="{l:Tr PrivilegedAccess.AddRule}"
+                          Style="{StaticResource ActionButton}" />
+                  <Button x:Name="NewFilterButton"
+                          Command="{Binding NewFilterCommand}"
+                          Content="{l:Tr PrivilegedAccess.NewFilter}"
+                          Style="{StaticResource ActionButton}" />
+                  <Button x:Name="ManageFiltersButton"
+                          Command="{Binding ManageFiltersCommand}"
+                          Content="{l:Tr PrivilegedAccess.ManageFilters}"
+                          Style="{StaticResource ActionButton}" />
+                </WrapPanel>
+              </StackPanel>
+            </Grid>
+          </Expander>
+
+          <Border x:Name="PrivilegesErrorBar"
+                  Margin="0,10,0,0"
+                  DockPanel.Dock="Top"
+                  Style="{StaticResource Ad.ErrorBar}"
+                  Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <TextBlock AutomationProperties.LiveSetting="Assertive"
+                       Text="{Binding Error, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </Border>
+
+          <!-- Level tiles (toggles), sources and "only unusual": they filter the list. -->
+          <DockPanel x:Name="PrivilegesFilters"
+                     Margin="0,10,0,0"
+                     DockPanel.Dock="Top"
+                     Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <ItemsControl x:Name="LevelTilesList"
+                          DockPanel.Dock="Left"
+                          Focusable="False"
+                          ItemTemplate="{StaticResource LevelTileTemplate}"
+                          ItemsSource="{Binding LevelTiles, Mode=OneWay}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+              <ItemsControl x:Name="SourceOptionsList" Focusable="False" ItemsSource="{Binding SourceOptions, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type ar:PrivilegeSourceOptionViewModel}">
+                    <CheckBox Margin="0,0,12,0"
+                              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                              IsChecked="{Binding IsActive}">
+                      <TextBlock>
+                        <Run Text="{Binding Title, Mode=OneWay}" />
+                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Count, Mode=OneWay, StringFormat='({0})'}" />
+                      </TextBlock>
+                    </CheckBox>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <CheckBox x:Name="OnlyPeerOutliersBox"
+                        AutomationProperties.Name="{l:Tr PrivilegedAccess.OnlyPeerOutliers}"
+                        Content="{l:Tr PrivilegedAccess.OnlyPeerOutliers}"
+                        IsChecked="{Binding OnlyPeerOutliers}" />
+            </StackPanel>
+          </DockPanel>
+
+          <WrapPanel x:Name="PrivilegesActions"
+                     Margin="0,10,0,0"
+                     DockPanel.Dock="Top"
+                     Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Button x:Name="PrivilegesPropertiesButton"
+                    Command="{Binding OpenCommand}"
+                    Content="{l:Tr Commands.Properties}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="PrivilegesBatchEditButton"
+                    Command="{Binding BatchEditCommand}"
+                    Content="{l:Tr Commands.BatchEdit}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="PrivilegesExportButton"
+                    Command="{Binding ExportCsvCommand}"
+                    Content="{l:Tr AccountReview.ExportCsv}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="RemoveFromGroupButton"
+                    Command="{Binding RemoveFromGroupCommand}"
+                    Content="{l:Tr PrivilegedAccess.RemoveFromGroup}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="ClearAdminCountButton"
+                    Command="{Binding ClearAdminCountCommand}"
+                    Content="{l:Tr PrivilegedAccess.ClearAdminCount}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="PrivilegesDisableButton"
+                    Command="{Binding DisableCommand}"
+                    Content="{l:Tr Commands.Disable}"
+                    Style="{StaticResource ActionButton}" />
+            <Button x:Name="PrivilegesSendMessageButton"
+                    Command="{Binding SendMessageCommand}"
+                    Content="{l:Tr AccountReview.SendMessage}"
+                    Style="{StaticResource ActionButton}"
+                    Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </WrapPanel>
+
+          <!-- The accounts (left) and the findings of the selected one with their paths (right). -->
+          <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" MinWidth="360" />
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="400" MinWidth="260" />
+            </Grid.ColumnDefinitions>
+            <ListView x:Name="PrivilegesList"
+                      AutomationProperties.Name="{l:Tr PrivilegedAccess.TabPrivileges}"
+                      ItemContainerStyle="{StaticResource PrivilegeRowStyle}"
+                      ItemsSource="{Binding Items, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedItem}"
+                      SelectionChanged="OnPrivilegesSelectionChanged"
+                      SelectionMode="Extended"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling">
+              <ListView.InputBindings>
+                <KeyBinding Key="Enter" Command="{Binding Data.Privileges.OpenCommand, Source={StaticResource ReviewProxy}}" />
+              </ListView.InputBindings>
+              <ListView.ContextMenu>
+                <ContextMenu>
+                  <MenuItem Command="{Binding Data.Privileges.OpenCommand, Source={StaticResource ReviewProxy}}"
+                            FontWeight="SemiBold"
+                            Header="{l:Tr Commands.Properties}"
+                            InputGestureText="Enter" />
+                  <MenuItem Command="{Binding Data.Privileges.BatchEditCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr Commands.BatchEdit}" />
+                  <MenuItem Command="{Binding Data.Privileges.RemoveFromGroupCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr PrivilegedAccess.RemoveFromGroup}" />
+                  <MenuItem Command="{Binding Data.Privileges.ExportCsvCommand, Source={StaticResource ReviewProxy}}" Header="{l:Tr AccountReview.ExportCsv}" />
+                </ContextMenu>
+              </ListView.ContextMenu>
+              <ListView.View>
+                <GridView x:Name="PrivilegesGrid" AllowsColumnReorder="False">
+                  <GridViewColumn Width="220" CellTemplate="{StaticResource PrivilegeNameCell}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Name"
+                                          Content="{l:Tr PrivilegedAccess.Column.Name}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="140" DisplayMemberBinding="{Binding [Login], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Login"
+                                          Content="{l:Tr PrivilegedAccess.Column.Login}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="120" DisplayMemberBinding="{Binding [Type], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Type"
+                                          Content="{l:Tr PrivilegedAccess.Column.Type}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="110" CellTemplate="{StaticResource PrivilegeLevelCell}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Level"
+                                          Content="{l:Tr PrivilegedAccess.Column.Level}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="190" DisplayMemberBinding="{Binding [Sources], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Sources"
+                                          Content="{l:Tr PrivilegedAccess.Column.Sources}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="70" DisplayMemberBinding="{Binding [Findings], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Findings"
+                                          Content="{l:Tr PrivilegedAccess.Column.Findings}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="110" DisplayMemberBinding="{Binding [Peers], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Peers"
+                                          Content="{l:Tr PrivilegedAccess.Column.Peers}" />
+                  </GridViewColumn>
+                  <GridViewColumn Width="240" DisplayMemberBinding="{Binding [Location], Mode=OneWay}">
+                    <GridViewColumnHeader Command="{Binding Data.Privileges.SortCommand, Source={StaticResource ReviewProxy}}"
+                                          CommandParameter="Location"
+                                          Content="{l:Tr PrivilegedAccess.Column.Location}" />
+                  </GridViewColumn>
+                </GridView>
+              </ListView.View>
+            </ListView>
+            <ProgressBar Height="3"
+                         VerticalAlignment="Top"
+                         IsIndeterminate="True"
+                         Visibility="{Binding IsRunning, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock x:Name="PrivilegesEmptyHint"
+                       Margin="0,60,0,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr PrivilegedAccess.Empty}"
+                       Visibility="{Binding IsEmpty, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock x:Name="PrivilegesNotRunHint"
+                       MaxWidth="560"
+                       Margin="0,60,0,0"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Top"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr PrivilegedAccess.NotRun}"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          Margin="4,0"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch"
+                          Background="Transparent"
+                          ResizeBehavior="PreviousAndNext"
+                          ResizeDirection="Columns" />
+
+            <Border x:Name="DetailsPane"
+                    Grid.Column="2"
+                    Style="{StaticResource Ad.Card}"
+                    Visibility="{Binding HasRun, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <DockPanel>
+                <TextBlock x:Name="DetailsTitleText"
+                           Margin="0,0,0,6"
+                           DockPanel.Dock="Top"
+                           FontWeight="SemiBold"
+                           Text="{Binding DetailsTitle, Mode=OneWay}"
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,6,0,0"
+                           DockPanel.Dock="Bottom"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{Binding RemoveFromGroupHint, Mode=OneWay}"
+                           TextWrapping="Wrap"
+                           Visibility="{Binding RemoveFromGroupHint, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+                <ListBox x:Name="FindingsList"
+                         AutomationProperties.Name="{Binding DetailsTitle, Mode=OneWay}"
+                         BorderThickness="0"
+                         HorizontalContentAlignment="Stretch"
+                         ItemTemplate="{StaticResource FindingTemplate}"
+                         ItemsSource="{Binding Findings, Mode=OneWay}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectedItem="{Binding SelectedFinding}">
+                  <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                      <Setter Property="AutomationProperties.Name" Value="{Binding Title, Mode=OneWay}" />
+                    </Style>
+                  </ListBox.ItemContainerStyle>
+                </ListBox>
+              </DockPanel>
+            </Border>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
   </DockPanel>
 </Window>

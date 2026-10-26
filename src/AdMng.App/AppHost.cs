@@ -151,8 +151,12 @@ public static class AppHost
         // ---- AD Recycle Bin (opened through ToolWindows) ----
         services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
 
-        // ---- Account review, README U2 (opened through ToolWindows) ----
+        // ---- Account review, README U2 and U4 (opened through ToolWindows) ----
         services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
+
+        // ---- Saved filters of the filter builder, README U4 (the list through ToolWindows, the editor modal) ----
+        services.AddWindow<Presentation.Filters.SavedFiltersViewModel, SavedFiltersWindow>();
+        services.AddWindow<Presentation.Filters.FilterEditorViewModel, FilterEditorWindow>();
 
         // ---- Messages to users, README U1: direct SMTP (AdMng.Mail), the window opened by DialogService ----
         services.AddSingleton<IDirectSmtpTransportFactory>(sp => new SmtpTransportFactory(sp.GetRequiredService<TimeProvider>()));

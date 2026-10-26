@@ -255,7 +255,8 @@ internal static class SmokeTest
     // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
 
     /// <summary>
-    /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review, the message window, the
+    /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review (both tabs), the saved
+    /// filters and the filter builder, the message window, the
     /// CSV import with a parsed table and the batch editor with every operation editor. None of them needs a directory: without a session the batch
     /// editor and the Recycle Bin show "not connected", the account review cannot run.
     /// </summary>
@@ -272,8 +273,23 @@ internal static class SmokeTest
         // AD Recycle Bin, disconnected: the banner and the error say "not connected", the commands are disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateRecycleBin()));
 
-        // Account review (U2), disconnected: scope, parameters and checks; "Sprawdź" is disabled.
-        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateAccountReview()));
+        // Account review (U2), disconnected: scope, parameters and checks; "Sprawdź" is disabled. Then the "Uprawnienia" tab
+        // (U4) with its settings expanded: the built-in groups with their levels, marks and rules.
+        var review = (AccountReviewWindow)windows.CreateWindow(factory.CreateAccountReview());
+        UiTestSupport.ShowOffScreen(review);
+        review.ViewModel.SelectedTabIndex = Presentation.AccountReview.AccountReviewViewModel.PrivilegesTab;
+        review.PrivilegesSettingsExpander.IsExpanded = true;
+        review.UpdateLayout();
+
+        // Saved filters (U4) and the filter builder with a condition and a second group.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSavedFilters()));
+        var dialogServices = services.GetRequiredService<DialogServices>();
+        var editor = new Presentation.Filters.FilterEditorViewModel(
+            dialogServices.Sessions, dialogServices.Dialogs, dialogServices.Localizer, dialogServices.Errors, dialogServices.Time);
+        editor.Groups[0].Conditions[0].Attribute = Core.ActiveDirectory.Attr.Department;
+        editor.Groups[0].Conditions[0].Value = "Księgowość";
+        editor.AddGroupCommand.Execute(null);
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(editor));
 
         // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateUserMessageComposer(

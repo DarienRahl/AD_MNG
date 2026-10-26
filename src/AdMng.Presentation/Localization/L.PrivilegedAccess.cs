@@ -118,6 +118,6 @@ public static partial class L
         public const string Export = "Filters.Export";
         public const string Import = "Filters.Import";
         public const string ChipsLabel = "Filters.ChipsLabel";
-        public const string Summary = "Filters.Summary";
+        public const string Conditions = "Filters.Conditions";
     }
 }

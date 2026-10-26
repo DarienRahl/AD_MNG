@@ -130,6 +130,11 @@ public sealed class ScreenshotTests
         "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
         "Account review – the check tiles and the accounts whose password expires soon");
 
+    private static readonly ScreenshotInfo PrivilegedAccess = new(
+        "19-privileged-access.png",
+        "Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia",
+        "Account review – the Privileges tab: accounts with rights beyond a plain user, their levels and the path of a right");
+
     private static readonly ScreenshotInfo UserMessages = new(
         "18-user-messages.png",
         "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
@@ -248,6 +253,24 @@ public sealed class ScreenshotTests
         window.ItemsList.SelectedItem = window.ViewModel.Items[0];
 
         await ScreenshotWriter.SaveAsync(window, AccountReview, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot19_PrivilegedAccess() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // The sample company with privileged and unusual accounts (Polish names of the built-in groups).
+        context.Directory.AddPrivilegedAccessSample(context.Company);
+        var window = (AccountReviewWindow)Windows(context).CreateWindow(Factory(context).CreateAccountReview());
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        window.ViewModel.SelectedTabIndex = AccountReviewViewModel.PrivilegesTab;
+        await window.ViewModel.RunCommand.ExecuteAsync(null);
+        var tab = window.ViewModel.Privileges;
+        await UiWait.UntilAsync(() => !tab.IsRunning && tab.Items.Count > 0, "the privileged accounts");
+        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Henryk Żuławski");
+        await UiWait.UntilAsync(() => tab.Findings.Count > 0 && window.FindingsList.Items.Count == tab.Findings.Count, "the findings of Henryk Żuławski");
+
+        await ScreenshotWriter.SaveAsync(window, PrivilegedAccess, dark: false);
     });
 
     [Fact]

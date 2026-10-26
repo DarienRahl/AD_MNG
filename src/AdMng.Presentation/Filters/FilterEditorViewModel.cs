@@ -85,9 +85,13 @@ public sealed partial class FilterGroupViewModel : ObservableObject
 
     public ObservableCollection<FilterConditionViewModel> Conditions { get; } = [];
 
-    /// <summary>1-based number shown in the header ("Grupa 2").</summary>
+    /// <summary>1-based number of the group.</summary>
     [ObservableProperty]
     public partial int Number { get; internal set; }
+
+    /// <summary>"Grupa 2" in the UI language.</summary>
+    [ObservableProperty]
+    public partial string Header { get; internal set; } = string.Empty;
 
     public FilterConditionGroup ToGroup() => new() { Combinator = Combinator.Value, Conditions = [.. Conditions.Select(c => c.ToCondition())] };
 
@@ -395,6 +399,7 @@ public sealed partial class FilterEditorViewModel : ObservableObject
         for (var i = 0; i < Groups.Count; i++)
         {
             Groups[i].Number = i + 1;
+            Groups[i].Header = _localizer.Format(L.Filters.Group, i + 1);
         }
     }
 

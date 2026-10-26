@@ -367,6 +367,7 @@
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.recycleBin" />
         <MenuItem b:CommandMenu.Id="tools.accountReview" />
+        <MenuItem b:CommandMenu.Id="tools.savedFilters" />
         <MenuItem b:CommandMenu.Id="tools.watchdog" />
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.sessionLog" />

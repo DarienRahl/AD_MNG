@@ -8566,9 +8566,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Filters.ChipsLabel" xml:space="preserve">
     <value>Saved filters:</value>
   </data>
-  <data name="Filters.Summary" xml:space="preserve">
-    <value>Filter</value>
-  </data>
   <data name="Filters.Operator.Equals" xml:space="preserve">
     <value>equals</value>
   </data>
@@ -8649,5 +8646,8 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Filters.Issue.InvalidRawFilter" xml:space="preserve">
     <value>The LDAP filter is not valid (parentheses, escape sequences).</value>
+  </data>
+  <data name="Filters.Conditions" xml:space="preserve">
+    <value>Conditions</value>
   </data>
 </root>
