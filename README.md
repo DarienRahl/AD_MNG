@@ -49,6 +49,12 @@ podglądem zmian, raportem i cofaniem.
   w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
   karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
   konta uprzywilejowane.
+- 🪟 **Wiele połączeń jednocześnie** – *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N) otwiera kolejne okno
+  główne z własnym połączeniem: inna domena albo ta sama domena z innym kontem, każde okno z osobnym hasłem (tylko w
+  pamięci), drzewem, kartami, oknami właściwości, narzędziami, operacjami w tle i dziennikiem sesji. Okna łatwo
+  odróżnić: domena i konto na początku tytułu, kolorowy pasek i plakietka połączenia (kolor z profilu albo z nazwy
+  domeny), nagłówek „Domena: …” w każdym oknie dialogowym, a potwierdzenia operacji niszczących nazywają domenę.
+  Zamknięcie okna rozłącza tylko jego połączenie; ustawienia, profile i widoki są wspólne.
 - 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
   logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
   zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
@@ -278,6 +284,11 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   po sprawdzeniu (ta sama domena, inny DC) – błąd lub anulowanie zostawia bieżącą. Opcjonalnie zapis wybranego DC w
   profilu połączenia; zmiana trafia do dziennika sesji.
 - Profile połączeń (bez haseł), pasek tożsamości z wyróżnieniem kont uprzywilejowanych, zrozumiałe komunikaty błędów PL/EN.
+- ✅ **Wiele połączeń jednocześnie** – okno główne na połączenie (osobny zakres DI, sesja, hasło tylko w pamięci, zadania w
+  tle, dziennik sesji): *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N, paleta poleceń, plakietka połączenia),
+  przełącznik okien w plakietce i palecie („Przejdź do okna: …”), kolor okna w profilu połączenia, domena w tytule, w
+  nagłówkach okien dialogowych i w treści potwierdzeń, *Zamknij okno* / *Zakończ program*
+  ([dev/multi-window.md](docs/dev/multi-window.md)). ⬜ Porównanie obiektu z obiektem w innym połączeniu (etap 2).
 
 #### Nawigacja i listy
 - Drzewo domeny/OU ładowane leniwie, przełącznik „Funkcje zaawansowane”; kontenery dobrze znane rozpoznawane po WKGUID
@@ -475,7 +486,9 @@ na żywo i wiele domen.
   [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
-- Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
+- 🟡 Wiele domen i lasów (✅ wiele domen w osobnych oknach – [Wiele połączeń jednocześnie](#połączenie-i-sesja);
+  ⬜ jedno drzewo z kilkoma domenami, wyszukiwanie w katalogu globalnym), paleta poleceń z prefiksami, ⬜ porównanie
+  dwóch obiektów (etap 2: także między połączeniami).
 
 </details>
 
@@ -946,6 +959,20 @@ workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14
 **Pierwsze uruchomienie:** okno połączenia podpowiada domenę komputera i listę kontrolerów; wybierz bieżące konto
 Windows albo podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos
 z podpisywaniem i szyfrowaniem). Profil połączenia można zapisać – bez hasła.
+
+**Druga domena albo inne konto w tym samym czasie:** *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N; także w
+palecie poleceń Ctrl+K i w plakietce połączenia w prawym górnym rogu) otwiera okno połączenia dla nowego okna głównego.
+Wybierz profil albo wpisz domenę (np. `fabrikam.test`), konto i hasło – hasło wpisuje się w każdym oknie osobno i nie
+jest przekazywane między oknami. W polu **Kolor okna** można wybrać kolor paska i plakietki (domyślnie automatyczny z
+nazwy domeny); zapisany profil pamięta go. Każde okno pracuje tylko w swojej domenie: tytuł zaczyna się od domeny i
+konta (`fabrikam.test – FABRIKAM\anna.zielinska – …`), okna właściwości, edytor zbiorczy i inne narzędzia otwarte z
+okna mają jego pasek i nagłówek, okna dialogowe pokazują „Domena: …”, a potwierdzenia usuwania, przenoszenia, resetu
+haseł czy wysyłki wiadomości nazywają domenę w treści. Między oknami przełączasz plakietką połączenia, paletą
+(„Przejdź do okna: …”) albo paskiem zadań. *Plik → Zamknij okno* (Alt+F4) rozłącza tylko to okno (pyta o trwające
+operacje w jego domenie); program kończy się po zamknięciu ostatniego okna albo przez *Plik → Zakończ program*.
+Ustawienia, profile, zapisane widoki i język są wspólne dla wszystkich okien; przypięte i ostatnio otwierane kontenery
+każde okno pokazuje tylko ze swojej domeny. Okna dialogowe są modalne dla całego programu (blokują na chwilę także
+pozostałe okna). Szczegóły: [docs/dev/multi-window.md](docs/dev/multi-window.md).
 
 **AdMng Watchdog** (od wersji 0.3.0 – serwer Debian 12 lub 13, amd64) jest w tym samym wydaniu jako pakiety
 `admng-watchdog_<wersja>-1_amd64.deb` (jeden dla obu wersji Debiana) i `admng-openwec_…-deb12_amd64.deb` /

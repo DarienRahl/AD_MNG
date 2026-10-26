@@ -1239,3 +1239,32 @@ Added by the design review:
 * **GC test.** `ClosedScopeIsCollected` depends on JIT and timer details (2.3). If it turns out flaky on CI, it
   becomes a diagnostic (run twice, fail on two failures). It is not deleted, because it is the only guard against
   subscription leaks.
+
+## 14. Implementation notes, stage 1
+
+Stage 1 (sections 2–7, 9 and the stage-1 tests of 10) is implemented on `feature/multi-window`. Where the code
+differs from the text above:
+
+* **Window list event.** `IConnectionWindows.WindowsChanged` covers opened/closed windows **and** identity changes (the
+  manager forwards `ConnectionRegistry.ConnectionsChanged`), so the shell subscribes to that one event only.
+* **Badge.** No separate `ConnectionBadge.xaml`: the badge is a button in the main window's menu bar, and its window
+  list is built in code when it is clicked (no bindings that could fail for a closed window).
+* **Colours.** One palette for both themes, defined in Presentation (`ConnectionColors.Rgb`): mid-dark tones with white
+  badge text of at least 4.5:1, checked by a Presentation test on Linux instead of a UI test. On a dark background the
+  4 px strip has a lower contrast (about 2.1–3.0:1); the domain text next to it is the primary cue.
+* **Close bounds.** A closing window waits at most 10 s for its cancelled activities
+  (`ConnectionWindowManager.ActivityTimeout`, not `RequestTimeout + 5 s`) and 5 s for its session.
+* **Confirmations.** The account review has no destructive confirmation of its own (its actions go through the
+  coordinator or the batch editor, which name the domain); `Changes.ContinueWithValid` names the domain too.
+  `Batch.DiscardPasswords` is unchanged; when the main window closes, the dialog title (*Zamknij okno – domena*) and
+  the header name the domain.
+* **Watchdog.** The tab (`WatchdogDocumentViewModel`) follows `ServiceDomainChanged`, not `WatchdogStatusViewModel`.
+* **Message dialogs** carry `ConnectionHeader` (the finished "Domena: …" text) and `ConnectionColor`.
+* **GC test.** `AClosedConnectionScope_IsCollected` collects up to 20 times with 20 ms pauses: a pool thread may hold
+  the last work item it ran (a bind, a close) for a moment. A deliberately leaked subscription makes it fail.
+* **Smoke test.** Dialog headers in every colour and theme, but the strip and header of a child window once per theme,
+  to stay well inside the 30 s fail-safe.
+* **Tests not written.** A UI test of the refused cross-connection drop (WPF's `DragEventArgs` cannot be constructed);
+  the badge contrast UI test (replaced by the Presentation test).
+* **Not verified here.** The App and the UI tests compile on Linux only; the UI tests, the smoke test and the
+  screenshot run on Windows CI.
