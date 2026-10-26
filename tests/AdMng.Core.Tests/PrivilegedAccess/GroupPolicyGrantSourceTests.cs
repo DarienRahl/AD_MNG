@@ -233,7 +233,17 @@ public class GroupPolicyGrantSourceTests
         Assert.Equal([PrivilegeLevel.None, PrivilegeLevel.None, PrivilegeLevel.Elevated], Enum.GetValues<ComputerRole>().Select(r => LocalRightsCatalog.LevelOn(logon, r, options)));
         var accountOperators = LocalRightsCatalog.Find("S-1-5-32-548")!;
         Assert.Equal([PrivilegeLevel.None, PrivilegeLevel.None, PrivilegeLevel.Tier0], Enum.GetValues<ComputerRole>().Select(r => LocalRightsCatalog.LevelOn(accountOperators, r, options)));
+        foreach (var right in new[] { "SeCreateTokenPrivilege", "seManageVolumePrivilege", "SeRelabelPrivilege" })
+        {
+            Assert.Equal([PrivilegeLevel.High, PrivilegeLevel.High, PrivilegeLevel.Tier0],
+                Enum.GetValues<ComputerRole>().Select(r => LocalRightsCatalog.LevelOn(LocalRightsCatalog.Find(right)!, r, options)));
+        }
+
+        var credentialManager = LocalRightsCatalog.Find("SeTrustedCredManAccessPrivilege")!;
+        Assert.Equal([PrivilegeLevel.Elevated, PrivilegeLevel.Elevated, PrivilegeLevel.High],
+            Enum.GetValues<ComputerRole>().Select(r => LocalRightsCatalog.LevelOn(credentialManager, r, options)));
         Assert.Null(LocalRightsCatalog.Find("SeChangeNotifyPrivilege"));
+        Assert.Null(LocalRightsCatalog.Find("SeSecurityPrivilege"));
         Assert.Null(LocalRightsCatalog.Find("S-1-5-32-545"));
 
         Assert.Equal("S-1-5-32-544", LocalRightsCatalog.LocalGroupSid("Administratorzy (wbudowane)"));

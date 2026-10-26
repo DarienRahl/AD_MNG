@@ -8470,6 +8470,18 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.UserRightName.SeEnableDelegationPrivilege" xml:space="preserve">
     <value>Włączanie zaufania do kont komputerów i użytkowników w zakresie delegowania</value>
   </data>
+  <data name="PrivilegedAccess.UserRightName.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Tworzenie obiektu tokenu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Wykonywanie zadań konserwacji woluminów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRelabelPrivilege" xml:space="preserve">
+    <value>Modyfikowanie etykiety obiektu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Uzyskiwanie dostępu do Menedżera poświadczeń jako zaufany obiekt wywołujący</value>
+  </data>
   <data name="PrivilegedAccess.UserRightName.SeRemoteInteractiveLogonRight" xml:space="preserve">
     <value>Zezwalanie na logowanie przez Usługi pulpitu zdalnego</value>
   </data>
@@ -8550,6 +8562,18 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="PrivilegedAccess.LocalRight.SeEnableDelegationPrivilege" xml:space="preserve">
     <value>Włącza delegowanie Kerberos na kontach (droga do Tier 0).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Tworzy dowolny token dostępu (dowolne konto, dowolne grupy) – tyle co działanie jako system operacyjny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Surowy dostęp do woluminów: czyta każdy plik bez względu na uprawnienia (NTDS.dit na kontrolerze) – droga do SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRelabelPrivilege" xml:space="preserve">
+    <value>Zmienia etykietę integralności dowolnego obiektu i przejmuje go – droga do SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Odczytuje poświadczenia zapisane przez użytkowników komputera w Menedżerze poświadczeń (jego kopię zapasową).</value>
   </data>
   <data name="PrivilegedAccess.LocalRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
     <value>Logowanie na kontrolerach domeny przez Pulpit zdalny.</value>

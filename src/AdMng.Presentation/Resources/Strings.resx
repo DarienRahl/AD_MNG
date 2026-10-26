@@ -8470,6 +8470,18 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PrivilegedAccess.UserRightName.SeEnableDelegationPrivilege" xml:space="preserve">
     <value>Enable computer and user accounts to be trusted for delegation</value>
   </data>
+  <data name="PrivilegedAccess.UserRightName.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Create a token object</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Perform volume maintenance tasks</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRelabelPrivilege" xml:space="preserve">
+    <value>Modify an object label</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Access Credential Manager as a trusted caller</value>
+  </data>
   <data name="PrivilegedAccess.UserRightName.SeRemoteInteractiveLogonRight" xml:space="preserve">
     <value>Allow log on through Remote Desktop Services</value>
   </data>
@@ -8550,6 +8562,18 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="PrivilegedAccess.LocalRight.SeEnableDelegationPrivilege" xml:space="preserve">
     <value>Turns on Kerberos delegation for accounts (a path to Tier 0).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Creates any access token (any account, any groups) - as much as acting as the operating system.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Raw access to the volumes: reads any file regardless of its permissions (NTDS.dit on a DC) - a path to SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRelabelPrivilege" xml:space="preserve">
+    <value>Changes the integrity label of any object and takes it over - a path to SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Reads the credentials users of the computer saved in Credential Manager (its backup).</value>
   </data>
   <data name="PrivilegedAccess.LocalRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
     <value>Logs on to the domain controllers through Remote Desktop.</value>

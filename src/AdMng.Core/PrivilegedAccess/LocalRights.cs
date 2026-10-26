@@ -99,8 +99,10 @@ public sealed record LocalRightDefinition(
 /// docs/dev/u4-privileged-access.md section 6, U4c). Local groups are recognised by SID only (their names are localized);
 /// on a domain controller the "local" groups are the built-in groups of the domain, so the level there is the catalogue's
 /// (with the operator's overrides): Administrators and Backup Operators are Tier 0 through the Default Domain Controllers
-/// Policy or any GPO that reaches the DCs. The sensitive user rights are High on members and Tier 0 on DCs; interactive and
-/// Remote Desktop logon are reported only on DCs.
+/// Policy or any GPO that reaches the DCs. The sensitive user rights are High on members and Tier 0 on DCs (Access Credential
+/// Manager as a trusted caller: Elevated on members, High on DCs); interactive and Remote Desktop logon are reported only
+/// on DCs. Rights whose default holders include the domain's own groups (e.g. <c>SeSecurityPrivilege</c>, held by Exchange
+/// Servers on the DCs) are left out.
 /// </summary>
 public static class LocalRightsCatalog
 {
@@ -142,6 +144,11 @@ public static class LocalRightsCatalog
         Right("SeTcbPrivilege"),
         Right("SeAssignPrimaryTokenPrivilege"),
         Right("SeEnableDelegationPrivilege"),
+        Right("SeCreateTokenPrivilege"),
+        Right("SeManageVolumePrivilege"),
+        Right("SeRelabelPrivilege"),
+        new LocalRightDefinition("SeTrustedCredManAccessPrivilege", LocalRightKind.UserRight, "SeTrustedCredManAccessPrivilege",
+            PrivilegeLevel.Elevated, PrivilegeLevel.Elevated, PrivilegeLevel.High),
         new LocalRightDefinition("SeRemoteInteractiveLogonRight", LocalRightKind.UserRight, "SeRemoteInteractiveLogonRight",
             PrivilegeLevel.None, PrivilegeLevel.None, PrivilegeLevel.Elevated),
         new LocalRightDefinition("SeInteractiveLogonRight", LocalRightKind.UserRight, "SeInteractiveLogonRight",

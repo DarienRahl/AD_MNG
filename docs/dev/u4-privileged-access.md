@@ -194,8 +194,11 @@ The comparison runs after the stream over all accounts of the scope (also those 
   workstations, High on servers; Backup Operators High; Power Users, Remote Desktop Users, Remote Management Users,
   Hyper-V Administrators Elevated; the minor built-in groups Minor; on DCs the catalogue level of the built-in group
   with the operator's override (Administrators, Backup Operators, Account/Server/Print Operators: Tier 0). The sensitive
-  user rights of the note are High, Tier 0 on DCs; `SeInteractiveLogonRight` / `SeRemoteInteractiveLogonRight` only on
-  DCs (Elevated). A right that reaches no reported role is dropped, so a GPO linked to an OU without computers grants
+  user rights of the note are High, Tier 0 on DCs, and so are `SeCreateTokenPrivilege` (any token, as much as
+  `SeTcbPrivilege`), `SeManageVolumePrivilege` (raw volume reads, NTDS.dit on a DC) and `SeRelabelPrivilege` (takes
+  objects over), added after the review; `SeTrustedCredManAccessPrivilege` (reads saved credentials) is Elevated, High on
+  DCs; `SeInteractiveLogonRight` / `SeRemoteInteractiveLogonRight` only on DCs (Elevated). None of these has a default
+  holder among the domain's own groups; `SeSecurityPrivilege` is left out (Exchange Servers hold it on the DCs). A right that reaches no reported role is dropped, so a GPO linked to an OU without computers grants
   nothing yet.
 * **Findings.** Kind `LocalRight`, source `GroupPolicy`, scope `Computers` + the container of the link, values = the
   GPO name and the right (local group SID or user right constant), and `GroupPolicyGrantDetails` (GPO, link, link
