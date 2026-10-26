@@ -25,6 +25,7 @@ public class PrivilegedAccessLocalizationTests
         keys.AddRange(Enum.GetValues<PeerDimension>().Select(PrivilegedAccessText.PeerKey));
         keys.AddRange(Enum.GetValues<PrivilegeRuleTarget>().Select(PrivilegedAccessText.TargetKey));
         keys.AddRange(PrivilegedAccessColumns.All.Select(PrivilegedAccessText.ColumnKey));
+        keys.AddRange(Enum.GetValues<AclRight>().Select(PrivilegedAccessText.AclRightKey));
         keys.AddRange(PrivilegedGroupCatalog.All.SelectMany(g => new[] { PrivilegedAccessText.GroupKey(g.Id), PrivilegedAccessText.GroupNameKey(g.Id) }));
         keys.AddRange(Enum.GetValues<FilterOperator>().Select(FilterTexts.OperatorKey));
         keys.AddRange(Enum.GetValues<FilterCombinator>().Select(FilterTexts.CombinatorKey));

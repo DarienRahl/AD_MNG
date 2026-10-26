@@ -134,6 +134,43 @@ public sealed class AccountReviewWindowTests
     });
 
     [Fact]
+    public Task PrivilegesTab_OffersTheAclDelegations_WithTheDeepScanSetting() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddPrivilegedAccessSample(context.Company);
+        context.Directory.AddAclDelegationSample(context.Company, sample);
+        await context.ConnectAsync();
+        var window = (AccountReviewWindow)context.Services.GetRequiredService<IWindowService>()
+            .CreateWindow(context.Services.GetRequiredService<IDialogViewModelFactory>().CreateAccountReview());
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        var tab = review.Privileges;
+
+        // The ACL source is registered in the container: its setting is shown, off by default and saved when checked.
+        window.Tabs.SelectedItem = window.PrivilegesTab;
+        window.PrivilegesSettingsExpander.IsExpanded = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.HasAclSource);
+        Assert.Equal(Visibility.Visible, window.AclSettingsPanel.Visibility);
+        Assert.False(window.DeepAclScanBox.IsChecked);
+        window.DeepAclScanBox.IsChecked = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.DeepAclScan);
+
+        // A finding of a delegation in the details pane.
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Null(tab.Error);
+        Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.DirectoryAcl && o.Count > 0);
+        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Halina Źrebiec");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Uprawnienie w zabezpieczeniach obiektu Policies");
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Pełna kontrola");
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task SavedFilters_FromTheToolsMenu_AndTheFilterBuilder_Render() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync(language: "pl");

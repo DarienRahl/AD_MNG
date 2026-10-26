@@ -59,6 +59,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IChangeCoordinator, ChangeCoordinator>();
         services.TryAddSingleton<ViewLibrary>();
         services.TryAddSingleton<Filters.FilterLibrary>();
+
+        // Grant sources of the privileged access review beyond the groups and settings (README U4b: ACL delegations).
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<Core.PrivilegedAccess.IPrivilegeGrantSource, Core.PrivilegedAccess.DirectoryAclGrantSource>());
         services.TryAddSingleton<ObjectListServices>();
 
         // Pure Core engines (defaults; a host registration made before this call wins).

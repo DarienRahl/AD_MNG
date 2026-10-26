@@ -1,6 +1,7 @@
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
+using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connection;
@@ -67,6 +68,17 @@ public sealed class ServiceRegistrationTests : IDisposable
         using var first = watchdogFactory();
         using var second = watchdogFactory();
         Assert.NotSame(first, second);
+    }
+
+    [Fact]
+    public void AddAdMngPresentation_RegistersTheAclGrantSource_AndTheAccountReviewOffersIt()
+    {
+        using var provider = BuildProvider();
+
+        Assert.Contains(provider.GetServices<IPrivilegeGrantSource>(), s => s is DirectoryAclGrantSource);
+        using var review = provider.GetRequiredService<IDialogViewModelFactory>().CreateAccountReview();
+        Assert.True(review.Privileges.HasAclSource);
+        Assert.Contains(review.Privileges.SourceOptions, o => o.Source == PrivilegeSource.DirectoryAcl);
     }
 
     [Fact]

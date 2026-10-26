@@ -7876,6 +7876,75 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.IncludeServiceAccounts" xml:space="preserve">
     <value>Zarządzane konta usług (gMSA)</value>
   </data>
+  <data name="PrivilegedAccess.AclSettings" xml:space="preserve">
+    <value>Delegacje w AD (ACL)</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScan" xml:space="preserve">
+    <value>Głębokie skanowanie: także uprawnienia każdego użytkownika, grupy i komputera</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScanNote" xml:space="preserve">
+    <value>Wolniejsze: odczytuje deskryptor zabezpieczeń każdego konta i grupy. Bez niego sprawdzane są kontenery, obiekty GPO i obiekty Tier 0; uprawnienie dziedziczone z kontenera jest pokazywane przy tym kontenerze.</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.GenericAll" xml:space="preserve">
+    <value>Pełna kontrola</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteDacl" xml:space="preserve">
+    <value>Modyfikowanie uprawnień</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteOwner" xml:space="preserve">
+    <value>Przejmowanie na własność</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.Owner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AllExtendedRights" xml:space="preserve">
+    <value>Wszystkie prawa rozszerzone</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllProperties" xml:space="preserve">
+    <value>Zapis wszystkich właściwości</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesAll" xml:space="preserve">
+    <value>Replikowanie wszystkich zmian katalogu (DCSync)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChanges" xml:space="preserve">
+    <value>Replikowanie zmian katalogu</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesInFilteredSet" xml:space="preserve">
+    <value>Replikowanie zmian katalogu w filtrowanym zestawie</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ResetPassword" xml:space="preserve">
+    <value>Resetowanie hasła</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteMember" xml:space="preserve">
+    <value>Zmiana członków grup</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AddSelfToGroup" xml:space="preserve">
+    <value>Dodawanie i usuwanie siebie jako członka</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpLink" xml:space="preserve">
+    <value>Łączenie obiektów GPO (gPLink)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpoProperty" xml:space="preserve">
+    <value>Edycja obiektu GPO</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReadLapsPassword" xml:space="preserve">
+    <value>Odczyt hasła LAPS</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteKeyCredentialLink" xml:space="preserve">
+    <value>Zapis msDS-KeyCredentialLink (shadow credentials)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllowedToActOnBehalf" xml:space="preserve">
+    <value>Konfigurowanie delegowania opartego na zasobach</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ActOnBehalfOfOtherIdentity" xml:space="preserve">
+    <value>Może podszywać się pod dowolnego użytkownika wobec tego konta (delegowanie oparte na zasobach)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.CreateChild" xml:space="preserve">
+    <value>Tworzenie obiektów</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.DeleteChild" xml:space="preserve">
+    <value>Usuwanie obiektów</value>
+  </data>
   <data name="PrivilegedAccess.Peers" xml:space="preserve">
     <value>Porównanie z podobnymi kontami</value>
   </data>

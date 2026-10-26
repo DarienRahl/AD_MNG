@@ -7876,6 +7876,75 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PrivilegedAccess.IncludeServiceAccounts" xml:space="preserve">
     <value>Managed service accounts (gMSA)</value>
   </data>
+  <data name="PrivilegedAccess.AclSettings" xml:space="preserve">
+    <value>Delegations in AD (ACL)</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScan" xml:space="preserve">
+    <value>Deep scan: also the permissions of every user, group and computer</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScanNote" xml:space="preserve">
+    <value>Slower: reads the security descriptor of every account and group. Without it the containers, GPOs and Tier 0 objects are read; a right inherited from a container is shown at that container.</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.GenericAll" xml:space="preserve">
+    <value>Full control</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteDacl" xml:space="preserve">
+    <value>Modify permissions</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteOwner" xml:space="preserve">
+    <value>Take ownership</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AllExtendedRights" xml:space="preserve">
+    <value>All extended rights</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllProperties" xml:space="preserve">
+    <value>Write all properties</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesAll" xml:space="preserve">
+    <value>Replicating directory changes all (DCSync)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChanges" xml:space="preserve">
+    <value>Replicating directory changes</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesInFilteredSet" xml:space="preserve">
+    <value>Replicating directory changes in filtered set</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ResetPassword" xml:space="preserve">
+    <value>Reset password</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteMember" xml:space="preserve">
+    <value>Modify group members</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AddSelfToGroup" xml:space="preserve">
+    <value>Add/remove self as member</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpLink" xml:space="preserve">
+    <value>Link GPOs (gPLink)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpoProperty" xml:space="preserve">
+    <value>Edit the GPO</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReadLapsPassword" xml:space="preserve">
+    <value>Read the LAPS password</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteKeyCredentialLink" xml:space="preserve">
+    <value>Write msDS-KeyCredentialLink (shadow credentials)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllowedToActOnBehalf" xml:space="preserve">
+    <value>Configure resource-based delegation</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ActOnBehalfOfOtherIdentity" xml:space="preserve">
+    <value>May impersonate any user to this account (resource-based delegation)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.CreateChild" xml:space="preserve">
+    <value>Create objects</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.DeleteChild" xml:space="preserve">
+    <value>Delete objects</value>
+  </data>
   <data name="PrivilegedAccess.Peers" xml:space="preserve">
     <value>Compare with similar accounts</value>
   </data>

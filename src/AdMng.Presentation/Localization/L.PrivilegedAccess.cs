@@ -8,8 +8,8 @@ public static partial class L
     /// <c>PrivilegedAccess.LevelHint.{PrivilegeLevel}</c>, <c>PrivilegedAccess.Source.{PrivilegeSource}</c>,
     /// <c>PrivilegedAccess.Kind.{PrivilegeFindingKind}</c>, <c>PrivilegedAccess.Group.{catalogue id}</c>,
     /// <c>PrivilegedAccess.Scope.{PrivilegeScopeKind}</c>, <c>PrivilegedAccess.Type.{PrivilegedAccountType}</c>,
-    /// <c>PrivilegedAccess.Peer.{PeerDimension}</c>, <c>PrivilegedAccess.Target.{PrivilegeRuleTarget}</c> and
-    /// <c>PrivilegedAccess.Column.{column id}</c>.
+    /// <c>PrivilegedAccess.Peer.{PeerDimension}</c>, <c>PrivilegedAccess.Target.{PrivilegeRuleTarget}</c>,
+    /// <c>PrivilegedAccess.AclRight.{AclRight}</c> (U4b) and <c>PrivilegedAccess.Column.{column id}</c>.
     /// </summary>
     public static class PrivilegedAccess
     {
@@ -19,6 +19,9 @@ public static partial class L
         public const string AccountTypes = "PrivilegedAccess.AccountTypes";
         public const string IncludeComputers = "PrivilegedAccess.IncludeComputers";
         public const string IncludeServiceAccounts = "PrivilegedAccess.IncludeServiceAccounts";
+        public const string AclSettings = "PrivilegedAccess.AclSettings";
+        public const string DeepAclScan = "PrivilegedAccess.DeepAclScan";
+        public const string DeepAclScanNote = "PrivilegedAccess.DeepAclScanNote";
         public const string Peers = "PrivilegedAccess.Peers";
         public const string PeersByOu = "PrivilegedAccess.PeersByOu";
         public const string PeersByDepartment = "PrivilegedAccess.PeersByDepartment";

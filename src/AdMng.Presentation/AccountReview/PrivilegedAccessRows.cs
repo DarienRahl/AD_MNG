@@ -35,6 +35,9 @@ public static class PrivilegedAccessText
 
     public static string ColumnKey(string column) => $"PrivilegedAccess.Column.{column}";
 
+    /// <summary>The name of a right of an ACL delegation (U4b).</summary>
+    public static string AclRightKey(AclRight right) => $"PrivilegedAccess.AclRight.{right}";
+
     /// <summary>The finding kinds of the sources U4a implements (their keys are complete; U4b/U4c kinds have keys too).</summary>
     public static IReadOnlyList<PrivilegeFindingKind> Kinds { get; } = Enum.GetValues<PrivilegeFindingKind>();
 }
@@ -71,13 +74,19 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
 
     public string Type(PrivilegedAccountType type) => Localizer[PrivilegedAccessText.TypeKey(type)];
 
-    /// <summary>What the finding is: "Członek grupy Operatorzy kont", "Delegowanie nieograniczone", "Nietypowe grupy".</summary>
+    /// <summary>
+    /// What the finding is: "Członek grupy Operatorzy kont", "Delegowanie nieograniczone", "Nietypowe grupy",
+    /// "Uprawnienie w zabezpieczeniach obiektu Firma" (U4b: the object whose ACL holds the right).
+    /// </summary>
     public string Title(PrivilegeFinding finding)
     {
         ArgumentNullException.ThrowIfNull(finding);
-        var subject = finding.Kind == PrivilegeFindingKind.WellKnownAccount
-            ? finding.Values.FirstOrDefault() ?? finding.SubjectName ?? string.Empty
-            : finding.SubjectName ?? string.Empty;
+        var subject = finding.Kind switch
+        {
+            PrivilegeFindingKind.WellKnownAccount => finding.Values.FirstOrDefault() ?? finding.SubjectName ?? string.Empty,
+            PrivilegeFindingKind.AclRight => finding.ScopeName ?? ObjectName(finding.ScopeDn) ?? finding.SubjectName ?? string.Empty,
+            _ => finding.SubjectName ?? string.Empty,
+        };
         return Localizer.Format(PrivilegedAccessText.KindKey(finding.Kind), subject);
     }
 
@@ -128,7 +137,24 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
             return string.Join(", ", peer.Groups.Select(g => $"{g.Name} ({Holders(g.Holders)})"));
         }
 
-        return finding.Kind == PrivilegeFindingKind.WellKnownAccount ? string.Empty : string.Join(", ", finding.Values);
+        return finding.Kind switch
+        {
+            PrivilegeFindingKind.WellKnownAccount => string.Empty,
+            PrivilegeFindingKind.AclRight => string.Join(", ", finding.Values.Select(AclRightText)),
+            _ => string.Join(", ", finding.Values),
+        };
+    }
+
+    /// <summary>A right of an ACL delegation in the UI language: "Resetowanie hasła (user)"; other values as they are.</summary>
+    public string AclRightText(string value)
+    {
+        if (!AclRights.TryParse(value, out var right, out var detail))
+        {
+            return value;
+        }
+
+        var text = Localizer[PrivilegedAccessText.AclRightKey(right)];
+        return string.IsNullOrEmpty(detail) ? text : $"{text} ({detail})";
     }
 
     /// <summary>One line of a finding (CSV "Details"): "Tier 0: Członek grupy Operatorzy kont (Henryk → … → Operatorzy kont)".</summary>
@@ -143,6 +169,11 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
     public string Holders(int holders) => holders == 0
         ? Localizer[L.PrivilegedAccess.HoldersNone]
         : Localizer.Format(L.PrivilegedAccess.Holders, holders.ToString("N0", Localizer.Culture));
+
+    /// <summary>The RDN value of a DN; the DNS name for a domain head (DC=…).</summary>
+    private static string? ObjectName(string? dn) => Core.Ldap.DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot
+        ? string.Equals(parsed.Leaf.Type, "DC", StringComparison.OrdinalIgnoreCase) ? parsed.DnsDomain : parsed.Name
+        : null;
 
     private string PeerSet(PeerOutlierDetails peer) => peer.Dimension == PeerDimension.OrganizationalUnit
         ? AddressResolver.ToDisplayPath(peer.PeerSet)

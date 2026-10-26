@@ -629,6 +629,19 @@
                 <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
                           Content="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
                           IsChecked="{Binding IncludeServiceAccounts}" />
+                <!-- U4b: ACL delegations - the deep scan of single users, groups and computers (off by default, slower). -->
+                <StackPanel x:Name="AclSettingsPanel" Visibility="{Binding HasAclSource, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.AclSettings}" />
+                  <CheckBox x:Name="DeepAclScanBox"
+                            AutomationProperties.Name="{l:Tr PrivilegedAccess.DeepAclScan}"
+                            IsChecked="{Binding DeepAclScan}">
+                    <TextBlock Text="{l:Tr PrivilegedAccess.DeepAclScan}" TextWrapping="Wrap" />
+                  </CheckBox>
+                  <TextBlock Margin="20,2,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr PrivilegedAccess.DeepAclScanNote}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
                 <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.Peers}" />
                 <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersByOu}"
                           Content="{l:Tr PrivilegedAccess.PeersByOu}"
