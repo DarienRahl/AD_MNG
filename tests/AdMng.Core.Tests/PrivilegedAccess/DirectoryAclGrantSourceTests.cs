@@ -160,6 +160,33 @@ public class DirectoryAclGrantSourceTests
     }
 
     [Fact]
+    public async Task InheritOnlyAces_OnTheDomainHead_AreTier0_OnlyWhenTheyReachTheDomainControllers()
+    {
+        var builder = new FakeDirectoryBuilder();
+        var company = builder.AddSampleCompany();
+        var privileged = builder.AddPrivilegedAccessSample(company);
+        builder.AddAclDefinitions();
+        var da = $"{builder.DomainSid}-{WellKnownRids.DomainAdmins}";
+        builder.SetSecurityDescriptor(builder.DomainDn, da,
+            FakeAce.FullControl(da),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x100, builder.SidOf(privileged.Helpdesk), FakeDirectoryBuilder.AclGuids.ForceChangePassword, FakeDirectoryBuilder.AclGuids.User),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x10000000, builder.SidOf(privileged.EwaBlaszczyk), null, FakeDirectoryBuilder.AclGuids.Computer),
+            new FakeAce(FakeAce.AccessAllowed, 0x0A, 0x40000, builder.SidOf(privileged.JolantaCwik)));
+        var graph = await GroupGraph.ReadAsync(builder.Session, null, 500, Ct);
+        var options = new PrivilegedAccessOptions { DomainSid = builder.DomainSid, RootDomainSid = builder.DomainSid };
+
+        var grants = await new DirectoryAclGrantSource().CollectAsync(new PrivilegeScanContext { Session = builder.Session, Groups = graph, Options = options, Now = Now }, Ct);
+
+        // Users of Tier 0 are protected (no inheritance): reset password on every user is High. The domain controllers'
+        // computer accounts inherit: full control of every computer, or write DACL of everything below, is Tier 0.
+        Assert.Equal(PrivilegeLevel.High, grants.Single(g => g.PrincipalSid == builder.SidOf(privileged.Helpdesk)).Level);
+        var computers = grants.Single(g => g.PrincipalSid == builder.SidOf(privileged.EwaBlaszczyk));
+        Assert.Equal(PrivilegeLevel.Tier0, computers.Level);
+        Assert.Equal(["GenericAll:computer"], computers.Values);
+        Assert.Equal(PrivilegeLevel.Tier0, grants.Single(g => g.PrincipalSid == builder.SidOf(privileged.JolantaCwik)).Level);
+    }
+
+    [Fact]
     public async Task Laps_IsResolvedFromTheSchema_AndHighOnlyWhereServersAre()
     {
         var admPwd = new Guid("2d4f1a77-0b6c-4c43-9d42-6f7e8c1a9b10");

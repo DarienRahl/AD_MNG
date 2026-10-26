@@ -65,6 +65,12 @@ internal sealed class AclTarget
     /// <summary>Its children are Tier 0 too (OU=Domain Controllers, GPOs): inherit-only ACEs keep the Tier 0 level.</summary>
     public bool Tier0Subtree { get; set; }
 
+    /// <summary>
+    /// OU=Domain Controllers is below this container (the domain head): an inheritable ACE that reaches computers reaches
+    /// the domain controllers' accounts too (they are not protected by AdminSDHolder).
+    /// </summary>
+    public bool HoldsDomainControllers { get; set; }
+
     /// <summary>The level of a control right (full control, reset password, member write …) when not Tier 0.</summary>
     public PrivilegeLevel ControlLevel { get; set; } = PrivilegeLevel.High;
 
@@ -199,6 +205,14 @@ internal sealed class DirectoryAclScan
                 target.IsTier0 = true;
                 target.Tier0Subtree = true;
                 tier0Gpos.UnionWith(LinkedGpoKeys(obj.GetString(Attr.GpLink)));
+            }
+        }
+
+        if (DistinguishedName.TryParse(dcOu, out var dcOuDn))
+        {
+            foreach (var target in _index.Values.Where(t => t.Kind is AclTargetKind.DomainHead or AclTargetKind.Container))
+            {
+                target.HoldsDomainControllers = dcOuDn.IsDescendantOf(target.Parsed);
             }
         }
 
@@ -485,15 +499,18 @@ internal sealed class DirectoryAclScan
                 continue;
             }
 
+            // Inherit-only: for the children only - unless they include the domain controllers' accounts.
+            var childrenOnly = ace.IsInheritOnly && !(target.HoldsDomainControllers
+                && (ace.InheritedObjectType is not { } inherited || _types.IsClass(inherited, ObjectClasses.Computer)));
             foreach (var (right, detail) in RightsOf(ace, target))
             {
-                Add(target, ace.Sid, right, detail, LevelOf(right, target, ace.IsInheritOnly));
+                Add(target, ace.Sid, right, detail, LevelOf(right, target, childrenOnly));
             }
         }
 
         if (target.ReportOwner && target.Owner is { } owner && !IsDefaultTrustee(owner, target))
         {
-            Add(target, owner, AclRight.Owner, null, LevelOf(AclRight.Owner, target, inheritOnly: false));
+            Add(target, owner, AclRight.Owner, null, LevelOf(AclRight.Owner, target, childrenOnly: false));
         }
     }
 
@@ -621,9 +638,9 @@ internal sealed class DirectoryAclScan
     /// DCs is Tier 0, of a container or GPO High, of a single account or group what that account or group has (at least
     /// Elevated); DCSync Tier 0; create/delete child Elevated; LAPS High over servers, else Elevated.
     /// </summary>
-    private static PrivilegeLevel LevelOf(AclRight right, AclTarget target, bool inheritOnly)
+    private static PrivilegeLevel LevelOf(AclRight right, AclTarget target, bool childrenOnly)
     {
-        var tier0 = target.IsTier0 && (!inheritOnly || target.Tier0Subtree);
+        var tier0 = target.IsTier0 && (!childrenOnly || target.Tier0Subtree);
         return right switch
         {
             AclRight.ReplicationGetChangesAll => PrivilegeLevel.Tier0,

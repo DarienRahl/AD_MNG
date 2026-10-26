@@ -195,7 +195,7 @@ with every right, level = the highest:
 
 | Right | Level |
 |---|---|
-| `GenericAll`, `WriteDacl`, `WriteOwner`, `Owner`, `AllExtendedRights`, `WriteAllProperties`, `ResetPassword`, `WriteMember`, `AddSelfToGroup` (Self-Membership), `WriteGpLink`, `WriteGpoProperty`, `WriteKeyCredentialLink`, `WriteAllowedToActOnBehalf` | Tier 0 on the domain head (not for inherit-only ACEs: protected accounts do not inherit), AdminSDHolder, a Tier 0 object, OU=Domain Controllers (also inherit-only) and a GPO with an enabled link on the domain head or OU=Domain Controllers; High on other containers and GPOs; on single objects (deep scan) what the object has: at least Elevated, High for a server, the catalogue level the account or group reaches (reset password on a Domain Admin is Tier 0) |
+| `GenericAll`, `WriteDacl`, `WriteOwner`, `Owner`, `AllExtendedRights`, `WriteAllProperties`, `ResetPassword`, `WriteMember`, `AddSelfToGroup` (Self-Membership), `WriteGpLink`, `WriteGpoProperty`, `WriteKeyCredentialLink`, `WriteAllowedToActOnBehalf` | Tier 0 on the domain head (inherit-only ACEs only when they reach computers: the DCs' accounts inherit them, the protected Tier 0 users and groups do not), AdminSDHolder, a Tier 0 object, OU=Domain Controllers (also inherit-only) and a GPO with an enabled link on the domain head or OU=Domain Controllers; High on other containers and GPOs; on single objects (deep scan) what the object has: at least Elevated, High for a server, the catalogue level the account or group reaches (reset password on a Domain Admin is Tier 0) |
 | `ReplicationGetChangesAll` (domain head only) | Tier 0 |
 | `ReplicationGetChanges`, `ReplicationGetChangesInFilteredSet` (domain head only) | High |
 | `CreateChild`, `DeleteChild` | Elevated |
@@ -220,7 +220,8 @@ group on the path.
   `-All` no secrets replicate (directory sync tools hold it).
 * The Tier 0 level covers every takeover right on a Tier 0 object (reset password, member write on a protected group,
   shadow credentials, RBCD write, `gPLink` on the domain head or the DCs' OU), not only GenericAll/WriteDacl/WriteOwner –
-  each of them is a path to Tier 0. Inherit-only ACEs on the domain head are High.
+  each of them is a path to Tier 0. Inherit-only ACEs on the domain head are High unless they reach computers (the
+  domain controllers' accounts are not protected by AdminSDHolder and inherit them).
 * Owners: besides Tier 0 objects (Tier 0), owners of containers and GPOs are reported (High: the owner may change the
   DACL); owners of ordinary users, groups and computers are not – AD makes every creator the owner (computers joined by
   users, `ms-DS-MachineAccountQuota`), which would flood the list.
