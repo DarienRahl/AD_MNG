@@ -59,7 +59,7 @@ public sealed class AccountReviewWindowTests
         Assert.Single(window.ItemsList.Items);
         Assert.Equal(Visibility.Visible, window.UnlockButton.Visibility);
         Assert.Equal(Visibility.Collapsed, window.ExtendButton.Visibility);
-        Assert.Equal(Visibility.Collapsed, window.SendMessageButton.Visibility);
+        Assert.Equal(Visibility.Visible, window.SendMessageButton.Visibility);
         Assert.Contains(UiWait.Descendants<TextBlock>(window.ItemsList), t => t.Text == review.Items[0][AccountReviewColumns.Login]);
 
         // Unlock through the change plan: the list is read again and empty.

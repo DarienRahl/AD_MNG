@@ -168,7 +168,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["⬜ U · Przegląd kont<br/>i wiadomości e-mail<br/>(U2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont<br/>i wiadomości e-mail<br/>(U1a, U2: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -176,8 +176,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W wip
-    class F3,F4,F5,F6,F7,U todo
+    class F1,F2,W,U wip
+    class F3,F4,F5,F6,F7 todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -194,7 +194,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza 0.3.0 (pakiety Debian), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | ⬜ (U2 – przegląd stanu kont: 🟡) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP i U2 – przegląd stanu kont: 🟡) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -585,7 +585,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników ⬜ (U2: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a i U2: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -596,7 +596,52 @@ U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Wat
 <details>
 <summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia</summary>
 
-#### U1 – Wiadomości e-mail do użytkowników (SMTP)
+#### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
+
+**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP) gotowa; U1b (wysyłka przez usługę
+Watchdog) przed nami.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md).
+
+- ✅ Okno *Wyślij wiadomość…* z okna właściwości (karta Konto), z menu kontekstowego listy i menu Obiekt, z palety
+  poleceń (`object.sendMessage`) i z każdej listy przeglądu kont (U2) – z szablonem pasującym do sprawdzenia i jego
+  N dni; odbiorców można dopisać oknem wyboru obiektów albo usunąć. Zawsze jedna wiadomość na konto.
+- ✅ Szablony: wersje PL/EN wybierane wg `preferredLanguage` (domyślny język w ustawieniach), tekst i opcjonalny HTML,
+  pola edycji zbiorczej oraz `{$passwordExpires:…}`, `{$passwordExpiresInDays}`, `{$accountExpires:…}`,
+  `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$today:…}`, `{$manager:atrybut}`, `{$input:nazwa}` –
+  daty w języku wiadomości i strefie Europe/Warsaw (z `AccountStatus` z U2, FGPP przez
+  `msDS-UserPasswordExpiryTimeComputed`). 9 szablonów wbudowanych (hasło wygasa / wygasło, konto wygasa / wygasło,
+  zablokowane / odblokowane, musi zmienić hasło, konto zostanie wyłączone, wiadomość dowolna), warunek wysyłki z N,
+  tryb adresatów (użytkownik, przełożony, użytkownik + przełożony w DW, użytkownik albo przełożony). Biblioteka
+  szablonów w ustawieniach (zapis kopii, usuwanie, eksport i import JSON – sam tekst).
+- ✅ Potok: plan (świeży odczyt kont i przełożonych z przypiętego DC) → walidacja → podgląd każdej wiadomości (filtr,
+  wykluczanie, wiadomość testowa do siebie) → wysyłka w tle (postęp, przerwanie, limit tempa i dobowy limit odbiorców,
+  ponawianie błędów 4xx na nowym połączeniu, zatrzymanie przy błędzie uwierzytelnienia lub TLS, potwierdzenie przez
+  wpisanie liczby powyżej progu) → raport (kod SMTP i podpowiedź jak w testach kanałów Watchdoga, „Ponów nieudane”,
+  eksport CSV na żądanie, wpis w dzienniku sesji bez treści i adresów).
+- ✅ Bezpieczeństwo: brak pól z hasłem (atrybuty poufne, wszystko z `password`/`pwd`, pola `{$input:…}` nazwane jak
+  hasło), łącza tylko do domen z listy dozwolonych (oraz domeny AD i nadawcy), ograniczony HTML (bez skryptów,
+  formularzy, `on…=`, `javascript:`/`data:`), stała stopka „Nigdy nie prosimy o podanie hasła”, bez załączników, wartości
+  z AD kodowane w HTML, CR/LF usuwane z tematu i nagłówków, `Auto-Submitted: auto-generated`, UTF-8 i RFC 2047.
+- ✅ Wysyłka bezpośrednia (nowy projekt `AdMng.Mail`, MailKit): STARTTLS wymagany (domyślnie) / TLS od początku (465) /
+  STARTTLS, jeśli dostępny / bez szyfrowania (dwa ostatnie tylko po potwierdzeniu ostrzeżenia), TLS 1.2+, certyfikat
+  zaufany przez system albo przypięty SHA-256 (bez „akceptuj wszystko”), uwierzytelnianie: brak, bieżące konto Windows
+  (SASL GSSAPI, a bez niego NTLM), nazwa użytkownika i hasło (hasło tylko w pamięci do końca sesji, nigdy przez
+  niezaszyfrowane połączenie). Karta *Wiadomości e-mail* w ustawieniach: nadawca (domyślnie `noreply@<domena AD>`),
+  adres odpowiedzi, DW (helpdesk), adres testowy, język, limity, próg, dozwolone domeny, sposób wysyłki, serwer SMTP,
+  *Testuj połączenie*, *Wyślij wiadomość testową do mnie*, *Przypnij certyfikat z testu*.
+- 🟡 Wysyłka przez AdMng Watchdog (U1b): interfejs `IUserMessageTransport` i wybór transportu są gotowe (tryb
+  automatyczny wybiera Watchdoga, gdy usługa to obsługuje, a w przeciwnym razie SMTP); usługa nie ma jeszcze punktu
+  końcowego, więc dziś zawsze wysyła AD Manager.
+- ⬜ XOAUTH2 (Exchange Online) w wysyłce bezpośredniej – nie pasuje do istniejącego kodu MSAL (poufny klient usługi
+  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b).
+- ✅ Testy: jednostkowe (pola i daty z polskimi znakami w obu językach i strefie Europe/Warsaw, reguły bezpieczeństwa,
+  wstrzykiwanie nagłówków, plan i podgląd, limit tempa, ponawianie, zatrzymanie, raport CSV), modelu okna na fałszywym
+  DC z polską firmą przykładową, transportu SMTP na serwerach SMTP w procesie (STARTTLS z przypiętym certyfikatem,
+  465, odrzucenia, 535 5.7.139) i na Mailpit (polski temat i treść, odrzucenie, ponowienie 4xx, limit tempa), test UI,
+  test dymny i zrzut ekranu `18-user-messages.png`.
+- 🟡 Do weryfikacji na Windows i Exchange: uwierzytelnianie bieżącym kontem Windows (GSSAPI/NTLM) wobec Exchange
+  on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce.
+
+**Zakres (specyfikacja):**
 
 - **Skąd wysłać:**
   - **jeden użytkownik** – przycisk *Wyślij wiadomość…* w oknie właściwości (także w menu kontekstowym i palecie
@@ -683,8 +728,8 @@ U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Wat
   test UI, test dymny, zrzut ekranu `17-account-review.png` i test na laboratorium Samba (filtry wstępne przyjęte przez
   serwer, atrybuty konstruowane w wyszukiwaniu poddrzewa, blokada po 5 błędnych hasłach, wygaśnięcia, flagi,
   przełożony wyłączony, członkostwo zagnieżdżone, lista DC).
-- ⬜ Hak na U1: polecenia *Wyślij wiadomość…* (lista przeglądu i karta Konto) są ukryte, dopóki U1 nie zarejestruje
-  okna wysyłki (`IUserMessageLauncher`). ⬜ Kreator nieaktywnych kont (faza 3) – do tego czasu wyłączanie z listy lub
+- ✅ *Wyślij wiadomość…* z list przeglądu (szablon pasujący do sprawdzenia, z N dni przeglądu) i z karty Konto – okno
+  wysyłki z U1. ⬜ Kreator nieaktywnych kont (faza 3) – do tego czasu wyłączanie z listy lub
   w edytorze zbiorczym. ⬜ Liczba błędnych haseł i ostatnia nieudana próba na każdym DC (faza 5).
 - 🟡 Do weryfikacji na Windows Server: zgodność z `Get-ADUser` (`LockedOut`, `PasswordExpired`,
   `msDS-UserPasswordExpiryTimeComputed`, `AccountExpirationDate`, `LastLogonDate`) także dla kont objętych FGPP, czas
@@ -802,6 +847,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   jako zakres obejmuje konta, dla których jest grupą podstawową, ale nie członków przez zagnieżdżoną grupę podstawową.
   Samba nie zapisuje `lastLogon` przy prostym logowaniu LDAP; FGPP i „nigdy nie logowane” sprawdzono tylko testami na
   fałszywym DC (laboratorium wymagałoby PSO poza własną OU i starego `whenCreated`).
+- **Wiadomości do użytkowników (U1a)** – wysyła sam AD Manager (bezpośrednio przez SMTP); wysyłka przez usługę Watchdog
+  (kolejka, sekrety po stronie usługi, OAuth2 Exchange Online) to U1b, a XOAUTH2 w wysyłce bezpośredniej nie jest
+  obsługiwany – dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Hasło SMTP trzeba wpisać raz na
+  sesję (nie jest zapisywane). Limit tempa i dobowy limit odbiorców liczy tylko ta instancja AD Managera (w pamięci,
+  od uruchomienia) – inne komputery i skrzynka nadawcy w innych programach nie są wliczane. Pola `{$input:…}` mają jedną
+  wartość dla wszystkich odbiorców. Edytor HTML to zwykłe pole tekstowe (bez podglądu renderowanego HTML – w podglądzie
+  widać tekst i źródło HTML). Wiadomości mają stałą stopkę i nie mają załączników. Uwierzytelnianie bieżącym kontem
+  Windows sprawdzono tylko testem negocjacji mechanizmów (bez Exchange).
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.
@@ -917,6 +970,9 @@ Testy:
 ```bash
 dotnet test tests/AdMng.Core.Tests
 dotnet test tests/AdMng.Presentation.Tests
+# wiadomości do użytkowników (U1): MIME i transport SMTP na serwerach w procesie, a z Mailpit także test integracyjny
+tools/testlab/watchdog/start-mailpit.sh
+ADMNG_TEST_SMTP_HOST=127.0.0.1 ADMNG_TEST_SMTP_PORT=1025 ADMNG_TEST_MAILPIT_API=http://127.0.0.1:8025 dotnet test tests/AdMng.Mail.Tests
 # testy integracyjne na laboratorium Samba AD DC – zob. tools/testlab/README.md
 ```
 

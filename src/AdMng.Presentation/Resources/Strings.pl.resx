@@ -7153,4 +7153,628 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
     <value>{0} nie odpowiedział: {1}</value>
   </data>
+  <data name="UserMessages.WindowTitle" xml:space="preserve">
+    <value>Wyślij wiadomość do użytkowników ({0})</value>
+  </data>
+  <data name="UserMessages.Command" xml:space="preserve">
+    <value>Wyślij wiadomość...</value>
+  </data>
+  <data name="UserMessages.LanguagePolish" xml:space="preserve">
+    <value>polski</value>
+  </data>
+  <data name="UserMessages.LanguageEnglish" xml:space="preserve">
+    <value>angielski</value>
+  </data>
+  <data name="UserMessages.StopOnClose" xml:space="preserve">
+    <value>Trwa wysyłka wiadomości. Przerwać wysyłkę i zamknąć okno? Wiadomości przyjętych już przez serwer nie da się wycofać.</value>
+  </data>
+  <data name="UserMessages.RecipientsCount" xml:space="preserve">
+    <value>Odbiorcy: {0}</value>
+  </data>
+  <data name="UserMessages.SendCount" xml:space="preserve">
+    <value>Wyślij ({0})</value>
+  </data>
+  <data name="UserMessages.TemplateSaved" xml:space="preserve">
+    <value>Zapisano szablon „{0}”.</value>
+  </data>
+  <data name="UserMessages.DeleteTemplate" xml:space="preserve">
+    <value>Usuń szablon</value>
+  </data>
+  <data name="UserMessages.DeleteTemplateConfirm" xml:space="preserve">
+    <value>Usunąć szablon „{0}”?</value>
+  </data>
+  <data name="UserMessages.ExportTemplates" xml:space="preserve">
+    <value>Eksportuj szablony...</value>
+  </data>
+  <data name="UserMessages.ImportTemplates" xml:space="preserve">
+    <value>Importuj szablony...</value>
+  </data>
+  <data name="UserMessages.NoCustomTemplates" xml:space="preserve">
+    <value>Nie ma jeszcze własnych szablonów do eksportu – najpierw zapisz szablon.</value>
+  </data>
+  <data name="UserMessages.TemplatesImported" xml:space="preserve">
+    <value>Zaimportowane szablony: {0}.</value>
+  </data>
+  <data name="UserMessages.NotATemplatesFile" xml:space="preserve">
+    <value>Plik nie jest plikiem szablonów wiadomości AD Managera.</value>
+  </data>
+  <data name="UserMessages.TestAddressMissing" xml:space="preserve">
+    <value>Ustaw swój adres do wiadomości testowych w Ustawieniach → Wiadomości e-mail.</value>
+  </data>
+  <data name="UserMessages.TestSending" xml:space="preserve">
+    <value>Wysyłanie wiadomości testowej...</value>
+  </data>
+  <data name="UserMessages.TestSent" xml:space="preserve">
+    <value>Serwer przyjął wiadomość testową do {0}.</value>
+  </data>
+  <data name="UserMessages.TestFailed" xml:space="preserve">
+    <value>Nie wysłano wiadomości testowej: {0}</value>
+  </data>
+  <data name="UserMessages.Send" xml:space="preserve">
+    <value>Wysyłka wiadomości</value>
+  </data>
+  <data name="UserMessages.Confirm" xml:space="preserve">
+    <value>Wysłać wiadomości ({0}) przez {1}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
+  </data>
+  <data name="UserMessages.ConfirmTyped" xml:space="preserve">
+    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
+  </data>
+  <data name="UserMessages.Stopping" xml:space="preserve">
+    <value>Przerywanie po bieżącej wiadomości...</value>
+  </data>
+  <data name="UserMessages.ExportReport" xml:space="preserve">
+    <value>Eksportuj raport (CSV)...</value>
+  </data>
+  <data name="UserMessages.ReportFileName" xml:space="preserve">
+    <value>Raport wiadomości</value>
+  </data>
+  <data name="UserMessages.Reading" xml:space="preserve">
+    <value>Odczyt kont z kontrolera domeny...</value>
+  </data>
+  <data name="UserMessages.Summary" xml:space="preserve">
+    <value>Gotowe: {0} · Z ostrzeżeniami: {1} · Błędy: {2} · Pominięte: {3} · Wykluczone: {4}</value>
+  </data>
+  <data name="UserMessages.Progress" xml:space="preserve">
+    <value>Wysłano {0} z {1} · przyjęte {2} · nieudane {3}</value>
+  </data>
+  <data name="UserMessages.ProgressRetry" xml:space="preserve">
+    <value>Wysłano {0} z {1} · przyjęte {2} · nieudane {3} · oczekiwanie na ponowienie po błędzie przejściowym...</value>
+  </data>
+  <data name="UserMessages.ReportSummary" xml:space="preserve">
+    <value>Przyjęte przez serwer: {0} · Nieudane: {1} · Niewysłane: {2} · Poza tą wysyłką: {3}</value>
+  </data>
+  <data name="UserMessages.SessionLogFailures" xml:space="preserve">
+    <value>Nieudane: {0}, niewysłane: {1}</value>
+  </data>
+  <data name="UserMessages.SessionLogAction" xml:space="preserve">
+    <value>Wiadomości do użytkowników</value>
+  </data>
+  <data name="UserMessages.ViaWatchdog" xml:space="preserve">
+    <value>Wysyłka przez AdMng Watchdog ({0})</value>
+  </data>
+  <data name="UserMessages.ViaSmtp" xml:space="preserve">
+    <value>Wysyłka bezpośrednio przez SMTP: {0}</value>
+  </data>
+  <data name="UserMessages.PasswordRequired" xml:space="preserve">
+    <value>Wpisz hasło SMTP (jest przechowywane tylko w pamięci do zamknięcia AD Managera).</value>
+  </data>
+  <data name="UserMessages.CopyName" xml:space="preserve">
+    <value>{0} (kopia)</value>
+  </data>
+  <data name="UserMessages.CopiesRejected" xml:space="preserve">
+    <value>Nie przyjęto kopii dla: {0}</value>
+  </data>
+  <data name="UserMessages.Recipients" xml:space="preserve">
+    <value>Odbiorcy</value>
+  </data>
+  <data name="UserMessages.AddRecipients" xml:space="preserve">
+    <value>Dodaj...</value>
+  </data>
+  <data name="UserMessages.Template" xml:space="preserve">
+    <value>Szablon</value>
+  </data>
+  <data name="UserMessages.TemplateName" xml:space="preserve">
+    <value>Nazwa szablonu</value>
+  </data>
+  <data name="UserMessages.SaveTemplate" xml:space="preserve">
+    <value>Zapisz szablon</value>
+  </data>
+  <data name="UserMessages.BuiltInHint" xml:space="preserve">
+    <value>Szablonów wbudowanych nie można zmieniać – „Zapisz szablon” zapisuje kopię.</value>
+  </data>
+  <data name="UserMessages.TextLanguage" xml:space="preserve">
+    <value>Język tekstu</value>
+  </data>
+  <data name="UserMessages.LanguageHint" xml:space="preserve">
+    <value>Każdy odbiorca dostaje wersję w języku z atrybutu preferredLanguage (bez niego – domyślny język z Ustawień).</value>
+  </data>
+  <data name="UserMessages.Subject" xml:space="preserve">
+    <value>Temat</value>
+  </data>
+  <data name="UserMessages.Body" xml:space="preserve">
+    <value>Treść (tekst)</value>
+  </data>
+  <data name="UserMessages.Html" xml:space="preserve">
+    <value>Wersja HTML (opcjonalnie; pusta = wygenerowana z tekstu)</value>
+  </data>
+  <data name="UserMessages.Condition" xml:space="preserve">
+    <value>Warunek wysyłki</value>
+  </data>
+  <data name="UserMessages.ConditionDays" xml:space="preserve">
+    <value>N dni</value>
+  </data>
+  <data name="UserMessages.RecipientMode" xml:space="preserve">
+    <value>Adresaci każdej wiadomości</value>
+  </data>
+  <data name="UserMessages.Inputs" xml:space="preserve">
+    <value>Wartości wpisywane przy wysyłce</value>
+  </data>
+  <data name="UserMessages.InsertField" xml:space="preserve">
+    <value>Wstaw pole</value>
+  </data>
+  <data name="UserMessages.FooterNote" xml:space="preserve">
+    <value>Do każdej wiadomości jest dodawana stała stopka „Nigdy nie prosimy o podanie hasła”. Łącza tylko do dozwolonych domen z Ustawień; bez załączników.</value>
+  </data>
+  <data name="UserMessages.Plan" xml:space="preserve">
+    <value>Przygotuj podgląd</value>
+  </data>
+  <data name="UserMessages.Include" xml:space="preserve">
+    <value>Wyślij</value>
+  </data>
+  <data name="UserMessages.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="UserMessages.ColumnRecipient" xml:space="preserve">
+    <value>Odbiorca</value>
+  </data>
+  <data name="UserMessages.ColumnStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="UserMessages.ColumnLanguage" xml:space="preserve">
+    <value>Język</value>
+  </data>
+  <data name="UserMessages.ColumnIssues" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="UserMessages.ColumnTime" xml:space="preserve">
+    <value>Godzina</value>
+  </data>
+  <data name="UserMessages.ColumnDetail" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="UserMessages.From" xml:space="preserve">
+    <value>Od</value>
+  </data>
+  <data name="UserMessages.To" xml:space="preserve">
+    <value>Do</value>
+  </data>
+  <data name="UserMessages.Cc" xml:space="preserve">
+    <value>DW</value>
+  </data>
+  <data name="UserMessages.ReplyTo" xml:space="preserve">
+    <value>Odpowiedź do</value>
+  </data>
+  <data name="UserMessages.TextTab" xml:space="preserve">
+    <value>Tekst</value>
+  </data>
+  <data name="UserMessages.HtmlTab" xml:space="preserve">
+    <value>Źródło HTML</value>
+  </data>
+  <data name="UserMessages.SendTest" xml:space="preserve">
+    <value>Wyślij wiadomość testową do mnie</value>
+  </data>
+  <data name="UserMessages.BackToEdit" xml:space="preserve">
+    <value>Wróć do edycji</value>
+  </data>
+  <data name="UserMessages.SmtpPassword" xml:space="preserve">
+    <value>Hasło SMTP</value>
+  </data>
+  <data name="UserMessages.RetryFailed" xml:space="preserve">
+    <value>Ponów nieudane</value>
+  </data>
+  <data name="UserMessages.ComposeTitle" xml:space="preserve">
+    <value>Wiadomość</value>
+  </data>
+  <data name="UserMessages.PreviewTitle" xml:space="preserve">
+    <value>Podgląd</value>
+  </data>
+  <data name="UserMessages.SendingTitle" xml:space="preserve">
+    <value>Wysyłka</value>
+  </data>
+  <data name="UserMessages.ReportTitle" xml:space="preserve">
+    <value>Raport</value>
+  </data>
+  <data name="UserMessages.NoMessages" xml:space="preserve">
+    <value>Żadna wiadomość nie pasuje do filtru.</value>
+  </data>
+  <data name="UserMessages.SettingsTab" xml:space="preserve">
+    <value>Wiadomości e-mail</value>
+  </data>
+  <data name="UserMessages.GeneralTab" xml:space="preserve">
+    <value>Ogólne</value>
+  </data>
+  <data name="UserMessages.SenderSection" xml:space="preserve">
+    <value>Nadawca</value>
+  </data>
+  <data name="UserMessages.FromAddress" xml:space="preserve">
+    <value>Adres nadawcy</value>
+  </data>
+  <data name="UserMessages.FromAddressHint" xml:space="preserve">
+    <value>Puste = noreply@&lt;domena AD&gt;.</value>
+  </data>
+  <data name="UserMessages.FromName" xml:space="preserve">
+    <value>Nazwa nadawcy</value>
+  </data>
+  <data name="UserMessages.ReplyToLabel" xml:space="preserve">
+    <value>Adres odpowiedzi</value>
+  </data>
+  <data name="UserMessages.CcLabel" xml:space="preserve">
+    <value>DW każdej wiadomości (helpdesk)</value>
+  </data>
+  <data name="UserMessages.TestAddress" xml:space="preserve">
+    <value>Mój adres do wiadomości testowych</value>
+  </data>
+  <data name="UserMessages.DefaultLanguage" xml:space="preserve">
+    <value>Domyślny język wiadomości</value>
+  </data>
+  <data name="UserMessages.LimitsSection" xml:space="preserve">
+    <value>Limity i bezpieczeństwo</value>
+  </data>
+  <data name="UserMessages.MessagesPerMinute" xml:space="preserve">
+    <value>Wiadomości na minutę</value>
+  </data>
+  <data name="UserMessages.RecipientsPerDay" xml:space="preserve">
+    <value>Odbiorców na dobę</value>
+  </data>
+  <data name="UserMessages.MessageThreshold" xml:space="preserve">
+    <value>Potwierdzenie wpisaniem liczby powyżej (wiadomości)</value>
+  </data>
+  <data name="UserMessages.AllowedDomains" xml:space="preserve">
+    <value>Dozwolone domeny łączy (jedna w wierszu)</value>
+  </data>
+  <data name="UserMessages.AllowedDomainsHint" xml:space="preserve">
+    <value>Łącznie z poddomenami. Domena AD i domena nadawcy są zawsze dozwolone.</value>
+  </data>
+  <data name="UserMessages.TransportSection" xml:space="preserve">
+    <value>Sposób wysyłki</value>
+  </data>
+  <data name="UserMessages.TransportLabel" xml:space="preserve">
+    <value>Wysyłka</value>
+  </data>
+  <data name="UserMessages.TransportHint" xml:space="preserve">
+    <value>Automatycznie: przez AdMng Watchdog, gdy usługa to obsługuje, w przeciwnym razie bezpośrednio przez SMTP.</value>
+  </data>
+  <data name="UserMessages.SmtpSection" xml:space="preserve">
+    <value>Bezpośrednio przez SMTP</value>
+  </data>
+  <data name="UserMessages.SmtpHost" xml:space="preserve">
+    <value>Serwer SMTP</value>
+  </data>
+  <data name="UserMessages.SmtpPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="UserMessages.SmtpTls" xml:space="preserve">
+    <value>Szyfrowanie</value>
+  </data>
+  <data name="UserMessages.InsecureTlsWarning" xml:space="preserve">
+    <value>Bez TLS wiadomości są przesyłane bez szyfrowania, a tożsamość serwera nie jest sprawdzana. Używaj tego tylko dla wewnętrznego przekaźnika w zaufanej sieci; poświadczenia nigdy nie są wysyłane bez szyfrowania.</value>
+  </data>
+  <data name="UserMessages.InsecureTlsConfirm" xml:space="preserve">
+    <value>Rozumiem ryzyko</value>
+  </data>
+  <data name="UserMessages.InsecureNotConfirmed" xml:space="preserve">
+    <value>Potwierdź ostrzeżenie o wysyłce bez szyfrowania.</value>
+  </data>
+  <data name="UserMessages.SmtpCertificate" xml:space="preserve">
+    <value>Certyfikat serwera</value>
+  </data>
+  <data name="UserMessages.SmtpPin" xml:space="preserve">
+    <value>SHA-256 przypiętego certyfikatu</value>
+  </data>
+  <data name="UserMessages.PinSeen" xml:space="preserve">
+    <value>Przypnij certyfikat z testu</value>
+  </data>
+  <data name="UserMessages.InvalidPin" xml:space="preserve">
+    <value>Przypięty SHA-256 musi mieć 64 cyfry szesnastkowe.</value>
+  </data>
+  <data name="UserMessages.SmtpAuth" xml:space="preserve">
+    <value>Uwierzytelnianie</value>
+  </data>
+  <data name="UserMessages.SmtpUserName" xml:space="preserve">
+    <value>Nazwa użytkownika</value>
+  </data>
+  <data name="UserMessages.UserNameRequired" xml:space="preserve">
+    <value>Wpisz nazwę użytkownika SMTP.</value>
+  </data>
+  <data name="UserMessages.SmtpPasswordHint" xml:space="preserve">
+    <value>Hasło jest potrzebne tylko do testu i wysyłki, przechowywane w pamięci do zamknięcia AD Managera – nigdy nie jest zapisywane.</value>
+  </data>
+  <data name="UserMessages.LocalDomain" xml:space="preserve">
+    <value>Domena EHLO (opcjonalnie)</value>
+  </data>
+  <data name="UserMessages.XOAuthNote" xml:space="preserve">
+    <value>Exchange Online z OAuth2: wysyłaj przez AdMng Watchdog (Basic SMTP AUTH jest wyłączane w Exchange Online).</value>
+  </data>
+  <data name="UserMessages.TestConnection" xml:space="preserve">
+    <value>Testuj połączenie</value>
+  </data>
+  <data name="UserMessages.Testing" xml:space="preserve">
+    <value>Testowanie połączenia...</value>
+  </data>
+  <data name="UserMessages.TestConnectionOk" xml:space="preserve">
+    <value>Połączenie działa: {0}, uwierzytelnianie: {1}.</value>
+  </data>
+  <data name="UserMessages.TestConnectionFailed" xml:space="preserve">
+    <value>Etap „{0}” nie powiódł się: {1}</value>
+  </data>
+  <data name="UserMessages.Encrypted" xml:space="preserve">
+    <value>szyfrowane ({0})</value>
+  </data>
+  <data name="UserMessages.NotEncrypted" xml:space="preserve">
+    <value>BEZ szyfrowania</value>
+  </data>
+  <data name="UserMessages.Mechanisms" xml:space="preserve">
+    <value>Oferowane mechanizmy uwierzytelniania: {0}</value>
+  </data>
+  <data name="UserMessages.CertificateSeen" xml:space="preserve">
+    <value>SHA-256 certyfikatu serwera: {0}</value>
+  </data>
+  <data name="UserMessages.InvalidAddress" xml:space="preserve">
+    <value>{0}: nieprawidłowy adres e-mail.</value>
+  </data>
+  <data name="UserMessages.SampleSubject" xml:space="preserve">
+    <value>AD Manager – wiadomość testowa</value>
+  </data>
+  <data name="UserMessages.SampleBody" xml:space="preserve">
+    <value>To jest wiadomość testowa z AD Managera. Jeśli ją widzisz, wysyłka wiadomości do użytkowników działa.</value>
+  </data>
+  <data name="UserMessages.Issue.TemplateSyntax" xml:space="preserve">
+    <value>Błąd szablonu: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenField" xml:space="preserve">
+    <value>Pole {0} jest niedozwolone w wiadomości – haseł i atrybutów poufnych nigdy nie wysyłamy.</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenInput" xml:space="preserve">
+    <value>Pole {0} wygląda na hasło – wiadomość nigdy go nie zawiera.</value>
+  </data>
+  <data name="UserMessages.Issue.MissingInput" xml:space="preserve">
+    <value>Wpisz wartość pola „{0}”.</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlNotAllowed" xml:space="preserve">
+    <value>Niedozwolone w wersji HTML: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.NoSender" xml:space="preserve">
+    <value>Nieprawidłowy adres nadawcy: {0} (Ustawienia → Wiadomości e-mail).</value>
+  </data>
+  <data name="UserMessages.Issue.NotFound" xml:space="preserve">
+    <value>Konto już nie istnieje albo nie można go odczytać.</value>
+  </data>
+  <data name="UserMessages.Issue.NoAddress" xml:space="preserve">
+    <value>Brak adresu e-mail (ani mail, ani głównego adresu SMTP).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerMissing" xml:space="preserve">
+    <value>Brak przełożonego (albo nie można go odczytać).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerNoAddress" xml:space="preserve">
+    <value>Przełożony {0} nie ma adresu e-mail.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerDisabled" xml:space="preserve">
+    <value>Konto przełożonego {0} jest wyłączone.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerInstead" xml:space="preserve">
+    <value>Użytkownik nie ma adresu – wiadomość trafi do przełożonego.</value>
+  </data>
+  <data name="UserMessages.Issue.ConditionNotMet" xml:space="preserve">
+    <value>Pominięte – warunek niespełniony: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptySubject" xml:space="preserve">
+    <value>Temat jest pusty.</value>
+  </data>
+  <data name="UserMessages.Issue.SubjectTooLong" xml:space="preserve">
+    <value>Temat jest za długi ({0} znaków, najwyżej 250).</value>
+  </data>
+  <data name="UserMessages.Issue.LinkNotAllowed" xml:space="preserve">
+    <value>Łącze do niedozwolonej domeny: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.AccountDisabled" xml:space="preserve">
+    <value>Konto jest wyłączone.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptyField" xml:space="preserve">
+    <value>Puste pole w treści: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.DuplicateAddress" xml:space="preserve">
+    <value>Adres {0} należy do kilku kont – każde dostanie osobną wiadomość.</value>
+  </data>
+  <data name="UserMessages.Issue.ProxyAddressUsed" xml:space="preserve">
+    <value>Brak atrybutu mail – użyto głównego adresu SMTP {0}.</value>
+  </data>
+  <data name="UserMessages.Status.Ready" xml:space="preserve">
+    <value>Gotowa</value>
+  </data>
+  <data name="UserMessages.Status.Warning" xml:space="preserve">
+    <value>Ostrzeżenie</value>
+  </data>
+  <data name="UserMessages.Status.Error" xml:space="preserve">
+    <value>Błąd</value>
+  </data>
+  <data name="UserMessages.Status.Skipped" xml:space="preserve">
+    <value>Pominięta</value>
+  </data>
+  <data name="UserMessages.Report.Accepted" xml:space="preserve">
+    <value>Przyjęta przez serwer</value>
+  </data>
+  <data name="UserMessages.Report.Failed" xml:space="preserve">
+    <value>Odrzucona</value>
+  </data>
+  <data name="UserMessages.Report.NotSent" xml:space="preserve">
+    <value>Niewysłana</value>
+  </data>
+  <data name="UserMessages.Report.Excluded" xml:space="preserve">
+    <value>Wykluczona</value>
+  </data>
+  <data name="UserMessages.Report.Skipped" xml:space="preserve">
+    <value>Pominięta</value>
+  </data>
+  <data name="UserMessages.Report.Invalid" xml:space="preserve">
+    <value>Nie do wysłania</value>
+  </data>
+  <data name="UserMessages.NotSent.Cancelled" xml:space="preserve">
+    <value>Przerwane przez operatora.</value>
+  </data>
+  <data name="UserMessages.NotSent.TransportStopped" xml:space="preserve">
+    <value>Zatrzymane – wysyłka nie działa (zobacz pierwszy błąd).</value>
+  </data>
+  <data name="UserMessages.NotSent.DailyLimit" xml:space="preserve">
+    <value>Osiągnięto dobowy limit odbiorców.</value>
+  </data>
+  <data name="UserMessages.Condition.None" xml:space="preserve">
+    <value>Brak (zawsze)</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpiresWithin" xml:space="preserve">
+    <value>Hasło wygasa w ciągu N dni</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpired" xml:space="preserve">
+    <value>Hasło wygasło</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpiresWithin" xml:space="preserve">
+    <value>Konto wygasa w ciągu N dni</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpired" xml:space="preserve">
+    <value>Konto wygasło</value>
+  </data>
+  <data name="UserMessages.Condition.Locked" xml:space="preserve">
+    <value>Konto zablokowane</value>
+  </data>
+  <data name="UserMessages.Condition.NotLocked" xml:space="preserve">
+    <value>Konto niezablokowane</value>
+  </data>
+  <data name="UserMessages.Condition.MustChangePassword" xml:space="preserve">
+    <value>Musi zmienić hasło przy następnym logowaniu</value>
+  </data>
+  <data name="UserMessages.Condition.InactiveFor" xml:space="preserve">
+    <value>Brak logowania dłużej niż N dni</value>
+  </data>
+  <data name="UserMessages.Mode.User" xml:space="preserve">
+    <value>Użytkownik</value>
+  </data>
+  <data name="UserMessages.Mode.Manager" xml:space="preserve">
+    <value>Przełożony zamiast użytkownika</value>
+  </data>
+  <data name="UserMessages.Mode.UserAndManager" xml:space="preserve">
+    <value>Użytkownik, przełożony w DW</value>
+  </data>
+  <data name="UserMessages.Mode.UserOrManager" xml:space="preserve">
+    <value>Użytkownik, a bez adresu – przełożony</value>
+  </data>
+  <data name="UserMessages.Filter.All" xml:space="preserve">
+    <value>Wszystkie</value>
+  </data>
+  <data name="UserMessages.Filter.Ready" xml:space="preserve">
+    <value>Gotowe</value>
+  </data>
+  <data name="UserMessages.Filter.Warnings" xml:space="preserve">
+    <value>Z ostrzeżeniami</value>
+  </data>
+  <data name="UserMessages.Filter.Errors" xml:space="preserve">
+    <value>Błędy</value>
+  </data>
+  <data name="UserMessages.Filter.Skipped" xml:space="preserve">
+    <value>Pominięte</value>
+  </data>
+  <data name="UserMessages.Filter.Excluded" xml:space="preserve">
+    <value>Wykluczone</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsRequired" xml:space="preserve">
+    <value>STARTTLS wymagany (zalecane)</value>
+  </data>
+  <data name="UserMessages.Tls.ImplicitTls" xml:space="preserve">
+    <value>TLS od początku (port 465)</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsWhenAvailable" xml:space="preserve">
+    <value>STARTTLS, jeśli dostępny (niebezpieczne)</value>
+  </data>
+  <data name="UserMessages.Tls.None" xml:space="preserve">
+    <value>Bez szyfrowania (niebezpieczne)</value>
+  </data>
+  <data name="UserMessages.Certificate.SystemTrust" xml:space="preserve">
+    <value>Zaufany przez system Windows</value>
+  </data>
+  <data name="UserMessages.Certificate.PinnedSha256" xml:space="preserve">
+    <value>Przypięty certyfikat (SHA-256)</value>
+  </data>
+  <data name="UserMessages.Auth.None" xml:space="preserve">
+    <value>Brak (przekaźnik)</value>
+  </data>
+  <data name="UserMessages.Auth.CurrentWindowsAccount" xml:space="preserve">
+    <value>Bieżące konto Windows (Kerberos/NTLM)</value>
+  </data>
+  <data name="UserMessages.Auth.Basic" xml:space="preserve">
+    <value>Nazwa użytkownika i hasło</value>
+  </data>
+  <data name="UserMessages.Transport.Automatic" xml:space="preserve">
+    <value>Automatycznie</value>
+  </data>
+  <data name="UserMessages.Transport.DirectSmtp" xml:space="preserve">
+    <value>Bezpośrednio przez SMTP</value>
+  </data>
+  <data name="UserMessages.Transport.Watchdog" xml:space="preserve">
+    <value>Przez AdMng Watchdog</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpNotConfigured" xml:space="preserve">
+    <value>Wysyłka nie jest skonfigurowana – ustaw serwer SMTP w Ustawieniach → Wiadomości e-mail.</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpUnavailable" xml:space="preserve">
+    <value>Bezpośrednia wysyłka SMTP nie jest dostępna w tej wersji.</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotConfigured" xml:space="preserve">
+    <value>AdMng Watchdog nie jest skonfigurowany (karta Watchdog).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotSupported" xml:space="preserve">
+    <value>Usługa AdMng Watchdog nie obsługuje jeszcze wiadomości do użytkowników – wybierz wysyłkę automatyczną lub bezpośrednią.</value>
+  </data>
+  <data name="UserMessages.Code.auth" xml:space="preserve">
+    <value>Serwer odrzucił uwierzytelnienie.</value>
+  </data>
+  <data name="UserMessages.Code.auth.noCredential" xml:space="preserve">
+    <value>Brak nazwy użytkownika lub hasła SMTP.</value>
+  </data>
+  <data name="UserMessages.Code.auth.unencrypted" xml:space="preserve">
+    <value>Poświadczenia nigdy nie są wysyłane bez szyfrowania – użyj STARTTLS albo TLS.</value>
+  </data>
+  <data name="UserMessages.Code.auth.mechanismNotOffered" xml:space="preserve">
+    <value>Serwer nie oferuje ani Kerberos (GSSAPI), ani NTLM.</value>
+  </data>
+  <data name="UserMessages.Code.config.host" xml:space="preserve">
+    <value>Nie ustawiono serwera lub portu SMTP.</value>
+  </data>
+  <data name="UserMessages.Code.config.pin" xml:space="preserve">
+    <value>Przypięty SHA-256 jest nieprawidłowy.</value>
+  </data>
+  <data name="UserMessages.Code.address" xml:space="preserve">
+    <value>Nieprawidłowy adres e-mail.</value>
+  </data>
+  <data name="UserMessages.Code.tls" xml:space="preserve">
+    <value>Negocjacja TLS nie powiodła się.</value>
+  </data>
+  <data name="UserMessages.Code.timeout" xml:space="preserve">
+    <value>Serwer nie odpowiedział na czas.</value>
+  </data>
+  <data name="UserMessages.Code.io" xml:space="preserve">
+    <value>Połączenie zostało przerwane.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.notSupported" xml:space="preserve">
+    <value>Serwer nie oferuje STARTTLS.</value>
+  </data>
+  <data name="UserMessages.Stage.Connect" xml:space="preserve">
+    <value>Połączenie</value>
+  </data>
+  <data name="UserMessages.Stage.Tls" xml:space="preserve">
+    <value>TLS</value>
+  </data>
+  <data name="UserMessages.Stage.Authenticate" xml:space="preserve">
+    <value>Uwierzytelnienie</value>
+  </data>
+  <data name="UserMessages.Stage.Done" xml:space="preserve">
+    <value>Gotowe</value>
+  </data>
 </root>

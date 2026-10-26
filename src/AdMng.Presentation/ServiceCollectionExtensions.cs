@@ -76,6 +76,13 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<PowerShellHistory>();
         services.TryAddSingleton<BatchEngines>();
         services.TryAddSingleton<DialogServices>();
+
+        // Messages to users (README U1). Direct SMTP needs the host's IDirectSmtpTransportFactory (AdMng.Mail).
+        services.TryAddSingleton<UserMessages.SmtpCredentialCache>();
+        services.TryAddSingleton<UserMessages.WatchdogUserMessageTransport>();
+        services.TryAddSingleton<UserMessages.UserMessageTransportSelector>();
+        services.TryAddSingleton<UserMessages.UserMessageTemplateLibrary>();
+        services.TryAddSingleton<UserMessages.UserMessageServices>();
         services.TryAddSingleton<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog).

@@ -12,6 +12,7 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.UserMessages;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
@@ -254,14 +255,17 @@ internal static class SmokeTest
     // ---- C2b: batch and tool windows ----------------------------------------------------------------------------
 
     /// <summary>
-    /// Settings, session log, PowerShell history, the AD Recycle Bin, the account review, the CSV import with a parsed
-    /// table and the batch editor with every operation editor. None of them needs a directory: without a session the batch
+    /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review, the message window, the
+    /// CSV import with a parsed table and the batch editor with every operation editor. None of them needs a directory: without a session the batch
     /// editor and the Recycle Bin show "not connected", the account review cannot run.
     /// </summary>
     private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
     {
         var factory = services.GetRequiredService<IDialogViewModelFactory>();
-        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSettings()));
+        var settings = (SettingsWindow)windows.CreateWindow(factory.CreateSettings());
+        UiTestSupport.ShowOffScreen(settings);
+        settings.SettingsTabs.SelectedItem = settings.MessagesTab;
+        settings.UpdateLayout();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
 
@@ -270,6 +274,10 @@ internal static class SmokeTest
 
         // Account review (U2), disconnected: scope, parameters and checks; "Sprawdź" is disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateAccountReview()));
+
+        // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateUserMessageComposer(
+            new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring))));
 
         var import = factory.CreateBatchEditor(new BatchEditorRequest([]));
         import.CsvImport!.Load(new CsvTable(

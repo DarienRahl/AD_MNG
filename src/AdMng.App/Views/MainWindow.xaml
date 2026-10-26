@@ -291,6 +291,7 @@
         <MenuItem b:CommandMenu.Id="object.enable" />
         <MenuItem b:CommandMenu.Id="object.unlock" />
         <MenuItem b:CommandMenu.Id="object.resetPassword" />
+        <MenuItem b:CommandMenu.Id="object.sendMessage" />
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />

@@ -53,6 +53,7 @@ public sealed partial class ShellViewModel
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
+        SendMessageCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -762,6 +763,19 @@ public sealed partial class ShellViewModel
             await _dialogs.ShowErrorAsync(Localizer[L.Commands.WatchdogHistory], Errors.Translate(ex)).ConfigureAwait(true);
         }
     }
+
+    /// <summary>"Wyślij wiadomość…" (README U1): the message window for the selected user accounts (one message each).</summary>
+    [RelayCommand(CanExecute = nameof(CanSendMessage))]
+    private Task SendMessageAsync()
+    {
+        var users = CurrentSelection.Where(r => r.Kind == ObjectKind.User).Select(r => r.Dn).ToList();
+        return _messages is null || users.Count == 0 ? Task.CompletedTask : _messages.ShowComposerAsync(users, null);
+    }
+
+    /// <summary>The message window is available (U1 registered its launcher) and the selection has user accounts.</summary>
+    public bool CanSendMessages => _messages is not null;
+
+    private bool CanSendMessage() => _messages is not null && IsConnected && CurrentSelection.Any(r => r.Kind == ObjectKind.User);
 
     private bool CanShowWatchdogHistory() => _historyLauncher?.IsAvailable == true && CurrentSelection.Count == 1 && IsConnected;
 

@@ -7153,4 +7153,628 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
     <value>{0} did not answer: {1}</value>
   </data>
+  <data name="UserMessages.WindowTitle" xml:space="preserve">
+    <value>Send message to users ({0})</value>
+  </data>
+  <data name="UserMessages.Command" xml:space="preserve">
+    <value>Send message...</value>
+  </data>
+  <data name="UserMessages.LanguagePolish" xml:space="preserve">
+    <value>Polish</value>
+  </data>
+  <data name="UserMessages.LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="UserMessages.StopOnClose" xml:space="preserve">
+    <value>Messages are being sent. Stop sending and close the window? Messages already accepted by the server cannot be recalled.</value>
+  </data>
+  <data name="UserMessages.RecipientsCount" xml:space="preserve">
+    <value>Recipients: {0}</value>
+  </data>
+  <data name="UserMessages.SendCount" xml:space="preserve">
+    <value>Send ({0})</value>
+  </data>
+  <data name="UserMessages.TemplateSaved" xml:space="preserve">
+    <value>Template "{0}" saved.</value>
+  </data>
+  <data name="UserMessages.DeleteTemplate" xml:space="preserve">
+    <value>Delete template</value>
+  </data>
+  <data name="UserMessages.DeleteTemplateConfirm" xml:space="preserve">
+    <value>Delete the template "{0}"?</value>
+  </data>
+  <data name="UserMessages.ExportTemplates" xml:space="preserve">
+    <value>Export templates...</value>
+  </data>
+  <data name="UserMessages.ImportTemplates" xml:space="preserve">
+    <value>Import templates...</value>
+  </data>
+  <data name="UserMessages.NoCustomTemplates" xml:space="preserve">
+    <value>There are no own templates to export yet – save a template first.</value>
+  </data>
+  <data name="UserMessages.TemplatesImported" xml:space="preserve">
+    <value>Imported templates: {0}.</value>
+  </data>
+  <data name="UserMessages.NotATemplatesFile" xml:space="preserve">
+    <value>The file is not an AD Manager message templates file.</value>
+  </data>
+  <data name="UserMessages.TestAddressMissing" xml:space="preserve">
+    <value>Set your address for test messages in Settings → E-mail messages.</value>
+  </data>
+  <data name="UserMessages.TestSending" xml:space="preserve">
+    <value>Sending the test message...</value>
+  </data>
+  <data name="UserMessages.TestSent" xml:space="preserve">
+    <value>The server accepted the test message for {0}.</value>
+  </data>
+  <data name="UserMessages.TestFailed" xml:space="preserve">
+    <value>The test message was not sent: {0}</value>
+  </data>
+  <data name="UserMessages.Send" xml:space="preserve">
+    <value>Send messages</value>
+  </data>
+  <data name="UserMessages.Confirm" xml:space="preserve">
+    <value>Send {0} message(s) via {1}? Every user gets a separate message; messages accepted by the server cannot be recalled.</value>
+  </data>
+  <data name="UserMessages.ConfirmTyped" xml:space="preserve">
+    <value>You are about to send {0} messages via {1} – one per user. Messages accepted by the server cannot be recalled. Type the number of messages to confirm.</value>
+  </data>
+  <data name="UserMessages.Stopping" xml:space="preserve">
+    <value>Stopping after the current message...</value>
+  </data>
+  <data name="UserMessages.ExportReport" xml:space="preserve">
+    <value>Export report (CSV)...</value>
+  </data>
+  <data name="UserMessages.ReportFileName" xml:space="preserve">
+    <value>Message report</value>
+  </data>
+  <data name="UserMessages.Reading" xml:space="preserve">
+    <value>Reading the accounts from the domain controller...</value>
+  </data>
+  <data name="UserMessages.Summary" xml:space="preserve">
+    <value>Ready: {0} · With warnings: {1} · Errors: {2} · Skipped: {3} · Excluded: {4}</value>
+  </data>
+  <data name="UserMessages.Progress" xml:space="preserve">
+    <value>Sent {0} of {1} · accepted {2} · failed {3}</value>
+  </data>
+  <data name="UserMessages.ProgressRetry" xml:space="preserve">
+    <value>Sent {0} of {1} · accepted {2} · failed {3} · waiting to retry after a temporary failure...</value>
+  </data>
+  <data name="UserMessages.ReportSummary" xml:space="preserve">
+    <value>Accepted by the server: {0} · Failed: {1} · Not sent: {2} · Not in this send: {3}</value>
+  </data>
+  <data name="UserMessages.SessionLogFailures" xml:space="preserve">
+    <value>Failed: {0}, not sent: {1}</value>
+  </data>
+  <data name="UserMessages.SessionLogAction" xml:space="preserve">
+    <value>Messages to users</value>
+  </data>
+  <data name="UserMessages.ViaWatchdog" xml:space="preserve">
+    <value>Sending through AdMng Watchdog ({0})</value>
+  </data>
+  <data name="UserMessages.ViaSmtp" xml:space="preserve">
+    <value>Sending directly via SMTP: {0}</value>
+  </data>
+  <data name="UserMessages.PasswordRequired" xml:space="preserve">
+    <value>Enter the SMTP password (kept in memory only until AD Manager closes).</value>
+  </data>
+  <data name="UserMessages.CopyName" xml:space="preserve">
+    <value>{0} (copy)</value>
+  </data>
+  <data name="UserMessages.CopiesRejected" xml:space="preserve">
+    <value>Copy not accepted for: {0}</value>
+  </data>
+  <data name="UserMessages.Recipients" xml:space="preserve">
+    <value>Recipients</value>
+  </data>
+  <data name="UserMessages.AddRecipients" xml:space="preserve">
+    <value>Add...</value>
+  </data>
+  <data name="UserMessages.Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="UserMessages.TemplateName" xml:space="preserve">
+    <value>Template name</value>
+  </data>
+  <data name="UserMessages.SaveTemplate" xml:space="preserve">
+    <value>Save template</value>
+  </data>
+  <data name="UserMessages.BuiltInHint" xml:space="preserve">
+    <value>Built-in templates cannot be changed – Save template stores a copy.</value>
+  </data>
+  <data name="UserMessages.TextLanguage" xml:space="preserve">
+    <value>Language of the text</value>
+  </data>
+  <data name="UserMessages.LanguageHint" xml:space="preserve">
+    <value>Every recipient gets the version in the language of their preferredLanguage attribute (without it: the default language from Settings).</value>
+  </data>
+  <data name="UserMessages.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="UserMessages.Body" xml:space="preserve">
+    <value>Message (text)</value>
+  </data>
+  <data name="UserMessages.Html" xml:space="preserve">
+    <value>HTML version (optional; empty = generated from the text)</value>
+  </data>
+  <data name="UserMessages.Condition" xml:space="preserve">
+    <value>Send condition</value>
+  </data>
+  <data name="UserMessages.ConditionDays" xml:space="preserve">
+    <value>N days</value>
+  </data>
+  <data name="UserMessages.RecipientMode" xml:space="preserve">
+    <value>Recipients of each message</value>
+  </data>
+  <data name="UserMessages.Inputs" xml:space="preserve">
+    <value>Values typed when sending</value>
+  </data>
+  <data name="UserMessages.InsertField" xml:space="preserve">
+    <value>Insert field</value>
+  </data>
+  <data name="UserMessages.FooterNote" xml:space="preserve">
+    <value>A fixed footer is added to every message: "We never ask for your password". Links only to the allowed domains from Settings; no attachments.</value>
+  </data>
+  <data name="UserMessages.Plan" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="UserMessages.Include" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="UserMessages.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="UserMessages.ColumnRecipient" xml:space="preserve">
+    <value>Recipient</value>
+  </data>
+  <data name="UserMessages.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="UserMessages.ColumnLanguage" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="UserMessages.ColumnIssues" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="UserMessages.ColumnTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="UserMessages.ColumnDetail" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="UserMessages.From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="UserMessages.To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="UserMessages.Cc" xml:space="preserve">
+    <value>Cc</value>
+  </data>
+  <data name="UserMessages.ReplyTo" xml:space="preserve">
+    <value>Reply to</value>
+  </data>
+  <data name="UserMessages.TextTab" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="UserMessages.HtmlTab" xml:space="preserve">
+    <value>HTML source</value>
+  </data>
+  <data name="UserMessages.SendTest" xml:space="preserve">
+    <value>Send a test message to me</value>
+  </data>
+  <data name="UserMessages.BackToEdit" xml:space="preserve">
+    <value>Back to editing</value>
+  </data>
+  <data name="UserMessages.SmtpPassword" xml:space="preserve">
+    <value>SMTP password</value>
+  </data>
+  <data name="UserMessages.RetryFailed" xml:space="preserve">
+    <value>Retry failed</value>
+  </data>
+  <data name="UserMessages.ComposeTitle" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="UserMessages.PreviewTitle" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="UserMessages.SendingTitle" xml:space="preserve">
+    <value>Sending</value>
+  </data>
+  <data name="UserMessages.ReportTitle" xml:space="preserve">
+    <value>Report</value>
+  </data>
+  <data name="UserMessages.NoMessages" xml:space="preserve">
+    <value>No messages match the filter.</value>
+  </data>
+  <data name="UserMessages.SettingsTab" xml:space="preserve">
+    <value>E-mail messages</value>
+  </data>
+  <data name="UserMessages.GeneralTab" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="UserMessages.SenderSection" xml:space="preserve">
+    <value>Sender</value>
+  </data>
+  <data name="UserMessages.FromAddress" xml:space="preserve">
+    <value>Sender address</value>
+  </data>
+  <data name="UserMessages.FromAddressHint" xml:space="preserve">
+    <value>Empty = noreply@&lt;AD domain&gt;.</value>
+  </data>
+  <data name="UserMessages.FromName" xml:space="preserve">
+    <value>Sender name</value>
+  </data>
+  <data name="UserMessages.ReplyToLabel" xml:space="preserve">
+    <value>Reply-to address</value>
+  </data>
+  <data name="UserMessages.CcLabel" xml:space="preserve">
+    <value>CC of every message (helpdesk)</value>
+  </data>
+  <data name="UserMessages.TestAddress" xml:space="preserve">
+    <value>My address for test messages</value>
+  </data>
+  <data name="UserMessages.DefaultLanguage" xml:space="preserve">
+    <value>Default language of messages</value>
+  </data>
+  <data name="UserMessages.LimitsSection" xml:space="preserve">
+    <value>Limits and safety</value>
+  </data>
+  <data name="UserMessages.MessagesPerMinute" xml:space="preserve">
+    <value>Messages per minute</value>
+  </data>
+  <data name="UserMessages.RecipientsPerDay" xml:space="preserve">
+    <value>Recipients per 24 hours</value>
+  </data>
+  <data name="UserMessages.MessageThreshold" xml:space="preserve">
+    <value>Typed confirmation above (messages)</value>
+  </data>
+  <data name="UserMessages.AllowedDomains" xml:space="preserve">
+    <value>Allowed link domains (one per line)</value>
+  </data>
+  <data name="UserMessages.AllowedDomainsHint" xml:space="preserve">
+    <value>Subdomains included. The AD domain and the sender's domain are always allowed.</value>
+  </data>
+  <data name="UserMessages.TransportSection" xml:space="preserve">
+    <value>How messages are sent</value>
+  </data>
+  <data name="UserMessages.TransportLabel" xml:space="preserve">
+    <value>Transport</value>
+  </data>
+  <data name="UserMessages.TransportHint" xml:space="preserve">
+    <value>Automatic: through AdMng Watchdog when the service supports it, otherwise directly via SMTP.</value>
+  </data>
+  <data name="UserMessages.SmtpSection" xml:space="preserve">
+    <value>Direct SMTP</value>
+  </data>
+  <data name="UserMessages.SmtpHost" xml:space="preserve">
+    <value>SMTP server</value>
+  </data>
+  <data name="UserMessages.SmtpPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="UserMessages.SmtpTls" xml:space="preserve">
+    <value>Encryption</value>
+  </data>
+  <data name="UserMessages.InsecureTlsWarning" xml:space="preserve">
+    <value>Without TLS the messages travel unencrypted and the server's identity is not checked. Use it only for an internal relay in a trusted network; credentials are never sent without encryption.</value>
+  </data>
+  <data name="UserMessages.InsecureTlsConfirm" xml:space="preserve">
+    <value>I understand the risk</value>
+  </data>
+  <data name="UserMessages.InsecureNotConfirmed" xml:space="preserve">
+    <value>Confirm the warning about sending without encryption.</value>
+  </data>
+  <data name="UserMessages.SmtpCertificate" xml:space="preserve">
+    <value>Server certificate</value>
+  </data>
+  <data name="UserMessages.SmtpPin" xml:space="preserve">
+    <value>SHA-256 of the pinned certificate</value>
+  </data>
+  <data name="UserMessages.PinSeen" xml:space="preserve">
+    <value>Pin the certificate from the test</value>
+  </data>
+  <data name="UserMessages.InvalidPin" xml:space="preserve">
+    <value>The pinned SHA-256 must have 64 hexadecimal digits.</value>
+  </data>
+  <data name="UserMessages.SmtpAuth" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="UserMessages.SmtpUserName" xml:space="preserve">
+    <value>User name</value>
+  </data>
+  <data name="UserMessages.UserNameRequired" xml:space="preserve">
+    <value>Enter the SMTP user name.</value>
+  </data>
+  <data name="UserMessages.SmtpPasswordHint" xml:space="preserve">
+    <value>Asked when needed and kept only in memory until AD Manager closes – never saved.</value>
+  </data>
+  <data name="UserMessages.LocalDomain" xml:space="preserve">
+    <value>EHLO domain (optional)</value>
+  </data>
+  <data name="UserMessages.XOAuthNote" xml:space="preserve">
+    <value>Exchange Online with OAuth2: send through AdMng Watchdog (Basic SMTP AUTH is being switched off in Exchange Online).</value>
+  </data>
+  <data name="UserMessages.TestConnection" xml:space="preserve">
+    <value>Test connection</value>
+  </data>
+  <data name="UserMessages.Testing" xml:space="preserve">
+    <value>Testing the connection...</value>
+  </data>
+  <data name="UserMessages.TestConnectionOk" xml:space="preserve">
+    <value>The connection works: {0}, authentication: {1}.</value>
+  </data>
+  <data name="UserMessages.TestConnectionFailed" xml:space="preserve">
+    <value>Stage "{0}" failed: {1}</value>
+  </data>
+  <data name="UserMessages.Encrypted" xml:space="preserve">
+    <value>encrypted ({0})</value>
+  </data>
+  <data name="UserMessages.NotEncrypted" xml:space="preserve">
+    <value>NOT encrypted</value>
+  </data>
+  <data name="UserMessages.Mechanisms" xml:space="preserve">
+    <value>Authentication mechanisms offered: {0}</value>
+  </data>
+  <data name="UserMessages.CertificateSeen" xml:space="preserve">
+    <value>Server certificate SHA-256: {0}</value>
+  </data>
+  <data name="UserMessages.InvalidAddress" xml:space="preserve">
+    <value>{0}: not a valid e-mail address.</value>
+  </data>
+  <data name="UserMessages.SampleSubject" xml:space="preserve">
+    <value>AD Manager – test message</value>
+  </data>
+  <data name="UserMessages.SampleBody" xml:space="preserve">
+    <value>This is a test message from AD Manager. If you can read it, sending messages to users works.</value>
+  </data>
+  <data name="UserMessages.Issue.TemplateSyntax" xml:space="preserve">
+    <value>Template error: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenField" xml:space="preserve">
+    <value>Field {0} is not allowed in a message – passwords and secret attributes are never sent.</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenInput" xml:space="preserve">
+    <value>The field {0} looks like a password – a message never carries one.</value>
+  </data>
+  <data name="UserMessages.Issue.MissingInput" xml:space="preserve">
+    <value>Fill in the value "{0}".</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlNotAllowed" xml:space="preserve">
+    <value>Not allowed in the HTML version: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.NoSender" xml:space="preserve">
+    <value>The sender address is not valid: {0} (Settings → E-mail messages).</value>
+  </data>
+  <data name="UserMessages.Issue.NotFound" xml:space="preserve">
+    <value>The account no longer exists or cannot be read.</value>
+  </data>
+  <data name="UserMessages.Issue.NoAddress" xml:space="preserve">
+    <value>No e-mail address (neither mail nor a primary SMTP address).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerMissing" xml:space="preserve">
+    <value>No manager (or the manager cannot be read).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerNoAddress" xml:space="preserve">
+    <value>The manager {0} has no e-mail address.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerDisabled" xml:space="preserve">
+    <value>The manager's account {0} is disabled.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerInstead" xml:space="preserve">
+    <value>The user has no address – the message goes to the manager.</value>
+  </data>
+  <data name="UserMessages.Issue.ConditionNotMet" xml:space="preserve">
+    <value>Skipped – the condition is not met: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptySubject" xml:space="preserve">
+    <value>The subject is empty.</value>
+  </data>
+  <data name="UserMessages.Issue.SubjectTooLong" xml:space="preserve">
+    <value>The subject is too long ({0} characters, at most 250).</value>
+  </data>
+  <data name="UserMessages.Issue.LinkNotAllowed" xml:space="preserve">
+    <value>Link to a domain that is not allowed: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.AccountDisabled" xml:space="preserve">
+    <value>The account is disabled.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptyField" xml:space="preserve">
+    <value>Empty field in the text: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.DuplicateAddress" xml:space="preserve">
+    <value>The address {0} belongs to several accounts – each gets its own message.</value>
+  </data>
+  <data name="UserMessages.Issue.ProxyAddressUsed" xml:space="preserve">
+    <value>No mail attribute – the primary SMTP address {0} is used.</value>
+  </data>
+  <data name="UserMessages.Status.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="UserMessages.Status.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="UserMessages.Status.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="UserMessages.Status.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Report.Accepted" xml:space="preserve">
+    <value>Accepted by the server</value>
+  </data>
+  <data name="UserMessages.Report.Failed" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="UserMessages.Report.NotSent" xml:space="preserve">
+    <value>Not sent</value>
+  </data>
+  <data name="UserMessages.Report.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="UserMessages.Report.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Report.Invalid" xml:space="preserve">
+    <value>Cannot be sent</value>
+  </data>
+  <data name="UserMessages.NotSent.Cancelled" xml:space="preserve">
+    <value>Stopped by the operator.</value>
+  </data>
+  <data name="UserMessages.NotSent.TransportStopped" xml:space="preserve">
+    <value>Stopped – sending does not work (see the first failure).</value>
+  </data>
+  <data name="UserMessages.NotSent.DailyLimit" xml:space="preserve">
+    <value>The daily limit of recipients was reached.</value>
+  </data>
+  <data name="UserMessages.Condition.None" xml:space="preserve">
+    <value>None (always)</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpiresWithin" xml:space="preserve">
+    <value>Password expires within N days</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpired" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpiresWithin" xml:space="preserve">
+    <value>Account expires within N days</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpired" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="UserMessages.Condition.Locked" xml:space="preserve">
+    <value>Account locked out</value>
+  </data>
+  <data name="UserMessages.Condition.NotLocked" xml:space="preserve">
+    <value>Account not locked out</value>
+  </data>
+  <data name="UserMessages.Condition.MustChangePassword" xml:space="preserve">
+    <value>Must change password at next logon</value>
+  </data>
+  <data name="UserMessages.Condition.InactiveFor" xml:space="preserve">
+    <value>No logon for more than N days</value>
+  </data>
+  <data name="UserMessages.Mode.User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="UserMessages.Mode.Manager" xml:space="preserve">
+    <value>Manager instead of the user</value>
+  </data>
+  <data name="UserMessages.Mode.UserAndManager" xml:space="preserve">
+    <value>User, manager in CC</value>
+  </data>
+  <data name="UserMessages.Mode.UserOrManager" xml:space="preserve">
+    <value>User, or the manager when the user has no address</value>
+  </data>
+  <data name="UserMessages.Filter.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="UserMessages.Filter.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="UserMessages.Filter.Warnings" xml:space="preserve">
+    <value>With warnings</value>
+  </data>
+  <data name="UserMessages.Filter.Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="UserMessages.Filter.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Filter.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsRequired" xml:space="preserve">
+    <value>STARTTLS required (recommended)</value>
+  </data>
+  <data name="UserMessages.Tls.ImplicitTls" xml:space="preserve">
+    <value>TLS from the start (port 465)</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsWhenAvailable" xml:space="preserve">
+    <value>STARTTLS when offered (insecure)</value>
+  </data>
+  <data name="UserMessages.Tls.None" xml:space="preserve">
+    <value>No encryption (insecure)</value>
+  </data>
+  <data name="UserMessages.Certificate.SystemTrust" xml:space="preserve">
+    <value>Trusted by Windows</value>
+  </data>
+  <data name="UserMessages.Certificate.PinnedSha256" xml:space="preserve">
+    <value>Pinned certificate (SHA-256)</value>
+  </data>
+  <data name="UserMessages.Auth.None" xml:space="preserve">
+    <value>None (relay)</value>
+  </data>
+  <data name="UserMessages.Auth.CurrentWindowsAccount" xml:space="preserve">
+    <value>Current Windows account (Kerberos/NTLM)</value>
+  </data>
+  <data name="UserMessages.Auth.Basic" xml:space="preserve">
+    <value>User name and password</value>
+  </data>
+  <data name="UserMessages.Transport.Automatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="UserMessages.Transport.DirectSmtp" xml:space="preserve">
+    <value>Directly via SMTP</value>
+  </data>
+  <data name="UserMessages.Transport.Watchdog" xml:space="preserve">
+    <value>Through AdMng Watchdog</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpNotConfigured" xml:space="preserve">
+    <value>Sending is not configured – set the SMTP server in Settings → E-mail messages.</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpUnavailable" xml:space="preserve">
+    <value>Direct SMTP is not available in this build.</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotConfigured" xml:space="preserve">
+    <value>AdMng Watchdog is not configured (Watchdog tab).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotSupported" xml:space="preserve">
+    <value>The AdMng Watchdog service does not support messages to users yet – choose Automatic or direct SMTP.</value>
+  </data>
+  <data name="UserMessages.Code.auth" xml:space="preserve">
+    <value>The server rejected the authentication.</value>
+  </data>
+  <data name="UserMessages.Code.auth.noCredential" xml:space="preserve">
+    <value>No SMTP user name or password.</value>
+  </data>
+  <data name="UserMessages.Code.auth.unencrypted" xml:space="preserve">
+    <value>Credentials are never sent without encryption – use STARTTLS or TLS.</value>
+  </data>
+  <data name="UserMessages.Code.auth.mechanismNotOffered" xml:space="preserve">
+    <value>The server offers neither Kerberos (GSSAPI) nor NTLM.</value>
+  </data>
+  <data name="UserMessages.Code.config.host" xml:space="preserve">
+    <value>The SMTP server or port is not set.</value>
+  </data>
+  <data name="UserMessages.Code.config.pin" xml:space="preserve">
+    <value>The pinned SHA-256 is not valid.</value>
+  </data>
+  <data name="UserMessages.Code.address" xml:space="preserve">
+    <value>An e-mail address is not valid.</value>
+  </data>
+  <data name="UserMessages.Code.tls" xml:space="preserve">
+    <value>The TLS negotiation failed.</value>
+  </data>
+  <data name="UserMessages.Code.timeout" xml:space="preserve">
+    <value>The server did not answer in time.</value>
+  </data>
+  <data name="UserMessages.Code.io" xml:space="preserve">
+    <value>The connection was interrupted.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.notSupported" xml:space="preserve">
+    <value>The server does not offer STARTTLS.</value>
+  </data>
+  <data name="UserMessages.Stage.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="UserMessages.Stage.Tls" xml:space="preserve">
+    <value>TLS</value>
+  </data>
+  <data name="UserMessages.Stage.Authenticate" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="UserMessages.Stage.Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
 </root>

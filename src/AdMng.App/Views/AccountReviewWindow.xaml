@@ -379,7 +379,7 @@
                 Content="{l:Tr AccountReview.HideFromGal}"
                 Style="{StaticResource ActionButton}"
                 Visibility="{Binding ShowHideFromGal, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-        <!-- U1 hook: hidden until path U1 registers a message launcher. -->
+        <!-- U1: the message window with the template matching the check (hidden without a message launcher). -->
         <Button x:Name="SendMessageButton"
                 Command="{Binding SendMessageCommand}"
                 Content="{l:Tr AccountReview.SendMessage}"

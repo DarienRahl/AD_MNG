@@ -8,9 +8,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace AdMng.Presentation.AccountReview;
 
 /// <summary>
-/// Hook for path U1 ("Wiadomości e-mail do użytkowników"): opens the message composer for accounts with a template that
-/// fits <c>reason</c>. U1 is not implemented yet: no implementation is registered, so every "Wyślij wiadomość…" command of
-/// the account review and the Account tab stays hidden (<c>CanSendMessages</c> is false) until U1 registers one.
+/// Path U1 ("Wiadomości e-mail do użytkowników"): opens the message window for accounts with the template that fits
+/// <c>reason</c> (<see cref="UserMessages.UserMessageRequest.For"/>). The WPF app implements it in its dialog service;
+/// without an implementation every "Wyślij wiadomość…" command of the account review, the Account tab and the object
+/// lists stays hidden or disabled (<c>CanSendMessages</c> is false).
 /// </summary>
 public interface IUserMessageLauncher
 {

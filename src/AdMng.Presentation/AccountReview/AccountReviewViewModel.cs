@@ -267,8 +267,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         && _run?.Session.Schema.FindAttribute(Attr.HideFromAddressLists) is not null;
 
     /// <summary>
-    /// U1 hook: "Wyślij wiadomość…" is shown only when an <see cref="IUserMessageLauncher"/> is registered (U1 is not
-    /// implemented yet, so it stays hidden).
+    /// "Wyślij wiadomość…" (U1) is shown only when an <see cref="IUserMessageLauncher"/> is registered (the app registers
+    /// its dialog service; hosts without messages to users hide it).
     /// </summary>
     public bool CanSendMessages => _messages is not null;
 

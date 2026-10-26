@@ -41,6 +41,7 @@ public sealed partial class ShellViewModel
             new("object.disable", L.Commands.Disable, obj, string.Empty, DisableCommand),
             new("object.unlock", L.Commands.Unlock, obj, string.Empty, UnlockCommand),
             new("object.resetPassword", L.Commands.ResetPassword, obj, string.Empty, ResetPasswordCommand),
+            new("object.sendMessage", L.UserMessages.Command, obj, string.Empty, SendMessageCommand),
             new("object.addToGroup", L.Commands.AddToGroup, obj, string.Empty, AddToGroupCommand),
             new("object.batchEdit", L.Commands.BatchEdit, obj, "Ctrl+Shift+B", BatchEditCommand),
             new("object.copyRows", L.Copy.Rows, obj, "Ctrl+C", CopyRowsCommand),

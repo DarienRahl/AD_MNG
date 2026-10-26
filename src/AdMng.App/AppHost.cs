@@ -8,9 +8,11 @@ using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
+using AdMng.Core.Messaging;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
+using AdMng.Mail;
 using AdMng.Presentation;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
@@ -21,6 +23,7 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.UserMessages;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
@@ -104,7 +107,8 @@ public static class AppHost
         services.AddSingleton<IWindowService, WindowService>();
         services.AddSingleton<IAppShutdown, ApplicationShutdown>();
         services.AddSingleton<AppNavigator>();
-        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<DialogService>();
+        services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<DialogService>());
         services.AddSingleton<IFileDialogService, FileDialogService>();
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<NotificationService>();
@@ -149,6 +153,11 @@ public static class AppHost
 
         // ---- Account review, README U2 (opened through ToolWindows) ----
         services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
+
+        // ---- Messages to users, README U1: direct SMTP (AdMng.Mail), the window opened by DialogService ----
+        services.AddSingleton<IDirectSmtpTransportFactory>(sp => new SmtpTransportFactory(sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IUserMessageLauncher>(sp => sp.GetRequiredService<DialogService>());
+        services.AddWindow<UserMessageComposerViewModel, UserMessagesWindow>();
 
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();

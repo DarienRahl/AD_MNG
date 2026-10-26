@@ -19,6 +19,7 @@ using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
@@ -128,6 +129,11 @@ public sealed class ScreenshotTests
         "17-account-review.png",
         "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
         "Account review – the check tiles and the accounts whose password expires soon");
+
+    private static readonly ScreenshotInfo UserMessages = new(
+        "18-user-messages.png",
+        "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
+        "Messages to users – the preview of the \"password expires\" message of every recipient before sending");
 
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
@@ -243,6 +249,40 @@ public sealed class ScreenshotTests
 
         await ScreenshotWriter.SaveAsync(window, AccountReview, dark: false);
     });
+
+    [Fact]
+    public Task Screenshot18_UserMessages() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Passwords that expire soon (domain maximum age 90 days), one already expired, one "must change".
+        var company = context.Company;
+        var session = context.Directory.Session;
+        var now = context.Services.GetRequiredService<TimeProvider>().GetUtcNow();
+        static string FileTime(DateTimeOffset value) => AdConvert.ToFileTime(value).ToString(CultureInfo.InvariantCulture);
+        session.EmulateConstructedPasswordExpiry = true;
+        session.MaxPasswordAge = TimeSpan.FromDays(90);
+        session.SetValues(company.JanKowalski, Attr.PwdLastSet, FileTime(now.AddDays(-80)));
+        session.SetValues(company.LukaszWisniewski, Attr.PwdLastSet, FileTime(now.AddDays(-84)));
+        session.SetValues(company.GrazynaDabrowska, Attr.PwdLastSet, FileTime(now.AddDays(-87)));
+        session.SetValues(company.MalgorzataWojcik, Attr.PwdLastSet, FileTime(now.AddDays(-95)));
+        session.SetValues(company.BartlomiejKozlowski, Attr.PwdLastSet, "0");
+        await context.Services.GetRequiredService<ISettingsStore>().UpdateAsync(s =>
+        {
+            s.UserMessages.Smtp.Host = "smtp.contoso.com";
+            s.UserMessages.Cc = "helpdesk@contoso.com";
+        }, TestContext.Current.CancellationToken);
+
+        var window = (UserMessagesWindow)Windows(context).CreateWindow(Factory(context).CreateUserMessageComposer(new Presentation.UserMessages.UserMessageRequest(
+            [company.JanKowalski, company.LukaszWisniewski, company.GrazynaDabrowska, company.MalgorzataWojcik, company.BartlomiejKozlowski],
+            Core.Messaging.BuiltInMessageTemplates.PasswordExpiring,
+            14)));
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        await window.ViewModel.PlanCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 5, "the five planned messages");
+        window.ItemsList.SelectedItem = window.ViewModel.AllItems.First(i => i.Name == "Łukasz Wiśniewski");
+
+        await ScreenshotWriter.SaveAsync(window, UserMessages, dark: false);
+    }, configure: services => services.Replace(ServiceDescriptor.Singleton<Core.Messaging.IDirectSmtpTransportFactory>(new AdMng.Testing.FakeUserMessageTransport())));
 
     [Fact]
     public Task Screenshot07_Find_WithResults() => ShootAsync(ThemePreference.Light, async context =>

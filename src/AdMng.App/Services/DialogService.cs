@@ -2,11 +2,14 @@ using System.Windows;
 using AdMng.App.Views;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Settings;
+using AdMng.Presentation.UserMessages;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +28,7 @@ namespace AdMng.App.Services;
 /// <see cref="IWindowService.ShowDialog(object)"/> (modal) or <see cref="IWindowService.Show"/> (modeless).
 /// Every method may be called from any thread; windows are always created on the UI thread.
 /// </remarks>
-public sealed class DialogService : IDialogService
+public sealed class DialogService : IDialogService, IUserMessageLauncher
 {
     private readonly IWindowService _windows;
     private readonly ILocalizer _localizer;
@@ -222,6 +225,23 @@ public sealed class DialogService : IDialogService
         _tools.ShowAccountReview();
         return true;
     });
+
+    // ---- Messages to users, README U1 (modeless, one window per launch) ----
+
+    /// <summary>
+    /// <see cref="IUserMessageLauncher"/>: the message window for the accounts, with the template matching the account
+    /// review check (and its N days from the remembered review parameters).
+    /// </summary>
+    public Task ShowComposerAsync(IReadOnlyList<string> distinguishedNames, AccountCheck? reason)
+    {
+        ArgumentNullException.ThrowIfNull(distinguishedNames);
+        return OnUiThreadAsync(() =>
+        {
+            var parameters = _services.GetRequiredService<ISettingsStore>().Current.AccountReview.Parameters;
+            _windows.Show(Factory.CreateUserMessageComposer(UserMessageRequest.For(distinguishedNames, reason, parameters)));
+            return true;
+        });
+    }
 
     // ---- Helpers ----------------------------------------------------------------------------------------------
 

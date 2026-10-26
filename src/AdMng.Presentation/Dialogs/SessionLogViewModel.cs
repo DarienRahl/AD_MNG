@@ -21,6 +21,8 @@ public sealed class AuditEntryViewModel
         Name = DistinguishedName.TryParse(entry.DistinguishedName, out var dn) && !dn.IsRoot ? dn.Name : entry.DistinguishedName;
         Action = entry.Action == DomainControllerSwitch.SessionLogAction
             ? localizer[L.ChangeDc.SessionLogAction]
+            : entry.Action == UserMessages.UserMessageComposerViewModel.SessionLogAction
+            ? localizer[L.UserMessages.SessionLogAction]
             : Enum.TryParse<ChangeAction>(entry.Action, out var action) ? localizer[DisplayNames.ChangeActionKey(action)] : entry.Action;
         Attribute = string.IsNullOrEmpty(entry.Attribute) ? string.Empty : localizer.AttributeName(entry.Attribute, null);
         ResultText = localizer[entry.Succeeded ? L.SessionLog.Succeeded : L.SessionLog.Failed];

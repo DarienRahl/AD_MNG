@@ -28,7 +28,7 @@ internal sealed class FieldContext(DialogServices services, IDirectorySession se
     /// <summary>Reads of all domain controllers ("Sprawdź na wszystkich DC" of the account state), null = current DC only.</summary>
     public AccountReview.DomainControllerReader? DomainControllers { get; init; }
 
-    /// <summary>U1 hook ("Wyślij wiadomość…"); null while U1 is not implemented.</summary>
+    /// <summary>"Wyślij wiadomość…" (U1); null when the host registered no message launcher.</summary>
     public AccountReview.IUserMessageLauncher? Messages { get; init; }
 
     public ILocalizer Localizer => Services.Localizer;

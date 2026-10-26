@@ -72,6 +72,9 @@ public sealed class AppSettings
     /// <summary>The account review: N-day parameters, enabled checks, scope and named check sets (never results).</summary>
     public AccountReviewSettings AccountReview { get; set; } = new();
 
+    /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
+    public UserMessageSettings UserMessages { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max 10).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -97,6 +100,8 @@ public sealed class AppSettings
         Watchdog.Normalize();
         AccountReview ??= new();
         AccountReview.Normalize();
+        UserMessages ??= new();
+        UserMessages.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

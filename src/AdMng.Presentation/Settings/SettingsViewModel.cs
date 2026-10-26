@@ -10,7 +10,7 @@ namespace AdMng.Presentation.Settings;
 
 /// <summary>
 /// Settings dialog: language, theme, LDAP page size, batch parallelism, confirmation threshold, inactive days,
-/// live updates, the view options and the Watchdog certificate pin (shown in groups of four hex digits, "Usuń
+/// live updates, the view options, the Watchdog certificate pin, the messages to users (tab "Wiadomości e-mail", U1) (shown in groups of four hex digits, "Usuń
 /// przypięcie" – stage B design 18 item 1). Save applies immediately (language without restart, theme); a removed pin
 /// counts from the next connection to the Watchdog service.
 /// </summary>
@@ -32,10 +32,23 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     private readonly IThemeService _theme;
 
-    public SettingsViewModel(DialogServices services, IThemeService theme)
+    public SettingsViewModel(DialogServices services, IThemeService theme, UserMessages.UserMessageServices? userMessages = null)
         : base(services)
     {
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        if (userMessages is not null)
+        {
+            Messages = new UserMessages.UserMessageSettingsViewModel(services, userMessages);
+            Messages.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(UserMessages.UserMessageSettingsViewModel.Error))
+                {
+                    OnPropertyChanged(nameof(Error));
+                    SaveCommand.NotifyCanExecuteChanged();
+                }
+            };
+        }
+
         Languages =
         [
             new(string.Empty, Localizer[L.Settings.LanguageSystem]),
@@ -117,6 +130,9 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool IsPinRemoved { get; private set; }
 
+    /// <summary>The "Wiadomości e-mail" tab (README U1), or null when the host registered no messages to users.</summary>
+    public UserMessages.UserMessageSettingsViewModel? Messages { get; }
+
     /// <summary>The shell's Advanced Features toggle (set by the host; see the remarks of the class).</summary>
     public IAsyncRelayCommand? ShellToggleAdvancedFeatures { get; set; }
 
@@ -125,7 +141,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         Range(L.Settings.PageSize, PageSize, MinPageSize, MaxPageSize)
         ?? Range(L.Settings.BatchParallelism, BatchMaxParallelism, MinParallelism, MaxParallelism)
         ?? Range(L.Settings.ConfirmationThreshold, ConfirmationThreshold, MinThreshold, MaxThreshold)
-        ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays);
+        ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays)
+        ?? Messages?.Error;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -151,6 +168,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             {
                 s.Watchdog.PinnedCertificateSha256 = null;
             }
+
+            Messages?.Apply(s);
         }).ConfigureAwait(true);
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));

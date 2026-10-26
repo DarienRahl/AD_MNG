@@ -41,6 +41,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly Debouncer _detailsDebouncer;
     private readonly Func<WatchdogDocumentViewModel>? _watchdogFactory;
     private readonly WatchdogObjectHistoryLauncher? _historyLauncher;
+    private readonly AccountReview.IUserMessageLauncher? _messages;
     private ObjectListViewModel? _observedDocument;
     private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
@@ -61,7 +62,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         ICsvCodec csv,
         IRegionalSettings regional,
         Func<WatchdogDocumentViewModel>? watchdogFactory = null,
-        WatchdogObjectHistoryLauncher? historyLauncher = null)
+        WatchdogObjectHistoryLauncher? historyLauncher = null,
+        AccountReview.IUserMessageLauncher? messages = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -76,6 +78,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _regional = regional ?? throw new ArgumentNullException(nameof(regional));
         _watchdogFactory = watchdogFactory;
         _historyLauncher = historyLauncher;
+        _messages = messages;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);

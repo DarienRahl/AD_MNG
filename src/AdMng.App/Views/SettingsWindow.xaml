@@ -1,5 +1,6 @@
-<!-- Settings (SettingsViewModel, modal): language, theme, directory, batch and view options, the Watchdog certificate pin.
-     Save applies them at once. -->
+<!-- Settings (SettingsViewModel, modal): tab "Ogólne" – language, theme, directory, batch and view options, the Watchdog
+     certificate pin; tab "Wiadomości e-mail" (README U1) – sender, limits, allowed link domains, transport and the direct
+     SMTP connection with its tests (the SMTP password box is read only for a test and never saved). Save applies at once. -->
 <Window x:Class="AdMng.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -7,8 +8,8 @@
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         Title="{Binding WindowTitle, Mode=OneWay}"
-        Width="580"
-        MinWidth="480"
+        Width="660"
+        MinWidth="520"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         SizeToContent="Height"
@@ -58,149 +59,413 @@
       </StackPanel>
     </Border>
 
-    <StackPanel Margin="24,0,24,16">
-      <!-- Appearance -->
-      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsAppearance}" />
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="220" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.Language}" />
-        <ComboBox x:Name="LanguageBox"
-                  Grid.Column="1"
-                  AutomationProperties.Name="{l:Tr Settings.Language}"
-                  ItemsSource="{Binding Languages, Mode=OneWay}"
-                  SelectedItem="{Binding Language}"
-                  Style="{StaticResource SettingCombo}" />
-        <TextBlock Grid.Row="1"
-                   Style="{StaticResource SettingLabel}"
-                   Text="{l:Tr Settings.Theme}" />
-        <ComboBox x:Name="ThemeBox"
-                  Grid.Row="1"
-                  Grid.Column="1"
-                  AutomationProperties.Name="{l:Tr Settings.Theme}"
-                  ItemsSource="{Binding Themes, Mode=OneWay}"
-                  SelectedItem="{Binding Theme}"
-                  Style="{StaticResource SettingCombo}" />
-      </Grid>
-
-      <!-- Directory -->
-      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsDirectory}" />
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="220" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.PageSize}" />
-        <TextBox x:Name="PageSizeBox"
-                 Grid.Column="1"
-                 AutomationProperties.Name="{l:Tr Settings.PageSize}"
-                 Style="{StaticResource NumberBox}"
-                 Text="{Binding PageSize, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Grid.Row="1"
-                   Style="{StaticResource SettingLabel}"
-                   Text="{l:Tr Settings.InactiveDays}" />
-        <TextBox Grid.Row="1"
-                 Grid.Column="1"
-                 AutomationProperties.Name="{l:Tr Settings.InactiveDays}"
-                 Style="{StaticResource NumberBox}"
-                 Text="{Binding InactiveDays, UpdateSourceTrigger=PropertyChanged}" />
-        <CheckBox Grid.Row="2"
-                  Grid.ColumnSpan="2"
-                  Margin="0,10,0,0"
-                  Content="{l:Tr Settings.LiveUpdates}"
-                  IsChecked="{Binding LiveUpdates}" />
-      </Grid>
-
-      <!-- Batch operations -->
-      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsBatch}" />
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="220" />
-          <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.BatchParallelism}" />
-        <TextBox Grid.Column="1"
-                 AutomationProperties.Name="{l:Tr Settings.BatchParallelism}"
-                 Style="{StaticResource NumberBox}"
-                 Text="{Binding BatchMaxParallelism, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Grid.Row="1"
-                   Style="{StaticResource SettingLabel}"
-                   Text="{l:Tr Settings.ConfirmationThreshold}" />
-        <TextBox Grid.Row="1"
-                 Grid.Column="1"
-                 AutomationProperties.Name="{l:Tr Settings.ConfirmationThreshold}"
-                 Style="{StaticResource NumberBox}"
-                 Text="{Binding ConfirmationThreshold, UpdateSourceTrigger=PropertyChanged}" />
-      </Grid>
-
-      <!-- View -->
-      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Shell.MenuView}" />
-      <CheckBox Margin="0,6,0,0"
-                Content="{l:Tr Commands.ToggleDetailsPane}"
-                IsChecked="{Binding ShowDetailsPane}" />
-      <CheckBox x:Name="AdvancedFeaturesBox"
-                Margin="0,6,0,0"
-                Content="{l:Tr Commands.ToggleAdvancedFeatures}"
-                IsChecked="{Binding ShowAdvancedFeatures}" />
-
-      <!-- Watchdog: the pinned certificate of the service (stage B design 18 item 1) -->
-      <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Watchdog.Title}" />
-      <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Certificate.Pinned}" />
-      <DockPanel Margin="0,4,0,0">
-        <Button x:Name="RemovePinButton"
-                Margin="12,0,0,0"
-                VerticalAlignment="Top"
-                Command="{Binding RemovePinCommand}"
-                Content="{l:Tr Watchdog.Certificate.RemovePin}"
-                DockPanel.Dock="Right" />
-        <TextBlock x:Name="PinnedCertificateText"
-                   AutomationProperties.Name="{l:Tr Watchdog.Certificate.Pinned}"
-                   FontFamily="Cascadia Mono, Consolas"
-                   Text="{Binding PinnedCertificateText, Mode=OneWay}"
+    <!-- Errors of the settings (both tabs) -->
+    <Border Margin="24,8,24,0"
+            DockPanel.Dock="Bottom"
+            Style="{StaticResource Ad.ErrorBar}"
+            Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+      <DockPanel>
+        <TextBlock Margin="0,0,10,0"
+                   DockPanel.Dock="Left"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.Error}" />
+        <TextBlock x:Name="ErrorMessage"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding Error, Mode=OneWay}"
                    TextWrapping="Wrap" />
       </DockPanel>
-      <TextBlock Margin="0,4,0,0"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{l:Tr Watchdog.Certificate.PinRemovedOnSave}"
-                 TextWrapping="Wrap"
-                 Visibility="{Binding IsPinRemoved, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-      <TextBlock Margin="0,4,0,0"
-                 Style="{StaticResource Ad.SecondaryText}"
-                 Text="{l:Tr Watchdog.Certificate.PinHint}"
-                 TextWrapping="Wrap"
-                 Visibility="{Binding HasPinnedCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+    </Border>
 
-      <!-- Range errors of the numeric settings -->
-      <Border Margin="0,14,0,0"
-              Style="{StaticResource Ad.ErrorBar}"
-              Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
-        <DockPanel>
-          <TextBlock Margin="0,0,10,0"
-                     DockPanel.Dock="Left"
-                     Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                     Style="{StaticResource Ad.GlyphText}"
-                     Text="{x:Static c:Glyphs.Error}" />
-          <TextBlock x:Name="ErrorMessage"
-                     AutomationProperties.LiveSetting="Assertive"
-                     Text="{Binding Error, Mode=OneWay}"
-                     TextWrapping="Wrap" />
-        </DockPanel>
-      </Border>
-    </StackPanel>
+    <TabControl x:Name="SettingsTabs" Margin="8,8,8,0">
+      <TabItem x:Name="GeneralTab" Header="{l:Tr UserMessages.GeneralTab}">
+          <StackPanel Margin="24,0,24,16">
+            <!-- Appearance -->
+            <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsAppearance}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.Language}" />
+              <ComboBox x:Name="LanguageBox"
+                        Grid.Column="1"
+                        AutomationProperties.Name="{l:Tr Settings.Language}"
+                        ItemsSource="{Binding Languages, Mode=OneWay}"
+                        SelectedItem="{Binding Language}"
+                        Style="{StaticResource SettingCombo}" />
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource SettingLabel}"
+                         Text="{l:Tr Settings.Theme}" />
+              <ComboBox x:Name="ThemeBox"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        AutomationProperties.Name="{l:Tr Settings.Theme}"
+                        ItemsSource="{Binding Themes, Mode=OneWay}"
+                        SelectedItem="{Binding Theme}"
+                        Style="{StaticResource SettingCombo}" />
+            </Grid>
+
+            <!-- Directory -->
+            <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsDirectory}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.PageSize}" />
+              <TextBox x:Name="PageSizeBox"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Settings.PageSize}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding PageSize, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource SettingLabel}"
+                         Text="{l:Tr Settings.InactiveDays}" />
+              <TextBox Grid.Row="1"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Settings.InactiveDays}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding InactiveDays, UpdateSourceTrigger=PropertyChanged}" />
+              <CheckBox Grid.Row="2"
+                        Grid.ColumnSpan="2"
+                        Margin="0,10,0,0"
+                        Content="{l:Tr Settings.LiveUpdates}"
+                        IsChecked="{Binding LiveUpdates}" />
+            </Grid>
+
+            <!-- Batch operations -->
+            <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr ToolsUi.SettingsBatch}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Settings.BatchParallelism}" />
+              <TextBox Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Settings.BatchParallelism}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding BatchMaxParallelism, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource SettingLabel}"
+                         Text="{l:Tr Settings.ConfirmationThreshold}" />
+              <TextBox Grid.Row="1"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Settings.ConfirmationThreshold}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding ConfirmationThreshold, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+
+            <!-- View -->
+            <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Shell.MenuView}" />
+            <CheckBox Margin="0,6,0,0"
+                      Content="{l:Tr Commands.ToggleDetailsPane}"
+                      IsChecked="{Binding ShowDetailsPane}" />
+            <CheckBox x:Name="AdvancedFeaturesBox"
+                      Margin="0,6,0,0"
+                      Content="{l:Tr Commands.ToggleAdvancedFeatures}"
+                      IsChecked="{Binding ShowAdvancedFeatures}" />
+
+            <!-- Watchdog: the pinned certificate of the service (stage B design 18 item 1) -->
+            <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Watchdog.Title}" />
+            <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Certificate.Pinned}" />
+            <DockPanel Margin="0,4,0,0">
+              <Button x:Name="RemovePinButton"
+                      Margin="12,0,0,0"
+                      VerticalAlignment="Top"
+                      Command="{Binding RemovePinCommand}"
+                      Content="{l:Tr Watchdog.Certificate.RemovePin}"
+                      DockPanel.Dock="Right" />
+              <TextBlock x:Name="PinnedCertificateText"
+                         AutomationProperties.Name="{l:Tr Watchdog.Certificate.Pinned}"
+                         FontFamily="Cascadia Mono, Consolas"
+                         Text="{Binding PinnedCertificateText, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </DockPanel>
+            <TextBlock Margin="0,4,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Watchdog.Certificate.PinRemovedOnSave}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding IsPinRemoved, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+            <TextBlock Margin="0,4,0,0"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{l:Tr Watchdog.Certificate.PinHint}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasPinnedCertificate, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+      </TabItem>
+        <TabItem x:Name="MessagesTab"
+                 DataContext="{Binding Messages, Mode=OneWay}"
+                 Header="{l:Tr UserMessages.SettingsTab}"
+                 Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+          <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,0,24,16">
+              <!-- Sender -->
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.SenderSection}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.FromAddress}" />
+                <TextBox x:Name="FromAddressBox"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.FromAddress}"
+                         Text="{Binding FromAddress, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{l:Tr UserMessages.FromAddressHint}" />
+                <TextBlock Grid.Row="1" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.FromName}" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.FromName}"
+                         Text="{Binding FromName, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="2" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.ReplyToLabel}" />
+                <TextBox Grid.Row="2"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.ReplyToLabel}"
+                         Text="{Binding ReplyTo, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="3" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.CcLabel}" />
+                <TextBox Grid.Row="3"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.CcLabel}"
+                         Text="{Binding Cc, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="4" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.TestAddress}" />
+                <TextBox x:Name="TestAddressBox"
+                         Grid.Row="4"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.TestAddress}"
+                         Text="{Binding TestAddress, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="5" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.DefaultLanguage}" />
+                <ComboBox Grid.Row="5"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{l:Tr UserMessages.DefaultLanguage}"
+                          ItemsSource="{Binding Languages, Mode=OneWay}"
+                          SelectedItem="{Binding Language}"
+                          Style="{StaticResource SettingCombo}" />
+              </Grid>
+
+              <!-- Limits and safety -->
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.LimitsSection}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.MessagesPerMinute}" />
+                <TextBox Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr UserMessages.MessagesPerMinute}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding MessagesPerMinute, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="1" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.RecipientsPerDay}" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr UserMessages.RecipientsPerDay}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding RecipientsPerDay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="2" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.MessageThreshold}" />
+                <TextBox Grid.Row="2"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr UserMessages.MessageThreshold}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding ConfirmationThreshold, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="3" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.AllowedDomains}" />
+                <StackPanel Grid.Row="3" Grid.Column="1">
+                  <TextBox x:Name="AllowedDomainsBox"
+                           Height="64"
+                           Margin="0,6,0,0"
+                           AcceptsReturn="True"
+                           AutomationProperties.Name="{l:Tr UserMessages.AllowedDomains}"
+                           Text="{Binding AllowedDomainsText, UpdateSourceTrigger=PropertyChanged}"
+                           VerticalScrollBarVisibility="Auto" />
+                  <TextBlock Margin="0,4,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr UserMessages.AllowedDomainsHint}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+              </Grid>
+
+              <!-- Transport -->
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.TransportSection}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.TransportLabel}" />
+                <ComboBox x:Name="TransportBox"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{l:Tr UserMessages.TransportLabel}"
+                          ItemsSource="{Binding TransportChoices, Mode=OneWay}"
+                          SelectedItem="{Binding Transport}"
+                          Style="{StaticResource SettingCombo}" />
+              </Grid>
+              <TextBlock Margin="0,4,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr UserMessages.TransportHint}"
+                         TextWrapping="Wrap" />
+
+              <!-- Direct SMTP -->
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.SmtpSection}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpHost}" />
+                <TextBox x:Name="SmtpHostBox"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.SmtpHost}"
+                         Text="{Binding SmtpHost, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="1" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpPort}" />
+                <TextBox Grid.Row="1"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr UserMessages.SmtpPort}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding SmtpPort, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="2" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpTls}" />
+                <ComboBox x:Name="TlsBox"
+                          Grid.Row="2"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{l:Tr UserMessages.SmtpTls}"
+                          ItemsSource="{Binding TlsModes, Mode=OneWay}"
+                          SelectedItem="{Binding Tls}"
+                          Style="{StaticResource SettingCombo}" />
+                <Border Grid.Row="3"
+                        Grid.Column="1"
+                        Margin="0,6,0,0"
+                        Style="{StaticResource Ad.WarningBar}"
+                        Visibility="{Binding IsInsecureTls, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <StackPanel>
+                    <TextBlock Text="{l:Tr UserMessages.InsecureTlsWarning}" TextWrapping="Wrap" />
+                    <CheckBox x:Name="InsecureTlsConfirmBox"
+                              Margin="0,6,0,0"
+                              Content="{l:Tr UserMessages.InsecureTlsConfirm}"
+                              IsChecked="{Binding InsecureTlsConfirmed}" />
+                  </StackPanel>
+                </Border>
+                <TextBlock Grid.Row="4" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpCertificate}" />
+                <ComboBox Grid.Row="4"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{l:Tr UserMessages.SmtpCertificate}"
+                          ItemsSource="{Binding CertificateChecks, Mode=OneWay}"
+                          SelectedItem="{Binding Certificate}"
+                          Style="{StaticResource SettingCombo}" />
+                <TextBox Grid.Row="5"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.SmtpPin}"
+                         FontFamily="Cascadia Mono, Consolas"
+                         Text="{Binding PinnedSha256, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{l:Tr UserMessages.SmtpPin}"
+                         Visibility="{Binding IsPinned, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBlock Grid.Row="6" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.SmtpAuth}" />
+                <ComboBox x:Name="AuthenticationBox"
+                          Grid.Row="6"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{l:Tr UserMessages.SmtpAuth}"
+                          ItemsSource="{Binding Authentications, Mode=OneWay}"
+                          SelectedItem="{Binding Authentication}"
+                          Style="{StaticResource SettingCombo}" />
+                <TextBlock Grid.Row="7"
+                           Style="{StaticResource SettingLabel}"
+                           Text="{l:Tr UserMessages.SmtpUserName}"
+                           Visibility="{Binding UsesUserName, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBox Grid.Row="7"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.SmtpUserName}"
+                         Text="{Binding SmtpUserName, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding UsesUserName, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <TextBlock Grid.Row="8"
+                           Style="{StaticResource SettingLabel}"
+                           Text="{l:Tr UserMessages.SmtpPassword}"
+                           Visibility="{Binding UsesUserName, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                <StackPanel Grid.Row="8"
+                            Grid.Column="1"
+                            Visibility="{Binding UsesUserName, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <PasswordBox x:Name="MessagesPasswordBox" Margin="0,6,0,0" AutomationProperties.Name="{l:Tr UserMessages.SmtpPassword}" />
+                  <TextBlock Margin="0,4,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr UserMessages.SmtpPasswordHint}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBlock Grid.Row="9" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.LocalDomain}" />
+                <TextBox Grid.Row="9"
+                         Grid.Column="1"
+                         Margin="0,6,0,0"
+                         AutomationProperties.Name="{l:Tr UserMessages.LocalDomain}"
+                         Text="{Binding LocalDomain, UpdateSourceTrigger=PropertyChanged}" />
+              </Grid>
+              <TextBlock Margin="0,8,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr UserMessages.XOAuthNote}"
+                         TextWrapping="Wrap" />
+              <WrapPanel Margin="0,10,0,0">
+                <Button x:Name="TestConnectionButton"
+                        Margin="0,0,8,6"
+                        Command="{Binding TestConnectionCommand}"
+                        Content="{l:Tr UserMessages.TestConnection}" />
+                <Button x:Name="SendTestMessageButton"
+                        Margin="0,0,8,6"
+                        Command="{Binding SendTestMessageCommand}"
+                        Content="{l:Tr UserMessages.SendTest}" />
+                <Button Margin="0,0,8,6"
+                        Command="{Binding PinSeenCertificateCommand}"
+                        Content="{l:Tr UserMessages.PinSeen}"
+                        Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+              </WrapPanel>
+              <TextBlock x:Name="MessagesTestResult"
+                         AutomationProperties.LiveSetting="Polite"
+                         FontFamily="Cascadia Mono, Consolas"
+                         Text="{Binding TestResult, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+    </TabControl>
   </DockPanel>
 </Window>

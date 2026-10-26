@@ -19,6 +19,12 @@ public partial class SettingsWindow : Window, IDialogResultWindow
         InitializeComponent();
         UiLanguage.ApplyTo(this);
         DataContext = viewModel;
+        if (viewModel.Messages is { } messages)
+        {
+            messages.SmtpPasswordInput = new PasswordBoxInput(MessagesPasswordBox);
+            Closed += (_, _) => MessagesPasswordBox.Clear();
+        }
+
         _lifecycle = new WindowViewModelLifecycle(this, viewModel);
         Loaded += (_, _) => LanguageBox.Focus();
     }
