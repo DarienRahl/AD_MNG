@@ -1571,6 +1571,12 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Shell.ShowAllResults" xml:space="preserve">
     <value>Show all results</value>
   </data>
+  <data name="Shell.Version" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="Shell.VersionToolTip" xml:space="preserve">
+    <value>AD Manager {0} – click for details</value>
+  </data>
   <data name="Shell.WindowTitleConnected" xml:space="preserve">
     <value>{0} – {1}</value>
   </data>

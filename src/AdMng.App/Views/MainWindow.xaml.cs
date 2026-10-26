@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -264,12 +263,7 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {
-        var assembly = typeof(MainWindow).Assembly;
-        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? assembly.GetName().Version?.ToString() ?? string.Empty;
-        var plus = version.IndexOf('+', StringComparison.Ordinal);
-        version = plus > 0 ? version[..plus] : version;
-        _ = _dialogs.ShowInfoAsync(_localizer[L.Ui.About], _localizer.Format(L.Ui.AboutText, _localizer[L.App.ShortTitle], version));
+        _ = _dialogs.ShowInfoAsync(_localizer[L.Ui.About], _localizer.Format(L.Ui.AboutText, _localizer[L.App.ShortTitle], AppVersion.Display));
     }
 
     private void OnFilterToggleChanged(object sender, RoutedEventArgs e)

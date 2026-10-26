@@ -101,6 +101,8 @@ public static partial class L
         public const string MenuNew = "Shell.MenuNew";
         public const string ConnectedTo = "Shell.ConnectedTo";
         public const string BoundAs = "Shell.BoundAs";
+        public const string Version = "Shell.Version";
+        public const string VersionToolTip = "Shell.VersionToolTip";
         public const string PrivilegedIdentity = "Shell.PrivilegedIdentity";
         public const string AddressPlaceholder = "Shell.AddressPlaceholder";
         public const string AddressNotFound = "Shell.AddressNotFound";

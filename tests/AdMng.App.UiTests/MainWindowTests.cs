@@ -40,6 +40,11 @@ public sealed class MainWindowTests
         // Nothing selected: only the "no selection" hint, not an empty summary (null DataContext → fallback value).
         Assert.Null(window.Shell.SelectedObject);
         Assert.Equal(Visibility.Collapsed, window.DetailsContent.Visibility);
+
+        // The version in the bottom-right corner and the application icon in the title bar.
+        Assert.Equal($"v{AppVersion.Version}", window.VersionText.Text);
+        Assert.True(window.VersionButton.IsVisible);
+        Assert.NotNull(window.Icon);
         context.AssertHealthy();
     });
 

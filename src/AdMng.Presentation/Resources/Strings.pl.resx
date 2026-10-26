@@ -1571,6 +1571,12 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Shell.ShowAllResults" xml:space="preserve">
     <value>Pokaż wszystkie wyniki</value>
   </data>
+  <data name="Shell.Version" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="Shell.VersionToolTip" xml:space="preserve">
+    <value>AD Manager {0} – kliknij, aby zobaczyć szczegóły</value>
+  </data>
   <data name="Shell.WindowTitleConnected" xml:space="preserve">
     <value>{0} – {1}</value>
   </data>

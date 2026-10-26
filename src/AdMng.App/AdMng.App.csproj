@@ -7,6 +7,8 @@
     <RootNamespace>AdMng.App</RootNamespace>
     <AssemblyName>AdMng</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Sources and build script: tools/icon (SVG → multi-size ICO). -->
+    <ApplicationIcon>Assets\AdMng.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
@@ -18,6 +20,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\AdMng.ico" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.App.UiTests" />

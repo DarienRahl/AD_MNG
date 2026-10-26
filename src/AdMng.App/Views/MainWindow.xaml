@@ -20,6 +20,7 @@
         Height="840"
         MinWidth="820"
         MinHeight="520"
+        Icon="/Assets/AdMng.ico"
         WindowStartupLocation="CenterScreen">
   <Window.Resources>
     <!-- The shell view model for places outside the visual tree (item container styles, popups). -->
@@ -922,6 +923,35 @@
           <DockPanel LastChildFill="True" />
         </ItemsPanelTemplate>
       </StatusBar.ItemsPanel>
+
+      <!-- The version in the bottom-right corner; a click opens Help → About. -->
+      <StatusBarItem Padding="0" DockPanel.Dock="Right">
+        <Button x:Name="VersionButton"
+                Padding="6,1"
+                AutomationProperties.AutomationId="VersionButton"
+                Background="Transparent"
+                BorderBrush="Transparent"
+                Click="OnAboutClick">
+          <Button.ToolTip>
+            <TextBlock>
+              <TextBlock.Text>
+                <MultiBinding Converter="{StaticResource Ad.Format}">
+                  <l:TrBinding Key="Shell.VersionToolTip" />
+                  <Binding Mode="OneTime" Source="{x:Static shell:AppVersion.Display}" />
+                </MultiBinding>
+              </TextBlock.Text>
+            </TextBlock>
+          </Button.ToolTip>
+          <TextBlock x:Name="VersionText" FontSize="12" Style="{StaticResource Ad.SecondaryText}">
+            <TextBlock.Text>
+              <MultiBinding Converter="{StaticResource Ad.Format}">
+                <l:TrBinding Key="Shell.Version" />
+                <Binding Mode="OneTime" Source="{x:Static shell:AppVersion.Version}" />
+              </MultiBinding>
+            </TextBlock.Text>
+          </TextBlock>
+        </Button>
+      </StatusBarItem>
 
       <StatusBarItem DockPanel.Dock="Right">
         <Grid>
