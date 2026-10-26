@@ -216,6 +216,12 @@ internal sealed class ScriptedDialogService : IDialogService
         return Task.CompletedTask;
     }
 
+    public Task ShowAccountReviewAsync()
+    {
+        Shown.Add("accountReview");
+        return Task.CompletedTask;
+    }
+
     public Task ShowSettingsAsync()
     {
         Shown.Add("settings");

@@ -57,6 +57,9 @@ public interface IDialogService
     /// </summary>
     Task ShowRecycleBinAsync(Guid? select = null);
 
+    /// <summary>Opens the account review window (modeless, one per application; an open one is activated).</summary>
+    Task ShowAccountReviewAsync();
+
     Task ShowSettingsAsync();
 
     /// <summary>Shows the connection window (used after Disconnect).</summary>

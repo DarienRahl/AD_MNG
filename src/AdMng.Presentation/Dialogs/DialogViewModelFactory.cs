@@ -53,6 +53,9 @@ public interface IDialogViewModelFactory
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
 
+    /// <summary>For <see cref="IDialogService.ShowAccountReviewAsync"/> (modeless, one window): the account review (U2).</summary>
+    AccountReview.AccountReviewViewModel CreateAccountReview();
+
     /// <summary>
     /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). Pass the main window's
     /// <c>ShellViewModel.ToggleAdvancedFeaturesCommand</c> so that Advanced Features reloads the tree and lists.
@@ -63,7 +66,9 @@ public interface IDialogViewModelFactory
 /// <summary>Default <see cref="IDialogViewModelFactory"/> (singleton).</summary>
 /// <remarks>
 /// With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)"; with the
-/// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site).
+/// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site), and
+/// the account review and the Account tab read other domain controllers. With an
+/// <see cref="AccountReview.IUserMessageLauncher"/> (path U1, not implemented yet) "Wyślij wiadomość…" is shown.
 /// </remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
@@ -74,10 +79,18 @@ public sealed class DialogViewModelFactory(
     PowerShellHistory powerShellHistory,
     IThemeService theme,
     WatchdogObjectHistoryLauncher? historyLauncher = null,
-    IDirectoryConnector? connector = null) : IDialogViewModelFactory
+    IDirectoryConnector? connector = null,
+    AccountReview.IUserMessageLauncher? messages = null) : IDialogViewModelFactory
 {
+    private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
+
     public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
-        new(services, engines.Planner, distinguishedName) { HistoryLauncher = historyLauncher };
+        new(services, engines.Planner, distinguishedName)
+        {
+            HistoryLauncher = historyLauncher,
+            DomainControllers = _domainControllers,
+            MessageLauncher = messages,
+        };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
 
@@ -101,6 +114,8 @@ public sealed class DialogViewModelFactory(
     public PowerShellHistoryViewModel CreatePowerShellHistory() => new(services, powerShellHistory);
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
+
+    public AccountReview.AccountReviewViewModel CreateAccountReview() => new(services, views, engines.Csv, _domainControllers, messages);
 
     public SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null) =>
         new(services, theme) { ShellToggleAdvancedFeatures = toggleAdvancedFeatures };

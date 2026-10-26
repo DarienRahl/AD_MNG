@@ -79,6 +79,12 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         }
     }
 
+    /// <summary>Reads of all domain controllers for the account state on the Account tab (set by the factory).</summary>
+    public AccountReview.DomainControllerReader? DomainControllers { get; init; }
+
+    /// <summary>U1 hook for "Wyślij wiadomość…" (set by the factory when U1 registers a launcher).</summary>
+    public AccountReview.IUserMessageLauncher? MessageLauncher { get; init; }
+
     /// <summary>A watchdog service is configured: the sheet offers "Historia zmian (Watchdog)".</summary>
     public bool IsWatchdogHistoryAvailable => HistoryLauncher?.IsAvailable == true;
 
@@ -404,7 +410,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         {
             if (_context is null || !ReferenceEquals(_context.Session, session))
             {
-                _context = new FieldContext(Services, session);
+                _context = new FieldContext(Services, session) { DomainControllers = DomainControllers, Messages = MessageLauncher };
                 ReplacePages([]);
             }
 

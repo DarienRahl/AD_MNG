@@ -52,7 +52,7 @@ public sealed partial class ShellViewModel
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowWatchdogHistoryCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -706,6 +706,10 @@ public sealed partial class ShellViewModel
     /// <summary>The AD Recycle Bin of the connected domain (deleted objects, restore).</summary>
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task ShowRecycleBinAsync() => _dialogs.ShowRecycleBinAsync();
+
+    /// <summary>The account review of the connected domain (README U2).</summary>
+    [RelayCommand(CanExecute = nameof(IsConnected))]
+    private Task ShowAccountReviewAsync() => _dialogs.ShowAccountReviewAsync();
 
     [RelayCommand]
     private Task ShowSettingsAsync() => _dialogs.ShowSettingsAsync();

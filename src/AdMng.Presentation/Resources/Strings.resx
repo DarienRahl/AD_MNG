@@ -6709,4 +6709,448 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.UnitMinutes" xml:space="preserve">
     <value>minutes</value>
   </data>
+  <data name="Commands.AccountReview" xml:space="preserve">
+    <value>Account review...</value>
+  </data>
+  <data name="AccountReview.WindowTitle" xml:space="preserve">
+    <value>Account review</value>
+  </data>
+  <data name="AccountReview.WindowTitleDomain" xml:space="preserve">
+    <value>Account review – {0}</value>
+  </data>
+  <data name="AccountReview.ScopeLabel" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="AccountReview.ChooseScope" xml:space="preserve">
+    <value>Choose...</value>
+  </data>
+  <data name="AccountReview.ScopeNotChosen" xml:space="preserve">
+    <value>Choose the organizational unit or the group first.</value>
+  </data>
+  <data name="AccountReview.SavedViewLabel" xml:space="preserve">
+    <value>Saved view</value>
+  </data>
+  <data name="AccountReview.ViewNotFound" xml:space="preserve">
+    <value>The saved view no longer exists. Choose another scope.</value>
+  </data>
+  <data name="AccountReview.GroupNotFound" xml:space="preserve">
+    <value>The group {0} was not found on the domain controller.</value>
+  </data>
+  <data name="AccountReview.CheckSet" xml:space="preserve">
+    <value>Check set</value>
+  </data>
+  <data name="AccountReview.CheckSetName" xml:space="preserve">
+    <value>Name of the check set</value>
+  </data>
+  <data name="AccountReview.SaveCheckSet" xml:space="preserve">
+    <value>Save set</value>
+  </data>
+  <data name="AccountReview.CheckSetSaved" xml:space="preserve">
+    <value>Check set „{0}” saved.</value>
+  </data>
+  <data name="AccountReview.DeleteCheckSet" xml:space="preserve">
+    <value>Delete check set</value>
+  </data>
+  <data name="AccountReview.DeleteCheckSetConfirm" xml:space="preserve">
+    <value>Delete the check set „{0}”?</value>
+  </data>
+  <data name="AccountReview.Parameters" xml:space="preserve">
+    <value>Parameters</value>
+  </data>
+  <data name="AccountReview.Checks" xml:space="preserve">
+    <value>Checks</value>
+  </data>
+  <data name="AccountReview.PasswordExpiringDays" xml:space="preserve">
+    <value>Password expires within (days)</value>
+  </data>
+  <data name="AccountReview.AccountExpiringDays" xml:space="preserve">
+    <value>Account expires within (days)</value>
+  </data>
+  <data name="AccountReview.InactiveDays" xml:space="preserve">
+    <value>Inactive for more than (days)</value>
+  </data>
+  <data name="AccountReview.PasswordAgeDays" xml:space="preserve">
+    <value>Password older than (days)</value>
+  </data>
+  <data name="AccountReview.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="AccountReview.NotRun" xml:space="preserve">
+    <value>Choose the scope and the checks, then click Check. The results stay in memory only.</value>
+  </data>
+  <data name="AccountReview.Empty" xml:space="preserve">
+    <value>No accounts found for this check.</value>
+  </data>
+  <data name="AccountReview.Status" xml:space="preserve">
+    <value>As of {0} · {1} accounts read · {2} accounts with findings</value>
+  </data>
+  <data name="AccountReview.StatusRunning" xml:space="preserve">
+    <value>Checking (as of {0}) · {1} accounts read · {2} accounts with findings...</value>
+  </data>
+  <data name="AccountReview.StatusStopped" xml:space="preserve">
+    <value>Stopped (as of {0}) · {1} accounts read · {2} accounts with findings – the results are incomplete</value>
+  </data>
+  <data name="AccountReview.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="AccountReview.ExportCsv" xml:space="preserve">
+    <value>Export CSV...</value>
+  </data>
+  <data name="AccountReview.RequirePasswordChange" xml:space="preserve">
+    <value>Require password change</value>
+  </data>
+  <data name="AccountReview.Extend" xml:space="preserve">
+    <value>Extend account...</value>
+  </data>
+  <data name="AccountReview.ClearFlag" xml:space="preserve">
+    <value>Clear the flag...</value>
+  </data>
+  <data name="AccountReview.RemoveFromGroups" xml:space="preserve">
+    <value>Remove from groups...</value>
+  </data>
+  <data name="AccountReview.HideFromGal" xml:space="preserve">
+    <value>Hide from address lists...</value>
+  </data>
+  <data name="AccountReview.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon (all DCs)</value>
+  </data>
+  <data name="AccountReview.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading lastLogon of {0} accounts on every domain controller...</value>
+  </data>
+  <data name="AccountReview.ExactDone" xml:space="preserve">
+    <value>Exact last logon read from {0} of {1} domain controllers; {2} accounts are active after all.</value>
+  </data>
+  <data name="AccountReview.SendMessage" xml:space="preserve">
+    <value>Send message...</value>
+  </data>
+  <data name="AccountReview.Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="AccountReview.EndOfDay" xml:space="preserve">
+    <value>End of {0}</value>
+  </data>
+  <data name="AccountReview.Estimated" xml:space="preserve">
+    <value>{0} (estimate)</value>
+  </data>
+  <data name="AccountReview.MustChangeValue" xml:space="preserve">
+    <value>Must change at next logon</value>
+  </data>
+  <data name="AccountReview.PasswordExpiredValue" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="AccountReview.ExactOn" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="AccountReview.ManagerDisabledValue" xml:space="preserve">
+    <value>{0} (disabled)</value>
+  </data>
+  <data name="AccountReview.Today" xml:space="preserve">
+    <value>today</value>
+  </data>
+  <data name="AccountReview.Tomorrow" xml:space="preserve">
+    <value>tomorrow</value>
+  </data>
+  <data name="AccountReview.Yesterday" xml:space="preserve">
+    <value>yesterday</value>
+  </data>
+  <data name="AccountReview.InDays" xml:space="preserve">
+    <value>in {0} days</value>
+  </data>
+  <data name="AccountReview.DaysAgo" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
+  <data name="AccountReview.OneDay" xml:space="preserve">
+    <value>1 day</value>
+  </data>
+  <data name="AccountReview.DayCount" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="AccountReview.Check.Locked" xml:space="preserve">
+    <value>Locked out now</value>
+  </data>
+  <data name="AccountReview.Check.PasswordExpired" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="AccountReview.Check.PasswordExpiring" xml:space="preserve">
+    <value>Password expires soon</value>
+  </data>
+  <data name="AccountReview.Check.MustChangePassword" xml:space="preserve">
+    <value>Must change password</value>
+  </data>
+  <data name="AccountReview.Check.AccountExpired" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="AccountReview.Check.AccountExpiring" xml:space="preserve">
+    <value>Account expires soon</value>
+  </data>
+  <data name="AccountReview.Check.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountReview.Check.Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="AccountReview.Check.NeverLoggedOn" xml:space="preserve">
+    <value>Never logged on</value>
+  </data>
+  <data name="AccountReview.Check.PasswordNeverExpires" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="AccountReview.Check.PasswordNotRequired" xml:space="preserve">
+    <value>Password not required</value>
+  </data>
+  <data name="AccountReview.Check.ReversibleEncryption" xml:space="preserve">
+    <value>Reversible encryption</value>
+  </data>
+  <data name="AccountReview.Check.PasswordOld" xml:space="preserve">
+    <value>Old password</value>
+  </data>
+  <data name="AccountReview.Check.NoMail" xml:space="preserve">
+    <value>No e-mail address</value>
+  </data>
+  <data name="AccountReview.Check.NoManager" xml:space="preserve">
+    <value>No manager</value>
+  </data>
+  <data name="AccountReview.Check.ManagerDisabled" xml:space="preserve">
+    <value>Manager disabled</value>
+  </data>
+  <data name="AccountReview.Check.DisabledInGroups" xml:space="preserve">
+    <value>Disabled, still in groups</value>
+  </data>
+  <data name="AccountReview.Check.DisabledInGal" xml:space="preserve">
+    <value>Disabled, visible in the GAL</value>
+  </data>
+  <data name="AccountReview.Check.PrivilegedWithProblem" xml:space="preserve">
+    <value>Privileged with a problem</value>
+  </data>
+  <data name="AccountReview.Hint.Locked" xml:space="preserve">
+    <value>lockoutTime filtered on the server, lock bit of msDS-User-Account-Control-Computed (state on this DC; the lock may differ on other DCs).</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordExpired" xml:space="preserve">
+    <value>msDS-UserPasswordExpiryTimeComputed – computed by the DC, fine-grained password policies included.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordExpiring" xml:space="preserve">
+    <value>msDS-UserPasswordExpiryTimeComputed (FGPP included); the day of expiry in local time.</value>
+  </data>
+  <data name="AccountReview.Hint.MustChangePassword" xml:space="preserve">
+    <value>pwdLastSet = 0: the user must change the password at the next logon.</value>
+  </data>
+  <data name="AccountReview.Hint.AccountExpired" xml:space="preserve">
+    <value>accountExpires in the past (the end of the last day, as on the Account tab).</value>
+  </data>
+  <data name="AccountReview.Hint.AccountExpiring" xml:space="preserve">
+    <value>accountExpires – the last day of the account, as on the Account tab.</value>
+  </data>
+  <data name="AccountReview.Hint.Disabled" xml:space="preserve">
+    <value>userAccountControl bit 0x2.</value>
+  </data>
+  <data name="AccountReview.Hint.Inactive" xml:space="preserve">
+    <value>lastLogonTimestamp replicates with a delay of 9–14 days; the exact last logon is read on demand from every DC.</value>
+  </data>
+  <data name="AccountReview.Hint.NeverLoggedOn" xml:space="preserve">
+    <value>No lastLogonTimestamp and created more days ago than the inactivity limit.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordNeverExpires" xml:space="preserve">
+    <value>DONT_EXPIRE_PASSWORD (0x10000) in userAccountControl.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordNotRequired" xml:space="preserve">
+    <value>PASSWD_NOTREQD (0x20): the account may have an empty password.</value>
+  </data>
+  <data name="AccountReview.Hint.ReversibleEncryption" xml:space="preserve">
+    <value>ENCRYPTED_TEXT_PWD_ALLOWED (0x80): the password is stored with reversible encryption.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordOld" xml:space="preserve">
+    <value>pwdLastSet older than the limit.</value>
+  </data>
+  <data name="AccountReview.Hint.NoMail" xml:space="preserve">
+    <value>Neither mail nor a primary SMTP address in proxyAddresses – no message can reach the user.</value>
+  </data>
+  <data name="AccountReview.Hint.NoManager" xml:space="preserve">
+    <value>The manager attribute is empty.</value>
+  </data>
+  <data name="AccountReview.Hint.ManagerDisabled" xml:space="preserve">
+    <value>The manager's account is disabled.</value>
+  </data>
+  <data name="AccountReview.Hint.DisabledInGroups" xml:space="preserve">
+    <value>Disabled, but still a member of groups other than the primary group (krbtgt and Guest are skipped).</value>
+  </data>
+  <data name="AccountReview.Hint.DisabledInGal" xml:space="preserve">
+    <value>Disabled, but listed in address books (showInAddressBook, not hidden).</value>
+  </data>
+  <data name="AccountReview.Hint.PrivilegedWithProblem" xml:space="preserve">
+    <value>adminCount = 1 or a nested member of a protected group, with one of the problems shown in the Problems column.</value>
+  </data>
+  <data name="AccountReview.Area.Lockout" xml:space="preserve">
+    <value>Lockout</value>
+  </data>
+  <data name="AccountReview.Area.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="AccountReview.Area.AccountExpiry" xml:space="preserve">
+    <value>Account expiry</value>
+  </data>
+  <data name="AccountReview.Area.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountReview.Area.Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="AccountReview.Area.PasswordHygiene" xml:space="preserve">
+    <value>Password hygiene</value>
+  </data>
+  <data name="AccountReview.Area.Notifications" xml:space="preserve">
+    <value>Ready for notifications</value>
+  </data>
+  <data name="AccountReview.Area.Leftovers" xml:space="preserve">
+    <value>Leftovers of disabled accounts</value>
+  </data>
+  <data name="AccountReview.Area.Security" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="AccountReview.Column.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="AccountReview.Column.Login" xml:space="preserve">
+    <value>Logon name</value>
+  </data>
+  <data name="AccountReview.Column.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="AccountReview.Column.LockedSince" xml:space="preserve">
+    <value>Locked since</value>
+  </data>
+  <data name="AccountReview.Column.PasswordExpires" xml:space="preserve">
+    <value>Password expires</value>
+  </data>
+  <data name="AccountReview.Column.PasswordDays" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="AccountReview.Column.PasswordLastSet" xml:space="preserve">
+    <value>Password last set</value>
+  </data>
+  <data name="AccountReview.Column.PasswordAge" xml:space="preserve">
+    <value>Password age</value>
+  </data>
+  <data name="AccountReview.Column.AccountExpires" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="AccountReview.Column.AccountDays" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="AccountReview.Column.LastLogon" xml:space="preserve">
+    <value>Last logon (approx.)</value>
+  </data>
+  <data name="AccountReview.Column.LogonDays" xml:space="preserve">
+    <value>Since</value>
+  </data>
+  <data name="AccountReview.Column.ExactLastLogon" xml:space="preserve">
+    <value>Last logon (exact, DC)</value>
+  </data>
+  <data name="AccountReview.Column.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="AccountReview.Column.Mail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="AccountReview.Column.Manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="AccountReview.Column.Department" xml:space="preserve">
+    <value>Department</value>
+  </data>
+  <data name="AccountReview.Column.Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="AccountReview.Column.Problems" xml:space="preserve">
+    <value>Problems</value>
+  </data>
+  <data name="AccountReview.Column.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="AccountReview.Column.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="AccountReview.Scope.Domain" xml:space="preserve">
+    <value>Entire domain</value>
+  </data>
+  <data name="AccountReview.Scope.OrganizationalUnit" xml:space="preserve">
+    <value>Organizational unit (with subtree)</value>
+  </data>
+  <data name="AccountReview.Scope.SavedView" xml:space="preserve">
+    <value>Saved view</value>
+  </data>
+  <data name="AccountReview.Scope.GroupMembers" xml:space="preserve">
+    <value>Group members (nested)</value>
+  </data>
+  <data name="AccountStatus.Title" xml:space="preserve">
+    <value>Account state</value>
+  </data>
+  <data name="AccountStatus.State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="AccountStatus.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="AccountStatus.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="AccountStatus.LastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="AccountStatus.Active" xml:space="preserve">
+    <value>Enabled, not locked out</value>
+  </data>
+  <data name="AccountStatus.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountStatus.LockedSince" xml:space="preserve">
+    <value>Locked out since {0}</value>
+  </data>
+  <data name="AccountStatus.PasswordExpires" xml:space="preserve">
+    <value>Expires {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.PasswordExpired" xml:space="preserve">
+    <value>Expired {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.PasswordEstimate" xml:space="preserve">
+    <value>{0} – estimate from the domain policy, a fine-grained policy is not known</value>
+  </data>
+  <data name="AccountStatus.PasswordNever" xml:space="preserve">
+    <value>Never expires</value>
+  </data>
+  <data name="AccountStatus.PasswordMustChange" xml:space="preserve">
+    <value>Must be changed at the next logon</value>
+  </data>
+  <data name="AccountStatus.AccountNever" xml:space="preserve">
+    <value>Never expires</value>
+  </data>
+  <data name="AccountStatus.AccountExpires" xml:space="preserve">
+    <value>Valid until the end of {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.AccountExpired" xml:space="preserve">
+    <value>Expired at the end of {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.LastLogonApproximate" xml:space="preserve">
+    <value>{0} ({1}) – lastLogonTimestamp, up to 14 days behind</value>
+  </data>
+  <data name="AccountStatus.CheckDomainControllers" xml:space="preserve">
+    <value>Check on all DCs</value>
+  </data>
+  <data name="AccountStatus.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading the domain controllers...</value>
+  </data>
+  <data name="AccountStatus.LockedOn" xml:space="preserve">
+    <value>Locked out on: {0}</value>
+  </data>
+  <data name="AccountStatus.NotLockedOn" xml:space="preserve">
+    <value>Not locked out on any of {0} domain controllers</value>
+  </data>
+  <data name="AccountStatus.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon: {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.ExactNever" xml:space="preserve">
+    <value>Exact last logon: never on any DC</value>
+  </data>
+  <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
+    <value>{0} did not answer: {1}</value>
+  </data>
 </root>

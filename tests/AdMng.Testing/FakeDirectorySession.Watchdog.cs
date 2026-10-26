@@ -68,7 +68,10 @@ public sealed partial class FakeDirectorySession
     /// </summary>
     public TimeSpan? LockoutDuration { get; set; }
 
-    /// <summary>Emulates msDS-UserPasswordExpiryTimeComputed (pwdLastSet + <see cref="MaxPasswordAge"/>).</summary>
+    /// <summary>
+    /// Emulates msDS-UserPasswordExpiryTimeComputed: pwdLastSet + <see cref="MaxPasswordAge"/>, or + msDS-MaximumPasswordAge of
+    /// the PSO set with <see cref="SetResultantPso"/> when that object exists (fine-grained password policy).
+    /// </summary>
     public bool EmulateConstructedPasswordExpiry { get; set; }
 
     /// <summary>Domain maxPwdAge used by the constructed password expiry (default 42 days).</summary>
@@ -471,7 +474,21 @@ public sealed partial class FakeDirectorySession
             return 0;
         }
 
-        return pwdLastSet + MaxPasswordAge.Ticks;
+        // Like a DC: the resultant PSO's msDS-MaximumPasswordAge (negative interval; 0 / minimum = never) wins over maxPwdAge.
+        var maxAge = MaxPasswordAge.Ticks;
+        if (_resultantPsos.TryGetValue(entry, out var psoDn)
+            && _entries.TryGetValue(FakeDn.Parse(psoDn), out var pso)
+            && long.TryParse(pso.First("msDS-MaximumPasswordAge"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var psoAge))
+        {
+            if (psoAge is 0 or long.MinValue)
+            {
+                return long.MaxValue;
+            }
+
+            maxAge = Math.Abs(psoAge);
+        }
+
+        return pwdLastSet + maxAge;
     }
 
     /// <summary>Locked according to lockoutTime and, when set, <see cref="LockoutDuration"/>.</summary>

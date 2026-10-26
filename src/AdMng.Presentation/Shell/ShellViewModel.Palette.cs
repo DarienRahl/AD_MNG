@@ -97,6 +97,7 @@ public sealed partial class ShellViewModel
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),
+            new("tools.accountReview", L.Commands.AccountReview, tools, string.Empty, ShowAccountReviewCommand),
             new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),

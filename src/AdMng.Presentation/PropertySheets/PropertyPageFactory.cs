@@ -167,6 +167,7 @@ internal static class PropertyPageFactory
                 o => o.GetString(Attr.PwdLastSet) == "0",
                 value => [new RequirePasswordChangeOperation(value)]));
             return Page(L.Pages.Account,
+                Section(Localizer[L.AccountStatus.Title], new AccountStatusFieldViewModel(context)),
                 Section(null,
                     Known(Attr.UserPrincipalName, () => new UpnFieldViewModel(context)),
                     Text(Attr.SamAccountName),

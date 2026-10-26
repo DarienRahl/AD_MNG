@@ -235,8 +235,8 @@ public class LogonHoursTests
         var account = Assert.IsType<FieldsPageViewModel>(Assert.Single(sheet.Pages, p => p.Key == L.Pages.Account));
         var field = Assert.Single(account.Fields.OfType<LogonHoursFieldViewModel>());
 
-        // ADUC order: right after the pre-Windows 2000 logon name.
-        var first = account.Sections[0].Fields;
+        // ADUC order: right after the pre-Windows 2000 logon name (the first section below the account state).
+        var first = account.Sections[1].Fields;
         Assert.Equal(first.ToList().FindIndex(f => f.Attribute == Attr.SamAccountName) + 1, first.ToList().IndexOf(field));
         Assert.Equal("Logon hours", field.Label);
         Assert.Equal("Mon–Fri 7–15", field.Summary);

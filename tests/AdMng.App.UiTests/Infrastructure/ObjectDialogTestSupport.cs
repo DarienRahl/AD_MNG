@@ -78,6 +78,8 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task ShowRecycleBinAsync(Guid? select = null) => Inner.ShowRecycleBinAsync(select);
 
+    public Task ShowAccountReviewAsync() => Inner.ShowAccountReviewAsync();
+
     public Task ShowSettingsAsync() => Task.CompletedTask;
 
     public Task ShowConnectAsync() => Task.CompletedTask;
