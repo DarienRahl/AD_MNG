@@ -1,6 +1,7 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.PrivilegedAccess;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Lists;
 
@@ -185,17 +186,16 @@ public sealed record AccountReviewFacts
 /// </summary>
 public static class AccountReviewQuery
 {
-    /// <summary>Well-known SIDs of the protected built-in groups (AdminSDHolder): Administrators and the operators.</summary>
+    /// <summary>
+    /// Well-known SIDs of the protected built-in groups (AdminSDHolder): Administrators and the operators - from the
+    /// catalogue shared with the "Uprawnienia" tab (U4) and AdMng Watchdog.
+    /// </summary>
     public static IReadOnlyList<string> BuiltinProtectedGroupSids { get; } =
-        ["S-1-5-32-544", "S-1-5-32-548", "S-1-5-32-549", "S-1-5-32-550", "S-1-5-32-551", "S-1-5-32-552"];
+        [.. PrivilegedGroupCatalog.ProtectedOrHigh.Where(g => g.BuiltinSid is not null).Select(g => g.BuiltinSid!)];
 
-    /// <summary>RIDs of the protected groups of the domain (Domain Admins … Enterprise Key Admins).</summary>
+    /// <summary>RIDs of the protected and Tier 0 / high groups of the domain (Domain Admins … Enterprise Key Admins).</summary>
     public static IReadOnlyList<uint> ProtectedGroupRids { get; } =
-    [
-        WellKnownRids.DomainAdmins, WellKnownRids.DomainControllers, WellKnownRids.CertPublishers, WellKnownRids.SchemaAdmins,
-        WellKnownRids.EnterpriseAdmins, WellKnownRids.GroupPolicyCreatorOwners, WellKnownRids.ReadOnlyDomainControllers,
-        WellKnownRids.KeyAdmins, WellKnownRids.EnterpriseKeyAdmins,
-    ];
+        [.. PrivilegedGroupCatalog.ProtectedOrHigh.Where(g => g.Rid is not null).Select(g => g.Rid!.Value)];
 
     /// <summary>The checks a privileged account is reported for ("Konta uprzywilejowane z problemem").</summary>
     public static IReadOnlyList<AccountCheck> PrivilegedProblems { get; } =

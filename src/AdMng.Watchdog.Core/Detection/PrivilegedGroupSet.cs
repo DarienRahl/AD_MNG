@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
+using AdMng.Core.PrivilegedAccess;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Model;
 
@@ -13,7 +14,8 @@ namespace AdMng.Watchdog.Core.Detection;
 /// </summary>
 public sealed class PrivilegedGroupSet
 {
-    private static readonly uint[] RootDomainRids = [WellKnownRids.SchemaAdmins, WellKnownRids.EnterpriseAdmins, WellKnownRids.EnterpriseKeyAdmins];
+    /// <summary>Schema Admins, Enterprise Admins, Enterprise Key Admins - from the catalogue shared with the account review (U4).</summary>
+    private static readonly IReadOnlyList<uint> RootDomainRids = PrivilegedGroupCatalog.ForestRootTier0Rids;
 
     private readonly HashSet<string> _criticalSids;
     private readonly HashSet<string> _highSids;

@@ -116,6 +116,9 @@ public static class Attr
     public const string Location = "location";
     public const string AllowedToDelegateTo = "msDS-AllowedToDelegateTo";
 
+    /// <summary>Resource-based constrained delegation: who may act on behalf of other users towards this account (security descriptor).</summary>
+    public const string AllowedToActOnBehalfOfOtherIdentity = "msDS-AllowedToActOnBehalfOfOtherIdentity";
+
     // Exchange / mail (base schema + Exchange schema extension when present)
     public const string ProxyAddresses = "proxyAddresses";
     public const string MailNickname = "mailNickname";
@@ -229,6 +232,7 @@ public enum SecurityDescriptorRights
 /// <summary>Well-known RIDs and SIDs that deserve special care in the UI (Tier 0 protection).</summary>
 public static class WellKnownRids
 {
+    public const uint EnterpriseReadOnlyDomainControllers = 498;
     public const uint Administrator = 500;
     public const uint Guest = 501;
     public const uint Krbtgt = 502;
@@ -242,6 +246,7 @@ public static class WellKnownRids
     public const uint EnterpriseAdmins = 519;
     public const uint GroupPolicyCreatorOwners = 520;
     public const uint ReadOnlyDomainControllers = 521;
+    public const uint CloneableDomainControllers = 522;
     public const uint ProtectedUsers = 525;
     public const uint KeyAdmins = 526;
     public const uint EnterpriseKeyAdmins = 527;
