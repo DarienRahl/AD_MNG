@@ -41,9 +41,21 @@ public sealed partial class ShellViewModel
             new("object.disable", L.Commands.Disable, obj, string.Empty, DisableCommand),
             new("object.unlock", L.Commands.Unlock, obj, string.Empty, UnlockCommand),
             new("object.resetPassword", L.Commands.ResetPassword, obj, string.Empty, ResetPasswordCommand),
+            new("object.sendMessage", L.UserMessages.Command, obj, string.Empty, SendMessageCommand),
             new("object.addToGroup", L.Commands.AddToGroup, obj, string.Empty, AddToGroupCommand),
             new("object.batchEdit", L.Commands.BatchEdit, obj, "Ctrl+Shift+B", BatchEditCommand),
-            new("object.copyDn", L.Commands.CopyDn, obj, "Ctrl+Shift+C", CopyDnCommand),
+            new("object.copyRows", L.Copy.Rows, obj, "Ctrl+C", CopyRowsCommand),
+            new("object.copyRowsWithHeaders", L.Copy.RowsWithHeaders, obj, string.Empty, CopyRowsWithHeadersCommand),
+            new("copyAs.mail", L.Copy.Mail, L.Copy.Category, "Ctrl+Shift+M", CopyAsCommand) { Parameter = CopyFormat.Mail },
+            new("copyAs.upn", L.Copy.Upn, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.UserPrincipalName },
+            new("copyAs.login", L.Copy.Login, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.SamAccountName },
+            new("copyAs.domainLogin", L.Copy.DomainLogin, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.DomainLogin },
+            new("copyAs.name", L.Copy.Name, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.Name },
+            new("copyAs.displayName", L.Copy.DisplayName, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.DisplayName },
+            new("object.copyDn", L.Copy.DistinguishedName, L.Copy.Category, "Ctrl+Shift+C", CopyDnCommand),
+            new("copyAs.path", L.Copy.CanonicalPath, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.CanonicalPath },
+            new("copyAs.guid", L.Copy.Guid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectGuid },
+            new("copyAs.sid", L.Copy.Sid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectSid },
             new("object.watchdogHistory", L.Commands.WatchdogHistory, obj, string.Empty, ShowWatchdogHistoryCommand),
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
@@ -86,8 +98,10 @@ public sealed partial class ShellViewModel
             new("tools.importCsv", L.Commands.ImportCsv, tools, string.Empty, ImportCsvCommand),
             new("tools.sessionLog", L.Commands.SessionLog, tools, "Ctrl+Shift+L", ShowSessionLogCommand),
             new("tools.recycleBin", L.Commands.RecycleBin, tools, "Ctrl+Shift+R", ShowRecycleBinCommand),
+            new("tools.accountReview", L.Commands.AccountReview, tools, string.Empty, ShowAccountReviewCommand),
             new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
+            new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),
         ];
     }

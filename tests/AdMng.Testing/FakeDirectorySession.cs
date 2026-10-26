@@ -437,8 +437,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             int offset;
             if (window.SeekValue is { } seek)
             {
+                // Like AD: the first entry at or after the value in the list order (descending: at or below it).
                 var compare = CultureInfo.InvariantCulture.CompareInfo;
-                offset = all.FindIndex(o => compare.Compare(o.GetString(search.Sort.Attribute) ?? string.Empty, seek, CompareOptions.IgnoreCase) >= 0);
+                offset = all.FindIndex(o =>
+                {
+                    var compared = compare.Compare(o.GetString(search.Sort.Attribute) ?? string.Empty, seek, CompareOptions.IgnoreCase);
+                    return search.Sort.Descending ? compared <= 0 : compared >= 0;
+                });
                 if (offset < 0)
                 {
                     offset = all.Count;
@@ -822,6 +827,18 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             // AD accepts the class name and compares with the class's defaultObjectCategory.
             var category = Schema.FindClass(assertion.Text)?.DefaultObjectCategory ?? assertion.Text;
             assertion = new AssertionValue(Encoding.UTF8.GetBytes(category), category);
+        }
+        else if (definition?.Syntax == AttributeSyntax.Sid && assertion.Text.StartsWith("S-1-", StringComparison.OrdinalIgnoreCase))
+        {
+            // AD accepts the string form of a SID in a filter (e.g. (objectSid=S-1-5-32-544)).
+            try
+            {
+                assertion = new AssertionValue(AdConvert.SidToBytes(assertion.Text), assertion.Text);
+            }
+            catch (FormatException)
+            {
+                // Not a SID after all: compared as given.
+            }
         }
 
         foreach (var value in ValuesOf(entry, name))

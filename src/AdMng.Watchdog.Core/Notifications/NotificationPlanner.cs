@@ -8,21 +8,28 @@ using AdMng.Watchdog.Core.Rules;
 namespace AdMng.Watchdog.Core.Notifications;
 
 /// <summary>
-/// Rule matches → pending notifications (section 13.2). For every match with <c>Delivery.Immediate</c>, in
-/// configuration order: (0) rollout mode lets only <c>tier0-*</c>, <c>bursts</c> and <c>health</c> through; (1) targets
-/// (<see cref="NotificationTargetResolver"/>), de-duplicated across rules by (target, event) – the first rule owns the
-/// row; (2) delivery hours (<c>Default</c> = Always for ≥ High, else business hours) – outside them only the digest
-/// reports the event; (3) repeat suppression per object; (4) attribution hold for severity &lt; High, attribution-dependent
-/// kinds and provisional actor matches while the actor is pending; (5) aggregation bucket and due time.
+/// Rule matches → pending notifications (section 13.2). Every match with <c>Delivery.Immediate</c> that may notify now –
+/// (0) rollout mode lets only <c>tier0-*</c>, <c>bursts</c> and <c>health</c> through; (2) delivery hours at the rule's
+/// notification severity (<c>Default</c> = Always for ≥ High, else business hours) – outside them only the digest reports
+/// the event; (3) repeat suppression per object – contributes to each of its targets (1, <see cref="NotificationTargetResolver"/>).
+/// One row per (event, target) carries the strongest treatment of its contributing rules: (4) no attribution hold when
+/// any of them notifies at once (hold: severity &lt; High, attribution-dependent kinds and provisional actor matches while
+/// the actor is pending) – the treatment then comes from those rules only –, the highest notification severity, (5) the
+/// shortest aggregation window, and the rule earliest in configuration order as the displayed rule and bucket.
 /// </summary>
 /// <remarks>The rule evaluation job calls it as <see cref="IRuleMatchPlanner"/> (the <see cref="RuleMatch"/>es map 1:1 onto
-/// <see cref="PlannedMatch"/>). <c>WatchdogConfigurationChanged</c> is planned with the previous configuration by passing
-/// it explicitly (17.2).</remarks>
+/// <see cref="PlannedMatch"/>); the attribution engine's re-evaluation re-plans the event's waiting rows
+/// (<see cref="IRuleMatchPlanner.PlanReevaluationAsync"/>) and the dispatch job re-plans a released target
+/// (<see cref="PlanTargetAsync"/>) – always from every rule that matches now, so a target never stays with a rule that
+/// no longer matches or with a weaker treatment. <c>WatchdogConfigurationChanged</c> is planned with the previous
+/// configuration by passing it explicitly (17.2).</remarks>
 public sealed class NotificationPlanner : IRuleMatchPlanner
 {
     /// <summary>Kinds whose severity is re-resolved once the attribution is final (12.2 step 3): always held while the
     /// actor is pending. The one source is <see cref="SeverityResolver.AttributionDependentKinds"/>.</summary>
     public static IReadOnlySet<WatchEventKind> AttributionDependentKinds => SeverityResolver.AttributionDependentKinds;
+
+    private static readonly IReadOnlySet<string> NoExemptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     private readonly IOutboxStore _outbox;
     private readonly NotificationTargetResolver _targets;
@@ -61,7 +68,8 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
             && (match.IsProvisional || match.NotificationSeverity < Severity.High || AttributionDependentKinds.Contains(watchEvent.Kind));
     }
 
-    /// <summary>The pending notifications of one evaluated event (empty when nothing notifies immediately).</summary>
+    /// <summary>The pending notifications of one evaluated event – one per target (empty when nothing notifies
+    /// immediately).</summary>
     /// <param name="watchEvent">The stored event (Id assigned).</param>
     /// <param name="matches">Its rule matches in configuration order.</param>
     /// <param name="configuration">The configuration the matches were computed with.</param>
@@ -73,50 +81,26 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
         ArgumentNullException.ThrowIfNull(watchEvent);
         ArgumentNullException.ThrowIfNull(matches);
         ArgumentNullException.ThrowIfNull(configuration);
-        var immediate = matches.Where(m => m.Rule.Delivery?.Immediate == true).ToList();
-        if (immediate.Count == 0)
-        {
-            return [];
-        }
+        var contributions = await ContributionsAsync(watchEvent, matches, configuration, now, NoExemptions, cancellationToken).ConfigureAwait(false);
+        return [.. contributions.Select(c => Row(watchEvent, c.Value, configuration, now))];
+    }
 
-        var rolloutActive = await _rollout.IsActiveAsync(configuration, watchEvent.Domain, now, cancellationToken).ConfigureAwait(false);
-        var settings = configuration.Notifications ?? new NotificationSettings();
-        var planned = new List<PendingNotification>();
-        var seenTargets = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var match in immediate)
-        {
-            var rule = match.Rule;
-            if ((rolloutActive && !RolloutGate.AllowsImmediate(rule.Id))
-                || !IsWithinDeliveryHours(rule, match.NotificationSeverity, configuration, now)
-                || await IsRepeatAsync(watchEvent, rule, now, cancellationToken).ConfigureAwait(false))
-            {
-                continue;
-            }
-
-            var hold = NeedsAttributionHold(watchEvent, match) ? watchEvent.DetectedAt + settings.AttributionGrace : (DateTimeOffset?)null;
-            var dueAt = now + AggregationPolicy.Window(rule, settings, match.NotificationSeverity);
-            foreach (var target in await _targets.ResolveAsync(watchEvent, rule, configuration, cancellationToken).ConfigureAwait(false))
-            {
-                if (!seenTargets.Add(target.Key))
-                {
-                    continue;
-                }
-
-                planned.Add(new PendingNotification
-                {
-                    EventId = watchEvent.Id,
-                    RuleId = rule.Id,
-                    Target = target,
-                    Severity = match.NotificationSeverity,
-                    BucketKey = AggregationPolicy.BucketKey(rule.Id, target, watchEvent.Id),
-                    DueAt = dueAt,
-                    HoldForAttributionUntil = hold,
-                    CreatedAt = now,
-                });
-            }
-        }
-
-        return planned;
+    /// <summary>
+    /// The treatment of one (event, target) from <paramref name="matches"/> – every rule that matches the event now (13.3:
+    /// a released held row, or a row whose rule left its delivery hours or the configuration). Null when none of them
+    /// notifies the target now. <paramref name="plannedRuleId"/> – the row's rule – passed its repeat suppression when the
+    /// row was planned and is not checked again.
+    /// </summary>
+    public async ValueTask<PendingNotification?> PlanTargetAsync(WatchEvent watchEvent, IReadOnlyList<PlannedMatch> matches, string targetKey,
+        string? plannedRuleId, WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        ArgumentNullException.ThrowIfNull(matches);
+        ArgumentNullException.ThrowIfNull(targetKey);
+        ArgumentNullException.ThrowIfNull(configuration);
+        var exempt = plannedRuleId is null ? NoExemptions : new HashSet<string>([plannedRuleId], StringComparer.OrdinalIgnoreCase);
+        var contributions = await ContributionsAsync(watchEvent, matches, configuration, now, exempt, cancellationToken).ConfigureAwait(false);
+        return contributions.TryGetValue(targetKey, out var forTarget) ? Row(watchEvent, forTarget, configuration, now) : null;
     }
 
     /// <inheritdoc/>
@@ -124,11 +108,208 @@ public sealed class NotificationPlanner : IRuleMatchPlanner
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evaluation);
-        var matches = evaluation.Matches.Select(m => new PlannedMatch(m.Rule, m.NotificationSeverity, m.IsProvisional)).ToList();
-        return PlanAsync(evaluation.Event, matches, configuration, now, cancellationToken);
+        return PlanAsync(evaluation.Event, Planned(evaluation), configuration, now, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Every target the rules that match now notify is planned with all of them (13.2 #1). A target with a waiting row takes
+    /// the new treatment (earlier due time kept): merged – and inserted again if the row was flushed meanwhile, the dispatch
+    /// job then drops it when the alert covers it – when an added rule notifies it, otherwise updated while it waits. A
+    /// target without a waiting row that already got an alert of the event (<see cref="EventNotices"/>: not lost) hears
+    /// about a different final severity only in the thread of that alert (13.2 #7): an escalation when the severity it is
+    /// notified with now is High or above and higher than every severity its alerts and follow-ups showed the event with –
+    /// whether a stored or an added rule notifies it –, or the final severity of the attribution follow-up still to come
+    /// (lowered as well); the follow-up row replies to the target's latest alert, or merges into its waiting follow-up.
+    /// Any other target without a waiting row is planned only when an added rule notifies it and the event has no alert for
+    /// it that covers the plan (<see cref="AlertCoverage"/>, per event: not lost, the event shown with at least the planned
+    /// severity, with its actor or followed by the attribution follow-up); an alert sent with the actor pending and no
+    /// follow-up to come is new information. Waiting rows whose target no rule notifies any more are dropped, and so are
+    /// waiting follow-ups (stored by an interrupted pass) that this plan does not carry again. The rules of
+    /// the waiting rows passed their repeat suppression when they were planned, and a rule with a message about this very
+    /// event (<see cref="EventNotices.NotifyingRules"/>) would count its own message – neither is checked again (an
+    /// escalation of an alert about this event is no repeat); any other matched rule is checked again, so a rule left out
+    /// as a repeat when the event was planned does not escalate with its severity.
+    /// </remarks>
+    async ValueTask<ReevaluationPlan> IRuleMatchPlanner.PlanReevaluationAsync(RuleEvaluationResult evaluation, IReadOnlySet<string> addedRuleIds,
+        IReadOnlyList<PendingNotification> waiting, WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(evaluation);
+        ArgumentNullException.ThrowIfNull(addedRuleIds);
+        ArgumentNullException.ThrowIfNull(waiting);
+        ArgumentNullException.ThrowIfNull(configuration);
+        var watchEvent = evaluation.Event;
+        var ofEvent = waiting.Where(w => w.EventId == watchEvent.Id).ToList();
+        var waitingRows = ofEvent.Where(w => !w.IsFollowUp).ToList();
+        var waitingFollowUps = ofEvent.Where(w => w.IsFollowUp).ToList();
+        var notices = await EventNotices.LoadAsync(_outbox, watchEvent.Id, cancellationToken).ConfigureAwait(false);
+
+        // Repeat suppression (13.2 #3): the rules of the waiting rows passed it when they were planned, and a rule that
+        // notified about this very event would count its own message – both exempt. A matched rule without a message about
+        // the event was a repeat when it was planned (or notified under another rule) and is checked again: its severity
+        // is no escalation the recipients missed.
+        var exempt = waitingRows.Select(w => w.RuleId).Concat(notices.NotifyingRules).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var contributions = await ContributionsAsync(watchEvent, Planned(evaluation), configuration, now, exempt, cancellationToken).ConfigureAwait(false);
+
+        var insert = new List<PendingNotification>();
+        var merge = new List<PendingNotification>();
+        var update = new List<PendingNotification>();
+        var followUps = new List<PendingNotification>();
+        foreach (var (key, forTarget) in contributions)
+        {
+            var row = Row(watchEvent, forTarget, configuration, now);
+            var notifiedByAddedRule = forTarget.Any(c => addedRuleIds.Contains(c.Match.Rule.Id));
+            if (waitingRows.FirstOrDefault(w => string.Equals(w.Target.Key, key, StringComparison.Ordinal)) is { } current)
+            {
+                var replanned = row with { Id = current.Id, CreatedAt = current.CreatedAt, DueAt = Min(current.DueAt, row.DueAt) };
+                (notifiedByAddedRule ? merge : update).Add(replanned);
+                continue;
+            }
+
+            if (FollowUpOfAlert(row, notices, waitingFollowUps.FirstOrDefault(f => string.Equals(f.Target.Key, key, StringComparison.Ordinal)),
+                configuration, now) is { } followUp)
+            {
+                followUps.Add(followUp);
+                continue;
+            }
+
+            if (!notifiedByAddedRule)
+            {
+                continue;   // notified before (or not at all) with nothing new: a rule that matched already is not planned again
+            }
+
+            if (!notices.Covers(key, row.Severity, configuration))
+            {
+                insert.Add(row);
+            }
+        }
+
+        // A waiting follow-up of an event whose attribution is only now final was stored by a pass interrupted before its
+        // attribution update (the attribution follow-up comes after it): one this plan does not carry again – no rule
+        // notifies its target now, or the final severity is no news any more – is dropped; the attribution follow-up of
+        // the alert, when it gets one, is planned again after the update.
+        var staleFollowUps = waitingFollowUps
+            .Where(w => !followUps.Any(f => string.Equals(f.Target.Key, w.Target.Key, StringComparison.Ordinal)))
+            .Select(w => w.Id);
+        return new ReevaluationPlan
+        {
+            Insert = insert,
+            Merge = merge,
+            Update = update,
+            Drop = [.. waitingRows.Where(w => !contributions.ContainsKey(w.Target.Key)).Select(w => w.Id), .. staleFollowUps],
+            FollowUps = followUps,
+        };
+    }
+
+    /// <summary>
+    /// The follow-up row (13.2 #7) of a target that already got an alert of the event and is notified with
+    /// <paramref name="row"/>'s severity now, or null: an escalation when that severity is High or above and higher than
+    /// every severity the target was shown the event with; the final severity of the attribution follow-up still to come
+    /// (or waiting) when it differs from the shown one. It replies to the target's waiting follow-up's message, else to the
+    /// target's latest alert, and is due now.
+    /// </summary>
+    private static PendingNotification? FollowUpOfAlert(PendingNotification row, EventNotices notices, PendingNotification? waitingFollowUp,
+        WatchdogConfiguration configuration, DateTimeOffset now)
+    {
+        var key = row.Target.Key;
+        if (notices.LatestAlert(key) is not { } alert || notices.Shown(key) is not { } shown)
+        {
+            return null;
+        }
+
+        var escalation = row.Severity >= Severity.High && row.Severity > shown;
+        var finalSeverity = row.Severity != shown && (waitingFollowUp is not null || notices.FollowUpComing(key, configuration));
+        if (!escalation && !finalSeverity)
+        {
+            return null;
+        }
+
+        var replyTo = waitingFollowUp?.ReplyToMessageId ?? alert.MessageId;
+        return row with
+        {
+            BucketKey = AggregationPolicy.FollowUpBucketKey(replyTo, row.Target),
+            DueAt = now,
+            HoldForAttributionUntil = null,
+            IsFollowUp = true,
+            ReplyToMessageId = replyTo,
+        };
+    }
+
+    private static List<PlannedMatch> Planned(RuleEvaluationResult evaluation) =>
+        [.. evaluation.Matches.Select(m => new PlannedMatch(m.Rule, m.NotificationSeverity, m.IsProvisional))];
+
+    /// <summary>Per target (in first-seen order: configuration order of the rules, then of their targets) the immediate
+    /// matches that may notify it now.</summary>
+    private async Task<Dictionary<string, List<Contribution>>> ContributionsAsync(WatchEvent watchEvent, IReadOnlyList<PlannedMatch> matches,
+        WatchdogConfiguration configuration, DateTimeOffset now, IReadOnlySet<string> repeatExempt, CancellationToken cancellationToken)
+    {
+        var byTarget = new Dictionary<string, List<Contribution>>(StringComparer.Ordinal);
+        var immediate = matches.Where(m => m.Rule.Delivery?.Immediate == true).ToList();
+        if (immediate.Count == 0)
+        {
+            return byTarget;
+        }
+
+        var rolloutActive = await _rollout.IsActiveAsync(configuration, watchEvent.Domain, now, cancellationToken).ConfigureAwait(false);
+        var settings = configuration.Notifications ?? new NotificationSettings();
+        foreach (var match in immediate)
+        {
+            var rule = match.Rule;
+            if ((rolloutActive && !RolloutGate.AllowsImmediate(rule.Id))
+                || !IsWithinDeliveryHours(rule, match.NotificationSeverity, configuration, now)
+                || (!repeatExempt.Contains(rule.Id) && await IsRepeatAsync(watchEvent, rule, now, cancellationToken).ConfigureAwait(false)))
+            {
+                continue;
+            }
+
+            var contribution = new Contribution(match, NeedsAttributionHold(watchEvent, match), AggregationPolicy.Window(rule, settings, match.NotificationSeverity));
+            foreach (var target in await _targets.ResolveAsync(watchEvent, rule, configuration, cancellationToken).ConfigureAwait(false))
+            {
+                if (!byTarget.TryGetValue(target.Key, out var forTarget))
+                {
+                    byTarget[target.Key] = forTarget = [];
+                }
+
+                forTarget.Add(contribution with { Target = target });
+            }
+        }
+
+        return byTarget;
+    }
+
+    /// <summary>
+    /// The row of one target: the contributions that notify at once (no attribution hold) decide when any exists – the
+    /// target is notified now and the held ones would only repeat it –, otherwise all of them (held until the actor is
+    /// known or the grace ends). Highest notification severity, shortest window, the earliest rule as rule and bucket.
+    /// </summary>
+    private static PendingNotification Row(WatchEvent watchEvent, List<Contribution> forTarget, WatchdogConfiguration configuration, DateTimeOffset now)
+    {
+        var immediate = forTarget.Where(c => !c.Hold).ToList();
+        var deciding = immediate.Count > 0 ? immediate : forTarget;
+        var lead = deciding[0];
+        var settings = configuration.Notifications ?? new NotificationSettings();
+        return new PendingNotification
+        {
+            EventId = watchEvent.Id,
+            RuleId = lead.Match.Rule.Id,
+            Target = lead.Target!,
+            Severity = deciding.Max(c => c.Match.NotificationSeverity),
+            BucketKey = AggregationPolicy.BucketKey(lead.Match.Rule.Id, lead.Target!, watchEvent.Id),
+            DueAt = now + deciding.Min(c => c.Window),
+            HoldForAttributionUntil = immediate.Count > 0 ? null : watchEvent.DetectedAt + settings.AttributionGrace,
+            CreatedAt = now,
+        };
     }
 
     private async Task<bool> IsRepeatAsync(WatchEvent watchEvent, RuleSettings rule, DateTimeOffset now, CancellationToken cancellationToken) =>
         rule.Delivery?.RepeatSuppression is { } period && period > TimeSpan.Zero && watchEvent.Object.ObjectGuid is { } guid
         && await _outbox.WasNotifiedAboutObjectAsync(rule.Id, guid, now - period, cancellationToken).ConfigureAwait(false);
+
+    private static DateTimeOffset Min(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
+
+    /// <summary>One rule that may notify one target now.</summary>
+    private sealed record Contribution(PlannedMatch Match, bool Hold, TimeSpan Window)
+    {
+        public NotificationTarget? Target { get; init; }
+    }
 }

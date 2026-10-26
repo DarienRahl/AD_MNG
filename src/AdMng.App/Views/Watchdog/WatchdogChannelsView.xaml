@@ -28,8 +28,9 @@
                   HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
       <Grid Margin="0,0,8,8">
+        <!-- The SMTP card needs a label column and values of at least 250 px ("Nazwa użytkownika i hasło", the sender). -->
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*" MinWidth="360" />
+          <ColumnDefinition Width="*" MinWidth="450" />
           <ColumnDefinition Width="12" />
           <ColumnDefinition Width="*" MinWidth="360" />
         </Grid.ColumnDefinitions>
@@ -49,7 +50,7 @@
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="Auto" MinWidth="170" />
-                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="*" MinWidth="250" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto" />
@@ -130,7 +131,8 @@
                            Style="{StaticResource Wd.FormLabel}"
                            Text="{l:Tr Watchdog.Ui.SmtpFrom}" />
                 <StackPanel Grid.Row="6" Grid.Column="1">
-                  <TextBox Margin="0,8,0,0"
+                  <TextBox x:Name="SmtpFromBox"
+                           Margin="0,8,0,0"
                            AutomationProperties.Name="{l:Tr Watchdog.Ui.SmtpFrom}"
                            Text="{Binding From, UpdateSourceTrigger=PropertyChanged}" />
                   <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[from], Mode=OneWay}" />
@@ -161,7 +163,7 @@
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" MinWidth="170" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" MinWidth="250" />
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -254,6 +256,47 @@
                 </StackPanel>
               </StackPanel>
               <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding NumbersError, Mode=OneWay}" />
+            </StackPanel>
+          </Border>
+
+          <!-- Messages to users from AD Manager (README U1b) -->
+          <Border x:Name="UserMessagingCard"
+                  DataContext="{Binding UserMessaging, Mode=OneWay}"
+                  Style="{StaticResource Wd.Card}"
+                  Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+            <StackPanel IsEnabled="{Binding CanEdit, Mode=OneWay}">
+              <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.UserMessagingTitle}" />
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.UserMessagingHint}" />
+              <CheckBox x:Name="UserMessagingEnabledBox"
+                        Margin="0,8,0,0"
+                        Content="{l:Tr Watchdog.Ui.UserMessagingEnabled}"
+                        IsChecked="{Binding Enabled}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[enabled], Mode=OneWay}" />
+              <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                <StackPanel Margin="0,0,12,0">
+                  <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Ui.UserMessagingPerHour}" />
+                  <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingPerHour}"
+                           Style="{StaticResource NumberBox}"
+                           Text="{Binding MaxMessagesPerHour, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Ui.UserMessagingPerDay}" />
+                  <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingPerDay}"
+                           Style="{StaticResource NumberBox}"
+                           Text="{Binding MaxMessagesPerDay, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding NumbersError, Mode=OneWay}" />
+              <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.UserMessagingSenders}" />
+              <TextBox x:Name="UserMessagingSendersBox"
+                       MinHeight="50"
+                       MaxHeight="120"
+                       AcceptsReturn="True"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingSenders}"
+                       Text="{Binding AllowedSenders, UpdateSourceTrigger=PropertyChanged}"
+                       VerticalScrollBarVisibility="Auto" />
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.UserMessagingSendersHint}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding AllowedSendersError, Mode=OneWay}" />
             </StackPanel>
           </Border>
 

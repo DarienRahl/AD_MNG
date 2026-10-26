@@ -1,16 +1,28 @@
+using AdMng.Core.Ldap;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
+using AdMng.Watchdog.Core.Detection;
+using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Rules;
 
 /// <summary>
 /// One rule against one event (section 12.1). A rule matches when all hold: enabled; kinds and object kinds; scope;
-/// attributes; required/any tags; the group filter (membership and privilege kinds only); <c>MinSeverity</c> ≤ event
-/// severity; no actor exclusion (SIDs of a resolved actor only, <c>ExcludeSelfChanges</c> with tag <c>selfChange</c>);
+/// attributes; required/any tags; the group filter (membership and privilege kinds only); <c>MinSeverity</c> ≤ the event's
+/// own severity (<see cref="EventSeverities.Own"/> – never one raised by another rule's override); no actor exclusion (SIDs of a resolved actor only, <c>ExcludeSelfChanges</c> with tag <c>selfChange</c>);
 /// no applying exclusion. While attribution is pending a rule with actor conditions matches
 /// <see cref="RuleMatchOutcome.Provisional"/>ly; after the grace period an unresolved actor excludes nothing. The
 /// locked <c>health</c> rule always matches health events; <see cref="WatchEventKind.Test"/> never matches.
 /// </summary>
+/// <remarks>
+/// Self-changes (11.4 #5): <c>ExcludeSelfChanges</c> never hides a Tier-0 kind written by the object itself (a relayed
+/// computer writing RBCD, SPNs or SID history on itself is the attack) – only the routine self-maintenance of an ordinary
+/// computer (KeyCredentialChanged key rotation) or a service account (ServicePrincipalNameAdded self-registration), see
+/// <see cref="IsExcludableSelfChange"/>. With <c>Attribution.SuppressComputerSelfChanges</c> every rule behaves as if
+/// <c>ExcludeSelfChanges</c> were set for computer-noise changes of a computer (9.3, <see cref="IsComputerNoiseChange"/>).
+/// Actor SIDs with a <c>{domainSid}</c> / <c>{rootDomainSid}</c> token whose value is unknown exclude nothing
+/// (<see cref="RuleMatchContext.ResolveActorSid"/>).
+/// </remarks>
 public static class RuleMatcher
 {
     /// <summary>Matches <paramref name="rule"/> against <paramref name="watchEvent"/>.</summary>
@@ -44,7 +56,7 @@ public static class RuleMatcher
             || !AttributesMatch(rule, watchEvent)
             || !TagsMatch(rule, watchEvent)
             || !GroupsMatch(rule, watchEvent, context)
-            || (rule.MinSeverity is { } minimum && watchEvent.Severity < minimum))
+            || (rule.MinSeverity is { } minimum && EventSeverities.Own(watchEvent) < minimum))
         {
             return RuleMatchOutcome.NoMatch;
         }
@@ -53,7 +65,7 @@ public static class RuleMatcher
         var actors = rule.Actors ?? new ActorFilter();
         foreach (var excluded in actors.ExcludeActors ?? [])
         {
-            switch (ActorCondition.Evaluate(watchEvent.Attribution, context.ResolveSid(excluded), attributionGraceExpired))
+            switch (ActorCondition.Evaluate(watchEvent.Attribution, context.ResolveActorSid(excluded), attributionGraceExpired))
             {
                 case ActorConditionState.Matches:
                     return RuleMatchOutcome.NoMatch;
@@ -63,7 +75,9 @@ public static class RuleMatcher
             }
         }
 
-        if (actors.ExcludeSelfChanges)
+        var excludeSelfChanges = actors.ExcludeSelfChanges
+            || (context.Configuration.Attribution?.SuppressComputerSelfChanges == true && IsComputerNoiseChange(watchEvent));
+        if (excludeSelfChanges && IsExcludableSelfChange(watchEvent))
         {
             if (HasTag(watchEvent, EventTags.SelfChange))
             {
@@ -103,6 +117,55 @@ public static class RuleMatcher
         ArgumentNullException.ThrowIfNull(rule);
         return rule.Actors is { } actors && ((actors.ExcludeActors?.Count ?? 0) > 0 || actors.ExcludeSelfChanges)
             || (rule.Exclusions ?? []).Any(e => e is not null && !string.IsNullOrWhiteSpace(e.Actor));
+    }
+
+    /// <summary>
+    /// True when a self-change of <paramref name="watchEvent"/> may be hidden by <c>ExcludeSelfChanges</c>: every kind
+    /// outside <see cref="Tier0Catalog.Kinds"/>; of the Tier-0 kinds only KeyCredentialChanged of a computer (key
+    /// rotation) and ServicePrincipalNameAdded of a service account (SPN self-registration), and never for a domain
+    /// controller or a privileged object.
+    /// </summary>
+    public static bool IsExcludableSelfChange(WatchEvent watchEvent)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        if (!Tier0Catalog.IsTier0Kind(watchEvent.Kind))
+        {
+            return true;
+        }
+
+        if (HasTag(watchEvent, EventTags.DomainController) || HasTag(watchEvent, EventTags.Privileged))
+        {
+            return false;
+        }
+
+        return (watchEvent.Kind, watchEvent.Object?.Kind) is (WatchEventKind.KeyCredentialChanged, WatchObjectKind.Computer)
+            or (WatchEventKind.ServicePrincipalNameAdded, WatchObjectKind.ServiceAccount);
+    }
+
+    /// <summary>
+    /// True for a change of a computer that touches only computer-noise attributes (9.3: pwdLastSet, operating system,
+    /// dNSHostName, encryption types, userCertificate, and servicePrincipalName values naming the computer itself) – the
+    /// changes <c>Attribution.SuppressComputerSelfChanges</c> excludes when the computer made them itself. Never for the
+    /// service's own account (tag <c>watchdogAccount</c>, stage B design 9.3): its self-writes (RC4 re-enabled, an extra
+    /// SPN) are what <c>watchdog-self</c> reports.
+    /// </summary>
+    public static bool IsComputerNoiseChange(WatchEvent watchEvent)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        if (watchEvent.Object is not { Kind: WatchObjectKind.Computer } computer || (watchEvent.Changes ?? []).Count == 0
+            || HasTag(watchEvent, EventTags.WatchdogAccount))
+        {
+            return false;
+        }
+
+        var netbios = computer.SamAccountName?.TrimEnd('$');
+        var dnsHostName = netbios is { Length: > 0 } && DistinguishedName.TryParse(computer.Dn, out var dn) && dn.DnsDomain is { Length: > 0 } domain
+            ? netbios + "." + domain
+            : null;
+        return watchEvent.Changes!.All(change => change is not null
+            && NoiseAttributes.ComputerNoise.Contains(change.Attribute)
+            && (!string.Equals(change.Attribute, "servicePrincipalName", StringComparison.OrdinalIgnoreCase)
+                || change.Added.Concat(change.Removed).All(spn => NoiseAttributes.IsOwnHostSpn(spn, dnsHostName, computer.SamAccountName))));
     }
 
     private static bool IsHealth(WatchEventKind kind) =>

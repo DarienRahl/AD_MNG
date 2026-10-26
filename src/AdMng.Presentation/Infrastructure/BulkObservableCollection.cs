@@ -59,6 +59,65 @@ public class BulkObservableCollection<T> : ObservableCollection<T>
         RaiseReset();
     }
 
+    /// <summary>
+    /// Inserts <paramref name="items"/> at <paramref name="index"/> with a single notification (one item: the usual
+    /// Add notification, more: Reset). No notification when <paramref name="items"/> is empty.
+    /// </summary>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, Count);
+        var snapshot = items as IReadOnlyList<T> ?? items.ToList();
+        if (snapshot.Count == 1)
+        {
+            InsertItem(index, snapshot[0]);
+            return;
+        }
+
+        if (snapshot.Count == 0)
+        {
+            return;
+        }
+
+        CheckReentrancy();
+        for (var i = 0; i < snapshot.Count; i++)
+        {
+            Items.Insert(index + i, snapshot[i]);
+        }
+
+        RaiseReset();
+    }
+
+    /// <summary>
+    /// Removes the items after the first <paramref name="count"/> with a single notification (one item: the usual
+    /// Remove notification, more: Reset). Returns the number removed.
+    /// </summary>
+    public int TrimTo(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        var removed = Count - count;
+        if (removed <= 0)
+        {
+            return 0;
+        }
+
+        if (removed == 1)
+        {
+            RemoveItem(count);
+            return 1;
+        }
+
+        CheckReentrancy();
+        for (var i = Items.Count - 1; i >= count; i--)
+        {
+            Items.RemoveAt(i);
+        }
+
+        RaiseReset();
+        return removed;
+    }
+
     /// <summary>Removes all matching items with a single notification. Returns the number removed.</summary>
     public int RemoveWhere(Predicate<T> match)
     {

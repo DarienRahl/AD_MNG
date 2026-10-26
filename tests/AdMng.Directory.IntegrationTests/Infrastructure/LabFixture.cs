@@ -9,17 +9,32 @@ using AdMng.Directory.IntegrationTests.Infrastructure;
 namespace AdMng.Directory.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Shared administrator session plus the dedicated OU (<see cref="LabSettings.TestOu"/>) that is created
-/// before the first test and removed with a tree delete after the last one. Seeded lab data is never changed.
+/// Shared administrator session plus this run's own OU (<see cref="LabSettings.TestOu"/>, unique per run, its
+/// description naming the test process – <see cref="LabRuns"/>) that is created before the first test and removed after
+/// the last one. Before that, OUs of runs that are over (the test process ended, or older than <see cref="StaleAfter"/>)
+/// are removed; OUs of runs still in progress are left alone. Large trees are deleted client-side in short requests
+/// (<see cref="LabCleanup"/>): a Samba tree delete of thousands of objects exceeds its 300-s request limit and blocks every
+/// other suite meanwhile. Seeded lab data is never changed.
 /// </summary>
 public sealed class LabFixture : IAsyncLifetime
 {
+    /// <summary>Test OUs of runs on other hosts (or of earlier fixture versions) younger than this are left alone.</summary>
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromHours(2);
+
     private IDirectorySession? _admin;
 
     /// <summary>Administrator session over plain LDAP (simple bind, lab only).</summary>
     public IDirectorySession Admin => _admin ?? throw new InvalidOperationException(LabSettings.SkipReason);
 
     public string TestOu => LabSettings.TestOu;
+
+    /// <summary>The run OUs of this project on the lab.</summary>
+    internal static LabRuns Runs { get; } = new(
+        LabSettings.DomainDn, LabSettings.RunOuPrefix, "AD_MNG integration tests", StaleAfter, LabSettings.LegacyTestOuName)
+    {
+        Server = LabSettings.Server ?? "the lab DC",
+        Log = message => TestContext.Current.SendDiagnosticMessage(message),
+    };
 
     public async ValueTask InitializeAsync()
     {
@@ -28,22 +43,23 @@ public sealed class LabFixture : IAsyncLifetime
             return;
         }
 
-        _admin = await ConnectAsync(LabSettings.Plain(LabSettings.AdminUser), LabSettings.AdminPassword);
-
-        // Leftovers of an aborted earlier run.
-        if (await _admin.GetAsync(TestOu, [], CancellationToken.None) is not null)
+        try
         {
-            await _admin.DeleteAsync(TestOu, subtree: true, CancellationToken.None);
-        }
+            _admin = await ConnectAsync(LabSettings.Plain(LabSettings.AdminUser), LabSettings.AdminPassword);
 
-        await _admin.AddAsync(
-            TestOu,
-            new Dictionary<string, IReadOnlyList<object>>
+            // Leftovers of runs that are over, with a generous timeout per request (another suite may be holding the DC).
+            // Failures do not stop this run: it works in its own OU.
+            await using (var cleanup = await ConnectAsync(CleanupOptions(), LabSettings.AdminPassword))
             {
-                [Attr.ObjectClass] = ["top", ObjectClasses.OrganizationalUnit],
-                [Attr.Description] = ["AD_MNG integration tests - safe to delete"],
-            },
-            CancellationToken.None);
+                await Runs.RemoveStaleAsync(cleanup, CancellationToken.None);
+            }
+
+            await Runs.CreateRunOuAsync(_admin, LabSettings.RunOuName, CancellationToken.None);
+        }
+        catch (DirectoryException ex) when (Runs.Explain(ex, "preparing the run OU") is var explained && !ReferenceEquals(explained, ex))
+        {
+            throw explained;
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -55,16 +71,25 @@ public sealed class LabFixture : IAsyncLifetime
 
         try
         {
-            // Samba needs a while to tree-delete thousands of linked objects - allow more than the default timeout.
-            var options = LabSettings.Plain(LabSettings.AdminUser) with { RequestTimeout = TimeSpan.FromMinutes(10) };
-            await using var cleanup = await ConnectAsync(options, LabSettings.AdminPassword);
-            await cleanup.DeleteAsync(TestOu, subtree: true, CancellationToken.None);
+            await using var cleanup = await ConnectAsync(CleanupOptions(), LabSettings.AdminPassword);
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var deleted = await LabCleanup.DeleteTreeAsync(cleanup, TestOu, CancellationToken.None);
+            TestContext.Current.SendDiagnosticMessage(string.Create(
+                System.Globalization.CultureInfo.InvariantCulture, $"Removed {TestOu}: {deleted} objects in {stopwatch.Elapsed.TotalSeconds:F0} s."));
+        }
+        catch (DirectoryException ex) when (Runs.Explain(ex, $"deleting {TestOu} (the next run removes it)") is var explained && !ReferenceEquals(explained, ex))
+        {
+            throw explained;
         }
         finally
         {
             await _admin.DisposeAsync();
         }
     }
+
+    /// <summary>The administrator over plain LDAP with <see cref="LabCleanup.RequestTimeout"/> per request.</summary>
+    private static ConnectionOptions CleanupOptions() =>
+        LabSettings.Plain(LabSettings.AdminUser) with { RequestTimeout = LabCleanup.RequestTimeout };
 
     /// <summary>Opens a new session (the caller disposes it).</summary>
     internal static Task<IDirectorySession> ConnectAsync(

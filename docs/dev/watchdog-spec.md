@@ -3,6 +3,10 @@
 Status: binding for the scaffold step and the implementation agents (W-core – split into W-detect, W-rules and W-notify, see 25.5 – W-service, W-gui, W-testenv).
 Revision 2 (after the operations, security and implementability reviews – see "Critique resolution" at the end).
 Date: 2026-10-14. Product docs: `docs/WATCHDOG.md` (Polish), decision record: `docs/adr/0008-watchdog-dane-w-osobnym-folderze.md`.
+**Stage B amendments (2026-10-20, release 0.3.0):** the Linux service is specified by `docs/dev/watchdog-linux-design.md`,
+which wins where the two disagree; the sections it replaces or changes (D1, D5, D8, 2, 3.3, 5.4, 7, 8.3, 8.4, 11.1, 11.4,
+11.7, 12.4, 16, 17.3, 18, 19, 21, 22–24) start with an "Amended by stage B" note. Deployment: `docs/WATCHDOG-LINUX.md`
+(Polish); decision record of the move: `docs/adr/0009-watchdog-na-linuksie.md`.
 Language rules from `CLAUDE.md` apply: code/comments/commits in English, product docs in Polish, every user-visible
 string through resx (en + pl).
 
@@ -16,14 +20,14 @@ reason in its final report.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | A separate Windows service **AdMng Watchdog** (`AdMng.Watchdog.exe`, .NET 10, ASP.NET Core + Worker) runs 24/7 under a **gMSA** with read-only AD rights. The WPF app gets a **Watchdog document tab** that talks to the service over **HTTPS + Kerberos (Negotiate)**. | User decision. Detection needs a continuously running process and history; the WPF app must stay storage-free. |
+| D1 | A separate Windows service **AdMng Watchdog** (`AdMng.Watchdog.exe`, .NET 10, ASP.NET Core + Worker) runs 24/7 under a **gMSA** with read-only AD rights. The WPF app gets a **Watchdog document tab** that talks to the service over **HTTPS + Kerberos (Negotiate)**. **Stage B (from 0.3.0):** the service runs only on Linux (Debian 12/13, systemd unit `admng-watchdog.service`) as the computer account `ADMNG-WD$` with a keytab, not a gMSA (`docs/dev/watchdog-linux-design.md` 0, L1–L3). | User decision. Detection needs a continuously running process and history; the WPF app must stay storage-free. |
 | D2 | **Detection = uSNChanged polling** pinned to one DC (PDC emulator by default) with an **objectGUID-keyed snapshot of watched attributes only**, baseline on first run (no events), watermark stored **per DC** (dsServiceName + invocationId), full resync only for a never-seen DC / invocationId change / USN rollback (failback to a known DC continues incrementally), daily reconciliation. Change notifications are only an optional wake-up. DirSync is not used in v1. | Works for a read-only account, verified on the Samba lab; DirSync hides deletions from non-admins and its cookies are DC-bound. |
 | D3 | **DN-valued attributes are read with the Extended DN control** (`<GUID=…>;<SID=…>;dn`) and compared by GUID. | Moves/renames of a referenced object rewrite DN values without bumping the referencing object's USN – plain DN comparison would produce false "manager changed"/"member changed" events. |
 | D4 | **Attribution** (who / from where) is a separate, asynchronous enrichment from DC **Security logs** (4720…4781, 4741-4743, group events, 5136-5141, 4624 for the source computer). LDAP is the source of truth for *what* changed; replication metadata tells *which DC* and *when* to look. Attribution may arrive later; events are updated in place; notifications wait a short grace period. | Netwrix-style "System" mis-attribution must never happen; the actor is shown as "nieustalony" with a reason code instead of a guess. |
-| D5 | Storage: one **SQLite** database (WAL, `secure_delete`, `temp_store = MEMORY`) in the watchdog's **own data folder** (`%ProgramData%\AdMng\Watchdog\data` by default; protected DACL SYSTEM / Administrators / gMSA, **enforced at start** – the service refuses to run with a wider ACL). The bootstrap file lives in a separate `config\` folder the gMSA can only read. Secrets (SMTP password, OAuth client secret, Teams/webhook URLs, webhook signing keys) are encrypted with **ASP.NET Core Data Protection, keys protected with DPAPI-NG to the gMSA SID** and **bound to their destination** (host, account, tenant) – changing the destination without re-entering the secret is rejected. | ADR-0008 relaxes ADR-0003 only for this folder and only for the service host project. |
+| D5 | Storage: one **SQLite** database (WAL, `secure_delete`, `temp_store = MEMORY`) in the watchdog's **own data folder** (`%ProgramData%\AdMng\Watchdog\data` by default; protected DACL SYSTEM / Administrators / gMSA, **enforced at start** – the service refuses to run with a wider ACL). The bootstrap file lives in a separate `config\` folder the gMSA can only read. Secrets (SMTP password, OAuth client secret, Teams/webhook URLs, webhook signing keys) are encrypted with **ASP.NET Core Data Protection, keys protected with DPAPI-NG to the gMSA SID** and **bound to their destination** (host, account, tenant) – changing the destination without re-entering the secret is rejected. **Stage B:** data folder `/var/lib/admng-watchdog` (0700, checked at start), bootstrap file in root-owned `/etc/admng-watchdog`, key ring under a systemd encrypted credential instead of DPAPI-NG (design L11, L12, 10, 11; ADR-0009). | ADR-0008 relaxes ADR-0003 only for this folder and only for the service host project. |
 | D6 | Channels per rule: **immediate e-mail (aggregated)**, **daily digest e-mail**, **Microsoft Teams (Power Automate Workflows webhook, Adaptive Card 1.4)**, **generic webhook (Standard Webhooks v1 HMAC)**. No Windows Event Log channel. Office 365 Connector URLs (`*.webhook.office.com`) were retired on 2026-05-22 and are rejected. | User decision + research. |
 | D7 | E-mail via **MailKitLite 4.18.1** (never `System.Net.Mail`, TLS 1.2/1.3 only); modes: anonymous relay (STARTTLS required by default), Basic (TLS only), **Exchange Online OAuth2 client credentials (MSAL 4.90.1, XOAUTH2, fixed Entra cloud authority/scope, XOAUTH2 only to allow-listed hosts)**. Graph sendMail and Integrated Windows auth are phase 2. | Exchange Online SMTP AUTH Basic is disabled by default from end of December 2026. |
-| D8 | API host: **Kestrel + Negotiate, Kerberos only, HTTP/1.1, TLS 1.2/1.3, certificate from LocalMachine\My**; SPN `HTTP/<dedicated A record>` on the gMSA. **HTTP.sys** is a supported alternative selected in `appsettings.json` (Windows only; scheme Kerberos, not Negotiate). A server-agnostic middleware rejects every non-Kerberos identity. Authorization by **AD group SIDs** from the Windows token (roles Viewer, Admin, plus an emergency deny list), configured locally in a bootstrap file the service account cannot write (never editable through the API). | One stack for Windows service, console mode and Linux tests; real Negotiate can be tested against Samba. .NET 10 has no channel binding on Kestrel, so NTLM is rejected everywhere. |
+| D8 | API host: **Kestrel + Negotiate, Kerberos only, HTTP/1.1, TLS 1.2/1.3, certificate from LocalMachine\My**; SPN `HTTP/<dedicated A record>` on the gMSA. **HTTP.sys** is a supported alternative selected in `appsettings.json` (Windows only; scheme Kerberos, not Negotiate). A server-agnostic middleware rejects every non-Kerberos identity. Authorization by **AD group SIDs** from the Windows token (roles Viewer, Admin, plus an emergency deny list), configured locally in a bootstrap file the service account cannot write (never editable through the API). **Stage B:** Kestrel + Negotiate with the keytab (`KRB5_KTNAME`), PEM certificate files, roles resolved by the service from `tokenGroups` over LDAP (no SIDs in the Linux identity); HTTP.sys and `LocalMachine\My` are Windows-only and removed after 0.3.0 (design L6, 6, 17). | One stack for Windows service, console mode and Linux tests; real Negotiate can be tested against Samba. .NET 10 has no channel binding on Kestrel, so NTLM is rejected everywhere. |
 | D9 | Live updates in the GUI by **cursor polling with optional long-poll** (`GET /api/v1/events?after=N&wait=25`). No SignalR. SSE is phase 2. | Simple, restart-safe, testable. |
 | D10 | Everything is split **one feature per file**: pure logic in `AdMng.Watchdog.Core` (net10.0, unit-tested on Linux with `FakeDirectorySession` and XML fixtures), infrastructure in `AdMng.Watchdog.Service`, DTOs/config in `AdMng.Watchdog.Contracts`, HTTP client in `AdMng.Watchdog.Client`, view models in `AdMng.Presentation/Watchdog`, XAML in `AdMng.App/Views/Watchdog`. | User request + parallel implementation. |
 | D11 | **Noise discipline by default**: a 7-day **rollout mode** after the baseline (only tier0, bursts and health notify immediately; everything else goes to the digest with "would have sent N" counters), creation **settle window** (multi-step account creation = one event), attribution-dependent severities (a privileged user's own password change is not an alert), per-object repeat suppression (lockouts), deletion and privilege rules that ignore system churn (BitLocker children, DNS, SDProp). | Ops review: an alerting tool that pages for routine activity gets disabled – together with its real detections. |
@@ -99,6 +103,8 @@ reason in its final report.
 ---
 
 ## 2. Architecture
+
+> **Amended by stage B (Linux, release 0.3.0):** the service runs only on Debian 12/13 under systemd, outside the domain, as the computer account `ADMNG-WD$` with a keytab; DC Security events arrive through WEF and OpenWEC instead of RPC; GPO content is read from SYSVOL. The diagram of the Linux service is `docs/dev/watchdog-linux-design.md` section 3.
 
 ```
                     ┌──────────────── Windows server (domain member), gMSA CONTOSO\svc-admngwd$ ───────────────┐
@@ -259,8 +265,9 @@ Model/SecurityEvent.cs                                       [S]
 Model/SecurityEventCriteria.cs                               [S]
 Model/EventLogCursor.cs                                      [S]
 Model/EventEvaluation.cs                                     [S] + AttributionUpdate
+Model/EventSeverities.cs                                     own vs evaluated severity (12.1/12.2), attribution update applied
 Model/PendingNotification.cs                                 [S] + NotificationTarget
-Model/OutboxMessage.cs                                       [S] + RenderedEmail, RenderedHttpMessage
+Model/OutboxMessage.cs                                       [S] + RenderedEmail, RenderedHttpMessage, OutboxEventState
 Model/DeliveryResult.cs                                      [S] + DeliveryOutcome
 Model/ExpiryNotice.cs                                        [S] + UpcomingExpiry
 Model/SecretValue.cs                                         [S] SecretValue, StoredSecret, SecretChange
@@ -333,6 +340,7 @@ Attribution/EventLogGapDetector.cs                           cursor regressions,
 Attribution/EventLogOnlyDetector.cs                          1102/4719/4794 → WatchEvents
 Rules/RuleEvaluationJob.cs                                   [S*] IWatchdogJob
 Rules/RuleEngine.cs                                          event × rules → matches
+Rules/ReevaluationPlan.cs                                    re-plan of an event's pending rows after attribution (11.4 #9), escalations (13.2 #7)
 Rules/RuleMatcher.cs                                         one rule vs one event
 Rules/ScopeMatcher.cs
 Rules/ExclusionMatcher.cs
@@ -344,7 +352,9 @@ Rules/WatchdogConfigProvider.cs                              implements IWatchdo
 Rules/ConfigTokens.cs                                        {domain}, {domainSid}, {rootDomainSid} expansion
 Rules/RolloutMode.cs                                         rollout-mode window (12.5)
 Rules/Tier0Catalog.cs                                        Tier-0 kinds/attributes that cannot be suppressed (8.3)
-Notifications/NotificationPlanner.cs                         matches → PendingNotification rows (holds, quiet hours)
+Notifications/NotificationPlanner.cs                         matches → one PendingNotification row per target (strongest treatment)
+Notifications/AlertCoverage.cs                               per-event coverage by an earlier alert (13.2 #1)
+Notifications/EventNotices.cs                                what each target was told about one event: shown severity, latest alert, follow-up to come (13.2 #1, #7)
 Notifications/AggregationPolicy.cs                           bucket keys, flush delays, max items
 Notifications/ThrottlePolicy.cs                              per rule × channel hourly cap
 Notifications/BusinessCalendar.cs                            business hours check (time zone)
@@ -352,7 +362,7 @@ Notifications/PolishHolidays.cs                              PL statutory holida
 Notifications/NotificationDispatchJob.cs                     [S*] IWatchdogJob: due buckets → render → outbox
 Notifications/OutboxSenderJob.cs                             [S*] IWatchdogJob: lease → transport → result
 Notifications/RetryPolicy.cs                                 per channel type schedules (section 15)
-Notifications/FollowUpPlanner.cs                             attribution-resolved follow-ups
+Notifications/FollowUpPlanner.cs                             attribution-resolved follow-ups (each event with its own final severity)
 Notifications/DigestBuilder.cs                               DigestModel from events + scans
 Notifications/DigestModel.cs
 Notifications/DigestJob.cs                                   [S*] IWatchdogJob + IDigestService
@@ -368,6 +378,7 @@ Formatting/HtmlWriter.cs                                     tiny HTML builder, 
 Formatting/EmailSubjectBuilder.cs
 Formatting/EmailAlertFormatter.cs
 Formatting/EmailDigestFormatter.cs
+Formatting/FollowUpChange.cs                                 what a follow-up tells about an event vs. its alert (severity change, actor determined)
 Formatting/EventHtmlRenderer.cs                              implements IEventHtmlRenderer (HTML event page)
 Formatting/AdaptiveCards/AdaptiveCardBuilder.cs              typed builder (AC 1.4 subset)
 Formatting/AdaptiveCards/AdaptiveElements.cs                 element records (TextBlock, RichTextBlock, TextRun, …)
@@ -385,6 +396,8 @@ Resources/NotificationStrings.pl.resx                        pl
 ```
 
 ### 3.3 `src/AdMng.Watchdog.Service` (Microsoft.NET.Sdk.Web, net10.0, AssemblyName `AdMng.Watchdog`) – owner W-service
+
+> **Amended by stage B:** the Linux files (hosting `SystemdSetup`, `PosixPermissionCheck`, `PemCertificateSource`, `Secrets/SystemdCredential*`, `Identity/`, `Attribution/WecFile*`, `Gpo/SmbClient*`, migrations 0004/0005, `Auth/KerberosSidClaimsTransformation` …) are listed in `docs/dev/watchdog-linux-design.md` sections 19 and 21.1; the new project `src/AdMng.Watchdog.Keytab` and `packaging/` are described there (4.4, 13). The Windows-only files below are removed after 0.3.0 (design 17).
 
 ```
 AdMng.Watchdog.Service.csproj                       [S]
@@ -434,6 +447,8 @@ Api/EventPageEndpoint.cs                            GET /events/{eventId} HTML (
 Storage/SqliteDatabase.cs                           connection factory, PRAGMAs, single-writer gate
 Storage/MigrationRunner.cs                          user_version migrations, VACUUM INTO before upgrade
 Storage/Migrations/0001_initial.sql                 embedded resource (section 16)
+Storage/Migrations/Migration0002OwnSeverity.cs      events.own_severity (16.2)
+Storage/Migrations/Migration0003OutboxEventState.cs outbox_events.severity / pending (16.2)
 Storage/BlobCodec.cs                                deflate + JSON (WatchdogStorageJsonContext), case-insensitive dictionaries
 Storage/WatchdogStorageJsonContext.cs               source-gen context for stored Core.Model payloads
 Storage/SqliteDetectionStore.cs                     IDetectionStore
@@ -971,7 +986,11 @@ public sealed record WatchEvent
     /// <summary>Events produced from one object diff (create + enable + password set) share this id.</summary>
     public Guid ChangeSetId { get; init; }
     public required WatchEventKind Kind { get; init; }
+    /// <summary>The evaluated (displayed) severity: OwnSeverity raised by the Severity overrides of the matched rules (12.1).</summary>
     public Severity Severity { get; init; }
+    /// <summary>The event's own severity without rule overrides (12.2) – the input of every rule match; the store fills it
+    /// on insert (null = Severity, an event not stored yet).</summary>
+    public Severity? OwnSeverity { get; init; }
     public required ObjectRef Object { get; init; }
     public string? PreviousDn { get; init; }                 // moves/renames, deletions (last live DN)
     public IReadOnlyList<AttributeChange> Changes { get; init; } = [];
@@ -1385,6 +1404,8 @@ public static class ApiProblem
 
 ### 5.4 Configuration model
 
+> **Amended by stage B:** schema version 2 – `Retention.EventsDays` default **1095**, `Retention.LogonRecordsHours` 48, `Retention.MaxDatabaseMb` default **4096** (a stored 10 240 is kept), `Attribution.Source` `OpenWec` (a stored Windows source is migrated at start on Linux), the collector fields (`CollectorSilenceWarning/Error`, `DropComputerLogons`, `DropAnonymousLogons`) and `Directory.GpoContent` – `docs/dev/watchdog-linux-design.md` 7.8, 8.5 and 14.2.
+
 ```csharp
 namespace AdMng.Watchdog.Contracts.Configuration;
 
@@ -1672,7 +1693,7 @@ public sealed record ChannelSettings
     public required ChannelType Type { get; init; }
     public required string Name { get; init; }
     public bool Enabled { get; init; } = true;
-    public SecretField Url { get; init; } = new();           // Hint = scheme://host/first-path-segment/…
+    public SecretField Url { get; init; } = new();           // Hint = scheme://host[:port]/… (never a path segment)
     public DetailLevel DetailLevel { get; init; } = DetailLevel.Standard;   // Teams Standard, webhook Minimal (defaults factory)
     public TeamsChannelOptions? Teams { get; init; }
     public WebhookChannelOptions? Webhook { get; init; }
@@ -2068,7 +2089,7 @@ public sealed record EventLogCursor
 public sealed record EventEvaluation
 {
     public required long EventId { get; init; }
-    public required Severity Severity { get; init; }
+    public required Severity Severity { get; init; }                // evaluated severity; the own severity is not changed
     public IReadOnlyList<string> MatchedRules { get; init; } = [];
 }
 
@@ -2077,8 +2098,10 @@ public sealed record AttributionUpdate
 {
     public required Attribution Attribution { get; init; }
     public IReadOnlyList<string> AddedTags { get; init; } = [];     // selfChange, passwordReset, syncAccount
-    /// <summary>Re-resolved severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
+    /// <summary>Re-resolved own severity of attribution-dependent kinds (12.2); null = unchanged.</summary>
     public Severity? Severity { get; init; }
+    /// <summary>Evaluated severity of the re-evaluation (11.4 #9); null = unchanged, or the new own severity when Severity is set.</summary>
+    public Severity? EvaluatedSeverity { get; init; }
     /// <summary>Lockout sources filled by LockoutSourceResolver; null = unchanged.</summary>
     public LockoutInfo? Lockout { get; init; }
     /// <summary>Null when the attribution is final.</summary>
@@ -2142,12 +2165,18 @@ public sealed record OutboxMessage
     public RenderedHttpMessage? Http { get; init; }
     public string? RuleId { get; init; }
     public IReadOnlyList<long> EventIds { get; init; } = [];
-    public Severity Severity { get; init; }
+    /// <summary>Alerts and follow-ups: per linked event the severity it was shown with and whether its actor was pending
+    /// (13.2 #1 coverage, 13.2 #7 escalation); empty for other kinds and for alerts of schema ≤ 2 and follow-ups stored
+    /// before escalations (then Severity / SentWithPendingAttribution stand for every event).</summary>
+    public IReadOnlyList<OutboxEventState> EventStates { get; init; } = [];
+    public Severity Severity { get; init; }                         // the highest severity of its events
     public int Attempts { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public required DateTimeOffset NextAttemptAt { get; init; }
     public override string ToString() => $"OutboxMessage({Id}, {ChannelType}, {ChannelId}, {Kind})";
 }
+
+public sealed record OutboxEventState(long EventId, Severity Severity, bool PendingAttribution);
 
 /// <summary>Deferred = not attempted (rate limiter); the outbox does not count an attempt.</summary>
 public enum DeliveryOutcome { Delivered, Deferred, Transient, Permanent, ChannelBroken, AuthenticationFailed }
@@ -2266,6 +2295,11 @@ public interface INotificationQueueStore
     Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken);
     /// <summary>Moves the rows' DueAt (throttled buckets, 13.3).</summary>
     Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken);
+    /// <summary>Re-planned targets (13.2 #1) and escalations (13.2 #7, follow-up rows): the waiting row with the same
+    /// (event, target, follow-up) takes rule, target, severity, bucket and hold and keeps the earlier due time and its
+    /// reply-to; a missing one is inserted when insertMissing (SQLite: INSERT … ON CONFLICT DO UPDATE / UPDATE), one
+    /// transaction.</summary>
+    Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken);
 }
 
 public interface IOutboxStore
@@ -2517,6 +2551,8 @@ against the scaffold shells before W-core is merged.
 
 ## 7. Event catalog (defaults)
 
+> **Amended by stage B:** new kinds 510–512 (GPO settings changed, GPO path redirected, out-of-band SYSVOL change) and 909 (`HealthServiceAccount`); `ManagedAccountLinkChanged` is Critical and `ServiceAccountCreated` a Tier-0 kind (BadSuccessor); every decrease of a numeric retention value is a Critical `WatchdogConfigurationChanged`; SACL-only changes of the key objects are reported as `SecurityDescriptorChanged` with the tag `auditSettings` – `docs/dev/watchdog-linux-design.md` 8.6, 9 and 14.2.
+
 "Rec." = recorded by default (else only when listed in `Directory.EnabledOptionalKinds`). Severity is the catalog
 default before tag bumps and overrides (section 12.2). "Rule" = built-in rule that notifies (section 12.4); "digest" =
 only in the daily digest by default. During **rollout mode** (12.5) only tier0-*, bursts and health notify immediately.
@@ -2740,6 +2776,8 @@ document keeps the tokens.
 
 ### 8.3 Validation (`ConfigurationValidator`, Core) – codes and rules
 
+> **Amended by stage B:** new codes `retentionBelowFloor` (below `Watchdog:Retention:MinEventsDays`), `logonRetentionTooShort`, `sourceUnsupportedOnHost`, the ranges of the collector, GPO-content and logon-record fields, and `tier0Suppression` for disabling or narrowing `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self` and `tier0-gpo` – `docs/dev/watchdog-linux-design.md` 14.2 and 21.1 (B4, B6).
+
 `Validate(configuration, ConfigValidationContext)`; the Service builds the context (stored secret bindings,
 environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 
@@ -2754,9 +2792,9 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `invalidDn` | every DN parses with `DistinguishedName.TryParse` after token expansion with placeholder values |
 | `invalidSid` | SIDs match `^S-1-\d+(-\d+)+$` after token expansion – includes `ActorFilter.ExcludeActors` and `RuleExclusion.Actor` (SIDs only) |
 | `invalidAttribute` | `additionalWatchedAttributes` / `ignoredAttributes` / rule `attributes`: `^[A-Za-z][A-Za-z0-9-]{0,63}$` (no `*`, `+`, `1.1`, `;options`), ≤ 20 additional attributes, not secret (`SecretAttributes.IsSecret`), not a noise attribute (9.3). The Service additionally validates `additionalWatchedAttributes` against the live session schema on PUT (exists, not confidential, not constructed, not a back link); without a session the change is rejected (`schemaUnavailable`) |
-| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, `{domain}`, `OU=Domain Controllers,{domain}` or `CN=System,{domain}` – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true |
+| `tier0Suppression` | `ignoredAttributes` contains a Tier-0 attribute or `disabledKinds` a Tier-0 kind (`Tier0Catalog`: every attribute/kind of categories Security, Domain, AuditLog, PrivilegeGranted/Revoked), or `excludedSubtrees` contains/equals a `criticalObjects` entry, a `privilegedGroups.additionalCriticalDns`/`additionalHighDns` group, `{domain}`, `OU=Domain Controllers,{domain}`, `CN=System,{domain}`, `CN=Users,{domain}` (Domain/Enterprise/Schema Admins, krbtgt, RID 500) or `CN=Builtin,{domain}` (Administrators and the operator groups) – allowed only when the bootstrap flag `Authorization.AllowTier0Suppression` is true. The service (`ConfigValidationService`, PUT and validate) also rejects a newly added `excludedSubtrees` entry that equals or contains a privileged object of the snapshot – a privileged root group (critical/high SIDs, the watchdog's role and host groups), a group on a path to one, a principal of the current privilege state, krbtgt or the built-in Administrator – so privileged groups and admin accounts moved into tiered OUs stay protected; entries already stored are not re-checked |
 | `invalidAddress` | every e-mail address parses (`MailboxAddress.TryParse` semantics: implemented in Core with `System.Net.Mail.MailAddress` parsing rules + no CR/LF); `from` likewise |
-| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces) |
+| `invalidHostName` | `smtp.localDomain` and `smtp.host` match `^[A-Za-z0-9.-]{1,253}$` (no CR/LF, no spaces); `attribution.collector` and every `attribution.domainControllers` entry likewise and are not an IP literal (`HostNames.IsHostName`) – the service identity authenticates to them with Kerberos only |
 | `insecureCredentials` | `smtp.authentication` ≠ None requires `security` StartTls or SslOnConnect |
 | `oauthHostNotAllowed` | `smtp.authentication = OAuth2ClientCredentials` and `smtp.host` is not in the bootstrap `Notifications.OAuthSmtpHosts` (default `smtp.office365.com`) |
 | `invalidScope` | Teams `scope` not one of the documented Power Automate scopes of the selected cloud |
@@ -2764,7 +2802,7 @@ environment, bootstrap flags). Errors (save rejected with 400 + `issues`):
 | `retiredTeamsUrl` | Teams URL host ends with `.webhook.office.com` or `.logic.azure.com` |
 | `teamsUrlFormat` | Teams URL must match `^https://[^/]+\.environment\.api\.powerplatform\.com(:443)?/powerautomate/automations/direct/(.*/)?workflows/` – an error for `EntraClientCredentials` (the bearer token is sent only to Power Platform hosts), a warning for SAS with a custom host |
 | `hostNotAllowed` | webhook URL host not in `allowedHosts` (when non-empty) |
-| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed |
+| `lockedRule` | a `Locked` rule disabled, deleted or its kinds changed; for the shipped locked rule (`health`) also a weakened delivery: `immediate`, `includeInDigest` or `allEnabledChannels` turned off, `hours` narrower than shipped (Always), no recipient group and no channel left, `repeatSuppression` > 0, `maxMessagesPerHour` below `notifications.maxMessagesPerRulePerHour`, `aggregationWindow` above `notifications.aggregationWindow`, or a `severity` override below Critical (re-targeting and strengthening stay allowed) |
 | `acceptAnyNotAllowed` | `certificateValidation = AcceptAnyDevelopmentOnly` outside Development |
 | `pinnedHash` | `pinnedSha256` must be 64 hex chars when mode PinnedSha256 |
 | `timeZone` | `general.timeZone` resolvable by `TimeZoneResolver` (as given; IANA ↔ Windows conversion; built-in map for NLS hosts: Europe/Warsaw ↔ Central European Standard Time, Europe/Berlin ↔ W. Europe Standard Time, Europe/London ↔ GMT Standard Time, UTC ↔ UTC) |
@@ -2790,6 +2828,8 @@ Warnings (save allowed):
 | `rolloutOff` | `rolloutDays = 0` on a configuration whose baseline is younger than 7 days |
 
 ### 8.4 Bootstrap settings (`appsettings.json`) – `ServiceOptions` (Service)
+
+> **Amended by stage B:** on Linux the bootstrap file is `/etc/admng-watchdog/appsettings.json` (root:admng-watchdog 0640) with `Kerberos.Realm` / `ServicePrincipal`, `Directory.Servers` (FQDNs only), `Collector.SubscriptionUuid` / `AdditionalSourceAddresses` / `MaxLogonRecordsPerDcPerMinute`, `Retention.MinEventsDays` (1095), `Sysvol.*` and the PEM certificate (`Hosting.Certificate.Path` / `KeyPath`); `WatchdogHostGroupSids` is obsolete there – `docs/dev/watchdog-linux-design.md` 14.1.
 
 ```json
 {
@@ -2847,6 +2887,23 @@ Warnings (save allowed):
 | `Notifications.OAuthSmtpHosts` | hosts that may receive an XOAUTH2 token (default `smtp.office365.com`) |
 | `Directory.Domain/Server` | null = computer's domain / PDC emulator (`PreferPdc`) located via `IDirectoryConnector` |
 | `Directory.Authentication` | `CurrentUser` (gMSA) in production; lab: `SimpleBind` with `LabSimpleBindUser`, password ONLY from env `ADMNG_WATCHDOG_LDAP_PASSWORD`, and `AllowInsecureLab=true` (maps to `ConnectionOptions.AllowInsecureSimpleBind`, refused outside Development) |
+
+**Reload.** The bootstrap file is added with `reloadOnChange` (when `config\` exists; the gMSA cannot write it, 19.5).
+`ServiceOptionsFactory` builds the `IOptionsMonitor<ServiceOptions>` value from the live configuration but pins what the
+host consumed when it was built – `DataDirectory`, `AllowInsecureDataDirectoryAcl`, `Authentication`, `Hosting` (except
+`AllowedRemoteSubnets`/`MonitoringSubnets`), `Directory`, `Development` – to the start-up values. So `Authorization`
+(above all `DeniedSids`: revocation must not wait for a restart), `Notifications` and the two subnet lists apply within
+seconds; everything else needs a service restart (documented). `DetectionHostOptions` (role groups as privileged roots)
+is read once at start. An edit that cannot be loaded (malformed JSON) keeps the previous settings in effect – the file
+provider throws in its change callback, so the options are not rebuilt – and `ConfigurationSetup.ReportReloadFailures`
+logs warning 2002 (type and code only), so an emergency `DeniedSids` entry with a syntax error does not fail silently;
+at the next start the same file fails with exit code 2 / event 1010. (The provider does clear its data on such a
+failure: should another watched source – the `appsettings.json` next to the binary – change before the file is fixed,
+the options are rebuilt without the bootstrap settings, i.e. without any role SIDs – everyone gets 403, fail closed.)
+An edit that is valid JSON but holds a value the binder cannot convert (an unknown enum name such as
+`"ViewerDetailLevel": "Minimalny"`, `"tak"` for a flag) would make every `CurrentValue` read throw – each request,
+`/healthz`, the directory and notification jobs – so `ServiceOptionsFactory` keeps the last good options and logs the
+same warning 2002 (type only: the binder's message carries the value); the corrected file applies as usual.
 
 ---
 
@@ -3086,14 +3143,22 @@ objects, CN=LostAndFound). The order of returned entries is arbitrary (lab-verif
 ```
 new = SnapshotBuilder.Build(entry, previous: old)      // canonical values (9.4), carries old Version/ChangedAt
 if entry is out of scope:
-    if old is live → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope"), DetectionCommit.Removals += guid
+    if old is live and its DN changed → event ObjectMoved (PreviousDn = old.Dn, Dn = new DN, tag "outOfScope")
+         (an object that did not move – an ExcludedSubtrees entry was added – is removed silently)
+    if old exists → DetectionCommit.Removals += guid; a container also removes, silently, its stored descendants that
+         now live below its new DN (10.7)
     continue
 if old is null:
     if Baseline → upsert, no event
-    elif entry.uSNCreated > W → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
+    elif entry.uSNCreated > W (Resync, where W belongs to another DC: whenCreated > (LastPollAt ?? LastFullSyncAt) − 3 h,
+         the margin covers objects created on another DC shortly before the last poll and not yet replicated to the
+         old DC, and clock skew) → upsert with CreationPendingUntil = whenCreated + Directory.CreationSettleWindow and
          no event yet (the CreationSettler emits the Created event, 10.6.3); with a zero window the Created event is
          emitted at once
-    else → ObjectAppeared (Info; tag outOfScope when the parent chain is in scope and the object was moved in)
+    else → ObjectAppeared (Info; tag outOfScope when the object was moved in: the `name` metadata – a move or rename
+         stamps it – has usnLocal > W; without metadata or W, whenChanged > LastPollAt. Never decided from the
+         configuration); a container also adopts, silently, the descendants without a row that were not created
+         since the last poll (10.7)
 elif old.IsDeleted → ObjectRestored (+ diff vs the last live snapshot for context, not as separate events) and
          RestoredMembershipReader (10.9)
 elif old.CreationPendingUntil is set → upsert the new state, no events (still settling)
@@ -3116,7 +3181,7 @@ kinds in Directory.DisabledKinds or optional kinds not enabled are dropped here 
 | `userAccountControl` | `UacFlagClassifier` (10.6.1) |
 | `lockoutTime` 0/absent → t>0, or t1 → t2 > t1 | AccountLockedOut (LockoutInfo: LockedAt = t2, LockedUntil = t2 + **effective** lockout duration from `LockoutPolicyResolver` – the user's PSO (`msDS-ResultantPSO` base read → `msDS-LockoutDuration`) when readable, else the domain `lockoutDuration` (absolute value); 0x8000000000000000 / 0 ("until an admin unlocks") → null; `LockoutsToday` = `IEventStore.CountForObjectAsync(guid, AccountLockedOut, local midnight)` + 1) |
 | `lockoutTime` t>0 → 0 | `t0` = originating time of the lockoutTime write (metadata, else DetectedAt): **AccountUnlocked** when LockedUntil is null or `t0 < t + effective duration` (an admin/helpdesk unlock); otherwise **no event** – the DC resets `lockoutTime` to 0 at the first successful logon after the lockout expired (Samba `authsam_logon_success_accounting`, Windows likewise), which is not an unlock (LockoutMonitor reports the expiry when `LockoutExpired` is enabled). A 4767 matched later for a "no event" reset is ignored |
-| `pwdLastSet` → 0 | PasswordMustChangeSet |
+| `pwdLastSet` → 0 | PasswordMustChangeSet; additionally **PasswordChanged** (same change set, same computer / ServiceAccount suppression as below) when metadata is available and `unicodePwd` `usnLocal > W` – the usual helpdesk reset with "must change at next logon" writes both in one poll. Without metadata (or without a W of this DC) must-change alone is reported |
 | `pwdLastSet` → value > old, `unicodePwd` metadata `usnLocal > W` (or no metadata available) | PasswordChanged (computers: dropped unless TrackComputerPasswordChanges; ServiceAccount kind: dropped unless TrackManagedPasswordRollover) |
 | `pwdLastSet` → value > old, metadata available and `unicodePwd` `usnLocal ≤ W` | **PasswordAgeReset** (password age extended without a new password) |
 | `accountExpires` | AccountExpirationChanged |
@@ -3148,7 +3213,7 @@ Decode old/new `userAccountControl` (enum `UserAccountControl` from AdMng.Core).
 | Bit | Set → | Cleared → |
 |---|---|---|
 | 0x0002 ACCOUNTDISABLE | AccountDisabled | AccountEnabled |
-| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController → no event) | DelegationChanged (Medium) |
+| 0x0080000 TRUSTED_FOR_DELEGATION | DelegationChanged (Critical unless the object is a DC: tag domainController, i.e. 0x2000 in the **new** value – also a one-step promotion that sets both bits – → no event) | DelegationChanged (Medium) |
 | 0x1000000 TRUSTED_TO_AUTH_FOR_DELEGATION | DelegationChanged (High) | DelegationChanged (Medium) |
 | 0x2000 SERVER_TRUST_ACCOUNT | DomainControllerAdded (Critical) | AccountFlagsChanged (High) |
 | 0x0020 PASSWD_NOTREQD, 0x400000 DONT_REQ_PREAUTH, 0x0080 ENCRYPTED_TEXT_PWD_ALLOWED, 0x200000 USE_DES_KEY_ONLY | AccountFlagsChanged (High) | AccountFlagsChanged (Low) |
@@ -3213,15 +3278,37 @@ are kept in memory (tag `syncAccount` on attribution) and offered as `ExclusionS
 
 ### 10.7 Moves and renames (`DnRewriter`)
 
-- Containers (pass 1) are processed in ascending depth of their old DN. For each container whose DN changed, add
-  `DnRewrite(old DN, new DN)` to the cycle and rewrite later old DNs through the list before diffing (so a child of a
-  renamed OU is not reported as moved).
-- The commit applies every rewrite to all stored descendants (DN suffix replace, case-insensitive on the normalized
-  DN) and to `snapshot_members.member_dn`. Descendants keep their USN – AD does not bump them.
+- Containers (pass 1) are processed in ascending depth of their old DN. For each in-scope container whose DN changed,
+  the cycle records (its stored DN at the start of the cycle, its new DN). A DN of the start of the cycle is rewritten
+  **once**, onto the new DN of its **deepest** recorded ancestor – never through a chain, so a shift (B→C, then A→B) or
+  a swap of names in one poll puts A's children under the new B whatever order the server returned the containers in
+  (so a child of a renamed OU is not reported as moved).
+- The commit applies the rewrites to all stored descendants (DN suffix replace, case-insensitive on the normalized
+  DN) and to `snapshot_members.member_dn`, one after the other: deepest old DN first; when a new DN lies at, below or
+  above another rewrite's old DN (shift, swap, a container moved onto the name of a removed one whose child moved away),
+  in two phases through unique temporary DNs below `DC=admng-rewrite,DC=invalid` – the result equals the
+  deepest-ancestor rule. Descendants keep their USN – AD does
+  not bump them.
+- Pass 2 runs after the container chunk committed the rewrites, so its stored DNs are already rewritten. The
+  PreviousDn of an object that left a container renamed in the same poll is mapped back to the DN of the start of
+  the cycle (deepest recorded new DN → its old DN) – unless another object held that new DN at the start of the cycle
+  and did not move (deleted, left the scope): then the stored DN is kept (its former children were never rewritten).
 - ObjectMoved: parent changed. ObjectRenamed: RDN value changed. Both when both changed.
 - A move **out of** scope (`ExcludedSubtrees`) is an ObjectMoved with tag `outOfScope` and a `Removals` entry (hard
-  delete of the row; other groups' member lists keep the key). A move **into** scope finds no snapshot → ObjectAppeared
-  with tag `outOfScope` (no Created event, no ObjectRestored – only tombstone-marked rows are restores).
+  delete of the row; other groups' member lists keep the key). A container moved out takes its subtree along: no
+  rewrite is recorded for it, and its stored descendants that a subtree search finds below its new DN get `Removals`
+  entries in the same chunk without events (the container's ObjectMoved covers them; AD does not bump them, so no
+  later pass would see them); descendants found elsewhere (moved away or deleted in the same poll) keep their rows for
+  pass 2 and the deletion pass. When the new location cannot be read (warning `outOfScopeSubtreeUnreadable`), every
+  stored descendant is removed; one that moved away in the same poll is then found without a row by pass 2
+  (ObjectAppeared) instead of being lost. An object outside the scope whose DN did not change (an `ExcludedSubtrees` entry was
+  added) is removed **silently** – the configuration change is audited as WatchdogConfigurationChanged.
+- A move **into** scope finds no snapshot → ObjectAppeared with tag `outOfScope` (no Created event, no ObjectRestored –
+  only tombstone-marked rows are restores). A container moved in (or found again after an exclusion was removed) adopts
+  its subtree in the same cycle: descendants without a row are snapshotted silently (members read as for 10.8),
+  instead of staying unknown until the reconciliation reports each of them. Descendants **created since the last poll**
+  (`uSNCreated > W`; Resync: the whenCreated rule of 10.6) are not adopted – the cycle's own search (or the next one)
+  returns them and they get the creation settle window and their Created event like any new object.
 
 ### 10.8 Membership (`MembershipReader`, `MembershipDiffer`, `PrivilegeEvaluator`)
 
@@ -3232,7 +3319,19 @@ Reading (groups in the increment or full scan):
 2. Each value → `ExtendedDistinguishedName.TryParse` → `MemberReference { Key = GUID "N" | "sid:…" | "dn:…" }`.
 3. `MembershipTracking.PrivilegedAndWatchListOnly`: store members only for privileged groups (by SID/name/DN),
    watch-list groups and groups that are members of those (one level is enough because nested groups are tracked
-   anyway when they are reachable – the evaluator reads unknown nested groups on demand).
+   anyway when they are reachable – the evaluator reads unknown nested groups on demand). A group read while it is
+   not tracked gets the reserved snapshot marker `$members = untracked` (an empty stored list and "never stored" look
+   the same in `snapshot_members`) and its stored list, if any, is **dropped** (replaced by an empty one) – a list kept
+   while nobody re-reads it would go stale and the evaluator trusts stored lists. The **first tracked read** of a group
+   whose old snapshot carries the marker stores its list **silently** (no GroupMemberAdded for members that were there
+   all along; `MembershipRelevant`, so the evaluator reports new privileges). The same applies after switching
+   `MembershipTracking` to `AllGroups`. The restore re-insertion (10.9) only touches groups whose list is stored.
+   Because a page's member lists are committed together, a group read in the same page as the list that contains it
+   (every nested group at the baseline, a group nested in the same poll) is still untracked when read; the evaluator's
+   on-demand read of such a group (a member of a stored list without a list of its own) therefore **stores** what it
+   read and clears the marker in the final commit – unless the group's `uSNChanged > H` (the next cycle reads and
+   diffs it). Its next change is then diffed normally (GroupMemberAdded/Removed) – important for groups nested in a
+   watch-list group, where no PrivilegeGranted would stand in for a silent first read.
 
 Diffing: old = `store.GetMembersAsync(groupGuid)`, new = read set, by `Key`. Added → `GroupMemberAdded` (Object =
 group, Member = member ref resolved from the snapshot by GUID, else from the DN), removed → `GroupMemberRemoved`.
@@ -3242,7 +3341,10 @@ replacements, deletions/removals of principals or primaryGroupID changes sets `M
 
 Deleted members: when the DeletedObjectsScanner reports a deletion, the store removes the key from every group
 (`DetectionCommit.Deletions`) – **no** GroupMemberRemoved events (the ObjectDeleted event lists the former groups in
-an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context).
+an `AttributeChange { Attribute = "memberOf", OldValues = group DNs }` for context). A removed member that a search of
+this domain by objectGUID no longer finds counts as deleted too – except a member whose DN lies in another naming
+context (another domain of the forest, also a child domain lexically below this one: a `DC=` RDN below the domain root,
+or outside it), which such a search can never see: its removal is a GroupMemberRemoved.
 
 `PrivilegeEvaluator` – runs when the cycle changed memberships, primaryGroupIDs, created/deleted/restored groups or
 principals; always at baseline/resync/failback; on the **first cycle after process start**; and whenever the stored
@@ -3259,7 +3361,12 @@ replacements and before the final commit would otherwise lose the PrivilegeGrant
    the shortest path and the highest tier reached.
 4. Diff vs the stored `PrivilegeState` by (PrincipalKey, GroupGuid): new pairs → `PrivilegeGranted` (Object =
    principal, Member = privileged group, Via = path refs, severity = tier), removed pairs → `PrivilegeRevoked`
-   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event. Pairs that came back with a
+   (Medium). Pairs whose principal was deleted in this cycle produce no Revoked event – nor pairs whose principal's
+   snapshot row is marked deleted, or has no row and is not found live by objectGUID (a cycle repeated after a crash
+   between the deletion chunk and the final commit; a repeated reconciliation after ObjectDisappeared). Members outside
+   the snapshot that still exist (excluded subtrees, FSPs) are revoked normally, and so are members of another domain
+   of the forest – told by the DN of a member list of this cycle (stored, read live or just removed), as for
+   GroupMemberRemoved; the revoked principal's ObjectRef takes that DN when there is no row. Pairs that came back with a
    restored object (10.9) get tag `restored` and the ObjectRestored event's ChangeSetId (they inherit its 5138
    attribution).
 5. Commit the new state. Domain Controllers (RID 516 via primary group) and krbtgt etc. are part of the baseline state
@@ -3273,19 +3380,22 @@ Time-bound (PAM TTL) memberships expire without bumping the group; their expiry 
 Precondition: `Directory.TrackDeletedObjects` and the self-check `permission.deletedObjects` is Ok (LCRP on
 `CN=Deleted Objects`). Query: base `CN=Deleted Objects,{domain}`, OneLevel, `IncludeDeleted = true`
 (`IncludeRecycled = true` when `SessionInfo.RecycleBinEnabled`), filter
-`(&(isDeleted=TRUE)(uSNChanged>=W')(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+`(&(isDeleted=TRUE)(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit)(objectClass=contact)(objectClass=groupPolicyContainer)(objectClass=trustedDomain)(objectClass=msDS-PasswordSettings)))`
+(tombstones written after H was read belong to the next cycle)
 – only the watched classes (`objectClass` survives on tombstones, objectCategory is stripped; computers, MSAs and
 inetOrgPerson are `user`). Children removed by tree-delete or system churn (msFVE-RecoveryInformation, msTPM-*,
 printQueue, serviceConnectionPoint, msDS-Device in CN=RegisteredDevices, dnsNode in legacy domain-partition DNS zones,
 foreignSecurityPrincipal clean-up) therefore never produce events. Attributes `objectGUID`, `objectSid`,
-`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`.
+`objectClass`, `sAMAccountName`, `lastKnownParent`, `msDS-LastKnownRDN`, `isRecycled`, `whenChanged`, `uSNChanged`,
+`uSNCreated`.
 
 | Tombstone GUID in snapshot | Result |
 |---|---|
 | live | `ObjectDeleted` (Object = last live snapshot ref, PreviousDn = last live DN, context memberOf), `Deletions` entry |
 | live, `CreationPendingUntil` set | the deferred Created event first (10.6.3), then `ObjectDeleted` |
 | already deleted (Recycle Bin: deleted → recycled) | nothing |
-| unknown (created and deleted between two polls) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = `msDS-LastKnownRDN` under the resolved parent |
+| absent, Recycle Bin enabled, `isRecycled = TRUE` and `uSNCreated < W'` (a deleted object recycled after its deleted row was purged by retention) | nothing – deleted → recycled is never a new deletion (without the Recycle Bin every tombstone is `isRecycled = TRUE`, so the check applies to Recycle Bin forests only) |
+| unknown (created and deleted between two polls; with the Recycle Bin also deleted **and** purged) | `ObjectDeleted` from tombstone data **only when** `lastKnownParent` resolves (through the snapshot, or the parent tombstone's own lastKnownParent chain) to an in-scope location – not under `CN=System` (except the listed classes), `CN=LostAndFound`, `ExcludedSubtrees` or a deleted user/computer; otherwise dropped. DN = the RDN under the resolved parent: `msDS-LastKnownRDN` (set on the Recycle Bin path only), else the tombstone's own RDN cut at the `\0ADEL:<guid>` mangling (tombstones without the Recycle Bin – Samba, Windows without the feature – have no `msDS-LastKnownRDN`, lab-verified). In the same chunk a **deleted marker row** (identity only, no attributes, `IsDeleted`) is upserted, so a repeated cycle, the later recycling and a restore know the object (a restore is ObjectRestored without context changes) |
 
 The original location is always taken from the snapshot (lastKnownParent can point into Deleted Objects when the
 parent was deleted too). Restores are detected by the increment (10.6: a tombstone-marked snapshot GUID appears live).
@@ -3300,16 +3410,19 @@ values are gone and `memberOf` is empty. The Windows link/USN behaviour is confi
 
 Without Deleted-Objects access, deletions are found by the daily reconciliation: a live snapshot GUID under the
 default NC not seen in the full scan is looked up with `(objectGUID=<LdapFilter.EqualGuid>)` subtree from `{domain}`
-with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live outside
-scope → ObjectMoved `outOfScope` and a `Removals` entry; not found → `ObjectDisappeared` (Low; deleted, moved out of
-read scope, or permissions lost) and a `Removals` entry (if it reappears later it is ObjectAppeared, never
-ObjectRestored).
+with `IncludeDeleted`: found deleted → ObjectDeleted (source Reconciliation) and a `Deletions` entry; found live at another
+DN outside scope → ObjectMoved `outOfScope` and a `Removals` entry; not found, or found live at its old DN but invisible
+to the scan → `ObjectDisappeared` (Low; deleted, moved out of read scope, or permissions lost) and a `Removals` entry
+(if it reappears later it is ObjectAppeared, never ObjectRestored).
 
 `MassDeletion` (BurstDetector) counts ObjectDeleted events by object class within the window (grouped by actor once
 attribution resolved, otherwise overall): users, groups, OUs and service accounts against `Scans.MassDeletion`
 (≥ 10 in 10 min → **Critical**); computers and contacts against `Scans.MassComputerDeletion` (≥ 50 in 10 min →
 **High** – stale-computer clean-ups are routine). One MassDeletion event per burst (BurstInfo with up to 50 objects);
-cooldown = window. After a computer MassDeletion attributed to one actor, that actor is offered as an
+cooldown = window. The candidates are the ObjectDeleted events **detected** within the window, but they count as a
+burst only when the deletions themselves (`LocalChangeTime` = the tombstone's whenChanged, else `OriginatingTime`,
+else `DetectedAt`) fall within one window: deletions spread over hours that are found together – the catch-up cycle
+after an outage, a Resync, the reconciliation – are no burst; a real burst found late is reported once. After a computer MassDeletion attributed to one actor, that actor is offered as an
 `ExclusionSuggestionDto` (`computerCleanupAccount`, rule `bursts`) – applied only by an admin.
 
 ### 10.10 Replication metadata (`ReplicationMetadataXmlParser`, `ReplicationMetadataDecoder`, `AttrTypResolver`, `OriginatingDcResolver`)
@@ -3397,10 +3510,14 @@ Baseline):
   (Changes: flags decoded – e.g. `CT_FLAG_ENROLLEE_SUPPLIES_SUBJECT`, EKUs added/removed, RA signature count, ACEs
   added/removed with enroll/write rights named; enrollment services: published templates added/removed; CAs/NTAuth:
   certificate thumbprints added/removed).
-- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(|(objectClass=attributeSchema)(objectClass=classSchema)))`
+- Schema NC (when `WatchSchemaPartition`) one-level `(&(uSNChanged>=W')(uSNChanged<=H)(|(objectClass=attributeSchema)(objectClass=classSchema)))`
   attributes `lDAPDisplayName`, `uSNCreated`, `objectClass` → **one** `SchemaChanged` event per cycle (Changes:
   counts created/modified and up to 50 lDAPDisplayNames; Exchange `/PrepareSchema` = one event, not thousands).
-  Baseline/Resync: no events.
+  Baseline/Resync: no events. Schema objects are not snapshotted, so the event is emitted in the cycle's **final
+  commit** (with W): a cycle that fails after its chunk commits repeats the range without a duplicate, and writes after
+  H are reported by the next cycle only. Entries of the `UsnOverlap` re-read (`uSNChanged ≤ W`) were reported by the
+  previous cycle and are skipped; "created" means `uSNCreated > W`.
+- The incremental nTDSDSA and PKI searches use the same range `(uSNChanged>=W')(uSNChanged<=H)`.
 
 ### 10.12 Permission self-check (`PermissionSelfCheck`) – at startup after baseline and every `PermissionSelfCheckInterval`
 
@@ -3463,7 +3580,8 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
 
 ### 10.15 Bursts (`BurstDetector`, `PasswordSprayDetector`, inside ScheduledScanJob, every minute)
 
-- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` in the last `MassLockout.Window` ≥
+- **Mass lockout** (`BurstDetector`): distinct objects with `AccountLockedOut` detected in the last `MassLockout.Window`
+  whose lockout times (`Lockout.LockedAt`) fall within one window (as for MassDeletion, 10.9) ≥
   `max(Threshold, ceil(PercentOfEnabledUsers × enabled users / 100))` (enabled users counted at reconciliation) →
   `MassLockout` (Medium, BurstInfo), cooldown = window (restart-safe: skip when such an event exists in the store within
   the window). This is *not* a password-spraying detector – spraying deliberately stays below the lockout threshold.
@@ -3474,8 +3592,11 @@ SPN); thresholds/dedup/business-day rule as above with kind Password (the constr
   0x18 / 0x6 and 4776 with Status 0xC000006A / 0xC0000064 in the last `Window` (bounded like 11.4 #6: timeout, one query
   per DC, `MaxRecords` 20 000); group by IpAddress (4771) / Workstation (4776); a source with failures for ≥
   `DistinctAccounts` distinct TargetUserNames → `PasswordSprayingSuspected` (High, BurstInfo with up to 50 account
-  names as ObjectRefs resolved from the snapshot, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
-  source = window. Nothing is ingested or stored except the event.
+  names as ObjectRefs resolved live by sAMAccountName, `Attribution.IpAddress`/`Workstation` = the source); cooldown per
+  source = window. Nothing is ingested or stored except the event. A name that resolves to no account (4776
+  0xC0000064, 4771 0x6) is **masked** to its first character and length (`L…(9)`, `ObjectRef.Name` only): such names
+  are often passwords typed into the user name field, so the raw TargetUserName never reaches the store, a digest
+  or a notification (the distinct-name count stays exact).
 - Mass deletion: see 10.9.
 
 ### 10.16 Change-notification wake-up (`ChangeNotificationWaker`)
@@ -3504,6 +3625,8 @@ and the first `MaxRowsPerSection` rows (name, last logon date, OU).
 
 ### 11.1 Ingestion (`AttributionEngine`, every `Attribution.PollInterval`, wake on `EventsStored`)
 
+> **Amended by stage B:** in collector mode (`OpenWec` with an available collector – the Linux service) the records come from the OpenWEC RawJson files through the tailer `WecFileIngestionJob` (identity checks, reduction, ingest budget per DC and minute, at-least-once cursor in the same transaction) instead of the RPC reader; 4624/4625/4771/4776 are ingested and kept `LogonRecordsHours` – `docs/dev/watchdog-linux-design.md` 7.5–7.7.
+
 ```
 if !Attribution.Enabled or !securityEventSource.IsAvailable:
     mark pending events older than 30 s as Unknown(SOURCE_DISABLED) (except NotApplicable kinds); return
@@ -3511,18 +3634,37 @@ sources = Source == ForwardedEvents ? [Collector] (log "ForwardedEvents")
         : Attribution.DomainControllers (config; every entry must be a writable DC of this domain known to
           DomainControllerDirectory – unknown hosts are skipped with health Error eventlog.<host> "notADomainController")
           or the DomainControllerDirectory attribution sources (10.11) (log "Security")
-for each source (in parallel, max 4):
+for each source (in parallel, max 4; a source failing with a store error is reported as health Error
+                 eventlog.<host> and does not stop or discard the others):
     info = GetLogInfoAsync(host, log)                      → health eventlog.<host> (Ok / Error with Win32 code)
     cursor = store.GetCursorAsync(host)
+  Security log of a DC (cursor = the DC's EventRecordID):
     if cursor null: query From = now − ReplicationLatencyBound (do not ingest history)
     else: AfterRecordId = cursor.LastRecordId
           if info.OldestRecordNumber > cursor.LastRecordId + 1 → HealthEventLogGap (records overwritten unread)
     loop: ReadAsync(host, query{ EventCodes = SecurityEventCatalog.IngestionSet, AfterRecordId, SuppressAttributes = noise,
                                  MaxRecords = 1000 }) → parse → EventSourceGuard → reduce + mask (below)
           → AppendAsync(events, newCursor) until < 1000 returned or Attribution.MaxRecordsPerPoll records were read
+          after the last (short) page newCursor = max(last record read, newest record of info) – the filtered query
+          proves no ingestion-set record exists up to it, so a busy DC whose log wraps between account changes raises no
+          false "overwritten" gap and no LOG_OVERWRITTEN
           budget exceeded → HealthEventLogGap (reason "flooding"); the cursor keeps moving (next poll continues)
     newest record id < cursor (log cleared / recreated) → HealthEventLogGap + rebase cursor to the newest record
-    1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6)
+  ForwardedEvents log of a WEF collector (records keep their source DC's EventRecordID – not comparable across DCs nor
+  with the collector's numbering): the cursor is time based – the newest TimeCreated read (capped at now) is kept in
+  EventLogCursor.BookmarkXml as <TimeCursor SystemTime="…"/>; every poll reads the ingestion set from that time −
+  ReplicationLatencyBound (late WEF deliveries) in one read of at most MaxRecordsPerPoll records, stored in pages of
+  1000; the collector's record numbers are never checked for overwrites or regressions. A read cut by
+  MaxRecordsPerPoll (HealthEventLogGap "flooding") stores the newest TimeCreated read as the cursor's Floor
+  (<TimeCursor SystemTime="…" Floor="…"/>, at least one tick after the read's start): later reads start at
+  max(cursor − ReplicationLatencyBound, Floor), so a window holding more records than the budget (a bulk import) cannot
+  make every poll re-read its oldest records and stall the cursor. Records read again are
+  ignored by the store (computer, record id) and by the detections (stable ids, below).
+  1102 / 4719 / 4794 / 1104 / 1100 → EventLogOnlyDetector (11.6) and record gaps, appended to the event store before
+    the cursor of their page is committed, under an id derived from the record (RecordEventIds: Guid v7 layout,
+    timestamp = TimeCreated, rest = SHA-256 of what|computer|record id|time|event id) and only when that id is not
+    stored yet – an interrupted pass re-reads the page and neither loses nor repeats a SecurityLogCleared
+  1102 / 1104 (and a cursor regression) mark the DC's log overwritten from the record's time (11.7 LOG_OVERWRITTEN)
 then correlate (11.4) every pending event whose next retry is due
 report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, source lookups)
 ```
@@ -3543,11 +3685,17 @@ report AttributionStatusDto (per DC: last read, last record id, coverage 24 h, s
 <Select Path="Security">*[System[(EventID=4720 or …) and EventRecordID &gt; 12345]]</Select>…<Suppress Path="Security">
 *[System[EventID=5136] and EventData[Data[@Name='AttributeLDAPDisplayName']='dSCorePropagationData']]</Suppress>
 </Query></QueryList>`) with **at most 20 EventID expressions per Select** (several Selects OR-ed), time filters as
-`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; values are
-XML-escaped and restricted to `[0-9A-Za-z.\-_:{}$ ]` (anything else rejected – no injection into XPath).
+`TimeCreated[@SystemTime&gt;='…Z']`, data filters as `EventData[Data[@Name='TargetLogonId']='0x30dc2']`; log names,
+data names and suppressed attributes are restricted to `[0-9A-Za-z.\-_:{}$ ]`, a data value is one XPath string literal
+(single-quoted, double-quoted when it contains an apostrophe – `o'neill`; rejected when it contains both quote
+characters or a control character), so `józef.żak` is queried and no value can change the query; everything is
+XML-escaped.
 
-`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host)` per host
-(process identity = gMSA, `SessionAuthentication.Kerberos`), `EventLogQuery(logName, PathType.LogName, queryXml)
+`WindowsSecurityEventSource` (W-service, `[SupportedOSPlatform("windows")]`): one `EventLogSession(host, null, null,
+null, SessionAuthentication.Kerberos)` per host (process identity = gMSA; never `Default`/Negotiate, which falls back to
+NTLM towards whatever host is configured); a host that is not a host name (IP literal, `HostNames.IsHostName`) is
+refused before connecting (Win32 123), and `AttributionSourceResolver` skips such a collector or DC with health Error
+`invalidHostName`; `EventLogQuery(logName, PathType.LogName, queryXml)
 { Session, ReverseDirection = NewestFirst, TolerateQueryErrors = true }`, `EventLogReader { BatchSize = 256 }`,
 `record.ToXml()` only (never `FormatDescription()` or `*DisplayName`), all blocking calls on `Task.Run` with
 `session.CancelCurrentOperations()` on cancellation; `EventLogException`/`UnauthorizedAccessException` →
@@ -3575,7 +3723,7 @@ Candidates per watch-event kind (strong key in brackets):
 | AccountDisabled / AccountEnabled | 4725 / 4722 [TargetSid]; 4738/4742 with the UAC bit; 5136 userAccountControl |
 | AccountLockedOut | 4740 [TargetSid] (preferably from the PDC) – evidence only: the actor is NotApplicable (the 4740 subject is the DC); the **source of the bad passwords** comes from `LockoutSourceResolver` (11.4 #6b) |
 | AccountUnlocked | 4767 [TargetSid] (the subject is the person who unlocked) |
-| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
+| PasswordChanged, PasswordAgeReset | 4724 (reset by another account → tag passwordReset), 4723 (change → tag selfChange when the subject is the account itself or ANONYMOUS LOGON S-1-5-7 – an expired password changed at logon; a 4723 by another account gets no selfChange) [TargetSid]; PasswordAgeReset: 4738 PasswordLastSet / 5136 pwdLastSet |
 | PasswordMustChangeSet, AccountExpirationChanged, AccountNameChanged(UPN), AttributesChanged (SAM fields) | 4738 / 4742 with the field ≠ '-' [TargetSid]; 5136 [ObjectGUID + AttributeLDAPDisplayName] |
 | AccountNameChanged (sAMAccountName) | 4781 [TargetSid] |
 | AccountFlagsChanged, DelegationChanged (UAC) | 4738/4742 Old/NewUacValue [TargetSid]; 5136 |
@@ -3583,7 +3731,7 @@ Candidates per watch-event kind (strong key in brackets):
 | GroupMemberAdded | 4728/4732/4756/4751/4746/4761 [TargetSid = group SID and MemberSid = member SID]; 5136 member Value Added [ObjectGUID = group] |
 | GroupMemberRemoved | 4729/4733/4757/4752/4747/4762 [same]; 5136 member Value Deleted |
 | GroupTypeChanged | 4764 [TargetSid] |
-| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it (same ChangeSetId, or the membership event on the path's first edge) |
+| PrivilegeGranted / Revoked | inherits the attribution of the GroupMemberAdded/Removed (or PrimaryGroupChanged, or ObjectRestored for tag `restored`) event that caused it: same ChangeSetId; otherwise the newest membership change on **any edge** of the nesting path (root ← Via… ← principal – the path is listed from the root down, so Via[0] is the group nested directly in the root) or a PrimaryGroupChanged of the principal, detected at most 15 min before the privilege event (`PrivilegeAttributionInheritor.CauseWindow`); an older change is never taken – nesting IT-Ops into Domain Admins today is the cause, not yesterday's addition of Bob to IT-Ops |
 | everything else (attribute kinds, GPO, trust, PSO, SD, schema, FSMO, PKI, Configuration) | 5136 / 5137 / 5141 [ObjectGUID] |
 | DomainControllerAdded / DomainControllerRemoved | 5137 / 5141 nTDSDSA [ObjectGUID] |
 | WatchdogConfigurationChanged | Resolved at creation from the API caller (Kerberos identity) |
@@ -3601,7 +3749,9 @@ DnsHostName→dNSHostName, ServicePrincipalNames→servicePrincipalName.
 - Namespace `http://schemas.microsoft.com/win/2004/08/events/event`; read `System/EventID`, `Version`,
   `TimeCreated/@SystemTime` (UTC), `EventRecordID`, `Computer`; `EventData/Data[@Name]` **by name, never by
   position**; for 1102 read `UserData/*/*` child elements as data. Unknown names and higher versions are kept/ignored
-  silently. `XmlReader` with `DtdProcessing.Prohibit`.
+  silently. `XmlReader` with `DtdProcessing.Prohibit` and `CheckCharacters = false`: characters invalid in XML 1.0
+  (control characters of attacker-written values, raw or as `&#x1;`) are replaced by U+FFFD instead of dropping the
+  record – one value must not hide a change from attribution.
 - `-` and empty values are omitted. Logon ids (`0x30dc2`) are normalized to lower-case `0x…` and compared
   numerically. SIDs are strings `S-1-…`; GUIDs `{…}` parse with `Guid.Parse`.
 - `%%` codes: 1792 `<value changed, but not displayed>`, 1793 `<value not set>`, 1794 `<never>`, 1797 All,
@@ -3624,6 +3774,8 @@ DnsHostName→dNSHostName, ServicePrincipalNames→servicePrincipalName.
 
 ### 11.4 Correlation (`AttributionCorrelator`, `AttributionScorer`, `OriginatingDcResolver`)
 
+> **Amended by stage B:** in collector mode the source and lockout lookups read the stored records (`ISecurityEventLookup`, `StoredSecurityEventLookup`) instead of live RPC queries; password spraying reads the stored 4771/4776 of every DC; GPO content events inherit the attribution of the GPC change (`GpoAttributionInheritor`) – `docs/dev/watchdog-linux-design.md` 7.8 and 8.7.
+
 For each pending watch event (Status Pending, `Attribution` kind not NotApplicable), at `DetectedAt` + each
 `PendingRetries` step:
 
@@ -3643,15 +3795,18 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    retry; after the last retry → Unknown with a reason (11.7).
 5. **Actor**: SubjectUserSid → snapshot `FindBySidAsync` → display name/DN; fallback `SubjectDomainName\SubjectUserName`.
    S-1-5-18 or `<DC>$` → Resolved, Reason SYSTEM (shown "System (DC01)"). Subject SID = object SID (a computer
-   updating itself, a user changing their own password via 4723) → tag `selfChange`, Reason SELF_CHANGE for
-   computers; with `SuppressComputerSelfChanges` the event is kept but rules default to `ExcludeSelfChanges` for
-   computer-noise kinds. 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account (10.6.4)
-   → tag `syncAccount`.
+   updating itself, a user changing their own password via 4723; for a 4723 also ANONYMOUS LOGON) → tag `selfChange`,
+   Reason SELF_CHANGE for computers; with `SuppressComputerSelfChanges` the event is kept but every rule behaves as if
+   `ExcludeSelfChanges` were set for changes of a computer that touch only computer-noise attributes (9.3; SPN values
+   naming the computer itself). 4724 by another account → tag `passwordReset`. Subject SID of a detected sync account
+   (10.6.4) → tag `syncAccount`.
 6. **Source** (`LogonSourceResolver`), when `LookupLogonSource` and SubjectLogonId ≠ 0x3e7: query on the evidence DC
    for 4624 with `TargetLogonId = <id>`, **From = max(evidence time − LogonLookback, the log's oldest record time)**,
    To = evidence time, NewestFirst, MaxRecords 1; **at most one such query per DC at a time**, per-query timeout
    `SourceQueryTimeout` (cancels via `CancelCurrentOperations`), positive and **negative** cache of (dc, logonId) for
-   24 h (no ingestion). Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
+   at most 24 h (no ingestion) – logon ids are unique per boot only, so a found session is reused only for evidence
+   between its 4624 and `LogonLookback` later and only while no 1100 (event log service shut down – a reboot) of that
+   DC was ingested after the logon; a negative result only for evidence inside the window already searched. Nothing found → `SourceReason = SOURCE_LOGON_NOT_FOUND`; in ForwardedEvents mode the query runs
    against the collector's ForwardedEvents log – when the subscription does not carry 4624, `SOURCE_NOT_COLLECTED`.
    LogonType 3 + IpAddress → IpAddress is the primary source, Workstation = WorkstationName if present else reverse
    DNS (2 s timeout, SourceMethod "dns"); IpAddress `-`, `::1`, `127.0.0.1` → SourceMethod "local" ("lokalnie na DC –
@@ -3666,22 +3821,80 @@ For each pending watch event (Status Pending, `Attribution` kind not NotApplicab
    `[lockoutTime − lockOutObservationWindow (effective), lockoutTime]`; results are aggregated into
    `LockoutInfo.Sources` (IP / workstation × count, top 10) and written with `AttributionUpdate.Lockout`. The lockout's
    attribution status is NotApplicable (there is no "actor"); the GUI and e-mail label the row "Źródło błędnych haseł".
+   While no 4740 is found or a source query did not finish (WEF delivers the 4740 and the 4771/4776 in ~30 s batches;
+   the PDC unreachable), the lockout stays Pending and is retried at the `PendingRetries` steps; after the last step it
+   is final with what was found.
 7. **Operation grouping**: events with the same ChangeSetId resolved from candidates with the same (Computer,
    SubjectLogonId) inside 2 s share the actor; ADUC "new user" = 4720 + 4724 + 4722 + 4738s is one operation.
 8. **Attribution-dependent severity** (12.2): for PasswordChanged, AdminCountSet and user KeyCredentialChanged the
-   `SeverityResolver` re-resolves the severity with the final attribution and the added tags.
-9. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
-   `FollowUpPlanner` directly (13.2 #5) and `INotificationQueueStore.AddAsync`; then `signals.Raise(AttributionUpdated)`.
+   `SeverityResolver` re-resolves the event's **own** severity (`WatchEvent.OwnSeverity`, never the evaluated one with
+   rule overrides) with the final attribution and the added tags (`AttributionUpdate.Severity`).
+9. **Re-evaluation**: a final attribution of an attribution-dependent kind (#8 – always), or one that changes the own
+   severity or adds a tag (`passwordReset`, `selfChange`, `syncAccount`), can make further rules match (shadow credentials on a user written by another account become High
+   and must reach `tier0-security`; custom rules on `RequiredTags [passwordReset]`). The engine matches the event again
+   with its final state (`RuleEngine.Evaluate`, every rule that matches now) and lets the planner re-plan its pending
+   notifications (`IRuleMatchPlanner.PlanReevaluationAsync(evaluation, addedRuleIds, waitingRows, …)` →
+   `ReevaluationPlan`, 13.2 #1): every waiting (non-follow-up) row of the event takes the strongest treatment of the
+   rules that notify its target now – merged (`ReplanAsync`, insert missing) when an added rule (one not yet in the
+   stored `matched_rules`) notifies the target, so `tier0-security` added for the recipients of a custom rule's held row
+   takes that row over with its severity, name and Always delivery; updated while it waits otherwise; dropped when no
+   rule notifies the target any more (a custom rule excluding the actor must not silence `tier0-security` for the same
+   recipients). **Escalation** (13.2 #7): a target without a waiting row that already got an alert of the event (not
+   Dead/Cancelled) and that a stored **or** an added rule notifies now with a severity ≥ High above every severity its
+   alerts and follow-ups showed the event with (`OutboxMessage.EventStates`, per event) gets exactly one follow-up row
+   of its latest alert (`ReevaluationPlan.FollowUps`, `ReplanAsync` insert missing) – e.g. a Medium alert sent at the end
+   of the grace with the actor pending (no follow-up below High) whose final attribution makes the event High. The same
+   row carries the final severity of an attribution follow-up still to come for that target when it differs (also a
+   lower one – nothing extra is sent for it). Targets that only the added rules notify and that have no alert get new
+   rows unless an alert already covers them (13.2 #1). Otherwise rules that already matched are not planned again for a
+   target without a waiting row (it may be delivered and deleted). Repeat suppression is not checked again for the
+   rules of the waiting rows nor for a rule with a message about this very event (`EventNotices.NotifyingRules` – its
+   own alert of this event is no repeat); every other matched rule is checked again, so a stored rule that was left out
+   as a repeat when the event was planned never escalates with its severity. The waiting rows and the follow-up rows are
+   re-planned first (idempotent upserts – a merged row whose waiting row was flushed meanwhile is inserted and the
+   dispatch job drops it when the alert covers it; an escalation stored by an interrupted pass is updated in place, and
+   dropped when the next pass does not plan it again – no rule notifies the target any more, or the final severity is no
+   news – or ends the attribution without a re-evaluation, because the final state it found changes no rule input
+   (another actor, or attribution turned off since; the waiting follow-ups of such an event are dropped right before its
+   attribution update)), then matched rules ∪ new rules, the evaluated
+   severity and the new rows are stored in one `CommitEvaluationAsync`, **before** the attribution update: a pass
+   interrupted in between leaves the event pending and the next pass re-plans the same way. The update stores the
+   final own severity (`AttributionUpdate.Severity`, the input of every later match) and the evaluated one
+   (`EvaluatedSeverity` = `max(final own severity, overrides of the matching rules)`, 12.1), also when nothing new
+   matched – a re-resolved severity never drops a rule override, and an override never feeds a later `MinSeverity`
+   check. `NotificationsQueued` is raised only after the attribution update,
+   so a dispatch it wakes renders the new rows with the final actor. An event the rules job has not evaluated yet has no matched rules, so all its
+   final matches are planned and the job skips it afterwards. `rules_state` is never reset. The re-evaluation and the
+   attribution update of one event, the rules job's read → match → plan → commit and a run of the dispatch job (13.3)
+   run in one in-process section (`RuleEngine.EnterEvaluationAsync`): both evaluating jobs wake on EventsStored, and
+   without it the job could commit a match made with the pending attribution after the final one was stored (stale
+   severity and matched rules, a rule planned twice); a dispatch run that read a waiting row just before the
+   re-evaluation re-planned it would complete it with the old treatment and delete the re-planned row with it (the
+   `tier0-security` takeover of a held custom-rule row lost).
+10. `UpdateAttributionAsync(id, AttributionUpdate)`; when the attribution became final, the engine calls
+   `FollowUpPlanner` directly (13.2 #6) and `INotificationQueueStore.AddAsync` – a row for a target that already has an
+   escalation row (#9) is a duplicate and ignored, so the recipients get one message with the actor and the new severity;
+   then `signals.Raise(AttributionUpdated)`.
+   The store phase (#9, #10) runs without the stop token, and the follow-ups collected so far are queued (one call per
+   pass) also when a later write of the pass fails.
 
 ### 11.5 Late enrichment and notifications
 
 - Events are stored and evaluated immediately with `Attribution.Pending`.
 - Notifications of severity < High, of attribution-dependent kinds (any severity) and of provisional actor matches are
   held until attribution is final or `Notifications.AttributionGrace` elapsed (then sent with "Wykonawca: ustalanie…" /
-  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final severity and tags (13.3).
+  "nieustalony (powód)"); on release the dispatch job re-runs the rule match with the final own severity and tags (13.3).
 - Other High/Critical are sent at once; when `FollowUpWhenAttributed`, a follow-up notification (same e-mail thread:
   `In-Reply-To`/`References`; Teams: a short card "Uzupełnienie: wykonawca ustalony"; webhook: event type
-  `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves.
+  `ad.attribution.updated` with the same `data.eventId`) is queued when attribution later resolves. It shows each event
+  with its own final severity (not the maximum of an aggregated alert) and says when it changed ("Priorytet: Wysoki →
+  Info").
+- When the final attribution raises the severity of an event to High or Critical above the one an alert already showed
+  its recipients, they get one **escalation** in the same thread (13.2 #7: e-mail "Uzupełnienie: priorytet podniesiony"
+  or "Uzupełnienie: wykonawca ustalony, priorytet podniesiony" with "Priorytet: Średni → Wysoki"; Teams the same title
+  and a Priorytet row per event; webhook `ad.severity.escalated` with `data.previousSeverity`) – also when no follow-up
+  for the actor was due (an alert below High) and independent of `FollowUpWhenAttributed`. A lower final severity never
+  sends anything new.
 - The digest and the GUI always show the final attribution.
 
 ### 11.6 Event-log-only detections (`EventLogOnlyDetector`)
@@ -3697,11 +3910,13 @@ Attribution of these events is Resolved at creation (the record itself is the ev
 
 ### 11.7 Reason codes when unresolved (shown with a one-line remedy in the GUI/e-mail)
 
+> **Amended by stage B:** new `SOURCE_NOT_COLLECTED` (no 4624 of the DC stored since the lookup window), the collector variant of `DC_UNREACHABLE` (a DC silent beyond `CollectorSilenceError`) and `SYSVOL_NOT_AUDITED` (SYSVOL edit without a GPC change) – `docs/dev/watchdog-linux-design.md` 7.8, 8.7 and 21.1 (B4, B7).
+
 | Reason | Condition (checked in this order) | Remedy text (pl) |
 |---|---|---|
 | SOURCE_DISABLED | attribution disabled or non-Windows host | „Włącz atrybucję (konfiguracja) – usługa musi działać na Windows.” |
 | DC_UNREACHABLE | the originating DC's log could not be read during the window | „Sprawdź zaporę (Remote Event Log Management) i członkostwo konta usługi w Event Log Readers.” |
-| LOG_OVERWRITTEN | oldest record time of the DC log > window end | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
+| LOG_OVERWRITTEN | oldest record time of the DC log > window end: records overwritten unread, a cursor regression, or a 1102/1104 of that DC at or after the window start | „Zwiększ rozmiar dziennika Security na DC (≥ 1 GB).” |
 | AUDIT_POLICY_MISSING | no event of the kind's family from that DC in 7 days (`GetLastSeenAsync`) | „Włącz zasady inspekcji (docs/WATCHDOG.md, rozdz. 4.5).” |
 | SACL_MISSING | the kind is only coverable by 5136/5137/5139/5141 and no such event was seen from that DC in 7 days | „Dodaj SACL dla zmian usług katalogowych (docs/WATCHDOG.md, rozdz. 4.6).” |
 | AMBIGUOUS | two candidates within 5 points | „Kilka możliwych wykonawców – szczegóły w dowodach.” |
@@ -3740,9 +3955,17 @@ A rule matches an event when **all** hold:
 6. `Groups` (only for GroupMemberAdded/Removed – the group is `Object` – and Privilege* – the group is `Member`):
    Privileged = the group is a privileged root (by SID/name/DN); WatchList = DN in `PrivilegedGroups.WatchListDns`;
    Explicit = DN in `GroupDns`. For other kinds the filter is ignored.
-7. `MinSeverity` ≤ event severity (after SeverityResolver).
+7. `MinSeverity` ≤ the event's **own** severity (after SeverityResolver, `WatchEvent.OwnSeverity`) – never the evaluated
+   severity, which another rule's override may have raised: the rules job, the re-evaluation after attribution (11.4 #9),
+   the dispatch job's re-match (13.3) and the rule preview all match the same input.
 8. Actors: when attribution is Resolved and the actor's **SID** equals an `ExcludeActors` entry (SIDs only) → no
-   match; `ExcludeSelfChanges` and tag `selfChange` → no match. While attribution is Pending and the rule has actor
+   match; an entry with a `{domainSid}`/`{rootDomainSid}` token whose value is unknown matches nothing (the
+   any-domain relative-id fallback of 8.1 applies to privileged roots only – an exclusion fails closed).
+   `ExcludeSelfChanges` and tag `selfChange` → no match – but never for a Tier-0 kind (12.6) written by the object
+   itself (a relayed computer writing RBCD, SID history, SPNs or a primary group on itself is the attack): of the Tier-0
+   kinds only KeyCredentialChanged of a computer (key rotation) and ServicePrincipalNameAdded of a service account (SPN
+   self-registration) may be hidden, and not for a domain controller or a privileged object; such a non-excludable
+   self-change does not make the match provisional either. While attribution is Pending and the rule has actor
    conditions, the match is **provisional**: the planner holds the notification until attribution is final or the
    grace period ends (also for High/Critical), then re-checks. After the grace period an unresolved actor excludes
    nothing (the notification is sent). Workstation names / IPs are never matching inputs.
@@ -3751,8 +3974,19 @@ A rule matches an event when **all** hold:
    this attribute are empty (the exclusion removes only that attribute from consideration). Expired exclusions
    (`ExpiresAt` < now) are ignored.
 
-`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(event.Severity, every
-matched rule's Severity override)`; a rule's own notifications use `rule.Severity ?? event.Severity` (a rule may
+DN-based settings compare DN strings, so a renamed or moved OU/group makes them match nothing. Health check
+`rules.configuredDns` (Warning, `ConfiguredDnMonitor`, run by the rules job at most every 10 min per configuration):
+every configured DN – rule scopes, `GroupDns`, exclusion subtrees, `privilegedGroups.additionalCriticalDns` /
+`additionalHighDns` / `watchListDns`, `directory.criticalObjects`, service-account and disabled-account subtrees,
+wake-up containers – is resolved against the snapshot; the ones that no longer exist are listed (Args, as configured).
+DNs outside the default NC, under `CN=System` or under an excluded subtree, and `CN=Builtin` itself (a builtinDomain
+object, not a container – its groups are snapshotted) are not snapshotted and not checked; nothing is reported before
+the baseline; the service never rewrites the configuration. The GUI shows the check as „Nieistniejące DN w
+konfiguracji” (health codes `rules.configuredDns` and `attribution.collector` are localized).
+
+`RuleEngine.Evaluate(event)` returns all matching rules; `EventEvaluation.Severity = max(own severity, every matched
+rule's Severity override)` is the evaluated severity stored in `WatchEvent.Severity` (feed, digest, counts) while
+`WatchEvent.OwnSeverity` keeps the own one; a rule's own notifications use `rule.Severity ?? own severity` (a rule may
 deliberately lower its notifications). Health events always match the locked `health` rule.
 
 ### 12.2 Severity resolution (`SeverityResolver`)
@@ -3779,7 +4013,7 @@ AccountFlagsChanged / DelegationChanged per bit table 10.6.1; PrivilegeGranted p
 | 4 | krbtgt | PasswordChanged | exactly Medium (expected: two resets ~10 h apart) |
 
 Kinds with step-3 rules (`SeverityResolver.AttributionDependentKinds`) are held by the planner until the attribution is
-final or the grace period ends (13.2), and re-matched with the final severity on release (13.3).
+final or the grace period ends (13.2), and re-matched with the final own severity on release (13.3).
 
 ### 12.3 Exclusion hygiene
 
@@ -3791,10 +4025,12 @@ Suggestions (`ExclusionSuggestionDto`: detected sync accounts for `tier0-securit
 
 ### 12.4 Built-in rules (`DefaultRules`) – shipped enabled unless noted
 
+> **Amended by stage B:** four more built-in rules after `health` – `tier0-badsuccessor`, `tier0-machine-quota`, `watchdog-self` and `tier0-gpo` (`MergeMissing` appends them to stored documents); they are protected against suppression like Tier-0 detections – `docs/dev/watchdog-linux-design.md` 9 and 21.1 (B6).
+
 | Id | Name (pl) | Kinds | Other conditions | Delivery |
 |---|---|---|---|---|
 | `tier0-privilege` | Dostęp uprzywilejowany | PrivilegeGranted, PrivilegeRevoked | – | immediate → it-admins, Always; digest |
-| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true | immediate → it-admins, Always; digest |
+| `tier0-security` | Atrybuty krytyczne dla bezpieczeństwa | AdminCountSet, SidHistoryChanged, DelegationChanged, ServicePrincipalNameAdded, KeyCredentialChanged, PrimaryGroupChanged, SecurityDescriptorChanged, ComputerNameSpoofing, ManagedAccountLinkChanged, CertificateMappingChanged, ManagedPasswordReadersChanged, ServiceAccountCreated (dMSA) | MinSeverity High; `ExcludeSelfChanges` = true (hides only computer key rotation and service-account SPN self-registration, 12.1 #8) | immediate → it-admins, Always; digest |
 | `security-review` | Zmiany bezpieczeństwa do przeglądu | the tier0-security kinds | – (catches Low/Medium, e.g. device key self-registration) | digest only |
 | `tier0-domain` | Domena, zaufania, schemat, PKI, zasady | DomainPolicyChanged, PasswordSettingsChanged, TrustChanged, DomainControllerAdded, DomainControllerRemoved, FsmoRoleChanged, CertificateTemplateChanged, SchemaChanged, GroupPolicyLinkChanged | MinSeverity High | immediate → it-admins, Always; digest |
 | `tier0-eventlog` | Dzienniki zabezpieczeń DC | SecurityLogCleared, AuditPolicyChanged, DsrmPasswordChanged | – | immediate → it-admins, Always; digest |
@@ -3839,8 +4075,10 @@ and AuditLog, plus PrivilegeGranted/PrivilegeRevoked, AccountFlagsChanged and De
 consumed by them in the ChangeClassifier table (10.6): `userAccountControl`, `member`, `primaryGroupID`, `sIDHistory`,
 `adminCount`, `servicePrincipalName`, `msDS-KeyCredentialLink`, `msDS-AllowedToDelegateTo`,
 `msDS-AllowedToActOnBehalfOfOtherIdentity`, the dMSA link attributes, `altSecurityIdentities`,
-`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `gPLink`, `gPOptions`, `fSMORoleOwner`, the domain
-policy, PSO, trust and PKI attributes of 9.2.
+`msDS-GroupMSAMembership`, `nTSecurityDescriptor`, `sAMAccountName`, `dNSHostName` (ComputerNameSpoofing), `gPLink`,
+`gPOptions`, the GPO content attributes `versionNumber` and `gPCFileSysPath` (GroupPolicyChanged), `fSMORoleOwner`, the
+domain policy, PSO, trust and PKI attributes of 9.2 – every attribute of the 9.2 sets of the Tier-0 object kinds except
+`displayName` (a test guards against drift).
 
 ---
 
@@ -3849,24 +4087,55 @@ policy, PSO, trust and PKI attributes of 9.2.
 ### 13.1 `RuleEvaluationJob` (wake: EventsStored, AttributionUpdated, ConfigChanged; interval 30 s)
 
 ```
+enter RuleEngine.EnterEvaluationAsync (shared with the AttributionEngine's re-evaluation, 11.4 #9)
 events = eventStore.GetUnevaluatedAsync(500)
 for each: matches = RuleEngine.Evaluate(e); pendings += NotificationPlanner.Plan(e, matches, now)
-eventStore.CommitEvaluationAsync(evaluations, pendings); signals.Raise(NotificationsQueued)
+eventStore.CommitEvaluationAsync(evaluations, pendings); leave; signals.Raise(NotificationsQueued)
 ```
+
+Rules matched only after a final attribution (raised severity, added tags) are planned by the AttributionEngine
+(11.4 #9).
 
 ### 13.2 `NotificationPlanner`
 
-For every match with `Delivery.Immediate`:
+One pending row per (event, target) – the unique key of `pending_notifications` – carries the **strongest treatment of
+every rule that notifies that target now**. For every match with `Delivery.Immediate` (configuration order) that passes
+#0, #2 and #3, the rule contributes to each of its targets (#1); per target:
+- the contributions that need no attribution hold (#4) decide when any exists – the target is notified at once, a rule
+  still waiting for its actor would only repeat it (and its match may still turn out not to apply) –, otherwise all of
+  them (the row is held until the actor is known or the grace ends);
+- severity = the highest notification severity of the deciding contributions; due time = now + the shortest of their
+  windows (#5); `RuleId` and `BucketKey` = the deciding rule earliest in configuration order (displayed rule name).
+The same planning re-plans a target later from the rules that match the event *then*: the re-evaluation after
+attribution (11.4 #9, `PlanReevaluationAsync`) and the dispatch job when it releases a held row or a row whose rule
+left its delivery hours or the configuration (13.3, `PlanTargetAsync` with `IHeldNotificationMatcher.MatchAll`) – so
+a rule earlier in the configuration, a higher severity or Always delivery takes a target over, and a target whose rule
+no longer matches passes to the next rule that does. The rules of a waiting row passed their repeat suppression when it
+was planned and are not checked again. A target that already got an alert is never re-planned as a second alert for a
+higher severity: it gets an escalation in the thread of that alert (#7).
+
 0. Rollout mode (12.5) active and the rule is not `tier0-*` / `bursts` / `health` → no immediate notification
    (digest only; counted for the rollout banner).
 1. Targets: each recipient group → one `NotificationTarget(Email, "email", group addresses, group DetailLevel)`
    (skipped when SMTP is disabled or the group is empty); each channel id – plus every enabled Teams/webhook channel when
    `AllEnabledChannels` – → `NotificationTarget(Teams|Webhook, id, [], channel DetailLevel)` (skipped when the channel
    is disabled); `NotifyManager` (expiry kinds) → the object's manager (snapshot `manager` → that object's `mail`) as an
-   e-mail target with DetailLevel Minimal. Targets are de-duplicated across rules by (Target.Key, EventId) – the first
-   rule (config order) owns the pending row.
-2. Delivery hours: `Default` → Always for severity ≥ High, else BusinessHours. BusinessHours and
-   `BusinessCalendar.IsBusinessTime(now)` false → **no immediate notification** (the event still goes to the digest).
+   e-mail target with DetailLevel Minimal. Targets are merged across rules by (Target.Key, EventId) as described above.
+   For the rules added by the re-evaluation after attribution (11.4 #9, `PlanReevaluationAsync`) a target without a
+   waiting row is left out when the event already has an alert for it that covers the plan
+   (`AlertCoverage`): not Dead or Cancelled, the **event itself** shown with at least the planned severity
+   (`OutboxMessage.EventStates` – an aggregated alert carries the maximum of its events, so an event shown Medium inside
+   a High alert is not covered by a High plan) and carrying the final state (the event's actor known when rendered, or the
+   follow-up of #6 coming); a follow-up of the event to the target that showed it with at least the planned severity
+   covers it too (it carries the final attribution). An alert sent with the actor pending and no follow-up to come is new
+   information and the added rule notifies; a higher severity of High or above for a target that has an alert is an
+   escalation (#7), not a second alert. The dispatch job checks the coverage again right before it completes a row
+   (13.3): it is the only writer of alerts and completes one bucket at a time, so a row stored after the earlier alert
+   was completed never becomes a second alert; its runs and the re-evaluation share the evaluation section (11.4 #9), so
+   a re-plan never lands between its read of a row and the completion of that row.
+2. Delivery hours (per rule, at its notification severity): `Default` → Always for severity ≥ High, else
+   BusinessHours. BusinessHours and `BusinessCalendar.IsBusinessTime(now)` false → the rule does not contribute; no
+   contributing rule → **no immediate notification** (the event still goes to the digest).
 3. Repeat suppression: `RepeatSuppression` set and `outbox.WasNotifiedAboutObjectAsync(ruleId, objectGuid, now −
    RepeatSuppression)` → no immediate notification (digest only; the next one after the period carries
    `LockoutsToday`).
@@ -3878,47 +4147,124 @@ For every match with `Delivery.Immediate`:
 6. Follow-ups (`FollowUpPlanner`, called by the AttributionEngine when an attribution becomes final, 11.4 #9): for
    every message from `outbox.GetMessagesForEventAsync(eventId)` with `SentWithPendingAttribution`, severity ≥ High and
    `FollowUpWhenAttributed`, add a pending row for the original `TargetKey` with `IsFollowUp`, `ReplyToMessageId` =
-   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored).
+   that message's `MessageId`, DueAt = now (`INotificationQueueStore.AddAsync`, duplicates ignored). Its severity is the
+   event's own final severity (`FollowUpPlanner.FinalSeverity`): the severity the alert showed **that event** with
+   (`EventStates`, not the alert's maximum), lowered to the event's final evaluated severity when the attribution lowered
+   it; a raise comes from #7, whose row is stored first. The dispatch job also plans them right after it stored an alert
+   whose events turned final while it was rendered (13.3), and sends a follow-up only after its original was Sent (none
+   for a Dead/Cancelled original).
+7. **Escalation** (re-evaluation after attribution, 11.4 #9, `ReevaluationPlan.FollowUps`): per target that the rules
+   matching the event now notify (stored and added rules; #0 rollout, #2 delivery hours at the target's severity – Always
+   for ≥ High by default –, #3 repeat suppression except for rules with a message about this event), that has no
+   waiting row and that already got an
+   alert of the event that reaches it (`EventNotices`: not Dead/Cancelled; still waiting in the outbox counts): when the
+   severity the target is notified with now (the strongest treatment, as for a row) is ≥ High and higher than every
+   severity its alerts and follow-ups showed the event with (`EventStates`; older messages: their message severity), one
+   follow-up row (`IsFollowUp`, rule = the rule leading the target now, `ReplyToMessageId` = the target's waiting
+   follow-up's reply-to, else its latest alert, `BucketKey = followup|messageId|target`, DueAt = now) is upserted with
+   `ReplanAsync(insertMissing: true)` – before the attribution update, so an interrupted pass re-plans it in place (and
+   the next pass drops it, `ReevaluationPlan.Drop`, when it does not plan it again, or the AttributionEngine before the
+   attribution update when the next pass's final state changes no rule input and is not re-evaluated, 11.4 #9). The
+   attribution follow-up of #6 for the same target is then a duplicate (same (event, target, follow-up) key): one
+   message carries the actor and the new severity. The same row also carries the final severity of a follow-up still to
+   come (#6 due, or waiting) when it differs, lower ones included; a lower severity never creates a message by itself.
+   Escalations do not depend on `FollowUpWhenAttributed`. They go through the follow-up path of the dispatch job (13.3):
+   wait for the original to be Sent, dropped with a Dead/Cancelled original, not held by the hourly cap (at most one per
+   alert and target – the alerts were capped), delivered through the channel's rate limiter, retries and health (15).
 
 `WatchdogConfigurationChanged` is planned twice (17.2): synchronously against the **previous** configuration by
 `ConfigChangeNotifier` (`RuleEngine.Evaluate` and `NotificationPlanner.Plan` take an explicit configuration argument
 for this; the default overloads use `IWatchdogConfigProvider.Current`), then normally against the new one;
-`(event, target, follow-up)` uniqueness removes duplicates.
+`(event, target, follow-up)` uniqueness removes duplicates, and a second plan whose first alert already went out is
+dropped by the dispatch job when that alert covers it (13.2 #1, 13.3).
 
 ### 13.3 `NotificationDispatchJob` (wake: NotificationsQueued, AttributionUpdated; interval 10 s)
 
 ```
+enter RuleEngine.EnterEvaluationAsync (the whole run; shared with the rules job and the AttributionEngine's
+    re-evaluation and attribution update, 11.4 #9 – a re-plan or a final attribution of an event is stored before this
+    run reads its rows or after it completed them, never in between)
 pendings = queueStore.GetAllAsync(); group by BucketKey
 for each bucket with min(DueAt) ≤ now:
     ready = items whose hold expired or whose event attribution is final
-    re-match held items with the event's final state (severity, tags, actor): RuleMatcher for that rule, delivery
-        hours and rollout recomputed → drop items that no longer qualify (queueStore.DropAsync)
+    released held items: re-plan the target from every rule that matches the event's final state now
+        (IHeldNotificationMatcher.MatchAll – own severity, tags, actor; NotificationPlanner.PlanTargetAsync – delivery
+        hours and rollout recomputed, 13.2) → no rule notifies the target → dropped (queueStore.DropAsync); led by the
+        same rule → rendered with the re-planned severity; led by another rule → moved to that rule's bucket
+        (ReplanAsync, still due) and flushed in a second pass of the same run
+    other non-follow-up items: delivery hours of their rule rechecked; outside them (the aggregation window or
+        throttling ran past the end of business hours) or the rule left the configuration → re-planned the same way
+        (another rule may still deliver, e.g. an Always rule of the same target) → dropped when none does – the digest
+        reports them
+    ready non-follow-up items whose event already has an alert for the target that covers them (13.2 #1,
+        AlertCoverage: per event, not lost, at least the item's severity, actor known or follow-up coming) → dropped
+    follow-up items whose event's attribution is still Pending (an escalation stored by a re-evaluation interrupted
+        before the attribution update, 13.2 #7) → RescheduleAsync(now + 1 min) – never rendered with "ustalanie…"
+    follow-up bucket: items whose event already has a FollowUp message for the target → dropped (duplicate: it told the
+        actor and the target's final severity – also when a later attribution follow-up carries the event's evaluated
+        severity, e.g. another rule's override for another target), unless the item is an escalation (≥ High and higher
+        than every severity the target's alerts and follow-ups showed the event with, 13.2 #7); original message (ReplyToMessageId)
+        Dead/Cancelled → dropped; Pending/Sending/Retrying → RescheduleAsync(now + 1 min) (a follow-up never overtakes its
+        original); Sent or unknown (purged) → rendered, each event with its row severity and the change against the
+        original's EventStates (FollowUpChange: previous severity, actor pending), the content under the row's rule (an
+        escalation's leading rule), the subject of the original
     if ready is empty: continue
-    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // sent in the last hour ≥ cap
+    if severity < Critical and ThrottlePolicy.IsExceeded(rule, target, now):   // max(sent, enqueued) in the last hour ≥ cap
         queueStore.RescheduleAsync(bucket ids, now + 15 min) (items keep accumulating); continue
     take up to MaxItemsPerMessage (oldest first); render (14) → OutboxMessage (MessageId = Guid.CreateVersion7().ToString("N"),
-        TargetKey, SentWithPendingAttribution = any rendered event still Pending)
+        TargetKey, SentWithPendingAttribution = any rendered event still Pending; alerts and follow-ups: EventStates = per
+        event its row severity and whether its actor is still Pending)
     queueStore.CompleteAsync(ids, message)         // items beyond the cap: "+N kolejnych" line, all ids completed
+    ThrottlePolicy.RecordEnqueued(rule, channel, now)
+    alert with SentWithPendingAttribution: events whose attribution became final since they were read → their
+        FollowUpPlanner rows for this message → queueStore.AddAsync (the AttributionEngine planned before the message
+        existed; whichever side plans second is ignored by the uniqueness or dropped as a duplicate at flush)
 signals.Raise(OutboxEnqueued)
 ```
 
+The hourly cap counts the larger of the messages **sent** in the last hour (`CountSentAsync`, survives a restart) and
+the messages **enqueued** in the last hour (kept in memory by the `ThrottlePolicy` singleton), so a channel that cannot
+deliver does not let a burst queue one message per flush that floods the recipients after the recovery.
+
 Rendering choice: e-mail 1 item → alert, > 1 → aggregated alert; Teams 1 → alert card, > 1 → burst card (digest
-layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template.
+layout, title "N zdarzeń: <rule>"); webhook → one payload per event; follow-up → follow-up template (title by what is
+new: "Uzupełnienie: wykonawca ustalony" / "Uzupełnienie: priorytet podniesiony" / "Uzupełnienie: wykonawca ustalony,
+priorytet podniesiony"; webhook `ad.attribution.updated` or, when the severity was raised, `ad.severity.escalated`).
 
 ### 13.4 Digest (`DigestJob`, `DigestBuilder`, `Schedule`)
 
 - Schedule: `Schedule.NextOccurrence(Digest.Time, Digest.Days, tz, now)`; DST: a non-existent local time moves to
   the next valid minute, an ambiguous one uses the first occurrence. After a downtime the missed digest is sent at
-  start-up when it is less than 12 h late, otherwise skipped. `IDigestRunStore` (`digest_runs`) stores the period
-  and the outbox ids.
-- Period: from the previous digest's end (first run: now − 24 h) to now. With `CoverNonBusinessDays` (default), the
+  start-up when it is less than 12 h late, otherwise skipped; a digest counts as missed only when the last recorded
+  period ended more than `MaxEvaluationLag` (10 min) before the scheduled time (a digest whose end was held back for an
+  unevaluated event, see Period, was sent – a restart must not send it again). `IDigestRunStore` (`digest_runs`)
+  stores the period and the outbox ids. Once the first message of a digest is enqueued, the remaining messages and the
+  `digest_runs` row are written without cancellation (a service stop in between would make the start-up catch-up send
+  the digest again); when recording fails after an enqueue, the error is logged and the schedule moves on anyway (the
+  next digest then starts at the previous end instead of this digest being enqueued every minute).
+- Period: from the previous digest's end (first run: now − 24 h) to now – or to just before the oldest event the
+  rule evaluation has not processed yet or whose attribution is still pending, when it was detected within the last
+  10 min (`DigestBuilder.MaxEvaluationLag`; sections list only rule-matched events, and the final attribution can still
+  change severity, tags and matched rules (11.4 #9), so such an event goes to the next digest with its final state
+  instead of being counted now and never listed again – e.g. shadow credentials that turn High after the digest would
+  miss "Wymaga uwagi"; an older backlog does not hold the period back). With `CoverNonBusinessDays` (default), the
   digest of the **first business day after non-business days** (Monday after a weekend, the day after a holiday)
   covers everything since the end of the last business-day digest's period (e.g. Friday 07:30 → Monday 07:30) in every
-  section; the weekend digests are still sent (heartbeat) with their own 24 h periods.
+  section; the weekend digests are still sent (heartbeat) with their own 24 h periods. The extension applies only while
+  the previous digest ended on a non-business day (or there was none): a send-now after the Monday digest, or a
+  weekday-only schedule, simply starts where the previous digest ended. The end of the last business-day digest is
+  the one the job remembers (e.g. a late Friday catch-up at 10:00), after a restart the scheduled time of that day.
+- Preview (`IDigestService.PreviewAsync`, served to Viewers): "Aktywne wyjątki" shows only the number of active
+  exceptions (`Digest.Fact.ActiveExceptionsHidden`) – exclusions are Admin configuration (17.2) and the API passes only
+  the caller's detail level; the sent digest lists them for its recipients.
 - Content (`DigestModel`): header (instance, domain, period, health line: DC, last poll, attribution coverage,
   log gaps, broken channels, rollout mode); counts (critical/high, new users, new computers, deleted, disabled/enabled,
   lockouts, password resets (tag passwordReset), own password changes, password age resets, privileged changes,
-  GPO/domain changes); **"Wymaga uwagi"** = all events ≥ High with acknowledged/unacknowledged state; sections (only
+  GPO/domain changes); **"Wymaga uwagi"** = all events ≥ High with acknowledged/unacknowledged state – an event whose
+  alert recipients were later told another severity in the alert's thread (an escalation, 13.2 #7; `EventNotices.
+  ChangedFrom` per shown event: the alert's per-event state against a later follow-up of the same target, lost
+  messages excluded) adds "(priorytet: Średni → Wysoki)" / "(severity: Medium → High)" to its change cell
+  (`DigestModel.SeverityChanges`); sections (only
   events matched by a rule with `IncludeInDigest`, plus health): Nowe konta · Nowe komputery (grouped by parent OU,
   unusual ones flagged, `defaultContainer` flag) · Usunięte / przywrócone · Wyłączone / włączone · Przeniesione /
   zmiany nazw · Dostęp uprzywilejowany · Członkostwo w grupach · Zmiany parametrów kont (grouped per object: attribute
@@ -3945,7 +4291,8 @@ anonymous Gregorian algorithm (tests: 2026-04-05, 2027-03-28). `ExtraHolidays` a
 
 For every enabled webhook channel with `HeartbeatInterval`: every interval a `watchdog.heartbeat` payload (instance,
 service version, directory state, last poll, pending outbox count – no directory values) is enqueued as
-`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat.
+`DeliveryKind.Health`. A SIEM alerts when it stops arriving. Teams uses the daily digest as heartbeat. A heartbeat is
+never retried past its interval – the next one supersedes it (15.1, `heartbeat.superseded`).
 
 ---
 
@@ -3987,7 +4334,7 @@ service version, directory state, last poll, pending outbox count – no directo
 | single | `[AD Watchdog][KRYTYCZNE] Dodano do grupy uprzywilejowanej: Jan Kowalski (jan.kowalski) → Domain Admins – CONTOSO\adm.nowak` | `[AD Watchdog][CRITICAL] Privileged access granted: Jan Kowalski (jan.kowalski) → Domain Admins – CONTOSO\adm.nowak` |
 | single, actor pending | `[AD Watchdog][NISKI] Nowe konto: Zofia Żak (zofia.zak) – wykonawca: ustalanie…` | `[AD Watchdog][LOW] New account: Zofia Żak (zofia.zak) – actor: pending…` |
 | aggregated | `[AD Watchdog][NISKI] Nowe konta: 25 (OU=Sprzedaż) – CONTOSO\adm.nowak` | `[AD Watchdog][LOW] New accounts: 25 (OU=Sprzedaż) – CONTOSO\adm.nowak` |
-| follow-up | `Re: <original subject>` | same |
+| follow-up (also an escalation, 13.2 #7) | `Re: <original subject>` (the thread keeps its subject; `X-AdMng-Severity` and the banner carry the new severity) | same |
 | digest | `[AD Watchdog] Raport dzienny contoso.com – 14.10.2026: 71 zdarzeń (2 wymagają uwagi)` | `[AD Watchdog] Daily report contoso.com – 2026-10-14: 71 events (2 need attention)` |
 | test | `[AD Watchdog] Wiadomość testowa` | `[AD Watchdog] Test message` |
 
@@ -4039,6 +4386,17 @@ What / Object / Who / From / When / Where, "Changes · Before · After", "change
 <reason>", "pending… (a follow-up will be sent)", footer "Rule … · event … · service … · automated message, do not
 reply".
 Text alternative: the same content as aligned "Label: value" lines, ≤ 100 characters per line.
+Follow-up (13.2 #6–#7): the single-alert or aggregated layout of the follow-up's events, each with its final severity,
+and a banner that says what is new – "Uzupełnienie: wykonawca ustalony" (en "Follow-up: actor determined"),
+"Uzupełnienie: priorytet podniesiony" ("Follow-up: severity raised") when an event's severity was raised and no actor
+was pending, "Uzupełnienie: wykonawca ustalony, priorytet podniesiony" ("Follow-up: actor determined, severity raised")
+for both. A single event whose severity changed gets the fact `Priorytet  Średni → Wysoki` right after "Co" (also a
+lowered one: `Wysoki → Info`); an aggregated follow-up adds a Priorytet column (`Wysoki` or `Średni → Wysoki`). The
+values agree with "Priorytet" (`SeverityName.*`: Info, Niski, Średni, Wysoki, Krytyczny – the subject word stays
+`KRYTYCZNE`). The
+previous severity is the original alert's per-event state (`FollowUpChange`); unknown (alert purged, an aggregated alert
+stored before the per-event states) → no change shown. The content shows the rule leading the target now (an escalation
+may come from another rule than the alert).
 
 ### 14.4 Teams (Power Automate Workflows) – `TeamsAlertCardFormatter`, `TeamsDigestCardFormatter`, `CardBudget`
 
@@ -4080,9 +4438,12 @@ Alert card (pl, abbreviated):
  "actions":[{"type":"Action.OpenUrl","title":"Otwórz w AD Watchdog","url":"https://admng-wd.contoso.com:8443/events/0192f3a4-5b6c-7d8e-9f00-112233445566"}]}}]}
 ```
 
+Follow-up card: title by what is new (as the e-mail banner, 14.3), per event the kind and object, a "Priorytet" row with
+its final severity ("Wysoki" or "Średni → Wysoki"), Kto, Skąd, Kiedy; header style by the highest severity.
+
 Digest card: header container (style `emphasis`), FactSet with counts, per section up to 10 rows (ColumnSet: time ·
 object TextRun · change TextRun · actor TextRun), "… i N kolejnych", "Pokazano X z Y zdarzeń", OpenUrl to the
-service when configured.
+service when configured; "Wymaga uwagi" rows carry the severity change of an escalated event (13.4).
 
 ### 14.5 Generic webhook – `WebhookPayloadFormatter`, `WebhookEventTypes`, `StandardWebhookSigner`
 
@@ -4098,7 +4459,10 @@ domain, gpo, trust, dc, pso, schema, pki, forest; action from the kind (`created
 `ad.burst.mass_lockout|mass_deletion|password_spraying`; event-log kinds →
 `ad.dc.security_log_cleared|audit_policy_changed|dsrm_password_changed`; health → `watchdog.health.<snake kind without
 Health>`; WatchdogConfigurationChanged → `watchdog.configuration_changed`; heartbeat → `watchdog.heartbeat`; digest →
-`watchdog.digest`; test → `watchdog.test`; follow-up → `ad.attribution.updated`.
+`watchdog.digest`; test → `watchdog.test`; follow-up → `ad.attribution.updated`; a follow-up whose event's severity is
+higher than the alert showed it (an escalation, 13.2 #7 – it carries the final attribution too) →
+`ad.severity.escalated`. A follow-up whose severity changed writes `data.previousSeverity` (lower case, next to
+`data.severity`, both types); otherwise the field is absent.
 
 Body (UTF-8, compact, signed bytes = sent bytes):
 
@@ -4169,9 +4533,26 @@ for each msg (sequential per channel, parallel across channels, max 4):
                            else MarkRetry(next, countAttempt: true)
     Permanent            → MarkDead (message-specific, e.g. 552 too large, 5.1.1 unknown recipient); health Warning
     ChannelBroken /
-    AuthenticationFailed → MarkRetry(now + 1 h) until 24 h old, then MarkDead; channel health Error;
-                           HealthDeliveryFailing once per Ok→Error transition (sent through other working channels)
+    AuthenticationFailed → MarkRetry(now + 1 h, countAttempt: false) until 24 h old, then MarkDead; channel health Error;
+                           HealthDeliveryFailing once per transition into Error (sent through other working channels)
 ```
+
+- Partial delivery: a transport puts `partial.` before the code of a transient failure after some recipients already got
+  the message (e-mail: a recipient rejected temporarily while the others accepted, a later recipient chunk failed). Its
+  exhausted retries are message-specific – Dead with channel health Warning, no `HealthDeliveryFailing` (one mailbox
+  answering `452 4.2.2` or `450 4.1.1` for days must not report the working e-mail channel as failing with every alert).
+- Broken-channel retries do not count as attempts: a Teams flow switched off for ten hours must not leave the message
+  with an exhausted transient schedule, so the first 429/503/421 after the recovery is retried after the first step;
+  the 24 h age limit ends a broken period.
+- Withdrawn channel: before sending (and when the transport answers `channel.disabled` / `channel.unknown` /
+  `smtp.disabled`), a message whose Teams/webhook channel was disabled or removed, or an e-mail while `Smtp.Enabled` is
+  false, is marked Dead with that code – no channel health failure, no `HealthDeliveryFailing`, nothing delivered to a
+  re-enabled channel later (an Admin can still retry it manually until `OutboxDeadDays`).
+- Heartbeats (`DeliveryKind.Health`, 13.6) are not sent or retried once the next heartbeat of their channel is due
+  (`CreatedAt + max(HeartbeatInterval, 1 min)`): such a message is marked Dead with `heartbeat.superseded` instead of a
+  retry (a stale backlog would arrive with old timestamps and use the channel's rate limit); the failure itself still
+  counts for the channel health as usual.
+- Every run first lets an expired channel Error decay (15.8), also when nothing is due.
 
 ### 15.2 `RetryPolicy` (±20 % jitter; `Retry-After` honored up to 1 h when longer than the step)
 
@@ -4202,7 +4583,8 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 | Error | Result |
 |---|---|
 | `SmtpCommandException` 4xx (incl. 421, 451, 452) | Transient |
-| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed |
+| `SmtpCommandException` 5xx on RCPT for some recipients | send to the others; Permanent for the message only when all failed (a chunk whose recipients were all rejected does not stop the other chunks); warning log 2203 with the count |
+| `SmtpCommandException` 4xx on RCPT for some recipients (greylisting, 452 too many recipients) | the others get it; Transient with code `partial.smtp.4xx…` (15.1) – the retry goes only to the recipients that did not get the message yet; warning log 2202 with the count |
 | 552 / `SenderNotAccepted` + ExceededStorageAllocation | Permanent (message too large – digest splits by MaxRowsPerSection) |
 | 535 5.7.139, 550 5.7.30 | AuthenticationFailed + hint `smtp.basicAuthDisabled` / `smtp.smtpAuthDisabled` |
 | 550 5.7.68 | ChannelBroken + hint `smtp.directSendRejected` |
@@ -4214,8 +4596,9 @@ Constructor `RetryPolicy(Random random)` – production passes `Random.Shared`, 
 ### 15.5 Rate limits (`ChannelRateLimiters`, W-service)
 
 `System.Threading.RateLimiting.TokenBucketRateLimiter` (shared framework): e-mail `MaxMessagesPerMinute` (default 20,
-under Exchange Online's 30/min); per Teams/webhook channel three chained limiters PerSecond/PerMinute/PerHour (Teams
-default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
+under Exchange Online's 30/min) – one token per SMTP message, i.e. per recipient chunk (a denied token after some
+chunks were sent returns `Deferred`; the retry does not resend them); per Teams/webhook channel three chained
+limiters PerSecond/PerMinute/PerHour (Teams default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied lease returns `Deferred` with
 `RetryAfter` = the limiter's retry hint (no attempt counted). Limiters use `AutoReplenishment = false`;
 `ChannelRateLimiters` calls `TryReplenish()` from a `TimeProvider` timer (deterministic under `FakeTimeProvider`).
 
@@ -4236,7 +4619,13 @@ default 1/20/100 – inside the Teams connector's 100 calls/60 s). A denied leas
   `AcquireTokenForClient([EntraCloudInfo.SmtpScope(cloud)])` → `new SaslMechanismOAuth2(UserName /*sender mailbox*/,
   token)`. Authority and scope are fixed per cloud (`EntraCloud`) – never free text.
 - Each recipient group gets its own message (one pending target per group); its addresses go in `To:`, split into
-  messages of ≤ `MaxRecipientsPerMessage` recipients.
+  messages of ≤ `MaxRecipientsPerMessage` recipients – sorted first, so the same recipient set always gives the same
+  chunks: chunk n has `Message-ID: <{MessageId}.{n}@…>` (the first `<{MessageId}@…>`) and chunk n of a follow-up (sent
+  to the original's recipients) replies to chunk n of the original (`In-Reply-To`/`References`).
+- Recipient progress (`SmtpRecipientProgress`, in memory in the singleton transport): the addresses that accepted an
+  outbox e-mail are remembered until the message is complete (at most 14 days), so a retry after a temporary RCPT
+  rejection, a failed later chunk, a timeout or a rate-limit deferral goes only to the recipients that did not get it.
+  After a service restart a retry reaches everybody again (a duplicate, never a loss). Addresses are never logged.
 - MailKit `ProtocolLogger` is never enabled (it would log DATA = directory values).
 
 ### 15.7 Teams transport (`TeamsWorkflowTransport`, `TeamsTokenProvider`)
@@ -4252,7 +4641,11 @@ host) the same way.
 ### 15.8 Channel health
 
 `IHealthRegistry.ReportChannel` after every attempt: Ok (last success), Warning (transient failures ≥ 3 in a row),
-Error (ChannelBroken / AuthenticationFailed / Dead in the last hour). Shown in the GUI status and the digest header.
+Error (ChannelBroken / AuthenticationFailed / Dead in the last **two hours** – longer than the hourly broken-channel
+retry, so a channel that stays broken neither flaps nor is reported again). Without another error-level failure the
+Error decays to Warning (until the next success) – also without any traffic, `ChannelHealthTracker.Refresh` runs with
+every outbox run – and the next error-level failure enters Error again and is reported again (`HealthDeliveryFailing`).
+Shown in the GUI status and the digest header.
 `DeliveryTester` (test buttons) runs the same transport code path with stage reporting (`DeliveryTestResult`) and never
 writes to the outbox; Teams test card says "Wiadomość testowa AD Watchdog" and the result always includes hint
 `teams.acceptedNotDelivered`.
@@ -4260,6 +4653,8 @@ writes to the outbox; Teams test card says "Wiadomość testowa AD Watchdog" and
 ---
 
 ## 16. SQLite storage (W-service)
+
+> **Amended by stage B:** migrations 0004 (security events v2 with `logon_id`) and 0005 (GPO content snapshots and queue); logon records (4624/4625/4771/4776) are purged hourly after `LogonRecordsHours`; the nightly backup is skipped with health Error `storage.backupSkipped` when the free space is below 1.5 × the database size; the data folder is `/var/lib/admng-watchdog` – `docs/dev/watchdog-linux-design.md` 7.7, 8.8, 11 and 14.2.
 
 ### 16.1 Database rules
 
@@ -4402,6 +4797,25 @@ CREATE TABLE digest_runs (
   created_at INTEGER NOT NULL, event_count INTEGER NOT NULL, outbox_ids TEXT NOT NULL);
 ```
 
+Later migrations (forward-only, `Storage/Migrations/Migration000N*.cs`, each in one transaction followed by
+`PRAGMA user_version = N`; a database with older data is copied to `pre-migration-<old>-<timestamp>.db` first):
+
+```sql
+-- 0002_own_severity: the event's own severity (12.1/12.2 – the input of every rule match) apart from the evaluated
+-- `severity` (overrides included). Payloads are deflated, so it is a column; rows of schema 1 keep their current
+-- severity as their own (the own severity of an evaluated row is not known any more): the column stays NULL and
+-- EventRows reads NULL as the payload's severity (written together with `severity` by every write) until an
+-- attribution update fills it. Schema only – no `UPDATE events …`: rewriting every row would copy the whole table
+-- into the WAL at service start (about its size on disk, kept until the next truncating checkpoint and counted by
+-- storage.size) and fail the start on a nearly full volume.
+ALTER TABLE events ADD COLUMN own_severity INTEGER;
+
+-- 0003_outbox_event_state: how an alert showed each linked event (OutboxMessage.EventStates, 13.2 #1 coverage); NULL on
+-- links of older schemas – the message severity and sent_with_pending then stand for every event.
+ALTER TABLE outbox_events ADD COLUMN severity INTEGER;
+ALTER TABLE outbox_events ADD COLUMN pending INTEGER;
+```
+
 ### 16.3 Retention and maintenance (`RetentionJob` → `IStoreMaintenance`) – daily at `Retention.MaintenanceTime`
 
 Delete in batches of 5 000 rows per transaction (writer gate released between batches):
@@ -4412,9 +4826,15 @@ Pending/Retrying/Dead), deleted snapshot rows older than `DeletedSnapshotDays` (
 whose expiry passed more than 30 days ago, `config_audit` older than `ConfigAuditDays`, `digest_runs` older than 365
 days. Size cap: when the database exceeds `MaxDatabaseMb`, `security_events` are purged oldest-first (then outbox
 Dead) until it is below 90 % – also checked hourly, not only at maintenance time; `HealthStorage` at ≥ 80 %. Then
-`PRAGMA incremental_vacuum; PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
+`PRAGMA incremental_vacuum(2048)` in steps (the writer gate is released between the steps, so deliveries are not held
+up by a large freelist), `PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;` (with `secure_delete = ON` the freed
 pages and the truncated WAL no longer contain purged values), then `VACUUM INTO
-'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` and delete backups beyond `BackupsToKeep`; pre-migration backups: keep the
+'<data>\backup\watchdog-yyyyMMdd-HHmm.db'` – on its own connection **outside** the single-writer gate (in WAL mode a
+read transaction on a consistent snapshot; only the `LastBackupAt` update takes the gate, so lease/sent/retry and
+detection writes go on while a multi-GB database is copied) – and delete backups beyond `BackupsToKeep`. The health
+checks `storage.size` (database file + WAL against the cap: Warning from 80 %, Error above it) and `storage.free`
+(Error below 1 GiB) have one definition (`StorageHealth`), reported by the retention job and the hourly
+`StorageGuardJob` from the same `GetStatusAsync`; pre-migration backups: keep the
 newest, delete the rest after `PreMigrationBackupDays`. A backup is only useful together with `<data>\keys\` and the
 same gMSA (DPAPI-NG) – documented; backups carry the folder ACL and should be encrypted by the backup system
 (BitLocker on the data volume recommended).
@@ -4453,7 +4873,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | GET | `/api/v1/me` | Viewer | – | `MeDto` | roles from SID claims, detail level |
 | GET | `/api/v1/status` | Viewer | – | `StatusDto` | health registry + storage + counts + rollout + suggestions |
 | GET | `/api/v1/catalog` | Viewer | – | `EventKindInfo[]` | |
-| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel` |
+| GET | `/api/v1/events` | Viewer | `EventQuery` (query string) | `EventPage` | `after` → ascending ids > after (long-poll with `wait` 1–30 s via `IEventStore.WaitForNewerAsync`, ended at once by `ApplicationStopping` – a stop never waits for open GUI tabs); otherwise descending (`before` for older pages); non-Admins get `ViewerDetailLevel`; for Minimal callers `text` does not match workstation and IP (`IViewerEventSearch`, SQL `wd_search_visible`), else hit/miss would reveal the hidden source; page and `LatestId` come from one read snapshot (`SqliteDatabase.ReadSnapshot`) |
 | GET | `/api/v1/events/{id}` | Viewer | – | `EventDetails` | 404 when purged; detail level as above; access logged |
 | POST | `/api/v1/events/{id}/ack` | Viewer | `AcknowledgeRequest` | 204 | idempotent; stores caller account |
 | POST | `/api/v1/events/ack` | Viewer | `BulkAcknowledgeRequest` (1–500 ids) | 204 | bulk acknowledge (lockout-heavy feeds) |
@@ -4465,7 +4885,7 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 | POST | `/api/v1/test/email` | Admin | `TestEmailRequest` | `DeliveryTestResult` | ≤ 60 s; never queued; stored secrets only with a matching binding (else 400 `secretRebindRequired`, nothing sent) |
 | POST | `/api/v1/test/channels/{channelId}` | Admin | `TestChannelRequest` | `DeliveryTestResult` | ≤ 45 s; same binding rule |
 | POST | `/api/v1/rules/preview` | Admin | `RulePreviewRequest` | `RulePreviewResult` | scans stored events of the last N days (≤ 100 000) |
-| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel) |
+| GET | `/api/v1/digest/preview` | Viewer | – | `DigestPreviewDto` | builds without sending (Viewer: ViewerDetailLevel); active exceptions only as a number (13.4) |
 | POST | `/api/v1/digest/send` | Admin | – | 202 | `IDigestService.SendNowAsync` |
 | GET | `/api/v1/outbox` | Admin | `OutboxQuery` | `OutboxPage` | delivery log |
 | POST | `/api/v1/outbox/{id}/retry` | Admin | – | 204 / 404 / 409 (not Dead) | requeue now |
@@ -4475,19 +4895,34 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 1. Parse; reject a redacted envelope (`redactedConfig`).
 2. Validate with `ConfigValidationContext` (stored secret names + bindings from `ISecretStore.ListAsync`, environment,
    bootstrap flags) and, for `additionalWatchedAttributes`, the live session schema (8.3 `invalidAttribute`).
+   Then `ExclusionProvenance` sets `CreatedBy`/`CreatedAt` of every new or changed exclusion to the caller and the
+   service clock and keeps the stored values of unchanged ones (same rule id, exclusion id and content) – the client's
+   values are ignored (12.3 shows them in every digest).
 3. `ConfigSecretsApplier` builds `SecretChange`s: `Clear` → remove; `NewValue` → set with the binding of the **new**
-   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host/first-segment/…`, webhook secrets →
-   `whsec_…` + last 4 chars, passwords → null); a removed channel removes its secrets; strip `NewValue`/`Clear`, set
-   `IsSet`.
+   settings (`SecretBindings`, section 18) and a `Hint` (URLs → `scheme://host[:port]/…` – `SecretHints`: never a path
+   segment, query or user info, because services such as webhook.site or ntfy.sh carry the credential in the first
+   segment; the host stays because the validator reads the declared host from the hint; webhook secrets →
+   `whsec_…` + last 4 chars, passwords → null); a kept secret keeps its stored hint in that safe form; a removed
+   channel removes its secrets; strip `NewValue`/`Clear`, set `IsSet`. `SqliteConfigStore` stores hints only in the
+   safe form and repairs a document written by an earlier version in place on its first read (same version, no audit
+   entry). Known limits: a service whose host itself is the credential (e.g. `*.m.pipedream.net`) still shows it in the
+   hint – masking the host needs `SecretBindings.DeclaredUrlHost`/`ChannelValidator` to stop reading hints (Core); a
+   retired connector URL recognised only by its path (`outlook.office.com/webhook/…`) is no longer caught by the
+   stored-hint check of 8.3 (it cannot be entered – `NewValue` is checked in full – and the Teams transport refuses it
+   at send time with `retiredTeamsUrl`).
 4. `IConfigStore.SaveAsync(config, expectedVersion, by, summary, secretChanges)` – config row, secrets and the
    `config_audit` entry in **one SQLite transaction** (412 on conflict leaves secrets untouched).
-5. `ConfigChangeAuditor` (Core) diffs old vs new → `WatchdogConfigurationChanged` (Health; severity per section 7,
+5. `ConfigChangeAuditor` (Core) diffs the **effective** forms (`WatchdogConfigProvider.Effective`) of old and new – GET
+   returns the effective document, so disabling a built-in rule the stored document lacks is audited as disabled, not
+   added – → `WatchdogConfigurationChanged` (Health; severity per section 7,
    Changes: changed sections/rules, never secret values; attribution Resolved = caller). `ConfigChangeNotifier`
    appends it and plans its notifications **synchronously with the previous configuration** (so the old recipients
    learn that they were removed), then leaves it unevaluated so `RuleEvaluationJob` also plans it with the new one.
 6. `IWatchdogConfigProvider.ReloadAsync`, `signals.Raise(ConfigChanged)`, response = saved envelope.
 
 ### 17.3 Authentication and authorization (`Auth/*`)
+
+> **Amended by stage B:** on Linux the Negotiate identity carries only a name, so the service resolves the caller's SIDs itself from AD (`objectSid` + `tokenGroups` over its own LDAP session, cached 5 minutes; `KerberosSidClaimsTransformation`, `PrincipalSidResolver`, `RoleCache`), an unavailable lookup gives 503 `role-lookup-unavailable`, and loopback is no longer exempt from `AllowedRemoteSubnets` – `docs/dev/watchdog-linux-design.md` 6.1, 6.2 and 21.1 (B3).
 
 - `Watchdog:Authentication = Negotiate` (default): `AddAuthentication(NegotiateDefaults.AuthenticationScheme)
   .AddNegotiate(o => { o.PersistKerberosCredentials = false; o.Events = KerberosOnlyEvents; })` –
@@ -4496,13 +4931,18 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   `KerberosOnlyEvents.OnAuthenticated`: when `Hosting.RequireKerberos` and `AuthenticationType` ≠ `"Kerberos"` →
   `Fail("NTLM is not accepted")`. `OnAuthenticationFailed`: respond 401, `HandleResponse()`, log a hint ("check SPN
   HTTP/<host> on the service account and that clients use the A record") – never a 500.
-- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity whose
-  `AuthenticationType` is not `"Kerberos"` → 401 (Development/Test schemes exempt). This is the enforcement point for
-  HTTP.sys, where `NegotiateEvents` do not run.
+- `KerberosOnlyMiddleware` (after `UseAuthentication`, for **both** servers): an authenticated identity that was not
+  authenticated by Kerberos → 401 + log 2500 (Development/Test schemes exempt). This is the enforcement point for
+  HTTP.sys, where `NegotiateEvents` do not run. Kestrel reports `AuthenticationType` `Kerberos`/`NTLM` directly;
+  HTTP.sys reports every SPNEGO logon as `Negotiate`, so `ILogonPackageResolver` (`WindowsLogonPackageResolver`)
+  reads the real package from the caller's logon token – the token source (`Kerberos` / `NtLmSsp`), else the logon
+  session (`LsaGetLogonSessionData`) – and an undeterminable package is refused (fail closed).
 - Kestrel endpoint `HttpProtocols.Http1` (Negotiate does not work on HTTP/2).
-- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Kerberos` when
-  `RequireKerberos` (else Negotiate plus the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening`
-  = true), `AllowAnonymous = true` (for `/healthz`), scheme `HttpSysDefaults.AuthenticationScheme`; same authorization.
+- `HttpSys` server: Windows only, `HttpSysOptions.Authentication.Schemes = AuthenticationSchemes.Negotiate` always, plus
+  the AppContext switch `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` = true (the scheme `Kerberos` sends
+  `WWW-Authenticate: Kerberos`, which neither browsers nor `SocketsHttpHandler` answer – every call would get 401);
+  `RequireKerberos` is enforced by `KerberosOnlyMiddleware` as above. `AllowAnonymous = true` (for `/healthz`), scheme
+  `HttpSysDefaults.AuthenticationScheme`; same authorization.
 - Authorization: requirement `SidRoleRequirement(role)`; handler **first** denies when any user/group SID claim is in
   `Authorization.DeniedSids` (emergency revocation – Kerberos tickets keep group SIDs for up to 10 h), then grants when
   any `ClaimTypes.GroupSid` **or** `ClaimTypes.PrimaryGroupSid` claim value is in the configured SIDs (Admin SIDs also
@@ -4515,13 +4955,17 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
   (the Negotiate handler throws `NotSupportedException` under TestServer – it needs `IConnectionItemsFeature`), so the
   Negotiate handler is registered only when `Watchdog:Authentication = Negotiate`.
 - `RemoteAddressFilter`: `AllowedRemoteSubnets` (when non-empty) → 403 for other remote addresses (defense in depth);
-  `/healthz` → loopback, own addresses and `MonitoringSubnets` only.
+  `/healthz` → loopback, own addresses and `MonitoringSubnets` only. The filter runs after `UseRouting` and applies the
+  health rule to whatever routing matched to the health endpoint (`/healthz/`, `/HEALTHZ` too), with the path without
+  trailing slashes as the fallback.
 - Linux: the Negotiate handler emits no SID claims (only role names via `EnableLdap`), so on Linux the real-Kerberos
   test proves **authentication only** (expects 403 with `AuthenticationType` "Kerberos", 22.4).
 
 ---
 
 ## 18. Secrets (W-service)
+
+> **Amended by stage B:** on Linux the Data Protection key ring is encrypted with AES-256-GCM under the 32-byte key of the systemd encrypted credential `dp-key` (TPM2 + host key or host key) instead of DPAPI-NG; restore onto another host → `admng-watchdog reset-secrets-key` and the secrets are entered again; the keytab of `ADMNG-WD$` is the second exception of `CLAUDE.md` rule 2 – `docs/dev/watchdog-linux-design.md` 10.
 
 - ASP.NET Core Data Protection: `AddDataProtection().SetApplicationName("AdMng.Watchdog")
   .PersistKeysToFileSystem(<data>\keys)`; on Windows **`.ProtectKeysWithDpapiNG()`** (rule `SID={gMSA SID}` – the KDS
@@ -4538,12 +4982,17 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 
   | Secret | Binding (lower-case, `|`-separated) |
   |---|---|
-  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic` |
-  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>` (host must also be in `Notifications.OAuthSmtpHosts`) |
+  | `smtp.password` | `smtp|<host>|<port>|<userName>|basic[|<tls>]` |
+  | `smtp.oauth.clientSecret` | `smtp-oauth|<cloud>|<tenantId>|<clientId>|<host>[|<tls>]` (host must also be in `Notifications.OAuthSmtpHosts`) |
   | `channel.{id}.url` | `channel|<id>|<type>` (the URL is its own destination; Teams OAuth additionally requires a Power Platform host) |
   | `channel.{id}.clientSecret` | `teams-oauth|<cloud>|<tenantId>|<clientId>|<scope>|<url host>` |
   | `channel.{id}.signingSecret`, `…previousSigningSecret` | `webhook|<id>|<url host>` |
 
+  `<tls>` is the TLS trust of the SMTP server: empty for `certificateValidation = System` with `checkRevocation`
+  (the default – bindings stored before the component existed stay valid; a credential stored earlier with a pinned
+  certificate or with revocation checks off must be entered once more after the update), otherwise `tls-<mode>` (`tls-pinnedsha256:<pin>`
+  with the lower-case pin) followed by `revocation-off` when revocation checks are off. An Admin who pins his own
+  certificate therefore cannot get the stored password or the XOAUTH2 token released to it.
   Changing any bound field requires entering the secret again (`NewValue`); a test send with unsaved settings uses a
   stored secret only when the binding matches. Tests: host changed without `NewValue` → 400 and the SMTP sink sees no
   `AUTH`; OAuth settings with a foreign host → no token request.
@@ -4561,6 +5010,8 @@ volume has < 1 GiB free or the database reaches 80 % of `MaxDatabaseMb`.
 
 ## 19. Hosting (W-service)
 
+> **Amended by stage B:** for the Linux service this section is replaced by `docs/dev/watchdog-linux-design.md` sections 11–15 (file layout and start-up checks with exit codes 8, 9, 10, systemd units, Debian packages, default configuration, journald logging) and 21.1 (B1: no `UseSystemd()` call, `SystemdSetup`). The Windows service of 19.4–19.6 ships only as release 0.2.0 and is removed after 0.3.0 (design 17).
+
 ### 19.1 Program flow (`Program.cs`, `WatchdogHost`)
 
 ```
@@ -4568,10 +5019,11 @@ args: [--console] [--smoke-test] [--check-config] [--health] [--environment <nam
 options = new WebApplicationOptions { Args = args, ContentRootPath = WindowsServiceHelpers.IsWindowsService() ? AppContext.BaseDirectory : null }
 builder = WebApplication.CreateBuilder(options)
 builder.Services.AddWindowsService(o => o.ServiceName = "AdMngWatchdog")  // no-op on Linux / console
-builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional), the file
+builder.Configuration: appsettings.json, %ProgramData%\AdMng\Watchdog\config\appsettings.json (optional, watched – 8.4), the file
     named by env ADMNG_WATCHDOG_CONFIG (optional, lab/dev, refused when running as a Windows service), env
     ADMNG_WATCHDOG__* (section "Watchdog")
-LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+), both wrapped
+LoggingSetup: console (only when interactive), EventLog (Windows, SourceName "AdMng Watchdog", Warning+ plus the
+    Information entries 1000, 1006 and the access log 2600/2601 – `LoggingSetup.EventLogFilter`), both wrapped
     by RedactingLoggerProvider; no file logs; HostOptions.BackgroundServiceExceptionBehavior = Ignore (JobHost catches
     everything and logs via SafeExceptionLog); AddExceptionHandler<ApiExceptionHandler>()
 DataDirectory.Ensure(); DataProtectionSetup; AuthenticationSetup; KestrelSetup | HttpSysSetup
@@ -4581,12 +5033,17 @@ IDirectorySessionProvider (ServiceDirectorySessionProvider over LdapDirectoryCon
 app = builder.Build()
 StartupChecks (before Run – .NET 10 runs BackgroundService.ExecuteAsync fully in the background, so nothing may serve
     an un-migrated DB): BootstrapFileGuard (exit 6), data-directory ACL (exit 5), migrations (exit 3 for a newer DB),
-    certificate key access (only for Kestrel with HTTPS; exit 4), Development-auth guard (refused as a Windows service
+    plain http only on loopback listeners (both servers; exit 4), certificate key access (only for Kestrel with HTTPS;
+    exit 4), Development-auth guard (refused as a Windows service
     or with a non-loopback listener; exit 7), secrets readable, runtime version (`Environment.Version` < 10.0.13 →
     Event Log warning + health Warning `runtime.outdated`) → Event Log hints
 ApiSetup.Map(app); app.Run()
 ```
 
+- A host that cannot be built at all (malformed bootstrap JSON, an invalid setting value, an unusable data folder –
+  any exception from `Build` except OOM) is reported by `StartupFailureLog` before any logging provider exists: stderr
+  and, on Windows, Application-log event 1010 written directly with source "AdMng Watchdog" (type and code only, no
+  values, a hint to `--check-config`); exit code 2 – never an unhandled crash.
 - `--smoke-test` (CI): temporary data directory, loopback HTTP on an ephemeral port, `Development` auth,
   directory and attribution disabled, runs migrations, GETs `/healthz` and `/api/v1/status`, renders a sample alert
   with every formatter, exits 0/1. `--check-config`: validates bootstrap + stored config, prints issues, exits.
@@ -4596,7 +5053,10 @@ ApiSetup.Map(app); app.Run()
   loop `RunOnceAsync` → `subscription.WaitAsync(NextRunIn ?? DefaultInterval)`; unexpected exception →
   `SafeExceptionLog`, exponential backoff 1 s → 5 min; repeated fatal errors in the detection job for > 1 h →
   `FatalErrorHandler` → `IProcessTerminator.Exit(1)` so SCM recovery restarts the service (a clean stop never
-  triggers recovery). Tests replace `IProcessTerminator`.
+  triggers recovery). Tests replace `IProcessTerminator`. A `Failed` result logs warning 2300 when the failure starts
+  or its code changes, then at most hourly while it lasts (the condition itself is in the health registry), and
+  Information 2301 on recovery – admitted to the Application log (19.8), otherwise a recovered job and a still failing
+  one would look the same there.
 - `TimeProvider.System` everywhere; tests swap `FakeTimeProvider`.
 - Crash dumps: the install script calls `WerAddExcludedApplication` for `AdMng.Watchdog.exe` (WER dumps could contain
   decrypted secrets and directory values); the service never enables `DOTNET_DbgEnableMiniDump`.
@@ -4606,7 +5066,7 @@ ApiSetup.Map(app); app.Run()
 | | Kestrel + Negotiate (default) | HTTP.sys (option) |
 |---|---|---|
 | Kerberos | user mode, SPN `HTTP/<A record>` **on the gMSA** | kernel mode, machine account – no SPN work (HOST/ covers HTTP/<server FQDN>) |
-| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme `Kerberos` only (`RequireKerberos`) + `KerberosOnlyMiddleware`; Negotiate only with `EnableCBTHardening` |
+| NTLM | rejected (`KerberosOnlyEvents` + `KerberosOnlyMiddleware`) | scheme Negotiate with `EnableCBTHardening`; NTLM rejected by `KerberosOnlyMiddleware` from the logon token's package (`RequireKerberos`) |
 | TLS cert | selected in app config; key ACL for the gMSA; hot selection by thumbprint/subject | `netsh http add sslcert` per hash – rebind on every renewal |
 | URL ACL | none | `netsh http add urlacl url=https://+:8443/ user=CONTOSO\svc-admngwd$` |
 | Channel binding (EPA) | none on .NET 10 → NTLM rejected | opt-in `Microsoft.AspNetCore.Server.HttpSys.EnableCBTHardening` (10.0.1+, off by default) |
@@ -4622,6 +5082,13 @@ SslProtocols.Tls13; h.ServerCertificateSelector = (_, _) => CertificateSelector.
 Selector: LocalMachine\My by `Thumbprint`, else by `Subject` (newest valid NotAfter with serverAuth EKU and private
 key); reloaded every 10 min (renewals). Startup self-check signs test data with the private key; failure → Event Log
 error "grant the service account Read on the private key (certlm.msc → Manage Private Keys)" and exit code 4.
+The reload applies the same signing check before it switches to a newly found certificate (an AD CS renewal gives the
+new key the default ACL): when it fails, the previous certificate stays in use while it is valid, health
+`certificate.key` Warning (Error when no valid alternative remains – the unusable one is then served, so fixing the key
+ACL takes effect at the next handshake) and event 1007 once per thumbprint and state (Warning while the previous
+certificate serves, Error once handshakes fail); `certificate.key` returns to Ok when the key
+becomes usable. Every reload also re-evaluates `certificate.expiry` (Warning < 30 days, event 1007 once per thumbprint).
+A failure to read the store keeps the current certificate.
 
 ### 19.4 Windows service registration
 
@@ -4635,26 +5102,28 @@ GPO-managed environments add the gMSA to that GPO).
 ### 19.5 Folders (`DataDirectory`, `BootstrapFileGuard`)
 
 ```
-%ProgramData%\AdMng\Watchdog\            SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
-  config\appsettings.json                SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
-  data\                                  SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
-    watchdog.db, -wal, -shm, keys\, backup\
+%ProgramData%\AdMng\                     SYSTEM F, Administrators F, Users RX + gMSA RX (this folder only), inheritance off
+  Watchdog\                             SYSTEM F, Administrators F, gMSA RX (this folder only), inheritance off
+    config\appsettings.json              SYSTEM F, Administrators F, gMSA R – the service refuses to start if it can write here
+    data\                                SYSTEM F, Administrators F, gMSA M (protected DACL, owner Administrators)
+      watchdog.db, -wal, -shm, keys\, backup\
 ```
 
-The install script sets the ACLs with SIDs (`icacls … /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F"
-"*S-1-5-32-544:(OI)(CI)F" "<gMSA>:(OI)(CI)M"` on `data\`, `R` on `config\`) – SIDs avoid localized names such as
-"Administratorzy". When the service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same
-protected DACL. On every start (Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm` are compared with the
-allow-list {SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or
-Administrators: a deviation → Event Log error 1003 and exit code 5, unless the bootstrap flag
-`AllowInsecureDataDirectoryAcl` (then health Warning `storage.acl`). Backups made by the service land in `data\backup\`
-with the same ACL; BitLocker on the volume is recommended (docs).
+The install script sets the ACLs with SIDs (`Set-AdMngProtectedAcl`: owner Administrators recursively, then a new
+protected `DirectorySecurity` that replaces every ACE – `(OI)(CI)` Full for SYSTEM and Administrators, `(OI)(CI)` Modify
+for the gMSA on `data\`, Read on `config\`; 19.6) – SIDs avoid localized names such as "Administratorzy". When the
+service itself creates `data\` (e.g. a changed `DataDirectory`), it applies the same protected DACL. On every start
+(Windows) the DACLs of `data\`, `watchdog.db`, `-wal`, `-shm`, `keys\` and `backup\` are compared with the allow-list
+{SYSTEM, Administrators, service identity} for **any** access mask, and the owner must be SYSTEM or Administrators: a deviation → Event Log
+error 1003 and exit code 5, unless the bootstrap flag `AllowInsecureDataDirectoryAcl` (then health Warning
+`storage.acl`). Backups made by the service land in `data\backup\` with the same ACL; BitLocker on the volume is
+recommended (docs).
 
 ### 19.6 Install script (`Deploy/Install-AdMngWatchdog.ps1`, PowerShell 5.1+/7, elevated)
 
 Parameters: `-ServiceAccount CONTOSO\svc-admngwd$`, `-InstallPath "C:\Program Files\AdMng\Watchdog"`,
 `-DataDirectory`, `-Url https://admng-wd.contoso.com:8443`, `-CertificateThumbprint`, `-ViewerGroupSid`,
-`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`. Steps: `Test-ADServiceAccount` (when the
+`-AdminGroupSid`, `-HostGroupSid`, `-AllowedSubnets`, `-MonitoringSubnets`, `-TrustExistingConfig` (see below). Steps: `Test-ADServiceAccount` (when the
 AD module exists) → copy files → create `config\` and `data\` with the ACLs of 19.5 → write
 `config\appsettings.json` (role, host-group and monitoring settings) → event source
 (`[System.Diagnostics.EventLog]::CreateEventSource('AdMng Watchdog','Application')`; `New-EventLog` does not exist in
@@ -4665,6 +5134,37 @@ monitoring subnets>` → `setspn -Q HTTP/<host>` must return only the gMSA (warn
 `AdMng.Watchdog.exe --health` (uses the configured FQDN; the machine's own address counts as local). Idempotent;
 `-WhatIf` supported. `Uninstall-AdMngWatchdog.ps1` stops/deletes the service and the firewall rule and keeps `data\`
 unless `-RemoveData`.
+
+Details (helper module `Deploy/AdMngWatchdog.Install.psm1`, shipped with the scripts):
+- **Pure ASCII** (`.ps1`, `.psm1`; `DeployScriptTests`): Windows PowerShell 5.1 reads a script without BOM in the ANSI
+  code page, where the UTF-8 bytes of "–" contain a typographic quote that ends a double-quoted string early. On
+  Windows CI the scripts are parsed by `powershell.exe`.
+- **Update = merge**: an existing `config\appsettings.json` is read and only the settings given as parameters
+  (`$PSBoundParameters`; `-Url` and `-AdminGroupSid` always) are written; defaults (`Server=Kestrel`,
+  `RequireKerberos=true`, empty lists, `Certificate.Subject=<host>` when no thumbprint exists) fill only missing values;
+  everything else – `DeniedSids`, `ViewerDetailLevel`, `Notifications`, `Directory`, `Server=HttpSys`, certificate
+  store – is kept. A `Certificate.Subject` equal to the host of the stored `Urls` (derived by the script,
+  `Test-AdMngSubjectFollowsUrl`) follows a new `-Url`; a subject set by hand stays. The changed settings are printed.
+  The file is written as a new file (UTF-8 without BOM) owned by Administrators.
+- **Trust before merge**: Users may create folders in `%ProgramData%`, so a local user could create
+  `AdMng\Watchdog\config\appsettings.json` before the first installation and plant settings the merge would take over
+  (`ViewerSids` when `-ViewerGroupSid` is omitted, `DataDirectory` – which the script then takes ownership of recursively –,
+  `ViewerDetailLevel`, `AllowTier0Suppression`, …). Before the file is read, `Get-AdMngUntrustedWriters` lists every
+  owner other than SYSTEM, Administrators, TrustedInstaller and the administrator running the script, and every Allow
+  ACE (not inherit-only) of another account that can change the file (write, delete, `WRITE_DAC`, `WRITE_OWNER`,
+  generic all/write) or replace it in `config\`, `Watchdog\` or `AdMng\` (delete child, delete, `WRITE_DAC`,
+  `WRITE_OWNER`, generic all) – the right to create files, which `%ProgramData%` passes on to Users, cannot replace an
+  existing file and is ignored. Any entry stops the script before the first change and names the accounts; the
+  administrator reviews the file and deletes it or re-runs with `-TrustExistingConfig` (then a warning lists them).
+- **ACLs**: `%ProgramData%\AdMng`, `Watchdog\`, `config\` and the data folder get owner Administrators (recursively,
+  `icacls /setowner /T`) and a protected DACL that replaces every other ACE (`Set-Acl` with a new
+  `DirectorySecurity`); everything inside `config\` and the data folder is reset to the inherited ACEs
+  (`icacls <folder>\* /reset /T`, `-ResetChildren`) – a new folder DACL leaves the explicit ACEs of existing children in
+  place. So a local user who created the folders, the bootstrap file or e.g. `data\backup` / `data\keys` before the
+  installation keeps neither ownership nor an ACE.
+- **Private key**: the gMSA gets Read on the key of the certificate the service will select – by thumbprint, else by
+  the selector's subject rule (serverAuth, valid, private key, newest NotAfter) – also without
+  `-CertificateThumbprint`; no matching certificate stops the script. Skipped for `Server=HttpSys` (netsh sslcert).
 
 ### 19.7 Publishing
 
@@ -4685,8 +5185,20 @@ release checklist bumps them. Output includes `Deploy\*.ps1`. CI artifact name `
 | 1004 | Warning | permission gap (self-check code) |
 | 1005 | Warning | attribution degraded / event-log gap (DC host, code) |
 | 1006 | Information | configuration changed (version, caller account) |
-| 1007 | Warning | runtime outdated / certificate expiring within 30 days |
+| 1007 | Warning | runtime outdated / certificate expiring within 30 days / renewed certificate whose key the service account cannot use (the previous one still serves); Error: no usable certificate key remains, TLS handshakes fail (19.3) |
 | 1010 | Error | fatal start-up check failed (exit code in the message) |
+| 2002 | Warning | an edit of the bootstrap file could not be loaded (malformed JSON) or holds a value that cannot be bound; the previous settings stay in effect (8.4) |
+| 2300 / 2301 | Warning / Information | a job's iterations fail (job, failure code, failures in a row – when the failure starts or its code changes, then at most hourly) / the job recovered (job, number of failed iterations) – 19.1 |
+| 2600 / 2601 | Information | single event viewed through `/api/v1/events/{id}` / `/events/{eventId}` (numeric id / event GUID, caller account) – the RODO access log of 17.1 |
+
+As a Windows service the Application log is the only log sink, so its filter (`LoggingSetup.EventLogFilter`) admits
+Warning and above plus the Information entries of this table (categories `StartupChecks`, `ConfigChangeNotifier`,
+`EventAccessLog`, `JobHost`); other Information diagnostics (e.g. the per-request line 2700) stay console-only. The log is shared
+with every application on the server, so `ThrottlingLoggerProvider` writes a Warning/Error whose category, event id and
+text equal one written within the last 15 minutes only once, the next one carrying the number of suppressed repeats
+(a DC outage would otherwise repeat the same per-cycle warnings thousands of times a day); distinct entries, Critical,
+Information and warning 2002 always pass (2002 answers an administrator's edit – a second malformed edit within the
+window must not leave only the entry of the first attempt, which predates it).
 
 Docs recommend forwarding these and the SCM events 7036/7040 for `AdMngWatchdog` to the SIEM, plus external
 monitoring of `/healthz` from `MonitoringSubnets` and, optionally, the webhook heartbeat (13.6).
@@ -4709,6 +5221,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
     string SelectionText { get; }
     /// <summary>F5 on this tab.</summary>
     Task RefreshAsync();
+    /// <summary>Unsaved changes that closing the tab would discard (default false).</summary>
+    bool HasUnsavedChanges => false;
+    /// <summary>Asks before discarding them; true when the tab may close (default true).</summary>
+    Task<bool> CanCloseAsync() => Task.FromResult(true);
 }
 ```
 
@@ -4722,7 +5238,10 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 - Command `tools.watchdog` – `L.Commands.Watchdog` ("Watchdog" / "Watchdog – monitor zmian"), category Tools,
   shortcut **Ctrl+Shift+A**, available without an AD session; opens the single Watchdog tab or selects it if open.
   Menu **Narzędzia → Watchdog** (after "Kosz AD"), listed in the command palette (Ctrl+K). F5 on the tab calls
-  `RefreshAsync`; Ctrl+W closes it.
+  `RefreshAsync`; Ctrl+W closes it. Closing a tab (Ctrl+W, its close button) or the main window with unsaved Watchdog
+  configuration edits (typed secrets included, `HasUnsavedChanges` = `Config.IsDirty`) asks first
+  (`Watchdog.Config.Discard`, like the property sheets and the batch editor); the window selects each such tab and
+  stays open when the operator keeps the changes (`ShellViewModel.CanCloseDocumentsAsync`).
 - `MainWindow.xaml`: tab header and content templates per document type (implicit `DataTemplate`s for
   `ObjectListViewModel` and `WatchdogDocumentViewModel`); a new `ObjectIcon.Watchdog` value with its glyph; the tab
   header shows a badge with `UnacknowledgedHighOrAbove` (refreshed by the poller's `/status` call every 60 s even while
@@ -4741,14 +5260,14 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 
 | VM | Responsibilities |
 |---|---|
-| `WatchdogDocumentViewModel` | `ConnectionState` {NotConfigured, Connecting, Connected, Unauthorized, Forbidden, Unreachable, CertificateInvalid, VersionMismatch, Error}; `Me` (roles → `IsAdmin`, detail level); `ServiceUrl` editor when not configured ("Adres usługi Watchdog", e.g. `https://admng-wd.contoso.com:8443`; only `https://` accepted); the connection banner always shows the host the tab talks to; `ConnectCommand`, `ChangeAddressCommand`, `RefreshCommand`; sub-tabs Events / Rules / Channels / Digest / Status (`SelectedSubTab`, remembered in settings); `IsVisible` (set by the view) switches polling mode; `ShowObjectHistory(Guid)` (used by the launcher); rollout banner from `StatusDto.RolloutModeUntil` |
+| `WatchdogDocumentViewModel` | `ConnectionState` {NotConfigured, Connecting, Connected, Unauthorized, Forbidden, Unreachable, CertificateInvalid, VersionMismatch, Error}; `Me` (roles → `IsAdmin`, detail level); `ServiceUrl` editor when not configured ("Adres usługi Watchdog", e.g. `https://admng-wd.contoso.com:8443`; only `https://` accepted); the connection banner always shows the host the tab talks to; `ConnectCommand`, `ChangeAddressCommand`, `RefreshCommand`; sub-tabs Events / Rules / Channels / Digest / Status (`SelectedSubTab`, remembered in settings); `IsVisible` (set by the view) switches polling mode; `ShowObjectHistory(Guid)` (used by the launcher); rollout banner from `StatusDto.RolloutModeUntil`; connection failures of single calls: Unauthorized / Forbidden / CertificateInvalid / API version change the state, a timeout or network failure of one request stays inline in its sub-tab unless the poller is failing too (backing off); the next successful poll or status restores Connected – only while the client still talks to the address of the last successful connection (after a failed connection to another address the caller, catalog, configuration and feed shown are the previous service's, so only Retry connects); Retry/F5 reconnects without reloading the configuration while it has unsaved Admin edits for the same service address |
 | `WatchdogConnectionService` | builds `WatchdogClientOptions` from settings (process identity; `runas /netonly` works), `Configure` (rejects non-https), maps `WatchdogClientException.Kind` to state + localized message |
-| `WatchdogPoller` | while visible: `GetEventsAsync(after = newestId, wait = 25)` loop, exponential backoff on errors (2 s → 60 s), status refresh every 30 s; while hidden (tab open in the background): only `/status` every 60 s for the header badge; stops on dispose |
-| `WatchdogEventsViewModel` | `Items` (BulkObservableCollection of rows), filters (`WatchdogEventFilterViewModel`: min severity, categories, kinds grouped by category, object kinds, **subtree/OU** (container picker when an AD session is open), **tags** (privileged, serviceAccount, …), **attribution status** ("pokaż nieustalone"), actor (picker resolving a SID via the AD session, else SID text), text incl. workstation/IP debounced 300 ms, from/to, unacknowledged only; named presets saved in settings), `LoadOlderCommand` (`before`), new events prepended when they match the filter, "N nowych" badge while scrolled away, multi-select + `AcknowledgeSelectedCommand` (`AcknowledgeManyAsync`, comment), `ExportCsvCommand` (operator-initiated export via `IFileDialogService` + `ICsvCodec`, formula-injection safe – the only way watchdog data reaches the operator's disk) |
+| `WatchdogPoller` | while visible: `GetEventsAsync(after = newestId, wait = 25)` loop, exponential backoff on errors (2 s → 60 s), status refresh every 30 s; while hidden (tab open in the background): only `/status` every 60 s for the header badge; the filter of a round is an immutable `EventQuery` snapshot taken on the UI thread by the last full load of the feed (never the filter view model's collections); stops on dispose |
+| `WatchdogEventsViewModel` | `Items` (BulkObservableCollection of rows, newest first; only a full load replaces them with one Reset – live pages, late matches, rows leaving the filter, the live cap and "Wczytaj starsze" change them row by row, one Add/Remove notification per row in id order applied in one pass, never a Reset, so the WPF list keeps its scroll position and selection; a row whose place is beyond the live cap is not inserted), filters (`WatchdogEventFilterViewModel`: min severity, categories, kinds grouped by category, object kinds, **subtree/OU** (container picker when an AD session is open), **tags** (privileged, serviceAccount, …), **attribution status** ("pokaż nieustalone"), actor (picker resolving a SID via the AD session, else SID text), text incl. workstation/IP debounced 300 ms, from/to, unacknowledged only; named presets saved in settings), `LoadOlderCommand` (`before`), new events prepended when they match the filter (dropped only while a full reload runs, never while an older page loads; a page that is not newer than the top row – the late-match merge reads newest first and may have inserted newer events while the poll catches up on a backlog – goes to its place in id order), the live feed keeps at most 2000 rows (`MaxLiveItems`, or what the operator loaded with "Wczytaj starsze"; older rows are dropped from memory and `HasMore` offers them again; nothing is trimmed while "Wczytaj starsze" runs – its page continues below the oldest row), every status round of the visible tab re-reads up to 20 rows whose attribution is still Pending (`GetEventAsync`) and updates them and the details pane, and – with a filter on what the service fills in after it stored an event (min severity, tags, attribution status, actor, rule, text) – re-reads **all** events of the filter detected within the late-match window (`LateMatchWindow` = the last `Attribution.PendingRetries` step + `Attribution.PollInterval` + 15 min, at least 2 h; 2 h while the configuration – readable by Viewers, redacted – is not loaded; it follows every load/save of the configuration; counted back from the feed's last complete view of the service's state – the load or the start of the previous complete round – so a hidden tab or failed rounds do not shorten it, and while the service has run for less than the window (`StatusDto.StartedAt`) that anchor stays where it was, because after a start the service catches up on the evaluation and attribution of events it stored before) in pages of 500, newest first, down to the oldest loaded row (the whole window while everything of the filter is loaded; memory: one page plus the ids of the range) and merges each page: events that match only since (the live long-poll skipped them: their ids are behind the cursor) are inserted at their place in id order (the live cap applies), rows whose event changed (severity, tags, rules, attribution, lockout sources, acknowledgement – never an acknowledgement undone by a stale read) show the new version in the row and the details pane; after a complete read, rows of the window the service no longer returns are removed – a selected row is kept, marked `NoLongerMatches` (dimmed, tool tip) with its current version, and removed in the first round after it was deselected; a reload or "Wczytaj starsze" cancels the merge (nothing is removed after an incomplete read); the acknowledgement is applied by the GUI (rows acknowledged meanwhile stay, shown acknowledged; an acknowledged late match is not inserted into an "unacknowledged only" feed); without such a filter nothing extra is read, "N nowych" badge while scrolled away, multi-select + `AcknowledgeSelectedCommand` (`AcknowledgeManyAsync`, comment), `ExportCsvCommand` (operator-initiated export via `IFileDialogService` + `ICsvCodec`, formula-injection safe – the only way watchdog data reaches the operator's disk) |
 | `WatchdogEventRowViewModel` | local time, severity, kind title, object name, canonical path, actor text ("ustalanie…", "nieustalony"), source (IP first, name with origin), lockout count ("5× dziś"), acknowledged flag |
 | `WatchdogEventDetailsViewModel` | loads `EventDetails`; changes table (attribute display name from the session schema when connected, else LDAP name; old → new; flags added/removed; "wartość ukryta"), attribution (actor, source IP / workstation with origin and source confidence, method, confidence, reason + remedy, evidence list; lockouts: "Źródło błędnych haseł" with counts), related events, deliveries; `AcknowledgeCommand` (comment), `OpenInAdMngCommand` (resolves the **current** DN by an `(objectGUID=…)` search through `LdapFilter.EqualGuid` – the stored DN may be stale after a move/rename; a deleted object opens the Recycle Bin window preselected on that GUID (`IDialogService.ShowRecycleBinAsync(Guid? select)`); requires an AD session to the same domain), `UnlockAccountCommand` (AccountLockedOut, AD session to the same domain open, object still locked: plans the unlock through `IChangePlanner`/`IBatchExecutor` with the normal preview – CLAUDE.md rule 5), `CopyDetailsCommand` |
-| `WatchdogConfigSession` | holds the loaded `ConfigEnvelope`, working copy, dirty flag (compares serialized JSON), `ValidateAsync`, `SaveAsync` (412 → "Konfiguracja zmieniona przez innego administratora – wczytaj ponownie"), `RevertCommand`; shared by Rules/Channels/Digest |
-| `WatchdogRulesViewModel` | rule rows (enabled toggle, name, built-in/locked badge, kinds summary, severity override, delivery summary, "wysłałaby N" during rollout); New / Duplicate / Delete (not built-in) / Reset to default (built-in, from `GetDefaultConfigAsync`) / Preview; exclusion suggestions from `StatusDto.Suggestions` ("Dodaj wyjątek" → editor prefilled, saved through the normal PUT); rollout banner with "Zakończ tryb wdrożenia" (Admin, sets `General.RolloutEnded`); for Viewers the redacted configuration (exclusions shown as a count) |
+| `WatchdogConfigSession` | holds the loaded `ConfigEnvelope`, working copy, dirty flag (compares serialized JSON), `ValidateAsync`, `SaveAsync` (412 → "Konfiguracja zmieniona przez innego administratora – wczytaj ponownie"), `SaveChangeAsync(change)` (saves one change applied to the configuration as last saved; unsaved edits and typed secrets are not sent and stay unsaved on top of the new version), `RevertCommand`; shared by Rules/Channels/Digest |
+| `WatchdogRulesViewModel` | rule rows (enabled toggle, name, built-in/locked badge, kinds summary, severity override, delivery summary, "wysłałaby N" during rollout); New / Duplicate / Delete (not built-in) / Reset to default (built-in, from `GetDefaultConfigAsync`) / Preview; exclusion suggestions from `StatusDto.Suggestions` ("Dodaj wyjątek" → editor prefilled, saved through the normal PUT); rollout banner with "Zakończ tryb wdrożenia" (Admin, saves `General.RolloutEnded` alone through `SaveChangeAsync` – the confirmation names only that, other unsaved edits stay unsaved); for Viewers the redacted configuration (exclusions shown as a count) |
 | `WatchdogRuleEditorViewModel` | inline pane editing every `RuleSettings` field: kinds picker (catalog grouped by category), object kinds, scope DNs (container picker via `IDialogService` when an AD session is open, else text validated with `DistinguishedName.TryParse`), attributes, tags, group filter + DNs, actor exclusions, min severity / severity override, delivery (immediate, recipient groups, channels, digest, hours, aggregation, max/h); preview result (per-day counts, samples) |
 | `WatchdogExclusionViewModel` | add/edit exclusions: object (picker or GUID), subtree, actor (picker resolving to a **SID** through the AD session, else SID text – names are never stored), attribute, reason (required), expiry; `CreatedBy` = `Me.Account` |
 | `WatchdogChannelsViewModel` | SMTP (`SmtpSettingsViewModel`), recipient groups (`RecipientGroupsViewModel`), Teams/webhook channels (`ChannelEditorViewModel`), test buttons (`DeliveryTestViewModel`) |
@@ -4756,12 +5275,12 @@ public interface IShellDocument : INotifyPropertyChanged, IDisposable
 | `ChannelEditorViewModel` | name/id, type, enabled, URL (write-only, hint shown), detail level, Teams auth mode + OAuth fields, webhook signing secret ("Generuj" creates `whsec_` + 32 random bytes client-side and shows it once for copying into the receiver), previous secret (rotation), GitHub signature, allowed hosts, timeout, rate limits |
 | `DeliveryTestViewModel` | runs `SendTestEmailAsync` / `SendTestChannelAsync` with the unsaved settings; shows stages (✓/✗, detail, status codes, duration) and localized hints (`Watchdog.Hint.*`); a `secretRebindRequired` issue focuses the secret field ("adres docelowy się zmienił – wpisz hasło/sekret ponownie") |
 | `WatchdogDigestViewModel` | digest settings; `PreviewCommand` shows Subject + text alternative in a read-only text box (never written to disk); `SendNowCommand` (Admin) |
-| `WatchdogStatusViewModel` | cards: service, directory, attribution per DC, health checks (localized code, state, remedy), channels, storage, last 24 h counts; delivery log (`WatchdogDeliveryLogViewModel`, Admin: filter by status/channel, Retry for Dead); config audit (Admin) |
+| `WatchdogStatusViewModel` | cards: service, directory, attribution per DC, health checks (localized code, state, remedy), channels, storage, last 24 h counts; delivery log (`WatchdogDeliveryLogViewModel`, Admin: filter by status/channel, Retry for Dead; older pages are appended row by row – no Reset – so the list keeps its scroll position and selection); config audit (Admin) |
 | `WatchdogDisplay` | localized names: kinds, categories, severities, object kinds, reasons + remedies, health codes, hints, validation codes, delivery stages, outbox statuses (key families below) |
 
 Viewer role: everything read-only (editors disabled with tooltip "Wymaga roli administratora Watchdog"); Admin:
 editing, tests, digest send, outbox retry. All service calls are async with cancellation; long operations show
-progress in the tab; errors are shown inline (never modal for polling errors).
+progress in the tab; errors are shown inline (never modal for polling errors). A request cancelled because a newer one superseded it (or the operator cancelled it) is never an error – the client reports it as `WatchdogClientException(Cancelled)`, view models treat any failure after their token was cancelled as superseded.
 
 ### 20.3 Views (`AdMng.App/Views/Watchdog`)
 
@@ -4770,8 +5289,37 @@ progress in the tab; errors are shown inline (never modal for polling errors).
 `WatchdogRulesView` (list + inline editor), `WatchdogChannelsView`, `WatchdogDigestView`, `WatchdogStatusView`.
 Fluent theme resources only (severity colours mapped to theme brushes: Critical/High
 `SystemFillColorCriticalBrush`, Medium `SystemFillColorCautionBrush`, Low `AccentFillColorDefaultBrush`, Info
-`TextFillColorSecondaryBrush`), automation names on every input, keyboard navigation, no binding errors (UI test
-listener).
+`TextFillColorSecondaryBrush`; Critical is told apart from High by a 2 px ring in `TextFillColorPrimaryBrush` – dark on
+light, light on dark, the window text colour in high contrast – and keeps its semibold critical-coloured severity text),
+automation names on every input, keyboard navigation, no binding errors (UI test listener).
+Layout (checked by UI tests at the screenshot size 1440 × 900): the connection banner shows "state host" once and a
+second line (`BannerMessage`) only to explain a problem or the missing address; the main window's object details pane
+(and its column) is hidden while the Watchdog tab is selected (`ShellViewModel.IsDetailsPaneShown`; the operator's
+choice `IsDetailsPaneVisible` is kept for the object lists); the feed and its details pane (400 px, min 300) are
+separated by a `GridSplitter`; while the operator is scrolled away from the newest events the feed keeps its first
+visible row in place when rows come or go above it (the list scrolls by items, so an insert above would push the rows
+being read down) and after a full reload shows the same event first again (else the selection, else the newest events);
+the columns of the feed, of the rule list and of the Status tab's delivery log fit the list's visible width
+(`Behaviors/GridViewColumnFit` over the pure `Infrastructure/ColumnFit`, recomputed when the window, the splitter or the
+vertical scroll bar changes that width – the Fluent scroll bar lies over the rows, so its width stays free – and never
+scrolling sideways at 1440 × 900 nor in the main window's default size 1360 × 840 – it opens at that size, no window
+placement is restored): the feed always shows severity (min 100 px), time (132), the event title (star, at least 244 px,
+takes what the others leave – at 1440 × 900 at least 260 px with the others at their preferred widths) and object (124) –
+600 px together, so they fit the about 634 px feed of the default window next to the 400 px details pane – and ✓, actor,
+source, location and lockouts in this order while
+their minimum width (40/120/130/160/80) fits – the first that does not fit hides the rest, so columns only appear as the
+list widens; their values are in the details pane; the rule list shares its width 4 : 3 : 3 between name, kinds and
+delivery (at least 200/140/150 px, a cut name shows itself and the rule id as tool tip); the delivery log's subject and
+error share what its other columns leave 3 : 2 (at least 160/120 px); other columns give up width before a star column
+drops below its minimum, and a column the operator resized keeps its width – a gripper dragged or double-clicked (sized
+to its content, without a drag: the fit follows the extent width change, and again when that column grows) – and the
+star columns give way at once; the filter bar wraps its filters on the left and keeps the saved filters, "Więcej
+filtrów" and the reset button (automation name and tool tip "Wyczyść filtry") together at the end of its first row, so
+the reset button is never alone on a row (at 1440 × 900 the whole bar is one row; the search box shows its hint as
+tool tip, the acknowledgement comment box is wide enough for its placeholder); the saved-filter list
+(`Filter.HasPresets`) is shown only when presets exist, with the placeholder "Zapisane filtry"; the details button is
+"Pokaż w AD Manager" (the product name; "AD_MNG" lost its underscore as an access key); the SMTP card keeps its value
+column at least 250 px wide.
 
 ### 20.4 Localization keys (both `Strings.resx` and `Strings.pl.resx`)
 
@@ -4783,7 +5331,9 @@ Kerberos – sprawdź SPN i rekord DNS (docs/WATCHDOG.md)"), `Watchdog.Connectio
 o dodanie do grupy AD z rolą Watchdog"), `Commands.Watchdog`.
 Dynamic families (tested for completeness against the enums/constants like `DisplayNames`):
 `Watchdog.Kind.{WatchEventKind}`, `Watchdog.Category.{EventCategory}`, `Watchdog.Severity.{Severity}`,
-`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}`,
+`Watchdog.ObjectKind.{WatchObjectKind}`, `Watchdog.Reason.{code}` + `.Remedy`, `Watchdog.Health.{code prefix}` + `.Remedy`
+(every health code the service and the engine report – e.g. `certificate.expiry`, `storage.size`, `rules.planner`,
+`attribution.collector` – resolves to a prefix with its own text; a Presentation test scans their sources),
 `Watchdog.Hint.{hint}`, `Watchdog.Validation.{code}`, `Watchdog.Stage.{DeliveryStage}`,
 `Watchdog.Outbox.{OutboxStatus}`, `Watchdog.State.{ConnectionState}`, `Watchdog.DetailLevel.{DetailLevel}`,
 `Watchdog.DeliveryHours.{DeliveryHours}`, `Watchdog.SmtpSecurity.{…}`, `Watchdog.SmtpAuthentication.{…}`,
@@ -4805,6 +5355,8 @@ acknowledge.
 ---
 
 ## 21. Packages (`Directory.Packages.props`, scaffold)
+
+> **Amended by stage B:** `Microsoft.Extensions.Hosting.Systemd` 10.0.13 is referenced by the service (its parts are registered by `SystemdSetup`, `docs/dev/watchdog-linux-design.md` 21.1 B1); `Microsoft.Extensions.Hosting.WindowsServices` goes with the Windows hosting code after 0.3.0 (design 17).
 
 Verified on NuGet on 2026-10-14. **All Microsoft 10.0.x packages – the existing ones (System.DirectoryServices.Protocols,
 Microsoft.Extensions.Hosting/Logging.Abstractions/DependencyInjection(.Abstractions)) and the new ones – move to
@@ -4858,6 +5410,8 @@ NuGet lock files (`RestorePackagesWithLockFile` + `--locked-mode`) are deferred 
 
 ## 22. Test plan
 
+> **Amended by stage B:** the Linux tests (replay fixtures of the collector path, keytab tool, Negotiate role resolution, GPO parsers, package install test) are listed in `docs/dev/watchdog-linux-design.md` 20 and 21.1; the authentication-only Kerberos test of 22.4 (`krb5-lab.sh`, `ADMNG_TEST_KERBEROS`) is replaced by `KeytabLabTests` and `KerberosNegotiateTests` with `tools/testlab/watchdog/keytab-lab.sh`.
+
 Conventions: xUnit v3 `Assert`, fakes over mocks, Polish data with diacritics, `TestContext.Current.CancellationToken`,
 no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
 
@@ -4871,8 +5425,8 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
 | Scans | `AccountExpiryScannerTests` (thresholds 14/7/1 in calendar days to the last valid day, '1 day' fires the day before, Sunday expiry announced on Friday, holiday stretch 24–26 Dec, dedup, downtime catch-up records larger thresholds, changed expiry re-arms, expired once, ADUC end-of-day display), `PasswordExpiryScannerTests` (scope, 0 and never), `LockoutMonitorTests`, `BurstDetectorTests` (mass lockout with the percentage threshold, mass deletion by class: 10 users Critical, 10 computers nothing, 50 computers High; cooldown), `PasswordSprayDetectorTests` (fixture 4771/4776 sets: 20 accounts from one IP → event; 20 lockouts from different IPs → none; disabled by default) |
 | Attribution | `SecurityEventParserTests` (all fixtures, by-name parsing, unknown fields, `-`, %% decoding, 4740 caller mapping, 1102 UserData, masking), `IngestionReductionTests` (5136 value kept only for watched non-secret attributes, no values without a schema, excluded-subtree / unwatched-class records dropped, budget → HealthEventLogGap flooding), `EventSourceGuardTests` (foreign provider / unknown Computer dropped, also in ForwardedEvents mode), `SamAccountControlDecoderTests` (the four Microsoft samples: 0x0→0x15 = Disabled+PwdNotRequired+Normal; 0x15→0x211; 0x80→0x2080; 0x80), `SecurityEventQueryBuilderTests` (≤ 20 IDs per Select, escaping, suppress), `AttributionCorrelatorTests` (strong vs weak keys, attribute confirmation, ambiguous, SYSTEM, self change, 4723 → selfChange / 4724 → passwordReset, sync account tag, attribution-dependent severity re-resolution, operation grouping, retries then each reason code), `LogonSourceResolverTests` (types 3/8/10, loopback, From bound = LogonLookback, timeout, one query per DC, negative cache, SOURCE_LOGON_NOT_FOUND, source confidence caps), `LockoutSourceResolverTests` (empty caller → 4771/4776 sources with counts; caller = DC/server → sources queried), `EventLogGapDetectorTests` |
 | Rules | `RuleMatcherTests` (each condition; actor exclusions by SID only), `ExclusionMatcherTests` (attribute exclusion semantics, expiry), `SeverityResolverTests` (order base → bumps → attribution → overrides; HR-attribute change of a privileged user stays Info; privileged own password change → Info, reset → High; krbtgt exactly Medium; AdminCountSet after PrivilegeGranted → Info), `DefaultRulesTests` (ids unique, health locked with AllEnabledChannels, every kind with RecordedByDefault is covered by at least digest), `ConfigurationValidatorTests` (every code of 8.3 incl. secretRebindRequired, tier0Suppression, invalidAttribute, invalidScope, oauthHostNotAllowed, invalidHostName, both time-zone id forms), `ConfigChangeAuditorTests` (severity per change class, no secret values in Changes), `ConfigRedactorTests`, `RolloutModeTests`, `RulePreviewServiceTests`, `ConfigTokensTests`, `TimeZoneResolverTests` (IANA, Windows id, built-in map when ICU conversion is unavailable) |
-| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution), `DispatchJobTests` (FakeTimeProvider; re-match with final severity drops a privileged self password change), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
-| Formatting | `EmailSubjectBuilderTests` (pl/en table 14.2, CR/LF stripping, 200 chars), `UntrustedTextTests` (U+202E, U+2066, zero-width → visible escapes; `https://evil.example/x` → `hxxps://evil[.]example/x`; `www.` defanged; UPNs and host names unchanged), `EmailAlertFormatterTests` (HTML-encoded hostile values like `<script>`, `[Kliknij](https://evil)`, `‮` and a URL in description and in a nested group name of a Via path; secret masked; detail levels; source row IP first with name origin; lockout source row), `TeamsCardFormatterTests` (only AC 1.4 element types; AD strings only in TextRun; defanged URLs; ≤ 24 576 bytes with 500 Polish events; one attachment), `WebhookPayloadFormatterTests` (schema, Minimal level strips values), `StandardWebhookSignerTests` (both vectors of 14.5, rotation = two signatures), `TeamsUrlValidatorTests`, `NotificationStringsTests` (every generated key in en and pl) |
+| Notifications | `NotificationPlannerTests` (targets, AllEnabledChannels, NotifyManager, business hours, rollout mode, repeat suppression, holds incl. attribution-dependent kinds, provisional actor matches, previous-configuration planning of WatchdogConfigurationChanged, one row per target with the strongest treatment of every rule, the re-evaluation plan – merge/update/drop/insert, per-event alert coverage, escalation of a stored or added rule's target in the thread of its alert despite repeat suppression, no escalation below High or without a raise, the final severity of the follow-up still to come, merge into a waiting follow-up, no second escalation after a follow-up showed the severity, none for a lost alert), `AggregationTests`, `ThrottleTests` (RescheduleAsync), `FollowUpPlannerTests` (via GetMessagesForEventAsync + SentWithPendingAttribution; each event of an aggregated alert with its own severity, lowered to the final one), `DispatchJobTests` (FakeTimeProvider; re-match with the final own severity drops a privileged self password change; a released row passes to the next rule that still matches; a row whose rule left its hours goes out under an Always rule; a row covered by an earlier alert is dropped at flush; per-event alert states; a released row rendered with the own severity, not another rule's override; an escalation of a pending event waits for the stored attribution; an escalation after a follow-up is no duplicate; an aggregated follow-up shows each event's final severity and its change), `ReevaluationPipelineTests` (rules job + attribution engine + dispatch over one store: takeover by an added earlier rule, no deferral, failed re-match, own vs evaluated severity, aggregated coverage, a dispatch run waiting for the re-evaluation, a re-evaluation while the dispatch completes the held row, a pass interrupted after the takeover + restart + repeated cycles; escalation 13.2 #7: a Medium alert with the actor pending escalated once over repeated cycles (e-mail thread + `ad.severity.escalated`), an alert already High gets only the follow-up, High → Critical merged with the actor follow-up, a lowered severity sends nothing more, an aggregated alert escalates only the event that became High, the attribution arriving while the dispatch completes the alert, a dispatch starting while the escalation is stored, a restart or an interrupted pass between alert and escalation, a dispatch sending the escalation – or a lowered follow-up while another rule's override keeps the evaluated severity High – before the attribution follow-up is queued, no escalation from a stored rule left out as a repeat, an interrupted pass's escalation dropped when the next pass no longer plans it or ends the attribution without a re-evaluation), `OutboxSenderJobTests` (fake transport returning each `DeliveryOutcome`; Deferred counts no attempt; RetryPolicy schedules with a seeded `Random`), `SignalsTests` (two subscriptions on one signal both wake; no lost wake-ups), `HeartbeatJobTests`, `DigestBuilderTests` (sections, caps, weekly sections, empty heartbeat, Monday after a weekend covers Friday 07:30 → Monday 07:30, lockouts rolled up per account and day, password resets vs own changes, the severity change of an escalated attention event), `ScheduleTests` (DST spring/fall in Europe/Warsaw), `PolishHolidaysTests` (2026, 2027, 24 Dec from 2025) |
+| Formatting | `EmailSubjectBuilderTests` (pl/en table 14.2, CR/LF stripping, 200 chars), `UntrustedTextTests` (U+202E, U+2066, zero-width → visible escapes; `https://evil.example/x` → `hxxps://evil[.]example/x`; `www.` defanged; UPNs and host names unchanged), `EmailAlertFormatterTests` (HTML-encoded hostile values like `<script>`, `[Kliknij](https://evil)`, `‮` and a URL in description and in a nested group name of a Via path; secret masked; detail levels; source row IP first with name origin; lockout source row; follow-up banners and the severity change pl/en – single fact, aggregated Priorytet column, lowered value), `TeamsCardFormatterTests` (only AC 1.4 element types; AD strings only in TextRun; defanged URLs; ≤ 24 576 bytes with 500 Polish events; one attachment; escalation card title and Priorytet rows), `WebhookPayloadFormatterTests` (schema, Minimal level strips values; `ad.severity.escalated` / `previousSeverity`), `EmailDigestFormatterTests` / `TeamsDigestCardFormatterTests` (attention severity change), `StandardWebhookSignerTests` (both vectors of 14.5, rotation = two signatures), `TeamsUrlValidatorTests`, `NotificationStringsTests` (every generated key in en and pl) |
 
 ### 22.2 `tests/AdMng.Watchdog.Service.Tests` (W-service)
 
@@ -4895,7 +5449,9 @@ no `Thread.Sleep` (use `FakeTimeProvider` / signals), 0 warnings.
   5136 XML, SMTP 550 on a recipient, an `int.Parse` failure on an AD value, an unhandled exception in an endpoint and
   in a job – and assert that no snapshot/event string value, no recipient address and no secret appears.
 - Storage: `SqliteStoreContractTests` (subclass of W-core's abstract contract suite, incl. the case-insensitive
-  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused),
+  attribute lookup after a round trip), migrations (fresh, upgrade with pre-migration backup, newer version refused,
+  a migration failing halfway rolled back whole and applied at the next start, schema-1 rows read with their payload
+  severity as own severity without a table rewrite),
   retention batches + backup rotation (pre-migration backups too), size cap purge, AUTOINCREMENT cursor after purge,
   outbox payload NULL after send, `secure_delete`: after purge + checkpoint the db and WAL bytes no longer contain a
   purged Polish value, `temp_store = MEMORY` set on every connection, config + secrets + audit in one transaction,
@@ -4937,8 +5493,11 @@ localization completeness for every `Watchdog.*` family, language switch.
 
 ### 22.4 `tests/AdMng.Watchdog.IntegrationTests` (W-testenv) – Samba lab, skipped without `ADMNG_TEST_LDAP_*`
 
-Fixture: Administrator session creates `OU=WatchdogIT-<run id>` (throwaway; tree-deleted at the end; leftovers of
-aborted runs removed first), a read-only session as `odczyt.test` (`ADMNG_TEST_LDAP_READONLY_*`), the real engines
+Fixture: Administrator session creates `OU=WatchdogIT-<run id>` (throwaway, its description names the test process;
+removed at the end; first the OUs of runs that are over are removed – owner process on this host ended, or older than
+2 h – while OUs of runs in progress stay; trees are deleted client-side in short requests, `LabCleanup` shared with
+`AdMng.Directory.IntegrationTests`, because a Samba tree delete of the 1600-member group exceeds its 300-s request
+limit and blocks the shared lab), a read-only session as `odczyt.test` (`ADMNG_TEST_LDAP_READONLY_*`), the real engines
 resolved from `services.AddWatchdogCore()` (interfaces only, never constructors) + `InMemoryWatchdogStore` +
 `LdapDirectoryConnector`, `CreationSettleWindow = 0` unless a test exercises the window. The engine watches the whole lab
 domain (the baseline over ~3 000 objects is part of the fixture and must finish in < 60 s); assertions only look at
@@ -4979,6 +5538,8 @@ with ldapsearch as odczyt.test from a throwaway object) and `windows-xml.txt` (X
 
 ## 23. Test environment (`tools/testlab/watchdog`, W-testenv)
 
+> **Amended by stage B:** new lab scripts `keytab-lab.sh` (Kerberos environment of the keytab, GSSAPI and Negotiate tests) and `wec-units-lab.sh` (packages under systemd); see `tools/testlab/watchdog/README.md` and `docs/dev/watchdog-linux-design.md` 21.1.
+
 | File | Purpose |
 |---|---|
 | `README.md` (Polish) | how to run the watchdog against the Samba lab, Mailpit UI (http://127.0.0.1:8025), webhook sink, scenario script, Kerberos option, cleanup |
@@ -4998,6 +5559,8 @@ variable after the other configuration files, section 19.1). The lab is shared: 
 ---
 
 ## 24. CI (`.github/workflows/ci.yml`, W-testenv)
+
+> **Amended by stage B:** CI adds the jobs `openwec-package` (Debian 12 and 13, GPL source tarball) and `linux-package` (admng-watchdog .deb, install test on Debian 12 and 13, lintian); from 0.3.0 the release workflow publishes these packages instead of the Windows service zip (`docs/dev/watchdog-linux-design.md` 13.3, 21 B10).
 
 - **windows** job (existing): `dotnet test AdMng.slnx` now includes the watchdog test projects (env
   `ADMNG_UI_TESTS=1`, new `ADMNG_WINDOWS_EVENTLOG_TESTS=1`); after the app publish add:
@@ -5337,8 +5900,8 @@ public static class StandardWebhookSigner
    Security channel ACL for Event Log Readers, `lockoutTime` reset to 0 at the first logon after expiry (Samba source
    confirms it; assumed identical on Windows), Recycle Bin restore re-activating links without a group USN bump,
    4771/4776 visibility on the PDC for lockout sources and spraying, 5136/5137 coverage of the extended SACL script
-   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), what an NTLM-only client gets from HTTP.sys with
-   scheme Kerberos. Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
+   (domain head, GPC, PSO, trusts, AdminSDHolder, inetOrgPerson, dMSA), whether the token source / logon session of an HTTP.sys
+   Kerberos logon reads `Kerberos` for the gMSA (fail closed otherwise). Plan: a Windows Server 2022/2025 lab run before release; record real events as fixtures.
 5. **Teams**: the Adaptive Card version accepted by Workflows (1.4 assumed), rendering of ToggleVisibility/`msteams.width`,
    tenant policy on SAS triggers, OAuth trigger availability, flow owner licensing (90-day suspension → weekly digest
    heartbeat). Needs a live tenant check.

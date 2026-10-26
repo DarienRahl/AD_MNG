@@ -26,6 +26,23 @@ internal static class RangeValidator
         RangeCheck.Check(run, "digest.maxRowsPerSection", c.Digest.MaxRowsPerSection, 1, 1000);
         RangeCheck.Check(run, "digest.upcomingExpiryDays", c.Digest.UpcomingExpiryDays, 0, 365);
         Retention(run, c.Retention);
+        RetentionFloor(run, c.Retention);
+    }
+
+    /// <summary>
+    /// <c>retentionBelowFloor</c> (stage B design 14.2): <c>retention.eventsDays</c> below the root-owned bootstrap floor
+    /// <c>Watchdog:Retention:MinEventsDays</c> (<see cref="Abstractions.ConfigValidationContext.MinEventsDays"/>; 0 = no
+    /// floor) – the 3-year history cannot be shortened through the API.
+    /// </summary>
+    private static void RetentionFloor(ValidationRun run, RetentionSettings r)
+    {
+        var floor = run.Context.MinEventsDays;
+        if (floor > 0 && r.EventsDays < floor)
+        {
+            run.Error("retention.eventsDays", ConfigValidationCodes.RetentionBelowFloor,
+                $"Events are kept at least {floor} days (bootstrap setting Watchdog:Retention:MinEventsDays, changeable only on the server).",
+                ValidationRun.Arg(floor));
+        }
     }
 
     private static void Directory(ValidationRun run, DirectorySettings d)
@@ -51,6 +68,14 @@ internal static class RangeValidator
         RangeCheck.Check(run, "attribution.logonLookback", a.LogonLookback, Hour, 72 * Hour);
         RangeCheck.Check(run, "attribution.sourceQueryTimeout", a.SourceQueryTimeout, 2 * Second, 60 * Second);
         RangeCheck.Check(run, "attribution.maxRecordsPerPoll", a.MaxRecordsPerPoll, 1000, 500_000);
+        var silenceWarning = RangeCheck.Check(run, "attribution.collectorSilenceWarning", a.CollectorSilenceWarning, 5 * Minute, Day);
+        if (RangeCheck.Check(run, "attribution.collectorSilenceError", a.CollectorSilenceError, 5 * Minute, 7 * Day) && silenceWarning
+            && a.CollectorSilenceError < a.CollectorSilenceWarning)
+        {
+            // The Error threshold of wec.<dc>.silent cannot come before its Warning (stage B design 7.9).
+            RangeCheck.Check(run, "attribution.collectorSilenceError", a.CollectorSilenceError, a.CollectorSilenceWarning, 7 * Day);
+        }
+
         if (RangeCheck.Check(run, "attribution.pendingRetries", a.PendingRetries.Count, 1, 10))
         {
             for (var i = 0; i < a.PendingRetries.Count; i++)
@@ -111,14 +136,35 @@ internal static class RangeValidator
         RangeCheck.Check(run, "smtp.timeout", s.Timeout, 5 * Second, 10 * Minute);
     }
 
+    /// <summary>The logon records must outlive the longest lookup (stage B design 7.7): <c>attribution.logonLookback</c> plus
+    /// the last <c>attribution.pendingRetries</c> step – a lookup of the last retry reaches that far back.</summary>
+    private static void LogonRetention(ValidationRun run, RetentionSettings r)
+    {
+        var attribution = run.Configuration.Attribution;
+        var needed = attribution.LogonLookback + (attribution.PendingRetries.Count == 0 ? TimeSpan.Zero : attribution.PendingRetries.Max());
+        var hours = (long)Math.Ceiling(needed.TotalHours);
+        if (r.LogonRecordsHours < hours)
+        {
+            run.Error("retention.logonRecordsHours", ConfigValidationCodes.LogonRetentionTooShort,
+                $"Logon records must be kept at least {ValidationRun.Arg(hours)} hours (logon lookback + the last pending retry).",
+                ValidationRun.Arg(hours));
+        }
+    }
+
     private static void Retention(ValidationRun run, RetentionSettings r)
     {
         RangeCheck.Check(run, "retention.eventsDays", r.EventsDays, 7, 3650);
         RangeCheck.Check(run, "retention.securityEventsDays", r.SecurityEventsDays, 1, 3650);
+        if (RangeCheck.Check(run, "retention.logonRecordsHours", r.LogonRecordsHours, 12, 720))
+        {
+            LogonRetention(run, r);
+        }
+
         RangeCheck.Check(run, "retention.outboxSentDays", r.OutboxSentDays, 1, 3650);
         RangeCheck.Check(run, "retention.outboxDeadDays", r.OutboxDeadDays, 1, 3650);
         RangeCheck.Check(run, "retention.deletedSnapshotDays", r.DeletedSnapshotDays, 1, 3650);
         RangeCheck.Check(run, "retention.configAuditDays", r.ConfigAuditDays, 1, 3650);
+        RangeCheck.Check(run, "retention.userMessageAuditDays", r.UserMessageAuditDays, 1, 3650);
         RangeCheck.Check(run, "retention.preMigrationBackupDays", r.PreMigrationBackupDays, 1, 3650);
         RangeCheck.Check(run, "retention.backupsToKeep", r.BackupsToKeep, 0, 1000);
         RangeCheck.Check(run, "retention.maxDatabaseMb", r.MaxDatabaseMb, 512, 1_048_576);

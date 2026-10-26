@@ -5,9 +5,10 @@ using Microsoft.Data.Sqlite;
 namespace AdMng.Watchdog.Service.Storage;
 
 /// <summary>
-/// <see cref="ISecurityEventStore"/> over <c>security_events</c> (unique per DC × record id; the parsed record in the
-/// <c>data</c> blob, lookup keys in indexed columns: upper-case SIDs, lower-case computer and target user name, normalized
-/// object DN) and <c>eventlog_cursors</c>. Correlation windows are closed <c>[From, To]</c>, results in time order.
+/// <see cref="ISecurityEventStore"/> over <c>security_events</c> (unique per DC × record id × time created – migration 0004;
+/// the parsed record in the <c>data</c> blob, lookup keys in indexed columns: upper-case SIDs, lower-case computer and
+/// target user name, normalized object DN, the normalized 4624 <c>TargetLogonId</c>) and <c>eventlog_cursors</c>.
+/// Correlation windows are closed <c>[From, To]</c>, results in time order.
 /// </summary>
 public sealed class SqliteSecurityEventStore : ISecurityEventStore
 {
@@ -86,6 +87,7 @@ public sealed class SqliteSecurityEventStore : ISecurityEventStore
         AddEquals(conditions, parameters, "member_sid", criteria.MemberSid is null ? null : SqliteValues.SidOrNull(criteria.MemberSid));
         AddEquals(conditions, parameters, "target_user", criteria.TargetUserName is null ? null : SqliteValues.LowerOrNull(criteria.TargetUserName));
         AddEquals(conditions, parameters, "object_dn_norm", criteria.ObjectDn is null ? null : SqliteValues.NormalizeDn(criteria.ObjectDn));
+        AddEquals(conditions, parameters, "logon_id", criteria.LogonId is null ? null : SecurityEvent.NormalizeLogonId(criteria.LogonId) ?? criteria.LogonId);
         if (criteria.ObjectGuid is { } objectGuid)
         {
             conditions.Add("object_guid = $object_guid");
@@ -119,9 +121,9 @@ public sealed class SqliteSecurityEventStore : ISecurityEventStore
             transaction,
             """
             INSERT OR IGNORE INTO security_events (computer, record_id, source, event_code, time_created, target_sid, object_guid,
-              member_sid, target_user, object_dn_norm, subject_sid, subject_logon_id, data)
+              member_sid, target_user, object_dn_norm, subject_sid, subject_logon_id, logon_id, data)
             VALUES ($computer, $record, $source, $code, $time, $targetSid, $objectGuid, $memberSid, $targetUser, $objectDn,
-              $subjectSid, $logonId, $data);
+              $subjectSid, $subjectLogonId, $logonId, $data);
             """,
             ("$computer", SqliteValues.LowerOrNull(securityEvent.Computer)),
             ("$record", securityEvent.RecordId),
@@ -134,7 +136,8 @@ public sealed class SqliteSecurityEventStore : ISecurityEventStore
             ("$targetUser", SqliteValues.LowerOrNull(securityEvent.Get("TargetUserName"))),
             ("$objectDn", SqliteValues.NormalizeDnOrNull(securityEvent.Get("ObjectDN"))),
             ("$subjectSid", SqliteValues.SidOrNull(securityEvent.SubjectSid)),
-            ("$logonId", SqliteValues.OrNull(securityEvent.SubjectLogonId)),
+            ("$subjectLogonId", SqliteValues.OrNull(securityEvent.SubjectLogonId)),
+            ("$logonId", securityEvent.EventCode == 4624 ? SqliteValues.OrNull(securityEvent.TargetLogonId) : DBNull.Value),
             ("$data", BlobCodec.EncodeSecurityEvent(securityEvent)));
 
     private static void AddEquals(List<string> conditions, List<(string Name, object? Value)> parameters, string column, object? value)

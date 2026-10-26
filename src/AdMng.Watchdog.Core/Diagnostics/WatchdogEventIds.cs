@@ -31,6 +31,18 @@ public static class WatchdogEventIds
     /// <summary>Warning: runtime outdated / certificate expiring within 30 days.</summary>
     public const int RuntimeOrCertificate = 1007;
 
+    /// <summary>Information: SHA-256 fingerprint of the TLS certificate, at every start (stage B design 6.3; not directory data).</summary>
+    public const int CertificateFingerprint = 1008;
+
+    /// <summary>Warning/Error: a check of the service account or its keytab failed (code) – stage B design 4.7, 15.</summary>
+    public const int ServiceAccountProblem = 1011;
+
+    /// <summary>Warning/Error: WEF collector problem (DC host, code) – stage B design 7.9, 15.</summary>
+    public const int CollectorProblem = 1012;
+
+    /// <summary>Warning/Error: GPO content problem (GPO GUID, code) – stage B design 8, 15.</summary>
+    public const int GpoContentProblem = 1013;
+
     /// <summary>Error: fatal start-up check failed (exit code in the message).</summary>
     public const int FatalStartupCheck = 1010;
 }

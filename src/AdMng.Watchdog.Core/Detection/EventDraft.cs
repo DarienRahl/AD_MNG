@@ -35,4 +35,8 @@ internal sealed record EventDraft
 
     /// <summary>Overrides the change set (privileges of a restored object inherit the ObjectRestored change set).</summary>
     public Guid? ChangeSetId { get; init; }
+
+    /// <summary>The keytab tool's planned password rotation of the service's own account (design 9.3,
+    /// <see cref="WatchdogSelfRotation"/>): recorded without tag watchdogAccount, so <c>watchdog-self</c> does not alert.</summary>
+    public bool PlannedServiceAccountRotation { get; init; }
 }

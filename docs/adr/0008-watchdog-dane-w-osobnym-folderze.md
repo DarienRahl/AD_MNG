@@ -4,6 +4,15 @@
 - Data: 2026-10-14 (uzupełniona tego samego dnia po przeglądach: operacyjnym, bezpieczeństwa i implementacyjnym)
 - Zmienia: [ADR-0003](0003-brak-lokalnych-danych.md) (tylko w zakresie usługi AdMng Watchdog) oraz zasadę 2 w
   `CLAUDE.md` (tylko sekrety kanałów Watchdoga)
+- **Zmieniona przez [ADR-0009](0009-watchdog-na-linuksie.md)** (2026-10-20; obowiązuje od wydania 0.3.0, w którym
+  usługa działa wyłącznie na Linuksie): warunki tej decyzji obowiązują nadal, ale realizujemy je inaczej – folder
+  danych `/var/lib/admng-watchdog` (0700, sprawdzany przy każdym starcie) zamiast ACL NTFS, drugie krótkotrwałe miejsce
+  na pliki wyjściowe OpenWEC (`/var/lib/openwec/out`), migawka ustawień GPO bez sekretów, rekordy logowań 48 godzin,
+  retencja zdarzeń 1095 dni z progiem `MinEventsDays`, klucze sekretów chronione poświadczeniem systemd (TPM2 + klucz
+  hosta albo klucz hosta) zamiast DPAPI-NG, keytab konta usługi jako nowy wyjątek od zasady 2, dzienniki w journald.
+  Szczegóły: ADR-0009, sekcja „Zmiana ADR-0008”. Opis poniżej dotyczy usługi Windows z wydania 0.2.0.
+- **Uzupełniona (2026-10-26, U1b):** kolejka wysyłek usługi przenosi także wiadomości do użytkowników zgłoszone przez
+  AD Manager, a usługa prowadzi ich audyt bez treści – sekcja „Uzupełnienie: wiadomości do użytkowników (U1b)” na końcu.
 
 ## Kontekst
 
@@ -100,3 +109,21 @@ dane katalogu nie wychodzą poza folder usługi i poza jawnie skonfigurowane kan
   wyłączyć monitorowanie – stąd wymóg Tier 0, zewnętrzny monitoring (`/healthz`, dziennik Application, heartbeat).
 - Zakres wyjątku jest wąski: każda inna część rozwiązania, która chciałaby przechowywać dane katalogu, wymaga osobnej
   decyzji.
+
+## Uzupełnienie: wiadomości do użytkowników (U1b)
+
+Od U1b AD Manager może wysyłać wiadomości do użytkowników (szablony z danymi konta, README, ścieżka U) przez usługę
+(`POST /api/v1/user-messages`, docs/WATCHDOG.md rozdz. 5.8). Warunki tej decyzji obowiązują bez zmian, a nowe dane
+mieszczą się w nich tak:
+
+- **Kolejka wysyłek** (`outbox`, punkt 4) przechowuje gotową wiadomość (temat, tekst, HTML, adresy *Od*, *Do*, *DW*,
+  *Odpowiedz do*) wyłącznie w treści wiadomości w kolejce (kolumna `payload`, jak treść alarmów), która jest usuwana
+  zaraz po wysłaniu; nieudane – po `OutboxDeadDays` (do ręcznego ponowienia), jak każda inna wiadomość. Metadane
+  w dzienniku wysyłek nie zawierają tematu ani adresów (tylko rodzaj, stan, liczbę odbiorców i kody).
+- **Audyt** (`user_messages`, schemat 6): identyfikator wiadomości, czas, SID i konto operatora, liczba odbiorców, skrót
+  SHA-256 posortowanych adresów i skrót SHA-256 żądania (kontrola idempotencji) – nigdy adres, temat ani treść; retencja
+  `retention.userMessageAuditDays` (domyślnie 365 dni).
+- **Dzienniki diagnostyczne** – jedna linia na wiadomość: identyfikator, konto operatora, liczba odbiorców; bez adresów,
+  skrótów i treści.
+- Funkcja jest domyślnie wyłączona (`userMessages.enabled`), a strona AD Managera pozostaje pod pełnym zakazem ADR-0003:
+  wiadomości i raport istnieją w procesie WPF tylko w pamięci.

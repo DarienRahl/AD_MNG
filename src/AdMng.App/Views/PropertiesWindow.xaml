@@ -77,13 +77,18 @@
 
     <!--
       Common frame of every field. Tag selects the layout: (none) = label left / editor right, "Stacked" = label above a
-      full-width editor (lists), "Check" = no label column (check boxes, radio groups under a section header).
+      full-width editor (lists), "Check" = no label column (check boxes, radio groups under a section header), "Copy" =
+      label left / editor right, the editor also covering the copy column.
+      Copy column: every field reserves it (an empty placeholder) and editors with a copy button ("Copy") put the button
+      in their own FieldCopy column. The group is shared by the page, so it is as wide as a copy button when any field of
+      the page has one (zero otherwise) and every editor of the page ends at the same x, with or without a copy button.
     -->
     <ControlTemplate x:Key="FieldChrome" TargetType="ContentControl">
       <Grid Margin="0,3">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
           <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" SharedSizeGroup="FieldCopy" />
           <ColumnDefinition Width="Auto" SharedSizeGroup="FieldStatus" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
@@ -104,7 +109,7 @@
                           Grid.Column="1" />
         <StackPanel x:Name="StatusGlyphs"
                     Grid.Row="1"
-                    Grid.Column="2"
+                    Grid.Column="3"
                     Margin="6,7,0,0"
                     VerticalAlignment="Top"
                     Orientation="Horizontal">
@@ -179,6 +184,9 @@
           <Setter TargetName="IssueLine" Property="Grid.Column" Value="0" />
           <Setter TargetName="IssueLine" Property="Grid.ColumnSpan" Value="2" />
         </Trigger>
+        <Trigger Property="Tag" Value="Copy">
+          <Setter TargetName="Editor" Property="Grid.ColumnSpan" Value="2" />
+        </Trigger>
       </ControlTemplate.Triggers>
     </ControlTemplate>
 
@@ -188,38 +196,97 @@
     <DataTemplate DataType="{x:Type ps:FieldViewModel}">
       <ContentControl Focusable="False"
                       IsTabStop="False"
+                      Tag="Copy"
                       Template="{StaticResource FieldChrome}">
-        <StackPanel>
-          <DockPanel>
-            <Button Margin="4,0,0,0"
-                    VerticalAlignment="Top"
-                    AutomationProperties.Name="{l:Tr Common.Copy}"
-                    Command="{Binding CopyCommand}"
-                    Content="{x:Static c:Glyphs.Copy}"
-                    DockPanel.Dock="Right"
-                    Style="{StaticResource Ad.IconButton}"
-                    ToolTip="{l:Tr Common.Copy}"
-                    Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
-            <ToggleButton x:Name="OthersToggle"
-                          Margin="4,0,0,0"
-                          Padding="10,4"
-                          VerticalAlignment="Top"
-                          Content="{l:Tr Fields.Other}"
-                          DockPanel.Dock="Right"
-                          Visibility="{Binding Others, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-            <TextBox x:Name="ValueBox"
-                     AutomationProperties.Name="{Binding Label, Mode=OneWay}"
-                     IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
-                     MaxLength="{Binding MaxLength, Mode=OneWay}"
-                     Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
-          </DockPanel>
-          <ContentControl Margin="0,4,0,0"
+        <!--
+          [CONTOSO\] value [Other...] [copy]; the copy button's column is the page's shared copy column, reserved also
+          when this field has no copy button. Tab order: the TabIndex values within this row, then the "Other" list.
+        -->
+        <Grid KeyboardNavigation.TabNavigation="Local">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldCopy" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <!--
+            ADUC's "CONTOSO\" in front of the pre-Windows 2000 logon name: copies CONTOSO\login. The prefix is shown in a
+            TextBlock: as a string Content the button would read "_" in a NetBIOS name (MY_CORP) as an access key.
+          -->
+          <Button x:Name="QualifiedCopyButton"
+                  Margin="0,0,4,0"
+                  Padding="8,4"
+                  VerticalAlignment="Top"
+                  Command="{Binding CopyQualifiedCommand}"
+                  KeyboardNavigation.TabIndex="0"
+                  Visibility="{Binding QualifiedPrefix, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+            <Button.ToolTip>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="QualifiedValue" />
+              </MultiBinding>
+            </Button.ToolTip>
+            <AutomationProperties.Name>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="QualifiedValue" />
+              </MultiBinding>
+            </AutomationProperties.Name>
+            <TextBlock Text="{Binding QualifiedPrefix, Mode=OneWay}" />
+          </Button>
+          <TextBox x:Name="ValueBox"
+                   Grid.Column="1"
+                   AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
+                   IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
+                   KeyboardNavigation.TabIndex="1"
+                   MaxLength="{Binding MaxLength, Mode=OneWay}"
+                   Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+          <ToggleButton x:Name="OthersToggle"
+                        Grid.Column="2"
+                        Margin="4,0,0,0"
+                        Padding="10,4"
+                        VerticalAlignment="Top"
+                        Content="{l:Tr Fields.Other}"
+                        KeyboardNavigation.TabIndex="2"
+                        Visibility="{Binding Others, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <!-- One-click copy (e-mail, phones, logon name, Object page...): "Copy: <label>", check mark after the click. -->
+          <Button x:Name="CopyButton"
+                  Grid.Column="3"
+                  Margin="4,0,0,0"
+                  VerticalAlignment="Top"
+                  b:CopyFeedback.IsEnabled="True"
+                  Command="{Binding CopyCommand}"
+                  Content="{x:Static c:Glyphs.Copy}"
+                  KeyboardNavigation.TabIndex="3"
+                  Style="{StaticResource Ad.IconButton}"
+                  Visibility="{Binding CanCopy, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Button.ToolTip>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </Button.ToolTip>
+            <AutomationProperties.Name>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </AutomationProperties.Name>
+          </Button>
+          <!-- Below the value, as wide as the other editors of the page (not under the copy column). -->
+          <ContentControl Grid.Row="1"
+                          Grid.ColumnSpan="3"
+                          Margin="0,4,0,0"
                           Content="{Binding Others, Mode=OneWay}"
                           Focusable="False"
                           Grid.IsSharedSizeScope="True"
                           IsTabStop="False"
                           Visibility="{Binding IsChecked, ElementName=OthersToggle, Converter={StaticResource Ad.BoolToVisibility}}" />
-        </StackPanel>
+        </Grid>
       </ContentControl>
       <DataTemplate.Triggers>
         <DataTrigger Binding="{Binding IsMultiline, Mode=OneWay}" Value="True">
@@ -299,6 +366,76 @@
       </ContentControl>
     </DataTemplate>
 
+    <!--
+      Account state on the Account tab (README U2): lock, password and account expiry with the days left, last logon; on
+      demand the lock state and the exact last logon on every DC. "Wyślij wiadomość…" is the U1 hook (hidden without it).
+    -->
+    <DataTemplate DataType="{x:Type ps:AccountStatusFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <TextBlock Margin="0,2,12,2" Text="{l:Tr AccountStatus.State}" />
+          <TextBlock x:Name="StatusStateText"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding StateText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="1" Margin="0,2,12,2" Text="{l:Tr AccountStatus.Password}" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding PasswordText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="2" Margin="0,2,12,2" Text="{l:Tr AccountStatus.Account}" />
+          <TextBlock Grid.Row="2"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding AccountText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="3" Margin="0,2,12,2" Text="{l:Tr AccountStatus.LastLogon}" />
+          <TextBlock Grid.Row="3"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding LastLogonText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <StackPanel Grid.Row="4"
+                      Grid.Column="1"
+                      Margin="0,6,0,0"
+                      Orientation="Horizontal">
+            <Button x:Name="CheckDomainControllersButton"
+                    Command="{Binding CheckDomainControllersCommand}"
+                    Content="{l:Tr AccountStatus.CheckDomainControllers}" />
+            <Button Margin="6,0,0,0"
+                    Command="{Binding SendMessageCommand}"
+                    Content="{l:Tr AccountReview.SendMessage}"
+                    Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+          <TextBlock Grid.Row="5"
+                     Grid.Column="1"
+                     Margin="0,6,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding DomainControllersText, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding DomainControllersText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
     <!-- Account expires: Never / End of [date]. -->
     <DataTemplate DataType="{x:Type ps:ExpiryFieldViewModel}">
       <ContentControl Focusable="False"
@@ -340,57 +477,92 @@
     <DataTemplate DataType="{x:Type ps:DnFieldViewModel}">
       <ContentControl Focusable="False"
                       IsTabStop="False"
+                      Tag="Copy"
                       Template="{StaticResource FieldChrome}">
-        <StackPanel>
-          <Grid>
-            <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
-                     IsReadOnly="True"
-                     Text="{Binding DisplayName, Mode=OneWay}"
-                     ToolTip="{Binding Value, Mode=OneWay}" />
-            <TextBlock Style="{StaticResource Ad.HintText}"
-                       Text="{l:Tr Common.NotSet}"
-                       Visibility="{Binding HasValue, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
-          </Grid>
-          <TextBlock Margin="2,2,0,0"
-                     FontSize="11"
-                     Style="{StaticResource Ad.SecondaryText}"
-                     Text="{Binding Path, Mode=OneWay}"
-                     Visibility="{Binding Path, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
-          <WrapPanel Margin="0,6,0,0">
-            <Button Command="{Binding BrowseCommand}"
-                    Content="{l:Tr Common.Browse}"
-                    Style="{StaticResource SmallButton}" />
-            <Button Command="{Binding OpenCommand}"
-                    Content="{l:Tr Commands.Properties}"
-                    Style="{StaticResource SmallButton}" />
-            <Button Command="{Binding ClearCommand}"
-                    Content="{l:Tr Common.Clear}"
-                    Style="{StaticResource SmallButton}" />
-          </WrapPanel>
-          <ItemsControl Margin="0,8,0,0"
-                        Focusable="False"
-                        Grid.IsSharedSizeScope="True"
-                        ItemsSource="{Binding Details, Mode=OneWay}"
-                        Visibility="{Binding ShowsDetails, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate DataType="{x:Type shell:SummaryField}">
-                <Grid Margin="0,2">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" SharedSizeGroup="DetailLabel" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Margin="0,0,10,0"
-                             VerticalAlignment="Top"
-                             Style="{StaticResource Ad.SecondaryText}"
-                             Text="{Binding Label, Mode=OneWay}" />
-                  <TextBlock Grid.Column="1"
-                             Text="{Binding Value, Mode=OneWay}"
-                             TextWrapping="Wrap" />
-                </Grid>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
+        <!--
+          Everything left of the page's shared copy column, the copy button in it. Tab order as on screen: the name, its
+          copy button (TabIndex), then Browse / Properties / Clear.
+        -->
+        <Grid KeyboardNavigation.TabNavigation="Local">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldCopy" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <Grid>
+              <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
+                       IsReadOnly="True"
+                       KeyboardNavigation.TabIndex="0"
+                       Text="{Binding DisplayName, Mode=OneWay}"
+                       ToolTip="{Binding Value, Mode=OneWay}" />
+              <TextBlock Style="{StaticResource Ad.HintText}"
+                         Text="{l:Tr Common.NotSet}"
+                         Visibility="{Binding HasValue, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+            </Grid>
+            <TextBlock Margin="2,2,0,0"
+                       FontSize="11"
+                       Style="{StaticResource Ad.SecondaryText}"
+                       Text="{Binding Path, Mode=OneWay}"
+                       Visibility="{Binding Path, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+            <WrapPanel Margin="0,6,0,0">
+              <Button Command="{Binding BrowseCommand}"
+                      Content="{l:Tr Common.Browse}"
+                      Style="{StaticResource SmallButton}" />
+              <Button Command="{Binding OpenCommand}"
+                      Content="{l:Tr Commands.Properties}"
+                      Style="{StaticResource SmallButton}" />
+              <Button Command="{Binding ClearCommand}"
+                      Content="{l:Tr Common.Clear}"
+                      Style="{StaticResource SmallButton}" />
+            </WrapPanel>
+            <ItemsControl Margin="0,8,0,0"
+                          Focusable="False"
+                          Grid.IsSharedSizeScope="True"
+                          ItemsSource="{Binding Details, Mode=OneWay}"
+                          Visibility="{Binding ShowsDetails, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type shell:SummaryField}">
+                  <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto" SharedSizeGroup="DetailLabel" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Margin="0,0,10,0"
+                               VerticalAlignment="Top"
+                               Style="{StaticResource Ad.SecondaryText}"
+                               Text="{Binding Label, Mode=OneWay}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Value, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+          <!-- Copies the referenced object's name (the manager's name for a ticket or an e-mail). -->
+          <Button x:Name="CopyReferenceButton"
+                  Grid.Column="1"
+                  Margin="4,0,0,0"
+                  VerticalAlignment="Top"
+                  b:CopyFeedback.IsEnabled="True"
+                  Command="{Binding CopyCommand}"
+                  Content="{x:Static c:Glyphs.Copy}"
+                  KeyboardNavigation.TabIndex="1"
+                  Style="{StaticResource Ad.IconButton}">
+            <Button.ToolTip>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </Button.ToolTip>
+            <AutomationProperties.Name>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </AutomationProperties.Name>
+          </Button>
+        </Grid>
       </ContentControl>
     </DataTemplate>
 
@@ -496,14 +668,17 @@
     <DataTemplate DataType="{x:Type ps:UpnFieldViewModel}">
       <ContentControl Focusable="False"
                       IsTabStop="False"
+                      Tag="Copy"
                       Template="{StaticResource FieldChrome}">
+        <!-- prefix @ [suffix] [copy]; the copy button in the page's shared copy column. -->
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldCopy" />
           </Grid.ColumnDefinitions>
-          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+          <TextBox AutomationProperties.Name="{Binding Label, Mode=OneWay, TargetNullValue=''}"
                    IsReadOnly="{Binding IsReadOnly, Mode=OneWay}"
                    Text="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" />
           <TextBlock Grid.Column="1"
@@ -516,6 +691,28 @@
                     IsEnabled="{Binding IsEditable, Mode=OneWay}"
                     ItemsSource="{Binding Suffixes, Mode=OneWay}"
                     SelectedItem="{Binding Suffix}" />
+          <!-- Copies prefix@suffix as it will be written. -->
+          <Button x:Name="CopyUpnButton"
+                  Grid.Column="3"
+                  Margin="4,0,0,0"
+                  VerticalAlignment="Top"
+                  b:CopyFeedback.IsEnabled="True"
+                  Command="{Binding CopyCommand}"
+                  Content="{x:Static c:Glyphs.Copy}"
+                  Style="{StaticResource Ad.IconButton}">
+            <Button.ToolTip>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </Button.ToolTip>
+            <AutomationProperties.Name>
+              <MultiBinding Converter="{StaticResource Ad.Format}" TargetNullValue="">
+                <l:TrBinding Key="Copy.CopyValue" />
+                <Binding Mode="OneWay" Path="Label" />
+              </MultiBinding>
+            </AutomationProperties.Name>
+          </Button>
         </Grid>
       </ContentControl>
     </DataTemplate>
@@ -560,6 +757,28 @@
             </DockPanel>
           </StackPanel>
         </StackPanel>
+      </ContentControl>
+    </DataTemplate>
+
+    <!-- Logon hours: summary in local time and the Logon Hours dialog (read-only without permission to write logonHours). -->
+    <DataTemplate DataType="{x:Type ps:LogonHoursFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Template="{StaticResource FieldChrome}">
+        <DockPanel>
+          <!-- The summary is not focusable: the button's help text gives it to a screen reader. -->
+          <Button Margin="8,0,0,0"
+                  VerticalAlignment="Top"
+                  AutomationProperties.HelpText="{Binding Summary, Mode=OneWay, TargetNullValue=''}"
+                  Command="{Binding EditCommand}"
+                  Content="{l:Tr Labels.LogonHoursButton}"
+                  DockPanel.Dock="Right"
+                  Style="{StaticResource SmallButton}" />
+          <TextBlock Margin="0,6,0,0"
+                     VerticalAlignment="Top"
+                     Text="{Binding Summary, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+        </DockPanel>
       </ContentControl>
     </DataTemplate>
 
@@ -628,12 +847,25 @@
                       Tag="Stacked"
                       Template="{StaticResource FieldChrome}">
         <StackPanel>
-          <ListView Height="150"
+          <StackPanel.Resources>
+            <!-- The field for the context menu (outside the visual tree). -->
+            <c:BindingProxy x:Key="ProxyFieldProxy" Data="{Binding}" />
+          </StackPanel.Resources>
+          <ListView x:Name="ProxyAddressList"
+                    Height="150"
                     AutomationProperties.Name="{Binding Label, Mode=OneWay}"
                     ItemContainerStyle="{StaticResource CompactRow}"
                     ItemsSource="{Binding Items, Mode=OneWay}"
+                    KeyDown="OnProxyAddressListKeyDown"
                     SelectedItem="{Binding SelectedItem}"
                     SelectionMode="Single">
+            <ListView.ContextMenu>
+              <ContextMenu>
+                <MenuItem Command="{Binding Data.CopyAddressCommand, Source={StaticResource ProxyFieldProxy}}"
+                          Header="{l:Tr Copy.CopyAddress}"
+                          InputGestureText="Ctrl+C" />
+              </ContextMenu>
+            </ListView.ContextMenu>
             <ListView.View>
               <GridView AllowsColumnReorder="False">
                 <GridViewColumn Width="72" Header="{l:Tr Labels.AddressType}">
@@ -677,12 +909,17 @@
               </GridView>
             </ListView.View>
           </ListView>
-          <WrapPanel Margin="0,6,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
+          <!-- Set primary / Remove need write access (their commands check it); Copy address works on read-only fields too. -->
+          <WrapPanel Margin="0,6,0,0">
             <Button Command="{Binding SetPrimaryCommand}"
                     Content="{l:Tr Labels.SetPrimaryAddress}"
                     Style="{StaticResource SmallButton}" />
             <Button Command="{Binding RemoveCommand}"
                     Content="{l:Tr Common.Remove}"
+                    Style="{StaticResource SmallButton}" />
+            <Button x:Name="CopyAddressButton"
+                    Command="{Binding CopyAddressCommand}"
+                    Content="{l:Tr Copy.CopyAddress}"
                     Style="{StaticResource SmallButton}" />
           </WrapPanel>
           <DockPanel Margin="0,6,0,0" IsEnabled="{Binding IsEditable, Mode=OneWay}">
@@ -759,6 +996,10 @@
     <!-- Member Of / Members: filter, direct list with staged changes, lazily loaded "All (nested)" list. -->
     <DataTemplate x:Key="MembershipBody" DataType="{x:Type ps:MembershipPageViewModel}">
       <DockPanel>
+        <DockPanel.Resources>
+          <!-- The page for the list's context menu (outside the visual tree). -->
+          <c:BindingProxy x:Key="MembershipPageProxy" Data="{Binding}" />
+        </DockPanel.Resources>
         <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
           <TextBlock Margin="12,0,0,0"
                      VerticalAlignment="Center"
@@ -801,6 +1042,12 @@
                 <Button Command="{Binding OpenCommand}"
                         Content="{l:Tr Commands.Properties}"
                         Style="{StaticResource SmallButton}" />
+                <!-- Members page: every member's address for Outlook's To field ("; "). -->
+                <Button x:Name="CopyAllMailButton"
+                        Command="{Binding CopyAllMailCommand}"
+                        Content="{l:Tr Copy.CopyAllMail}"
+                        Style="{StaticResource SmallButton}"
+                        Visibility="{Binding CanCopyAllMail, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
               </WrapPanel>
               <ListView x:Name="MembershipList"
                         AutomationProperties.Name="{Binding Title, Mode=OneWay}"
@@ -811,6 +1058,26 @@
                         SelectionChanged="OnMembershipSelectionChanged"
                         SelectionMode="Extended"
                         Unloaded="OnMembershipListUnloaded">
+                <ListView.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Command="{Binding Data.OpenCommand, Source={StaticResource MembershipPageProxy}}"
+                              FontWeight="SemiBold"
+                              Header="{l:Tr Commands.Properties}"
+                              InputGestureText="Enter" />
+                    <Separator />
+                    <MenuItem Command="{Binding Data.CopyNamesCommand, Source={StaticResource MembershipPageProxy}}"
+                              Header="{l:Tr Copy.CopyName}"
+                              InputGestureText="Ctrl+C" />
+                    <MenuItem Command="{Binding Data.CopyDnsCommand, Source={StaticResource MembershipPageProxy}}"
+                              Header="{l:Tr Commands.CopyDn}"
+                              InputGestureText="Ctrl+Shift+C" />
+                    <MenuItem Command="{Binding Data.CopyMailCommand, Source={StaticResource MembershipPageProxy}}"
+                              Header="{l:Tr Copy.CopyMail}" />
+                    <MenuItem Command="{Binding Data.CopyAllMailCommand, Source={StaticResource MembershipPageProxy}}"
+                              Header="{l:Tr Copy.CopyAllMail}"
+                              Visibility="{Binding Data.CanCopyAllMail, Source={StaticResource MembershipPageProxy}, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  </ContextMenu>
+                </ListView.ContextMenu>
                 <ListView.ItemContainerStyle>
                   <Style TargetType="ListViewItem" BasedOn="{StaticResource CompactRow}">
                     <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />

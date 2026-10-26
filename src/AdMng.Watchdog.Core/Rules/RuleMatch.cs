@@ -9,8 +9,8 @@ public sealed record RuleMatch
     /// <summary>The matching rule (effective configuration, tokens unexpanded).</summary>
     public required RuleSettings Rule { get; init; }
 
-    /// <summary>Severity of this rule's notifications: <c>rule.Severity ?? event.Severity</c> – a rule may deliberately
-    /// lower its notifications (12.1).</summary>
+    /// <summary>Severity of this rule's notifications: <c>rule.Severity ?? own severity</c> (<see cref="Model.EventSeverities.Own"/>)
+    /// – a rule may deliberately lower its notifications (12.1).</summary>
     public required Severity NotificationSeverity { get; init; }
 
     /// <summary>The match depends on an actor condition while attribution is pending (12.1 #8).</summary>

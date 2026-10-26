@@ -12,5 +12,8 @@ public sealed record SecurityEventCriteria
     public string? MemberSid { get; init; }
     public string? TargetUserName { get; init; }
     public string? ObjectDn { get; init; }
+    /// <summary>4624 TargetLogonId, normalized (<see cref="SecurityEvent.NormalizeLogonId"/>) – collector mode (stage B
+    /// design 7.8).</summary>
+    public string? LogonId { get; init; }
     public int Limit { get; init; } = 200;
 }

@@ -22,4 +22,11 @@ public static class EventTags
     public const string PasswordReset = "passwordReset";       // password set by another account (4724) – added by attribution
     public const string SyncAccount = "syncAccount";           // actor is a detected Entra Connect / sync account
     public const string OutOfScope = "outOfScope";             // moved into/out of Directory.ExcludedSubtrees
+
+    // stage B (docs/dev/watchdog-linux-design.md 8.5, 9.1–9.4)
+    public const string BadSuccessor = "badSuccessor";         // dMSA created, or a dMSA migration link / state changed (9.1)
+    public const string MachineAccountQuota = "machineAccountQuota"; // DomainPolicyChanged of ms-DS-MachineAccountQuota (9.2)
+    public const string WatchdogAccount = "watchdogAccount";   // object (or principal) is the service's own account ADMNG-WD$ (9.3)
+    public const string GppPassword = "gppPassword";           // GPO preferences carry a cpassword (MS14-025; value never stored, 8.5)
+    public const string AuditSettings = "auditSettings";       // SecurityDescriptorChanged from an nTSecurityDescriptor version bump with an unchanged owner/DACL – a SACL change (9.4)
 }

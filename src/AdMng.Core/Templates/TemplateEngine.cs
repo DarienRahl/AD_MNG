@@ -36,12 +36,45 @@ public sealed class TemplateEngine : ITemplateEngine
     private static readonly string[] KnownSpecialTokens = ["dn", "rdn", "parent", "parentName", "domain", "counter", "date"];
 
     private readonly ConcurrentDictionary<string, CompiledTemplate> _cache = new(StringComparer.Ordinal);
+    private readonly IReadOnlyDictionary<string, TemplateExtensionToken> _extensions;
+
+    /// <summary>The engine of the batch editor and object creation (no extension tokens).</summary>
+    public TemplateEngine()
+        : this([])
+    {
+    }
+
+    /// <summary>
+    /// An engine that also knows <paramref name="extensions"/> (<c>{$name}</c> / <c>{$name:argument}</c>, evaluated by
+    /// <see cref="TemplateContext.Extension"/>), e.g. the computed fields of user messages. Names must not collide with the
+    /// built-in special tokens.
+    /// </summary>
+    public TemplateEngine(IEnumerable<TemplateExtensionToken> extensions)
+    {
+        ArgumentNullException.ThrowIfNull(extensions);
+        var map = new Dictionary<string, TemplateExtensionToken>(StringComparer.OrdinalIgnoreCase);
+        foreach (var extension in extensions)
+        {
+            if (KnownSpecialTokens.Contains(extension.Name, StringComparer.OrdinalIgnoreCase) || !map.TryAdd(extension.Name, extension))
+            {
+                throw new ArgumentException($"The token '${extension.Name}' is defined twice.", nameof(extensions));
+            }
+        }
+
+        _extensions = map;
+    }
+
+    /// <summary>The extension tokens of this instance.</summary>
+    public IReadOnlyCollection<TemplateExtensionToken> Extensions => [.. _extensions.Values];
 
     /// <inheritdoc />
     public TemplateParseResult Parse(string template)
     {
         var compiled = Compile(template);
-        return new TemplateParseResult(compiled.Errors.Count == 0, compiled.Errors, compiled.ReferencedAttributes);
+        return new TemplateParseResult(compiled.Errors.Count == 0, compiled.Errors, compiled.ReferencedAttributes)
+        {
+            SpecialTokens = compiled.SpecialTokens,
+        };
     }
 
     /// <inheritdoc />
@@ -79,7 +112,7 @@ public sealed class TemplateEngine : ITemplateEngine
             return cached;
         }
 
-        var compiled = TemplateParser.Parse(template);
+        var compiled = TemplateParser.Parse(template, _extensions);
         if (_cache.Count >= MaxCachedTemplates)
         {
             _cache.Clear();
@@ -92,14 +125,21 @@ public sealed class TemplateEngine : ITemplateEngine
     private string EvaluateToken(TokenSegment token, TemplateContext context)
     {
         var value = token.Special is { } special
-            ? EvaluateSpecial(special, token.SpecialArgument, context)
+            ? token.IsExtension
+                ? context.Extension?.Invoke(special, token.SpecialArgument) ?? string.Empty
+                : EvaluateSpecial(special, token.SpecialArgument, context)
             : FirstValue(context.Attribute(token.Attribute!));
         foreach (var function in token.Functions)
         {
             value = Apply(function, value);
         }
 
-        return value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            context.EmptyValue?.Invoke(token.Source);
+        }
+
+        return context.Encode is { } encode ? encode(value) : value;
     }
 
     private static string FirstValue(IReadOnlyList<string>? values) => values is { Count: > 0 } ? values[0] ?? string.Empty : string.Empty;
@@ -212,22 +252,32 @@ public sealed class TemplateEngine : ITemplateEngine
 
     private sealed record LiteralSegment(string Text) : Segment;
 
-    private sealed record TokenSegment(string? Attribute, string? Special, string? SpecialArgument, IReadOnlyList<TemplateFunction> Functions) : Segment;
+    private sealed record TokenSegment(
+        string Source,
+        string? Attribute,
+        string? Special,
+        string? SpecialArgument,
+        bool IsExtension,
+        IReadOnlyList<TemplateFunction> Functions) : Segment;
 
     private sealed record TemplateFunction(string Name, int Count = 0, string? Arg1 = null, string? Arg2 = null);
 
-    private sealed record CompiledTemplate(IReadOnlyList<Segment> Segments, IReadOnlyList<string> Errors, IReadOnlyList<string> ReferencedAttributes);
+    private sealed record CompiledTemplate(
+        IReadOnlyList<Segment> Segments,
+        IReadOnlyList<string> Errors,
+        IReadOnlyList<string> ReferencedAttributes,
+        IReadOnlyList<TemplateTokenUse> SpecialTokens);
 
     /// <summary>One character of a token with the information whether it was escaped with a backslash.</summary>
     private readonly record struct TokenChar(char Value, bool Escaped, int Position);
 
     private static class TemplateParser
     {
-        public static CompiledTemplate Parse(string template)
+        public static CompiledTemplate Parse(string template, IReadOnlyDictionary<string, TemplateExtensionToken> extensions)
         {
-            var segments = new List<Segment>();
-            var errors = new List<string>();
-            var attributes = new List<string>();
+            var parser = new ParseState(template, extensions);
+            var segments = parser.Segments;
+            var errors = parser.Errors;
             var literal = new StringBuilder();
             var i = 0;
             while (i < template.Length)
@@ -248,7 +298,7 @@ public sealed class TemplateEngine : ITemplateEngine
                         literal.Clear();
                     }
 
-                    i = ParseToken(template, i, segments, errors, attributes);
+                    i = ParseToken(parser, i);
                     continue;
                 }
 
@@ -275,12 +325,14 @@ public sealed class TemplateEngine : ITemplateEngine
                 segments.Add(new LiteralSegment(literal.ToString()));
             }
 
-            return new CompiledTemplate(segments, errors, attributes);
+            return new CompiledTemplate(segments, errors, parser.Attributes, parser.SpecialTokens);
         }
 
         /// <summary>Parses the token starting at <paramref name="start"/> (the '{'); returns the index after it.</summary>
-        private static int ParseToken(string template, int start, List<Segment> segments, List<string> errors, List<string> attributes)
+        private static int ParseToken(ParseState parser, int start)
         {
+            var template = parser.Template;
+            var errors = parser.Errors;
             var chars = new List<TokenChar>();
             var i = start + 1;
             while (i < template.Length)
@@ -301,7 +353,7 @@ public sealed class TemplateEngine : ITemplateEngine
 
                 if (c == '}')
                 {
-                    BuildToken(chars, start, segments, errors, attributes);
+                    BuildToken(parser, chars, start, template[start..(i + 1)]);
                     return i + 1;
                 }
 
@@ -325,8 +377,10 @@ public sealed class TemplateEngine : ITemplateEngine
             return end < 0 ? template.Length : end + 1;
         }
 
-        private static void BuildToken(List<TokenChar> chars, int start, List<Segment> segments, List<string> errors, List<string> attributes)
+        private static void BuildToken(ParseState parser, List<TokenChar> chars, int start, string source)
         {
+            var errors = parser.Errors;
+            var attributes = parser.Attributes;
             var parts = Split(chars, '|');
             var head = Trim(parts[0]);
             var errorCount = errors.Count;
@@ -339,18 +393,30 @@ public sealed class TemplateEngine : ITemplateEngine
             string? attribute = null;
             string? special = null;
             string? specialArgument = null;
+            var isExtension = false;
             if (head[0] is { Value: '$', Escaped: false })
             {
                 var nameAndArgs = Split(head.Skip(1).ToList(), ':');
                 var name = Text(nameAndArgs[0]).Trim();
                 special = KnownSpecialTokens.FirstOrDefault(s => string.Equals(s, name, StringComparison.OrdinalIgnoreCase));
-                if (special is null)
-                {
-                    errors.Add($"Unknown special token '${name}' at position {head[0].Position}. Known tokens: {string.Join(", ", KnownSpecialTokens.Select(s => "$" + s))}.");
-                }
-                else if (nameAndArgs.Count > 1)
+                if (nameAndArgs.Count > 1)
                 {
                     specialArgument = string.Join(':', nameAndArgs.Skip(1).Select(Text));
+                }
+
+                if (special is null && parser.Extensions.TryGetValue(name, out var extension))
+                {
+                    special = extension.Name;
+                    isExtension = true;
+                    ValidateExtensionArgument(extension, specialArgument, head[0].Position, errors);
+                }
+                else if (special is null)
+                {
+                    var known = KnownSpecialTokens.Concat(parser.Extensions.Values.Select(e => e.Name)).Select(s => "$" + s);
+                    errors.Add($"Unknown special token '${name}' at position {head[0].Position}. Known tokens: {string.Join(", ", known)}.");
+                }
+                else if (specialArgument is not null)
+                {
                     ValidateSpecialArgument(special, specialArgument, head[0].Position, errors);
                 }
             }
@@ -386,8 +452,60 @@ public sealed class TemplateEngine : ITemplateEngine
 
             if (errors.Count == errorCount)
             {
-                segments.Add(new TokenSegment(attribute, special, specialArgument, functions));
+                parser.Segments.Add(new TokenSegment(source, attribute, special, specialArgument, isExtension, functions));
+                if (special is not null && !parser.SpecialTokens.Any(t => string.Equals(t.Name, special, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(t.Argument, specialArgument, StringComparison.Ordinal)))
+                {
+                    parser.SpecialTokens.Add(new TemplateTokenUse(special, specialArgument));
+                }
             }
+        }
+
+        private static void ValidateExtensionArgument(TemplateExtensionToken extension, string? argument, int position, List<string> errors)
+        {
+            switch (extension.Argument)
+            {
+                case TemplateTokenArgument.None when argument is not null:
+                    errors.Add($"Special token '${extension.Name}' at position {position} does not take an argument.");
+                    return;
+                case TemplateTokenArgument.Required when string.IsNullOrWhiteSpace(argument):
+                    errors.Add($"Special token '${extension.Name}' at position {position} requires an argument, e.g. '{{${extension.Name}:name}}'.");
+                    return;
+            }
+
+            if (extension.IsDateFormat && argument is not null)
+            {
+                try
+                {
+                    if (argument.Length == 0)
+                    {
+                        errors.Add($"Empty date format for '${extension.Name}' at position {position}.");
+                        return;
+                    }
+
+                    _ = DateTimeOffset.UnixEpoch.ToString(argument, CultureInfo.InvariantCulture);
+                }
+                catch (FormatException)
+                {
+                    errors.Add($"Invalid format '{argument}' for '${extension.Name}' at position {position}.");
+                }
+            }
+        }
+
+        /// <summary>The mutable state of one parse.</summary>
+        private sealed class ParseState(string template, IReadOnlyDictionary<string, TemplateExtensionToken> extensions)
+        {
+            public string Template { get; } = template;
+
+            public IReadOnlyDictionary<string, TemplateExtensionToken> Extensions { get; } = extensions;
+
+            public List<Segment> Segments { get; } = [];
+
+            public List<string> Errors { get; } = [];
+
+            public List<string> Attributes { get; } = [];
+
+            public List<TemplateTokenUse> SpecialTokens { get; } = [];
         }
 
         private static TemplateFunction? ParseFunction(List<TokenChar> part, int position, List<string> errors)

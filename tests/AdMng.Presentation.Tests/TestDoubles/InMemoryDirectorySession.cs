@@ -195,11 +195,77 @@ internal sealed class InMemoryDirectorySession : IDirectorySession
         }
     }
 
-    public Task<VirtualListPage> GetVirtualListPageAsync(DirectorySearch search, VirtualListRequest window, CancellationToken cancellationToken)
+    /// <summary>Every virtual list window requested, in order (search and window).</summary>
+    public ConcurrentQueue<(DirectorySearch Search, VirtualListRequest Window)> VirtualListRequests { get; } = new();
+
+    /// <summary>Thrown for a matching virtual list request (not cleared) - e.g. a DC without VLV or refusing the sort.</summary>
+    public Func<DirectorySearch, VirtualListRequest, Exception?>? FailVirtualList { get; set; }
+
+    /// <summary>A returned task makes the matching virtual list request wait for it (tests hold a page in flight).</summary>
+    public Func<VirtualListRequest, Task?>? HoldVirtualList { get; set; }
+
+    /// <summary>
+    /// Seeks like the Samba lab DC: a value that starts with the seek value and continues (after spaces) with a non-ASCII
+    /// letter compares as smaller ("Zając Łukasz" &lt; "Zając") - its seek lands after such entries.
+    /// </summary>
+    public bool SambaSeek { get; set; }
+
+    private static bool ContinuesWithNonAscii(string value, string seek)
     {
-        var all = Query(search).Take(search.SizeLimit > 0 ? search.SizeLimit : int.MaxValue).ToList();
-        var items = all.Skip(window.Offset).Take(window.Count).Select(o => Project(o, search.Attributes)).ToList();
-        return Task.FromResult(new VirtualListPage(items, window.Offset, all.Count, null));
+        if (value.Length <= seek.Length || !value.StartsWith(seek, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var rest = value[seek.Length..].TrimStart(' ');
+        return rest.Length > 0 && rest[0] > 127;
+    }
+
+    /// <summary>
+    /// A server sorted virtual list like AD: offset windows, or a seek (<see cref="VirtualListRequest.SeekValue"/>) to
+    /// the first entry at or after the value in the list order (descending lists: at or below it).
+    /// </summary>
+    public async Task<VirtualListPage> GetVirtualListPageAsync(DirectorySearch search, VirtualListRequest window, CancellationToken cancellationToken)
+    {
+        VirtualListRequests.Enqueue((search, window));
+        if (search.Sort is null)
+        {
+            throw new ArgumentException("A virtual list view requires a sort key.", nameof(search));
+        }
+
+        if (FailVirtualList?.Invoke(search, window) is { } failure)
+        {
+            throw failure;
+        }
+
+        await Task.Yield();
+        if (HoldVirtualList?.Invoke(window) is { } hold)
+        {
+            await hold.WaitAsync(cancellationToken);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var all = Query(search).ToList();
+        int offset;
+        if (window.SeekValue is { } seek)
+        {
+            var comparer = StringComparer.Create(CultureInfo.InvariantCulture, ignoreCase: true);
+            offset = all.FindIndex(o =>
+            {
+                var value = o.GetString(search.Sort.Attribute) ?? string.Empty;
+                var compared = SambaSeek && ContinuesWithNonAscii(value, seek) ? -1 : comparer.Compare(value, seek);
+                return search.Sort.Descending ? compared <= 0 : compared >= 0;
+            });
+            offset = offset < 0 ? all.Count : offset;
+        }
+        else
+        {
+            // Like AD: a window beyond the end is the last entry.
+            offset = all.Count == 0 ? 0 : Math.Min(window.Offset, all.Count - 1);
+        }
+
+        var items = all.Skip(offset).Take(window.Count).Select(o => Project(o, search.Attributes)).ToList();
+        return new VirtualListPage(items, offset, all.Count, [0x56, 0x4C, 0x56]);
     }
 
     /// <summary>Number of base reads (<see cref="GetAsync"/>).</summary>

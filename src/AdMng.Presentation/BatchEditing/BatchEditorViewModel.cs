@@ -406,8 +406,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
 
         var session = Session;
         var script = _engines.PowerShell.Export(IncludedPlan(_plan), session?.Info.Server ?? _plan.Server, session?.Schema);
-        Services.Clipboard.SetText(script);
-        Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Batch.PowerShellCopied]);
+        ClipboardCopy.Text(Services.Clipboard, Services.Notifications, script, Localizer[L.Batch.PowerShellCopied]);
     }
 
     /// <summary>Executes the included objects (typed confirmation for large or risky batches).</summary>
@@ -785,7 +784,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         }
 
         var session = Session;
-        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
+        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
         _plan = plan;
         _planSource = source;
         _previewObjects.Clear();
@@ -808,7 +807,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
     private void ShowResults(BatchResult result)
     {
         var session = Session;
-        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty);
+        var builder = new PreviewBuilder(Localizer, Errors, Services.Sessions.Formatter, session?.Schema ?? Core.Schema.SchemaCatalog.Empty, Services.Time);
         Result = result;
         _resultHasGeneratedPasswords = GeneratesPasswords;
         _passwordsExported = false;

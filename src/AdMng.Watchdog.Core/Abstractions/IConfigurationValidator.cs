@@ -13,6 +13,14 @@ public sealed record ConfigValidationContext
     public bool AllowTier0Suppression { get; init; }
     /// <summary>Bootstrap Notifications.OAuthSmtpHosts (XOAUTH2 destinations).</summary>
     public IReadOnlyList<string> OAuthSmtpHosts { get; init; } = ["smtp.office365.com"];
+
+    /// <summary>Bootstrap <c>Watchdog:Retention:MinEventsDays</c>: the lowest <c>retention.eventsDays</c> an API admin may
+    /// set (<c>retentionBelowFloor</c>, stage B design 14.2); 0 = no floor.</summary>
+    public int MinEventsDays { get; init; }
+
+    /// <summary>The attribution sources this host supports (<c>sourceUnsupportedOnHost</c>, stage B design 7.8); empty =
+    /// every source.</summary>
+    public IReadOnlyList<AttributionSourceKind> SupportedAttributionSources { get; init; } = [];
 }
 
 public interface IConfigurationValidator

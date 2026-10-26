@@ -414,8 +414,8 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
         var selection = Selection;
         if (selection.Count > 0)
         {
-            Services.Clipboard.SetText(string.Join(Environment.NewLine, selection.Select(r => r.Dn)));
-            Services.Notifications.Show(NotificationSeverity.Info, Localizer[L.Fields.Copied]);
+            // Not confirmed when the clipboard was busy (the clipboard service warned instead).
+            ClipboardCopy.Text(Services.Clipboard, Services.Notifications, string.Join(Environment.NewLine, selection.Select(r => r.Dn)), Localizer[L.Fields.Copied]);
         }
     }
 

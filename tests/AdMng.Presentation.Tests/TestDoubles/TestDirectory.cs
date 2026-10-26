@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using static AdMng.Presentation.Tests.TestDoubles.Obj;
@@ -59,6 +60,15 @@ internal static class TestDirectory
     public const string ItGroup = "CN=GG-IT,OU=IT,OU=Firma,DC=contoso,DC=test";
     public const string Helpdesk = "CN=Helpdesk,CN=Users,DC=contoso,DC=test";
 
+    /// <summary>wellKnownObjects of the domain head: the default containers of this test domain.</summary>
+    public static readonly object[] WellKnownValues =
+    [
+        $"B:32:{WellKnownGuids.Users}:{Users}",
+        $"B:32:{WellKnownGuids.Computers}:CN=Computers,{Domain}",
+        $"B:32:{WellKnownGuids.DomainControllers}:OU=Domain Controllers,{Domain}",
+        $"B:32:{WellKnownGuids.System}:{System}",
+    ];
+
     /// <summary>Lockout duration of the test domain: 30 minutes.</summary>
     public static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(30);
 
@@ -70,7 +80,8 @@ internal static class TestDirectory
         s.Put(Create(Domain, A(Attr.ObjectClass, "top", "domain", "domainDNS"), A(Attr.ObjectCategory, "domainDNS"),
             A("lockoutDuration", (-LockoutDuration.Ticks).ToString(CultureInfo.InvariantCulture)),
             A("lockoutThreshold", "5"),
-            A("maxPwdAge", (-TimeSpan.FromDays(90).Ticks).ToString(CultureInfo.InvariantCulture))));
+            A("maxPwdAge", (-TimeSpan.FromDays(90).Ticks).ToString(CultureInfo.InvariantCulture)),
+            A(WellKnownObjects.WellKnownObjectsAttribute, WellKnownValues)));
         s.Put(Container(Users, "Default container for upgraded user accounts"));
         s.Put(Container("CN=Computers,DC=contoso,DC=test", "Default container for upgraded computer accounts"));
         s.Put(Create("CN=Builtin,DC=contoso,DC=test", A(Attr.ObjectClass, "top", "builtinDomain"), A(Attr.ObjectCategory, "builtinDomain")));

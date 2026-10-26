@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GPP Shortcuts ([MS-GPPREF] 2.2.1.11 "Shortcuts"). Written by hand. -->
+<Shortcuts clsid="{872ECB34-B2EC-401b-A585-D32574AA90EE}">
+  <Shortcut clsid="{4F2F7C55-2790-433e-8127-0739D1CFA327}" name="Agent" status="Agent" image="2" changed="2026-10-04 08:00:00" uid="{D1B2C3D4-0000-4000-8000-000000000001}">
+    <Properties pidl="" targetType="FILESYSTEM" action="U" comment="" shortcutKey="0" startIn="" arguments="" iconIndex="0" targetPath="\\contoso.com\NETLOGON\agent.exe" iconPath="" window="" shortcutPath="%StartUpDir%\Agent"/>
+  </Shortcut>
+  <Shortcut clsid="{4F2F7C55-2790-433e-8127-0739D1CFA327}" name="Intranet" status="Intranet" image="2" changed="2026-10-04 08:01:00" uid="{D1B2C3D4-0000-4000-8000-000000000002}">
+    <Properties pidl="" targetType="URL" action="U" comment="" shortcutKey="0" startIn="" arguments="" iconIndex="0" targetPath="https://intranet.contoso.com/" iconPath="" window="" shortcutPath="%DesktopDir%\Intranet"/>
+  </Shortcut>
+</Shortcuts>

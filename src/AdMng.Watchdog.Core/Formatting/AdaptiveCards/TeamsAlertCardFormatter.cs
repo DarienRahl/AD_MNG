@@ -64,14 +64,17 @@ public static class TeamsAlertCardFormatter
         return Render(layout, cardVersion, title);
     }
 
-    /// <summary>The follow-up card once the actors of <paramref name="events"/> are known.</summary>
-    public static RenderedHttpMessage FollowUp(IReadOnlyList<WatchEvent> events, RuleSettings? rule, NotificationContext context, string? cardVersion = null)
+    /// <summary>The follow-up card once the actors of <paramref name="events"/> are known or their severity was raised (an
+    /// escalation, 13.2 #7): the title says what is new, every event shows its final severity ("Priorytet: Średni →
+    /// Wysoki" when it changed, <see cref="FollowUpChange"/>).</summary>
+    public static RenderedHttpMessage FollowUp(IReadOnlyList<WatchEvent> events, RuleSettings? rule, NotificationContext context, string? cardVersion = null,
+        IReadOnlyList<FollowUpChange>? changes = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(context);
         var text = context.Text;
         var safe = events.Select(e => DetailLevelFilter.ForNotification(e, context.DetailLevel, context.MaxValueLength)).ToList();
-        var title = text.Get("Card.FollowUpTitle");
+        var title = FollowUpChange.Title(events, changes, context, "Card.FollowUpTitle");
         var layout = new CardLayout { FallbackText = "AD Watchdog: " + title, TotalItems = safe.Count };
         layout.Header.Add(Header(safe.Count == 0 ? Severity.Info : safe.Max(e => e.Severity), title, null,
             Subtitle(safe.FirstOrDefault()?.Domain, rule, context, null)));
@@ -85,6 +88,7 @@ public static class TeamsAlertCardFormatter
                     Spacing = "medium",
                     Separator = true,
                 },
+                TeamsCardParts.LabelValue(text.Get("Label.Severity"), FollowUpChange.SeverityText(e, changes, context)),
                 TeamsCardParts.LabelValue(text.Get("Label.Who"), context.Objects.Actor(e.Attribution)),
             };
             if (context.Objects.Source(e.Attribution) is { } source)

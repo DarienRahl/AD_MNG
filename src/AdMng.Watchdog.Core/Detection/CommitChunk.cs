@@ -21,6 +21,9 @@ internal sealed class CommitChunk
 
     public int EventCount => _events.Count;
 
+    /// <summary>The events added to this chunk so far.</summary>
+    public IReadOnlyList<WatchEvent> Events => _events;
+
     /// <summary>Pending upsert of an object (latest wins).</summary>
     public SnapshotObject? PendingUpsert(Guid guid) => _upserts.TryGetValue(guid, out var snapshot) ? snapshot : null;
 
@@ -35,6 +38,16 @@ internal sealed class CommitChunk
     {
         _upserts.Remove(guid);
         _deletions.Add((guid, deletedAt));
+    }
+
+    /// <summary>
+    /// Upserts <paramref name="marker"/> (IsDeleted) and adds its Deletions entry: the row exists afterwards even when the
+    /// GUID had none (an unknown tombstone), and the key leaves every member list.
+    /// </summary>
+    public void UpsertDeleted(SnapshotObject marker)
+    {
+        _upserts[marker.ObjectGuid] = marker;
+        _deletions.Add((marker.ObjectGuid, marker.DeletedAt ?? DateTimeOffset.MinValue));
     }
 
     public void Remove(Guid guid)

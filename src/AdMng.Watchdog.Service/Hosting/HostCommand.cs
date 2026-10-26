@@ -14,6 +14,9 @@ public enum HostCommandKind
 
     /// <summary><c>--health</c>: GET <c>/healthz</c> on the configured URL, exit code 0/1.</summary>
     Health,
+
+    /// <summary><c>print-wec-subscription</c>: the OpenWEC subscription of stage B design 7.3 (exit code 0/2).</summary>
+    PrintWecSubscription,
 }
 
 /// <summary>The parsed command line: the command, <c>--console</c>, and the remaining host arguments
@@ -42,6 +45,9 @@ public sealed record HostCommand(HostCommandKind Kind, bool Console, IReadOnlyLi
                     break;
                 case "--health":
                     kind = HostCommandKind.Health;
+                    break;
+                case "print-wec-subscription" when kind == HostCommandKind.Run:
+                    kind = HostCommandKind.PrintWecSubscription;
                     break;
                 default:
                     rest.Add(arg);

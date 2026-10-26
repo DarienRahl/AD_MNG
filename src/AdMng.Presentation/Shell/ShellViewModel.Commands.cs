@@ -36,8 +36,8 @@ public sealed partial class ShellViewModel
     public event EventHandler<ObjectRowViewModel>? RenameRequested;
 
     /// <summary>
-    /// Container for new objects and the Find dialog: the current container tab, else the selected tree container,
-    /// else the domain root.
+    /// Container of the Find dialog and the Move picker (new objects: <see cref="DefaultCreateContainer"/>): the current
+    /// container tab, else the selected tree container, else the domain root.
     /// </summary>
     public string? CurrentContainerDn => SelectedDocument?.Location is { Kind: ListLocationKind.Container } location
         ? location.BaseDn
@@ -47,11 +47,13 @@ public sealed partial class ShellViewModel
 
     private IRelayCommand[] StateCommands => _stateCommands ??=
     [
+        ChangeDomainControllerCommand,
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
-        NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand,
+        NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
-        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowWatchdogHistoryCommand,
+        GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
+        SendMessageCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -71,7 +73,7 @@ public sealed partial class ShellViewModel
     /// </summary>
     public string? CreateBlockedReason(ObjectKind kind, string? parentDn = null)
     {
-        if (CreateTarget(parentDn) is not { } parent
+        if (CreateTarget(kind, parentDn) is not { } parent
             || Sessions.Current is not { } session
             || !ReferenceEquals(session, _createPermissionsSession)
             || !_createPermissions.TryGetValue(DnKey.For(parent), out var permissions)
@@ -391,9 +393,7 @@ public sealed partial class ShellViewModel
     private bool CanCreateContact(string? parentDn) => CanCreate(ObjectKind.Contact, parentDn);
 
     private bool CanCreate(ObjectKind kind, string? parentDn) =>
-        IsConnected && CreateTarget(parentDn) is not null && CreateBlockedReason(kind, parentDn) is null;
-
-    private string? CreateTarget(string? parentDn) => string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn;
+        IsConnected && CreateTarget(kind, parentDn) is not null && CreateBlockedReason(kind, parentDn) is null;
 
     private static string CreatedClass(ObjectKind kind) => kind switch
     {
@@ -415,21 +415,27 @@ public sealed partial class ShellViewModel
         }
     }
 
-    /// <summary>Reads the create permissions of the current container once it changed (the New commands follow them).</summary>
+    /// <summary>
+    /// Reads the create permissions of the New commands' default targets (the current container, the well-known Users
+    /// and Computers containers) once they changed - the New commands follow them.
+    /// </summary>
     private void RequestCreatePermissions()
     {
         var session = Sessions.Current;
         UseCreatePermissionsOf(session);
-        if (session is null || _disposed || CurrentContainerDn is not { } container)
+        if (session is null || _disposed || CreateTargets() is not { Count: > 0 } targets)
         {
             return;
         }
 
-        var key = DnKey.For(container);
+        var key = string.Join('\n', targets.Select(DnKey.For));
         if (!string.Equals(key, _createPermissionsRequested, StringComparison.Ordinal))
         {
             _createPermissionsRequested = key;
-            LoadCreatePermissionsAsync(container).Forget();
+            foreach (var target in targets)
+            {
+                LoadCreatePermissionsAsync(target).Forget();
+            }
         }
     }
 
@@ -491,14 +497,22 @@ public sealed partial class ShellViewModel
 
     private bool CanExport() => SelectedDocument is { Items.Count: > 0 };
 
-    [RelayCommand(CanExecute = nameof(HasSelection))]
+    /// <summary>
+    /// "Kopiuj jako ▸ Nazwa wyróżniająca" (Ctrl+Shift+C): the DNs of the selection in the list's order, like every other
+    /// "Copy as" format; not confirmed when the clipboard was busy.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasCopySelection))]
     private void CopyDn()
     {
-        var selection = CurrentSelection;
+        var selection = OrderedSelection();
         if (selection.Count > 0)
         {
-            _clipboard.SetText(string.Join(Environment.NewLine, selection.Select(r => r.Dn)));
-            _notifications.Show(NotificationSeverity.Info, Localizer.Format(L.Shell.CopiedDn, selection.Count));
+            ClipboardCopy.Text(
+                _clipboard,
+                _notifications,
+                string.Join(Environment.NewLine, selection.Select(r => r.Dn)),
+                Localizer.Format(L.Shell.CopiedDn, selection.Count),
+                LoadingRowsNote());
         }
     }
 
@@ -694,6 +708,10 @@ public sealed partial class ShellViewModel
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task ShowRecycleBinAsync() => _dialogs.ShowRecycleBinAsync();
 
+    /// <summary>The account review of the connected domain (README U2).</summary>
+    [RelayCommand(CanExecute = nameof(IsConnected))]
+    private Task ShowAccountReviewAsync() => _dialogs.ShowAccountReviewAsync();
+
     [RelayCommand]
     private Task ShowSettingsAsync() => _dialogs.ShowSettingsAsync();
 
@@ -746,6 +764,19 @@ public sealed partial class ShellViewModel
         }
     }
 
+    /// <summary>"Wyślij wiadomość…" (README U1): the message window for the selected user accounts (one message each).</summary>
+    [RelayCommand(CanExecute = nameof(CanSendMessage))]
+    private Task SendMessageAsync()
+    {
+        var users = CurrentSelection.Where(r => r.Kind == ObjectKind.User).Select(r => r.Dn).ToList();
+        return _messages is null || users.Count == 0 ? Task.CompletedTask : _messages.ShowComposerAsync(users, null);
+    }
+
+    /// <summary>The message window is available (U1 registered its launcher) and the selection has user accounts.</summary>
+    public bool CanSendMessages => _messages is not null;
+
+    private bool CanSendMessage() => _messages is not null && IsConnected && CurrentSelection.Any(r => r.Kind == ObjectKind.User);
+
     private bool CanShowWatchdogHistory() => _historyLauncher?.IsAvailable == true && CurrentSelection.Count == 1 && IsConnected;
 
     private bool HasSelection() => CurrentSelection.Count > 0;
@@ -757,7 +788,7 @@ public sealed partial class ShellViewModel
 
     private async Task CreateObjectAsync(ObjectKind kind, string? parentDn)
     {
-        if ((string.IsNullOrWhiteSpace(parentDn) ? CurrentContainerDn : parentDn) is not { } parent)
+        if (CreateTarget(kind, parentDn) is not { } parent)
         {
             return;
         }

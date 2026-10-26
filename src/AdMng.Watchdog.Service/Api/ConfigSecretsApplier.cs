@@ -10,7 +10,8 @@ namespace AdMng.Watchdog.Service.Api;
 /// <summary>
 /// Secret fields of a PUT configuration → <see cref="SecretChange"/>s (spec 17.2 step 3, section 18): <c>Clear</c>
 /// removes, <c>NewValue</c> stores with the binding of the NEW settings (<see cref="SecretBindings"/>) and a hint (URLs
-/// <c>scheme://host/first-segment/…</c>, signing secrets <c>whsec_…</c> + last 4 characters, passwords none); secrets that
+/// <c>scheme://host/…</c> per <see cref="SecretHints"/> – also applied to kept hints –, signing secrets <c>whsec_…</c> +
+/// last 4 characters, passwords none); secrets that
 /// no field references any more (removed channels, removed Teams/webhook options) are removed; every field is stripped
 /// to <c>IsSet</c>/<c>Hint</c>. URL hosts for the Teams/webhook bindings come from the new URL or the decrypted stored
 /// one – never from the client-supplied hint.
@@ -104,7 +105,8 @@ public sealed class ConfigSecretsApplier(ISecretStore secrets)
             }
             else
             {
-                fields[secret.Name] = new SecretField { IsSet = stored, Hint = stored ? previousHints.GetValueOrDefault(secret.Name) : null };
+                var hint = stored ? previousHints.GetValueOrDefault(secret.Name) : null;
+                fields[secret.Name] = new SecretField { IsSet = stored, Hint = IsUrl(secret.Name) ? SecretHints.Url(hint) : hint };
             }
         }
 
@@ -121,9 +123,9 @@ public sealed class ConfigSecretsApplier(ISecretStore secrets)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
-        if (name.EndsWith(".url", StringComparison.Ordinal))
+        if (IsUrl(name))
         {
-            return UrlHint(value);
+            return SecretHints.Url(value);
         }
 
         if (name.EndsWith("igningSecret", StringComparison.Ordinal))
@@ -134,17 +136,7 @@ public sealed class ConfigSecretsApplier(ISecretStore secrets)
         return null;
     }
 
-    private static string? UrlHint(string url)
-    {
-        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
-        {
-            return null;
-        }
-
-        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        var first = segments.Length > 0 ? "/" + segments[0] + (segments.Length > 1 ? "/…" : string.Empty) : string.Empty;
-        return $"{uri.Scheme}://{uri.IdnHost}{(uri.IsDefaultPort ? string.Empty : ":" + uri.Port)}{first}";
-    }
+    private static bool IsUrl(string name) => name.EndsWith(".url", StringComparison.Ordinal);
 
     private static WatchdogConfiguration Strip(WatchdogConfiguration configuration, Dictionary<string, SecretField> fields)
     {

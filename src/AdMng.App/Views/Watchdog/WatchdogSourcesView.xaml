@@ -1,0 +1,183 @@
+<!--
+  The "Sources and retention" sub-tab (WatchdogSourcesViewModel, stage B design 18 item 4): who-and-where attribution
+  with the source "OpenWEC (WEF)" and the collector settings, GPO content tracking with its limits and the retention of
+  logon records, plus the save bar. Viewers see the values read-only.
+-->
+<UserControl x:Class="AdMng.App.Views.Watchdog.WatchdogSourcesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:wdv="clr-namespace:AdMng.App.Views.Watchdog"
+             AutomationProperties.Name="{l:Tr Watchdog.Tab.Sources}">
+  <UserControl.Resources>
+    <Style x:Key="NumberBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="Width" Value="110" />
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+
+    <Style x:Key="Unit" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
+      <Setter Property="Margin" Value="8,8,0,0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="SourcesCard" TargetType="Border" BasedOn="{StaticResource Wd.Card}">
+      <Setter Property="Width" Value="460" />
+      <Setter Property="Margin" Value="0,0,12,12" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <wdv:WatchdogConfigBar x:Name="ConfigBar"
+                           DataContext="{Binding Session}"
+                           DockPanel.Dock="Bottom" />
+
+    <ScrollViewer Focusable="False"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <WrapPanel IsEnabled="{Binding CanEdit, Mode=OneWay}">
+        <!-- Who and from where: OpenWEC (WEF) and the collector settings (7.8) -->
+        <Border x:Name="AttributionCard" Style="{StaticResource SourcesCard}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.AttributionSettings}" />
+            <CheckBox x:Name="AttributionEnabledBox"
+                      Content="{l:Tr Watchdog.Ui.AttributionEnabled}"
+                      IsChecked="{Binding AttributionEnabled}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="200" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.AttributionSourceLabel}" />
+              <ComboBox x:Name="SourceBox"
+                        Grid.Column="1"
+                        Margin="0,8,0,0"
+                        AutomationProperties.Name="{l:Tr Watchdog.Ui.AttributionSourceLabel}"
+                        DisplayMemberPath="Text"
+                        ItemsSource="{Binding SourceOptions, Mode=OneWay}"
+                        SelectedItem="{Binding Source}" />
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.CollectorSilenceWarning}" />
+              <StackPanel Grid.Row="1"
+                          Grid.Column="1"
+                          Orientation="Horizontal">
+                <TextBox x:Name="SilenceWarningBox"
+                         AutomationProperties.Name="{l:Tr Watchdog.Ui.CollectorSilenceWarning}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding CollectorSilenceWarningMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Unit}" Text="{l:Tr Watchdog.Ui.UnitMinutes}" />
+              </StackPanel>
+              <TextBlock Grid.Row="2"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.CollectorSilenceError}" />
+              <StackPanel Grid.Row="2"
+                          Grid.Column="1"
+                          Orientation="Horizontal">
+                <TextBox x:Name="SilenceErrorBox"
+                         AutomationProperties.Name="{l:Tr Watchdog.Ui.CollectorSilenceError}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding CollectorSilenceErrorMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Unit}" Text="{l:Tr Watchdog.Ui.UnitMinutes}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock x:Name="SourceWarningText"
+                       Style="{StaticResource Wd.FieldError}"
+                       Text="{Binding SourceWarning, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[attribution.source], Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[attribution.collectorSilenceWarning], Mode=OneWay}" />
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[attribution.collectorSilenceError], Mode=OneWay}" />
+            <CheckBox Margin="0,10,0,0"
+                      Content="{l:Tr Watchdog.Ui.DropComputerLogons}"
+                      IsChecked="{Binding DropComputerLogons}" />
+            <CheckBox Margin="0,6,0,0"
+                      Content="{l:Tr Watchdog.Ui.DropAnonymousLogons}"
+                      IsChecked="{Binding DropAnonymousLogons}" />
+          </StackPanel>
+        </Border>
+
+        <!-- GPO content (8.5) -->
+        <Border x:Name="GpoContentCard" Style="{StaticResource SourcesCard}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.CardGpoContent}" />
+            <CheckBox x:Name="GpoContentEnabledBox"
+                      Content="{l:Tr Watchdog.Ui.GpoContentEnabled}"
+                      IsChecked="{Binding GpoContentEnabled}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="200" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+              </Grid.RowDefinitions>
+              <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.GpoSysvolLagTolerance}" />
+              <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <TextBox x:Name="SysvolLagBox"
+                         AutomationProperties.Name="{l:Tr Watchdog.Ui.GpoSysvolLagTolerance}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding GpoSysvolLagToleranceMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource Unit}" Text="{l:Tr Watchdog.Ui.UnitMinutes}" />
+              </StackPanel>
+              <TextBlock Grid.Row="1"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.GpoMaxFileMb}" />
+              <TextBox Grid.Row="1"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.GpoMaxFileMb}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding GpoMaxFileMb, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="2"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.GpoMaxTotalMb}" />
+              <TextBox Grid.Row="2"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.GpoMaxTotalMb}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding GpoMaxTotalMb, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBlock Grid.Row="3"
+                         Style="{StaticResource Wd.FormLabel}"
+                         Text="{l:Tr Watchdog.Ui.GpoMaxFiles}" />
+              <TextBox Grid.Row="3"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.GpoMaxFiles}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding GpoMaxFiles, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[directory.gpoContent], Mode=OneWay}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Retention of logon records (7.7) -->
+        <Border x:Name="RetentionCard" Style="{StaticResource SourcesCard}">
+          <StackPanel>
+            <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.RetentionSettings}" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="200" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Style="{StaticResource Wd.FormLabel}" Text="{l:Tr Watchdog.Ui.LogonRecordsHours}" />
+              <TextBox x:Name="LogonRecordsHoursBox"
+                       Grid.Column="1"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.LogonRecordsHours}"
+                       Style="{StaticResource NumberBox}"
+                       Text="{Binding LogonRecordsHours, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+            <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[retention.logonRecordsHours], Mode=OneWay}" />
+          </StackPanel>
+        </Border>
+      </WrapPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

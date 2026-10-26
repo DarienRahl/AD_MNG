@@ -91,7 +91,9 @@ updated="$(jq \
          url: {newValue: $teams}, teams: {authMode: "Sas"}}])
     | .notifications.aggregationWindow = "00:01:00"
     | .notifications.maxMessagesPerRulePerHour = 1000
-    | .rules |= map(if .delivery.aggregationWindow != null then .delivery.aggregationWindow = "00:01:00" else . end)
+    | .rules |= map(if .delivery.aggregationWindow != null and .delivery.aggregationWindow != "00:00:00"
+                    and ([.id] | inside(["tier0-badsuccessor", "tier0-machine-quota", "watchdog-self", "tier0-gpo"]) | not)
+                    then .delivery.aggregationWindow = "00:01:00" else . end)
     | .rules |= map(if .delivery.immediate and .id != "health"
                     then .delivery.channelIds = ((.delivery.channelIds + ["siem-lab", "teams-lab"]) | unique) else . end)
     | .directory.creationSettleWindow = "00:00:30"

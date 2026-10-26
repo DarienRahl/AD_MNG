@@ -3,6 +3,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Configuration;
+using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Rules;
 
@@ -69,7 +70,7 @@ public sealed class RulePreviewService : IRulePreviewService
 
             if (RuleMatcher.Match(rule, watchEvent, context, now, attributionGraceExpired: true) != RuleMatchOutcome.NoMatch)
             {
-                matched.Add((watchEvent, rule.Severity ?? watchEvent.Severity));
+                matched.Add((watchEvent, rule.Severity ?? EventSeverities.Own(watchEvent)));
             }
         }
 

@@ -118,6 +118,12 @@ public sealed record SessionInfo
 
     public TransportSecurity Security { get; init; }
 
+    /// <summary>
+    /// Negotiated SASL security strength factor of a Kerberos (GSSAPI) session on Linux/macOS: ≥ 56 = sealed, 0 = no SASL
+    /// security layer (e.g. over LDAPS). Null where it is not reported (Windows SSPI, simple bind).
+    /// </summary>
+    public int? SecurityStrengthFactor { get; init; }
+
     public bool IsGlobalCatalog { get; init; }
 
     public int DomainFunctionality { get; init; }

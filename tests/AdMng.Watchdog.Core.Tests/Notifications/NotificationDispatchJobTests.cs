@@ -147,6 +147,7 @@ public sealed class NotificationDispatchJobTests
         await harness.Dispatch.RunOnceAsync(Ct);
         var alert = Assert.Single(await harness.MessagesAsync(e));
         Assert.True(alert.SentWithPendingAttribution);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
 
         harness.Clock.Advance(TimeSpan.FromMinutes(2));
         await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
@@ -230,6 +231,261 @@ public sealed class NotificationDispatchJobTests
     }
 
     [Fact]
+    public async Task AggregatedItemDueAfterBusinessHours_IsLeftToTheDigest()
+    {
+        var rule = Rule("new-users", "Nowe konta");      // Default hours: Medium only in business hours
+        var harness = new NotificationHarness(ConfigWith(rule));
+        harness.Clock.SetUtcNow(new DateTimeOffset(2026, 10, 14, 14, 58, 0, TimeSpan.Zero));     // Wednesday 16:58 in Warsaw
+        var (e, _) = await harness.PlanAsync(Event(severity: Severity.Medium, detectedAt: harness.Clock.GetUtcNow()), new PlannedMatch(rule, Severity.Medium));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));                                          // 17:03
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Empty(await harness.MessagesAsync(e));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ThrottledBucketOfABusinessHoursRule_IsNotFlushedAfterHours()
+    {
+        var rule = Rule("lockouts", "Blokady kont", hours: DeliveryHours.BusinessHours) with
+        {
+            Delivery = Rule("lockouts", hours: DeliveryHours.BusinessHours).Delivery with { MaxMessagesPerHour = 1 },
+        };
+        var harness = new NotificationHarness(ConfigWith(rule));
+        harness.Clock.SetUtcNow(new DateTimeOffset(2026, 10, 14, 14, 50, 0, TimeSpan.Zero));     // Wednesday 16:50 in Warsaw
+        var earlier = await harness.StoreAsync(Event(WatchEventKind.AccountLockedOut, Severity.High));
+        var sentId = await harness.Store.EnqueueAsync(
+            NotificationRenderer.Alert(AdminsTarget(harness.Current), rule, [earlier], 0, [earlier.Id], harness.Current, harness.Clock.GetUtcNow()), Ct);
+        await harness.MarkSentAsync(sentId, harness.Clock.GetUtcNow());
+        harness.Clock.Advance(TimeSpan.FromMinutes(2));
+        var (late, _) = await harness.PlanAsync(Event(WatchEventKind.AccountLockedOut, Severity.High), new PlannedMatch(rule, Severity.High));
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+        await harness.Dispatch.RunOnceAsync(Ct);                                                 // throttled until 17:07
+        Assert.Single(await harness.Store.GetAllAsync(Ct));
+
+        harness.Clock.Advance(ThrottlePolicy.RescheduleDelay);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Empty(await harness.MessagesAsync(late));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task HourlyCap_CountsMessagesStillWaitingForDelivery()
+    {
+        // SMTP is down: nothing is Sent, yet the rule must not enqueue a new message every flush.
+        var rule = Rule("new-users", "Nowe konta") with { Delivery = Rule("new-users").Delivery with { MaxMessagesPerHour = 2 } };
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var events = new List<WatchEvent>();
+        for (var i = 0; i < 6; i++)
+        {
+            events.Add((await harness.PlanAsync(Event(severity: Severity.Medium, name: $"Łukasz Żółć {i}"), new PlannedMatch(rule, Severity.Medium))).Event);
+            harness.Clock.Advance(TimeSpan.FromMinutes(6));
+            await harness.Dispatch.RunOnceAsync(Ct);
+        }
+
+        Assert.Equal(2, (await harness.MessagesAsync([.. events])).Count);
+        Assert.Equal(4, (await harness.Store.GetAllAsync(Ct)).Count);
+    }
+
+    [Fact]
+    public async Task FollowUp_WaitsUntilTheOriginalIsSent()
+    {
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendWithPendingActorAsync(harness, rule);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        await harness.Store.AddAsync(await harness.FollowUps.PlanAsync((await harness.Store.GetAsync(e.Id, Ct))!, Ct), Ct);
+
+        await harness.Dispatch.RunOnceAsync(Ct);                  // the original still waits in the outbox (e.g. 421, retry in 2 h)
+
+        Assert.DoesNotContain(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        var waiting = Assert.Single(await harness.Store.GetAllAsync(Ct));
+        Assert.True(waiting.DueAt > harness.Clock.GetUtcNow());
+
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        harness.Clock.Advance(NotificationDispatchJob.FollowUpWait);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var followUp = Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Equal(alert.MessageId, followUp.Email!.InReplyTo);
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task FollowUp_OfADeadOriginal_IsDropped()
+    {
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendWithPendingActorAsync(harness, rule);
+        await harness.Store.LeaseDueAsync(harness.Clock.GetUtcNow(), 100, TimeSpan.FromMinutes(5), Ct);
+        await harness.Store.MarkDeadAsync(alert.Id, "smtp.550.5.1.1", null, Ct);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        await harness.Store.AddAsync(await harness.FollowUps.PlanAsync((await harness.Store.GetAsync(e.Id, Ct))!, Ct), Ct);
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.DoesNotContain(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AttributionResolvedWhileTheAlertIsRendered_StillGetsItsFollowUp()
+    {
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.PrivilegeGranted, Severity.Critical, EventAttribution.Pending), new PlannedMatch(rule, Severity.Critical, true));
+        harness.Clock.Advance(TimeSpan.FromSeconds(90));
+        var plannedByTheAttributionEngine = -1;
+        var racing = new RacingQueue(harness.Store, async () =>
+        {
+            // The AttributionEngine commits the actor and plans follow-ups before the alert is in the outbox.
+            await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+            var rows = await harness.FollowUps.PlanAsync((await harness.Store.GetAsync(e.Id, Ct))!, Ct);
+            plannedByTheAttributionEngine = rows.Count;
+            await harness.Store.AddAsync(rows, Ct);
+        });
+        var dispatch = new NotificationDispatchJob(racing, harness.Store, harness.Store, harness.Config, harness.Matcher, harness.Planner, harness.Rules, harness.Rollout,
+            new ThrottlePolicy(harness.Store), harness.Signals, harness.Clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<NotificationDispatchJob>.Instance);
+
+        await dispatch.RunOnceAsync(Ct);
+
+        Assert.Equal(0, plannedByTheAttributionEngine);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.True(alert.SentWithPendingAttribution);
+        var followUp = Assert.Single(await harness.Store.GetAllAsync(Ct));
+        Assert.Equal((true, alert.MessageId), (followUp.IsFollowUp, followUp.ReplyToMessageId));
+
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Dispatch.RunOnceAsync(Ct);
+        Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+    }
+
+    [Fact]
+    public async Task FollowUpPlannedTwice_IsSentOnce()
+    {
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendWithPendingActorAsync(harness, rule);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        var resolved = (await harness.Store.GetAsync(e.Id, Ct))!;
+        await harness.Store.AddAsync(await harness.FollowUps.PlanAsync(resolved, Ct), Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        await harness.Store.AddAsync(await harness.FollowUps.PlanAsync(resolved, Ct), Ct);     // the other side of the race, later
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AnEscalationOfAnEventStillPending_WaitsUntilTheAttributionIsStored()
+    {
+        // The re-evaluation stores an escalation before the attribution (13.2 #7); a pass interrupted in between must not let
+        // it go out with "ustalanie…" – it waits until the actor is stored.
+        var rule = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendMediumWithPendingActorAsync(harness, rule);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.High)], Ct);
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.DoesNotContain(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Equal(harness.Clock.GetUtcNow() + NotificationDispatchJob.FollowUpWait, Assert.Single(await harness.Store.GetAllAsync(Ct)).DueAt);
+
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        harness.Clock.Advance(NotificationDispatchJob.FollowUpWait);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var followUp = Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Equal((Severity.High, alert.MessageId), (followUp.Severity, followUp.Email!.InReplyTo));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.High, false)], followUp.EventStates);
+        Assert.Contains("Paweł Wójcik", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Priorytet: Średni → Wysoki", followUp.Email.TextBody, StringComparison.Ordinal);
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AFollowUpWithAHigherSeverity_IsNoDuplicateOfAnEarlierFollowUp()
+    {
+        var rule = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendMediumWithPendingActorAsync(harness, rule);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.High)], Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+        await harness.MarkSentAsync(Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp).Id, harness.Clock.GetUtcNow());
+
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.High)], Ct);       // told already
+        await harness.Dispatch.RunOnceAsync(Ct);
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.Critical)], Ct);   // news
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Equal([Severity.High, Severity.Critical], (await harness.MessagesAsync(e)).Where(m => m.Kind == DeliveryKind.FollowUp).Select(m => m.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AFollowUpNoHigherThanTheAlert_IsADuplicateOfAnEarlierLowerFollowUp()
+    {
+        // The Critical alert's target already got the follow-up with its final (lowered) severity. A later row of the same
+        // event and target – e.g. the attribution follow-up with the event's evaluated severity, another rule's override –
+        // tells it nothing new: no escalation above what the alert showed, so it is a duplicate.
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (e, alert) = await SendWithPendingActorAsync(harness, rule);
+        await harness.MarkSentAsync(alert.Id, harness.Clock.GetUtcNow());
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.Medium)], Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+        await harness.MarkSentAsync(Assert.Single(await harness.MessagesAsync(e), m => m.Kind == DeliveryKind.FollowUp).Id, harness.Clock.GetUtcNow());
+
+        await harness.Store.AddAsync([FollowUpRow(harness, e, alert, rule, Severity.Critical)], Ct);
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.Equal([Severity.Medium], (await harness.MessagesAsync(e)).Where(m => m.Kind == DeliveryKind.FollowUp).Select(m => m.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task AFollowUpOfAnAggregatedAlert_ShowsEachEventWithItsFinalSeverity()
+    {
+        // One alert showed Zofia's privilege grant as High and Jędrzej's as Medium, both actors pending. The follow-up brings
+        // both actors; Jędrzej's grant is High now – each row shows its own severity, the change is spelled out.
+        var rule = Rule("tier0-privilege", "Dostęp uprzywilejowany");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var zofia = await harness.StoreAsync(Event(WatchEventKind.PrivilegeGranted, Severity.High, EventAttribution.Pending, "Zofia Ćwiklińska"));
+        var jedrzej = await harness.StoreAsync(Event(WatchEventKind.PrivilegeGranted, Severity.Medium, EventAttribution.Pending, "Jędrzej Łęcki"));
+        var alert = NotificationRenderer.Alert(AdminsTarget(harness.Current), rule, [zofia, jedrzej], 0, [zofia.Id, jedrzej.Id], harness.Current, Now) with
+        {
+            EventStates = [new(zofia.Id, Severity.High, true), new(jedrzej.Id, Severity.Medium, true)],
+        };
+        await harness.MarkSentAsync(await harness.Store.EnqueueAsync(alert, Ct), Now);
+        foreach (var e in new[] { zofia, jedrzej })
+        {
+            await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        }
+
+        await harness.Store.AddAsync([FollowUpRow(harness, zofia, alert, rule, Severity.High), FollowUpRow(harness, jedrzej, alert, rule, Severity.High)], Ct);
+        var result = await harness.Dispatch.RunOnceAsync(Ct);
+        Assert.False(result.Failed, result.FailureCode);
+
+        var followUp = Assert.Single(await harness.MessagesAsync(zofia, jedrzej), m => m.Kind == DeliveryKind.FollowUp);
+        Assert.Equal([new OutboxEventState(zofia.Id, Severity.High, false), new OutboxEventState(jedrzej.Id, Severity.High, false)], followUp.EventStates);
+        var text = followUp.Email!.TextBody;
+        Assert.StartsWith("Uzupełnienie: wykonawca ustalony, priorytet podniesiony · WYSOKI ·", text, StringComparison.Ordinal);
+        Assert.Contains("Priorytet: Średni → Wysoki", text, StringComparison.Ordinal);
+        Assert.Contains("Priorytet: Wysoki", text, StringComparison.Ordinal);
+        Assert.Contains("<th", followUp.Email.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains(">Priorytet<", followUp.Email.HtmlBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task RuleSeverityOverride_IsTheSeverityOfTheMessage()
     {
         var rule = Rule("watchlist-groups", "Grupy obserwowane") with { Severity = Severity.Critical };
@@ -242,5 +498,193 @@ public sealed class NotificationDispatchJobTests
         var message = Assert.Single(await harness.MessagesAsync(e));
         Assert.Equal(Severity.Critical, message.Severity);
         Assert.StartsWith("[AD Watchdog][KRYTYCZNE]", message.Email!.Subject, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RowOfAnEventAlreadyAlertedToTheTarget_IsDroppedUnlessItEscalates()
+    {
+        // 13.2 #1: one alert per event and target – a row inserted after the earlier alert was completed (re-evaluation,
+        // second planning of a configuration change) is checked again when it is flushed.
+        var first = Rule("konta-vip", "Konta VIP");
+        var second = Rule("hasla", "Hasła");
+        var harness = new NotificationHarness(ConfigWith(first, second));
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.PasswordChanged, Severity.Medium), new PlannedMatch(first, Severity.Medium));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.Medium, false)], alert.EventStates);
+
+        var repeat = await harness.Planner.PlanAsync(e, [new PlannedMatch(second, Severity.Medium)], harness.Current, harness.Clock.GetUtcNow(), Ct);
+        await harness.Store.AddAsync(repeat, Ct);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        Assert.Single(await harness.MessagesAsync(e));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+
+        var escalation = await harness.Planner.PlanAsync(e, [new PlannedMatch(second, Severity.High)], harness.Current, harness.Clock.GetUtcNow(), Ct);
+        await harness.Store.AddAsync(escalation, Ct);
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var messages = await harness.MessagesAsync(e);
+        Assert.Equal([Severity.Medium, Severity.High], messages.Select(m => m.Severity));
+    }
+
+    [Fact]
+    public async Task ReleasedRowWhoseRuleNoLongerMatches_GoesOutUnderTheNextRuleThatStillMatches()
+    {
+        // konta-vip (first, excludes Paweł Wójcik) led the held row; opisy-kont matched the same mailbox. The actor is the
+        // excluded administrator: the target passes to opisy-kont instead of being dropped.
+        var vip = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.Always) with
+        {
+            Actors = new ActorFilter { ExcludeActors = [Resolved().Actor!.Sid!] },
+        };
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(vip, descriptions));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, EventAttribution.Pending),
+            new PlannedMatch(vip, Severity.Medium, IsProvisional: true), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal("konta-vip", Assert.Single(planned).RuleId);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        var result = await harness.Dispatch.RunOnceAsync(Ct);
+
+        Assert.False(result.Failed);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal((DeliveryKind.Alert, "opisy-kont", Severity.Medium), (alert.Kind, alert.RuleId, alert.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task RowWhoseRuleLeftItsDeliveryHours_GoesOutUnderARuleThatAlwaysDelivers()
+    {
+        // 16:58: konta-vip (business hours) leads the row with opisy-kont (Always) for the same mailbox; the window ends at
+        // 17:03, after business hours – opisy-kont still delivers, so the alert goes out instead of only the digest.
+        var vip = Rule("konta-vip", "Konta VIP", hours: DeliveryHours.BusinessHours);
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(vip, descriptions));
+        harness.Clock.Advance(TimeSpan.FromHours(6) + TimeSpan.FromMinutes(58));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, detectedAt: harness.Clock.GetUtcNow()),
+            new PlannedMatch(vip, Severity.Medium), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal("konta-vip", Assert.Single(planned).RuleId);
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal(("opisy-kont", Severity.Medium), (alert.RuleId, alert.Severity));
+        Assert.Empty(await harness.Store.GetAllAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ReleasedRow_IsRenderedWithTheOwnSeverity_NotWithAnotherRulesOverride()
+    {
+        // 12.1: a review rule (digest only) raises description changes to High – the evaluated, displayed severity. The
+        // held row of opisy-kont (no override) was planned with the event's own Medium; released with the actor, its
+        // re-match must give the same notification severity as the rules job did, not the review rule's High.
+        var review = Rule("przeglad-opisow", "Opisy kont – przegląd", immediate: false) with { Severity = Severity.High };
+        var descriptions = Rule("opisy-kont", "Opisy kont", hours: DeliveryHours.Always);
+        var harness = new NotificationHarness(ConfigWith(review, descriptions));
+        var (e, planned) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, EventAttribution.Pending),
+            new PlannedMatch(review, Severity.High), new PlannedMatch(descriptions, Severity.Medium));
+        Assert.Equal(("opisy-kont", Severity.Medium), (Assert.Single(planned).RuleId, planned[0].Severity));
+        await harness.Store.CommitEvaluationAsync(
+            [new EventEvaluation { EventId = e.Id, Severity = Severity.High, MatchedRules = [review.Id, descriptions.Id] }], [], Ct);
+        await harness.Store.UpdateAttributionAsync(e.Id, new AttributionUpdate { Attribution = Resolved() }, Ct);
+        var stored = (await harness.Store.GetAsync(e.Id, Ct))!;
+        Assert.Equal((Severity.Medium, Severity.High), (stored.OwnSeverity, stored.Severity));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal(("opisy-kont", Severity.Medium), (alert.RuleId, alert.Severity));
+        Assert.Equal([new OutboxEventState(e.Id, Severity.Medium, false)], alert.EventStates);
+    }
+
+    [Fact]
+    public async Task AggregatedAlert_RecordsHowItShowedEachEvent()
+    {
+        var rule = Rule("new-users", "Nowe konta");
+        var harness = new NotificationHarness(ConfigWith(rule));
+        var (high, _) = await harness.PlanAsync(Event(severity: Severity.High), new PlannedMatch(rule, Severity.High));
+        var (low, _) = await harness.PlanAsync(Event(severity: Severity.Low, name: "Żaneta Łęcka"), new PlannedMatch(rule, Severity.Low));
+        harness.Clock.Advance(TimeSpan.FromSeconds(10));
+
+        await harness.Dispatch.RunOnceAsync(Ct);
+
+        var alert = Assert.Single(await harness.MessagesAsync(high, low));
+        Assert.Equal(Severity.High, alert.Severity);
+        Assert.Equal([new OutboxEventState(high.Id, Severity.High, false), new OutboxEventState(low.Id, Severity.Low, false)], alert.EventStates);
+        Assert.False(AlertCoverage.Covers(alert, low.Id, Severity.Medium, harness.Current));
+        Assert.True(AlertCoverage.Covers(alert, high.Id, Severity.High, harness.Current));
+    }
+
+    /// <summary>A Critical alert sent with the actor pending (grace expired); the outbox row is still Pending.</summary>
+    private static async Task<(WatchEvent Event, OutboxMessage Alert)> SendWithPendingActorAsync(NotificationHarness harness, RuleSettings rule)
+    {
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.PrivilegeGranted, Severity.Critical, EventAttribution.Pending), new PlannedMatch(rule, Severity.Critical, true));
+        harness.Clock.Advance(TimeSpan.FromSeconds(90));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.True(alert.SentWithPendingAttribution);
+        harness.Clock.Advance(TimeSpan.FromMinutes(2));
+        return (e, alert);
+    }
+
+    /// <summary>A Medium change alerted at the end of the grace with the actor pending (no follow-up below High).</summary>
+    private static async Task<(WatchEvent Event, OutboxMessage Alert)> SendMediumWithPendingActorAsync(NotificationHarness harness, RuleSettings rule)
+    {
+        var (e, _) = await harness.PlanAsync(Event(WatchEventKind.AttributesChanged, Severity.Medium, EventAttribution.Pending), new PlannedMatch(rule, Severity.Medium));
+        harness.Clock.Advance(TimeSpan.FromMinutes(5));
+        await harness.Dispatch.RunOnceAsync(Ct);
+        var alert = Assert.Single(await harness.MessagesAsync(e));
+        Assert.Equal((Severity.Medium, true), (alert.Severity, alert.SentWithPendingAttribution));
+        return (e, alert);
+    }
+
+    /// <summary>A follow-up row of <paramref name="e"/> replying to <paramref name="alert"/>, due now – as the re-evaluation
+    /// (an escalation, 13.2 #7) or the follow-up planner store it.</summary>
+    private static PendingNotification FollowUpRow(NotificationHarness harness, WatchEvent e, OutboxMessage alert, RuleSettings rule, Severity severity)
+    {
+        var target = FollowUpPlanner.Target(alert, harness.Current);
+        return new PendingNotification
+        {
+            EventId = e.Id,
+            RuleId = rule.Id,
+            Target = target,
+            Severity = severity,
+            BucketKey = AggregationPolicy.FollowUpBucketKey(alert.MessageId, target),
+            DueAt = harness.Clock.GetUtcNow(),
+            IsFollowUp = true,
+            ReplyToMessageId = alert.MessageId,
+        };
+    }
+
+    /// <summary>The queue store with a hook that runs just before the dispatch job commits its message.</summary>
+    private sealed class RacingQueue(INotificationQueueStore inner, Func<Task> beforeComplete) : INotificationQueueStore
+    {
+        private Func<Task>? _beforeComplete = beforeComplete;
+
+        public Task<IReadOnlyList<PendingNotification>> GetAllAsync(CancellationToken cancellationToken) => inner.GetAllAsync(cancellationToken);
+
+        public Task AddAsync(IReadOnlyList<PendingNotification> notifications, CancellationToken cancellationToken) => inner.AddAsync(notifications, cancellationToken);
+
+        public Task ReplanAsync(IReadOnlyList<PendingNotification> notifications, bool insertMissing, CancellationToken cancellationToken) =>
+            inner.ReplanAsync(notifications, insertMissing, cancellationToken);
+
+        public async Task CompleteAsync(IReadOnlyList<long> pendingIds, OutboxMessage? message, CancellationToken cancellationToken)
+        {
+            if (Interlocked.Exchange(ref _beforeComplete, null) is { } hook)
+            {
+                await hook();
+            }
+
+            await inner.CompleteAsync(pendingIds, message, cancellationToken);
+        }
+
+        public Task DropAsync(IReadOnlyList<long> pendingIds, CancellationToken cancellationToken) => inner.DropAsync(pendingIds, cancellationToken);
+
+        public Task RescheduleAsync(IReadOnlyList<long> pendingIds, DateTimeOffset dueAt, CancellationToken cancellationToken) =>
+            inner.RescheduleAsync(pendingIds, dueAt, cancellationToken);
     }
 }

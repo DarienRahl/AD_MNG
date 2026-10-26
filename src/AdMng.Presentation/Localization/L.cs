@@ -168,9 +168,11 @@ public static partial class L
         public const string SessionLog = "Commands.SessionLog";
         public const string Settings = "Commands.Settings";
         public const string Disconnect = "Commands.Disconnect";
+        public const string ChangeDomainController = "Commands.ChangeDomainController";
         public const string CancelLoad = "Commands.CancelLoad";
         public const string ImportCsv = "Commands.ImportCsv";
         public const string RecycleBin = "Commands.RecycleBin";
+        public const string AccountReview = "Commands.AccountReview";
         public const string Watchdog = "Commands.Watchdog";
         public const string WatchdogHistory = "Commands.WatchdogHistory";
     }

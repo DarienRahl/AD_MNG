@@ -30,6 +30,14 @@ public sealed record DigestModel
     /// <summary>The first <c>MaxRowsPerSection</c> events ≥ High (most severe first, then oldest first).</summary>
     public IReadOnlyList<WatchEvent> Attention { get; init; } = [];
 
+    /// <summary>Events of <see cref="Attention"/> whose severity changed after their alert went out (13.2 #7: an escalation
+    /// or a follow-up told the recipients another severity), with the severity the alert showed – rendered as "priorytet:
+    /// Średni → Wysoki" next to the event (<see cref="EventNotices.ChangedFrom"/>).</summary>
+    public IReadOnlyDictionary<long, Severity> SeverityChanges { get; init; } = new Dictionary<long, Severity>();
+
+    /// <summary>The severity the alert of <paramref name="eventId"/> showed before an escalation changed it, or null.</summary>
+    public Severity? PreviousSeverity(long eventId) => SeverityChanges.TryGetValue(eventId, out var previous) ? previous : null;
+
     public IReadOnlyList<DigestSection> Sections { get; init; } = [];
 
     /// <summary>Events reported by the sections and "Wymaga uwagi" (webhook payload, capped).</summary>

@@ -16,7 +16,11 @@ public interface IFileDialogService
 /// <summary>System clipboard.</summary>
 public interface IClipboardService
 {
-    void SetText(string text);
+    /// <summary>
+    /// Puts text on the clipboard. Returns false when the clipboard could not be written (another process held it; the
+    /// operator was warned) - callers then do not confirm the copy.
+    /// </summary>
+    bool SetText(string text);
 
     /// <summary>
     /// Puts a secret (a password) on the clipboard: excluded from clipboard history, cloud clipboard and clipboard

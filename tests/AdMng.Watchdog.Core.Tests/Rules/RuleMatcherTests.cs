@@ -2,6 +2,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Rules;
 using static AdMng.Watchdog.Core.Tests.Rules.TestEvents;
+using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;
 
 namespace AdMng.Watchdog.Core.Tests.Rules;
 
@@ -208,11 +209,97 @@ public class RuleMatcherTests
     public void ExcludeSelfChanges_UsesTheSelfChangeTag()
     {
         var rule = Rule() with { Actors = new ActorFilter { ExcludeSelfChanges = true } };
+        WatchEvent KeyRotation(EventAttribution? attribution = null, IReadOnlyList<string>? tags = null) =>
+            Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, attribution: attribution, tags: tags);
 
-        Assert.Equal(RuleMatchOutcome.NoMatch, Match(rule, Create(WatchEventKind.KeyCredentialChanged, attribution: Resolved(DomainSid + "-6609"), tags: [EventTags.SelfChange])));
-        Assert.Equal(RuleMatchOutcome.Match, Match(rule, Create(WatchEventKind.KeyCredentialChanged, attribution: Resolved(AdminSid))));
-        Assert.Equal(RuleMatchOutcome.Provisional, Match(rule, Create(WatchEventKind.KeyCredentialChanged)));
-        Assert.Equal(RuleMatchOutcome.Match, Match(rule, Create(WatchEventKind.KeyCredentialChanged), graceExpired: true));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(rule, KeyRotation(Resolved(DomainSid + "-6609"), [EventTags.SelfChange])));
+        Assert.Equal(RuleMatchOutcome.Match, Match(rule, KeyRotation(Resolved(AdminSid))));
+        Assert.Equal(RuleMatchOutcome.Provisional, Match(rule, KeyRotation()));
+        Assert.Equal(RuleMatchOutcome.Match, Match(rule, KeyRotation(), graceExpired: true));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(rule, Create(WatchEventKind.PasswordChanged, attribution: Resolved(DomainSid + "-6609"), tags: [EventTags.SelfChange])));
+    }
+
+    [Theory]
+    [InlineData(WatchEventKind.DelegationChanged, WatchObjectKind.Computer)]       // ntlmrelayx --delegate-access: RBCD written by the relayed computer
+    [InlineData(WatchEventKind.SidHistoryChanged, WatchObjectKind.User)]
+    [InlineData(WatchEventKind.PrimaryGroupChanged, WatchObjectKind.Computer)]
+    [InlineData(WatchEventKind.CertificateMappingChanged, WatchObjectKind.User)]
+    [InlineData(WatchEventKind.KeyCredentialChanged, WatchObjectKind.User)]        // shadow credentials on an account the attacker controls
+    [InlineData(WatchEventKind.ServicePrincipalNameAdded, WatchObjectKind.User)]
+    [InlineData(WatchEventKind.AccountFlagsChanged, WatchObjectKind.User)]
+    public void ExcludeSelfChanges_NeverHidesTier0SelfWrites(WatchEventKind kind, WatchObjectKind objectKind)
+    {
+        var tier0Security = DefaultRules.Find(DefaultRules.Tier0Security)! with { Kinds = [kind] };
+        var dn = objectKind == WatchObjectKind.Computer ? ComputerDn : UserDn;
+
+        var self = Create(kind, dn, objectKind, Severity.High, Resolved(DomainSid + "-6609"), [EventTags.SelfChange]);
+        var pending = Create(kind, dn, objectKind, Severity.High);
+
+        Assert.Equal(RuleMatchOutcome.Match, Match(tier0Security, self));
+        Assert.Equal(RuleMatchOutcome.Match, Match(tier0Security, pending));   // not held for the actor: sent at once
+    }
+
+    [Fact]
+    public void ExcludeSelfChanges_HidesOnlyRoutineMaintenanceOfOrdinaryComputersAndServiceAccounts()
+    {
+        var tier0Security = DefaultRules.Find(DefaultRules.Tier0Security)!;
+        var self = Resolved(DomainSid + "-6609");
+
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(tier0Security,
+            Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High, self, [EventTags.SelfChange])));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(tier0Security,
+            Create(WatchEventKind.ServicePrincipalNameAdded, "CN=gmsa-sql,CN=Managed Service Accounts,DC=contoso,DC=test", WatchObjectKind.ServiceAccount, Severity.High, self, [EventTags.SelfChange])));
+
+        // A DC writing a key on itself (relayed DC → shadow credentials) or a privileged computer is never routine.
+        Assert.Equal(RuleMatchOutcome.Match, Match(tier0Security,
+            Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High, self, [EventTags.SelfChange, EventTags.DomainController])));
+        Assert.Equal(RuleMatchOutcome.Match, Match(tier0Security,
+            Create(WatchEventKind.KeyCredentialChanged, ComputerDn, WatchObjectKind.Computer, Severity.High, self, [EventTags.SelfChange, EventTags.Privileged])));
+    }
+
+    [Fact]
+    public void SuppressComputerSelfChanges_RulesDefaultToExcludingComputerNoiseSelfChanges()
+    {
+        var rule = Rule(WatchEventKind.AttributesChanged, WatchEventKind.PasswordChanged);
+        var self = Resolved(DomainSid + "-6609");
+        WatchEvent Computer(IReadOnlyList<string> attributes, EventAttribution? attribution = null, IReadOnlyList<string>? tags = null) =>
+            Create(WatchEventKind.AttributesChanged, ComputerDn, WatchObjectKind.Computer, attribution: attribution, tags: tags, changedAttributes: attributes);
+
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(rule, Computer(["operatingSystemVersion", "operatingSystem"], self, [EventTags.SelfChange])));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(rule,
+            Create(WatchEventKind.PasswordChanged, ComputerDn, WatchObjectKind.Computer, attribution: self, tags: [EventTags.SelfChange], changedAttributes: ["pwdLastSet"])));
+        Assert.Equal(RuleMatchOutcome.Provisional, Match(rule, Computer(["operatingSystem"])));
+        Assert.Equal(RuleMatchOutcome.Match, Match(rule, Computer(["operatingSystem"], Resolved(AdminSid))));      // another actor
+        Assert.Equal(RuleMatchOutcome.Match, Match(rule, Computer(["operatingSystem", "description"], self, [EventTags.SelfChange])));
+        Assert.Equal(RuleMatchOutcome.Match, Match(rule, Create(WatchEventKind.AttributesChanged, attribution: self, tags: [EventTags.SelfChange], changedAttributes: ["operatingSystem"])));
+
+        var off = RuleMatchContext.Create(
+            WatchdogConfigProvider.Effective(new DefaultConfigurationFactory().Create() with { Attribution = new AttributionSettings { SuppressComputerSelfChanges = false } }),
+            Tokens);
+        Assert.Equal(RuleMatchOutcome.Match, RuleMatcher.Match(rule, Computer(["operatingSystem"], self, [EventTags.SelfChange]), off, Now));
+        Assert.Equal(RuleMatchOutcome.Match, RuleMatcher.Match(rule, Computer(["operatingSystem"]), off, Now));
+    }
+
+    [Fact]
+    public void ActorSidTokens_WithAnUnknownDomainSid_ExcludeNothing()
+    {
+        // {domainSid}-1105 must not fall back to RID 1105 of any (trusted) domain: an exclusion fails closed.
+        var unknownDomainSid = RuleMatchContext.Create(
+            WatchdogConfigProvider.Effective(new DefaultConfigurationFactory().Create()), Tokens with { DomainSid = null, RootDomainSid = null });
+        var byActors = Rule() with { Actors = new ActorFilter { ExcludeActors = ["{domainSid}-1105"] } };
+        var byExclusion = Rule() with
+        {
+            Exclusions = [new RuleExclusion { Id = "provisioning", Actor = "{rootDomainSid}-1105", Reason = "Konto provisioningu", CreatedBy = "CONTOSO\\jan", CreatedAt = Now }],
+        };
+        var foreign = Create(WatchEventKind.SecurityLogCleared, attribution: Resolved("S-1-5-21-99-98-97-1105", "FABRIKAM\\prov"));
+
+        Assert.Equal(RuleMatchOutcome.Match, RuleMatcher.Match(byActors, foreign, unknownDomainSid, Now));
+        Assert.Equal(RuleMatchOutcome.Match, RuleMatcher.Match(byExclusion, foreign, unknownDomainSid, Now));
+        Assert.Equal(RuleMatchOutcome.Match, RuleMatcher.Match(byActors, Create(WatchEventKind.SecurityLogCleared), unknownDomainSid, Now));
+
+        var own = Create(WatchEventKind.SecurityLogCleared, attribution: Resolved(DomainSid + "-1105", "CONTOSO\\prov"));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(byActors, own));
+        Assert.Equal(RuleMatchOutcome.NoMatch, Match(byExclusion, own));
     }
 
     [Fact]

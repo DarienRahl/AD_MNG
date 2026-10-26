@@ -37,6 +37,10 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
     [ObservableProperty]
     public partial RecipientGroupsViewModel? RecipientGroups { get; private set; }
 
+    /// <summary>Messages to users submitted by AD Manager (README U1b).</summary>
+    [ObservableProperty]
+    public partial WatchdogUserMessagingViewModel? UserMessaging { get; private set; }
+
     public ObservableCollection<ChannelEditorViewModel> Channels { get; } = [];
 
     [ObservableProperty]
@@ -137,12 +141,14 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
         {
             Smtp = null;
             RecipientGroups = null;
+            UserMessaging = null;
             SelectedChannel = null;
             return;
         }
 
         Smtp = new SmtpSettingsViewModel(_services, Session);
         RecipientGroups = new RecipientGroupsViewModel(_services, Session);
+        UserMessaging = new WatchdogUserMessagingViewModel(_services, Session);
         for (var i = 0; i < working.Channels.Count; i++)
         {
             Channels.Add(new ChannelEditorViewModel(_services, Session, i));
@@ -162,6 +168,7 @@ public sealed partial class WatchdogChannelsViewModel : ObservableObject, IDispo
     {
         Smtp?.RefreshErrors();
         RecipientGroups?.RefreshErrors();
+        UserMessaging?.RefreshErrors();
         foreach (var channel in Channels)
         {
             channel.RefreshErrors();

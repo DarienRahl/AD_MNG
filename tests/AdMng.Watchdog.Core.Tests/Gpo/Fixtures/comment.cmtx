@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Policy comments of administrative templates (GPMC "comment.cmtx", CommentDefinitions namespace). Written by hand. -->
+<policyComments xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://www.microsoft.com/GroupPolicy/CommentDefinitions">
+  <policyNamespaces>
+    <using prefix="ns0" namespace="Microsoft.Policies.WindowsUpdate"></using>
+  </policyNamespaces>
+  <comments>
+    <admTemplate>
+      <comment policyRef="ns0:AutoUpdateCfg" commentText="$(resource.ns0_AutoUpdateCfg)"></comment>
+    </admTemplate>
+  </comments>
+  <resources minRequiredRevision="1.0">
+    <stringTable>
+      <string id="ns0_AutoUpdateCfg">Aktualizacje instalowane automatycznie – zgłoszenie ZMIANA-1234 (Łódź).</string>
+    </stringTable>
+  </resources>
+</policyComments>

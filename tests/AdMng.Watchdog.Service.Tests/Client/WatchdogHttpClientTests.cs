@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Security;
 using AdMng.Watchdog.Client;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
@@ -104,15 +105,63 @@ public sealed class WatchdogHttpClientTests
     }
 
     [Fact]
-    public async Task UntrustedCertificate_WithoutAPin_IsCertificateInvalid()
+    public async Task UntrustedCertificate_WithoutAPin_IsCertificateUntrusted_WithThePresentedLeaf()
     {
         await using var server = WatchdogClientServer.Start(TestRoles.AdminAccount, TestRoles.AdminGroup);
         using var client = server.Client(pinned: false);
 
         var error = await Assert.ThrowsAsync<WatchdogClientException>(() => client.GetMeAsync(Ct));
 
-        Assert.Equal(WatchdogClientErrorKind.CertificateInvalid, error.Kind);
+        Assert.Equal(WatchdogClientErrorKind.CertificateUntrusted, error.Kind);
+        var certificate = Assert.IsType<WatchdogServerCertificate>(error.Certificate);
+        Assert.Equal(WatchdogClientServer.CertificateSha256, certificate.Sha256);
+        Assert.Equal("CN=localhost", certificate.Subject);
+        Assert.Equal(["localhost"], certificate.DnsNames);
+        Assert.True(certificate.NotBefore < certificate.NotAfter);
+        Assert.Null(error.PinnedCertificateSha256);
+        Assert.DoesNotContain(certificate.Sha256, error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task UntrustedCertificate_WithAnotherPin_IsCertificateChanged_AndKeepsTheOldPin()
+    {
+        await using var server = WatchdogClientServer.Start(TestRoles.AdminAccount, TestRoles.AdminGroup);
+        var previous = string.Join(':', Enumerable.Repeat("ab", 32));
+        using var client = server.Client(pin: previous);
+
+        var error = await Assert.ThrowsAsync<WatchdogClientException>(() => client.GetMeAsync(Ct));
+
+        Assert.Equal(WatchdogClientErrorKind.CertificateChanged, error.Kind);
+        Assert.Equal(WatchdogClientServer.CertificateSha256, error.Certificate?.Sha256);
+        Assert.Equal(string.Concat(Enumerable.Repeat("AB", 32)), error.PinnedCertificateSha256);
+
+        // Confirmed: the new pin is accepted for a certificate whose only error is its chain.
+        client.Configure(new WatchdogClientOptions { BaseAddress = server.Address, PinnedCertificateSha256 = error.Certificate!.Sha256 });
+        Assert.Equal(TestRoles.AdminAccount, (await client.GetMeAsync(Ct)).Account);
+    }
+
+    [Theory]
+    [InlineData(SslPolicyErrors.None, false, true)]
+    [InlineData(SslPolicyErrors.RemoteCertificateChainErrors, true, true)]
+    [InlineData(SslPolicyErrors.RemoteCertificateChainErrors, false, false)]
+    [InlineData(SslPolicyErrors.RemoteCertificateNameMismatch, true, false)]
+    [InlineData(SslPolicyErrors.RemoteCertificateChainErrors | SslPolicyErrors.RemoteCertificateNameMismatch, true, false)]
+    [InlineData(SslPolicyErrors.RemoteCertificateNotAvailable, true, false)]
+    public void APin_AcceptsOnlyAChainFailure_NeverANameMismatch(SslPolicyErrors errors, bool pinMatches, bool trusted)
+    {
+        var certificate = TestCertificates.Localhost;
+        var pin = pinMatches ? Convert.FromHexString(TestCertificates.Sha256(certificate)) : new byte[32];
+
+        Assert.Equal(trusted, WatchdogHttpHandlerFactory.IsTrusted(certificate, errors, pin));
+        Assert.Equal(errors == SslPolicyErrors.None, WatchdogHttpHandlerFactory.IsTrusted(certificate, errors, null));
+    }
+
+    [Theory]
+    [InlineData("AB:CD", null)]
+    [InlineData("", null)]
+    [InlineData("3f2a9c1e 0b7d4a55 9e8c1f20 6a3b5d7e 9f0c2b4d 6e8a1c3f 5b7d9e0a 2c4f6b8d", "3F2A9C1E0B7D4A559E8C1F206A3B5D7E9F0C2B4D6E8A1C3F5B7D9E0A2C4F6B8D")]
+    public void Fingerprints_AreNormalized(string text, string? expected) =>
+        Assert.Equal(expected, WatchdogServerCertificate.NormalizeSha256(text));
 
     [Fact]
     public async Task StoppedServer_IsUnreachable()

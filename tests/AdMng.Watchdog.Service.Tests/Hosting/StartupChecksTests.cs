@@ -54,15 +54,41 @@ public sealed class StartupChecksTests
         Assert.Equal(StartupExitCodes.DevelopmentAuthentication, factory.Terminator.ExitCode);
     }
 
-    [Fact]
-    public async Task Production_WithoutProtectedKeys_RefusesToStart_WithExitCode5()
+    /// <summary>Plain http is allowed only on loopback listeners – for HTTP.sys as well as for Kestrel.</summary>
+    [Theory]
+    [InlineData("Kestrel")]
+    [InlineData("HttpSys")]
+    public async Task PlainHttpOnANetworkListener_RefusesToStart_WithExitCode4(string server)
     {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows the key ring is protected with DPAPI-NG.");
-        await using var factory = new WatchdogFactory(environment: "Production");
+        await using var factory = new WatchdogFactory(new Dictionary<string, string?>
+        {
+            ["Watchdog:Hosting:Server"] = server,
+            ["Watchdog:Hosting:Urls"] = "http://+:8080/",
+        });
 
         Assert.NotNull(Record.Exception(() => factory.Services));
 
-        Assert.Equal(StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
+        Assert.Equal(StartupExitCodes.Certificate, factory.Terminator.ExitCode);
+        Assert.Contains(factory.Log.Entries, e => e.EventId.Id == EventLogIds.FatalStartupCheck && e.Message.Contains("loopback", StringComparison.Ordinal));
+    }
+
+    /// <summary>Linux: without the systemd credential (exit 9, stage B design 10); other non-Windows hosts: exit 5. The data
+    /// folder is private, so the POSIX check (exit 5 on Linux, LinuxStartupChecksTests) does not decide it.</summary>
+    [Fact]
+    public async Task Production_WithoutProtectedKeys_RefusesToStart()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "On Windows the key ring is protected with DPAPI-NG.");
+        using var directory = new TestDataDirectory();
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(directory.Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        await using var factory = new WatchdogFactory(environment: "Production", dataDirectory: directory);
+
+        Assert.NotNull(Record.Exception(() => factory.Services));
+
+        Assert.Equal(OperatingSystem.IsLinux() ? StartupExitCodes.MissingCredential : StartupExitCodes.DataDirectory, factory.Terminator.ExitCode);
     }
 
     [Fact]

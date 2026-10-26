@@ -23,7 +23,7 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// stored as null counts as an empty list.</para>
 /// <para>Severity (maximum over the changes, at least Medium):</para>
 /// <list type="bullet">
-/// <item><b>Critical</b> – disabling or weakening <c>tier0-*</c> / <c>health</c> delivery or matching (rule removed or
+/// <item><b>Critical</b> – disabling or weakening <c>tier0-*</c> / <c>watchdog-self</c> / <c>health</c> delivery or matching (rule removed or
 /// disabled; kinds, object kinds, scope, attributes or tags narrowed; group filter, MinSeverity raised, Severity override
 /// changed to anything but Critical; actor exclusions added; exclusions added or changed; immediate/digest/all-channels
 /// switched off; recipient groups or channels removed from it; hours weakened; aggregation window or repeat suppression
@@ -37,11 +37,14 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// detector made less sensitive (<c>scans.massLockout</c>/<c>massDeletion</c>/<c>massComputerDeletion</c> threshold or
 /// percentage raised or window shortened, <c>scans.passwordSpray.distinctAccounts</c> raised or window shortened);
 /// <c>smtp.enabled</c> switched off; a channel or recipient group used by a
-/// <c>tier0-*</c>/<c>health</c> rule removed or disabled, or addresses removed from such a group; a whole section
+/// <c>tier0-*</c>/<c>watchdog-self</c>/<c>health</c> rule removed or disabled, or addresses removed from such a group;
+/// any decrease of a numeric <c>retention</c> value (stage B design 14.2: events, DC log and logon records, backups,
+/// outbox, snapshots, audit, size cap – shorter history is deleted at the next maintenance); a whole section
 /// removed.</item>
 /// <item><b>High</b> – any other change of recipients (<c>recipientGroups</c>, rule and digest recipient/channel
 /// references, <c>notifyManager</c>, a whole rule added/removed that sends somewhere or carries exclusions),
-/// <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>.</item>
+/// <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>; <c>userMessages.enabled</c> and
+/// <c>userMessages.allowedSenders</c>.</item>
 /// <item><b>Medium</b> – everything else.</item>
 /// </list>
 /// </remarks>
@@ -178,7 +181,7 @@ public sealed class ConfigChangeAuditor
         public WatchdogConfiguration Current { get; }
 
         public static bool IsProtectedRule(string? id) =>
-            id is not null && (id.StartsWith("tier0-", StringComparison.OrdinalIgnoreCase) || id.Equals("health", StringComparison.OrdinalIgnoreCase));
+            id is not null && (Rules.Tier0Catalog.IsTier0Rule(id) || id.Equals(Rules.DefaultRules.Health, StringComparison.OrdinalIgnoreCase));
 
         public bool IsProtectedChannel(string? id) => _protectedAllChannels || (id is not null && _protectedChannels.Contains(id));
 
@@ -428,6 +431,11 @@ public sealed class ConfigChangeAuditor
                         : Severity.High;
                 case "digest":
                     return property is "enabled" or "recipientGroupIds" or "channelIds" ? Severity.High : Severity.Medium;
+                case "userMessages":
+                    // Who may send in the name of the IT department (README U1b): switching it on or widening the senders.
+                    return property is "enabled" or "allowedSenders" ? Severity.High : Severity.Medium;
+                case "retention":
+                    return Decreased(oldNode, newNode) ? Severity.Critical : Severity.Medium;
                 case "rules":
                     return ClassifyRule(path, kind, counts, oldNode, newNode);
                 default:
@@ -590,6 +598,11 @@ public sealed class ConfigChangeAuditor
         }
 
         private static bool IsCollection(JsonNode? oldNode, JsonNode? newNode) => oldNode is JsonArray && newNode is JsonArray;
+
+        /// <summary>A number became smaller, or a number was replaced by something that is not one.</summary>
+        private static bool Decreased(JsonNode? oldNode, JsonNode? newNode) =>
+            oldNode is JsonValue before && before.TryGetValue<double>(out var oldNumber)
+            && (newNode is not JsonValue after || !after.TryGetValue<double>(out var newNumber) || newNumber < oldNumber);
 
         private static bool TurnedOff(JsonNode? oldNode, JsonNode? newNode) => IsTrue(oldNode) && !IsTrue(newNode);
 

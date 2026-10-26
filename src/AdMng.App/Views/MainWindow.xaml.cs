@@ -92,14 +92,15 @@ public partial class MainWindow : Window
     {
         ArgumentNullException.ThrowIfNull(e);
         base.OnClosing(e);
-        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords))
+        if (e.Cancel || _closeConfirmed || (!Shell.Activities.HasRunning && !_tools.HasUnsavedGeneratedPasswords && !Shell.HasUnsavedDocuments))
         {
             return;
         }
 
-        // Running batches would be interrupted, and generated passwords that were not exported would be lost with the
-        // batch editors (owned windows close without asking): cancel this close and ask first. The question (a modal dialog) and the
-        // second Close() must run after this event: WPF throws when Close() is called while the window is closing.
+        // Running batches would be interrupted, generated passwords that were not exported would be lost with the batch
+        // editors (owned windows close without asking), and a tab's unsaved changes (the Watchdog configuration) would be
+        // discarded: cancel this close and ask first. The question (a modal dialog) and the second Close() must run after
+        // this event: WPF throws when Close() is called while the window is closing.
         e.Cancel = true;
         if (!_confirmingClose)
         {
@@ -128,6 +129,8 @@ public partial class MainWindow : Window
                     || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
                 && (!_tools.HasUnsavedGeneratedPasswords
                     || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
+                && !_closed
+                && await Shell.CanCloseDocumentsAsync().ConfigureAwait(true)
                 && !_closed)
             {
                 _closeConfirmed = true;
@@ -143,8 +146,9 @@ public partial class MainWindow : Window
     // ---- Keyboard ----------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Key bindings from the command descriptors. Object commands (Delete, F2, Alt+Enter...) act on the list selection,
-    /// so they are bound to the document area only - Delete in the search box or the tree never deletes list objects.
+    /// Key bindings from the command descriptors. Object and "Copy as" commands (Delete, F2, Alt+Enter, Ctrl+C...) act on
+    /// the list selection, so they are bound to the document area only - Delete in the search box or the tree never
+    /// deletes list objects, and Ctrl+C there copies the text box's selection.
     /// </summary>
     private void BuildKeyBindings()
     {
@@ -156,7 +160,7 @@ public partial class MainWindow : Window
             }
 
             var binding = new KeyBinding(descriptor.Command, gesture) { CommandParameter = descriptor.Parameter };
-            if (string.Equals(descriptor.CategoryKey, L.CommandCategories.Object, StringComparison.Ordinal))
+            if (descriptor.CategoryKey is L.CommandCategories.Object or L.Copy.Category)
             {
                 DocumentHost.InputBindings.Add(binding);
             }
@@ -216,7 +220,7 @@ public partial class MainWindow : Window
 
         switch (e.PropertyName)
         {
-            case nameof(ShellViewModel.IsDetailsPaneVisible):
+            case nameof(ShellViewModel.IsDetailsPaneShown):
                 UpdateDetailsPane();
                 break;
             case nameof(ShellViewModel.SelectedTab):
@@ -232,9 +236,13 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Shows or collapses the details pane and its column (hidden by Ctrl+D and on tabs without directory objects such
+    /// as the Watchdog tab); the width the operator dragged it to comes back with it.
+    /// </summary>
     private void UpdateDetailsPane()
     {
-        var visible = Shell.IsDetailsPaneVisible;
+        var visible = Shell.IsDetailsPaneShown;
         if (!visible && DetailsColumn.Width.Value > 0)
         {
             _detailsWidth = DetailsColumn.Width;
@@ -272,6 +280,17 @@ public partial class MainWindow : Window
     }
 
     private void OnFiltersMenuClick(object sender, RoutedEventArgs e) => FilterToggle.IsChecked = FilterToggle.IsChecked != true;
+
+    /// <summary>The toolbar's "Kopiuj jako…" button opens its menu below itself (also with Enter / Space).</summary>
+    private void OnCopyAsButtonClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { ContextMenu: { } menu } button)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+    }
 
     /// <summary>Tools > PowerShell history (no IDialogService entry: it is a tool window of the WPF shell).</summary>
     private void OnPowerShellHistoryClick(object sender, RoutedEventArgs e) => _tools.ShowPowerShellHistory();

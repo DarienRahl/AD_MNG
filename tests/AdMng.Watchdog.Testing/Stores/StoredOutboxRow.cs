@@ -27,8 +27,13 @@ internal sealed class StoredOutboxRow(OutboxMessage message)
 
     public long Id => Message.Id;
 
-    /// <summary>The message as the store returns it: current attempts and links.</summary>
-    public OutboxMessage ToMessage() => Message with { EventIds = [.. EventIds.Order()] };
+    /// <summary>The message as the store returns it: current attempts and links, the per-event states of the linked events
+    /// (the columns of <c>outbox_events</c>, ordered by event id).</summary>
+    public OutboxMessage ToMessage() => Message with
+    {
+        EventIds = [.. EventIds.Order()],
+        EventStates = [.. Message.EventStates.DistinctBy(s => s.EventId).Where(s => EventIds.Contains(s.EventId)).OrderBy(s => s.EventId)],
+    };
 
     public bool IsWaiting => Status is OutboxStatus.Pending or OutboxStatus.Sending or OutboxStatus.Retrying;
 }

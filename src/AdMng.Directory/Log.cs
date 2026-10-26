@@ -87,6 +87,10 @@ internal static partial class Log
         Message = "Domain controller {Server} does not resolve; further connections use {ConnectedHost} and may reach another domain controller")]
     public static partial void PinningFailed(ILogger logger, string server, string connectedHost);
 
+    [LoggerMessage(EventId = 1011, Level = LogLevel.Error,
+        Message = "LDAP session to {Server} refused: SASL security strength factor {Ssf} is below {Minimum} (not sealed; -1 = unknown)")]
+    public static partial void SessionNotSealed(ILogger logger, string server, int ssf, int minimum);
+
     [LoggerMessage(EventId = 1100, Level = LogLevel.Debug,
         Message = "Pooled LDAP connection opened to {Server} ({Count}/{Max})")]
     public static partial void PoolConnectionOpened(ILogger logger, string server, int count, int max);

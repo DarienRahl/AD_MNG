@@ -431,7 +431,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         // object only instead of aborting the whole batch.
                         var attributes = change.Attributes
                             .Where(a => a.NewValues.Count > 0)
-                            .ToDictionary(a => a.Attribute, a => (IReadOnlyList<object>)[.. a.NewValues], StringComparer.OrdinalIgnoreCase);
+                            .ToDictionary(a => a.Attribute, a => Wire(a.Attribute, a.NewValues), StringComparer.OrdinalIgnoreCase);
                         await _session.AddAsync(objectPlan.DistinguishedName, attributes, CancellationToken.None).ConfigureAwait(false);
                         return true;
                     }).ConfigureAwait(false);
@@ -577,7 +577,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
         /// <summary>Whether the attribute holds exactly the expected values (order-insensitive, per the attribute's syntax).</summary>
         private bool HasExactly(DirectoryObject obj, string attribute, IReadOnlyList<string> expected)
         {
-            var remaining = obj.GetStrings(attribute).ToList();
+            var remaining = PipelineValues.Read(obj, attribute).ToList();
             if (remaining.Count != expected.Count)
             {
                 return false;
@@ -636,21 +636,31 @@ public sealed partial class BatchExecutor : IBatchExecutor
             _ => (DirectoryErrorKind.Unknown, error.Message),
         };
 
+        /// <summary>The values sent to the DC: bytes for hex-encoded binary attributes (logonHours), strings otherwise.</summary>
+        private static IReadOnlyList<object> Wire(string attribute, IReadOnlyList<string> values) =>
+            [.. values.Select(v => PipelineValues.ToWire(attribute, v))];
+
         private async Task<StepOutcome> ModifyAsync(PlannedChange change, string dn)
         {
             var strict = new List<AttributeModification>();
             var permissive = new List<AttributeModification>();
             var compareAndSwap = false;
             var compared = new List<AttributeChange>();
+            if (change.Attributes.FirstOrDefault(a => a.OldValues.Concat(a.NewValues).Any(v => !PipelineValues.IsWireValue(a.Attribute, v))) is { } invalid)
+            {
+                // Only a hand-made plan can carry such a value: the planner validates the hex form of binary values.
+                return Invalid(change, $"A value of '{invalid.Attribute}' is not valid hexadecimal text.");
+            }
+
             foreach (var attribute in change.Attributes)
             {
                 switch (attribute.Kind)
                 {
                     case AttributeChangeKind.AddValues when attribute.NewValues.Count > 0:
-                        permissive.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Add, [.. attribute.NewValues]));
+                        permissive.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Add, Wire(attribute.Attribute, attribute.NewValues)));
                         break;
                     case AttributeChangeKind.RemoveValues when attribute.NewValues.Count > 0:
-                        permissive.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Delete, [.. attribute.NewValues]));
+                        permissive.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Delete, Wire(attribute.Attribute, attribute.NewValues)));
                         break;
                     case AttributeChangeKind.Replace or AttributeChangeKind.Clear:
                         var newValues = attribute.Kind == AttributeChangeKind.Clear ? [] : attribute.NewValues;
@@ -659,13 +669,13 @@ public sealed partial class BatchExecutor : IBatchExecutor
                             compared.Add(attribute);
                             if (attribute.OldValues.Count > 0)
                             {
-                                strict.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Delete, [.. attribute.OldValues]));
+                                strict.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Delete, Wire(attribute.Attribute, attribute.OldValues)));
                                 compareAndSwap = true;
                             }
 
                             if (newValues.Count > 0)
                             {
-                                strict.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Add, [.. newValues]));
+                                strict.Add(new AttributeModification(attribute.Attribute, ModificationOperation.Add, Wire(attribute.Attribute, newValues)));
                                 compareAndSwap = true;
                             }
                         }
@@ -673,7 +683,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                         {
                             strict.Add(newValues.Count == 0
                                 ? AttributeModification.Clear(attribute.Attribute)
-                                : new AttributeModification(attribute.Attribute, ModificationOperation.Replace, [.. newValues]));
+                                : new AttributeModification(attribute.Attribute, ModificationOperation.Replace, Wire(attribute.Attribute, newValues)));
                         }
 
                         break;

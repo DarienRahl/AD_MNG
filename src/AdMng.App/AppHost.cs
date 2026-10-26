@@ -2,15 +2,19 @@ using System.Windows.Threading;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
+using AdMng.Core.Messaging;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
+using AdMng.Mail;
 using AdMng.Presentation;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
@@ -19,7 +23,9 @@ using AdMng.Presentation.Localization;
 using AdMng.Presentation.PropertySheets;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
+using AdMng.Presentation.UserMessages;
 using AdMng.Presentation.Views;
+using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -101,7 +107,8 @@ public static class AppHost
         services.AddSingleton<IWindowService, WindowService>();
         services.AddSingleton<IAppShutdown, ApplicationShutdown>();
         services.AddSingleton<AppNavigator>();
-        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<DialogService>();
+        services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<DialogService>());
         services.AddSingleton<IFileDialogService, FileDialogService>();
         services.AddSingleton<IClipboardService, ClipboardService>();
         services.AddSingleton<NotificationService>();
@@ -122,6 +129,7 @@ public static class AppHost
         services.AddWindow<MessageDialogViewModel, MessageDialogWindow>();
         services.AddWindow<SavedViewEditorViewModel, SavedViewEditorWindow>();
         services.AddWindow<ColumnChooserViewModel, ColumnChooserWindow>();
+        services.AddWindow<LogonHoursViewModel, LogonHoursWindow>();
 
         // ---- C2a: object dialogs (view models from IDialogViewModelFactory, opened by DialogService) ----
         services.AddWindow<PropertySheetViewModel, PropertiesWindow>();
@@ -130,6 +138,7 @@ public static class AppHost
         services.AddWindow<ObjectPickerViewModel, ObjectPickerWindow>();
         services.AddWindow<ContainerPickerViewModel, ContainerPickerWindow>();
         services.AddWindow<FindViewModel, FindWindow>();
+        services.AddWindow<ChangeDomainControllerViewModel, ChangeDomainControllerWindow>();
 
         // ---- C2b: batch and tool windows (opened through ToolWindows) ----
         services.AddSingleton<ToolWindows>();
@@ -141,6 +150,17 @@ public static class AppHost
 
         // ---- AD Recycle Bin (opened through ToolWindows) ----
         services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
+
+        // ---- Account review, README U2 (opened through ToolWindows) ----
+        services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
+
+        // ---- Messages to users, README U1: direct SMTP (AdMng.Mail), the window opened by DialogService ----
+        services.AddSingleton<IDirectSmtpTransportFactory>(sp => new SmtpTransportFactory(sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IUserMessageLauncher>(sp => sp.GetRequiredService<DialogService>());
+        services.AddWindow<UserMessageComposerViewModel, UserMessagesWindow>();
+
+        // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
+        services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
         return services;
     }
 

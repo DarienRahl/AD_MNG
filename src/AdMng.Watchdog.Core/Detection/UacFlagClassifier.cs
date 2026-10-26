@@ -35,7 +35,9 @@ internal sealed class UacFlagClassifier
         var cleared = oldValue & ~newValue;
         var drafts = new List<EventDraft>();
         var full = _changes.Build(Attr.UserAccountControl, before, after);
-        var isDomainController = (newValue & ServerTrustAccount) != 0 && (oldValue & ServerTrustAccount) != 0;
+        // The tag domainController comes from the new value (10.6.1), so a one-step promotion (SERVER_TRUST_ACCOUNT and
+        // TRUSTED_FOR_DELEGATION set together) is DomainControllerAdded only – as for a new DC (ClassifyCreated).
+        var isDomainController = (newValue & ServerTrustAccount) != 0;
 
         if ((set & AccountDisable) != 0)
         {

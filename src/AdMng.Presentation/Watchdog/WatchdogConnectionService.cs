@@ -8,12 +8,15 @@ namespace AdMng.Presentation.Watchdog;
 /// Connects <see cref="IWatchdogClient"/> to the service address of the settings (<see cref="WatchdogClientSettings"/>):
 /// builds <see cref="WatchdogClientOptions"/> (process identity – <c>runas /netonly</c> works; optional certificate pin),
 /// accepts only <c>https://</c> addresses, and maps <see cref="WatchdogClientException.Kind"/> to a connection state and a
-/// localized message. Singleton shared by the Watchdog tab and the object history launcher.
+/// localized message. Stores the certificate pin the operator confirmed (stage B design 18 item 1: a setting, never
+/// directory data) and removes it with the address of another service. Singleton shared by the Watchdog tab and the object
+/// history launcher.
 /// </summary>
 public sealed class WatchdogConnectionService
 {
     private readonly ISettingsStore _settings;
     private readonly ILocalizer _localizer;
+    private string? _configuredPin;
 
     public WatchdogConnectionService(IWatchdogClient client, ISettingsStore settings, ILocalizer localizer)
     {
@@ -29,6 +32,9 @@ public sealed class WatchdogConnectionService
 
     /// <summary>The configured address (settings), or null.</summary>
     public string? ServiceUrl => _settings.Current.Watchdog.ServiceUrl;
+
+    /// <summary>The pinned SHA-256 of the service certificate (settings), or null.</summary>
+    public string? PinnedCertificateSha256 => _settings.Current.Watchdog.PinnedCertificateSha256;
 
     /// <summary>A service address is configured (the object history command is offered).</summary>
     public bool HasServiceUrl => TryParseAddress(ServiceUrl, out _);
@@ -76,7 +82,8 @@ public sealed class WatchdogConnectionService
     {
         WatchdogClientErrorKind.NotConfigured => WatchdogConnectionState.NotConfigured,
         WatchdogClientErrorKind.Unreachable or WatchdogClientErrorKind.Timeout => WatchdogConnectionState.Unreachable,
-        WatchdogClientErrorKind.CertificateInvalid => WatchdogConnectionState.CertificateInvalid,
+        WatchdogClientErrorKind.CertificateInvalid or WatchdogClientErrorKind.CertificateUntrusted or WatchdogClientErrorKind.CertificateChanged
+            => WatchdogConnectionState.CertificateInvalid,
         WatchdogClientErrorKind.Unauthorized => WatchdogConnectionState.Unauthorized,
         WatchdogClientErrorKind.Forbidden => WatchdogConnectionState.Forbidden,
         WatchdogClientErrorKind.ApiVersionMismatch => WatchdogConnectionState.VersionMismatch,
@@ -103,8 +110,9 @@ public sealed class WatchdogConnectionService
     }
 
     /// <summary>
-    /// Configures the client with the address of the settings when it is not configured with it yet. Returns false when
-    /// no valid address is stored (the client is left alone). Throws when the client rejects the options.
+    /// Configures the client with the address and the certificate pin of the settings when it is not configured with them
+    /// yet. Returns false when no valid address is stored (the client is left alone). Throws when the client rejects the
+    /// options.
     /// </summary>
     public bool EnsureConfigured()
     {
@@ -113,7 +121,8 @@ public sealed class WatchdogConnectionService
             return false;
         }
 
-        if (Client.IsConfigured && Client.BaseAddress == address)
+        var pin = PinnedCertificateSha256;
+        if (Client.IsConfigured && Client.BaseAddress == address && string.Equals(_configuredPin, pin, StringComparison.Ordinal))
         {
             return true;
         }
@@ -121,10 +130,25 @@ public sealed class WatchdogConnectionService
         Client.Configure(new WatchdogClientOptions
         {
             BaseAddress = address,
-            PinnedCertificateSha256 = _settings.Current.Watchdog.PinnedCertificateSha256,
+            PinnedCertificateSha256 = pin,
         });
+        _configuredPin = pin;
         return true;
     }
+
+    /// <summary>
+    /// Pins the certificate the operator confirmed (its SHA-256, 64 hex digits). The client uses it from the next
+    /// connection attempt (<see cref="EnsureConfigured"/>) – only for a certificate whose only TLS error is its chain.
+    /// </summary>
+    /// <exception cref="ArgumentException">The fingerprint is not a SHA-256 hash.</exception>
+    public Task PinCertificateAsync(string sha256)
+    {
+        var pin = WatchdogServerCertificate.NormalizeSha256(sha256) ?? throw new ArgumentException("A SHA-256 fingerprint (64 hex digits) is required.", nameof(sha256));
+        return _settings.UpdateAsync(s => s.Watchdog.PinnedCertificateSha256 = pin);
+    }
+
+    /// <summary>Removes the pin (the next connection to a certificate of no trusted authority asks again).</summary>
+    public Task RemovePinAsync() => _settings.UpdateAsync(s => s.Watchdog.PinnedCertificateSha256 = null);
 
     /// <summary>
     /// Validates and stores a new address (https only, normalized without a trailing slash). Returns a localized error
@@ -140,7 +164,17 @@ public sealed class WatchdogConnectionService
 
         TryParseAddress(text, out var address);
         var normalized = address.GetLeftPart(UriPartial.Path).TrimEnd('/');
-        await _settings.UpdateAsync(s => s.Watchdog.ServiceUrl = normalized).ConfigureAwait(true);
+
+        // The pin belongs to the service it was confirmed for: another host or port starts with a new confirmation.
+        var otherService = !TryParseAddress(ServiceUrl, out var previous) || !string.Equals(HostOf(previous), HostOf(address), StringComparison.OrdinalIgnoreCase);
+        await _settings.UpdateAsync(s =>
+        {
+            s.Watchdog.ServiceUrl = normalized;
+            if (otherService)
+            {
+                s.Watchdog.PinnedCertificateSha256 = null;
+            }
+        }).ConfigureAwait(true);
         AddressChanged?.Invoke(this, EventArgs.Empty);
         return null;
     }
@@ -167,6 +201,8 @@ public sealed class WatchdogConnectionService
             WatchdogClientErrorKind.Unreachable => _localizer.Format(L.Watchdog.ConnectionUnreachable, HostText),
             WatchdogClientErrorKind.Timeout => _localizer.Format(L.Watchdog.ConnectionTimeout, HostText),
             WatchdogClientErrorKind.CertificateInvalid => _localizer.Format(L.Watchdog.ConnectionCertificateInvalid, HostText),
+            WatchdogClientErrorKind.CertificateUntrusted => _localizer.Format(L.WatchdogLinux.ConnectionCertificateUntrusted, HostText),
+            WatchdogClientErrorKind.CertificateChanged => _localizer.Format(L.WatchdogLinux.ConnectionCertificateChanged, HostText),
             WatchdogClientErrorKind.Unauthorized => _localizer[L.Watchdog.ConnectionUnauthorized],
             WatchdogClientErrorKind.Forbidden => _localizer[L.Watchdog.ConnectionForbidden],
             WatchdogClientErrorKind.ApiVersionMismatch => _localizer[L.Watchdog.ConnectionVersionMismatch],

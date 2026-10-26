@@ -134,6 +134,9 @@ public sealed class WatchdogPollerTests : IDisposable
         _poller.Start();
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetStatusAsync), 1);
 
+        // The status answer must have arrived: the call is recorded before it returns, and waking the poller while it
+        // is still running cancels it (the next round then reads the status again).
+        await WatchdogTestWait.UntilAsync(_ui, () => !_statuses.IsEmpty, "the status");
         _poller.IsVisible = true;
         await _client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 1);
 

@@ -39,6 +39,18 @@ public static class ConfigValidationCodes
     /// <summary>Set by the service (live schema check of <c>additionalWatchedAttributes</c> without a session).</summary>
     public const string SchemaUnavailable = "schemaUnavailable";
 
+    /// <summary><c>attribution.source</c> is not in <see cref="Abstractions.ConfigValidationContext.SupportedAttributionSources"/>
+    /// (on Linux: DomainControllers and ForwardedEvents – stage B design 7.8).</summary>
+    public const string SourceUnsupportedOnHost = "sourceUnsupportedOnHost";
+
+    /// <summary><c>retention.logonRecordsHours</c> shorter than <c>attribution.logonLookback</c> + the last
+    /// <c>attribution.pendingRetries</c> step (stage B design 7.7).</summary>
+    public const string LogonRetentionTooShort = "logonRetentionTooShort";
+
+    /// <summary><c>retention.eventsDays</c> below <see cref="Abstractions.ConfigValidationContext.MinEventsDays"/> – the
+    /// root-owned bootstrap floor <c>Watchdog:Retention:MinEventsDays</c> (stage B design 14.2).</summary>
+    public const string RetentionBelowFloor = "retentionBelowFloor";
+
     // warnings
     public const string NoRecipients = "noRecipients";
     public const string SmtpDisabledButUsed = "smtpDisabledButUsed";

@@ -9,6 +9,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Directory\AdMng.Directory.csproj" />
+    <!-- The virtual list of the console (VirtualRowList) over a real VLV session (Integration/LargeContainerVlvTests). -->
+    <ProjectReference Include="..\..\src\AdMng.Presentation\AdMng.Presentation.csproj" />
+    <!-- In-memory directory for the unit tests of the lab cleanup (Unit/LabCleanupTests). -->
+    <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

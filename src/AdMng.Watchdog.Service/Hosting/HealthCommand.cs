@@ -5,8 +5,10 @@ namespace AdMng.Watchdog.Service.Hosting;
 
 /// <summary>
 /// <c>--health</c> (spec 19.1): reads the bootstrap <c>Hosting.Urls</c>, GETs <c>/healthz</c> on the first listener (the
-/// configured FQDN, <c>localhost</c> for a wildcard) with system certificate validation and a 10 s timeout, prints the
-/// result and exits 0 (ok) or 1 – for monitoring scripts and the install script.
+/// configured FQDN, <c>localhost</c> for a wildcard) with system certificate validation – or, with a PEM certificate
+/// (Linux, stage B design 6.3), by comparing the served certificate with <c>Hosting.Certificate.Path</c> (local pin; the
+/// self-signed default is in no trust store) – and a 10 s timeout, prints the result and exits 0 (ok) or 1 – for
+/// monitoring scripts and the install script.
 /// </summary>
 public static class HealthCommand
 {
@@ -14,10 +16,10 @@ public static class HealthCommand
 
     public static async Task<int> RunAsync(string[] args)
     {
-        var configuration = new ConfigurationManager();
+        using var configuration = new ConfigurationManager();
         configuration.SetBasePath(AppContext.BaseDirectory);
         configuration.AddJsonFile("appsettings.json", optional: true);
-        ConfigurationSetup.AddSources(configuration, args, isWindowsService: false);
+        ConfigurationSetup.AddSources(configuration, args, isManagedService: false, ConfigurationSetup.BootstrapFilePath, reloadBootstrapFile: false);
         var options = configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>() ?? new ServiceOptions();
         if (HealthUri(options) is not { } uri)
         {
@@ -26,6 +28,13 @@ public static class HealthCommand
         }
 
         using var handler = new SocketsHttpHandler { UseProxy = false, SslOptions = { EnabledSslProtocols = Notifications.DeliveryTls.Protocols } };
+        if (CertificateSelector.IsPem(options.Hosting.Certificate))
+        {
+            var pinned = PinnedCertificate(options.Hosting.Certificate.Path!);
+            handler.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
+                pinned is not null && certificate is not null && certificate.GetRawCertData().AsSpan().SequenceEqual(pinned);
+        }
+
         using var client = new HttpClient(handler) { Timeout = Timeout };
         try
         {
@@ -39,6 +48,20 @@ public static class HealthCommand
         {
             await Console.Out.WriteLineAsync($"{uri}: unreachable ({SafeExceptionLog.ErrorCode(ex)})").ConfigureAwait(false);
             return 1;
+        }
+    }
+
+    /// <summary>The DER bytes of the leaf certificate in <paramref name="path"/>; null when unreadable.</summary>
+    public static byte[]? PinnedCertificate(string path)
+    {
+        try
+        {
+            using var certificate = PemCertificateSource.LoadCertificateOnly(path);
+            return certificate.RawData;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or ArgumentException)
+        {
+            return null;
         }
     }
 

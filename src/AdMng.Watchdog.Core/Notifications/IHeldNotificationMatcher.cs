@@ -16,4 +16,23 @@ public interface IHeldNotificationMatcher
     /// <param name="now">Current time (exclusion expiry).</param>
     /// <param name="attributionGraceExpired">The attribution grace period is over (an unresolved actor excludes nothing).</param>
     PlannedMatch? Rematch(WatchEvent watchEvent, RuleSettings rule, WatchdogConfiguration configuration, DateTimeOffset now, bool attributionGraceExpired);
+
+    /// <summary>Every rule of <paramref name="configuration"/> that matches the event as it is now, in configuration order –
+    /// the dispatch job re-plans a released target from all of them (13.3), so a target whose rule no longer matches passes
+    /// to the next rule that still does. Default: <see cref="Rematch"/> for each rule.</summary>
+    IReadOnlyList<PlannedMatch> MatchAll(WatchEvent watchEvent, WatchdogConfiguration configuration, DateTimeOffset now, bool attributionGraceExpired)
+    {
+        ArgumentNullException.ThrowIfNull(watchEvent);
+        ArgumentNullException.ThrowIfNull(configuration);
+        var matches = new List<PlannedMatch>();
+        foreach (var rule in configuration.Rules ?? [])
+        {
+            if (rule is not null && Rematch(watchEvent, rule, configuration, now, attributionGraceExpired) is { } match)
+            {
+                matches.Add(match);
+            }
+        }
+
+        return matches;
+    }
 }

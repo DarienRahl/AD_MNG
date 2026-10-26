@@ -19,6 +19,8 @@ internal static class SecurityDescriptorBuilder
     public const int ReadProperty = 0x00000010;
 
     private const byte AccessAllowedAceType = 0x00;
+    private const byte AccessDeniedAceType = 0x01;
+    private const ushort SaclPresent = 0x0010;
     private const byte AccessDeniedObjectAceType = 0x06;
     private const int AceObjectTypePresent = 0x1;
     private const byte AclRevisionDs = 4;
@@ -78,6 +80,53 @@ internal static class SecurityDescriptorBuilder
         propertyGuid.TryWriteBytes(ace.AsSpan(12));
         trustee.CopyTo(ace, 28);
         return ace;
+    }
+
+    /// <summary>ACCESS_DENIED_ACE (whole object) for <paramref name="sid"/>.</summary>
+    public static byte[] Deny(string sid, int mask)
+    {
+        var trustee = Sid(sid);
+        var ace = new byte[8 + trustee.Length];
+        Header(ace, AccessDeniedAceType);
+        BinaryPrimitives.WriteInt32LittleEndian(ace.AsSpan(4), mask);
+        trustee.CopyTo(ace, 8);
+        return ace;
+    }
+
+    /// <summary>
+    /// The descriptor (owner, group, DACL as read with SD flags 7) with <paramref name="ace"/> as the first DACL entry – an
+    /// explicit deny goes before every other ACE (canonical order). The SACL, if any, is dropped.
+    /// </summary>
+    public static byte[] PrependAce(byte[] descriptor, byte[] ace)
+    {
+        var control = (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(descriptor.AsSpan(2)) & ~SaclPresent);
+        var ownerOffset = BinaryPrimitives.ReadInt32LittleEndian(descriptor.AsSpan(4));
+        var groupOffset = BinaryPrimitives.ReadInt32LittleEndian(descriptor.AsSpan(8));
+        var daclOffset = BinaryPrimitives.ReadInt32LittleEndian(descriptor.AsSpan(16));
+        var owner = descriptor.AsSpan(ownerOffset, 8 + (4 * descriptor[ownerOffset + 1])).ToArray();
+        var group = descriptor.AsSpan(groupOffset, 8 + (4 * descriptor[groupOffset + 1])).ToArray();
+        var aclSize = BinaryPrimitives.ReadUInt16LittleEndian(descriptor.AsSpan(daclOffset + 2));
+        var aceCount = BinaryPrimitives.ReadUInt16LittleEndian(descriptor.AsSpan(daclOffset + 4));
+        var aces = descriptor.AsSpan(daclOffset + 8, aclSize - 8).ToArray();
+
+        var newAclSize = aclSize + ace.Length;
+        var buffer = new byte[20 + owner.Length + group.Length + newAclSize];
+        buffer[0] = 1;
+        BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(2), control);
+        var offset = 20;
+        BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(4), offset);
+        owner.CopyTo(buffer, offset);
+        offset += owner.Length;
+        BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(8), offset);
+        group.CopyTo(buffer, offset);
+        offset += group.Length;
+        BinaryPrimitives.WriteInt32LittleEndian(buffer.AsSpan(16), offset);
+        buffer[offset] = Math.Max(descriptor[daclOffset], AclRevisionDs);
+        BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(offset + 2), (ushort)newAclSize);
+        BinaryPrimitives.WriteUInt16LittleEndian(buffer.AsSpan(offset + 4), (ushort)(aceCount + 1));
+        ace.CopyTo(buffer, offset + 8);
+        aces.CopyTo(buffer, offset + 8 + ace.Length);
+        return buffer;
     }
 
     /// <summary>The binary form of a SID string (S-1-&lt;authority&gt;-&lt;sub&gt;…).</summary>

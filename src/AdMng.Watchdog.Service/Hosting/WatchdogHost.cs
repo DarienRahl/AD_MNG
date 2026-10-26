@@ -10,7 +10,7 @@ namespace AdMng.Watchdog.Service.Hosting;
 /// Composition root of the watchdog service (spec 19.1): configuration sources, logging, data folder, Data Protection,
 /// authentication, Kestrel or HTTP.sys, <c>AddWatchdogCore()</c>, stores, transports, job hosts, start-up checks and
 /// the API. <see cref="RunAsync"/> dispatches the command line (<c>--smoke-test</c>, <c>--check-config</c>,
-/// <c>--health</c>) and maps failed start-up checks to their exit codes.
+/// <c>--health</c>, <c>print-wec-subscription</c>) and maps failed start-up checks to their exit codes.
 /// </summary>
 public static class WatchdogHost
 {
@@ -18,29 +18,34 @@ public static class WatchdogHost
     public const string ServiceName = "AdMngWatchdog";
 
     /// <summary>Builds the application; <paramref name="configure"/> runs before the registrations read the configuration
-    /// (tests, smoke test).</summary>
-    public static WebApplication Build(string[] args, Action<WebApplicationBuilder>? configure = null, bool console = false)
+    /// (tests, smoke test). <paramref name="bootstrapFile"/> = false leaves the bootstrap file and
+    /// <c>ADMNG_WATCHDOG_CONFIG</c> out (<c>--smoke-test</c>).</summary>
+    public static WebApplication Build(string[] args, Action<WebApplicationBuilder>? configure = null, bool console = false, bool bootstrapFile = true)
     {
         ArgumentNullException.ThrowIfNull(args);
         var isService = WindowsServiceHelpers.IsWindowsService();
+        var isSystemd = SystemdSetup.IsSystemdService();
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             Args = args,
             ContentRootPath = isService ? AppContext.BaseDirectory : null,
         });
         builder.Services.AddWindowsService(o => o.ServiceName = ServiceName);
-        var extraConfig = ConfigurationSetup.AddSources(builder.Configuration, args, isService);
+        var extraConfig = bootstrapFile
+            ? ConfigurationSetup.AddSources(builder.Configuration, args, isService || isSystemd)
+            : ConfigurationSetup.AddSources(builder.Configuration, args, isService || isSystemd, bootstrapFilePath: null, reloadBootstrapFile: false, extraConfigFile: null);
         configure?.Invoke(builder);
 
         var options = builder.Configuration.GetSection(ServiceOptions.SectionName).Get<ServiceOptions>() ?? new ServiceOptions();
-        LoggingSetup.Configure(builder, console || (Environment.UserInteractive && !isService));
+        LoggingSetup.Configure(builder, console || (Environment.UserInteractive && !isService && !isSystemd), isSystemd);
+        SystemdSetup.Configure(builder.Services, isSystemd);
 
         var dataDirectory = new DataDirectory(DataDirectory.Resolve(options));
         dataDirectory.Ensure();
         DataProtectionSetup.Configure(builder.Services, dataDirectory);
         AuthenticationSetup.Configure(builder.Services, options);
 
-        var context = CreateContext(options, isService, extraConfig);
+        var context = CreateContext(options, isService, isSystemd, extraConfig);
         if (options.Hosting.Server == WatchdogServer.HttpSys && OperatingSystem.IsWindows())
         {
             HttpSysSetup.Configure(builder, options.Hosting, context.Endpoints);
@@ -50,8 +55,12 @@ public static class WatchdogHost
             KestrelSetup.Configure(builder, context.Endpoints);
         }
 
-        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context);
+        ServiceRegistration.Add(builder.Services, builder.Configuration, dataDirectory, context, options);
         var app = builder.Build();
+        ConfigurationSetup.ReportReloadFailures(
+            builder.Configuration,
+            ConfigurationSetup.BootstrapFilePath,
+            app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(typeof(ConfigurationSetup).FullName!));
         ApiSetup.Map(app);
         return app;
     }
@@ -67,6 +76,7 @@ public static class WatchdogHost
             HostCommandKind.SmokeTest => await SmokeTest.RunAsync(hostArgs).ConfigureAwait(false),
             HostCommandKind.CheckConfig => await CheckConfigCommand.RunAsync(hostArgs).ConfigureAwait(false),
             HostCommandKind.Health => await HealthCommand.RunAsync(hostArgs).ConfigureAwait(false),
+            HostCommandKind.PrintWecSubscription => PrintWecSubscriptionCommand.Run(hostArgs, Console.Out, Console.Error),
             _ => await RunServiceAsync(hostArgs, command.Console).ConfigureAwait(false),
         };
     }
@@ -79,17 +89,34 @@ public static class WatchdogHost
         _ => StartupExitCodes.Fatal,
     };
 
-    private static async Task<int> RunServiceAsync(string[] args, bool console)
+    /// <summary>
+    /// Runs <paramref name="build"/>; any failure (malformed bootstrap JSON, an invalid setting value, an unusable data
+    /// folder) goes to <paramref name="reportFailure"/> as a value-free error code and yields exit code 2 – never an
+    /// unhandled crash. Returns 0 with the built <paramref name="app"/> on success.
+    /// </summary>
+    public static int TryBuild(Func<WebApplication> build, Action<string> reportFailure, out WebApplication? app)
     {
-        WebApplication app;
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(reportFailure);
         try
         {
-            app = Build(args, console: console);
+            app = build();
+            return 0;
         }
-        catch (Exception ex) when (ex is FormatException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            await Console.Error.WriteLineAsync("AdMng Watchdog: the service could not be configured: " + SafeExceptionLog.ErrorCode(ex)).ConfigureAwait(false);
+            app = null;
+            reportFailure(SafeExceptionLog.ErrorCode(ex));
             return StartupExitCodes.InvalidSettings;
+        }
+    }
+
+    private static async Task<int> RunServiceAsync(string[] args, bool console)
+    {
+        var built = TryBuild(() => Build(args, console: console), StartupFailureLog.Report, out var app);
+        if (app is null)
+        {
+            return built;
         }
 
         await using (app.ConfigureAwait(false))
@@ -112,7 +139,7 @@ public static class WatchdogHost
         }
     }
 
-    private static StartupContext CreateContext(ServiceOptions options, bool isService, string? extraConfig)
+    private static StartupContext CreateContext(ServiceOptions options, bool isService, bool isSystemd, string? extraConfig)
     {
         IReadOnlyList<ListenerEndpoint> endpoints = [];
         string? error = null;
@@ -132,6 +159,7 @@ public static class WatchdogHost
         return new StartupContext
         {
             IsWindowsService = isService,
+            IsSystemdService = isSystemd,
             Endpoints = endpoints,
             Server = options.Hosting.Server,
             ExtraConfigFile = extraConfig,

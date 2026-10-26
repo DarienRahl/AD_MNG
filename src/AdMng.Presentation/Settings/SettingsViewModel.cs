@@ -2,6 +2,7 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Watchdog;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -9,7 +10,9 @@ namespace AdMng.Presentation.Settings;
 
 /// <summary>
 /// Settings dialog: language, theme, LDAP page size, batch parallelism, confirmation threshold, inactive days,
-/// live updates and the view options. Save applies immediately (language without restart, theme).
+/// live updates, the view options, the Watchdog certificate pin, the messages to users (tab "Wiadomości e-mail", U1) (shown in groups of four hex digits, "Usuń
+/// przypięcie" – stage B design 18 item 1). Save applies immediately (language without restart, theme); a removed pin
+/// counts from the next connection to the Watchdog service.
 /// </summary>
 /// <remarks>
 /// "Advanced Features" must go through the shell (it reloads the tree and the container tabs): the host sets
@@ -29,10 +32,23 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     private readonly IThemeService _theme;
 
-    public SettingsViewModel(DialogServices services, IThemeService theme)
+    public SettingsViewModel(DialogServices services, IThemeService theme, UserMessages.UserMessageServices? userMessages = null)
         : base(services)
     {
         _theme = theme ?? throw new ArgumentNullException(nameof(theme));
+        if (userMessages is not null)
+        {
+            Messages = new UserMessages.UserMessageSettingsViewModel(services, userMessages);
+            Messages.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(UserMessages.UserMessageSettingsViewModel.Error))
+                {
+                    OnPropertyChanged(nameof(Error));
+                    SaveCommand.NotifyCanExecuteChanged();
+                }
+            };
+        }
+
         Languages =
         [
             new(string.Empty, Localizer[L.Settings.LanguageSystem]),
@@ -50,6 +66,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         LiveUpdates = current.LiveUpdates;
         ShowDetailsPane = current.ShowDetailsPane;
         ShowAdvancedFeatures = current.ShowAdvancedFeatures;
+        PinnedCertificate = current.Watchdog.PinnedCertificateSha256;
     }
 
     public override string WindowTitle => Localizer[L.Settings.Title];
@@ -96,6 +113,26 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool ShowAdvancedFeatures { get; set; }
 
+    /// <summary>The pinned SHA-256 of the Watchdog service certificate (until Save removes it), or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPinnedCertificate), nameof(PinnedCertificateText))]
+    [NotifyCanExecuteChangedFor(nameof(RemovePinCommand))]
+    public partial string? PinnedCertificate { get; private set; }
+
+    public bool HasPinnedCertificate => PinnedCertificate is not null;
+
+    /// <summary>"3F2A 9C1E …" (two lines of eight groups), or "Żaden certyfikat nie jest przypięty."</summary>
+    public string PinnedCertificateText => PinnedCertificate is { } pin
+        ? WatchdogCertificateTrustViewModel.FormatFingerprint(pin)
+        : Localizer[L.WatchdogLinux.CertificateNotPinned];
+
+    /// <summary>"Usuń przypięcie" was chosen: Save removes the stored pin.</summary>
+    [ObservableProperty]
+    public partial bool IsPinRemoved { get; private set; }
+
+    /// <summary>The "Wiadomości e-mail" tab (README U1), or null when the host registered no messages to users.</summary>
+    public UserMessages.UserMessageSettingsViewModel? Messages { get; }
+
     /// <summary>The shell's Advanced Features toggle (set by the host; see the remarks of the class).</summary>
     public IAsyncRelayCommand? ShellToggleAdvancedFeatures { get; set; }
 
@@ -104,7 +141,8 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         Range(L.Settings.PageSize, PageSize, MinPageSize, MaxPageSize)
         ?? Range(L.Settings.BatchParallelism, BatchMaxParallelism, MinParallelism, MaxParallelism)
         ?? Range(L.Settings.ConfirmationThreshold, ConfirmationThreshold, MinThreshold, MaxThreshold)
-        ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays);
+        ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays)
+        ?? Messages?.Error;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -126,6 +164,12 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             s.InactiveDays = InactiveDays;
             s.LiveUpdates = LiveUpdates;
             s.ShowDetailsPane = ShowDetailsPane;
+            if (IsPinRemoved)
+            {
+                s.Watchdog.PinnedCertificateSha256 = null;
+            }
+
+            Messages?.Apply(s);
         }).ConfigureAwait(true);
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
@@ -150,6 +194,14 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
     [RelayCommand]
     private void Cancel() => RequestClose(false);
+
+    /// <summary>"Usuń przypięcie": the pin is removed on Save; the next connection asks for a confirmation again.</summary>
+    [RelayCommand(CanExecute = nameof(HasPinnedCertificate))]
+    private void RemovePin()
+    {
+        PinnedCertificate = null;
+        IsPinRemoved = true;
+    }
 
     private string? Range(string labelKey, int value, int min, int max) =>
         value < min || value > max ? Localizer.Format(L.Settings.OutOfRange, Localizer[labelKey], min, max) : null;

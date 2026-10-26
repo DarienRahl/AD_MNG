@@ -110,14 +110,43 @@ public sealed class PoolTests
             logs,
             clock,
             ct);
+        var pool = ((LdapDirectorySession)session).Pool;
+
+        // Connecting leaves work behind (pool growth, abandons of paged searches) that could still touch a connection
+        // after the clock jumped. Start from a quiet pool.
+        await WaitUntilIdleAsync(pool, ct);
+        var connections = pool.Count;
         Assert.NotNull(await session.GetAsync(LabSettings.DomainDn, [], ct));
 
         clock.Advance(LdapConnectionPool.IdleRecycleAfter + TimeSpan.FromSeconds(1));
         var afterIdle = await session.GetAsync(LabSettings.DomainDn, [Attr.Name], ct);
 
+        // Every connection was reopened before the next read - also the one the last read used.
         Assert.NotNull(afterIdle);
-        Assert.NotEmpty(logs.WithEventId(1104));
-        Assert.True(((LdapDirectorySession)session).Pool.Count >= 1);
+        Assert.Equal(connections, logs.WithEventId(1104).Count);
+        Assert.Equal(1, pool.Count);
+    }
+
+    [Fact]
+    public async Task SequentialRequests_FindTheirConnectionFree_AndDoNotGrowThePool()
+    {
+        LabSettings.RequireLab();
+        var ct = TestContext.Current.CancellationToken;
+        var options = LabSettings.Plain(LabSettings.AdminUser) with { MaxConnections = 2 };
+        await using var session = await LabFixture.ConnectAsync(options, LabSettings.AdminPassword, cancellationToken: ct);
+        var pool = ((LdapDirectorySession)session).Pool;
+        await WaitUntilIdleAsync(pool, ct);
+        var connections = pool.Count;
+
+        // A request that returned has freed its connection, so the next one does not find it busy (which would open
+        // another connection, or queue behind the finished request on a single connection).
+        for (var i = 1; i <= 10; i++)
+        {
+            Assert.NotNull(await session.GetAsync(LabSettings.CompanyOu, [Attr.Ou], ct));
+            Assert.True(pool.IsIdle, $"Read {i} returned while its connection was still busy.");
+        }
+
+        Assert.Equal(connections, pool.Count);
     }
 
     [Fact]

@@ -8,4 +8,7 @@ public enum WatchdogSubTab
     Channels,
     Digest,
     Status,
+
+    /// <summary>"Źródła i retencja" (stage B design 18 item 4); last, so the stored indexes of the others stay.</summary>
+    Sources,
 }

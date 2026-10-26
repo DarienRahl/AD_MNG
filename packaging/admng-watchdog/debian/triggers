@@ -1,0 +1,3 @@
+interest-noawait /usr/share/dotnet/shared/Microsoft.NETCore.App
+interest-noawait /usr/share/dotnet/shared/Microsoft.AspNetCore.App
+interest-noawait /usr/share/dotnet/host/fxr

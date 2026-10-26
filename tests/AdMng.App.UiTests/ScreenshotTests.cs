@@ -9,6 +9,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
@@ -18,6 +19,7 @@ using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
@@ -62,6 +64,11 @@ public sealed class ScreenshotTests
         "04-user-properties-account.png",
         "Właściwości użytkownika – karta Konto",
         "User properties – Account tab");
+
+    private static readonly ScreenshotInfo LogonHoursDialog = new(
+        "14-logon-hours.png",
+        "Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy",
+        "Logon hours – the weekly schedule of an account in local time, office hours selected");
 
     private static readonly ScreenshotInfo BatchPreview = new(
         "05-batch-editor-preview.png",
@@ -108,6 +115,26 @@ public sealed class ScreenshotTests
         "Watchdog – stan usługi",
         "Watchdog – service status");
 
+    private static readonly ScreenshotInfo WatchdogCertificate = new(
+        "15-watchdog-certificate.png",
+        "Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)",
+        "Watchdog – confirming the service certificate on the first connection (SHA-256 fingerprint to compare with the server)");
+
+    private static readonly ScreenshotInfo WatchdogSources = new(
+        "16-watchdog-sources.png",
+        "Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)",
+        "Watchdog – sources and retention (OpenWEC, GPO content, logon records)");
+
+    private static readonly ScreenshotInfo AccountReview = new(
+        "17-account-review.png",
+        "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
+        "Account review – the check tiles and the accounts whose password expires soon");
+
+    private static readonly ScreenshotInfo UserMessages = new(
+        "18-user-messages.png",
+        "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
+        "Messages to users – the preview of the \"password expires\" message of every recipient before sending");
+
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
         ShootAsync(ThemePreference.Light, context => ShootMainWindowAsync(context, MainWindowLight, dark: false));
@@ -123,6 +150,28 @@ public sealed class ScreenshotTests
     [Fact]
     public Task Screenshot04_UserProperties_AccountTab() =>
         ShootAsync(ThemePreference.Light, context => ShootUserPropertiesAsync(context, L.Pages.Account, PropertiesAccount));
+
+    [Fact]
+    public Task Screenshot14_LogonHours() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Warsaw in winter (UTC+1), so the time-zone note does not depend on the build agent.
+        var warsaw = TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw");
+        var winter = new DateTimeOffset(2026, 1, 15, 9, 0, 0, TimeSpan.Zero);
+        var hours = LogonHours.FromLocalGrid(
+            LogonHoursGrid.Create((day, hour) =>
+                (day is >= DayOfWeek.Monday and <= DayOfWeek.Friday && hour is >= 7 and < 18) || (day == DayOfWeek.Saturday && hour is >= 8 and < 13)),
+            LogonHours.OffsetHours(warsaw, winter));
+        var dialog = new LogonHoursViewModel(context.Services.GetRequiredService<ILocalizer>(), hours, warsaw, winter, "Jan Kowalski");
+        dialog.BeginSelection(dialog.Days[0].Cells[7], extend: false);
+        dialog.ExtendSelection(dialog.Days[4].Cells[17]);
+        Assert.Equal("pon–pt 7–18; sob 8–13", dialog.Summary);
+
+        var window = (LogonHoursWindow)Windows(context).CreateWindow(dialog);
+        await ScreenshotWriter.ShowAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        await ScreenshotWriter.SaveAsync(window, LogonHoursDialog, dark: false);
+    });
 
     [Fact]
     public Task Screenshot05_BatchEditor_Preview() => ShootAsync(ThemePreference.Light, async context =>
@@ -165,6 +214,75 @@ public sealed class ScreenshotTests
 
         await ScreenshotWriter.SaveAsync(window, RecycleBin, dark: false);
     });
+
+    [Fact]
+    public Task Screenshot17_AccountReview() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Expiring and expired passwords (domain maximum age 90 days), an inactive and a never used account.
+        var company = context.Company;
+        var session = context.Directory.Session;
+        var now = context.Services.GetRequiredService<TimeProvider>().GetUtcNow();
+        static string FileTime(DateTimeOffset value) => AdConvert.ToFileTime(value).ToString(CultureInfo.InvariantCulture);
+        session.EmulateConstructedPasswordExpiry = true;
+        session.MaxPasswordAge = TimeSpan.FromDays(90);
+        var users = new DirectorySearch { BaseDn = company.CompanyOu, Filter = "(sAMAccountType=805306368)", Attributes = [Attr.Name] };
+        await foreach (var user in session.SearchAsync(users, CancellationToken.None))
+        {
+            // Relative to the day the screenshot is taken: recent passwords and logons, then the findings below.
+            session.SetValues(user.DistinguishedName, Attr.PwdLastSet, FileTime(now.AddDays(-10)));
+            session.SetValues(user.DistinguishedName, Attr.LastLogonTimestamp, FileTime(now.AddDays(-2)));
+        }
+
+        session.SetValues(company.LukaszWisniewski, Attr.PwdLastSet, FileTime(now.AddDays(-84)));
+        session.SetValues(company.MalgorzataWojcik, Attr.PwdLastSet, FileTime(now.AddDays(-79)));
+        session.SetValues(company.BartlomiejKozlowski, Attr.PwdLastSet, FileTime(now.AddDays(-95)));
+        session.SetValues(company.PawelLewandowski, Attr.LastLogonTimestamp, FileTime(now.AddDays(-131)));
+
+        var window = (AccountReviewWindow)Windows(context).CreateWindow(Factory(context).CreateAccountReview());
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        await window.ViewModel.RunCommand.ExecuteAsync(null);
+        window.ParametersExpander.IsExpanded = false;
+        window.TilesList.SelectedItem = window.ViewModel.Tiles.Single(t => t.Check == AccountCheck.PasswordExpiring);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 2, "the two accounts whose password expires soon");
+        window.ItemsList.SelectedItem = window.ViewModel.Items[0];
+
+        await ScreenshotWriter.SaveAsync(window, AccountReview, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot18_UserMessages() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Passwords that expire soon (domain maximum age 90 days), one already expired, one "must change".
+        var company = context.Company;
+        var session = context.Directory.Session;
+        var now = context.Services.GetRequiredService<TimeProvider>().GetUtcNow();
+        static string FileTime(DateTimeOffset value) => AdConvert.ToFileTime(value).ToString(CultureInfo.InvariantCulture);
+        session.EmulateConstructedPasswordExpiry = true;
+        session.MaxPasswordAge = TimeSpan.FromDays(90);
+        session.SetValues(company.JanKowalski, Attr.PwdLastSet, FileTime(now.AddDays(-80)));
+        session.SetValues(company.LukaszWisniewski, Attr.PwdLastSet, FileTime(now.AddDays(-84)));
+        session.SetValues(company.GrazynaDabrowska, Attr.PwdLastSet, FileTime(now.AddDays(-87)));
+        session.SetValues(company.MalgorzataWojcik, Attr.PwdLastSet, FileTime(now.AddDays(-95)));
+        session.SetValues(company.BartlomiejKozlowski, Attr.PwdLastSet, "0");
+        await context.Services.GetRequiredService<ISettingsStore>().UpdateAsync(s =>
+        {
+            s.UserMessages.Smtp.Host = "smtp.contoso.com";
+            s.UserMessages.Cc = "helpdesk@contoso.com";
+        }, TestContext.Current.CancellationToken);
+
+        var window = (UserMessagesWindow)Windows(context).CreateWindow(Factory(context).CreateUserMessageComposer(new Presentation.UserMessages.UserMessageRequest(
+            [company.JanKowalski, company.LukaszWisniewski, company.GrazynaDabrowska, company.MalgorzataWojcik, company.BartlomiejKozlowski],
+            Core.Messaging.BuiltInMessageTemplates.PasswordExpiring,
+            14)));
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        await window.ViewModel.PlanCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 5, "the five planned messages");
+        window.ItemsList.SelectedItem = window.ViewModel.AllItems.First(i => i.Name == "Łukasz Wiśniewski");
+
+        await ScreenshotWriter.SaveAsync(window, UserMessages, dark: false);
+    }, configure: services => services.Replace(ServiceDescriptor.Singleton<Core.Messaging.IDirectSmtpTransportFactory>(new AdMng.Testing.FakeUserMessageTransport())));
 
     [Fact]
     public Task Screenshot07_Find_WithResults() => ShootAsync(ThemePreference.Light, async context =>
@@ -241,15 +359,38 @@ public sealed class ScreenshotTests
     {
         await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
         await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0 && tab.Status.Audit.Count > 0, "the status");
+    }, client => client.Status = SampleStatus.CreateLinux());
+
+    [Fact]
+    public Task Screenshot15_Watchdog_CertificateConfirmation() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        var dialog = new WatchdogCertificateTrustViewModel(
+            context.Services.GetRequiredService<ILocalizer>(), SampleStatus.Certificate, null, "admng-wd.contoso.test:8443", SampleEvents.Now,
+            TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw"));
+        var window = (WatchdogCertificateTrustWindow)Windows(context).CreateWindow(dialog);
+        await ScreenshotWriter.ShowAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        Assert.StartsWith("3F2A 9C1E", window.FingerprintText.Text, StringComparison.Ordinal);
+
+        await ScreenshotWriter.SaveAsync(window, WatchdogCertificate, dark: false);
+    }, connect: false);
+
+    [Fact]
+    public Task Screenshot16_Watchdog_Sources() => ShootWatchdogAsync(WatchdogSources, async (tab, _) =>
+    {
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Sources);
+        await UiWait.UntilAsync(() => tab.Sources.SourceOptions.Count > 0, "the sources settings");
     });
 
     /// <summary>
     /// The main window with the Watchdog tab over the sample watchdog client (Polish data, Admin), the AD session of the
-    /// sample company open; <paramref name="arrange"/> picks the sub-tab and the selection.
+    /// sample company open; <paramref name="setup"/> adjusts the client (e.g. the status of the Linux service), <paramref name="arrange"/>
+    /// picks the sub-tab and the selection.
     /// </summary>
-    private static Task ShootWatchdogAsync(ScreenshotInfo shot, Func<WatchdogDocumentViewModel, WatchdogView, Task> arrange)
+    private static Task ShootWatchdogAsync(ScreenshotInfo shot, Func<WatchdogDocumentViewModel, WatchdogView, Task> arrange, Action<FakeWatchdogClient>? setup = null)
     {
         var client = WatchdogUiSupport.CreateClient();
+        setup?.Invoke(client);
         return ShootAsync(ThemePreference.Light, configure: WatchdogUiSupport.Use(client), shoot: async context =>
         {
             await WatchdogUiSupport.ConfigureAddressAsync(context);

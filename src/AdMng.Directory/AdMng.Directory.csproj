@@ -16,5 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Directory.IntegrationTests" />
+    <!-- SASL SSF fault injection (LdapConnectionFactory.SaslSecurityLimitsForTests) in the Watchdog keytab lab tests. -->
+    <InternalsVisibleTo Include="AdMng.Watchdog.IntegrationTests" />
   </ItemGroup>
 </Project>

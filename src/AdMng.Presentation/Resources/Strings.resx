@@ -167,6 +167,9 @@
   <data name="Attribute.logonCount" xml:space="preserve">
     <value>Logon count</value>
   </data>
+  <data name="Attribute.logonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
   <data name="Attribute.mail" xml:space="preserve">
     <value>E-mail</value>
   </data>
@@ -389,6 +392,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Columns.Type" xml:space="preserve">
     <value>Type</value>
   </data>
+  <data name="CommandCategories.CopyAs" xml:space="preserve">
+    <value>Copy as</value>
+  </data>
   <data name="CommandCategories.Navigation" xml:space="preserve">
     <value>Navigation</value>
   </data>
@@ -419,6 +425,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Commands.CancelLoad" xml:space="preserve">
     <value>Stop loading</value>
   </data>
+  <data name="Commands.ChangeDomainController" xml:space="preserve">
+    <value>Change Domain Controller...</value>
+  </data>
   <data name="Commands.ChooseColumns" xml:space="preserve">
     <value>Add/Remove Columns...</value>
   </data>
@@ -430,6 +439,102 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Copy distinguished name</value>
+  </data>
+  <data name="Copy.CanonicalPath" xml:space="preserve">
+    <value>Canonical path</value>
+  </data>
+  <data name="Copy.CopiedMail" xml:space="preserve">
+    <value>Copied e-mail addresses: {0}.</value>
+  </data>
+  <data name="Copy.CopiedRows" xml:space="preserve">
+    <value>Copied rows: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValue" xml:space="preserve">
+    <value>Copied: {0}.</value>
+  </data>
+  <data name="Copy.CopiedValues" xml:space="preserve">
+    <value>Copied {1} values: {0}.</value>
+  </data>
+  <data name="Copy.CopyAddress" xml:space="preserve">
+    <value>Copy address</value>
+  </data>
+  <data name="Copy.CopyAllMail" xml:space="preserve">
+    <value>Copy members' e-mail addresses</value>
+  </data>
+  <data name="Copy.CopyEntry" xml:space="preserve">
+    <value>Copy entry</value>
+  </data>
+  <data name="Copy.CopyMail" xml:space="preserve">
+    <value>Copy e-mail address</value>
+  </data>
+  <data name="Copy.CopyName" xml:space="preserve">
+    <value>Copy name</value>
+  </data>
+  <data name="Copy.CopyValue" xml:space="preserve">
+    <value>Copy: {0}</value>
+  </data>
+  <data name="Copy.DisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="Copy.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name (DN)</value>
+  </data>
+  <data name="Copy.DomainLogin" xml:space="preserve">
+    <value>DOMAIN\logon name</value>
+  </data>
+  <data name="Copy.DomainLogon" xml:space="preserve">
+    <value>Domain logon name</value>
+  </data>
+  <data name="Copy.Entry" xml:space="preserve">
+    <value>Session log entry</value>
+  </data>
+  <data name="Copy.EventDetails" xml:space="preserve">
+    <value>Event details</value>
+  </data>
+  <data name="Copy.Guid" xml:space="preserve">
+    <value>GUID (objectGUID)</value>
+  </data>
+  <data name="Copy.Login" xml:space="preserve">
+    <value>Logon name (sAMAccountName)</value>
+  </data>
+  <data name="Copy.Mail" xml:space="preserve">
+    <value>E-mail address</value>
+  </data>
+  <data name="Copy.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Copy.NoMail" xml:space="preserve">
+    <value>None of the objects has an e-mail address.</value>
+  </data>
+  <data name="Copy.NoValue" xml:space="preserve">
+    <value>None of the objects has a value: {0}.</value>
+  </data>
+  <data name="Copy.Rows" xml:space="preserve">
+    <value>Copy rows</value>
+  </data>
+  <data name="Copy.RowsWithHeaders" xml:space="preserve">
+    <value>Copy rows with headers</value>
+  </data>
+  <data name="Copy.SecretColumnsLeftOut" xml:space="preserve">
+    <value>Columns with confidential values were not copied: {0}.</value>
+  </data>
+  <data name="Copy.Sid" xml:space="preserve">
+    <value>SID (objectSid)</value>
+  </data>
+  <data name="Copy.SkippedLoading" xml:space="preserve">
+    <value>Rows still loading were not copied: {0}.</value>
+  </data>
+  <data name="Copy.SkippedNoMail" xml:space="preserve">
+    <value>Skipped objects without an e-mail address: {0}.</value>
+  </data>
+  <data name="Copy.SkippedNoValue" xml:space="preserve">
+    <value>Skipped objects without a value: {0}.</value>
+  </data>
+  <data name="Copy.TypedAddress" xml:space="preserve">
+    <value>{0} address</value>
+  </data>
+  <data name="Copy.Upn" xml:space="preserve">
+    <value>User principal name (UPN)</value>
   </data>
   <data name="Commands.Delete" xml:space="preserve">
     <value>Delete</value>
@@ -715,6 +820,93 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Connect.UserNameRequired" xml:space="preserve">
     <value>Enter the user name.</value>
+  </data>
+  <data name="ChangeDc.WindowTitle" xml:space="preserve">
+    <value>Change Domain Controller</value>
+  </data>
+  <data name="ChangeDc.Domain" xml:space="preserve">
+    <value>Domain: {0}</value>
+  </data>
+  <data name="ChangeDc.Current" xml:space="preserve">
+    <value>Current domain controller: {0}</value>
+  </data>
+  <data name="ChangeDc.ListLabel" xml:space="preserve">
+    <value>Domain controllers of the domain</value>
+  </data>
+  <data name="ChangeDc.ColumnYourSite" xml:space="preserve">
+    <value>Your site</value>
+  </data>
+  <data name="ChangeDc.ColumnRoles" xml:space="preserve">
+    <value>Roles</value>
+  </data>
+  <data name="ChangeDc.RoleCurrent" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="ChangeDc.RolePdcEmulator" xml:space="preserve">
+    <value>PDC emulator</value>
+  </data>
+  <data name="ChangeDc.ListUnavailable" xml:space="preserve">
+    <value>The list of domain controllers could not be read. Type the name of a domain controller.</value>
+  </data>
+  <data name="ChangeDc.ThisDomainController" xml:space="preserve">
+    <value>This domain controller:</value>
+  </data>
+  <data name="ChangeDc.ServerPlaceholder" xml:space="preserve">
+    <value>Name or address, e.g. dc02.contoso.com</value>
+  </data>
+  <data name="ChangeDc.AnyWritableInSite" xml:space="preserve">
+    <value>Any writable domain controller in my site</value>
+  </data>
+  <data name="ChangeDc.AnyWritableTarget" xml:space="preserve">
+    <value>Connects to {0} in your site {1}.</value>
+  </data>
+  <data name="ChangeDc.AnyWritableIsCurrent" xml:space="preserve">
+    <value>The current domain controller {0} is already a writable domain controller in your site.</value>
+  </data>
+  <data name="ChangeDc.ClientSiteUnknown" xml:space="preserve">
+    <value>The site of this computer is unknown (no domain controller locator). Choose a domain controller from the list.</value>
+  </data>
+  <data name="ChangeDc.NoWritableInSite" xml:space="preserve">
+    <value>No writable domain controller of your site {0} is known.</value>
+  </data>
+  <data name="ChangeDc.InvalidName" xml:space="preserve">
+    <value>Enter the host name or IP address of a domain controller, without a port or ldap://.</value>
+  </data>
+  <data name="ChangeDc.IsCurrent" xml:space="preserve">
+    <value>This is the current domain controller.</value>
+  </data>
+  <data name="ChangeDc.ReadOnlyWarning" xml:space="preserve">
+    <value>{0} is a read-only domain controller (RODC): you can browse, but changes will be refused.</value>
+  </data>
+  <data name="ChangeDc.UpdateProfile" xml:space="preserve">
+    <value>Remember the choice in the connection profile '{0}'</value>
+  </data>
+  <data name="ChangeDc.ChangeButton" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="ChangeDc.Changed" xml:space="preserve">
+    <value>Connected to domain controller {0}.</value>
+  </data>
+  <data name="ChangeDc.AlreadyConnected" xml:space="preserve">
+    <value>Already connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.OtherDomain" xml:space="preserve">
+    <value>{0} is a domain controller of {1}, not of {2}.</value>
+  </data>
+  <data name="ChangeDc.NotSupported" xml:space="preserve">
+    <value>This connection cannot be moved to another domain controller. Disconnect and connect to the chosen domain controller.</value>
+  </data>
+  <data name="ChangeDc.StaysOn" xml:space="preserve">
+    <value>The session stays connected to {0}.</value>
+  </data>
+  <data name="ChangeDc.RunningOperations" xml:space="preserve">
+    <value>Background operations are still running. They will be cancelled when the session moves to the other domain controller. Continue?</value>
+  </data>
+  <data name="ChangeDc.ProfileNotSaved" xml:space="preserve">
+    <value>The domain controller was changed, but the connection profile could not be saved: {0}</value>
+  </data>
+  <data name="ChangeDc.SessionLogAction" xml:space="preserve">
+    <value>Change domain controller</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
     <value>Are you sure you want to delete these {0} objects?</value>
@@ -1052,6 +1244,18 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="List.ServerFilters" xml:space="preserve">
     <value>Filters</value>
   </data>
+  <data name="List.Virtual.Badge" xml:space="preserve">
+    <value>Virtual list (VLV)</value>
+  </data>
+  <data name="List.Virtual.BadgeToolTip" xml:space="preserve">
+    <value>Very large container: rows are read from the domain controller while you scroll (VLV). Sorting, type-to-find and the quick filter run on the server; Select all and Export are not available - use Find (Ctrl+F) or a saved view to export.</value>
+  </data>
+  <data name="List.Virtual.FilterMatches" xml:space="preserve">
+    <value>{0} objects match (filtered on the server)</value>
+  </data>
+  <data name="List.Virtual.Summary" xml:space="preserve">
+    <value>{0} objects · virtual list (VLV), sorted on the server by {1} · as of {2}</value>
+  </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
     <value>Move {0} object(s) to {1}?</value>
   </data>
@@ -1247,8 +1451,86 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
     <value>Background operations are still running. Disconnect anyway? Running operations will be interrupted.</value>
   </data>
+  <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
+    <value>Domain controller logs (Windows service)</value>
+  </data>
+  <data name="Watchdog.AttributionSource.ForwardedEvents" xml:space="preserve">
+    <value>Windows event collector (Windows service)</value>
+  </data>
+  <data name="Watchdog.AttributionSource.None" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="Watchdog.AttributionSource.OpenWec" xml:space="preserve">
+    <value>OpenWEC (WEF)</value>
+  </data>
+  <data name="Watchdog.Certificate.Changed" xml:space="preserve">
+    <value>The server certificate changed since the last connection. Do not accept it without checking it on the server.</value>
+  </data>
+  <data name="Watchdog.Certificate.Compare" xml:space="preserve">
+    <value>Compare with the output of sudo admng-watchdog cert-fingerprint on the server</value>
+  </data>
+  <data name="Watchdog.Certificate.DnsNames" xml:space="preserve">
+    <value>DNS names (SAN)</value>
+  </data>
+  <data name="Watchdog.Certificate.Fingerprint" xml:space="preserve">
+    <value>SHA-256 fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.NewFingerprint" xml:space="preserve">
+    <value>New fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.Pinned" xml:space="preserve">
+    <value>Pinned certificate fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.PreviousFingerprint" xml:space="preserve">
+    <value>Previous fingerprint</value>
+  </data>
+  <data name="Watchdog.Certificate.RemovePin" xml:space="preserve">
+    <value>Remove pin</value>
+  </data>
+  <data name="Watchdog.Certificate.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="Watchdog.Certificate.Title" xml:space="preserve">
+    <value>Confirm the certificate of the Watchdog service</value>
+  </data>
+  <data name="Watchdog.Certificate.Trust" xml:space="preserve">
+    <value>I trust this certificate</value>
+  </data>
+  <data name="Watchdog.Certificate.Untrusted" xml:space="preserve">
+    <value>The server certificate is not issued by a trusted certification authority. Trust it only when its fingerprint matches the one shown on the server.</value>
+  </data>
+  <data name="Watchdog.Certificate.Validity" xml:space="preserve">
+    <value>Valid from {0} to {1}</value>
+  </data>
+  <data name="Watchdog.CredentialKey.host" xml:space="preserve">
+    <value>host key</value>
+  </data>
+  <data name="Watchdog.CredentialKey.tpm2+host" xml:space="preserve">
+    <value>TPM2 + host key</value>
+  </data>
+  <data name="Watchdog.KeytabResult.changeFailed" xml:space="preserve">
+    <value>password change failed</value>
+  </data>
+  <data name="Watchdog.KeytabResult.keytabWriteFailed" xml:space="preserve">
+    <value>password changed, but the keytab was not written</value>
+  </data>
+  <data name="Watchdog.KeytabResult.ok" xml:space="preserve">
+    <value>OK – keytab matches AD</value>
+  </data>
+  <data name="Watchdog.KeytabResult.otpActive" xml:space="preserve">
+    <value>the one-time password is still in use – changed at the next opportunity</value>
+  </data>
+  <data name="Watchdog.KeytabResult.replicationPending" xml:space="preserve">
+    <value>waiting for replication to the other DCs</value>
+  </data>
+  <data name="Watchdog.KeytabResult.verifyFailed" xml:space="preserve">
+    <value>keytab verification failed</value>
+  </data>
   <data name="WindowSession.Ended" xml:space="preserve">
     <value>The session this window was opened in has ended (disconnected or connected again). Close this window and open it again.</value>
+  </data>
+  <data name="WindowSession.EndedOnPreviousDc" xml:space="preserve">
+    <value>This window belongs to the previous domain controller {0}. The session is now connected to {1} – close this window and open it again.</value>
   </data>
   <data name="Permissions.CannotCreate" xml:space="preserve">
     <value>You do not have permission to create objects of type '{0}' in this container.</value>
@@ -1309,6 +1591,45 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Tree.Views" xml:space="preserve">
     <value>Views</value>
+  </data>
+  <data name="Tree.WellKnown.Computers" xml:space="preserve">
+    <value>Default container for new computers</value>
+  </data>
+  <data name="Tree.WellKnown.DeletedObjects" xml:space="preserve">
+    <value>Deleted objects (AD Recycle Bin)</value>
+  </data>
+  <data name="Tree.WellKnown.DomainControllers" xml:space="preserve">
+    <value>Default container for domain controllers</value>
+  </data>
+  <data name="Tree.WellKnown.ForeignSecurityPrincipals" xml:space="preserve">
+    <value>Security principals from trusted domains</value>
+  </data>
+  <data name="Tree.WellKnown.Infrastructure" xml:space="preserve">
+    <value>Infrastructure master settings</value>
+  </data>
+  <data name="Tree.WellKnown.Keys" xml:space="preserve">
+    <value>Key credentials of devices (Windows Hello for Business)</value>
+  </data>
+  <data name="Tree.WellKnown.LostAndFound" xml:space="preserve">
+    <value>Orphaned objects (LostAndFound)</value>
+  </data>
+  <data name="Tree.WellKnown.ManagedServiceAccounts" xml:space="preserve">
+    <value>Default container for managed service accounts</value>
+  </data>
+  <data name="Tree.WellKnown.Microsoft" xml:space="preserve">
+    <value>Microsoft application data</value>
+  </data>
+  <data name="Tree.WellKnown.NtdsQuotas" xml:space="preserve">
+    <value>Object creation quotas (NTDS Quotas)</value>
+  </data>
+  <data name="Tree.WellKnown.ProgramData" xml:space="preserve">
+    <value>Application data</value>
+  </data>
+  <data name="Tree.WellKnown.System" xml:space="preserve">
+    <value>System settings of the domain</value>
+  </data>
+  <data name="Tree.WellKnown.Users" xml:space="preserve">
+    <value>Default container for new users and groups</value>
   </data>
   <data name="Uac.AccountDisable" xml:space="preserve">
     <value>Account is disabled</value>
@@ -2911,6 +3232,12 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Labels.LogOnTo" xml:space="preserve">
     <value>Log On To</value>
   </data>
+  <data name="Labels.LogonHours" xml:space="preserve">
+    <value>Logon hours</value>
+  </data>
+  <data name="Labels.LogonHoursButton" xml:space="preserve">
+    <value>Logon Hours…</value>
+  </data>
   <data name="Labels.MustChangePassword" xml:space="preserve">
     <value>User must change password at next logon</value>
   </data>
@@ -2964,6 +3291,114 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="Labels.Value" xml:space="preserve">
     <value>Value</value>
+  </data>
+  <data name="LogonHours.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="LogonHours.Always" xml:space="preserve">
+    <value>All hours</value>
+  </data>
+  <data name="LogonHours.Cell" xml:space="preserve">
+    <value>{0} {1}–{2}: {3}</value>
+  </data>
+  <data name="LogonHours.Day.Friday" xml:space="preserve">
+    <value>Friday</value>
+  </data>
+  <data name="LogonHours.Day.Monday" xml:space="preserve">
+    <value>Monday</value>
+  </data>
+  <data name="LogonHours.Day.Saturday" xml:space="preserve">
+    <value>Saturday</value>
+  </data>
+  <data name="LogonHours.Day.Sunday" xml:space="preserve">
+    <value>Sunday</value>
+  </data>
+  <data name="LogonHours.Day.Thursday" xml:space="preserve">
+    <value>Thursday</value>
+  </data>
+  <data name="LogonHours.Day.Tuesday" xml:space="preserve">
+    <value>Tuesday</value>
+  </data>
+  <data name="LogonHours.Day.Wednesday" xml:space="preserve">
+    <value>Wednesday</value>
+  </data>
+  <data name="LogonHours.DayRange" xml:space="preserve">
+    <value>{0} through {1}</value>
+  </data>
+  <data name="LogonHours.DayShort.Friday" xml:space="preserve">
+    <value>Fri</value>
+  </data>
+  <data name="LogonHours.DayShort.Monday" xml:space="preserve">
+    <value>Mon</value>
+  </data>
+  <data name="LogonHours.DayShort.Saturday" xml:space="preserve">
+    <value>Sat</value>
+  </data>
+  <data name="LogonHours.DayShort.Sunday" xml:space="preserve">
+    <value>Sun</value>
+  </data>
+  <data name="LogonHours.DayShort.Thursday" xml:space="preserve">
+    <value>Thu</value>
+  </data>
+  <data name="LogonHours.DayShort.Tuesday" xml:space="preserve">
+    <value>Tue</value>
+  </data>
+  <data name="LogonHours.DayShort.Wednesday" xml:space="preserve">
+    <value>Wed</value>
+  </data>
+  <data name="LogonHours.Denied" xml:space="preserve">
+    <value>Logon Denied</value>
+  </data>
+  <data name="LogonHours.Grid" xml:space="preserve">
+    <value>Logon hours of the week</value>
+  </data>
+  <data name="LogonHours.Invalid" xml:space="preserve">
+    <value>Invalid value ({0} bytes)</value>
+  </data>
+  <data name="LogonHours.InvalidStored" xml:space="preserve">
+    <value>The stored value is invalid (it is not 21 bytes long), so the grid cannot show it – every hour is marked as permitted.</value>
+  </data>
+  <data name="LogonHours.KeyboardHint" xml:space="preserve">
+    <value>Select hours by dragging over the grid or by clicking a day or an hour. With the keyboard: arrow keys move the cursor, Shift with an arrow key extends the selection, Home and End go to the start and end of the day, Ctrl+A selects the whole week, and Space switches the selected hours between permitted and denied.</value>
+  </data>
+  <data name="LogonHours.Never" xml:space="preserve">
+    <value>No hours (logon denied)</value>
+  </data>
+  <data name="LogonHours.NoneWarning" xml:space="preserve">
+    <value>No hour is permitted: the user will not be able to log on at all.</value>
+  </data>
+  <data name="LogonHours.Permitted" xml:space="preserve">
+    <value>Logon Permitted</value>
+  </data>
+  <data name="LogonHours.SelectAll" xml:space="preserve">
+    <value>Select all hours of the week</value>
+  </data>
+  <data name="LogonHours.SelectDay" xml:space="preserve">
+    <value>Select all hours of {0}</value>
+  </data>
+  <data name="LogonHours.SelectHour" xml:space="preserve">
+    <value>Select {0}–{1} on every day</value>
+  </data>
+  <data name="LogonHours.Selection" xml:space="preserve">
+    <value>Selected: {0}, {1}–{2} ({3})</value>
+  </data>
+  <data name="LogonHours.StateDenied" xml:space="preserve">
+    <value>logon denied</value>
+  </data>
+  <data name="LogonHours.StateMixed" xml:space="preserve">
+    <value>partly permitted</value>
+  </data>
+  <data name="LogonHours.StatePermitted" xml:space="preserve">
+    <value>logon permitted</value>
+  </data>
+  <data name="LogonHours.TimeZoneNote" xml:space="preserve">
+    <value>Hours in this computer's local time (UTC{0}). The domain controller applies them in UTC, so after a change between summer and winter time they move by one hour.</value>
+  </data>
+  <data name="LogonHours.WindowTitle" xml:space="preserve">
+    <value>Logon Hours for {0}</value>
+  </data>
+  <data name="LogonHours.WindowTitleBatch" xml:space="preserve">
+    <value>Logon Hours</value>
   </data>
   <data name="Membership.Direct" xml:space="preserve">
     <value>Direct</value>
@@ -3065,6 +3500,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   <data name="Operation.FindReplace" xml:space="preserve">
     <value>Find and replace</value>
   </data>
+  <data name="Operation.LogonHours" xml:space="preserve">
+    <value>Set logon hours</value>
+  </data>
   <data name="Operation.Move" xml:space="preserve">
     <value>Move to container</value>
   </data>
@@ -3115,6 +3553,9 @@ Anyone who can read the file can sign in with these accounts - store it securely
   </data>
   <data name="OperationHint.FindReplace" xml:space="preserve">
     <value>Replaces text in every value (plain text or regular expression).</value>
+  </data>
+  <data name="OperationHint.LogonHours" xml:space="preserve">
+    <value>Sets one weekly logon schedule for user accounts (the Logon Hours dialog).</value>
   </data>
   <data name="OperationHint.Move" xml:space="preserve">
     <value>Moves the objects to another container or organizational unit.</value>
@@ -3832,6 +4273,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Confidence.None" xml:space="preserve">
     <value>none</value>
   </data>
+  <data name="Watchdog.Config.Discard" xml:space="preserve">
+    <value>The Watchdog configuration has unsaved changes (typed passwords and secrets included). Discard them?</value>
+  </data>
   <data name="Watchdog.Config.Invalid" xml:space="preserve">
     <value>The configuration was not saved – correct the marked fields.</value>
   </data>
@@ -3869,7 +4313,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The service {0} cannot be reached – check the address, the firewall and whether the service is running.</value>
   </data>
   <data name="Watchdog.Connection.VersionMismatch" xml:space="preserve">
-    <value>The service uses another API version – update AD_MNG or the watchdog service.</value>
+    <value>The service uses another API version – update AD Manager or the watchdog service.</value>
   </data>
   <data name="Watchdog.DeliveryHours.Always" xml:space="preserve">
     <value>Always</value>
@@ -4048,6 +4492,42 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.attribution.actorConditionsUnreliable.Remedy" xml:space="preserve">
     <value>A rule excludes actors for events whose actor cannot be determined – fix the audit policy or SACL.</value>
   </data>
+  <data name="Watchdog.Health.attribution.collector" xml:space="preserve">
+    <value>Event collector (WEF)</value>
+  </data>
+  <data name="Watchdog.Health.attribution.collector.Remedy" xml:space="preserve">
+    <value>ForwardedEvents mode needs a collector – enter it in the attribution settings by its DNS host name (FQDN recommended), not an IP address: the service connects to it with Kerberos only.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory" xml:space="preserve">
+    <value>Domain controller discovery</value>
+  </data>
+  <data name="Watchdog.Health.attribution.dcDirectory.Remedy" xml:space="preserve">
+    <value>Only the configured DCs are read – list every writable DC in the attribution settings or grant read access to CN=Sites in the configuration partition.</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source" xml:space="preserve">
+    <value>Attribution source</value>
+  </data>
+  <data name="Watchdog.Health.attribution.source.Remedy" xml:space="preserve">
+    <value>Attribution is off or the event log reader is unavailable – enable it in the configuration (Windows service only).</value>
+  </data>
+  <data name="Watchdog.Health.certificate" xml:space="preserve">
+    <value>TLS certificate</value>
+  </data>
+  <data name="Watchdog.Health.certificate.Remedy" xml:space="preserve">
+    <value>Check the TLS certificate of the watchdog service (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry" xml:space="preserve">
+    <value>TLS certificate expires soon</value>
+  </data>
+  <data name="Watchdog.Health.certificate.expiry.Remedy" xml:space="preserve">
+    <value>Renew the service's TLS certificate before it expires – with an expired certificate the Watchdog tab cannot connect.</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key" xml:space="preserve">
+    <value>TLS certificate private key unusable</value>
+  </data>
+  <data name="Watchdog.Health.certificate.key.Remedy" xml:space="preserve">
+    <value>Grant the service account read access to the certificate's private key (certlm.msc → Manage Private Keys).</value>
+  </data>
   <data name="Watchdog.Health.channel" xml:space="preserve">
     <value>Channel delivery</value>
   </data>
@@ -4072,11 +4552,29 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.directory.connection.Remedy" xml:space="preserve">
     <value>Check that the DC is reachable (LDAP 389, Kerberos) and that the service account is enabled.</value>
   </data>
+  <data name="Watchdog.Health.directory.notSealed" xml:space="preserve">
+    <value>LDAP connection without encryption</value>
+  </data>
+  <data name="Watchdog.Health.directory.notSealed.Remedy" xml:space="preserve">
+    <value>The LDAP bind negotiated no encryption (SSF below 56) – check SASL_SECPROPS minssf=56 in /etc/admng-watchdog/ldap.conf and the AES keys of the service account.</value>
+  </data>
   <data name="Watchdog.Health.directory.notSynchronized" xml:space="preserve">
     <value>Domain controller not synchronized</value>
   </data>
   <data name="Watchdog.Health.directory.notSynchronized.Remedy" xml:space="preserve">
     <value>The DC reports isSynchronized = FALSE – check replication.</value>
+  </data>
+  <data name="Watchdog.Health.domain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="Watchdog.Health.domain.Remedy" xml:space="preserve">
+    <value>Check the domain settings.</value>
+  </data>
+  <data name="Watchdog.Health.domain.machineAccountQuota" xml:space="preserve">
+    <value>ms-DS-MachineAccountQuota above 0</value>
+  </data>
+  <data name="Watchdog.Health.domain.machineAccountQuota.Remedy" xml:space="preserve">
+    <value>Every domain user – also the service account with a stolen keytab – can create computer accounts: delegate computer creation, then set ms-DS-MachineAccountQuota = 0 (WATCHDOG-LINUX.md, 2.8).</value>
   </data>
   <data name="Watchdog.Health.eventlog" xml:space="preserve">
     <value>Security log of {0}</value>
@@ -4089,6 +4587,60 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Health.eventlog.foreignRecords.Remedy" xml:space="preserve">
     <value>The collector forwards events of computers that are not DCs of this domain – check the WEF subscription.</value>
+  </data>
+  <data name="Watchdog.Health.gpo" xml:space="preserve">
+    <value>GPO content {0}</value>
+  </data>
+  <data name="Watchdog.Health.gpo.Remedy" xml:space="preserve">
+    <value>Check the SYSVOL access of the service (WATCHDOG-LINUX.md, 2.7 and 9.4).</value>
+  </data>
+  <data name="Watchdog.Health.gpo.parseError" xml:space="preserve">
+    <value>GPO {0} could not be read</value>
+  </data>
+  <data name="Watchdog.Health.gpo.parseError.Remedy" xml:space="preserve">
+    <value>A file of the GPO is damaged or in an unknown format – it is read again after the next change of the GPO version.</value>
+  </data>
+  <data name="Watchdog.Health.gpo.sysvolLag" xml:space="preserve">
+    <value>SYSVOL lag for GPO {0}</value>
+  </data>
+  <data name="Watchdog.Health.gpo.sysvolLag.Remedy" xml:space="preserve">
+    <value>SYSVOL replication (DFSR) does not keep up with the GPO version change – check dfsrdiag backlog on the DC; the service retries the read for up to 2 hours.</value>
+  </data>
+  <data name="Watchdog.Health.gpo.tooLarge" xml:space="preserve">
+    <value>GPO {0} exceeds the read limits</value>
+  </data>
+  <data name="Watchdog.Health.gpo.tooLarge.Remedy" xml:space="preserve">
+    <value>The GPO has more files or data than the GPO content limits – changes are found only in the part that was read; raise the limits in the configuration or simplify the GPO.</value>
+  </data>
+  <data name="Watchdog.Health.host" xml:space="preserve">
+    <value>Service host</value>
+  </data>
+  <data name="Watchdog.Health.host.Remedy" xml:space="preserve">
+    <value>Check the configuration of the Debian server (WATCHDOG-LINUX.md, chapter 3).</value>
+  </data>
+  <data name="Watchdog.Health.host.clockSkew" xml:space="preserve">
+    <value>Clock skew to the DC</value>
+  </data>
+  <data name="Watchdog.Health.host.clockSkew.Remedy" xml:space="preserve">
+    <value>Check chrony (chronyc tracking, chronyc -N sources) and maxdistance 16.0 in /etc/chrony/conf.d/admng-ad.conf – Kerberos stops working at 5 minutes of skew.</value>
+  </data>
+  <data name="Watchdog.Health.host.credentialKey" xml:space="preserve">
+    <value>Channel secrets key</value>
+  </data>
+  <data name="Watchdog.Health.host.credentialKey.Remedy" xml:space="preserve">
+    <value>"TPM2 + host key" binds the key to the TPM of this machine; "host key" only to /var/lib/systemd/credential.secret – a copy of the whole disk then holds the key.</value>
+  </data>
+  <data name="Watchdog.Health.host.hardening" xml:space="preserve">
+    <value>Hardening of the service process</value>
+  </data>
+  <data name="Watchdog.Health.host.hardening.Remedy" xml:space="preserve">
+    <value>Run the service only through its systemd unit (UMask=0077, LimitCORE=0); /etc/admng-watchdog/credentials must not be readable by the service account (root, 0700).</value>
+  </data>
+  <data name="Watchdog.Health.host.primaryKdcNotPdc" xml:space="preserve">
+    <value>primary_kdc is not the PDC emulator</value>
+  </data>
+  <data name="Watchdog.Health.host.primaryKdcNotPdc.Remedy" xml:space="preserve">
+    <value>The PDC emulator role moved to another DC – correct primary_kdc and kpasswd_server in /etc/admng-watchdog/krb5.conf.</value>
   </data>
   <data name="Watchdog.Health.permission" xml:space="preserve">
     <value>Read permissions</value>
@@ -4132,11 +4684,41 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.permission.replicationMetadata.Remedy" xml:space="preserve">
     <value>Without replication metadata the originating DC and time are unknown – check the read permissions.</value>
   </data>
+  <data name="Watchdog.Health.permission.search" xml:space="preserve">
+    <value>Change search in the directory</value>
+  </data>
+  <data name="Watchdog.Health.permission.search.Remedy" xml:space="preserve">
+    <value>The domain controller refused the change search – check that the service account is enabled and can read the domain (docs/WATCHDOG.md).</value>
+  </data>
+  <data name="Watchdog.Health.permission.tokenGroupsUnreadable" xml:space="preserve">
+    <value>Reading tokenGroups (roles of API users)</value>
+  </data>
+  <data name="Watchdog.Health.permission.tokenGroupsUnreadable.Remedy" xml:space="preserve">
+    <value>The service account cannot read tokenGroups of the operators' accounts – grant read (GR) for the classes user, inetOrgPerson and computer (WATCHDOG-LINUX.md, 2.6).</value>
+  </data>
   <data name="Watchdog.Health.permission.uSNChanged" xml:space="preserve">
     <value>uSNChanged readable on all accounts</value>
   </data>
   <data name="Watchdog.Health.permission.uSNChanged.Remedy" xml:space="preserve">
     <value>Some objects are invisible to change tracking – delegate GenericRead to the service account.</value>
+  </data>
+  <data name="Watchdog.Health.rules" xml:space="preserve">
+    <value>Rules</value>
+  </data>
+  <data name="Watchdog.Health.rules.Remedy" xml:space="preserve">
+    <value>Check the rule configuration on the Rules tab.</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns" xml:space="preserve">
+    <value>Configured DNs that no longer exist</value>
+  </data>
+  <data name="Watchdog.Health.rules.configuredDns.Remedy" xml:space="preserve">
+    <value>An OU or group named in the configuration was renamed, moved or deleted – rules, privileged groups and subtrees that use the old DN match nothing. Correct the distinguished names listed in the details.</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner" xml:space="preserve">
+    <value>Notification planning</value>
+  </data>
+  <data name="Watchdog.Health.rules.planner.Remedy" xml:space="preserve">
+    <value>The service is installed incompletely – events are recorded but no notifications are sent; reinstall the service.</value>
   </data>
   <data name="Watchdog.Health.runtime" xml:space="preserve">
     <value>Runtime</value>
@@ -4162,6 +4744,48 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.secret.unreadable.Remedy" xml:space="preserve">
     <value>The service account changed – enter the channel passwords and secrets again.</value>
   </data>
+  <data name="Watchdog.Health.serviceAccount" xml:space="preserve">
+    <value>Service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.Remedy" xml:space="preserve">
+    <value>Check the service account and its keytab (WATCHDOG-LINUX.md, chapters 2.5, 3.6 and 3.7).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.drift" xml:space="preserve">
+    <value>Service account settings differ from the required ones</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.drift.Remedy" xml:space="preserve">
+    <value>Restore the settings of 2.5: AES128 + AES256 only (msDS-SupportedEncryptionTypes = 24), "sensitive and cannot be delegated", the three SPNs, dNSHostName and the Deny entry for SELF on the account object.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabOrder" xml:space="preserve">
+    <value>Order of the keytab entries</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabOrder.Remedy" xml:space="preserve">
+    <value>The first keytab entry must be the computer account itself (LDAP and SMB take the name from it) – write the keytab again with sudo admng-watchdog-keytab init (3.6).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabStale" xml:space="preserve">
+    <value>Keytab older than AD</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.keytabStale.Remedy" xml:space="preserve">
+    <value>The key version (kvno) in the keytab is older than msDS-KeyVersionNumber of the account, e.g. after a VM restore. A Tier 0 admin sets a new one-time password (Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp), then run sudo admng-watchdog-keytab init.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.passwordAge" xml:space="preserve">
+    <value>Password age of the service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.passwordAge.Remedy" xml:space="preserve">
+    <value>The password was not changed for more than 32 days – check the timer (systemctl list-timers 'admng-*') and sudo admng-watchdog-keytab status.</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.privileged" xml:space="preserve">
+    <value>Service account in a privileged group</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.privileged.Remedy" xml:space="preserve">
+    <value>Remove the service account from the privileged group – it may only be a member of Domain Computers (2.5).</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.rotation" xml:space="preserve">
+    <value>Password change of the service account</value>
+  </data>
+  <data name="Watchdog.Health.serviceAccount.rotation.Remedy" xml:space="preserve">
+    <value>The last password change failed – check ports 88/464 to the DCs and sudo admng-watchdog-keytab status. If the keytab could not be written: a Tier 0 admin sets a new one-time password (Set-ADAccountPassword -Identity 'ADMNG-WD$' -Reset -NewPassword $otp), then run sudo admng-watchdog-keytab init.</value>
+  </data>
   <data name="Watchdog.Health.smtp" xml:space="preserve">
     <value>E-mail delivery</value>
   </data>
@@ -4180,11 +4804,95 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Health.storage.acl.Remedy" xml:space="preserve">
     <value>The data folder has a wider ACL than allowed – restore the protected ACL (docs/WATCHDOG.md).</value>
   </data>
+  <data name="Watchdog.Health.storage.backupSkipped" xml:space="preserve">
+    <value>Database backup skipped</value>
+  </data>
+  <data name="Watchdog.Health.storage.backupSkipped.Remedy" xml:space="preserve">
+    <value>Not enough free space for the next database backup (1.5 × the database size is required) – free space in /var or lower Retention.MaxDatabaseMb / BackupsToKeep.</value>
+  </data>
   <data name="Watchdog.Health.storage.free" xml:space="preserve">
     <value>Free disk space</value>
   </data>
   <data name="Watchdog.Health.storage.free.Remedy" xml:space="preserve">
     <value>Free space on the data disk or lower the retention.</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance" xml:space="preserve">
+    <value>Database maintenance</value>
+  </data>
+  <data name="Watchdog.Health.storage.maintenance.Remedy" xml:space="preserve">
+    <value>Retention or database maintenance failed – check the Application log on the service host.</value>
+  </data>
+  <data name="Watchdog.Health.storage.size" xml:space="preserve">
+    <value>Database size</value>
+  </data>
+  <data name="Watchdog.Health.storage.size.Remedy" xml:space="preserve">
+    <value>The database approaches Retention.MaxDatabaseMb – shorten the retention or raise the limit.</value>
+  </data>
+  <data name="Watchdog.Health.sysvol" xml:space="preserve">
+    <value>SYSVOL access</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.Remedy" xml:space="preserve">
+    <value>Check SYSVOL access through smbclient with Kerberos (WATCHDOG-LINUX.md, 9.4).</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.accessDenied" xml:space="preserve">
+    <value>No access to SYSVOL</value>
+  </data>
+  <data name="Watchdog.Health.sysvol.accessDenied.Remedy" xml:space="preserve">
+    <value>A GPO folder is not readable for the service account – grant read to Authenticated Users or Domain Computers (WATCHDOG-LINUX.md, 2.7).</value>
+  </data>
+  <data name="Watchdog.Health.wec" xml:space="preserve">
+    <value>WEF collector – {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.Remedy" xml:space="preserve">
+    <value>Check event forwarding from this DC (Forwarding/Operational on the DC, subscription GPO, firewall 5985) – WATCHDOG-LINUX.md, 9.2.</value>
+  </data>
+  <data name="Watchdog.Health.wec.backlog" xml:space="preserve">
+    <value>Unread event files from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.backlog.Remedy" xml:space="preserve">
+    <value>The service does not keep up with reading the OpenWEC files – check the load of the server and the service log; unread files are deleted after MAX_UNCONSUMED_DAYS.</value>
+  </data>
+  <data name="Watchdog.Health.wec.collectorFileLost" xml:space="preserve">
+    <value>Event file of {0} lost</value>
+  </data>
+  <data name="Watchdog.Health.wec.collectorFileLost.Remedy" xml:space="preserve">
+    <value>An OpenWEC file was deleted before the service read it (MAX_UNCONSUMED_DAYS / MAX_UNCONSUMED_MB in /etc/default/admng-wec-rotate) – changes of that period have no actor.</value>
+  </data>
+  <data name="Watchdog.Health.wec.identityMismatch" xml:space="preserve">
+    <value>Rejected records from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.identityMismatch.Remedy" xml:space="preserve">
+    <value>Records failed the identity checks (subscription, account, computer name or IP address of the DC) – for NAT or several network cards add the addresses to Watchdog.Collector.AdditionalSourceAddresses; otherwise treat it as a foreign sender.</value>
+  </data>
+  <data name="Watchdog.Health.wec.lag" xml:space="preserve">
+    <value>Events from {0} arrive late</value>
+  </data>
+  <data name="Watchdog.Health.wec.lag.Remedy" xml:space="preserve">
+    <value>The median forwarding delay is above 5 minutes – check the load of the DC, the network and Refresh in the subscription GPO.</value>
+  </data>
+  <data name="Watchdog.Health.wec.malformedLines" xml:space="preserve">
+    <value>Damaged lines from {0}</value>
+  </data>
+  <data name="Watchdog.Health.wec.malformedLines.Remedy" xml:space="preserve">
+    <value>Some lines of the OpenWEC files could not be read (e.g. after an openwecd crash) and were skipped – check journalctl -u openwecd.</value>
+  </data>
+  <data name="Watchdog.Health.wec.notForwarding" xml:space="preserve">
+    <value>DC {0} does not forward events</value>
+  </data>
+  <data name="Watchdog.Health.wec.notForwarding.Remedy" xml:space="preserve">
+    <value>The DC does not forward events – check the subscription GPO (WATCHDOG-LINUX.md, 2.12) and IPAddressAllow of the openwecd unit (4.3).</value>
+  </data>
+  <data name="Watchdog.Health.wec.service" xml:space="preserve">
+    <value>OpenWEC receiver</value>
+  </data>
+  <data name="Watchdog.Health.wec.service.Remedy" xml:space="preserve">
+    <value>No DC has written events for 10 minutes – check systemctl status openwecd and journalctl -u openwecd.</value>
+  </data>
+  <data name="Watchdog.Health.wec.silent" xml:space="preserve">
+    <value>Domain controller {0} is silent</value>
+  </data>
+  <data name="Watchdog.Health.wec.silent.Remedy" xml:space="preserve">
+    <value>No events from this DC – a DC always has network logons, so silence means broken forwarding: check the subscription GPO, WinRM and the firewall 5985 (9.2).</value>
   </data>
   <data name="Watchdog.HealthState.Disabled" xml:space="preserve">
     <value>Disabled</value>
@@ -4315,8 +5023,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Kind.GroupPolicyChanged" xml:space="preserve">
     <value>Group Policy object changed</value>
   </data>
+  <data name="Watchdog.Kind.GroupPolicyContentOutOfBand" xml:space="preserve">
+    <value>GPO files changed without a version change</value>
+  </data>
   <data name="Watchdog.Kind.GroupPolicyLinkChanged" xml:space="preserve">
     <value>Group Policy link changed</value>
+  </data>
+  <data name="Watchdog.Kind.GroupPolicyPathRedirected" xml:space="preserve">
+    <value>GPO file path redirected</value>
+  </data>
+  <data name="Watchdog.Kind.GroupPolicySettingsChanged" xml:space="preserve">
+    <value>GPO settings changed</value>
   </data>
   <data name="Watchdog.Kind.GroupTypeChanged" xml:space="preserve">
     <value>Group type changed</value>
@@ -4341,6 +5058,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Kind.HealthResync" xml:space="preserve">
     <value>Full resynchronization</value>
+  </data>
+  <data name="Watchdog.Kind.HealthServiceAccount" xml:space="preserve">
+    <value>Service account problem</value>
   </data>
   <data name="Watchdog.Kind.HealthStorage" xml:space="preserve">
     <value>Storage problem</value>
@@ -4543,6 +5263,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Reason.DC_UNREACHABLE" xml:space="preserve">
     <value>DC log unreachable</value>
   </data>
+  <data name="Watchdog.Reason.DC_UNREACHABLE.Collector" xml:space="preserve">
+    <value>WEF collector receives nothing from the DC</value>
+  </data>
+  <data name="Watchdog.Reason.DC_UNREACHABLE.Collector.Remedy" xml:space="preserve">
+    <value>Check that the DC forwards events (subscription GPO, WinRM, firewall 5985) – Status → WEF collector.</value>
+  </data>
   <data name="Watchdog.Reason.DC_UNREACHABLE.Remedy" xml:space="preserve">
     <value>Check the firewall (Remote Event Log Management) and the service account's membership in Event Log Readers.</value>
   </data>
@@ -4599,6 +5325,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Reason.SYSTEM.Remedy" xml:space="preserve">
     <value>The change was made by the domain controller itself (e.g. SDProp).</value>
+  </data>
+  <data name="Watchdog.Reason.SYSVOL_NOT_AUDITED" xml:space="preserve">
+    <value>SYSVOL file changes are not audited</value>
+  </data>
+  <data name="Watchdog.Reason.SYSVOL_NOT_AUDITED.Remedy" xml:space="preserve">
+    <value>SYSVOL files changed without a GPO version change – the actor is unknown; check who can write to SYSVOL.</value>
   </data>
   <data name="Watchdog.Requires.Admin" xml:space="preserve">
     <value>Requires the watchdog administrator role</value>
@@ -4741,6 +5473,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.SourceOrigin.4776" xml:space="preserve">
     <value>from NTLM 4776 – client-supplied</value>
   </data>
+  <data name="Watchdog.SourceOrigin.adws" xml:space="preserve">
+    <value>via ADWS – address from a logon of the same person</value>
+  </data>
   <data name="Watchdog.SourceOrigin.dns" xml:space="preserve">
     <value>from DNS – unverified</value>
   </data>
@@ -4861,6 +5596,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.adminCountOrphan" xml:space="preserve">
     <value>adminCount orphan</value>
   </data>
+  <data name="Watchdog.Tag.auditSettings" xml:space="preserve">
+    <value>audit settings (SACL)</value>
+  </data>
+  <data name="Watchdog.Tag.badSuccessor" xml:space="preserve">
+    <value>BadSuccessor (dMSA)</value>
+  </data>
   <data name="Watchdog.Tag.builtinAdministrator" xml:space="preserve">
     <value>built-in Administrator</value>
   </data>
@@ -4876,11 +5617,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.domainController" xml:space="preserve">
     <value>domain controller</value>
   </data>
+  <data name="Watchdog.Tag.gppPassword" xml:space="preserve">
+    <value>password in GPO preferences (cpassword)</value>
+  </data>
   <data name="Watchdog.Tag.krbtgt" xml:space="preserve">
     <value>krbtgt</value>
   </data>
   <data name="Watchdog.Tag.longDisabled" xml:space="preserve">
     <value>long disabled</value>
+  </data>
+  <data name="Watchdog.Tag.machineAccountQuota" xml:space="preserve">
+    <value>machine account quota</value>
   </data>
   <data name="Watchdog.Tag.otherDomain" xml:space="preserve">
     <value>other domain</value>
@@ -4915,6 +5662,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Tag.unexpectedContainer" xml:space="preserve">
     <value>unexpected container</value>
   </data>
+  <data name="Watchdog.Tag.watchdogAccount" xml:space="preserve">
+    <value>Watchdog service account</value>
+  </data>
   <data name="Watchdog.TeamsAuthMode.EntraClientCredentials" xml:space="preserve">
     <value>Entra ID application (OAuth)</value>
   </data>
@@ -4938,6 +5688,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Title" xml:space="preserve">
     <value>Watchdog</value>
+  </data>
+  <data name="Watchdog.Ui.AccountDn" xml:space="preserve">
+    <value>Account (DN)</value>
   </data>
   <data name="Watchdog.Ui.Acknowledge" xml:space="preserve">
     <value>Acknowledge</value>
@@ -5008,14 +5761,26 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.CardChecks" xml:space="preserve">
     <value>Health checks</value>
   </data>
+  <data name="Watchdog.Ui.CardCollector" xml:space="preserve">
+    <value>WEF collector</value>
+  </data>
   <data name="Watchdog.Ui.CardDirectory" xml:space="preserve">
     <value>Watched domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.CardGpoContent" xml:space="preserve">
+    <value>GPO content</value>
+  </data>
+  <data name="Watchdog.Ui.CardHost" xml:space="preserve">
+    <value>Host</value>
   </data>
   <data name="Watchdog.Ui.CardLast24Hours" xml:space="preserve">
     <value>Last 24 hours</value>
   </data>
   <data name="Watchdog.Ui.CardService" xml:space="preserve">
     <value>Service</value>
+  </data>
+  <data name="Watchdog.Ui.CardServiceAccount" xml:space="preserve">
+    <value>Service account</value>
   </data>
   <data name="Watchdog.Ui.CardStorage" xml:space="preserve">
     <value>Service data</value>
@@ -5058,6 +5823,24 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.ClientSecret" xml:space="preserve">
     <value>Client secret</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorBacklog" xml:space="preserve">
+    <value>Backlog</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorLag" xml:space="preserve">
+    <value>Delay</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorLastRecord" xml:space="preserve">
+    <value>Last record</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorRejected" xml:space="preserve">
+    <value>Rejected records</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorSilenceError" xml:space="preserve">
+    <value>Error when a DC is silent for longer than</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorSilenceWarning" xml:space="preserve">
+    <value>Warning when a DC is silent for longer than</value>
   </data>
   <data name="Watchdog.Ui.ColumnLockouts" xml:space="preserve">
     <value>Lockouts</value>
@@ -5128,8 +5911,17 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.DigestTime" xml:space="preserve">
     <value>Time to send (HH:mm)</value>
   </data>
+  <data name="Watchdog.Ui.DirectoryKvno" xml:space="preserve">
+    <value>Key version in AD (msDS-KeyVersionNumber)</value>
+  </data>
   <data name="Watchdog.Ui.DomainController" xml:space="preserve">
     <value>Domain controller</value>
+  </data>
+  <data name="Watchdog.Ui.DropAnonymousLogons" xml:space="preserve">
+    <value>Skip anonymous logons (ANONYMOUS LOGON)</value>
+  </data>
+  <data name="Watchdog.Ui.DropComputerLogons" xml:space="preserve">
+    <value>Skip logons of computer accounts</value>
   </data>
   <data name="Watchdog.Ui.DuplicateRule" xml:space="preserve">
     <value>Duplicate</value>
@@ -5137,8 +5929,14 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.EmptyIsDefault" xml:space="preserve">
     <value>An empty field uses the service default.</value>
   </data>
+  <data name="Watchdog.Ui.EncryptionTypes" xml:space="preserve">
+    <value>Encryption types</value>
+  </data>
   <data name="Watchdog.Ui.EntraCloud" xml:space="preserve">
     <value>Entra ID cloud</value>
+  </data>
+  <data name="Watchdog.Ui.EventNoLongerMatches" xml:space="preserve">
+    <value>No longer matches the filter – leaves the list once it is deselected</value>
   </data>
   <data name="Watchdog.Ui.Evidence" xml:space="preserve">
     <value>Evidence (security log events)</value>
@@ -5233,6 +6031,33 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.GitHubSignature" xml:space="preserve">
     <value>Also send the X-Hub-Signature-256 header (GitHub compatible)</value>
   </data>
+  <data name="Watchdog.Ui.GpoContentEnabled" xml:space="preserve">
+    <value>Track GPO content (settings in SYSVOL)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoFailures" xml:space="preserve">
+    <value>Read errors</value>
+  </data>
+  <data name="Watchdog.Ui.GpoLastRead" xml:space="preserve">
+    <value>Last read</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxFileMb" xml:space="preserve">
+    <value>Largest GPO file (MB)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxFiles" xml:space="preserve">
+    <value>Most files per GPO</value>
+  </data>
+  <data name="Watchdog.Ui.GpoMaxTotalMb" xml:space="preserve">
+    <value>Largest GPO content (MB)</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgress" xml:space="preserve">
+    <value>Read progress</value>
+  </data>
+  <data name="Watchdog.Ui.GpoSysvolLag" xml:space="preserve">
+    <value>SYSVOL lag</value>
+  </data>
+  <data name="Watchdog.Ui.GpoSysvolLagTolerance" xml:space="preserve">
+    <value>Tolerated SYSVOL lag</value>
+  </data>
   <data name="Watchdog.Ui.GroupAddresses" xml:space="preserve">
     <value>E-mail addresses (one per line)</value>
   </data>
@@ -5251,6 +6076,24 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.HighestUsn" xml:space="preserve">
     <value>Highest USN</value>
   </data>
+  <data name="Watchdog.Ui.HostClockSkew" xml:space="preserve">
+    <value>Clock skew to the DC</value>
+  </data>
+  <data name="Watchdog.Ui.HostCredentialKey" xml:space="preserve">
+    <value>Secrets key variant</value>
+  </data>
+  <data name="Watchdog.Ui.HostFreeSpace" xml:space="preserve">
+    <value>Free space</value>
+  </data>
+  <data name="Watchdog.Ui.HostLdapSsf" xml:space="preserve">
+    <value>LDAP encryption strength (SSF)</value>
+  </data>
+  <data name="Watchdog.Ui.HostOperatingSystem" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="Watchdog.Ui.HostRuntime" xml:space="preserve">
+    <value>.NET runtime</value>
+  </data>
   <data name="Watchdog.Ui.Immediate" xml:space="preserve">
     <value>Notify immediately</value>
   </data>
@@ -5262,6 +6105,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.Issues" xml:space="preserve">
     <value>Configuration issues</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabKvno" xml:space="preserve">
+    <value>Key version in the keytab (kvno)</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabMatchesDirectory" xml:space="preserve">
+    <value>Keytab matches AD</value>
   </data>
   <data name="Watchdog.Ui.LastBackup" xml:space="preserve">
     <value>Last backup</value>
@@ -5275,6 +6124,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.LastFullSync" xml:space="preserve">
     <value>Last full sync</value>
   </data>
+  <data name="Watchdog.Ui.LastPasswordChange" xml:space="preserve">
+    <value>Last password change</value>
+  </data>
   <data name="Watchdog.Ui.LastPoll" xml:space="preserve">
     <value>Last poll</value>
   </data>
@@ -5286,6 +6138,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.LoadOlder" xml:space="preserve">
     <value>Load older</value>
+  </data>
+  <data name="Watchdog.Ui.LogonRecordsHours" xml:space="preserve">
+    <value>Logon records (hours)</value>
   </data>
   <data name="Watchdog.Ui.MatchedRules" xml:space="preserve">
     <value>Matched rules</value>
@@ -5320,6 +6175,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Ui.NextDigest" xml:space="preserve">
     <value>Next digest</value>
   </data>
+  <data name="Watchdog.Ui.NextPasswordChange" xml:space="preserve">
+    <value>Next password change</value>
+  </data>
   <data name="Watchdog.Ui.NoChannels" xml:space="preserve">
     <value>No Teams or webhook channels – notifications go by e-mail only.</value>
   </data>
@@ -5342,7 +6200,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>History of:</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMng" xml:space="preserve">
-    <value>Open in AD_MNG</value>
+    <value>Show in AD Manager</value>
   </data>
   <data name="Watchdog.Ui.OpenInAdMngHint" xml:space="preserve">
     <value>Opens the object at its current location (needs a connection to that domain); a deleted object opens the AD Recycle Bin.</value>
@@ -5376,6 +6234,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.PreviousSigningSecret" xml:space="preserve">
     <value>Previous signing secret (rotation)</value>
+  </data>
+  <data name="Watchdog.Ui.PrivilegedMembership" xml:space="preserve">
+    <value>Membership in privileged groups</value>
   </data>
   <data name="Watchdog.Ui.Queue" xml:space="preserve">
     <value>Failures and queue</value>
@@ -5412,6 +6273,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Ui.Revert" xml:space="preserve">
     <value>Revert</value>
+  </data>
+  <data name="Watchdog.Ui.RotationResult" xml:space="preserve">
+    <value>Result of the password change</value>
   </data>
   <data name="Watchdog.Ui.RuleActors" xml:space="preserve">
     <value>Actors</value>
@@ -5668,6 +6532,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.lockedRule" xml:space="preserve">
     <value>A locked rule cannot be disabled, deleted or narrowed.</value>
   </data>
+  <data name="Watchdog.Validation.logonRetentionTooShort" xml:space="preserve">
+    <value>Logon records must be kept at least as long as the source search window (LogonLookback) plus the last attribution retry.</value>
+  </data>
   <data name="Watchdog.Validation.noRecipients" xml:space="preserve">
     <value>The rule notifies immediately but has no recipients or channels.</value>
   </data>
@@ -5692,6 +6559,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.required" xml:space="preserve">
     <value>This field is required.</value>
   </data>
+  <data name="Watchdog.Validation.retentionBelowFloor" xml:space="preserve">
+    <value>The event retention is shorter than the minimum in the server start-up settings (Retention.MinEventsDays) – only root on the server can lower it.</value>
+  </data>
   <data name="Watchdog.Validation.retiredTeamsUrl" xml:space="preserve">
     <value>Office 365 connector URLs were retired – use a Power Automate Workflows URL.</value>
   </data>
@@ -5713,6 +6583,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.smtpDisabledButUsed" xml:space="preserve">
     <value>Recipient groups are used while e-mail is disabled.</value>
   </data>
+  <data name="Watchdog.Validation.sourceUnsupportedOnHost" xml:space="preserve">
+    <value>This attribution source does not work on this server – on Linux the DC events arrive through OpenWEC (WEF).</value>
+  </data>
   <data name="Watchdog.Validation.teamsUrlFormat" xml:space="preserve">
     <value>Not a standard Power Automate Workflows URL.</value>
   </data>
@@ -5731,6 +6604,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Validation.unknownReference" xml:space="preserve">
     <value>The referenced recipient group or channel does not exist.</value>
   </data>
+  <data name="Watchdog.Value.AuditSettingsChanged" xml:space="preserve">
+    <value>audit list (SACL) or another security setting changed – the service account cannot read its content</value>
+  </data>
   <data name="Watchdog.Value.Empty" xml:space="preserve">
     <value>(empty)</value>
   </data>
@@ -5739,5 +6615,1238 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Watchdog.Value.Truncated" xml:space="preserve">
     <value>(shortened)</value>
+  </data>
+  <data name="Watchdog.Value.Unreadable" xml:space="preserve">
+    <value>could not be read</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateUntrusted" xml:space="preserve">
+    <value>The certificate of {0} is not trusted yet – compare its fingerprint with the one shown on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Connection.CertificateChanged" xml:space="preserve">
+    <value>The certificate of {0} differs from the pinned one – check it on the server before you trust it.</value>
+  </data>
+  <data name="Watchdog.Certificate.Review" xml:space="preserve">
+    <value>Check certificate…</value>
+  </data>
+  <data name="Watchdog.Certificate.Service" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="Watchdog.Certificate.NotPinned" xml:space="preserve">
+    <value>No certificate is pinned.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinRemovedOnSave" xml:space="preserve">
+    <value>The pin is removed when you save; the next connection asks for a confirmation again.</value>
+  </data>
+  <data name="Watchdog.Certificate.PinHint" xml:space="preserve">
+    <value>Used only while the certificate is not issued by a trusted certification authority.</value>
+  </data>
+  <data name="Watchdog.Certificate.OutsideValidity" xml:space="preserve">
+    <value>The certificate is outside its validity period.</value>
+  </data>
+  <data name="Watchdog.Ui.SectionNotReported" xml:space="preserve">
+    <value>The service does not report this section (Windows service, a version before 0.3.0, or no data yet).</value>
+  </data>
+  <data name="Watchdog.Ui.Principal" xml:space="preserve">
+    <value>Kerberos principal</value>
+  </data>
+  <data name="Watchdog.Ui.NotDelegated" xml:space="preserve">
+    <value>Delegation blocked</value>
+  </data>
+  <data name="Watchdog.Ui.DenySelfAce" xml:space="preserve">
+    <value>Deny ACE for SELF</value>
+  </data>
+  <data name="Watchdog.Ui.KeytabEncryptionTypes" xml:space="preserve">
+    <value>Keys in the keytab</value>
+  </data>
+  <data name="Watchdog.Ui.LastCheck" xml:space="preserve">
+    <value>Last check</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorStored" xml:space="preserve">
+    <value>Stored (24 h)</value>
+  </data>
+  <data name="Watchdog.Ui.CollectorNoDcs" xml:space="preserve">
+    <value>No domain controller has been seen yet.</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReadProgressValue" xml:space="preserve">
+    <value>{0} of {1} GPOs, {2} queued</value>
+  </data>
+  <data name="Watchdog.Ui.GpoReconciliation" xml:space="preserve">
+    <value>Last reconciliation</value>
+  </data>
+  <data name="Watchdog.Ui.GpoContentDisabled" xml:space="preserve">
+    <value>GPO content tracking is turned off.</value>
+  </data>
+  <data name="Watchdog.Ui.HostSystemd" xml:space="preserve">
+    <value>systemd unit</value>
+  </data>
+  <data name="Watchdog.Ui.CredentialKeyNone" xml:space="preserve">
+    <value>not a systemd credential</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChangesName" xml:space="preserve">
+    <value>Other settings</value>
+  </data>
+  <data name="Watchdog.Value.GpoMoreChanges" xml:space="preserve">
+    <value>{0} of {1} changed settings are not listed</value>
+  </data>
+  <data name="Watchdog.Tab.Sources" xml:space="preserve">
+    <value>Sources and retention</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSettings" xml:space="preserve">
+    <value>Who and from where</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionEnabled" xml:space="preserve">
+    <value>Determine who made each change and from where (DC Security events)</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceLabel" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Watchdog.Ui.AttributionSourceUnsupported" xml:space="preserve">
+    <value>This source works only with the Windows service – choose OpenWEC (WEF).</value>
+  </data>
+  <data name="Watchdog.Ui.RetentionSettings" xml:space="preserve">
+    <value>Retention</value>
+  </data>
+  <data name="Watchdog.Ui.UnitMinutes" xml:space="preserve">
+    <value>minutes</value>
+  </data>
+  <data name="Commands.AccountReview" xml:space="preserve">
+    <value>Account review...</value>
+  </data>
+  <data name="AccountReview.WindowTitle" xml:space="preserve">
+    <value>Account review</value>
+  </data>
+  <data name="AccountReview.WindowTitleDomain" xml:space="preserve">
+    <value>Account review – {0}</value>
+  </data>
+  <data name="AccountReview.ScopeLabel" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="AccountReview.ChooseScope" xml:space="preserve">
+    <value>Choose...</value>
+  </data>
+  <data name="AccountReview.ScopeNotChosen" xml:space="preserve">
+    <value>Choose the organizational unit or the group first.</value>
+  </data>
+  <data name="AccountReview.SavedViewLabel" xml:space="preserve">
+    <value>Saved view</value>
+  </data>
+  <data name="AccountReview.ViewNotFound" xml:space="preserve">
+    <value>The saved view no longer exists. Choose another scope.</value>
+  </data>
+  <data name="AccountReview.GroupNotFound" xml:space="preserve">
+    <value>The group {0} was not found on the domain controller.</value>
+  </data>
+  <data name="AccountReview.CheckSet" xml:space="preserve">
+    <value>Check set</value>
+  </data>
+  <data name="AccountReview.CheckSetName" xml:space="preserve">
+    <value>Name of the check set</value>
+  </data>
+  <data name="AccountReview.SaveCheckSet" xml:space="preserve">
+    <value>Save set</value>
+  </data>
+  <data name="AccountReview.CheckSetSaved" xml:space="preserve">
+    <value>Check set „{0}” saved.</value>
+  </data>
+  <data name="AccountReview.DeleteCheckSet" xml:space="preserve">
+    <value>Delete check set</value>
+  </data>
+  <data name="AccountReview.DeleteCheckSetConfirm" xml:space="preserve">
+    <value>Delete the check set „{0}”?</value>
+  </data>
+  <data name="AccountReview.Parameters" xml:space="preserve">
+    <value>Parameters</value>
+  </data>
+  <data name="AccountReview.Checks" xml:space="preserve">
+    <value>Checks</value>
+  </data>
+  <data name="AccountReview.PasswordExpiringDays" xml:space="preserve">
+    <value>Password expires within (days)</value>
+  </data>
+  <data name="AccountReview.AccountExpiringDays" xml:space="preserve">
+    <value>Account expires within (days)</value>
+  </data>
+  <data name="AccountReview.InactiveDays" xml:space="preserve">
+    <value>Inactive for more than (days)</value>
+  </data>
+  <data name="AccountReview.PasswordAgeDays" xml:space="preserve">
+    <value>Password older than (days)</value>
+  </data>
+  <data name="AccountReview.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="AccountReview.NotRun" xml:space="preserve">
+    <value>Choose the scope and the checks, then click Check. The results stay in memory only.</value>
+  </data>
+  <data name="AccountReview.Empty" xml:space="preserve">
+    <value>No accounts found for this check.</value>
+  </data>
+  <data name="AccountReview.Status" xml:space="preserve">
+    <value>As of {0} · {1} accounts read · {2} accounts with findings</value>
+  </data>
+  <data name="AccountReview.StatusRunning" xml:space="preserve">
+    <value>Checking (as of {0}) · {1} accounts read · {2} accounts with findings...</value>
+  </data>
+  <data name="AccountReview.StatusStopped" xml:space="preserve">
+    <value>Stopped (as of {0}) · {1} accounts read · {2} accounts with findings – the results are incomplete</value>
+  </data>
+  <data name="AccountReview.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="AccountReview.ExportCsv" xml:space="preserve">
+    <value>Export CSV...</value>
+  </data>
+  <data name="AccountReview.RequirePasswordChange" xml:space="preserve">
+    <value>Require password change</value>
+  </data>
+  <data name="AccountReview.Extend" xml:space="preserve">
+    <value>Extend account...</value>
+  </data>
+  <data name="AccountReview.ClearFlag" xml:space="preserve">
+    <value>Clear the flag...</value>
+  </data>
+  <data name="AccountReview.RemoveFromGroups" xml:space="preserve">
+    <value>Remove from groups...</value>
+  </data>
+  <data name="AccountReview.HideFromGal" xml:space="preserve">
+    <value>Hide from address lists...</value>
+  </data>
+  <data name="AccountReview.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon (all DCs)</value>
+  </data>
+  <data name="AccountReview.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading lastLogon of {0} accounts on every domain controller...</value>
+  </data>
+  <data name="AccountReview.ExactDone" xml:space="preserve">
+    <value>Exact last logon read from {0} of {1} domain controllers; {2} accounts are active after all.</value>
+  </data>
+  <data name="AccountReview.SendMessage" xml:space="preserve">
+    <value>Send message...</value>
+  </data>
+  <data name="AccountReview.Never" xml:space="preserve">
+    <value>Never</value>
+  </data>
+  <data name="AccountReview.EndOfDay" xml:space="preserve">
+    <value>End of {0}</value>
+  </data>
+  <data name="AccountReview.Estimated" xml:space="preserve">
+    <value>{0} (estimate)</value>
+  </data>
+  <data name="AccountReview.MustChangeValue" xml:space="preserve">
+    <value>Must change at next logon</value>
+  </data>
+  <data name="AccountReview.PasswordExpiredValue" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="AccountReview.ExactOn" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="AccountReview.ManagerDisabledValue" xml:space="preserve">
+    <value>{0} (disabled)</value>
+  </data>
+  <data name="AccountReview.Today" xml:space="preserve">
+    <value>today</value>
+  </data>
+  <data name="AccountReview.Tomorrow" xml:space="preserve">
+    <value>tomorrow</value>
+  </data>
+  <data name="AccountReview.Yesterday" xml:space="preserve">
+    <value>yesterday</value>
+  </data>
+  <data name="AccountReview.InDays" xml:space="preserve">
+    <value>in {0} days</value>
+  </data>
+  <data name="AccountReview.DaysAgo" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
+  <data name="AccountReview.OneDay" xml:space="preserve">
+    <value>1 day</value>
+  </data>
+  <data name="AccountReview.DayCount" xml:space="preserve">
+    <value>{0} days</value>
+  </data>
+  <data name="AccountReview.Check.Locked" xml:space="preserve">
+    <value>Locked out now</value>
+  </data>
+  <data name="AccountReview.Check.PasswordExpired" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="AccountReview.Check.PasswordExpiring" xml:space="preserve">
+    <value>Password expires soon</value>
+  </data>
+  <data name="AccountReview.Check.MustChangePassword" xml:space="preserve">
+    <value>Must change password</value>
+  </data>
+  <data name="AccountReview.Check.AccountExpired" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="AccountReview.Check.AccountExpiring" xml:space="preserve">
+    <value>Account expires soon</value>
+  </data>
+  <data name="AccountReview.Check.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountReview.Check.Inactive" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="AccountReview.Check.NeverLoggedOn" xml:space="preserve">
+    <value>Never logged on</value>
+  </data>
+  <data name="AccountReview.Check.PasswordNeverExpires" xml:space="preserve">
+    <value>Password never expires</value>
+  </data>
+  <data name="AccountReview.Check.PasswordNotRequired" xml:space="preserve">
+    <value>Password not required</value>
+  </data>
+  <data name="AccountReview.Check.ReversibleEncryption" xml:space="preserve">
+    <value>Reversible encryption</value>
+  </data>
+  <data name="AccountReview.Check.PasswordOld" xml:space="preserve">
+    <value>Old password</value>
+  </data>
+  <data name="AccountReview.Check.NoMail" xml:space="preserve">
+    <value>No e-mail address</value>
+  </data>
+  <data name="AccountReview.Check.NoManager" xml:space="preserve">
+    <value>No manager</value>
+  </data>
+  <data name="AccountReview.Check.ManagerDisabled" xml:space="preserve">
+    <value>Manager disabled</value>
+  </data>
+  <data name="AccountReview.Check.DisabledInGroups" xml:space="preserve">
+    <value>Disabled, still in groups</value>
+  </data>
+  <data name="AccountReview.Check.DisabledInGal" xml:space="preserve">
+    <value>Disabled, visible in the GAL</value>
+  </data>
+  <data name="AccountReview.Check.PrivilegedWithProblem" xml:space="preserve">
+    <value>Privileged with a problem</value>
+  </data>
+  <data name="AccountReview.Hint.Locked" xml:space="preserve">
+    <value>lockoutTime filtered on the server, lock bit of msDS-User-Account-Control-Computed (state on this DC; the lock may differ on other DCs).</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordExpired" xml:space="preserve">
+    <value>msDS-UserPasswordExpiryTimeComputed – computed by the DC, fine-grained password policies included.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordExpiring" xml:space="preserve">
+    <value>msDS-UserPasswordExpiryTimeComputed (FGPP included); the day of expiry in local time.</value>
+  </data>
+  <data name="AccountReview.Hint.MustChangePassword" xml:space="preserve">
+    <value>pwdLastSet = 0: the user must change the password at the next logon.</value>
+  </data>
+  <data name="AccountReview.Hint.AccountExpired" xml:space="preserve">
+    <value>accountExpires in the past (the end of the last day, as on the Account tab).</value>
+  </data>
+  <data name="AccountReview.Hint.AccountExpiring" xml:space="preserve">
+    <value>accountExpires – the last day of the account, as on the Account tab.</value>
+  </data>
+  <data name="AccountReview.Hint.Disabled" xml:space="preserve">
+    <value>userAccountControl bit 0x2.</value>
+  </data>
+  <data name="AccountReview.Hint.Inactive" xml:space="preserve">
+    <value>lastLogonTimestamp replicates with a delay of 9–14 days; the exact last logon is read on demand from every DC.</value>
+  </data>
+  <data name="AccountReview.Hint.NeverLoggedOn" xml:space="preserve">
+    <value>No lastLogonTimestamp and created more days ago than the inactivity limit.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordNeverExpires" xml:space="preserve">
+    <value>DONT_EXPIRE_PASSWORD (0x10000) in userAccountControl.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordNotRequired" xml:space="preserve">
+    <value>PASSWD_NOTREQD (0x20): the account may have an empty password.</value>
+  </data>
+  <data name="AccountReview.Hint.ReversibleEncryption" xml:space="preserve">
+    <value>ENCRYPTED_TEXT_PWD_ALLOWED (0x80): the password is stored with reversible encryption.</value>
+  </data>
+  <data name="AccountReview.Hint.PasswordOld" xml:space="preserve">
+    <value>pwdLastSet older than the limit.</value>
+  </data>
+  <data name="AccountReview.Hint.NoMail" xml:space="preserve">
+    <value>Neither mail nor a primary SMTP address in proxyAddresses – no message can reach the user.</value>
+  </data>
+  <data name="AccountReview.Hint.NoManager" xml:space="preserve">
+    <value>The manager attribute is empty.</value>
+  </data>
+  <data name="AccountReview.Hint.ManagerDisabled" xml:space="preserve">
+    <value>The manager's account is disabled.</value>
+  </data>
+  <data name="AccountReview.Hint.DisabledInGroups" xml:space="preserve">
+    <value>Disabled, but still a member of groups other than the primary group (krbtgt and Guest are skipped).</value>
+  </data>
+  <data name="AccountReview.Hint.DisabledInGal" xml:space="preserve">
+    <value>Disabled, but listed in address books (showInAddressBook, not hidden).</value>
+  </data>
+  <data name="AccountReview.Hint.PrivilegedWithProblem" xml:space="preserve">
+    <value>adminCount = 1 or a nested member of a protected group, with one of the problems shown in the Problems column.</value>
+  </data>
+  <data name="AccountReview.Area.Lockout" xml:space="preserve">
+    <value>Lockout</value>
+  </data>
+  <data name="AccountReview.Area.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="AccountReview.Area.AccountExpiry" xml:space="preserve">
+    <value>Account expiry</value>
+  </data>
+  <data name="AccountReview.Area.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountReview.Area.Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="AccountReview.Area.PasswordHygiene" xml:space="preserve">
+    <value>Password hygiene</value>
+  </data>
+  <data name="AccountReview.Area.Notifications" xml:space="preserve">
+    <value>Ready for notifications</value>
+  </data>
+  <data name="AccountReview.Area.Leftovers" xml:space="preserve">
+    <value>Leftovers of disabled accounts</value>
+  </data>
+  <data name="AccountReview.Area.Security" xml:space="preserve">
+    <value>Security</value>
+  </data>
+  <data name="AccountReview.Column.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="AccountReview.Column.Login" xml:space="preserve">
+    <value>Logon name</value>
+  </data>
+  <data name="AccountReview.Column.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="AccountReview.Column.LockedSince" xml:space="preserve">
+    <value>Locked since</value>
+  </data>
+  <data name="AccountReview.Column.PasswordExpires" xml:space="preserve">
+    <value>Password expires</value>
+  </data>
+  <data name="AccountReview.Column.PasswordDays" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="AccountReview.Column.PasswordLastSet" xml:space="preserve">
+    <value>Password last set</value>
+  </data>
+  <data name="AccountReview.Column.PasswordAge" xml:space="preserve">
+    <value>Password age</value>
+  </data>
+  <data name="AccountReview.Column.AccountExpires" xml:space="preserve">
+    <value>Account expires</value>
+  </data>
+  <data name="AccountReview.Column.AccountDays" xml:space="preserve">
+    <value>When</value>
+  </data>
+  <data name="AccountReview.Column.LastLogon" xml:space="preserve">
+    <value>Last logon (approx.)</value>
+  </data>
+  <data name="AccountReview.Column.LogonDays" xml:space="preserve">
+    <value>Since</value>
+  </data>
+  <data name="AccountReview.Column.ExactLastLogon" xml:space="preserve">
+    <value>Last logon (exact, DC)</value>
+  </data>
+  <data name="AccountReview.Column.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="AccountReview.Column.Mail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="AccountReview.Column.Manager" xml:space="preserve">
+    <value>Manager</value>
+  </data>
+  <data name="AccountReview.Column.Department" xml:space="preserve">
+    <value>Department</value>
+  </data>
+  <data name="AccountReview.Column.Groups" xml:space="preserve">
+    <value>Groups</value>
+  </data>
+  <data name="AccountReview.Column.Problems" xml:space="preserve">
+    <value>Problems</value>
+  </data>
+  <data name="AccountReview.Column.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="AccountReview.Column.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="AccountReview.Scope.Domain" xml:space="preserve">
+    <value>Entire domain</value>
+  </data>
+  <data name="AccountReview.Scope.OrganizationalUnit" xml:space="preserve">
+    <value>Organizational unit (with subtree)</value>
+  </data>
+  <data name="AccountReview.Scope.SavedView" xml:space="preserve">
+    <value>Saved view</value>
+  </data>
+  <data name="AccountReview.Scope.GroupMembers" xml:space="preserve">
+    <value>Group members (nested)</value>
+  </data>
+  <data name="AccountStatus.Title" xml:space="preserve">
+    <value>Account state</value>
+  </data>
+  <data name="AccountStatus.State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="AccountStatus.Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="AccountStatus.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="AccountStatus.LastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="AccountStatus.Active" xml:space="preserve">
+    <value>Enabled, not locked out</value>
+  </data>
+  <data name="AccountStatus.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="AccountStatus.LockedSince" xml:space="preserve">
+    <value>Locked out since {0}</value>
+  </data>
+  <data name="AccountStatus.PasswordExpires" xml:space="preserve">
+    <value>Expires {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.PasswordExpired" xml:space="preserve">
+    <value>Expired {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.PasswordEstimate" xml:space="preserve">
+    <value>{0} – estimate from the domain policy, a fine-grained policy is not known</value>
+  </data>
+  <data name="AccountStatus.PasswordNever" xml:space="preserve">
+    <value>Never expires</value>
+  </data>
+  <data name="AccountStatus.PasswordMustChange" xml:space="preserve">
+    <value>Must be changed at the next logon</value>
+  </data>
+  <data name="AccountStatus.AccountNever" xml:space="preserve">
+    <value>Never expires</value>
+  </data>
+  <data name="AccountStatus.AccountExpires" xml:space="preserve">
+    <value>Valid until the end of {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.AccountExpired" xml:space="preserve">
+    <value>Expired at the end of {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.LastLogonApproximate" xml:space="preserve">
+    <value>{0} ({1}) – lastLogonTimestamp, up to 14 days behind</value>
+  </data>
+  <data name="AccountStatus.CheckDomainControllers" xml:space="preserve">
+    <value>Check on all DCs</value>
+  </data>
+  <data name="AccountStatus.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading the domain controllers...</value>
+  </data>
+  <data name="AccountStatus.LockedOn" xml:space="preserve">
+    <value>Locked out on: {0}</value>
+  </data>
+  <data name="AccountStatus.NotLockedOn" xml:space="preserve">
+    <value>Not locked out on any of {0} domain controllers</value>
+  </data>
+  <data name="AccountStatus.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon: {0} ({1})</value>
+  </data>
+  <data name="AccountStatus.ExactNever" xml:space="preserve">
+    <value>Exact last logon: never on any DC</value>
+  </data>
+  <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
+    <value>{0} did not answer: {1}</value>
+  </data>
+  <data name="UserMessages.WindowTitle" xml:space="preserve">
+    <value>Send message to users ({0})</value>
+  </data>
+  <data name="UserMessages.Command" xml:space="preserve">
+    <value>Send message...</value>
+  </data>
+  <data name="UserMessages.LanguagePolish" xml:space="preserve">
+    <value>Polish</value>
+  </data>
+  <data name="UserMessages.LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="UserMessages.StopOnClose" xml:space="preserve">
+    <value>Messages are being sent. Stop sending and close the window? Messages already accepted by the server cannot be recalled.</value>
+  </data>
+  <data name="UserMessages.RecipientsCount" xml:space="preserve">
+    <value>Recipients: {0}</value>
+  </data>
+  <data name="UserMessages.SendCount" xml:space="preserve">
+    <value>Send ({0})</value>
+  </data>
+  <data name="UserMessages.TemplateSaved" xml:space="preserve">
+    <value>Template "{0}" saved.</value>
+  </data>
+  <data name="UserMessages.DeleteTemplate" xml:space="preserve">
+    <value>Delete template</value>
+  </data>
+  <data name="UserMessages.DeleteTemplateConfirm" xml:space="preserve">
+    <value>Delete the template "{0}"?</value>
+  </data>
+  <data name="UserMessages.ExportTemplates" xml:space="preserve">
+    <value>Export templates...</value>
+  </data>
+  <data name="UserMessages.ImportTemplates" xml:space="preserve">
+    <value>Import templates...</value>
+  </data>
+  <data name="UserMessages.NoCustomTemplates" xml:space="preserve">
+    <value>There are no own templates to export yet – save a template first.</value>
+  </data>
+  <data name="UserMessages.TemplatesImported" xml:space="preserve">
+    <value>Imported templates: {0}.</value>
+  </data>
+  <data name="UserMessages.NotATemplatesFile" xml:space="preserve">
+    <value>The file is not an AD Manager message templates file.</value>
+  </data>
+  <data name="UserMessages.TestAddressMissing" xml:space="preserve">
+    <value>Set your address for test messages in Settings → E-mail messages.</value>
+  </data>
+  <data name="UserMessages.TestSending" xml:space="preserve">
+    <value>Sending the test message...</value>
+  </data>
+  <data name="UserMessages.TestSent" xml:space="preserve">
+    <value>The server accepted the test message for {0}.</value>
+  </data>
+  <data name="UserMessages.TestFailed" xml:space="preserve">
+    <value>The test message was not sent: {0}</value>
+  </data>
+  <data name="UserMessages.Send" xml:space="preserve">
+    <value>Send messages</value>
+  </data>
+  <data name="UserMessages.Confirm" xml:space="preserve">
+    <value>Send {0} message(s) via {1}? Every user gets a separate message; messages accepted by the server cannot be recalled.</value>
+  </data>
+  <data name="UserMessages.ConfirmTyped" xml:space="preserve">
+    <value>You are about to send {0} messages via {1} – one per user. Messages accepted by the server cannot be recalled. Type the number of messages to confirm.</value>
+  </data>
+  <data name="UserMessages.Stopping" xml:space="preserve">
+    <value>Stopping after the current message...</value>
+  </data>
+  <data name="UserMessages.ExportReport" xml:space="preserve">
+    <value>Export report (CSV)...</value>
+  </data>
+  <data name="UserMessages.ReportFileName" xml:space="preserve">
+    <value>Message report</value>
+  </data>
+  <data name="UserMessages.Reading" xml:space="preserve">
+    <value>Reading the accounts from the domain controller...</value>
+  </data>
+  <data name="UserMessages.Summary" xml:space="preserve">
+    <value>Ready: {0} · With warnings: {1} · Errors: {2} · Skipped: {3} · Excluded: {4}</value>
+  </data>
+  <data name="UserMessages.Progress" xml:space="preserve">
+    <value>Sent {0} of {1} · accepted {2} · failed {3}</value>
+  </data>
+  <data name="UserMessages.ProgressRetry" xml:space="preserve">
+    <value>Sent {0} of {1} · accepted {2} · failed {3} · waiting to retry after a temporary failure...</value>
+  </data>
+  <data name="UserMessages.ReportSummary" xml:space="preserve">
+    <value>Accepted by the server: {0} · Failed: {1} · Not sent: {2} · Not in this send: {3}</value>
+  </data>
+  <data name="UserMessages.SessionLogFailures" xml:space="preserve">
+    <value>Failed: {0}, not sent: {1}</value>
+  </data>
+  <data name="UserMessages.SessionLogAction" xml:space="preserve">
+    <value>Messages to users</value>
+  </data>
+  <data name="UserMessages.ViaWatchdog" xml:space="preserve">
+    <value>Sending through {0}</value>
+  </data>
+  <data name="UserMessages.ViaSmtp" xml:space="preserve">
+    <value>Sending directly via SMTP: {0}</value>
+  </data>
+  <data name="UserMessages.PasswordRequired" xml:space="preserve">
+    <value>Enter the SMTP password (kept in memory only until AD Manager closes).</value>
+  </data>
+  <data name="UserMessages.CopyName" xml:space="preserve">
+    <value>{0} (copy)</value>
+  </data>
+  <data name="UserMessages.CopiesRejected" xml:space="preserve">
+    <value>Copy not accepted for: {0}</value>
+  </data>
+  <data name="UserMessages.Recipients" xml:space="preserve">
+    <value>Recipients</value>
+  </data>
+  <data name="UserMessages.AddRecipients" xml:space="preserve">
+    <value>Add...</value>
+  </data>
+  <data name="UserMessages.Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="UserMessages.TemplateName" xml:space="preserve">
+    <value>Template name</value>
+  </data>
+  <data name="UserMessages.SaveTemplate" xml:space="preserve">
+    <value>Save template</value>
+  </data>
+  <data name="UserMessages.BuiltInHint" xml:space="preserve">
+    <value>Built-in templates cannot be changed – Save template stores a copy.</value>
+  </data>
+  <data name="UserMessages.TextLanguage" xml:space="preserve">
+    <value>Language of the text</value>
+  </data>
+  <data name="UserMessages.LanguageHint" xml:space="preserve">
+    <value>Every recipient gets the version in the language of their preferredLanguage attribute (without it: the default language from Settings).</value>
+  </data>
+  <data name="UserMessages.Subject" xml:space="preserve">
+    <value>Subject</value>
+  </data>
+  <data name="UserMessages.Body" xml:space="preserve">
+    <value>Message (text)</value>
+  </data>
+  <data name="UserMessages.Html" xml:space="preserve">
+    <value>HTML version (optional; empty = generated from the text)</value>
+  </data>
+  <data name="UserMessages.Condition" xml:space="preserve">
+    <value>Send condition</value>
+  </data>
+  <data name="UserMessages.ConditionDays" xml:space="preserve">
+    <value>N days</value>
+  </data>
+  <data name="UserMessages.RecipientMode" xml:space="preserve">
+    <value>Recipients of each message</value>
+  </data>
+  <data name="UserMessages.Inputs" xml:space="preserve">
+    <value>Values typed when sending</value>
+  </data>
+  <data name="UserMessages.InsertField" xml:space="preserve">
+    <value>Insert field</value>
+  </data>
+  <data name="UserMessages.FooterNote" xml:space="preserve">
+    <value>A fixed footer is added to every message: "We never ask for your password". Links only to the allowed domains from Settings; no attachments.</value>
+  </data>
+  <data name="UserMessages.Plan" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="UserMessages.Include" xml:space="preserve">
+    <value>Send</value>
+  </data>
+  <data name="UserMessages.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="UserMessages.ColumnRecipient" xml:space="preserve">
+    <value>Recipient</value>
+  </data>
+  <data name="UserMessages.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="UserMessages.ColumnLanguage" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="UserMessages.ColumnIssues" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="UserMessages.ColumnTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="UserMessages.ColumnDetail" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="UserMessages.From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="UserMessages.To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="UserMessages.Cc" xml:space="preserve">
+    <value>Cc</value>
+  </data>
+  <data name="UserMessages.ReplyTo" xml:space="preserve">
+    <value>Reply to</value>
+  </data>
+  <data name="UserMessages.TextTab" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="UserMessages.HtmlTab" xml:space="preserve">
+    <value>HTML source</value>
+  </data>
+  <data name="UserMessages.SendTest" xml:space="preserve">
+    <value>Send a test message to me</value>
+  </data>
+  <data name="UserMessages.BackToEdit" xml:space="preserve">
+    <value>Back to editing</value>
+  </data>
+  <data name="UserMessages.SmtpPassword" xml:space="preserve">
+    <value>SMTP password</value>
+  </data>
+  <data name="UserMessages.RetryFailed" xml:space="preserve">
+    <value>Retry failed</value>
+  </data>
+  <data name="UserMessages.ComposeTitle" xml:space="preserve">
+    <value>Message</value>
+  </data>
+  <data name="UserMessages.PreviewTitle" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="UserMessages.SendingTitle" xml:space="preserve">
+    <value>Sending</value>
+  </data>
+  <data name="UserMessages.ReportTitle" xml:space="preserve">
+    <value>Report</value>
+  </data>
+  <data name="UserMessages.NoMessages" xml:space="preserve">
+    <value>No messages match the filter.</value>
+  </data>
+  <data name="UserMessages.SettingsTab" xml:space="preserve">
+    <value>E-mail messages</value>
+  </data>
+  <data name="UserMessages.GeneralTab" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="UserMessages.SenderSection" xml:space="preserve">
+    <value>Sender</value>
+  </data>
+  <data name="UserMessages.FromAddress" xml:space="preserve">
+    <value>Sender address</value>
+  </data>
+  <data name="UserMessages.FromAddressHint" xml:space="preserve">
+    <value>Empty = noreply@&lt;AD domain&gt;.</value>
+  </data>
+  <data name="UserMessages.FromName" xml:space="preserve">
+    <value>Sender name</value>
+  </data>
+  <data name="UserMessages.ReplyToLabel" xml:space="preserve">
+    <value>Reply-to address</value>
+  </data>
+  <data name="UserMessages.CcLabel" xml:space="preserve">
+    <value>CC of every message (helpdesk)</value>
+  </data>
+  <data name="UserMessages.TestAddress" xml:space="preserve">
+    <value>My address for test messages</value>
+  </data>
+  <data name="UserMessages.DefaultLanguage" xml:space="preserve">
+    <value>Default language of messages</value>
+  </data>
+  <data name="UserMessages.LimitsSection" xml:space="preserve">
+    <value>Limits and safety</value>
+  </data>
+  <data name="UserMessages.MessagesPerMinute" xml:space="preserve">
+    <value>Messages per minute</value>
+  </data>
+  <data name="UserMessages.RecipientsPerDay" xml:space="preserve">
+    <value>Recipients per 24 hours</value>
+  </data>
+  <data name="UserMessages.MessageThreshold" xml:space="preserve">
+    <value>Typed confirmation above (messages)</value>
+  </data>
+  <data name="UserMessages.AllowedDomains" xml:space="preserve">
+    <value>Allowed link domains (one per line)</value>
+  </data>
+  <data name="UserMessages.AllowedDomainsHint" xml:space="preserve">
+    <value>Subdomains included. The AD domain and the sender's domain are always allowed.</value>
+  </data>
+  <data name="UserMessages.TransportSection" xml:space="preserve">
+    <value>How messages are sent</value>
+  </data>
+  <data name="UserMessages.TransportLabel" xml:space="preserve">
+    <value>Transport</value>
+  </data>
+  <data name="UserMessages.TransportHint" xml:space="preserve">
+    <value>Automatic: through AdMng Watchdog when the service supports it, otherwise directly via SMTP.</value>
+  </data>
+  <data name="UserMessages.SmtpSection" xml:space="preserve">
+    <value>Direct SMTP</value>
+  </data>
+  <data name="UserMessages.SmtpHost" xml:space="preserve">
+    <value>SMTP server</value>
+  </data>
+  <data name="UserMessages.SmtpPort" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="UserMessages.SmtpTls" xml:space="preserve">
+    <value>Encryption</value>
+  </data>
+  <data name="UserMessages.InsecureTlsWarning" xml:space="preserve">
+    <value>Without TLS the messages travel unencrypted and the server's identity is not checked. Use it only for an internal relay in a trusted network; credentials are never sent without encryption.</value>
+  </data>
+  <data name="UserMessages.InsecureTlsConfirm" xml:space="preserve">
+    <value>I understand the risk</value>
+  </data>
+  <data name="UserMessages.InsecureNotConfirmed" xml:space="preserve">
+    <value>Confirm the warning about sending without encryption.</value>
+  </data>
+  <data name="UserMessages.SmtpCertificate" xml:space="preserve">
+    <value>Server certificate</value>
+  </data>
+  <data name="UserMessages.SmtpPin" xml:space="preserve">
+    <value>SHA-256 of the pinned certificate</value>
+  </data>
+  <data name="UserMessages.PinSeen" xml:space="preserve">
+    <value>Pin the certificate from the test</value>
+  </data>
+  <data name="UserMessages.InvalidPin" xml:space="preserve">
+    <value>The pinned SHA-256 must have 64 hexadecimal digits.</value>
+  </data>
+  <data name="UserMessages.SmtpAuth" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="UserMessages.SmtpUserName" xml:space="preserve">
+    <value>User name</value>
+  </data>
+  <data name="UserMessages.UserNameRequired" xml:space="preserve">
+    <value>Enter the SMTP user name.</value>
+  </data>
+  <data name="UserMessages.SmtpPasswordHint" xml:space="preserve">
+    <value>Asked when needed and kept only in memory until AD Manager closes – never saved.</value>
+  </data>
+  <data name="UserMessages.LocalDomain" xml:space="preserve">
+    <value>EHLO domain (optional)</value>
+  </data>
+  <data name="UserMessages.XOAuthNote" xml:space="preserve">
+    <value>Exchange Online with OAuth2: send through AdMng Watchdog (Basic SMTP AUTH is being switched off in Exchange Online).</value>
+  </data>
+  <data name="UserMessages.TestConnection" xml:space="preserve">
+    <value>Test connection</value>
+  </data>
+  <data name="UserMessages.Testing" xml:space="preserve">
+    <value>Testing the connection...</value>
+  </data>
+  <data name="UserMessages.TestConnectionOk" xml:space="preserve">
+    <value>The connection works: {0}, authentication: {1}.</value>
+  </data>
+  <data name="UserMessages.TestConnectionFailed" xml:space="preserve">
+    <value>Stage "{0}" failed: {1}</value>
+  </data>
+  <data name="UserMessages.Encrypted" xml:space="preserve">
+    <value>encrypted ({0})</value>
+  </data>
+  <data name="UserMessages.NotEncrypted" xml:space="preserve">
+    <value>NOT encrypted</value>
+  </data>
+  <data name="UserMessages.Mechanisms" xml:space="preserve">
+    <value>Authentication mechanisms offered: {0}</value>
+  </data>
+  <data name="UserMessages.CertificateSeen" xml:space="preserve">
+    <value>Server certificate SHA-256: {0}</value>
+  </data>
+  <data name="UserMessages.InvalidAddress" xml:space="preserve">
+    <value>{0}: not a valid e-mail address.</value>
+  </data>
+  <data name="UserMessages.SampleSubject" xml:space="preserve">
+    <value>AD Manager – test message</value>
+  </data>
+  <data name="UserMessages.SampleBody" xml:space="preserve">
+    <value>This is a test message from AD Manager. If you can read it, sending messages to users works.</value>
+  </data>
+  <data name="UserMessages.Issue.TemplateSyntax" xml:space="preserve">
+    <value>Template error: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenField" xml:space="preserve">
+    <value>Field {0} is not allowed in a message – passwords and secret attributes are never sent.</value>
+  </data>
+  <data name="UserMessages.Issue.ForbiddenInput" xml:space="preserve">
+    <value>The field {0} looks like a password – a message never carries one.</value>
+  </data>
+  <data name="UserMessages.Issue.MissingInput" xml:space="preserve">
+    <value>Fill in the value "{0}".</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlNotAllowed" xml:space="preserve">
+    <value>Not allowed in the HTML version: {0}</value>
+  </data>
+  <data name="UserMessages.Issue.NoSender" xml:space="preserve">
+    <value>The sender address is not valid: {0} (Settings → E-mail messages).</value>
+  </data>
+  <data name="UserMessages.Issue.NotFound" xml:space="preserve">
+    <value>The account no longer exists or cannot be read.</value>
+  </data>
+  <data name="UserMessages.Issue.NoAddress" xml:space="preserve">
+    <value>No e-mail address (neither mail nor a primary SMTP address).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerMissing" xml:space="preserve">
+    <value>No manager (or the manager cannot be read).</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerNoAddress" xml:space="preserve">
+    <value>The manager {0} has no e-mail address.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerDisabled" xml:space="preserve">
+    <value>The manager's account {0} is disabled.</value>
+  </data>
+  <data name="UserMessages.Issue.ManagerInstead" xml:space="preserve">
+    <value>The user has no address – the message goes to the manager.</value>
+  </data>
+  <data name="UserMessages.Issue.ConditionNotMet" xml:space="preserve">
+    <value>Skipped – the condition is not met: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptySubject" xml:space="preserve">
+    <value>The subject is empty.</value>
+  </data>
+  <data name="UserMessages.Issue.SubjectTooLong" xml:space="preserve">
+    <value>The subject is too long ({0} characters, at most 250).</value>
+  </data>
+  <data name="UserMessages.Issue.LinkNotAllowed" xml:space="preserve">
+    <value>Link to a domain that is not allowed: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.AccountDisabled" xml:space="preserve">
+    <value>The account is disabled.</value>
+  </data>
+  <data name="UserMessages.Issue.EmptyField" xml:space="preserve">
+    <value>Empty field in the text: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.DuplicateAddress" xml:space="preserve">
+    <value>The address {0} belongs to several accounts – each gets its own message.</value>
+  </data>
+  <data name="UserMessages.Issue.ProxyAddressUsed" xml:space="preserve">
+    <value>No mail attribute – the primary SMTP address {0} is used.</value>
+  </data>
+  <data name="UserMessages.Status.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="UserMessages.Status.Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="UserMessages.Status.Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="UserMessages.Status.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Report.Accepted" xml:space="preserve">
+    <value>Accepted by the server</value>
+  </data>
+  <data name="UserMessages.Report.Failed" xml:space="preserve">
+    <value>Rejected</value>
+  </data>
+  <data name="UserMessages.Report.NotSent" xml:space="preserve">
+    <value>Not sent</value>
+  </data>
+  <data name="UserMessages.Report.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="UserMessages.Report.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Report.Invalid" xml:space="preserve">
+    <value>Cannot be sent</value>
+  </data>
+  <data name="UserMessages.NotSent.Cancelled" xml:space="preserve">
+    <value>Stopped by the operator.</value>
+  </data>
+  <data name="UserMessages.NotSent.TransportStopped" xml:space="preserve">
+    <value>Stopped – sending does not work (see the first failure).</value>
+  </data>
+  <data name="UserMessages.NotSent.DailyLimit" xml:space="preserve">
+    <value>The daily limit of recipients was reached.</value>
+  </data>
+  <data name="UserMessages.Condition.None" xml:space="preserve">
+    <value>None (always)</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpiresWithin" xml:space="preserve">
+    <value>Password expires within N days</value>
+  </data>
+  <data name="UserMessages.Condition.PasswordExpired" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpiresWithin" xml:space="preserve">
+    <value>Account expires within N days</value>
+  </data>
+  <data name="UserMessages.Condition.AccountExpired" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="UserMessages.Condition.Locked" xml:space="preserve">
+    <value>Account locked out</value>
+  </data>
+  <data name="UserMessages.Condition.NotLocked" xml:space="preserve">
+    <value>Account not locked out</value>
+  </data>
+  <data name="UserMessages.Condition.MustChangePassword" xml:space="preserve">
+    <value>Must change password at next logon</value>
+  </data>
+  <data name="UserMessages.Condition.InactiveFor" xml:space="preserve">
+    <value>No logon for more than N days</value>
+  </data>
+  <data name="UserMessages.Mode.User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="UserMessages.Mode.Manager" xml:space="preserve">
+    <value>Manager instead of the user</value>
+  </data>
+  <data name="UserMessages.Mode.UserAndManager" xml:space="preserve">
+    <value>User, manager in CC</value>
+  </data>
+  <data name="UserMessages.Mode.UserOrManager" xml:space="preserve">
+    <value>User, or the manager when the user has no address</value>
+  </data>
+  <data name="UserMessages.Filter.All" xml:space="preserve">
+    <value>All</value>
+  </data>
+  <data name="UserMessages.Filter.Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="UserMessages.Filter.Warnings" xml:space="preserve">
+    <value>With warnings</value>
+  </data>
+  <data name="UserMessages.Filter.Errors" xml:space="preserve">
+    <value>Errors</value>
+  </data>
+  <data name="UserMessages.Filter.Skipped" xml:space="preserve">
+    <value>Skipped</value>
+  </data>
+  <data name="UserMessages.Filter.Excluded" xml:space="preserve">
+    <value>Excluded</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsRequired" xml:space="preserve">
+    <value>STARTTLS required (recommended)</value>
+  </data>
+  <data name="UserMessages.Tls.ImplicitTls" xml:space="preserve">
+    <value>TLS from the start (port 465)</value>
+  </data>
+  <data name="UserMessages.Tls.StartTlsWhenAvailable" xml:space="preserve">
+    <value>STARTTLS when offered (insecure)</value>
+  </data>
+  <data name="UserMessages.Tls.None" xml:space="preserve">
+    <value>No encryption (insecure)</value>
+  </data>
+  <data name="UserMessages.Certificate.SystemTrust" xml:space="preserve">
+    <value>Trusted by Windows</value>
+  </data>
+  <data name="UserMessages.Certificate.PinnedSha256" xml:space="preserve">
+    <value>Pinned certificate (SHA-256)</value>
+  </data>
+  <data name="UserMessages.Auth.None" xml:space="preserve">
+    <value>None (relay)</value>
+  </data>
+  <data name="UserMessages.Auth.CurrentWindowsAccount" xml:space="preserve">
+    <value>Current Windows account (Kerberos/NTLM)</value>
+  </data>
+  <data name="UserMessages.Auth.Basic" xml:space="preserve">
+    <value>User name and password</value>
+  </data>
+  <data name="UserMessages.Transport.Automatic" xml:space="preserve">
+    <value>Automatic</value>
+  </data>
+  <data name="UserMessages.Transport.DirectSmtp" xml:space="preserve">
+    <value>Directly via SMTP</value>
+  </data>
+  <data name="UserMessages.Transport.Watchdog" xml:space="preserve">
+    <value>Through AdMng Watchdog</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpNotConfigured" xml:space="preserve">
+    <value>Sending is not configured – set the SMTP server in Settings → E-mail messages.</value>
+  </data>
+  <data name="UserMessages.Problem.SmtpUnavailable" xml:space="preserve">
+    <value>Direct SMTP is not available in this build.</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotConfigured" xml:space="preserve">
+    <value>AdMng Watchdog is not configured (Watchdog tab).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogNotSupported" xml:space="preserve">
+    <value>This AdMng Watchdog service does not support messages to users – update the service or choose direct SMTP.</value>
+  </data>
+  <data name="UserMessages.Code.auth" xml:space="preserve">
+    <value>The server rejected the authentication.</value>
+  </data>
+  <data name="UserMessages.Code.auth.noCredential" xml:space="preserve">
+    <value>No SMTP user name or password.</value>
+  </data>
+  <data name="UserMessages.Code.auth.unencrypted" xml:space="preserve">
+    <value>Credentials are never sent without encryption – use STARTTLS or TLS.</value>
+  </data>
+  <data name="UserMessages.Code.auth.mechanismNotOffered" xml:space="preserve">
+    <value>The server offers neither Kerberos (GSSAPI) nor NTLM.</value>
+  </data>
+  <data name="UserMessages.Code.config.host" xml:space="preserve">
+    <value>The SMTP server or port is not set.</value>
+  </data>
+  <data name="UserMessages.Code.config.pin" xml:space="preserve">
+    <value>The pinned SHA-256 is not valid.</value>
+  </data>
+  <data name="UserMessages.Code.address" xml:space="preserve">
+    <value>An e-mail address is not valid.</value>
+  </data>
+  <data name="UserMessages.Code.tls" xml:space="preserve">
+    <value>The TLS negotiation failed.</value>
+  </data>
+  <data name="UserMessages.Code.timeout" xml:space="preserve">
+    <value>The server did not answer in time.</value>
+  </data>
+  <data name="UserMessages.Code.io" xml:space="preserve">
+    <value>The connection was interrupted.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.notSupported" xml:space="preserve">
+    <value>The server does not offer STARTTLS.</value>
+  </data>
+  <data name="UserMessages.Stage.Connect" xml:space="preserve">
+    <value>Connect</value>
+  </data>
+  <data name="UserMessages.Stage.Tls" xml:space="preserve">
+    <value>TLS</value>
+  </data>
+  <data name="UserMessages.Stage.Authenticate" xml:space="preserve">
+    <value>Authentication</value>
+  </data>
+  <data name="UserMessages.Stage.Done" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogDisabled" xml:space="preserve">
+    <value>Messages to users are switched off in AdMng Watchdog – an administrator of the service enables them on the Watchdog tab (Channels and SMTP → Messages to users).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogForbidden" xml:space="preserve">
+    <value>Your account may not use AdMng Watchdog (Watchdog Admins or Viewers only).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogUnreachable" xml:space="preserve">
+    <value>AdMng Watchdog cannot be reached – check the connection on the Watchdog tab.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.queued" xml:space="preserve">
+    <value>Queued in AdMng Watchdog – the service delivers it and shows the result in its delivery log.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.disabled" xml:space="preserve">
+    <value>Messages to users are switched off in AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.senderNotAllowed" xml:space="preserve">
+    <value>AdMng Watchdog does not allow this sender or reply-to address – use the service's sender or ask its administrator to add the address to the allowed senders.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.invalid" xml:space="preserve">
+    <value>AdMng Watchdog rejected the message as invalid.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.conflict" xml:space="preserve">
+    <value>AdMng Watchdog already has another message with this id.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.limit" xml:space="preserve">
+    <value>The hourly or daily limit of messages to users of AdMng Watchdog is reached – send the rest later.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.forbidden" xml:space="preserve">
+    <value>Your account may not send through AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.notSupported" xml:space="preserve">
+    <value>This AdMng Watchdog service does not support messages to users.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.notConfigured" xml:space="preserve">
+    <value>AdMng Watchdog is not configured.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.unreachable" xml:space="preserve">
+    <value>AdMng Watchdog cannot be reached.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.serverError" xml:space="preserve">
+    <value>AdMng Watchdog reported an internal error.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.disabled" xml:space="preserve">
+    <value>The e-mail channel (SMTP) of AdMng Watchdog is disabled.</value>
+  </data>
+  <data name="UserMessages.Code.userMessages.disabled" xml:space="preserve">
+    <value>Messages to users were switched off in AdMng Watchdog before the message was sent.</value>
+  </data>
+  <data name="Watchdog.DeliveryKind.UserMessage" xml:space="preserve">
+    <value>Message to a user</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingTitle" xml:space="preserve">
+    <value>Messages to users (from AD Manager)</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingEnabled" xml:space="preserve">
+    <value>Allow AD Manager to send messages to users through this service</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingHint" xml:space="preserve">
+    <value>Watchdog Admins and Viewers can send template messages (e.g. "your password expires") over the e-mail channel above. The service checks every message again, sends it from the sender above (or an allowed sender), queues and retries it and lists it in the delivery log without subject or addresses.</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingPerHour" xml:space="preserve">
+    <value>Max messages/hour</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingPerDay" xml:space="preserve">
+    <value>Max messages/day</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingSenders" xml:space="preserve">
+    <value>Other allowed senders (From / Reply-To)</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingSendersHint" xml:space="preserve">
+    <value>One address or @domain per line; the sender and reply-to of the e-mail channel are always allowed.</value>
   </data>
 </root>

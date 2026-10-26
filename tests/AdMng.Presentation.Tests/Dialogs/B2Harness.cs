@@ -39,7 +39,11 @@ internal sealed class B2Harness
         Localizer = new ResxLocalizer(culture);
         Regional = new SystemRegionalSettings(regional, regional.TextInfo.ANSICodePage);
         Errors = new ErrorTranslator(Localizer);
-        Sessions = new SessionManager(new SessionConnector(() => NextSession ?? Session), new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)), Localizer);
+        ConnectToServer = (_, server, _) => Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(Session, server));
+        Sessions = new SessionManager(
+            new SessionConnector(() => NextSession ?? Session, (current, server, ct) => ConnectToServer(current, server, ct)),
+            new DelegateAttributeFormatterFactory(s => new AttributeFormatter(s)),
+            Localizer);
         Lists = new ObjectListServices(Sessions, Localizer, Dispatcher, Settings, Errors, Changes, Time);
         Activities = new ActivityCenterViewModel(Dispatcher, Localizer, Errors, Time, Sessions);
         var templates = new TemplateEngine();
@@ -62,6 +66,12 @@ internal sealed class B2Harness
 
     /// <summary>What the next connect returns (default: <see cref="Session"/>), e.g. a session of another identity.</summary>
     public IDirectorySession? NextSession { get; set; }
+
+    /// <summary>
+    /// "Change domain controller": what the connector opens for (current session, server). Default: a
+    /// <see cref="FakeDomainControllerSession"/> of that server over the same in-memory directory.
+    /// </summary>
+    public Func<IDirectorySession, string, CancellationToken, Task<IDirectorySession>> ConnectToServer { get; set; }
 
     public SampleCompany Company { get; }
 
@@ -122,6 +132,20 @@ internal sealed class B2Harness
         return harness;
     }
 
+    /// <summary>
+    /// Connected to a <see cref="FakeDomainControllerSession"/> of <paramref name="server"/> instead of the directory itself, so
+    /// that "Change domain controller" can close it without closing the shared in-memory directory.
+    /// </summary>
+    public static async Task<B2Harness> CreateOnDomainControllerAsync(string server = "dc01.contoso.test", CultureInfo? culture = null)
+    {
+        culture ??= CultureInfo.GetCultureInfo("en-US");
+        var harness = new B2Harness(culture, culture);
+        harness.NextSession = new FakeDomainControllerSession(harness.Session, server);
+        await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
+        harness.NextSession = null;
+        return harness;
+    }
+
     /// <summary>The main window's view model over the same services (real engines, fake directory).</summary>
     public ShellViewModel CreateShell() => new(
         Lists,
@@ -167,7 +191,9 @@ internal sealed class B2Harness
         }
     }
 
-    private sealed class SessionConnector(Func<IDirectorySession> session) : IDirectoryConnector
+    private sealed class SessionConnector(
+        Func<IDirectorySession> session,
+        Func<IDirectorySession, string, CancellationToken, Task<IDirectorySession>> connectToServer) : IDirectoryConnector
     {
         public string? GetComputerDomain() => FakeDirectoryBuilder.DefaultDomain;
 
@@ -176,6 +202,9 @@ internal sealed class B2Harness
 
         public Task<IDirectorySession> ConnectAsync(ConnectionOptions options, NetworkCredential? credential, CancellationToken cancellationToken) =>
             Task.FromResult(session());
+
+        public Task<IDirectorySession> ConnectToServerAsync(IDirectorySession current, string server, CancellationToken cancellationToken) =>
+            connectToServer(current, server, cancellationToken);
     }
 }
 

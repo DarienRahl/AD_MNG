@@ -144,7 +144,7 @@ public class SecurityKindTests
     }
 
     [Fact]
-    public async Task SecurityDescriptorRewriteWithReorderedAces_IsNoEvent()
+    public async Task SecurityDescriptorRewriteWithReorderedAces_IsNoDaclChangeButAnAuditSettingsEvent()
     {
         await using var scenario = new DetectionScenario();
         await scenario.BaselineAsync();
@@ -157,7 +157,12 @@ public class SecurityKindTests
 
         await scenario.ReplaceAsync(builder.AdminSdHolderDn, Attr.NtSecurityDescriptor, reordered);
 
-        Assert.Empty(await scenario.CycleEventsAsync());
+        // The owner/DACL summary is unchanged (no DACL event), but the descriptor was written: stage B design 9.4 reports a
+        // rewrite of an unchanged descriptor like a SACL change.
+        var written = Assert.Single(await scenario.CycleEventsAsync());
+        Assert.Equal(WatchEventKind.SecurityDescriptorChanged, written.Kind);
+        Assert.Equal([EventTags.AuditSettings], written.Tags);
+        Assert.Empty(Assert.Single(written.Changes).NewValues);
     }
 
     [Fact]

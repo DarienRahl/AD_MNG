@@ -66,6 +66,8 @@ public static partial class L
         public const string Aes256 = "Labels.Aes256";
         public const string AccountExpires = "Labels.AccountExpires";
         public const string LogOnTo = "Labels.LogOnTo";
+        public const string LogonHours = "Labels.LogonHours";
+        public const string LogonHoursButton = "Labels.LogonHoursButton";
         public const string AllComputers = "Labels.AllComputers";
         public const string TheseComputers = "Labels.TheseComputers";
         public const string UserProfile = "Labels.UserProfile";

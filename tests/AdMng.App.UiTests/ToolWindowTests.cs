@@ -188,6 +188,34 @@ public sealed class ToolWindowTests
     });
 
     [Fact]
+    public Task Settings_ShowTheWatchdogPin_AndRemoveItOnSave() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync("pl");
+        var store = context.Services.GetRequiredService<ISettingsStore>();
+        await store.UpdateAsync(s => s.Watchdog.PinnedCertificateSha256 = "3F2A9C1E0B7D4A559E8C1F206A3B5D7E9F0C2B4D6E8A1C3F5B7D9E0A2C4F6B8D", TestContext.Current.CancellationToken);
+        var settings = context.Services.GetRequiredService<IDialogViewModelFactory>().CreateSettings();
+        var window = (SettingsWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(settings);
+        UiTestSupport.ShowOffScreen(window);
+        await window.Initialization;
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal("3F2A 9C1E 0B7D 4A55 9E8C 1F20 6A3B 5D7E\n9F0C 2B4D 6E8A 1C3F 5B7D 9E0A 2C4F 6B8D", window.PinnedCertificateText.Text);
+        Assert.True(window.RemovePinButton.IsEnabled);
+        Assert.Equal("Usuń przypięcie", window.RemovePinButton.Content);
+
+        window.RemovePinButton.Command.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.False(window.RemovePinButton.IsEnabled);
+        Assert.Equal("Żaden certyfikat nie jest przypięty.", window.PinnedCertificateText.Text);
+        Assert.NotNull(store.Current.Watchdog.PinnedCertificateSha256);
+
+        await settings.SaveCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Null(store.Current.Watchdog.PinnedCertificateSha256);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task Settings_CancelLeavesTheSettingsUnchanged() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync();
@@ -219,7 +247,11 @@ public sealed class ToolWindowTests
     {
         public string? Text { get; private set; }
 
-        public void SetText(string text) => Text = text;
+        public bool SetText(string text)
+        {
+            Text = text;
+            return true;
+        }
 
         public bool SetSecret(string secret)
         {

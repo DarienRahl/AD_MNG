@@ -63,7 +63,8 @@ public class PropertySheetTests
         Assert.Equal("Właściwości: Jan Kowalski", sheet.WindowTitle);
         Assert.Equal("Ogólne", sheet.Pages[0].Title);
         Assert.Equal("Imię", Text(sheet, L.Pages.General, Attr.GivenName).Label);
-        Assert.Equal("Opcje konta", Page(sheet, L.Pages.Account).Sections[1].Header);
+        Assert.Equal("Stan konta", Page(sheet, L.Pages.Account).Sections[0].Header);
+        Assert.Equal("Opcje konta", Page(sheet, L.Pages.Account).Sections[2].Header);
     }
 
     [Fact]

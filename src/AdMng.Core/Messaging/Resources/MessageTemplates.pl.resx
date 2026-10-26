@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SenderName" xml:space="preserve">
+    <value>Dział IT</value>
+  </data>
+  <data name="Footer" xml:space="preserve">
+    <value>Wiadomość wysłana automatycznie przez dział IT. Nigdy nie prosimy o podanie hasła – nie odpowiadaj na wiadomości z taką prośbą i nie klikaj zawartych w nich łączy.</value>
+  </data>
+  <data name="password-expiring.Name" xml:space="preserve">
+    <value>Hasło wygasa za N dni</value>
+  </data>
+  <data name="password-expiring.Subject" xml:space="preserve">
+    <value>Hasło do konta {sAMAccountName} wygaśnie {$passwordExpires:d MMMM yyyy}</value>
+  </data>
+  <data name="password-expiring.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+hasło do Twojego konta {sAMAccountName} wygaśnie {$passwordExpires:d MMMM yyyy} (pozostało dni: {$passwordExpiresInDays}).
+
+Zmień je wcześniej: na komputerze firmowym naciśnij Ctrl+Alt+Del i wybierz „Zmień hasło”. Po zmianie zaloguj się ponownie na wszystkich urządzeniach (telefon, laptop, VPN).
+
+W razie problemów skontaktuj się z pomocą techniczną.</value>
+  </data>
+  <data name="password-expired.Name" xml:space="preserve">
+    <value>Hasło wygasło</value>
+  </data>
+  <data name="password-expired.Subject" xml:space="preserve">
+    <value>Hasło do konta {sAMAccountName} wygasło</value>
+  </data>
+  <data name="password-expired.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+hasło do Twojego konta {sAMAccountName} wygasło {$passwordExpires:d MMMM yyyy}. Dopóki go nie zmienisz, nie zalogujesz się do poczty, VPN ani aplikacji firmowych.
+
+Zmień hasło przy najbliższym logowaniu na komputerze firmowym albo skontaktuj się z pomocą techniczną.</value>
+  </data>
+  <data name="account-expiring.Name" xml:space="preserve">
+    <value>Konto wygasa za N dni</value>
+  </data>
+  <data name="account-expiring.Subject" xml:space="preserve">
+    <value>Konto {sAMAccountName} wygaśnie {$accountExpires:d MMMM yyyy}</value>
+  </data>
+  <data name="account-expiring.Body" xml:space="preserve">
+    <value>Dzień dobry,
+
+konto {displayName} ({sAMAccountName}) jest ważne do {$accountExpires:d MMMM yyyy} włącznie (pozostało dni: {$accountExpiresInDays}).
+
+Jeśli współpraca ma trwać dłużej, przełożony powinien zgłosić przedłużenie konta do działu IT przed tym terminem.</value>
+  </data>
+  <data name="account-expired.Name" xml:space="preserve">
+    <value>Konto wygasło</value>
+  </data>
+  <data name="account-expired.Subject" xml:space="preserve">
+    <value>Konto {sAMAccountName} wygasło</value>
+  </data>
+  <data name="account-expired.Body" xml:space="preserve">
+    <value>Dzień dobry,
+
+konto {displayName} ({sAMAccountName}) wygasło – ostatnim dniem jego ważności był {$accountExpires:d MMMM yyyy}.
+
+Jeśli konto jest nadal potrzebne, przełożony powinien zgłosić jego przedłużenie do działu IT.</value>
+  </data>
+  <data name="account-locked.Name" xml:space="preserve">
+    <value>Konto zablokowane</value>
+  </data>
+  <data name="account-locked.Subject" xml:space="preserve">
+    <value>Konto {sAMAccountName} zostało zablokowane</value>
+  </data>
+  <data name="account-locked.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+Twoje konto {sAMAccountName} zostało zablokowane {$lockedSince:d MMMM yyyy, HH:mm} po kilku nieudanych próbach logowania.
+
+Jeśli to nie Ty próbowałeś się zalogować, natychmiast skontaktuj się z pomocą techniczną. Aby odblokować konto, zadzwoń do pomocy technicznej albo poczekaj na automatyczne odblokowanie.</value>
+  </data>
+  <data name="account-unlocked.Name" xml:space="preserve">
+    <value>Konto odblokowane</value>
+  </data>
+  <data name="account-unlocked.Subject" xml:space="preserve">
+    <value>Konto {sAMAccountName} zostało odblokowane</value>
+  </data>
+  <data name="account-unlocked.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+Twoje konto {sAMAccountName} zostało odblokowane – możesz się ponownie zalogować.
+
+Jeśli nie pamiętasz hasła, skontaktuj się z pomocą techniczną, zanim spróbujesz kilka razy – konto zablokuje się ponownie.</value>
+  </data>
+  <data name="must-change-password.Name" xml:space="preserve">
+    <value>Wymagana zmiana hasła przy następnym logowaniu</value>
+  </data>
+  <data name="must-change-password.Subject" xml:space="preserve">
+    <value>Wymagana zmiana hasła do konta {sAMAccountName}</value>
+  </data>
+  <data name="must-change-password.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+przy najbliższym logowaniu do konta {sAMAccountName} system poprosi Cię o ustawienie nowego hasła. Zaloguj się na komputerze firmowym i postępuj zgodnie z instrukcjami na ekranie.
+
+Pracujesz zdalnie? Najpierw połącz się z VPN albo skontaktuj się z pomocą techniczną.</value>
+  </data>
+  <data name="inactive-disable.Name" xml:space="preserve">
+    <value>Konto zostanie wyłączone (brak aktywności)</value>
+  </data>
+  <data name="inactive-disable.Subject" xml:space="preserve">
+    <value>Konto {sAMAccountName} zostanie wyłączone {$input:termin}</value>
+  </data>
+  <data name="inactive-disable.Body" xml:space="preserve">
+    <value>Dzień dobry,
+
+konto {displayName} ({sAMAccountName}) nie było używane od {$lastLogon:d MMMM yyyy}. Zgodnie z zasadami bezpieczeństwa zostanie wyłączone {$input:termin}.
+
+Jeśli konto jest nadal potrzebne, zaloguj się przed tym terminem albo poproś przełożonego o zgłoszenie do działu IT.</value>
+  </data>
+  <data name="custom.Name" xml:space="preserve">
+    <value>Wiadomość dowolna</value>
+  </data>
+  <data name="custom.Subject" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="custom.Body" xml:space="preserve">
+    <value>Dzień dobry {givenName},
+
+</value>
+  </data>
+</root>

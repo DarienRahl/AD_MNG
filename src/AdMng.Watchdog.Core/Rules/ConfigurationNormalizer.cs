@@ -31,6 +31,9 @@ public static class ConfigurationNormalizer
             Digest = Digest(configuration.Digest ?? new DigestSettings()),
             Rules = [.. (configuration.Rules ?? []).Select(r => r is null ? null! : Rule(r))],
             Retention = configuration.Retention ?? new RetentionSettings(),
+            UserMessages = configuration.UserMessages is { } userMessages
+                ? userMessages with { AllowedSenders = List(userMessages.AllowedSenders) }
+                : new UserMessagingSettings(),
         };
     }
 

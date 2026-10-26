@@ -6,7 +6,8 @@ namespace AdMng.Watchdog.Core.Rules;
 /// Rollout mode (section 12.5): active while <c>!General.RolloutEnded &amp;&amp; General.RolloutDays &gt; 0 &amp;&amp;
 /// now &lt; BaselineCompletedAt + RolloutDays</c>. The end derives from the baseline time (no service-initiated
 /// configuration write) and the mode ends by itself – a forgotten mode never silences alerts indefinitely. While
-/// active only <c>tier0-*</c>, <c>bursts</c> and <c>health</c> notify immediately; every other match goes to the digest.
+/// active only <c>tier0-*</c>, <c>watchdog-self</c> (stage B design 9.3), <c>bursts</c> and <c>health</c> notify
+/// immediately; every other match goes to the digest.
 /// </summary>
 public static class RolloutMode
 {
@@ -30,8 +31,8 @@ public static class RolloutMode
     public static DateTimeOffset? ActiveUntil(GeneralSettings? general, DateTimeOffset? baselineCompletedAt, DateTimeOffset now) =>
         Until(general, baselineCompletedAt) is { } until && now < until ? until : null;
 
-    /// <summary>True for the rules that notify immediately even in rollout mode: <c>tier0-*</c>, <c>bursts</c>,
-    /// <c>health</c>.</summary>
+    /// <summary>True for the rules that notify immediately even in rollout mode: the Tier-0 rules
+    /// (<see cref="Tier0Catalog.IsTier0Rule"/>: <c>tier0-*</c> and <c>watchdog-self</c>), <c>bursts</c>, <c>health</c>.</summary>
     public static bool AllowsImmediate(string? ruleId) =>
         Tier0Catalog.IsTier0Rule(ruleId)
         || string.Equals(ruleId, DefaultRules.Bursts, StringComparison.OrdinalIgnoreCase)

@@ -13,6 +13,9 @@ internal sealed class DcLogState
 
     public DateTimeOffset? OverwrittenAt { get; set; }
 
+    /// <summary>Time of the latest 1100 (event log service shut down – a reboot): logon ids before it are stale.</summary>
+    public DateTimeOffset? ShutdownAt { get; set; }
+
     /// <summary>System/Computer as the DC writes it (store lookups by computer).</summary>
     public string? Computer { get; set; }
 

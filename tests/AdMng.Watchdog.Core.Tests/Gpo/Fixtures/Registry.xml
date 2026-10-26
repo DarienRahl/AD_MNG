@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GPP Registry ([MS-GPPREF] 2.2.1.7 "Registry"), including a Collection. Written by hand; the password is made up. -->
+<RegistrySettings clsid="{A3CCFC41-DFDB-43a5-8D26-0FE8B954DA51}">
+  <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="DefaultPassword" status="DefaultPassword" image="7" changed="2026-10-03 10:00:00" uid="{C1B2C3D4-0000-4000-8000-000000000001}">
+    <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" name="DefaultPassword" type="REG_SZ" value="Hasło!Autologon1"/>
+  </Registry>
+  <Collection clsid="{53B533F5-224C-47e3-B01B-CA3B3F3FF4BF}" name="Uruchamianie" uid="{C1B2C3D4-0000-4000-8000-000000000009}">
+    <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Agent" status="Agent" image="7" changed="2026-10-03 10:01:00" uid="{C1B2C3D4-0000-4000-8000-000000000002}">
+      <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SOFTWARE\Microsoft\Windows\CurrentVersion\Run" name="Agent" type="REG_SZ" value="C:\Program Files\Contoso\agent.exe"/>
+    </Registry>
+  </Collection>
+  <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="public-monitoring" status="public-monitoring" image="7" changed="2026-10-03 10:02:00" uid="{C1B2C3D4-0000-4000-8000-000000000003}">
+    <Properties action="U" displayDecimal="1" default="0" hive="HKEY_LOCAL_MACHINE" key="SOFTWARE\Policies\SNMP\Parameters\ValidCommunities" name="public-monitoring" type="REG_DWORD" value="00000004"/>
+  </Registry>
+  <Registry clsid="{9CD4B2F4-923D-47f5-A062-E897DD1DAD50}" name="Tapeta" status="Wallpaper" image="7" changed="2026-10-03 10:03:00" uid="{C1B2C3D4-0000-4000-8000-000000000004}">
+    <Properties action="U" displayDecimal="0" default="0" hive="HKEY_LOCAL_MACHINE" key="SOFTWARE\Contoso\Pulpit" name="Tapeta" type="REG_SZ" value="C:\Tapety\Zażółć gęślą jaźń.jpg"/>
+  </Registry>
+</RegistrySettings>

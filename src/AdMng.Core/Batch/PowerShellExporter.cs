@@ -320,6 +320,13 @@ public sealed class PowerShellExporter : IPowerShellExporter
 
     private static string Literal(string attribute, string value)
     {
+        // Binary values travel as hex in the plan (logonHours): written as a byte array.
+        if (PipelineValues.IsHexEncoded(attribute) && PipelineValues.IsWireValue(attribute, value))
+        {
+            var bytes = (byte[])PipelineValues.ToWire(attribute, value);
+            return $"[byte[]]({string.Join(",", bytes.Select(b => "0x" + b.ToString("x2", CultureInfo.InvariantCulture)))})";
+        }
+
         if (NumericAttributes.Contains(attribute)
             && long.TryParse(value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number))
         {

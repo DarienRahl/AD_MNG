@@ -8,7 +8,7 @@ public sealed record RuleEvaluationResult
 {
     public required WatchEvent Event { get; init; }
 
-    /// <summary><c>max(event.Severity, every matched rule's Severity override)</c> (12.1).</summary>
+    /// <summary>The evaluated severity <c>max(own severity, every matched rule's Severity override)</c> (12.1).</summary>
     public required Severity Severity { get; init; }
 
     public IReadOnlyList<RuleMatch> Matches { get; init; } = [];

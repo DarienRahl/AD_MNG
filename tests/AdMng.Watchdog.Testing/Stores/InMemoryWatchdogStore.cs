@@ -22,7 +22,7 @@ namespace AdMng.Watchdog.Testing.Stores;
 /// come from the injected <see cref="TimeProvider"/>.</remarks>
 public sealed partial class InMemoryWatchdogStore :
     IDetectionStore, IEventStore, INotificationQueueStore, IOutboxStore, ISecurityEventStore, IExpiryNoticeStore,
-    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance
+    IDigestRunStore, IConfigStore, ISecretStore, IStoreMaintenance, IGpoContentStore
 {
     private readonly TimeProvider _timeProvider;
     private readonly Lock _gate = new();
@@ -80,6 +80,7 @@ public sealed partial class InMemoryWatchdogStore :
     {
         Recipients = [.. message.Recipients],
         EventIds = [.. message.EventIds],
+        EventStates = [.. message.EventStates],
         Email = message.Email is null
             ? null
             : message.Email with { Headers = new Dictionary<string, string>(message.Email.Headers, StringComparer.OrdinalIgnoreCase) },

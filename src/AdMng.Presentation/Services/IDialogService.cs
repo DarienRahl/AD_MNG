@@ -57,16 +57,34 @@ public interface IDialogService
     /// </summary>
     Task ShowRecycleBinAsync(Guid? select = null);
 
+    /// <summary>Opens the account review window (modeless, one per application; an open one is activated).</summary>
+    Task ShowAccountReviewAsync();
+
     Task ShowSettingsAsync();
 
     /// <summary>Shows the connection window (used after Disconnect).</summary>
     Task ShowConnectAsync();
+
+    /// <summary>
+    /// "Change domain controller" (modal): switches the session to another DC of the domain. True when the session
+    /// was switched.
+    /// </summary>
+    Task<bool> ShowChangeDomainControllerAsync();
 
     /// <summary>Shows the saved view editor. Returns true when the operator saved.</summary>
     Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor);
 
     /// <summary>Shows the column chooser of a list. Returns true when the operator applied the selection.</summary>
     Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser);
+
+    /// <summary>Shows the Logon Hours dialog (modal). Returns true when the operator pressed OK.</summary>
+    Task<bool> ShowLogonHoursAsync(Dialogs.LogonHoursViewModel editor);
+
+    /// <summary>
+    /// "Potwierdź certyfikat usługi Watchdog" (modal, stage B design 18 item 1). Returns true only when the operator chose
+    /// "Ufam temu certyfikatowi".
+    /// </summary>
+    Task<bool> ShowWatchdogCertificateTrustAsync(Watchdog.WatchdogCertificateTrustViewModel dialog);
 }
 
 /// <summary>What the batch editor should open with.</summary>

@@ -13,12 +13,7 @@ public sealed record ProcessedAttribution(WatchEvent Event, AttributionUpdate Up
     /// <summary>True when the attribution is final.</summary>
     public bool IsFinal => Update.NextAttemptAt is null;
 
-    /// <summary>The event with the update applied (follow-up planning input).</summary>
-    public WatchEvent Updated => Event with
-    {
-        Attribution = Update.Attribution,
-        Tags = [.. (Event.Tags ?? []).Concat(Update.AddedTags).Distinct(StringComparer.OrdinalIgnoreCase)],
-        Severity = Update.Severity ?? Event.Severity,
-        Lockout = Update.Lockout ?? Event.Lockout,
-    };
+    /// <summary>The event with the update applied (re-evaluation and follow-up planning input): own severity
+    /// <c>Update.Severity</c>, evaluated severity <c>Update.EvaluatedSeverity</c> (<see cref="EventSeverities.WithAttribution"/>).</summary>
+    public WatchEvent Updated => EventSeverities.WithAttribution(Event, Update, StringComparer.OrdinalIgnoreCase);
 }

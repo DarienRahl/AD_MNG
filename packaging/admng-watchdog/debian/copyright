@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: AdMng Watchdog
+
+Files: *
+Copyright: 2025-2026 AD_MNG contributors
+License: other
+ Distributed with AD_MNG; see the repository for the terms.

@@ -200,6 +200,32 @@ public partial class PropertiesWindow : Window, IDialogResultWindow
             page.OpenCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control && page.CopyNamesCommand.CanExecute(null))
+        {
+            // Ctrl+C: the selected names; Ctrl+Shift+C: their distinguished names.
+            page.CopyNamesCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.C && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && page.CopyDnsCommand.CanExecute(null))
+        {
+            page.CopyDnsCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
+    // ---- E-mail addresses ---------------------------------------------------------------------------------------
+
+    /// <summary>Ctrl+C on the e-mail addresses: the selected address without its type prefix.</summary>
+    private void OnProxyAddressListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C
+            && Keyboard.Modifiers == ModifierKeys.Control
+            && sender is ListView { DataContext: ProxyAddressesFieldViewModel field }
+            && field.CopyAddressCommand.CanExecute(null))
+        {
+            field.CopyAddressCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     private void OnNestedItemDoubleClick(object sender, MouseButtonEventArgs e)

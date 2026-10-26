@@ -1,0 +1,71 @@
+; Security template of a GPO ([MS-GPSB] 2.2 "Security Template File Format"; written by hand from the specification).
+; In SYSVOL the file is UTF-16LE with BOM and CRLF – the tests encode this UTF-8 source that way (GpoFixtures.Utf16).
+[Unicode]
+Unicode=yes
+[System Access]
+MinimumPasswordAge = 1
+MaximumPasswordAge = 42
+MinimumPasswordLength = 14
+PasswordComplexity = 1
+PasswordHistorySize = 24
+LockoutBadCount = 5
+ResetLockoutCount = 30
+LockoutDuration = 30
+RequireLogonToChangePassword = 0
+ForceLogoffWhenHourExpire = 0
+NewAdministratorName = "Administrator"
+ClearTextPassword = 0
+LSAAnonymousNameLookup = 0
+EnableGuestAccount = 0
+[Kerberos Policy]
+MaxTicketAge = 10
+MaxRenewAge = 7
+MaxServiceAge = 600
+MaxClockSkew = 5
+TicketValidateClient = 1
+[Event Audit]
+AuditSystemEvents = 3
+AuditLogonEvents = 3
+AuditObjectAccess = 0
+AuditPrivilegeUse = 2
+AuditPolicyChange = 1
+AuditAccountManage = 3
+AuditProcessTracking = 0
+AuditDSAccess = 0
+AuditAccountLogon = 3
+[System Log]
+MaximumLogSize = 32768
+RetentionDays = 0
+[Security Log]
+MaximumLogSize = 196608
+AuditLogRetentionPeriod = 0
+RestrictGuestAccess = 1
+[Registry Values]
+MACHINE\System\CurrentControlSet\Control\Lsa\NoLMHash=4,1
+MACHINE\System\CurrentControlSet\Control\Lsa\LmCompatibilityLevel=4,5
+MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\RequireSecuritySignature=4,1
+MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\DefaultPassword=1,"Tajne!Hasło2026"
+MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\LegalNoticeCaption=1,"Ostrzeżenie"
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeText=7,Dostęp tylko dla upoważnionych pracowników.,Zażółć gęślą jaźń
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\InactivityTimeoutSecs=4,900
+MACHINE\System\CurrentControlSet\Control\Print\Providers\LanMan Print Services\Servers\AddPrinterDrivers=4,1
+[Privilege Rights]
+SeDebugPrivilege = *S-1-5-32-544
+SeRemoteInteractiveLogonRight = *S-1-5-32-555,*S-1-5-32-544
+SeDenyNetworkLogonRight = *S-1-5-32-546,CONTOSO\Józef.Wąsik
+SeBackupPrivilege = *S-1-5-32-544,*S-1-5-32-551
+SeServiceLogonRight =
+[Group Membership]
+*S-1-5-32-544__Memberof =
+*S-1-5-32-544__Members = *S-1-5-21-1004336348-1177238915-682003330-512,*S-1-5-21-1004336348-1177238915-682003330-1105
+*S-1-5-32-555__Members = CONTOSO\Pomoc Techniczna
+[Service General Setting]
+"Spooler",4,""
+"RemoteRegistry",2,"D:AR(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;CCLCSWRPWPDTLOCRRC;;;SY)S:(AU;FA;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;WD)"
+[Registry Keys]
+"MACHINE\SOFTWARE\Contoso",0,"D:PAR(A;CI;KA;;;BA)(A;CIIO;KA;;;CO)(A;CI;KA;;;SY)(A;CI;KR;;;BU)"
+[File Security]
+"%SystemRoot%\System32\drivers\etc\hosts",2,"D:PAR(A;;FA;;;BA)(A;;FA;;;SY)(A;;FR;;;BU)"
+[Version]
+signature="$CHICAGO$"
+Revision=1

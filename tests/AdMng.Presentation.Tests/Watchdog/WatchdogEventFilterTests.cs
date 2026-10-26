@@ -78,19 +78,19 @@ public sealed class WatchdogEventFilterTests
             var tab = await h.OpenAsync(visible: false);
             tab.IsVisible = true;
             await tab.Events.Loading;
-            var loads = h.Client.EventQueries.Count(q => q.After is null);
+            var loads = h.Client.EventQueries.Count(IsFeedLoad);
 
             tab.Events.Filter.Text = "Ż";
             tab.Events.Filter.Text = "Żaneta";
             h.Time.Advance(WatchdogEventFilterViewModel.TextDelay - TimeSpan.FromMilliseconds(1));
             await h.Ui.IdleAsync();
-            Assert.Equal(loads, h.Client.EventQueries.Count(q => q.After is null));
+            Assert.Equal(loads, h.Client.EventQueries.Count(IsFeedLoad));
 
             h.Time.Advance(TimeSpan.FromMilliseconds(1));
-            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.Count(q => q.After is null) == loads + 1, "one reload");
+            await WatchdogTestWait.UntilAsync(h, () => h.Client.EventQueries.Count(IsFeedLoad) == loads + 1, "one reload");
             await tab.Events.Loading;
 
-            Assert.Equal("Żaneta", h.Client.EventQueries.Last(q => q.After is null).Text);
+            Assert.Equal("Żaneta", h.Client.EventQueries.Last(IsFeedLoad).Text);
             Assert.All(tab.Events.Items, r => Assert.Equal("Żaneta Szymańska", r.ObjectName));
             Assert.Equal(2, tab.Events.Items.Count);
         });
@@ -237,10 +237,10 @@ public sealed class WatchdogEventFilterTests
             // Applying a preset sets every condition and reloads once.
             filter.ClearCommand.Execute(null);
             await tab.Events.Loading;
-            var loads = h.Client.EventQueries.Count(q => q.After is null);
+            var loads = h.Client.EventQueries.Count(IsFeedLoad);
             filter.SelectedPreset = filter.Presets[0];
             await tab.Events.Loading;
-            Assert.Equal(loads + 1, h.Client.EventQueries.Count(q => q.After is null));
+            Assert.Equal(loads + 1, h.Client.EventQueries.Count(IsFeedLoad));
             Assert.Equal(Severity.High, filter.MinSeverity.Value);
             Assert.True(filter.UnresolvedOnly);
             Assert.Equal(SamplePrincipals.ItOu, filter.Subtree);
@@ -250,6 +250,33 @@ public sealed class WatchdogEventFilterTests
             Assert.Empty(h.Ad.Settings.Current.Watchdog.FilterPresets);
             Assert.Empty(filter.Presets);
             Assert.Null(filter.SelectedPreset);
+        });
+        h.AssertNoUiErrors();
+    }
+
+    [Fact]
+    public async Task Presets_TheListIsOfferedOnlyWhenThereAreSavedFilters()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        await h.Ui.RunAsync(async () =>
+        {
+            var tab = await h.OpenAsync();
+            var filter = tab.Events.Filter;
+            var changed = new List<string?>();
+            filter.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+            Assert.False(filter.HasPresets);
+
+            filter.PresetName = "Blokady w Gdańsku";
+            await filter.SavePresetCommand.ExecuteAsync(null);
+            Assert.True(filter.HasPresets);
+            Assert.Contains(nameof(WatchdogEventFilterViewModel.HasPresets), changed);
+
+            filter.SelectedPreset = filter.Presets[0];
+            await tab.Events.Loading;
+            changed.Clear();
+            await filter.DeletePresetCommand.ExecuteAsync(null);
+            Assert.False(filter.HasPresets);
+            Assert.Contains(nameof(WatchdogEventFilterViewModel.HasPresets), changed);
         });
         h.AssertNoUiErrors();
     }
@@ -348,4 +375,11 @@ public sealed class WatchdogEventFilterTests
             Assert.Equal(1, h.Client.Calls.Count(nameof(IWatchdogClient.GetCatalogAsync)));
         });
     }
+
+    /// <summary>
+    /// A (re)load of the feed's first page – not a long-poll (<c>after</c>), an older page (<c>before</c>) or the late-match
+    /// read of a status round, which a filter on late-filled fields (text, severity, tags) starts whenever a status arrives.
+    /// </summary>
+    private static bool IsFeedLoad(EventQuery query) =>
+        query.After is null && query.Before is null && query.Limit == WatchdogEventsViewModel.PageSize;
 }

@@ -73,6 +73,24 @@ public class AccountKindTests
     }
 
     [Fact]
+    public async Task LockoutsToday_CountsFromTheRealLocalMidnightOnADstChangeDay()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+
+        // 25 Oct 2026 in Warsaw: the day starts at 00:00 CEST (22:00Z on the 24th) and ends in CET.
+        scenario.Advance(new DateTimeOffset(2026, 10, 24, 22, 30, 0, TimeSpan.Zero) - scenario.Time.GetUtcNow());
+        scenario.Directory.SimulateLockout(scenario.Company.PawelLewandowski);
+        var early = Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.AccountLockedOut);
+        scenario.Advance(new DateTimeOffset(2026, 10, 25, 9, 0, 0, TimeSpan.Zero) - scenario.Time.GetUtcNow());
+        scenario.Directory.SimulateLockout(scenario.Company.PawelLewandowski);
+        var later = Assert.Single(await scenario.CycleEventsAsync(), e => e.Kind == WatchEventKind.AccountLockedOut);
+
+        Assert.Equal(1, early.Lockout!.LockoutsToday);
+        Assert.Equal(2, later.Lockout!.LockoutsToday);
+    }
+
+    [Fact]
     public async Task AccountLockedOut_UsesTheResultantPsoLockoutDuration()
     {
         string? pso = null;
@@ -172,6 +190,39 @@ public class AccountKindTests
         Assert.Equal(WatchEventKind.PasswordMustChangeSet, mustChange.Kind);
         Assert.Equal(WatchEventKind.PasswordAgeReset, ageReset.Kind);
         Assert.Equal(Severity.Medium, ageReset.Severity);
+    }
+
+    [Fact]
+    public async Task ResetWithMustChangeAtNextLogon_IsAPasswordWriteAndMustChange()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        scenario.Advance(TimeSpan.FromMinutes(1));
+
+        // ADUC "Reset password" with "User must change password at next logon": unicodePwd, then pwdLastSet = 0.
+        await scenario.ResetPasswordAsync(scenario.Company.JanKowalski);
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.PwdLastSet, "0");
+        var events = await scenario.CycleEventsAsync();
+
+        Assert.Single(events, e => e.Kind == WatchEventKind.PasswordMustChangeSet);
+        var changed = Assert.Single(events, e => e.Kind == WatchEventKind.PasswordChanged);
+        Assert.Equal(scenario.Company.JanKowalski, changed.Object.Dn);
+        Assert.Equal(2, events.Count);
+        Assert.Single(events.Select(e => e.ChangeSetId).Distinct());
+    }
+
+    [Fact]
+    public async Task MustChangeAtNextLogonAlone_IsNoPasswordWrite()
+    {
+        await using var scenario = new DetectionScenario();
+        await scenario.BaselineAsync();
+        await scenario.ResetPasswordAsync(scenario.Company.JanKowalski);
+        Assert.Equal(WatchEventKind.PasswordChanged, Assert.Single(await scenario.CycleEventsAsync()).Kind);
+        scenario.Advance(TimeSpan.FromMinutes(1));
+
+        await scenario.ReplaceAsync(scenario.Company.JanKowalski, Attr.PwdLastSet, "0");
+
+        Assert.Equal(WatchEventKind.PasswordMustChangeSet, Assert.Single(await scenario.CycleEventsAsync()).Kind);
     }
 
     [Fact]

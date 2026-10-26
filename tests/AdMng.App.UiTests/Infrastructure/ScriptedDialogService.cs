@@ -50,11 +50,19 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task ShowRecycleBinAsync(Guid? select = null) => Task.CompletedTask;
 
+    public Task ShowAccountReviewAsync() => Task.CompletedTask;
+
     public Task ShowSettingsAsync() => Task.CompletedTask;
 
     public Task ShowConnectAsync() => Task.CompletedTask;
 
+    public Task<bool> ShowChangeDomainControllerAsync() => Task.FromResult(false);
+
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) => Task.FromResult(false);
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
+
+    public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Task.FromResult(false);
+
+    public Task<bool> ShowWatchdogCertificateTrustAsync(Presentation.Watchdog.WatchdogCertificateTrustViewModel dialog) => Task.FromResult(false);
 }

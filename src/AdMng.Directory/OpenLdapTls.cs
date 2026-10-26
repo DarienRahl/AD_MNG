@@ -34,13 +34,19 @@ internal static partial class OpenLdapTls
     private static readonly Lock Gate = new();
 
     /// <summary>S.DS.P's native LDAP* handle (private field; null if a future version renames it).</summary>
-    private static readonly FieldInfo? HandleField =
+    internal static readonly FieldInfo? HandleField =
         typeof(LdapConnection).GetField("_ldapHandle", BindingFlags.Instance | BindingFlags.NonPublic);
 
     static OpenLdapTls()
     {
         // Same fallback as S.DS.P itself, so that both use the same libldap instance (shared global options).
         NativeLibrary.SetDllImportResolver(typeof(OpenLdapTls).Assembly, ResolveLibrary);
+    }
+
+    /// <summary>Registers the libldap resolver of this assembly (static constructor) – called by the other libldap interop
+    /// classes of the assembly, which share it (a resolver can be set once per assembly).</summary>
+    internal static void EnsureLibraryResolver()
+    {
     }
 
     /// <summary>Creates a connection whose TLS layer does not validate the server certificate.</summary>

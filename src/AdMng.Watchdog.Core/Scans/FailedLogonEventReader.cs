@@ -63,15 +63,28 @@ internal static class FailedLogonEventReader
             }
         }
 
-        if (eventId is not (4771 or 4776) || !data.TryGetValue("TargetUserName", out var user) || NormalizeUser(user) is not { } account
-            || FailedLogon.ParseStatus(data.GetValueOrDefault("Status")) is not { } status)
+        return FromData(eventId, name => data.GetValueOrDefault(name), out failure);
+    }
+
+    /// <summary>Reads a stored record (collector mode, stage B design 7.8); false for other event ids.</summary>
+    public static bool TryRead(AdMng.Watchdog.Core.Model.SecurityEvent record, out FailedLogon? failure)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        return FromData(record.EventCode, record.Get, out failure);
+    }
+
+    private static bool FromData(int? eventId, Func<string, string?> get, out FailedLogon? failure)
+    {
+        failure = null;
+        if (eventId is not (4771 or 4776) || get("TargetUserName") is not { } user || NormalizeUser(user) is not { } account
+            || FailedLogon.ParseStatus(get("Status")) is not { } status)
         {
             return false;
         }
 
         failure = eventId == 4771
-            ? new FailedLogon(4771, account, NormalizeAddress(data.GetValueOrDefault("IpAddress")), null, status)
-            : new FailedLogon(4776, account, null, NormalizeName(data.GetValueOrDefault("Workstation")), status);
+            ? new FailedLogon(4771, account, NormalizeAddress(get("IpAddress")), null, status)
+            : new FailedLogon(4776, account, null, NormalizeName(get("Workstation")), status);
         return true;
     }
 

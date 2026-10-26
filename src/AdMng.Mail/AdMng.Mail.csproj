@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Direct SMTP transport of messages to users (README U1, docs/dev/u1-user-messages.md): MailKit, TLS, certificate pin,
+       SASL GSSAPI/NTLM or user name + password, MIME (UTF-8, RFC 2047, Auto-Submitted). Used by the WPF app; persists
+       nothing and never logs message content or credentials (no protocol logger). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Mail</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+    <ProjectReference Include="..\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MailKitLite" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Mail.Tests" />
+  </ItemGroup>
+</Project>

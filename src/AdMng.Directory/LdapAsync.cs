@@ -10,7 +10,46 @@ namespace AdMng.Directory;
 /// cannot be interrupted.
 /// </param>
 internal readonly record struct PendingResponse<TResponse>(Task<TResponse> Response, Task Completion)
-    where TResponse : DirectoryResponse;
+    where TResponse : DirectoryResponse
+{
+    /// <summary>
+    /// Awaits <see cref="Response"/> and calls <paramref name="finished"/> once, with <see cref="Completion"/>, when the
+    /// request finished: before this method returns (or throws) when the request finished with its response, otherwise -
+    /// the caller stopped waiting or gave up on a silent server - when the request ends in the background.
+    /// </summary>
+    /// <remarks>
+    /// A continuation registered on <see cref="Completion"/> up front would run too late: on the blocking path
+    /// <see cref="Response"/> is itself a continuation of the request, so its continuations - the caller and whatever
+    /// the caller does next, e.g. its next request on the same pool - run synchronously before it (and on the APM path
+    /// both are queued and race). The connection would still count as busy after its caller moved on.
+    /// </remarks>
+    public async Task<TResponse> ReceiveAsync(Action<Task> finished)
+    {
+        ArgumentNullException.ThrowIfNull(finished);
+        try
+        {
+            return await Response.ConfigureAwait(false);
+        }
+        finally
+        {
+            // Exactly one path runs the callback: now when the request already finished (always so when the response
+            // is the request's outcome), otherwise when it does.
+            if (Completion.IsCompleted)
+            {
+                finished(Completion);
+            }
+            else
+            {
+                _ = Completion.ContinueWith(
+                    static (completed, state) => ((Action<Task>)state!)(completed),
+                    finished,
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+        }
+    }
+}
 
 /// <summary>Task based sending of LDAP requests with real cancellation.</summary>
 /// <remarks>

@@ -8,6 +8,7 @@ using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Session;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Shell;
 using AdMng.Presentation.Tests.TestDoubles;
@@ -28,23 +29,7 @@ public sealed class ServiceRegistrationTests : IDisposable
     [Fact]
     public void AddAdMngPresentation_ResolvesAllViewModels_WhenTheHostProvidesUiAndCoreServices()
     {
-        var services = new ServiceCollection();
-        services.AddSingleton<IUiDispatcher, SynchronousUiDispatcher>();
-        services.AddSingleton<IDialogService, ScriptedDialogService>();
-        services.AddSingleton<IFileDialogService, FakeFileDialogService>();
-        services.AddSingleton<IClipboardService, FakeClipboard>();
-        services.AddSingleton<INotificationService, RecordingNotificationService>();
-        services.AddSingleton<IAppPaths>(_paths);
-        services.AddSingleton<IThemeService, Dialogs.FakeThemeService>();
-        services.AddSingleton<IDirectoryConnector>(new FakeDirectoryConnector(TestDirectory.Build(TestHarness.Now)));
-        services.AddSingleton<IChangePlanner, RecordingChangePlanner>();
-        services.AddSingleton<IBatchExecutor, RecordingBatchExecutor>();
-        services.AddSingleton<ICsvCodec, SimpleCsvCodec>();
-        services.AddAttributeFormatter(_ => new PassThroughAttributeFormatter());
-        services.AddSingleton<IWatchdogClient>(new FakeWatchdogClient());
-
-        services.AddAdMngPresentation();
-        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+        using var provider = BuildProvider();
 
         Assert.NotNull(provider.GetRequiredService<ConnectViewModel>());
         var shell = provider.GetRequiredService<ShellViewModel>();
@@ -82,5 +67,42 @@ public sealed class ServiceRegistrationTests : IDisposable
         using var first = watchdogFactory();
         using var second = watchdogFactory();
         Assert.NotSame(first, second);
+    }
+
+    [Fact]
+    public async Task ChangeDomainController_FromTheContainer_UsesTheDcLocator()
+    {
+        using var provider = BuildProvider();
+        await provider.GetRequiredService<ISessionManager>().ConnectAsync(new ConnectionOptions(), null, TestContext.Current.CancellationToken);
+
+        // The factory's optional connector comes from the container: the client site is known (DC locator).
+        using var dialog = provider.GetRequiredService<IDialogViewModelFactory>().CreateChangeDomainController();
+        await dialog.InitializeAsync();
+
+        Assert.False(string.IsNullOrEmpty(dialog.WindowTitle));
+        Assert.Null(dialog.ErrorText);
+        Assert.True(dialog.CanUseAnyWritableInSite);
+        Assert.Contains(dialog.DomainControllers, d => d.HostName == "dc02.contoso.test");
+    }
+
+    private ServiceProvider BuildProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IUiDispatcher, SynchronousUiDispatcher>();
+        services.AddSingleton<IDialogService, ScriptedDialogService>();
+        services.AddSingleton<IFileDialogService, FakeFileDialogService>();
+        services.AddSingleton<IClipboardService, FakeClipboard>();
+        services.AddSingleton<INotificationService, RecordingNotificationService>();
+        services.AddSingleton<IAppPaths>(_paths);
+        services.AddSingleton<IThemeService, Dialogs.FakeThemeService>();
+        services.AddSingleton<IDirectoryConnector>(new FakeDirectoryConnector(TestDirectory.Build(TestHarness.Now)));
+        services.AddSingleton<IChangePlanner, RecordingChangePlanner>();
+        services.AddSingleton<IBatchExecutor, RecordingBatchExecutor>();
+        services.AddSingleton<ICsvCodec, SimpleCsvCodec>();
+        services.AddAttributeFormatter(_ => new PassThroughAttributeFormatter());
+        services.AddSingleton<IWatchdogClient>(new FakeWatchdogClient());
+
+        services.AddAdMngPresentation();
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 }

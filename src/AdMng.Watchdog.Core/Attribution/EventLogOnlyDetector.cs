@@ -9,7 +9,8 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// AuditPolicyChanged (Critical; Changes: SubcategoryGuid and the AuditPolicyChanges tokens), 4794 → DsrmPasswordChanged
 /// (High; workstation from the record). The object is the DC that logged the record; the attribution is resolved at
 /// creation – the record itself is the evidence (actor from SubjectUserSid). 1104/1100 are gaps
-/// (<see cref="EventLogGapDetector"/>).
+/// (<see cref="EventLogGapDetector"/>). The event id is derived from the record (<see cref="RecordEventIds"/>), so a
+/// record read twice is detected once.
 /// </summary>
 public sealed class EventLogOnlyDetector(ActorResolver actors, TimeProvider timeProvider)
 {
@@ -30,7 +31,7 @@ public sealed class EventLogOnlyDetector(ActorResolver actors, TimeProvider time
         }
 
         var now = timeProvider.GetUtcNow();
-        var id = Guid.CreateVersion7(now);
+        var id = RecordEventIds.Create(record, detected.ToString());   // the same record always yields the same event
         var host = HostNames.Normalize(record.Computer);
         var watchEvent = new WatchEvent
         {

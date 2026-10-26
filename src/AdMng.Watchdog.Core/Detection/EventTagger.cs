@@ -10,7 +10,9 @@ namespace AdMng.Watchdog.Core.Detection;
 /// Tags of a detected event (section 10.6.2). <c>privileged</c> comes only from the current PrivilegeState (the
 /// member for membership kinds); <c>adminCountOrphan</c> marks adminCount=1 outside it; container tags use the
 /// resolved wellKnownObjects; <c>longDisabled</c> is decided by the caller (it needs a base read). The attribution
-/// adds selfChange, passwordReset and syncAccount later.
+/// adds selfChange, passwordReset and syncAccount later. <c>watchdogAccount</c> (stage B design 9.3) marks every event
+/// whose object – for membership kinds the member – is the service's own account, except the keytab tool's planned
+/// rotation (<see cref="EventDraft.PlannedServiceAccountRotation"/>).
 /// </summary>
 internal sealed class EventTagger
 {
@@ -41,6 +43,11 @@ internal sealed class EventTagger
             // adminCountOrphan is about the subject itself (for membership kinds the group, not the member).
             var subjectPrivileged = context.IsPrivileged(subject.ObjectGuid.ToString("N")) || context.IsPrivilegedRoot(subject);
             TagSubject(tags, draft, subject, objectRef, context, subjectPrivileged);
+        }
+
+        if (IsWatchdogAccount(draft, subject, objectRef, context))
+        {
+            tags.Add(EventTags.WatchdogAccount);
         }
 
         if (longDisabled && draft.Kind == WatchEventKind.AccountEnabled)
@@ -119,6 +126,22 @@ internal sealed class EventTagger
                 tags.Add(EventTags.UnexpectedContainer);
             }
         }
+    }
+
+    private static bool IsWatchdogAccount(EventDraft draft, SnapshotObject? subject, ObjectRef objectRef, TaggingContext context)
+    {
+        if (context.WatchdogAccount is not { } own || draft.PlannedServiceAccountRotation)
+        {
+            return false;
+        }
+
+        if (draft.Kind is WatchEventKind.GroupMemberAdded or WatchEventKind.GroupMemberRemoved)
+        {
+            return draft.Member is { } member && own.Matches(member.ObjectGuid, member.Sid, member.SamAccountName);
+        }
+
+        return own.Matches(objectRef.ObjectGuid, objectRef.Sid, objectRef.SamAccountName)
+            || (subject is not null && own.Matches(subject.ObjectGuid, subject.Sid, subject.SamAccountName));
     }
 
     /// <summary>The PrivilegeState key of a reference: GUID "N", else sid:…, else null.</summary>

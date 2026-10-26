@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
+using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Detection;
@@ -14,7 +15,9 @@ namespace AdMng.Watchdog.Core.Scans;
 /// bounded query of the PDC emulator's Security log for 4771 (0x18 / 0x6) and 4776 (0xC000006A / 0xC0000064) in the
 /// window; a source IP (4771) or workstation (4776) with failures for at least <c>DistinctAccounts</c> accounts →
 /// PasswordSprayingSuspected (High, up to 50 accounts, the source in the attribution). Cooldown per source = window,
-/// restart-safe through the stored events. Nothing but the event is stored.
+/// restart-safe through the stored events. Nothing but the event is stored. In collector mode
+/// (<c>Attribution.Source = OpenWec</c>, stage B design 7.8) the window is read from the stored records of every DC
+/// (<see cref="ISecurityEventLookup.FindFailuresAsync"/>) instead of the PDC's log.
 /// </summary>
 internal sealed class PasswordSprayDetector
 {
@@ -24,6 +27,7 @@ internal sealed class PasswordSprayDetector
     private const int NamesPerSearch = 25;
 
     private readonly ISecurityEventSource? _source;
+    private readonly ISecurityEventLookup? _lookup;
     private readonly IEventStore _events;
     private readonly ScanEventWriter _writer;
     private readonly DomainControllerDirectory _domainControllers;
@@ -31,9 +35,10 @@ internal sealed class PasswordSprayDetector
     private readonly ILogger _logger;
 
     public PasswordSprayDetector(ISecurityEventSource? source, IEventStore events, ScanEventWriter writer,
-        DomainControllerDirectory domainControllers, TimeProvider timeProvider, ILogger logger)
+        DomainControllerDirectory domainControllers, TimeProvider timeProvider, ILogger logger, ISecurityEventLookup? lookup = null)
     {
         _source = source;
+        _lookup = lookup;
         _events = events;
         _writer = writer;
         _domainControllers = domainControllers;
@@ -44,12 +49,25 @@ internal sealed class PasswordSprayDetector
     public async Task RunAsync(ScanContext context, CancellationToken cancellationToken)
     {
         var settings = context.Configuration.Scans.PasswordSpray;
-        if (!settings.Enabled || _source is not { IsAvailable: true } source || settings.DistinctAccounts <= 0)
+        if (!settings.Enabled || settings.DistinctAccounts <= 0)
         {
             return;
         }
 
-        var failures = await ReadFailuresAsync(source, context, settings.Window, cancellationToken).ConfigureAwait(false);
+        List<FailedLogon> failures;
+        if (context.Configuration.Attribution?.Source == AttributionSourceKind.OpenWec && _lookup is { IsAvailable: true } lookup)
+        {
+            failures = await ReadStoredFailuresAsync(lookup, context, settings.Window, cancellationToken).ConfigureAwait(false);
+        }
+        else if (_source is { IsAvailable: true } source)
+        {
+            failures = await ReadFailuresAsync(source, context, settings.Window, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            return;
+        }
+
         var suspects = failures
             .Where(f => f.SourceKey is not null)
             .GroupBy(f => f.SourceKey!, StringComparer.OrdinalIgnoreCase)
@@ -118,6 +136,24 @@ internal sealed class PasswordSprayDetector
         return failures;
     }
 
+    /// <summary>Collector mode: the stored 4771/4776 of every DC in the window (records of a DC that relays the check to the
+    /// PDC appear twice – distinct accounts per source are unaffected).</summary>
+    private static async Task<List<FailedLogon>> ReadStoredFailuresAsync(ISecurityEventLookup lookup, ScanContext context, TimeSpan window,
+        CancellationToken cancellationToken)
+    {
+        var records = await lookup.FindFailuresAsync([4771, 4776], context.Now - window, context.Now, null, MaxRecords, cancellationToken).ConfigureAwait(false);
+        var failures = new List<FailedLogon>(records.Count);
+        foreach (var record in records)
+        {
+            if (FailedLogonEventReader.TryRead(record, out var failure) && failure!.IsBadPassword)
+            {
+                failures.Add(failure);
+            }
+        }
+
+        return failures;
+    }
+
     /// <summary>Sources of PasswordSprayingSuspected events already stored in the window (cooldown).</summary>
     private async Task<HashSet<string>> RecentSourcesAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken cancellationToken)
     {
@@ -143,7 +179,11 @@ internal sealed class PasswordSprayDetector
         return sources;
     }
 
-    /// <summary>Accounts by sAMAccountName (live search); unknown names keep only the name.</summary>
+    /// <summary>
+    /// Accounts by sAMAccountName (live search). A name that resolves to no account is masked
+    /// (<see cref="MaskUnknownName"/>): failures for unknown accounts (4776 0xC0000064, 4771 0x6) are often a password
+    /// typed into the user name field, and the raw name must never reach the store or a notification.
+    /// </summary>
     private static async Task<IReadOnlyList<ObjectRef>> ResolveAsync(ScanContext context, IReadOnlyList<string> names, CancellationToken cancellationToken)
     {
         var found = new Dictionary<string, ObjectRef>(StringComparer.OrdinalIgnoreCase);
@@ -159,6 +199,19 @@ internal sealed class PasswordSprayDetector
             }
         }
 
-        return [.. names.Select(n => found.TryGetValue(n, out var reference) ? reference : new ObjectRef { Dn = string.Empty, SamAccountName = n, Name = n })];
+        return [.. names.Select(n => found.TryGetValue(n, out var reference) ? reference : new ObjectRef { Dn = string.Empty, Name = MaskUnknownName(n) })];
+    }
+
+    /// <summary>An unresolved TargetUserName as its first character (text element) and length, e.g. <c>L…(9)</c>.</summary>
+    public static string MaskUnknownName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (name.Length == 0)
+        {
+            return "…(0)";
+        }
+
+        var first = System.Globalization.StringInfo.GetNextTextElementLength(name);
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{name[..first]}…({name.Length})");
     }
 }

@@ -1,15 +1,28 @@
+using System.Collections.Specialized;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using AdMng.App.Behaviors;
 using AdMng.App.Infrastructure;
+using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
+using AdMng.App.Views.Watchdog;
+using AdMng.Presentation.Infrastructure;
+using AdMng.Presentation.Services;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
+using AdMng.Watchdog.Contracts.Configuration;
+using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace AdMng.App.UiTests;
 
@@ -110,6 +123,123 @@ public sealed class WatchdogViewTests
         context.AssertHealthy();
     });
 
+    /// <summary>
+    /// Stage B design 18 item 1: a self-signed service certificate opens "Potwierdź certyfikat usługi Watchdog" with the
+    /// fingerprint in groups of four; Cancel pins nothing and leaves "Sprawdź certyfikat…" in the banner, "Ufam temu
+    /// certyfikatowi" pins the fingerprint and connects.
+    /// </summary>
+    [Fact]
+    public Task CertificateConfirmation_OnTheFirstConnection_PinsOnlyAfterTrust() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        client.ServerCertificate = SampleStatus.Certificate;
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: false);
+        var settings = context.Services.GetRequiredService<AdMng.Presentation.Settings.ISettingsStore>();
+
+        var cancel = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(async w =>
+        {
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.Equal("Potwierdź certyfikat usługi Watchdog", w.Title);
+            Assert.Equal("3F2A 9C1E 0B7D 4A55 9E8C 1F20 6A3B 5D7E\n9F0C 2B4D 6E8A 1C3F 5B7D 9E0A 2C4F 6B8D", w.FingerprintText.Text);
+            Assert.True(w.FingerprintPanel.IsVisible);
+            Assert.False(w.ChangedPanel.IsVisible);
+            Assert.Equal("Porównaj z wynikiem sudo admng-watchdog cert-fingerprint na serwerze", w.CompareText.Text);
+            Assert.True(w.CancelButton.IsDefault);
+            Assert.False(w.TrustButton.IsDefault);
+            Assert.False(w.ValidityWarningText.IsVisible);
+            w.CancelButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        });
+        var (tab, view) = await WatchdogUiSupport.OpenAsync(window);
+        await cancel;
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.Equal(WatchdogConnectionState.CertificateInvalid, tab.ConnectionState);
+        Assert.Equal(Visibility.Visible, view.ReviewCertificateButton.Visibility);
+        Assert.Null(settings.Current.Watchdog.PinnedCertificateSha256);
+
+        var trust = UiWait.DriveModalAsync<WatchdogCertificateTrustWindow>(w =>
+        {
+            w.TrustButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            return Task.CompletedTask;
+        });
+        await tab.ReviewCertificateCommand.ExecuteAsync(null);
+        await trust;
+        await tab.Events.Loading;
+        await UiTestSupport.WaitForIdleAsync();
+
+        Assert.True(tab.IsConnected);
+        Assert.Equal(SampleStatus.Certificate.Sha256, settings.Current.Watchdog.PinnedCertificateSha256);
+        Assert.Equal(Visibility.Collapsed, view.ReviewCertificateButton.Visibility);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task CertificateConfirmation_OfAChangedCertificate_ShowsBothFingerprints() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync("pl");
+        var localizer = context.Services.GetRequiredService<AdMng.Presentation.Localization.ILocalizer>();
+        var dialog = new WatchdogCertificateTrustViewModel(
+            localizer, SampleStatus.Certificate, SampleStatus.PreviousCertificateSha256, "admng-wd.contoso.com:8443", SampleEvents.Now, TimeZoneInfo.Utc);
+        var window = (WatchdogCertificateTrustWindow)context.Services.GetRequiredService<IWindowService>().CreateWindow(dialog);
+        UiTestSupport.ShowOffScreen(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+
+        Assert.False(window.FingerprintPanel.IsVisible);
+        Assert.True(window.ChangedPanel.IsVisible);
+        Assert.StartsWith("9B41 D07C", window.PreviousFingerprintText.Text, StringComparison.Ordinal);
+        Assert.StartsWith("3F2A 9C1E", window.NewFingerprintText.Text, StringComparison.Ordinal);
+        Assert.Equal(dialog.Message, window.MessageText.Text);
+        Assert.Equal("CN=admng-wd.contoso.test", window.SubjectText.Text);
+        Assert.False(string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetName(window.TrustButton)));
+
+        window.TrustButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Assert.True(window.Result);
+        context.AssertHealthy();
+    });
+
+    /// <summary>Stage B design 18 items 2 and 4: the Linux sections of "Stan" and the "Źródła i retencja" sub-tab.</summary>
+    [Fact]
+    public Task LinuxService_StatusSections_AndSourcesTab_Render() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        client.Status = SampleStatus.CreateLinux(collectorAndGpo: true);
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: true);
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.ServiceAccountSection.IsReported, "the status of the Linux service");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var status = view.StatusView;
+        foreach (var card in new FrameworkElement[] { status.ServiceAccountCard, status.CollectorCard, status.GpoContentCard, status.HostCard })
+        {
+            Assert.True(card.IsVisible);
+        }
+
+        var texts = UiWait.Descendants<TextBlock>(status.LinuxCards).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+        Assert.Contains("ADMNG-WD$@CONTOSO.TEST", texts);
+        Assert.Contains("Debian GNU/Linux 13 (trixie)", texts);
+        Assert.Contains("dc02.contoso.test", texts);
+        Assert.Contains("14 z 14 GPO, w kolejce: 0", texts);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Sources);
+        var sources = view.SourcesView;
+        Assert.True(sources.IsVisible);
+        Assert.Single(sources.SourceBox.Items);
+        Assert.Equal("48", sources.LogonRecordsHoursBox.Text);
+        Assert.Equal("15", sources.SilenceWarningBox.Text);
+        Assert.True(sources.GpoContentEnabledBox.IsChecked);
+        Assert.True(sources.GpoContentEnabledBox.IsEnabled);
+        sources.LogonRecordsHoursBox.Text = "72";
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.Config.IsDirty);
+        Assert.True(sources.ConfigBar.SaveButton.IsEnabled);
+        context.AssertHealthy();
+    });
+
     [Fact]
     public Task Viewer_GetsAReadOnlyTab() => WpfTestHost.RunAsync(async () =>
     {
@@ -173,7 +303,7 @@ public sealed class WatchdogViewTests
         Control[] expected =
         [
             events.FilterTextBox, events.SeverityBox, events.UnresolvedToggle, events.UnacknowledgedToggle, events.FromPicker,
-            events.ToPicker, events.MoreFiltersToggle, events.ClearFiltersButton, events.PresetBox,
+            events.ToPicker, events.PresetBox, events.MoreFiltersToggle, events.ClearFiltersButton,
         ];
         var order = UiWait.Descendants<Control>(events).Where(c => expected.Contains(c)).ToList();
         Assert.Equal(expected, order);
@@ -192,6 +322,439 @@ public sealed class WatchdogViewTests
         Assert.Empty(unnamed);
         context.AssertHealthy();
     });
+
+    /// <summary>
+    /// The Events sub-tab at 1440 × 900 (the screenshot size): the state and host once in the banner, no empty object
+    /// details pane, no empty saved-filter list, event titles not cut off, Critical told apart from High, and the
+    /// product name on the details button.
+    /// </summary>
+    [Fact]
+    public Task EventsLayout_At1440_ShowsTitlesAndNoEmptyOrRepeatedParts() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        // The main window's object details pane would stay empty next to the Watchdog tab.
+        Assert.Equal(Visibility.Collapsed, window.DetailsPane.Visibility);
+        Assert.Equal(0, window.DetailsColumn.ActualWidth);
+
+        // "Połączono admng-wd.contoso.com:8443" once – no second "Połączono z admng-wd.contoso.com:8443".
+        var bannerTexts = UiWait.Descendants<TextBlock>(view.ConnectionBanner).Where(t => t.IsVisible).Select(t => t.Text).ToList();
+        Assert.Single(bannerTexts, t => t.Contains("admng-wd.contoso.com:8443", StringComparison.Ordinal));
+        Assert.Equal(Visibility.Collapsed, view.ConnectionMessage.Visibility);
+
+        // No saved filters: no empty, unlabeled list next to the reset button.
+        var events = view.EventsView;
+        Assert.Equal(Visibility.Collapsed, events.PresetPanel.Visibility);
+
+        // Every shown column fits the feed (no sideways scrolling); the title takes what the others leave, so the titles
+        // are readable, and the object keeps its room.
+        var list = events.EventsList;
+        AssertColumnsFit(list);
+        Assert.True(Column(list, "Zdarzenie").ActualWidth >= 260, $"The title column is {Column(list, "Zdarzenie").ActualWidth} px wide.");
+        Assert.True(Column(list, "Obiekt").ActualWidth >= 140, $"The object column is {Column(list, "Obiekt").ActualWidth} px wide.");
+        var titles = UiWait.Descendants<TextBlock>(list)
+            .Where(t => t.IsVisible && t.DataContext is WatchdogEventRowViewModel row && t.Text == row.KindText)
+            .ToList();
+        Assert.NotEmpty(titles);
+        Assert.All(titles, t => Assert.True(t.ActualWidth + 0.5 >= TextWidth(t), $"'{t.Text}' is cut off."));
+
+        // Critical and High: both red, Critical with a ring (and its semibold text).
+        var dots = UiWait.Descendants<Ellipse>(list).Where(e => e.IsVisible).ToList();
+        var critical = dots.First(e => Equals(e.Tag, Severity.Critical));
+        var high = dots.First(e => Equals(e.Tag, Severity.High));
+        Assert.True(critical.StrokeThickness > 0);
+        var ring = Assert.IsType<SolidColorBrush>(critical.Stroke, exactMatch: false);
+        Assert.NotEqual(Assert.IsType<SolidColorBrush>(critical.Fill, exactMatch: false).Color, ring.Color);
+        Assert.True(high.Stroke is null || high.StrokeThickness == 0);
+
+        // The product name, without an underscore WPF would take for an access key.
+        Assert.Equal("Pokaż w AD Manager", events.DetailsView.OpenInAdMngButton.Content);
+
+        // Back on a list tab the operator's details pane returns.
+        window.Shell.SelectedTab = window.Shell.ListDocuments.First();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, window.DetailsPane.Visibility);
+        Assert.True(window.DetailsColumn.ActualWidth > 0);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The filter bar of the feed: at 1440 × 900 every filter and the reset button (named, with a tool tip) share one row;
+    /// in a narrow window the filters wrap, but the reset button stays on the first row next to "Więcej filtrów" – never
+    /// alone on a row. The comment box of the toolbar shows its whole placeholder.
+    /// </summary>
+    [Fact]
+    public Task FilterBar_ResetButtonSharesTheRowOfTheFilters() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (_, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var events = view.EventsView;
+        var reset = events.ClearFiltersButton;
+        Assert.Equal("Wyczyść filtry", AutomationProperties.GetName(reset));
+        Assert.Equal("Wyczyść filtry", reset.ToolTip);
+        Control[] filters =
+        [
+            events.FilterTextBox, events.SeverityBox, events.UnresolvedToggle, events.UnacknowledgedToggle, events.FromPicker,
+            events.ToPicker, events.MoreFiltersToggle,
+        ];
+        Assert.All(filters, f => AssertSameRow(f, reset, events.FilterBar));
+        Assert.True(Bounds(reset, events.FilterBar).Left >= Bounds(events.MoreFiltersToggle, events.FilterBar).Right, "The reset button is not after \"Więcej filtrów\".");
+
+        // The whole placeholder of the acknowledgement comment.
+        var placeholder = ((Grid)events.AcknowledgeCommentBox.Parent).Children.OfType<TextBlock>().Single();
+        Assert.True(placeholder.IsVisible);
+        Assert.True(placeholder.ActualWidth + 0.5 >= TextWidth(placeholder), $"'{placeholder.Text}' is cut off ({placeholder.ActualWidth} px).");
+
+        // A narrow window: the filters wrap, the reset button stays on the first row, after "Więcej filtrów".
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1100, 800);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertSameRow(events.FilterTextBox, reset, events.FilterBar);
+        AssertSameRow(events.MoreFiltersToggle, reset, events.FilterBar);
+        Assert.True(Bounds(events.ToPicker, events.FilterBar).Top > Bounds(reset, events.FilterBar).Bottom - 1, "The filters did not wrap.");
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The feed and the rule list at 1440 × 900 do not scroll sideways (every column ends inside the list, none under the
+    /// vertical scroll bar) and fit again when the window or the details pane is resized.
+    /// </summary>
+    [Fact]
+    public Task ListColumns_FitTheList_At1440_AndAfterResizing() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        // The feed next to the details pane: severity, time, title and object always, the optional columns while they fit.
+        var list = view.EventsView.EventsList;
+        AssertColumnsFit(list);
+        var shown = Headers(list);
+        Assert.Equal(["Ważność", "Czas", "Zdarzenie", "Obiekt"], shown.Take(4));
+
+        // A wide window shows every column; back at 1440 the same columns as before.
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1920, 1080);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(GridViewColumnFit.AllColumns(list).Count, ((GridView)list.View).Columns.Count);
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(shown, Headers(list));
+
+        // The details pane dragged to its minimum: the feed's columns take the 100 px (a wider title or more columns).
+        var before = ((GridView)list.View).Columns.Sum(c => c.ActualWidth);
+        var panes = (Grid)view.EventsView.DetailsSplitter.Parent;
+        panes.ColumnDefinitions[2].Width = new GridLength(300);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.True(((GridView)list.View).Columns.Sum(c => c.ActualWidth) >= before + 90, "The feed's columns did not follow the splitter.");
+        Assert.Superset(shown.ToHashSet(), Headers(list).ToHashSet());
+
+        // A width the operator set without dragging a gripper (a double click on it sizes the column to its content, no
+        // drag starts or completes): kept, and the other columns give way at once – no sideways scrolling.
+        var title = Column(list, "Zdarzenie");
+        var objectColumn = Column(list, "Obiekt");
+        var operatorWidth = Math.Floor(objectColumn.ActualWidth) + 100;
+        objectColumn.Width = operatorWidth;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.Equal(operatorWidth, objectColumn.Width);
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
+        objectColumn.Width = double.NaN;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(list);
+        Assert.True(double.IsNaN(objectColumn.Width), "The operator's auto width was replaced.");
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
+
+        // The rules next to the editor: the delivery column ends inside the list.
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
+        var rules = view.RulesView.RulesList;
+        AssertColumnsFit(rules);
+        Assert.Equal(4, ((GridView)rules.View).Columns.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The application opens at its declared size 1360 × 840 (no window placement is restored): there too the feed (next to
+    /// the 400 px details pane), the rule list and the delivery log do not scroll sideways, and the feed shows severity, time,
+    /// title and object – the minimum widths of the feed's required columns once added up to more than its width.
+    /// </summary>
+    [Fact]
+    public Task ListColumns_FitTheLists_AtTheDefaultWindowSize() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        Assert.Equal(1360, window.Width);
+        Assert.Equal(840, window.Height);
+        await ScreenshotWriter.ShowAsync(window);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var list = view.EventsView.EventsList;
+        AssertColumnsFit(list);
+        Assert.Equal(["Ważność", "Czas", "Zdarzenie", "Obiekt"], Headers(list).Take(4));
+        var title = Column(list, "Zdarzenie");
+        Assert.True(title.ActualWidth >= GridViewColumnFit.GetMinWidth(title), $"The title column is {title.ActualWidth} px wide.");
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Rules);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(view.RulesView.RulesList);
+
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        AssertColumnsFit(view.StatusView.DeliveryLogList);
+        Assert.Equal(8, ((GridView)view.StatusView.DeliveryLogList.View).Columns.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// The lists of the Status tab at 1440 × 900 do not scroll sideways: the delivery log (its eight columns are wider than
+    /// the card at their XAML widths) fits the card, subject and error take what the others leave; the audit fits as well.
+    /// </summary>
+    [Fact]
+    public Task StatusLists_FitTheirCards_At1440() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Status);
+        await UiWait.UntilAsync(() => tab.Status.HasStatus && tab.Status.Audit.Count > 0 && tab.Status.DeliveryLog.Items.Count > 0, "the status");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var log = view.StatusView.DeliveryLogList;
+        AssertColumnsFit(log);
+        Assert.Equal(8, ((GridView)log.View).Columns.Count);
+        Assert.True(Column(log, "Temat").ActualWidth >= 160, $"The subject column is {Column(log, "Temat").ActualWidth} px wide.");
+        AssertColumnsFit(view.StatusView.AuditList);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// An operator reading older events keeps their place while a status round merges late matches above and below the
+    /// rows in view: the same row stays first in view, the selected row stays selected and in view, and the list gets one
+    /// Add per late match – no Reset, which would scroll it back to the top.
+    /// </summary>
+    [Fact]
+    public Task LateMatchMerge_KeepsTheScrollPositionAndTheSelection() => WpfTestHost.RunAsync(async () =>
+    {
+        // Fifty accounts created in the last hour: forty High, ten stored as Low that the service raises to High later.
+        var time = new FakeTimeProvider(SampleEvents.Now);
+        var client = WatchdogUiSupport.CreateClient(time: time);
+        var raised = new List<WatchEvent>();
+        for (var i = 0; i < 50; i++)
+        {
+            var severity = i % 5 == 2 ? Severity.Low : Severity.High;
+            var added = client.AddEvent(SampleEvents.NewUser($"Konto {i:D2} Źdźbło", SampleEvents.Now.AddMinutes(-60 + i), severity));
+            if (severity == Severity.Low)
+            {
+                raised.Add(added);
+            }
+        }
+
+        await using var context = await UiTestContext.CreateAsync("pl", services =>
+        {
+            WatchdogUiSupport.Use(client)(services);
+            WatchdogUiSupport.UseClock(time)(services);
+        });
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        var feed = tab.Events;
+        feed.Filter.MinSeverity = feed.Filter.Severities.Single(s => s.Value == Severity.High);
+        await feed.Loading;
+        await UiWait.UntilAsync(() => client.EventQueries.LastOrDefault(q => q.After is not null) is { MinSeverity: Severity.High }, "the filtered long-poll");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.DoesNotContain(feed.Items, r => raised.Any(e => e.Id == r.Id));
+
+        // Scrolled down to older events, one of them selected.
+        var list = view.EventsView.EventsList;
+        var scroller = UiWait.Descendants<ScrollViewer>(list).First();
+        scroller.ScrollToVerticalOffset(15);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        var offset = scroller.VerticalOffset;
+        Assert.True(offset >= 15, $"The feed scrolled to {offset} only.");
+        var first = feed.Items[(int)Math.Floor(offset)];
+        var selected = feed.Items[(int)Math.Floor(offset) + 3];
+        list.SelectedItem = selected;
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+        Assert.Same(first, view.EventsView.AnchorRow);
+
+        // The service raises the ten; the next status round (30 s later) merges them at their place.
+        foreach (var watchEvent in raised)
+        {
+            client.UpdateEvent(watchEvent.Id, e => e with { Severity = Severity.High });
+        }
+
+        var changes = new List<NotifyCollectionChangedAction>();
+        feed.Items.CollectionChanged += (_, e) => changes.Add(e.Action);
+        time.Advance(WatchdogPoller.VisibleStatusInterval);
+        await UiWait.UntilAsync(() => raised.All(e => feed.Items.Any(r => r.Id == e.Id)), "the late matches");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(Enumerable.Repeat(NotifyCollectionChangedAction.Add, raised.Count), changes);
+        var above = raised.Count(e => e.Id > first.Id);
+        Assert.InRange(above, 1, raised.Count - 1);
+        Assert.Equal(offset + above, scroller.VerticalOffset, 3);
+        Assert.Same(first, feed.Items[(int)Math.Floor(scroller.VerticalOffset)]);
+        Assert.Same(selected, list.SelectedItem);
+        var row = Assert.IsType<ListViewItem>(list.ItemContainerGenerator.ContainerFromItem(selected));
+        Assert.True(row.IsSelected && row.IsVisible);
+        context.AssertHealthy();
+    });
+
+    /// <summary>Channels at 1440 × 900: the SMTP authentication and the sender are shown in full.</summary>
+    [Fact]
+    public Task ChannelsLayout_At1440_ShowsTheSmtpValuesInFull() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        await using var context = await UiTestContext.CreateAsync("pl", WatchdogUiSupport.Use(client));
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1440, 900);
+        await window.Shell.InitializeAsync();
+        var (tab, view) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        await WatchdogUiSupport.SelectAsync(tab, WatchdogSubTab.Channels);
+        tab.Channels.SelectedChannel = tab.Channels.Channels.Single(c => c.Id == "siem");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        var channels = view.ChannelsView;
+        var authentication = channels.SmtpAuthenticationBox;
+        var selected = Assert.IsType<Option<SmtpAuthentication>>(authentication.SelectedItem);
+        Assert.Equal("Nazwa użytkownika i hasło", selected.Text);
+        var shown = UiWait.Descendants<TextBlock>(authentication).First(t => t.IsVisible && t.Text == selected.Text);
+        Assert.True(shown.ActualWidth + 0.5 >= TextWidth(shown), $"'{shown.Text}' is cut off ({shown.ActualWidth} px).");
+
+        var from = channels.SmtpFromBox;
+        Assert.Equal("AD Watchdog <watchdog@contoso.com>", from.Text);
+        Assert.True(from.ExtentWidth <= from.ViewportWidth + 0.5, $"The sender is cut off ({from.ViewportWidth} of {from.ExtentWidth} px).");
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task MainWindow_AsksBeforeClosing_WhenTheWatchdogConfigurationIsUnsaved() => WpfTestHost.RunAsync(async () =>
+    {
+        var client = WatchdogUiSupport.CreateClient();
+        var dialogs = new ScriptedDialogService { ConfirmAnswer = false };
+        await using var context = await UiTestContext.CreateAsync("pl", services =>
+        {
+            WatchdogUiSupport.Use(client)(services);
+            services.Replace(ServiceDescriptor.Singleton<IDialogService>(dialogs));
+        });
+        await WatchdogUiSupport.ConfigureAddressAsync(context);
+        var window = await ShowMainWindowAsync(context, connect: true);
+        var (tab, _) = await WatchdogUiSupport.OpenConnectedAsync(window);
+        tab.Config.Update(c => c with { Smtp = c.Smtp with { From = "Strażnik AD <straznik@contoso.com>" } });
+        Assert.True(tab.HasUnsavedChanges);
+
+        // The close is cancelled first; the question comes after the Closing event. Declined: the window stays.
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(window.IsVisible);
+        Assert.Single(dialogs.Confirmations);
+        Assert.Contains(tab, window.Shell.Documents);
+        Assert.True(tab.Config.IsDirty);
+
+        dialogs.ConfirmAnswer = true;
+        window.Close();
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.False(window.IsVisible);
+        Assert.Equal(2, dialogs.Confirmations.Count);
+        context.AssertHealthy();
+    });
+
+    /// <summary>
+    /// <paramref name="list"/> does not scroll sideways and every column header ends inside the list, left of the vertical
+    /// scroll bar (which the Fluent theme lays over the rows).
+    /// </summary>
+    private static void AssertColumnsFit(ListView list)
+    {
+        var viewer = UiWait.Descendants<ScrollViewer>(list).First();
+        Assert.True(viewer.ExtentWidth <= viewer.ViewportWidth + 0.5, $"{list.Name} scrolls sideways: {viewer.ExtentWidth} px in {viewer.ViewportWidth} px.");
+        Assert.NotEqual(Visibility.Visible, viewer.ComputedHorizontalScrollBarVisibility);
+        var bar = viewer.Template.FindName("PART_VerticalScrollBar", viewer) as ScrollBar;
+        var right = bar is { IsVisible: true } && bar.TranslatePoint(default, viewer).X is var left && left < viewer.ViewportWidth
+            ? left
+            : viewer.ViewportWidth;
+        var headers = UiWait.Descendants<GridViewColumnHeader>(list).Where(h => h.Column is not null && h.IsVisible).ToList();
+        Assert.Equal(((GridView)list.View).Columns.Count, headers.Count);
+        Assert.All(headers, h =>
+        {
+            var edge = h.TranslatePoint(new Point(h.ActualWidth, 0), viewer).X;
+            Assert.True(edge <= right + 0.5, $"Column '{h.Column.Header}' of {list.Name} ends at {edge} px, the list shows {right} px.");
+        });
+    }
+
+    /// <summary>The bounds of <paramref name="element"/> in <paramref name="root"/>'s coordinates.</summary>
+    private static Rect Bounds(FrameworkElement element, Visual root) =>
+        element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
+
+    /// <summary><paramref name="a"/> and <paramref name="b"/> are on the same row: each one's vertical centre is inside the other.</summary>
+    private static void AssertSameRow(FrameworkElement a, FrameworkElement b, Visual root)
+    {
+        var first = Bounds(a, root);
+        var second = Bounds(b, root);
+        var firstCentre = (first.Top + first.Bottom) / 2;
+        var secondCentre = (second.Top + second.Bottom) / 2;
+        Assert.True(
+            firstCentre >= second.Top && firstCentre <= second.Bottom && secondCentre >= first.Top && secondCentre <= first.Bottom,
+            $"{a.Name} ({first}) and {b.Name} ({second}) are not on the same row.");
+    }
+
+    /// <summary>The headers of the shown columns ("✓" for the glyph header).</summary>
+    private static List<string> Headers(ListView list) =>
+        [.. ((GridView)list.View).Columns.Select(c => c.Header as string ?? "✓")];
+
+    private static GridViewColumn Column(ListView list, string header) =>
+        ((GridView)list.View).Columns.Single(c => Equals(c.Header, header));
+
+    /// <summary>Width of <paramref name="text"/>'s whole text in its font (what it needs to be shown uncut).</summary>
+    private static double TextWidth(TextBlock text) =>
+        new FormattedText(
+            text.Text,
+            CultureInfo.CurrentUICulture,
+            text.FlowDirection,
+            new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch),
+            text.FontSize,
+            Brushes.Black,
+            VisualTreeHelper.GetDpi(text).PixelsPerDip).WidthIncludingTrailingWhitespace;
 
     private static async Task<MainWindow> ShowMainWindowAsync(UiTestContext context, bool connect)
     {

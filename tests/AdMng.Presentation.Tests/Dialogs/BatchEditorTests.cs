@@ -425,6 +425,12 @@ public class BatchEditorTests
         Assert.Contains("dc01.contoso.test", harness.Clipboard.Text, StringComparison.Ordinal);
         Assert.Contains("-Server $server", harness.Clipboard.Text, StringComparison.Ordinal);
         Assert.Empty(harness.Session.Writes);
+
+        // A clipboard held by another process: the clipboard service warns, the copy is not confirmed.
+        var toasts = harness.Notifications.Items.Count;
+        harness.Clipboard.IsBusy = true;
+        editor.CopyPowerShellCommand.Execute(null);
+        Assert.Equal(toasts, harness.Notifications.Items.Count);
     }
 
     [Fact]

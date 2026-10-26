@@ -12,8 +12,9 @@ namespace AdMng.Watchdog.Client;
 /// HTTP results and transport failures → <see cref="WatchdogClientException"/> (spec 5.5): 401 Unauthorized, 403
 /// Forbidden, 404 NotFound, 412 VersionConflict, 400/409/413/415 Validation (with the problem's issues), 504 Timeout,
 /// other statuses ServerError; a response without or with another <c>X-AdMng-Watchdog-Api</c> version
-/// ApiVersionMismatch; socket failures Unreachable, TLS failures CertificateInvalid, an elapsed request timeout Timeout,
-/// the caller's cancellation Cancelled. Messages are constant texts plus the server's problem title – never a body.
+/// ApiVersionMismatch; socket failures Unreachable, TLS failures CertificateInvalid – CertificateUntrusted /
+/// CertificateChanged with the presented leaf when only its chain failed (stage B design 18 item 1) –, an elapsed request
+/// timeout Timeout, the caller's cancellation Cancelled. Messages are constant texts plus the server's problem title – never a body.
 /// </summary>
 public static class WatchdogClientErrors
 {
@@ -34,7 +35,7 @@ public static class WatchdogClientErrors
             return null;
         }
 
-        var (title, issues) = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
+        var (title, type, issues) = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
         var kind = response.StatusCode switch
         {
             HttpStatusCode.Unauthorized => WatchdogClientErrorKind.Unauthorized,
@@ -49,11 +50,23 @@ public static class WatchdogClientErrors
         var message = string.IsNullOrWhiteSpace(title)
             ? string.Create(CultureInfo.InvariantCulture, $"The watchdog service answered HTTP {status}.")
             : string.Create(CultureInfo.InvariantCulture, $"The watchdog service answered HTTP {status}: {title}");
-        return new WatchdogClientException(kind, message) { StatusCode = status, Issues = issues };
+        return new WatchdogClientException(kind, message)
+        {
+            StatusCode = status,
+            Issues = issues,
+            ProblemType = type,
+            RetryAfter = response.Headers.RetryAfter?.Delta
+                ?? (response.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null),
+        };
     }
 
     /// <summary>The error of a failed request.</summary>
-    public static WatchdogClientException FromException(Exception exception, bool callerCancelled)
+    public static WatchdogClientException FromException(Exception exception, bool callerCancelled) =>
+        FromException(exception, callerCancelled, null, null);
+
+    /// <summary>The error of a failed request; a TLS failure with a <paramref name="rejected"/> leaf (refused for its chain
+    /// only) is CertificateUntrusted without a <paramref name="pin"/>, else CertificateChanged.</summary>
+    public static WatchdogClientException FromException(Exception exception, bool callerCancelled, WatchdogServerCertificate? rejected, string? pin)
     {
         ArgumentNullException.ThrowIfNull(exception);
         if (exception is OperationCanceledException)
@@ -65,6 +78,21 @@ public static class WatchdogClientErrors
 
         if (Find<AuthenticationException>(exception) is not null)
         {
+            if (rejected is not null)
+            {
+                var normalizedPin = WatchdogServerCertificate.NormalizeSha256(pin);
+                return normalizedPin is null
+                    ? new WatchdogClientException(WatchdogClientErrorKind.CertificateUntrusted, "The certificate of the watchdog service is not trusted yet.", exception)
+                    {
+                        Certificate = rejected,
+                    }
+                    : new WatchdogClientException(WatchdogClientErrorKind.CertificateChanged, "The certificate of the watchdog service differs from the pinned one.", exception)
+                    {
+                        Certificate = rejected,
+                        PinnedCertificateSha256 = normalizedPin,
+                    };
+            }
+
             return new WatchdogClientException(WatchdogClientErrorKind.CertificateInvalid, "The certificate of the watchdog service is not trusted.", exception);
         }
 
@@ -76,11 +104,11 @@ public static class WatchdogClientErrors
         return new WatchdogClientException(WatchdogClientErrorKind.Unreachable, "The connection to the watchdog service failed.", exception);
     }
 
-    private static async Task<(string? Title, IReadOnlyList<ConfigIssue> Issues)> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<(string? Title, string? Type, IReadOnlyList<ConfigIssue> Issues)> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Content.Headers.ContentType?.MediaType is not ("application/problem+json" or "application/json"))
         {
-            return (null, []);
+            return (null, null, []);
         }
 
         try
@@ -90,14 +118,17 @@ public static class WatchdogClientErrors
             var title = document.RootElement.TryGetProperty("title", out var titleElement) && titleElement.ValueKind == JsonValueKind.String
                 ? titleElement.GetString()
                 : null;
+            var type = document.RootElement.TryGetProperty("type", out var typeElement) && typeElement.ValueKind == JsonValueKind.String
+                ? typeElement.GetString()
+                : null;
             var issues = document.RootElement.TryGetProperty("issues", out _)
                 ? JsonSerializer.Deserialize<ConfigValidationResult>(text, WatchdogJson.Options)?.Issues ?? []
                 : [];
-            return (title, issues);
+            return (title, type, issues);
         }
         catch (JsonException)
         {
-            return (null, []);
+            return (null, null, []);
         }
     }
 

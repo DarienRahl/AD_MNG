@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Text;
 using System.Text.RegularExpressions;
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
@@ -39,7 +40,11 @@ public static partial class MimeMessageFactory
         return string.IsNullOrWhiteSpace(fqdn) ? "localhost" : fqdn.ToLowerInvariant();
     }
 
-    /// <summary>The MIME messages of one outbox e-mail (one per recipient chunk).</summary>
+    /// <summary>The MIME messages of one outbox e-mail (one per recipient chunk). The recipients are sorted before they
+    /// are chunked, so the same recipient set always gives the same chunks: chunk n has the Message-ID
+    /// <c>{MessageId}.{n}</c> (the first one <c>{MessageId}</c>), and chunk n of a follow-up replies to chunk n of its
+    /// original (<c>In-Reply-To: {original}.{n}</c>) – the follow-up goes to the original's recipients, so every recipient
+    /// gets the reply in the thread of the message it received.</summary>
     /// <exception cref="FormatException">The configured sender address is not valid.</exception>
     public static IReadOnlyList<MimeMessage> Create(OutboxMessage message, SmtpSettings smtp, string localDomain, DateTimeOffset now)
     {
@@ -49,17 +54,22 @@ public static partial class MimeMessageFactory
         var chunks = message.Recipients
             .Where(r => !string.IsNullOrWhiteSpace(r))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
             .Chunk(Math.Max(1, smtp.MaxRecipientsPerMessage))
             .ToList();
         var result = new List<MimeMessage>(chunks.Count);
         for (var i = 0; i < chunks.Count; i++)
         {
-            var id = i == 0 ? message.MessageId : string.Create(CultureInfo.InvariantCulture, $"{message.MessageId}.{i + 1}");
-            result.Add(Create(email, smtp, chunks[i], id, localDomain, message.Severity, message.RuleId, now));
+            var chunkEmail = i > 0 && !string.IsNullOrWhiteSpace(email.InReplyTo) ? email with { InReplyTo = ChunkId(email.InReplyTo, i) } : email;
+            result.Add(Create(chunkEmail, smtp, chunks[i], ChunkId(message.MessageId, i), localDomain, message.Severity, message.RuleId, now));
         }
 
         return result;
     }
+
+    /// <summary>The Message-ID local part of recipient chunk <paramref name="index"/> (0-based) of a message.</summary>
+    public static string ChunkId(string messageId, int index) =>
+        index == 0 ? messageId : string.Create(CultureInfo.InvariantCulture, $"{messageId}.{index + 1}");
 
     /// <summary>One MIME message for <paramref name="recipients"/>.</summary>
     public static MimeMessage Create(
@@ -119,6 +129,51 @@ public static partial class MimeMessageFactory
         return mime;
     }
 
+    /// <summary>
+    /// A message to a user (README U1b, <see cref="DeliveryKind.UserMessage"/>) as AD Manager's direct SMTP transport builds
+    /// it: header From / Reply-To / To / CC from the checked <see cref="UserMessageEnvelope"/>, <c>Message-ID:
+    /// &lt;{MessageId}@{LocalDomain}&gt;</c>, <c>Auto-Submitted: auto-generated</c>, <c>X-Auto-Response-Suppress: All</c>,
+    /// <c>X-AdMng-Message: user-notification</c>, text + HTML (text only when the HTML is empty). No attachments, no
+    /// severity or rule headers. The envelope sender (MAIL FROM) is chosen by the transport (<c>smtp.from</c>).
+    /// </summary>
+    /// <exception cref="FormatException">An address is not a single valid mailbox.</exception>
+    public static MimeMessage CreateUserMessage(RenderedEmail email, UserMessageEnvelope envelope, string messageId, string localDomain, DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(email);
+        ArgumentNullException.ThrowIfNull(envelope);
+        var mime = new MimeMessage
+        {
+            Subject = HeaderSafe(email.Subject),
+            Date = now,
+            MessageId = $"{HeaderSafe(messageId)}@{HeaderSafe(localDomain)}",
+        };
+        mime.From.Add(Mailbox(envelope.From));
+        if (envelope.ReplyTo is { } replyTo)
+        {
+            mime.ReplyTo.Add(Mailbox(replyTo));
+        }
+
+        foreach (var to in envelope.To)
+        {
+            mime.To.Add(Mailbox(to));
+        }
+
+        foreach (var cc in envelope.Cc)
+        {
+            mime.Cc.Add(Mailbox(cc));
+        }
+
+        mime.Headers.Add("Auto-Submitted", "auto-generated");
+        mime.Headers.Add("X-Auto-Response-Suppress", "All");
+        mime.Headers.Add("X-AdMng-Message", "user-notification");
+        mime.Body = new BodyBuilder
+        {
+            TextBody = email.TextBody,
+            HtmlBody = string.IsNullOrEmpty(email.HtmlBody) ? null : email.HtmlBody,
+        }.ToMessageBody();
+        return mime;
+    }
+
     /// <summary>Parses an address ("Name &lt;a@b&gt;" or "a@b"; a local part and a domain are required).</summary>
     /// <exception cref="FormatException">Not a single valid mailbox (the address itself is not part of the message).</exception>
     public static MailboxAddress ParseMailbox(string address)
@@ -130,6 +185,14 @@ public static partial class MimeMessageFactory
         }
 
         return mailbox;
+    }
+
+    /// <summary>A mailbox of a checked address with a header-safe display name.</summary>
+    private static MailboxAddress Mailbox(UserMessageMailbox mailbox)
+    {
+        var parsed = ParseMailbox(mailbox.Address);
+        var name = HeaderSafe(mailbox.DisplayName);
+        return new MailboxAddress(name.Length == 0 ? null : name, parsed.Address);
     }
 
     /// <summary>Removes CR/LF and other control characters (header injection) and trims.</summary>

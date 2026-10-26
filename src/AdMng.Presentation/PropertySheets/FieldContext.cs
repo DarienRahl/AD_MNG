@@ -25,6 +25,12 @@ internal sealed class FieldContext(DialogServices services, IDirectorySession se
 
     public IDirectorySession Session { get; } = session;
 
+    /// <summary>Reads of all domain controllers ("Sprawdź na wszystkich DC" of the account state), null = current DC only.</summary>
+    public AccountReview.DomainControllerReader? DomainControllers { get; init; }
+
+    /// <summary>"Wyślij wiadomość…" (U1); null when the host registered no message launcher.</summary>
+    public AccountReview.IUserMessageLauncher? Messages { get; init; }
+
     public ILocalizer Localizer => Services.Localizer;
 
     public ISchemaCatalog Schema => Session.Schema;

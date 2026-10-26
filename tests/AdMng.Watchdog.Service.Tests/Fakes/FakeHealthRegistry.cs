@@ -56,6 +56,22 @@ public sealed class FakeHealthRegistry : IHealthRegistry
 
     public void ReportAttribution(AttributionStatusDto status) => Attribution = status;
 
+    public ServiceAccountStatusDto? ServiceAccount { get; private set; }
+
+    public CollectorStatusDto? Collector { get; private set; }
+
+    public GpoContentStatusDto? GpoContent { get; private set; }
+
+    public HostStatusDto? Host { get; private set; }
+
+    public void ReportServiceAccount(ServiceAccountStatusDto status) => ServiceAccount = status;
+
+    public void ReportCollector(CollectorStatusDto status) => Collector = status;
+
+    public void ReportGpoContent(GpoContentStatusDto status) => GpoContent = status;
+
+    public void ReportHost(HostStatusDto status) => Host = status;
+
     public ChannelHealthDto? Channel(string id)
     {
         lock (_gate)

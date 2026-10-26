@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Service.Hosting;
 using AdMng.Watchdog.Service.Tests.Fakes;
 using AdMng.Watchdog.Testing.Certificates;
@@ -76,6 +77,90 @@ public sealed class CertificateSelectorTests
 
         Assert.Equal(renewed.Thumbprint, selector.Current?.Thumbprint);
     }
+
+    /// <summary>AD CS auto-enrollment renews the certificate, but the new key gets the default ACL: the service keeps the
+    /// previous (still valid) certificate, reports it once – and switches when the key becomes readable.</summary>
+    [Fact]
+    public void Reload_KeepsTheCurrentCertificate_WhileTheRenewedKeyIsUnreadable()
+    {
+        var store = new InMemoryCertificateStore();
+        var original = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-300), Now.AddDays(45));
+        store.Add(StoreName.My, original);
+        var clock = new FakeTimeProvider(Now);
+        var health = new FakeHealthRegistry();
+        var log = new TestLog();
+        var unreadable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var selector = new CertificateSelector(store, SubjectOptions(), clock, health, log.For<CertificateSelector>(), c => !unreadable.Contains(c.Thumbprint));
+        Assert.Equal(original.Thumbprint, selector.Reload()?.Thumbprint);
+
+        var renewed = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-1), Now.AddDays(365));
+        unreadable.Add(renewed.Thumbprint);
+        store.Add(StoreName.My, renewed);
+        clock.Advance(CertificateSelector.ReloadInterval);
+        clock.Advance(CertificateSelector.ReloadInterval);
+
+        Assert.Equal(original.Thumbprint, selector.Current?.Thumbprint);
+        var problem = Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode);
+        Assert.Equal(HealthState.Warning, problem.State);
+        Assert.Equal([renewed.Thumbprint], problem.Args);
+        Assert.Single(log.Entries, e => e.EventId.Id == EventLogIds.RuntimeOrCertificate && e.Values.Contains(renewed.Thumbprint, StringComparison.OrdinalIgnoreCase));
+
+        unreadable.Clear();   // the administrator grants the gMSA Read on the new key
+        clock.Advance(CertificateSelector.ReloadInterval);
+
+        Assert.Equal(renewed.Thumbprint, selector.Current?.Thumbprint);
+        Assert.Equal(HealthState.Ok, Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode).State);
+    }
+
+    [Fact]
+    public void Reload_WithoutAUsableAlternative_ReportsAnError()
+    {
+        var store = new InMemoryCertificateStore();
+        var original = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-300), Now.AddMinutes(15));
+        store.Add(StoreName.My, original);
+        var clock = new FakeTimeProvider(Now);
+        var health = new FakeHealthRegistry();
+        var renewed = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-1), Now.AddDays(365));
+        var log = new TestLog();
+        using var selector = new CertificateSelector(store, SubjectOptions(), clock, health, log.For<CertificateSelector>(), c => c.Thumbprint != renewed.Thumbprint);
+        selector.Reload();
+        store.Add(StoreName.My, renewed);
+
+        clock.Advance(TimeSpan.FromMinutes(10));   // renewed found, the previous one still serves: Warning
+        Assert.Equal(HealthState.Warning, Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode).State);
+        clock.Advance(TimeSpan.FromMinutes(10));   // the previous certificate has expired meanwhile
+        clock.Advance(TimeSpan.FromMinutes(10));   // and stays expired: no further log entry
+
+        Assert.Equal(HealthState.Error, Assert.Single(health.Checks, c => c.Code == CertificateSelector.KeyHealthCode).State);
+
+        // The moment TLS starts failing reaches the Application log as an Error, not only the earlier Warning.
+        var entries = log.Entries.Where(e => e.EventId.Id == EventLogIds.RuntimeOrCertificate && e.Values.Contains(renewed.Thumbprint, StringComparison.OrdinalIgnoreCase)).ToList();
+        Assert.Equal([Microsoft.Extensions.Logging.LogLevel.Warning, Microsoft.Extensions.Logging.LogLevel.Error], entries.Select(e => e.Level));
+    }
+
+    [Fact]
+    public void Reload_ReEvaluatesTheExpiryWarning()
+    {
+        var store = new InMemoryCertificateStore();
+        var certificate = TestCertificates.Create("admng-wd.contoso.com", Now.AddDays(-300), Now.AddDays(30).AddHours(1));
+        store.Add(StoreName.My, certificate);
+        var clock = new FakeTimeProvider(Now);
+        var health = new FakeHealthRegistry();
+        var log = new TestLog();
+        using var selector = new CertificateSelector(store, SubjectOptions(), clock, health, log.For<CertificateSelector>(), _ => true);
+        selector.Reload();
+        Assert.DoesNotContain(health.Checks, c => c.Code == CertificateSelector.ExpiryHealthCode);
+
+        clock.Advance(TimeSpan.FromHours(2));
+
+        Assert.Equal(HealthState.Warning, Assert.Single(health.Checks, c => c.Code == CertificateSelector.ExpiryHealthCode).State);
+        Assert.Single(log.Entries, e => e.EventId.Id == EventLogIds.RuntimeOrCertificate);
+    }
+
+    private static StaticOptionsMonitor<ServiceOptions> SubjectOptions() => new(new ServiceOptions
+    {
+        Hosting = new HostingOptions { Certificate = new CertificateOptions { Subject = "admng-wd.contoso.com" } },
+    });
 
     private sealed class InMemoryCertificateStore : ICertificateStore
     {

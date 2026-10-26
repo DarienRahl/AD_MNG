@@ -10,7 +10,13 @@ public sealed record WatchEvent
     /// <summary>Events produced from one object diff (create + enable + password set) share this id.</summary>
     public Guid ChangeSetId { get; init; }
     public required WatchEventKind Kind { get; init; }
+    /// <summary>The evaluated (displayed) severity: <see cref="OwnSeverity"/> raised by the <c>Severity</c> overrides of the
+    /// rules the event matched (12.1) – feed, digest, counts.</summary>
     public Severity Severity { get; init; }
+    /// <summary>The event's own severity without rule overrides (12.2: detection, tag bumps, attribution) – the input of
+    /// every rule match (<c>MinSeverity</c>, <c>rule.Severity ?? OwnSeverity</c>). The store fills it on insert; null =
+    /// <see cref="Severity"/> (an event not stored yet).</summary>
+    public Severity? OwnSeverity { get; init; }
     public required ObjectRef Object { get; init; }
     public string? PreviousDn { get; init; }                 // moves/renames, deletions (last live DN)
     public IReadOnlyList<AttributeChange> Changes { get; init; } = [];

@@ -35,7 +35,8 @@ public sealed partial class InMemoryWatchdogStore
             var events = PurgeEvents(now.AddDays(-retention.EventsDays));
             var securityEvents = PurgeSecurityEvents(now.AddDays(-retention.SecurityEventsDays));
             var outbox = PurgeOutbox(now.AddDays(-retention.OutboxSentDays), now.AddDays(-retention.OutboxDeadDays));
-            var snapshots = PurgeDeletedSnapshots(now.AddDays(-retention.DeletedSnapshotDays));
+            var snapshots = PurgeDeletedSnapshots(now.AddDays(-retention.DeletedSnapshotDays))
+                + PurgeDeletedGpoContent(now.AddDays(-retention.DeletedSnapshotDays));
             var notices = PurgeNotices(now - NoticeRetention);
             var audit = PurgeAudit(now.AddDays(-retention.ConfigAuditDays));
             _digestRuns.RemoveAll(r => r.CreatedAt < now - DigestRunRetention);
@@ -98,7 +99,7 @@ public sealed partial class InMemoryWatchdogStore
         var purged = _securityEvents.Where(e => e.TimeCreated < cutoff).ToList();
         foreach (var securityEvent in purged)
         {
-            _securityEventKeys.Remove((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId));
+            _securityEventKeys.Remove((securityEvent.Computer.ToUpperInvariant(), securityEvent.RecordId, StoredTime(securityEvent.TimeCreated)));
         }
 
         _securityEvents.RemoveAll(e => e.TimeCreated < cutoff);

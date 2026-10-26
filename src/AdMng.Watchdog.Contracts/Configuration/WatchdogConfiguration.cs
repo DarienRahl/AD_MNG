@@ -7,7 +7,9 @@ namespace AdMng.Watchdog.Contracts.Configuration;
 /// </summary>
 public sealed record WatchdogConfiguration
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>2 since stage B (Linux): version 1 documents are migrated once – DomainControllers / ForwardedEvents
+    /// attribution sources become <see cref="AttributionSourceKind.OpenWec"/> (stage B design 7.8).</summary>
+    public const int CurrentSchemaVersion = 2;
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public GeneralSettings General { get; init; } = new();
     public DirectorySettings Directory { get; init; } = new();
@@ -22,4 +24,6 @@ public sealed record WatchdogConfiguration
     public DigestSettings Digest { get; init; } = new();
     public IReadOnlyList<RuleSettings> Rules { get; init; } = [];
     public RetentionSettings Retention { get; init; } = new();
+    /// <summary>Messages to users submitted by AD Manager (README U1b); off by default.</summary>
+    public UserMessagingSettings UserMessages { get; init; } = new();
 }

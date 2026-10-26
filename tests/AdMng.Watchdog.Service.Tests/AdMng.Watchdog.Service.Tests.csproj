@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Service\AdMng.Watchdog.Service.csproj" />
     <ProjectReference Include="..\..\src\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
+    <ProjectReference Include="..\..\src\AdMng.Watchdog.Keytab\AdMng.Watchdog.Keytab.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Testing\AdMng.Watchdog.Testing.csproj" />
     <ProjectReference Include="..\AdMng.Testing\AdMng.Testing.csproj" />
   </ItemGroup>
@@ -22,5 +23,9 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- smbclient output captured on the Samba lab (Ubuntu, Samba 4.19.5) – stage B design 8.3. -->
+    <None Update="Gpo\Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

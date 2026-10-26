@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SenderName" xml:space="preserve">
+    <value>IT Department</value>
+  </data>
+  <data name="Footer" xml:space="preserve">
+    <value>This message was sent automatically by the IT department. We never ask for your password – do not reply to messages asking for it and do not click their links.</value>
+  </data>
+  <data name="password-expiring.Name" xml:space="preserve">
+    <value>Password expires in N days</value>
+  </data>
+  <data name="password-expiring.Subject" xml:space="preserve">
+    <value>The password of your account {sAMAccountName} expires on {$passwordExpires:d MMMM yyyy}</value>
+  </data>
+  <data name="password-expiring.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+the password of your account {sAMAccountName} expires on {$passwordExpires:d MMMM yyyy} (days left: {$passwordExpiresInDays}).
+
+Please change it before then: on your company computer press Ctrl+Alt+Del and choose "Change a password". After the change, sign in again on all your devices (phone, laptop, VPN).
+
+If you need help, contact the IT helpdesk.</value>
+  </data>
+  <data name="password-expired.Name" xml:space="preserve">
+    <value>Password expired</value>
+  </data>
+  <data name="password-expired.Subject" xml:space="preserve">
+    <value>The password of your account {sAMAccountName} has expired</value>
+  </data>
+  <data name="password-expired.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+the password of your account {sAMAccountName} expired on {$passwordExpires:d MMMM yyyy}. Until you change it you cannot sign in to e-mail, VPN or company applications.
+
+Change the password at your next sign-in on a company computer or contact the IT helpdesk.</value>
+  </data>
+  <data name="account-expiring.Name" xml:space="preserve">
+    <value>Account expires in N days</value>
+  </data>
+  <data name="account-expiring.Subject" xml:space="preserve">
+    <value>The account {sAMAccountName} expires on {$accountExpires:d MMMM yyyy}</value>
+  </data>
+  <data name="account-expiring.Body" xml:space="preserve">
+    <value>Hello,
+
+the account {displayName} ({sAMAccountName}) is valid until {$accountExpires:d MMMM yyyy} inclusive (days left: {$accountExpiresInDays}).
+
+If the work continues after that date, the manager should ask the IT department to extend the account in time.</value>
+  </data>
+  <data name="account-expired.Name" xml:space="preserve">
+    <value>Account expired</value>
+  </data>
+  <data name="account-expired.Subject" xml:space="preserve">
+    <value>The account {sAMAccountName} has expired</value>
+  </data>
+  <data name="account-expired.Body" xml:space="preserve">
+    <value>Hello,
+
+the account {displayName} ({sAMAccountName}) has expired – its last valid day was {$accountExpires:d MMMM yyyy}.
+
+If the account is still needed, the manager should ask the IT department to extend it.</value>
+  </data>
+  <data name="account-locked.Name" xml:space="preserve">
+    <value>Account locked out</value>
+  </data>
+  <data name="account-locked.Subject" xml:space="preserve">
+    <value>Your account {sAMAccountName} is locked out</value>
+  </data>
+  <data name="account-locked.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+your account {sAMAccountName} was locked out on {$lockedSince:d MMMM yyyy, HH:mm} after several failed sign-in attempts.
+
+If it was not you who tried to sign in, contact the IT helpdesk immediately. To unlock the account, call the helpdesk or wait for the automatic unlock.</value>
+  </data>
+  <data name="account-unlocked.Name" xml:space="preserve">
+    <value>Account unlocked</value>
+  </data>
+  <data name="account-unlocked.Subject" xml:space="preserve">
+    <value>Your account {sAMAccountName} has been unlocked</value>
+  </data>
+  <data name="account-unlocked.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+your account {sAMAccountName} has been unlocked – you can sign in again.
+
+If you do not remember your password, contact the IT helpdesk before trying several times – the account would be locked out again.</value>
+  </data>
+  <data name="must-change-password.Name" xml:space="preserve">
+    <value>Must change password at next logon</value>
+  </data>
+  <data name="must-change-password.Subject" xml:space="preserve">
+    <value>You must change the password of your account {sAMAccountName}</value>
+  </data>
+  <data name="must-change-password.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+at your next sign-in to the account {sAMAccountName} you will be asked to set a new password. Sign in on a company computer and follow the instructions on the screen.
+
+Working remotely? Connect to the VPN first or contact the IT helpdesk.</value>
+  </data>
+  <data name="inactive-disable.Name" xml:space="preserve">
+    <value>Account will be disabled (inactivity)</value>
+  </data>
+  <data name="inactive-disable.Subject" xml:space="preserve">
+    <value>The account {sAMAccountName} will be disabled on {$input:termin}</value>
+  </data>
+  <data name="inactive-disable.Body" xml:space="preserve">
+    <value>Hello,
+
+the account {displayName} ({sAMAccountName}) has not been used since {$lastLogon:d MMMM yyyy}. According to the security policy it will be disabled on {$input:termin}.
+
+If the account is still needed, sign in before that date or ask your manager to contact the IT department.</value>
+  </data>
+  <data name="custom.Name" xml:space="preserve">
+    <value>Custom message</value>
+  </data>
+  <data name="custom.Subject" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="custom.Body" xml:space="preserve">
+    <value>Hello {givenName},
+
+</value>
+  </data>
+</root>

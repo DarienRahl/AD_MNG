@@ -73,11 +73,13 @@ public sealed class DataDirectory
         }
     }
 
-    /// <summary>The files whose ACL must stay inside the allow-list: the folder, the database and its WAL/SHM files.</summary>
+    /// <summary>The files whose ACL must stay inside the allow-list: the folder, the database and its WAL/SHM files, the
+    /// key ring folder and the backup folder (copies of the database) – an explicit ACE on <c>keys\</c> or
+    /// <c>backup\</c>, e.g. left by someone who created them before the installation, would survive the folder's DACL.</summary>
     public IReadOnlyList<string> ProtectedPaths()
     {
         var database = System.IO.Path.Combine(Path, Storage.SqliteDatabase.FileName);
-        return [Path, database, database + "-wal", database + "-shm"];
+        return [Path, database, database + "-wal", database + "-shm", KeysPath, BackupPath];
     }
 
     private static void CreateProtected(string path)

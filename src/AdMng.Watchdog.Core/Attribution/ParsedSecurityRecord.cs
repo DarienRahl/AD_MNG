@@ -6,4 +6,5 @@ namespace AdMng.Watchdog.Core.Attribution;
 /// <see cref="EventSourceGuard"/>, never stored).</summary>
 /// <param name="Provider"><c>System/Provider/@Name</c>.</param>
 /// <param name="Event">The parsed event (all EventData, not yet reduced).</param>
-public sealed record ParsedSecurityRecord(string Provider, SecurityEvent Event);
+/// <param name="Channel"><c>System/Channel</c> (checked in collector mode, stage B design 7.6 check 5); null when absent.</param>
+public sealed record ParsedSecurityRecord(string Provider, SecurityEvent Event, string? Channel = null);

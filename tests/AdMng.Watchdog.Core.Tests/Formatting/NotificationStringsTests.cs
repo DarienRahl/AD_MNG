@@ -18,6 +18,17 @@ public sealed partial class NotificationStringsTests
         "new-accounts", "new-computers", "computers-unusual", "deletions", "account-status", "lockouts", "unlocks", "passwords",
         "account-flags", "account-names", "logon-settings", "account-attributes", "group-changes", "watchlist-groups", "ou-gpo",
         "expiry", "health",
+
+        // stage B (docs/dev/watchdog-linux-design.md 8.6, 9.1–9.3)
+        "tier0-badsuccessor", "tier0-machine-quota", "watchdog-self", "tier0-gpo",
+    ];
+
+    /// <summary>Stage B texts outside the generated families (7.8 collector remedy, 7.8 ADWS source, 8.4 unreadable file, 8.6 summary row,
+    /// 9.4 SACL change row, 12.1 notify-failure message).</summary>
+    private static readonly string[] StageBKeys =
+    [
+        "Reason.DC_UNREACHABLE.Collector", "Reason.DC_UNREACHABLE.Collector.Remedy", "Source.Adws", "Value.Unreadable",
+        "Value.AuditSettingsChanged", "Subject.ServiceStopped", "Email.ServiceStopped", "Value.GpoMoreChanges",
     ];
 
     private static readonly Dictionary<string, string> English = Load(CultureInfo.InvariantCulture);
@@ -36,6 +47,7 @@ public sealed partial class NotificationStringsTests
         foreach (var severity in Enum.GetValues<Severity>())
         {
             yield return "Severity." + severity;
+            yield return "SeverityName." + severity;
         }
 
         foreach (var confidence in Enum.GetValues<AttributionConfidence>())
@@ -90,6 +102,11 @@ public sealed partial class NotificationStringsTests
         {
             yield return key;
         }
+
+        foreach (var key in StageBKeys)
+        {
+            yield return key;
+        }
     }
 
     /// <summary>Keys the digest formatters build from enum values and counter names.</summary>
@@ -137,6 +154,20 @@ public sealed partial class NotificationStringsTests
     }
 
     [Fact]
+    public void StageBTexts_FollowTheDesign()
+    {
+        Assert.Equal("Sprawdź, czy DC przekazuje zdarzenia (GPO subskrypcji, WinRM, zapora 5985) – Stan → Kolektor WEF.",
+            Polish["Reason." + AttributionReasons.CollectorVariant(AttributionReasons.DcUnreachable) + ".Remedy"]);
+        Assert.Equal("Zmiana plików SYSVOL bez zmiany wersji GPO – wykonawca nieznany; sprawdź, kto ma zapis do SYSVOL.",
+            Polish["Reason." + AttributionReasons.SysvolNotAudited + ".Remedy"]);
+        Assert.Equal("przez ADWS – adres z logowania tej samej osoby", Polish["Source.Adws"]);
+        Assert.Equal("nie udało się odczytać", Polish["Value.Unreadable"]);
+        Assert.Equal("lista inspekcji (SACL) albo inne ustawienie zabezpieczeń zmienione – treści konto usługi nie odczyta",
+            Polish["Value.AuditSettingsChanged"]);
+        Assert.StartsWith("AdMng Watchdog zatrzymany – sprawdź systemctl status admng-watchdog", Polish["Email.ServiceStopped"], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BothCultures_HaveTheSameKeys()
     {
         Assert.Empty(English.Keys.Except(Polish.Keys));
@@ -161,6 +192,8 @@ public sealed partial class NotificationStringsTests
         Assert.Equal("KRYTYCZNE", NotificationText.Polish.SeverityWord(Severity.Critical));
         Assert.Equal("ŚREDNI", NotificationText.Polish.SeverityWord(Severity.Medium));
         Assert.Equal("CRITICAL", NotificationText.English.SeverityWord(Severity.Critical));
+        Assert.Equal("Krytyczny", NotificationText.Polish.SeverityName(Severity.Critical));     // "Priorytet: Wysoki → Krytyczny"
+        Assert.Equal("Critical", NotificationText.English.SeverityName(Severity.Critical));
         Assert.Equal("Department", NotificationText.English.Get("Attr.department"));
         Assert.DoesNotMatch("[ąćęłńóśźż]", string.Concat(English.Values));
     }

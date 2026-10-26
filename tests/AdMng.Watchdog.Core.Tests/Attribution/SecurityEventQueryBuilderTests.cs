@@ -75,11 +75,35 @@ public class SecurityEventQueryBuilderTests
     [InlineData("Łukasz")]
     [InlineData("x\"y")]
     [InlineData("")]
-    public void ValuesOutsideTheAllowedCharacters_AreRejected(string value)
+    public void NamesOutsideTheAllowedCharacters_AreRejected(string value)
     {
-        Assert.Throws<ArgumentException>(() => SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = "Security", DataEquals = [("TargetUserName", value)] }));
+        Assert.Throws<ArgumentException>(() => SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = "Security", DataEquals = [(value, "jkowalska")] }));
         Assert.Throws<ArgumentException>(() => SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = "Security", SuppressAttributes = [value] }));
         Assert.Throws<ArgumentException>(() => SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = value }));
+    }
+
+    [Theory]
+    [InlineData("o'ne\"ill")]          // both quote characters: no XPath literal can hold it
+    [InlineData("józef\u0001")]
+    [InlineData("a\r\nb")]
+    [InlineData("")]
+    public void ValuesThatCannotBeAnXPathLiteral_AreRejected(string value)
+    {
+        Assert.False(SecurityEventQueryBuilder.IsAllowedValue(value));
+        Assert.Throws<ArgumentException>(() => SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = "Security", DataEquals = [("TargetUserName", value)] }));
+    }
+
+    [Theory]
+    [InlineData("józef.żak", "'józef.żak'")]
+    [InlineData("o'neill", "\"o'neill\"")]
+    [InlineData("0x1' or '1'='1", "\"0x1' or '1'='1\"")]       // stays one literal – no injection
+    [InlineData("x\"y", "'x\"y'")]
+    public void DataValues_AreQuotedAsOneXPathLiteral(string value, string literal)
+    {
+        var xml = SecurityEventQueryBuilder.Build(new SecurityEventQuery { LogName = "Security", DataEquals = [("TargetUserName", value)] });
+
+        var select = XElement.Parse(xml).Element("Query")!.Element("Select")!.Value;
+        Assert.Equal($"*[EventData[Data[@Name='TargetUserName']={literal}]]", select);
     }
 
     [Theory]

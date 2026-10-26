@@ -11,14 +11,14 @@ public class DefaultRulesTests
     {
         var rules = DefaultRules.Create();
 
-        Assert.Equal(24, rules.Count);
+        Assert.Equal(28, rules.Count);
         Assert.Equal(rules.Count, rules.Select(r => r.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.All(rules, r =>
         {
             Assert.Matches("^[a-z0-9][a-z0-9-]{0,59}$", r.Id);
             Assert.True(r.BuiltIn);
             Assert.True(r.Enabled);
-            Assert.NotEmpty(r.Kinds);
+            Assert.True(r.Kinds.Count > 0 || r.Id == DefaultRules.WatchdogSelf);   // watchdog-self: every kind of the account
             Assert.True(r.Delivery.IncludeInDigest);
         });
         Assert.Equal(rules.Select(r => r.Id), DefaultRules.Ids);
@@ -56,8 +56,11 @@ public class DefaultRulesTests
     {
         var tier0 = DefaultRules.Create().Where(r => Tier0Catalog.IsTier0Rule(r.Id)).ToList();
 
-        Assert.Equal([DefaultRules.Tier0Privilege, DefaultRules.Tier0Security, DefaultRules.Tier0Domain, DefaultRules.Tier0EventLog],
-            tier0.Select(r => r.Id));
+        Assert.Equal(
+        [
+            DefaultRules.Tier0Privilege, DefaultRules.Tier0Security, DefaultRules.Tier0Domain, DefaultRules.Tier0EventLog,
+            DefaultRules.Tier0BadSuccessor, DefaultRules.Tier0MachineQuota, DefaultRules.WatchdogSelf, DefaultRules.Tier0Gpo,
+        ], tier0.Select(r => r.Id));
         Assert.All(tier0, r =>
         {
             Assert.True(r.Delivery.Immediate);

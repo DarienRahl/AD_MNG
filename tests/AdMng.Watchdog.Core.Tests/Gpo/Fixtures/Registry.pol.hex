@@ -1,0 +1,58 @@
+# Machine/Registry.pol ([MS-GPREG] 2.2.1 "Registry Policy File Format"), hand-annotated: one field per line,
+# hex bytes; '#' starts a comment. Header = signature "PReg" (0x67655250 LE) + version 1 (LE).
+# Each entry: '[' key NUL ';' value NUL ';' type(u32 LE) ';' size(u32 LE) ';' data ']' - brackets and
+# semicolons are UTF-16LE characters, key and value are NUL-terminated UTF-16LE strings.
+50 52 65 67   # signature
+01 00 00 00   # version 1
+
+# REG_DWORD 1 (design 8.5 example)
+5b 00   # [
+53 00 6f 00 66 00 74 00 77 00 61 00 72 00 65 00 5c 00 50 00 6f 00 6c 00 69 00 63 00 69 00 65 00 73 00 5c 00 4d 00 69 00 63 00 72 00 6f 00 73 00 6f 00 66 00 74 00 5c 00 57 00 69 00 6e 00 64 00 6f 00 77 00 73 00 5c 00 57 00 69 00 6e 00 64 00 6f 00 77 00 73 00 55 00 70 00 64 00 61 00 74 00 65 00 5c 00 41 00 55 00 00 00   # key "Software\Policies\Microsoft\Windows\WindowsUpdate\AU" + NUL
+3b 00   # ;
+4e 00 6f 00 41 00 75 00 74 00 6f 00 55 00 70 00 64 00 61 00 74 00 65 00 00 00   # value "NoAutoUpdate" + NUL
+3b 00   # ;
+04 00 00 00   # type 4
+3b 00   # ;
+04 00 00 00   # size 4
+3b 00   # ;
+01 00 00 00   # data
+5d 00   # ]
+
+# delete marker **del.<name> (data: one space, REG_SZ)
+5b 00   # [
+53 00 6f 00 66 00 74 00 77 00 61 00 72 00 65 00 5c 00 50 00 6f 00 6c 00 69 00 63 00 69 00 65 00 73 00 5c 00 4d 00 69 00 63 00 72 00 6f 00 73 00 6f 00 66 00 74 00 5c 00 57 00 69 00 6e 00 64 00 6f 00 77 00 73 00 5c 00 57 00 69 00 6e 00 64 00 6f 00 77 00 73 00 55 00 70 00 64 00 61 00 74 00 65 00 5c 00 41 00 55 00 00 00   # key "Software\Policies\Microsoft\Windows\WindowsUpdate\AU" + NUL
+3b 00   # ;
+2a 00 2a 00 64 00 65 00 6c 00 2e 00 41 00 55 00 4f 00 70 00 74 00 69 00 6f 00 6e 00 73 00 00 00   # value "**del.AUOptions" + NUL
+3b 00   # ;
+01 00 00 00   # type 1
+3b 00   # ;
+04 00 00 00   # size 4
+3b 00   # ;
+20 00 00 00   # data
+5d 00   # ]
+
+# REG_SZ with Polish diacritics
+5b 00   # [
+53 00 6f 00 66 00 74 00 77 00 61 00 72 00 65 00 5c 00 50 00 6f 00 6c 00 69 00 63 00 69 00 65 00 73 00 5c 00 43 00 6f 00 6e 00 74 00 6f 00 73 00 6f 00 5c 00 42 00 69 00 75 00 72 00 6f 00 00 00   # key "Software\Policies\Contoso\Biuro" + NUL
+3b 00   # ;
+4e 00 61 00 7a 00 77 00 61 00 00 00   # value "Nazwa" + NUL
+3b 00   # ;
+01 00 00 00   # type 1
+3b 00   # ;
+20 00 00 00   # size 32
+3b 00   # ;
+41 01 f3 00 64 00 7a 01 20 00 13 20 20 00 63 00 65 00 6e 00 74 00 72 00 61 00 6c 00 61 00 00 00   # data
+5d 00   # ]
+
+# REG_DWORD 0 under Policies\System (sensitive category)
+5b 00   # [
+53 00 6f 00 66 00 74 00 77 00 61 00 72 00 65 00 5c 00 4d 00 69 00 63 00 72 00 6f 00 73 00 6f 00 66 00 74 00 5c 00 57 00 69 00 6e 00 64 00 6f 00 77 00 73 00 5c 00 43 00 75 00 72 00 72 00 65 00 6e 00 74 00 56 00 65 00 72 00 73 00 69 00 6f 00 6e 00 5c 00 50 00 6f 00 6c 00 69 00 63 00 69 00 65 00 73 00 5c 00 53 00 79 00 73 00 74 00 65 00 6d 00 00 00   # key "Software\Microsoft\Windows\CurrentVersion\Policies\System" + NUL
+3b 00   # ;
+45 00 6e 00 61 00 62 00 6c 00 65 00 4c 00 55 00 41 00 00 00   # value "EnableLUA" + NUL
+3b 00   # ;
+04 00 00 00   # type 4
+3b 00   # ;
+04 00 00 00   # size 4
+3b 00   # ;
+00 00 00 00   # data
+5d 00   # ]

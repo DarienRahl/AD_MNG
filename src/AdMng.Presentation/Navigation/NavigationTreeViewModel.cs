@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
@@ -65,6 +66,13 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     public partial TreeNodeViewModel? SelectedNode { get; private set; }
 
+    /// <summary>
+    /// The well-known containers of the session's domain (wellKnownObjects): the tree marks them and the New commands use
+    /// them as default targets. Empty until read (and when not readable).
+    /// </summary>
+    [ObservableProperty]
+    public partial WellKnownObjectMap WellKnown { get; private set; } = WellKnownObjectMap.Empty;
+
     internal ISessionManager Sessions { get; }
 
     internal ISettingsStore Settings { get; }
@@ -82,6 +90,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         Roots.Clear();
         DomainNode = null;
         SelectedNode = null;
+        WellKnown = WellKnownObjectMap.Empty;
         RebuildViews();
         Roots.Add(ViewsNode);
         var session = Sessions.Current;
@@ -95,7 +104,45 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         DomainNode = domain;
         Roots.Add(domain);
         domain.IsExpanded = true;
-        return domain.EnsureChildrenLoadedAsync();
+        return Task.WhenAll(domain.EnsureChildrenLoadedAsync(), LoadWellKnownAsync(session));
+    }
+
+    /// <summary>Reads the well-known containers of the session (once per session) and marks the loaded nodes.</summary>
+    private async Task LoadWellKnownAsync(IDirectorySession session)
+    {
+        var map = await Sessions.GetWellKnownObjectsAsync(CancellationToken.None).ConfigureAwait(true);
+        await Dispatcher.RunAsync(() =>
+        {
+            if (ReferenceEquals(Sessions.Current, session) && DomainNode is not null)
+            {
+                WellKnown = map;
+                ApplyWellKnown();
+            }
+        }).ConfigureAwait(true);
+    }
+
+    /// <summary>Re-marks every container node (domain tree and pinned shortcuts) from <see cref="WellKnown"/>.</summary>
+    private void ApplyWellKnown()
+    {
+        // A snapshot: children of other containers may be merged meanwhile (they read WellKnown when they are created).
+        foreach (var node in _index.Values.ToList())
+        {
+            node.ApplyWellKnown(WellKnown);
+        }
+
+        foreach (var pin in ViewsNode.Children.OfType<ContainerNodeViewModel>().ToList())
+        {
+            ApplyWellKnownBelow(pin);
+        }
+    }
+
+    private void ApplyWellKnownBelow(ContainerNodeViewModel node)
+    {
+        node.ApplyWellKnown(WellKnown);
+        foreach (var child in node.Children.OfType<ContainerNodeViewModel>())
+        {
+            ApplyWellKnownBelow(child);
+        }
     }
 
     /// <summary>Rebuilds the Views section (after views, pins, language or inactive days changed).</summary>
@@ -294,6 +341,7 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
     {
         ViewsNode.Name = Localizer[L.Tree.Views];
         RebuildViews();
+        ApplyWellKnown();
     }
 
     private void OnDirectoryChanged(object? sender, DirectoryChangesEventArgs e) => _ = Dispatcher.RunAsync(() =>

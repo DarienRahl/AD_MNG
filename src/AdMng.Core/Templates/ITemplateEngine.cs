@@ -17,13 +17,55 @@ public sealed record TemplateContext
 
     /// <summary>Clock for {$date:format}.</summary>
     public DateTimeOffset Now { get; init; } = DateTimeOffset.Now;
+
+    /// <summary>
+    /// Evaluates the extension tokens of the engine (<see cref="TemplateExtensionToken"/>): (name, argument) → value.
+    /// Null: extension tokens render empty.
+    /// </summary>
+    public Func<string, string?, string>? Extension { get; init; }
+
+    /// <summary>
+    /// Applied to the final value of every token (after its functions) but never to the literal text, e.g. HTML encoding
+    /// of directory values in an HTML template. Null: values are inserted as they are.
+    /// </summary>
+    public Func<string, string>? Encode { get; init; }
+
+    /// <summary>Called with the source text of a token (e.g. <c>{department}</c>) whose value is empty or white space.</summary>
+    public Action<string>? EmptyValue { get; init; }
 }
+
+/// <summary>Whether an extension token takes an argument after a colon (<c>{$name:argument}</c>).</summary>
+public enum TemplateTokenArgument
+{
+    /// <summary><c>{$name}</c> only.</summary>
+    None,
+
+    /// <summary><c>{$name}</c> or <c>{$name:argument}</c>.</summary>
+    Optional,
+
+    /// <summary><c>{$name:argument}</c> only (non-empty argument).</summary>
+    Required,
+}
+
+/// <summary>
+/// A special token added to an engine instance (<see cref="TemplateEngine(IEnumerable{TemplateExtensionToken})"/>),
+/// evaluated by <see cref="TemplateContext.Extension"/>. <paramref name="IsDateFormat"/>: the argument is validated as a
+/// date format (like <c>{$date:format}</c>).
+/// </summary>
+public sealed record TemplateExtensionToken(string Name, TemplateTokenArgument Argument, bool IsDateFormat = false);
+
+/// <summary>A special or extension token used by a template (name as declared, argument as written).</summary>
+public sealed record TemplateTokenUse(string Name, string? Argument);
 
 /// <summary>Result of parsing a template.</summary>
 /// <param name="IsValid">No syntax errors.</param>
 /// <param name="Errors">English diagnostics with positions.</param>
 /// <param name="ReferencedAttributes">Attributes the template reads (to request them while planning).</param>
-public sealed record TemplateParseResult(bool IsValid, IReadOnlyList<string> Errors, IReadOnlyList<string> ReferencedAttributes);
+public sealed record TemplateParseResult(bool IsValid, IReadOnlyList<string> Errors, IReadOnlyList<string> ReferencedAttributes)
+{
+    /// <summary>The special and extension tokens the template uses (in order of appearance, duplicates removed).</summary>
+    public IReadOnlyList<TemplateTokenUse> SpecialTokens { get; init; } = [];
+}
 
 /// <summary>
 /// Value templates for batch editing and object creation.

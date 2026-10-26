@@ -308,6 +308,7 @@ public sealed class WatchdogChannelsTests
             Assert.False(teams.Test.IsRunning);
             Assert.Null(teams.Test.Success);
             Assert.Equal(h.Ad.Localizer[L.Errors.Cancelled], teams.Test.SummaryText);
+            Assert.Null(teams.Test.Error);
         });
     }
 
@@ -597,6 +598,38 @@ public sealed class WatchdogChannelsTests
             channels.Channels[1].Name = "Zmieniona nazwa";
             Assert.Same(session.Envelope!.Configuration, session.Working);
             Assert.False(session.IsDirty);
+        });
+    }
+
+    [Fact]
+    public async Task UserMessaging_SwitchLimitsAndSenders_ReachTheWorkingConfiguration_AndShowTheServicesIssues()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        h.Client.Validator = c => c.UserMessages.AllowedSenders.Count > 1
+            ? [new ConfigIssue { Path = "userMessages.allowedSenders[1]", Code = "invalidAddress", Severity = IssueSeverity.Error, Message = "x" }]
+            : [];
+        await h.Ui.RunAsync(async () =>
+        {
+            var (session, channels) = await OpenAsync(h);
+            var messaging = channels.UserMessaging!;
+            Assert.False(messaging.Enabled);
+            Assert.Equal(("300", "2000", string.Empty), (messaging.MaxMessagesPerHour, messaging.MaxMessagesPerDay, messaging.AllowedSenders));
+            Assert.False(session.IsDirty);
+
+            messaging.Enabled = true;
+            messaging.MaxMessagesPerHour = "120";
+            messaging.MaxMessagesPerDay = "dużo";
+            messaging.AllowedSenders = "helpdesk@contoso.com\r\n@kadry.contoso.com; pomoc@contoso.com";
+
+            var stored = session.Working!.UserMessages;
+            Assert.True(stored.Enabled);
+            Assert.Equal((120, 2000), (stored.MaxMessagesPerHour, stored.MaxMessagesPerDay));
+            Assert.Equal(["helpdesk@contoso.com", "@kadry.contoso.com", "pomoc@contoso.com"], stored.AllowedSenders);
+            Assert.NotNull(messaging.NumbersError);
+            Assert.True(session.IsDirty);
+
+            Assert.False(await session.ValidateAsync());
+            Assert.Equal(h.Ad.Localizer[WatchdogDisplay.ValidationKey("invalidAddress")], messaging.AllowedSendersError);
         });
     }
 

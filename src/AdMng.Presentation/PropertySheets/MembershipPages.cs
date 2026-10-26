@@ -99,7 +99,7 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     public partial string FilterText { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveCommand), nameof(OpenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveCommand), nameof(OpenCommand), nameof(CopyNamesCommand), nameof(CopyDnsCommand), nameof(CopyMailCommand))]
     public partial MembershipItemViewModel? SelectedItem { get; set; }
 
     /// <summary>The list's selected items (set by the view to the DataGrid's SelectedItems for multi-select).</summary>
@@ -110,8 +110,12 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
         {
             _selectedItems = value;
             RemoveCommand.NotifyCanExecuteChanged();
+            NotifyCopyCommands();
         }
     }
+
+    /// <summary>"Kopiuj adresy e-mail członków": only the Members page copies all its entries' addresses.</summary>
+    public virtual bool CanCopyAllMail => false;
 
     /// <summary>"12 groups" / "12 members" after the pending changes.</summary>
     [ObservableProperty]
@@ -140,7 +144,79 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
     public void NotifySelectionChanged()
     {
         RemoveCommand.NotifyCanExecuteChanged();
+        NotifyCopyCommands();
         OnSelectionChanged();
+    }
+
+    /// <summary>Ctrl+C: the names of the selected entries, one per line.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void CopyNames() => CopySelection(i => i.Name, L.Copy.Name, isMail: false);
+
+    /// <summary>The distinguished names of the selected entries, one per line.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void CopyDns() => CopySelection(i => i.Dn, L.Copy.DistinguishedName, isMail: false);
+
+    /// <summary>The e-mail addresses of the selected entries for Outlook ("; "), entries without one are skipped.</summary>
+    [RelayCommand(CanExecute = nameof(HasSelection))]
+    private void CopyMail() => CopySelection(i => i.Item.Mail, L.Copy.Mail, isMail: true);
+
+    /// <summary>
+    /// The e-mail addresses of every entry in the list (the filter applies, entries staged for removal do not count) for
+    /// Outlook's To field; groups without an address, computers and unresolved entries are skipped and counted.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanCopyAll))]
+    private void CopyAllMail() =>
+        CopyValues(Items.Where(i => i.State != MembershipState.PendingRemove), i => i.Item.Mail, L.Copy.Mail, isMail: true);
+
+    private bool HasSelection() => Selection().Any();
+
+    private bool CanCopyAll() => CanCopyAllMail && Items.Count > 0;
+
+    private void NotifyCopyCommands()
+    {
+        CopyNamesCommand.NotifyCanExecuteChanged();
+        CopyDnsCommand.NotifyCanExecuteChanged();
+        CopyMailCommand.NotifyCanExecuteChanged();
+    }
+
+    private void CopySelection(Func<MembershipItemViewModel, string?> value, string labelKey, bool isMail)
+    {
+        // In the list's order (the selection is in click order).
+        var selected = Selection().ToHashSet();
+        CopyValues(Items.Where(selected.Contains), value, labelKey, isMail);
+    }
+
+    private void CopyValues(IEnumerable<MembershipItemViewModel> items, Func<MembershipItemViewModel, string?> value, string labelKey, bool isMail)
+    {
+        var values = new List<string>();
+        var skipped = 0;
+        foreach (var item in items)
+        {
+            if (value(item) is { } text && !string.IsNullOrWhiteSpace(text))
+            {
+                values.Add(text.Trim());
+            }
+            else
+            {
+                skipped++;
+            }
+        }
+
+        if (isMail)
+        {
+            values = [.. values.Distinct(StringComparer.OrdinalIgnoreCase)];
+        }
+
+        var services = Context.Services;
+        ClipboardCopy.Values(
+            services.Clipboard,
+            services.Notifications,
+            Context.Localizer,
+            values,
+            skipped,
+            isMail ? Shell.ObjectCopyFormats.MailSeparator : Environment.NewLine,
+            Context.Localizer[labelKey],
+            isMail);
     }
 
     public override void Revert()
@@ -386,6 +462,8 @@ public abstract partial class MembershipPageViewModel : PropertyPageViewModel
             .OrderBy(i => i.Name, comparer));
         CountText = FormatCount(_all.Count(i => i.State != MembershipState.PendingRemove));
         RemoveCommand.NotifyCanExecuteChanged();
+        NotifyCopyCommands();
+        CopyAllMailCommand.NotifyCanExecuteChanged();
         OnSelectionChanged();
         UpdateState();
     }
@@ -610,6 +688,9 @@ public sealed partial class MembersPageViewModel : MembershipPageViewModel
 
     public override IReadOnlyList<ObjectKind> AddKinds { get; } =
         [ObjectKind.User, ObjectKind.Group, ObjectKind.Computer, ObjectKind.Contact];
+
+    /// <summary>The group's members as recipients ("Kopiuj adresy e-mail członków").</summary>
+    public override bool CanCopyAllMail => true;
 
     internal override IEnumerable<string> ReadAttributes => [];
 

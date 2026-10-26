@@ -24,11 +24,15 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     private static readonly TimeSpan EmailTestTimeout = TimeSpan.FromSeconds(75);
     private static readonly TimeSpan ChannelTestTimeout = TimeSpan.FromSeconds(60);
 
+    /// <summary>The service waits up to 20 s for the first SMTP attempt of a message to a user.</summary>
+    private static readonly TimeSpan UserMessageTimeout = TimeSpan.FromSeconds(45);
+
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<WatchdogHttpClient> _logger;
     private readonly Lock _gate = new();
     private HttpClient? _client;
     private WatchdogClientOptions? _options;
+    private WatchdogCertificateCapture? _capture;
 
     public WatchdogHttpClient(TimeProvider timeProvider, ILogger<WatchdogHttpClient> logger)
     {
@@ -63,9 +67,11 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     public void Configure(WatchdogClientOptions? options)
     {
         HttpClient? client = null;
+        WatchdogCertificateCapture? capture = null;
         if (options is not null)
         {
-            var handler = WatchdogHttpHandlerFactory.Create(options);
+            capture = new WatchdogCertificateCapture();
+            var handler = WatchdogHttpHandlerFactory.Create(options, capture);
             var baseAddress = options.BaseAddress.AbsoluteUri.EndsWith('/') ? options.BaseAddress : new Uri(options.BaseAddress.AbsoluteUri + "/");
             client = new HttpClient(handler, disposeHandler: true)
             {
@@ -85,6 +91,7 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
             previous = _client;
             _client = client;
             _options = options;
+            _capture = capture;
         }
 
         previous?.Dispose();
@@ -180,6 +187,15 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     public Task RetryOutboxAsync(long id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Post, WatchdogRoutes.OutboxRetryPath(id), body: null, null, cancellationToken);
 
+    public Task<UserMessagingStatusDto> GetUserMessagingStatusAsync(CancellationToken cancellationToken) =>
+        GetAsync<UserMessagingStatusDto>(WatchdogRoutes.UserMessagesStatus, cancellationToken);
+
+    public async Task<UserMessageResult> SendUserMessageAsync(UserMessageRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return (await SendAsync<UserMessageResult>(HttpMethod.Post, WatchdogRoutes.UserMessages, Json(request), UserMessageTimeout, cancellationToken).ConfigureAwait(false))!;
+    }
+
     public void Dispose()
     {
         HttpClient? client;
@@ -215,10 +231,14 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     {
         HttpClient client;
         TimeSpan requestTimeout;
+        WatchdogCertificateCapture? capture;
+        string? pin;
         lock (_gate)
         {
             client = _client ?? throw new WatchdogClientException(WatchdogClientErrorKind.NotConfigured, "The watchdog service address is not configured.");
             requestTimeout = timeout ?? _options!.RequestTimeout;
+            capture = _capture;
+            pin = _options!.PinnedCertificateSha256;
         }
 
         using var timer = new CancellationTokenSource(requestTimeout, _timeProvider);
@@ -255,7 +275,7 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException)
         {
             Log.Failed(_logger, method.Method, route, ex.GetType().Name);
-            throw WatchdogClientErrors.FromException(ex, cancellationToken.IsCancellationRequested);
+            throw WatchdogClientErrors.FromException(ex, cancellationToken.IsCancellationRequested, capture?.Rejected, pin);
         }
     }
 

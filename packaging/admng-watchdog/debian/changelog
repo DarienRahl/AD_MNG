@@ -1,0 +1,23 @@
+admng-watchdog (@VERSION@) unstable; urgency=medium
+
+  * Messages to users from AD Manager (AdMng 0.4.0): POST /api/v1/user-messages
+    and GET /api/v1/user-messages/status for the Watchdog Admins and Viewers
+    roles, configuration section userMessages (off by default, allowed
+    senders, 300 per hour and 2000 per day), sent through the shared SMTP
+    configuration and the outbox; message content is deleted once sent, the
+    audit table user_messages (migration 0006, 365 days) holds no content.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Mon, 26 Oct 2026 12:00:00 +0000
+
+admng-watchdog (0.3.0-1) unstable; urgency=medium
+
+  * First release of AdMng Watchdog for Debian 12 and 13 (AdMng 0.3.0):
+    systemd unit with notify and watchdog, journald logging, POSIX start-up
+    checks, PEM certificate, Data Protection key ring under a systemd
+    encrypted credential.
+  * Service account ADMNG-WD$ with a keytab: admng-watchdog-keytab (init,
+    rotate, verify, status) and the daily rotation timer (30 days).
+  * WEF ingestion through admng-openwec, OpenWEC file rotation timer, GPO
+    content tracking over SMB 3 (smbclient), Kerberos LDAP sign and seal.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 20 Oct 2026 12:00:00 +0000

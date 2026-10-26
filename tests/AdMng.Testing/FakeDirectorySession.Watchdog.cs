@@ -30,6 +30,7 @@ public sealed partial class FakeDirectorySession
     private const string ReplAttributeMetaData = "msDS-ReplAttributeMetaData";
     private const string UserPasswordExpiryTimeComputed = "msDS-UserPasswordExpiryTimeComputed";
     private const string ResultantPso = "msDS-ResultantPSO";
+    private const string KeyVersionNumber = "msDS-KeyVersionNumber";
 
     /// <summary>Attributes without replication metadata: non-replicated bookkeeping and linked values (LVR).</summary>
     private static readonly HashSet<string> NonReplicated = new(StringComparer.OrdinalIgnoreCase)
@@ -67,7 +68,10 @@ public sealed partial class FakeDirectorySession
     /// </summary>
     public TimeSpan? LockoutDuration { get; set; }
 
-    /// <summary>Emulates msDS-UserPasswordExpiryTimeComputed (pwdLastSet + <see cref="MaxPasswordAge"/>).</summary>
+    /// <summary>
+    /// Emulates msDS-UserPasswordExpiryTimeComputed: pwdLastSet + <see cref="MaxPasswordAge"/>, or + msDS-MaximumPasswordAge of
+    /// the PSO set with <see cref="SetResultantPso"/> when that object exists (fine-grained password policy).
+    /// </summary>
     public bool EmulateConstructedPasswordExpiry { get; set; }
 
     /// <summary>Domain maxPwdAge used by the constructed password expiry (default 42 days).</summary>
@@ -263,6 +267,18 @@ public sealed partial class FakeDirectorySession
         }
     }
 
+    /// <summary>
+    /// A write of the security descriptor that leaves owner and DACL as they are – a SACL change (stage B design 9.4): the
+    /// stored bytes stay, nTSecurityDescriptor gets a new metadata version and the object a USN bump.
+    /// </summary>
+    public void SimulateSaclChange(string distinguishedName)
+    {
+        lock (_gate)
+        {
+            Touch(FindExisting(distinguishedName), [Attr.NtSecurityDescriptor]);
+        }
+    }
+
     /// <summary>What msDS-ResultantPSO returns for the object (null removes it).</summary>
     public void SetResultantPso(string distinguishedName, string? passwordSettingsDn)
     {
@@ -427,6 +443,16 @@ public sealed partial class FakeDirectorySession
             return true;
         }
 
+        if (string.Equals(name, KeyVersionNumber, StringComparison.OrdinalIgnoreCase))
+        {
+            // Like a DC: the key version follows the unicodePwd metadata version (every password write bumps it).
+            values = entry.HasClass(ObjectClasses.User) && _metadata.TryGetValue(entry, out var written)
+                && written.TryGetValue(Attr.UnicodePwd, out var password)
+                ? [password.Version.ToString(CultureInfo.InvariantCulture)]
+                : [];
+            return true;
+        }
+
         return false;
     }
 
@@ -448,7 +474,21 @@ public sealed partial class FakeDirectorySession
             return 0;
         }
 
-        return pwdLastSet + MaxPasswordAge.Ticks;
+        // Like a DC: the resultant PSO's msDS-MaximumPasswordAge (negative interval; 0 / minimum = never) wins over maxPwdAge.
+        var maxAge = MaxPasswordAge.Ticks;
+        if (_resultantPsos.TryGetValue(entry, out var psoDn)
+            && _entries.TryGetValue(FakeDn.Parse(psoDn), out var pso)
+            && long.TryParse(pso.First("msDS-MaximumPasswordAge"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var psoAge))
+        {
+            if (psoAge is 0 or long.MinValue)
+            {
+                return long.MaxValue;
+            }
+
+            maxAge = Math.Abs(psoAge);
+        }
+
+        return pwdLastSet + maxAge;
     }
 
     /// <summary>Locked according to lockoutTime and, when set, <see cref="LockoutDuration"/>.</summary>

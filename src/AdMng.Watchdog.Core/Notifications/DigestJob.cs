@@ -3,6 +3,8 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Diagnostics;
 using AdMng.Watchdog.Core.Formatting;
+using AdMng.Watchdog.Core.Model;
+using AdMng.Watchdog.Core.Notifications.Digest;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.Watchdog.Core.Notifications;
@@ -11,9 +13,13 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// <see cref="IWatchdogJob"/> "digest" and <see cref="IDigestService"/> (section 13.4). The schedule is
 /// <c>Schedule.NextOccurrence(Digest.Time, Digest.Days, zone, now)</c> (DST-safe); a digest missed during a downtime is
 /// sent at start-up when it is less than 12 h late, otherwise skipped. Each digest covers the time since the previous
-/// one (<see cref="DigestBuilder.ResolvePeriodStart"/>, incl. the weekend / holiday catch-up), is enqueued for every
-/// recipient (<see cref="DigestMessages"/>) – an empty period only with <c>SendWhenEmpty</c> – and recorded in
-/// <see cref="IDigestRunStore"/>. Send-now and preview never move the schedule.
+/// one (<see cref="DigestBuilder.ResolvePeriodStart"/>, incl. the weekend / holiday catch-up) up to now – or just before
+/// an event the rule evaluation has not processed yet (<see cref="DigestBuilder.ResolvePeriodEndAsync"/>) –, is enqueued
+/// for every recipient (<see cref="DigestMessages"/>) – an empty period only with <c>SendWhenEmpty</c> – and recorded in
+/// <see cref="IDigestRunStore"/>. Once the first message is enqueued, enqueueing and recording are not cancelled (a
+/// service stop in between would send the digest again at start-up) and a failure to record does not repeat the digest:
+/// the schedule moves on. Send-now and preview never move the schedule. The preview – served to Viewers – shows the
+/// active exceptions only as a number (<see cref="DigestSectionBuilder.ExceptionCount"/>).
 /// </summary>
 public sealed partial class DigestJob : IWatchdogJob, IDigestService
 {
@@ -38,6 +44,7 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
     private bool _started;
     private string? _scheduleKey;
     private DateTimeOffset? _due;
+    private DateTimeOffset? _lastBusinessDayEnd;
 
     public DigestJob(DigestBuilder builder, IDigestRunStore runs, IOutboxStore outbox, IWatchdogConfigProvider configProvider, BusinessCalendarProvider calendars,
         IWatchdogSignals signals, TimeProvider timeProvider, ILogger<DigestJob> logger)
@@ -130,8 +137,16 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
         var now = _timeProvider.GetUtcNow();
         var configuration = _configProvider.Current.Configuration;
         var last = await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false);
-        var (start, covers) = DigestBuilder.ResolvePeriodStart(configuration, _calendars.For(configuration), last, now);
-        var model = await _builder.BuildAsync(configuration, start, now, covers, cancellationToken).ConfigureAwait(false);
+        var end = await _builder.ResolvePeriodEndAsync(now, last, cancellationToken).ConfigureAwait(false);
+        var (start, covers) = DigestBuilder.ResolvePeriodStart(configuration, _calendars.For(configuration), last, end, LastBusinessDayEnd);
+        var model = await _builder.BuildAsync(configuration, start, end, covers, cancellationToken).ConfigureAwait(false);
+
+        // The caller may be a Viewer: exclusions are Admin configuration (the redacted GET /config keeps only their number),
+        // and the API passes the detail level only – so no preview lists them.
+        model = model with
+        {
+            Sections = [.. model.Sections.Select(s => s.Kind == DigestSectionKind.ActiveExceptions ? DigestSectionBuilder.ExceptionCount(s) : s)],
+        };
         var recipientLevel = (configuration.Digest?.RecipientGroupIds ?? [])
             .Select(id => NotificationTargetResolver.EmailTarget(configuration, id))
             .FirstOrDefault(t => t is not null)?.DetailLevel ?? DetailLevel.Full;
@@ -179,11 +194,14 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
             _started = true;
         }
 
+        // Missed during a downtime: send now. The digest of that occurrence may have ended up to MaxEvaluationLag before it
+        // (period end held back for an event the rule evaluation had not processed yet) – that one was sent.
         DateTimeOffset? due = null;
         if (!started && Schedule.PreviousOccurrence(digest.Time, days, timeZone, now) is { } previous && now - previous < MaxCatchUpDelay
-            && await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false) is { } lastEnd && lastEnd < previous)
+            && await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false) is { } lastEnd
+            && lastEnd < previous - DigestBuilder.MaxEvaluationLag)
         {
-            due = previous;     // missed during a downtime: send now
+            due = previous;
         }
 
         due ??= Schedule.NextOccurrence(digest.Time, days, timeZone, now);
@@ -206,32 +224,66 @@ public sealed partial class DigestJob : IWatchdogJob, IDigestService
     private async Task SendAsync(WatchdogConfiguration configuration, DateTimeOffset now, CancellationToken cancellationToken)
     {
         await _sendGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var ids = new List<long>();
         try
         {
             var digest = configuration.Digest ?? new DigestSettings();
+            var calendar = _calendars.For(configuration);
             var last = await _runs.GetLastPeriodEndAsync(cancellationToken).ConfigureAwait(false);
-            var (start, covers) = DigestBuilder.ResolvePeriodStart(configuration, _calendars.For(configuration), last, now);
-            var model = await _builder.BuildAsync(configuration, start, now, covers, cancellationToken).ConfigureAwait(false);
-            var ids = new List<long>();
-            if (!model.IsEmpty || digest.SendWhenEmpty)
+            var end = await _builder.ResolvePeriodEndAsync(now, last, cancellationToken).ConfigureAwait(false);
+            var (start, covers) = DigestBuilder.ResolvePeriodStart(configuration, calendar, last, end, LastBusinessDayEnd);
+            var model = await _builder.BuildAsync(configuration, start, end, covers, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<OutboxMessage> messages = !model.IsEmpty || digest.SendWhenEmpty ? DigestMessages.Create(model, configuration, now) : [];
+
+            // From the first enqueue on, the digest is committed: a stop (cancellation) between two messages or before the
+            // run is recorded would leave a partial digest that the start-up catch-up sends again.
+            foreach (var message in messages)
             {
-                foreach (var message in DigestMessages.Create(model, configuration, now))
-                {
-                    ids.Add(await _outbox.EnqueueAsync(message, cancellationToken).ConfigureAwait(false));
-                }
+                ids.Add(await _outbox.EnqueueAsync(message, CancellationToken.None).ConfigureAwait(false));
             }
 
-            await _runs.RecordAsync(start, now, model.Counts.Total, ids, cancellationToken).ConfigureAwait(false);
+            await _runs.RecordAsync(start, end, model.Counts.Total, ids, CancellationToken.None).ConfigureAwait(false);
+            if (calendar.IsBusinessDay(calendar.LocalDate(end)))
+            {
+                LastBusinessDayEnd = end;
+            }
+
+            LogSent(ids.Count, model.Counts.Total);
+        }
+        catch (Exception ex) when (ids.Count > 0 && ex is not OutOfMemoryException)
+        {
+            // The digest went out but its run is not (fully) recorded: the next digest starts at the previous end (it
+            // repeats this period's content), which beats enqueueing this digest again every minute.
+            SafeExceptionLog.LogError(_logger, ex, "digest run record");
+        }
+        finally
+        {
             if (ids.Count > 0)
             {
                 _signals.Raise(WatchdogSignal.OutboxEnqueued);
             }
 
-            LogSent(ids.Count, model.Counts.Total);
-        }
-        finally
-        {
             _sendGate.Release();
+        }
+    }
+
+    /// <summary>The end of the last digest whose period ended on a business day (in memory; null after a restart).</summary>
+    private DateTimeOffset? LastBusinessDayEnd
+    {
+        get
+        {
+            lock (_scheduleGate)
+            {
+                return _lastBusinessDayEnd;
+            }
+        }
+
+        set
+        {
+            lock (_scheduleGate)
+            {
+                _lastBusinessDayEnd = value;
+            }
         }
     }
 

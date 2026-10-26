@@ -417,7 +417,8 @@ public class FakeDirectoryWatchdogTests
 
         Assert.False(before!.Has("msDS-UserPasswordExpiryTimeComputed"));
         Assert.False(before.Has("msDS-ResultantPSO"));
-        Assert.Equal(FakeDirectoryBuilder.DefaultPasswordLastSet + TimeSpan.FromDays(42), jan!.GetFileTime("msDS-UserPasswordExpiryTimeComputed"));
+        // The resultant PSO's msDS-MaximumPasswordAge (60 days) wins over the domain's 42 days, as on a DC.
+        Assert.Equal(FakeDirectoryBuilder.DefaultPasswordLastSet + TimeSpan.FromDays(60), jan!.GetFileTime("msDS-UserPasswordExpiryTimeComputed"));
         Assert.Equal(pso, jan.GetString("msDS-ResultantPSO"));
         Assert.Equal(long.MaxValue, grazyna!.GetInt64("msDS-UserPasswordExpiryTimeComputed"));
         Assert.Equal(long.MaxValue, computer!.GetInt64("msDS-UserPasswordExpiryTimeComputed"));

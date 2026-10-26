@@ -48,6 +48,9 @@ public sealed class AttributeDisplay
 
         // pseudo attributes of health, summary and audit-log events
         "code", "attribution", "eventLogGap", "objects", "channel", "errorCode", "state", "SubcategoryGuid", "AuditPolicyChanges",
+
+        // summary row of a truncated GPO content event (stage B design 8.6)
+        Gpo.GpoSettingsDiffer.SummaryAttribute,
     ];
 
     /// <summary>Flag names with a display name (<c>Flag.{NAME}</c>): userAccountControl and groupType.</summary>
@@ -131,6 +134,11 @@ public sealed class AttributeDisplay
             return LogonHoursSummary.Describe(value, _text, _time.TimeZone);
         }
 
+        if (IsUnreadableMarker(change.Attribute, value))
+        {
+            return _text.Get("Value.Unreadable");
+        }
+
         return change.ValueKind switch
         {
             AttributeValueKind.FileTime => FileTime(change.Attribute, value),
@@ -145,6 +153,12 @@ public sealed class AttributeDisplay
             _ => value,
         };
     }
+
+    /// <summary>The value of a GPO content file that could not be read or parsed (stage B design 8.4: row
+    /// <c>File/&lt;path&gt;</c> = <c>unreadable</c>), shown as <c>Value.Unreadable</c> („nie udało się odczytać”).</summary>
+    public static bool IsUnreadableMarker(string attribute, string value) =>
+        attribute.StartsWith(Gpo.GpoSnapshotBuilder.FileMarkerPrefix, StringComparison.Ordinal)
+        && string.Equals(value, Gpo.GpoSettingsDiffer.UnreadableValue, StringComparison.Ordinal);
 
     /// <summary>"liczba wpisów: 1 → 2" for binary and hashed values whose content is never shown.</summary>
     public string EntryCounts(AttributeChange change)

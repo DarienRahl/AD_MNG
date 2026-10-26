@@ -137,6 +137,23 @@ public class RuleEvaluationJobTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateJob(new CancellingEventStore()).RunOnceAsync(cts.Token));
     }
 
+    [Fact]
+    public async Task RunOnce_WithASnapshot_ReportsConfiguredDnsThatNoLongerExist()
+    {
+        var snapshot = new AdMng.Watchdog.Core.Tests.Attribution.Fakes.FakeDetectionStore();
+        snapshot.Add(new AdMng.Watchdog.Core.Model.SnapshotObject { ObjectGuid = Guid.NewGuid(), Dn = DomainDn, Kind = WatchObjectKind.Domain });
+        var defaults = new DefaultConfigurationFactory().Create();
+        _config.Set(defaults with { PrivilegedGroups = defaults.PrivilegedGroups with { WatchListDns = ["CN=Księgowość,OU=Grupy,{domain}"] } });
+        var job = new RuleEvaluationJob(_store, new RuleEngine(_config, _tokens, _clock), [_planner], _config, _tokens, _signals, _health, _clock,
+            NullLogger<RuleEvaluationJob>.Instance, snapshot);
+
+        await job.RunOnceAsync(TestContext.Current.CancellationToken);
+
+        var check = _health.Find(ConfiguredDnMonitor.CheckCode)!;
+        Assert.Equal(HealthState.Warning, check.State);
+        Assert.Contains("CN=Księgowość,OU=Grupy,{domain}", check.Args);
+    }
+
     private sealed class FailingEventStore : DelegatingEventStore
     {
         public override Task<IReadOnlyList<WatchEvent>> GetUnevaluatedAsync(int limit, CancellationToken cancellationToken) =>
