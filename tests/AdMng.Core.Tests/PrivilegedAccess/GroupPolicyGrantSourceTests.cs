@@ -1,3 +1,4 @@
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.PrivilegedAccess;
@@ -244,6 +245,74 @@ public class GroupPolicyGrantSourceTests
     }
 
     [Fact]
+    public async Task SecurityFiltering_LimitsAGpo_ToTheComputersAllowedToApplyIt()
+    {
+        var builder = new FakeDirectoryBuilder();
+        var company = builder.AddSampleCompany();
+        var sample = builder.AddPrivilegedAccessSample(company);
+        var sysvol = new FakeSysvolFileReader();
+        var sqlServers = builder.AddGroup("Serwery SQL", company.GroupsOu, members: [sample.AppServer]);
+        var sqlAdmins = builder.AddGroup("GG_SQL_Admini", company.GroupsOu, members: [company.PawelLewandowski]);
+        var read = new FakeAce(FakeAce.AccessAllowed, 0, 0x20094, PrivilegedGroupCatalog.AuthenticatedUsersSid);
+        var apply = GroupPolicySecurityFilter.ApplyGroupPolicyRight;
+        var domainControllers = builder.SidOf(sample.DomainControllers);
+
+        // Linked at the domain head, filtered to "Serwery SQL" and denied to the DCs: local admins on one SQL server, not Tier 0.
+        var sql = builder.AddGroupPolicyObject("Admini SQL");
+        sysvol.PutSecurityTemplate(sql, FakeDirectoryBuilder.Template("[Group Membership]", $"*{builder.SidOf(sqlAdmins)}__Memberof = *S-1-5-32-544"));
+        SetAcl(builder, sql, read, FakeAce.ExtendedRight(builder.SidOf(sqlServers), apply),
+            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, domainControllers, apply));
+
+        // Applied by Authenticated Users but denied to Enterprise Domain Controllers: every member computer, no DC.
+        var debug = AddDefaultAclGpo(builder, sysvol, "Debugowanie poza kontrolerami", $"SeDebugPrivilege = *{builder.SidOf(company.ZbigniewKazmierczak)}");
+        SetAcl(builder, debug, read, FakeAce.ExtendedRight(PrivilegedGroupCatalog.AuthenticatedUsersSid, apply),
+            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, GroupPolicySecurityFilter.EnterpriseDomainControllersSid, apply));
+        builder.SetGroupPolicyLinks(builder.DomainDn, [(sql, 0), (debug, 0)]);
+
+        // On OU=Komputery, applied by the laptop's computer account only (an inherit-only Apply ACE does not count).
+        var laptop = builder.AddGroupPolicyObject("Stacje – Laptop serwisowy");
+        sysvol.PutSecurityTemplate(laptop, FakeDirectoryBuilder.Template("[Group Membership]", $"*{builder.SidOf(company.GrazynaDabrowska)}__Memberof = *S-1-5-32-555"));
+        SetAcl(builder, laptop, read, FakeAce.ExtendedRight(builder.SidOf(company.Laptop), apply),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x100, PrivilegedGroupCatalog.AuthenticatedUsersSid, apply));
+        builder.SetGroupPolicyLinks(company.ComputersOu, [(laptop, 0)]);
+
+        var (results, scanner) = await ScanAsync(builder, sysvol);
+
+        Assert.Empty(scanner.Notices);
+        var pawel = Assert.Single(LocalRights(results, company.PawelLewandowski));
+        Assert.Equal((PrivilegeLevel.High, 0, 1, 0), (pawel.Level, pawel.GroupPolicy!.DomainControllers, pawel.GroupPolicy.Servers, pawel.GroupPolicy.Workstations));
+        Assert.False(pawel.GroupPolicy.IsConditional);
+        var zbigniew = Assert.Single(LocalRights(results, company.ZbigniewKazmierczak));
+        Assert.Equal((PrivilegeLevel.High, 0, 2, 3), (zbigniew.Level, zbigniew.GroupPolicy!.DomainControllers, zbigniew.GroupPolicy.Servers, zbigniew.GroupPolicy.Workstations));
+        var grazyna = Assert.Single(LocalRights(results, company.GrazynaDabrowska));
+        Assert.Equal((PrivilegeLevel.Elevated, 0, 0, 1), (grazyna.Level, grazyna.GroupPolicy!.DomainControllers, grazyna.GroupPolicy.Servers, grazyna.GroupPolicy.Workstations));
+    }
+
+    [Fact]
+    public void SecurityFilter_FromTheDescriptor_AllowAndDenyOfApplyGroupPolicy()
+    {
+        var apply = GroupPolicySecurityFilter.ApplyGroupPolicyRight;
+        var descriptor = FakeSecurityDescriptor.Build("S-1-5-21-1-2-3-512", null,
+            FakeAce.FullControl("S-1-5-18"),
+            new FakeAce(FakeAce.AccessAllowed, 0, 0xF00FF, "S-1-5-21-1-2-3-512"),
+            FakeAce.ExtendedRight("S-1-5-21-1-2-3-1105", apply),
+            FakeAce.ExtendedRight("S-1-5-21-1-2-3-1106", new Guid("1131f6aa-9c07-11d1-f79f-00c04fc2dcd2")),
+            new FakeAce(FakeAce.AccessDeniedObject, 0, 0x100, "S-1-5-21-1-2-3-516", apply),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x100, "S-1-5-11", apply));
+
+        var filter = GroupPolicySecurityFilter.FromDescriptor(descriptor)!;
+
+        Assert.Equal(["S-1-5-18", "S-1-5-21-1-2-3-1105"], filter.Allowed.Order(StringComparer.Ordinal));
+        Assert.Equal(["S-1-5-21-1-2-3-516"], filter.Denied);
+        Assert.False(filter.AppliesToEveryComputer);
+        Assert.True(filter.Applies(new HashSet<string> { "S-1-5-11", "S-1-5-21-1-2-3-1105" }));
+        Assert.False(filter.Applies(new HashSet<string> { "S-1-5-21-1-2-3-1105", "S-1-5-21-1-2-3-516" }));
+        Assert.False(filter.Applies(new HashSet<string> { "S-1-5-11", "S-1-5-21-1-2-3-1106" }));
+        Assert.Null(GroupPolicySecurityFilter.FromDescriptor([1, 2, 3]));
+        Assert.Null(GroupPolicySecurityFilter.FromDescriptor(null));
+    }
+
+    [Fact]
     public async Task NoGpoReachesAComputer_NothingIsReadFromSysvol()
     {
         var builder = new FakeDirectoryBuilder();
@@ -301,6 +370,21 @@ public class GroupPolicyGrantSourceTests
         var gpo = builder.AddGroupPolicySample(company, sample, sysvol);
         return (builder, company, sample, gpo, sysvol);
     }
+
+    /// <summary>A GPO with one User Rights Assignment line.</summary>
+    private static Guid AddDefaultAclGpo(FakeDirectoryBuilder builder, FakeSysvolFileReader sysvol, string name, string line)
+    {
+        var gpo = builder.AddGroupPolicyObject(name);
+        sysvol.PutSecurityTemplate(gpo, FakeDirectoryBuilder.Template("[Privilege Rights]", line));
+        return gpo;
+    }
+
+    /// <summary>The nTSecurityDescriptor (DACL) of a GPO's container.</summary>
+    private static void SetAcl(FakeDirectoryBuilder builder, Guid gpo, params FakeAce[] aces) =>
+        builder.Session.SeedAttributes(builder.GroupPolicyDn(gpo), new Dictionary<string, object?>
+        {
+            [Attr.NtSecurityDescriptor] = FakeSecurityDescriptor.Build($"{builder.DomainSid}-512", null, aces),
+        });
 
     private static async Task<(Dictionary<string, AccountPrivileges> Results, PrivilegedAccessScanner Scanner)> ScanAsync(
         FakeDirectoryBuilder builder, FakeSysvolFileReader sysvol, Func<PrivilegedAccessOptions, PrivilegedAccessOptions>? configure = null)

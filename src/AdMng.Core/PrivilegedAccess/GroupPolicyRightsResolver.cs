@@ -1,4 +1,5 @@
 using System.Globalization;
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.Ldap;
 
@@ -31,7 +32,9 @@ public sealed record GroupPolicyDomainNames(string DnsName, string? NetBiosName)
 /// <list type="bullet">
 /// <item>The computers are grouped by their parent container (and the site of a DC); for each group
 /// <see cref="GroupPolicyInheritance"/> gives the GPOs in application order (GPOs with the computer configuration disabled
-/// left out).</item>
+/// left out), and per computer the security filtering of each GPO (<see cref="GroupPolicySecurityFilter"/>: Apply Group
+/// Policy for a SID of its token - the computer, its primary group, its nested groups, Authenticated Users …) decides
+/// whether it applies; computers that apply the same GPOs are evaluated together.</item>
 /// <item>User Rights Assignment and Restricted Groups follow the security engine: per right, per restricted group (Members)
 /// and per member (MemberOf) the highest-precedence GPO wins; the effective members of a local group are the Members list
 /// plus every MemberOf entry naming it. On the DCs the "local" groups are the domain's groups: a line about a privileged
@@ -154,29 +157,43 @@ public sealed class GroupPolicyRightsResolver
                 continue;
             }
 
-            var counts = new RoleCounts(
-                group.Count(c => c.Role == ComputerRole.DomainController),
-                group.Count(c => c.Role == ComputerRole.Server),
-                group.Count(c => c.Role == ComputerRole.Workstation));
-            // One grant per key for this group of computers (a key can come from two items of one GPO): counted once,
-            // conditional only when every contributing item is.
-            var grantsHere = new Dictionary<GrantKey, RawGrant>();
-            foreach (var raw in Evaluate(applied))
+            // Security filtering: the computers of the container that may not apply a GPO get the others only.
+            var subgroups = group
+                .Select(c => (Computer: c, Effective: Effective(applied, c)))
+                .GroupBy(x => string.Join(',', x.Effective.Select(a => a.GpoId)), StringComparer.Ordinal);
+            foreach (var subgroup in subgroups)
             {
-                var key = new GrantKey(raw.PrincipalSid, raw.Definition.Key, raw.Mechanism, raw.Applied.GpoId, ScopeKey(raw.Applied.Container.Dn));
-                grantsHere[key] = grantsHere.TryGetValue(key, out var earlier)
-                    ? earlier with { ItemLevelTargeting = earlier.ItemLevelTargeting && raw.ItemLevelTargeting }
-                    : raw;
-            }
-
-            foreach (var (key, raw) in grantsHere)
-            {
-                if (!totals.TryGetValue(key, out var total))
+                var effective = subgroup.First().Effective;
+                if (effective.Count == 0)
                 {
-                    totals[key] = total = new Accumulator(raw.Applied, raw.Definition, raw.ItemLevelTargeting);
+                    continue;
                 }
 
-                total.Add(counts, raw.ItemLevelTargeting);
+                var counts = new RoleCounts(
+                    subgroup.Count(x => x.Computer.Role == ComputerRole.DomainController),
+                    subgroup.Count(x => x.Computer.Role == ComputerRole.Server),
+                    subgroup.Count(x => x.Computer.Role == ComputerRole.Workstation));
+
+                // One grant per key for this group of computers (a key can come from two items of one GPO): counted once,
+                // conditional only when every contributing item is.
+                var grantsHere = new Dictionary<GrantKey, RawGrant>();
+                foreach (var raw in Evaluate(effective))
+                {
+                    var key = new GrantKey(raw.PrincipalSid, raw.Definition.Key, raw.Mechanism, raw.Applied.GpoId, ScopeKey(raw.Applied.Container.Dn));
+                    grantsHere[key] = grantsHere.TryGetValue(key, out var earlier)
+                        ? earlier with { ItemLevelTargeting = earlier.ItemLevelTargeting && raw.ItemLevelTargeting }
+                        : raw;
+                }
+
+                foreach (var (key, raw) in grantsHere)
+                {
+                    if (!totals.TryGetValue(key, out var total))
+                    {
+                        totals[key] = total = new Accumulator(raw.Applied, raw.Definition, raw.ItemLevelTargeting);
+                    }
+
+                    total.Add(counts, raw.ItemLevelTargeting);
+                }
             }
         }
 
@@ -229,6 +246,82 @@ public sealed class GroupPolicyRightsResolver
             .ThenBy(g => g.GroupPolicy!.GpoName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(g => g.GroupPolicy!.Right, StringComparer.OrdinalIgnoreCase)
             .ThenBy(g => g.PrincipalSid, StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// The GPOs of <paramref name="applied"/> the computer may apply: those whose security filtering (the Apply Group Policy
+    /// right on the container) allows a SID of its token and denies none; a GPO whose descriptor was not read counts.
+    /// </summary>
+    private IReadOnlyList<AppliedGroupPolicy> Effective(IReadOnlyList<AppliedGroupPolicy> applied, GroupPolicyComputer computer)
+    {
+        if (applied.All(a => _topology.Policies[a.GpoId].SecurityFilter is null or { AppliesToEveryComputer: true }))
+        {
+            return applied;
+        }
+
+        var token = TokenOf(computer);
+        return [.. applied.Where(a => _topology.Policies[a.GpoId].SecurityFilter?.Applies(token) ?? true)];
+    }
+
+    /// <summary>
+    /// The SIDs of a computer's token as far as the security filtering of GPOs goes: the computer, its primary group, its
+    /// groups nested through the group graph, Everyone, Authenticated Users, This Organization and, for a writable DC
+    /// (primary group Domain Controllers), Enterprise Domain Controllers.
+    /// </summary>
+    private HashSet<string> TokenOf(GroupPolicyComputer computer)
+    {
+        var token = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GroupPolicySecurityFilter.EveryoneSid, GroupPolicySecurityFilter.AuthenticatedUsersSid, GroupPolicySecurityFilter.ThisOrganizationSid,
+        };
+        var domainSid = _options.DomainSid;
+        if (computer.Sid is { } sid && sid.LastIndexOf('-') is > 0 and var dash)
+        {
+            token.Add(sid);
+            domainSid ??= sid[..dash];
+        }
+
+        var queue = new Queue<GroupNode>();
+        var seen = new HashSet<GroupNode>();
+        void Visit(GroupNode? node)
+        {
+            if (node is not null && seen.Add(node))
+            {
+                queue.Enqueue(node);
+            }
+        }
+
+        if (computer.PrimaryGroupId is { } rid && domainSid is not null)
+        {
+            var primary = string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{rid}");
+            token.Add(primary);
+            if (rid == (int)WellKnownRids.DomainControllers)
+            {
+                token.Add(GroupPolicySecurityFilter.EnterpriseDomainControllersSid);
+            }
+
+            Visit(_groups.FindBySid(primary));
+        }
+
+        foreach (var dn in computer.MemberOf)
+        {
+            Visit(_groups.FindByDn(dn));
+        }
+
+        while (queue.TryDequeue(out var node))
+        {
+            if (node.Sid is { } groupSid)
+            {
+                token.Add(groupSid);
+            }
+
+            foreach (var parent in node.Parents)
+            {
+                Visit(parent);
+            }
+        }
+
+        return token;
     }
 
     /// <summary>The effective local rights of computers that get <paramref name="applied"/> (in application order).</summary>

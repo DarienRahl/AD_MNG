@@ -48,11 +48,18 @@ public sealed class GroupPolicyAccessTests(LabFixture lab)
             await tools.LinkAsync(ou, enforced, enforced: true, Ct);
             await tools.BlockInheritanceAsync(stations, Ct);
 
+            // Security filtering: the old GPO is denied to Enterprise Domain Controllers (Apply Group Policy).
+            var loserDn = DistinguishedName.Parse(LabSettings.DomainDn).Child("CN", "System").Child("CN", "Policies").Child("CN", SysvolPaths.FolderName(loser)).ToString();
+            await tools.AddAceAsync(loserDn, $"(OD;;CR;{GroupPolicySecurityFilter.ApplyGroupPolicyRight:D};;{GroupPolicySecurityFilter.EnterpriseDomainControllersSid})", Ct);
+
             var topology = await GroupPolicyTopology.ReadAsync(lab.Admin, 500, Ct);
 
             Assert.Equal($"U4C-{suffix} Wymuszona – Gdańsk", topology.Policies[enforced].DisplayName);
             Assert.False(topology.Policies[winner].ComputerSettingsDisabled);
             Assert.False(topology.Policies[winner].IsPathRedirected(LabSettings.DomainDns));
+            Assert.True(topology.Policies[winner].SecurityFilter is { AppliesToEveryComputer: true }, "Samba gives Authenticated Users Apply Group Policy.");
+            Assert.Equal([GroupPolicySecurityFilter.EnterpriseDomainControllersSid], topology.Policies[loser].SecurityFilter!.Denied);
+            Assert.Contains(PrivilegedGroupCatalog.AuthenticatedUsersSid, topology.Policies[loser].SecurityFilter!.Allowed);
             var container = Assert.Single(topology.Containers, c => DistinguishedName.AreEqual(c.Dn, ou));
             Assert.Equal(GroupPolicySomKind.OrganizationalUnit, container.Kind);
             Assert.Equal([enforced, loser, winner], container.Links.Select(l => l.GpoId!.Value));

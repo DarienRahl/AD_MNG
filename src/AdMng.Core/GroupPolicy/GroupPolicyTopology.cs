@@ -45,6 +45,12 @@ public sealed record GroupPolicyObjectInfo
     /// <summary>A WMI filter is linked (<c>gPCWQLFilter</c>): the GPO applies only where the query is true.</summary>
     public bool HasWmiFilter { get; init; }
 
+    /// <summary>
+    /// The security filtering (who may apply the GPO, from the container's DACL); null when the descriptor could not be
+    /// read - the GPO is then taken to apply to every computer it is linked to.
+    /// </summary>
+    public GroupPolicySecurityFilter? SecurityFilter { get; init; }
+
     public bool ComputerSettingsDisabled => (Flags & ComputerSettingsDisabledFlag) != 0;
 
     /// <summary>The client runs the extension for this GPO (always when the GPO does not list its extensions).</summary>
@@ -127,21 +133,39 @@ public enum ComputerRole
 /// <param name="Dn">The computer's DN.</param>
 /// <param name="Role">Workstation, server (operatingSystem names a server) or DC (server trust / RODC).</param>
 /// <param name="SiteDn">The site of a DC (its server object in CN=Sites); null for other computers (the site follows the subnet).</param>
-public sealed record GroupPolicyComputer(string Dn, ComputerRole Role, string? SiteDn);
+public sealed record GroupPolicyComputer(string Dn, ComputerRole Role, string? SiteDn)
+{
+    /// <summary>objectSid (the security filtering of a GPO may name the computer itself).</summary>
+    public string? Sid { get; init; }
+
+    /// <summary>primaryGroupID (515 Domain Computers, 516 Domain Controllers, 521 RODCs).</summary>
+    public int? PrimaryGroupId { get; init; }
+
+    /// <summary>memberOf: the groups the security filtering of a GPO may name (nested through the group graph).</summary>
+    public IReadOnlyList<string> MemberOf { get; init; } = [];
+}
 
 /// <summary>
 /// The group policy objects, their links and the computers of a domain, read from the session's DC (CLAUDE.md rule 4) for
 /// one privileged access run and kept only in memory: the GPCs of <c>CN=Policies,CN=System</c> (one search), the domain
 /// head, the OUs with <c>gPLink</c> or <c>gPOptions</c> (one search), the sites with links (one search of the
 /// configuration NC; the DCs' server objects only when a site has links) and the computer accounts (one paged search).
+/// The DACL of every GPC (security filtering) and the SID, primary group and memberOf of every computer come with those
+/// searches.
 /// </summary>
 public sealed class GroupPolicyTopology
 {
-    /// <summary>Attributes of the GPC search.</summary>
+    /// <summary>Attributes of the GPC search (nTSecurityDescriptor with the SD flags control: DACL, for the security filtering).</summary>
     public static IReadOnlyList<string> PolicyAttributes { get; } =
     [
         Attr.Cn, Attr.DisplayName, GroupPolicyAttributes.FileSysPath, GroupPolicyAttributes.Flags,
-        GroupPolicyAttributes.MachineExtensionNames, GroupPolicyAttributes.WqlFilter,
+        GroupPolicyAttributes.MachineExtensionNames, GroupPolicyAttributes.WqlFilter, Attr.NtSecurityDescriptor,
+    ];
+
+    /// <summary>Attributes of the computer search (role, and the token SIDs for the security filtering of the GPOs).</summary>
+    public static IReadOnlyList<string> ComputerAttributes { get; } =
+    [
+        Attr.ObjectClass, Attr.UserAccountControl, Attr.OperatingSystem, Attr.ObjectSid, Attr.PrimaryGroupId, Attr.MemberOf,
     ];
 
     /// <summary>OUs that link GPOs or block inheritance.</summary>
@@ -190,6 +214,7 @@ public sealed class GroupPolicyTopology
                 Scope = SearchScope.OneLevel,
                 Filter = LdapFilter.Equal(Attr.ObjectClass, "groupPolicyContainer"),
                 Attributes = PolicyAttributes,
+                ReadSecurityDescriptor = true,
                 PageSize = pageSize,
             }, cancellationToken).ConfigureAwait(false))
             {
@@ -269,7 +294,7 @@ public sealed class GroupPolicyTopology
             BaseDn = domainDn,
             Scope = SearchScope.Subtree,
             Filter = ObjectKind.Computer.ToLdapFilter(),
-            Attributes = [Attr.ObjectClass, Attr.UserAccountControl, Attr.OperatingSystem],
+            Attributes = ComputerAttributes,
             PageSize = pageSize,
         }, cancellationToken).ConfigureAwait(false))
         {
@@ -283,7 +308,12 @@ public sealed class GroupPolicyTopology
             computers.Add(new GroupPolicyComputer(
                 computer.DistinguishedName,
                 role,
-                role == ComputerRole.DomainController && dcSites.TryGetValue(computer.Dn, out var siteDn) ? siteDn : null));
+                role == ComputerRole.DomainController && dcSites.TryGetValue(computer.Dn, out var siteDn) ? siteDn : null)
+            {
+                Sid = computer.ObjectSid,
+                PrimaryGroupId = computer.GetInt32(Attr.PrimaryGroupId),
+                MemberOf = computer.GetStrings(Attr.MemberOf),
+            });
         }
 
         return new GroupPolicyTopology(domainDn, policies, containers, computers);
@@ -320,6 +350,7 @@ public sealed class GroupPolicyTopology
             Flags = gpc.GetInt32(GroupPolicyAttributes.Flags) ?? 0,
             MachineExtensions = GroupPolicyObjectInfo.ParseExtensionNames(gpc.GetString(GroupPolicyAttributes.MachineExtensionNames)),
             HasWmiFilter = gpc.GetString(GroupPolicyAttributes.WqlFilter) is { Length: > 0 } wql && wql.Trim().Length > 0,
+            SecurityFilter = GroupPolicySecurityFilter.FromDescriptor(gpc.GetBytes(Attr.NtSecurityDescriptor)),
         };
     }
 

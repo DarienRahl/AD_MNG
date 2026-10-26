@@ -61,6 +61,13 @@ internal sealed partial class SambaTools : IDisposable
         Assert.True(result.Exit == 0, "samba-tool gpo setinheritance failed: " + result.Output + result.Error);
     }
 
+    /// <summary><c>samba-tool dsacl set</c>: adds one ACE (SDDL) to the DACL of an object.</summary>
+    public async Task AddAceAsync(string objectDn, string sddlAce, CancellationToken cancellationToken)
+    {
+        var result = await SambaToolAsync(["dsacl", "set", "--objectdn=" + objectDn, "--sddl=" + sddlAce], cancellationToken);
+        Assert.True(result.Exit == 0, "samba-tool dsacl set failed: " + result.Output + result.Error);
+    }
+
     /// <summary><c>samba-tool gpo del</c> (removes the links, the container and the SYSVOL folder; best effort).</summary>
     public async Task DeleteGpoAsync(Guid gpo)
     {

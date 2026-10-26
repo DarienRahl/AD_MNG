@@ -27,7 +27,7 @@ the window's DC (4), every action through the change plan (5), streaming and can
 | `PrivilegedAccessSettings` | Presentation (`Settings/`) | Level overrides, marks, rules, peers, account types. |
 | `AccountReviewWindow` (tab), `FilterEditorWindow`, `SavedFiltersWindow`, chips in `ObjectListView` | App | XAML. |
 | `GroupPolicyGrantSource`, `GroupPolicyRightsResolver`, `LocalRightsCatalog`, `GroupPolicyGrantDetails` | Core (`PrivilegedAccess/`) | U4c: local rights from GPOs. |
-| `GroupPolicyTopology`, `GroupPolicyInheritance`, `GroupPolicyLinks`, `SecurityTemplate`, `GppGroupsParser`, `GpoText`, `GpoXml`, `ISysvolFileReader`, `SysvolPaths` | Core (`GroupPolicy/`) | U4c: GPOs, links, computers, inheritance, the GPO file parsers (shared with Watchdog) and the SYSVOL reader contract. |
+| `GroupPolicyTopology`, `GroupPolicyInheritance`, `GroupPolicyLinks`, `GroupPolicySecurityFilter`, `SecurityTemplate`, `GppGroupsParser`, `GpoText`, `GpoXml`, `ISysvolFileReader`, `SysvolPaths` | Core (`GroupPolicy/`) | U4c: GPOs, links, security filtering, computers, inheritance, the GPO file parsers (shared with Watchdog) and the SYSVOL reader contract. |
 | `WindowsSysvolFileReader` | Directory | U4c: SYSVOL of the session's DC on Windows (process identity or the session's in-memory credential). |
 
 ## 2. Model
@@ -160,10 +160,11 @@ The comparison runs after the stream over all accounts of the scope (also those 
   it), `GppGroupsParser` (local group items of Groups.xml) and `GroupPolicyLinks` (gPLink with link order; the Watchdog's
   `GpLinks` and GPC cn parsing delegate to it). The Watchdog's generic snapshot parsers stay in Watchdog.
 * **Reads** (all on the session's DC, rule 4): one-level search of `CN=Policies,CN=System` (`cn displayName
-  gPCFileSysPath flags gPCMachineExtensionNames gPCWQLFilter`), a base read of the domain head (`gPLink gPOptions`), one
+  gPCFileSysPath flags gPCMachineExtensionNames gPCWQLFilter nTSecurityDescriptor`, SD flags DACL), a base read of the domain head (`gPLink gPOptions`), one
   subtree search of the OUs with `gPLink` or `gPOptions`, one one-level search of `CN=Sites` for sites with `gPLink` (the
   DCs' server objects only when a site links a GPO), one paged search of the computer accounts (`objectClass
-  userAccountControl operatingSystem`; managed service accounts and disabled computers left out), then one
+  userAccountControl operatingSystem objectSid primaryGroupID memberOf`; managed service accounts and disabled computers
+  left out), then one
   `sAMAccountName` search per 50 names the GPOs use. SYSVOL: `GptTmpl.inf` when the GPO lists the Security extension
   (or lists none), `Groups.xml` when it lists the GPP Local Users and Groups extension (or none); 4 MiB per file, 4
   reads at a time, cancellable. Only GPOs that reach a computer are read.
@@ -230,8 +231,20 @@ The comparison runs after the stream over all accounts of the scope (also those 
   computers the GPO actually reaches (so the DC OU and the Default Domain Controllers Policy give Tier 0, and a
   domain-level GPO reaching the DCs does too). Administrators on workstations is Elevated (the note names only servers
   and DCs). Restricted Groups precedence, GPP order and computer counts were added to make link order matter.
-  Security filtering of GPOs (the *Apply group policy* permission - an ACL, U4b territory), WMI filter queries and
-  item-level targeting conditions are not evaluated: findings with a WMI filter or targeting are marked conditional.
+  WMI filter queries and item-level targeting conditions are not evaluated: findings with a WMI filter or targeting
+  are marked conditional. Security filtering is evaluated (added after the review, the note left it to U4b): see
+  *Security filtering* below.
+* **Security filtering** (`GroupPolicySecurityFilter`): the GPC search reads `nTSecurityDescriptor` with the SD flags
+  control (DACL; the parser moved to `AdMng.Core/Security` by U4b) and collects the SIDs allowed and denied the *Apply
+  Group Policy* extended right (`edacfd8f-…`, or control access without an object type; inherit-only ACEs ignored). The
+  computer search adds `objectSid primaryGroupID memberOf`; a computer's token is its SID, its primary group, its groups
+  nested through the group graph, Everyone, Authenticated Users, This Organization and, for a writable DC (primary group
+  516), Enterprise Domain Controllers. A computer applies a GPO when an allowed SID is in its token and no denied one
+  is; computers of one container that apply the same GPOs are evaluated together, so a GPO linked at the domain head
+  but filtered to "Serwery SQL" (or denied to Domain Controllers) counts only the computers it reaches and is not Tier 0
+  through the DCs, and a lower-precedence GPO wins where the filtered one does not apply. A descriptor that cannot be
+  read counts as applying everywhere (as before). Not modelled: the Read permission, universal groups of other
+  domains in the token.
 * **Tests.** Core: SecurityTemplate (UTF-16 with BOM, Polish names, both Restricted Groups forms, duplicates, hostile
   encodings), GppGroupsParser (actions, collections, targeting, disabled items, DTD and nesting refused),
   GroupPolicyInheritance (link order, block, enforced, disabled, sites, duplicates), SysvolPaths, and the source end to
@@ -261,7 +274,7 @@ All on the session's DC; one window = one session (rule 4).
 | Filter rules | once per rule | the rule's server part AND accounts or security groups, DN only |
 | Accounts | once, streamed | `(|(sAMAccountType=805306368)(sAMAccountType=805306369))` AND the scope filter (saved view, group members, saved filters), attributes of `PrivilegeEvaluator.AccountAttributes` (+ client check attributes); paged |
 | Ranged memberOf | only for accounts with > 1500 groups | ranged retrieval |
-| U4c: GPOs, links, computers | once per run (the GPO source) | `CN=Policies` one level, domain head base, OUs with `gPLink`/`gPOptions`, sites with `gPLink` (+ server objects), computers paged; `sAMAccountName` per 50 names; SYSVOL GptTmpl.inf / Groups.xml of the GPOs that reach a computer |
+| U4c: GPOs, links, computers | once per run (the GPO source) | `CN=Policies` one level (with the DACL for the security filtering), domain head base, OUs with `gPLink`/`gPOptions`, sites with `gPLink` (+ server objects), computers paged; `sAMAccountName` per 50 names; SYSVOL GptTmpl.inf / Groups.xml of the GPOs that reach a computer |
 
 The evaluation is in memory: per account a breadth-first search over its reachable groups (tens of nodes), then the
 grants of those nodes. 10 000 accounts × ~30 reachable groups is ~300 000 steps; the peer comparison is linear in accounts ×
