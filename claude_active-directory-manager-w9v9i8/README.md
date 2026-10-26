@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`7ea2c69`](https://github.com/DarienRahl/AD_MNG/commit/7ea2c697b4f01feefdf0f62a28760c1f38c9e581) (`7ea2c697b4f01feefdf0f62a28760c1f38c9e581`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40378441162
+- Commit: [`20c27b8`](https://github.com/DarienRahl/AD_MNG/commit/20c27b8dbc7ce7146087fd2419391ef544f40a8e) (`20c27b8dbc7ce7146087fd2419391ef544f40a8e`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40392513086
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -75,4 +75,8 @@
 ## Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką
 
 ![Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką](18-user-messages.png)
+
+## Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia
+
+![Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia](19-privileged-access.png)
 

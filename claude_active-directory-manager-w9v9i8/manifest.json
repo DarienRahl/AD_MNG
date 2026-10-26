@@ -88,5 +88,10 @@
     "file": "18-user-messages.png",
     "title_pl": "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
     "title_en": "Messages to users – the preview of the \u0022password expires\u0022 message of every recipient before sending"
+  },
+  {
+    "file": "19-privileged-access.png",
+    "title_pl": "Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia",
+    "title_en": "Account review – the Privileges tab: accounts with rights beyond a plain user, their levels and the path of a right"
   }
 ]
