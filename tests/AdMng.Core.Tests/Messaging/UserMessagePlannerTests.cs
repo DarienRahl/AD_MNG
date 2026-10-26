@@ -85,6 +85,28 @@ public class UserMessagePlannerTests
     }
 
     [Fact]
+    public void ATemplateWithOneLanguageOnly_SendsTheWholeMessageInThatLanguage()
+    {
+        // Agnieszka prefers English, the operator's template has Polish text only: the Polish text falls back, and its
+        // dates and the footer must be Polish too – not "wygaśnie 30 October 2026" with the English footer.
+        var template = new MessageTemplate
+        {
+            Name = "Tylko po polsku",
+            Polish = new MessageTemplateText { Subject = "Konto {sAMAccountName}", Body = "Konto wygaśnie {$accountExpires}." },
+        };
+
+        var planned = Assert.Single(Plan(template, [new(AgnieszkaDn, Agnieszka())]).Messages);
+
+        Assert.Equal(MessageLanguage.Polish, planned.Language);
+        Assert.Equal(MessageLanguage.Polish, planned.Message!.Language);
+        Assert.StartsWith("Konto wygaśnie 30 października 2026.", planned.Message.TextBody, StringComparison.Ordinal);
+        Assert.Contains("Nigdy nie prosimy o podanie hasła", planned.Message.TextBody, StringComparison.Ordinal);
+        Assert.Contains("<html lang=\"pl\">", planned.Message.HtmlBody, StringComparison.Ordinal);
+        Assert.Equal(MessageLanguage.Polish, template.TextLanguage(MessageLanguage.English));
+        Assert.Equal(MessageLanguage.English, (template with { English = new MessageTemplateText { Body = "Hello" } }).TextLanguage(MessageLanguage.English));
+    }
+
+    [Fact]
     public void DefaultLanguage_AppliesToUnknownPreferredLanguages()
     {
         var sender = Sender() with { DefaultLanguage = MessageLanguage.English };

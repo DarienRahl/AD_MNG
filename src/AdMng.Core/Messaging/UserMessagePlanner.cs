@@ -322,8 +322,11 @@ public sealed class UserMessagePlanner
         var issues = new List<MessageIssue>();
         var sender = request.Sender;
         var status = AccountStatus.Evaluate(account, request.Now, sender.TimeZone, request.DomainMaxPasswordAge, request.IsLockedByTime);
-        var language = MessageLanguages.FromCode(account.GetString(PreferredLanguage)) ?? sender.DefaultLanguage;
         var template = request.Template;
+
+        // The recipient's language, unless the template has no text in it: then the whole message (dates, footer) is in
+        // the language of the text it falls back to.
+        var language = template.TextLanguage(MessageLanguages.FromCode(account.GetString(PreferredLanguage)) ?? sender.DefaultLanguage);
         var condition = template.Condition;
         var days = request.ConditionDays ?? template.ConditionDays;
         if (!MessageConditions.IsMet(condition, days, status))

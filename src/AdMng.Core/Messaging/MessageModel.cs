@@ -159,10 +159,19 @@ public sealed record MessageTemplate
     public MessageRecipientMode Recipients { get; init; } = MessageRecipientMode.User;
 
     /// <summary>The text of <paramref name="language"/>; an empty one falls back to the other language.</summary>
-    public MessageTemplateText Text(MessageLanguage language)
+    public MessageTemplateText Text(MessageLanguage language) =>
+        (TextLanguage(language) == MessageLanguage.English ? English : Polish) ?? new();
+
+    /// <summary>
+    /// The language of the text <see cref="Text"/> returns for <paramref name="language"/>: the other language when the text
+    /// of <paramref name="language"/> is empty and the other one is not. Dates and the footer of a message follow it.
+    /// </summary>
+    public MessageLanguage TextLanguage(MessageLanguage language)
     {
         var (preferred, other) = language == MessageLanguage.English ? (English, Polish) : (Polish, English);
-        return preferred is { IsEmpty: false } || other is null or { IsEmpty: true } ? preferred ?? new() : other;
+        return preferred is { IsEmpty: false } || other is null or { IsEmpty: true }
+            ? language
+            : language == MessageLanguage.English ? MessageLanguage.Polish : MessageLanguage.English;
     }
 
     /// <summary>The texts of both languages (for validation).</summary>
