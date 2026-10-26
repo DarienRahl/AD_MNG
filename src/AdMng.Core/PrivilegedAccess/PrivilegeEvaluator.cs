@@ -71,6 +71,7 @@ public sealed class PrivilegeEvaluator
     private readonly Dictionary<int, List<PrivilegeGrant>> _groupGrants = [];
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsBySid = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsByDn = new(StringComparer.Ordinal);
+    private readonly List<PrivilegeGrant> _everyoneGrants = [];
     private readonly IReadOnlyList<AccountRuleMatcher> _accountRules;
     private readonly HashSet<string> _domainControllerNames;
 
@@ -101,6 +102,13 @@ public sealed class PrivilegeEvaluator
             if (node is not null)
             {
                 Add(_groupGrants, node.Index, grant);
+                continue;
+            }
+
+            if (grant.PrincipalSid is PrivilegedGroupCatalog.EveryoneSid or PrivilegedGroupCatalog.AuthenticatedUsersSid)
+            {
+                // Not nested anywhere (so not in the graph), but every account holds it (an ACE of U4b, for example).
+                _everyoneGrants.Add(grant);
                 continue;
             }
 
@@ -212,6 +220,16 @@ public sealed class PrivilegeEvaluator
 
             var path = paths.PathTo(group);
             findings.AddRange(grants.Select(g => FromGrant(g, path, group.Dn, group.Name, onAccount: false)));
+        }
+
+        // Grants on Everyone / Authenticated Users that are not in the graph.
+        foreach (var grant in _everyoneGrants)
+        {
+            var principal = grant.PrincipalSid!;
+            var dn = DistinguishedName.TryParse(FilterContext.DefaultNamingContext, out var nc)
+                ? nc.Child("CN", "ForeignSecurityPrincipals").Child("CN", principal).ToString()
+                : principal;
+            findings.Add(FromGrant(grant, [self, new PrivilegePathStep(dn, principal, PrivilegePathStepKind.ImplicitGroup)], dn, principal, onAccount: false));
         }
 
         // Grants on the account itself.
@@ -384,6 +402,7 @@ public sealed class PrivilegeEvaluator
         Level = grant.Level,
         Scope = grant.Scope,
         ScopeDn = grant.ScopeDn,
+        ScopeName = grant.ScopeName,
         SubjectDn = subjectDn,
         SubjectName = subjectName,
         CatalogId = grant.CatalogId,

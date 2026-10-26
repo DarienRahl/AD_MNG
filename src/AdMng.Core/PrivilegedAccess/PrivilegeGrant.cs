@@ -23,6 +23,9 @@ public sealed record PrivilegeGrant
 
     public string? ScopeDn { get; init; }
 
+    /// <summary>The name of <see cref="ScopeDn"/> when it is not its RDN value (the display name of a GPO).</summary>
+    public string? ScopeName { get; init; }
+
     /// <summary>The principal's objectSid (preferred: survives renames and moves).</summary>
     public string? PrincipalSid { get; init; }
 
@@ -84,6 +87,12 @@ public sealed record PrivilegedAccessOptions
     public bool IncludeServiceAccounts { get; init; } = true;
 
     public PeerOptions Peers { get; init; } = new();
+
+    /// <summary>
+    /// U4b: the ACL delegations source also reads the security descriptors of every user, group and computer (explicit
+    /// ACEs on single objects); slower. Off: containers, GPOs and Tier 0 objects only.
+    /// </summary>
+    public bool DeepAclScan { get; init; }
 
     public int PageSize { get; init; } = 500;
 
