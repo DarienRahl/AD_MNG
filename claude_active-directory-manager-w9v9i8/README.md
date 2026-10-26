@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`68f5d57`](https://github.com/DarienRahl/AD_MNG/commit/68f5d5768bdeaec7888a07972ef2ad3ad6d03e13) (`68f5d5768bdeaec7888a07972ef2ad3ad6d03e13`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40333178551
+- Commit: [`e66ef84`](https://github.com/DarienRahl/AD_MNG/commit/e66ef847317aecaa1a22155b774c5c562ab4f289) (`e66ef847317aecaa1a22155b774c5c562ab4f289`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40343196869
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -71,4 +71,8 @@
 ## Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło
 
 ![Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło](17-account-review.png)
+
+## Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką
+
+![Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką](18-user-messages.png)
 

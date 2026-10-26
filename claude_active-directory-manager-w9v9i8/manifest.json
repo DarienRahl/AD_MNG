@@ -83,5 +83,10 @@
     "file": "17-account-review.png",
     "title_pl": "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
     "title_en": "Account review – the check tiles and the accounts whose password expires soon"
+  },
+  {
+    "file": "18-user-messages.png",
+    "title_pl": "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
+    "title_en": "Messages to users – the preview of the \u0022password expires\u0022 message of every recipient before sending"
   }
 ]
