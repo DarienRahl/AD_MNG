@@ -47,6 +47,8 @@ commit messages and these notes are in English.
 | `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
+| `src/AdMng.Mail` | net10.0 | Direct SMTP transport of user messages (U1, MailKit): TLS modes, certificate policy, authentication, failure classification; the SMTP password lives only in memory |
+| `tests/AdMng.Mail.Tests` | net10.0 | SMTP transport tests (in-process test servers; Mailpit with `ADMNG_TEST_SMTP_*`) |
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |
 | `tests/AdMng.Core.Tests`, `tests/AdMng.Presentation.Tests` | net10.0 | Unit tests (view models run against the real Core engines + fake directory) |
 | `tests/AdMng.Directory.IntegrationTests` | net10.0 | Unit tests + integration tests against the lab DC (skipped without `ADMNG_TEST_LDAP_*`) |
