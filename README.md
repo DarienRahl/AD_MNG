@@ -169,7 +169,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont<br/>i wiadomości e-mail<br/>(U1a, U1b, U2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4a: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -195,7 +195,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog i U2 – przegląd stanu kont: 🟡) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont i U4a – uprawnienia z grup i ustawień kont z kreatorem filtrów: 🟡; U3, U4b – delegowania w ACL, U4c – uprawnienia lokalne z GPO: ⬜) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -468,11 +468,15 @@ na żywo i wiele domen.
 - 🟡 **Widoki dla działów:** ✅ przypinanie OU, zapisane widoki (zapytanie LDAP + kontener + kolumny), gotowe widoki
   wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
   *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
-- Kreator zapytań (warunki ↔ LDAP), zapisane zapytania jako foldery w drzewie, import zapytań zapisanych w ADUC (XML).
+- 🟡 Kreator zapytań: ✅ kreator filtrów (warunki ↔ LDAP, grupy I/LUB) z zapisanymi filtrami, chipami na listach
+  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)); ⬜ zapisane zapytania jako
+  foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-).
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4a-); konta z uprawnieniami
+  ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji) – zakładka
+  *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
@@ -586,16 +590,17 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b i U2: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4a: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
 przeglądu – z takim samym podglądem, raportem i zabezpieczeniami jak w edycji zbiorczej. Ścieżka równoległa: korzysta
 z chipów filtrów (faza 1), silnika szablonów (faza 2) i transportu SMTP Watchdoga ([WATCHDOG.md](docs/WATCHDOG.md#52-smtp)).
-U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog.
+U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog; U4 (uprawnienia kont) to druga
+zakładka okna przeglądu z U2.
 
 <details>
-<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia</summary>
+<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów</summary>
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
@@ -787,6 +792,74 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Wymaga uzupełnienia [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md): kolejka wysyłek usługi przechowuje
   wtedy także wiadomości do użytkowników (retencja, ACL).
 
+#### U4 – Uprawnienia kont 🟡 (U4a: 🟡, U4b i U4c: ⬜)
+
+**Cel:** jedna lista wszystkich kont, które mają jakiekolwiek uprawnienia ponad zwykłego użytkownika domeny – „nawet
+minimalnie więcej niż inni” – z poziomem każdego ustalenia (Tier 0 / wysoki / podwyższony / drobny), ścieżką „skąd to
+ma” (konto → grupa A → grupa B → Operatorzy kont) i zakresem. Cztery źródła: (1) grupy i „power users”, (2) ryzykowne
+ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne z GPO – U4c. Opis techniczny:
+[docs/dev/u4-privileged-access.md](docs/dev/u4-privileged-access.md).
+
+**Stan realizacji – U4a (grupy, ustawienia kont, podobne konta, kreator filtrów) gotowe; czeka na pilotaż.**
+
+- ✅ Zakładka *Uprawnienia* w oknie *Przegląd kont*: ten sam zakres co U2 (domena, OU z poddrzewem, zapisany widok,
+  członkowie grupy) i nowe pole *Filtr* (zapisany filtr, dla obu zakładek); *Sprawdź* (F5) uruchamia wybraną zakładkę,
+  wyniki strumieniowane, *Przerwij*. Jedno stronicowane zapytanie o grupy zabezpieczeń (graf członkostwa w pamięci:
+  najkrótsza ścieżka zagnieżdżenia, grupa podstawowa, cykle, *Wszyscy* / *Użytkownicy uwierzytelnieni* zagnieżdżeni
+  w grupach; grupy dystrybucyjne pominięte) i jedno o konta (użytkownicy, opcjonalnie komputery i gMSA); wyniki
+  tylko w pamięci okna.
+- ✅ Źródło 1 – grupy: katalog 40 grup wbudowanych rozpoznawanych po SID/RID (nigdy po zlokalizowanej nazwie): Tier 0
+  (Administratorzy, Domain Admins, Enterprise Admins, Schema Admins, kontrolery domeny, Operatorzy kont / serwerów /
+  drukowania / kopii zapasowych, Key Admins, DnsAdmins, grupy Exchange z uprawnieniami do domeny), wysoki (Group Policy
+  Creator Owners, Cert Publishers, RODC, Organization Management), podwyższony (Użytkownicy pulpitu zdalnego, Remote
+  Management Users, Hyper-V Administrators, Replikator …) i drobny (Czytelnicy dziennika zdarzeń, Performance Monitor /
+  Log Users, Distributed COM Users, Network Configuration Operators …); poziom każdej grupy można zmienić
+  w ustawieniach zakładki. Własne grupy i konta („Oznacz grupy…”, „Oznacz konta…” – poziom i notatka) oraz reguły
+  „oznacz jako uprzywilejowane z poziomem X” z zapisanego filtra – dla kont albo dla grup (wtedy ich członkowie,
+  także zagnieżdżeni).
+- ✅ Źródło 2 – ryzykowne ustawienia konta: konta wbudowane (Administrator, krbtgt), `adminCount = 1` (także osierocony
+  – bez grupy chronionej, z akcją *Wyczyść adminCount…*), konto użytkownika z SPN (kerberoasting), delegowanie
+  nieograniczone (poza kontrolerami domeny), ograniczone i z przejściem protokołu (Tier 0, gdy cel jest na kontrolerze
+  domeny), RBCD ustawione na koncie, `sIDHistory` (wyższy poziom dla SID tej domeny lub grupy uprzywilejowanej), brak
+  preautentykacji Kerberos.
+- ✅ Odstępstwa od podobnych kont: grupa (bezpośrednia), której nie ma nikt albo mniej niż N % (domyślnie 20 %)
+  z co najmniej M (5) kont w tej samej OU, w tym samym dziale lub na tym samym stanowisku – „ma 2 grupy, których nie ma
+  nikt inny w Księgowości”; wymiary i progi w ustawieniach, przełącznik *Tylko nietypowe na tle podobnych kont*.
+- ✅ Lista kont: poziom konta (najwyższy z ustaleń), źródła, liczba ustaleń, „nietypowe”, lokalizacja; kafelki z liczbą
+  kont na każdym poziomie i przełączniki źródeł; panel szczegółów – każde ustalenie z poziomem, ścieżką *Skąd*,
+  *Zakresem*, opisem *Co daje*, wartościami (SPN, cele delegowania, SID) i notatką operatora. Akcje przez silnik zmian
+  z podglądem: *Usuń z grupy…* (grupa bezpośrednia na ścieżce wybranego ustalenia), *Wyczyść adminCount…*, *Wyłącz
+  konto*, właściwości, edycja zbiorcza, *Wyślij wiadomość…*, eksport CSV na żądanie (z kolumną wszystkich ustaleń).
+  Lista „Konta uprzywilejowane z problemem” (U2) prowadzi do zakładki („Wszystkie konta uprzywilejowane: N →”).
+- ✅ Kreator filtrów (Narzędzia → *Zapisane filtry…*, paleta poleceń, ustawienia zakładki): grupy warunków łączone I /
+  LUB; operatory równa się, różne od, zawiera, zaczyna się od, kończy się na, istnieje, nie istnieje, większe / mniejsze
+  lub równe, data starsza / nowsza niż N dni, flaga ustawiona / nieustawiona, członek grupy (także pośrednio) / nie jest
+  członkiem; atrybuty ze schematu, podgląd LDAP na żywo (zawsze przez `LdapFilter`), problemy wskazane przy warunku,
+  *Testuj* (liczba pasujących obiektów), surowy LDAP ze sprawdzeniem składni; warunki na atrybutach konstruowanych
+  sprawdzane po stronie klienta. Filtry zapisywane pod nazwą (tylko warunki – jak zapisane widoki, bez danych
+  katalogu), eksport/import JSON dla zespołu. Użycie: filtr zakresu przeglądu, chipy zapisanych filtrów na listach
+  obiektów obok szybkich filtrów (zachowywane przez *Zapisz jako widok*) i reguły uprawnień.
+- ✅ Testy: jednostkowe (katalog grup, kompilator i ewaluator filtrów z polskimi znakami, porównanie z podobnymi kontami,
+  skaner na fałszywym katalogu z polskimi nazwami grup wbudowanych, spójność z poziomami grup Watchdoga), modeli widoku
+  (zakładka, akcje przez potok, ustawienia bez wyników przeglądu, filtry, chipy, widoki), test UI, test dymny, zrzut
+  ekranu `19-privileged-access.png`, test na laboratorium Samba (zagnieżdżenie do Operatorów kont przez dwie grupy,
+  delegowanie, SPN, osierocony `adminCount`, brak preautentykacji, każdy operator kreatora przyjęty przez serwer).
+- 🟡 Do weryfikacji na Windows Server: czas dla 10 000 kont bez zamrożeń UI, domena podrzędna (Enterprise / Schema
+  Admins z domeny głównej lasu), zgodność z `Get-ADGroupMember -Recursive` i raportami narzędzi audytowych.
+
+**U4b – delegowania w ACL** ⬜: kto ma na domenie, OU, kontenerach i obiektach Tier 0 (AdminSDHolder, grupy chronione,
+`krbtgt`, kontrolery domeny, obiekty GPO) prawa ponad domyślne ze schematu – pełna kontrola, WriteDacl / WriteOwner,
+DCSync (replikacja zmian katalogu), reset haseł, zmiana członkostwa grup, tworzenie i usuwanie obiektów, edycja GPO
+i `gPLink`, odczyt haseł LAPS, zapis `msDS-KeyCredentialLink` i RBCD, właściciel obiektu Tier 0; zakres = kontener,
+uprawnienia dziedziczone pokazane raz, przy kontenerze źródłowym; także podmioty wpisane w RBCD konta. Członkowie
+grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa.
+
+**U4c – uprawnienia lokalne z GPO** ⬜: członkostwa w lokalnych grupach komputerów (Administratorzy, Użytkownicy
+pulpitu zdalnego, Operatorzy kopii zapasowych, Remote Management Users) przez *Grupy z ograniczeniami* i *Preferencje
+zasad grupy* oraz wrażliwe prawa użytkownika (`SeDebugPrivilege`, `SeBackupPrivilege`, `SeRestorePrivilege`,
+`SeEnableDelegationPrivilege`, logowanie na kontrolerach domeny …) – z SYSVOL kontrolera sesji czytanego tylko
+w pamięci; zakres = komputery OU, do której GPO jest dołączony (z wymuszeniem i blokadą dziedziczenia).
+
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
   wiadomości, raport per odbiorca, „ponów nieudane”; testy automatyczne z Mailpit na laboratorium Samba (polskie znaki
@@ -798,6 +871,9 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Test „żadnych danych katalogu na dysku” zaliczony także po przeglądzie i wysyłce (wiadomości są tylko na serwerze
   poczty, a przy wysyłce przez usługę – w jej kolejce zgodnie z ADR).
 - Przypomnienia automatyczne: każdy próg dokładnie raz, zmiana hasła przerywa serię, święta przesuwają wysyłkę.
+- Uprawnienia kont: 10 000 kont bez zamrożeń UI; na laboratorium Windows Server wszystkie konta z grup Tier 0
+  (także zagnieżdżone i przez grupę podstawową), z delegowaniem Kerberos i z delegowaniem w ACL (U4b) są na liście
+  z poprawnym poziomem i ścieżką; test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
 
 </details>
 
