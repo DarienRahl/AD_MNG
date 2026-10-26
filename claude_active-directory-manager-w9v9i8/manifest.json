@@ -78,5 +78,10 @@
     "file": "16-watchdog-sources.png",
     "title_pl": "Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)",
     "title_en": "Watchdog – sources and retention (OpenWEC, GPO content, logon records)"
+  },
+  {
+    "file": "17-account-review.png",
+    "title_pl": "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
+    "title_en": "Account review – the check tiles and the accounts whose password expires soon"
   }
 ]

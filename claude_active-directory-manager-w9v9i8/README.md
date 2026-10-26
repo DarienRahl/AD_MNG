@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`277ad89`](https://github.com/DarienRahl/AD_MNG/commit/277ad8966be6504d6fc3c19c9360944952f70435) (`277ad8966be6504d6fc3c19c9360944952f70435`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/39504843331
+- Commit: [`68f5d57`](https://github.com/DarienRahl/AD_MNG/commit/68f5d5768bdeaec7888a07972ef2ad3ad6d03e13) (`68f5d5768bdeaec7888a07972ef2ad3ad6d03e13`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40333178551
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -67,4 +67,8 @@
 ## Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)
 
 ![Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)](16-watchdog-sources.png)
+
+## Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło
+
+![Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło](17-account-review.png)
 
