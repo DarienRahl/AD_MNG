@@ -35,6 +35,17 @@ public static class PrivilegedAccessText
 
     public static string ColumnKey(string column) => $"PrivilegedAccess.Column.{column}";
 
+    /// <summary>What a local group or user right of <see cref="LocalRightsCatalog"/> gives (U4c).</summary>
+    public static string LocalRightKey(string id) => $"PrivilegedAccess.LocalRight.{id}";
+
+    /// <summary>The name of a user right as the security policy editor shows it (U4c).</summary>
+    public static string UserRightNameKey(string id) => $"PrivilegedAccess.UserRightName.{id}";
+
+    public static string MechanismKey(LocalRightMechanism mechanism) => $"PrivilegedAccess.Mechanism.{mechanism}";
+
+    /// <summary>A notice of a grant source (<see cref="PrivilegeSourceNotice.Code"/>).</summary>
+    public static string NoticeKey(string code) => $"PrivilegedAccess.Notice.{code}";
+
     /// <summary>The finding kinds of the sources U4a implements (their keys are complete; U4b/U4c kinds have keys too).</summary>
     public static IReadOnlyList<PrivilegeFindingKind> Kinds { get; } = Enum.GetValues<PrivilegeFindingKind>();
 }
@@ -75,10 +86,62 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
     public string Title(PrivilegeFinding finding)
     {
         ArgumentNullException.ThrowIfNull(finding);
-        var subject = finding.Kind == PrivilegeFindingKind.WellKnownAccount
-            ? finding.Values.FirstOrDefault() ?? finding.SubjectName ?? string.Empty
-            : finding.SubjectName ?? string.Empty;
+        var subject = finding switch
+        {
+            { Kind: PrivilegeFindingKind.WellKnownAccount } => finding.Values.FirstOrDefault() ?? finding.SubjectName ?? string.Empty,
+            { Kind: PrivilegeFindingKind.LocalRight, GroupPolicy: { } gpo } => RightName(gpo.Definition),
+            _ => finding.SubjectName ?? string.Empty,
+        };
         return Localizer.Format(PrivilegedAccessText.KindKey(finding.Kind), subject);
+    }
+
+    /// <summary>"Administratorzy" (a local group by its Windows name) or "Debugowanie programów (SeDebugPrivilege)".</summary>
+    public string RightName(LocalRightDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return definition.Kind == LocalRightKind.LocalGroup
+            ? Localizer[PrivilegedAccessText.GroupNameKey(definition.Id)]
+            : Localizer.Format(L.PrivilegedAccess.UserRight, Localizer[PrivilegedAccessText.UserRightNameKey(definition.Id)], definition.Key);
+    }
+
+    /// <summary>
+    /// What a local right from a GPO gives, the mechanism, the GPO and the computers it reaches, plus enforced links and
+    /// conditions (item-level targeting, WMI filter).
+    /// </summary>
+    public string LocalRight(GroupPolicyGrantDetails gpo)
+    {
+        ArgumentNullException.ThrowIfNull(gpo);
+        var culture = Localizer.Culture;
+        var computers = Localizer.Format(L.PrivilegedAccess.LocalRightComputers, gpo.Computers.ToString("N0", culture),
+            gpo.DomainControllers.ToString("N0", culture), gpo.Servers.ToString("N0", culture), gpo.Workstations.ToString("N0", culture));
+        var parts = new List<string>
+        {
+            Localizer.Format(L.PrivilegedAccess.LocalRightGrants, Localizer[PrivilegedAccessText.LocalRightKey(gpo.Definition.Id)],
+                Localizer[PrivilegedAccessText.MechanismKey(gpo.Mechanism)], gpo.GpoName, computers),
+        };
+        if (gpo.LinkEnforced)
+        {
+            parts.Add(Localizer[L.PrivilegedAccess.LinkEnforced]);
+        }
+
+        if (gpo.ItemLevelTargeting)
+        {
+            parts.Add(Localizer[L.PrivilegedAccess.ConditionalTargeting]);
+        }
+
+        if (gpo.WmiFilter)
+        {
+            parts.Add(Localizer[L.PrivilegedAccess.ConditionalWmi]);
+        }
+
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>A notice of a grant source in the UI language.</summary>
+    public string Notice(PrivilegeSourceNotice notice)
+    {
+        ArgumentNullException.ThrowIfNull(notice);
+        return Localizer.Format(PrivilegedAccessText.NoticeKey(notice.Code), [.. notice.Arguments]);
     }
 
     /// <summary>"Henryk Żuławski → GG_Helpdesk → GG_Wsparcie_IT → Operatorzy kont" (primary and implicit groups named).</summary>
@@ -116,6 +179,11 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
                 peer.PeerCount.ToString("N0", Localizer.Culture), PeerSet(peer));
         }
 
+        if (finding.GroupPolicy is { } gpo)
+        {
+            return LocalRight(gpo);
+        }
+
         return string.Empty;
     }
 
@@ -126,6 +194,11 @@ public sealed class PrivilegedAccessFormatter(ILocalizer localizer, string domai
         if (finding.Peer is { } peer)
         {
             return string.Join(", ", peer.Groups.Select(g => $"{g.Name} ({Holders(g.Holders)})"));
+        }
+
+        if (finding.GroupPolicy is { } gpo)
+        {
+            return Localizer.Format(L.PrivilegedAccess.LocalRightValues, gpo.GpoName, RightName(gpo.Definition));
         }
 
         return finding.Kind == PrivilegeFindingKind.WellKnownAccount ? string.Empty : string.Join(", ", finding.Values);

@@ -182,6 +182,16 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     [ObservableProperty]
     public partial string? Error { get; private set; }
 
+    /// <summary>
+    /// What the grant sources of the last run could not read or evaluate (U4c: SYSVOL unavailable - e.g. the session's
+    /// credentials cannot open the share -, unreadable GPO files, unknown names), one line each; empty when all was read.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotices))]
+    public partial string NoticeText { get; private set; } = string.Empty;
+
+    public bool HasNotices => NoticeText.Length > 0;
+
     [ObservableProperty]
     public partial string StatusText { get; private set; } = string.Empty;
 
@@ -451,6 +461,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         _run = null;
         Items.ReplaceAll([]);
         Error = null;
+        NoticeText = string.Empty;
         HasRun = true;
         AsOf = now;
         IsRunning = true;
@@ -470,6 +481,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
 
             var run = new RunContext(session, scanner, evaluator, scope, new PrivilegedAccessFormatter(Localizer, session.Info.DomainDnsName));
             _run = run;
+            RefreshNotices(run);
             if (scanner.SkippedRules.Count > 0)
             {
                 _services.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.PrivilegedAccess.SkippedRules, string.Join(", ", scanner.SkippedRules)));
@@ -530,11 +542,15 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             }
 
             ShowDetails(SelectedItem);
+            RefreshNotices(run);
         }
 
         UpdateStatus();
         NotifySelectionChanged();
     }
+
+    private void RefreshNotices(RunContext run) =>
+        NoticeText = string.Join(Environment.NewLine, run.Scanner.Notices.Select(run.Formatter.Notice));
 
     public void Dispose()
     {

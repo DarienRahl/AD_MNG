@@ -8437,6 +8437,192 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.Target.Groups" xml:space="preserve">
     <value>Grupy (ich członkowie)</value>
   </data>
+  <data name="PrivilegedAccess.GroupName.PowerUsers" xml:space="preserve">
+    <value>Użytkownicy zaawansowani</value>
+  </data>
+  <data name="PrivilegedAccess.UserRight" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeDebugPrivilege" xml:space="preserve">
+    <value>Debugowanie programów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeBackupPrivilege" xml:space="preserve">
+    <value>Wykonywanie kopii zapasowych plików i katalogów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRestorePrivilege" xml:space="preserve">
+    <value>Przywracanie plików i katalogów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Przejmowanie na własność plików lub innych obiektów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Ładowanie i zwalnianie sterowników urządzeń</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Personifikacja klienta po uwierzytelnieniu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTcbPrivilege" xml:space="preserve">
+    <value>Działanie jako część systemu operacyjnego</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Zastępowanie tokenu na poziomie procesu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Włączanie zaufania do kont komputerów i użytkowników w zakresie delegowania</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalanie na logowanie przez Usługi pulpitu zdalnego</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalanie na logowanie lokalne</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.Administrators" xml:space="preserve">
+    <value>Pełna kontrola nad komputerem: instaluje oprogramowanie i usługi, odczytuje pamięć i poświadczenia zalogowanych tam użytkowników.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.BackupOperators" xml:space="preserve">
+    <value>Odczytuje i przywraca każdy plik bez względu na uprawnienia (także bazy poświadczeń).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PowerUsers" xml:space="preserve">
+    <value>Rozszerzone uprawnienia lokalne (starsza grupa): instaluje programy i zmienia ustawienia systemu.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteDesktopUsers" xml:space="preserve">
+    <value>Logowanie przez Pulpit zdalny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteManagementUsers" xml:space="preserve">
+    <value>Zdalne zarządzanie przez WinRM i PowerShell.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.HyperVAdministrators" xml:space="preserve">
+    <value>Pełna kontrola nad maszynami wirtualnymi Hyper-V.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.NetworkConfigurationOperators" xml:space="preserve">
+    <value>Zmienia konfigurację sieci.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceMonitorUsers" xml:space="preserve">
+    <value>Odczytuje liczniki wydajności.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceLogUsers" xml:space="preserve">
+    <value>Planuje dzienniki wydajności i śledzenia.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.DistributedComUsers" xml:space="preserve">
+    <value>Uruchamia obiekty DCOM i z nich korzysta.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.CryptographicOperators" xml:space="preserve">
+    <value>Wykonuje operacje kryptograficzne.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.EventLogReaders" xml:space="preserve">
+    <value>Odczytuje dzienniki zdarzeń.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccessControlAssistanceOperators" xml:space="preserve">
+    <value>Zdalnie odczytuje uprawnienia zasobów.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccountOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: zarządza większością kont i grup domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.ServerOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: logowanie, zarządzanie usługami i plikami.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PrintOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: logowanie i ładowanie sterowników drukarek.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeDebugPrivilege" xml:space="preserve">
+    <value>Odczytuje i zmienia pamięć dowolnego procesu, także LSASS (kradzież poświadczeń).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeBackupPrivilege" xml:space="preserve">
+    <value>Odczytuje każdy plik bez względu na uprawnienia (NTDS.dit, gałęzie rejestru SAM i SECURITY).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRestorePrivilege" xml:space="preserve">
+    <value>Zapisuje każdy plik bez względu na uprawnienia (podmienia pliki systemowe).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Przejmuje na własność dowolny obiekt i nadaje sobie dostęp.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Ładuje sterowniki (kod w jądrze systemu).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Personifikuje klientów – droga do uprawnień SYSTEM (ataki typu „Potato”).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTcbPrivilege" xml:space="preserve">
+    <value>Działa jako system operacyjny (tworzy dowolny token).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Uruchamia procesy z tokenem innego konta.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Włącza delegowanie Kerberos na kontach (droga do Tier 0).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Logowanie na kontrolerach domeny przez Pulpit zdalny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Logowanie lokalne na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMembers" xml:space="preserve">
+    <value>Grupy z ograniczeniami (członkowie grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMemberOf" xml:space="preserve">
+    <value>Grupy z ograniczeniami (członek grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.PreferenceGroups" xml:space="preserve">
+    <value>Preferencje zasad grupy (lokalni użytkownicy i grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.UserRightsAssignment" xml:space="preserve">
+    <value>Przypisywanie praw użytkownika</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightGrants" xml:space="preserve">
+    <value>{0} Źródło: {1} w GPO „{2}”; {3}.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightComputers" xml:space="preserve">
+    <value>komputery: {0} (kontrolery domeny: {1}, serwery: {2}, stacje robocze: {3})</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightValues" xml:space="preserve">
+    <value>GPO „{0}”: {1}</value>
+  </data>
+  <data name="PrivilegedAccess.LinkEnforced" xml:space="preserve">
+    <value>Połączenie GPO jest wymuszone.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalTargeting" xml:space="preserve">
+    <value>Warunkowo: element preferencji ma określanie elementów docelowych – dotyczy tylko pasujących komputerów.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalWmi" xml:space="preserve">
+    <value>Warunkowo: GPO ma filtr WMI – dotyczy tylko komputerów, na których zapytanie jest prawdziwe.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.NotSupported" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: pliki zasad grupy z SYSVOL na {0} można odczytać tylko w systemie Windows.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.DistinguishedNameLogon" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: sesja używa prostego wiązania z nazwą wyróżniającą (DN), której nie można użyć do zalogowania się do udziału SYSVOL na {0}. Połącz się kontem Windows albo nazwą w postaci DOMENA\użytkownik lub UPN.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.CredentialConflict" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: system Windows ma już połączenie z {0} z innymi poświadczeniami (jeden zestaw poświadczeń na serwer). Zamknij inne połączenia z tym kontrolerem (net use) albo połącz się kontem Windows.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.LogonFailure" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: kontroler {0} odrzucił poświadczenia sesji przy połączeniu z udziałem SYSVOL.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.AccessDenied" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: brak dostępu do udziału SYSVOL na {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Unreachable" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: udział SYSVOL na {0} jest nieosiągalny.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Failed" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: nie udało się otworzyć udziału SYSVOL na {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesUnreadable" xml:space="preserve">
+    <value>Nie udało się odczytać plików zasad grupy (GPO: {0}): {1}. Ich uprawnienia lokalne nie zostały uwzględnione.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesInvalid" xml:space="preserve">
+    <value>Pliki zasad grupy są nieprawidłowe lub zbyt duże (GPO: {0}): {1}. Ich uprawnienia lokalne nie zostały uwzględnione.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.UnresolvedPrincipals" xml:space="preserve">
+    <value>Pominięto nazwy z zasad grupy, które nie są kontami ani grupami tej domeny ({0}): {1}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.MissingPolicies" xml:space="preserve">
+    <value>Pominięto połączenia z obiektami zasad grupy, których nie ma w tej domenie: {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.PathRedirected" xml:space="preserve">
+    <value>Atrybut gPCFileSysPath wskazuje poza SYSVOL domeny (GPO: {0}): {1}. Pliki odczytano z SYSVOL kontrolera sesji.</value>
+  </data>
   <data name="PrivilegedAccess.Column.Name" xml:space="preserve">
     <value>Nazwa</value>
   </data>

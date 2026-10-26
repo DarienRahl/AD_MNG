@@ -8,7 +8,9 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.PropertySheets;
+using AdMng.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
@@ -130,6 +132,48 @@ public sealed class AccountReviewWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(Core.PrivilegedAccess.PrivilegedGroupCatalog.All.Count, window.GroupLevelsList.Items.Count);
         Assert.Equal(sample.HenrykZulawski, tab.Items.Concat([tab.SelectedItem!]).First(r => r.Name == "Henryk Żuławski").Dn);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PrivilegesTab_LocalRightsFromGpos_AndTheNoticeBar() => WpfTestHost.RunAsync(async () =>
+    {
+        // The app's GPO source with SYSVOL in memory (the Windows reader would go to \\dc01.contoso.test\SYSVOL).
+        var sysvol = new FakeSysvolFileReader();
+        await using var context = await UiTestContext.CreateAsync(configure: services =>
+            services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(sysvol)));
+        var sample = context.Directory.AddPrivilegedAccessSample(context.Company);
+        context.Directory.AddGroupPolicySample(context.Company, sample, sysvol);
+        await context.ConnectAsync();
+        var windows = context.Services.GetRequiredService<IWindowService>();
+        var factory = context.Services.GetRequiredService<IDialogViewModelFactory>();
+        var window = (AccountReviewWindow)windows.CreateWindow(factory.CreateAccountReview());
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        window.Tabs.SelectedItem = window.PrivilegesTab;
+        await UiTestSupport.WaitForIdleAsync();
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+
+        // The source is offered; the GPP name the domain does not know is reported in the notice bar.
+        var tab = review.Privileges;
+        Assert.Null(tab.Error);
+        Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.GroupPolicy);
+        Assert.Equal(Visibility.Visible, window.PrivilegesNoticeBar.Visibility);
+        Assert.Equal(tab.NoticeText, window.PrivilegesNoticeText.Text);
+
+        // A local right in the details: its title, the GPO and the computers.
+        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Ewa Błaszczyk");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Local right from a group policy: Administrators");
+
+        // SYSVOL cannot be opened with the session's credentials: the bar says why, the other sources still run.
+        sysvol.Unavailable = Core.GroupPolicy.SysvolUnavailableReason.CredentialConflict;
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.StartsWith("Local rights from GPOs were not checked", window.PrivilegesNoticeText.Text, StringComparison.Ordinal);
+        Assert.Contains(tab.Items, r => r.Name == "Henryk Żuławski");
         context.AssertHealthy();
     });
 

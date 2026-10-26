@@ -838,6 +838,18 @@
                        TextWrapping="Wrap" />
           </Border>
 
+          <!-- What a grant source could not read (U4c: SYSVOL of the session's DC, GPO files, unknown names). -->
+          <Border x:Name="PrivilegesNoticeBar"
+                  Margin="0,10,0,0"
+                  DockPanel.Dock="Top"
+                  Style="{StaticResource Ad.WarningBar}"
+                  Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock x:Name="PrivilegesNoticeText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding NoticeText, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </Border>
+
           <!-- Level tiles (toggles), sources and "only unusual": they filter the list. -->
           <DockPanel x:Name="PrivilegesFilters"
                      Margin="0,10,0,0"
