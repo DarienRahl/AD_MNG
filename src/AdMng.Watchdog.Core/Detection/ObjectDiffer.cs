@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Security;
 using AdMng.Watchdog.Core.Model;
 
 namespace AdMng.Watchdog.Core.Detection;

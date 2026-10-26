@@ -1,6 +1,6 @@
 using System.Globalization;
+using AdMng.Core.Security;
 using AdMng.Watchdog.Contracts.Api;
-using AdMng.Watchdog.Core.Detection;
 
 namespace AdMng.Watchdog.Service.Identity;
 

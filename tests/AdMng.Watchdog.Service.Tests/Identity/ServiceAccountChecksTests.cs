@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
+using AdMng.Core.Security;
 using AdMng.Watchdog.Contracts.Api;
-using AdMng.Watchdog.Core.Detection;
 using AdMng.Watchdog.Service.Identity;
 
 namespace AdMng.Watchdog.Service.Tests.Identity;
