@@ -15,7 +15,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | ⬜ | [Faza 6 – Delegacja i zarządzanie](../README.md#faza-6--delegacja-i-zarządzanie-) |
 | ⬜ | [Faza 7 – Wdrożenie i dodatki](../README.md#faza-7--wdrożenie-i-dodatki-) |
 | 🟡 | [AdMng Watchdog – monitor zmian w AD](../README.md#admng-watchdog--monitor-zmian-w-ad-) |
-| ⬜ (U2: 🟡) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-) |
+| 🟡 (U1 i U2: 🟡, U3: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-i-u2-) |
 
 ## Znane ograniczenia
 
