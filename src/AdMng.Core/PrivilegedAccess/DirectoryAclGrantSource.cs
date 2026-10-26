@@ -58,6 +58,12 @@ internal sealed class AclTarget
 
     public string? Owner { get; init; }
 
+    /// <summary>
+    /// mS-DS-CreatorSID: the account that joined a computer through ms-DS-MachineAccountQuota. Domain Admins own such a
+    /// computer; the CREATOR OWNER ACEs of the class name the joiner.
+    /// </summary>
+    public string? Creator { get; init; }
+
     public IReadOnlyList<SecurityDescriptorAce> Aces { get; init; } = [];
 
     /// <summary>The object itself is Tier 0 (domain head, AdminSDHolder, Tier 0 accounts and groups, GPOs of the DCs).</summary>
@@ -95,6 +101,7 @@ internal sealed class DirectoryAclScan
     private const string LdapDisplayNameAttribute = "lDAPDisplayName";
     private const string RightsGuidAttribute = "rightsGuid";
     private const string ValidAccessesAttribute = "validAccesses";
+    private const string CreatorSidAttribute = "mS-DS-CreatorSID";
 
     /// <summary>Trustees whose rights are the defaults of every domain (never reported).</summary>
     private static readonly HashSet<string> DefaultTrusteeSids = new(StringComparer.OrdinalIgnoreCase)
@@ -317,6 +324,7 @@ internal sealed class DirectoryAclScan
                 Sid = obj.ObjectSid,
                 StructuralClass = obj.GetStrings(Attr.ObjectClass).LastOrDefault(),
                 Owner = sd.Owner,
+                Creator = obj.GetBytes(CreatorSidAttribute) is { Length: >= 8 } creator ? AdConvert.SidToString(creator) : null,
                 Aces = sd.Aces,
             }
             : null;
@@ -438,7 +446,8 @@ internal sealed class DirectoryAclScan
     {
         var filter = LdapFilter.Or(ObjectKind.User.ToLdapFilter(), ObjectKind.Computer.ToLdapFilter(), ObjectKind.Group.ToLdapFilter());
         await foreach (var obj in SearchAsync(_nc, SearchScope.Subtree, filter,
-            [.. SdAttributes, Attr.UserAccountControl, Attr.OperatingSystem, Attr.MemberOf, Attr.PrimaryGroupId, Attr.SamAccountName], cancellationToken)
+            [.. SdAttributes, Attr.UserAccountControl, Attr.OperatingSystem, Attr.MemberOf, Attr.PrimaryGroupId, Attr.SamAccountName, CreatorSidAttribute],
+            cancellationToken)
             .ConfigureAwait(false))
         {
             if (_index.ContainsKey(GroupGraph.Key(obj.DistinguishedName)))
@@ -706,7 +715,8 @@ internal sealed class DirectoryAclScan
 
     /// <summary>
     /// An explicit ACE the class's defaultSecurityDescriptor gives every new object (CREATOR OWNER there is the owner
-    /// here: AD puts the creator in): same trustee, type, object types, no more rights and no wider inheritance.
+    /// here - AD puts the creator in - or the joiner of a computer created through the quota): same trustee, type, object
+    /// types, no more rights and no wider inheritance.
     /// </summary>
     private bool IsDefault(AclTarget target, SecurityDescriptorAce ace)
     {
@@ -721,7 +731,8 @@ internal sealed class DirectoryAclScan
             var creator = candidate.Sid == "S-1-3-0";
             if (candidate.IsAllow != ace.IsAllow
                 || !(string.Equals(candidate.Sid, ace.Sid, StringComparison.OrdinalIgnoreCase)
-                    || (creator && target.Owner is { } owner && string.Equals(owner, ace.Sid, StringComparison.OrdinalIgnoreCase)))
+                    || (creator && (string.Equals(target.Owner, ace.Sid, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(target.Creator, ace.Sid, StringComparison.OrdinalIgnoreCase))))
                 || candidate.ObjectType != ace.ObjectType
                 || candidate.InheritedObjectType != ace.InheritedObjectType
                 || (mask & ~DirectoryAccessMask.Normalize(candidate.Mask)) != 0)

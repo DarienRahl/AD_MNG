@@ -86,6 +86,33 @@ public class DirectoryAclGrantSourceTests
     }
 
     [Fact]
+    public async Task DeepScan_LeavesOutTheCreatorOwnerDefaults_OfAComputerJoinedThroughTheQuota()
+    {
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var da = $"{builder.DomainSid}-{WellKnownRids.DomainAdmins}";
+        var pawel = builder.SidOf(scenario.Company.PawelLewandowski);
+
+        // Joined by Paweł through ms-DS-MachineAccountQuota: Domain Admins own the computer, the joiner is in mS-DS-CreatorSID
+        // and holds the CREATOR OWNER ACEs of the computer class - and one right beyond them (write DACL).
+        var joined = builder.AddComputer("WAW-PC099", scenario.Company.ComputersOu,
+            new Dictionary<string, object?> { ["mS-DS-CreatorSID"] = AdConvert.SidToBytes(pawel) });
+        builder.SetSecurityDescriptor(joined, da,
+            FakeAce.FullControl(da),
+            new FakeAce(FakeAce.AccessAllowed, 0, 0x301D4, pawel),
+            new FakeAce(FakeAce.AccessAllowedObject, 0, 0x8, pawel, FakeDirectoryBuilder.AclGuids.ValidatedDnsHostName),
+            new FakeAce(FakeAce.AccessAllowedObject, 0, 0x20, pawel, FakeDirectoryBuilder.AclGuids.UserAccountRestrictions),
+            new FakeAce(FakeAce.AccessAllowed, 0, 0x40000, pawel));
+
+        var grants = await CollectAsync(scenario, deep: true);
+
+        var grant = Assert.Single(grants, g => g.ScopeDn == joined);
+        Assert.Equal(pawel, grant.PrincipalSid);
+        Assert.Equal(["WriteDacl"], grant.Values);
+        Assert.Equal(PrivilegeLevel.Elevated, grant.Level);
+    }
+
+    [Fact]
     public async Task Scanner_ExpandsTheTrusteeGroups_ToTheirMembers_WithThePath()
     {
         var scenario = Scenario.Create();

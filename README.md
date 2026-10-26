@@ -855,7 +855,7 @@ ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne
   kontrolerze sesji, tylko w pamięci. Użytkownicy, grupy i komputery pojedynczo tylko z opcją *Głębokie skanowanie*
   w ustawieniach zakładki (domyślnie wyłączona, wolniejsza).
 - ✅ Pomijane wartości domyślne: ACE z `defaultSecurityDescriptor` klasy w schemacie (*CREATOR OWNER* = właściciel
-  obiektu), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
+  obiektu lub konto z `mS-DS-CreatorSID`, które dołączyło komputer w ramach `ms-DS-MachineAccountQuota`), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
   i to, co AD nadaje przy instalacji (Operatorzy kont i drukowania na `CN=Users`/`CN=Computers`, Group Policy Creator
   Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi, i dodatkowo
   przy obiekcie Tier 0, który je dziedziczy (np. DnsAdmins w `CN=Users`, OU kontrolerów domeny) – tam z poziomem Tier 0.
@@ -873,7 +873,8 @@ ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne
   głębokie skanowanie, LAPS, SDDL), modeli widoku zakładki, test UI, test na laboratorium Samba z delegowaniem przez
   `samba-tool dsacl` (reset hasła i członkostwo na OU testu, DCSync dla konta testowego – usuwany po teście).
 - 🟡 Do weryfikacji na Windows Server: brak fałszywych ustaleń na świeżej domenie Windows (domyślne ACL różnią się od
-  Samby), Exchange, LAPS (legacy i Windows LAPS), czas głębokiego skanowania dla 10 000 kont.
+  Samby), Exchange, LAPS (legacy i Windows LAPS), czas głębokiego skanowania dla 10 000 kont, właściciel i ACE
+  komputerów dołączonych w ramach `ms-DS-MachineAccountQuota`.
 
 **U4c – uprawnienia lokalne z GPO** ⬜: członkostwa w lokalnych grupach komputerów (Administratorzy, Użytkownicy
 pulpitu zdalnego, Operatorzy kopii zapasowych, Remote Management Users) przez *Grupy z ograniczeniami* i *Preferencje

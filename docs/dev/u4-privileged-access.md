@@ -170,7 +170,7 @@ passes none – U4b/U4c register theirs in DI and hand them from `DialogViewMode
 | configuration, one level | `CN=Extended-Rights`: `cn`, `rightsGuid`, `validAccesses` |
 | subtree, DN only | server computers (`operatingSystem=*server*`) – only when the schema has a LAPS password attribute |
 | subtree, paged | `(msDS-AllowedToActOnBehalfOfOtherIdentity=*)` – the principals of resource-based delegation |
-| subtree, paged (deep scan only) | users, computers and groups, evaluated as they come, nothing kept |
+| subtree, paged (deep scan only) | users, computers and groups (also `mS-DS-CreatorSID`), evaluated as they come, nothing kept |
 
 On the Samba lab (400 users, 250 computers) a run with the deep scan takes about 2.5 s.
 
@@ -178,8 +178,9 @@ On the Samba lab (400 users, 250 computers) a run with the deep scan takes about
 OWNER RIGHTS, Enterprise Domain Controllers, Administrators, Domain Admins, Domain Controllers, Read-only DCs, Key Admins,
 and in the forest root Enterprise/Schema Admins, Enterprise Read-only DCs, Enterprise Key Admins (any domain while the root
 SID is unknown); the object's own SID. (2) Explicit ACEs of the class's `defaultSecurityDescriptor` (read from the schema,
-SDDL with the domain/root SID): same trustee (CREATOR OWNER there = the object's owner here, as AD puts the creator in),
-type and object types, no more rights, no wider inheritance. (3) What AD and Samba set up beyond the class defaults:
+SDDL with the domain/root SID): same trustee (CREATOR OWNER there = the object's owner here, as AD puts the creator in,
+or the account in `mS-DS-CreatorSID`: a computer joined through `ms-DS-MachineAccountQuota` is owned by Domain Admins while
+the CREATOR OWNER ACEs name the joiner – to be confirmed on Windows Server), type and object types, no more rights, no wider inheritance. (3) What AD and Samba set up beyond the class defaults:
 Account and Print Operators on CN=Users and CN=Computers, Group Policy Creator Owners on CN=Policies. On the fresh Samba lab
 only its seeded helpdesk delegation (reset password on OU=Pracownicy) is left – also with the deep scan. Read rights are
 never reported (only the rights below), so Pre-Windows 2000 access, RAS servers, Cert Publishers' `userCertificate` and the
@@ -230,7 +231,7 @@ group on the path.
   DACL); owners of ordinary users, groups and computers are not – AD makes every creator the owner (computers joined by
   users, `ms-DS-MachineAccountQuota`), which would flood the list.
 * The deep scan reads computers too (not only users and groups): RBCD and shadow-credential delegations sit on computers;
-  the joiner's CREATOR OWNER defaults are not reported.
+  the joiner's CREATOR OWNER defaults are not reported (joiner = owner or `mS-DS-CreatorSID`).
 * Account/Print Operators on CN=Users and CN=Computers and Group Policy Creator Owners on CN=Policies are defaults although
   no class default holds them (the lab showed them as the only false findings otherwise).
 * The levels of RBCD principals were not specified; they follow the target (DC / server / other).
