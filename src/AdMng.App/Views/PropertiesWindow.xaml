@@ -366,6 +366,76 @@
       </ContentControl>
     </DataTemplate>
 
+    <!--
+      Account state on the Account tab (README U2): lock, password and account expiry with the days left, last logon; on
+      demand the lock state and the exact last logon on every DC. "Wyślij wiadomość…" is the U1 hook (hidden without it).
+    -->
+    <DataTemplate DataType="{x:Type ps:AccountStatusFieldViewModel}">
+      <ContentControl Focusable="False"
+                      IsTabStop="False"
+                      Tag="Check"
+                      Template="{StaticResource FieldChrome}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" SharedSizeGroup="FieldLabel" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <TextBlock Margin="0,2,12,2" Text="{l:Tr AccountStatus.State}" />
+          <TextBlock x:Name="StatusStateText"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding StateText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="1" Margin="0,2,12,2" Text="{l:Tr AccountStatus.Password}" />
+          <TextBlock Grid.Row="1"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding PasswordText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="2" Margin="0,2,12,2" Text="{l:Tr AccountStatus.Account}" />
+          <TextBlock Grid.Row="2"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding AccountText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <TextBlock Grid.Row="3" Margin="0,2,12,2" Text="{l:Tr AccountStatus.LastLogon}" />
+          <TextBlock Grid.Row="3"
+                     Grid.Column="1"
+                     Margin="0,2"
+                     Text="{Binding LastLogonText, Mode=OneWay}"
+                     TextWrapping="Wrap" />
+          <StackPanel Grid.Row="4"
+                      Grid.Column="1"
+                      Margin="0,6,0,0"
+                      Orientation="Horizontal">
+            <Button x:Name="CheckDomainControllersButton"
+                    Command="{Binding CheckDomainControllersCommand}"
+                    Content="{l:Tr AccountStatus.CheckDomainControllers}" />
+            <Button Margin="6,0,0,0"
+                    Command="{Binding SendMessageCommand}"
+                    Content="{l:Tr AccountReview.SendMessage}"
+                    Visibility="{Binding CanSendMessages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          </StackPanel>
+          <TextBlock Grid.Row="5"
+                     Grid.Column="1"
+                     Margin="0,6,0,0"
+                     AutomationProperties.LiveSetting="Polite"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding DomainControllersText, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding DomainControllersText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        </Grid>
+      </ContentControl>
+    </DataTemplate>
+
     <!-- Account expires: Never / End of [date]. -->
     <DataTemplate DataType="{x:Type ps:ExpiryFieldViewModel}">
       <ContentControl Focusable="False"

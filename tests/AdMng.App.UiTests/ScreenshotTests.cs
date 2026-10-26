@@ -9,6 +9,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
@@ -123,6 +124,11 @@ public sealed class ScreenshotTests
         "Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)",
         "Watchdog – sources and retention (OpenWEC, GPO content, logon records)");
 
+    private static readonly ScreenshotInfo AccountReview = new(
+        "17-account-review.png",
+        "Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło",
+        "Account review – the check tiles and the accounts whose password expires soon");
+
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>
         ShootAsync(ThemePreference.Light, context => ShootMainWindowAsync(context, MainWindowLight, dark: false));
@@ -201,6 +207,41 @@ public sealed class ScreenshotTests
         window.ItemsList.SelectedItem = window.ViewModel.Items.Single(r => r.Name == "Żaneta Szymańska");
 
         await ScreenshotWriter.SaveAsync(window, RecycleBin, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot17_AccountReview() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // Expiring and expired passwords (domain maximum age 90 days), an inactive and a never used account.
+        var company = context.Company;
+        var session = context.Directory.Session;
+        var now = context.Services.GetRequiredService<TimeProvider>().GetUtcNow();
+        static string FileTime(DateTimeOffset value) => AdConvert.ToFileTime(value).ToString(CultureInfo.InvariantCulture);
+        session.EmulateConstructedPasswordExpiry = true;
+        session.MaxPasswordAge = TimeSpan.FromDays(90);
+        var users = new DirectorySearch { BaseDn = company.CompanyOu, Filter = "(sAMAccountType=805306368)", Attributes = [Attr.Name] };
+        await foreach (var user in session.SearchAsync(users, CancellationToken.None))
+        {
+            // Relative to the day the screenshot is taken: recent passwords and logons, then the findings below.
+            session.SetValues(user.DistinguishedName, Attr.PwdLastSet, FileTime(now.AddDays(-10)));
+            session.SetValues(user.DistinguishedName, Attr.LastLogonTimestamp, FileTime(now.AddDays(-2)));
+        }
+
+        session.SetValues(company.LukaszWisniewski, Attr.PwdLastSet, FileTime(now.AddDays(-84)));
+        session.SetValues(company.MalgorzataWojcik, Attr.PwdLastSet, FileTime(now.AddDays(-79)));
+        session.SetValues(company.BartlomiejKozlowski, Attr.PwdLastSet, FileTime(now.AddDays(-95)));
+        session.SetValues(company.PawelLewandowski, Attr.LastLogonTimestamp, FileTime(now.AddDays(-131)));
+
+        var window = (AccountReviewWindow)Windows(context).CreateWindow(Factory(context).CreateAccountReview());
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        await window.ViewModel.RunCommand.ExecuteAsync(null);
+        window.ParametersExpander.IsExpanded = false;
+        window.TilesList.SelectedItem = window.ViewModel.Tiles.Single(t => t.Check == AccountCheck.PasswordExpiring);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 2, "the two accounts whose password expires soon");
+        window.ItemsList.SelectedItem = window.ViewModel.Items[0];
+
+        await ScreenshotWriter.SaveAsync(window, AccountReview, dark: false);
     });
 
     [Fact]

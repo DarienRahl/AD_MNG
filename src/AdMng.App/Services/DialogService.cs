@@ -216,6 +216,13 @@ public sealed class DialogService : IDialogService
         return true;
     });
 
+    // ---- Account review, README U2 (modeless, one window) ----
+    public Task ShowAccountReviewAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowAccountReview();
+        return true;
+    });
+
     // ---- Helpers ----------------------------------------------------------------------------------------------
 
     /// <summary>"«Feature» is not available in this version yet."</summary>

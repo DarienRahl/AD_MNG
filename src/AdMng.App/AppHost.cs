@@ -12,6 +12,7 @@ using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
 using AdMng.Presentation;
+using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
@@ -145,6 +146,9 @@ public static class AppHost
 
         // ---- AD Recycle Bin (opened through ToolWindows) ----
         services.AddWindow<RecycleBinViewModel, RecycleBinWindow>();
+
+        // ---- Account review, README U2 (opened through ToolWindows) ----
+        services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
 
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();
