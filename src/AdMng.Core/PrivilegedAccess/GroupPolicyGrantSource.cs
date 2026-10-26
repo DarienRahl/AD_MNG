@@ -185,6 +185,7 @@ public sealed class GroupPolicyGrantSource(ISysvolFileReader sysvol, GroupPolicy
         where T : class
     {
         var file = await connection.ReadGpoFileAsync(policy.Id, path, _options.MaxFileBytes, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         switch (file.Status)
         {
             case SysvolFileStatus.Read:

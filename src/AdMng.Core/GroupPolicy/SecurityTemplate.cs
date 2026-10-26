@@ -46,11 +46,16 @@ public sealed record SecurityTemplate
     {
         var text = GpoText.DecodeUnicodeText(content);
         var sawSection = false;
-        var membership = new List<RestrictedGroupEntry>();
-        var rights = new List<UserRightAssignment>();
+
+        // Keyed, so that a later duplicate replaces the earlier one in O(1) (the file is untrusted and may be large); the
+        // line number keeps the order of the last occurrence.
+        var membership = new Dictionary<(string Group, RestrictedGroupRelation Relation), (int Line, RestrictedGroupEntry Entry)>(GroupKeyComparer.Instance);
+        var rights = new Dictionary<string, (int Line, UserRightAssignment Right)>(StringComparer.OrdinalIgnoreCase);
+        var number = 0;
         foreach (var line in IniReader.Read(text))
         {
             sawSection = true;
+            number++;
             if (line.Value is null)
             {
                 continue;
@@ -60,8 +65,7 @@ public sealed record SecurityTemplate
             {
                 if (line.Key.Length > 0)
                 {
-                    rights.RemoveAll(r => r.Right.Equals(line.Key, StringComparison.OrdinalIgnoreCase));
-                    rights.Add(new UserRightAssignment(line.Key, Principals(line.Value)));
+                    rights[line.Key] = (number, new UserRightAssignment(line.Key, Principals(line.Value)));
                 }
             }
             else if (line.Section.Equals("Group Membership", StringComparison.OrdinalIgnoreCase)
@@ -69,8 +73,7 @@ public sealed record SecurityTemplate
                      && group.Length > 0
                      && relation is { } known)
             {
-                membership.RemoveAll(m => m.Relation == known && m.Group.Equals(group, StringComparison.OrdinalIgnoreCase));
-                membership.Add(new RestrictedGroupEntry(group, known, Principals(line.Value)));
+                membership[(group, known)] = (number, new RestrictedGroupEntry(group, known, Principals(line.Value)));
             }
         }
 
@@ -79,7 +82,11 @@ public sealed record SecurityTemplate
             throw new GpoParseException("GptTmpl.inf has no section.");
         }
 
-        return new SecurityTemplate { GroupMembership = membership, PrivilegeRights = rights };
+        return new SecurityTemplate
+        {
+            GroupMembership = [.. membership.Values.OrderBy(m => m.Line).Select(m => m.Entry)],
+            PrivilegeRights = [.. rights.Values.OrderBy(r => r.Line).Select(r => r.Right)],
+        };
     }
 
     /// <summary>The elements of a principal list: <c>*S-1-5-32-544</c> → <c>S-1-5-32-544</c>, names kept as written.</summary>
@@ -130,5 +137,17 @@ public sealed record SecurityTemplate
             : relationText.Equals("Memberof", StringComparison.OrdinalIgnoreCase) ? RestrictedGroupRelation.MemberOf
             : null;
         return true;
+    }
+
+    /// <summary>Restricted Groups entries are the same when the group (case-insensitive) and the relation are.</summary>
+    private sealed class GroupKeyComparer : IEqualityComparer<(string Group, RestrictedGroupRelation Relation)>
+    {
+        public static GroupKeyComparer Instance { get; } = new();
+
+        public bool Equals((string Group, RestrictedGroupRelation Relation) x, (string Group, RestrictedGroupRelation Relation) y) =>
+            x.Relation == y.Relation && StringComparer.OrdinalIgnoreCase.Equals(x.Group, y.Group);
+
+        public int GetHashCode((string Group, RestrictedGroupRelation Relation) obj) =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Group), obj.Relation);
     }
 }

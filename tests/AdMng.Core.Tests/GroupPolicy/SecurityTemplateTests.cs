@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using AdMng.Core.GroupPolicy;
 
@@ -50,6 +51,30 @@ public sealed class SecurityTemplateTests
             ("SeDenyNetworkLogonRight", ""),
         ],
         template.PrivilegeRights.Select(r => (r.Right, string.Join('|', r.Principals))));
+    }
+
+    [Fact]
+    public void LargeTemplate_ManyKeysAndDuplicates_IsParsedInLinearTime_LaterDuplicateStillWins()
+    {
+        // GptTmpl.inf is untrusted and may fill the 4 MiB read limit: a quadratic parse would stall the review for minutes.
+        const int count = 100_000;
+        var lines = new List<string> { "[Unicode]", "Unicode=yes", "[Privilege Rights]" };
+        lines.AddRange(Enumerable.Range(0, count).Select(i => $"SeŻółćPrivilege{i} = *S-1-5-21-1-2-3-{i}"));
+        lines.Add("[Group Membership]");
+        lines.AddRange(Enumerable.Range(0, count).Select(i => $"*S-1-5-21-1-2-3-{i}__Memberof = *S-1-5-32-544"));
+        lines.Add("[Privilege Rights]");
+        lines.Add("seżółćprivilege0 = *S-1-5-32-551");
+        var bytes = GpoTextTests.Utf16(string.Join("\r\n", lines));
+
+        var stopwatch = Stopwatch.StartNew();
+        var template = SecurityTemplate.Parse(bytes);
+        stopwatch.Stop();
+
+        Assert.Equal(count, template.PrivilegeRights.Count);
+        Assert.Equal(count, template.GroupMembership.Count);
+        Assert.Equal(("seżółćprivilege0", "S-1-5-32-551"), (template.PrivilegeRights[^1].Right, template.PrivilegeRights[^1].Principals.Single()));
+        Assert.Equal("SeŻółćPrivilege1", template.PrivilegeRights[0].Right);
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"Parsing took {stopwatch.Elapsed}.");
     }
 
     [Fact]
