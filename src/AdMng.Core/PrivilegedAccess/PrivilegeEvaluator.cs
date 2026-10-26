@@ -71,6 +71,7 @@ public sealed class PrivilegeEvaluator
     private readonly Dictionary<int, List<PrivilegeGrant>> _groupGrants = [];
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsBySid = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsByDn = new(StringComparer.Ordinal);
+    private readonly List<PrivilegeGrant> _implicitGrants = [];
     private readonly IReadOnlyList<AccountRuleMatcher> _accountRules;
     private readonly HashSet<string> _domainControllerNames;
 
@@ -101,6 +102,14 @@ public sealed class PrivilegeEvaluator
             if (node is not null)
             {
                 Add(_groupGrants, node.Index, grant);
+                continue;
+            }
+
+            if (grant.PrincipalSid is PrivilegedGroupCatalog.EveryoneSid or PrivilegedGroupCatalog.AuthenticatedUsersSid)
+            {
+                // Granted to Everyone / Authenticated Users (e.g. by a GPO) while no group of the domain nests them:
+                // every account has it.
+                _implicitGrants.Add(grant);
                 continue;
             }
 
@@ -212,6 +221,13 @@ public sealed class PrivilegeEvaluator
 
             var path = paths.PathTo(group);
             findings.AddRange(grants.Select(g => FromGrant(g, path, group.Dn, group.Name, onAccount: false)));
+        }
+
+        // Grants on Everyone / Authenticated Users that no group of the graph nests.
+        foreach (var grant in _implicitGrants)
+        {
+            var step = new PrivilegePathStep($"<SID={grant.PrincipalSid}>", grant.PrincipalSid!, PrivilegePathStepKind.ImplicitGroup);
+            findings.Add(FromGrant(grant, [self, step], step.Dn, step.Name, onAccount: false));
         }
 
         // Grants on the account itself.
@@ -390,6 +406,7 @@ public sealed class PrivilegeEvaluator
         Path = path,
         Values = grant.Values,
         Note = grant.Note,
+        GroupPolicy = grant.GroupPolicy,
     };
 
     /// <summary>The host of a service principal name (service/host[:port][/name]).</summary>
