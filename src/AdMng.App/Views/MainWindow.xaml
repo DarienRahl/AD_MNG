@@ -20,7 +20,7 @@
         Height="840"
         MinWidth="820"
         MinHeight="520"
-        Icon="/Assets/AdMng.ico"
+        Icon="pack://application:,,,/AdMng;component/Assets/AdMng.ico"
         WindowStartupLocation="CenterScreen">
   <Window.Resources>
     <!-- The shell view model for places outside the visual tree (item container styles, popups). -->
