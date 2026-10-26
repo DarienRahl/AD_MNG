@@ -119,7 +119,6 @@
 
   <Window.InputBindings>
     <KeyBinding Key="F5" Command="{Binding RunCommand}" />
-    <KeyBinding Key="Escape" Command="{Binding StopCommand}" />
   </Window.InputBindings>
 
   <DockPanel>

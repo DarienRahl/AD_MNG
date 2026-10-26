@@ -168,7 +168,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["⬜ U · Przegląd kont<br/>i wiadomości e-mail"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["⬜ U · Przegląd kont<br/>i wiadomości e-mail<br/>(U2: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -194,7 +194,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza 0.3.0 (pakiety Debian), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | ⬜ |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | ⬜ (U2 – przegląd stanu kont: 🟡) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -471,7 +471,7 @@ na żywo i wiele domen.
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników-).
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
@@ -585,7 +585,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników ⬜
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników ⬜ (U2: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -647,7 +647,48 @@ U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Wat
   polskie znaki w temacie i treści (UTF-8, RFC 2047). Wyrenderowane wiadomości i listy odbiorców istnieją tylko
   w pamięci; na dysku są wyłącznie szablony i ustawienia (zasada „brak danych katalogu na dysku”).
 
-#### U2 – Przegląd stanu kont
+#### U2 – Przegląd stanu kont 🟡
+
+**Stan realizacji (pierwsza wersja gotowa):**
+
+- ✅ Okno *Przegląd kont* (Narzędzia → *Przegląd kont…*, paleta poleceń; jedno okno na aplikację): zakres – cała
+  domena, jednostka organizacyjna z poddrzewem, zapisany widok (jego kontener, filtr i chipy), członkowie grupy
+  (zagnieżdżeni, `LDAP_MATCHING_RULE_IN_CHAIN`, oraz konta, dla których grupa jest podstawową); N dni dla sprawdzeń i
+  wybór sprawdzeń zapamiętywane w ustawieniach; *Sprawdź* (F5) / *Przerwij*. Jedno stronicowane zapytanie o konta
+  użytkowników (`sAMAccountType`) z filtrem wstępnym złożonym z filtrów sprawdzeń (chipy fazy 1 tam, gdzie istnieją),
+  atrybuty konstruowane (`msDS-User-Account-Control-Computed`, `msDS-UserPasswordExpiryTimeComputed`) tylko odczytywane
+  i liczone po stronie klienta, wyniki strumieniowane i oceniane poza wątkiem UI, „stan na godz.”, liczba odczytanych
+  kont i kont z uwagami. Wszystkie sprawdzenia z tabeli poniżej jako kafelki z licznikami (pogrupowane obszarami);
+  kliknięcie kafelka pokazuje listę z kolumnami właściwymi dla sprawdzenia (sortowanie po kliknięciu nagłówka, daty
+  względne „za 5 dni” / „3 dni temu”).
+- ✅ Z każdej listy: właściwości (Enter, dwuklik), edycja zbiorcza (zaznaczenie albo cała lista), eksport CSV na żądanie
+  (kolumny listy i DN, separator z ustawień regionalnych). Akcje sprawdzeń zawsze przez silnik zmian: odblokuj, wymuś
+  zmianę hasła, wyłącz (z progiem potwierdzenia jak w oknie głównym), a przez edytor zbiorczy z podglądem: przedłuż
+  ważność (data wygaśnięcia za 90 dni do zmiany), wyłącz flagę higieny haseł, usuń z grup (wszystkie grupy zaznaczonych
+  kont), ukryj w GAL (`msExchHideFromAddressLists`, tylko ze schematem Exchange). Po zmianach (także z edytora
+  zbiorczego i innych okien) zmienione konta są czytane ponownie i oceniane od nowa – listy i liczniki aktualizują się
+  bez ponownego przeglądu.
+- ✅ *Dokładne ostatnie logowanie (wszystkie DC)* na listach „Nieaktywne” i „Nigdy nie logowane”: `lastLogon` ze
+  wszystkich kontrolerów domeny (lista z partycji konfiguracji), każdy przez własną, krótkotrwałą sesję przypiętą do
+  tego DC; konta aktywne mimo wszystko znikają z list, kontroler bez odpowiedzi jest wymieniony w komunikacie.
+- ✅ Zestawy sprawdzeń zapisywane pod nazwą (np. „Poranny przegląd helpdesku”): sprawdzenia, N dni i zakres (DN w postaci
+  przenośnej `{domain}`) – bez danych katalogu.
+- ✅ Karta *Konto* okna właściwości – sekcja *Stan konta*: blokada (od kiedy), wygaśnięcie hasła z liczbą dni (z FGPP;
+  bez atrybutu konstruowanego szacunek z `maxPwdAge` domeny z adnotacją), wygaśnięcie konta („do końca dnia”),
+  ostatnie logowanie (`lastLogonTimestamp`, przybliżone), przycisk *Sprawdź na wszystkich DC* (na których DC konto jest
+  zablokowane, dokładne ostatnie logowanie i jego DC).
+- ✅ Testy: jednostkowe (stan konta z zegarem testowym i strefą Europe/Warsaw – FGPP, „nigdy nie wygasa”, „musi zmienić”,
+  koniec dnia przy zmianie czasu), modeli widoku na fałszywym DC z polską firmą przykładową (wszystkie sprawdzenia,
+  zakresy, akcje przez potok, przekazanie do edytora zbiorczego, CSV, zestawy, wszystkie DC, przerwanie, koniec sesji),
+  test UI, test dymny, zrzut ekranu `17-account-review.png` i test na laboratorium Samba (filtry wstępne przyjęte przez
+  serwer, atrybuty konstruowane w wyszukiwaniu poddrzewa, blokada po 5 błędnych hasłach, wygaśnięcia, flagi,
+  przełożony wyłączony, członkostwo zagnieżdżone, lista DC).
+- ⬜ Hak na U1: polecenia *Wyślij wiadomość…* (lista przeglądu i karta Konto) są ukryte, dopóki U1 nie zarejestruje
+  okna wysyłki (`IUserMessageLauncher`). ⬜ Kreator nieaktywnych kont (faza 3) – do tego czasu wyłączanie z listy lub
+  w edytorze zbiorczym. ⬜ Liczba błędnych haseł i ostatnia nieudana próba na każdym DC (faza 5).
+- 🟡 Do weryfikacji na Windows Server: zgodność z `Get-ADUser` (`LockedOut`, `PasswordExpired`,
+  `msDS-UserPasswordExpiryTimeComputed`, `AccountExpirationDate`, `LastLogonDate`) także dla kont objętych FGPP, czas
+  przeglądu 10 000 kont, test „żadnych danych katalogu na dysku” po przeglądzie.
 
 **Okno *Przegląd kont*** (menu Narzędzia, paleta poleceń): zakres (domena, OU z poddrzewem, zapisany widok, członkowie
 grupy), parametry (N dni dla każdego sprawdzenia, zapamiętywane w ustawieniach) i jeden przycisk *Sprawdź*. Jedno
@@ -749,6 +790,18 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   Znajdź albo zapisany widok.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
+- **Przegląd kont (U2)** – sprawdzenia problemów (blokada, hasła, wygaśnięcia, nieaktywność, higiena haseł,
+  gotowość do powiadomień) dotyczą tylko włączonych kont; „Wyłączone” i pozostałości – tylko wyłączonych (bez kont
+  krytycznych systemu, np. krbtgt, Gość). „Nigdy nie logowane” używa tego samego N co „Nieaktywne” (`whenCreated`
+  starsze niż N dni). „Uprzywilejowane z problemem” = `adminCount = 1` lub członkostwo (zagnieżdżone) w grupach chronionych
+  bieżącej domeny (Administratorzy, operatorzy, Domain/Schema/Enterprise Admins, kontrolery domeny, Key Admins…) oraz
+  blokada, wygasłe hasło lub konto, „musi zmienić”, nieaktywność, flagi higieny, stare hasło albo – dla wyłączonych –
+  pozostałe członkostwa; grupy domeny głównej lasu widziane z domeny podrzędnej nie są rozpoznawane. „Widoczne w GAL”
+  = niepusty `showInAddressBook` i `msExchHideFromAddressLists` różne od TRUE. Po zmianach odświeżane są tylko konta
+  już widoczne w przeglądzie – konta, które dopiero stały się „problemem”, pojawią się po kolejnym *Sprawdź*. Grupa
+  jako zakres obejmuje konta, dla których jest grupą podstawową, ale nie członków przez zagnieżdżoną grupę podstawową.
+  Samba nie zapisuje `lastLogon` przy prostym logowaniu LDAP; FGPP i „nigdy nie logowane” sprawdzono tylko testami na
+  fałszywym DC (laboratorium wymagałoby PSO poza własną OU i starego `whenCreated`).
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.

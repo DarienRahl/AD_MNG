@@ -13,7 +13,7 @@ namespace AdMng.App.Views;
 /// <summary>
 /// Account review (<see cref="AccountReviewViewModel"/>, README U2). The columns of the list follow the selected check:
 /// they are rebuilt from <see cref="AccountReviewViewModel.Columns"/> (cells bound to the row indexer, headers sort). The
-/// list's multi-selection is handed to the view model; double-click or Enter opens the properties, F5 runs, Esc stops.
+/// list's multi-selection is handed to the view model; double-click or Enter opens the properties, F5 runs.
 /// </summary>
 public partial class AccountReviewWindow : Window, IDialogResultWindow
 {

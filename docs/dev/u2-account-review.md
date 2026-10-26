@@ -24,7 +24,7 @@ One paged subtree search (page size from the settings) over **user accounts only
 of the enabled checks. Attributes: `name displayName sAMAccountName userPrincipalName objectClass userAccountControl
 msDS-User-Account-Control-Computed msDS-UserPasswordExpiryTimeComputed lockoutTime pwdLastSet accountExpires
 lastLogonTimestamp whenCreated mail proxyAddresses manager memberOf adminCount isCriticalSystemObject showInAddressBook
-description` (+ `msExchHideFromAddressLists` when the schema has it). The constructed attributes are valid in a subtree
+description department` (+ `msExchHideFromAddressLists` when the schema has it). The constructed attributes are valid in a subtree
 search in AD (only their use in a filter is not); a DC that does not return them falls back as described in 3.
 
 Results are streamed (flush every 150 ms or one page) and evaluated on the UI thread in batches; rows that match no
@@ -133,7 +133,11 @@ Without a connector (or with a single DC) only the current DC is read.
 * `memberOf` with more than 1500 values: only the presence matters; the count is shown as "1500+".
 * Times: FILETIME/GeneralizedTime in UTC, days and dates in the operator's local time zone (`TimeProvider.LocalTimeZone`).
 * Unknown attributes (no Exchange schema): never used in a filter (AD evaluates an unknown attribute as Undefined).
-* Samba: returns both constructed attributes; FGPP through `msDS-ResultantPSO`/PSO objects as AD.
+* Samba (lab): returns both constructed attributes in a subtree search and accepts every pre-filter (bit filters,
+  in-chain `memberOf`, `(memberOf=*)`, SID strings); it does not record a simple LDAP bind in `lastLogon`.
+* A user created without a password has `pwdLastSet = 0` and is listed under "must change password" (as ADUC shows it).
+* Settings JSON: enum names of checks appear only in operator-saved sets and the switched-off checks; the defaults
+  contain no check names.
 
 ## 7. Tests
 
