@@ -13,7 +13,9 @@ commit messages and these notes are in English.
    diagnostic logs WITHOUT directory values, and files the operator explicitly exports.
    **Only exception:** the AdMng Watchdog service host (`src/AdMng.Watchdog.Service` and the store implementations it
    hosts) stores snapshots of watched attributes, GPO settings snapshots (never `cpassword` or other secrets), events,
-   normalized DC log records (logon records 48 h) and its outbox in its own data folder, under the conditions of
+   normalized DC log records (logon records 48 h), its outbox (alerts and, when switched on, AD Manager's user messages –
+   content deleted once sent) and the user-message audit (who, when, recipient count, address hash – no content) in
+   its own data folder, under the conditions of
    ADR-0008 as amended by ADR-0009 (never secrets, retention, enforced permissions, encrypted channel secrets,
    diagnostic logs still value-free). On Linux (the only shipped platform from 0.3.0) that folder is
    `/var/lib/admng-watchdog` (owner `admng-watchdog`, 0700, checked at every start). Second, short-lived place: the
