@@ -101,6 +101,25 @@ public class UserMessageRulesTests
         Assert.Contains("<form>", UserMessageRules.FindForbiddenHtml("<form action=\"https://contoso.test\"><input name=p></form>"));
     }
 
+    [Theory]
+    [InlineData("<a href=javascript:alert(1)>x</a>", "javascript:")]
+    [InlineData("<a href = ' JavaScript:alert(1)'>x</a>", "javascript:")]
+    [InlineData("<a href=\"&#x20;&#106;avascript:alert(1)\">x</a>", "javascript:")]
+    [InlineData("<a href=`vbscript:x`>x</a>", "vbscript:")]
+    [InlineData("<img src=\"data:image/png;base64,AAAA\">", "data:")]
+    [InlineData("<p style=\"background:url( 'data:image/png;base64,AAAA')\">x</p>", "data:")]
+    [InlineData("<a href=\"file:///c:/hasla.txt\">x</a>", "file:")]
+    public void Html_RejectsForbiddenSchemes_WhereAUrlStarts(string html, string scheme) =>
+        Assert.Equal([scheme], UserMessageRules.FindForbiddenHtml(html));
+
+    [Fact]
+    public void Html_WordsOfTheText_AreNotUrlSchemes()
+    {
+        // "Data:" is the Polish "Date:" – plain text, not a data: URL (the same for "Profile:" and file:).
+        Assert.Empty(UserMessageRules.FindForbiddenHtml("<p>Data: 30 listopada 2026</p><p>Nowa data: jutro</p><p>Profile: Jan</p>"));
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(UserMessageRules.TextToHtml("Data: 30 listopada 2026\nProfile: Jan")));
+    }
+
     [Fact]
     public void TextToHtml_EncodesEverything_AndKeepsParagraphs()
     {

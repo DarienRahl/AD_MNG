@@ -189,6 +189,8 @@ public static partial class UserMessageRules
     /// What an operator's HTML body must not contain: active elements (<c>script</c>, <c>iframe</c>, <c>object</c>,
     /// <c>embed</c>, <c>form</c>, <c>input</c>, <c>link</c>, <c>meta</c>, <c>base</c>), <c>on…=</c> event handlers and
     /// <c>javascript:</c>/<c>vbscript:</c>/<c>data:</c>/<c>file:</c> URLs. Returns the offending constructs (empty = fine).
+    /// A scheme counts where a URL can start (see <see cref="StartsUrl"/>), so a word of the text such as "Data:" (Polish
+    /// "date") or "Profile:" is not one.
     /// </summary>
     public static IReadOnlyList<string> FindForbiddenHtml(string? html)
     {
@@ -213,8 +215,27 @@ public static partial class UserMessageRules
         }
 
         var compact = string.Concat(WebUtility.HtmlDecode(html).Where(c => !char.IsWhiteSpace(c) && !char.IsControl(c)));
-        found.AddRange(ForbiddenSchemes.Where(s => compact.Contains(s, StringComparison.OrdinalIgnoreCase)));
+        found.AddRange(ForbiddenSchemes.Where(s => StartsUrl(compact, s)));
         return [.. found.Distinct(StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// True when <paramref name="scheme"/> occurs in the decoded HTML without white space and control characters
+    /// (<paramref name="compact"/>) where a URL starts: at the beginning, after <c>=</c>, a quote or a backtick (attribute
+    /// values, quoted or not) or after <c>(</c> (CSS <c>url(…)</c>). Browsers ignore leading white space and control
+    /// characters of a URL, which are already removed.
+    /// </summary>
+    private static bool StartsUrl(string compact, string scheme)
+    {
+        for (var i = compact.IndexOf(scheme, StringComparison.OrdinalIgnoreCase); i >= 0; i = compact.IndexOf(scheme, i + 1, StringComparison.OrdinalIgnoreCase))
+        {
+            if (i == 0 || compact[i - 1] is '=' or '"' or '\'' or '`' or '(')
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>HTML of a plain text: encoded, paragraphs on blank lines, line breaks as &lt;br&gt;.</summary>
