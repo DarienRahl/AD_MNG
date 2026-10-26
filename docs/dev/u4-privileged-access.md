@@ -4,8 +4,8 @@ Roadmap item U4 (README, "Ścieżka U"). A second tab of the *Przegląd kont* wi
 right beyond a plain domain user – "even minimally more than others" – with a level per finding and the path that explains
 where it comes from (konto → grupa A → grupa B → Account Operators). Four sources were chosen with the user; **U4a**
 implements sources 1 and 2, the peer comparison and the shared model, **U4b** adds ACL delegations (as built: section
-6.1) and **U4c** local rights from GPOs. The same work brings the filter builder with saved filters, used by the review, the object
-lists and the privilege rules.
+6.1) and **U4c** local rights from GPOs (as built: "U4c as built" in section 6). The same work brings the filter builder
+with saved filters, used by the review, the object lists and the privilege rules.
 
 Rules of CLAUDE.md that shape the design: results only in memory (1), every filter through `LdapFilter` (3), all reads on
 the window's DC (4), every action through the change plan (5), streaming and cancellable (6).
@@ -28,6 +28,9 @@ the window's DC (4), every action through the change plan (5), streaming and can
 | `DirectoryAclGrantSource`, `AclObjectTypes`, `AclRight` / `AclRights` | Core (`PrivilegedAccess/`) | U4b: the ACL delegations source, the meaning of object-type GUIDs (schema, CN=Extended-Rights), the reported rights and their value format. |
 | `SecurityDescriptorSummary`, `SecurityDescriptorAce`, `Sddl`, `DirectoryAccessMask` | Core (`Security/`) | Binary descriptor parser (moved from AdMng.Watchdog.Core, which keeps using it), the SDDL reader of `defaultSecurityDescriptor`, access mask bits and the generic mapping. |
 | `AccountReviewWindow` (tab), `FilterEditorWindow`, `SavedFiltersWindow`, chips in `ObjectListView` | App | XAML. |
+| `GroupPolicyGrantSource`, `GroupPolicyRightsResolver`, `LocalRightsCatalog`, `GroupPolicyGrantDetails` | Core (`PrivilegedAccess/`) | U4c: local rights from GPOs. |
+| `GroupPolicyTopology`, `GroupPolicyInheritance`, `GroupPolicyLinks`, `GroupPolicySecurityFilter`, `SecurityTemplate`, `GppGroupsParser`, `GpoText`, `GpoXml`, `ISysvolFileReader`, `SysvolPaths` | Core (`GroupPolicy/`) | U4c: GPOs, links, security filtering, computers, inheritance, the GPO file parsers (shared with Watchdog) and the SYSVOL reader contract. |
+| `WindowsSysvolFileReader` | Directory | U4c: SYSVOL of the session's DC on Windows (process identity or the session's in-memory credential). |
 
 ## 2. Model
 
@@ -149,6 +152,120 @@ The comparison runs after the stream over all accounts of the scope (also those 
   `SeInteractiveLogonRight` on DCs (Elevated).
 * Kind `LocalRight`, scope `Computers` + the linked OU, values = the GPO name and the right; grants to the member SIDs.
 
+### U4c as built
+
+* **Pieces.** `GroupPolicyGrantSource` (Core) reads `GroupPolicyTopology` (LDAP), the files of the GPOs that reach a
+  computer through `ISysvolFileReader`, resolves names and hands everything to the pure `GroupPolicyRightsResolver`.
+  The parsers moved from `AdMng.Watchdog.Core/Gpo/Parsers` to `AdMng.Core/GroupPolicy`: `GpoText` (strict decoding, INI
+  reader) and `GpoXml` (hardened XML) as they were, plus `SecurityTemplate` (Restricted Groups and Privilege Rights as
+  structured entries; the Watchdog's `GptTmplParser` takes the principal syntax and the Restricted Groups key split from
+  it), `GppGroupsParser` (local group items of Groups.xml) and `GroupPolicyLinks` (gPLink with link order; the Watchdog's
+  `GpLinks` and GPC cn parsing delegate to it). The Watchdog's generic snapshot parsers stay in Watchdog.
+* **Reads** (all on the session's DC, rule 4): one-level search of `CN=Policies,CN=System` (`cn displayName
+  gPCFileSysPath flags gPCMachineExtensionNames gPCWQLFilter nTSecurityDescriptor`, SD flags DACL), a base read of the domain head (`gPLink gPOptions`), one
+  subtree search of the OUs with `gPLink` or `gPOptions`, one one-level search of `CN=Sites` for sites with `gPLink` (the
+  DCs' server objects only when a site links a GPO), one paged search of the computer accounts (`objectClass
+  userAccountControl operatingSystem objectSid primaryGroupID memberOf`; managed service accounts and disabled computers
+  left out), then one
+  `sAMAccountName` search per 50 names the GPOs use. SYSVOL: `GptTmpl.inf` when the GPO lists the Security extension
+  (or lists none), `Groups.xml` when it lists the GPP Local Users and Groups extension (or none); 4 MiB per file, 4
+  reads at a time, cancellable. Only GPOs that reach a computer are read.
+* **Inheritance** (`GroupPolicyInheritance`, as [MS-GPOL] and GPMC): site, domain, OUs top-down; within a container from
+  the highest link order number to link order 1 (the last link of `gPLink`; Samba and GPMC prepend new links); disabled
+  links skipped; block inheritance (gPOptions 1, also on the domain head against site links) drops the non-enforced
+  links above; enforced links are applied after all others, the deepest container first, so that the enforced link
+  highest in the hierarchy wins; a GPO linked twice counts once, at its winning position. GPOs with the computer
+  configuration disabled (`flags` 2) and links to GPOs without a container in the domain are left out (the latter
+  reported). Computers are grouped by parent container (and the site of a DC); member computers have no site link
+  (their site follows the subnet and is not evaluated).
+* **Effective settings** per container group: User Rights Assignment per right and Restricted Groups per group
+  (Members) and per member (MemberOf) - the highest-precedence GPO wins, as in the security engine; the members of a
+  local group are its Members list plus every MemberOf naming it. GPP items in application order: ADD/REMOVE, delete
+  all member users / groups (users vs groups by the group graph), Replace and Delete clear what earlier items added;
+  items with item-level targeting are kept but conditional - next to, never instead of, an unconditional add of the
+  same member (that one keeps its GPO and its computers) - and their removals are not applied. Restricted Groups and
+  GPP are evaluated independently (both reported; the CSE order between them is not modelled). On the DCs the "local"
+  groups are the domain's groups: a Members line of a privileged domain group of the catalogue (Domain Admins, Group
+  Policy Creator Owners …) and a MemberOf line naming one are reported for the DCs the GPO reaches, at the group's
+  level, kind `LocalRightKind.DomainGroup` (the tab: the group's catalogue name and description and "the GPO enforces
+  this membership: a removal is undone at the next refresh"), so that a *Usuń z grupy…* the DCs revert is explained
+  (added after the review); on member computers such lines change nothing. Other domain groups on the left of a
+  Members line are a domain membership (in the graph already), not a local right.
+* **Principals.** SIDs of the domain; Everyone and Authenticated Users (by SID or by English/Polish name) and Users
+  (545, through the graph) - the evaluator now gives grants on Everyone / Authenticated Users to every account even
+  when no group of the domain nests them; names `DOMAIN\x`, `x@dns`, `x` of this domain through their SIDs; local groups
+  by SID, by the English/Polish names and by the names of the domain's built-in groups. Not repeated: other built-in
+  groups (the default holders of the rights, e.g. Administrators in `SeDebugPrivilege`), service SIDs, other domains
+  and groups that are Tier 0 in the catalogue (Domain Admins are Tier 0 already). Unknown names are reported.
+* **Levels** (`LocalRightsCatalog`): by the roles of the computers the grant reaches - DC (server trust account or
+  RODC), server (operatingSystem contains "Server"), workstation; the highest wins. Administrators: Elevated on
+  workstations, High on servers; Backup Operators High; Power Users, Remote Desktop Users, Remote Management Users,
+  Hyper-V Administrators Elevated; the minor built-in groups Minor; on DCs the catalogue level of the built-in group
+  with the operator's override (Administrators, Backup Operators, Account/Server/Print Operators: Tier 0). The sensitive
+  user rights of the note are High, Tier 0 on DCs, and so are `SeCreateTokenPrivilege` (any token, as much as
+  `SeTcbPrivilege`), `SeManageVolumePrivilege` (raw volume reads, NTDS.dit on a DC) and `SeRelabelPrivilege` (takes
+  objects over), added after the review; `SeTrustedCredManAccessPrivilege` (reads saved credentials) is Elevated, High on
+  DCs; `SeInteractiveLogonRight` / `SeRemoteInteractiveLogonRight` only on DCs (Elevated). None of these has a default
+  holder among the domain's own groups; `SeSecurityPrivilege` is left out (Exchange Servers hold it on the DCs). A right that reaches no reported role is dropped, so a GPO linked to an OU without computers grants
+  nothing yet.
+* **Findings.** Kind `LocalRight`, source `GroupPolicy`, scope `Computers` + the container of the link, values = the
+  GPO name and the right (local group SID or user right constant), and `GroupPolicyGrantDetails` (GPO, link, link
+  order, enforced, mechanism, item-level targeting, WMI filter, computers by role). One grant per principal, right,
+  mechanism, GPO and link. The tab names local groups as Windows does (`PrivilegedAccess.GroupName.*`) and user rights
+  as the security policy editor (`PrivilegedAccess.UserRightName.*`), says what the right gives
+  (`PrivilegedAccess.LocalRight.*`), the mechanism, the GPO, the computers, enforced links and conditions.
+* **Notices.** `PrivilegeScanContext.Report` / `PrivilegedAccessScanner.Notices`: a source reports what it could not read
+  (SYSVOL unavailable with the reason, unreadable or invalid files, unknown names, missing GPOs, gPCFileSysPath pointing
+  elsewhere - the files are read from the session DC's SYSVOL by GUID anyway). The tab shows them in a warning bar above
+  the list (`PrivilegedAccess.Notice.{code}`, re-formatted on a language change); the run goes on.
+* **SYSVOL and credentials** (`WindowsSysvolFileReader`, AdMng.Directory): the UNC path of the session's DC
+  (`SessionInfo.Server`, validated by `SysvolPaths`), files read with `FileStream` off the UI thread into a byte array,
+  never written anywhere. A session of the Windows account (CurrentUser) reads with the process identity. A session
+  opened with other credentials (Negotiate with a typed account, or a simple bind with a UPN or `DOMAIN\user`) gets a
+  logon session of the run's own: `LogonUser(LOGON32_LOGON_NEW_CREDENTIALS, LOGON32_PROVIDER_WINNT50)` (as `runas
+  /netonly`: local identity unchanged, network access with the session's credential; a UPN goes without a domain,
+  `DOMAIN\user` is split), the password copied from `NetworkCredential` into a zeroed unmanaged buffer; every file is
+  opened inside `WindowsIdentity.RunImpersonated` with that token (the open handle keeps its SMB session for the reads)
+  and the token is closed with the run's connection. The operator's logon session never gets the credential: no
+  ERROR_SESSION_CREDENTIAL_CONFLICT with the SMB sessions it already has to its logon DC (GP processing, logon script,
+  mapped drives), no other process or window reaching `C$`/`ADMIN$` with the session's (admin) credential, nothing left
+  behind after a crash. `NEW_CREDENTIALS` does not check the password, so the reader opens `SYSVOL\<domain>\Policies`
+  once at the start: a refused logon (`LogonFailure`), a denied share (`AccessDenied`) or an unreachable DC
+  (`Unreachable`) is reported for the run (changed after the review; the first version used `WNetAddConnection2` in the
+  operator's logon session). A simple bind with a DN has no SMB logon name (`DistinguishedNameLogon`); other platforms
+  get `NotSupported`. Each becomes a notice in the tab ("GPO rights need ... the Windows account"); the other sources
+  still run.
+* **Deviations from the note.** The scope DN is the container of the link (also a site); the level comes from the
+  computers the GPO actually reaches (so the DC OU and the Default Domain Controllers Policy give Tier 0, and a
+  domain-level GPO reaching the DCs does too). Administrators on workstations is Elevated (the note names only servers
+  and DCs). Restricted Groups precedence, GPP order and computer counts were added to make link order matter.
+  WMI filter queries and item-level targeting conditions are not evaluated: findings with a WMI filter or targeting
+  are marked conditional. Security filtering is evaluated (added after the review, the note left it to U4b): see
+  *Security filtering* below.
+* **Security filtering** (`GroupPolicySecurityFilter`): the GPC search reads `nTSecurityDescriptor` with the SD flags
+  control (DACL; the parser moved to `AdMng.Core/Security` by U4b) and collects the SIDs allowed and denied the *Apply
+  Group Policy* extended right (`edacfd8f-…`, or control access without an object type; inherit-only ACEs ignored). The
+  computer search adds `objectSid primaryGroupID memberOf`; a computer's token is its SID, its primary group, its groups
+  nested through the group graph, Everyone, Authenticated Users, This Organization and, for a writable DC (primary group
+  516), Enterprise Domain Controllers. A computer applies a GPO when an allowed SID is in its token and no denied one
+  is; computers of one container that apply the same GPOs are evaluated together, so a GPO linked at the domain head
+  but filtered to "Serwery SQL" (or denied to Domain Controllers) counts only the computers it reaches and is not Tier 0
+  through the DCs, and a lower-precedence GPO wins where the filtered one does not apply. A descriptor that cannot be
+  read counts as applying everywhere (as before). Not modelled: the Read permission, universal groups of other
+  domains in the token.
+* **Tests.** Core: SecurityTemplate (UTF-16 with BOM, Polish names, both Restricted Groups forms, duplicates, hostile
+  encodings), GppGroupsParser (actions, collections, targeting, disabled items, DTD and nesting refused),
+  GroupPolicyInheritance (link order, block, enforced, disabled, sites, duplicates), SysvolPaths, and the source end to
+  end on the fake DC (`FakeDirectoryBuilder.AddGroupPolicySample`, `FakeSysvolFileReader`). Presentation: the tab in
+  Polish with the GPO sample (texts, levels, scope, toggles, notices in both languages, CSV), SYSVOL unavailable, SYSVOL
+  of the window session's DC. App: a UI test of the notice bar with the in-memory SYSVOL. Lab (Samba): GPOs from
+  `samba-tool gpo create`, links with `setlink` (one enforced) and `setinheritance block`, read over LDAP; GptTmpl.inf
+  and Groups.xml written with smbclient and the source end to end through `SmbClientSysvolFileReader` (a Linux test
+  reader: `smbclient //<session DC>/SYSVOL -I <lab address> … get … -`, content on stdout, in memory); the Windows
+  reader's logon from the lab session (UPN) and a DN bind (refused). Unverified: the Windows reader itself
+  (LogonUser with new credentials, impersonated opens, Kerberos to the DC) runs only on Windows and has no automated
+  test yet; its logon name split and the Win32 error mapping are tested on any platform.
+
 Both only add a source class, enum values already exist (`DirectoryAcl`, `GroupPolicy`, `AclRight`, `LocalRight`,
 `Container`, `Computers`) with resources in both languages; the tab offers a source as soon as it is registered
 (`PrivilegedAccessViewModel` and `PrivilegedAccessScanner` already take `IEnumerable<IPrivilegeGrantSource>`; U4a
@@ -247,6 +364,7 @@ All on the session's DC; one window = one session (rule 4).
 | Filter rules | once per rule | the rule's server part AND accounts or security groups, DN only |
 | Accounts | once, streamed | `(|(sAMAccountType=805306368)(sAMAccountType=805306369))` AND the scope filter (saved view, group members, saved filters), attributes of `PrivilegeEvaluator.AccountAttributes` (+ client check attributes); paged |
 | Ranged memberOf | only for accounts with > 1500 groups | ranged retrieval |
+| U4c: GPOs, links, computers | once per run (the GPO source) | `CN=Policies` one level (with the DACL for the security filtering), domain head base, OUs with `gPLink`/`gPOptions`, sites with `gPLink` (+ server objects), computers paged; `sAMAccountName` per 50 names; SYSVOL GptTmpl.inf / Groups.xml of the GPOs that reach a computer |
 
 The evaluation is in memory: per account a breadth-first search over its reachable groups (tens of nodes), then the
 grants of those nodes. 10 000 accounts × ~30 reachable groups is ~300 000 steps; the peer comparison is linear in accounts ×
@@ -328,6 +446,8 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
   test).
 * Every filter is built with `LdapFilter` (rule 3); raw filters are validated.
 * Every change through `IChangeCoordinator` (rule 5).
+* U4c: SYSVOL files are read into memory and parsed there; nothing of them (nor of the GPOs) is written to disk or
+  logged. A session's credential reaches the SMB connection only in memory (rule 2); the connection is temporary.
 
 ## 11. Edge cases and limitations
 

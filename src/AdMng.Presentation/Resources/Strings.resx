@@ -8506,6 +8506,216 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PrivilegedAccess.Target.Groups" xml:space="preserve">
     <value>Groups (their members)</value>
   </data>
+  <data name="PrivilegedAccess.GroupName.PowerUsers" xml:space="preserve">
+    <value>Power Users</value>
+  </data>
+  <data name="PrivilegedAccess.UserRight" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeDebugPrivilege" xml:space="preserve">
+    <value>Debug programs</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeBackupPrivilege" xml:space="preserve">
+    <value>Back up files and directories</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRestorePrivilege" xml:space="preserve">
+    <value>Restore files and directories</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Take ownership of files or other objects</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Load and unload device drivers</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Impersonate a client after authentication</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTcbPrivilege" xml:space="preserve">
+    <value>Act as part of the operating system</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Replace a process level token</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Enable computer and user accounts to be trusted for delegation</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Create a token object</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Perform volume maintenance tasks</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRelabelPrivilege" xml:space="preserve">
+    <value>Modify an object label</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Access Credential Manager as a trusted caller</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Allow log on through Remote Desktop Services</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Allow log on locally</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.Administrators" xml:space="preserve">
+    <value>Full control of the computer: installs software and services, reads the memory and credentials of the users logged on there.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.BackupOperators" xml:space="preserve">
+    <value>Reads and restores every file regardless of its permissions (also the credential stores).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PowerUsers" xml:space="preserve">
+    <value>Extended local rights (legacy group): installs programs and changes system settings.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteDesktopUsers" xml:space="preserve">
+    <value>Logs on through Remote Desktop.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteManagementUsers" xml:space="preserve">
+    <value>Remote management through WinRM and PowerShell.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.HyperVAdministrators" xml:space="preserve">
+    <value>Full control of the Hyper-V virtual machines.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.NetworkConfigurationOperators" xml:space="preserve">
+    <value>Changes the network configuration.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceMonitorUsers" xml:space="preserve">
+    <value>Reads performance counters.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceLogUsers" xml:space="preserve">
+    <value>Schedules performance and trace logs.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.DistributedComUsers" xml:space="preserve">
+    <value>Starts and uses DCOM objects.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.CryptographicOperators" xml:space="preserve">
+    <value>Performs cryptographic operations.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.EventLogReaders" xml:space="preserve">
+    <value>Reads the event logs.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccessControlAssistanceOperators" xml:space="preserve">
+    <value>Reads the permissions of resources remotely.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccountOperators" xml:space="preserve">
+    <value>On the domain controllers: manages most accounts and groups of the domain.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.ServerOperators" xml:space="preserve">
+    <value>On the domain controllers: logs on, manages services and files.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PrintOperators" xml:space="preserve">
+    <value>On the domain controllers: logs on and loads printer drivers.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeDebugPrivilege" xml:space="preserve">
+    <value>Reads and changes the memory of any process, LSASS included (credential theft).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeBackupPrivilege" xml:space="preserve">
+    <value>Reads every file regardless of its permissions (NTDS.dit, the SAM and SECURITY hives).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRestorePrivilege" xml:space="preserve">
+    <value>Writes every file regardless of its permissions (replaces system files).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Takes ownership of any object and grants itself access.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Loads drivers (code in the kernel).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Impersonates clients - a path to SYSTEM ("Potato" attacks).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTcbPrivilege" xml:space="preserve">
+    <value>Acts as the operating system (creates any token).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Starts processes with the token of another account.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Turns on Kerberos delegation for accounts (a path to Tier 0).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Creates any access token (any account, any groups) - as much as acting as the operating system.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Raw access to the volumes: reads any file regardless of its permissions (NTDS.dit on a DC) - a path to SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRelabelPrivilege" xml:space="preserve">
+    <value>Changes the integrity label of any object and takes it over - a path to SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Reads the credentials users of the computer saved in Credential Manager (its backup).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Logs on to the domain controllers through Remote Desktop.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Logs on locally to the domain controllers.</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMembers" xml:space="preserve">
+    <value>Restricted Groups (members of the group)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMemberOf" xml:space="preserve">
+    <value>Restricted Groups (member of the group)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.PreferenceGroups" xml:space="preserve">
+    <value>Group Policy Preferences (local users and groups)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.UserRightsAssignment" xml:space="preserve">
+    <value>User Rights Assignment</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightGrants" xml:space="preserve">
+    <value>{0} Source: {1} in GPO "{2}"; {3}.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightComputers" xml:space="preserve">
+    <value>computers: {0} (domain controllers: {1}, servers: {2}, workstations: {3})</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightValues" xml:space="preserve">
+    <value>GPO "{0}": {1}</value>
+  </data>
+  <data name="PrivilegedAccess.LinkEnforced" xml:space="preserve">
+    <value>The GPO link is enforced.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalTargeting" xml:space="preserve">
+    <value>Conditional: the preference item has item-level targeting - only the computers it matches get it.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalWmi" xml:space="preserve">
+    <value>Conditional: the GPO has a WMI filter - only the computers where the query is true get it.</value>
+  </data>
+  <data name="PrivilegedAccess.DomainGroupEnforced" xml:space="preserve">
+    <value>On the domain controllers the GPO enforces this membership of the domain group: a removal from the group is undone at the next policy refresh - change the GPO.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.NotSupported" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: the group policy files in SYSVOL of {0} can be read on Windows only.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.DistinguishedNameLogon" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: the session uses a simple bind with a distinguished name, which cannot log on to the SYSVOL share of {0}. Connect with the Windows account, or with a name in the form DOMAIN\user or a UPN.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.LogonFailure" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: {0} refused the session's credentials for the SYSVOL share.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.AccessDenied" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: access to the SYSVOL share of {0} was denied.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Unreachable" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: the SYSVOL share of {0} cannot be reached.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Failed" xml:space="preserve">
+    <value>Local rights from GPOs were not checked: the SYSVOL share of {0} could not be opened.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesUnreadable" xml:space="preserve">
+    <value>Group policy files could not be read (GPOs: {0}): {1}. Their local rights are not included.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesInvalid" xml:space="preserve">
+    <value>Group policy files are not valid or too large (GPOs: {0}): {1}. Their local rights are not included.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.UnresolvedPrincipals" xml:space="preserve">
+    <value>Names in group policies that are no account or group of this domain were skipped ({0}): {1}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.MissingPolicies" xml:space="preserve">
+    <value>Links to group policy objects that do not exist in this domain were skipped: {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.PathRedirected" xml:space="preserve">
+    <value>gPCFileSysPath points outside the domain's SYSVOL (GPOs: {0}): {1}. The files were read from SYSVOL of the session's DC.</value>
+  </data>
   <data name="PrivilegedAccess.Column.Name" xml:space="preserve">
     <value>Name</value>
   </data>

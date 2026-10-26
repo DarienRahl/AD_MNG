@@ -2,13 +2,14 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy;
 
 /// <summary>
-/// Hardened XML loading for GPO files (stage B design 8.4): <c>DtdProcessing.Prohibit</c> (no entity expansion – "billion
-/// laughs" fails), <c>XmlResolver = null</c> (no external entities), character checking off (invalid characters reach the
-/// values and become U+FFFD there), a character limit and a nesting limit checked in a first streaming pass before the tree
-/// is built. The encoding comes from the BOM / declaration (UTF-8 with BOM for GPP files and comment.cmtx).
+/// Hardened XML loading for GPO files (Watchdog stage B design 8.4; the privileged access review U4c reads GPP Groups.xml
+/// with it): <c>DtdProcessing.Prohibit</c> (no entity expansion – "billion laughs" fails), <c>XmlResolver = null</c> (no
+/// external entities), character checking off (invalid characters reach the values and become U+FFFD there), a character
+/// limit and a nesting limit checked in a first streaming pass before the tree is built. The encoding comes from the BOM /
+/// declaration (UTF-8 with BOM for GPP files and comment.cmtx).
 /// </summary>
 public static class GpoXml
 {

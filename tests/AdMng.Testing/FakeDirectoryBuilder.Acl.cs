@@ -105,9 +105,6 @@ public sealed partial class FakeDirectoryBuilder
         }
     }
 
-    /// <summary>The objectSid of an object of the fake directory (S-1-…).</summary>
-    public string SidOf(string distinguishedName) => Session.GetValues(distinguishedName, Attr.ObjectSid).Single();
-
     /// <summary>Replaces the binary nTSecurityDescriptor of an object.</summary>
     public void SetSecurityDescriptor(string distinguishedName, string ownerSid, params IEnumerable<FakeAce> aces) =>
         Session.SetValues(distinguishedName, Attr.NtSecurityDescriptor, FakeSecurityDescriptor.Build(ownerSid, ownerSid, aces));

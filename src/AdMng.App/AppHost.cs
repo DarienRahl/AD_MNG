@@ -8,7 +8,9 @@ using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
+using AdMng.Core.GroupPolicy;
 using AdMng.Core.Messaging;
+using AdMng.Core.PrivilegedAccess;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Directory;
@@ -91,6 +93,10 @@ public static class AppHost
         // Directory access (System.DirectoryServices.Protocols).
         services.AddSingleton<IDirectoryConnector>(sp =>
             new LdapDirectoryConnector(sp.GetRequiredService<ILoggerFactory>(), sp.GetRequiredService<TimeProvider>()));
+
+        // Privileged access review (README U4c): local rights from GPOs, read from SYSVOL of the session's DC in memory.
+        services.AddSingleton<ISysvolFileReader, WindowsSysvolFileReader>();
+        services.AddSingleton<IPrivilegeGrantSource>(sp => new GroupPolicyGrantSource(sp.GetRequiredService<ISysvolFileReader>()));
 
         // AdMng Watchdog service (HTTPS + Kerberos; configured from the settings by WatchdogConnectionService).
         services.AddSingleton<IWatchdogClient, WatchdogHttpClient>();

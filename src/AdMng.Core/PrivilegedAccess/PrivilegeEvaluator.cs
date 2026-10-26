@@ -71,7 +71,7 @@ public sealed class PrivilegeEvaluator
     private readonly Dictionary<int, List<PrivilegeGrant>> _groupGrants = [];
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsBySid = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsByDn = new(StringComparer.Ordinal);
-    private readonly List<PrivilegeGrant> _everyoneGrants = [];
+    private readonly List<PrivilegeGrant> _implicitGrants = [];
     private readonly IReadOnlyList<AccountRuleMatcher> _accountRules;
     private readonly HashSet<string> _domainControllerNames;
 
@@ -107,8 +107,9 @@ public sealed class PrivilegeEvaluator
 
             if (grant.PrincipalSid is PrivilegedGroupCatalog.EveryoneSid or PrivilegedGroupCatalog.AuthenticatedUsersSid)
             {
-                // Not nested anywhere (so not in the graph), but every account holds it (an ACE of U4b, for example).
-                _everyoneGrants.Add(grant);
+                // Granted to Everyone / Authenticated Users (an ACE of U4b, a GPO of U4c) while no group of the domain
+                // nests them (so they are not in the graph): every account has it.
+                _implicitGrants.Add(grant);
                 continue;
             }
 
@@ -222,8 +223,8 @@ public sealed class PrivilegeEvaluator
             findings.AddRange(grants.Select(g => FromGrant(g, path, group.Dn, group.Name, onAccount: false)));
         }
 
-        // Grants on Everyone / Authenticated Users that are not in the graph.
-        foreach (var grant in _everyoneGrants)
+        // Grants on Everyone / Authenticated Users that no group of the graph nests.
+        foreach (var grant in _implicitGrants)
         {
             var principal = grant.PrincipalSid!;
             var dn = DistinguishedName.TryParse(FilterContext.DefaultNamingContext, out var nc)
@@ -409,6 +410,7 @@ public sealed class PrivilegeEvaluator
         Path = path,
         Values = grant.Values,
         Note = grant.Note,
+        GroupPolicy = grant.GroupPolicy,
     };
 
     /// <summary>The host of a service principal name (service/host[:port][/name]).</summary>

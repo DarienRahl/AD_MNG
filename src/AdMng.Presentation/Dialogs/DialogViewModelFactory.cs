@@ -78,9 +78,9 @@ public interface IDialogViewModelFactory
 /// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site), and
 /// the account review and the Account tab read other domain controllers. With an
 /// <see cref="AccountReview.IUserMessageLauncher"/> (path U1) "Wyślij wiadomość…" is shown; with
-/// <see cref="UserMessages.UserMessageServices"/> the message window and the settings tab "Wiadomości e-mail" exist.
-/// The registered grant sources (README U4b: ACL delegations, U4c: local rights from GPOs) are handed to the "Uprawnienia"
-/// tab of the account review, which offers their sources.
+/// <see cref="UserMessages.UserMessageServices"/> the message window and the settings tab "Wiadomości e-mail" exist. The
+/// registered <see cref="Core.PrivilegedAccess.IPrivilegeGrantSource"/>s (U4b ACL delegations, U4c local rights from
+/// GPOs) are handed to the "Uprawnienia" tab of every account review, which offers their sources.
 /// </remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
@@ -97,10 +97,9 @@ public sealed class DialogViewModelFactory(
     Filters.FilterLibrary? filters = null,
     IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null) : IDialogViewModelFactory
 {
-    private readonly IReadOnlyList<Core.PrivilegedAccess.IPrivilegeGrantSource> _grantSources = [.. grantSources ?? []];
-
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
+    private readonly Core.PrivilegedAccess.IPrivilegeGrantSource[] _grantSources = [.. grantSources ?? []];
 
     public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
         new(services, engines.Planner, distinguishedName)

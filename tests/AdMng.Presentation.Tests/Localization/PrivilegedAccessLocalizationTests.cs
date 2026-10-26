@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.Filters;
+using AdMng.Core.GroupPolicy;
 using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Filters;
@@ -31,7 +32,62 @@ public class PrivilegedAccessLocalizationTests
         keys.AddRange(Enum.GetValues<FilterCombinator>().Select(FilterTexts.CombinatorKey));
         keys.AddRange(Enum.GetValues<FilterIssueCode>().Select(FilterTexts.IssueKey));
 
+        // U4c: local rights from GPOs - what each right gives, its name, the mechanisms and the notices of the source.
+        keys.AddRange(LocalRightsCatalog.All.Select(d => PrivilegedAccessText.LocalRightKey(d.Id)));
+        keys.AddRange(LocalRightsCatalog.All.Select(d => d.Kind == LocalRightKind.LocalGroup
+            ? PrivilegedAccessText.GroupNameKey(d.Id)
+            : PrivilegedAccessText.UserRightNameKey(d.Id)));
+        keys.AddRange(Enum.GetValues<LocalRightMechanism>().Select(PrivilegedAccessText.MechanismKey));
+        keys.AddRange(Enum.GetValues<SysvolUnavailableReason>().Select(r => PrivilegedAccessText.NoticeKey(GroupPolicyGrantSource.Notices.SysvolUnavailable(r))));
+        keys.AddRange(new[]
+        {
+            GroupPolicyGrantSource.Notices.FilesUnreadable, GroupPolicyGrantSource.Notices.FilesInvalid, GroupPolicyGrantSource.Notices.UnresolvedPrincipals,
+            GroupPolicyGrantSource.Notices.MissingPolicies, GroupPolicyGrantSource.Notices.PathRedirected,
+        }.Select(PrivilegedAccessText.NoticeKey));
+
         Assert.Equal([], keys.Where(k => !l.Contains(k)));
+    }
+
+    [Fact]
+    public void Polish_NamesTheLocalGroupsAndUserRightsAsPolishWindowsDoes()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var formatter = new PrivilegedAccessFormatter(l, "contoso.test");
+
+        Assert.Equal("Użytkownicy zaawansowani", formatter.RightName(LocalRightsCatalog.Find(LocalRightsCatalog.PowerUsersSid)!));
+        Assert.Equal("Użytkownicy pulpitu zdalnego", formatter.RightName(LocalRightsCatalog.Find(LocalRightsCatalog.RemoteDesktopUsersSid)!));
+        Assert.Equal("Zezwalanie na logowanie lokalne (SeInteractiveLogonRight)", formatter.RightName(LocalRightsCatalog.Find("SeInteractiveLogonRight")!));
+        Assert.Equal("Grupy z ograniczeniami (członek grupy)", l[PrivilegedAccessText.MechanismKey(LocalRightMechanism.RestrictedGroupMemberOf)]);
+        Assert.Equal(
+            "Nie udało się odczytać plików zasad grupy (GPO: 2): Stacje – Łódź, Serwery – Gdańsk. Ich uprawnienia lokalne nie zostały uwzględnione.",
+            formatter.Notice(new PrivilegeSourceNotice(PrivilegeSource.GroupPolicy, GroupPolicyGrantSource.Notices.FilesUnreadable, ["2", "Stacje – Łódź, Serwery – Gdańsk"])));
+    }
+
+    [Fact]
+    public void Polish_ADomainGroupEnforcedByAGpo_IsNamedAndExplained()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var formatter = new PrivilegedAccessFormatter(l, "contoso.test");
+        var definition = LocalRightsCatalog.DomainGroup(PrivilegedGroupCatalog.Find("DomainAdmins")!, "S-1-5-21-1-2-3-512");
+        var gpo = new GroupPolicyGrantDetails
+        {
+            GpoId = Guid.Empty,
+            GpoName = "Kontrolery – Utrzymanie członkostwa",
+            GpoDn = "CN={00000000-0000-0000-0000-000000000000},CN=Policies,CN=System,DC=contoso,DC=test",
+            Mechanism = LocalRightMechanism.RestrictedGroupMemberOf,
+            Right = definition.Key,
+            Definition = definition,
+            LinkDn = "OU=Domain Controllers,DC=contoso,DC=test",
+            DomainControllers = 2,
+        };
+
+        Assert.Equal("Administratorzy domeny", formatter.RightName(definition));
+        Assert.Equal(
+            "Pełna kontrola nad wszystkimi obiektami i komputerami domeny. Źródło: Grupy z ograniczeniami (członek grupy) w GPO "
+            + "„Kontrolery – Utrzymanie członkostwa”; komputery: 2 (kontrolery domeny: 2, serwery: 0, stacje robocze: 0). "
+            + "Na kontrolerach domeny GPO wymusza to członkostwo w grupie domeny: usunięcie z grupy zostanie cofnięte przy "
+            + "następnym odświeżeniu zasad – zmień GPO.",
+            formatter.LocalRight(gpo));
     }
 
     [Fact]

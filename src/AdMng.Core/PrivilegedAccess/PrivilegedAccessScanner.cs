@@ -19,6 +19,7 @@ public sealed class PrivilegedAccessScanner
     private readonly PrivilegedAccessOptions _options;
     private readonly IReadOnlyList<IPrivilegeGrantSource> _sources;
     private readonly List<string> _skippedRules = [];
+    private readonly List<PrivilegeSourceNotice> _notices = [];
 
     /// <param name="session">The session (CLAUDE.md rule 4: every read on its DC).</param>
     /// <param name="options">Domain SIDs, levels, marks, rules, peers.</param>
@@ -45,12 +46,16 @@ public sealed class PrivilegedAccessScanner
     /// <summary>Names of the rules left out because their filter is not valid (after <see cref="PrepareAsync"/>).</summary>
     public IReadOnlyList<string> SkippedRules => _skippedRules;
 
+    /// <summary>What the grant sources could not read or evaluate (after <see cref="PrepareAsync"/>).</summary>
+    public IReadOnlyList<PrivilegeSourceNotice> Notices => _notices;
+
     /// <summary>Reads everything the evaluation of the accounts needs.</summary>
     public async Task<PrivilegeEvaluator> PrepareAsync(DateTimeOffset now, CancellationToken cancellationToken)
     {
         var nc = _session.Info.DefaultNamingContext;
         var filterContext = new FilterContext { Now = now, DefaultNamingContext = nc, Schema = _session.Schema };
         _skippedRules.Clear();
+        _notices.Clear();
         var rules = new List<(PrivilegeConditionRule Rule, FilterPlan Plan)>();
         foreach (var rule in _options.Rules)
         {
@@ -73,6 +78,8 @@ public sealed class PrivilegedAccessScanner
         {
             grants.AddRange(await source.CollectAsync(context, cancellationToken).ConfigureAwait(false));
         }
+
+        _notices.AddRange(context.Notices);
 
         foreach (var (rule, plan) in groupRules)
         {

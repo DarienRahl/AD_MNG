@@ -79,6 +79,17 @@ public static partial class L
         public const string ScopeFilterNone = "PrivilegedAccess.ScopeFilterNone";
         public const string FilterInvalid = "PrivilegedAccess.FilterInvalid";
         public const string MarkAdded = "PrivilegedAccess.MarkAdded";
+
+        // U4c: local rights from GPOs (families: PrivilegedAccess.LocalRight.{id}, PrivilegedAccess.UserRightName.{id},
+        // PrivilegedAccess.Mechanism.{LocalRightMechanism}, PrivilegedAccess.Notice.{code}).
+        public const string UserRight = "PrivilegedAccess.UserRight";
+        public const string LocalRightGrants = "PrivilegedAccess.LocalRightGrants";
+        public const string LocalRightComputers = "PrivilegedAccess.LocalRightComputers";
+        public const string LocalRightValues = "PrivilegedAccess.LocalRightValues";
+        public const string LinkEnforced = "PrivilegedAccess.LinkEnforced";
+        public const string ConditionalTargeting = "PrivilegedAccess.ConditionalTargeting";
+        public const string ConditionalWmi = "PrivilegedAccess.ConditionalWmi";
+        public const string DomainGroupEnforced = "PrivilegedAccess.DomainGroupEnforced";
     }
 
     /// <summary>
