@@ -1,9 +1,12 @@
 using System.Text;
-using AdMng.Watchdog.Core.Gpo.Parsers;
+using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Tests.Gpo;
+namespace AdMng.Core.Tests.GroupPolicy;
 
-/// <summary>Decoding of the GPO text files (stage B design 8.4): the accepted encodings and the hostile ones that fail closed.</summary>
+/// <summary>
+/// Decoding of the GPO text files (shared by AdMng Watchdog, stage B design 8.4, and the privileged access review U4c): the
+/// accepted encodings and the hostile ones that fail closed.
+/// </summary>
 public sealed class GpoTextTests
 {
     private const string Sample = "[Startup]\r\n0CmdLine=Zażółć.cmd\r\n";
@@ -11,7 +14,7 @@ public sealed class GpoTextTests
     [Fact]
     public void Utf16LittleEndianWithBom()
     {
-        Assert.Equal(Sample, GpoText.DecodeUnicodeText(GpoFixtures.Utf16(Sample)));
+        Assert.Equal(Sample, GpoText.DecodeUnicodeText(Utf16(Sample)));
     }
 
     [Fact]
@@ -23,7 +26,7 @@ public sealed class GpoTextTests
     [Fact]
     public void Utf8WithAndWithoutBom()
     {
-        Assert.Equal(Sample, GpoText.DecodeUnicodeText(GpoFixtures.Utf8Bom(Sample)));
+        Assert.Equal(Sample, GpoText.DecodeUnicodeText(Utf8Bom(Sample)));
         Assert.Equal(Sample, GpoText.DecodeUnicodeText(Encoding.UTF8.GetBytes(Sample)));
     }
 
@@ -46,7 +49,7 @@ public sealed class GpoTextTests
     [Fact]
     public void OddUtf16LengthIsRefused()
     {
-        byte[] bytes = [.. GpoFixtures.Utf16(Sample), 0x41];
+        byte[] bytes = [.. Utf16(Sample), 0x41];
 
         Assert.Throws<GpoParseException>(() => GpoText.DecodeUnicodeText(bytes));
     }
@@ -92,4 +95,12 @@ public sealed class GpoTextTests
         Assert.Equal(["Spooler", "4", "D:(A;;GA;;;BA),x"], IniReader.SplitCommaList("\"Spooler\",4,\"D:(A;;GA;;;BA),x\""));
         Assert.Equal(["a\"b"], IniReader.SplitCommaList("\"a\"\"b\""));
     }
+
+    /// <summary>UTF-16LE with BOM and CR LF line ends (as secedit writes GptTmpl.inf).</summary>
+    internal static byte[] Utf16(string text) => [0xFF, 0xFE, .. Encoding.Unicode.GetBytes(Crlf(text))];
+
+    /// <summary>UTF-8 with BOM and CR LF line ends (GPP files).</summary>
+    internal static byte[] Utf8Bom(string text) => [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes(Crlf(text))];
+
+    private static string Crlf(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
 }

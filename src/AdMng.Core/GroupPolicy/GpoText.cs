@@ -1,8 +1,11 @@
 using System.Text;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy;
 
-/// <summary>A GPO file could not be parsed; the file is shown as unreadable (fail closed per file, 8.4).</summary>
+/// <summary>
+/// A GPO file could not be parsed; the file is shown as unreadable (fail closed per file - Watchdog stage B design 8.4, the
+/// privileged access review U4c).
+/// </summary>
 public sealed class GpoParseException : Exception
 {
     public GpoParseException()
@@ -21,7 +24,8 @@ public sealed class GpoParseException : Exception
 }
 
 /// <summary>
-/// Decoding of the text files of a GPO folder. Content is untrusted: a decoding error, a NUL character or an unsupported
+/// Decoding of the text files of a GPO folder, shared by AdMng Watchdog (GPO content) and the privileged access review
+/// (U4c, local rights from GPOs). Content is untrusted: a decoding error, a NUL character or an unsupported
 /// encoding fails the file (<see cref="GpoParseException"/>); nothing is guessed silently except the documented ANSI
 /// fallback of <c>GPT.INI</c>.
 /// </summary>

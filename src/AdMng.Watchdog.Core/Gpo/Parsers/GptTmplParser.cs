@@ -1,3 +1,5 @@
+using AdMng.Core.GroupPolicy;
+
 namespace AdMng.Watchdog.Core.Gpo.Parsers;
 
 /// <summary>
@@ -17,7 +19,9 @@ namespace AdMng.Watchdog.Core.Gpo.Parsers;
 /// <c>…/path/Security</c>;</item>
 /// <item><c>[System Log]</c>, <c>[Security Log]</c>, <c>[Application Log]</c> and any other section – <c>key = value</c>.</item>
 /// </list>
-/// <c>[Unicode]</c>, <c>[Version]</c> and <c>[Profile Description]</c> are not settings. A later duplicate key wins.
+/// <c>[Unicode]</c>, <c>[Version]</c> and <c>[Profile Description]</c> are not settings. A later duplicate key wins. The
+/// decoding, the INI reader, the principal syntax and the Restricted Groups keys are those of
+/// <see cref="SecurityTemplate"/> in AdMng.Core (shared with the privileged access review).
 /// </summary>
 public static class GptTmplParser
 {
@@ -83,39 +87,25 @@ public static class GptTmplParser
     }
 
     /// <summary>Elements of a principal list: <c>*S-1-5-32-544</c> → <c>S-1-5-32-544</c>, names kept as written.</summary>
-    internal static IEnumerable<string> Principals(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? [] : IniReader.SplitCommaList(value).Select(Principal).Where(p => p.Length > 0);
-
-    private static string Principal(string value)
-    {
-        var text = value.Trim();
-        if (text.StartsWith('*'))
-        {
-            text = text[1..].Trim();
-        }
-
-        return text.StartsWith("S-", StringComparison.OrdinalIgnoreCase) && text.Skip(2).All(c => char.IsAsciiDigit(c) || c == '-')
-            ? text.ToUpperInvariant()
-            : text;
-    }
+    internal static IEnumerable<string> Principals(string? value) => SecurityTemplate.Principals(value);
 
     private static void KeyValue(GpoSettingSink sink, string section, IniLine line, GpoSettingCategory category) =>
         sink.Text(Prefix + section + "/" + line.Key, IniReader.Unquote(line.Value ?? string.Empty), category);
 
     private static void GroupMembership(GpoSettingSink sink, IniLine line)
     {
-        var separator = line.Key.LastIndexOf("__", StringComparison.Ordinal);
-        if (separator <= 0)
+        if (!SecurityTemplate.TrySplitGroupMembershipKey(line.Key, out var group, out var relation, out var relationText))
         {
             KeyValue(sink, "Group Membership", line, GpoSettingCategory.GroupMembership);
             return;
         }
 
-        var group = Principal(line.Key[..separator]);
-        var relation = line.Key[(separator + 2)..];
-        var name = relation.Equals("Members", StringComparison.OrdinalIgnoreCase) ? "Members"
-            : relation.Equals("Memberof", StringComparison.OrdinalIgnoreCase) ? "MemberOf"
-            : relation;
+        var name = relation switch
+        {
+            RestrictedGroupRelation.Members => "Members",
+            RestrictedGroupRelation.MemberOf => "MemberOf",
+            _ => relationText,
+        };
         sink.List(Prefix + "Group Membership/" + group + "/" + name, Principals(line.Value), GpoSettingCategory.GroupMembership);
     }
 
