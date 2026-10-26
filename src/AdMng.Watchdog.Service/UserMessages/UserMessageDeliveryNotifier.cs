@@ -14,15 +14,33 @@ public sealed record UserMessageAttempt(DeliveryOutcome Outcome, string Code, in
 
 /// <summary>
 /// Hands the outcome of a message's SMTP attempt from the outbox job (<c>SmtpEmailTransport</c>) to the
-/// <c>POST /api/v1/user-messages</c> request waiting for it (README U1b). In memory only; an attempt nobody waits for is
-/// dropped. Rate-limit deferrals are not attempts and are not reported.
+/// <c>POST /api/v1/user-messages</c> request waiting for it (README U1b). In memory only. Rate-limit deferrals are not
+/// attempts and are not reported.
+/// <para>The transport reports an attempt before the outbox job records its outcome in the outbox row, so a repeated
+/// request arriving in between reads the row as still queued: the last attempt of each message (codes only, no rejected
+/// addresses) is therefore kept for <see cref="RecentAttemptLifetime"/> and answers a registration made after it at
+/// once.</para>
 /// </summary>
 public sealed class UserMessageDeliveryNotifier
 {
+    /// <summary>How long the last attempt of a message answers registrations made after it was reported.</summary>
+    public static readonly TimeSpan RecentAttemptLifetime = TimeSpan.FromMinutes(5);
+
+    private const int MaxRecentAttempts = 1024;
+
     private readonly ConcurrentDictionary<string, Waiter> _waiters = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, RecentAttempt> _recent = new(StringComparer.Ordinal);
+    private readonly TimeProvider _timeProvider;
+
+    public UserMessageDeliveryNotifier(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        _timeProvider = timeProvider;
+    }
 
     /// <summary>Starts waiting for <paramref name="messageId"/> (the outbox MessageId) – before the message is enqueued, so
-    /// an attempt that completes at once is not missed. Dispose the handle when done.</summary>
+    /// an attempt that completes at once is not missed; an attempt reported within <see cref="RecentAttemptLifetime"/>
+    /// before completes the handle at once. Dispose the handle when done.</summary>
     public Registration Register(string messageId)
     {
         ArgumentException.ThrowIfNullOrEmpty(messageId);
@@ -39,6 +57,13 @@ public sealed class UserMessageDeliveryNotifier
 
                 return existing;
             });
+
+        // After joining the waiters: an attempt reported before is in _recent (Report writes it before taking the waiters).
+        if (_recent.TryGetValue(messageId, out var recent) && _timeProvider.GetUtcNow() - recent.ReportedAt < RecentAttemptLifetime)
+        {
+            registration.Completion.TrySetResult(recent.Attempt);
+        }
+
         return registration;
     }
 
@@ -46,7 +71,13 @@ public sealed class UserMessageDeliveryNotifier
     public void Report(string messageId, UserMessageAttempt attempt)
     {
         ArgumentNullException.ThrowIfNull(attempt);
-        if (attempt.Outcome == DeliveryOutcome.Deferred || !_waiters.TryRemove(messageId, out var waiter))
+        if (attempt.Outcome == DeliveryOutcome.Deferred)
+        {
+            return;
+        }
+
+        Remember(messageId, attempt);
+        if (!_waiters.TryRemove(messageId, out var waiter))
         {
             return;
         }
@@ -56,6 +87,27 @@ public sealed class UserMessageDeliveryNotifier
             foreach (var registration in waiter.Registrations)
             {
                 registration.Completion.TrySetResult(attempt);
+            }
+        }
+    }
+
+    private void Remember(string messageId, UserMessageAttempt attempt)
+    {
+        var now = _timeProvider.GetUtcNow();
+        _recent[messageId] = new RecentAttempt(attempt with { RejectedCopies = [] }, now);
+        foreach (var (id, recent) in _recent)
+        {
+            if (now - recent.ReportedAt >= RecentAttemptLifetime)
+            {
+                _recent.TryRemove(new KeyValuePair<string, RecentAttempt>(id, recent));
+            }
+        }
+
+        if (_recent.Count > MaxRecentAttempts)
+        {
+            foreach (var oldest in _recent.OrderBy(r => r.Value.ReportedAt).Take(_recent.Count - MaxRecentAttempts).ToList())
+            {
+                _recent.TryRemove(oldest);
             }
         }
     }
@@ -109,4 +161,6 @@ public sealed class UserMessageDeliveryNotifier
     }
 
     private sealed record Waiter(List<Registration> Registrations);
+
+    private sealed record RecentAttempt(UserMessageAttempt Attempt, DateTimeOffset ReportedAt);
 }
