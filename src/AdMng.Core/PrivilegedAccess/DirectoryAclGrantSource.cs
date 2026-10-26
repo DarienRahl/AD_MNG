@@ -158,15 +158,17 @@ internal sealed class DirectoryAclScan
         headTarget.IsTier0 = true;
         headTarget.ReportOwner = true;
         var wellKnown = WellKnown(head);
-        var dcOu = wellKnown.GetValueOrDefault(WellKnownGuids.DomainControllers) ?? $"OU=Domain Controllers,{_nc}";
+        var nc = DistinguishedName.Parse(_nc);
+        var dcOu = wellKnown.GetValueOrDefault(WellKnownGuids.DomainControllers) ?? nc.Child("OU", "Domain Controllers").ToString();
         var tier0Gpos = LinkedGpoKeys(head.GetString(Attr.GpLink));
 
         // The containers: CN=Users, CN=Computers (wherever wellKnownObjects points), AdminSDHolder, CN=Policies.
-        var system = $"CN=System,{_nc}";
-        var users = wellKnown.GetValueOrDefault(WellKnownGuids.Users) ?? $"CN=Users,{_nc}";
-        var computers = wellKnown.GetValueOrDefault(WellKnownGuids.Computers) ?? $"CN=Computers,{_nc}";
-        var policies = $"CN=Policies,{system}";
-        foreach (var dn in new[] { users, computers, $"CN=AdminSDHolder,{system}", policies })
+        var system = nc.Child("CN", "System");
+        var users = wellKnown.GetValueOrDefault(WellKnownGuids.Users) ?? nc.Child("CN", "Users").ToString();
+        var computers = wellKnown.GetValueOrDefault(WellKnownGuids.Computers) ?? nc.Child("CN", "Computers").ToString();
+        var adminSdHolderDn = system.Child("CN", "AdminSDHolder").ToString();
+        var policies = system.Child("CN", "Policies").ToString();
+        foreach (var dn in new[] { users, computers, adminSdHolderDn, policies })
         {
             if (await _session.GetAsync(dn, SdAttributes, cancellationToken).ConfigureAwait(false) is { } obj && Read(obj, AclTargetKind.Container) is { } target)
             {
@@ -184,7 +186,7 @@ internal sealed class DirectoryAclScan
             };
         }
 
-        if (_index.TryGetValue(GroupGraph.Key($"CN=AdminSDHolder,{system}"), out var adminSdHolder))
+        if (_index.TryGetValue(GroupGraph.Key(adminSdHolderDn), out var adminSdHolder))
         {
             adminSdHolder.IsTier0 = true;
         }
@@ -290,7 +292,7 @@ internal sealed class DirectoryAclScan
     private AclTarget? Read(DirectoryObject obj, AclTargetKind kind, string? displayName = null)
     {
         var key = GroupGraph.Key(obj.DistinguishedName);
-        if (_index.TryGetValue(key, out var existing))
+        if (_index.ContainsKey(key))
         {
             return null;
         }
@@ -393,9 +395,17 @@ internal sealed class DirectoryAclScan
     private async Task<IReadOnlyList<(Guid Guid, string Name, int ValidAccesses)>> ReadControlAccessRightsAsync(CancellationToken cancellationToken)
     {
         var rights = new List<(Guid, string, int)>();
+        var extendedRights = DistinguishedName.TryParse(_session.Info.ConfigurationNamingContext, out var configuration) && !configuration.IsRoot
+            ? configuration.Child("CN", "Extended-Rights").ToString()
+            : null;
+        if (extendedRights is null)
+        {
+            return rights;
+        }
+
         try
         {
-            await foreach (var right in SearchAsync($"CN=Extended-Rights,{_session.Info.ConfigurationNamingContext}", SearchScope.OneLevel,
+            await foreach (var right in SearchAsync(extendedRights, SearchScope.OneLevel,
                 LdapFilter.Equal(Attr.ObjectClass, "controlAccessRight"), [Attr.Cn, RightsGuidAttribute, ValidAccessesAttribute], cancellationToken).ConfigureAwait(false))
             {
                 if (Guid.TryParse(right.GetString(RightsGuidAttribute), out var guid) && (right.GetString(Attr.Cn) ?? right.Name) is { Length: > 0 } name)

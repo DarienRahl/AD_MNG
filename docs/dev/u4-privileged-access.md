@@ -355,6 +355,8 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
 * U4b Core: binary descriptors built in the tests on the Polish sample (`AddAclDelegationSample`): every delegation
   type with its level, defaults of the class (CREATOR OWNER = owner) and of the default trustees, inherited copies reported
   once, a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
+  remaining rights and levels (owner of krbtgt, `gPLink` write on the DCs' OU and an ordinary OU, RBCD write,
+  Self-Membership, all extended rights, a GPO of the DCs with an enabled and one with a disabled link), the
   scanner's paths through groups, Authenticated Users not in the graph, LAPS resolved from the schema, the fixed GUIDs
   without schema and configuration; SDDL reader and access mask.
 * U4b Presentation: the tab with the source (titles, rights in Polish, paths, scope, source filter, CSV line), the deep

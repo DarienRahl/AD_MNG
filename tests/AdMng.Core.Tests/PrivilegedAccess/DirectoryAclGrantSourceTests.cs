@@ -187,6 +187,60 @@ public class DirectoryAclGrantSourceTests
     }
 
     [Fact]
+    public async Task TheOtherRights_GetTheLevelsOfTheDesignNote()
+    {
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var da = $"{builder.DomainSid}-{WellKnownRids.DomainAdmins}";
+        var gpLink = builder.Session.Schema.FindAttribute(Attr.GpLink)!.SchemaIdGuid;
+        var rbcd = builder.Session.Schema.FindAttribute(Attr.AllowedToActOnBehalfOfOtherIdentity)!.SchemaIdGuid;
+        var helpdesk = builder.SidOf(scenario.Privileged.Helpdesk);
+        var ewa = builder.SidOf(scenario.Privileged.EwaBlaszczyk);
+
+        // Owner of krbtgt (a Tier 0 object); gPLink write on the DCs' OU (Tier 0) and on OU=Sprzedaż (High).
+        builder.SetSecurityDescriptor(builder.KrbtgtDn, builder.SidOf(scenario.Privileged.JolantaCwik), FakeAce.FullControl(da));
+        builder.SetSecurityDescriptor(builder.DomainControllersDn, da, FakeAce.FullControl(da), new FakeAce(FakeAce.AccessAllowedObject, 0, 0x20, helpdesk, gpLink));
+        builder.SetSecurityDescriptor(scenario.Company.SalesOu, da, FakeAce.FullControl(da), new FakeAce(FakeAce.AccessAllowedObject, 0, 0x20, helpdesk, gpLink));
+
+        // Resource-based delegation write on the computers of OU=Księgowość, Self-Membership on the groups of OU=Grupy,
+        // every extended right on the users of OU=Pracownicy (inherit-only, limited to a class).
+        builder.SetSecurityDescriptor(scenario.Company.AccountingOu, da, FakeAce.FullControl(da),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x20, builder.SidOf(scenario.Privileged.WebService), rbcd, FakeDirectoryBuilder.AclGuids.Computer));
+        builder.SetSecurityDescriptor(scenario.Company.GroupsOu, da, FakeAce.FullControl(da),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x8, builder.SidOf(scenario.Privileged.KrystynaSlusarczyk),
+                FakeDirectoryBuilder.AclGuids.SelfMembership, FakeDirectoryBuilder.AclGuids.Group));
+        builder.SetSecurityDescriptor(scenario.Company.EmployeesOu, da, FakeAce.FullControl(da),
+            new FakeAce(FakeAce.AccessAllowedObject, 0x0A, 0x100, ewa, null, FakeDirectoryBuilder.AclGuids.User));
+
+        // Write DACL of the DCs' policy (enabled link on their OU: Tier 0) and of a policy whose link there is disabled (High).
+        var oldPolicy = new Guid("7d3c2a51-6e0f-4b8a-9c1d-2f4e6a8b0c13");
+        var disabled = builder.AddGroupPolicy("Stara polityka kontrolerów", oldPolicy);
+        builder.Session.SetValues(builder.DomainControllersDn, Attr.GpLink,
+            builder.GpLink(FakeDirectoryBuilder.DefaultDomainControllersPolicyGuid) + builder.GpLink(oldPolicy, options: 1));
+        builder.SetSecurityDescriptor(builder.DefaultDomainControllersPolicyDn, da, FakeAce.FullControl(da), new FakeAce(FakeAce.AccessAllowed, 0, 0x40000, ewa));
+        builder.SetSecurityDescriptor(disabled, da, FakeAce.FullControl(da), new FakeAce(FakeAce.AccessAllowed, 0, 0x40000, ewa));
+
+        var rendered = Render(scenario, await CollectAsync(scenario));
+
+        string[] changed =
+        [
+            builder.KrbtgtDn, builder.DomainControllersDn, scenario.Company.SalesOu, scenario.Company.AccountingOu, scenario.Company.GroupsOu,
+            scenario.Company.EmployeesOu, builder.DefaultDomainControllersPolicyDn, disabled,
+        ];
+        Assert.Equal(Sorted(
+        [
+            $"{builder.KrbtgtDn} | Jolanta Ćwik | Tier0 | Owner",
+            $"{builder.DomainControllersDn} | GG_Helpdesk | Tier0 | WriteGpLink",
+            $"{scenario.Company.SalesOu} | GG_Helpdesk | High | WriteGpLink",
+            $"{scenario.Company.AccountingOu} | Usługa WWW | High | WriteAllowedToActOnBehalf:computer",
+            $"{scenario.Company.GroupsOu} | Krystyna Ślusarczyk | High | AddSelfToGroup:group",
+            $"{scenario.Company.EmployeesOu} | Ewa Błaszczyk | High | AllExtendedRights:user",
+            $"{builder.DefaultDomainControllersPolicyDn} | Ewa Błaszczyk | Tier0 | WriteDacl",
+            $"{disabled} | Ewa Błaszczyk | High | WriteDacl",
+        ]), [.. rendered.Where(r => changed.Any(dn => r.StartsWith(dn + " |", StringComparison.Ordinal)))]);
+    }
+
+    [Fact]
     public async Task Laps_IsResolvedFromTheSchema_AndHighOnlyWhereServersAre()
     {
         var admPwd = new Guid("2d4f1a77-0b6c-4c43-9d42-6f7e8c1a9b10");
