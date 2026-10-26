@@ -57,6 +57,10 @@ public sealed partial class ShellViewModel
             new("copyAs.guid", L.Copy.Guid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectGuid },
             new("copyAs.sid", L.Copy.Sid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectSid },
             new("object.watchdogHistory", L.Commands.WatchdogHistory, obj, string.Empty, ShowWatchdogHistoryCommand),
+            new("object.compareWithConnection", L.Commands.CompareWithConnection, obj, string.Empty, CompareWithConnectionCommand)
+            {
+                DisabledReason = _ => CompareBlockedReason(),
+            },
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),

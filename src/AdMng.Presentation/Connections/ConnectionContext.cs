@@ -14,6 +14,8 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
     private readonly ConnectionRegistry _registry;
     private readonly CancellationTokenSource _lifetimeSource = new();
     private readonly CancellationToken _lifetime;
+    private readonly Lock _pinnedGate = new();
+    private readonly List<ConnectionReadContext> _pinned = [];
     private ConnectionIdentity? _identity;
     private int _disposed;
 
@@ -60,6 +62,39 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
 
     public event EventHandler? Closed;
 
+    public event EventHandler? SessionChanged;
+
+    /// <summary>
+    /// A read context of the current session for another window's read-only feature (the comparison), or null while not
+    /// connected or after the window closed. It ends when this window's session changes or the window closes.
+    /// </summary>
+    public ConnectionReadContext? Pin()
+    {
+        if (IsClosed || _sessions.Current is not { } session)
+        {
+            return null;
+        }
+
+        var formatter = _sessions.Formatter;
+        var policy = _sessions.GetDomainPolicyAsync(CancellationToken.None);
+        var context = ConnectionReadContext.Create(Id, Identity, session, formatter, policy);
+        lock (_pinnedGate)
+        {
+            _pinned.RemoveAll(c => c.IsEnded);
+
+            // The session changed or the window closed while the context was built: it never reads.
+            if (IsClosed || !ReferenceEquals(session, _sessions.Current))
+            {
+                context.End();
+                return null;
+            }
+
+            _pinned.Add(context);
+        }
+
+        return context;
+    }
+
     /// <summary>Cancels <see cref="Lifetime"/> (the main window starts closing). Idempotent.</summary>
     public void EndLifetime()
     {
@@ -90,10 +125,12 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
 
         _sessions.SessionChanged -= OnSessionChanged;
         EndLifetime();
+        EndPinned(keep: null);
         _registry.Unregister(this);
         var closed = Closed;
         Closed = null;
         Changed = null;
+        SessionChanged = null;
         closed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -106,7 +143,27 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
     {
         if (!IsClosed)
         {
+            // Other windows' reads of the previous session end first (their reads then fail as "ended", never as a read
+            // through another session); then the identity and the listeners follow.
+            EndPinned(keep: _sessions.Current);
             Refresh();
+            SessionChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>Ends the pinned read contexts that do not read through <paramref name="keep"/>.</summary>
+    private void EndPinned(object? keep)
+    {
+        ConnectionReadContext[] ending;
+        lock (_pinnedGate)
+        {
+            ending = [.. _pinned.Where(c => !c.IsPinnedTo(keep))];
+            _pinned.RemoveAll(c => !c.IsPinnedTo(keep));
+        }
+
+        foreach (var context in ending)
+        {
+            context.End();
         }
     }
 

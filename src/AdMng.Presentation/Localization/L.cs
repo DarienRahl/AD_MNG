@@ -185,6 +185,9 @@ public static partial class L
         public const string AccountReview = "Commands.AccountReview";
         public const string Watchdog = "Commands.Watchdog";
         public const string WatchdogHistory = "Commands.WatchdogHistory";
+
+        /// <summary>"Porównaj z obiektem w innym połączeniu…" (docs/dev/multi-window.md 8).</summary>
+        public const string CompareWithConnection = "Commands.CompareWithConnection";
     }
 
     public static class Tree

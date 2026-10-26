@@ -437,11 +437,281 @@ Apply the change to the remaining {1} object(s) in the domain {2}?</value>
   <data name="Commands.CommandPalette" xml:space="preserve">
     <value>Command palette</value>
   </data>
+  <data name="Commands.CompareWithConnection" xml:space="preserve">
+    <value>Compare with an object in another connection…</value>
+  </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Copy distinguished name</value>
   </data>
   <data name="Commands.NewConnectionWindow" xml:space="preserve">
     <value>New connection in a new window…</value>
+  </data>
+  <data name="Comparison.AddressesWithoutDomain" xml:space="preserve">
+    <value>Compare addresses without the domain</value>
+  </data>
+  <data name="Comparison.ColumnAttribute" xml:space="preserve">
+    <value>Attribute</value>
+  </data>
+  <data name="Comparison.ColumnGroup" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="Comparison.ColumnLdapName" xml:space="preserve">
+    <value>LDAP name</value>
+  </data>
+  <data name="Comparison.ColumnMail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Comparison.ColumnMember" xml:space="preserve">
+    <value>Member</value>
+  </data>
+  <data name="Comparison.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Comparison.ColumnPath" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="Comparison.ColumnSection" xml:space="preserve">
+    <value>Section</value>
+  </data>
+  <data name="Comparison.ColumnSide" xml:space="preserve">
+    <value>Where</value>
+  </data>
+  <data name="Comparison.ColumnState" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Comparison.ColumnValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Comparison.Compare" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="Comparison.Connection" xml:space="preserve">
+    <value>Connection</value>
+  </data>
+  <data name="Comparison.CopiedRow" xml:space="preserve">
+    <value>comparison row</value>
+  </data>
+  <data name="Comparison.DisabledNoOtherConnection" xml:space="preserve">
+    <value>Open a second connection (Ctrl+Shift+N)</value>
+  </data>
+  <data name="Comparison.DisabledSelectOne" xml:space="preserve">
+    <value>Select one object: a user, group, computer or contact</value>
+  </data>
+  <data name="Comparison.ExplicitHint" xml:space="preserve">
+    <value>DN or search text</value>
+  </data>
+  <data name="Comparison.ExportCsv" xml:space="preserve">
+    <value>Export CSV…</value>
+  </data>
+  <data name="Comparison.ExportTitle" xml:space="preserve">
+    <value>Export the comparison</value>
+  </data>
+  <data name="Comparison.FileNamePrefix" xml:space="preserve">
+    <value>comparison</value>
+  </data>
+  <data name="Comparison.Filter" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Comparison.Incomplete" xml:space="preserve">
+    <value>(incomplete)</value>
+  </data>
+  <data name="Comparison.KindDirect" xml:space="preserve">
+    <value>direct</value>
+  </data>
+  <data name="Comparison.KindNested" xml:space="preserve">
+    <value>nested</value>
+  </data>
+  <data name="Comparison.KindPrimary" xml:space="preserve">
+    <value>primary group</value>
+  </data>
+  <data name="Comparison.ListTruncated" xml:space="preserve">
+    <value>The list was cut at {0} entries.</value>
+  </data>
+  <data name="Comparison.MarkBoth" xml:space="preserve">
+    <value>common</value>
+  </data>
+  <data name="Comparison.MarkOnlyA" xml:space="preserve">
+    <value>only A</value>
+  </data>
+  <data name="Comparison.MarkOnlyB" xml:space="preserve">
+    <value>only B</value>
+  </data>
+  <data name="Comparison.MatchBy" xml:space="preserve">
+    <value>Match by</value>
+  </data>
+  <data name="Comparison.MembershipFootnote" xml:space="preserve">
+    <value>Groups of other domains of the forest and memberships through foreign security principals are not listed. Well-known groups are matched by their RID or SID, other groups by their name.</value>
+  </data>
+  <data name="Comparison.MembershipInBoth" xml:space="preserve">
+    <value>in both</value>
+  </data>
+  <data name="Comparison.MembershipInBothDifferently" xml:space="preserve">
+    <value>in both, differently</value>
+  </data>
+  <data name="Comparison.MembershipOnlyA" xml:space="preserve">
+    <value>only A</value>
+  </data>
+  <data name="Comparison.MembershipOnlyB" xml:space="preserve">
+    <value>only B</value>
+  </data>
+  <data name="Comparison.MembersSkipped" xml:space="preserve">
+    <value>{0} foreign security principals or members of other domains skipped.</value>
+  </data>
+  <data name="Comparison.MoreValues" xml:space="preserve">
+    <value>… and {0} more</value>
+  </data>
+  <data name="Comparison.NestedLoading" xml:space="preserve">
+    <value>Reading nested membership…</value>
+  </data>
+  <data name="Comparison.NoOtherConnection" xml:space="preserve">
+    <value>No other connection is open. Open a second connection (Ctrl+Shift+N) to compare.</value>
+  </data>
+  <data name="Comparison.NotComparable" xml:space="preserve">
+    <value>Only users, groups, computers and contacts can be compared.</value>
+  </data>
+  <data name="Comparison.NoValue" xml:space="preserve">
+    <value>no value (or no read permission)</value>
+  </data>
+  <data name="Comparison.OnlyDifferences" xml:space="preserve">
+    <value>Only differences</value>
+  </data>
+  <data name="Comparison.Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Comparison.RowDistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="Comparison.Rule.Automatic" xml:space="preserve">
+    <value>Automatically</value>
+  </data>
+  <data name="Comparison.Rule.Explicit" xml:space="preserve">
+    <value>Specified object</value>
+  </data>
+  <data name="Comparison.Rule.Mail" xml:space="preserve">
+    <value>E-mail address</value>
+  </data>
+  <data name="Comparison.Rule.Name" xml:space="preserve">
+    <value>Name (cn)</value>
+  </data>
+  <data name="Comparison.Rule.SamAccountName" xml:space="preserve">
+    <value>sAMAccountName</value>
+  </data>
+  <data name="Comparison.Rule.UserPrincipalNamePrefix" xml:space="preserve">
+    <value>UPN prefix</value>
+  </data>
+  <data name="Comparison.SameObject" xml:space="preserve">
+    <value>This is the same object seen by two accounts – differences come from read permissions.</value>
+  </data>
+  <data name="Comparison.SecretSet" xml:space="preserve">
+    <value>set</value>
+  </data>
+  <data name="Comparison.ShowNested" xml:space="preserve">
+    <value>Show nested</value>
+  </data>
+  <data name="Comparison.ShowNestedMembers" xml:space="preserve">
+    <value>Show nested members</value>
+  </data>
+  <data name="Comparison.ShowVolatile" xml:space="preserve">
+    <value>Show volatile and identity attributes</value>
+  </data>
+  <data name="Comparison.SideChanged" xml:space="preserve">
+    <value>The connection {0} changed its session (domain controller or account) – Refresh</value>
+  </data>
+  <data name="Comparison.SideClosed" xml:space="preserve">
+    <value>The connection {0} was closed – its results stay visible.</value>
+  </data>
+  <data name="Comparison.SourceNotFound" xml:space="preserve">
+    <value>The object no longer exists in {0}.</value>
+  </data>
+  <data name="Comparison.StateDifferent" xml:space="preserve">
+    <value>Different</value>
+  </data>
+  <data name="Comparison.StateDifferentCase" xml:space="preserve">
+    <value>Different (letter case only)</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaA" xml:space="preserve">
+    <value>Not in schema A</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaB" xml:space="preserve">
+    <value>Not in schema B</value>
+  </data>
+  <data name="Comparison.StateOnlyA" xml:space="preserve">
+    <value>Only in A</value>
+  </data>
+  <data name="Comparison.StateOnlyB" xml:space="preserve">
+    <value>Only in B</value>
+  </data>
+  <data name="Comparison.StateSame" xml:space="preserve">
+    <value>Same</value>
+  </data>
+  <data name="Comparison.StateSameOtherDomain" xml:space="preserve">
+    <value>Same (other domain)</value>
+  </data>
+  <data name="Comparison.StatusAmbiguous" xml:space="preserve">
+    <value>Found {0} objects – choose one</value>
+  </data>
+  <data name="Comparison.StatusCancelled" xml:space="preserve">
+    <value>Stopped</value>
+  </data>
+  <data name="Comparison.StatusChooseTarget" xml:space="preserve">
+    <value>Choose the other connection</value>
+  </data>
+  <data name="Comparison.StatusFound" xml:space="preserve">
+    <value>Found: {0}</value>
+  </data>
+  <data name="Comparison.StatusNoExplicitText" xml:space="preserve">
+    <value>Enter a DN or a search text</value>
+  </data>
+  <data name="Comparison.StatusNotFound" xml:space="preserve">
+    <value>Not found (rules tried: {0})</value>
+  </data>
+  <data name="Comparison.StatusNotFoundExplicit" xml:space="preserve">
+    <value>Not found</value>
+  </data>
+  <data name="Comparison.StatusNoValue" xml:space="preserve">
+    <value>The object has no value for this rule</value>
+  </data>
+  <data name="Comparison.StatusOutside" xml:space="preserve">
+    <value>The DN is not in the domain {0}</value>
+  </data>
+  <data name="Comparison.StatusReading" xml:space="preserve">
+    <value>Reading…</value>
+  </data>
+  <data name="Comparison.StatusTooMany" xml:space="preserve">
+    <value>More than 50 – narrow the search</value>
+  </data>
+  <data name="Comparison.Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Comparison.TabAttributes" xml:space="preserve">
+    <value>Attributes</value>
+  </data>
+  <data name="Comparison.TabMembers" xml:space="preserve">
+    <value>Members</value>
+  </data>
+  <data name="Comparison.TabMembership" xml:space="preserve">
+    <value>Membership</value>
+  </data>
+  <data name="Comparison.TabWithCount" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Comparison.TargetNotConnected" xml:space="preserve">
+    <value>The other connection is not connected.</value>
+  </data>
+  <data name="Comparison.TargetNotFound" xml:space="preserve">
+    <value>The chosen object no longer exists in {0}.</value>
+  </data>
+  <data name="Comparison.ValueCounts" xml:space="preserve">
+    <value>common {0}, only A {1}, only B {2}</value>
+  </data>
+  <data name="Comparison.ValuesOf" xml:space="preserve">
+    <value>Values: {0}</value>
+  </data>
+  <data name="Comparison.WindowTitle" xml:space="preserve">
+    <value>Comparison: {0} – {1} ↔ {2}</value>
+  </data>
+  <data name="Comparison.WindowTitleNoTarget" xml:space="preserve">
+    <value>Comparison: {0}</value>
   </data>
   <data name="Connections.ApplicationError" xml:space="preserve">
     <value>Application error</value>

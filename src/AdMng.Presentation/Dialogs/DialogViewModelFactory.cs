@@ -66,6 +66,12 @@ public interface IDialogViewModelFactory
     /// window's shell applies a changed Advanced Features setting itself.
     /// </summary>
     SettingsViewModel CreateSettings();
+
+    /// <summary>
+    /// "Porównaj z obiektem w innym połączeniu…" (modeless, one per launch): the object of this window against the matching
+    /// object of another open connection, read-only.
+    /// </summary>
+    Comparison.ObjectComparisonViewModel CreateObjectComparison(string distinguishedName);
 }
 
 /// <summary>Default <see cref="IDialogViewModelFactory"/> (one per connection window: it creates the window's dialogs).</summary>
@@ -87,7 +93,9 @@ public sealed class DialogViewModelFactory(
     WatchdogObjectHistoryLauncher? historyLauncher = null,
     IDirectoryConnector? connector = null,
     AccountReview.IUserMessageLauncher? messages = null,
-    UserMessages.UserMessageServices? userMessages = null) : IDialogViewModelFactory
+    UserMessages.UserMessageServices? userMessages = null,
+    Connections.ConnectionRegistry? connections = null,
+    Comparison.IObjectComparisonLauncher? comparison = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
 
@@ -97,6 +105,7 @@ public sealed class DialogViewModelFactory(
             HistoryLauncher = historyLauncher,
             DomainControllers = _domainControllers,
             MessageLauncher = messages,
+            ComparisonLauncher = comparison,
         };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
@@ -128,6 +137,9 @@ public sealed class DialogViewModelFactory(
         new(services, userMessages ?? throw new InvalidOperationException("Messages to users are not registered."), request);
 
     public SettingsViewModel CreateSettings() => new(services, theme, userMessages);
+
+    public Comparison.ObjectComparisonViewModel CreateObjectComparison(string distinguishedName) =>
+        new(services, engines.Csv, distinguishedName, connections);
 
     private NavigationTreeViewModel CreateTree() =>
         new(services.Sessions, services.Settings, services.Localizer, services.Dispatcher, services.Errors, views, services.Changes);

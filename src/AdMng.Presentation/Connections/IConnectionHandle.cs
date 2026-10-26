@@ -1,8 +1,9 @@
 namespace AdMng.Presentation.Connections;
 
 /// <summary>
-/// The read-only view of another connection window that other windows get (window switcher, and in stage 2 the
-/// comparison). It never exposes that window's session manager, coordinator, dialogs, notifier or credential.
+/// The read-only view of another connection window that other windows get (window switcher, comparison of objects). It
+/// never exposes that window's session manager, session, coordinator, dialogs, notifier or credential: reads go through
+/// <see cref="Pin"/>, a read-only and request-limited reader of one session.
 /// </summary>
 public interface IConnectionHandle
 {
@@ -17,6 +18,19 @@ public interface IConnectionHandle
 
     /// <summary>The window closed (raised once; the handle then drops its subscribers).</summary>
     event EventHandler? Closed;
+
+    /// <summary>
+    /// The window's session changed: connected, disconnected, another domain controller or a reconnect (also when the
+    /// identity stays the same). Read contexts pinned to the previous session have ended when this is raised.
+    /// </summary>
+    event EventHandler? SessionChanged;
+
+    /// <summary>
+    /// The reader, formatter, identity and policy of the CURRENT session, captured together (design note
+    /// docs/dev/multi-window.md 8.2), or null while the window is not connected or closed. The context ends when that
+    /// session ends or the window closes; the caller disposes it when its run is over.
+    /// </summary>
+    ConnectionReadContext? Pin();
 }
 
 /// <summary>An open connection window, as the window switcher lists it.</summary>

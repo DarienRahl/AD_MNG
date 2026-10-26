@@ -85,6 +85,19 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     /// <summary>U1 hook for "Wyślij wiadomość…" (set by the factory when U1 registers a launcher).</summary>
     public AccountReview.IUserMessageLauncher? MessageLauncher { get; init; }
 
+    /// <summary>"Porównaj z obiektem w innym połączeniu…" (set by the factory when the app registers the comparison window).</summary>
+    public Comparison.IObjectComparisonLauncher? ComparisonLauncher { get; init; }
+
+    /// <summary>The sheet offers "Porównaj z obiektem w innym połączeniu…" (a user, group, computer or contact).</summary>
+    public bool IsComparisonAvailable => ComparisonLauncher is not null && Comparison.ObjectMatcher.CanCompare(Kind);
+
+    /// <summary>Opens the comparison window for the shown object (read-only; another connection is chosen there).</summary>
+    [RelayCommand(CanExecute = nameof(CanCompareWithConnection))]
+    private Task CompareWithConnectionAsync() =>
+        ComparisonLauncher is null ? Task.CompletedTask : ComparisonLauncher.CompareAsync(DistinguishedName);
+
+    private bool CanCompareWithConnection() => IsComparisonAvailable && !IsSessionEnded && !IsDeleted;
+
     /// <summary>A watchdog service is configured: the sheet offers "Historia zmian (Watchdog)".</summary>
     public bool IsWatchdogHistoryAvailable => HistoryLauncher?.IsAvailable == true;
 
@@ -134,6 +147,8 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
     public partial string Name { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsComparisonAvailable))]
+    [NotifyCanExecuteChangedFor(nameof(CompareWithConnectionCommand))]
     public partial ObjectKind Kind { get; private set; }
 
     [ObservableProperty]
@@ -187,7 +202,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
 
     /// <summary>The object no longer exists.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ApplyCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCommand), nameof(CompareWithConnectionCommand))]
     public partial bool IsDeleted { get; private set; }
 
     public override Task InitializeAsync() => LoadAsync();
@@ -368,6 +383,7 @@ public sealed partial class PropertySheetViewModel : WindowViewModelBase
         LoadError = SessionEndedMessage;
         ApplyCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged();
+        CompareWithConnectionCommand.NotifyCanExecuteChanged();
     }
 
     protected override void Dispose(bool disposing)

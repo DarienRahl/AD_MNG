@@ -45,6 +45,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly AccountReview.IUserMessageLauncher? _messages;
     private readonly IConnectionWindows? _windows;
     private readonly ConnectionContext? _connection;
+    private readonly Comparison.IObjectComparisonLauncher? _comparison;
     private ObjectListViewModel? _observedDocument;
     private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
@@ -70,7 +71,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         WatchdogObjectHistoryLauncher? historyLauncher = null,
         AccountReview.IUserMessageLauncher? messages = null,
         IConnectionWindows? windows = null,
-        ConnectionContext? connection = null)
+        ConnectionContext? connection = null,
+        Comparison.IObjectComparisonLauncher? comparison = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -88,6 +90,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _messages = messages;
         _windows = windows;
         _connection = connection;
+        _comparison = comparison;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);

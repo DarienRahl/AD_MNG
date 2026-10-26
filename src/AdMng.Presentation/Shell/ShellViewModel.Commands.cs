@@ -53,7 +53,7 @@ public sealed partial class ShellViewModel
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
-        SendMessageCommand,
+        SendMessageCommand, CompareWithConnectionCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>

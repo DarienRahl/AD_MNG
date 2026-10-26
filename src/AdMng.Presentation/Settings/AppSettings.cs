@@ -78,6 +78,9 @@ public sealed class AppSettings
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
+    /// <summary>The comparison of objects between connections: the match rule per object kind and the switches (never values).</summary>
+    public ComparisonSettings Comparison { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -105,6 +108,8 @@ public sealed class AppSettings
         AccountReview.Normalize();
         UserMessages ??= new();
         UserMessages.Normalize();
+        Comparison ??= new();
+        Comparison.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

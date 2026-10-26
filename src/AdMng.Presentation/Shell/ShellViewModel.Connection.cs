@@ -62,6 +62,33 @@ public sealed partial class ShellViewModel
     /// <summary>The application supports several connection windows ("Nowe połączenie w nowym oknie…" is offered).</summary>
     public bool CanOpenConnectionWindows => _windows is not null;
 
+    /// <summary>"Porównaj z obiektem w innym połączeniu…" is offered (the app registered the comparison window).</summary>
+    public bool CanCompareWithConnections => _comparison is not null;
+
+    /// <summary>Another connection window is connected (without connection windows: assumed, the window says otherwise).</summary>
+    private bool HasOtherConnection => _windows is null || _windows.OpenWindows.Any(w => w.Id != _connection?.Id && w.Identity is not null);
+
+    /// <summary>
+    /// "Porównaj z obiektem w innym połączeniu…": the comparison window for the one selected user, group, computer or
+    /// contact (read-only; the other connection and the matching rule are chosen there).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanCompareWithConnection))]
+    private Task CompareWithConnectionAsync() =>
+        _comparison is not null && CurrentSelection is [var row] ? _comparison.CompareAsync(row.Dn) : Task.CompletedTask;
+
+    private bool CanCompareWithConnection() => _comparison is not null && CompareBlockedReason() is null;
+
+    /// <summary>Why the comparison cannot start: the selection, or no other connection; null when it can.</summary>
+    private string? CompareBlockedReason()
+    {
+        if (!IsConnected || CurrentSelection is not [var row] || !Comparison.ObjectMatcher.CanCompare(row.Kind))
+        {
+            return Localizer[L.Comparison.DisabledSelectOne];
+        }
+
+        return HasOtherConnection ? null : Localizer[L.Comparison.DisabledNoOtherConnection];
+    }
+
     /// <summary>
     /// Called by the main window that shows this shell. A shell belongs to exactly one window: a second window of the same
     /// connection scope, or a window over a shell whose window already closed, fails loudly instead of showing a dead shell.
@@ -152,6 +179,7 @@ public sealed partial class ShellViewModel
         {
             OnPropertyChanged(nameof(OpenWindows));
             RebuildWindowCommands();
+            CompareWithConnectionCommand.NotifyCanExecuteChanged();
         }
     });
 }
