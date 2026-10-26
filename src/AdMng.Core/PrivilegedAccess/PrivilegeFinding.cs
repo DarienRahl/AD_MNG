@@ -134,6 +134,9 @@ public sealed record PrivilegeFinding
     /// <summary>The object the scope names (OU of an ACL delegation, linked OU of a GPO, peers' OU); null for domain/forest.</summary>
     public string? ScopeDn { get; init; }
 
+    /// <summary>The name of <see cref="ScopeDn"/> when it is not its RDN value (the display name of a GPO); null otherwise.</summary>
+    public string? ScopeName { get; init; }
+
     /// <summary>The group (or account) that carries the right: the privileged group, the marked group, the account itself.</summary>
     public string? SubjectDn { get; init; }
 
@@ -154,6 +157,9 @@ public sealed record PrivilegeFinding
 
     /// <summary>The peer comparison of a <see cref="PrivilegeFindingKind.PeerOutlier"/>.</summary>
     public PeerOutlierDetails? Peer { get; init; }
+
+    /// <summary>U4c: the GPO, link, mechanism and computers of a <see cref="PrivilegeFindingKind.LocalRight"/>.</summary>
+    public GroupPolicyGrantDetails? GroupPolicy { get; init; }
 
     /// <summary>
     /// The group the account itself is a member of on the path (removing the account from it cuts this path); null when

@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.Schema;
+using AdMng.Core.Security;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Model;
 

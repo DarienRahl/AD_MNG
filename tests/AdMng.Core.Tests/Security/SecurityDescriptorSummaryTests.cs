@@ -1,7 +1,7 @@
+using AdMng.Core.Security;
 using AdMng.Testing;
-using AdMng.Watchdog.Core.Detection;
 
-namespace AdMng.Watchdog.Core.Tests.Detection;
+namespace AdMng.Core.Tests.Security;
 
 public class SecurityDescriptorSummaryTests
 {

@@ -55,6 +55,9 @@ public sealed class PrivilegedAccessSettings
 
     public bool IncludeServiceAccounts { get; set; } = true;
 
+    /// <summary>U4b: the ACL delegations also read every user, group and computer (slower; off by default).</summary>
+    public bool DeepAclScan { get; set; }
+
     /// <summary>The level overrides as the Core options take them.</summary>
     public IReadOnlyDictionary<string, PrivilegeLevel> OverrideMap() =>
         LevelOverrides.ToDictionary(o => o.GroupId, o => o.Level, StringComparer.OrdinalIgnoreCase);

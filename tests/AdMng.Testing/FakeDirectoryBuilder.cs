@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Schema;
 using AdMng.Core.Templates;
 
 namespace AdMng.Testing;
@@ -25,10 +26,14 @@ public sealed partial class FakeDirectoryBuilder
     private static readonly TemplateEngine Names = new();
     private int _nextRid = 1103;
 
-    public FakeDirectoryBuilder(string domainDnsName = DefaultDomain, TimeProvider? timeProvider = null, SessionInfo? info = null)
+    /// <param name="domainDnsName">DNS name of the domain.</param>
+    /// <param name="timeProvider">The clock of the fake DC.</param>
+    /// <param name="info">The session info (default: <see cref="FakeDirectorySession.CreateInfo"/>).</param>
+    /// <param name="schema">The schema (default: <see cref="FakeSchema.Create"/>).</param>
+    public FakeDirectoryBuilder(string domainDnsName = DefaultDomain, TimeProvider? timeProvider = null, SessionInfo? info = null, ISchemaCatalog? schema = null)
     {
         info ??= FakeDirectorySession.CreateInfo(domainDnsName);
-        Session = new FakeDirectorySession(info, FakeSchema.Create(info.SchemaNamingContext), timeProvider);
+        Session = new FakeDirectorySession(info, schema ?? FakeSchema.Create(info.SchemaNamingContext), timeProvider);
         DomainDnsName = info.DomainDnsName;
         DomainDn = info.DefaultNamingContext;
         SeedWellKnownObjects();

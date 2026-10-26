@@ -78,7 +78,9 @@ public interface IDialogViewModelFactory
 /// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site), and
 /// the account review and the Account tab read other domain controllers. With an
 /// <see cref="AccountReview.IUserMessageLauncher"/> (path U1) "Wyślij wiadomość…" is shown; with
-/// <see cref="UserMessages.UserMessageServices"/> the message window and the settings tab "Wiadomości e-mail" exist.
+/// <see cref="UserMessages.UserMessageServices"/> the message window and the settings tab "Wiadomości e-mail" exist. The
+/// registered <see cref="Core.PrivilegedAccess.IPrivilegeGrantSource"/>s (U4b ACL delegations, U4c local rights from
+/// GPOs) are handed to the "Uprawnienia" tab of every account review, which offers their sources.
 /// </remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
@@ -92,10 +94,12 @@ public sealed class DialogViewModelFactory(
     IDirectoryConnector? connector = null,
     AccountReview.IUserMessageLauncher? messages = null,
     UserMessages.UserMessageServices? userMessages = null,
-    Filters.FilterLibrary? filters = null) : IDialogViewModelFactory
+    Filters.FilterLibrary? filters = null,
+    IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
+    private readonly Core.PrivilegedAccess.IPrivilegeGrantSource[] _grantSources = [.. grantSources ?? []];
 
     public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
         new(services, engines.Planner, distinguishedName)
@@ -128,7 +132,8 @@ public sealed class DialogViewModelFactory(
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 
-    public AccountReview.AccountReviewViewModel CreateAccountReview() => new(services, views, engines.Csv, _domainControllers, messages, _filters);
+    public AccountReview.AccountReviewViewModel CreateAccountReview() =>
+        new(services, views, engines.Csv, _domainControllers, messages, _filters, _grantSources);
 
     public Filters.SavedFiltersViewModel CreateSavedFilters() => new(services, _filters);
 

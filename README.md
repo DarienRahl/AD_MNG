@@ -169,7 +169,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4a: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -195,7 +195,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont i U4a – uprawnienia z grup i ustawień kont z kreatorem filtrów: 🟡; U3, U4b – delegowania w ACL, U4c – uprawnienia lokalne z GPO: ⬜) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -469,14 +469,14 @@ na żywo i wiele domen.
   wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
   *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
 - 🟡 Kreator zapytań: ✅ kreator filtrów (warunki ↔ LDAP, grupy I/LUB) z zapisanymi filtrami, chipami na listach
-  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)); ⬜ zapisane zapytania jako
+  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)); ⬜ zapisane zapytania jako
   foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4a-); konta z uprawnieniami
-  ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji) – zakładka
-  *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a--u4b-i-u4c-)).
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-); konta z uprawnieniami
+  ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji, delegowania w ACL,
+  uprawnienia lokalne z GPO) – zakładka *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
 - Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
@@ -590,7 +590,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4a: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -792,7 +792,7 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Wymaga uzupełnienia [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md): kolejka wysyłek usługi przechowuje
   wtedy także wiadomości do użytkowników (retencja, ACL).
 
-#### U4 – Uprawnienia kont 🟡 (U4a: 🟡, U4b i U4c: ⬜)
+#### U4 – Uprawnienia kont 🟡 (U4a, U4b i U4c: 🟡)
 
 **Cel:** jedna lista wszystkich kont, które mają jakiekolwiek uprawnienia ponad zwykłego użytkownika domeny – „nawet
 minimalnie więcej niż inni” – z poziomem każdego ustalenia (Tier 0 / wysoki / podwyższony / drobny), ścieżką „skąd to
@@ -800,7 +800,11 @@ ma” (konto → grupa A → grupa B → Operatorzy kont) i zakresem. Cztery źr
 ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne z GPO – U4c. Opis techniczny:
 [docs/dev/u4-privileged-access.md](docs/dev/u4-privileged-access.md).
 
-**Stan realizacji – U4a (grupy, ustawienia kont, podobne konta, kreator filtrów) gotowe; czeka na pilotaż.**
+**Stan realizacji – U4 zaimplementowane w całości: U4a (grupy, ustawienia kont, podobne konta, kreator filtrów), U4b
+(delegowania w ACL) i U4c (uprawnienia lokalne z GPO); czeka na pilotaż na Windows Server AD.** Wszystko sprawdzono
+testami na fałszywym kontrolerze domeny i na laboratorium Samba 4.19, nie na Windows Server: domyślne ACL Windows,
+Exchange, LAPS, czytnik SYSVOL dla Windows i zgodność z `gpresult` potwierdzi dopiero pilotaż (szczegóły przy każdej
+części poniżej i w [znanych ograniczeniach](#znane-ograniczenia)).
 
 - ✅ Zakładka *Uprawnienia* w oknie *Przegląd kont*: ten sam zakres co U2 (domena, OU z poddrzewem, zapisany widok,
   członkowie grupy) i nowe pole *Filtr* (zapisany filtr, dla obu zakładek); *Sprawdź* (F5) uruchamia wybraną zakładkę,
@@ -847,18 +851,83 @@ ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne
 - 🟡 Do weryfikacji na Windows Server: czas dla 10 000 kont bez zamrożeń UI, domena podrzędna (Enterprise / Schema
   Admins z domeny głównej lasu), zgodność z `Get-ADGroupMember -Recursive` i raportami narzędzi audytowych.
 
-**U4b – delegowania w ACL** ⬜: kto ma na domenie, OU, kontenerach i obiektach Tier 0 (AdminSDHolder, grupy chronione,
-`krbtgt`, kontrolery domeny, obiekty GPO) prawa ponad domyślne ze schematu – pełna kontrola, WriteDacl / WriteOwner,
-DCSync (replikacja zmian katalogu), reset haseł, zmiana członkostwa grup, tworzenie i usuwanie obiektów, edycja GPO
-i `gPLink`, odczyt haseł LAPS, zapis `msDS-KeyCredentialLink` i RBCD, właściciel obiektu Tier 0; zakres = kontener,
-uprawnienia dziedziczone pokazane raz, przy kontenerze źródłowym; także podmioty wpisane w RBCD konta. Członkowie
-grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa.
+**U4b – delegowania w ACL** 🟡 (gotowe, czeka na pilotaż):
 
-**U4c – uprawnienia lokalne z GPO** ⬜: członkostwa w lokalnych grupach komputerów (Administratorzy, Użytkownicy
-pulpitu zdalnego, Operatorzy kopii zapasowych, Remote Management Users) przez *Grupy z ograniczeniami* i *Preferencje
-zasad grupy* oraz wrażliwe prawa użytkownika (`SeDebugPrivilege`, `SeBackupPrivilege`, `SeRestorePrivilege`,
-`SeEnableDelegationPrivilege`, logowanie na kontrolerach domeny …) – z SYSVOL kontrolera sesji czytanego tylko
-w pamięci; zakres = komputery OU, do której GPO jest dołączony (z wymuszeniem i blokadą dziedziczenia).
+- ✅ Źródło *Delegacje w AD*: deskryptory zabezpieczeń (właściciel i DACL, kontrolka SD flags) domeny, wszystkich OU,
+  `CN=Users`, `CN=Computers`, `CN=Builtin`, `CN=Policies` i każdego obiektu GPO, AdminSDHolder i obiektów Tier 0
+  (kontrolery domeny, Administrator, `krbtgt`, grupy chronione i grupy Tier 0) – kilka zapytań na przebieg, na
+  kontrolerze sesji, tylko w pamięci. Użytkownicy, grupy i komputery pojedynczo tylko z opcją *Głębokie skanowanie*
+  w ustawieniach zakładki (domyślnie wyłączona, wolniejsza).
+- ✅ Pomijane wartości domyślne: ACE z `defaultSecurityDescriptor` klasy w schemacie (*CREATOR OWNER* = właściciel
+  obiektu lub konto z `mS-DS-CreatorSID`, które dołączyło komputer w ramach `ms-DS-MachineAccountQuota`), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
+  i to, co AD nadaje przy instalacji (Operatorzy kont i drukowania na `CN=Users`/`CN=Computers`, Group Policy Creator
+  Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi, i dodatkowo
+  przy obiekcie Tier 0, który je dziedziczy (np. DnsAdmins w `CN=Users`, OU kontrolerów domeny) – tam z poziomem Tier 0.
+- ✅ Prawa i poziomy: pełna kontrola, WriteDacl, WriteOwner i właściciel (Tier 0 na domenie, AdminSDHolder, obiekcie
+  Tier 0 i GPO dołączonym do domeny lub OU kontrolerów, inaczej wysoki), DCSync (`DS-Replication-Get-Changes-All`,
+  Tier 0), reset hasła, zmiana członków grup, wszystkie prawa rozszerzone, zapis wszystkich właściwości, `gPLink`,
+  edycja GPO, zapis `msDS-KeyCredentialLink` i RBCD (wysoki), tworzenie i usuwanie obiektów (podwyższony), odczyt hasła
+  LAPS (wysoki dla serwerów, inaczej podwyższony); GUID-y typów obiektów rozpoznawane ze schematu i `CN=Extended-Rights`.
+  Podmioty wpisane w RBCD konta dostają „może podszywać się pod dowolnego użytkownika wobec tego konta” (Tier 0 wobec
+  kontrolera domeny, wysoki wobec serwera).
+- ✅ Członkowie grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa (konto → grupa A → grupa B), także
+  *Użytkownicy uwierzytelnieni* / *Wszyscy*; tytuł „Uprawnienie w zabezpieczeniach obiektu Firma”, prawa po polsku,
+  zakres = obiekt. Parser deskryptorów przeniesiony z Watchdoga do AdMng.Core (Watchdog korzysta z niego dalej).
+- ✅ Testy: jednostkowe na prawdziwych binarnych deskryptorach (polskie nazwy, wartości domyślne, dziedziczenie,
+  głębokie skanowanie, LAPS, SDDL), modeli widoku zakładki, test UI, test na laboratorium Samba z delegowaniem przez
+  `samba-tool dsacl` (reset hasła i członkostwo na OU testu, pełna kontrola użytkownika; zmiany tylko w OU testu).
+- 🟡 Do weryfikacji na Windows Server: brak fałszywych ustaleń na świeżej domenie Windows (domyślne ACL różnią się od
+  Samby), Exchange, LAPS (legacy i Windows LAPS), czas głębokiego skanowania dla 10 000 kont, właściciel i ACE
+  komputerów dołączonych w ramach `ms-DS-MachineAccountQuota`.
+
+**U4c – uprawnienia lokalne z GPO** 🟡 (gotowe, czeka na pilotaż):
+
+- ✅ Źródło *Uprawnienia lokalne z GPO* w zakładce *Uprawnienia*: obiekty GPO z `CN=Policies`, połączenia z `gPLink`
+  i `gPOptions` domeny, jednostek organizacyjnych i lokacji (kolejność połączeń, wymuszenie, blokada dziedziczenia,
+  połączenia wyłączone, GPO z wyłączoną konfiguracją komputera) oraz konta komputerów – zakresem ustalenia są komputery,
+  do których GPO faktycznie dociera (*Komputery w …* – kontener połączenia), z liczbą kontrolerów domeny, serwerów
+  i stacji roboczych. Ustawienia z najwyższym pierwszeństwem wygrywają jak w kliencie zasad grupy.
+- ✅ Z SYSVOL kontrolera sesji (`\\<DC sesji>\SYSVOL\…\{GUID}`, nigdy ścieżka z `gPCFileSysPath`), tylko w pamięci,
+  z limitem rozmiaru: `GptTmpl.inf` – *Grupy z ograniczeniami* (obie formy: *Członkowie* i *Członek grupy*)
+  i *Przypisywanie praw użytkownika* – oraz *Preferencje zasad grupy* `Groups.xml` (dodawanie i usuwanie członków,
+  „usuń wszystkich”, zastąp/usuń; elementy z określaniem elementów docelowych oznaczone jako warunkowe). Parsery są
+  wspólne z AdMng Watchdog (`AdMng.Core.GroupPolicy`).
+- ✅ Grupy lokalne po SID: Administratorzy (wysoki na serwerach, podwyższony na stacjach), Operatorzy kopii zapasowych
+  (wysoki), Użytkownicy zaawansowani, Użytkownicy pulpitu zdalnego, Remote Management Users (podwyższony) i drobne;
+  wrażliwe prawa: `SeDebugPrivilege`, `SeBackupPrivilege`, `SeRestorePrivilege`, `SeTakeOwnershipPrivilege`,
+  `SeLoadDriverPrivilege`, `SeImpersonatePrivilege`, `SeTcbPrivilege`, `SeAssignPrimaryTokenPrivilege`,
+  `SeEnableDelegationPrivilege`, `SeCreateTokenPrivilege`, `SeManageVolumePrivilege`, `SeRelabelPrivilege` (wysoki),
+  `SeTrustedCredManAccessPrivilege` (podwyższony, na kontrolerach domeny wysoki) oraz logowanie lokalne i przez Pulpit
+  zdalny na kontrolerach domeny (podwyższony); `SeSecurityPrivilege` pominięte (na kontrolerach mają je serwery
+  Exchange). Na kontrolerach domeny – przez *Default Domain Controllers Policy* albo każdy GPO, który do nich
+  dociera – obowiązuje poziom grupy wbudowanej z katalogu (Administratorzy, Operatorzy kopii zapasowych: Tier 0),
+  a wrażliwe prawa są Tier 0. *Grupy z ograniczeniami*, które wpisują konto do uprzywilejowanej grupy domeny z katalogu
+  (np. Domain Admins) w GPO docierającym do kontrolerów domeny, są ustaleniem z poziomem tej grupy i dopiskiem, że GPO
+  wymusza to członkostwo (usunięcie z grupy wróci przy odświeżeniu zasad). Nazwy z GPO zamieniane na SID jednym
+  wyszukiwaniem LDAP; *Wszyscy* i *Użytkownicy uwierzytelnieni* dotyczą każdego konta. Filtry zabezpieczeń GPO
+  (uprawnienie *Zastosuj zasady grupy*, także odmowa) są oceniane dla każdego komputera z jego grupami.
+- ✅ Sesja z innymi poświadczeniami niż konto Windows: SYSVOL czytany w osobnej sesji logowania na czas przebiegu
+  (`LogonUser` z nowymi poświadczeniami, jak `runas /netonly`; hasło tylko w pamięci, sesja logowania operatora nie
+  dostaje poświadczeń sesji, więc nie ma konfliktu z jego połączeniami SMB); gdy to niemożliwe (proste wiązanie z DN,
+  odmowa logowania, brak dostępu do udziału, niedostępny kontroler, system inny niż Windows), pasek nad listą mówi
+  dlaczego, a pozostałe źródła działają dalej. Tam też: nieczytelne lub nieprawidłowe pliki GPO i nazwy spoza domeny.
+- ✅ Testy: parsery (UTF-16 z BOM, `Groups.xml`, wrogi XML), rozwiązywanie połączeń, źródło na fałszywym katalogu
+  z SYSVOL w pamięci (polskie nazwy), zakładka (teksty po polsku, przełączniki, komunikaty, CSV), test UI, laboratorium
+  Samba (GPO z `samba-tool`, połączenia i blokada dziedziczenia przez LDAP, pliki zapisane `smbclient` i odczyt całości
+  przez testową implementację czytnika SYSVOL).
+- 🟡 Do weryfikacji na Windows Server: czytnik SYSVOL z poświadczeniami sesji (osobna sesja logowania `LogonUser`
+  z nowymi poświadczeniami) i kontem Windows – jeszcze nigdzie nie uruchomiony, bo wymaga Windows (testy obejmują tylko
+  rozbiór nazwy logowania i mapowanie błędów); zgodność z `gpresult` / RSoP. Nie są oceniane zapytania filtrów WMI
+  i warunki określania elementów docelowych (pokazywane jako „warunkowo”), lokacje komputerów innych niż kontrolery
+  domeny, uprawnienie *Odczyt* w filtrach zabezpieczeń ani kolejność rozszerzeń (Grupy z ograniczeniami i preferencje
+  oceniane niezależnie).
+
+**U4b i U4c razem** 🟡: oba źródła są zarejestrowane w aplikacji i działają w jednym przebiegu zakładki (przełączniki
+*Delegacje w AD* i *Uprawnienia lokalne z GPO*, wspólny pasek komunikatów); jedno konto może mieć ustalenia z obu, każde
+z własną ścieżką i zakresem. Parser deskryptorów zabezpieczeń w AdMng.Core służy delegowaniom w ACL, filtrom
+zabezpieczeń GPO i usłudze Watchdog. Sprawdzone testem obu źródeł naraz na fałszywym kontrolerze (obie próbki danych),
+testem UI (oba źródła w zakładce; uruchamiany na Windows w CI) i testami na laboratorium Samba obu źródeł w jednym przebiegu (każdy tylko we własnej
+OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged-access.md#63-u4b-and-u4c-together-as-built).
 
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
@@ -873,7 +942,9 @@ w pamięci; zakres = komputery OU, do której GPO jest dołączony (z wymuszenie
 - Przypomnienia automatyczne: każdy próg dokładnie raz, zmiana hasła przerywa serię, święta przesuwają wysyłkę.
 - Uprawnienia kont: 10 000 kont bez zamrożeń UI; na laboratorium Windows Server wszystkie konta z grup Tier 0
   (także zagnieżdżone i przez grupę podstawową), z delegowaniem Kerberos i z delegowaniem w ACL (U4b) są na liście
-  z poprawnym poziomem i ścieżką; test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
+  z poprawnym poziomem i ścieżką; uprawnienia lokalne z GPO (U4c) zgodne z `gpresult /scope computer` komputerów
+  w OU z blokadą dziedziczenia i wymuszonymi połączeniami, także dla sesji z innymi poświadczeniami niż konto Windows;
+  test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
 
 </details>
 
@@ -935,6 +1006,17 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   jako zakres obejmuje konta, dla których jest grupą podstawową, ale nie członków przez zagnieżdżoną grupę podstawową.
   Samba nie zapisuje `lastLogon` przy prostym logowaniu LDAP; FGPP i „nigdy nie logowane” sprawdzono tylko testami na
   fałszywym DC (laboratorium wymagałoby PSO poza własną OU i starego `whenCreated`).
+- **Uprawnienia kont (U4)** – sprawdzone tylko testami na fałszywym kontrolerze i na laboratorium Samba, nie na Windows
+  Server AD: domyślne ACL świeżej domeny Windows różnią się od Samby (możliwe fałszywe ustalenia delegowań), do
+  potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
+  Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
+  kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`) ani partycja
+  konfiguracji (lokacje, PKI), właściciele zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
+  oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
+  jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
+  (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
+  członkowskich też nie; lokalne konta i grupy samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL
+  tylko na Windows. Z domeny podrzędnej nie są widoczne Enterprise / Schema Admins domeny głównej lasu.
 - **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP albo usługa Watchdog (U1b: kolejka,
   sekrety po stronie usługi, OAuth2 Exchange Online); XOAUTH2 w wysyłce bezpośredniej nie jest obsługiwany – bez
   Watchdoga dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Przez Watchdoga usługa nie zna listy

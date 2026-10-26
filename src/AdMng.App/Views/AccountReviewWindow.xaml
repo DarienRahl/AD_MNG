@@ -651,6 +651,19 @@
                 <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
                           Content="{l:Tr PrivilegedAccess.IncludeServiceAccounts}"
                           IsChecked="{Binding IncludeServiceAccounts}" />
+                <!-- U4b: ACL delegations - the deep scan of single users, groups and computers (off by default, slower). -->
+                <StackPanel x:Name="AclSettingsPanel" Visibility="{Binding HasAclSource, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.AclSettings}" />
+                  <CheckBox x:Name="DeepAclScanBox"
+                            AutomationProperties.Name="{l:Tr PrivilegedAccess.DeepAclScan}"
+                            IsChecked="{Binding DeepAclScan}">
+                    <TextBlock Text="{l:Tr PrivilegedAccess.DeepAclScan}" TextWrapping="Wrap" />
+                  </CheckBox>
+                  <TextBlock Margin="20,2,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr PrivilegedAccess.DeepAclScanNote}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
                 <TextBlock Style="{StaticResource SettingsHeader}" Text="{l:Tr PrivilegedAccess.Peers}" />
                 <CheckBox AutomationProperties.Name="{l:Tr PrivilegedAccess.PeersByOu}"
                           Content="{l:Tr PrivilegedAccess.PeersByOu}"
@@ -857,6 +870,18 @@
                   Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
             <TextBlock AutomationProperties.LiveSetting="Assertive"
                        Text="{Binding Error, Mode=OneWay}"
+                       TextWrapping="Wrap" />
+          </Border>
+
+          <!-- What a grant source could not read (U4c: SYSVOL of the session's DC, GPO files, unknown names). -->
+          <Border x:Name="PrivilegesNoticeBar"
+                  Margin="0,10,0,0"
+                  DockPanel.Dock="Top"
+                  Style="{StaticResource Ad.WarningBar}"
+                  Visibility="{Binding HasNotices, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <TextBlock x:Name="PrivilegesNoticeText"
+                       AutomationProperties.LiveSetting="Polite"
+                       Text="{Binding NoticeText, Mode=OneWay}"
                        TextWrapping="Wrap" />
           </Border>
 

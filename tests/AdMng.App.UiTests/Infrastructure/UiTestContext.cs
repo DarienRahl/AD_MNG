@@ -13,8 +13,9 @@ namespace AdMng.App.UiTests.Infrastructure;
 
 /// <summary>
 /// The real application host for one UI test: every service as in production except the directory connector (the
-/// in-memory sample company of <see cref="FakeDirectoryBuilder"/>) and the settings folder (a temporary directory).
-/// Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
+/// in-memory sample company of <see cref="FakeDirectoryBuilder"/>), SYSVOL (an empty <see cref="FakeSysvolFileReader"/>,
+/// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own) and the settings folder
+/// (a temporary directory). Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
 internal sealed class UiTestContext : IAsyncDisposable
 {
@@ -71,6 +72,7 @@ internal sealed class UiTestContext : IAsyncDisposable
         {
             services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector));
             services.Replace(ServiceDescriptor.Singleton<IAppShutdown>(shutdown));
+            services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(new FakeSysvolFileReader()));
             configure?.Invoke(services);
         });
         var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory);

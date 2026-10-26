@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AdMng.Core.Directory;
 using AdMng.Core.Filters;
 
@@ -23,6 +24,9 @@ public sealed record PrivilegeGrant
 
     public string? ScopeDn { get; init; }
 
+    /// <summary>The name of <see cref="ScopeDn"/> when it is not its RDN value (the display name of a GPO).</summary>
+    public string? ScopeName { get; init; }
+
     /// <summary>The principal's objectSid (preferred: survives renames and moves).</summary>
     public string? PrincipalSid { get; init; }
 
@@ -34,6 +38,9 @@ public sealed record PrivilegeGrant
     public IReadOnlyList<string> Values { get; init; } = [];
 
     public string? Note { get; init; }
+
+    /// <summary>U4c: the GPO, link and mechanism of a <see cref="PrivilegeFindingKind.LocalRight"/>.</summary>
+    public GroupPolicyGrantDetails? GroupPolicy { get; init; }
 }
 
 /// <summary>A group or account the operator marked as privileged (settings: SID and/or DN, level, note - nothing else).</summary>
@@ -85,6 +92,12 @@ public sealed record PrivilegedAccessOptions
 
     public PeerOptions Peers { get; init; } = new();
 
+    /// <summary>
+    /// U4b: the ACL delegations source also reads the security descriptors of every user, group and computer (explicit
+    /// ACEs on single objects); slower. Off: containers, GPOs and Tier 0 objects only.
+    /// </summary>
+    public bool DeepAclScan { get; init; }
+
     public int PageSize { get; init; } = 500;
 
     /// <summary>The level of a catalogue group: the operator's override or the default.</summary>
@@ -98,6 +111,8 @@ public sealed record PrivilegedAccessOptions
 /// <summary>What a grant source needs (the graph is read before the sources run).</summary>
 public sealed class PrivilegeScanContext
 {
+    private readonly ConcurrentQueue<PrivilegeSourceNotice> _notices = new();
+
     public required IDirectorySession Session { get; init; }
 
     public required GroupGraph Groups { get; init; }
@@ -105,7 +120,30 @@ public sealed class PrivilegeScanContext
     public required PrivilegedAccessOptions Options { get; init; }
 
     public required DateTimeOffset Now { get; init; }
+
+    /// <summary>What the sources reported while collecting (in the order reported).</summary>
+    public IReadOnlyList<PrivilegeSourceNotice> Notices => [.. _notices];
+
+    /// <summary>
+    /// A source tells the operator that part of its data could not be read or evaluated (the run goes on; the tab shows it).
+    /// Thread-safe.
+    /// </summary>
+    public void Report(PrivilegeSourceNotice notice)
+    {
+        ArgumentNullException.ThrowIfNull(notice);
+        _notices.Enqueue(notice);
+    }
 }
+
+/// <summary>
+/// Something a grant source could not read or evaluate (SYSVOL unavailable, unreadable GPO files, unresolved names): the
+/// UI shows it with the resource <c>PrivilegedAccess.Notice.{Code}</c> formatted with <see cref="Arguments"/>. The
+/// arguments are names of GPOs and counts - never file contents.
+/// </summary>
+/// <param name="Source">The source that reported it.</param>
+/// <param name="Code">Stable code (resource key suffix), e.g. <c>GroupPolicy.SysvolUnavailable.LogonFailure</c>.</param>
+/// <param name="Arguments">The format arguments.</param>
+public sealed record PrivilegeSourceNotice(PrivilegeSource Source, string Code, IReadOnlyList<string> Arguments);
 
 /// <summary>
 /// A source of rights granted to principals (README U4: U4b ACL delegations, U4c local rights from GPOs). A source reads

@@ -71,6 +71,7 @@ public sealed class PrivilegeEvaluator
     private readonly Dictionary<int, List<PrivilegeGrant>> _groupGrants = [];
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsBySid = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<PrivilegeGrant>> _accountGrantsByDn = new(StringComparer.Ordinal);
+    private readonly List<PrivilegeGrant> _implicitGrants = [];
     private readonly IReadOnlyList<AccountRuleMatcher> _accountRules;
     private readonly HashSet<string> _domainControllerNames;
 
@@ -101,6 +102,14 @@ public sealed class PrivilegeEvaluator
             if (node is not null)
             {
                 Add(_groupGrants, node.Index, grant);
+                continue;
+            }
+
+            if (grant.PrincipalSid is PrivilegedGroupCatalog.EveryoneSid or PrivilegedGroupCatalog.AuthenticatedUsersSid)
+            {
+                // Granted to Everyone / Authenticated Users (an ACE of U4b, a GPO of U4c) while no group of the domain
+                // nests them (so they are not in the graph): every account has it.
+                _implicitGrants.Add(grant);
                 continue;
             }
 
@@ -212,6 +221,16 @@ public sealed class PrivilegeEvaluator
 
             var path = paths.PathTo(group);
             findings.AddRange(grants.Select(g => FromGrant(g, path, group.Dn, group.Name, onAccount: false)));
+        }
+
+        // Grants on Everyone / Authenticated Users that no group of the graph nests.
+        foreach (var grant in _implicitGrants)
+        {
+            var principal = grant.PrincipalSid!;
+            var dn = DistinguishedName.TryParse(FilterContext.DefaultNamingContext, out var nc)
+                ? nc.Child("CN", "ForeignSecurityPrincipals").Child("CN", principal).ToString()
+                : principal;
+            findings.Add(FromGrant(grant, [self, new PrivilegePathStep(dn, principal, PrivilegePathStepKind.ImplicitGroup)], dn, principal, onAccount: false));
         }
 
         // Grants on the account itself.
@@ -384,12 +403,14 @@ public sealed class PrivilegeEvaluator
         Level = grant.Level,
         Scope = grant.Scope,
         ScopeDn = grant.ScopeDn,
+        ScopeName = grant.ScopeName,
         SubjectDn = subjectDn,
         SubjectName = subjectName,
         CatalogId = grant.CatalogId,
         Path = path,
         Values = grant.Values,
         Note = grant.Note,
+        GroupPolicy = grant.GroupPolicy,
     };
 
     /// <summary>The host of a service principal name (service/host[:port][/name]).</summary>

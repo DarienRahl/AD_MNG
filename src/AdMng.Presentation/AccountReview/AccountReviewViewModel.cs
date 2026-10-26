@@ -6,6 +6,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
+using AdMng.Core.PrivilegedAccess;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Filters;
@@ -66,7 +67,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         ICsvCodec csv,
         DomainControllerReader domainControllers,
         IUserMessageLauncher? messages = null,
-        FilterLibrary? filters = null)
+        FilterLibrary? filters = null,
+        IEnumerable<IPrivilegeGrantSource>? grantSources = null)
         : base(services)
     {
         _views = views ?? throw new ArgumentNullException(nameof(views));
@@ -74,7 +76,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _domainControllers = domainControllers ?? throw new ArgumentNullException(nameof(domainControllers));
         _messages = messages;
         _filters = filters ?? new FilterLibrary(services.Settings);
-        Privileges = new PrivilegedAccessViewModel(services, () => Session, () => IsSessionEnded, _filters, csv, messages);
+        Privileges = new PrivilegedAccessViewModel(services, () => Session, () => IsSessionEnded, _filters, csv, messages, grantSources);
         Privileges.PropertyChanged += OnPrivilegesChanged;
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         var settings = services.Settings.Current.AccountReview;

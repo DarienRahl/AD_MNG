@@ -3,13 +3,14 @@ using System.Globalization;
 using System.Security.Cryptography;
 using AdMng.Core.ActiveDirectory;
 
-namespace AdMng.Watchdog.Core.Detection;
+namespace AdMng.Core.Security;
 
 /// <summary>
-/// Managed parser of binary self-relative security descriptors (owner + DACL) and their comparison summary
-/// (section 9.4): <c>owner:&lt;SID&gt;</c> and one <c>ace:…</c> value per ACE, sorted and de-duplicated, plus
-/// <c>sha256:&lt;hex&gt;</c> of the raw descriptor as a cheap pre-check only. A different hash with an identical summary
-/// set (ACE re-ordering, canonicalization, a rewrite without a semantic change) is no change.
+/// Managed parser of binary self-relative security descriptors (owner + DACL), shared by AdMng Watchdog and the
+/// privileged access review (README U4b, ACL delegations). For the watchdog it also builds the comparison summary
+/// (watchdog specification 9.4): <c>owner:&lt;SID&gt;</c> and one <c>ace:…</c> value per ACE, sorted and de-duplicated,
+/// plus <c>sha256:&lt;hex&gt;</c> of the raw descriptor as a cheap pre-check only. A different hash with an identical
+/// summary set (ACE re-ordering, canonicalization, a rewrite without a semantic change) is no change.
 /// </summary>
 public sealed class SecurityDescriptorSummary
 {

@@ -15,7 +15,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | ⬜ | [Faza 6 – Delegacja i zarządzanie](../README.md#faza-6--delegacja-i-zarządzanie-) |
 | ⬜ | [Faza 7 – Wdrożenie i dodatki](../README.md#faza-7--wdrożenie-i-dodatki-) |
 | 🟡 | [AdMng Watchdog – monitor zmian w AD](../README.md#admng-watchdog--monitor-zmian-w-ad-) |
-| 🟡 (U1, U2 i U4a: 🟡, U3, U4b i U4c: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4a-) |
+| 🟡 (U1, U2 i U4 – U4a, U4b, U4c: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-) |
 
 ## Znane ograniczenia
 

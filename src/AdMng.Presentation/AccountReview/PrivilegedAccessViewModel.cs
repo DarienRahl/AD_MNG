@@ -121,6 +121,13 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     [ObservableProperty]
     public partial bool IncludeServiceAccounts { get; set; }
 
+    /// <summary>U4b: "Głębokie skanowanie" - the ACL delegations also read every user, group and computer (slower).</summary>
+    [ObservableProperty]
+    public partial bool DeepAclScan { get; set; }
+
+    /// <summary>The ACL delegations source (U4b) is registered: its settings are shown.</summary>
+    public bool HasAclSource => _sources.Any(s => s.Source == PrivilegeSource.DirectoryAcl);
+
     [ObservableProperty]
     public partial bool PeersByOu { get; set; }
 
@@ -181,6 +188,16 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
 
     [ObservableProperty]
     public partial string? Error { get; private set; }
+
+    /// <summary>
+    /// What the grant sources of the last run could not read or evaluate (U4c: SYSVOL unavailable - e.g. the session's
+    /// credentials cannot open the share -, unreadable GPO files, unknown names), one line each; empty when all was read.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotices))]
+    public partial string NoticeText { get; private set; } = string.Empty;
+
+    public bool HasNotices => NoticeText.Length > 0;
 
     [ObservableProperty]
     public partial string StatusText { get; private set; } = string.Empty;
@@ -451,6 +468,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         _run = null;
         Items.ReplaceAll([]);
         Error = null;
+        NoticeText = string.Empty;
         HasRun = true;
         AsOf = now;
         IsRunning = true;
@@ -470,6 +488,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
 
             var run = new RunContext(session, scanner, evaluator, scope, new PrivilegedAccessFormatter(Localizer, session.Info.DomainDnsName));
             _run = run;
+            RefreshNotices(run);
             if (scanner.SkippedRules.Count > 0)
             {
                 _services.Notifications.Show(NotificationSeverity.Warning, Localizer.Format(L.PrivilegedAccess.SkippedRules, string.Join(", ", scanner.SkippedRules)));
@@ -530,11 +549,15 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             }
 
             ShowDetails(SelectedItem);
+            RefreshNotices(run);
         }
 
         UpdateStatus();
         NotifySelectionChanged();
     }
+
+    private void RefreshNotices(RunContext run) =>
+        NoticeText = string.Join(Environment.NewLine, run.Scanner.Notices.Select(run.Formatter.Notice));
 
     public void Dispose()
     {
@@ -560,6 +583,8 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     partial void OnIncludeComputersChanged(bool value) => SaveFromUi();
 
     partial void OnIncludeServiceAccountsChanged(bool value) => SaveFromUi();
+
+    partial void OnDeepAclScanChanged(bool value) => SaveFromUi();
 
     partial void OnPeersByOuChanged(bool value) => SaveFromUi();
 
@@ -708,6 +733,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             Rules = rules,
             IncludeComputers = settings.IncludeComputers,
             IncludeServiceAccounts = settings.IncludeServiceAccounts,
+            DeepAclScan = settings.DeepAclScan,
             Peers = settings.Peers,
             PageSize = _services.Settings.Current.PageSize,
         };
@@ -845,6 +871,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             var settings = _services.Settings.Current.AccountReview.Privileges;
             IncludeComputers = settings.IncludeComputers;
             IncludeServiceAccounts = settings.IncludeServiceAccounts;
+            DeepAclScan = settings.DeepAclScan;
             var peers = settings.Peers.Normalized();
             PeersByOu = peers.ByOrganizationalUnit;
             PeersByDepartment = peers.ByDepartment;
@@ -999,6 +1026,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         }.Normalized();
         var computers = IncludeComputers;
         var serviceAccounts = IncludeServiceAccounts;
+        var deepAclScan = DeepAclScan;
         return _services.Settings.UpdateAsync(s =>
         {
             var p = s.AccountReview.Privileges;
@@ -1008,6 +1036,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             p.Peers = peers;
             p.IncludeComputers = computers;
             p.IncludeServiceAccounts = serviceAccounts;
+            p.DeepAclScan = deepAclScan;
             p.Normalize();
         });
     }

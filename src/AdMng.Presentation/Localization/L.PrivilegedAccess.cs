@@ -8,8 +8,8 @@ public static partial class L
     /// <c>PrivilegedAccess.LevelHint.{PrivilegeLevel}</c>, <c>PrivilegedAccess.Source.{PrivilegeSource}</c>,
     /// <c>PrivilegedAccess.Kind.{PrivilegeFindingKind}</c>, <c>PrivilegedAccess.Group.{catalogue id}</c>,
     /// <c>PrivilegedAccess.Scope.{PrivilegeScopeKind}</c>, <c>PrivilegedAccess.Type.{PrivilegedAccountType}</c>,
-    /// <c>PrivilegedAccess.Peer.{PeerDimension}</c>, <c>PrivilegedAccess.Target.{PrivilegeRuleTarget}</c> and
-    /// <c>PrivilegedAccess.Column.{column id}</c>.
+    /// <c>PrivilegedAccess.Peer.{PeerDimension}</c>, <c>PrivilegedAccess.Target.{PrivilegeRuleTarget}</c>,
+    /// <c>PrivilegedAccess.AclRight.{AclRight}</c> (U4b) and <c>PrivilegedAccess.Column.{column id}</c>.
     /// </summary>
     public static class PrivilegedAccess
     {
@@ -19,6 +19,9 @@ public static partial class L
         public const string AccountTypes = "PrivilegedAccess.AccountTypes";
         public const string IncludeComputers = "PrivilegedAccess.IncludeComputers";
         public const string IncludeServiceAccounts = "PrivilegedAccess.IncludeServiceAccounts";
+        public const string AclSettings = "PrivilegedAccess.AclSettings";
+        public const string DeepAclScan = "PrivilegedAccess.DeepAclScan";
+        public const string DeepAclScanNote = "PrivilegedAccess.DeepAclScanNote";
         public const string Peers = "PrivilegedAccess.Peers";
         public const string PeersByOu = "PrivilegedAccess.PeersByOu";
         public const string PeersByDepartment = "PrivilegedAccess.PeersByDepartment";
@@ -76,6 +79,17 @@ public static partial class L
         public const string ScopeFilterNone = "PrivilegedAccess.ScopeFilterNone";
         public const string FilterInvalid = "PrivilegedAccess.FilterInvalid";
         public const string MarkAdded = "PrivilegedAccess.MarkAdded";
+
+        // U4c: local rights from GPOs (families: PrivilegedAccess.LocalRight.{id}, PrivilegedAccess.UserRightName.{id},
+        // PrivilegedAccess.Mechanism.{LocalRightMechanism}, PrivilegedAccess.Notice.{code}).
+        public const string UserRight = "PrivilegedAccess.UserRight";
+        public const string LocalRightGrants = "PrivilegedAccess.LocalRightGrants";
+        public const string LocalRightComputers = "PrivilegedAccess.LocalRightComputers";
+        public const string LocalRightValues = "PrivilegedAccess.LocalRightValues";
+        public const string LinkEnforced = "PrivilegedAccess.LinkEnforced";
+        public const string ConditionalTargeting = "PrivilegedAccess.ConditionalTargeting";
+        public const string ConditionalWmi = "PrivilegedAccess.ConditionalWmi";
+        public const string DomainGroupEnforced = "PrivilegedAccess.DomainGroupEnforced";
     }
 
     /// <summary>

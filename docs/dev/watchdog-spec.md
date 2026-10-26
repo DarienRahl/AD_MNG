@@ -309,7 +309,8 @@ Detection/Reconciler.cs                                      full scan diff incl
 Detection/DnRewriter.cs                                      descendant DN rewrite on container move/rename
 Detection/ConfigurationPartitionWatcher.cs                   nTDSDSA added/removed, FSMO holders, Directory Service object,
                                                              Recycle Bin feature, PKI objects, schema increments (10.11)
-Detection/SecurityDescriptorSummary.cs                       managed SD parser: owner, ACE list, SHA-256
+(AdMng.Core) Security/SecurityDescriptorSummary.cs         managed SD parser: owner, ACE list, SHA-256 (moved to
+                                                             AdMng.Core for the privileged access review, U4b)
 Detection/ReplicationMetadataXmlParser.cs                    msDS-ReplAttributeMetaData (Windows) parser
 Detection/ReplicationMetadataDecoder.cs                      replPropertyMetaData binary decoder
 Detection/AttrTypResolver.cs                                 ATTRTYP → lDAPDisplayName (prefix table, msDS-IntId)
