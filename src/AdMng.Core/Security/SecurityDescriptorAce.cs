@@ -1,11 +1,29 @@
 using System.Globalization;
 using System.Text;
 
-namespace AdMng.Watchdog.Core.Detection;
+namespace AdMng.Core.Security;
 
-/// <summary>One ACE of a parsed security descriptor (DACL), as used in the comparison summary (section 9.4).</summary>
+/// <summary>
+/// One ACE of a parsed security descriptor (DACL), as used in the watchdog's comparison summary (watchdog specification
+/// 9.4) and by the ACL delegations of the privileged access review (README U4b).
+/// </summary>
 public sealed record SecurityDescriptorAce
 {
+    /// <summary>OBJECT_INHERIT_ACE.</summary>
+    public const byte ObjectInheritFlag = 0x01;
+
+    /// <summary>CONTAINER_INHERIT_ACE: child containers (and through them the subtree) inherit the ACE.</summary>
+    public const byte ContainerInheritFlag = 0x02;
+
+    /// <summary>NO_PROPAGATE_INHERIT_ACE: only the direct children inherit the ACE.</summary>
+    public const byte NoPropagateInheritFlag = 0x04;
+
+    /// <summary>INHERIT_ONLY_ACE: the ACE applies to the children only, not to the object itself.</summary>
+    public const byte InheritOnlyFlag = 0x08;
+
+    /// <summary>INHERITED_ACE: the ACE was inherited from a parent (not set on the object itself).</summary>
+    public const byte InheritedFlag = 0x10;
+
     public required byte Type { get; init; }
     public required byte Flags { get; init; }
     public required int Mask { get; init; }
@@ -15,6 +33,18 @@ public sealed record SecurityDescriptorAce
 
     /// <summary>Allowed (0x00, 0x05, 0x09, 0x0B) as opposed to denied or audit ACE types.</summary>
     public bool IsAllow => Type is 0x00 or 0x05 or 0x09 or 0x0B;
+
+    /// <summary>Denied (0x01, 0x06, 0x0A, 0x0C).</summary>
+    public bool IsDeny => Type is 0x01 or 0x06 or 0x0A or 0x0C;
+
+    /// <summary>Inherited from a parent (<see cref="InheritedFlag"/>).</summary>
+    public bool IsInherited => (Flags & InheritedFlag) != 0;
+
+    /// <summary>Applies to the children only (<see cref="InheritOnlyFlag"/>).</summary>
+    public bool IsInheritOnly => (Flags & InheritOnlyFlag) != 0;
+
+    /// <summary>Child containers inherit it (<see cref="ContainerInheritFlag"/>).</summary>
+    public bool IsContainerInherit => (Flags & ContainerInheritFlag) != 0;
 
     /// <summary>The summary value <c>ace:&lt;type&gt;/&lt;flags&gt;/&lt;mask hex&gt;/&lt;SID&gt;[/&lt;objectType&gt;][/&lt;inheritedObjectType&gt;]</c>.</summary>
     public string ToSummaryValue()
