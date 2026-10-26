@@ -16,6 +16,7 @@ namespace AdMng.Directory.IntegrationTests.Integration;
 /// defaultSecurityDescriptor, Account/Print Operators on CN=Users and CN=Computers, the default trustees) are not reported,
 /// inherited ACEs only once at their source.
 /// </summary>
+[Collection(SambaToolCollection.Name)]
 public sealed class AclDelegationTests(LabFixture lab)
 {
     private const string ForceChangePassword = "00299570-246d-11d0-a768-00aa006e0529";

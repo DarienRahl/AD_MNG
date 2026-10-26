@@ -364,7 +364,9 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
   the setting.
 * U4b lab (Samba): `samba-tool dsacl` delegates reset password on the users and member write on the groups of the run's OU,
   full control of one user (deep scan only) and DCSync on the domain head to a test account (removed in `finally`); the
-  source finds them once, at their source, the members get the path, the lab's defaults stay quiet.
+  source finds them once, at their source, the members get the path, the lab's defaults stay quiet. It runs alone (collection
+  `SambaTool`): while `samba-tool dsacl set` ran, Adds of other test classes of the same process failed with
+  ServerUnavailable (LDAP 81); read-only `samba-tool` calls and runs in another process did not show it (cause not found).
 * Lab (Samba): nested membership to Account Operators through two groups of the run's OU, a minor built-in group, SPN,
   unconstrained and constrained delegation with protocol transition towards the DC, orphaned adminCount, no
   pre-authentication, rules; every builder operator accepted by the server, the client check of a constructed attribute.
