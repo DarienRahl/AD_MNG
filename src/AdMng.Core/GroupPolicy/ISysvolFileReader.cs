@@ -7,8 +7,8 @@ namespace AdMng.Core.GroupPolicy;
 /// Reads GPO files from the SYSVOL share of the session's domain controller (CLAUDE.md rule 4: the DC of the session,
 /// never another one). File contents are returned in memory only and never written anywhere (rule 1); the caller keeps
 /// them as long as it parses them. The Windows implementation (AdMng.Directory) reads the UNC path with the operator's
-/// Windows identity or, for a session opened with other credentials, connects to the share with the session's in-memory
-/// credential for the duration of the read (rule 2: never persisted).
+/// Windows identity or, for a session opened with other credentials, in a logon session of the run's own that carries the
+/// session's in-memory credential for network access (rule 2: never persisted).
 /// </summary>
 public interface ISysvolFileReader
 {
@@ -70,12 +70,6 @@ public enum SysvolUnavailableReason
 
     /// <summary>The session was opened by a simple bind with a distinguished name: there is no logon name for the share.</summary>
     DistinguishedNameLogon,
-
-    /// <summary>
-    /// Windows already has a connection to the DC with other credentials (ERROR_SESSION_CREDENTIAL_CONFLICT): it allows one
-    /// set of credentials per server and logon session.
-    /// </summary>
-    CredentialConflict,
 
     /// <summary>The DC refused the credentials for the share.</summary>
     LogonFailure,

@@ -132,7 +132,7 @@ public sealed class PrivilegeScanContext
 /// arguments are names of GPOs and counts - never file contents.
 /// </summary>
 /// <param name="Source">The source that reported it.</param>
-/// <param name="Code">Stable code (resource key suffix), e.g. <c>GroupPolicy.SysvolUnavailable.CredentialConflict</c>.</param>
+/// <param name="Code">Stable code (resource key suffix), e.g. <c>GroupPolicy.SysvolUnavailable.LogonFailure</c>.</param>
 /// <param name="Arguments">The format arguments.</param>
 public sealed record PrivilegeSourceNotice(PrivilegeSource Source, string Code, IReadOnlyList<string> Arguments);
 

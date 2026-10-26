@@ -169,7 +169,7 @@ public sealed class AccountReviewWindowTests
         Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Local right from a group policy: Administrators");
 
         // SYSVOL cannot be opened with the session's credentials: the bar says why, the other sources still run.
-        sysvol.Unavailable = Core.GroupPolicy.SysvolUnavailableReason.CredentialConflict;
+        sysvol.Unavailable = Core.GroupPolicy.SysvolUnavailableReason.LogonFailure;
         await review.RunCommand.ExecuteAsync(null);
         await UiTestSupport.WaitForIdleAsync();
         Assert.StartsWith("Local rights from GPOs were not checked", window.PrivilegesNoticeText.Text, StringComparison.Ordinal);

@@ -8620,9 +8620,6 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.DistinguishedNameLogon" xml:space="preserve">
     <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: sesja używa prostego wiązania z nazwą wyróżniającą (DN), której nie można użyć do zalogowania się do udziału SYSVOL na {0}. Połącz się kontem Windows albo nazwą w postaci DOMENA\użytkownik lub UPN.</value>
   </data>
-  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.CredentialConflict" xml:space="preserve">
-    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: system Windows ma już połączenie z {0} z innymi poświadczeniami (jeden zestaw poświadczeń na serwer). Zamknij inne połączenia z tym kontrolerem (net use) albo połącz się kontem Windows.</value>
-  </data>
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.LogonFailure" xml:space="preserve">
     <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: kontroler {0} odrzucił poświadczenia sesji przy połączeniu z udziałem SYSVOL.</value>
   </data>

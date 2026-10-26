@@ -1,6 +1,8 @@
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Security.Principal;
+using Microsoft.Win32.SafeHandles;
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy;
 
@@ -11,12 +13,14 @@ namespace AdMng.Directory;
 /// - the DC of the session, never another one (CLAUDE.md rule 4) - into memory (rule 1: nothing is written to disk).
 /// <list type="bullet">
 /// <item>A session of the Windows account (<see cref="AuthenticationMode.CurrentUser"/>) reads with the process identity.</item>
-/// <item>A session opened with other credentials connects to <c>\\&lt;DC&gt;\SYSVOL</c> with the session's in-memory
-/// credential (<c>WNetAddConnection2</c>, deviceless, <c>CONNECT_TEMPORARY</c> - never remembered in the profile) for the
-/// duration of the read and disconnects afterwards (<c>WNetCancelConnection2</c>); the password goes to the call in a
-/// zeroed unmanaged buffer and is never stored or logged (rule 2). Connections are counted per share, so two windows of
-/// the same account share one; Windows allows one set of credentials per server and logon session, so another account's
-/// connection to the same DC is reported as <see cref="SysvolUnavailableReason.CredentialConflict"/>.</item>
+/// <item>A session opened with other credentials gets a logon session of its own for the run: <c>LogonUser</c> with
+/// <c>LOGON32_LOGON_NEW_CREDENTIALS</c> (as <c>runas /netonly</c>: the local identity stays, network access uses the
+/// session's in-memory credential) and every file is opened while impersonating that token. The operator's logon session
+/// is never given the credential, so its existing SMB sessions to the DC cannot conflict (no ERROR_SESSION_CREDENTIAL_CONFLICT),
+/// no other process or window of the operator reaches the DC's shares with it, and nothing outlives the run (the token
+/// is closed when the connection is disposed). The password goes to the call in a zeroed unmanaged buffer and is never
+/// stored or logged (rule 2). <c>NEW_CREDENTIALS</c> does not check the password: opening SYSVOL checks it, so a refused
+/// logon, a denied share or an unreachable DC is reported for the whole run.</item>
 /// <item>A simple bind with a distinguished name has no logon name for SMB
 /// (<see cref="SysvolUnavailableReason.DistinguishedNameLogon"/>); other platforms cannot read SYSVOL this way
 /// (<see cref="SysvolUnavailableReason.NotSupported"/>). The tab says so.</item>
@@ -61,8 +65,27 @@ internal sealed class SysvolLogon
     /// <summary><c>DOMAIN\user</c>, <c>user@domain</c> or <c>user</c>; null for the process identity.</summary>
     public string? UserName { get; }
 
-    /// <summary>The session's credential (the password is read only when connecting).</summary>
+    /// <summary>The session's credential (the password is read only when logging on).</summary>
     public NetworkCredential? Credential { get; }
+
+    /// <summary>
+    /// User and domain for <c>LogonUser</c>: <c>DOMAIN\user</c> and a credential with a domain are split, a UPN goes with no
+    /// domain (null for the process identity).
+    /// </summary>
+    public (string User, string? Domain)? LogonParts => Credential is null ? null : SplitForLogon(Credential.UserName, Credential.Domain);
+
+    /// <summary>User and domain for <c>LogonUser</c> from a credential's user name and domain.</summary>
+    public static (string User, string? Domain) SplitForLogon(string userName, string? domain)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+        if (!string.IsNullOrEmpty(domain))
+        {
+            return (userName, domain);
+        }
+
+        var backslash = userName.IndexOf('\\', StringComparison.Ordinal);
+        return backslash > 0 && backslash < userName.Length - 1 ? (userName[(backslash + 1)..], userName[..backslash]) : (userName, null);
+    }
 
     /// <summary>The logon of a session: its in-memory credential, or the Windows account.</summary>
     /// <exception cref="SysvolUnavailableException">A distinguished name logon, or the session was closed.</exception>
@@ -89,135 +112,112 @@ internal sealed class SysvolLogon
     public override string ToString() => UserName ?? "(Windows account)";
 }
 
-/// <summary>The Windows side: WNet connections (counted per share) and file reads.</summary>
-[SupportedOSPlatform("windows")]
-internal static partial class WindowsSysvol
+/// <summary>Win32 errors of the logon and the first access to SYSVOL → why SYSVOL cannot be read (platform-neutral, testable).</summary>
+internal static class SysvolErrors
 {
-    private const int ResourceTypeDisk = 1;
-    private const int ConnectTemporary = 4;
-    private const int NoError = 0;
     private const int ErrorAccessDenied = 5;
     private const int ErrorBadNetPath = 53;
     private const int ErrorNetNameDeleted = 64;
     private const int ErrorBadNetName = 67;
     private const int ErrorInvalidPassword = 86;
     private const int ErrorNoNetOrBadPath = 1203;
-    private const int ErrorSessionCredentialConflict = 1219;
     private const int ErrorNoNetwork = 1222;
     private const int ErrorLogonFailure = 1326;
     private const int ErrorAccountRestriction = 1327;
     private const int ErrorPasswordExpired = 1330;
     private const int ErrorAccountDisabled = 1331;
     private const int ErrorAccountLockedOut = 1909;
+    private const int Win32Facility = 7;
 
-    private static readonly Lock Gate = new();
-    private static readonly Dictionary<string, (int Count, string User)> Connections = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The Win32 error of an exception whose HRESULT was made from one, else 0.</summary>
+    internal static int Win32Error(Exception exception) =>
+        ((exception.HResult >> 16) & 0x7FF) == Win32Facility ? exception.HResult & 0xFFFF : 0;
 
-    public static ISysvolConnection Open(string server, string domain, SysvolLogon logon)
+    internal static SysvolUnavailableReason ReasonOf(int error) => error switch
     {
-        var share = @"\\" + server + @"\SYSVOL";
-        if (logon.UserName is { } user && logon.Credential is { } credential)
-        {
-            Acquire(share, user, credential);
-            return new Connection(server, domain, share, connected: true);
-        }
-
-        return new Connection(server, domain, share, connected: false);
-    }
-
-    private static void Acquire(string share, string user, NetworkCredential credential)
-    {
-        lock (Gate)
-        {
-            if (Connections.TryGetValue(share, out var existing))
-            {
-                if (!string.Equals(existing.User, user, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new SysvolUnavailableException(SysvolUnavailableReason.CredentialConflict, "Another window reads this SYSVOL with other credentials.");
-                }
-
-                Connections[share] = (existing.Count + 1, existing.User);
-                return;
-            }
-
-            var remote = Marshal.StringToHGlobalUni(share);
-            var userName = Marshal.StringToHGlobalUni(user);
-            var password = IntPtr.Zero;
-            try
-            {
-                password = Marshal.SecureStringToGlobalAllocUnicode(credential.SecurePassword);
-                var resource = new NetResource { Type = ResourceTypeDisk, RemoteName = remote };
-                var result = WNetAddConnection2(ref resource, password, userName, ConnectTemporary);
-                if (result != NoError)
-                {
-                    throw new SysvolUnavailableException(ReasonOf(result), $"WNetAddConnection2 failed with error {result}.");
-                }
-
-                Connections[share] = (1, user);
-            }
-            finally
-            {
-                if (password != IntPtr.Zero)
-                {
-                    Marshal.ZeroFreeGlobalAllocUnicode(password);
-                }
-
-                Marshal.FreeHGlobal(userName);
-                Marshal.FreeHGlobal(remote);
-            }
-        }
-    }
-
-    private static void Release(string share)
-    {
-        lock (Gate)
-        {
-            if (!Connections.TryGetValue(share, out var existing))
-            {
-                return;
-            }
-
-            if (existing.Count > 1)
-            {
-                Connections[share] = (existing.Count - 1, existing.User);
-                return;
-            }
-
-            Connections.Remove(share);
-            _ = WNetCancelConnection2(share, 0, force: true);
-        }
-    }
-
-    private static SysvolUnavailableReason ReasonOf(int error) => error switch
-    {
-        ErrorSessionCredentialConflict => SysvolUnavailableReason.CredentialConflict,
         ErrorAccessDenied => SysvolUnavailableReason.AccessDenied,
         ErrorInvalidPassword or ErrorLogonFailure or ErrorAccountRestriction or ErrorPasswordExpired or ErrorAccountDisabled or ErrorAccountLockedOut =>
             SysvolUnavailableReason.LogonFailure,
         ErrorBadNetPath or ErrorNetNameDeleted or ErrorBadNetName or ErrorNoNetOrBadPath or ErrorNoNetwork => SysvolUnavailableReason.Unreachable,
         _ => SysvolUnavailableReason.Failed,
     };
+}
 
-    [LibraryImport("mpr.dll", EntryPoint = "WNetAddConnection2W")]
-    private static partial int WNetAddConnection2(ref NetResource resource, IntPtr password, IntPtr userName, int flags);
+/// <summary>The Windows side: a logon session of the run's own for other credentials, and the file reads.</summary>
+[SupportedOSPlatform("windows")]
+internal static partial class WindowsSysvol
+{
+    private const int Logon32LogonNewCredentials = 9;
+    private const int Logon32ProviderWinNt50 = 3;
 
-    [LibraryImport("mpr.dll", EntryPoint = "WNetCancelConnection2W", StringMarshalling = StringMarshalling.Utf16)]
-    private static partial int WNetCancelConnection2(string name, int flags, [MarshalAs(UnmanagedType.Bool)] bool force);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct NetResource
+    public static ISysvolConnection Open(string server, string domain, SysvolLogon logon)
     {
-        public int Scope;
-        public int Type;
-        public int DisplayType;
-        public int Usage;
-        public IntPtr LocalName;
-        public IntPtr RemoteName;
-        public IntPtr Comment;
-        public IntPtr Provider;
+        var share = @"\\" + server + @"\SYSVOL";
+        if (logon.Credential is not { } credential || logon.LogonParts is not { } parts)
+        {
+            return new Connection(server, domain, share, token: null);
+        }
+
+        var token = LogOn(parts.User, parts.Domain, credential);
+        try
+        {
+            Probe(share + @"\" + domain + @"\Policies", token);
+            return new Connection(server, domain, share, token);
+        }
+        catch
+        {
+            token.Dispose();
+            throw;
+        }
     }
 
-    private sealed class Connection(string server, string domain, string share, bool connected) : ISysvolConnection
+    /// <summary><c>LogonUser(NEW_CREDENTIALS)</c>: a new logon session with the credential for network access only.</summary>
+    private static SafeAccessTokenHandle LogOn(string user, string? domain, NetworkCredential credential)
+    {
+        var password = IntPtr.Zero;
+        try
+        {
+            password = Marshal.SecureStringToGlobalAllocUnicode(credential.SecurePassword);
+            if (!LogonUser(user, domain, password, Logon32LogonNewCredentials, Logon32ProviderWinNt50, out var handle))
+            {
+                var error = Marshal.GetLastPInvokeError();
+                throw new SysvolUnavailableException(SysvolErrors.ReasonOf(error), $"LogonUser failed with error {error}.");
+            }
+
+            return new SafeAccessTokenHandle(handle);
+        }
+        finally
+        {
+            if (password != IntPtr.Zero)
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(password);
+            }
+        }
+    }
+
+    /// <summary>The first access with the new logon session (it checks the credential): the Policies folder of SYSVOL.</summary>
+    private static void Probe(string policies, SafeAccessTokenHandle token)
+    {
+        try
+        {
+            WindowsIdentity.RunImpersonated(token, () => _ = File.GetAttributes(policies));
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new SysvolUnavailableException(SysvolUnavailableReason.AccessDenied, "SYSVOL refused access.", ex);
+        }
+        catch (IOException ex)
+        {
+            var reason = ex is FileNotFoundException or DirectoryNotFoundException ? SysvolUnavailableReason.Unreachable : SysvolErrors.ReasonOf(SysvolErrors.Win32Error(ex));
+            throw new SysvolUnavailableException(reason, "SYSVOL could not be opened with the session's credentials.", ex);
+        }
+    }
+
+    [LibraryImport("advapi32.dll", EntryPoint = "LogonUserW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool LogonUser(string user, string? domain, IntPtr password, int logonType, int logonProvider, out IntPtr token);
+
+    private sealed class Connection(string server, string domain, string share, SafeAccessTokenHandle? token) : ISysvolConnection
     {
         private int _disposed;
 
@@ -235,17 +235,10 @@ internal static partial class WindowsSysvol
             var path = share + @"\" + domain + @"\Policies\" + SysvolPaths.FolderName(gpoId) + @"\" + normalized.Replace('/', '\\');
             try
             {
-                // CreateFile on a UNC path blocks (SMB round trips): off the calling thread.
-                var stream = await Task.Run(
-                    () => new FileStream(path, new FileStreamOptions
-                    {
-                        Mode = FileMode.Open,
-                        Access = FileAccess.Read,
-                        Share = FileShare.ReadWrite | FileShare.Delete,
-                        Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
-                        BufferSize = 0,
-                    }),
-                    cancellationToken).ConfigureAwait(false);
+                // CreateFile on a UNC path blocks (SMB round trips): off the calling thread, as the run's own logon session
+                // when the session has other credentials (the open handle keeps that SMB session for the reads).
+                var stream = await Task.Run(() => token is null ? Open(path) : WindowsIdentity.RunImpersonated(token, () => Open(path)), cancellationToken)
+                    .ConfigureAwait(false);
                 await using (stream.ConfigureAwait(false))
                 {
                     if (stream.Length > maxBytes)
@@ -285,12 +278,21 @@ internal static partial class WindowsSysvol
 
         public ValueTask DisposeAsync()
         {
-            if (Interlocked.Exchange(ref _disposed, 1) == 0 && connected)
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                return new ValueTask(Task.Run(() => Release(share)));
+                token?.Dispose();
             }
 
             return ValueTask.CompletedTask;
         }
+
+        private static FileStream Open(string path) => new(path, new FileStreamOptions
+        {
+            Mode = FileMode.Open,
+            Access = FileAccess.Read,
+            Share = FileShare.ReadWrite | FileShare.Delete,
+            Options = FileOptions.Asynchronous | FileOptions.SequentialScan,
+            BufferSize = 0,
+        });
     }
 }

@@ -118,14 +118,14 @@ public class GroupPolicyGrantSourceTests
     public async Task SysvolUnavailable_IsReported_AndTheRunGoesOn()
     {
         var (builder, company, _, _, sysvol) = Create();
-        sysvol.Unavailable = SysvolUnavailableReason.CredentialConflict;
+        sysvol.Unavailable = SysvolUnavailableReason.LogonFailure;
 
         var (results, scanner) = await ScanAsync(builder, sysvol);
 
         Assert.DoesNotContain(results.Values.SelectMany(r => r.Findings), f => f.Source == PrivilegeSource.GroupPolicy);
         Assert.Contains(results[Key(company.JanKowalski)].Findings, f => f.Kind == PrivilegeFindingKind.BuiltInGroup);
         var notice = Assert.Single(scanner.Notices);
-        Assert.Equal("GroupPolicy.SysvolUnavailable.CredentialConflict", notice.Code);
+        Assert.Equal("GroupPolicy.SysvolUnavailable.LogonFailure", notice.Code);
         Assert.Equal(["dc01.contoso.test"], notice.Arguments);
     }
 

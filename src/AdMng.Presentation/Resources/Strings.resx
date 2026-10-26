@@ -8620,9 +8620,6 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.DistinguishedNameLogon" xml:space="preserve">
     <value>Local rights from GPOs were not checked: the session uses a simple bind with a distinguished name, which cannot log on to the SYSVOL share of {0}. Connect with the Windows account, or with a name in the form DOMAIN\user or a UPN.</value>
   </data>
-  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.CredentialConflict" xml:space="preserve">
-    <value>Local rights from GPOs were not checked: Windows already has a connection to {0} with other credentials (one set of credentials per server). Close the other connections to this DC (net use) or connect with the Windows account.</value>
-  </data>
   <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.LogonFailure" xml:space="preserve">
     <value>Local rights from GPOs were not checked: {0} refused the session's credentials for the SYSVOL share.</value>
   </data>

@@ -885,10 +885,11 @@ grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa.
   z SYSVOL w pamięci (polskie nazwy), zakładka (teksty po polsku, przełączniki, komunikaty, CSV), test UI, laboratorium
   Samba (GPO z `samba-tool`, połączenia i blokada dziedziczenia przez LDAP, pliki zapisane `smbclient` i odczyt całości
   przez testową implementację czytnika SYSVOL).
-- 🟡 Do weryfikacji na Windows Server: czytnik SYSVOL z poświadczeniami sesji (`WNetAddConnection2`) i kontem Windows,
-  zgodność z `gpresult` / RSoP; nie są oceniane filtry zabezpieczeń GPO (uprawnienie *Zastosuj zasady grupy* – U4b),
-  zapytania filtrów WMI i warunki określania elementów docelowych (pokazywane jako „warunkowo”) ani lokacje komputerów
-  innych niż kontrolery domeny.
+- 🟡 Do weryfikacji na Windows Server: czytnik SYSVOL z poświadczeniami sesji (osobna sesja logowania `LogonUser`
+  z nowymi poświadczeniami, jak `runas /netonly`) i kontem Windows, zgodność z `gpresult` / RSoP. Filtry zabezpieczeń
+  GPO (uprawnienie *Zastosuj zasady grupy*) są oceniane dla każdego komputera; nie są oceniane zapytania filtrów WMI
+  i warunki określania elementów docelowych (pokazywane jako „warunkowo”) ani lokacje komputerów innych niż kontrolery
+  domeny.
 
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej

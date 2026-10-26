@@ -219,14 +219,20 @@ The comparison runs after the stream over all accounts of the scope (also those 
 * **SYSVOL and credentials** (`WindowsSysvolFileReader`, AdMng.Directory): the UNC path of the session's DC
   (`SessionInfo.Server`, validated by `SysvolPaths`), files read with `FileStream` off the UI thread into a byte array,
   never written anywhere. A session of the Windows account (CurrentUser) reads with the process identity. A session
-  opened with other credentials (Negotiate with a typed account, or a simple bind with a UPN or `DOMAIN\user`) connects
-  to `\\<DC>\SYSVOL` with the session's in-memory credential for the duration of the read: `WNetAddConnection2`
-  (deviceless, `CONNECT_TEMPORARY`, never `CONNECT_UPDATE_PROFILE`), the password copied from `NetworkCredential` into a
-  zeroed unmanaged buffer, `WNetCancelConnection2` when the run's reads are done; connections are counted per share so
-  that two windows of the same account share one. Windows allows one set of credentials per server and logon session,
-  so a connection of another account to the same DC (also another window) is `CredentialConflict`; a simple bind with a
-  DN has no SMB logon name (`DistinguishedNameLogon`); other platforms get `NotSupported`. Each becomes a notice in the
-  tab ("GPO rights need ... the Windows account"); the other sources still run.
+  opened with other credentials (Negotiate with a typed account, or a simple bind with a UPN or `DOMAIN\user`) gets a
+  logon session of the run's own: `LogonUser(LOGON32_LOGON_NEW_CREDENTIALS, LOGON32_PROVIDER_WINNT50)` (as `runas
+  /netonly`: local identity unchanged, network access with the session's credential; a UPN goes without a domain,
+  `DOMAIN\user` is split), the password copied from `NetworkCredential` into a zeroed unmanaged buffer; every file is
+  opened inside `WindowsIdentity.RunImpersonated` with that token (the open handle keeps its SMB session for the reads)
+  and the token is closed with the run's connection. The operator's logon session never gets the credential: no
+  ERROR_SESSION_CREDENTIAL_CONFLICT with the SMB sessions it already has to its logon DC (GP processing, logon script,
+  mapped drives), no other process or window reaching `C$`/`ADMIN$` with the session's (admin) credential, nothing left
+  behind after a crash. `NEW_CREDENTIALS` does not check the password, so the reader opens `SYSVOL\<domain>\Policies`
+  once at the start: a refused logon (`LogonFailure`), a denied share (`AccessDenied`) or an unreachable DC
+  (`Unreachable`) is reported for the run (changed after the review; the first version used `WNetAddConnection2` in the
+  operator's logon session). A simple bind with a DN has no SMB logon name (`DistinguishedNameLogon`); other platforms
+  get `NotSupported`. Each becomes a notice in the tab ("GPO rights need ... the Windows account"); the other sources
+  still run.
 * **Deviations from the note.** The scope DN is the container of the link (also a site); the level comes from the
   computers the GPO actually reaches (so the DC OU and the Default Domain Controllers Policy give Tier 0, and a
   domain-level GPO reaching the DCs does too). Administrators on workstations is Elevated (the note names only servers
@@ -255,7 +261,8 @@ The comparison runs after the stream over all accounts of the scope (also those 
   and Groups.xml written with smbclient and the source end to end through `SmbClientSysvolFileReader` (a Linux test
   reader: `smbclient //<session DC>/SYSVOL -I <lab address> … get … -`, content on stdout, in memory); the Windows
   reader's logon from the lab session (UPN) and a DN bind (refused). Unverified: the Windows reader itself
-  (WNetAddConnection2, Kerberos to the DC, credential conflicts) runs only on Windows and has no automated test yet.
+  (LogonUser with new credentials, impersonated opens, Kerberos to the DC) runs only on Windows and has no automated
+  test yet; its logon name split and the Win32 error mapping are tested on any platform.
 
 Both only add a source class, enum values already exist (`DirectoryAcl`, `GroupPolicy`, `AclRight`, `LocalRight`,
 `Container`, `Computers`) with resources in both languages; the tab offers a source as soon as it is registered
