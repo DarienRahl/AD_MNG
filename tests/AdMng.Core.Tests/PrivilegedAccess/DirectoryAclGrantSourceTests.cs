@@ -221,6 +221,28 @@ public class DirectoryAclGrantSourceTests
     }
 
     [Fact]
+    public async Task DeepScan_ReportsInheritedDelegations_AtTheTier0AccountsTheyReach()
+    {
+        var scenario = Scenario.Create();
+        var builder = scenario.Builder;
+        var da = $"{builder.DomainSid}-{WellKnownRids.DomainAdmins}";
+
+        // OU=Firma's reset password on users as AD copies it onto a user (inherited, no longer inherit-only): Wojciech Ząbek is a
+        // DnsAdmins member (Tier 0, not protected by AdminSDHolder), Łukasz Wiśniewski an ordinary user (less than at OU=Firma).
+        var reset = new FakeAce(FakeAce.AccessAllowedObject, 0x12, 0x100, builder.SidOf(scenario.Privileged.Helpdesk),
+            FakeDirectoryBuilder.AclGuids.ForceChangePassword, FakeDirectoryBuilder.AclGuids.User);
+        builder.SetSecurityDescriptor(scenario.Privileged.WojciechZabek, da, FakeAce.FullControl(da), reset);
+        builder.SetSecurityDescriptor(scenario.Company.LukaszWisniewski, da, FakeAce.FullControl(da), reset);
+
+        var rendered = Render(scenario, await CollectAsync(scenario, deep: true));
+
+        Assert.Contains($"{scenario.Company.CompanyOu} | GG_Helpdesk | High | ResetPassword:user", rendered);
+        Assert.Contains($"{scenario.Privileged.WojciechZabek} | GG_Helpdesk | Tier0 | ResetPassword:user", rendered);
+        Assert.DoesNotContain(rendered, r => r.StartsWith(scenario.Company.LukaszWisniewski + " |", StringComparison.Ordinal));
+        Assert.DoesNotContain(Render(scenario, await CollectAsync(scenario)), r => r.StartsWith(scenario.Privileged.WojciechZabek + " |", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task TheOtherRights_GetTheLevelsOfTheDesignNote()
     {
         var scenario = Scenario.Create();

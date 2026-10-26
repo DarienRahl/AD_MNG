@@ -199,7 +199,7 @@ with every right, level = the highest:
 
 | Right | Level |
 |---|---|
-| `GenericAll`, `WriteDacl`, `WriteOwner`, `Owner`, `AllExtendedRights`, `WriteAllProperties`, `ResetPassword`, `WriteMember`, `AddSelfToGroup` (Self-Membership), `WriteGpLink`, `WriteGpoProperty`, `WriteKeyCredentialLink`, `WriteAllowedToActOnBehalf` | Tier 0 on the domain head (inherit-only ACEs only when they reach computers: the DCs' accounts inherit them, the protected Tier 0 users and groups do not), AdminSDHolder, a Tier 0 object, OU=Domain Controllers (also inherit-only) and a GPO with an enabled link on the domain head or OU=Domain Controllers; High on other containers and GPOs; on single objects (deep scan) what the object has: at least Elevated, High for a server, the catalogue level the account or group reaches (reset password on a Domain Admin is Tier 0) |
+| `GenericAll`, `WriteDacl`, `WriteOwner`, `Owner`, `AllExtendedRights`, `WriteAllProperties`, `ResetPassword`, `WriteMember`, `AddSelfToGroup` (Self-Membership), `WriteGpLink`, `WriteGpoProperty`, `WriteKeyCredentialLink`, `WriteAllowedToActOnBehalf` | Tier 0 on the domain head (inherit-only ACEs only when they reach computers: the DCs' accounts inherit them, the protected Tier 0 users and groups do not), AdminSDHolder, a Tier 0 object, OU=Domain Controllers (also inherit-only) and a GPO with an enabled link on the domain head or OU=Domain Controllers; High on other containers and GPOs; on single objects (deep scan) what the object has: at least Elevated, High for a server, the catalogue level the account or group reaches (reset password on a Domain Admin is Tier 0; a delegation inherited from an OU reaches the Tier 0 accounts AdminSDHolder does not protect, e.g. DnsAdmins members, and is reported at them with Tier 0 too) |
 | `ReplicationGetChangesAll` (domain head only) | Tier 0 |
 | `ReplicationGetChanges`, `ReplicationGetChangesInFilteredSet` (domain head only) | High |
 | `CreateChild`, `DeleteChild` | Elevated |
@@ -359,7 +359,7 @@ Uprawnienia) →"); the link runs the tab once if it has not run.
 * U4b Core: binary descriptors built in the tests on the Polish sample (`AddAclDelegationSample`): every delegation
   type with its level, defaults of the class (CREATOR OWNER = owner) and of the default trustees, inherited copies reported
   once, again at Tier 0 objects where they are worth more (DnsAdmins in CN=Users, OU=Domain Controllers below the domain
-  head), a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
+  head, a DnsAdmins member in the deep scan), a source that is not read (CN=System → CN=Policies), GPO linked to the domain, RBCD principals, deep scan, the
   remaining rights and levels (owner of krbtgt, `gPLink` write on the DCs' OU and an ordinary OU, RBCD write,
   Self-Membership, all extended rights, a GPO of the DCs with an enabled and one with a disabled link), the
   scanner's paths through groups, Authenticated Users not in the graph, LAPS resolved from the schema, the fixed GUIDs
