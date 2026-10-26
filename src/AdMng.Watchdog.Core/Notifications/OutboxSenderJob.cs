@@ -21,6 +21,10 @@ namespace AdMng.Watchdog.Core.Notifications;
 /// (<see cref="DeliveryKind.Health"/>) is never sent or retried once the next heartbeat of its channel is due – it is
 /// given up as <see cref="HeartbeatSupersededCode"/>. Transport exceptions count as transient and are logged via
 /// <see cref="SafeExceptionLog"/>.
+/// <para>Messages to users (<see cref="DeliveryKind.UserMessage"/>, README U1b) are sent after the other due messages of
+/// their channel (alerts first), are given up when <c>userMessages.enabled</c> is switched off
+/// (<see cref="UserMessagesDisabledCode"/>), die at once on ChannelBroken / AuthenticationFailed (AD Manager was told the
+/// run failed – no hourly retries for a day) and a permanent rejection of one mailbox does not touch the channel health.</para>
 /// </summary>
 public sealed partial class OutboxSenderJob : IWatchdogJob
 {
@@ -55,11 +59,14 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
     private const string ChannelUnknownCode = "channel.unknown";
     private const string SmtpDisabledCode = "smtp.disabled";
 
+    /// <summary>Error code of a queued message to a user given up because <c>userMessages.enabled</c> was switched off.</summary>
+    public const string UserMessagesDisabledCode = "userMessages.disabled";
+
     /// <summary>Codes of a channel the configuration no longer delivers to (disabled or removed channel, SMTP disabled –
     /// the transports answer with the same codes): its messages are given up without a channel health failure.</summary>
     public static readonly IReadOnlySet<string> WithdrawnCodes = new HashSet<string>(StringComparer.Ordinal)
     {
-        ChannelDisabledCode, ChannelUnknownCode, SmtpDisabledCode,
+        ChannelDisabledCode, ChannelUnknownCode, SmtpDisabledCode, UserMessagesDisabledCode,
     };
 
     private static readonly WatchdogSignal[] Signals = [WatchdogSignal.OutboxEnqueued];
@@ -121,7 +128,7 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
                 return new JobResult(null);
             }
 
-            var channels = messages.GroupBy(m => (m.ChannelType, Channel: m.ChannelId.ToLowerInvariant())).Select(g => g.OrderBy(m => m.Id).ToList()).ToList();
+            var channels = messages.GroupBy(m => (m.ChannelType, Channel: m.ChannelId.ToLowerInvariant())).Select(g => g.OrderBy(m => m.Kind == DeliveryKind.UserMessage).ThenBy(m => m.Id).ToList()).ToList();
             var options = new ParallelOptions { MaxDegreeOfParallelism = MaxParallelChannels, CancellationToken = cancellationToken };
             await Parallel.ForEachAsync(channels, options, async (channel, ct) =>
             {
@@ -193,12 +200,18 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
 
                 break;
 
+            case DeliveryOutcome.Permanent when message.Kind == DeliveryKind.UserMessage:
+                // One mailbox rejecting a message to a user says nothing about the channel.
+                await _outbox.MarkDeadAsync(message.Id, errorCode, result.Detail, cancellationToken).ConfigureAwait(false);
+                LogDead(message.Id, message.ChannelId, errorCode);
+                break;
+
             case DeliveryOutcome.Permanent:
                 await DeadAsync(message, errorCode, result.Detail, HealthState.Warning, now, cancellationToken).ConfigureAwait(false);
                 break;
 
             default:    // ChannelBroken, AuthenticationFailed
-                if (now - message.CreatedAt >= BrokenChannelGiveUp)
+                if (message.Kind == DeliveryKind.UserMessage || now - message.CreatedAt >= BrokenChannelGiveUp)
                 {
                     await DeadAsync(message, errorCode, result.Detail, HealthState.Error, now, cancellationToken).ConfigureAwait(false);
                 }
@@ -234,7 +247,9 @@ public sealed partial class OutboxSenderJob : IWatchdogJob
     {
         if (message.ChannelType == DeliveryChannelType.Email)
         {
-            return configuration.Smtp?.Enabled == true ? null : SmtpDisabledCode;
+            return configuration.Smtp?.Enabled != true ? SmtpDisabledCode
+                : message.Kind == DeliveryKind.UserMessage && configuration.UserMessages?.Enabled != true ? UserMessagesDisabledCode
+                : null;
         }
 
         var channel = FindChannel(configuration, message.ChannelId);

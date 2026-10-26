@@ -8,7 +8,8 @@ using Microsoft.Data.Sqlite;
 namespace AdMng.Watchdog.Service.Storage;
 
 /// <summary>The <c>outbox</c> and <c>outbox_events</c> tables (payload NULL after a successful send, spec 16.3); a link
-/// keeps how an alert showed its event (severity, actor pending – schema 3).</summary>
+/// keeps how an alert showed its event (severity, actor pending – schema 3). A message to a user (README U1b) stores no
+/// subject and no recipients outside its payload.</summary>
 internal static class OutboxRows
 {
     /// <summary>Columns to select for <see cref="ReadMessage"/>.</summary>
@@ -52,8 +53,10 @@ internal static class OutboxRows
             ("$attempts", message.Attempts),
             ("$created", SqliteValues.ToUnixMs(message.CreatedAt)),
             ("$next", SqliteValues.ToUnixMs(message.NextAttemptAt)),
-            ("$subject", SqliteValues.OrNull(message.Email?.Subject ?? message.Http?.Title)),
-            ("$recipientCount", message.Recipients.Count),
+            // A message to a user keeps neither its subject nor its recipients in the delivery log (README U1b): both
+            // are directory data and live only in the payload, which is dropped once sent.
+            ("$subject", message.Email?.UserMessage is not null ? DBNull.Value : SqliteValues.OrNull(message.Email?.Subject ?? message.Http?.Title)),
+            ("$recipientCount", message.Email?.UserMessage is { } envelope ? envelope.RecipientCount : message.Recipients.Count),
             ("$recipients", message.Recipients.Count == 0
                 ? DBNull.Value
                 : JsonSerializer.Serialize([.. message.Recipients], WatchdogStorageJsonContext.Default.ListString)),

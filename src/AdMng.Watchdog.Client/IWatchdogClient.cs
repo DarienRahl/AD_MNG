@@ -31,4 +31,10 @@ public interface IWatchdogClient : IDisposable
     Task SendDigestNowAsync(CancellationToken cancellationToken);
     Task<OutboxPage> GetOutboxAsync(OutboxQuery query, CancellationToken cancellationToken);
     Task RetryOutboxAsync(long id, CancellationToken cancellationToken);
+    /// <summary><c>GET /user-messages/status</c> (Viewer): whether messages to users can be sent through the service.</summary>
+    Task<UserMessagingStatusDto> GetUserMessagingStatusAsync(CancellationToken cancellationToken);
+    /// <summary><c>POST /user-messages</c> (Viewer): one message to a user; idempotent by <see cref="UserMessageRequest.Id"/>
+    /// (repeat it after a timeout). 409 (disabled, idempotency conflict), 400 (invalid) and 429 (limit, with
+    /// <see cref="WatchdogClientException.RetryAfter"/>) throw with <see cref="WatchdogClientException.ProblemType"/>.</summary>
+    Task<UserMessageResult> SendUserMessageAsync(UserMessageRequest request, CancellationToken cancellationToken);
 }

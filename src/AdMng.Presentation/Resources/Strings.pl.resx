@@ -7250,7 +7250,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Wiadomości do użytkowników</value>
   </data>
   <data name="UserMessages.ViaWatchdog" xml:space="preserve">
-    <value>Wysyłka przez AdMng Watchdog ({0})</value>
+    <value>Wysyłka przez {0}</value>
   </data>
   <data name="UserMessages.ViaSmtp" xml:space="preserve">
     <value>Wysyłka bezpośrednio przez SMTP: {0}</value>
@@ -7730,7 +7730,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>AdMng Watchdog nie jest skonfigurowany (karta Watchdog).</value>
   </data>
   <data name="UserMessages.Problem.WatchdogNotSupported" xml:space="preserve">
-    <value>Usługa AdMng Watchdog nie obsługuje jeszcze wiadomości do użytkowników – wybierz wysyłkę automatyczną lub bezpośrednią.</value>
+    <value>Ta usługa AdMng Watchdog nie obsługuje wiadomości do użytkowników – zaktualizuj usługę albo wybierz wysyłkę bezpośrednią przez SMTP.</value>
   </data>
   <data name="UserMessages.Code.auth" xml:space="preserve">
     <value>Serwer odrzucił uwierzytelnienie.</value>
@@ -7776,5 +7776,77 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="UserMessages.Stage.Done" xml:space="preserve">
     <value>Gotowe</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogDisabled" xml:space="preserve">
+    <value>Wiadomości do użytkowników są wyłączone w AdMng Watchdog – administrator usługi włącza je na karcie Watchdog (Kanały i SMTP → Wiadomości do użytkowników).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogForbidden" xml:space="preserve">
+    <value>Twoje konto nie może korzystać z AdMng Watchdog (tylko administratorzy i obserwatorzy Watchdoga).</value>
+  </data>
+  <data name="UserMessages.Problem.WatchdogUnreachable" xml:space="preserve">
+    <value>Brak połączenia z AdMng Watchdog – sprawdź połączenie na karcie Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.queued" xml:space="preserve">
+    <value>W kolejce AdMng Watchdog – usługa wyśle wiadomość i pokaże wynik w dzienniku wysyłek.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.disabled" xml:space="preserve">
+    <value>Wiadomości do użytkowników są wyłączone w AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.senderNotAllowed" xml:space="preserve">
+    <value>AdMng Watchdog nie dopuszcza tego nadawcy lub adresu odpowiedzi – użyj nadawcy usługi albo poproś jej administratora o dopisanie adresu do dozwolonych nadawców.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.invalid" xml:space="preserve">
+    <value>AdMng Watchdog odrzucił wiadomość jako nieprawidłową.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.conflict" xml:space="preserve">
+    <value>AdMng Watchdog ma już inną wiadomość z tym identyfikatorem.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.limit" xml:space="preserve">
+    <value>Osiągnięto godzinny lub dobowy limit wiadomości do użytkowników w AdMng Watchdog – wyślij pozostałe później.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.forbidden" xml:space="preserve">
+    <value>Twoje konto nie może wysyłać przez AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.notSupported" xml:space="preserve">
+    <value>Ta usługa AdMng Watchdog nie obsługuje wiadomości do użytkowników.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.notConfigured" xml:space="preserve">
+    <value>AdMng Watchdog nie jest skonfigurowany.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.unreachable" xml:space="preserve">
+    <value>Brak połączenia z AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.serverError" xml:space="preserve">
+    <value>AdMng Watchdog zgłosił błąd wewnętrzny.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.disabled" xml:space="preserve">
+    <value>Kanał e-mail (SMTP) AdMng Watchdog jest wyłączony.</value>
+  </data>
+  <data name="UserMessages.Code.userMessages.disabled" xml:space="preserve">
+    <value>Wiadomości do użytkowników wyłączono w AdMng Watchdog, zanim wiadomość została wysłana.</value>
+  </data>
+  <data name="Watchdog.DeliveryKind.UserMessage" xml:space="preserve">
+    <value>Wiadomość do użytkownika</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingTitle" xml:space="preserve">
+    <value>Wiadomości do użytkowników (z AD Managera)</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingEnabled" xml:space="preserve">
+    <value>Pozwól AD Managerowi wysyłać wiadomości do użytkowników przez tę usługę</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingHint" xml:space="preserve">
+    <value>Administratorzy i obserwatorzy Watchdoga mogą wysyłać wiadomości z szablonów (np. „hasło wygasa”) kanałem e-mail powyżej. Usługa ponownie sprawdza każdą wiadomość, wysyła ją od nadawcy powyżej (albo dozwolonego nadawcy), kolejkuje i ponawia, a w dzienniku wysyłek pokazuje ją bez tematu i adresów.</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingPerHour" xml:space="preserve">
+    <value>Maks. wiadomości/godz.</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingPerDay" xml:space="preserve">
+    <value>Maks. wiadomości/dobę</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingSenders" xml:space="preserve">
+    <value>Inni dozwoleni nadawcy (Od / Odpowiedz do)</value>
+  </data>
+  <data name="Watchdog.Ui.UserMessagingSendersHint" xml:space="preserve">
+    <value>Jeden adres lub @domena w wierszu; nadawca i adres odpowiedzi kanału e-mail są zawsze dozwolone.</value>
   </data>
 </root>

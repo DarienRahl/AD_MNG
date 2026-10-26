@@ -20,6 +20,12 @@ public sealed record UserMessageTransportStatus(bool IsAvailable, string? Reason
     public const string NotConfigured = "notConfigured";
     public const string NotSupported = "notSupported";
     public const string Unreachable = "unreachable";
+
+    /// <summary>The transport works but the feature is switched off (AdMng Watchdog: <c>userMessages.enabled</c>).</summary>
+    public const string Disabled = "disabled";
+
+    /// <summary>The caller may not use the transport (AdMng Watchdog: no Admin/Viewer role, or denied).</summary>
+    public const string Forbidden = "forbidden";
 }
 
 /// <summary>Outcome of one send attempt.</summary>

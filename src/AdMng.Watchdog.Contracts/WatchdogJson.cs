@@ -37,5 +37,6 @@ public static class WatchdogJson
 [JsonSerializable(typeof(RulePreviewRequest))] [JsonSerializable(typeof(RulePreviewResult))] [JsonSerializable(typeof(DigestPreviewDto))]
 [JsonSerializable(typeof(OutboxPage))] [JsonSerializable(typeof(ConfigAuditPage))] [JsonSerializable(typeof(AcknowledgeRequest))]
 [JsonSerializable(typeof(BulkAcknowledgeRequest))]
+[JsonSerializable(typeof(UserMessageRequest))] [JsonSerializable(typeof(UserMessageResult))] [JsonSerializable(typeof(UserMessagingStatusDto))]
 [JsonSerializable(typeof(IReadOnlyList<EventKindInfo>))]
 public sealed partial class WatchdogJsonContext : JsonSerializerContext;

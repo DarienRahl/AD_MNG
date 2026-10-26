@@ -24,4 +24,6 @@ public sealed record WatchdogConfiguration
     public DigestSettings Digest { get; init; } = new();
     public IReadOnlyList<RuleSettings> Rules { get; init; } = [];
     public RetentionSettings Retention { get; init; } = new();
+    /// <summary>Messages to users submitted by AD Manager (README U1b); off by default.</summary>
+    public UserMessagingSettings UserMessages { get; init; } = new();
 }

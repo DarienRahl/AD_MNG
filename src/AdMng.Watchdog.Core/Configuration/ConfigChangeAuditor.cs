@@ -43,7 +43,8 @@ namespace AdMng.Watchdog.Core.Configuration;
 /// removed.</item>
 /// <item><b>High</b> – any other change of recipients (<c>recipientGroups</c>, rule and digest recipient/channel
 /// references, <c>notifyManager</c>, a whole rule added/removed that sends somewhere or carries exclusions),
-/// <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>.</item>
+/// <c>channels</c>, <c>smtp</c>, <c>attribution</c>, exclusions; <c>digest.enabled</c>; <c>userMessages.enabled</c> and
+/// <c>userMessages.allowedSenders</c>.</item>
 /// <item><b>Medium</b> – everything else.</item>
 /// </list>
 /// </remarks>
@@ -430,6 +431,9 @@ public sealed class ConfigChangeAuditor
                         : Severity.High;
                 case "digest":
                     return property is "enabled" or "recipientGroupIds" or "channelIds" ? Severity.High : Severity.Medium;
+                case "userMessages":
+                    // Who may send in the name of the IT department (README U1b): switching it on or widening the senders.
+                    return property is "enabled" or "allowedSenders" ? Severity.High : Severity.Medium;
                 case "retention":
                     return Decreased(oldNode, newNode) ? Severity.Critical : Severity.Medium;
                 case "rules":

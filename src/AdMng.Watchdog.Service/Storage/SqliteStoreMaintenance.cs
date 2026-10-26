@@ -79,6 +79,7 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
             cancellationToken).ConfigureAwait(false);
         var audit = await DeleteInBatchesAsync("config_audit", "rowid", "at < $cutoff", Cutoff(now, retention.ConfigAuditDays), cancellationToken).ConfigureAwait(false);
         await DeleteInBatchesAsync("digest_runs", "rowid", "created_at < $cutoff", SqliteValues.ToUnixMs(now - DigestRunRetention), cancellationToken).ConfigureAwait(false);
+        await DeleteInBatchesAsync("user_messages", "rowid", "submitted_at < $cutoff", Cutoff(now, retention.UserMessageAuditDays), cancellationToken).ConfigureAwait(false);
 
         var cap = await EnforceSizeCapAsync(retention.MaxDatabaseMb, cancellationToken).ConfigureAwait(false);
         await CompactAsync(cancellationToken).ConfigureAwait(false);

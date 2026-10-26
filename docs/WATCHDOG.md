@@ -478,6 +478,67 @@ dowodach atrybucji pokazywane jako „�” – rekord nie jest z tego powodu o
   przechodzi w ostrzeżenie aż do następnej udanej wysyłki – także wtedy, gdy nic nie jest wysyłane. Kolejna awaria po
   tym czasie wywołuje nowy alarm „kanał nie może dostarczać powiadomień”.
 - Częściowe doręczenie e-maili i limity wiadomości SMTP opisuje rozdział 5.2, sygnały heartbeat – 5.4.
+- **Wiadomości do użytkowników** (rozdział 5.8) idą tą samą kolejką, ale **po** czekających alarmach swojego kanału, a
+  przy niesprawnym kanale lub błędzie uwierzytelnienia są porzucane od razu (AD Manager dostał już informację o błędzie).
+
+### 5.8 Wiadomości do użytkowników (z AD Managera)
+
+AD Manager może wysyłać wiadomości do użytkowników z szablonów („hasło wygasa 5 listopada”, „konto zostanie
+wyłączone” …, [README, U1](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)) bezpośrednio przez SMTP albo
+**przez tę usługę** – wtedy korzysta z jej kanału SMTP (także Exchange Online z OAuth2), sekretów, kolejki z
+ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
+
+**Włączenie:** zakładka Watchdog → *Kanały i SMTP* → karta *Wiadomości do użytkowników (z AD Managera)* (Admin):
+
+| Ustawienie | Domyślnie | Znaczenie |
+|---|---|---|
+| `userMessages.enabled` | wyłączone | pozwala AD Managerowi wysyłać wiadomości do użytkowników (wymaga włączonego SMTP z nadawcą) |
+| `userMessages.maxMessagesPerHour` | 300 | ile wiadomości przyjmie usługa w ostatnich 60 minutach – od wszystkich operatorów razem |
+| `userMessages.maxMessagesPerDay` | 2000 | to samo dla ostatnich 24 godzin |
+| `userMessages.allowedSenders` | pusta | dodatkowi dozwoleni nadawcy (*Od*) i adresy odpowiedzi: cały adres albo `@domena`; nadawca i adres odpowiedzi kanału SMTP są dozwolone zawsze |
+| `retention.userMessageAuditDays` | 365 | jak długo przechowywany jest audyt wysłanych wiadomości |
+
+Zmiana przełącznika i listy nadawców ma w audycie konfiguracji ważność „wysoka”. W AD Managerze ustawienie *Sposób
+wysyłki* = *Automatycznie* (domyślne) wybiera Watchdoga, gdy połączenie z usługą jest skonfigurowane, a funkcja włączona
+– w przeciwnym razie wysyła bezpośrednio przez SMTP; *Przez AdMng Watchdog* pokazuje powód, gdy usługa nie może
+przyjąć wiadomości (wyłączone, brak uprawnień, brak połączenia, starsza wersja usługi).
+
+**Kto może wysyłać:** administratorzy **i obserwatorzy** Watchdoga (helpdesk to zwykle obserwatorzy); `DeniedSids`
+wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
+
+**Co sprawdza usługa** (niezależnie od AD Managera, przy każdej wiadomości – `POST /api/v1/user-messages`):
+
+- jedna wiadomość na konto: 1–2 adresy *Do*, razem z *DW* najwyżej 10; każdy adres to dokładnie jedna skrzynka,
+- żadnych znaków CR/LF ani innych sterujących w temacie, adresach i nazwach (wiadomość jest odrzucana, nie
+  „naprawiana”), temat do 250 znaków, treść tekstowa do 50 000 znaków, HTML do 100 000,
+- HTML bez skryptów, ramek, formularzy, `on…=`, `javascript:`/`data:`/`vbscript:`/`file:` (te same reguły co w AD
+  Managerze), język `pl` lub `en`,
+- **brak załączników** – żądanie z nieznanym polem (np. `attachments`, `bcc`) jest odrzucane,
+- *Od* i *Odpowiedz do* tylko z konfiguracji kanału SMTP lub listy dozwolonych nadawców; **nadawcą koperty** (MAIL
+  FROM) jest zawsze `smtp.from`. Usługa nie zna listy dozwolonych domen łączy AD Managera – tę sprawdza AD Manager.
+
+**Wynik dla AD Managera.** Wiadomość trafia do kolejki wysyłek (rodzaj „Wiadomość do użytkownika”), a żądanie czeka do
+20 sekund na pierwszą próbę SMTP:
+
+| Odpowiedź | Kiedy | Raport w AD Managerze |
+|---|---|---|
+| `Delivered` (200) | serwer SMTP przyjął wiadomość dla adresata *Do* | przyjęta (odrzucone kopie *DW* jako ostrzeżenie) |
+| `Rejected` (200) | odrzucenie stałe 5xx, np. `smtp.550.5.1.1` | nieudana, kod i podpowiedź; w dzienniku wysyłek „Niedostarczone” |
+| `Queued` (202) | limit tempa kanału, chwilowy błąd 4xx/przekroczony czas albo brak próby w 20 s | **przyjęta** z dopiskiem „w kolejce AdMng Watchdog” – usługa ponawia jak alarmy, wynik w dzienniku wysyłek |
+| `Failed` (200) | błąd uwierzytelnienia, TLS, konfiguracji kanału | nieudana; przebieg zatrzymany (pozostałe „niewysłane”), wiadomość porzucona od razu |
+| 409 / 429 | funkcja wyłączona / limit godzinowy lub dobowy (z `Retry-After`) | przebieg zatrzymany, pozostałe „niewysłane” – *Ponów nieudane* później |
+
+Każde żądanie jest **idempotentne** po identyfikatorze wiadomości: ponowienie po przekroczeniu czasu albo zerwanym
+połączeniu zwraca stan pierwszego zgłoszenia i nie wysyła wiadomości drugi raz; ten sam identyfikator z inną treścią
+lub od innej osoby to 409. `GET /api/v1/user-messages/status` (administratorzy i obserwatorzy) pokazuje, czy funkcja
+działa, kanał (`host:port`), nadawcę, dozwolonych nadawców, limity i liczbę wiadomości w ostatniej godzinie i dobie.
+
+**Dane i audyt.** Temat, treść i adresy są tylko w treści wiadomości w kolejce – usuwane zaraz po wysłaniu, nieudane
+po `OutboxDeadDays` (90 dni, do ręcznego ponowienia). Dziennik wysyłek pokazuje dla wiadomości do użytkowników tylko
+rodzaj, stan, liczbę odbiorców i kody – **bez tematu i adresów**. Audyt (`user_messages` w `watchdog.db`): kto, kiedy,
+liczba odbiorców, skrót SHA-256 posortowanych adresów (pozwala sprawdzić „czy ten adres dostał wiadomość”, nie
+przechowując go) i skrót treści (kontrola idempotencji) – przez `retention.userMessageAuditDays`. Dziennik diagnostyczny
+zawiera jedną linię na wiadomość (identyfikator, konto operatora, liczba odbiorców) – bez adresów, skrótów i treści.
 
 ---
 
@@ -567,7 +628,8 @@ starcie – przy szerszych uprawnieniach usługa nie startuje).
 | Znormalizowane zdarzenia z dzienników DC związane ze zmianami (tylko pola potrzebne do dopasowania; wartości wyłącznie obserwowanych, nietajnych atrybutów) | `watchdog.db` | 30 dni; najstarsze usuwane wcześniej, gdy baza przekroczy limit rozmiaru (domyślnie 4096 MB) |
 | Rekordy logowań i nieudanych logowań (4624 typ 3 i 10, 4625, 4771, nieudane 4776 – bez logowań kont komputerów i anonimowych) | `watchdog.db` | 48 godzin (ustalone źródło jest kopiowane do zdarzenia) |
 | Migawka ustawień GPO (tylko najnowsza dla każdego GPO; hasła GPP i wartości wyglądające na hasła – wyłącznie informacja o obecności; skrypty – tylko skrót SHA-256) | `watchdog.db` | bieżący stan; usunięte GPO – do przywrócenia |
-| Kolejka wysyłek (treść wiadomości) | `watchdog.db` | treść usuwana zaraz po wysłaniu; nieudane 90 dni; metadane wysłanych 30 dni |
+| Kolejka wysyłek (treść wiadomości – także wiadomości do użytkowników z AD Managera, rozdz. 5.8) | `watchdog.db` | treść usuwana zaraz po wysłaniu; nieudane 90 dni; metadane wysłanych 30 dni (dla wiadomości do użytkowników bez tematu i adresów) |
+| Audyt wiadomości do użytkowników (kto, kiedy, liczba odbiorców, skróty SHA-256 adresów i treści) | `watchdog.db` | 365 dni (`retention.userMessageAuditDays`) |
 | Konfiguracja i historia jej zmian | `watchdog.db` | konfiguracja bieżąca; historia 3 lata |
 | Sekrety kanałów (hasło SMTP, sekret OAuth, adresy Teams/webhook, klucze podpisu) | `watchdog.db`, zaszyfrowane Data Protection i powiązane z miejscem docelowym; klucze w `keys/` zaszyfrowane kluczem z poświadczenia systemd (`/etc/admng-watchdog/credentials/dp-key.cred`, TPM2 + klucz hosta albo klucz hosta) | do usunięcia |
 | Kopie bazy | `backup/` (codziennie 3:15, 7 ostatnich; kopie sprzed migracji – najnowsza + 30 dni); gdy na `/var` brakuje miejsca, kopia jest pomijana (`storage.backupSkipped`) | 7 kopii |

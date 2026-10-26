@@ -351,7 +351,7 @@ public sealed class UserMessageComposerTests
     }
 
     [Fact]
-    public async Task Transport_Automatic_FallsBackToSmtp_WhileTheWatchdogDoesNotSupportMessages()
+    public async Task Transport_Automatic_FallsBackToSmtp_WhileTheWatchdogHasMessagesSwitchedOff()
     {
         var scenario = await CreateAsync();
         var composer = await scenario.OpenAsync([scenario.Company.JanKowalski]);
@@ -359,7 +359,7 @@ public sealed class UserMessageComposerTests
 
         await scenario.Harness.Settings.UpdateAsync(s => s.UserMessages.Transport = UserMessageTransportChoice.Watchdog, TestContext.Current.CancellationToken);
         await composer.InitializeAsync();
-        Assert.StartsWith("The AdMng Watchdog service does not support messages to users yet", composer.TransportText, StringComparison.Ordinal);
+        Assert.StartsWith("Messages to users are switched off in AdMng Watchdog", composer.TransportText, StringComparison.Ordinal);
 
         scenario.Watchdog.Configure(null);
         await composer.InitializeAsync();
@@ -373,7 +373,37 @@ public sealed class UserMessageComposerTests
         await composer.InitializeAsync();
         Assert.StartsWith("Sending is not configured", composer.TransportText, StringComparison.Ordinal);
         Assert.False((await new WatchdogUserMessageTransport(scenario.Watchdog).GetStatusAsync(TestContext.Current.CancellationToken)).IsAvailable);
-        await Assert.ThrowsAsync<NotSupportedException>(() => new WatchdogUserMessageTransport(scenario.Watchdog).ConnectAsync(TestContext.Current.CancellationToken));
+        var notConfigured = await Assert.ThrowsAsync<UserMessageTransportException>(() => new WatchdogUserMessageTransport(scenario.Watchdog).ConnectAsync(TestContext.Current.CancellationToken));
+        Assert.Equal("watchdog.notConfigured", notConfigured.Delivery.Code);
+    }
+
+    [Fact]
+    public async Task Transport_Automatic_UsesTheWatchdog_OnceItsMessagesAreOn_AndReportsQueuedMessages()
+    {
+        var scenario = await CreateAsync();
+        var company = scenario.Company;
+        scenario.Watchdog.UserMessagingStatus = scenario.Watchdog.UserMessagingStatus with { Enabled = true };
+        scenario.Watchdog.UserMessageHandler = request => request.To[0].Address.StartsWith("lukasz", StringComparison.Ordinal)
+            ? new AdMng.Watchdog.Contracts.Api.UserMessageResult { Id = request.Id, State = AdMng.Watchdog.Contracts.Api.UserMessageState.Queued, Code = "smtp.451.4.7.1", SmtpStatus = 451 }
+            : new AdMng.Watchdog.Contracts.Api.UserMessageResult { Id = request.Id, State = AdMng.Watchdog.Contracts.Api.UserMessageState.Delivered, Code = "ok", SmtpStatus = 250 };
+        var composer = await scenario.OpenAsync([company.JanKowalski, company.LukaszWisniewski], BuiltInMessageTemplates.PasswordExpiring, 14);
+        Assert.Equal("Sending through AdMng Watchdog (https://admng-wd.contoso.com:8443)", composer.TransportText);
+        await composer.PlanCommand.ExecuteAsync(null);
+        scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
+
+        await composer.SendCommand.ExecuteAsync(null);
+
+        Assert.Empty(scenario.Transport.Attempts);
+        Assert.Equal(["jan.kowalski@contoso.test", "lukasz.wisniewski@contoso.test"], scenario.Watchdog.UserMessages.Select(m => m.To[0].Address));
+        var sent = scenario.Watchdog.UserMessages[0];
+        Assert.Equal(("pl", "pomoc@contoso.test"), (sent.Language, sent.ReplyTo?.Address));
+        Assert.Contains(sent.Cc, c => c.Address == "helpdesk@contoso.test");
+        Assert.Contains("hasło", sent.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(UserMessageReportStatus.Accepted, Item(composer, "Łukasz Wiśniewski").ReportStatus);
+        Assert.StartsWith("Queued in AdMng Watchdog", Item(composer, "Łukasz Wiśniewski").ReportDetail, StringComparison.Ordinal);
+        Assert.Equal(string.Empty, Item(composer, "Jan Kowalski").ReportDetail);
+        var entry = Assert.Single(scenario.Harness.AuditLog.Entries, e => e.Action == UserMessageComposerViewModel.SessionLogAction);
+        Assert.Equal(("2/2", "AdMng Watchdog (https://admng-wd.contoso.com:8443)"), (entry.NewValue, entry.Server));
     }
 
     [Fact]

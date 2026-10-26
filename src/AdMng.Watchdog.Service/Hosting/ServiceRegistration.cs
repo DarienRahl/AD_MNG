@@ -114,6 +114,7 @@ public static class ServiceRegistration
         services.AddSingleton<ISecretStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
         services.AddSingleton<IStoreMaintenance>(p => p.GetRequiredService<SqliteWatchdogStore>());
         services.AddSingleton<IGpoContentStore>(p => p.GetRequiredService<SqliteWatchdogStore>());
+        services.AddSingleton<UserMessages.IUserMessageStore>(p => p.GetRequiredService<SqliteWatchdogStore>().UserMessages);
     }
 
     private static void AddDelivery(IServiceCollection services)
@@ -127,6 +128,7 @@ public static class ServiceRegistration
         services.AddSingleton<SmtpOAuthTokenProvider>();
         services.AddSingleton<TeamsTokenProvider>();
         services.AddSingleton<HttpChannelSender>();
+        services.AddSingleton<UserMessages.UserMessageDeliveryNotifier>();
         services.AddSingleton<SmtpEmailTransport>();
         services.AddSingleton<TeamsWorkflowTransport>();
         services.AddSingleton<WebhookTransport>();
@@ -284,6 +286,7 @@ public static class ServiceRegistration
     {
         services.AddSingleton<Auth.MachineAddresses>();
         services.AddSingleton<EventAccessLog>();
+        services.AddSingleton<UserMessages.UserMessageService>();
         services.AddSingleton<ConfigSecretsApplier>();
         services.AddSingleton<ConfigValidationService>();
         services.AddSingleton<ConfigChangeNotifier>();

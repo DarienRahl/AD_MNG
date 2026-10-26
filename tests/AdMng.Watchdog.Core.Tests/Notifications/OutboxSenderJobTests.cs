@@ -427,6 +427,67 @@ public sealed class OutboxSenderJobTests
         return (channel.State, channel.ConsecutiveFailures, channel.LastErrorCode);
     }
 
+    [Fact]
+    public async Task UserMessage_RejectedPermanently_IsDeadWithoutTouchingTheChannelHealth()
+    {
+        EnableUserMessages();
+        var id = await EnqueueAsync(DeliveryChannelType.Email, kind: DeliveryKind.UserMessage);
+        _email.Answer(new DeliveryResult { Outcome = DeliveryOutcome.Permanent, ErrorCode = "smtp.550.5.1.1" });
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, "smtp.550.5.1.1"), StatusAndCode(await _harness.OutboxItemAsync(id)));
+        Assert.Null(_harness.Health.GetChannel("email")?.LastFailureAt);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Theory]
+    [InlineData(DeliveryOutcome.ChannelBroken, "tls")]
+    [InlineData(DeliveryOutcome.AuthenticationFailed, "auth")]
+    public async Task UserMessage_OnABrokenChannel_IsDeadAtOnce_AndTheChannelReportsTheFailure(DeliveryOutcome outcome, string errorCode)
+    {
+        // AD Manager was told the run failed – the message is not retried hourly for a day behind the operator's back.
+        EnableUserMessages();
+        var id = await EnqueueAsync(DeliveryChannelType.Email, kind: DeliveryKind.UserMessage);
+        _email.Answer(new DeliveryResult { Outcome = outcome, ErrorCode = errorCode });
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, errorCode), StatusAndCode(await _harness.OutboxItemAsync(id)));
+        Assert.Equal(HealthState.Error, _harness.Health.GetChannel("email")!.State);
+        Assert.Single(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task UserMessages_AreGivenUp_WhenTheFeatureIsSwitchedOff_WithoutAFalseChannelAlert()
+    {
+        var id = await EnqueueAsync(DeliveryChannelType.Email, kind: DeliveryKind.UserMessage);
+        var alert = await EnqueueAsync(DeliveryChannelType.Email);
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal((OutboxStatus.Dead, OutboxSenderJob.UserMessagesDisabledCode), StatusAndCode(await _harness.OutboxItemAsync(id)));
+        Assert.Equal(OutboxStatus.Sent, (await _harness.OutboxItemAsync(alert)).Status);
+        Assert.Equal(DeliveryKind.Alert, Assert.Single(_email.Sent).Kind);
+        Assert.Empty(await HealthEventsAsync());
+    }
+
+    [Fact]
+    public async Task Alerts_AreSentBeforeTheUserMessagesOfTheirChannel()
+    {
+        EnableUserMessages();
+        var first = await EnqueueAsync(DeliveryChannelType.Email, kind: DeliveryKind.UserMessage);
+        var second = await EnqueueAsync(DeliveryChannelType.Email, kind: DeliveryKind.UserMessage);
+        var alert = await EnqueueAsync(DeliveryChannelType.Email);
+
+        await _job.RunOnceAsync(Ct);
+
+        Assert.Equal([alert, first, second], _email.Sent.Select(m => m.Id));
+    }
+
+    private void EnableUserMessages() =>
+        _harness.Config.Set(_harness.Current with { UserMessages = _harness.Current.UserMessages with { Enabled = true } });
+
     private async Task<long> EnqueueAsync(DeliveryChannelType type, string channelId = "email", DateTimeOffset? createdAt = null, DeliveryKind kind = DeliveryKind.Alert)
     {
         var at = createdAt ?? Time;

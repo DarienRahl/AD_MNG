@@ -24,6 +24,9 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
     private static readonly TimeSpan EmailTestTimeout = TimeSpan.FromSeconds(75);
     private static readonly TimeSpan ChannelTestTimeout = TimeSpan.FromSeconds(60);
 
+    /// <summary>The service waits up to 20 s for the first SMTP attempt of a message to a user.</summary>
+    private static readonly TimeSpan UserMessageTimeout = TimeSpan.FromSeconds(45);
+
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<WatchdogHttpClient> _logger;
     private readonly Lock _gate = new();
@@ -183,6 +186,15 @@ public sealed partial class WatchdogHttpClient : IWatchdogClient
 
     public Task RetryOutboxAsync(long id, CancellationToken cancellationToken) =>
         SendAsync<object>(HttpMethod.Post, WatchdogRoutes.OutboxRetryPath(id), body: null, null, cancellationToken);
+
+    public Task<UserMessagingStatusDto> GetUserMessagingStatusAsync(CancellationToken cancellationToken) =>
+        GetAsync<UserMessagingStatusDto>(WatchdogRoutes.UserMessagesStatus, cancellationToken);
+
+    public async Task<UserMessageResult> SendUserMessageAsync(UserMessageRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return (await SendAsync<UserMessageResult>(HttpMethod.Post, WatchdogRoutes.UserMessages, Json(request), UserMessageTimeout, cancellationToken).ConfigureAwait(false))!;
+    }
 
     public void Dispose()
     {

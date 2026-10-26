@@ -19,6 +19,8 @@ public sealed record RetentionSettings
     public int OutboxDeadDays { get; init; } = 90;
     public int DeletedSnapshotDays { get; init; } = 180;
     public int ConfigAuditDays { get; init; } = 1095;
+    /// <summary>Audit rows of messages to users (who, when, recipient count and hash – never addresses or content).</summary>
+    public int UserMessageAuditDays { get; init; } = 365;
     public int BackupsToKeep { get; init; } = 7;
     /// <summary>Pre-migration backups older than this are deleted (the newest one is always kept).</summary>
     public int PreMigrationBackupDays { get; init; } = 30;

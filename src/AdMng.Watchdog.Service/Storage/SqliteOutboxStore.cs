@@ -7,7 +7,8 @@ namespace AdMng.Watchdog.Service.Storage;
 /// <summary>
 /// <see cref="IOutboxStore"/> over <c>outbox</c> / <c>outbox_events</c>: leasing (crash-safe, never counts an attempt),
 /// sent messages lose their payload (spec 16.3), dead messages keep it for a manual retry, the delivery log pages
-/// backwards by id.
+/// backwards by id. Messages to users (README U1b) are leased after every other due message, so a bulk send from AD
+/// Manager never delays an alert by more than one rate-limit token.
 /// </summary>
 public sealed class SqliteOutboxStore : IOutboxStore
 {
@@ -39,9 +40,10 @@ public sealed class SqliteOutboxStore : IOutboxStore
                     SELECT id FROM outbox
                     WHERE (status IN ($pending, $retrying) AND next_attempt_at <= $now)
                        OR (status = $sending AND lease_until IS NOT NULL AND lease_until <= $now)
-                    ORDER BY next_attempt_at, id LIMIT $limit;
+                    ORDER BY kind = $userMessage, next_attempt_at, id LIMIT $limit;
                     """,
                     r => r.GetInt64(0),
+                    ("$userMessage", (int)DeliveryKind.UserMessage),
                     ("$pending", (int)OutboxStatus.Pending),
                     ("$retrying", (int)OutboxStatus.Retrying),
                     ("$sending", (int)OutboxStatus.Sending),

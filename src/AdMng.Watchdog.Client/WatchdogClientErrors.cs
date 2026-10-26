@@ -35,7 +35,7 @@ public static class WatchdogClientErrors
             return null;
         }
 
-        var (title, issues) = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
+        var (title, type, issues) = await ReadProblemAsync(response, cancellationToken).ConfigureAwait(false);
         var kind = response.StatusCode switch
         {
             HttpStatusCode.Unauthorized => WatchdogClientErrorKind.Unauthorized,
@@ -50,7 +50,14 @@ public static class WatchdogClientErrors
         var message = string.IsNullOrWhiteSpace(title)
             ? string.Create(CultureInfo.InvariantCulture, $"The watchdog service answered HTTP {status}.")
             : string.Create(CultureInfo.InvariantCulture, $"The watchdog service answered HTTP {status}: {title}");
-        return new WatchdogClientException(kind, message) { StatusCode = status, Issues = issues };
+        return new WatchdogClientException(kind, message)
+        {
+            StatusCode = status,
+            Issues = issues,
+            ProblemType = type,
+            RetryAfter = response.Headers.RetryAfter?.Delta
+                ?? (response.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null),
+        };
     }
 
     /// <summary>The error of a failed request.</summary>
@@ -97,11 +104,11 @@ public static class WatchdogClientErrors
         return new WatchdogClientException(WatchdogClientErrorKind.Unreachable, "The connection to the watchdog service failed.", exception);
     }
 
-    private static async Task<(string? Title, IReadOnlyList<ConfigIssue> Issues)> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private static async Task<(string? Title, string? Type, IReadOnlyList<ConfigIssue> Issues)> ReadProblemAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.Content.Headers.ContentType?.MediaType is not ("application/problem+json" or "application/json"))
         {
-            return (null, []);
+            return (null, null, []);
         }
 
         try
@@ -111,14 +118,17 @@ public static class WatchdogClientErrors
             var title = document.RootElement.TryGetProperty("title", out var titleElement) && titleElement.ValueKind == JsonValueKind.String
                 ? titleElement.GetString()
                 : null;
+            var type = document.RootElement.TryGetProperty("type", out var typeElement) && typeElement.ValueKind == JsonValueKind.String
+                ? typeElement.GetString()
+                : null;
             var issues = document.RootElement.TryGetProperty("issues", out _)
                 ? JsonSerializer.Deserialize<ConfigValidationResult>(text, WatchdogJson.Options)?.Issues ?? []
                 : [];
-            return (title, issues);
+            return (title, type, issues);
         }
         catch (JsonException)
         {
-            return (null, []);
+            return (null, null, []);
         }
     }
 

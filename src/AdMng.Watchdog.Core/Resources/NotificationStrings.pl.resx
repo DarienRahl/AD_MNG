@@ -2027,4 +2027,7 @@
   <data name="Value.WhatWithRule" xml:space="preserve">
     <value>{0} (reguła: {1})</value>
   </data>
+  <data name="DeliveryKind.UserMessage" xml:space="preserve">
+    <value>Wiadomość do użytkownika</value>
+  </data>
 </root>

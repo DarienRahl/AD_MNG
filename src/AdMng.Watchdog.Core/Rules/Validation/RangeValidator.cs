@@ -164,6 +164,7 @@ internal static class RangeValidator
         RangeCheck.Check(run, "retention.outboxDeadDays", r.OutboxDeadDays, 1, 3650);
         RangeCheck.Check(run, "retention.deletedSnapshotDays", r.DeletedSnapshotDays, 1, 3650);
         RangeCheck.Check(run, "retention.configAuditDays", r.ConfigAuditDays, 1, 3650);
+        RangeCheck.Check(run, "retention.userMessageAuditDays", r.UserMessageAuditDays, 1, 3650);
         RangeCheck.Check(run, "retention.preMigrationBackupDays", r.PreMigrationBackupDays, 1, 3650);
         RangeCheck.Check(run, "retention.backupsToKeep", r.BackupsToKeep, 0, 1000);
         RangeCheck.Check(run, "retention.maxDatabaseMb", r.MaxDatabaseMb, 512, 1_048_576);

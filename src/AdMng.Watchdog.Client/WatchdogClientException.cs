@@ -29,6 +29,12 @@ public sealed class WatchdogClientException : Exception
     public int? StatusCode { get; init; }
     public IReadOnlyList<ConfigIssue> Issues { get; init; } = [];
 
+    /// <summary>The problem "type" of the answer (<see cref="ApiProblem"/>), when the service sent problem details.</summary>
+    public string? ProblemType { get; init; }
+
+    /// <summary>The <c>Retry-After</c> of the answer (429 of the user-message limits).</summary>
+    public TimeSpan? RetryAfter { get; init; }
+
     /// <summary><see cref="WatchdogClientErrorKind.CertificateUntrusted"/> / <see cref="WatchdogClientErrorKind.CertificateChanged"/>:
     /// the leaf the service presented.</summary>
     public WatchdogServerCertificate? Certificate { get; init; }

@@ -601,6 +601,38 @@ public sealed class WatchdogChannelsTests
         });
     }
 
+    [Fact]
+    public async Task UserMessaging_SwitchLimitsAndSenders_ReachTheWorkingConfiguration_AndShowTheServicesIssues()
+    {
+        using var h = await WatchdogHarness.CreateAsync();
+        h.Client.Validator = c => c.UserMessages.AllowedSenders.Count > 1
+            ? [new ConfigIssue { Path = "userMessages.allowedSenders[1]", Code = "invalidAddress", Severity = IssueSeverity.Error, Message = "x" }]
+            : [];
+        await h.Ui.RunAsync(async () =>
+        {
+            var (session, channels) = await OpenAsync(h);
+            var messaging = channels.UserMessaging!;
+            Assert.False(messaging.Enabled);
+            Assert.Equal(("300", "2000", string.Empty), (messaging.MaxMessagesPerHour, messaging.MaxMessagesPerDay, messaging.AllowedSenders));
+            Assert.False(session.IsDirty);
+
+            messaging.Enabled = true;
+            messaging.MaxMessagesPerHour = "120";
+            messaging.MaxMessagesPerDay = "dużo";
+            messaging.AllowedSenders = "helpdesk@contoso.com\r\n@kadry.contoso.com; pomoc@contoso.com";
+
+            var stored = session.Working!.UserMessages;
+            Assert.True(stored.Enabled);
+            Assert.Equal((120, 2000), (stored.MaxMessagesPerHour, stored.MaxMessagesPerDay));
+            Assert.Equal(["helpdesk@contoso.com", "@kadry.contoso.com", "pomoc@contoso.com"], stored.AllowedSenders);
+            Assert.NotNull(messaging.NumbersError);
+            Assert.True(session.IsDirty);
+
+            Assert.False(await session.ValidateAsync());
+            Assert.Equal(h.Ad.Localizer[WatchdogDisplay.ValidationKey("invalidAddress")], messaging.AllowedSendersError);
+        });
+    }
+
     private static async Task<(WatchdogConfigSession Session, WatchdogChannelsViewModel Channels)> OpenAsync(WatchdogHarness h)
     {
         var session = new WatchdogConfigSession(h.Services) { IsAdmin = true };

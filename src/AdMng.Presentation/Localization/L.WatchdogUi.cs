@@ -204,6 +204,13 @@ public static partial class L
         public const string SmtpReplyTo = "Watchdog.Ui.SmtpReplyTo";
         public const string SmtpSecurity = "Watchdog.Ui.SmtpSecurity";
         public const string SmtpTitle = "Watchdog.Ui.SmtpTitle";
+        public const string UserMessagingTitle = "Watchdog.Ui.UserMessagingTitle";
+        public const string UserMessagingEnabled = "Watchdog.Ui.UserMessagingEnabled";
+        public const string UserMessagingHint = "Watchdog.Ui.UserMessagingHint";
+        public const string UserMessagingPerHour = "Watchdog.Ui.UserMessagingPerHour";
+        public const string UserMessagingPerDay = "Watchdog.Ui.UserMessagingPerDay";
+        public const string UserMessagingSenders = "Watchdog.Ui.UserMessagingSenders";
+        public const string UserMessagingSendersHint = "Watchdog.Ui.UserMessagingSendersHint";
         public const string SmtpUserName = "Watchdog.Ui.SmtpUserName";
         public const string SnapshotObjects = "Watchdog.Ui.SnapshotObjects";
         public const string SourceConfidence = "Watchdog.Ui.SourceConfidence";

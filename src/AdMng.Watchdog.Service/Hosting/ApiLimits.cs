@@ -23,4 +23,8 @@ public static class ApiLimits
 
     /// <summary>Test channel send timeout.</summary>
     public static readonly TimeSpan ChannelTestTimeout = TimeSpan.FromSeconds(45);
+
+    /// <summary>How long <c>POST /api/v1/user-messages</c> waits for the first SMTP attempt before it answers "queued"
+    /// (the client waits <see cref="UserMessageWait"/> + 25 s).</summary>
+    public static readonly TimeSpan UserMessageWait = TimeSpan.FromSeconds(20);
 }

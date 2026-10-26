@@ -6,6 +6,7 @@ using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Abstractions;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Core.Notifications;
+using AdMng.Watchdog.Service.UserMessages;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -24,6 +25,11 @@ namespace AdMng.Watchdog.Service.Notifications;
 /// somebody got the message, a transient code carries <see cref="OutboxSenderJob.PartialDeliveryPrefix"/>.
 /// Rate limit: <c>MaxMessagesPerMinute</c>, one token per SMTP message (chunk); a denial is
 /// <see cref="DeliveryOutcome.Deferred"/> and the chunks already sent are not sent again.
+/// <para>A message to a user (<see cref="DeliveryKind.UserMessage"/>, README U1b) is ONE SMTP message with its own header
+/// From / Reply-To / To / CC (<see cref="MimeMessageFactory.CreateUserMessage"/>) and the envelope sender
+/// <c>smtp.from</c>: accepted when a To recipient is accepted (rejected CC addresses are reported, not retried), otherwise
+/// classified by the To rejection. Every attempt (not a rate-limit deferral) is reported to the waiting API request
+/// (<see cref="UserMessageDeliveryNotifier"/>).</para>
 /// </summary>
 public sealed partial class SmtpEmailTransport : INotificationTransport
 {
@@ -37,6 +43,7 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
     private readonly IHostEnvironment _environment;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<SmtpEmailTransport> _logger;
+    private readonly UserMessageDeliveryNotifier? _userMessages;
 
     public SmtpEmailTransport(
         IWatchdogConfigProvider configuration,
@@ -45,8 +52,10 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
         ChannelRateLimiters limiters,
         IHostEnvironment environment,
         TimeProvider timeProvider,
-        ILogger<SmtpEmailTransport> logger)
+        ILogger<SmtpEmailTransport> logger,
+        UserMessageDeliveryNotifier? userMessages = null)
     {
+        _userMessages = userMessages;
         _configuration = configuration;
         _guard = guard;
         _tokens = tokens;
@@ -73,8 +82,90 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
             return Deferred(decision);
         }
 
-        var attempt = await SendCoreAsync(message, smtp, recorder: null, outbox: true, cancellationToken).ConfigureAwait(false);
+        var attempt = message.Kind == DeliveryKind.UserMessage
+            ? await SendUserMessageAsync(message, smtp, cancellationToken).ConfigureAwait(false)
+            : await SendCoreAsync(message, smtp, recorder: null, outbox: true, cancellationToken).ConfigureAwait(false);
         return Finish(message, attempt);
+    }
+
+    /// <summary>One message to a user: one connection, one SMTP transaction (To + CC), envelope sender <c>smtp.from</c>.</summary>
+    private async Task<SmtpAttempt> SendUserMessageAsync(OutboxMessage message, SmtpSettings smtp, CancellationToken cancellationToken)
+    {
+        if (message.Email is not { UserMessage: { To.Count: > 0 } envelope } email)
+        {
+            return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.noContent"));
+        }
+
+        MimeMessage mime;
+        MailboxAddress sender;
+        var localDomain = MimeMessageFactory.LocalDomain(smtp);
+        try
+        {
+            mime = MimeMessageFactory.CreateUserMessage(email, envelope, message.MessageId, localDomain, _timeProvider.GetUtcNow());
+            sender = new MailboxAddress(null, MimeMessageFactory.ParseMailbox(smtp.From ?? string.Empty).Address);
+        }
+        catch (FormatException)
+        {
+            return SmtpAttempt.Failed(ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, "smtp.invalidAddress"));
+        }
+
+        var credential = await ResolveCredentialAsync(smtp, recorder: null, cancellationToken).ConfigureAwait(false);
+        if (credential.Failure is { } refused)
+        {
+            return SmtpAttempt.Failed(refused);
+        }
+
+        var validation = new SmtpCertificateValidation(smtp.CertificateValidation, smtp.PinnedSha256, _environment.IsDevelopment());
+        using var client = new WatchdogSmtpClient
+        {
+            LocalDomain = localDomain,
+            Timeout = (int)Math.Clamp(smtp.Timeout.TotalMilliseconds, 1000, int.MaxValue),
+            SslProtocols = DeliveryTls.Protocols,
+            CheckCertificateRevocation = smtp.CheckRevocation,
+            ServerCertificateValidationCallback = validation.Validate,
+        };
+        try
+        {
+            await ConnectAsync(client, smtp, recorder: null, cancellationToken).ConfigureAwait(false);
+            if (await AuthenticateAsync(client, smtp, credential, recorder: null, cancellationToken).ConfigureAwait(false) is { } authFailure)
+            {
+                return SmtpAttempt.Failed(authFailure);
+            }
+
+            client.ResetEnvelope();
+            try
+            {
+                await client.SendAsync(mime, sender, [.. mime.To.Mailboxes, .. mime.Cc.Mailboxes], cancellationToken).ConfigureAwait(false);
+            }
+            catch (SmtpCommandException) when (client.AcceptedRecipients == 0 && client.RejectedRecipients.Count > 0)
+            {
+                var first = client.RejectedRecipients[0];
+                return new SmtpAttempt(SmtpErrorClassifier.ClassifyCommand(first.Status, first.Reply), 0, 0, client.RejectedRecipients.Count);
+            }
+
+            var to = envelope.To.Select(t => t.Address).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var toRejected = client.RejectedRecipients.Where(r => to.Contains(r.Address)).ToList();
+            if (toRejected.Count > 0 && client.AcceptedAddresses.All(a => !to.Contains(a)))
+            {
+                // Nobody in To got it (a CC may have): classified by the To rejection, as AD Manager's direct transport does.
+                return new SmtpAttempt(SmtpErrorClassifier.ClassifyCommand(toRejected[0].Status, toRejected[0].Reply), client.AcceptedRecipients, 0, toRejected.Count);
+            }
+
+            var copies = client.RejectedRecipients.Where(r => !to.Contains(r.Address)).Select(r => r.Address).ToList();
+            return new SmtpAttempt(ClassifiedDelivery.Delivered(250), client.AcceptedRecipients, 0, copies.Count) { RejectedCopies = copies };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return SmtpAttempt.Failed(SmtpErrorClassifier.Classify(ex, certificateHint: validation.FailureHint));
+        }
+        finally
+        {
+            await QuitAsync(client).ConfigureAwait(false);
+        }
     }
 
     /// <summary>The delivery code path shared with the test send (<see cref="DeliveryTester"/>): no rate limit and no
@@ -419,6 +510,18 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
     private DeliveryResult Finish(OutboxMessage message, SmtpAttempt attempt)
     {
         var result = attempt.Result.Result;
+        if (message.Kind == DeliveryKind.UserMessage)
+        {
+            _userMessages?.Report(message.MessageId, new UserMessageAttempt(
+                result.Outcome,
+                result.Outcome == DeliveryOutcome.Delivered ? "ok" : result.ErrorCode ?? result.Outcome.ToString(),
+                result.StatusCode,
+                attempt.Result.Hints.FirstOrDefault())
+            {
+                RejectedCopies = attempt.RejectedCopies,
+            });
+        }
+
         if (attempt.TemporarilyRejected > 0)
         {
             Log.RecipientsDeferred(_logger, message.MessageId, attempt.TemporarilyRejected);
@@ -488,6 +591,10 @@ public sealed partial class SmtpEmailTransport : INotificationTransport
     /// <summary>The outcome of one attempt with the recipient counts (no addresses).</summary>
     private sealed record SmtpAttempt(ClassifiedDelivery Result, int Accepted, int TemporarilyRejected, int PermanentlyRejected)
     {
+        /// <summary>A message to a user: the CC addresses the server rejected while a To recipient accepted (memory only,
+        /// handed to the waiting request).</summary>
+        public IReadOnlyList<string> RejectedCopies { get; init; } = [];
+
         public static SmtpAttempt Failed(ClassifiedDelivery result) => new(result, 0, 0, 0);
     }
 

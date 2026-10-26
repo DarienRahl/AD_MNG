@@ -38,6 +38,7 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     private readonly List<(string ChannelId, TestChannelRequest Request)> _channelTests = [];
     private readonly List<RulePreviewRequest> _rulePreviews = [];
     private readonly List<OutboxQuery> _outboxQueries = [];
+    private readonly List<UserMessageRequest> _userMessages = [];
     private TaskCompletionSource _newEvent = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private (Func<EventQuery, bool> Match, TaskCompletionSource Release)? _eventHold;
     private WatchdogClientOptions? _options;
@@ -113,6 +114,25 @@ public sealed class FakeWatchdogClient : IWatchdogClient
 
     /// <summary>Result of a channel test (default: Teams 202 with the "accepted, not delivered" hint, webhook 200).</summary>
     public Func<string, TestChannelRequest, DeliveryTestResult>? ChannelTestHandler { get; set; }
+
+    /// <summary>Result of <c>GET /user-messages/status</c> (default: like a fresh service – the SMTP channel
+    /// smtp.contoso.com:587 is configured, messages to users are switched off).</summary>
+    public UserMessagingStatusDto UserMessagingStatus { get; set; } = new()
+    {
+        Enabled = false,
+        SmtpConfigured = true,
+        Channel = "smtp.contoso.com:587",
+        Sender = "watchdog@contoso.com",
+        MaxMessagesPerHour = 300,
+        MaxMessagesPerDay = 2000,
+    };
+
+    /// <summary>Result of <c>POST /user-messages</c> per request (default: Delivered, 250). A repeated id answers the first
+    /// result with <see cref="UserMessageResult.Duplicate"/> like the service.</summary>
+    public Func<UserMessageRequest, UserMessageResult>? UserMessageHandler { get; set; }
+
+    /// <summary>Messages received by <see cref="SendUserMessageAsync"/> (repeated ids included).</summary>
+    public IReadOnlyList<UserMessageRequest> UserMessages => Snapshot(_userMessages);
 
     /// <summary>Number of <c>POST /digest/send</c> calls that succeeded.</summary>
     public int DigestSends { get; private set; }
@@ -700,6 +720,36 @@ public sealed class FakeWatchdogClient : IWatchdogClient
             }
 
             Outbox[index] = Outbox[index] with { Status = OutboxStatus.Pending, NextAttemptAt = _time.GetUtcNow(), LastError = null, LastErrorCode = null };
+        }
+    }
+
+    public async Task<UserMessagingStatusDto> GetUserMessagingStatusAsync(CancellationToken cancellationToken)
+    {
+        await EnterAsync(nameof(GetUserMessagingStatusAsync), cancellationToken).ConfigureAwait(false);
+        return UserMessagingStatus;
+    }
+
+    public async Task<UserMessageResult> SendUserMessageAsync(UserMessageRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        await EnterAsync(nameof(SendUserMessageAsync), cancellationToken).ConfigureAwait(false);
+        lock (_gate)
+        {
+            var repeated = _userMessages.Any(m => m.Id == request.Id);
+            _userMessages.Add(request);
+            if (!UserMessagingStatus.Available)
+            {
+                throw new WatchdogClientException(WatchdogClientErrorKind.Validation, "Messages to users are switched off.")
+                {
+                    StatusCode = 409,
+                    ProblemType = ApiProblem.UserMessagesUnavailable,
+                    Issues = [new ConfigIssue { Path = "userMessages.enabled", Code = UserMessageIssueCodes.Disabled, Severity = IssueSeverity.Error, Message = "off" }],
+                };
+            }
+
+            var result = UserMessageHandler?.Invoke(request)
+                         ?? new UserMessageResult { Id = request.Id, State = UserMessageState.Delivered, Code = "ok", SmtpStatus = 250 };
+            return repeated ? result with { Duplicate = true } : result;
         }
     }
 

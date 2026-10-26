@@ -259,6 +259,47 @@
             </StackPanel>
           </Border>
 
+          <!-- Messages to users from AD Manager (README U1b) -->
+          <Border x:Name="UserMessagingCard"
+                  DataContext="{Binding UserMessaging, Mode=OneWay}"
+                  Style="{StaticResource Wd.Card}"
+                  Visibility="{Binding Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}, FallbackValue=Collapsed}">
+            <StackPanel IsEnabled="{Binding CanEdit, Mode=OneWay}">
+              <TextBlock Style="{StaticResource Wd.CardTitle}" Text="{l:Tr Watchdog.Ui.UserMessagingTitle}" />
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.UserMessagingHint}" />
+              <CheckBox x:Name="UserMessagingEnabledBox"
+                        Margin="0,8,0,0"
+                        Content="{l:Tr Watchdog.Ui.UserMessagingEnabled}"
+                        IsChecked="{Binding Enabled}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding Errors[enabled], Mode=OneWay}" />
+              <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                <StackPanel Margin="0,0,12,0">
+                  <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Ui.UserMessagingPerHour}" />
+                  <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingPerHour}"
+                           Style="{StaticResource NumberBox}"
+                           Text="{Binding MaxMessagesPerHour, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Margin="0,6,0,0" Text="{l:Tr Watchdog.Ui.UserMessagingPerDay}" />
+                  <TextBox AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingPerDay}"
+                           Style="{StaticResource NumberBox}"
+                           Text="{Binding MaxMessagesPerDay, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding NumbersError, Mode=OneWay}" />
+              <TextBlock Style="{StaticResource Wd.TopLabel}" Text="{l:Tr Watchdog.Ui.UserMessagingSenders}" />
+              <TextBox x:Name="UserMessagingSendersBox"
+                       MinHeight="50"
+                       MaxHeight="120"
+                       AcceptsReturn="True"
+                       AutomationProperties.Name="{l:Tr Watchdog.Ui.UserMessagingSenders}"
+                       Text="{Binding AllowedSenders, UpdateSourceTrigger=PropertyChanged}"
+                       VerticalScrollBarVisibility="Auto" />
+              <TextBlock Style="{StaticResource Wd.Hint}" Text="{l:Tr Watchdog.Ui.UserMessagingSendersHint}" />
+              <TextBlock Style="{StaticResource Wd.FieldError}" Text="{Binding AllowedSendersError, Mode=OneWay}" />
+            </StackPanel>
+          </Border>
+
           <!-- Test e-mail with the unsaved SMTP settings -->
           <Border x:Name="EmailTestCard" Style="{StaticResource Wd.Card}">
             <StackPanel>

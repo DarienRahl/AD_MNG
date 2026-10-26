@@ -2,6 +2,8 @@ using System.Net;
 using AdMng.Core.Messaging;
 using AdMng.Presentation.Settings;
 using AdMng.Watchdog.Client;
+using AdMng.Watchdog.Contracts.Api;
+using WatchdogMessageRequest = AdMng.Watchdog.Contracts.Api.UserMessageRequest;
 
 namespace AdMng.Presentation.UserMessages;
 
@@ -56,27 +58,191 @@ public sealed class SmtpCredentialCache
 }
 
 /// <summary>
-/// Sending through the AdMng Watchdog service – **stub of part U1b** (design note section 7). The service does not offer
-/// messages to users yet: <see cref="GetStatusAsync"/> reports "not configured" without a service address and "not
-/// supported" otherwise, <see cref="ConnectAsync"/> throws. U1b replaces the body: the status from a new client call
-/// (service capability, allowed for Watchdog Admins and Viewers) and the send through <c>POST /api/v1/user-messages</c>.
+/// Sending through the AdMng Watchdog service (README U1b, design note section 10): the status from
+/// <c>GET /api/v1/user-messages/status</c> (allowed for Watchdog Admins and Viewers), each message as one
+/// <c>POST /api/v1/user-messages</c> – the service re-validates it, chooses the envelope sender, queues it in its outbox
+/// (retries, delivery log) and answers the first SMTP attempt. A repeated id is idempotent, so the dispatcher's retries
+/// after a timeout or a lost connection never send a message twice. Mapping of the answers:
+/// <list type="bullet">
+/// <item>Delivered → Accepted (with the rejected CC addresses); Queued → Accepted with code <c>watchdog.queued</c> (the
+/// service delivers it later – never sent again); Rejected → Rejected; Failed → AuthenticationFailed / TransportFailed
+/// (the run stops).</item>
+/// <item>409 switched off → TransportFailed <c>watchdog.disabled</c>; 400 with <c>senderNotAllowed</c> → TransportFailed
+/// <c>watchdog.senderNotAllowed</c>; other 400 → Rejected <c>watchdog.invalid</c>; 409 idempotency conflict → Rejected
+/// <c>watchdog.conflict</c>; 429 → TransportFailed <c>watchdog.limit</c>; 401/403 → AuthenticationFailed
+/// <c>watchdog.forbidden</c>; 404 / other API version → TransportFailed <c>watchdog.notSupported</c>; certificate →
+/// TransportFailed <c>tls</c>; unreachable, timeout, 5xx → Transient (retried with the same id).</item>
+/// </list>
 /// </summary>
 public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null) : IUserMessageTransport
 {
     public UserMessageTransportKind Kind => UserMessageTransportKind.Watchdog;
 
-    public string Description => "AdMng Watchdog";
+    public string Description => client?.BaseAddress is { } address
+        ? $"AdMng Watchdog ({address.GetLeftPart(UriPartial.Authority)})"
+        : "AdMng Watchdog";
 
     /// <summary>A Watchdog service address is configured.</summary>
     public bool IsConfigured => client?.IsConfigured == true;
 
-    public Task<UserMessageTransportStatus> GetStatusAsync(CancellationToken cancellationToken) =>
-        Task.FromResult(new UserMessageTransportStatus(
-            false,
-            IsConfigured ? UserMessageTransportStatus.NotSupported : UserMessageTransportStatus.NotConfigured));
+    public async Task<UserMessageTransportStatus> GetStatusAsync(CancellationToken cancellationToken)
+    {
+        if (client is null || !IsConfigured)
+        {
+            return new UserMessageTransportStatus(false, UserMessageTransportStatus.NotConfigured);
+        }
 
-    public Task<IUserMessageConnection> ConnectAsync(CancellationToken cancellationToken) =>
-        throw new NotSupportedException("Sending messages to users through AdMng Watchdog arrives with U1b.");
+        try
+        {
+            var status = await client.GetUserMessagingStatusAsync(cancellationToken).ConfigureAwait(false);
+            return status.Available ? UserMessageTransportStatus.Available : new UserMessageTransportStatus(false, UserMessageTransportStatus.Disabled);
+        }
+        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Cancelled && cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (WatchdogClientException ex)
+        {
+            return new UserMessageTransportStatus(false, ex.Kind switch
+            {
+                WatchdogClientErrorKind.NotConfigured => UserMessageTransportStatus.NotConfigured,
+                WatchdogClientErrorKind.NotFound or WatchdogClientErrorKind.ApiVersionMismatch => UserMessageTransportStatus.NotSupported,
+                WatchdogClientErrorKind.Unauthorized or WatchdogClientErrorKind.Forbidden => UserMessageTransportStatus.Forbidden,
+                _ => UserMessageTransportStatus.Unreachable,
+            });
+        }
+    }
+
+    public async Task<IUserMessageConnection> ConnectAsync(CancellationToken cancellationToken)
+    {
+        if (client is null || !IsConfigured)
+        {
+            throw new UserMessageTransportException(new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.notConfigured"));
+        }
+
+        UserMessagingStatusDto status;
+        try
+        {
+            status = await client.GetUserMessagingStatusAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Cancelled && cancellationToken.IsCancellationRequested)
+        {
+            throw new OperationCanceledException(cancellationToken);
+        }
+        catch (WatchdogClientException ex)
+        {
+            throw new UserMessageTransportException(Classify(ex), ex);
+        }
+
+        return status.Available
+            ? new Connection(client)
+            : throw new UserMessageTransportException(new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.disabled"));
+    }
+
+    /// <summary>The request of a rendered message (nothing is changed: the service checks it again).</summary>
+    public static WatchdogMessageRequest ToRequest(OutgoingUserMessage message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        return new WatchdogMessageRequest
+        {
+            Id = message.Id,
+            From = Address(message.From),
+            To = [.. message.To.Select(Address)],
+            Cc = [.. message.Cc.Select(Address)],
+            ReplyTo = message.ReplyTo is { } replyTo ? Address(replyTo) : null,
+            Subject = message.Subject,
+            TextBody = message.TextBody,
+            HtmlBody = message.HtmlBody,
+            Language = MessageLanguages.Code(message.Language),
+        };
+    }
+
+    /// <summary>The delivery of an answer of the service.</summary>
+    public static UserMessageDelivery FromResult(UserMessageResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.State switch
+        {
+            UserMessageState.Delivered => UserMessageDelivery.Accepted(result.SmtpStatus ?? 250) with { RejectedCopies = result.RejectedCopies },
+            UserMessageState.Queued => new UserMessageDelivery(UserMessageDeliveryOutcome.Accepted, QueuedCode, result.SmtpStatus, result.Hint),
+            UserMessageState.Rejected => new UserMessageDelivery(UserMessageDeliveryOutcome.Rejected, result.Code, result.SmtpStatus, result.Hint),
+            _ => new UserMessageDelivery(
+                IsAuthentication(result) ? UserMessageDeliveryOutcome.AuthenticationFailed : UserMessageDeliveryOutcome.TransportFailed,
+                result.Code,
+                result.SmtpStatus,
+                result.Hint),
+        };
+    }
+
+    /// <summary>A failed call of the service, classified (see the class remarks).</summary>
+    public static UserMessageDelivery Classify(WatchdogClientException exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        if (exception.ProblemType == ApiProblem.UserMessagesUnavailable)
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.disabled");
+        }
+
+        if (exception.ProblemType == ApiProblem.RateLimited || exception.StatusCode == 429)
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.limit");
+        }
+
+        if (exception.ProblemType == ApiProblem.IdempotencyConflict)
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.Rejected, "watchdog.conflict");
+        }
+
+        return exception.Kind switch
+        {
+            WatchdogClientErrorKind.Validation when exception.Issues.Any(i => i.Code == UserMessageIssueCodes.SenderNotAllowed) =>
+                new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.senderNotAllowed"),
+            WatchdogClientErrorKind.Validation => new UserMessageDelivery(UserMessageDeliveryOutcome.Rejected, "watchdog.invalid"),
+            WatchdogClientErrorKind.Unauthorized or WatchdogClientErrorKind.Forbidden =>
+                new UserMessageDelivery(UserMessageDeliveryOutcome.AuthenticationFailed, "watchdog.forbidden"),
+            WatchdogClientErrorKind.NotFound or WatchdogClientErrorKind.ApiVersionMismatch =>
+                new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.notSupported"),
+            WatchdogClientErrorKind.NotConfigured => new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.notConfigured"),
+            WatchdogClientErrorKind.CertificateInvalid or WatchdogClientErrorKind.CertificateUntrusted or WatchdogClientErrorKind.CertificateChanged =>
+                new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "tls"),
+            WatchdogClientErrorKind.Timeout or WatchdogClientErrorKind.Cancelled => new UserMessageDelivery(UserMessageDeliveryOutcome.Transient, "timeout"),
+            WatchdogClientErrorKind.Unreachable => new UserMessageDelivery(UserMessageDeliveryOutcome.Transient, "watchdog.unreachable"),
+            _ => new UserMessageDelivery(UserMessageDeliveryOutcome.Transient, "watchdog.serverError", exception.StatusCode),
+        };
+    }
+
+    /// <summary>Code of a message the service queued (accepted, delivered later by the service).</summary>
+    public const string QueuedCode = "watchdog.queued";
+
+    private static bool IsAuthentication(UserMessageResult result) =>
+        result.Code.StartsWith("auth", StringComparison.Ordinal) || result.Code.StartsWith("secret", StringComparison.Ordinal)
+        || result.SmtpStatus is 530 or 534 or 535 or 538;
+
+    private static UserMessageAddressDto Address(MessageAddress address) =>
+        new() { Address = address.Address, DisplayName = string.IsNullOrWhiteSpace(address.DisplayName) ? null : address.DisplayName };
+
+    /// <summary>One "connection" = the configured API client; nothing to close.</summary>
+    private sealed class Connection(IWatchdogClient client) : IUserMessageConnection
+    {
+        public async Task<UserMessageDelivery> SendAsync(OutgoingUserMessage message, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(message);
+            try
+            {
+                return FromResult(await client.SendUserMessageAsync(ToRequest(message), cancellationToken).ConfigureAwait(false));
+            }
+            catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Cancelled && cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+            catch (WatchdogClientException ex)
+            {
+                return Classify(ex);
+            }
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
 }
 
 /// <summary>The transport chosen for a send, or why there is none.</summary>
@@ -89,6 +255,29 @@ public sealed record UserMessageTransportChoiceResult(IUserMessageTransport? Tra
     public const string SmtpUnavailable = "SmtpUnavailable";
     public const string WatchdogNotConfigured = "WatchdogNotConfigured";
     public const string WatchdogNotSupported = "WatchdogNotSupported";
+    public const string WatchdogDisabled = "WatchdogDisabled";
+    public const string WatchdogForbidden = "WatchdogForbidden";
+    public const string WatchdogUnreachable = "WatchdogUnreachable";
+
+    /// <summary>Every problem constant (localization test).</summary>
+    public static IReadOnlyList<string> All { get; } =
+    [
+        SmtpNotConfigured, SmtpUnavailable, WatchdogNotConfigured, WatchdogNotSupported, WatchdogDisabled, WatchdogForbidden, WatchdogUnreachable,
+    ];
+
+    /// <summary>The problem of an unavailable Watchdog transport status.</summary>
+    public static string ForWatchdog(UserMessageTransportStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return status.Reason switch
+        {
+            UserMessageTransportStatus.NotConfigured => WatchdogNotConfigured,
+            UserMessageTransportStatus.Disabled => WatchdogDisabled,
+            UserMessageTransportStatus.Forbidden => WatchdogForbidden,
+            UserMessageTransportStatus.Unreachable => WatchdogUnreachable,
+            _ => WatchdogNotSupported,
+        };
+    }
 }
 
 /// <summary>
@@ -119,9 +308,7 @@ public sealed class UserMessageTransportSelector(
 
             if (options.Transport == UserMessageTransportChoice.Watchdog)
             {
-                return new UserMessageTransportChoiceResult(null, status.Reason == UserMessageTransportStatus.NotConfigured
-                    ? UserMessageTransportChoiceResult.WatchdogNotConfigured
-                    : UserMessageTransportChoiceResult.WatchdogNotSupported);
+                return new UserMessageTransportChoiceResult(null, UserMessageTransportChoiceResult.ForWatchdog(status));
             }
         }
 

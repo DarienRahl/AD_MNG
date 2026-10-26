@@ -121,7 +121,28 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
         Assert.DoesNotContain(status.Checks, c => c.Code == "attribution.source");
         Assert.Contains(status.Checks, c => c.Code == HealthCheckCodes.Wec(dc, HealthCheckCodes.WecNotForwarding) && c.State == HealthState.Error);
 
-        AssertLogIsClean(service.Log, smtpPassword, signingSecret, webhookToken, recipient);
+        // A message to a user from AD Manager (README U1b) over the same SMTP channel, through the outbox.
+        var userRecipient = $"lucja.cwik.{run}@contoso.test";
+        var userMessage = new UserMessageRequest
+        {
+            Id = Guid.NewGuid(),
+            To = [new UserMessageAddressDto { Address = userRecipient, DisplayName = "Łucja Ćwik" }],
+            Subject = $"Twoje hasło wygasa 5 listopada – {run}",
+            TextBody = "Dzień dobry, Łucjo! Zmień hasło przed 5 listopada.",
+            HtmlBody = "<p>Dzień dobry, Łucjo! Zmień hasło przed <b>5 listopada</b>.</p>",
+            Language = "pl",
+        };
+        var sent = await client.SendUserMessageAsync(userMessage, Ct);
+        Assert.Contains(sent.State, new[] { UserMessageState.Delivered, UserMessageState.Queued });
+        var userMail = (await Poll.UntilAsync(() => mailbox.ReceivedAsync(userRecipient, Ct), mails => mails.Count > 0, Timeout,
+            "the message to the user", Ct)).Single();
+        Assert.Equal(userMessage.Subject, userMail.Subject);
+        Assert.Equal([userRecipient], userMail.To);
+        Assert.Contains("Łucjo", userMail.Text, StringComparison.Ordinal);
+        Assert.Contains("X-AdMng-Message: user-notification", userMail.Raw, StringComparison.OrdinalIgnoreCase);
+        Assert.True((await client.SendUserMessageAsync(userMessage, Ct)).Duplicate);
+
+        AssertLogIsClean(service.Log, smtpPassword, signingSecret, webhookToken, recipient, userRecipient, "Łucjo");
     }
 
     /// <summary>The test's settings on top of the stored document: SMTP, recipients, the webhook on the new-accounts rule
@@ -135,6 +156,7 @@ public sealed class ServiceEndToEndTests(LabFixture lab)
             Attribution = current.Attribution with { PollInterval = TimeSpan.FromSeconds(10), PendingRetries = [TimeSpan.FromSeconds(15)] },
             Notifications = current.Notifications with { AggregationWindow = TimeSpan.Zero, AttributionGrace = TimeSpan.Zero, HighSeverityFlushDelay = TimeSpan.Zero },
             Smtp = smtp with { From = "AD Watchdog <watchdog@contoso.test>", LocalDomain = "watchdog.contoso.test" },
+            UserMessages = new UserMessagingSettings { Enabled = true },
             RecipientGroups = [.. current.RecipientGroups.Select(g => g.Id == DefaultRules.ItAdminsGroup ? g with { Addresses = [recipient] } : g)],
             Channels =
             [

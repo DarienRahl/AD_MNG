@@ -30,6 +30,7 @@ public static class ApiSetup
         RuleEndpoints.Map(app);
         DigestEndpoints.Map(app);
         OutboxEndpoints.Map(app);
+        UserMessageEndpoints.Map(app);
         EventPageEndpoint.Map(app);
     }
 }

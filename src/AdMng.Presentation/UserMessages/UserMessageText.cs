@@ -18,7 +18,10 @@ public static class UserMessageText
 {
     /// <summary>Codes of the transports with their own text (others are shown as they are, with the hint).</summary>
     public static IReadOnlyList<string> KnownCodes { get; } =
-        ["auth", "auth.noCredential", "auth.unencrypted", "auth.mechanismNotOffered", "config.host", "config.pin", "address", "tls", "timeout", "io", "smtp.notSupported"];
+        ["auth", "auth.noCredential", "auth.unencrypted", "auth.mechanismNotOffered", "config.host", "config.pin", "address", "tls", "timeout", "io", "smtp.notSupported",
+         "watchdog.queued", "watchdog.disabled", "watchdog.senderNotAllowed", "watchdog.invalid", "watchdog.conflict", "watchdog.limit",
+         "watchdog.forbidden", "watchdog.notSupported", "watchdog.notConfigured", "watchdog.unreachable", "watchdog.serverError",
+         "smtp.disabled", "userMessages.disabled"];
 
     public static string IssueKey(string code) => "UserMessages.Issue." + code;
 
@@ -61,11 +64,7 @@ public static class UserMessageText
             .Concat(Enum.GetValues<SmtpCertificateCheck>().Select(CertificateKey))
             .Concat(Enum.GetValues<SmtpAuthentication>().Select(AuthKey))
             .Concat(Enum.GetValues<Settings.UserMessageTransportChoice>().Select(TransportKey))
-            .Concat(new[]
-            {
-                UserMessageTransportChoiceResult.SmtpNotConfigured, UserMessageTransportChoiceResult.SmtpUnavailable,
-                UserMessageTransportChoiceResult.WatchdogNotConfigured, UserMessageTransportChoiceResult.WatchdogNotSupported,
-            }.Select(ProblemKey))
+            .Concat(UserMessageTransportChoiceResult.All.Select(ProblemKey))
             .Concat(KnownCodes.Select(CodeKey))
             .Concat(Enum.GetValues<SmtpTestStage>().Select(StageKey));
 
@@ -120,9 +119,19 @@ public static class UserMessageText
 
         if (delivery.IsAccepted)
         {
-            return delivery.RejectedCopies.Count > 0
-                ? localizer.Format(L.UserMessages.CopiesRejected, string.Join(", ", delivery.RejectedCopies))
-                : string.Empty;
+            // "watchdog.queued": AdMng Watchdog took the message into its queue and delivers it itself.
+            var parts = new List<string>();
+            if (delivery.Code != "ok" && KnownCodes.Contains(delivery.Code))
+            {
+                parts.Add(localizer[CodeKey(delivery.Code)]);
+            }
+
+            if (delivery.RejectedCopies.Count > 0)
+            {
+                parts.Add(localizer.Format(L.UserMessages.CopiesRejected, string.Join(", ", delivery.RejectedCopies)));
+            }
+
+            return string.Join(" ", parts);
         }
 
         return Delivery(localizer, delivery);

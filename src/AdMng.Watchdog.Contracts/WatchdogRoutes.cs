@@ -25,6 +25,8 @@ public static class WatchdogRoutes
     public const string DigestSend = Prefix + "/digest/send";        // POST Admin   -> 202
     public const string Outbox = Prefix + "/outbox";                 // GET  Admin   (OutboxQuery) -> OutboxPage
     public const string OutboxRetry = Prefix + "/outbox/{id:long}/retry"; // POST Admin -> 204
+    public const string UserMessages = Prefix + "/user-messages";    // POST Viewer (UserMessageRequest) -> UserMessageResult (200/202), 400/409/429
+    public const string UserMessagesStatus = Prefix + "/user-messages/status"; // GET Viewer -> UserMessagingStatusDto
     public const string EventPage = "/events/{eventId:guid}";        // GET  Viewer  -> text/html (links in notifications)
     public const string Health = "/healthz";                         // GET  anonymous: loopback, own addresses, MonitoringSubnets -> "ok"/503
 

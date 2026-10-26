@@ -45,6 +45,7 @@ public sealed class SqliteWatchdogStore :
         Secrets = new SqliteSecretStore(database, protector, timeProvider);
         Maintenance = new SqliteStoreMaintenance(database, timeProvider);
         GpoContent = new SqliteGpoContentStore(database, notifier);
+        UserMessages = new SqliteUserMessageStore(database);
     }
 
     public SqliteDatabase Database { get; }
@@ -70,6 +71,9 @@ public sealed class SqliteWatchdogStore :
     public SqliteStoreMaintenance Maintenance { get; }
 
     public SqliteGpoContentStore GpoContent { get; }
+
+    /// <summary>Audit, idempotency and limits of messages to users (README U1b).</summary>
+    public SqliteUserMessageStore UserMessages { get; }
 
     /// <summary>Creates/migrates <c>&lt;dataDirectory&gt;/watchdog.db</c> and returns a store that owns the database.</summary>
     public static SqliteWatchdogStore Open(string dataDirectory, SecretProtector protector, TimeProvider timeProvider, ILogger<MigrationRunner> logger)

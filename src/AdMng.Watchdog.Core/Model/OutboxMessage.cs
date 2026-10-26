@@ -11,6 +11,29 @@ public sealed record RenderedEmail
     public required string TextBody { get; init; }
     public string? InReplyTo { get; init; }
     public IReadOnlyDictionary<string, string> Headers { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    /// <summary>A message to a user (<see cref="DeliveryKind.UserMessage"/>): its own header From, Reply-To, To and CC
+    /// instead of <see cref="OutboxMessage.Recipients"/>. Kept only in the payload, which is dropped once sent.</summary>
+    public UserMessageEnvelope? UserMessage { get; init; }
+}
+
+/// <summary>Addresses of a message to a user (README U1b) – the outbox payload only; the envelope sender is always the
+/// SMTP channel's <c>smtp.from</c>.</summary>
+public sealed record UserMessageEnvelope
+{
+    public required UserMessageMailbox From { get; init; }
+    public UserMessageMailbox? ReplyTo { get; init; }
+    public IReadOnlyList<UserMessageMailbox> To { get; init; } = [];
+    public IReadOnlyList<UserMessageMailbox> Cc { get; init; } = [];
+    public int RecipientCount => To.Count + Cc.Count;
+    public override string ToString() => $"UserMessageEnvelope({RecipientCount} recipients)";
+}
+
+/// <summary>A checked address with an optional display name.</summary>
+public sealed record UserMessageMailbox
+{
+    public required string Address { get; init; }
+    public string? DisplayName { get; init; }
+    public override string ToString() => "UserMessageMailbox";
 }
 
 /// <summary>A rendered HTTP payload (Teams card envelope or webhook JSON).</summary>

@@ -1,7 +1,9 @@
 namespace AdMng.Watchdog.Contracts.Api;
 
 public enum DeliveryChannelType { Email, Teams, Webhook }
-public enum DeliveryKind { Alert, Digest, FollowUp, Test, Health }
+/// <summary>What an outbox message is; <see cref="UserMessage"/> = a message to a user submitted by AD Manager (README U1b,
+/// e-mail only, no subject or recipients kept in the delivery log).</summary>
+public enum DeliveryKind { Alert, Digest, FollowUp, Test, Health, UserMessage }
 public enum OutboxStatus { Pending, Sending, Sent, Retrying, Dead, Cancelled }
 
 /// <summary>Filter and paging of <c>GET /api/v1/outbox</c> (delivery log).</summary>

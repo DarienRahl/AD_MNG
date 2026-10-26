@@ -168,7 +168,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont<br/>i wiadomości e-mail<br/>(U1a, U2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont<br/>i wiadomości e-mail<br/>(U1a, U1b, U2: 🟡)"]
     end
     A --> B
     B ~~~ C
@@ -194,7 +194,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza 0.3.0 (pakiety Debian), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP i U2 – przegląd stanu kont: 🟡) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog i U2 – przegląd stanu kont: 🟡) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -585,7 +585,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a i U2: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b i U2: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -598,8 +598,9 @@ U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Wat
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
-**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP) gotowa; U1b (wysyłka przez usługę
-Watchdog) przed nami.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md).
+**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP) i U1b (wysyłka przez usługę Watchdog)
+gotowe; czeka na pilotaż.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), po stronie
+usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
 
 - ✅ Okno *Wyślij wiadomość…* z okna właściwości (karta Konto), z menu kontekstowego listy i menu Obiekt, z palety
   poleceń (`object.sendMessage`) i z każdej listy przeglądu kont (U2) – z szablonem pasującym do sprawdzenia i jego
@@ -628,16 +629,26 @@ Watchdog) przed nami.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev
   niezaszyfrowane połączenie). Karta *Wiadomości e-mail* w ustawieniach: nadawca (domyślnie `noreply@<domena AD>`),
   adres odpowiedzi, DW (helpdesk), adres testowy, język, limity, próg, dozwolone domeny, sposób wysyłki, serwer SMTP,
   *Testuj połączenie*, *Wyślij wiadomość testową do mnie*, *Przypnij certyfikat z testu*.
-- 🟡 Wysyłka przez AdMng Watchdog (U1b): interfejs `IUserMessageTransport` i wybór transportu są gotowe (tryb
-  automatyczny wybiera Watchdoga, gdy usługa to obsługuje, a w przeciwnym razie SMTP); usługa nie ma jeszcze punktu
-  końcowego, więc dziś zawsze wysyła AD Manager.
+- ✅ Wysyłka przez AdMng Watchdog (U1b): tryb automatyczny wybiera Watchdoga, gdy jest skonfigurowany, a usługa ma
+  włączone wiadomości do użytkowników (przełącznik w zakładce Watchdog → Kanały i SMTP, domyślnie wyłączony), w
+  przeciwnym razie SMTP. Wysyłać mogą administratorzy i obserwatorzy Watchdoga (`DeniedSids` wygrywa). Każda wiadomość
+  to jedno `POST /api/v1/user-messages` – idempotentne po identyfikatorze wiadomości, więc ponowienie po przekroczeniu
+  czasu nigdy nie wysyła jej dwa razy. Usługa ponownie sprawdza wiadomość (CR/LF w nagłówkach, bez załączników, limity
+  rozmiaru, ograniczony HTML, nadawca i adres odpowiedzi tylko z konfiguracji kanału SMTP lub listy dozwolonych
+  nadawców – nadawcą koperty jest zawsze `smtp.from`), pilnuje limitu na godzinę i dobę (wszyscy wywołujący), wysyła
+  istniejącym kanałem SMTP (także OAuth2 Exchange Online) przez kolejkę z ponawianiem i dziennikiem wysyłek (bez tematu i
+  adresów), a treść usuwa zaraz po wysłaniu. AD Manager dostaje wynik pierwszej próby (przyjęta / odrzucona z kodem
+  SMTP / błąd kanału zatrzymujący przebieg) albo „w kolejce usługi” (liczone jako przyjęta – usługa dokończy wysyłkę).
+  Audyt w usłudze: kto, kiedy, liczba odbiorców i skrót SHA-256 adresów – bez treści.
 - ⬜ XOAUTH2 (Exchange Online) w wysyłce bezpośredniej – nie pasuje do istniejącego kodu MSAL (poufny klient usługi
-  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b).
+  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅).
 - ✅ Testy: jednostkowe (pola i daty z polskimi znakami w obu językach i strefie Europe/Warsaw, reguły bezpieczeństwa,
   wstrzykiwanie nagłówków, plan i podgląd, limit tempa, ponawianie, zatrzymanie, raport CSV), modelu okna na fałszywym
   DC z polską firmą przykładową, transportu SMTP na serwerach SMTP w procesie (STARTTLS z przypiętym certyfikatem,
   465, odrzucenia, 535 5.7.139) i na Mailpit (polski temat i treść, odrzucenie, ponowienie 4xx, limit tempa), test UI,
-  test dymny i zrzut ekranu `18-user-messages.png`.
+  test dymny i zrzut ekranu `18-user-messages.png`; U1b: kontrakt JSON, punkt końcowy usługi w procesie (role
+  administrator / obserwator / brak / odmowa, walidacja, idempotencja, limity, przełącznik, odbiornik SMTP, odrzucenie,
+  „w kolejce”), magazyn audytu, klient HTTPS, transport AD Managera na fałszywym kliencie, test laboratoryjny z Mailpit.
 - 🟡 Do weryfikacji na Windows i Exchange: uwierzytelnianie bieżącym kontem Windows (GSSAPI/NTLM) wobec Exchange
   on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce.
 
@@ -847,9 +858,11 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   jako zakres obejmuje konta, dla których jest grupą podstawową, ale nie członków przez zagnieżdżoną grupę podstawową.
   Samba nie zapisuje `lastLogon` przy prostym logowaniu LDAP; FGPP i „nigdy nie logowane” sprawdzono tylko testami na
   fałszywym DC (laboratorium wymagałoby PSO poza własną OU i starego `whenCreated`).
-- **Wiadomości do użytkowników (U1a)** – wysyła sam AD Manager (bezpośrednio przez SMTP); wysyłka przez usługę Watchdog
-  (kolejka, sekrety po stronie usługi, OAuth2 Exchange Online) to U1b, a XOAUTH2 w wysyłce bezpośredniej nie jest
-  obsługiwany – dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Hasło SMTP trzeba wpisać raz na
+- **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP albo usługa Watchdog (U1b: kolejka,
+  sekrety po stronie usługi, OAuth2 Exchange Online); XOAUTH2 w wysyłce bezpośredniej nie jest obsługiwany – bez
+  Watchdoga dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Przez Watchdoga usługa nie zna listy
+  dozwolonych domen łączy AD Managera (sprawdza ją AD Manager), a wiadomość „w kolejce usługi” raport pokazuje jako
+  przyjętą – ostateczny wynik jest w dzienniku wysyłek Watchdoga. Hasło SMTP trzeba wpisać raz na
   sesję (nie jest zapisywane). Limit tempa i dobowy limit odbiorców liczy tylko ta instancja AD Managera (w pamięci,
   od uruchomienia) – inne komputery i skrzynka nadawcy w innych programach nie są wliczane. Pola `{$input:…}` mają jedną
   wartość dla wszystkich odbiorców. Edytor HTML to zwykłe pole tekstowe (bez podglądu renderowanego HTML – w podglądzie
