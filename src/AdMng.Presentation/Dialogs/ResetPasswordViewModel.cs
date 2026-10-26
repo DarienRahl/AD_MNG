@@ -226,7 +226,7 @@ public sealed partial class ResetPasswordViewModel : WindowViewModelBase
             if (count > 1)
             {
                 var expected = count.ToString(CultureInfo.InvariantCulture);
-                var message = Localizer.Format(L.ResetPassword.ConfirmMany, count, expected);
+                var message = Localizer.Format(L.ResetPassword.ConfirmMany, count, expected, Connections.ConfirmationText.Domain(session));
                 if (!await Services.Dialogs.ConfirmTypedAsync(WindowTitle, message, expected).ConfigureAwait(true))
                 {
                     return;

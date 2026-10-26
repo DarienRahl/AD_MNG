@@ -2,6 +2,7 @@ using System.Text;
 using AdMng.Core.Batch;
 using AdMng.Core.Directory;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -105,8 +106,12 @@ public sealed class ChangeCoordinator : IChangeCoordinator
     private readonly ErrorTranslator _errors;
     private readonly ILocalizer _localizer;
     private readonly PowerShellHistory? _history;
+    private readonly ConnectionContext? _connection;
 
-    /// <remarks>The optional <see cref="PowerShellHistory"/> records the equivalent PowerShell of every executed plan.</remarks>
+    /// <remarks>
+    /// The optional <see cref="PowerShellHistory"/> records the equivalent PowerShell of every executed plan; with the
+    /// window's <see cref="ConnectionContext"/>, planning ends when the window closes (it is not an activity).
+    /// </remarks>
     public ChangeCoordinator(
         ISessionManager sessions,
         IChangePlanner planner,
@@ -118,7 +123,8 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         IDirectoryChangeNotifier changes,
         ErrorTranslator errors,
         ILocalizer localizer,
-        PowerShellHistory? history = null)
+        PowerShellHistory? history = null,
+        ConnectionContext? connection = null)
     {
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _planner = planner ?? throw new ArgumentNullException(nameof(planner));
@@ -131,6 +137,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _history = history;
+        _connection = connection;
     }
 
     public async Task<ChangeOutcome> ApplyAsync(ChangeRequest request, CancellationToken cancellationToken = default)
@@ -162,12 +169,15 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         ChangePlan plan;
         try
         {
+            // Planning is not an activity: closing the window cancels it through the window's lifetime.
+            using var planning = _connection?.LinkLifetime(cancellationToken);
+            var token = planning?.Token ?? cancellationToken;
             var batch = new BatchRequest(request.TargetDns, request.Operations) { Title = request.Title };
             var options = new PlanningOptions { MaxDegreeOfParallelism = settings.BatchMaxParallelism };
-            plan = await Task.Run(() => _planner.PlanAsync(session, batch, options, null, cancellationToken), cancellationToken)
+            plan = await Task.Run(() => _planner.PlanAsync(session, batch, options, null, token), token)
                 .ConfigureAwait(true);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _connection?.Lifetime.IsCancellationRequested == true)
         {
             return ChangeOutcome.Cancelled;
         }
@@ -175,6 +185,12 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         {
             await _dialogs.ShowErrorAsync(request.Title, _errors.Translate(ex)).ConfigureAwait(true);
             return ChangeOutcome.Failed;
+        }
+
+        if (_connection?.Lifetime.IsCancellationRequested == true)
+        {
+            // The window closed while a planner that does not observe cancellation was still running.
+            return ChangeOutcome.Cancelled;
         }
 
         if (plan.ExecutableCount == 0)
@@ -191,7 +207,8 @@ public sealed class ChangeCoordinator : IChangeCoordinator
 
         if (plan.ErrorCount > 0)
         {
-            var message = _localizer.Format(L.Changes.ContinueWithValid, DescribeIssues(plan, session.Schema, IssueSeverity.Error), plan.ExecutableCount);
+            var message = _localizer.Format(
+                L.Changes.ContinueWithValid, DescribeIssues(plan, session.Schema, IssueSeverity.Error), plan.ExecutableCount, ConfirmationText.Domain(session));
             if (!await _dialogs.ConfirmAsync(request.Title, message, destructive: false).ConfigureAwait(true))
             {
                 return ChangeOutcome.Cancelled;
@@ -206,9 +223,9 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         BatchResult result;
         try
         {
-            // Pinned to the session the plan was made in: planning is not an activity, so "Rozłącz" does not wait for it,
-            // and a reconnect (another identity, or another domain) may have replaced the session meanwhile. Then nothing
-            // is written (SessionEndedException, shown as "the session ended").
+            // Pinned to the session the plan was made in: planning is not an activity, so "Rozłącz" does not wait for
+            // it and a reconnect (another identity, or another domain) may have replaced the session meanwhile. Then
+            // nothing is written (SessionEndedException, shown as "the session ended").
             result = await ExecutePlanAsync(plan, request.Title, session, started: null, cancellationToken).ConfigureAwait(true);
         }
         catch (OperationCanceledException)

@@ -93,6 +93,12 @@ public static partial class L
     public static class Shell
     {
         public const string WindowTitleConnected = "Shell.WindowTitleConnected";
+
+        /// <summary>{0} = domain, {1} = account (with the ordinal of a second identical window), {2} = app title.</summary>
+        public const string WindowTitleConnection = "Shell.WindowTitleConnection";
+
+        /// <summary>{0} = domain: closing one connection window while its background operations run.</summary>
+        public const string CloseWindowWhileRunning = "Shell.CloseWindowWhileRunning";
         public const string MenuFile = "Shell.MenuFile";
         public const string MenuAction = "Shell.MenuAction";
         public const string MenuView = "Shell.MenuView";
@@ -129,6 +135,8 @@ public static partial class L
 
     public static class Commands
     {
+        /// <summary>"Nowe połączenie w nowym oknie…" (File menu, Ctrl+Shift+N, palette, badge menu).</summary>
+        public const string NewConnectionWindow = "Commands.NewConnectionWindow";
         public const string Refresh = "Commands.Refresh";
         public const string Properties = "Commands.Properties";
         public const string Delete = "Commands.Delete";
@@ -358,6 +366,9 @@ public static partial class L
     public static class Settings
     {
         public const string Title = "Settings.Title";
+
+        /// <summary>The settings window title: the settings are shared by all connection windows.</summary>
+        public const string TitleShared = "Settings.TitleShared";
         public const string Language = "Settings.Language";
         public const string LanguageSystem = "Settings.LanguageSystem";
         public const string LanguagePolish = "Settings.LanguagePolish";

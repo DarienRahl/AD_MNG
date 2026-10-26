@@ -21,6 +21,12 @@ public sealed record CommandDescriptor(string Id, string TitleKey, string Catego
     public object? Parameter { get; init; }
 
     /// <summary>
+    /// Arguments of a title that is a format string ("Przejdź do okna: {0}"), or null for a plain title. Dynamic entries
+    /// (one per other connection window) carry their label here.
+    /// </summary>
+    public IReadOnlyList<object?>? TitleArguments { get; init; }
+
+    /// <summary>
     /// Optional localized reason why <see cref="Command"/> cannot execute with the given parameter (e.g. missing
     /// permissions), shown as the tool tip of the disabled menu item or button; null = no specific reason.
     /// </summary>
@@ -66,6 +72,25 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(commands);
         _commands.AddRange(commands);
+        Refresh();
+    }
+
+    /// <summary>
+    /// Replaces every command whose id starts with <paramref name="idPrefix"/> by <paramref name="commands"/> (dynamic
+    /// groups such as "window.activate:&lt;id&gt;"); the other commands keep their order.
+    /// </summary>
+    public void ReplaceGroup(string idPrefix, IEnumerable<CommandDescriptor> commands)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(idPrefix);
+        ArgumentNullException.ThrowIfNull(commands);
+        var added = commands.ToList();
+        if (added.Any(c => !c.Id.StartsWith(idPrefix, StringComparison.Ordinal)))
+        {
+            throw new ArgumentException("Every command of the group must use the group's id prefix.", nameof(commands));
+        }
+
+        _commands.RemoveAll(c => c.Id.StartsWith(idPrefix, StringComparison.Ordinal));
+        _commands.AddRange(added);
         Refresh();
     }
 
@@ -117,7 +142,7 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
     {
         var query = FilterText;
         var ranked = _commands
-            .Select(c => new CommandPaletteItem(c, _localizer[c.TitleKey], _localizer[c.CategoryKey]))
+            .Select(c => new CommandPaletteItem(c, Title(c), _localizer[c.CategoryKey]))
             .Where(i => i.CanExecute)
             .Select(i => (Item: i, Score: BestScore(i, query)))
             .Where(x => x.Score is not null)
@@ -133,6 +158,9 @@ public sealed partial class CommandPaletteViewModel : ObservableObject
 
         SelectedResult = Results.FirstOrDefault();
     }
+
+    private string Title(CommandDescriptor command) =>
+        command.TitleArguments is { } arguments ? _localizer.Format(command.TitleKey, [.. arguments]) : _localizer[command.TitleKey];
 
     /// <summary>Title matches rank above matches that need the category ("View Refresh").</summary>
     private static int? BestScore(CommandPaletteItem item, string query)

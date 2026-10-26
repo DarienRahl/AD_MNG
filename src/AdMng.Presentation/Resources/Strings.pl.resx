@@ -333,7 +333,7 @@
     <value>Niektórych obiektów nie można zmienić:
 {0}
 
-Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
+Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   </data>
   <data name="Changes.Failed" xml:space="preserve">
     <value>Niepowodzenia: {0}, powodzenia: {1}.</value>
@@ -439,6 +439,83 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Kopiuj nazwę wyróżniającą</value>
+  </data>
+  <data name="Commands.NewConnectionWindow" xml:space="preserve">
+    <value>Nowe połączenie w nowym oknie…</value>
+  </data>
+  <data name="Connections.ApplicationError" xml:space="preserve">
+    <value>Błąd aplikacji</value>
+  </data>
+  <data name="Connections.BadgeToolTip" xml:space="preserve">
+    <value>Kontroler domeny: {0}
+Kanał: {1}
+Profil: {2}</value>
+  </data>
+  <data name="Connections.CloseWindowTitle" xml:space="preserve">
+    <value>Zamknij okno – {0}</value>
+  </data>
+  <data name="Connections.Color.Blue" xml:space="preserve">
+    <value>Niebieski</value>
+  </data>
+  <data name="Connections.Color.Brown" xml:space="preserve">
+    <value>Brązowy</value>
+  </data>
+  <data name="Connections.Color.Green" xml:space="preserve">
+    <value>Zielony</value>
+  </data>
+  <data name="Connections.Color.Indigo" xml:space="preserve">
+    <value>Indygo</value>
+  </data>
+  <data name="Connections.Color.Magenta" xml:space="preserve">
+    <value>Purpurowy</value>
+  </data>
+  <data name="Connections.Color.Purple" xml:space="preserve">
+    <value>Fioletowy</value>
+  </data>
+  <data name="Connections.Color.Slate" xml:space="preserve">
+    <value>Grafitowy</value>
+  </data>
+  <data name="Connections.Color.Teal" xml:space="preserve">
+    <value>Morski</value>
+  </data>
+  <data name="Connections.ColorAutomatic" xml:space="preserve">
+    <value>Automatyczny (z nazwy domeny)</value>
+  </data>
+  <data name="Connections.ColorLabel" xml:space="preserve">
+    <value>Kolor okna</value>
+  </data>
+  <data name="Connections.CrossConnectionDrop" xml:space="preserve">
+    <value>Nie można przenosić obiektów między połączeniami.</value>
+  </data>
+  <data name="Connections.DialogWaiting" xml:space="preserve">
+    <value>Okno {0} czeka na odpowiedź.</value>
+  </data>
+  <data name="Connections.DomainHeader" xml:space="preserve">
+    <value>Domena: {0} ({1})</value>
+  </data>
+  <data name="Connections.DomainHeaderNoAccount" xml:space="preserve">
+    <value>Domena: {0}</value>
+  </data>
+  <data name="Connections.NewConnectionTitle" xml:space="preserve">
+    <value>Nowe połączenie – {0}</value>
+  </data>
+  <data name="Connections.NoProfile" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="Connections.NotConnected" xml:space="preserve">
+    <value>Nie połączono</value>
+  </data>
+  <data name="Connections.OpenWindows" xml:space="preserve">
+    <value>Otwarte okna</value>
+  </data>
+  <data name="Connections.ProfileOpenElsewhere" xml:space="preserve">
+    <value>Ten profil jest już otwarty w oknie {0}. Ponowne połączenie otworzy drugie okno tego samego połączenia.</value>
+  </data>
+  <data name="Connections.SwitchTo" xml:space="preserve">
+    <value>Przejdź do okna: {0}</value>
+  </data>
+  <data name="Connections.WatchdogOtherDomain" xml:space="preserve">
+    <value>Usługa Watchdog monitoruje domenę {0}; to okno jest połączone z {1}. Zdarzenia można przeglądać, ale historia zmian obiektów nie jest w tym oknie dostępna.</value>
   </data>
   <data name="Copy.CanonicalPath" xml:space="preserve">
     <value>Ścieżka kanoniczna</value>
@@ -909,10 +986,10 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Zmiana kontrolera domeny</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć te obiekty ({0})?</value>
+    <value>Czy na pewno chcesz usunąć te obiekty ({0}) z domeny {1}?</value>
   </data>
   <data name="Delete.ConfirmOne" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}”?</value>
+    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}” z domeny {2}?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
     <value>Obiekt zawiera inne obiekty. Jego usunięcie spowoduje również usunięcie całej zawartości.</value>
@@ -1257,7 +1334,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Obiektów: {0} · lista wirtualna (VLV), sortowanie na serwerze: {1} · stan na {2}</value>
   </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
-    <value>Przenieść obiekty ({0}) do {1}?</value>
+    <value>Przenieść obiekty ({0}) do {1} w domenie {2}?</value>
   </data>
   <data name="Move.InvalidTarget" xml:space="preserve">
     <value>Nie można przenieść obiektów do nich samych, do ich podkontenerów ani do kontenera, w którym już się znajdują.</value>
@@ -1418,6 +1495,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Settings.Title" xml:space="preserve">
     <value>Ustawienia</value>
   </data>
+  <data name="Settings.TitleShared" xml:space="preserve">
+    <value>Ustawienia (wspólne dla wszystkich okien)</value>
+  </data>
   <data name="Severity.Error" xml:space="preserve">
     <value>Błąd</value>
   </data>
@@ -1436,6 +1516,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Zalogowano jako: {0}</value>
   </data>
+  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
+    <value>Operacje w tle w oknie {0} nadal trwają. Czy mimo to zamknąć okno? Trwające operacje zostaną przerwane.</value>
+  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Wpisz polecenie…</value>
   </data>
@@ -1449,7 +1532,16 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Szczegóły</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Operacje w tle nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+    <value>Operacje w tle w domenie {0} nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+  </data>
+  <data name="Shell.WindowTitleConnection" xml:space="preserve">
+    <value>{0} – {1} – {2}</value>
+  </data>
+  <data name="Ui.CloseWindow" xml:space="preserve">
+    <value>Zamknij okno</value>
+  </data>
+  <data name="Ui.ExitAll" xml:space="preserve">
+    <value>Zakończ program</value>
   </data>
   <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
     <value>Dzienniki kontrolerów domeny (usługa na Windows)</value>
@@ -1922,7 +2014,7 @@ Nowoczesne zarządzanie użytkownikami, grupami, komputerami i jednostkami organ
     <value>Przed</value>
   </data>
   <data name="Batch.ConfirmExecute" xml:space="preserve">
-    <value>Zostanie zmienionych obiektów: {0} ({1}).
+    <value>Zostanie zmienionych obiektów w domenie {3}: {0} ({1}).
 Resetowania haseł i usunięć nie można cofnąć automatycznie.
 Wpisz {2}, aby potwierdzić.</value>
   </data>
@@ -3684,7 +3776,7 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
     <value>Właściwości: {0}</value>
   </data>
   <data name="ResetPassword.ConfirmMany" xml:space="preserve">
-    <value>Hasła kont zostaną zresetowane (kont: {0}).
+    <value>Hasła kont w domenie {2} zostaną zresetowane (kont: {0}).
 Wpisz {1}, aby potwierdzić.</value>
   </data>
   <data name="ResetPassword.ConfirmPassword" xml:space="preserve">
@@ -4138,7 +4230,7 @@ Wpisz {1}, aby potwierdzić.</value>
     <value>Przywróć ({0})</value>
   </data>
   <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
-    <value>Kosz Active Directory nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
+    <value>Kosz Active Directory w domenie {0} nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
   </data>
   <data name="RecycleBin.ActivityTitle" xml:space="preserve">
     <value>Przywracanie z Kosza AD ({0})</value>
@@ -7220,10 +7312,10 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Wysyłka wiadomości</value>
   </data>
   <data name="UserMessages.Confirm" xml:space="preserve">
-    <value>Wysłać wiadomości ({0}) przez {1}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
+    <value>Wysłać wiadomości ({0}) przez {1} do użytkowników z domeny {2}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
   </data>
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
-    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
+    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika z domeny {2}. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
   </data>
   <data name="UserMessages.Stopping" xml:space="preserve">
     <value>Przerywanie po bieżącej wiadomości...</value>

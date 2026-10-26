@@ -9,14 +9,19 @@ namespace AdMng.Presentation.Watchdog;
 /// builds <see cref="WatchdogClientOptions"/> (process identity – <c>runas /netonly</c> works; optional certificate pin),
 /// accepts only <c>https://</c> addresses, and maps <see cref="WatchdogClientException.Kind"/> to a connection state and a
 /// localized message. Stores the certificate pin the operator confirmed (stage B design 18 item 1: a setting, never
-/// directory data) and removes it with the address of another service. Singleton shared by the Watchdog tab and the object
-/// history launcher.
+/// directory data) and removes it with the address of another service. Singleton shared by the Watchdog tabs and the object
+/// history launchers of all connection windows: it also knows the domain the service watches (<see cref="ServiceDomain"/>)
+/// and asks for a certificate confirmation at most once at a time for the whole application.
 /// </summary>
 public sealed class WatchdogConnectionService
 {
     private readonly ISettingsStore _settings;
     private readonly ILocalizer _localizer;
+    private readonly Lock _domainGate = new();
     private string? _configuredPin;
+    private string? _serviceDomain;
+    private Task? _domainRead;
+    private Task<bool>? _certificateConfirmation;
 
     public WatchdogConnectionService(IWatchdogClient client, ISettingsStore settings, ILocalizer localizer)
     {
@@ -27,6 +32,18 @@ public sealed class WatchdogConnectionService
 
     /// <summary>Raised after the service address was set or removed (on the calling thread).</summary>
     public event EventHandler? AddressChanged;
+
+    /// <summary>
+    /// <see cref="ServiceDomain"/> became known, changed or was forgotten (on the thread of the status read or of the address
+    /// change). Windows compare it with their own domain.
+    /// </summary>
+    public event EventHandler? ServiceDomainChanged;
+
+    /// <summary>
+    /// The AD domain the configured service watches (from its last status read in any window), or null while unknown (no
+    /// address, an older service, nothing read yet). Application state in memory only: the domain name of one service.
+    /// </summary>
+    public string? ServiceDomain => Volatile.Read(ref _serviceDomain);
 
     public IWatchdogClient Client { get; }
 
@@ -147,6 +164,61 @@ public sealed class WatchdogConnectionService
         return _settings.UpdateAsync(s => s.Watchdog.PinnedCertificateSha256 = pin);
     }
 
+    /// <summary>A status read of any window: remembers the domain the service watches.</summary>
+    public void ReportStatus(AdMng.Watchdog.Contracts.Api.StatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        SetServiceDomain(string.IsNullOrWhiteSpace(status.Domain) ? null : status.Domain.Trim());
+    }
+
+    /// <summary>
+    /// True when the service is known to watch another domain than <paramref name="domainDnsName"/> (case-insensitive).
+    /// An unknown service domain or an unknown window domain is no mismatch: the window behaves as before.
+    /// </summary>
+    public bool IsOtherDomain(string? domainDnsName) =>
+        ServiceDomain is { } watched && !string.IsNullOrWhiteSpace(domainDnsName)
+        && !string.Equals(watched.TrimEnd('.'), domainDnsName.Trim().TrimEnd('.'), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Reads the service status once to learn <see cref="ServiceDomain"/> when it is unknown and an address is configured
+    /// (single flight: concurrent callers share one read). Never throws; a failed read leaves the domain unknown.
+    /// </summary>
+    public Task EnsureServiceDomainAsync()
+    {
+        if (ServiceDomain is not null || !HasServiceUrl)
+        {
+            return Task.CompletedTask;
+        }
+
+        lock (_domainGate)
+        {
+            if (_domainRead is { IsCompleted: false } running)
+            {
+                return running;
+            }
+
+            _domainRead = ReadServiceDomainAsync();
+            return _domainRead;
+        }
+    }
+
+    /// <summary>
+    /// One certificate confirmation for the whole application: when another Watchdog tab is already asking, the caller
+    /// awaits that answer instead of showing a second, nested dialog. <paramref name="ask"/> shows the dialog and pins the
+    /// certificate when the operator trusts it; the result is true when it was trusted. UI thread only.
+    /// </summary>
+    public Task<bool> ConfirmCertificateOnceAsync(Func<Task<bool>> ask)
+    {
+        ArgumentNullException.ThrowIfNull(ask);
+        if (_certificateConfirmation is { IsCompleted: false } pending)
+        {
+            return pending;
+        }
+
+        _certificateConfirmation = ask();
+        return _certificateConfirmation;
+    }
+
     /// <summary>Removes the pin (the next connection to a certificate of no trusted authority asks again).</summary>
     public Task RemovePinAsync() => _settings.UpdateAsync(s => s.Watchdog.PinnedCertificateSha256 = null);
 
@@ -175,6 +247,11 @@ public sealed class WatchdogConnectionService
                 s.Watchdog.PinnedCertificateSha256 = null;
             }
         }).ConfigureAwait(true);
+        if (otherService)
+        {
+            SetServiceDomain(null);
+        }
+
         AddressChanged?.Invoke(this, EventArgs.Empty);
         return null;
     }
@@ -183,7 +260,35 @@ public sealed class WatchdogConnectionService
     public async Task ClearAddressAsync()
     {
         await _settings.UpdateAsync(s => s.Watchdog.ServiceUrl = null).ConfigureAwait(true);
+        SetServiceDomain(null);
         AddressChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task ReadServiceDomainAsync()
+    {
+        try
+        {
+            if (!EnsureConfigured())
+            {
+                return;
+            }
+
+            var status = await Client.GetStatusAsync(CancellationToken.None).ConfigureAwait(false);
+            ReportStatus(status);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Unknown: the windows behave as before (the Watchdog tab shows its own connection errors).
+        }
+    }
+
+    private void SetServiceDomain(string? domain)
+    {
+        var previous = Interlocked.Exchange(ref _serviceDomain, domain);
+        if (!string.Equals(previous, domain, StringComparison.OrdinalIgnoreCase))
+        {
+            ServiceDomainChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     /// <summary>Localized description of a failed service call (connection banner, inline errors).</summary>

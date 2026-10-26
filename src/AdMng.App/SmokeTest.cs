@@ -144,7 +144,7 @@ internal static class SmokeTest
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         var dialog = windows.CreateWindow(MessageDialogViewModel.TypedConfirmation(
-            localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3), "3", localizer));
+            localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3, "contoso.test"), "3", localizer));
         UiTestSupport.ShowOffScreen(dialog);
 
         var editor = windows.CreateWindow(services.GetRequiredService<SavedViewEditorViewModel>());

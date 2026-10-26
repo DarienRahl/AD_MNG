@@ -333,7 +333,7 @@
     <value>Some objects cannot be changed:
 {0}
 
-Apply the change to the remaining {1} object(s)?</value>
+Apply the change to the remaining {1} object(s) in the domain {2}?</value>
   </data>
   <data name="Changes.Failed" xml:space="preserve">
     <value>Failed: {0}, succeeded: {1}.</value>
@@ -439,6 +439,83 @@ Apply the change to the remaining {1} object(s)?</value>
   </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Copy distinguished name</value>
+  </data>
+  <data name="Commands.NewConnectionWindow" xml:space="preserve">
+    <value>New connection in a new window…</value>
+  </data>
+  <data name="Connections.ApplicationError" xml:space="preserve">
+    <value>Application error</value>
+  </data>
+  <data name="Connections.BadgeToolTip" xml:space="preserve">
+    <value>Domain controller: {0}
+Channel: {1}
+Profile: {2}</value>
+  </data>
+  <data name="Connections.CloseWindowTitle" xml:space="preserve">
+    <value>Close window – {0}</value>
+  </data>
+  <data name="Connections.Color.Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Connections.Color.Brown" xml:space="preserve">
+    <value>Brown</value>
+  </data>
+  <data name="Connections.Color.Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Connections.Color.Indigo" xml:space="preserve">
+    <value>Indigo</value>
+  </data>
+  <data name="Connections.Color.Magenta" xml:space="preserve">
+    <value>Magenta</value>
+  </data>
+  <data name="Connections.Color.Purple" xml:space="preserve">
+    <value>Purple</value>
+  </data>
+  <data name="Connections.Color.Slate" xml:space="preserve">
+    <value>Slate</value>
+  </data>
+  <data name="Connections.Color.Teal" xml:space="preserve">
+    <value>Teal</value>
+  </data>
+  <data name="Connections.ColorAutomatic" xml:space="preserve">
+    <value>Automatic (from the domain name)</value>
+  </data>
+  <data name="Connections.ColorLabel" xml:space="preserve">
+    <value>Window colour</value>
+  </data>
+  <data name="Connections.CrossConnectionDrop" xml:space="preserve">
+    <value>Objects cannot be moved between connections.</value>
+  </data>
+  <data name="Connections.DialogWaiting" xml:space="preserve">
+    <value>The window {0} is waiting for an answer.</value>
+  </data>
+  <data name="Connections.DomainHeader" xml:space="preserve">
+    <value>Domain: {0} ({1})</value>
+  </data>
+  <data name="Connections.DomainHeaderNoAccount" xml:space="preserve">
+    <value>Domain: {0}</value>
+  </data>
+  <data name="Connections.NewConnectionTitle" xml:space="preserve">
+    <value>New connection – {0}</value>
+  </data>
+  <data name="Connections.NoProfile" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="Connections.NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="Connections.OpenWindows" xml:space="preserve">
+    <value>Open windows</value>
+  </data>
+  <data name="Connections.ProfileOpenElsewhere" xml:space="preserve">
+    <value>This profile is already open in the window {0}. Connecting again opens a second window of the same connection.</value>
+  </data>
+  <data name="Connections.SwitchTo" xml:space="preserve">
+    <value>Go to window: {0}</value>
+  </data>
+  <data name="Connections.WatchdogOtherDomain" xml:space="preserve">
+    <value>The Watchdog service watches the domain {0}; this window is connected to {1}. The events stay readable, but the change history of objects is not offered in this window.</value>
   </data>
   <data name="Copy.CanonicalPath" xml:space="preserve">
     <value>Canonical path</value>
@@ -909,10 +986,10 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>Change domain controller</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
-    <value>Are you sure you want to delete these {0} objects?</value>
+    <value>Are you sure you want to delete these {0} objects from the domain {1}?</value>
   </data>
   <data name="Delete.ConfirmOne" xml:space="preserve">
-    <value>Are you sure you want to delete the {1} named '{0}'?</value>
+    <value>Are you sure you want to delete the {1} named '{0}' from the domain {2}?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
     <value>The object contains other objects. Deleting it also deletes everything inside it.</value>
@@ -1257,7 +1334,7 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>{0} objects · virtual list (VLV), sorted on the server by {1} · as of {2}</value>
   </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
-    <value>Move {0} object(s) to {1}?</value>
+    <value>Move {0} object(s) to {1} in the domain {2}?</value>
   </data>
   <data name="Move.InvalidTarget" xml:space="preserve">
     <value>Objects cannot be moved into themselves, into their own sub-containers or into the container they are already in.</value>
@@ -1418,6 +1495,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Settings.Title" xml:space="preserve">
     <value>Settings</value>
   </data>
+  <data name="Settings.TitleShared" xml:space="preserve">
+    <value>Settings (shared by all windows)</value>
+  </data>
   <data name="Severity.Error" xml:space="preserve">
     <value>Error</value>
   </data>
@@ -1436,6 +1516,9 @@ Apply the change to the remaining {1} object(s)?</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Signed in as: {0}</value>
   </data>
+  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
+    <value>Background operations in the window of {0} are still running. Close the window anyway? Running operations will be interrupted.</value>
+  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Type a command…</value>
   </data>
@@ -1449,7 +1532,16 @@ Apply the change to the remaining {1} object(s)?</value>
     <value>Details</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Background operations are still running. Disconnect anyway? Running operations will be interrupted.</value>
+    <value>Background operations in {0} are still running. Disconnect anyway? Running operations will be interrupted.</value>
+  </data>
+  <data name="Shell.WindowTitleConnection" xml:space="preserve">
+    <value>{0} – {1} – {2}</value>
+  </data>
+  <data name="Ui.CloseWindow" xml:space="preserve">
+    <value>Close window</value>
+  </data>
+  <data name="Ui.ExitAll" xml:space="preserve">
+    <value>Exit application</value>
   </data>
   <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
     <value>Domain controller logs (Windows service)</value>
@@ -1922,7 +2014,7 @@ Modern management of Active Directory users, groups, computers and organizationa
     <value>Before</value>
   </data>
   <data name="Batch.ConfirmExecute" xml:space="preserve">
-    <value>{0} objects will be changed: {1}.
+    <value>{0} objects in the domain {3} will be changed: {1}.
 This cannot be undone automatically for password resets and deletions.
 Type {2} to confirm.</value>
   </data>
@@ -3684,7 +3776,7 @@ Anyone who can read the file can sign in with these accounts - store it securely
     <value>{0} Properties</value>
   </data>
   <data name="ResetPassword.ConfirmMany" xml:space="preserve">
-    <value>The passwords of {0} accounts will be reset.
+    <value>The passwords of {0} accounts in the domain {2} will be reset.
 Type {1} to confirm.</value>
   </data>
   <data name="ResetPassword.ConfirmPassword" xml:space="preserve">
@@ -4138,7 +4230,7 @@ Type {1} to confirm.</value>
     <value>Restore ({0})</value>
   </data>
   <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
-    <value>The AD Recycle Bin is not enabled. The objects will be reanimated from tombstones and will come back without most of their attributes (group memberships, contact details, profile…), so accounts must be completed and checked afterwards. Continue?</value>
+    <value>The AD Recycle Bin of the domain {0} is not enabled. The objects will be reanimated from tombstones and will come back without most of their attributes (group memberships, contact details, profile…), so accounts must be completed and checked afterwards. Continue?</value>
   </data>
   <data name="RecycleBin.ActivityTitle" xml:space="preserve">
     <value>Restore from the AD Recycle Bin ({0})</value>
@@ -7220,10 +7312,10 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Send messages</value>
   </data>
   <data name="UserMessages.Confirm" xml:space="preserve">
-    <value>Send {0} message(s) via {1}? Every user gets a separate message; messages accepted by the server cannot be recalled.</value>
+    <value>Send {0} message(s) via {1} to users of the domain {2}? Every user gets a separate message; messages accepted by the server cannot be recalled.</value>
   </data>
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
-    <value>You are about to send {0} messages via {1} – one per user. Messages accepted by the server cannot be recalled. Type the number of messages to confirm.</value>
+    <value>You are about to send {0} messages via {1} – one per user of the domain {2}. Messages accepted by the server cannot be recalled. Type the number of messages to confirm.</value>
   </data>
   <data name="UserMessages.Stopping" xml:space="preserve">
     <value>Stopping after the current message...</value>

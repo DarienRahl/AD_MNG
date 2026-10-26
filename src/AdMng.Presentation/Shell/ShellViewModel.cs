@@ -4,6 +4,7 @@ using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Icons;
 using AdMng.Presentation.Infrastructure;
@@ -42,11 +43,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly Func<WatchdogDocumentViewModel>? _watchdogFactory;
     private readonly WatchdogObjectHistoryLauncher? _historyLauncher;
     private readonly AccountReview.IUserMessageLauncher? _messages;
+    private readonly IConnectionWindows? _windows;
+    private readonly ConnectionContext? _connection;
     private ObjectListViewModel? _observedDocument;
     private IShellDocument? _observedTab;
     private IDirectorySession? _initializedFor;
     private Task? _initialization;
     private bool _detailsPaneVisible;
+    private int _advancedFeaturesApplied;
+    private Task _advancedFeaturesReload = Task.CompletedTask;
     private bool _disposed;
 
     public ShellViewModel(
@@ -63,7 +68,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IRegionalSettings regional,
         Func<WatchdogDocumentViewModel>? watchdogFactory = null,
         WatchdogObjectHistoryLauncher? historyLauncher = null,
-        AccountReview.IUserMessageLauncher? messages = null)
+        AccountReview.IUserMessageLauncher? messages = null,
+        IConnectionWindows? windows = null,
+        ConnectionContext? connection = null)
     {
         _lists = lists ?? throw new ArgumentNullException(nameof(lists));
         Tree = tree ?? throw new ArgumentNullException(nameof(tree));
@@ -79,12 +86,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _watchdogFactory = watchdogFactory;
         _historyLauncher = historyLauncher;
         _messages = messages;
+        _windows = windows;
+        _connection = connection;
         _searchDebouncer = new Debouncer(lists.Time, SearchDelay);
         _detailsDebouncer = new Debouncer(lists.Time, DetailsDelay);
         CommandPalette = new CommandPaletteViewModel(lists.Localizer);
         CommandPalette.Register(CreateCommandDescriptors());
+        RebuildWindowCommands();
 
         _detailsPaneVisible = Settings.Current.ShowDetailsPane;
+        _advancedFeaturesApplied = Settings.Current.ShowAdvancedFeatures ? 1 : 0;
         Tree.NodeActivated += OnNodeActivated;
         Tree.PropertyChanged += OnTreePropertyChanged;
         Sessions.SessionChanged += OnSessionChanged;
@@ -96,6 +107,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             _historyLauncher.Requested += OnWatchdogHistoryRequested;
             _historyLauncher.AvailabilityChanged += OnWatchdogAvailabilityChanged;
+        }
+
+        if (_connection is not null)
+        {
+            _connection.Changed += OnConnectionChanged;
+        }
+
+        if (_windows is not null)
+        {
+            _windows.WindowsChanged += OnWindowsChanged;
         }
     }
 
@@ -131,10 +152,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     // ---- Header -------------------------------------------------------------------------------------------
 
-    /// <summary>"Active Directory Users and Computers – contoso.test".</summary>
-    public string WindowTitle => Sessions.Current is { } s
-        ? Localizer.Format(L.Shell.WindowTitleConnected, Localizer[L.App.Title], s.Info.DomainDnsName)
-        : Localizer[L.App.Title];
+    /// <summary>
+    /// "contoso.test – CONTOSO\jan.kowalski – Active Directory Users and Computers": the domain first, so Alt+Tab and the
+    /// taskbar show it even when the title is truncated; the account carries the ordinal of a second identical window.
+    /// </summary>
+    public string WindowTitle => _connection?.Identity is { } identity
+        ? Localizer.Format(L.Shell.WindowTitleConnection, identity.DomainDnsName, identity.Account, Localizer[L.App.Title])
+        : Sessions.Current is { } s
+            ? Localizer.Format(L.Shell.WindowTitleConnection, s.Info.DomainDnsName, s.Info.BoundIdentity, Localizer[L.App.Title])
+            : Localizer[L.App.Title];
 
     public bool IsConnected => Sessions.Current is not null;
 
@@ -187,8 +213,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>A tab is loading or a background operation runs.</summary>
     public bool IsBusy => SelectedTab?.IsLoading == true || _activities.HasRunning;
 
-    /// <summary>Recent containers (MRU) for the address bar drop-down.</summary>
-    public IReadOnlyList<string> RecentContainers => [.. Settings.Current.RecentContainers.Select(AddressResolver.ToDisplayPath)];
+    /// <summary>
+    /// Recent containers (MRU) for the address bar drop-down: the newest <see cref="RecentContainersShown"/> under this
+    /// window's naming context (the list is shared by all connection windows).
+    /// </summary>
+    public IReadOnlyList<string> RecentContainers =>
+        [.. FilterByNamingContext(Settings.Current.RecentContainers, dn => dn).Take(RecentContainersShown).Select(AddressResolver.ToDisplayPath)];
 
     private ISessionManager Sessions => _lists.Sessions;
 
@@ -467,6 +497,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        if (_connection is not null)
+        {
+            _connection.Changed -= OnConnectionChanged;
+        }
+
+        if (_windows is not null)
+        {
+            _windows.WindowsChanged -= OnWindowsChanged;
+        }
+
         Tree.NodeActivated -= OnNodeActivated;
         Tree.PropertyChanged -= OnTreePropertyChanged;
         _activities.PropertyChanged -= OnActivitiesChanged;
@@ -823,12 +863,44 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             _detailsPaneVisible = IsDetailsPaneVisible;
             _ = _lists.Dispatcher.RunAsync(() => UpdateDetailsAsync().Forget());
         }
+
+        // Advanced Features is shared by all windows: whichever window (or the settings dialog) toggled it, every shell
+        // reloads its tree and container tabs - once, and only on a real change (this event fires for every settings
+        // update, e.g. a column width, on the updating thread).
+        var advanced = ShowAdvancedFeatures ? 1 : 0;
+        if (Interlocked.Exchange(ref _advancedFeaturesApplied, advanced) != advanced)
+        {
+            _ = _lists.Dispatcher.RunAsync(() =>
+            {
+                _advancedFeaturesReload = ReloadForAdvancedFeaturesAsync();
+                _advancedFeaturesReload.Forget();
+            });
+        }
+    }
+
+    private async Task ReloadForAdvancedFeaturesAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        await Tree.ReloadAsync().ConfigureAwait(true);
+        if (_disposed)
+        {
+            return;
+        }
+
+        foreach (var document in ListDocuments.Where(d => d.Location is { Kind: ListLocationKind.Container }).ToList())
+        {
+            document.LoadAsync().Forget();
+        }
     }
 
     private void OnCultureChanged(object? sender, EventArgs e)
     {
         RaiseHeaderChanged();
-        CommandPalette.Refresh();
+        RebuildWindowCommands();
         UpdateAddress();
         UpdateDetailsAsync().Forget();
     }
@@ -836,6 +908,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void RaiseHeaderChanged()
     {
         OnPropertyChanged(nameof(WindowTitle));
+        OnPropertyChanged(nameof(RecentContainers));
+        RaiseConnectionChanged();
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(ServerText));
         OnPropertyChanged(nameof(IdentityText));

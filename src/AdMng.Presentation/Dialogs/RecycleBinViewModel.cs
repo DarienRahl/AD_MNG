@@ -456,7 +456,7 @@ public sealed partial class RecycleBinViewModel : WindowViewModelBase
 
         var title = Localizer[L.RecycleBin.Restore];
         if (!IsRecycleBinEnabled
-            && !await Services.Dialogs.ConfirmAsync(title, Localizer[L.RecycleBin.TombstoneConfirm], destructive: false).ConfigureAwait(true))
+            && !await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.RecycleBin.TombstoneConfirm, ConfirmationDomain), destructive: false).ConfigureAwait(true))
         {
             return;
         }

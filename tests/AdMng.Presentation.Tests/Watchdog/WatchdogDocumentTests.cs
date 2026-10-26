@@ -84,7 +84,9 @@ public sealed class WatchdogDocumentTests
             Assert.Equal(h.Ad.Localizer.Format(L.Watchdog.ConnectionConnected, "admng-wd.contoso.com:8443"), tab.ConnectionMessage);
             Assert.Equal(FakeWatchdogClient.SampleAddress, h.Client.BaseAddress);
             Assert.True(h.Launcher.IsAvailable);
-            Assert.Equal(1, availability);
+
+            // Once for the address, once when the status read told which domain the service watches.
+            Assert.Equal(2, availability);
 
             // The settings hold the address and nothing else of the watchdog.
             var settings = h.Ad.Settings.Current.Watchdog;

@@ -6,6 +6,12 @@ public static partial class L
     public static class Ui
     {
         public const string About = "Ui.About";
+
+        /// <summary>File → "Zamknij okno": closes this connection window only.</summary>
+        public const string CloseWindow = "Ui.CloseWindow";
+
+        /// <summary>File → "Zakończ program": closes every connection window (each asks its own questions).</summary>
+        public const string ExitAll = "Ui.ExitAll";
         public const string AboutText = "Ui.AboutText";
         public const string Address = "Ui.Address";
         public const string ClipboardBusy = "Ui.ClipboardBusy";

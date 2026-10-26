@@ -52,6 +52,9 @@ public static partial class DisplayNames
 
     public static string ThemeKey(ThemePreference theme) => $"Theme.{theme}";
 
+    /// <summary>"Connections.Color.Blue": the name of a connection colour (connect dialog, badge tool tip).</summary>
+    public static string ConnectionColorKey(Connections.ConnectionColor color) => $"Connections.Color.{color}";
+
     public static string AuthenticationKey(AuthenticationMode mode) => $"Auth.{mode}";
 
     public static string SecurityKey(TransportSecurity security) => $"Security.{security}";

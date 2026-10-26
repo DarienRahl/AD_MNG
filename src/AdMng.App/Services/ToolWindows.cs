@@ -84,13 +84,12 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
     public Window ShowAccountReview() => ShowSingleton(AccountReviewKey, () => Factory.CreateAccountReview());
 
     /// <summary>
-    /// The settings dialog (modal). Advanced Features is applied through the main window's shell, so the tree and the
-    /// container tabs reload. Returns true when the operator saved.
+    /// The settings dialog (modal). The settings are shared by all connection windows; every window's shell applies a
+    /// changed Advanced Features setting itself. Returns true when the operator saved.
     /// </summary>
     public bool ShowSettings()
     {
-        var shell = (_navigator.MainWindow ?? Application.Current?.Windows.OfType<MainWindow>().FirstOrDefault(w => w.IsVisible))?.Shell;
-        var window = _windows.CreateWindow(Factory.CreateSettings(shell?.ToggleAdvancedFeaturesCommand));
+        var window = _windows.CreateWindow(Factory.CreateSettings());
         _windows.ShowDialog(window);
         return window is IDialogResultWindow { Result: true };
     }

@@ -219,7 +219,7 @@ public class SessionPinningTests
         try
         {
             // The running batch is cancelled first; the session stays open while its write is in flight.
-            Assert.Contains($"confirm:{harness.Localizer[L.Shell.DisconnectWhileRunning]}", harness.Dialogs.Shown);
+            Assert.Contains($"confirm:{harness.Localizer.Format(L.Shell.DisconnectWhileRunning, "contoso.test")}", harness.Dialogs.Shown);
             Assert.True(editor.CurrentActivity!.IsCancelling);
             Assert.False(harness.Session.IsDisposed);
             Assert.False(disconnect.IsCompleted);

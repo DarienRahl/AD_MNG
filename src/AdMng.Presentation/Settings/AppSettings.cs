@@ -19,8 +19,11 @@ public enum ThemePreference
 /// </summary>
 public sealed class AppSettings
 {
-    /// <summary>Maximum number of entries in <see cref="RecentContainers"/>.</summary>
-    public const int MaxRecentContainers = 10;
+    /// <summary>
+    /// Maximum number of entries in <see cref="RecentContainers"/>. Shared by every connection window, each of which shows
+    /// its 10 newest under its own naming context - so one domain's history is not pushed out by another's.
+    /// </summary>
+    public const int MaxRecentContainers = 30;
 
     public const int CurrentVersion = 1;
 
@@ -75,7 +78,7 @@ public sealed class AppSettings
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
-    /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max 10).</summary>
+    /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
@@ -136,6 +139,9 @@ public sealed record ConnectionProfile
 
     /// <summary>User name for explicit credentials (DOMAIN\user or UPN). The password is never saved.</summary>
     public string? UserName { get; init; }
+
+    /// <summary>The colour of windows connected with this profile (strip, badge); null = automatic from the domain name.</summary>
+    public Connections.ConnectionColor? Color { get; init; }
 }
 
 /// <summary>A container pinned to the "Views" section of the navigation tree.</summary>

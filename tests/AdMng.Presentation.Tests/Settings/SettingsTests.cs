@@ -123,7 +123,7 @@ public sealed class SettingsTests : IDisposable
     public void RecentContainers_AreMostRecentFirst_Deduplicated_AndCapped()
     {
         var settings = new AppSettings();
-        for (var i = 0; i < 12; i++)
+        for (var i = 0; i < AppSettings.MaxRecentContainers + 2; i++)
         {
             settings.AddRecentContainer($"OU=O{i},DC=contoso,DC=test");
         }

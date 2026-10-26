@@ -25,7 +25,7 @@ public class ShellViewModelTests
     {
         var (shell, _) = await CreateShellAsync();
 
-        Assert.Equal("Active Directory Users and Computers – contoso.test", shell.WindowTitle);
+        Assert.Equal(@"contoso.test – CONTOSO\helpdesk – Active Directory Users and Computers", shell.WindowTitle);
         Assert.Equal("dc01.contoso.test", shell.ServerText);
         Assert.Equal(@"CONTOSO\helpdesk", shell.IdentityText);
         Assert.Equal("Sign and seal (Kerberos, port 389)", shell.SecurityText);
@@ -366,6 +366,22 @@ public class ShellViewModelTests
         await ObjectListViewModelTests.WaitUntilAsync(() => shell.SelectedDocument!.Items.All(r => r.Dn != Ewa));
     }
 
+    [Theory]
+    [InlineData("en-US", "Are you sure you want to delete the User named 'Ewa Kowalska' from the domain contoso.test?")]
+    [InlineData("pl-PL", "Czy na pewno chcesz usunąć obiekt Użytkownik o nazwie „Ewa Kowalska” z domeny contoso.test?")]
+    public async Task Delete_TheConfirmationNamesTheDomainItDeletesIn(string culture, string expected)
+    {
+        // With several connection windows open, the sentence itself says which domain is written to (not only the header).
+        var (shell, harness) = await CreateShellAsync(It);
+        harness.Localizer.SetCulture(CultureInfo.GetCultureInfo(culture));
+        Select(shell, "Ewa Kowalska");
+        harness.Dialogs.ConfirmAnswers.Enqueue(false);
+
+        await shell.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Contains($"confirm:{expected}", harness.Dialogs.Shown);
+    }
+
     [Fact]
     public async Task Delete_ContainerWithChildren_RequiresTypedConfirmation_AndSubtreeDelete()
     {
@@ -435,7 +451,7 @@ public class ShellViewModelTests
         var outcome = await shell.MoveAsync([Lukasz, Ewa], Ksiegowosc);
 
         Assert.Equal(ChangeOutcome.Executed, outcome);
-        Assert.Contains(harness.Dialogs.Shown, s => s.Contains("Move 2 object(s) to contoso.test/Firma/Księgowość?", StringComparison.Ordinal));
+        Assert.Contains(harness.Dialogs.Shown, s => s.Contains("Move 2 object(s) to contoso.test/Firma/Księgowość in the domain contoso.test?", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -1045,7 +1061,7 @@ public class ShellViewModelTests
         var shell = harness.CreateShell();
         await shell.InitializeAsync();
 
-        Assert.Equal("Użytkownicy i komputery usługi Active Directory – contoso.test", shell.WindowTitle);
+        Assert.Equal(@"contoso.test – CONTOSO\helpdesk – Użytkownicy i komputery usługi Active Directory", shell.WindowTitle);
         Assert.Equal(["Widoki", "contoso.test"], shell.Tree.Roots.Select(r => r.Name));
         Assert.StartsWith("Obiektów: 5", shell.StatusText, StringComparison.Ordinal);
     }

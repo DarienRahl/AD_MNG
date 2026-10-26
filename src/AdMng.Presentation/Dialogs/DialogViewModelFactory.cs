@@ -9,7 +9,6 @@ using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
-using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Dialogs;
 
@@ -63,13 +62,13 @@ public interface IDialogViewModelFactory
     UserMessages.UserMessageComposerViewModel CreateUserMessageComposer(UserMessages.UserMessageRequest request);
 
     /// <summary>
-    /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). Pass the main window's
-    /// <c>ShellViewModel.ToggleAdvancedFeaturesCommand</c> so that Advanced Features reloads the tree and lists.
+    /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). The settings are shared by all connection windows; every
+    /// window's shell applies a changed Advanced Features setting itself.
     /// </summary>
-    SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null);
+    SettingsViewModel CreateSettings();
 }
 
-/// <summary>Default <see cref="IDialogViewModelFactory"/> (singleton).</summary>
+/// <summary>Default <see cref="IDialogViewModelFactory"/> (one per connection window: it creates the window's dialogs).</summary>
 /// <remarks>
 /// With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)"; with the
 /// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site), and
@@ -128,8 +127,7 @@ public sealed class DialogViewModelFactory(
     public UserMessages.UserMessageComposerViewModel CreateUserMessageComposer(UserMessages.UserMessageRequest request) =>
         new(services, userMessages ?? throw new InvalidOperationException("Messages to users are not registered."), request);
 
-    public SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null) =>
-        new(services, theme, userMessages) { ShellToggleAdvancedFeatures = toggleAdvancedFeatures };
+    public SettingsViewModel CreateSettings() => new(services, theme, userMessages);
 
     private NavigationTreeViewModel CreateTree() =>
         new(services.Sessions, services.Settings, services.Localizer, services.Dispatcher, services.Errors, views, services.Changes);

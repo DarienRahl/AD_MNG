@@ -355,7 +355,7 @@ public class RecycleBinViewModelTests
         await bin.ConfirmRestoreCommand.ExecuteAsync(null);
         Assert.True(bin.IsPreviewing);
         Assert.False(harness.Session.Exists(harness.Company.JanKowalski));
-        Assert.Contains(harness.Dialogs.Shown, s => s.StartsWith("confirm:The AD Recycle Bin is not enabled.", StringComparison.Ordinal));
+        Assert.Contains(harness.Dialogs.Shown, s => s.StartsWith("confirm:The AD Recycle Bin of the domain contoso.test is not enabled.", StringComparison.Ordinal));
 
         harness.Dialogs.ConfirmAnswers.Enqueue(true);
         await bin.ConfirmRestoreCommand.ExecuteAsync(null);

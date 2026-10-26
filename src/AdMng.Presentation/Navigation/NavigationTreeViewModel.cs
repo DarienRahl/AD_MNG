@@ -155,7 +155,9 @@ public sealed partial class NavigationTreeViewModel : ObservableObject, IDisposa
         quick.Children.ReplaceAll(BuiltInViews.All.Select(v => new ViewNodeViewModel(this, quick, v, v.Title(Localizer, inactiveDays))));
         var nodes = new List<TreeNodeViewModel> { quick };
         nodes.AddRange(_views.SavedViews.Select(v => new ViewNodeViewModel(this, ViewsNode, v)));
-        nodes.AddRange(_views.PinnedContainers.Select(p =>
+        // Pins are shared by all connection windows: this window shows those of its own domain only.
+        var namingContext = Sessions.Current?.Info.DefaultNamingContext;
+        nodes.AddRange(_views.PinnedContainers.Where(p => Connections.NamingContextFilter.Contains(namingContext, p.DistinguishedName)).Select(p =>
             new ContainerNodeViewModel(this, ViewsNode, p.DistinguishedName, p.Name, KindFromDn(p.DistinguishedName), isPinnedEntry: true)
             {
                 Icon = ObjectIcon.Pinned,

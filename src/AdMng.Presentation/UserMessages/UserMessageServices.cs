@@ -7,7 +7,7 @@ using AdMng.Presentation.Settings;
 namespace AdMng.Presentation.UserMessages;
 
 /// <summary>
-/// What the message window needs besides <see cref="Dialogs.DialogServices"/> (singleton parameter object): templates,
+/// What the message window needs besides <see cref="Dialogs.DialogServices"/> (parameter object per connection window, with the window's session log): templates,
 /// planner, dispatcher with the rate limiter shared by every send of the application session, transport selection, the
 /// report exporter and the session log.
 /// </summary>
@@ -19,7 +19,8 @@ public sealed class UserMessageServices
         ICsvCodec csv,
         IAuditLog auditLog,
         TimeProvider time,
-        Func<TimeSpan, CancellationToken, Task>? delay = null)
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        MessageRateLimiter? rateLimiter = null)
     {
         Templates = templates ?? throw new ArgumentNullException(nameof(templates));
         Transports = transports ?? throw new ArgumentNullException(nameof(transports));
@@ -28,7 +29,8 @@ public sealed class UserMessageServices
         ArgumentNullException.ThrowIfNull(time);
         Planner = new UserMessagePlanner(new UserMessageFields());
         Dispatcher = new UserMessageDispatcher(time, delay);
-        RateLimiter = new MessageRateLimiter(time, delay);
+        // Application-wide (registered as a singleton): the daily budget counts the sends of every connection window.
+        RateLimiter = rateLimiter ?? new MessageRateLimiter(time, delay);
         Reports = new UserMessageReportExporter(csv);
     }
 
