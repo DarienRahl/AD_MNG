@@ -275,6 +275,27 @@
             DockPanel.Dock="Right"
             Foreground="White"
             ToolTip="{Binding ConnectionToolTip, Mode=OneWay}">
+      <!-- A plain pill: the theme's hover/pressed brushes would put the white text on a light background. -->
+      <Button.Template>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Pill"
+                  Padding="{TemplateBinding Padding}"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{DynamicResource FocusStrokeColorOuterBrush}"
+                  BorderThickness="0"
+                  CornerRadius="11">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Pill" Property="BorderThickness" Value="2" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Pill" Property="Opacity" Value="0.9" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Button.Template>
       <StackPanel Orientation="Horizontal">
         <TextBlock VerticalAlignment="Center"
                    FontWeight="SemiBold"
