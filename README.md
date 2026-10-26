@@ -169,7 +169,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"]
     end
     A --> B
     B ~~~ C
@@ -178,7 +178,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7 todo
+    class F3,F4,F5,F6,F7,M365 todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -196,6 +196,7 @@ flowchart TB
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
+| C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -945,6 +946,130 @@ OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged
   z poprawnym poziomem i ścieżką; uprawnienia lokalne z GPO (U4c) zgodne z `gpresult /scope computer` komputerów
   w OU z blokadą dziedziczenia i wymuszonymi połączeniami, także dla sesji z innymi poświadczeniami niż konto Windows;
   test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
+
+</details>
+
+### Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint ⬜
+
+**Cel:** sprawdzanie i obsługa kont także w chmurze Microsoft 365 – od Entra ID po Exchange Online, Teams i
+SharePoint – z tego samego narzędzia, po zalogowaniu kontem administratora albo kontem z rolą **Czytelnik globalny
+(Global Reader)**. Po zalogowaniu AD Manager **sam sprawdza role zalogowanego konta** i dopasowuje do nich dostępne
+funkcje: czego rola nie pozwala zrobić, jest wyszarzone z informacją, jakiej roli potrzeba. W środowisku hybrydowym
+łączy obiekt AD z jego odpowiednikiem w Entra ID. Ścieżka równoległa; korzysta z potoku zmian (faza 2), wielu połączeń
+naraz (osobne okno na połączenie) i porównania obiektów.
+
+<details>
+<summary><b>Szczegóły ścieżki C</b> – logowanie i role, Entra ID, hybryda, Exchange Online, Teams, SharePoint,
+raporty, etapy</summary>
+
+#### Logowanie i wykrywanie ról
+
+- Logowanie interaktywne przez Microsoft (MSAL: przeglądarka systemowa lub menedżer kont Windows) z MFA i dostępem
+  warunkowym – AD Manager nigdy nie widzi hasła. Tokeny tylko w pamięci, osobno dla każdego okna połączenia (jak
+  połączenia z kilkoma domenami); zasada „nigdy nie zapisujemy haseł” obejmuje tokeny.
+- Zaraz po zalogowaniu odczyt ról zalogowanego konta: role katalogowe Entra ID (aktywne i **kwalifikujące się w PIM**,
+  także przypisane przez grupy i ograniczone do jednostek administracyjnych), role RBAC Exchange Online, role
+  administratora Teams i SharePoint.
+- Role → możliwości, na przykład:
+
+  | Rola | Co odblokowuje |
+  |---|---|
+  | Czytelnik globalny | podgląd wszystkiego i raporty, bez żadnych zmian |
+  | Administrator pomocy technicznej / użytkowników | reset hasła i unieważnienie sesji (pomoc techniczna – tylko kont bez ról), edycja użytkowników i członkostwa |
+  | Administrator uwierzytelniania | metody MFA, wymuszenie ponownej rejestracji |
+  | Administrator licencji | przydział licencji |
+  | Administrator Exchange / adresatów | skrzynki, uprawnienia do skrzynek, przekierowania |
+  | Administrator Teams | zespoły, właściciele, zasady Teams |
+  | Administrator SharePoint | witryny, administratorzy witryn, udostępnianie zewnętrzne |
+  | Administrator globalny | wszystko – z widocznym ostrzeżeniem o pracy na najwyższych uprawnieniach |
+
+- Rola kwalifikująca się w PIM: *Aktywuj rolę* (uzasadnienie, czas trwania); po aktywacji możliwości odświeżają się bez
+  ponownego logowania. Panel **„Moje uprawnienia”**: role, ich źródło (bezpośrednio, grupa, PIM) i czas wygaśnięcia.
+
+#### Entra ID
+
+- **Użytkownicy:** wyszukiwanie i właściwości, logowanie zablokowane / dozwolone, ostatnie logowanie (interaktywne
+  i nieinteraktywne), licencje i plany usług, **metody uwierzytelniania** (czy ma MFA i jakie), urządzenia, grupy (także
+  dynamiczne i z przypisanymi rolami), role administratora, użytkownicy ryzykowni (Entra ID P2), goście (zaproszenie,
+  ostatnie logowanie).
+- **Grupy:** zabezpieczeń, Microsoft 365, dynamiczne (reguła i podgląd członków), właściciele, grupy bez właściciela.
+- **Dzienniki:** logowania – kto nie mógł się zalogować i dlaczego (kod błędu, zasada dostępu warunkowego); dziennik
+  inspekcji – kto co zmienił.
+- **Aplikacje:** rejestracje i jednostki usługi z wygasającymi sekretami i certyfikatami, uprawnienia nadane aplikacjom
+  (zgody administratora).
+- **Dostęp warunkowy:** podgląd zasad i „co jeśli” dla wybranego użytkownika.
+
+#### Środowisko hybrydowe (AD + Entra ID)
+
+- Obiekt AD ↔ użytkownik Entra ID (`onPremisesImmutableId` / `objectGUID`), stan i czas ostatniej synchronizacji, błędy
+  synchronizacji (np. konflikty `proxyAddresses` lub UPN).
+- Przejście jednym kliknięciem z okna właściwości AD do konta w chmurze i z powrotem; porównanie atrybutów AD i
+  Entra ID tak jak porównanie obiektów między domenami.
+- Ostrzeżenie przy próbie zmiany w chmurze atrybutu synchronizowanego z AD – taką zmianę trzeba zrobić w AD.
+
+#### Exchange Online
+
+- **Skrzynki:** typ (użytkownika, współdzielona, zasobu), rozmiar i limit, archiwum, blokada w celu zachowania (hold),
+  aliasy, **przekierowania** – także poza firmę i przez reguły skrzynki, urządzenia mobilne.
+- **Uprawnienia:** pełny dostęp, wyślij jako, wyślij w imieniu, uprawnienia do folderów (np. kalendarza).
+- Listy dystrybucyjne i grupy Microsoft 365 jako adresaci, ukrycie w książce adresowej, śledzenie wiadomości (message
+  trace) dla użytkownika.
+
+#### Teams
+
+- Zespoły użytkownika (właściciel, członek, gość), zespoły bez właściciela, goście w zespołach, kanały prywatne i
+  współdzielone, zasady Teams przypisane użytkownikowi (spotkania, wiadomości, połączenia).
+
+#### SharePoint i OneDrive
+
+- Witryny: administratorzy i właściciele, udostępnianie zewnętrzne; OneDrive użytkownika: rozmiar, dodatkowi
+  administratorzy, łącza udostępniania utworzone przez użytkownika (anonimowe, poza firmę) – np. przy odejściu pracownika.
+
+#### Jak to działa technicznie
+
+- **Microsoft Graph** wszędzie, gdzie wystarcza (Entra ID, grupy, licencje, metody uwierzytelniania, dzienniki, Teams,
+  SharePoint); **moduły PowerShell** tam, gdzie Graph nie sięga: `ExchangeOnlineManagement`, `MicrosoftTeams`,
+  `PnP.PowerShell` – w osadzonym PowerShell 7 w procesie AD Managera, z tokenem z tego samego logowania (bez drugiego
+  logowania). Każda operacja ma równoważne polecenie PowerShell w historii, jak dziś dla AD.
+- Wyłącznie **uprawnienia delegowane**: AD Manager działa zawsze w imieniu zalogowanej osoby i nigdy z własnymi
+  uprawnieniami aplikacji – nie da więcej, niż pozwalają role tej osoby.
+- Domyślnie tylko odczyt; zmiany przez ten sam potok co w AD (plan → walidacja → podgląd → wykonanie → raport) z
+  poleceniami PowerShell do skopiowania.
+- Dane dzierżawy tylko w pamięci (jak dane katalogu), na dysk wyłącznie jawny eksport; ograniczenia API (throttling) –
+  kolejkowanie, ponawianie, postęp w centrum aktywności.
+
+#### Raporty na start
+
+- Administratorzy bez MFA, role przypisane na stałe zamiast w PIM, role nieużywane od N dni.
+- Konta i goście bez logowania od N dni, licencje na kontach wyłączonych, niewykorzystane licencje.
+- Skrzynki z przekierowaniem poza firmę, skrzynki współdzielone z włączonym logowaniem.
+- Zespoły i grupy bez właściciela, aplikacje z sekretami wygasającymi w ciągu N dni.
+
+#### Etapy
+
+- **C1** – logowanie, wykrywanie ról (z PIM), panel „Moje uprawnienia”, Entra ID tylko do odczytu: użytkownicy, grupy,
+  licencje, MFA, logowania.
+- **C2** – Exchange Online (skrzynki, uprawnienia, przekierowania, śledzenie wiadomości) i powiązanie AD ↔ Entra ID.
+- **C3** – Teams oraz SharePoint i OneDrive.
+- **C4** – zmiany przez potok dopasowane do ról: reset hasła i unieważnienie sesji, licencje, członkostwo, uprawnienia do
+  skrzynek; aktywacja ról w PIM.
+- **C5** – raporty oraz (opcjonalnie) alerty AdMng Watchdog z dzienników Entra ID: nowe role, zgody dla aplikacji,
+  logowania administratorów z nowych miejsc.
+
+#### Do ustalenia z zespołem
+
+- Rejestracja aplikacji: we własnej dzierżawie (zalecane) czy wielodostępna aplikacja AD Managera, i kto udziela zgody
+  administratora.
+- Licencje Entra ID P1/P2 – część funkcji (PIM, użytkownicy ryzykowni, dzienniki logowania) ich wymaga.
+- Czy Watchdog ma monitorować także chmurę (C5); chmury narodowe i GCC – poza zakresem na start.
+
+**Kryteria ukończenia**
+- Konto z rolą Czytelnik globalny widzi wszystkie dane i nie może niczego zmienić; konto z rolą Administrator pomocy
+  technicznej resetuje hasło zwykłego użytkownika, ale nie administratora (jak w Entra ID).
+- Po aktywacji roli w PIM nowe funkcje pojawiają się bez ponownego logowania.
+- Dane zgodne z centrum administracyjnym Microsoft 365 dla co najmniej 10 kont testowych (licencje, MFA, skrzynki,
+  zespoły, witryny).
+- Żadnych tokenów ani danych dzierżawy na dysku poza jawnym eksportem.
 
 </details>
 
