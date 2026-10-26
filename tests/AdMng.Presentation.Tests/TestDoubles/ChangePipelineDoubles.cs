@@ -243,6 +243,23 @@ internal sealed class ScriptedDialogService : IDialogService
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) =>
         Task.FromResult(ViewEditorHandler?.Invoke(editor) ?? false);
 
+    /// <summary>Plays the filter builder (null: Cancel); every editor shown is recorded.</summary>
+    public Func<Presentation.Filters.FilterEditorViewModel, bool>? FilterEditorHandler { get; set; }
+
+    public List<Presentation.Filters.FilterEditorViewModel> FilterEditors { get; } = [];
+
+    public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor)
+    {
+        FilterEditors.Add(editor);
+        return Task.FromResult(FilterEditorHandler?.Invoke(editor) ?? false);
+    }
+
+    public Task ShowSavedFiltersAsync()
+    {
+        Shown.Add("savedFilters");
+        return Task.CompletedTask;
+    }
+
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) =>
         Task.FromResult(ColumnChooserHandler?.Invoke(chooser) ?? false);
 

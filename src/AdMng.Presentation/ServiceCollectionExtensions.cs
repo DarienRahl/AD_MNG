@@ -58,6 +58,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<ActivityCenterViewModel>();
         services.TryAddSingleton<IChangeCoordinator, ChangeCoordinator>();
         services.TryAddSingleton<ViewLibrary>();
+        services.TryAddSingleton<Filters.FilterLibrary>();
         services.TryAddSingleton<ObjectListServices>();
 
         // Pure Core engines (defaults; a host registration made before this call wins).

@@ -270,7 +270,7 @@ public class PrivilegedAccessScannerTests
     {
         var evaluator = await scanner.PrepareAsync(Now, Ct);
         var list = new List<AccountPrivileges>();
-        await foreach (var account in scanner.ScanAsync(evaluator, scope?.BaseDn ?? builder.DomainDn, SearchScope.Subtree, scope?.Filter, Ct))
+        await foreach (var account in scanner.ScanAsync(evaluator, scope?.BaseDn ?? builder.DomainDn, SearchScope.Subtree, scope?.Filter, null, Ct))
         {
             list.Add(account);
         }

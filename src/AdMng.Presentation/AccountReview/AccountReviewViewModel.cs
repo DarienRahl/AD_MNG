@@ -8,6 +8,7 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Filters;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -33,6 +34,9 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     /// <summary>"Przedłuż ważność…" pre-fills the end of the day this many days from today (editable in the batch editor).</summary>
     public const int ExtendByDays = 90;
 
+    /// <summary>Index of the "Uprawnienia" tab (<see cref="SelectedTabIndex"/>).</summary>
+    public const int PrivilegesTab = 1;
+
     private const int FirstBatchSize = 50;
     private static readonly TimeSpan FlushInterval = TimeSpan.FromMilliseconds(150);
 
@@ -40,6 +44,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     private readonly ICsvCodec _csv;
     private readonly DomainControllerReader _domainControllers;
     private readonly IUserMessageLauncher? _messages;
+    private readonly FilterLibrary _filters;
     private readonly SerialCancellation _runs = new();
     private readonly SerialCancellation _exactReads = new();
     private readonly Debouncer _refreshDebouncer;
@@ -60,13 +65,17 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         ViewLibrary views,
         ICsvCodec csv,
         DomainControllerReader domainControllers,
-        IUserMessageLauncher? messages = null)
+        IUserMessageLauncher? messages = null,
+        FilterLibrary? filters = null)
         : base(services)
     {
         _views = views ?? throw new ArgumentNullException(nameof(views));
         _csv = csv ?? throw new ArgumentNullException(nameof(csv));
         _domainControllers = domainControllers ?? throw new ArgumentNullException(nameof(domainControllers));
         _messages = messages;
+        _filters = filters ?? new FilterLibrary(services.Settings);
+        Privileges = new PrivilegedAccessViewModel(services, () => Session, () => IsSessionEnded, _filters, csv, messages);
+        Privileges.PropertyChanged += OnPrivilegesChanged;
         _refreshDebouncer = new Debouncer(services.Time, TimeSpan.FromMilliseconds(300));
         var settings = services.Settings.Current.AccountReview;
         CheckOptions = [.. Enum.GetValues<AccountCheck>().Select(c => new AccountCheckOptionViewModel(c) { IsEnabled = !settings.DisabledChecks.Contains(c) })];
@@ -78,12 +87,15 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         ScopeKinds = CreateScopeKinds();
         ScopeKind = ScopeKinds[0];
         SavedViews = CreateSavedViews();
+        ScopeFilters = CreateScopeFilters();
+        ScopeFilter = ScopeFilters[0];
         LoadParameters(settings.Parameters);
         LoadScope(settings.Scope);
         RefreshCheckSets();
         RefreshTexts();
         Services.Changes.Changed += OnDirectoryChanged;
         _views.Changed += OnViewsChanged;
+        _filters.Changed += OnFiltersChanged;
     }
 
     public override string WindowTitle => Session is { } session
@@ -115,6 +127,36 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     public partial Option<string>? SavedView { get; set; }
 
     public bool IsViewScope => ScopeKind.Value == AccountReviewScopeKind.SavedView;
+
+    /// <summary>"(brak)" and the saved filters (README U4): an extra filter on top of the scope, for both tabs.</summary>
+    [ObservableProperty]
+    public partial IReadOnlyList<Option<string>> ScopeFilters { get; private set; }
+
+    /// <summary>The extra filter; the option with an empty value is "(brak)".</summary>
+    [ObservableProperty]
+    public partial Option<string> ScopeFilter { get; set; }
+
+    /// <summary>The "Uprawnienia" tab (README U4): privileged access of the accounts of the scope.</summary>
+    public PrivilegedAccessViewModel Privileges { get; }
+
+    /// <summary>0 = "Stan kont" (the checks), 1 = "Uprawnienia". "Sprawdź" runs the selected tab.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPrivilegesTab), nameof(FooterText))]
+    [NotifyCanExecuteChangedFor(nameof(RunCommand))]
+    public partial int SelectedTabIndex { get; set; }
+
+    public bool IsPrivilegesTab => SelectedTabIndex == PrivilegesTab;
+
+    /// <summary>The status line of the selected tab.</summary>
+    public string FooterText => IsPrivilegesTab ? Privileges.StatusText : StatusText;
+
+    /// <summary>The link from the "privileged with a problem" list to the Uprawnienia tab.</summary>
+    public bool ShowPrivilegesLink => SelectedCheck is AccountCheck.PrivilegedWithProblem;
+
+    /// <summary>"Wszystkie konta uprzywilejowane (zakładka Uprawnienia) →", with their number once the tab ran.</summary>
+    public string PrivilegesLinkText => Privileges.HasRun
+        ? Localizer.Format(L.PrivilegedAccess.ShowPrivilegesCount, Privileges.AccountCount.ToString("N0", Localizer.Culture))
+        : Localizer[L.PrivilegedAccess.ShowPrivileges];
 
     /// <summary>The scope needs an OU or a group chosen with "Wybierz…".</summary>
     public bool NeedsScopeTarget => ScopeKind.Value is AccountReviewScopeKind.OrganizationalUnit or AccountReviewScopeKind.GroupMembers;
@@ -176,8 +218,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     [NotifyPropertyChangedFor(nameof(IsBusy))]
     public partial bool IsReadingDomainControllers { get; private set; }
 
-    /// <summary>A run or a read of the domain controllers is in progress ("Przerwij" stops it).</summary>
-    public bool IsBusy => IsRunning || IsReadingDomainControllers;
+    /// <summary>A run (of either tab) or a read of the domain controllers is in progress ("Przerwij" stops it).</summary>
+    public bool IsBusy => IsRunning || IsReadingDomainControllers || Privileges.IsRunning;
 
     /// <summary>A run was started (the tiles are shown).</summary>
     [ObservableProperty]
@@ -275,9 +317,10 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
     // ---- Commands ------------------------------------------------------------------------------------------------
 
     [RelayCommand(CanExecute = nameof(CanRun))]
-    private Task RunAsync() => _currentRun = RunCoreAsync();
+    private Task RunAsync() => _currentRun = IsPrivilegesTab ? RunPrivilegesAsync() : RunCoreAsync();
 
-    private bool CanRun() => !IsRunning && !IsSessionEnded && Session is not null && CheckOptions.Any(o => o.IsEnabled) && ScopeKind.Value switch
+    private bool CanRun() => !IsRunning && !Privileges.IsRunning && !IsSessionEnded && Session is not null
+        && (IsPrivilegesTab || CheckOptions.Any(o => o.IsEnabled)) && ScopeKind.Value switch
     {
         AccountReviewScopeKind.OrganizationalUnit or AccountReviewScopeKind.GroupMembers => ScopeDn is not null,
         AccountReviewScopeKind.SavedView => SavedView is not null,
@@ -291,7 +334,18 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _exactReads.Cancel();
     }
 
-    private bool CanStop() => IsRunning || IsReadingDomainControllers;
+    private bool CanStop() => IsRunning || IsReadingDomainControllers || Privileges.IsRunning;
+
+    /// <summary>The link of the "privileged with a problem" list: the Uprawnienia tab, run with the same scope if it has not run.</summary>
+    [RelayCommand]
+    private async Task ShowPrivilegesAsync()
+    {
+        SelectedTabIndex = PrivilegesTab;
+        if (!Privileges.HasRun && CanRun())
+        {
+            await RunCommand.ExecuteAsync(null).ConfigureAwait(true);
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanBrowseScope))]
     private async Task BrowseScopeAsync()
@@ -629,6 +683,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         _runs.Cancel();
         _exactReads.Cancel();
         _refreshDebouncer.Cancel();
+        Privileges.OnSessionEnded();
         RunCommand.NotifyCanExecuteChanged();
         BrowseScopeCommand.NotifyCanExecuteChanged();
         RefreshCommandStates();
@@ -641,7 +696,10 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         var kind = ScopeKind.Value;
         ScopeKinds = CreateScopeKinds();
         ScopeKind = ScopeKinds.First(k => k.Value == kind);
+        RefreshScopeFilters();
         RefreshTexts();
+        Privileges.OnCultureChanged();
+        OnPropertyChanged(nameof(PrivilegesLinkText));
         if (_run is { } run)
         {
             var formatter = new AccountReviewFormatter(Localizer, run.TimeZone, run.Parameters);
@@ -666,6 +724,9 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             _refreshDebouncer.Cancel();
             Services.Changes.Changed -= OnDirectoryChanged;
             _views.Changed -= OnViewsChanged;
+            _filters.Changed -= OnFiltersChanged;
+            Privileges.PropertyChanged -= OnPrivilegesChanged;
+            Privileges.Dispose();
         }
     }
 
@@ -719,7 +780,28 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         OnPropertyChanged(nameof(ShowClearFlag));
         OnPropertyChanged(nameof(ShowRemoveFromGroups));
         OnPropertyChanged(nameof(ShowHideFromGal));
+        OnPropertyChanged(nameof(ShowPrivilegesLink));
         RebuildItems();
+    }
+
+    partial void OnStatusTextChanged(string value) => OnPropertyChanged(nameof(FooterText));
+
+    private void OnPrivilegesChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(PrivilegedAccessViewModel.IsRunning):
+                RunCommand.NotifyCanExecuteChanged();
+                StopCommand.NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(IsBusy));
+                break;
+            case nameof(PrivilegedAccessViewModel.StatusText):
+                OnPropertyChanged(nameof(FooterText));
+                break;
+            case nameof(PrivilegedAccessViewModel.HasRun) or nameof(PrivilegedAccessViewModel.AccountCount):
+                OnPropertyChanged(nameof(PrivilegesLinkText));
+                break;
+        }
     }
 
     // ---- Run -------------------------------------------------------------------------------------------------------
@@ -760,18 +842,15 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         try
         {
             var policy = await ReadPolicyAsync(token).ConfigureAwait(true);
-            var request = new ScopeRequest(
-                ScopeKind.Value,
-                ScopeDn,
-                SavedView is { } option ? _views.FindView(option.Value) : null,
-                Services.Settings.Current.InactiveDays);
-            var target = await Task.Run(() => ResolveScopeAsync(session, request, policy, now, token), token).ConfigureAwait(true);
+            var target = await Task.Run(() => ResolveScopeAsync(session, CurrentScopeRequest(), policy, now, token), token).ConfigureAwait(true);
             IReadOnlySet<string>? privileged = checks.Contains(AccountCheck.PrivilegedWithProblem)
                 ? await Task.Run(() => ReadPrivilegedAsync(session, target, policy, token), token).ConfigureAwait(true)
                 : null;
             var run = new RunContext(
                 session, now, zone, parameters, checks, policy, privileged,
-                new AccountReviewFormatter(Localizer, zone, parameters), AccountReviewQuery.Attributes(session.Schema));
+                new AccountReviewFormatter(Localizer, zone, parameters),
+                [.. AccountReviewQuery.Attributes(session.Schema).Concat(target.ClientPlan?.Attributes ?? []).Distinct(StringComparer.OrdinalIgnoreCase)],
+                target.ClientPlan);
             _run = run;
             var search = new DirectorySearch
             {
@@ -818,6 +897,44 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         }
     }
 
+    /// <summary>"Sprawdź" on the Uprawnienia tab: the same scope (and extra filter) as the checks, then the tab's run.</summary>
+    private async Task RunPrivilegesAsync()
+    {
+        var token = _runs.Next();
+        _exactReads.Cancel();
+        var session = Session;
+        if (session is null)
+        {
+            Error = NoSessionMessage;
+            return;
+        }
+
+        Error = null;
+        var now = Services.Time.GetUtcNow();
+        try
+        {
+            await RememberAsync(CurrentParameters()).ConfigureAwait(true);
+            var policy = await ReadPolicyAsync(token).ConfigureAwait(true);
+            var target = await Task.Run(() => ResolveScopeAsync(session, CurrentScopeRequest(), policy, now, token), token).ConfigureAwait(true);
+            await Privileges.RunAsync(session, target, policy, now, token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // Stopped before the tab's run started.
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Error = ex is ScopeException scope ? scope.Message : Errors.Translate(ex);
+        }
+    }
+
+    private ScopeRequest CurrentScopeRequest() => new(
+        ScopeKind.Value,
+        ScopeDn,
+        SavedView is { } option ? _views.FindView(option.Value) : null,
+        Services.Settings.Current.InactiveDays,
+        string.IsNullOrEmpty(ScopeFilter.Value) ? null : ScopeFilter.Value);
+
     private async Task<DomainPolicy> ReadPolicyAsync(CancellationToken token)
     {
         try
@@ -830,30 +947,68 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>Base, scope and filter of the review query.</summary>
-    private async Task<ScopeTarget> ResolveScopeAsync(IDirectorySession session, ScopeRequest request, DomainPolicy policy, DateTimeOffset now, CancellationToken token)
+    /// <summary>
+    /// Base, scope and filter of the review query; the saved filters of a saved view and the extra filter are ANDed (their
+    /// server parts) or checked on the client (<see cref="ReviewScope.ClientPlan"/>).
+    /// </summary>
+    private async Task<ReviewScope> ResolveScopeAsync(IDirectorySession session, ScopeRequest request, DomainPolicy policy, DateTimeOffset now, CancellationToken token)
     {
         var nc = session.Info.DefaultNamingContext;
+        var filterIds = new List<string>();
+        ReviewScope target;
         switch (request.Kind)
         {
             case AccountReviewScopeKind.OrganizationalUnit:
-                return new ScopeTarget(request.Dn ?? throw new ScopeException(Localizer[L.AccountReview.ScopeNotChosen]), SearchScope.Subtree, null);
+                target = new ReviewScope(request.Dn ?? throw new ScopeException(Localizer[L.AccountReview.ScopeNotChosen]), SearchScope.Subtree, null, null);
+                break;
             case AccountReviewScopeKind.SavedView:
                 var view = request.View ?? throw new ScopeException(Localizer[L.AccountReview.ViewNotFound]);
                 var filter = QuickFilters.Combine(LdapFilter.Wrap(view.Filter), view.QuickFilters ?? [], now, request.InactiveDays, policy.DomainSid);
-                return new ScopeTarget(view.ResolveBaseDn(nc), view.Scope, filter);
+                filterIds.AddRange(view.SavedFilters ?? []);
+                target = new ReviewScope(view.ResolveBaseDn(nc), view.Scope, filter, null);
+                break;
             case AccountReviewScopeKind.GroupMembers:
                 var groupDn = request.Dn ?? throw new ScopeException(Localizer[L.AccountReview.ScopeNotChosen]);
                 var group = await session.GetAsync(groupDn, [Attr.ObjectSid], token).ConfigureAwait(false)
                     ?? throw new ScopeException(Localizer.Format(L.AccountReview.GroupNotFound, AddressResolver.ToDisplayPath(groupDn)));
-                return new ScopeTarget(nc, SearchScope.Subtree, AccountReviewQuery.GroupMembersFilter(group.DistinguishedName, AdConvert.GetRid(group.ObjectSid)));
+                target = new ReviewScope(nc, SearchScope.Subtree, AccountReviewQuery.GroupMembersFilter(group.DistinguishedName, AdConvert.GetRid(group.ObjectSid)), null);
+                break;
             default:
-                return new ScopeTarget(nc, SearchScope.Subtree, null);
+                target = new ReviewScope(nc, SearchScope.Subtree, null, null);
+                break;
+        }
+
+        if (request.FilterId is { } extra)
+        {
+            filterIds.Add(extra);
+        }
+
+        if (filterIds.Count == 0)
+        {
+            return target;
+        }
+
+        try
+        {
+            var context = new Core.Filters.FilterContext { Now = now, DefaultNamingContext = nc, Schema = session.Schema };
+            var plan = ReviewFilters.Plan(_filters, filterIds, context);
+            return plan is null
+                ? target
+                : target with
+                {
+                    Filter = plan.ServerFilter is { } server ? LdapFilter.And(target.Filter, server) : target.Filter,
+                    ClientPlan = plan.NeedsClientCheck ? plan : null,
+                };
+        }
+        catch (Core.Filters.FilterDefinitionException)
+        {
+            var names = string.Join(", ", filterIds.Select(_filters.Find).OfType<SavedFilter>().Select(f => f.Name));
+            throw new ScopeException(Localizer.Format(L.PrivilegedAccess.FilterInvalid, names));
         }
     }
 
     /// <summary>DnKeys of the accounts in scope with adminCount = 1 or a nested membership of a protected group.</summary>
-    private static async Task<IReadOnlySet<string>> ReadPrivilegedAsync(IDirectorySession session, ScopeTarget target, DomainPolicy policy, CancellationToken token)
+    private static async Task<IReadOnlySet<string>> ReadPrivilegedAsync(IDirectorySession session, ReviewScope target, DomainPolicy policy, CancellationToken token)
     {
         var groups = new List<string>();
         var groupSearch = new DirectorySearch
@@ -993,7 +1148,9 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             };
         }
 
-        var checks = run.Checks.Where(c => AccountReviewQuery.Matches(c, facts, run.Parameters)).ToHashSet();
+        var checks = run.InScope(facts.Object)
+            ? run.Checks.Where(c => AccountReviewQuery.Matches(c, facts, run.Parameters)).ToHashSet()
+            : [];
         if (checks.Count == 0)
         {
             if (existing is not null)
@@ -1164,6 +1321,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             Kind = ScopeKind.Value,
             Dn = ScopeDn is { } dn && NeedsScopeTarget ? (nc is null ? dn : Views.SavedView.ToPortableDn(dn, nc)) : null,
             ViewId = IsViewScope ? SavedView?.Value : null,
+            FilterId = string.IsNullOrEmpty(ScopeFilter.Value) ? null : ScopeFilter.Value,
         };
     }
 
@@ -1173,6 +1331,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         var nc = Session?.Info.DefaultNamingContext;
         ScopeDn = NeedsScopeTarget && scope.Dn is { } dn ? FromPortable(dn, nc) : null;
         SavedView = IsViewScope ? SavedViews.FirstOrDefault(v => v.Value == scope.ViewId) : null;
+        ScopeFilter = ScopeFilters.FirstOrDefault(f => f.Value == (scope.FilterId ?? string.Empty)) ?? ScopeFilters[0];
     }
 
     /// <summary>A portable DN (<c>{domain}</c>) of the settings in this session's domain; null when it cannot be resolved.</summary>
@@ -1221,6 +1380,21 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         SavedViews = CreateSavedViews();
         SavedView = SavedViews.FirstOrDefault(v => v.Value == selected);
     });
+
+    private void OnFiltersChanged(object? sender, EventArgs e) => _ = Services.Dispatcher.RunAsync(RefreshScopeFilters);
+
+    private void RefreshScopeFilters()
+    {
+        var selected = ScopeFilter?.Value ?? string.Empty;
+        ScopeFilters = CreateScopeFilters();
+        ScopeFilter = ScopeFilters.FirstOrDefault(f => f.Value == selected) ?? ScopeFilters[0];
+    }
+
+    private List<Option<string>> CreateScopeFilters() =>
+    [
+        new(string.Empty, Localizer[L.PrivilegedAccess.ScopeFilterNone]),
+        .. _filters.Filters.OrderBy(f => f.Name, StringComparer.Create(Localizer.Culture, ignoreCase: true)).Select(f => new Option<string>(f.Id, f.Name)),
+    ];
 
     private List<Option<AccountReviewScopeKind>> CreateScopeKinds() =>
         [.. Enum.GetValues<AccountReviewScopeKind>().Select(k => new Option<AccountReviewScopeKind>(k, Localizer[$"AccountReview.Scope.{k}"]))];
@@ -1342,7 +1516,8 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
         DomainPolicy policy,
         IReadOnlySet<string>? privileged,
         AccountReviewFormatter formatter,
-        IReadOnlyList<string> attributes)
+        IReadOnlyList<string> attributes,
+        SavedFilterPlan? clientPlan)
     {
         public IDirectorySession Session { get; } = session;
 
@@ -1363,6 +1538,12 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
 
         public IReadOnlyList<string> Attributes { get; } = attributes;
 
+        /// <summary>Client checks of the scope's saved filters, null for none.</summary>
+        public SavedFilterPlan? ClientPlan { get; } = clientPlan;
+
+        /// <summary>The account passes the client checks of the scope's saved filters.</summary>
+        public bool InScope(DirectoryObject obj) => ClientPlan is not { NeedsClientCheck: true } plan || plan.Matches(obj);
+
         public AccountReviewFacts Evaluate(DirectoryObject obj) => AccountReviewFacts.From(
             obj,
             Now,
@@ -1372,9 +1553,7 @@ public sealed partial class AccountReviewViewModel : WindowViewModelBase
             Privileged);
     }
 
-    private sealed record ScopeTarget(string BaseDn, SearchScope Scope, string? Filter);
-
-    private sealed record ScopeRequest(AccountReviewScopeKind Kind, string? Dn, Views.SavedView? View, int InactiveDays);
+    private sealed record ScopeRequest(AccountReviewScopeKind Kind, string? Dn, Views.SavedView? View, int InactiveDays, string? FilterId);
 
     /// <summary>The scope cannot be resolved (nothing chosen, view or group gone); the message is localized.</summary>
     private sealed class ScopeException(string message) : Exception(message);

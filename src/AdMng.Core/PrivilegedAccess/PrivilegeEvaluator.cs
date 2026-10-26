@@ -140,6 +140,28 @@ public sealed class PrivilegeEvaluator
     public PrivilegeLevel GrantedLevel(string groupDn) =>
         Groups.FindByDn(groupDn) is { } node ? Groups.GrantedLevel(node, DirectLevel) : PrivilegeLevel.None;
 
+    /// <summary>Whether the account reaches the group (nested membership, primary group included).</summary>
+    public bool IsMemberOf(DirectoryObject account, string groupDn)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        if (Groups.FindByDn(groupDn) is not { } group)
+        {
+            return false;
+        }
+
+        var self = new PrivilegePathStep(account.DistinguishedName, account.Name, PrivilegePathStepKind.Account);
+        return Groups.Reach(self, account.GetStrings(Attr.MemberOf), PrimaryGroupSid(account)).Contains(group);
+    }
+
+    /// <summary>The SID of the account's primary group (domain SID + primaryGroupID), null when unknown.</summary>
+    public string? PrimaryGroupSid(DirectoryObject account)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+        return Options.DomainSid is { } domainSid && account.GetInt64(Attr.PrimaryGroupId) is { } primary and > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{primary}")
+            : null;
+    }
+
     /// <summary>The name of a group DN (the graph's name, else the RDN value).</summary>
     public string GroupName(string groupDn) =>
         Groups.FindByDn(groupDn)?.Name ?? (DistinguishedName.TryParse(groupDn, out var dn) && !dn.IsRoot ? dn.Name : groupDn);
@@ -177,10 +199,7 @@ public sealed class PrivilegeEvaluator
 
         var self = new PrivilegePathStep(account.DistinguishedName, account.Name, PrivilegePathStepKind.Account);
         var memberOf = account.GetStrings(Attr.MemberOf);
-        var primaryGroupSid = Options.DomainSid is { } domainSid && account.GetInt64(Attr.PrimaryGroupId) is { } primary and > 0
-            ? string.Create(CultureInfo.InvariantCulture, $"{domainSid}-{primary}")
-            : null;
-        var paths = Groups.Reach(self, memberOf, primaryGroupSid);
+        var paths = Groups.Reach(self, memberOf, PrimaryGroupSid(account));
         var findings = new List<PrivilegeFinding>();
 
         // Grants on the groups the account reaches, each with the shortest path.

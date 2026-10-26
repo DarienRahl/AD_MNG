@@ -144,12 +144,14 @@ public sealed class PrivilegedAccessScanner
     /// <param name="baseDn">Base of the scope.</param>
     /// <param name="scope">Search scope.</param>
     /// <param name="scopeFilter">Filter of the scope (saved view, group members, saved filter), null for none.</param>
+    /// <param name="extraAttributes">More attributes to read (client checks of the scope's saved filters), null for none.</param>
     /// <param name="cancellationToken">Stops the search (abandons the paging).</param>
     public async IAsyncEnumerable<AccountPrivileges> ScanAsync(
         PrivilegeEvaluator evaluator,
         string baseDn,
         SearchScope scope,
         string? scopeFilter,
+        IReadOnlyList<string>? extraAttributes,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(evaluator);
@@ -159,7 +161,7 @@ public sealed class PrivilegedAccessScanner
             BaseDn = baseDn,
             Scope = scope,
             Filter = LdapFilter.And(AccountFilter, scopeFilter),
-            Attributes = evaluator.AccountAttributes,
+            Attributes = [.. evaluator.AccountAttributes.Concat(extraAttributes ?? []).Distinct(StringComparer.OrdinalIgnoreCase)],
             PageSize = _options.PageSize,
         };
         await foreach (var obj in _session.SearchAsync(search, cancellationToken).ConfigureAwait(false))

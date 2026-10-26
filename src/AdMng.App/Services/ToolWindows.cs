@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review and the settings dialog: creates the
+/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review, the saved filters and the settings dialog: creates the
 /// view model through <see cref="IDialogViewModelFactory"/> and shows it with <see cref="IWindowService"/> (the windows
 /// host it with <see cref="Infrastructure.WindowViewModelLifecycle"/>). Used by <see cref="DialogService"/> and by the
 /// main window's Tools menu (PowerShell history has no <see cref="IDialogService"/> entry). UI thread only.
@@ -29,6 +29,9 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     /// <summary>Singleton key of the account review window (one per application).</summary>
     public const string AccountReviewKey = "tools:account-review";
+
+    /// <summary>Singleton key of the saved filters window (one per application).</summary>
+    public const string SavedFiltersKey = "tools:saved-filters";
 
     private readonly IServiceProvider _services = services ?? throw new ArgumentNullException(nameof(services));
     private readonly IWindowService _windows = windows ?? throw new ArgumentNullException(nameof(windows));
@@ -82,6 +85,9 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
 
     /// <summary>The account review (modeless; an open one is activated).</summary>
     public Window ShowAccountReview() => ShowSingleton(AccountReviewKey, () => Factory.CreateAccountReview());
+
+    /// <summary>The saved filters of the filter builder (modeless; an open one is activated).</summary>
+    public Window ShowSavedFilters() => ShowSingleton(SavedFiltersKey, () => Factory.CreateSavedFilters());
 
     /// <summary>
     /// The settings dialog (modal). Advanced Features is applied through the main window's shell, so the tree and the

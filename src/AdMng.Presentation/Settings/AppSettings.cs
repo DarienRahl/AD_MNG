@@ -75,6 +75,12 @@ public sealed class AppSettings
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
+    /// <summary>
+    /// Saved filters of the filter builder (README U4): names, conditions and raw LDAP filters - the same kind of text as
+    /// saved views, never directory content.
+    /// </summary>
+    public List<Filters.SavedFilter> SavedFilters { get; set; } = [];
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max 10).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -102,6 +108,16 @@ public sealed class AppSettings
         AccountReview.Normalize();
         UserMessages ??= new();
         UserMessages.Normalize();
+        SavedFilters = [.. (SavedFilters ?? []).Select(Filters.FilterLibrary.Normalize).OfType<Filters.SavedFilter>()
+            .DistinctBy(f => f.Id, StringComparer.Ordinal).Take(Filters.FilterLibrary.MaxFilters)];
+        SavedViews.RemoveAll(v => v is null);
+        for (var i = 0; i < SavedViews.Count; i++)
+        {
+            if (SavedViews[i].SavedFilters is null)
+            {
+                SavedViews[i] = SavedViews[i] with { SavedFilters = [] };
+            }
+        }
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

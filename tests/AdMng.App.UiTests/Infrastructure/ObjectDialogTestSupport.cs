@@ -88,6 +88,10 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
 
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) => Task.FromResult(false);
 
+    public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor) => Task.FromResult(false);
+
+    public Task ShowSavedFiltersAsync() => Inner.ShowSavedFiltersAsync();
+
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
 
     public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Inner.ShowLogonHoursAsync(editor);

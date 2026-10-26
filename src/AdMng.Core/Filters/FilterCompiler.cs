@@ -216,7 +216,9 @@ public static class FilterCompiler
         ThrowIfInvalid(definition, context);
         return definition.IsRaw
             ? LdapFilter.Wrap(definition.RawLdap!)
-            : Combine(definition.Combinator, definition.Groups.Select(g => Combine(g.Combinator, g.Conditions.Select(c => Compile(c, context)))));
+            : Combine(definition.Combinator, definition.Groups
+                .Where(g => g.Conditions.Count > 0)
+                .Select(g => Combine(g.Combinator, g.Conditions.Select(c => Compile(c, context)))));
     }
 
     /// <summary>

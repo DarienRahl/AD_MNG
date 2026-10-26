@@ -53,8 +53,11 @@ public interface IDialogViewModelFactory
     /// <summary>For <see cref="IDialogService.ShowRecycleBinAsync"/> (modeless): deleted objects of the current session's domain.</summary>
     RecycleBinViewModel CreateRecycleBin();
 
-    /// <summary>For <see cref="IDialogService.ShowAccountReviewAsync"/> (modeless, one window): the account review (U2).</summary>
+    /// <summary>For <see cref="IDialogService.ShowAccountReviewAsync"/> (modeless, one window): the account review (U2, U4).</summary>
     AccountReview.AccountReviewViewModel CreateAccountReview();
+
+    /// <summary>For <see cref="IDialogService.ShowSavedFiltersAsync"/> (modeless, one window): the saved filters (U4).</summary>
+    Filters.SavedFiltersViewModel CreateSavedFilters();
 
     /// <summary>
     /// The message window of README U1 (modeless, one per launch), opened through <see cref="AccountReview.IUserMessageLauncher"/>.
@@ -88,9 +91,11 @@ public sealed class DialogViewModelFactory(
     WatchdogObjectHistoryLauncher? historyLauncher = null,
     IDirectoryConnector? connector = null,
     AccountReview.IUserMessageLauncher? messages = null,
-    UserMessages.UserMessageServices? userMessages = null) : IDialogViewModelFactory
+    UserMessages.UserMessageServices? userMessages = null,
+    Filters.FilterLibrary? filters = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
+    private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
 
     public PropertySheetViewModel CreatePropertySheet(string distinguishedName) =>
         new(services, engines.Planner, distinguishedName)
@@ -123,7 +128,9 @@ public sealed class DialogViewModelFactory(
 
     public RecycleBinViewModel CreateRecycleBin() => new(services);
 
-    public AccountReview.AccountReviewViewModel CreateAccountReview() => new(services, views, engines.Csv, _domainControllers, messages);
+    public AccountReview.AccountReviewViewModel CreateAccountReview() => new(services, views, engines.Csv, _domainControllers, messages, _filters);
+
+    public Filters.SavedFiltersViewModel CreateSavedFilters() => new(services, _filters);
 
     public UserMessages.UserMessageComposerViewModel CreateUserMessageComposer(UserMessages.UserMessageRequest request) =>
         new(services, userMessages ?? throw new InvalidOperationException("Messages to users are not registered."), request);

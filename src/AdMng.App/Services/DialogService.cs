@@ -74,6 +74,19 @@ public sealed class DialogService : IDialogService, IUserMessageLauncher
         return OnUiThreadAsync(() => ShowModal(editor) && editor.Result is not null);
     }
 
+    public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        return OnUiThreadAsync(() => ShowModal(editor) && editor.Result is not null);
+    }
+
+    // ---- Saved filters, README U4 (modeless, one window) ----
+    public Task ShowSavedFiltersAsync() => OnUiThreadAsync(() =>
+    {
+        _tools.ShowSavedFilters();
+        return true;
+    });
+
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser)
     {
         ArgumentNullException.ThrowIfNull(chooser);

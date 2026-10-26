@@ -1,0 +1,74 @@
+using System.Globalization;
+using AdMng.Core.Filters;
+using AdMng.Core.PrivilegedAccess;
+using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Filters;
+using AdMng.Presentation.Localization;
+
+namespace AdMng.Presentation.Tests.Localization;
+
+/// <summary>The dynamic key families of the "Uprawnienia" tab and the filter builder (README U4) exist in both languages.</summary>
+public class PrivilegedAccessLocalizationTests
+{
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("pl-PL")]
+    public void DynamicFamilies_AreComplete(string culture)
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo(culture));
+        var keys = new List<string>();
+        keys.AddRange(Enum.GetValues<PrivilegeLevel>().SelectMany(v => new[] { PrivilegedAccessText.LevelKey(v), PrivilegedAccessText.LevelHintKey(v) }));
+        keys.AddRange(Enum.GetValues<PrivilegeSource>().Select(PrivilegedAccessText.SourceKey));
+        keys.AddRange(Enum.GetValues<PrivilegeFindingKind>().Select(PrivilegedAccessText.KindKey));
+        keys.AddRange(Enum.GetValues<PrivilegeScopeKind>().Select(PrivilegedAccessText.ScopeKey));
+        keys.AddRange(Enum.GetValues<PrivilegedAccountType>().Select(PrivilegedAccessText.TypeKey));
+        keys.AddRange(Enum.GetValues<PeerDimension>().Select(PrivilegedAccessText.PeerKey));
+        keys.AddRange(Enum.GetValues<PrivilegeRuleTarget>().Select(PrivilegedAccessText.TargetKey));
+        keys.AddRange(PrivilegedAccessColumns.All.Select(PrivilegedAccessText.ColumnKey));
+        keys.AddRange(PrivilegedGroupCatalog.All.SelectMany(g => new[] { PrivilegedAccessText.GroupKey(g.Id), PrivilegedAccessText.GroupNameKey(g.Id) }));
+        keys.AddRange(Enum.GetValues<FilterOperator>().Select(FilterTexts.OperatorKey));
+        keys.AddRange(Enum.GetValues<FilterCombinator>().Select(FilterTexts.CombinatorKey));
+        keys.AddRange(Enum.GetValues<FilterIssueCode>().Select(FilterTexts.IssueKey));
+
+        Assert.Equal([], keys.Where(k => !l.Contains(k)));
+    }
+
+    [Fact]
+    public void Polish_NamesTheBuiltInGroupsAsPolishWindowsDoes()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+
+        Assert.Equal("Operatorzy kont", l[PrivilegedAccessText.GroupNameKey("AccountOperators")]);
+        Assert.Equal("Twórcy-właściciele zasad grupy", l[PrivilegedAccessText.GroupNameKey("GroupPolicyCreatorOwners")]);
+        Assert.Equal("Czytelnicy dziennika zdarzeń", l[PrivilegedAccessText.GroupNameKey("EventLogReaders")]);
+        Assert.Equal("Podwyższony", l[PrivilegedAccessText.LevelKey(PrivilegeLevel.Elevated)]);
+        Assert.Equal("równa się", l[FilterTexts.OperatorKey(FilterOperator.Equals)]);
+        Assert.Equal("I (wszystkie)", l[FilterTexts.CombinatorKey(FilterCombinator.All)]);
+        Assert.Equal("Uprawnienia", l[L.PrivilegedAccess.TabPrivileges]);
+    }
+
+    [Fact]
+    public void Summary_OfAFilter_InTheUiLanguage()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+        var definition = new FilterDefinition
+        {
+            Combinator = FilterCombinator.Any,
+            Groups =
+            [
+                new FilterConditionGroup
+                {
+                    Conditions =
+                    [
+                        new FilterCondition("department", FilterOperator.Equals, "Księgowość"),
+                        new FilterCondition("title", FilterOperator.Present),
+                    ],
+                },
+                new FilterConditionGroup { Conditions = [new FilterCondition(string.Empty, FilterOperator.MemberOf, "CN=GG_Płace,OU=Grupy,{domain}")] },
+            ],
+        };
+
+        Assert.Equal("(department równa się Księgowość I title istnieje) LUB członek grupy (także pośrednio) GG_Płace", FilterTexts.Summary(l, definition));
+        Assert.Equal("(objectClass=user)", FilterTexts.Summary(l, FilterDefinition.Raw("(objectClass=user)")));
+    }
+}

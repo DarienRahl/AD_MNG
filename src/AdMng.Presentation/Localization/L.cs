@@ -175,6 +175,7 @@ public static partial class L
         public const string ImportCsv = "Commands.ImportCsv";
         public const string RecycleBin = "Commands.RecycleBin";
         public const string AccountReview = "Commands.AccountReview";
+        public const string SavedFilters = "Commands.SavedFilters";
         public const string Watchdog = "Commands.Watchdog";
         public const string WatchdogHistory = "Commands.WatchdogHistory";
     }

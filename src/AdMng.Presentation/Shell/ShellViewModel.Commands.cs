@@ -561,6 +561,7 @@ public sealed partial class ShellViewModel
         var sort = document.Columns.FirstOrDefault(c => c.SortDirection != SortDirection.None);
         var filter = location.Filter;
         var chips = document.FilterChips.Where(c => c.IsActive).Select(c => c.Kind).ToList();
+        var savedFilters = document.SavedFilterChips.Where(c => c.IsActive).Select(c => c.Id).ToList();
         if (location.Kind == ListLocationKind.View && BuiltInViews.Find(location.ViewId) is { } builtIn)
         {
             // The built-in filter holds today's dates ("expiring in 30 days" from now) and some views a post-filter
@@ -581,6 +582,7 @@ public sealed partial class ShellViewModel
             Filter = filter,
             Columns = [.. document.VisibleColumns.Select(c => c.Attribute)],
             QuickFilters = chips,
+            SavedFilters = savedFilters,
             SortAttribute = sort?.Attribute,
             SortDescending = sort?.SortDirection == SortDirection.Descending,
         };
@@ -708,9 +710,13 @@ public sealed partial class ShellViewModel
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task ShowRecycleBinAsync() => _dialogs.ShowRecycleBinAsync();
 
-    /// <summary>The account review of the connected domain (README U2).</summary>
+    /// <summary>The account review of the connected domain (README U2, U4).</summary>
     [RelayCommand(CanExecute = nameof(IsConnected))]
     private Task ShowAccountReviewAsync() => _dialogs.ShowAccountReviewAsync();
+
+    /// <summary>The saved filters of the filter builder (README U4): chips of the lists, the review's scope and rules.</summary>
+    [RelayCommand]
+    private Task ShowSavedFiltersAsync() => _dialogs.ShowSavedFiltersAsync();
 
     [RelayCommand]
     private Task ShowSettingsAsync() => _dialogs.ShowSettingsAsync();
