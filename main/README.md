@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `main`
 
 - Gałąź: `main`
-- Commit: [`ca161c0`](https://github.com/DarienRahl/AD_MNG/commit/ca161c0b0860ae7c0a680f9134cd85b9f396a1ea) (`ca161c0b0860ae7c0a680f9134cd85b9f396a1ea`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/38904212795
+- Commit: [`30d210e`](https://github.com/DarienRahl/AD_MNG/commit/30d210ef8de9986815fe252712a9955088ebd883) (`30d210ef8de9986815fe252712a9955088ebd883`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40363121475
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -55,4 +55,24 @@
 ## Watchdog – stan usługi
 
 ![Watchdog – stan usługi](13-watchdog-status.png)
+
+## Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy
+
+![Godziny logowania – tygodniowy harmonogram konta w czasie lokalnym, zaznaczone godziny pracy](14-logon-hours.png)
+
+## Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)
+
+![Watchdog – potwierdzenie certyfikatu usługi przy pierwszym połączeniu (odcisk SHA-256 do porównania z serwerem)](15-watchdog-certificate.png)
+
+## Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)
+
+![Watchdog – źródła i retencja (OpenWEC, treść GPO, rekordy logowań)](16-watchdog-sources.png)
+
+## Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło
+
+![Przegląd kont – kafelki sprawdzeń i lista kont, którym wkrótce wygaśnie hasło](17-account-review.png)
+
+## Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką
+
+![Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką](18-user-messages.png)
 
