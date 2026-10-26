@@ -49,6 +49,135 @@ public sealed class SettingsTests : IDisposable
     }
 
     [Fact]
+    public async Task ConcurrentUpdatesFromTwoWindows_KeepBothChanges_AndTheNewestFile()
+    {
+        // Two connection windows share one settings file; one write is slow (an antivirus scan, a network profile).
+        var store = new JsonSettingsStore(_paths);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+        var firstWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writes = 0;
+        store.WriteFile = async (path, json, token) =>
+        {
+            if (Interlocked.Increment(ref writes) == 1)
+            {
+                await firstWrite.Task.WaitAsync(token);
+            }
+
+            await File.WriteAllTextAsync(path, json, token);
+        };
+
+        var fromA = Task.Run(() => store.UpdateAsync(s => s.AddRecentContainer("OU=IT,DC=contoso,DC=test"), TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        await WaitForAsync(() => Volatile.Read(ref writes) == 1);
+        var fromB = Task.Run(() => store.UpdateAsync(s => s.AddRecentContainer("OU=Sprzedaż,DC=fabrikam,DC=test"), TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        var fromAAgain = store.UpdateAsync(s => s.PageSize = 750, TestContext.Current.CancellationToken);
+        firstWrite.SetResult();
+        await Task.WhenAll(fromA, fromB, fromAAgain);
+
+        var reloaded = new JsonSettingsStore(_paths);
+        await reloaded.LoadAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(["OU=Sprzedaż,DC=fabrikam,DC=test", "OU=IT,DC=contoso,DC=test"], reloaded.Current.RecentContainers);
+        Assert.Equal(750, reloaded.Current.PageSize);
+        Assert.Equal(JsonSettingsStore.Serialize(store.Current), await File.ReadAllTextAsync(store.FilePath, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task AnOlderSnapshot_NeverReplacesANewerFile()
+    {
+        var store = new JsonSettingsStore(_paths);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var written = new List<int>();
+        store.WriteFile = async (path, json, token) =>
+        {
+            var pageSize = System.Text.Json.JsonDocument.Parse(json).RootElement.GetProperty("pageSize").GetInt32();
+            if (pageSize == 600)
+            {
+                entered.TrySetResult();
+                await release.Task.WaitAsync(token);
+            }
+
+            lock (written)
+            {
+                written.Add(pageSize);
+            }
+
+            await File.WriteAllTextAsync(path, json, token);
+        };
+
+        // The first update holds the write gate; two more queue behind it.
+        var first = Task.Run(() => store.UpdateAsync(s => s.PageSize = 600, TestContext.Current.CancellationToken), TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TestContext.Current.CancellationToken);
+        var second = store.UpdateAsync(s => s.PageSize = 700, TestContext.Current.CancellationToken);
+        var third = store.UpdateAsync(s => s.PageSize = 800, TestContext.Current.CancellationToken);
+        release.SetResult();
+        await Task.WhenAll(first, second, third);
+
+        var reloaded = new JsonSettingsStore(_paths);
+        await reloaded.LoadAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(800, reloaded.Current.PageSize);
+        Assert.Equal(800, written[^1]);
+        Assert.DoesNotContain(written.SkipWhile(p => p != 800).Skip(1), p => p < 800);
+    }
+
+    [Fact]
+    public async Task AReader_NeverSeesAListBeingChanged()
+    {
+        var store = new JsonSettingsStore(_paths);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+        store.WriteFile = (_, _, _) => Task.CompletedTask;
+        var before = store.Current;
+        using var stop = new CancellationTokenSource();
+
+        // Window A's address bar enumerates the recent containers while window B adds 1 000 of them from the pool.
+        var reader = Task.Run(() =>
+        {
+            var reads = 0;
+            while (!stop.IsCancellationRequested)
+            {
+                var snapshot = store.Current;
+                var count = snapshot.RecentContainers.Select(dn => dn.Length).Count();
+                Assert.InRange(count, 0, AppSettings.MaxRecentContainers);
+                reads++;
+            }
+
+            return reads;
+        }, TestContext.Current.CancellationToken);
+        var writer = Task.Run(async () =>
+        {
+            for (var i = 0; i < 1000; i++)
+            {
+                await store.UpdateAsync(s => s.AddRecentContainer($"OU=Dział {i},DC=fabrikam,DC=test"), TestContext.Current.CancellationToken);
+            }
+        }, TestContext.Current.CancellationToken);
+
+        await writer;
+        await stop.CancelAsync();
+        Assert.True(await reader > 0);
+
+        // An object handed out is never changed afterwards.
+        Assert.Empty(before.RecentContainers);
+        Assert.Equal("OU=Dział 999,DC=fabrikam,DC=test", store.Current.RecentContainers[0]);
+        Assert.Equal(AppSettings.MaxRecentContainers, store.Current.RecentContainers.Count);
+    }
+
+    [Fact]
+    public async Task TheProfileColour_SurvivesTheFile()
+    {
+        var store = new JsonSettingsStore(_paths);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+        await store.UpdateAsync(
+            s => s.ConnectionProfiles.Add(new ConnectionProfile { Name = "Fabrikam – sprzedaż", Domain = "fabrikam.test", Color = Presentation.Connections.ConnectionColor.Indigo }),
+            TestContext.Current.CancellationToken);
+
+        var reloaded = new JsonSettingsStore(_paths);
+        await reloaded.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(Presentation.Connections.ConnectionColor.Indigo, reloaded.Current.ConnectionProfiles.Single().Color);
+        Assert.Null(new ConnectionProfile().Color);
+    }
+
+    [Fact]
     public void SerializedSettings_NeverContainPasswords()
     {
         var settings = new AppSettings
@@ -117,6 +246,16 @@ public sealed class SettingsTests : IDisposable
 
         Assert.True(store.Current.ShowAdvancedFeatures);
         Assert.Equal(1, changed);
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 500 && !condition(); i++)
+        {
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
+
+        Assert.True(condition());
     }
 
     [Fact]

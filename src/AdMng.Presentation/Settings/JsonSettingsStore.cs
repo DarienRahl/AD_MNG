@@ -12,7 +12,10 @@ namespace AdMng.Presentation.Settings;
 /// <summary>Loads, changes and persists <see cref="AppSettings"/>.</summary>
 public interface ISettingsStore
 {
-    /// <summary>The in-memory settings. Read on any thread; change only through <see cref="UpdateAsync"/>.</summary>
+    /// <summary>
+    /// The in-memory settings. Read on any thread; change only through <see cref="UpdateAsync"/>. A returned object is never
+    /// changed afterwards (an update replaces it), so readers may enumerate its lists while another window updates.
+    /// </summary>
     AppSettings Current { get; }
 
     /// <summary>Loads settings from storage (defaults when missing; corrupt files are backed up and reset).</summary>
@@ -34,6 +37,12 @@ public interface ISettingsStore
 /// Writes are atomic (temporary file + replace) and serialized; a corrupt file is renamed to
 /// <c>settings.corrupt-{timestamp}.json</c> and the defaults are used.
 /// </summary>
+/// <remarks>
+/// Shared by every connection window (design note docs/dev/multi-window.md 5.2). An update works on a copy (copy-on-write):
+/// under a lock it clones the current settings, applies the change, normalizes, serializes and swaps the reference, so a
+/// reader never sees a list being changed and two updates from different threads never interleave. Every snapshot carries
+/// a generation; a write never replaces the file with an older snapshot than the last one written.
+/// </remarks>
 public sealed class JsonSettingsStore : ISettingsStore
 {
     public const string FileName = "settings.json";
@@ -41,7 +50,11 @@ public sealed class JsonSettingsStore : ISettingsStore
     private readonly string _directory;
     private readonly ILogger<JsonSettingsStore> _logger;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private readonly Lock _updateGate = new();
     private AppSettings _current = new();
+    private string? _currentJson;
+    private long _generation;
+    private long _writtenGeneration;
 
     public JsonSettingsStore(IAppPaths paths, ILogger<JsonSettingsStore>? logger = null)
     {
@@ -55,7 +68,10 @@ public sealed class JsonSettingsStore : ISettingsStore
     /// <summary>JSON options used for settings and for view import/export.</summary>
     public static JsonSerializerOptions SerializerOptions { get; } = CreateOptions();
 
-    public AppSettings Current => _current;
+    public AppSettings Current => Volatile.Read(ref _current);
+
+    /// <summary>Writes a file (path, content); tests slow it down. Default <see cref="File.WriteAllTextAsync(string, string?, CancellationToken)"/>.</summary>
+    internal Func<string, string, CancellationToken, Task> WriteFile { get; set; } = File.WriteAllTextAsync;
 
     public string FilePath => Path.Combine(_directory, FileName);
 
@@ -84,33 +100,56 @@ public sealed class JsonSettingsStore : ISettingsStore
 
         loaded ??= new AppSettings();
         loaded.Normalize();
-        _current = loaded;
+        lock (_updateGate)
+        {
+            _currentJson = JsonSerializer.Serialize(loaded, SerializerOptions);
+            Volatile.Write(ref _current, loaded);
+        }
+
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
     public async Task UpdateAsync(Action<AppSettings> change, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(change);
-        change(_current);
-        _current.Normalize();
+        string json;
+        long generation;
+        lock (_updateGate)
+        {
+            // Copy-on-write: readers keep the previous object, which is never changed again.
+            var next = JsonSerializer.Deserialize<AppSettings>(_currentJson ??= JsonSerializer.Serialize(_current, SerializerOptions), SerializerOptions)
+                ?? new AppSettings();
+            change(next);
+            next.Normalize();
+            json = JsonSerializer.Serialize(next, SerializerOptions);
+            generation = ++_generation;
+            _currentJson = json;
+            Volatile.Write(ref _current, next);
+        }
 
-        // Snapshot synchronously on the caller's thread so later in-memory changes cannot race the serializer.
-        var json = JsonSerializer.Serialize(_current, SerializerOptions);
         Changed?.Invoke(this, EventArgs.Empty);
-        await WriteAtomicAsync(json, cancellationToken).ConfigureAwait(false);
+        await WriteAtomicAsync(json, generation, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Serializes settings exactly as they are written to disk (used by tests and diagnostics).</summary>
     public static string Serialize(AppSettings settings) => JsonSerializer.Serialize(settings, SerializerOptions);
 
-    private async Task WriteAtomicAsync(string json, CancellationToken cancellationToken)
+    private async Task WriteAtomicAsync(string json, long generation, CancellationToken cancellationToken)
     {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         var temp = FilePath + ".tmp";
         try
         {
+            if (generation <= _writtenGeneration)
+            {
+                // A newer snapshot (which contains this change) was written - or failed to be written; either way an older
+                // one must not replace it.
+                return;
+            }
+
+            _writtenGeneration = generation;
             Directory.CreateDirectory(_directory);
-            await File.WriteAllTextAsync(temp, json, cancellationToken).ConfigureAwait(false);
+            await WriteFile(temp, json, cancellationToken).ConfigureAwait(false);
             File.Move(temp, FilePath, overwrite: true);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
