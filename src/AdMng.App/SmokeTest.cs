@@ -2,16 +2,19 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.Views;
 using AdMng.Core.Csv;
 using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Settings;
 using AdMng.Presentation.UserMessages;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
@@ -28,6 +31,12 @@ namespace AdMng.App;
 /// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
 /// nothing touches a directory or a watchdog service.
 /// </summary>
+/// <remarks>
+/// Every language pass works in two fresh connection scopes (design note docs/dev/multi-window.md 10.4): two main windows,
+/// disconnected (the published exe has no fake directory, so connected windows and a second domain are covered by the UI
+/// tests), the connect window of a new connection, and the connection chrome and message dialog header in every palette
+/// colour, light and dark. A shell is disposed with its window, so a scope is never reused for the second pass.
+/// </remarks>
 internal static class SmokeTest
 {
     public const int Passed = 0;
@@ -84,7 +93,9 @@ internal static class SmokeTest
             foreach (var language in (string[])["en", "pl"])
             {
                 localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
-                await RenderWindowsAsync(host.Services, localizer).ConfigureAwait(true);
+                await using var first = host.Services.CreateAsyncScope();
+                await using var second = host.Services.CreateAsyncScope();
+                await RenderWindowsAsync(first.ServiceProvider, second.ServiceProvider, localizer).ConfigureAwait(true);
             }
         }
         catch (Exception ex)
@@ -128,7 +139,7 @@ internal static class SmokeTest
         app.Shutdown(failures.Count == 0 ? Passed : Failed);
     }
 
-    private static async Task RenderWindowsAsync(IServiceProvider services, ILocalizer localizer)
+    private static async Task RenderWindowsAsync(IServiceProvider services, IServiceProvider otherConnection, ILocalizer localizer)
     {
         var windows = services.GetRequiredService<IWindowService>();
 
@@ -142,6 +153,11 @@ internal static class SmokeTest
         await main.Shell.InitializeAsync().ConfigureAwait(true);
         await RenderWatchdogTabAsync(main).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
+
+        // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
+        // a new connection while another window is open.
+        await RenderSecondConnectionAsync(otherConnection, localizer).ConfigureAwait(true);
+        RenderConnectionChrome(windows, services.GetRequiredService<IDialogViewModelFactory>(), services.GetRequiredService<IThemeService>(), localizer);
 
         var dialog = windows.CreateWindow(MessageDialogViewModel.TypedConfirmation(
             localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3, "contoso.test"), "3", localizer));
@@ -172,6 +188,62 @@ internal static class SmokeTest
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>The main window of another connection scope and the connect window of a new connection.</summary>
+    private static async Task RenderSecondConnectionAsync(IServiceProvider services, ILocalizer localizer)
+    {
+        var main = services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        await main.Shell.InitializeAsync().ConfigureAwait(true);
+        if (main.Shell.ConnectionColor is not null || main.Shell.IsConnected || ConnectionChrome.GetConnectionId(main) is null)
+        {
+            throw new InvalidOperationException("A disconnected connection window should have a connection id and a grey strip.");
+        }
+
+        var connect = services.GetRequiredService<ConnectWindow>();
+        connect.Title = localizer.Format(L.Connections.NewConnectionTitle, localizer[L.App.Title]);
+        UiTestSupport.ShowOffScreen(connect);
+    }
+
+    /// <summary>
+    /// The identity chrome of a child window and the header of a message dialog in every palette colour, in the light and
+    /// the dark theme (no session needed: the identity is a sample).
+    /// </summary>
+    private static void RenderConnectionChrome(IWindowService windows, IDialogViewModelFactory factory, IThemeService theme, ILocalizer localizer)
+    {
+        var modes = (ThemePreference[])[ThemePreference.Light, ThemePreference.Dark];
+        for (var m = 0; m < modes.Length; m++)
+        {
+            theme.Apply(modes[m]);
+            foreach (var color in ConnectionColors.Palette)
+            {
+                var identity = Sample(color);
+                var dialog = MessageDialogViewModel.Confirmation(localizer[L.Commands.Delete], localizer.Format(L.Delete.ConfirmMany, 3, "fabrikam.test"), destructive: true, localizer);
+                dialog.ConnectionHeader = ConnectionChrome.HeaderText(identity, localizer);
+                dialog.ConnectionColor = color;
+                UiTestSupport.ShowOffScreen(windows.CreateWindow(dialog));
+            }
+
+            // A child window with the strip and header line (one per theme keeps the run short).
+            var log = windows.CreateWindow(factory.CreateSessionLog());
+            ConnectionChrome.Apply(log, Sample(ConnectionColors.Palette[m]), localizer);
+            UiTestSupport.ShowOffScreen(log);
+            if (!log.Title.EndsWith(" – fabrikam.test", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"The child window title has no connection suffix: {log.Title}");
+            }
+        }
+
+        theme.Apply(ThemePreference.System);
+
+        static ConnectionIdentity Sample(ConnectionColor color) => new()
+        {
+            DomainDnsName = "fabrikam.test",
+            DomainNetBiosName = "FABRIKAM",
+            BoundIdentity = @"FABRIKAM\anna.zielińska",
+            Color = color,
+        };
     }
 
     /// <summary>

@@ -34,6 +34,16 @@ public sealed class ConnectionIdentityTests
     }
 
     [Fact]
+    public void TheBadgeText_IsReadableOnEveryColour()
+    {
+        // White text on the badge: at least 4.5:1 (WCAG AA) for every palette colour, and the colours are distinct.
+        Assert.All(ConnectionColors.Palette, color =>
+            Assert.True(ConnectionColors.ContrastRatio(ConnectionColors.Rgb(color), (255, 255, 255)) >= 4.5, $"{color} is too light for white text."));
+        Assert.Equal(ConnectionColors.Palette.Count, ConnectionColors.Palette.Select(ConnectionColors.Rgb).Distinct().Count());
+        Assert.Equal(21, ConnectionColors.ContrastRatio((0, 0, 0), (255, 255, 255)), 3);
+    }
+
+    [Fact]
     public async Task TwoDomains_GetTheirAutomaticColours_AndLabels()
     {
         await using var host = CreateHost();

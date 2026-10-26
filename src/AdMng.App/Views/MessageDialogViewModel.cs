@@ -67,8 +67,21 @@ public sealed partial class MessageDialogViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     public partial string TypedText { get; set; } = string.Empty;
 
-    /// <summary>Title and message for Ctrl+C.</summary>
-    public string CopyText => $"{Title}{Environment.NewLine}{Environment.NewLine}{Message}";
+    /// <summary>
+    /// "Domena: contoso.test (CONTOSO\jan.kowalski)" above the message: the connection the dialog is about (set by the
+    /// connection's dialog service; null without a connection, and for application errors whose connection is unknown).
+    /// </summary>
+    public string? ConnectionHeader { get; set; }
+
+    /// <summary>The connection colour of the strip and the header (with <see cref="ConnectionHeader"/>).</summary>
+    public Presentation.Connections.ConnectionColor? ConnectionColor { get; set; }
+
+    public bool HasConnectionHeader => !string.IsNullOrEmpty(ConnectionHeader);
+
+    /// <summary>Header, title and message for Ctrl+C.</summary>
+    public string CopyText => HasConnectionHeader
+        ? $"{ConnectionHeader}{Environment.NewLine}{Title}{Environment.NewLine}{Environment.NewLine}{Message}"
+        : $"{Title}{Environment.NewLine}{Environment.NewLine}{Message}";
 
     public static MessageDialogViewModel Information(string title, string message, ILocalizer localizer) =>
         new(title, message, MessageKind.Information, Text(localizer, L.Common.Ok), null);

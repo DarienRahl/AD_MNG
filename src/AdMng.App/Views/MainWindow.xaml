@@ -246,6 +246,13 @@
     </Style>
   </Window.Resources>
 
+  <DockPanel>
+  <!-- ===== Connection identity: a strip in the connection colour (grey while not connected) ===== -->
+  <Border x:Name="ConnectionStrip"
+          Height="4"
+          Background="{Binding ConnectionColor, Mode=OneWay, Converter={StaticResource Ad.ConnectionBrush}}"
+          DockPanel.Dock="Top" />
+
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
@@ -254,13 +261,39 @@
       <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
-    <!-- ===== Menu (ADUC layout) ===== -->
-    <Menu x:Name="MainMenu" Grid.Row="0">
+    <!-- ===== Menu (ADUC layout) and the connection badge at its right end ===== -->
+    <DockPanel Grid.Row="0">
+    <Button x:Name="ConnectionBadge"
+            Margin="8,2,8,2"
+            Padding="10,2,8,3"
+            VerticalAlignment="Center"
+            AutomationProperties.HelpText="{Binding ConnectionToolTip, Mode=OneWay}"
+            AutomationProperties.Name="{Binding ConnectionLabel, Mode=OneWay}"
+            Background="{Binding ConnectionColor, Mode=OneWay, Converter={StaticResource Ad.ConnectionBrush}}"
+            BorderThickness="0"
+            Click="OnConnectionBadgeClick"
+            DockPanel.Dock="Right"
+            Foreground="White"
+            ToolTip="{Binding ConnectionToolTip, Mode=OneWay}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Foreground="White"
+                   Text="{Binding ConnectionLabel, Mode=OneWay}" />
+        <TextBlock Margin="8,0,0,0"
+                   FontSize="10"
+                   Foreground="White"
+                   Style="{StaticResource Ad.GlyphText}"
+                   Text="{x:Static c:Glyphs.ChevronDown}" />
+      </StackPanel>
+    </Button>
+    <Menu x:Name="MainMenu">
       <MenuItem Header="{l:Tr Shell.MenuFile}">
         <MenuItem x:Name="ConnectMenuItem"
                   Click="OnConnectClick"
                   Header="{l:Tr Ui.Connect}"
                   Visibility="{Binding IsConnected, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+        <MenuItem b:CommandMenu.Id="session.newWindow" />
         <MenuItem b:CommandMenu.Id="session.changeDc" />
         <MenuItem b:CommandMenu.Id="session.disconnect" />
         <Separator />
@@ -271,9 +304,13 @@
         <MenuItem b:CommandMenu.Id="view.importViews" />
         <MenuItem b:CommandMenu.Id="view.exportViews" />
         <Separator />
-        <MenuItem Click="OnExitClick"
-                  Header="{l:Tr Ui.Exit}"
+        <MenuItem x:Name="CloseWindowMenuItem"
+                  Click="OnExitClick"
+                  Header="{l:Tr Ui.CloseWindow}"
                   InputGestureText="Alt+F4" />
+        <MenuItem x:Name="ExitAllMenuItem"
+                  Click="OnExitAllClick"
+                  Header="{l:Tr Ui.ExitAll}" />
       </MenuItem>
       <MenuItem Header="{l:Tr Shell.MenuAction}">
         <MenuItem b:CommandMenu.Id="object.properties" />
@@ -383,6 +420,7 @@
         <MenuItem Click="OnAboutClick" Header="{l:Tr Ui.About}" />
       </MenuItem>
     </Menu>
+    </DockPanel>
 
     <!-- ===== Toolbar, address bar, global search ===== -->
     <Grid Grid.Row="1" Margin="6,0,8,6">
@@ -589,6 +627,19 @@
           <ContextMenu />
         </TreeView.ContextMenu>
       </TreeView>
+
+      <!-- Shown while objects of another connection window (or another AdMng.exe) are dragged over the tree. -->
+      <Border x:Name="DropRefusedText"
+              Margin="8"
+              Padding="8,4"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Bottom"
+              Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+              CornerRadius="4"
+              IsHitTestVisible="False"
+              Visibility="Collapsed">
+        <TextBlock Text="{l:Tr Connections.CrossConnectionDrop}" TextWrapping="Wrap" />
+      </Border>
 
       <GridSplitter Grid.Column="1"
                     Width="5"
@@ -1137,4 +1188,5 @@
       </Border>
     </Grid>
   </Grid>
+  </DockPanel>
 </Window>

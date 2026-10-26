@@ -44,7 +44,7 @@ internal static class WatchdogUiSupport
     /// round instead of waiting 30 s. The rest of the application keeps the system clock.
     /// </summary>
     public static Action<IServiceCollection> UseClock(TimeProvider time) =>
-        services => services.Replace(ServiceDescriptor.Singleton(sp => new WatchdogServices(
+        services => services.Replace(ServiceDescriptor.Scoped(sp => new WatchdogServices(
             sp.GetRequiredService<WatchdogConnectionService>(),
             sp.GetRequiredService<DialogServices>(),
             sp.GetRequiredService<ICsvCodec>(),

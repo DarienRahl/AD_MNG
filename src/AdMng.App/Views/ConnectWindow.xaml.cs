@@ -11,9 +11,11 @@ namespace AdMng.App.Views;
 /// </summary>
 public partial class ConnectWindow : Window
 {
-    public ConnectWindow(ConnectViewModel viewModel)
+    /// <remarks><c>connection</c>: the connection window this dialog connects (null in hosts without connection windows).</remarks>
+    public ConnectWindow(ConnectViewModel viewModel, Presentation.Connections.ConnectionContext? connection = null)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        Connections.ConnectionChrome.SetConnectionId(this, connection?.Id);
         InitializeComponent();
         UiLanguage.ApplyTo(this);
         DataContext = viewModel;

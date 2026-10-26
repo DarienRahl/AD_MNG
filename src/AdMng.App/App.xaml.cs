@@ -1,4 +1,5 @@
 using System.Windows;
+using AdMng.App.Connections;
 using AdMng.App.Services;
 using AdMng.Presentation.Localization;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,13 +9,15 @@ namespace AdMng.App;
 
 /// <summary>
 /// Application entry: parses the command line, builds the host (<see cref="AppHost"/>), applies settings, language
-/// and theme, installs the global exception handler and opens the connect window. <c>--smoke-test</c> runs
-/// <see cref="SmokeTest"/> instead and exits with its result.
+/// and theme, installs the global exception handler and opens the connect window of the first connection window.
+/// <c>--smoke-test</c> runs <see cref="SmokeTest"/> instead and exits with its result. The application ends after its
+/// last connection window ended (<see cref="ConnectionWindowManager"/>).
 /// </summary>
 public partial class App : Application
 {
     private IHost? _host;
     private GlobalExceptionHandler? _exceptions;
+    private ConnectionWindowManager? _windows;
 
     /// <summary>The running host (null before start-up completed and in the smoke test).</summary>
     public IServiceProvider? Services => _host?.Services;
@@ -49,11 +52,16 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _exceptions?.Detach();
+
+        // Windows logoff or a shutdown started elsewhere: the sessions of connection windows still open are closed here
+        // (bounded, concurrently), before the host stops.
+        _windows?.CloseLeftoverSessions(TimeSpan.FromSeconds(10));
+        _windows = null;
         if (_host is { } host)
         {
             _host = null;
 
-            // Closes the LDAP sessions. Bounded, so a hanging DC can never keep the process alive.
+            // Disposes the application-wide services. Bounded, so nothing can keep the process alive.
             var stop = Task.Run(async () =>
             {
                 await host.StopAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
@@ -88,7 +96,9 @@ public partial class App : Application
             _exceptions.Attach(this);
             await _host.StartAsync().ConfigureAwait(true);
             await AppHost.InitializeAsync(_host.Services, options).ConfigureAwait(true);
-            _host.Services.GetRequiredService<AppNavigator>().ShowConnect();
+            _windows = _host.Services.GetRequiredService<ConnectionWindowManager>();
+            _windows.Attach(this);
+            _windows.OpenNewConnection();
         }
         catch (Exception ex)
         {

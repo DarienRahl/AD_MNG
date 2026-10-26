@@ -1,8 +1,10 @@
 using System.IO;
 using System.Windows;
+using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.Core.Directory;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Session;
 using AdMng.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,11 +18,19 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// in-memory sample company of <see cref="FakeDirectoryBuilder"/>) and the settings folder (a temporary directory).
 /// Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
+/// <remarks>
+/// Per-connection services live in a connection scope (design note docs/dev/multi-window.md 10.3): <see cref="Services"/>
+/// is the scope of a default connection window (it also resolves the singletons), <see cref="Host"/>.Services the root.
+/// A test that needs a second connection window creates it with <see cref="CreateConnection"/>. Every scope is disposed
+/// before the host stops - a scope left open would leak its session into the next test.
+/// </remarks>
 internal sealed class UiTestContext : IAsyncDisposable
 {
     private readonly string _settingsDirectory;
     private readonly List<Exception> _exceptions = [];
     private readonly GlobalExceptionHandler _exceptionHandler;
+    private readonly AsyncServiceScope _defaultScope;
+    private readonly List<AsyncServiceScope> _scopes = [];
 
     private UiTestContext(
         IHost host,
@@ -36,6 +46,7 @@ internal sealed class UiTestContext : IAsyncDisposable
         Company = company;
         Connector = connector;
         _settingsDirectory = settingsDirectory;
+        _defaultScope = host.Services.CreateAsyncScope();
         _exceptionHandler = host.Services.GetRequiredService<GlobalExceptionHandler>();
         _exceptionHandler.Recorder = _exceptions.Add;
         _exceptionHandler.Attach(Application.Current
@@ -44,7 +55,11 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public IHost Host { get; }
 
-    public IServiceProvider Services => Host.Services;
+    /// <summary>The services of the default connection window (scope); singletons resolve here too.</summary>
+    public IServiceProvider Services => _defaultScope.ServiceProvider;
+
+    /// <summary>The connection context of the default connection window.</summary>
+    public ConnectionContext Connection => Services.GetRequiredService<ConnectionContext>();
 
     public FakeDirectoryBuilder Directory { get; }
 
@@ -80,9 +95,35 @@ internal sealed class UiTestContext : IAsyncDisposable
     }
 
     /// <summary>Connects the session manager to the sample company (as the connect window would).</summary>
-    public Task<IDirectorySession> ConnectAsync() =>
-        Services.GetRequiredService<ISessionManager>()
+    public Task<IDirectorySession> ConnectAsync()
+    {
+        _ = Connection;
+        return Services.GetRequiredService<ISessionManager>()
             .ConnectAsync(new ConnectionOptions { Domain = FakeDirectoryBuilder.DefaultDomain }, null, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Another connection window's scope (its own session, dialogs, toasts…), not connected yet; disposed with the context.
+    /// Resolve its <c>MainWindow</c> at most once.
+    /// </summary>
+    public IServiceProvider CreateConnection()
+    {
+        var scope = Host.Services.CreateAsyncScope();
+        _scopes.Add(scope);
+        _ = scope.ServiceProvider.GetRequiredService<ConnectionContext>();
+        return scope.ServiceProvider;
+    }
+
+    /// <summary>Connects a connection scope to <paramref name="domain"/> as <paramref name="user"/> (the fake's bound identity).</summary>
+    public static Task<IDirectorySession> ConnectAsync(IServiceProvider connection, string domain, string? user = null)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        _ = connection.GetRequiredService<ConnectionContext>();
+        return connection.GetRequiredService<ISessionManager>().ConnectAsync(
+            new ConnectionOptions { Domain = domain, UserName = user, Authentication = user is null ? AuthenticationMode.CurrentUser : AuthenticationMode.Credentials },
+            user is null ? null : new System.Net.NetworkCredential(user, "Hasło-tylko-w-pamięci"),
+            CancellationToken.None);
+    }
 
     /// <summary>No WPF binding errors and no unhandled exceptions so far.</summary>
     public void AssertHealthy()
@@ -98,7 +139,16 @@ internal sealed class UiTestContext : IAsyncDisposable
         UiTestSupport.CloseAllWindows();
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         _exceptionHandler.Detach();
-        Services.GetRequiredService<AppearanceService>().Stop();
+        Host.Services.GetRequiredService<AppearanceService>().Stop();
+
+        // Connection windows the manager opened (and did not close yet), then the scopes of the test, default first.
+        Host.Services.GetRequiredService<ConnectionWindowManager>().CloseLeftoverSessions(TimeSpan.FromSeconds(5));
+        await _defaultScope.DisposeAsync();
+        foreach (var scope in _scopes)
+        {
+            await scope.DisposeAsync();
+        }
+
         await Host.StopAsync(TimeSpan.FromSeconds(5));
         if (Host is IAsyncDisposable disposable)
         {

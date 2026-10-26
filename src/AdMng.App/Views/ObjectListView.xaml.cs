@@ -27,6 +27,12 @@ public partial class ObjectListView : UserControl
     /// <summary>Drag &amp; drop data format: the dragged objects' DNs (string[]).</summary>
     public const string DistinguishedNamesFormat = "AdMng.DistinguishedNames";
 
+    /// <summary>
+    /// Drag &amp; drop data format: the id of the connection window the objects come from (a GUID as text). The tree
+    /// accepts a drop only from its own connection.
+    /// </summary>
+    public const string ConnectionIdFormat = "AdMng.ConnectionId";
+
     /// <summary>Typed characters of the virtual list's type-to-find form one prefix within this time.</summary>
     private const long TypeToFindWindowMs = 1000;
 
@@ -299,6 +305,11 @@ public partial class ObjectListView : UserControl
 
         var data = new DataObject();
         data.SetData(DistinguishedNamesFormat, dns);
+        if (Window.GetWindow(this) is { } window && Connections.ConnectionChrome.GetConnectionId(window) is { } connection)
+        {
+            data.SetData(ConnectionIdFormat, connection.ToString("N"));
+        }
+
         DragDrop.DoDragDrop(List, data, DragDropEffects.Move);
     }
 

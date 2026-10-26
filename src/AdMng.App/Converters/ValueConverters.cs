@@ -152,3 +152,15 @@ public sealed class ShortcutTextConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => DependencyProperty.UnsetValue;
 }
+
+/// <summary>
+/// A connection colour (<see cref="Presentation.Connections.ConnectionColor"/>, null = not connected) → its solid brush:
+/// the identity strip, the connection badge and the colour dots of the window switcher.
+/// </summary>
+public sealed class ConnectionColorToBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        Connections.ConnectionChrome.Brush(value as Presentation.Connections.ConnectionColor?);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => DependencyProperty.UnsetValue;
+}

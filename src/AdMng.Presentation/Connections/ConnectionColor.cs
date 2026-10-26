@@ -46,8 +46,47 @@ public static class ConnectionColors
         return Palette[(int)(Fnv1a32(normalized) % (uint)Palette.Count)];
     }
 
+    /// <summary>
+    /// The sRGB value of a colour: the strip, the badge background and the dot (the badge text is white). Mid-dark tones, so
+    /// white text keeps a contrast of at least 4.5:1 (WCAG AA) in the light and the dark theme alike.
+    /// </summary>
+    public static (byte R, byte G, byte B) Rgb(ConnectionColor color) => color switch
+    {
+        ConnectionColor.Blue => (0x0B, 0x5C, 0xAD),
+        ConnectionColor.Teal => (0x00, 0x71, 0x6F),
+        ConnectionColor.Green => (0x1E, 0x7A, 0x32),
+        ConnectionColor.Purple => (0x6B, 0x3F, 0xA0),
+        ConnectionColor.Magenta => (0xA8, 0x23, 0x6B),
+        ConnectionColor.Indigo => (0x39, 0x49, 0xAB),
+        ConnectionColor.Brown => (0x7A, 0x4E, 0x2D),
+        ConnectionColor.Slate => (0x4A, 0x58, 0x66),
+        _ => throw new ArgumentOutOfRangeException(nameof(color), color, null),
+    };
+
+    /// <summary>The neutral grey of a window that is not connected.</summary>
+    public static (byte R, byte G, byte B) NotConnectedRgb => (0x6B, 0x6B, 0x6B);
+
+    /// <summary>WCAG 2 contrast ratio of two sRGB colours (1 … 21).</summary>
+    public static double ContrastRatio((byte R, byte G, byte B) first, (byte R, byte G, byte B) second)
+    {
+        var a = RelativeLuminance(first);
+        var b = RelativeLuminance(second);
+        return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
+    }
+
     /// <summary>The next palette entry after <paramref name="color"/> (wrapping).</summary>
     public static ConnectionColor Next(ConnectionColor color) => Palette[((int)color + 1) % Palette.Count];
+
+    private static double RelativeLuminance((byte R, byte G, byte B) color)
+    {
+        static double Channel(byte value)
+        {
+            var c = value / 255.0;
+            return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+
+        return (0.2126 * Channel(color.R)) + (0.7152 * Channel(color.G)) + (0.0722 * Channel(color.B));
+    }
 
     /// <summary>32-bit FNV-1a over the UTF-8 bytes of <paramref name="text"/>.</summary>
     public static uint Fnv1a32(string text)
