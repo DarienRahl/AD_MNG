@@ -36,8 +36,9 @@ public sealed record GroupPolicyDomainNames(string DnsName, string? NetBiosName)
 /// and per member (MemberOf) the highest-precedence GPO wins; the effective members of a local group are the Members list
 /// plus every MemberOf entry naming it.</item>
 /// <item>GPP local groups are applied item by item in that order: ADD/REMOVE, "delete all member users/groups", Replace and
-/// Delete remove what earlier items added. Items with item-level targeting are kept but marked conditional; their removals
-/// are not applied (they may not match). Restricted Groups and GPP are evaluated independently (both are reported).</item>
+/// Delete remove what earlier items added. Items with item-level targeting are kept but marked conditional, next to (never
+/// instead of) an unconditional add of the same member; their removals are not applied (they may not match). Restricted
+/// Groups and GPP are evaluated independently (both are reported).</item>
 /// <item>Principals: SIDs of the domain and Everyone / Authenticated Users / Users; names of the domain through their
 /// SIDs; local groups, service SIDs, other domains and Tier 0 groups of the catalogue (already Tier 0) are not repeated.</item>
 /// <item>One grant per principal, right, mechanism, GPO and link, with the computers it reaches by role and the level of
@@ -155,9 +156,19 @@ public sealed class GroupPolicyRightsResolver
                 group.Count(c => c.Role == ComputerRole.DomainController),
                 group.Count(c => c.Role == ComputerRole.Server),
                 group.Count(c => c.Role == ComputerRole.Workstation));
+            // One grant per key for this group of computers (a key can come from two items of one GPO): counted once,
+            // conditional only when every contributing item is.
+            var grantsHere = new Dictionary<GrantKey, RawGrant>();
             foreach (var raw in Evaluate(applied))
             {
                 var key = new GrantKey(raw.PrincipalSid, raw.Definition.Key, raw.Mechanism, raw.Applied.GpoId, ScopeKey(raw.Applied.Container.Dn));
+                grantsHere[key] = grantsHere.TryGetValue(key, out var earlier)
+                    ? earlier with { ItemLevelTargeting = earlier.ItemLevelTargeting && raw.ItemLevelTargeting }
+                    : raw;
+            }
+
+            foreach (var (key, raw) in grantsHere)
+            {
                 if (!totals.TryGetValue(key, out var total))
                 {
                     totals[key] = total = new Accumulator(raw.Applied, raw.Definition, raw.ItemLevelTargeting);
@@ -224,7 +235,7 @@ public sealed class GroupPolicyRightsResolver
         var rights = new Dictionary<string, (AppliedGroupPolicy Applied, IReadOnlyList<string> Principals)>(StringComparer.OrdinalIgnoreCase);
         var members = new Dictionary<string, (AppliedGroupPolicy Applied, IReadOnlyList<string> Principals)>(StringComparer.OrdinalIgnoreCase);
         var memberOf = new Dictionary<string, (AppliedGroupPolicy Applied, string Principal, IReadOnlyList<string> Groups)>(StringComparer.OrdinalIgnoreCase);
-        var preferences = new Dictionary<string, Dictionary<string, (AppliedGroupPolicy Applied, bool Targeted)>>(StringComparer.OrdinalIgnoreCase);
+        var preferences = new Dictionary<string, Dictionary<string, List<PreferenceAdd>>>(StringComparer.OrdinalIgnoreCase);
         foreach (var gpo in applied)
         {
             if (!_settings.TryGetValue(gpo.GpoId, out var settings))
@@ -265,7 +276,7 @@ public sealed class GroupPolicyRightsResolver
 
                 if (!preferences.TryGetValue(localGroup, out var current))
                 {
-                    preferences[localGroup] = current = new Dictionary<string, (AppliedGroupPolicy, bool)>(StringComparer.OrdinalIgnoreCase);
+                    preferences[localGroup] = current = new Dictionary<string, List<PreferenceAdd>>(StringComparer.OrdinalIgnoreCase);
                 }
 
                 var targeted = item.HasItemLevelTargeting;
@@ -302,7 +313,7 @@ public sealed class GroupPolicyRightsResolver
 
                     if (member.Action == GppMemberAction.Add)
                     {
-                        current[sid] = (gpo, targeted);
+                        AddPreference(current, sid, gpo, targeted);
                     }
                     else if (!targeted)
                     {
@@ -347,9 +358,12 @@ public sealed class GroupPolicyRightsResolver
                 continue;
             }
 
-            foreach (var (sid, (gpo, targeted)) in current)
+            foreach (var (sid, adds) in current)
             {
-                AddPrincipals(result, [sid], definition, LocalRightMechanism.PreferenceGroups, gpo, targeted);
+                foreach (var add in adds)
+                {
+                    AddPrincipals(result, [sid], definition, LocalRightMechanism.PreferenceGroups, add.Applied, add.Targeted);
+                }
             }
         }
 
@@ -468,7 +482,30 @@ public sealed class GroupPolicyRightsResolver
         return text.Length > 0 ? text : null;
     }
 
-    private static void RemoveWhere(Dictionary<string, (AppliedGroupPolicy, bool)> current, Func<string, bool> predicate)
+    /// <summary>
+    /// A GPP item adds a member: an item without targeting makes the member unconditional and takes over the unconditional
+    /// attribution (the last such item wins); an item with targeting never displaces an unconditional add - it is kept next
+    /// to it, once per GPO, as a conditional grant of its own GPO.
+    /// </summary>
+    private static void AddPreference(Dictionary<string, List<PreferenceAdd>> current, string sid, AppliedGroupPolicy gpo, bool targeted)
+    {
+        if (!current.TryGetValue(sid, out var adds))
+        {
+            current[sid] = adds = [];
+        }
+
+        if (!targeted)
+        {
+            adds.RemoveAll(a => !a.Targeted);
+        }
+
+        if (!adds.Exists(a => a.Targeted == targeted && a.Applied.GpoId == gpo.GpoId))
+        {
+            adds.Add(new PreferenceAdd(gpo, targeted));
+        }
+    }
+
+    private static void RemoveWhere(Dictionary<string, List<PreferenceAdd>> current, Func<string, bool> predicate)
     {
         foreach (var sid in current.Keys.Where(predicate).ToList())
         {
@@ -481,6 +518,8 @@ public sealed class GroupPolicyRightsResolver
 
     private static string ScopeKey(string dn) =>
         (DistinguishedName.TryParse(dn, out var parsed) ? parsed.ToString() : dn).ToUpperInvariant();
+
+    private readonly record struct PreferenceAdd(AppliedGroupPolicy Applied, bool Targeted);
 
     private readonly record struct GrantKey(string PrincipalSid, string Right, LocalRightMechanism Mechanism, Guid GpoId, string Scope);
 

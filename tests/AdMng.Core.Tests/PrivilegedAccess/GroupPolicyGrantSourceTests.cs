@@ -173,6 +173,39 @@ public class GroupPolicyGrantSourceTests
     }
 
     [Fact]
+    public async Task TargetedPreferenceItem_DoesNotDisplaceAnUnconditionalAdd_OfTheSameMember()
+    {
+        var builder = new FakeDirectoryBuilder();
+        var company = builder.AddSampleCompany();
+        var sysvol = new FakeSysvolFileReader();
+        var helpdesk = builder.AddGroup("GG_Pomoc_Techniczna", company.GroupsOu, members: [company.MalgorzataWojcik]);
+        (string, string?, string)[] member = [(@"CONTOSO\GG_Pomoc_Techniczna", builder.SidOf(helpdesk), "ADD")];
+
+        // The domain GPO adds the group everywhere (and again, targeted, in a second item); the OU GPO only on laptops.
+        var everywhere = builder.AddGroupPolicyObject("Domena – Pomoc techniczna");
+        sysvol.PutGroups(everywhere, FakeDirectoryBuilder.Groups(
+            FakeDirectoryBuilder.LocalGroup("Administrators (built-in)", "S-1-5-32-544", members: member),
+            FakeDirectoryBuilder.LocalGroup("Administratorzy (wbudowane)", "S-1-5-32-544", targeted: true, members: member)));
+        var laptops = builder.AddGroupPolicyObject("Stacje – Pomoc na laptopach");
+        sysvol.PutGroups(laptops, FakeDirectoryBuilder.Groups(
+            FakeDirectoryBuilder.LocalGroup("Administrators (built-in)", "S-1-5-32-544", targeted: true, members: member)));
+        builder.SetGroupPolicyLinks(builder.DomainDn, [(everywhere, 0)]);
+        builder.SetGroupPolicyLinks(company.ComputersOu, [(laptops, 0)]);
+
+        var (results, _) = await ScanAsync(builder, sysvol);
+
+        var findings = LocalRights(results, company.MalgorzataWojcik);
+        var unconditional = Assert.Single(findings, f => f.GroupPolicy!.GpoId == everywhere);
+        Assert.False(unconditional.GroupPolicy!.IsConditional);
+        Assert.Equal((1, 0, 3), (unconditional.GroupPolicy.DomainControllers, unconditional.GroupPolicy.Servers, unconditional.GroupPolicy.Workstations));
+        Assert.Equal(PrivilegeLevel.Tier0, unconditional.Level);
+        var conditional = Assert.Single(findings, f => f.GroupPolicy!.GpoId == laptops);
+        Assert.True(conditional.GroupPolicy!.ItemLevelTargeting);
+        Assert.Equal((0, 0, 3), (conditional.GroupPolicy.DomainControllers, conditional.GroupPolicy.Servers, conditional.GroupPolicy.Workstations));
+        Assert.Equal(PrivilegeLevel.Elevated, conditional.Level);
+    }
+
+    [Fact]
     public async Task NoGpoReachesAComputer_NothingIsReadFromSysvol()
     {
         var builder = new FakeDirectoryBuilder();

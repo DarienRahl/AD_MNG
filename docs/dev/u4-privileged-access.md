@@ -179,7 +179,8 @@ The comparison runs after the stream over all accounts of the scope (also those 
   (Members) and per member (MemberOf) - the highest-precedence GPO wins, as in the security engine; the members of a
   local group are its Members list plus every MemberOf naming it. GPP items in application order: ADD/REMOVE, delete
   all member users / groups (users vs groups by the group graph), Replace and Delete clear what earlier items added;
-  items with item-level targeting are kept but conditional and their removals are not applied. Restricted Groups and
+  items with item-level targeting are kept but conditional - next to, never instead of, an unconditional add of the
+  same member (that one keeps its GPO and its computers) - and their removals are not applied. Restricted Groups and
   GPP are evaluated independently (both reported; the CSE order between them is not modelled). A domain group on the
   left of a Members line is a domain membership (in the graph already), not a local right.
 * **Principals.** SIDs of the domain; Everyone and Authenticated Users (by SID or by English/Polish name) and Users
