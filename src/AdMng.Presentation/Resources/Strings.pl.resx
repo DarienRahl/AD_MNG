@@ -7914,6 +7914,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Salutation.GenderOverrideHint" xml:space="preserve">
     <value>Tylko dla tej wysyłki – nie jest zapisywana.</value>
   </data>
+  <data name="UserMessages.Salutation.FieldAcademicTitle" xml:space="preserve">
+    <value>tytuł naukowy</value>
+  </data>
+  <data name="UserMessages.Salutation.FieldJobTitle" xml:space="preserve">
+    <value>stanowisko</value>
+  </data>
   <data name="UserMessages.Salutation.Guessed" xml:space="preserve">
     <value>zgadnięte</value>
   </data>

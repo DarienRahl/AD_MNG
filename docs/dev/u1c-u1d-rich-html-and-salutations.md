@@ -909,6 +909,9 @@ Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/
   that message only.
 * Settings: an emptied title attribute is stored as `""` (null would bring the default back); the neutral texts are
   stored only when they differ from the defaults.
+* `{title}` (the job title, attribute `title`) and `{$title}` (the academic title) differ by one character: the
+  composer's *Wstaw pole* list carries `{title}` and labels both (*stanowisko* / *tytuł naukowy*). No template finding for the mix – the template bar is an error bar, and the mandatory preview of
+  every message shows which one was used.
 * The screenshot test class is `ScreenshotTestsSalutations`, so the CI step's filter
   `FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests` takes it without a workflow change.
 

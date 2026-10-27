@@ -237,6 +237,20 @@ public sealed class UserMessageSalutationComposerTests
     }
 
     [Fact]
+    public async Task FieldList_TellsTheJobTitleFromTheAcademicTitle()
+    {
+        var (_, _, composer) = await OpenAsync("Dzień dobry ");
+
+        Assert.Equal(composer.FieldExamples, composer.FieldChoices.Select(c => c.Value));
+        Assert.Equal("{title} – job title", composer.FieldChoices.Single(c => c.Value == "{title}").Text);
+        Assert.Equal("{$title} – academic title", composer.FieldChoices.Single(c => c.Value == "{$title}").Text);
+        Assert.Equal("{givenName}", composer.FieldChoices.Single(c => c.Value == "{givenName}").Text);
+
+        composer.InsertFieldCommand.Execute(composer.FieldChoices.Single(c => c.Value == "{$title}").Value);
+        Assert.Equal("Dzień dobry {$title}", composer.Body);
+    }
+
+    [Fact]
     public async Task EnglishText_UsesEnglishForms()
     {
         var (_, _, composer) = await OpenAsync();

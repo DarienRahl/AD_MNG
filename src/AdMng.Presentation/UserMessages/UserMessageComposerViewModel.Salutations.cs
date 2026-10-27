@@ -18,6 +18,7 @@ public sealed partial class UserMessageComposerViewModel
     private UserMessagePlanRequest? _lastRequest;
     private IReadOnlyList<Option<UnknownGenderMode?>>? _unknownGenderChoices;
     private IReadOnlyList<Option<SalutationGenderChoice>>? _genderChoices;
+    private IReadOnlyList<Option<string>>? _fieldChoices;
 
     /// <summary>"Używaj tytułów" of the edited template.</summary>
     public bool UseTitles
@@ -57,6 +58,20 @@ public sealed partial class UserMessageComposerViewModel
     /// <summary>The gender choices of the preview's selector: automatic, Pan, Pani, neutral.</summary>
     public IReadOnlyList<Option<SalutationGenderChoice>> GenderChoices => _genderChoices ??=
         [.. Enum.GetValues<SalutationGenderChoice>().Select(c => new Option<SalutationGenderChoice>(c, Localizer[SalutationText.ChoiceKey(c)]))];
+
+    /// <summary>
+    /// The "Wstaw pole" list: <see cref="FieldExamples"/> with a hint for the two fields that differ by one character only –
+    /// <c>{title}</c> is the job title (attribute <c>title</c>), <c>{$title}</c> the academic title.
+    /// </summary>
+    public IReadOnlyList<Option<string>> FieldChoices => _fieldChoices ??=
+    [
+        .. FieldExamples.Select(f => new Option<string>(f, f switch
+        {
+            "{title}" => $"{f} – {Localizer[L.Salutations.FieldJobTitle]}",
+            "{$title}" => $"{f} – {Localizer[L.Salutations.FieldAcademicTitle]}",
+            _ => f,
+        })),
+    ];
 
     /// <summary>Genders chosen in the preview of the current plan, by account DN (memory only).</summary>
     public IReadOnlyDictionary<string, Gender> GenderOverrides => _genderOverrides;

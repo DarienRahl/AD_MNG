@@ -102,7 +102,7 @@ public sealed class UserMessageFields
     /// <summary>Field examples for the editor's "insert field" list.</summary>
     public static IReadOnlyList<string> Examples { get; } =
     [
-        "{givenName}", "{sn}", "{displayName}", "{sAMAccountName}", "{userPrincipalName}", "{mail}", "{department}",
+        "{givenName}", "{sn}", "{displayName}", "{sAMAccountName}", "{userPrincipalName}", "{mail}", "{department}", "{title}",
         "{$passwordExpires:d MMMM yyyy}", "{$passwordExpiresInDays}", "{$accountExpires:d MMMM yyyy}", "{$accountExpiresInDays}",
         "{$lastLogon:d MMMM yyyy}", "{$lockedSince:d MMMM yyyy, HH:mm}", "{$today:d MMMM yyyy}", "{$manager:displayName}",
         "{$manager:mail}", "{$input:termin}",

@@ -57,5 +57,7 @@ public static partial class L
         public const string ManagerGenderOverride = "UserMessages.Salutation.ManagerGenderOverride";
         public const string GenderOverrideHint = "UserMessages.Salutation.GenderOverrideHint";
         public const string Guessed = "UserMessages.Salutation.Guessed";
+        public const string FieldAcademicTitle = "UserMessages.Salutation.FieldAcademicTitle";
+        public const string FieldJobTitle = "UserMessages.Salutation.FieldJobTitle";
     }
 }

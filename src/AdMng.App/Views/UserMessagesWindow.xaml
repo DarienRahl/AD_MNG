@@ -327,15 +327,17 @@
               <Button x:Name="InsertFieldButton"
                       Margin="6,0,0,0"
                       Command="{Binding InsertFieldCommand}"
-                      CommandParameter="{Binding SelectedItem, ElementName=FieldBox}"
+                      CommandParameter="{Binding SelectedValue, ElementName=FieldBox}"
                       Content="{l:Tr UserMessages.InsertField}"
                       DockPanel.Dock="Right" />
               <ComboBox x:Name="FieldBox"
                         Width="280"
                         AutomationProperties.Name="{l:Tr UserMessages.InsertField}"
+                        DisplayMemberPath="Text"
                         DockPanel.Dock="Right"
-                        ItemsSource="{Binding FieldExamples, Mode=OneWay}"
-                        SelectedIndex="0" />
+                        ItemsSource="{Binding FieldChoices, Mode=OneWay}"
+                        SelectedIndex="0"
+                        SelectedValuePath="Value" />
               <TextBlock VerticalAlignment="Bottom" Text="{l:Tr UserMessages.Body}" />
             </DockPanel>
             <TextBox x:Name="BodyBox"

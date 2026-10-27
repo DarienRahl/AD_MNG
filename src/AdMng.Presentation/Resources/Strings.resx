@@ -7914,6 +7914,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Salutation.GenderOverrideHint" xml:space="preserve">
     <value>For this send only – it is not saved.</value>
   </data>
+  <data name="UserMessages.Salutation.FieldAcademicTitle" xml:space="preserve">
+    <value>academic title</value>
+  </data>
+  <data name="UserMessages.Salutation.FieldJobTitle" xml:space="preserve">
+    <value>job title</value>
+  </data>
   <data name="UserMessages.Salutation.Guessed" xml:space="preserve">
     <value>guessed</value>
   </data>
