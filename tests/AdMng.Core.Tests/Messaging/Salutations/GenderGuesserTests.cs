@@ -53,6 +53,28 @@ public sealed class GenderGuesserTests
         Assert.Equal(gender, GenderGuesser.Guess(null, null, Gender.Unknown, givenName, surname, Options, polishNameRule: false).Gender);
     }
 
+    [Theory]
+    [InlineData("Aditya", "Sharma", Gender.Masculine)]
+    [InlineData("Krishna", "Rao", Gender.Masculine)]
+    [InlineData("Chaitanya", "Reddy", Gender.Masculine)]
+    [InlineData("Surya", "Iyer", Gender.Masculine)]
+    [InlineData("Attila", "Nagy", Gender.Masculine)]
+    [InlineData("Savva", "Morozow", Gender.Masculine)]
+    [InlineData("Ravindra", "Patil", Gender.Masculine)]
+    [InlineData("Swati", "Gupta", Gender.Feminine)]
+    [InlineData("Jyoti", "Singh", Gender.Feminine)]
+    [InlineData("Preeti", "Joshi", Gender.Feminine)]
+    [InlineData("Shruti", "Nair", Gender.Feminine)]
+    [InlineData("Lakshmi", "Menon", Gender.Feminine)]
+    [InlineData("Ayşe", "Yılmaz", Gender.Feminine)]
+    public void ForeignStaffNames_AreExceptionsToTheRule(string givenName, string surname, Gender gender)
+    {
+        // A Polish message to a colleague without preferredLanguage: the "-a" rule would say the opposite.
+        var info = Guess(givenName, surname);
+
+        Assert.Equal((gender, DerivedValueSource.NameException), (info.Gender, info.Source));
+    }
+
     [Fact]
     public void EnglishMessages_DoNotApplyThePolishRule()
     {

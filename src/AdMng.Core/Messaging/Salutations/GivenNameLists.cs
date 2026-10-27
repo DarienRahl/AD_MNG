@@ -15,7 +15,9 @@ public static class GivenNameLists
         "mykola", "mykoła", "danila", "gawrila", "kuzma", "foma", "ilja", "ilia", "illia", "misza", "grisza", "kola", "wania",
         "kostia", "petia", "fedia", "tolia", "wolodia", "wasia", "dima", "luca", "joshua", "ezra", "elia", "mustafa", "hamza",
         "osama", "isa", "musa", "ilya", "misha", "grisha", "kostya", "vanya", "pasha", "kolya", "tolya", "volodya", "vasya", "petya",
-        "fedya", "mattia", "luka");
+        "fedya", "mattia", "luka", "savva", "attila", "aditya", "krishna", "chaitanya", "surya", "rama", "shiva", "ravindra",
+        "rajendra", "narendra", "mahendra", "surendra", "jitendra", "devendra", "upendra", "virendra", "yahya", "zakaria",
+        "taha", "takuya", "kazuya", "tetsuya", "kenta", "yuta", "ryota", "shota");
 
     /// <summary>Feminine names that do not end in -a (Beatrycze, Noemi, Emily …).</summary>
     public static IReadOnlySet<string> FeminineNotEndingInA { get; } = Keys(
@@ -28,7 +30,10 @@ public static class GivenNameLists
         "kristen", "caroline", "jacqueline", "madeleine", "simone", "nadine", "janine", "isabelle", "nathalie", "natalie",
         "elisabeth", "allison", "alison", "kimberly", "shirley", "dorothy", "nancy", "lucy", "lauren", "erin", "colleen",
         "maureen", "eileen", "carol", "carolyn", "evelyn", "marilyn", "sharon", "edith", "brigitte", "monique", "sylvie",
-        "chantal", "yvette", "inge", "anke", "frauke", "ilse", "gisele", "beatriz", "raquel", "pilar", "dolores");
+        "chantal", "yvette", "inge", "anke", "frauke", "ilse", "gisele", "beatriz", "raquel", "pilar", "dolores", "swati",
+        "jyoti", "preeti", "priti", "shruti", "lakshmi", "gauri", "aarti", "arti", "bharti", "shanti", "parvati", "devi",
+        "pallavi", "shalini", "nalini", "malini", "kirti", "deepti", "smriti", "aditi", "nandini", "sakshi", "ayse", "elif",
+        "zeynep", "merve");
 
     /// <summary>Names used for both genders (no signal from the name; the surname may decide).</summary>
     public static IReadOnlySet<string> Unisex { get; } = Keys(

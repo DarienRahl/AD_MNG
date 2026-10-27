@@ -793,8 +793,11 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
   michelle, emily, amy, lily, lili, ann, anne, mary, marie, sophie, chloe, zoe, julie, claire, jeanne, louise, elizabeth,
   catherine, kathleen, margaret, irene, doris, alice, charlotte, isabel, heike, elke, silke, ute, gudrun, karin, birgit,
   ellen, helen, kathrin, jasmin, lubow, liubov; as built also common English, German, French and Spanish names (jennifer,
-  karen, susan, megan, sabine, yvonne, christine, kerstin, iris …) and, masculine ending in -a, the English
-  transliterations of Russian names (ilya, misha, grisha, kostya, vanya, pasha …), mattia, luka;
+  karen, susan, megan, sabine, yvonne, christine, kerstin, iris …), Indian and Turkish names (swati, jyoti, preeti,
+  shruti, lakshmi, devi, aditi …, ayse, elif, zeynep, merve) and, masculine ending in -a, the English
+  transliterations of Russian names (ilya, misha, grisha, kostya, vanya, pasha …), mattia, luka, savva, attila, Indian
+  names (aditya, krishna, chaitanya, surya, rama, shiva, the -endra names: ravindra, rajendra, narendra …), yahya,
+  zakaria, taha and Japanese names (takuya, kazuya, tetsuya, kenta, yuta, ryota, shota);
 * unisex / ambiguous: sasza, andrea, nicola, nikola, kim, alex, robin, jean, dominique, toni, kai, noa, maxime, akira
   (as built also sasha, zhenya).
 
