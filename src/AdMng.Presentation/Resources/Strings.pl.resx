@@ -7929,6 +7929,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="ComputerReview.Empty" xml:space="preserve">
     <value>Brak komputerów w tym raporcie.</value>
   </data>
+  <data name="ComputerReview.NotRun" xml:space="preserve">
+    <value>Wybierz zakres i raporty, a potem naciśnij „Sprawdź” (F5). Komputery są odczytywane z kontrolera domeny tego okna; wyniki pozostają tylko w pamięci.</value>
+  </data>
   <data name="ComputerReview.Selected" xml:space="preserve">
     <value>Zaznaczono: {0}</value>
   </data>

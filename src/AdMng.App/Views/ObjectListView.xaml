@@ -224,6 +224,16 @@
             <MenuItem b:CommandMenu.Id="object.enable" />
             <MenuItem b:CommandMenu.Id="object.unlock" />
             <MenuItem b:CommandMenu.Id="object.resetPassword" />
+            <!-- Computers (K1). -->
+            <MenuItem x:Name="ComputerContextMenuItem" Header="{l:Tr Computers.ComputerMenu}">
+              <MenuItem b:CommandMenu.Id="computer.remote" />
+              <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
+              <MenuItem b:CommandMenu.Id="computer.manage" />
+              <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+              <MenuItem b:CommandMenu.Id="computer.ping" />
+              <Separator />
+              <MenuItem b:CommandMenu.Id="computer.reset" />
+            </MenuItem>
             <MenuItem b:CommandMenu.Id="object.sendMessage" />
             <MenuItem b:CommandMenu.Id="object.move" />
             <MenuItem b:CommandMenu.Id="object.batchEdit" />

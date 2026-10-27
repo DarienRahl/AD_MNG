@@ -128,6 +128,7 @@ public static partial class L
         public const string StatusRunning = "ComputerReview.StatusRunning";
         public const string StatusStopped = "ComputerReview.StatusStopped";
         public const string Empty = "ComputerReview.Empty";
+        public const string NotRun = "ComputerReview.NotRun";
         public const string Selected = "ComputerReview.Selected";
         public const string ExportCsv = "ComputerReview.ExportCsv";
         public const string ExactLastLogon = "ComputerReview.ExactLastLogon";

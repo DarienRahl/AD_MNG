@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using AdMng.App.Computers;
 using AdMng.App.Connections;
 using AdMng.App.Localization;
 using AdMng.App.Services;
@@ -175,6 +176,9 @@ public static class AppHost
 
         // ---- Account review, README U2 and U4 (opened through ToolWindows) ----
         services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
+
+        // ---- Computers, K1: review, remote actions over WinRM, local tools (opened through ToolWindows / DialogService) ----
+        services.AddAdMngComputersApp();
 
         // ---- Saved filters of the filter builder, README U4 (the list through ToolWindows, the editor modal) ----
         services.AddWindow<Presentation.Filters.SavedFiltersViewModel, SavedFiltersWindow>();

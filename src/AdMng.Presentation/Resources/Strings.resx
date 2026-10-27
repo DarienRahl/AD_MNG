@@ -7929,6 +7929,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="ComputerReview.Empty" xml:space="preserve">
     <value>No computer in this report.</value>
   </data>
+  <data name="ComputerReview.NotRun" xml:space="preserve">
+    <value>Choose the scope and the reports and press "Check" (F5). The computers are read from the domain controller of this window; the results stay in memory only.</value>
+  </data>
   <data name="ComputerReview.Selected" xml:space="preserve">
     <value>{0} selected</value>
   </data>
