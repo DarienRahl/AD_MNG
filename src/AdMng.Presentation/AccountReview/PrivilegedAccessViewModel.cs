@@ -1109,9 +1109,57 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             }
 
             _settingsSnapshot = snapshot;
-            LoadSettings();
-            RefreshTexts();
+            ApplyStoredSettings();
         });
+    }
+
+    /// <summary>
+    /// Shows the tab's settings another window saved, replacing only what differs. A text box commits on losing focus,
+    /// which switching to another window does not do: a note or number being typed in a mark, rule or field the other
+    /// window did not change stays in its box (and is saved when the box loses focus). The columns, option lists and group
+    /// rows stay the same objects.
+    /// </summary>
+    private void ApplyStoredSettings()
+    {
+        LoadSettings();
+        var stored = _services.Settings.Current.AccountReview.Privileges;
+        _loadingSettings = true;
+        try
+        {
+            var overrides = stored.OverrideMap();
+            foreach (var group in GroupLevels)
+            {
+                var level = overrides.TryGetValue(group.Group.Id, out var value) ? PrivilegeLevels.Normalize(value) : group.Group.DefaultLevel;
+                if (group.Level.Value != level)
+                {
+                    group.Level = group.Levels.First(l => l.Value == level);
+                }
+            }
+
+            if (!Marks.Select(m => m.ToSetting()).SequenceEqual(stored.Marks))
+            {
+                foreach (var mark in Marks)
+                {
+                    mark.Changed -= OnSettingChanged;
+                }
+
+                Marks.ReplaceAll(stored.Marks.Select(CreateMark));
+            }
+
+            if (!Rules.Select(r => r.ToSetting()).SequenceEqual(stored.Rules))
+            {
+                foreach (var rule in Rules)
+                {
+                    rule.Changed -= OnSettingChanged;
+                }
+
+                Rules.ReplaceAll(stored.Rules.Select(CreateRule));
+            }
+        }
+        finally
+        {
+            _loadingSettings = false;
+        }
     }
 
     /// <summary>The stored settings of the tab (their serialized form: the copy-on-write store gives new lists on every update).</summary>

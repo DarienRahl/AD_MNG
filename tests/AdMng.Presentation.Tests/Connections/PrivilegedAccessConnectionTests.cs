@@ -96,6 +96,59 @@ public sealed class PrivilegedAccessConnectionTests
     }
 
     [Fact]
+    public async Task AChangeSavedInAnotherWindow_ReplacesOnlyWhatItChanged_SoANoteBeingTypedIsKept()
+    {
+        await using var host = new ConnectionScopeHost(domains: [SampleDomain.Create(FakeDirectoryBuilder.DefaultDomain).Session, SampleDomain.Create(Fabrikam).Session]);
+        await using var a = host.CreateConnection();
+        await using var b = host.CreateConnection();
+        await a.ConnectAsync(user: "jan.kowalski");
+        await b.ConnectAsync(Fabrikam, "anna.zielińska");
+        var settings = host.Provider.GetRequiredService<ISettingsStore>();
+        await host.Provider.GetRequiredService<Presentation.Filters.FilterLibrary>().SaveAsync(new Presentation.Filters.SavedFilter
+        {
+            Id = "it-admin",
+            Name = "Administratorzy IT",
+            Definition = Core.Filters.FilterDefinition.Of(new Core.Filters.FilterCondition(Core.ActiveDirectory.Attr.EmployeeType, Core.Filters.FilterOperator.Equals, "IT-Admin")),
+        });
+        await settings.UpdateAsync(s =>
+        {
+            s.AccountReview.Privileges.Marks.Add(new PrivilegedMarkSetting { Dn = "CN=GG_Kadry_Płace,OU=Grupy,OU=Firma,{domain}", Note = "Dane płacowe" });
+            s.AccountReview.Privileges.Rules.Add(new PrivilegedRuleSetting { FilterId = "it-admin", Note = "Konta administracyjne" });
+        }, TestContext.Current.CancellationToken);
+        using var reviewOfA = a.Get<IDialogViewModelFactory>().CreateAccountReview();
+        using var reviewOfB = b.Get<IDialogViewModelFactory>().CreateAccountReview();
+        var tabOfA = reviewOfA.Privileges;
+        var tabOfB = reviewOfB.Privileges;
+        var mark = Assert.Single(tabOfA.Marks);
+        var rule = Assert.Single(tabOfA.Rules);
+        var levels = tabOfA.GroupLevels;
+        var columns = tabOfA.Columns;
+
+        // B changes a group level: A shows it on its own group row; its marks, rules and columns are the same objects, so
+        // a note typed into A's mark (not committed while A's text box keeps the focus) is not thrown away.
+        var groupInB = tabOfB.GroupLevels[0];
+        groupInB.Level = groupInB.Levels.First(l => l.Value != groupInB.Group.DefaultLevel);
+        Assert.Same(levels, tabOfA.GroupLevels);
+        Assert.Equal(groupInB.Level.Value, tabOfA.GroupLevels[0].Level.Value);
+        Assert.Same(mark, Assert.Single(tabOfA.Marks));
+        Assert.Same(rule, Assert.Single(tabOfA.Rules));
+        Assert.Same(columns, tabOfA.Columns);
+
+        // B changes the mark itself: A shows B's mark (the last save wins), the rule stays.
+        tabOfB.Marks[0].Note = "Dane płacowe (kadry)";
+        Assert.Equal("Dane płacowe (kadry)", Assert.Single(tabOfA.Marks).Note);
+        Assert.NotSame(mark, tabOfA.Marks[0]);
+        Assert.Same(rule, Assert.Single(tabOfA.Rules));
+
+        // A's next save keeps B's level and note.
+        tabOfA.Rules[0].Note = "Konta administracyjne IT";
+        var stored = settings.Current.AccountReview.Privileges;
+        Assert.Equal(groupInB.Level.Value, Assert.Single(stored.LevelOverrides).Level);
+        Assert.Equal("Dane płacowe (kadry)", Assert.Single(stored.Marks).Note);
+        Assert.Equal("Konta administracyjne IT", Assert.Single(stored.Rules).Note);
+    }
+
+    [Fact]
     public async Task AGroupMarkedInOneDomain_DoesNotMarkTheSameNamedGroupOfAnotherDomain_WhichCanBeMarkedThere()
     {
         // Two domains with the same OU layout (a test clone) and their own domain SIDs.

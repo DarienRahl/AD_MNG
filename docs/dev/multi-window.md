@@ -1352,7 +1352,10 @@ single-window model. Where U4 meets the scopes:
   never holds for the new lists of every update). The settings of the *Uprawnienia* tab (group levels, marks, rules,
   peers, account types, deep scan) are shared too: the tab reloads them when another window saved a different version
   (`Settings.Changed`, compared in serialized form, own saves skipped), so its next save never undoes the other window's
-  change; when two windows change the same field at the same moment, the last save wins. A group or account mark of
+  change; when two windows change the same field at the same moment, the last save wins. The reload replaces only what
+  differs (group levels in place, the marks or the rules only when they changed, never the columns): a text box commits
+  on losing focus, which switching windows does not do, so a note being typed in a mark or rule the other window did not
+  change stays. A group or account mark of
   another domain (its SID's domain part) matches by SID only, never by its portable DN
   (`docs/dev/u4-privileged-access.md` 3).
 * **Tests.** `ServiceRegistrationTests` (ACL source offered through the scope, grant sources singletons and shared),
