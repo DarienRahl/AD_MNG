@@ -690,8 +690,10 @@ The salutation fields render as plain text (HTML-encoded in the HTML body, `Head
 display name is still parsed); the source is recorded for the preview:
 
 1. The **title attribute** of the settings (default `personalTitle`; empty = none). Never `title` – that is the job
-   title. Honorific words found there (`Pan Pani Mr Mr. Mrs Mrs. Ms Ms. Miss`) are not titles: they set the gender with
-   source *attribute* (section 16) and are removed from the title. As built, a fully covered part after the last comma
+   title. An honorific word as its first word (`Pan Pani Mr Mr. Mrs Mrs. Ms Ms. Miss`) is not a title: it sets the
+   gender with source *attribute* (section 16) and is removed from the title. As built, only as the first word and not
+   written in capitals – `PAN` (Polska Akademia Nauk: `dr hab., prof. IChF PAN`, `czł. koresp. PAN`) or `MS` (Master of
+   Science) elsewhere or in capitals is a title word or an unrecognized one, never a gender. As built, a fully covered part after the last comma
    is a suffix as in the display name (`dr hab., prof. UW` → `{$titledName}` "dr hab. Ewa Zielińska, prof. UW").
 2. The **display name** (setting *Rozpoznawaj tytuł z nazwy wyświetlanej*, default on): a title prefix
    (`prof. dr hab. Jan Kowalski`, `dr Kowalski Jan`) and/or a suffix after the last comma (`…, prof. UW`,
@@ -708,7 +710,8 @@ display name is still parsed); the source is recorded for the preview:
 spelling. Two absorbed patterns: the qualifier `n.` + up to two following words of which the last ends in a dot
 (`dr n. med.`, `dr hab. n. o zdr.`) and, after a row with `prof.` in its title (`prof.`, `ks. prof.`, as built also
 `prof. uczelni`, `prof. nadzw.`), a university abbreviation (2–8 letters, starts upper-case, at
-least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`; as built never a degree such as `MBA`, `PhD`, `DSc`,
+least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`; as built up to two of them for an institute of the
+academy: `prof. IChF PAN`, `prof. IBL PAN`; as built never a degree such as `MBA`, `PhD`, `DSc`,
 `LLM`, `MSc` – those stay unrecognized words); as built also one lower-case abbreviation of a discipline (at least two
 letters and a dot) directly after a row of the table (`dr med.`, `dr hab. med.`, `dr inż. arch.`, `mgr farm.`,
 `lic. piel.`) – all kept as written in `{$title}`, without effect on the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);

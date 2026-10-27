@@ -143,6 +143,50 @@ public sealed class TitleParserTests
         Assert.Equal(Gender.Feminine, info.HonorificGender);
     }
 
+    [Theory]
+    [InlineData("dr hab., prof. IChF PAN", "Anna", "Nowak", "Szanowna Pani Profesor", "Dear Professor Nowak")]
+    [InlineData("dr hab. inż., prof. PAN", "Ewa", "Zielińska", "Szanowna Pani Profesor", "Dear Professor Zielińska")]
+    [InlineData("prof. dr hab., czł. koresp. PAN", "Anna", "Nowak", "Szanowna Pani Profesor", "Dear Professor Nowak")]
+    public void Attribute_AcademyAbbreviation_IsNoHonorific(string value, string givenName, string surname, string polish, string english)
+    {
+        // "PAN" = Polska Akademia Nauk, not "Pan": a woman professor of the academy is no man, and "PAN" is not dropped.
+        var person = SalutationPerson.Of(value, $"{givenName} {surname}", givenName, surname, null, SalutationOptions.Default);
+
+        Assert.Equal(Gender.Unknown, person.Title.HonorificGender);
+        Assert.Equal((Gender.Feminine, DerivedValueSource.NameRule), (person.Gender.Gender, person.Gender.Source));
+        Assert.Contains("PAN", person.Title.Unrecognized.Append(person.Title.SuffixText).SelectMany(w => w.Split(' ')));
+        Assert.Equal(polish, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+        Assert.Equal(english, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.English, SalutationVariant.Full, SalutationOptions.Default).Text);
+    }
+
+    [Theory]
+    [InlineData("dr hab., prof. IChF PAN", "dr hab.", "prof. IChF PAN")]
+    [InlineData("dr hab. inż., prof. PAN", "dr hab. inż.", "prof. PAN")]
+    public void Attribute_InstituteOfTheAcademy_IsTheUniversityOfTheSuffix(string value, string prefix, string suffix)
+    {
+        var info = TitleParser.ParseAttribute(value, Table);
+
+        Assert.Equal((prefix, suffix), (info.PrefixText, info.SuffixText));
+        Assert.Empty(info.Unrecognized);
+    }
+
+    [Theory]
+    [InlineData("MS")]
+    [InlineData("MR")]
+    [InlineData("PAN")]
+    [InlineData("dr Pani")]
+    public void Attribute_HonorificInCapitalsOrNotFirst_IsAnUnrecognizedWord(string value)
+    {
+        // "MS" is a degree (Master of Science): Jan Smith is no "Ms Smith".
+        var info = TitleParser.ParseAttribute(value, Table);
+
+        Assert.Equal(Gender.Unknown, info.HonorificGender);
+        Assert.Equal([value.Split(' ')[^1]], info.Unrecognized);
+        var person = SalutationPerson.Of(value, "Jan Smith", "Jan", "Smith", null, SalutationOptions.Default, language: AdMng.Core.Messaging.MessageLanguage.English);
+        Assert.NotEqual(DerivedValueSource.TitleAttribute, person.Gender.Source);
+        Assert.NotEqual("Dear Ms Smith", SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.English, SalutationVariant.NoTitle, SalutationOptions.Default).Text);
+    }
+
     [Fact]
     public void Attribute_UnknownWords_AreReported_AndTheCoveredPartStays()
     {
@@ -185,6 +229,8 @@ public sealed class TitleParserTests
     [InlineData("dr med. Jan Kowalski", "Jan", "Kowalski", "dr med.", "", "Jan Kowalski")]
     [InlineData("dr inż. arch. Jan Kowalski", "Jan", "Kowalski", "dr inż. arch.", "", "Jan Kowalski")]
     [InlineData("Jan Kowalski, dr hab. med.", "Jan", "Kowalski", "", "dr hab. med.", "Jan Kowalski")]
+    [InlineData("dr hab. Anna Nowak, prof. IChF PAN", "Anna", "Nowak", "dr hab.", "prof. IChF PAN", "Anna Nowak")]
+    [InlineData("prof. IBL PAN Anna Nowak", "Anna", "Nowak", "prof. IBL PAN", "", "Anna Nowak")]
     public void DisplayName_PrefixAndSuffix(string displayName, string givenName, string surname, string prefix, string suffix, string rest)
     {
         var info = TitleParser.Parse(null, displayName, givenName, surname, Table);

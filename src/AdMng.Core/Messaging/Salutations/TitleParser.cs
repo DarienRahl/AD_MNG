@@ -75,8 +75,8 @@ public sealed record TitleInfo
 /// name or the surname. Words are compared case- and diacritics-insensitively, ignoring a trailing dot; a word with inner
 /// dots is split after each dot. The longest table spelling at each position is taken; <c>n.</c> + up to two words of
 /// which the last ends in a dot (<c>dr n. med.</c>), one lower-case abbreviation of a discipline directly after a row
-/// (<c>dr med.</c>, <c>mgr farm.</c>) and a university abbreviation after a row with <c>prof.</c> in its title
-/// (<c>prof. UW</c>, <c>prof. uczelni AGH</c>, <c>PWr</c>) are absorbed as written. Pure.
+/// (<c>dr med.</c>, <c>mgr farm.</c>) and one or two university abbreviations after a row with <c>prof.</c> in its title
+/// (<c>prof. UW</c>, <c>prof. uczelni AGH</c>, <c>PWr</c>, <c>prof. IChF PAN</c>) are absorbed as written. Pure.
 /// </summary>
 public static class TitleParser
 {
@@ -112,21 +112,28 @@ public static class TitleParser
     }
 
     /// <summary>
-    /// The title attribute: every word is a title, an honorific word (sets the gender) or unrecognized. A fully covered
-    /// part after the last comma is the suffix, as in the display name ("dr hab., prof. UW" → "dr hab. Ewa Zielińska, prof. UW").
+    /// The title attribute: every word is a title or unrecognized; an honorific word as the first word ("Pani dr") sets the
+    /// gender and is no title – elsewhere or written in capitals it is an unrecognized word ("prof. IChF PAN", "MS"). A
+    /// fully covered part after the last comma is the suffix, as in the display name ("dr hab., prof. UW" → "dr hab. Ewa
+    /// Zielińska, prof. UW").
     /// </summary>
     public static TitleInfo ParseAttribute(string? value, TitleTable table)
     {
         ArgumentNullException.ThrowIfNull(table);
-        var honorific = Tokenize(value).FirstOrDefault(IsHonorific) is { } word
-            ? MasculineHonorifics.Contains(word.Key) ? Gender.Masculine : Gender.Feminine
-            : Gender.Unknown;
+        var honorific = Gender.Unknown;
+        if (Tokenize(value).FirstOrDefault() is { } first && IsHonorific(first) && !IsAllCaps(first))
+        {
+            honorific = MasculineHonorifics.Contains(first.Key) ? Gender.Masculine : Gender.Feminine;
+            var text = value!;
+            value = text[(text.IndexOf(first.Text, StringComparison.Ordinal) + first.Text.Length)..];
+        }
+
         var main = value;
         var suffix = Coverage.Empty;
         var comma = value?.LastIndexOf(',') ?? -1;
         if (comma >= 0)
         {
-            var tail = Cover(Words(value![(comma + 1)..]), table, stopAtUnknown: false, isName: _ => false);
+            var tail = Cover(Tokenize(value![(comma + 1)..]), table, stopAtUnknown: false, isName: _ => false);
             if (tail.Parts.Count > 0 && tail.Unrecognized.Count == 0)
             {
                 suffix = tail;
@@ -134,7 +141,7 @@ public static class TitleParser
             }
         }
 
-        var cover = Cover(Words(main), table, stopAtUnknown: false, isName: _ => false);
+        var cover = Cover(Tokenize(main), table, stopAtUnknown: false, isName: _ => false);
         return new TitleInfo
         {
             Prefix = cover.Parts,
@@ -144,8 +151,6 @@ public static class TitleParser
             Unrecognized = cover.Unrecognized,
             Candidates = table.Candidates([cover.Keys, suffix.Keys]),
         };
-
-        static List<TitleToken> Words(string? text) => [.. Tokenize(text).Where(t => !IsHonorific(t))];
     }
 
     /// <summary>A title prefix and/or suffix of the display name; null when there is none or the rest has no name.</summary>
@@ -268,6 +273,9 @@ public static class TitleParser
 
     private static bool IsHonorific(TitleToken token) => MasculineHonorifics.Contains(token.Key) || FeminineHonorifics.Contains(token.Key);
 
+    /// <summary>Every letter upper-case ("PAN" – Polska Akademia Nauk, "MS" – Master of Science): no honorific word.</summary>
+    private static bool IsAllCaps(TitleToken token) => token.Text.Where(char.IsLetter).All(char.IsUpper);
+
     /// <summary>A short all-caps word without a dot ("KS", "DR", "LEK") – in a display name rather a code than a title.</summary>
     private static bool IsCode(TitleToken token) =>
         !token.EndsWithDot && token.Text.Length is 2 or 3 && token.Text.All(c => char.IsLetter(c) && char.IsUpper(c));
@@ -344,9 +352,17 @@ public static class TitleParser
             return 1;
         }
 
-        // After every professor row: "prof. UW", "ks. prof. KUL", "prof. uczelni PW", "prof. nadzw. PŁ".
+        // After every professor row: "prof. UW", "ks. prof. KUL", "prof. uczelni PW", "prof. nadzw. PŁ"; an institute
+        // of the academy is two words ("prof. IChF PAN", "prof. IBL PAN").
         var afterProfessor = previous.Rule is { } rule && Tokenize(rule.Title).Any(t => t.Key == "prof");
-        return afterProfessor && !isName(token) && IsUniversity(token.Text) ? 1 : 0;
+        if (!afterProfessor || !IsInstitution(token))
+        {
+            return 0;
+        }
+
+        return i + 1 < tokens.Count && IsInstitution(tokens[i + 1]) ? 2 : 1;
+
+        bool IsInstitution(TitleToken word) => !isName(word) && IsUniversity(word.Text);
     }
 
     private static bool ContainsSequence(IReadOnlyList<string> keys, IReadOnlyList<string> sequence)
