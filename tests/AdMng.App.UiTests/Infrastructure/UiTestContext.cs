@@ -17,7 +17,8 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// The real application host for one UI test: every service as in production except the directory connector (the
 /// in-memory sample company of <see cref="FakeDirectoryBuilder"/>), SYSVOL (an empty <see cref="FakeSysvolFileReader"/>,
 /// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own) and the settings folder
-/// (a temporary directory). Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
+/// (a temporary directory); the computer remote client, tool launcher, ping and DNS resolver are fakes (K1). Unhandled UI
+/// exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
 /// <remarks>
 /// Per-connection services live in a connection scope (design note docs/dev/multi-window.md 10.3): <see cref="Services"/>
@@ -89,11 +90,28 @@ internal sealed class UiTestContext : IAsyncDisposable
             services.Replace(ServiceDescriptor.Singleton<IAppShutdown>(shutdown));
             services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(new FakeSysvolFileReader()));
             configure?.Invoke(services);
+
+            // Computers (K1): no test reaches a computer over WinRM, DNS or ICMP or starts mstsc/mmc - fakes, unless the
+            // test registered its own instance above.
+            UseFake<Core.Computers.Remote.IRemoteComputerClient>(services, new FakeRemoteComputerClient());
+            UseFake<Core.Computers.Remote.ILocalToolLauncher>(services, new FakeLocalToolLauncher());
+            UseFake<Core.Computers.Remote.IPingService>(services, new FakePingService());
+            UseFake<Core.Computers.Remote.IHostAddressResolver>(services, new FakeHostAddressResolver());
         });
         var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory);
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();
         return context;
+    }
+
+    /// <summary>Replaces the application's registration of <typeparamref name="T"/> with <paramref name="fake"/> unless a test registered an instance.</summary>
+    private static void UseFake<T>(IServiceCollection services, T fake)
+        where T : class
+    {
+        if (services.LastOrDefault(d => d.ServiceType == typeof(T)) is not { ImplementationInstance: not null })
+        {
+            services.Replace(ServiceDescriptor.Singleton(fake));
+        }
     }
 
     /// <summary>Connects the session manager to the sample company (as the connect window would).</summary>

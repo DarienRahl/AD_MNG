@@ -147,6 +147,11 @@ public sealed class ScreenshotTests
         "Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem",
         "Two connections at once – contoso.test and fabrikam.test in separate windows, each with its own colour and account");
 
+    private static readonly ScreenshotInfo ComputerReview = new(
+        "22-computers.png",
+        "Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera",
+        "Computer review – systems past the end of support, the release and housekeeping tiles, the details of the selected computer");
+
     private static readonly ScreenshotInfo CompareObjects = new(
         "21-compare-objects.png",
         "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
@@ -218,6 +223,28 @@ public sealed class ScreenshotTests
         Assert.StartsWith(@"contoso.test – CONTOSO\jan.kowalski", left.Title, StringComparison.Ordinal);
         Assert.StartsWith(@"fabrikam.test – FABRIKAM\anna.zielinska", right.Title, StringComparison.Ordinal);
         await ScreenshotWriter.SaveComposedAsync(left, right, TwoConnections, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot22_Computers() => ShootAsync(ThemePreference.Light, async context =>
+    {
+        // The computer inventory sample (K1): DCs, servers with and without owners, workstations of every catalogue row.
+        var sample = context.Directory.AddComputerInventorySample(context.Company);
+        var factory = Computers.ComputerUiSupport.FactoryWithComputerDialogs(context.Services);
+        var window = (AdMng.App.Computers.ComputerReviewWindow)Windows(context).CreateWindow(factory.CreateReview());
+        await ScreenshotWriter.ShowAsync(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        await review.RunCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(() => !review.IsBusy, "the computer review");
+        window.ParametersExpander.IsExpanded = false;
+        window.TilesList.SelectedItem = review.Tiles.Single(t => t.Report == Core.Computers.ComputerReport.EndOfSupport);
+        await UiWait.UntilAsync(() => window.ItemsList.Items.Count > 0, "the computers past the end of support");
+        window.ItemsList.SelectedItem = review.Items.Single(r => r.Dn == sample.Windows7);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Contains(review.Items, r => r.Name == "SRV-STARY04");
+        await ScreenshotWriter.SaveAsync(window, ComputerReview, dark: false);
     });
 
     [Fact]

@@ -26,8 +26,8 @@ namespace AdMng.App;
 
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
-/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation and the
-/// dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
+/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation, the
+/// computer windows (K1) and the dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
 /// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
 /// nothing touches a directory or a watchdog service.
 /// </summary>
@@ -180,6 +180,7 @@ internal static class SmokeTest
 
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
+        RenderComputerWindows(services, windows);
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
         RenderToolWindows(services, windows); // C2b
 
@@ -429,4 +430,25 @@ internal static class SmokeTest
 
     [DllImport("kernel32.dll")]
     private static extern nint GetStdHandle(int standardHandle);
+
+    /// <summary>
+    /// Computers (K1), disconnected: the computer review (scope, parameters, reports; "Sprawdź" disabled), the remote actions
+    /// of a computer ("not connected", every action disabled), the restart dialog of a server (typed name) and of a
+    /// workstation, and the "Komputery" tab of the settings. No computer, DC or DNS server is contacted.
+    /// </summary>
+    private static void RenderComputerWindows(IServiceProvider services, IWindowService windows)
+    {
+        var computers = services.GetRequiredService<Presentation.Computers.ComputerViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateReview()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRemote("CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=SRV-PLIKI01,OU=Serwery,OU=Firma,DC=contoso,DC=test", "SRV-PLIKI01", "srv-pliki01.contoso.test", Core.Computers.ComputerType.Server))));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test", "WAW-PC001", "waw-pc001.contoso.test", Core.Computers.ComputerType.Workstation))));
+
+        var settings = (SettingsWindow)windows.CreateWindow(services.GetRequiredService<IDialogViewModelFactory>().CreateSettings());
+        UiTestSupport.ShowOffScreen(settings);
+        settings.SettingsTabs.SelectedItem = settings.ComputersTab;
+        settings.UpdateLayout();
+    }
 }
