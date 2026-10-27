@@ -76,6 +76,23 @@
       <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
     </Style>
 
+    <!-- A value of the selected attribute row: read by its text, then its side and mark ("A: tylko A"). -->
+    <Style x:Key="ValueRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Text, Mode=OneWay}" />
+      <Setter Property="AutomationProperties.HelpText">
+        <Setter.Value>
+          <MultiBinding Mode="OneWay" StringFormat="{}{0}: {1}">
+            <Binding Mode="OneWay" Path="Side" />
+            <Binding Mode="OneWay" Path="MarkText" />
+          </MultiBinding>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- One side of the header: the strip and badge in that connection's colour, the object as that side reads it. -->
     <DataTemplate x:Key="SideTemplate" DataType="{x:Type cmp:ComparisonSideViewModel}">
       <Border Padding="0,0,0,8"
@@ -196,13 +213,21 @@
         <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
       <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr Comparison.Connection}" />
+      <!-- The items are read and typed by their label (domain and account), never by the value-free ToString(). -->
       <ComboBox x:Name="TargetBox"
                 Grid.Column="1"
                 AutomationProperties.Name="{l:Tr Comparison.Connection}"
                 IsEnabled="{Binding HasTargets, Mode=OneWay}"
                 ItemTemplate="{StaticResource TargetTemplate}"
                 ItemsSource="{Binding Targets}"
-                SelectedItem="{Binding SelectedTarget}" />
+                SelectedItem="{Binding SelectedTarget}"
+                TextSearch.TextPath="Label">
+        <ComboBox.ItemContainerStyle>
+          <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Label, Mode=OneWay}" />
+          </Style>
+        </ComboBox.ItemContainerStyle>
+      </ComboBox>
       <TextBlock Grid.Column="2"
                  Margin="16,0,8,0"
                  Style="{StaticResource InlineLabel}"
@@ -439,7 +464,7 @@
           <ListView x:Name="ValuesList"
                     Grid.Row="3"
                     AutomationProperties.Name="{Binding SelectedValuesHeader, Mode=OneWay}"
-                    ItemContainerStyle="{StaticResource CandidateRowStyle}"
+                    ItemContainerStyle="{StaticResource ValueRowStyle}"
                     ItemsSource="{Binding SelectedAttributeRow.Details, Mode=OneWay}">
             <ListView.View>
               <GridView AllowsColumnReorder="False">

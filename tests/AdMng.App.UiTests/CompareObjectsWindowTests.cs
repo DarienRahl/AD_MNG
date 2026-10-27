@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
 using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.UiTests.Infrastructure;
@@ -56,6 +58,25 @@ public sealed class CompareObjectsWindowTests
         Assert.Equal([Attr.City, Attr.Title], comparison.AttributeRows.Select(r => r.LdapName).Order(StringComparer.Ordinal));
         Assert.Equal(2, window.AttributesList.Items.Count);
         Assert.Equal("Attributes (2)", window.AttributesTab.Header);
+
+        // A selected row lists its values; each value, and each connection of the combo, is read by its text (never by the
+        // value-free ToString()), and selecting a row raises no binding error (AssertHealthy below).
+        comparison.SelectedAttributeRow = comparison.AttributeRows.Single(r => r.LdapName == Attr.City);
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        var values = comparison.SelectedAttributeRow.Details;
+        Assert.Equal(values.Count, window.ValuesList.Items.Count);
+        var firstValue = Assert.IsType<ListViewItem>(window.ValuesList.ItemContainerGenerator.ContainerFromIndex(0));
+        Assert.Equal(values[0].Text, AutomationProperties.GetName(firstValue));
+        Assert.Equal($"A: {values[0].MarkText}", AutomationProperties.GetHelpText(firstValue));
+        Assert.Equal("Label", TextSearch.GetTextPath(window.TargetBox));
+        window.TargetBox.IsDropDownOpen = true;
+        await UiWait.UntilAsync(() => window.TargetBox.ItemContainerGenerator.ContainerFromIndex(0) is ComboBoxItem, "the connection items");
+        var targetItem = (ComboBoxItem)window.TargetBox.ItemContainerGenerator.ContainerFromIndex(0);
+        Assert.Equal(comparison.SelectedTarget!.Label, AutomationProperties.GetName(targetItem));
+        Assert.Contains("FABRIKAM\\anna.zielinska", AutomationProperties.GetName(targetItem), StringComparison.Ordinal);
+        window.TargetBox.IsDropDownOpen = false;
+        comparison.SelectedAttributeRow = null;
+        await UiTestSupport.WaitForIdleAsync();
 
         // Toggles: everything that is the same, then the membership tab.
         window.OnlyDifferencesBox.IsChecked = false;
