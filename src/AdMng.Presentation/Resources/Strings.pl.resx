@@ -7803,6 +7803,90 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Computers.Status.NotRead" xml:space="preserve">
     <value>jeszcze nie odczytano</value>
   </data>
+  <data name="Computers.Settings.Tab" xml:space="preserve">
+    <value>Komputery</value>
+  </data>
+  <data name="Computers.Settings.RemoteHeader" xml:space="preserve">
+    <value>Zdalne akcje (WinRM, Kerberos)</value>
+  </data>
+  <data name="Computers.Settings.Timeout" xml:space="preserve">
+    <value>Limit czasu (sekundy)</value>
+  </data>
+  <data name="Computers.Settings.UseHttps" xml:space="preserve">
+    <value>Używaj HTTPS (5986) zamiast HTTP z szyfrowaniem Kerberos (5985)</value>
+  </data>
+  <data name="Computers.Settings.Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Computers.Settings.PortHint" xml:space="preserve">
+    <value>Puste: {0}</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicy" xml:space="preserve">
+    <value>„Odśwież zasady grupy” odświeża też zasady zalogowanych użytkowników (zadanie zaplanowane)</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicyHint" xml:space="preserve">
+    <value>Wyłączone do potwierdzenia w pilotażu na Windows; zasady komputera są odświeżane zawsze.</value>
+  </data>
+  <data name="Computers.Settings.RestartHeader" xml:space="preserve">
+    <value>Ponowne uruchomienie</value>
+  </data>
+  <data name="Computers.Settings.RestartDelay" xml:space="preserve">
+    <value>Domyślne opóźnienie (minuty)</value>
+  </data>
+  <data name="Computers.Settings.RestartMessage" xml:space="preserve">
+    <value>Domyślny komunikat dla użytkowników</value>
+  </data>
+  <data name="Computers.Settings.RestartMessageHint" xml:space="preserve">
+    <value>Puste: wbudowany tekst w języku interfejsu.</value>
+  </data>
+  <data name="Computers.Settings.EndingSoonDays" xml:space="preserve">
+    <value>Ostrzegaj przed końcem wsparcia (dni naprzód)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHeader" xml:space="preserve">
+    <value>Oczekiwane kontenery (raport „Komputery w niewłaściwych OU”)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHint" xml:space="preserve">
+    <value>Jeden kontener w wierszu, razem z poddrzewem; {domain} oznacza domenę połączenia (np. OU=Stacje robocze,{domain}). Puste: bez sprawdzania. Domyślny kontener komputerów i OU=Domain Controllers są sprawdzane zawsze.</value>
+  </data>
+  <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
+    <value>Stacje robocze</value>
+  </data>
+  <data name="Computers.Settings.ServerContainers" xml:space="preserve">
+    <value>Serwery</value>
+  </data>
+  <data name="Computers.Settings.ContainerInvalid" xml:space="preserve">
+    <value>{0}: „{1}” nie jest poprawną nazwą wyróżniającą.</value>
+  </data>
+  <data name="Computers.Settings.OverridesHeader" xml:space="preserve">
+    <value>Własne daty końca wsparcia</value>
+  </data>
+  <data name="Computers.Settings.OverridesHint" xml:space="preserve">
+    <value>Mają pierwszeństwo przed wbudowanym katalogiem, np. dla zakupionych rozszerzonych aktualizacji zabezpieczeń (ESU) Windows 10.</value>
+  </data>
+  <data name="Computers.Settings.Build" xml:space="preserve">
+    <value>Kompilacja</value>
+  </data>
+  <data name="Computers.Settings.Edition" xml:space="preserve">
+    <value>Wydanie</value>
+  </data>
+  <data name="Computers.Settings.EndOfSupport" xml:space="preserve">
+    <value>Koniec wsparcia</value>
+  </data>
+  <data name="Computers.Settings.AddOverride" xml:space="preserve">
+    <value>Dodaj</value>
+  </data>
+  <data name="Computers.Settings.RemoveOverride" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="Computers.Settings.NoOverrides" xml:space="preserve">
+    <value>Brak własnych dat – obowiązuje wbudowany katalog.</value>
+  </data>
+  <data name="Computers.Settings.BuildInvalid" xml:space="preserve">
+    <value>Kompilacja to liczba dodatnia, np. 19045.</value>
+  </data>
+  <data name="Computers.Settings.TooManyOverrides" xml:space="preserve">
+    <value>Najwyżej {0} dat.</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Przegląd komputerów</value>
   </data>

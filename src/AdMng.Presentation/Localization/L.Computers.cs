@@ -79,6 +79,34 @@ public static partial class L
         public const string StatusActions = "Computers.Status.Actions";
         public const string ExactNotAnswered = "Computers.Status.ExactNotAnswered";
         public const string NotRead = "Computers.Status.NotRead";
+        public const string SettingsTab = "Computers.Settings.Tab";
+        public const string SettingsRemoteHeader = "Computers.Settings.RemoteHeader";
+        public const string SettingsTimeout = "Computers.Settings.Timeout";
+        public const string SettingsUseHttps = "Computers.Settings.UseHttps";
+        public const string SettingsPort = "Computers.Settings.Port";
+        public const string SettingsPortHint = "Computers.Settings.PortHint";
+        public const string SettingsRefreshUserPolicy = "Computers.Settings.RefreshUserPolicy";
+        public const string SettingsRefreshUserPolicyHint = "Computers.Settings.RefreshUserPolicyHint";
+        public const string SettingsRestartHeader = "Computers.Settings.RestartHeader";
+        public const string SettingsRestartDelay = "Computers.Settings.RestartDelay";
+        public const string SettingsRestartMessage = "Computers.Settings.RestartMessage";
+        public const string SettingsRestartMessageHint = "Computers.Settings.RestartMessageHint";
+        public const string SettingsEndingSoonDays = "Computers.Settings.EndingSoonDays";
+        public const string SettingsPlacementHeader = "Computers.Settings.PlacementHeader";
+        public const string SettingsPlacementHint = "Computers.Settings.PlacementHint";
+        public const string SettingsWorkstationContainers = "Computers.Settings.WorkstationContainers";
+        public const string SettingsServerContainers = "Computers.Settings.ServerContainers";
+        public const string SettingsContainerInvalid = "Computers.Settings.ContainerInvalid";
+        public const string SettingsOverridesHeader = "Computers.Settings.OverridesHeader";
+        public const string SettingsOverridesHint = "Computers.Settings.OverridesHint";
+        public const string SettingsBuild = "Computers.Settings.Build";
+        public const string SettingsEdition = "Computers.Settings.Edition";
+        public const string SettingsEndOfSupport = "Computers.Settings.EndOfSupport";
+        public const string SettingsAddOverride = "Computers.Settings.AddOverride";
+        public const string SettingsRemoveOverride = "Computers.Settings.RemoveOverride";
+        public const string SettingsNoOverrides = "Computers.Settings.NoOverrides";
+        public const string SettingsBuildInvalid = "Computers.Settings.BuildInvalid";
+        public const string SettingsTooManyOverrides = "Computers.Settings.TooManyOverrides";
     }
 
     /// <summary>

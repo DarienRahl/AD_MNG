@@ -7803,6 +7803,90 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.Status.NotRead" xml:space="preserve">
     <value>not read yet</value>
   </data>
+  <data name="Computers.Settings.Tab" xml:space="preserve">
+    <value>Computers</value>
+  </data>
+  <data name="Computers.Settings.RemoteHeader" xml:space="preserve">
+    <value>Remote actions (WinRM, Kerberos)</value>
+  </data>
+  <data name="Computers.Settings.Timeout" xml:space="preserve">
+    <value>Timeout (seconds)</value>
+  </data>
+  <data name="Computers.Settings.UseHttps" xml:space="preserve">
+    <value>Use HTTPS (5986) instead of HTTP with Kerberos encryption (5985)</value>
+  </data>
+  <data name="Computers.Settings.Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Computers.Settings.PortHint" xml:space="preserve">
+    <value>Empty: {0}</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicy" xml:space="preserve">
+    <value>"Refresh Group Policy" also refreshes the policy of logged-on users (scheduled task)</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicyHint" xml:space="preserve">
+    <value>Off until it is confirmed in the pilot on Windows; the computer policy is always refreshed.</value>
+  </data>
+  <data name="Computers.Settings.RestartHeader" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="Computers.Settings.RestartDelay" xml:space="preserve">
+    <value>Default delay (minutes)</value>
+  </data>
+  <data name="Computers.Settings.RestartMessage" xml:space="preserve">
+    <value>Default message to the users</value>
+  </data>
+  <data name="Computers.Settings.RestartMessageHint" xml:space="preserve">
+    <value>Empty: the built-in text of the interface language.</value>
+  </data>
+  <data name="Computers.Settings.EndingSoonDays" xml:space="preserve">
+    <value>Warn about the end of support (days ahead)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHeader" xml:space="preserve">
+    <value>Expected containers (report "Computers in unexpected OUs")</value>
+  </data>
+  <data name="Computers.Settings.PlacementHint" xml:space="preserve">
+    <value>One container per line, with its subtree; {domain} stands for the domain of the connection (e.g. OU=Stacje robocze,{domain}). Empty: not checked. The default computers container and OU=Domain Controllers are always checked.</value>
+  </data>
+  <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
+    <value>Workstations</value>
+  </data>
+  <data name="Computers.Settings.ServerContainers" xml:space="preserve">
+    <value>Servers</value>
+  </data>
+  <data name="Computers.Settings.ContainerInvalid" xml:space="preserve">
+    <value>{0}: "{1}" is not a valid distinguished name.</value>
+  </data>
+  <data name="Computers.Settings.OverridesHeader" xml:space="preserve">
+    <value>End of support set by you</value>
+  </data>
+  <data name="Computers.Settings.OverridesHint" xml:space="preserve">
+    <value>Wins over the built-in catalogue, e.g. for Extended Security Updates you bought for Windows 10.</value>
+  </data>
+  <data name="Computers.Settings.Build" xml:space="preserve">
+    <value>Build</value>
+  </data>
+  <data name="Computers.Settings.Edition" xml:space="preserve">
+    <value>Edition</value>
+  </data>
+  <data name="Computers.Settings.EndOfSupport" xml:space="preserve">
+    <value>End of support</value>
+  </data>
+  <data name="Computers.Settings.AddOverride" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Computers.Settings.RemoveOverride" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Computers.Settings.NoOverrides" xml:space="preserve">
+    <value>No dates of your own – the built-in catalogue applies.</value>
+  </data>
+  <data name="Computers.Settings.BuildInvalid" xml:space="preserve">
+    <value>The build is a positive number, e.g. 19045.</value>
+  </data>
+  <data name="Computers.Settings.TooManyOverrides" xml:space="preserve">
+    <value>At most {0} dates.</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Computer review</value>
   </data>
