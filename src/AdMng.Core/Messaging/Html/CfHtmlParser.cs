@@ -200,7 +200,7 @@ public static partial class CfHtmlParser
         }
     }
 
-    private static string StripBom(string html) => html.Length > 0 && html[0] == '﻿' ? html[1..] : html;
+    private static string StripBom(string html) => html.Length > 0 && html[0] == '\uFEFF' ? html[1..] : html;
 
     /// <summary>Adds sentinel comments around the body content when the HTML has neither the Office/Chromium markers nor
     /// the sentinels.</summary>

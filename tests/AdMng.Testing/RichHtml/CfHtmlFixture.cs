@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using System.Text;
 
 namespace AdMng.Testing.RichHtml;
@@ -22,13 +21,18 @@ public static class CfHtmlFixture
     public static IReadOnlyList<string> RealCaptures { get; } = ["outlook-classic", "word-365", "outlook-new", "chrome-edge", "firefox"];
 
     /// <summary>The HTML of a fixture.</summary>
-    public static string Html(string name)
+    public static string Html(string name) => Resource($".RichHtml.Fixtures.{name}.html").ReplaceLineEndings("\r\n");
+
+    /// <summary>The expected import result of a fixture (<c>RichHtml/Expected/{name}.html</c>), LF line ends.</summary>
+    public static string Expected(string name) => Resource($".RichHtml.Expected.{name}.html").ReplaceLineEndings("\n");
+
+    private static string Resource(string suffix)
     {
         var assembly = typeof(CfHtmlFixture).Assembly;
-        var resource = assembly.GetManifestResourceNames().Single(n => n.EndsWith($".RichHtml.Fixtures.{name}.html", StringComparison.Ordinal));
+        var resource = assembly.GetManifestResourceNames().Single(n => n.EndsWith(suffix, StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(resource) ?? throw new InvalidOperationException(resource);
         using var reader = new StreamReader(stream, Encoding.UTF8);
-        return reader.ReadToEnd().ReplaceLineEndings("\r\n");
+        return reader.ReadToEnd();
     }
 
     /// <summary>
@@ -71,5 +75,11 @@ public static class CfHtmlFixture
     /// <summary>Formats an offset like the Office header (10 digits).</summary>
     public static string Offset(int value) => value.ToString("D10", CultureInfo.InvariantCulture);
 
-    internal static Assembly Assembly => typeof(CfHtmlFixture).Assembly;
+    /// <summary>The <c>SourceURL</c> the fixture was copied from (browser fixtures), or null.</summary>
+    public static string? SourceUrl(string name) => name switch
+    {
+        "chrome-edge" => "https://intranet.contoso.pl/pomoc/index.html",
+        "firefox" => "https://intranet.contoso.pl/wiadomosci/",
+        _ => null,
+    };
 }
