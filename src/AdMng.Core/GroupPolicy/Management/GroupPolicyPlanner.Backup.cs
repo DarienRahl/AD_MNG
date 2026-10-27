@@ -27,6 +27,7 @@ public sealed partial class GroupPolicyPlanner
         var gpt = await GptVersionAsync(sysvol, gpoId, cancellationToken).ConfigureAwait(false);
         var links = await _reader.ReadLinksOfAsync(session, gpoId, cancellationToken).ConfigureAwait(false);
         var filters = gpo.WmiFilterId is null ? [] : await _reader.ReadWmiFiltersAsync(session, cancellationToken).ConfigureAwait(false);
+        var directoryObjects = await _reader.CountDirectorySettingsAsync(session, gpoId, cancellationToken).ConfigureAwait(false);
         var head = await session.GetAsync(session.Info.DefaultNamingContext, [Attr.ObjectGuid], cancellationToken).ConfigureAwait(false);
         var trustees = SecurityDescriptorSummary.TryParse(gpo.SecurityDescriptor ?? [], out var summary) && summary is not null
             ? summary.Aces.Select(a => a.Sid).Distinct(StringComparer.OrdinalIgnoreCase).Select(sid => new BackupTrustee(sid, null, null)).ToList()
@@ -54,6 +55,7 @@ public sealed partial class GroupPolicyPlanner
             Links = [.. links.Select(l => new BackupLink(l.ContainerDn, l.Order, (l.Enforced ? GroupPolicyLink.EnforcedOption : 0) | (l.Enabled ? 0 : GroupPolicyLink.DisabledOption)))],
             WmiFilter = filters.FirstOrDefault(f => string.Equals(f.Id, gpo.WmiFilterId, StringComparison.OrdinalIgnoreCase)),
             HasSidecar = true,
+            DirectoryObjectCount = directoryObjects,
         };
     }
 
@@ -81,6 +83,7 @@ public sealed partial class GroupPolicyPlanner
         }
 
         AddGppPasswordWarning(issues, backup.Files);
+        AddDirectorySettingsWarning(issues, backup.DirectoryObjectCount, "restored");
         var wmiLink = await ExistingWmiLinkAsync(session, backup.WmiFilterLink, issues, cancellationToken).ConfigureAwait(false);
         var existing = await _reader.ReadPolicyAsync(session, backup.GpoId, cancellationToken).ConfigureAwait(false);
         var objects = new List<ObjectPlan>();
@@ -200,6 +203,7 @@ public sealed partial class GroupPolicyPlanner
         }
 
         AddGppPasswordWarning(issues, files);
+        AddDirectorySettingsWarning(issues, backup.DirectoryObjectCount, "imported");
         steps.Add(Modify([.. attributes]) with { Issues = issues });
         return Plan(session, [PolicyObject(target, steps, PowerShellEquivalent.Of(PowerShellCommand.Of("Import-GPO",
             PowerShellParameter.Literal("BackupId", backup.BackupId.ToString("D")), PowerShellParameter.Literal("Path", backupFolder ?? string.Empty),
@@ -297,6 +301,16 @@ public sealed partial class GroupPolicyPlanner
         {
             issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoGppPassword,
                 $"GPP passwords (cpassword, MS14-025) in: {string.Join(", ", withPasswords.Take(5))}"));
+        }
+    }
+
+    /// <summary>A warning about settings kept as directory objects that the operation does not carry (finding: never silently).</summary>
+    private static void AddDirectorySettingsWarning(List<ValidationIssue> issues, int count, string verb)
+    {
+        if (count > 0)
+        {
+            issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoDirectorySettings, string.Create(CultureInfo.InvariantCulture,
+                $"{count} settings objects kept in the directory (software installation, wireless or wired network policies) are not {verb}.")));
         }
     }
 

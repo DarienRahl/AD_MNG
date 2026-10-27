@@ -239,6 +239,12 @@ public static class IssueCodes
     /// <summary>Imported settings name security principals or UNC paths of another domain (migration tables are not supported).</summary>
     public const string GpoForeignReferences = "GpoForeignReferences";
 
+    /// <summary>
+    /// The GPO holds settings kept as directory objects below CN=Machine/CN=User (software installation, wireless or wired
+    /// network policies) that a copy, backup, restore or import of AD Manager does not carry.
+    /// </summary>
+    public const string GpoDirectorySettings = "GpoDirectorySettings";
+
     /// <summary>A copied or restored GPO gets exactly the source's explicit permissions; the default entries it lacks are removed.</summary>
     public const string GpoPermissionsReplaced = "GpoPermissionsReplaced";
 

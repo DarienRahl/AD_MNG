@@ -268,6 +268,11 @@ public static class GpmcBackupFormat
             json.WriteStartObject();
             json.WriteString("admng", productVersion);
             json.WriteNumber("flags", backup.Options);
+            if (backup.DirectoryObjectCount > 0)
+            {
+                json.WriteNumber("directoryObjects", backup.DirectoryObjectCount);
+            }
+
             json.WriteStartObject("files");
             foreach (var (path, content) in backup.Files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
             {
@@ -453,6 +458,7 @@ public static class GpmcBackupFormat
             Trustees = Trustees(document.DocumentElement),
             Files = files,
             Folders = folders,
+            DirectoryObjectCount = document.DocumentElement?.SelectNodes("//*[local-name()='DSObject']")?.Count ?? 0,
         };
         return await WithSidecarAsync(backupDir, backup, cancellationToken).ConfigureAwait(false);
     }
@@ -525,7 +531,14 @@ public static class GpmcBackupFormat
                 };
             }
 
-            return backup with { Links = links, WmiFilter = filter, HasSidecar = true };
+            var directoryObjects = root.TryGetProperty("directoryObjects", out var objects) && objects.TryGetInt32(out var objectCount) ? objectCount : 0;
+            return backup with
+            {
+                Links = links,
+                WmiFilter = filter,
+                HasSidecar = true,
+                DirectoryObjectCount = Math.Max(backup.DirectoryObjectCount, Math.Max(directoryObjects, 0)),
+            };
         }
     }
 

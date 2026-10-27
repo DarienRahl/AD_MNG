@@ -60,7 +60,7 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
 
     /// <summary>
     /// A copy within the domain (<c>Copy-GPO</c>): a new GUID with the source's files (GPT.INI excluded), extension names,
-    /// status and WMI filter link; versions 1 on each half the source uses (a new GUID has no client history); the
+    /// status and WMI filter link (settings kept as directory objects below CN=Machine/CN=User are not copied: a warning); versions 1 on each half the source uses (a new GUID has no client history); the
     /// permissions are the default, or with <paramref name="copyPermissions"/> exactly the source's explicit ACEs.
     /// </summary>
     /// <exception cref="GpoTooLargeException">The source folder exceeds the in-memory limits.</exception>
@@ -81,6 +81,7 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         var gpoId = id ?? Guid.NewGuid();
         var trimmed = (newName ?? string.Empty).Trim();
         var issues = await ValidateNameAsync(session, trimmed, exceptId: null, cancellationToken).ConfigureAwait(false);
+        AddDirectorySettingsWarning(issues, await _reader.CountDirectorySettingsAsync(session, sourceId, cancellationToken).ConfigureAwait(false), "copied");
         var sourceVersion = await GptVersionAsync(sysvol, sourceId, cancellationToken).ConfigureAwait(false);
         var used = GpoVersion.Max(source.DirectoryVersion ?? GpoVersion.Zero, sourceVersion ?? GpoVersion.Zero);
         var files = content.Files.Where(f => !string.Equals(f.Key, GptIni.RelativePath, StringComparison.OrdinalIgnoreCase))

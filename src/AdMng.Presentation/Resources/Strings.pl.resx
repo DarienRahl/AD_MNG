@@ -10291,6 +10291,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="GroupPolicy.BackupDone" xml:space="preserve">
     <value>Kopie zapasowe GPO ({0}) zapisano w {1}.</value>
   </data>
+  <data name="GroupPolicy.BackupWithoutDirectorySettings" xml:space="preserve">
+    <value>{0} z nich zawiera ustawienia przechowywane jako obiekty katalogu (instalacja oprogramowania, zasady sieci bezprzewodowej lub przewodowej), których kopie zapasowe nie obejmują.</value>
+  </data>
   <data name="GroupPolicy.BackupDetails" xml:space="preserve">
     <value>Pliki: {0}, bajty: {1}, {2}</value>
   </data>
@@ -10482,6 +10485,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
     <value>Nowe GPO otrzyma dokładnie wymienione tu uprawnienia: domyślne wpisy, których wśród nich nie ma (np. Zastosuj zasady grupy dla Użytkowników uwierzytelnionych), zostaną usunięte.</value>
+  </data>
+  <data name="Issue.GpoDirectorySettings" xml:space="preserve">
+    <value>GPO zawiera ustawienia przechowywane jako obiekty katalogu (instalacja oprogramowania, zasady sieci bezprzewodowej lub przewodowej), które nie są kopiowane, archiwizowane ani przywracane – odtwórz je w GPMC.</value>
   </data>
   <!-- K2: Group Policy (end) -->
 </root>

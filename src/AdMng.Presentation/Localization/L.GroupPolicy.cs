@@ -286,6 +286,7 @@ public static partial class L
         public const string BackupActivity = "GroupPolicy.BackupActivity";
         public const string BackupFailed = "GroupPolicy.BackupFailed";
         public const string BackupDone = "GroupPolicy.BackupDone";
+        public const string BackupWithoutDirectorySettings = "GroupPolicy.BackupWithoutDirectorySettings";
         public const string BackupDetails = "GroupPolicy.BackupDetails";
         public const string BackupWithSidecar = "GroupPolicy.BackupWithSidecar";
         public const string BackupGpmcOnly = "GroupPolicy.BackupGpmcOnly";

@@ -60,6 +60,13 @@ public sealed record GpoBackup
     /// <summary>The WMI filter's definition (sidecar).</summary>
     public WmiFilterInfo? WmiFilter { get; init; }
 
+    /// <summary>
+    /// Settings of the GPO kept as directory objects below <c>CN=Machine</c>/<c>CN=User</c> (software installation, wireless
+    /// and wired network policies) that the backup does NOT hold: counted when AD Manager backs up (sidecar), or the
+    /// <c>DSObject</c> entries of a GPMC <c>Backup.xml</c>. Restores and imports warn about them.
+    /// </summary>
+    public int DirectoryObjectCount { get; init; }
+
     /// <summary>The backup carries AD Manager's sidecar (hashes verified when read).</summary>
     public bool HasSidecar { get; init; }
 

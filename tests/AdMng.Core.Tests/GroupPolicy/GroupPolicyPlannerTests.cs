@@ -73,6 +73,20 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Copy_OfAGpoWithSettingsKeptInTheDirectory_WarnsThatTheyAreNotCopied()
+    {
+        await using var sysvol = await OpenSysvolAsync();
+        var plain = await Planner.PlanCopyAsync(Session, sysvol, Sample.WorkstationPasswords, "Kopia bez obiektów", copyPermissions: false, Ct);
+        Assert.DoesNotContain(plain.Objects[0].Changes.SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoDirectorySettings);
+        Session.Seed("CN=Class Store,CN=Machine," + GpoDn(Sample.WorkstationPasswords), new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "container" } });
+
+        var plan = await Planner.PlanCopyAsync(Session, sysvol, Sample.WorkstationPasswords, "Kopia – instalacja oprogramowania", copyPermissions: false, Ct);
+
+        var issue = Assert.Single(plan.Objects[0].Changes.SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoDirectorySettings);
+        Assert.Equal(IssueSeverity.Warning, issue.Severity);
+    }
+
+    [Fact]
     public async Task Copy_WithPermissions_AddsTheSourcesExplicitAces()
     {
         var id = Guid.NewGuid();

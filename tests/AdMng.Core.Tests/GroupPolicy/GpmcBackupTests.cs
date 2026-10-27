@@ -206,6 +206,45 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
     }
 
     [Fact]
+    public async Task SettingsKeptInTheDirectory_AreCountedInTheBackup_AndWarnedAboutOnRestoreAndImport()
+    {
+        // A software installation class store below CN=Machine: not part of SYSVOL, so not part of the backup.
+        Session.Seed("CN=Class Store,CN=Machine," + GpoDn(Sample.WorkstationPasswords), new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "container" } });
+        var backup = await BackUpAsync(Sample.WorkstationPasswords);
+        Assert.Equal(1, backup.DirectoryObjectCount);
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        Assert.Equal(1, read.DirectoryObjectCount);
+        await using var sysvol = await OpenSysvolAsync();
+
+        var restore = await Planner.PlanRestoreAsync(Session, sysvol, read, _folder, restoreLinks: false, Ct);
+        var import = await Planner.PlanImportAsync(Session, sysvol, Sample.ServerSecurity, read, _folder, Ct);
+
+        foreach (var plan in new[] { restore, import })
+        {
+            var issue = Assert.Single(plan.Objects.SelectMany(o => o.Changes).SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoDirectorySettings);
+            Assert.Equal(IssueSeverity.Warning, issue.Severity);
+        }
+    }
+
+    [Fact]
+    public async Task Read_OfAGpmcBackup_CountsItsDirectoryObjects()
+    {
+        var backup = await BackUpAsync(Sample.ServerSecurity);
+        var backupDir = Path.Combine(_folder, SysvolPaths.FolderName(backup.BackupId));
+        File.Delete(Path.Combine(backupDir, "admng.json"));
+        var xml = await File.ReadAllTextAsync(Path.Combine(backupDir, "Backup.xml"), Ct);
+        var end = xml.LastIndexOf("</", xml.IndexOf("GroupPolicyObject>", xml.IndexOf("GroupPolicyCoreSettings", StringComparison.Ordinal), StringComparison.Ordinal), StringComparison.Ordinal);
+        xml = xml.Insert(end,
+            "<bkp:GroupPolicyExtension bkp:ID=\"{C6DC5466-785A-11D2-84D0-00C04FB169F7}\" bkp:DescName=\"Software Installation\">"
+            + "<bkp:DSObject bkp:Path=\"CN=Packages,CN=Class Store,%GPO_MACH_DSPATH%\" bkp:ReEvaluateFunctionality=\"No\" /></bkp:GroupPolicyExtension>");
+        await File.WriteAllTextAsync(Path.Combine(backupDir, "Backup.xml"), xml, Ct);
+
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+
+        Assert.Equal(1, read.DirectoryObjectCount);
+    }
+
+    [Fact]
     public async Task Read_RefusesAChangedFile()
     {
         var backup = await BackUpAsync(Sample.WorkstationPasswords);

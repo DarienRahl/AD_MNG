@@ -292,6 +292,40 @@ public sealed class GroupPolicyReader
         return new GroupPolicyInheritance(domainDn, all).Resolve(target.Dn, siteDn: null);
     }
 
+    /// <summary>
+    /// The number of objects below the GPO's <c>CN=Machine</c> and <c>CN=User</c>: settings kept in the directory instead of
+    /// SYSVOL (the software installation class store, wireless and wired network policies …), which copies, backups and
+    /// restores of AD Manager do not carry. 0 for a GPO without them.
+    /// </summary>
+    public async Task<int> CountDirectorySettingsAsync(IDirectorySession session, Guid gpoId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var gpoDn = DistinguishedName.Parse(GpLinkValue.GpoDn(gpoId, session.Info.DefaultNamingContext));
+        var count = 0;
+        foreach (var half in new[] { "Machine", "User" })
+        {
+            try
+            {
+                await foreach (var _ in session.SearchAsync(new DirectorySearch
+                {
+                    BaseDn = gpoDn.Child("CN", half).ToString(),
+                    Scope = SearchScope.OneLevel,
+                    Attributes = [Attr.ObjectClass],
+                    PageSize = PageSize,
+                }, cancellationToken).ConfigureAwait(false))
+                {
+                    count++;
+                }
+            }
+            catch (DirectoryException ex) when (ex.Kind == DirectoryErrorKind.NoSuchObject)
+            {
+                // No CN=Machine / CN=User.
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>The WMI filters of the domain, sorted by name.</summary>
     public async Task<IReadOnlyList<WmiFilterInfo>> ReadWmiFiltersAsync(IDirectorySession session, CancellationToken cancellationToken)
     {

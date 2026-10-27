@@ -47,6 +47,32 @@ public sealed class GroupPolicyBackupAndCompareTests
     }
 
     [Fact]
+    public async Task Backup_OfAGpoWithSettingsKeptInTheDirectory_SaysTheBackupLacksThem()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        using var folder = new TempFolder();
+        h.Session.Seed("CN=Class Store,CN=Machine," + GpLinkValue.GpoDn(h.Sample.WorkstationPasswords, h.Session.Info.DefaultNamingContext),
+            new Dictionary<string, object?> { ["objectClass"] = new[] { "top", "container" } });
+        string? status = null;
+        h.Windows.BackupHandler = async window =>
+        {
+            window.Folder = folder.Path;
+            await window.RunCommand.ExecuteAsync(null);
+            Assert.Null(window.Error);
+            status = window.StatusText;
+            return true;
+        };
+        var gpo = (await h.Planner.Reader.ReadPolicyAsync(h.Session, h.Sample.WorkstationPasswords, CancellationToken.None))!;
+
+        Assert.True(await h.Actions.BackupAsync([gpo]));
+
+        Assert.Contains("obiekty katalogu", status, StringComparison.Ordinal);
+        Assert.Equal(1, Assert.Single(GpmcBackupFormat.List(folder.Path)) is { } entry
+            ? (await GpmcBackupFormat.ReadAsync(folder.Path, entry.BackupId, CancellationToken.None)).DirectoryObjectCount
+            : 0);
+    }
+
+    [Fact]
     public async Task Restore_DeletedGpo_FromTheBackup_WithItsLinks()
     {
         var h = await GroupPolicyHarness.CreateAsync(Polish);

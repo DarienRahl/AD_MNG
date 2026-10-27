@@ -350,6 +350,7 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                 var comment = Comment ?? string.Empty;
                 var planner = _gp.Planner;
                 var time = _gp.Time;
+                var withDirectorySettings = 0;
                 var run = Services.Activities.Start(Localizer.Format(L.GroupPolicy.BackupActivity, gpos.Count), gpos.Count, async (progress, activityToken) =>
                 {
                     using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, activityToken);
@@ -372,6 +373,10 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                             var backup = await planner.ReadBackupAsync(session, sysvol, gpo.Id, comment, linked.Token).ConfigureAwait(false);
                             await GpmcBackupFormat.WriteAsync(folder, backup, AppVersion.Display, linked.Token).ConfigureAwait(false);
                             status = ObjectResultStatus.Succeeded;
+                            if (backup.DirectoryObjectCount > 0)
+                            {
+                                withDirectorySettings++;
+                            }
                         }
                         catch (OperationCanceledException)
                         {
@@ -407,7 +412,17 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
                 }
 
                 StatusText = Localizer.Format(L.GroupPolicy.BackupDone, gpos.Count, folder);
-                Services.Notifications.Show(NotificationSeverity.Success, StatusText);
+                if (withDirectorySettings > 0)
+                {
+                    // Software installation, wireless and wired network policies live in the directory, not in the backup.
+                    StatusText += " " + Localizer.Format(L.GroupPolicy.BackupWithoutDirectorySettings, withDirectorySettings);
+                    Services.Notifications.Show(NotificationSeverity.Warning, StatusText);
+                }
+                else
+                {
+                    Services.Notifications.Show(NotificationSeverity.Success, StatusText);
+                }
+
                 return true;
             }
         }
