@@ -377,6 +377,26 @@ public class MessageHtmlSanitizerTests
         Assert.DoesNotContain(findings, f => f.Detail is "class" or "mso-x" or "section");
     }
 
+    [Theory]
+    [InlineData("<p>Termin (data: 5.11.2026)</p>")]
+    [InlineData("<p>Kliknij \"Plik: Zapisz\" – File: Save</p>")]
+    [InlineData("<p>Status online = tak</p>")]
+    public void PolishTextThatLooksLikeMarkup_IsKept_AndPassesTheFirstGate(string html)
+    {
+        var result = MessageHtmlSanitizer.Sanitize(html, Fragment);
+        Assert.Equal(html, result.Html.TrimEnd('\n'));
+        Assert.Empty(result.Changes);
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(result.Html));
+    }
+
+    [Fact]
+    public void ATitleWrittenAsAScriptUrl_IsDropped_SoTheOutputPassesTheFirstGate()
+    {
+        var result = MessageHtmlSanitizer.Sanitize("<p title=\"javascript:alert(1)\">a</p>", Fragment);
+        Assert.Equal("<p>a</p>\n", result.Html);
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(result.Html));
+    }
+
     [Fact]
     public void Validate_OfASanitizedResultIsEmpty()
     {

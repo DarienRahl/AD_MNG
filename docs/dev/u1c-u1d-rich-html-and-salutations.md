@@ -210,7 +210,9 @@ mutation-XSS class of bugs a regex or a non-conforming parser (HtmlAgilityPack) 
 `Directory.Packages.props` (new `ItemGroup Label="Messages (U1c)"`). **Not** used: `HtmlSanitizer` (Ganss.Xss) – generic
 policy, no Office pre-processing, and it drags in `AngleSharp.Css` (pre-1.0); `AngleSharp.Css` itself – CSS is handled by
 the small `CssParser` below, which only needs declarations, simple rules and a selector subset, and whose output we fully
-control. The existing regex check `UserMessageRules.FindForbiddenHtml` stays as a cheap first gate (and for older clients).
+control. The existing regex check `UserMessageRules.FindForbiddenHtml` stays as a cheap first gate (and for older clients);
+it looks for handlers and URL schemes in the markup only (tags, comments, `<style>`), never in the text – a pasted
+"Termin (data: 5.11.2026)" or "Status online = tak" is not markup (review U1c, finding 3).
 
 ### 4.2 API
 

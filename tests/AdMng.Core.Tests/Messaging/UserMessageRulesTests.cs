@@ -121,6 +121,25 @@ public class UserMessageRulesTests
         Assert.Empty(UserMessageRules.FindForbiddenHtml(UserMessageRules.TextToHtml("Data: 30 listopada 2026\nProfile: Jan")));
     }
 
+    [Theory]
+    [InlineData("<p>Termin (data: 5.11.2026)</p>")]
+    [InlineData("<p>Kliknij \"Plik: Zapisz\" albo 'File: Save'</p>")]
+    [InlineData("<p>Status online = tak, /onboarding= gotowe</p>")]
+    [InlineData("<p title=\"Status online = tak\">x</p>")]
+    [InlineData("<p>a &lt; b, (data:) i \"file:\"</p><a href=\"https://contoso.test/\">ok</a>")]
+    public void Html_TextThatLooksLikeASchemeOrHandler_IsNotMarkup(string html) =>
+        Assert.Empty(UserMessageRules.FindForbiddenHtml(html));
+
+    [Theory]
+    [InlineData("<p title=\"a>b\" onclick=\"x()\">t</p>", "onclick=")]
+    [InlineData("<p title='(data:)' onmouseover=x>t</p>", "onmouseover=")]
+    [InlineData("<!--[if mso]><a href=\"javascript:x()\">t</a><![endif]-->", "javascript:")]
+    [InlineData("<style>p { background: url(data:image/png;base64,AAAA) }</style><p>t</p>", "data:")]
+    [InlineData("<STYLE type=\"text/css\">@import 'file:///c:/x.css';</STYLE>", "file:")]
+    [InlineData("<p>tekst <img src=x onerror=alert(1)></p>", "onerror=")]
+    public void Html_MarkupInCommentsStylesAndTags_IsStillChecked(string html, string construct) =>
+        Assert.Contains(construct, UserMessageRules.FindForbiddenHtml(html));
+
     [Fact]
     public void TextToHtml_EncodesEverything_AndKeepsParagraphs()
     {

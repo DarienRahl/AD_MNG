@@ -614,10 +614,10 @@ internal sealed partial class HtmlSanitizerRun
             (percent && v.EndsWith('%') ? v[..^1] : v) is { Length: > 0 and <= 5 } d && d.All(char.IsAsciiDigit);
         return attribute switch
         {
-            // A tooltip or alternative text that looks like markup, a handler or a script URL would trip the cheap first gate
-            // (UserMessageRules.FindForbiddenHtml) of the AdMng Watchdog: it is dropped.
+            // A tooltip or alternative text that looks like markup, a handler or a script URL could trip the cheap first gate
+            // (UserMessageRules.FindForbiddenHtml) of the AdMng Watchdog, an older one included: it is dropped.
             "title" or "alt" => new string([.. value.Where(c => !char.IsControl(c) || c is '\t')]) is { Length: <= 1000 } text
-                && UserMessageRules.FindForbiddenHtml(text).Count == 0 && UserMessageRules.FindForbiddenHtml("=" + text).Count == 0 ? text : null,
+                && UserMessageRules.FindForbiddenAttributeText(text).Count == 0 ? text : null,
             "lang" => System.Text.RegularExpressions.Regex.IsMatch(v, "^[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*$") ? v : null,
             "dir" => OneOf(v, false, "ltr", "rtl", "auto"),
             "align" => element switch

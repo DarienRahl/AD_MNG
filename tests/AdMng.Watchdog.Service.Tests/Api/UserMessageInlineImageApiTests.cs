@@ -127,6 +127,26 @@ public sealed class UserMessageInlineImageApiTests : IAsyncLifetime
         Assert.Equal(rawId, part.ContentId);
     }
 
+    [Fact]
+    public async Task PolishTextThatLooksLikeASchemeOrHandler_IsSent()
+    {
+        // "data" is the Polish "date": text is never markup for the service's first gate.
+        await ConfigureAsync(_sink.Port);
+        using var viewer = _factory.Viewer();
+        var request = Request() with
+        {
+            HtmlBody = UserMessageRules.HtmlDocument("<p>Termin (data: 5.11.2026) – kliknij \"Plik: Zapisz\", status online = tak.</p>",
+                BuiltInMessageTemplates.Footer(MessageLanguage.Polish), MessageLanguage.Polish),
+            InlineImages = [],
+        };
+
+        using var response = await viewer.PostAsync(WatchdogRoutes.UserMessages, ApiJson.Content(request), Ct);
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
+        var mime = MimeMessage.Load(new MemoryStream(Assert.Single(_sink.Messages).Data), Ct);
+        Assert.Contains("Termin (data: 5.11.2026)", mime.HtmlBody, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("notAnImage", "invalidImage")]
     [InlineData("svg", "invalidImage")]
