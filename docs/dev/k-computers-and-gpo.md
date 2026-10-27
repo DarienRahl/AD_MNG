@@ -979,4 +979,71 @@ window's session log.
 
 ## 15. K2 as built
 
-(Filled in by the K2 implementer.)
+Branch `feature/k2-gpo` (not `feature/k2-group-policy`), from `feature/k-design`, with `k1.1-acl` merged (never
+cherry-picked) before K2.4. Commits in order: the content parser move (`104f625`), K2.1 in two parts (`87d24ee`,
+`bf7958b` – tagged `k2.1-sysvol`), the K1.1 merge, Core (`134ddad`), lab (`e7985d9`), Presentation (`2b4f090`), App
+(`7d3438b`), then documentation and the lab/backup follow-ups. Everything of sections 3.2–3.4 and 5 is implemented
+unless listed below.
+
+**Deviations and additions**
+
+* **`GpoSettingsDiffer` stayed in the Watchdog.** Its output is the Watchdog event contract (`AttributeChange` rows of
+  `AdMng.Watchdog.Contracts`), which `AdMng.Core` cannot reference. The parsers, the setting model, the secret rules and
+  the file classifier moved (`AdMng.Core/GroupPolicy/Content`, `GpoContentParser` replaces the per-file switch of
+  `GpoSnapshotBuilder`); AD Manager's own diff is `GpoFileDiff` (preview) and `GroupPolicyComparer` (comparison).
+  Fallout fixed in the Watchdog tests: `tests/AdMng.Watchdog.Core.Tests/Gpo/SmallParserTests.cs` aliases `GpoVersion`
+  (ambiguous between `AdMng.Core.GroupPolicy` and `AdMng.Watchdog.Core.Gpo`).
+* **Shared files beyond 11.2** (to be kept when K1 merges): `Shell/ShellViewModel.cs` has three one-line hooks –
+  `AttachGroupPolicy()` after the `Tree.PropertyChanged` subscription, `DetachGroupPolicy()` in `Dispose`, and
+  `if (TryActivateGroupPolicyNode(node)) { return; }` at the top of `OnNodeActivated`; `Shell/ShellViewModel.Commands.cs`
+  has `.. GroupPolicyStateCommands,` right after `ChangeDomainControllerCommand,` (not next to K1's line);
+  `NavigationTreeViewModel` (K2-owned) takes an optional `GroupPolicyViewModelFactory`, so no other constructor changed.
+  `tests/AdMng.App.UiTests/XamlSourceTests.cs` now reads the palette command ids from every `ShellViewModel*.cs`
+  partial (it read only `ShellViewModel.Palette.cs`; this also covers K1's `computer.*` ids).
+* **SmokeTest**: `RenderGroupPolicyAsync(main, services)` (the windows need the connection's services), after
+  `RenderWatchdogTabAsync`; it renders the four documents disconnected and every GPO window from `GroupPolicySamples`
+  (App, sample data only, never written anywhere).
+* **SYSVOL unavailable** disables only operations that write SYSVOL (create, copy, delete, delete leftover folder,
+  security filtering, delegation, restore, import, align versions, repair folder permissions). Link, unlink, order,
+  enforce, enable, block inheritance, GPO status, rename and the WMI filter link and filters change AD only and stay
+  enabled. Each reason has its own banner text; reads from LDAP are always shown.
+* **Permission awareness (5.2) is not implemented**: commands are enabled by session and SYSVOL state only, not by
+  `allowedChildClassesEffective` / `allowedAttributesEffective`. A refused write fails in the preview's results; SYSVOL
+  changes are compensated (3.3), LDAP steps already executed are undone with *Cofnij*. Follow-up item.
+* **Link existing GPO** uses a single-select picker (one link per plan, GPOs already linked to the target are not
+  offered). *Porównaj z…* uses the same picker.
+* **Backup** runs as an activity of the activity center with one synthetic `ObjectResult` per GPO (no `BatchResult`,
+  not audited, as designed); the window remembers the folder (`GroupPolicySettings.LastBackupFolder`), a comment
+  template (`BackupCommentTemplate`, `{0}` = local time) and the *backup before delete* choice. Nothing else of K2 is in
+  the settings (`ShowInTree`).
+* **GPP passwords**: restore and import plans carry the warning `IssueCodes.GpoGppPassword` (MS14-025) naming the
+  preference files that hold a non-empty `cpassword` – paths only, never the value.
+* **WMI filter editor**: *Sprawdź na komputerze…* is not there yet – it needs K1's `IRemoteComputerClient`; the editor
+  shows a note (`GroupPolicy.WmiTestLater`). To add after the K1 merge.
+* **Shell target of the Group Policy commands** (`gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`,
+  `gpo.blockInheritance`): the command parameter (tree menu: a DN, a container or site node, a container row), else a
+  single selected OU or domain row of the list, else the current list's container, else the selected tree container;
+  only a domain head, an OU or a site qualifies.
+* **Tree menus** also have *Otwórz* (GPO node, bold), *Nowe…* / *Przywróć z kopii zapasowej…* / *Odśwież* on *Obiekty
+  zasad grupy*, *Nowy…* on *Filtry WMI* and *Odśwież* on *Lokacje*.
+* **`GPT.INI` versions of the list** are read when the list loads (4 in parallel), not lazily per visible row.
+* **UI test host**: `UiTestContext` replaces `ISysvolFileWriter` with its `FakeSysvol` (`context.Sysvol`); the
+  `ISysvolFileReader` replacement (U4c) stays the empty `FakeSysvolFileReader`. The GPO views read SYSVOL through the
+  write connection. `HostTests`: `IGroupPolicyDialogs` per connection, `ISysvolFileWriter` shared.
+* **Lab**: the interrupted write is tested on the lab too (`SmbClientSysvolFileWriter.FailReplace(n)` fails the n-th
+  replace before it reaches the server); the optional Watchdog scenario (one `GroupPolicyChanged` +
+  `GroupPolicySettingsChanged` per AD Manager change) was not run.
+
+**Tests.** Core: versions, `GPT.INI`, `gPLink`, folder ACL mapping, transaction and compensation, SYSVOL pipeline
+(executor, rollback, PowerShell, audit), reader, every planner operation on the fake directory + `FakeSysvol`, GPMC
+backups (layout, round trip, hostile input, restore, import, GPP passwords), comparison. Presentation: documents, every
+operation from the command through the preview to the fake and the refreshed document, typed delete confirmation,
+backup/restore/import on a test-only temporary folder, comparison, WMI editor, delegation and security filtering
+(MS16-072), PDC note, SYSVOL unavailable per reason, tree and shell, settings, lifetimes. App (Windows CI only): every
+window registered and rendered, tree nodes and menus, documents in the main window, enforce through the real preview
+window, new linked GPO through the dialogs, backup and comparison windows, preview diff; screenshot
+`23-group-policy.png`. Lab (`SambaTool` collection): see 10; all objects `K2T-<run>` in their own OU, removed at the end.
+
+**Not verified here (Windows only):** the WPF windows and views, the UI tests, the smoke test and screenshot 23 (CI on
+Windows), `WindowsSysvolFileWriter` against a Windows DC, the folder picker (`OpenFolderDialog`), and every pilot item of
+12 (GPMC compatibility of backups in both directions, GPMC permission masks, `msWMI-Parm2` fixtures, `gpresult /h`).
