@@ -25,8 +25,9 @@ public sealed class SalutationSettingsViewModelTests
         Assert.Equal("M, male, mężczyzna, Pan, Mr", section.MasculineValuesText);
         Assert.Equal("Szanowna Pani / Szanowny Panie", section.NeutralPolish);
         Assert.Equal("Dear {name}", section.NeutralEnglish);
-        Assert.Equal(11, section.Titles.Count);
-        Assert.Equal(("prof.", "prof, profesor, prof. zw., prof. nadzw., prof. uczelni, prof. ucz.", 100), (section.Titles[3].Title, section.Titles[3].Variants, section.Titles[3].Rank));
+        Assert.Equal(SalutationData.DefaultTitles.Count, section.Titles.Count);
+        Assert.Equal(("prof.", "prof, profesor, prof. zw.", 100), (section.Titles[3].Title, section.Titles[3].Variants, section.Titles[3].Rank));
+        Assert.Equal(("prof. uczelni", "prof. ucz.", 101), (section.Titles[4].Title, section.Titles[4].Variants, section.Titles[4].Rank));
         Assert.Equal(["zwrot neutralny i ostrzeżenie", "jak do mężczyzny (Pan)", "jak do kobiety (Pani)"], section.UnknownGenderModes.Select(m => m.Text));
         Assert.Equal("Używany, gdy płeć jest nieznana; {name} = imię i nazwisko.", section.NeutralHint);
         Assert.Null(section.Error);
@@ -127,11 +128,11 @@ public sealed class SalutationSettingsViewModelTests
         section.RemoveTitleCommand.Execute(null);
         section.MasculineValuesText = "M; Pan\nmężczyzna";
         var changed = section.ToSettings();
-        Assert.Equal(10, changed.Titles!.Count);
+        Assert.Equal(SalutationData.DefaultTitles.Count - 1, changed.Titles!.Count);
         Assert.Equal(["M", "Pan", "mężczyzna"], changed.MasculineValues);
 
         section.ResetTitlesCommand.Execute(null);
-        Assert.Equal(11, section.Titles.Count);
+        Assert.Equal(SalutationData.DefaultTitles.Count, section.Titles.Count);
         Assert.Null(section.ToSettings().Titles);
     }
 

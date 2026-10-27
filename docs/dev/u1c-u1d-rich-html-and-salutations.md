@@ -723,17 +723,24 @@ vocative, EN form (empty = no title-specific form). Defaults:
 | `ks. prof.` | – | 120 | Księże Profesorze | – | Father |
 | `ks. dr hab.` | – | 118 | Księże Profesorze | – | Father |
 | `ks. dr` | – | 115 | Księże Doktorze | – | Father |
-| `prof.` | `prof`, `profesor`, `prof. zw.`, `prof. nadzw.`, `prof. uczelni`, `prof. ucz.` | 100 | Panie Profesorze | Pani Profesor | Professor |
+| `prof.` | `prof`, `profesor`, `prof. zw.` | 100 | Panie Profesorze | Pani Profesor | Professor |
+| `prof. uczelni` | `prof. ucz.` | 101 | Panie Profesorze | Pani Profesor | Professor |
+| `prof. nadzw.` | – | 101 | Panie Profesorze | Pani Profesor | Professor |
 | `dr hab.` | `dr. hab.`, `doktor habilitowany` | 90 | Panie Profesorze | Pani Profesor | Dr |
 | `ks.` | `ks`, `ksiądz` | 80 | Księże | – | Father |
 | `dr` | `dr.`, `doktor` | 70 | Panie Doktorze | Pani Doktor | Dr |
-| `lek.` | `lek. med.`, `lek. dent.`, `lek. wet.`, `lekarz` | 60 | Panie Doktorze | Pani Doktor | Dr |
+| `lek.` | `lek. med.`, `lekarz` | 60 | Panie Doktorze | Pani Doktor | Dr |
+| `lek. dent.` | `lek. stom.` | 61 | Panie Doktorze | Pani Doktor | Dr |
+| `lek. wet.` | – | 61 | Panie Doktorze | Pani Doktor | Dr |
 | `mgr` | `mgr.`, `magister` | 20 | – | – | – |
 | `inż.` | `inż`, `inz.`, `inz`, `inżynier` | 20 | – | – | – |
 | `lic.` | `lic`, `licencjat` | 10 | – | – | – |
 
-Notes on the defaults: a *doktor habilitowany* is customarily addressed "Panie Profesorze / Pani Profesor" in Polish
-correspondence (changeable); *magister / inżynier / licencjat* are shown in `{$title}` and `{$titledName}` but give
+Notes on the defaults: variants are other spellings of the **same** title (`{$title}` prints the canonical one); a
+different title with the same forms has its own row – *profesor uczelni* / *profesor nadzwyczajny* are positions
+(usually of a *dr hab.*), not the title of professor, and a *lekarz dentysta* / *weterynarii* is no physician – ranked
+just above the row its spelling contains, so `{$title:highest}` keeps it (as built). A *doktor habilitowany* is
+customarily addressed "Panie Profesorze / Pani Profesor" in Polish correspondence (changeable); *magister / inżynier / licencjat* are shown in `{$title}` and `{$titledName}` but give
 the plain "Szanowny Panie / Szanowna Pani" (titular "Panie Inżynierze" is archaic); military and other titles are added
 by the operator (e.g. `płk` – Panie Pułkowniku / Pani Pułkownik / Colonel). Limits: ≤ 100 rows, spellings and forms
 ≤ 100 characters, header-safe.

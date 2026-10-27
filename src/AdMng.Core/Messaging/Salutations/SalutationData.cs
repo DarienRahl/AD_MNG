@@ -57,18 +57,25 @@ public static class SalutationData
     /// <summary>
     /// The default title table. A <i>doktor habilitowany</i> is customarily addressed "Panie Profesorze / Pani Profesor" in
     /// Polish correspondence; <i>magister / inżynier / licencjat</i> are shown in <c>{$title}</c> but give the plain
-    /// "Szanowny Panie / Szanowna Pani".
+    /// "Szanowny Panie / Szanowna Pani". Variants are other spellings of the same title (shown in the canonical one);
+    /// a different title with the same forms has its own row – <i>profesor uczelni / nadzwyczajny</i> is a position, not
+    /// the title of professor, <i>lekarz dentysta / weterynarii</i> is no physician – ranked just above the row its
+    /// spelling contains, so <c>{$title:highest}</c> keeps it.
     /// </summary>
     public static IReadOnlyList<TitleRule> DefaultTitles { get; } =
     [
         Row("ks. prof.", [], 120, "Księże Profesorze", null, "Father"),
         Row("ks. dr hab.", [], 118, "Księże Profesorze", null, "Father"),
         Row("ks. dr", [], 115, "Księże Doktorze", null, "Father"),
-        Row("prof.", ["prof", "profesor", "prof. zw.", "prof. nadzw.", "prof. uczelni", "prof. ucz."], 100, "Panie Profesorze", "Pani Profesor", "Professor"),
+        Row("prof.", ["prof", "profesor", "prof. zw."], 100, "Panie Profesorze", "Pani Profesor", "Professor"),
+        Row("prof. uczelni", ["prof. ucz."], 101, "Panie Profesorze", "Pani Profesor", "Professor"),
+        Row("prof. nadzw.", [], 101, "Panie Profesorze", "Pani Profesor", "Professor"),
         Row("dr hab.", ["dr. hab.", "doktor habilitowany"], 90, "Panie Profesorze", "Pani Profesor", "Dr"),
         Row("ks.", ["ks", "ksiądz"], 80, "Księże", null, "Father"),
         Row("dr", ["dr.", "doktor"], 70, "Panie Doktorze", "Pani Doktor", "Dr"),
-        Row("lek.", ["lek. med.", "lek. dent.", "lek. wet.", "lekarz"], 60, "Panie Doktorze", "Pani Doktor", "Dr"),
+        Row("lek.", ["lek. med.", "lekarz"], 60, "Panie Doktorze", "Pani Doktor", "Dr"),
+        Row("lek. dent.", ["lek. stom."], 61, "Panie Doktorze", "Pani Doktor", "Dr"),
+        Row("lek. wet.", [], 61, "Panie Doktorze", "Pani Doktor", "Dr"),
         Row("mgr", ["mgr.", "magister"], 20, null, null, null),
         Row("inż.", ["inż", "inz.", "inz", "inżynier"], 20, null, null, null),
         Row("lic.", ["lic", "licencjat"], 10, null, null, null),

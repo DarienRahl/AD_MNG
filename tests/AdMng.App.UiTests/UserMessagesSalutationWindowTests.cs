@@ -89,7 +89,7 @@ public sealed class UserMessagesSalutationWindowTests
 
         Assert.Equal("personalTitle", window.TitleAttributeBox.Text);
         Assert.True(window.TitleFromDisplayNameBox.IsChecked);
-        Assert.Equal(11, window.TitlesList.Items.Count);
+        Assert.Equal(AdMng.Core.Messaging.Salutations.SalutationData.DefaultTitles.Count, window.TitlesList.Items.Count);
         Assert.Equal(3, window.UnknownGenderBox.Items.Count);
 
         window.CheckTitleBox.Text = "prof. dr hab.";

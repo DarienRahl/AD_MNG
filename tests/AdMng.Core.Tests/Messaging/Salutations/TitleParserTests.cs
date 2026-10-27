@@ -49,6 +49,38 @@ public sealed class TitleParserTests
         Assert.Empty(info.Unrecognized);
     }
 
+    [Theory]
+    [InlineData("prof. uczelni", "prof. uczelni")]
+    [InlineData("Prof. ucz.", "prof. uczelni")]
+    [InlineData("prof. nadzw. dr hab.", "prof. nadzw.")]
+    [InlineData("lek. dent.", "lek. dent.")]
+    [InlineData("lek. stom.", "lek. dent.")]
+    [InlineData("lek. wet.", "lek. wet.")]
+    public void Attribute_DistinctTitles_KeepTheirMeaning(string value, string highest)
+    {
+        // A university professor is no professor (title), a dentist no physician: never printed as "prof." / "lek.".
+        var info = TitleParser.ParseAttribute(value, Table);
+
+        Assert.Equal(highest, info.Highest);
+        Assert.StartsWith(highest, info.Text, StringComparison.Ordinal);
+        Assert.Empty(info.Unrecognized);
+    }
+
+    [Fact]
+    public void DisplayName_UniversityProfessor_IsNotPromoted()
+    {
+        var person = SalutationPerson.Of(null, "dr hab. Ewa Zielińska, prof. uczelni", "Ewa", "Zielińska", null, SalutationOptions.Default);
+
+        Assert.Equal("dr hab., prof. uczelni", person.Title.Text);
+        Assert.Equal("prof. uczelni", person.Title.Highest);
+        Assert.Equal("dr hab. Ewa Zielińska, prof. uczelni", SalutationResolver.TitledName(person, SalutationOptions.Default).Text);
+        Assert.Equal("Szanowna Pani Profesor", SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+
+        var dentist = SalutationPerson.Of("lek. dent.", "Anna Nowak", "Anna", "Nowak", null, SalutationOptions.Default);
+        Assert.Equal("lek. dent. Anna Nowak", SalutationResolver.TitledName(dentist, SalutationOptions.Default).Text);
+        Assert.Equal("Szanowna Pani Doktor", SalutationResolver.Salutation(dentist, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+    }
+
     [Fact]
     public void Attribute_HonorificBeforeATitle_KeepsBoth()
     {
@@ -202,7 +234,7 @@ public sealed class TitleParserTests
     public void FromNull_IsTheDefaultTable()
     {
         Assert.Same(TitleTable.Default, TitleTable.From(null));
-        Assert.Equal(11, TitleTable.Default.Rules.Count);
+        Assert.Equal(15, TitleTable.Default.Rules.Count);
         Assert.Equal(["ks. prof.", "ks. dr hab.", "ks. dr"], TitleTable.Default.Rules.Take(3).Select(r => r.Title));
     }
 }

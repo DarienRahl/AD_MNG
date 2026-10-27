@@ -85,11 +85,11 @@ public sealed class SalutationSettingsTests
             new TitleRule { Title = new string('x', 300), Rank = -4 },
         ])!;
 
-        Assert.Equal(13, rows.Count);
-        var colonel = rows[11];
+        Assert.Equal(SalutationData.DefaultTitles.Count + 2, rows.Count);
+        var colonel = rows[^2];
         Assert.Equal(("płk", 1000, "Panie Pułkowniku", null, "Colonel"), (colonel.Title, colonel.Rank, colonel.PolishMasculine, colonel.PolishFeminine, colonel.English));
         Assert.Equal(["pułkownik"], colonel.Variants);
-        Assert.Equal((TitleTable.MaxTextLength, 0), (rows[12].Title.Length, rows[12].Rank));
+        Assert.Equal((TitleTable.MaxTextLength, 0), (rows[^1].Title.Length, rows[^1].Rank));
     }
 
     [Fact]
