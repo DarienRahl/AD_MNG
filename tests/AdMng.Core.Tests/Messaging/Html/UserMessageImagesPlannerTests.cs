@@ -81,6 +81,16 @@ public class UserMessageImagesPlannerTests
         Assert.Contains(Planner.CheckTemplate(Template(html)), i => i.Code == MessageIssueCodes.HtmlNotAllowed && i.Severity == MessageIssueSeverity.Error);
 
     [Fact]
+    public void HtmlNestedTooDeeply_IsATemplateError_AndEditsLeaveItAlone()
+    {
+        var html = SmallStack.Nested(5_000);
+        var issues = SmallStack.Run(() => Planner.CheckTemplate(Template(html)));
+        Assert.Contains(issues, i => i.Code == HtmlIssueCodes.HtmlTooDeep && i.Severity == MessageIssueSeverity.Error && i.Argument == "256");
+        Assert.Same(html, SmallStack.Run(() => MessageHtmlChecks.RemoveLinks(html, "contoso.pl")));
+        Assert.Same(html, SmallStack.Run(() => MessageHtmlChecks.Normalize(Template(html)).Polish.Html));
+    }
+
+    [Fact]
     public void FieldLinks_AreAllowedInTemplates()
     {
         var issues = Planner.CheckTemplate(Template("<p><a href=\"{$input:link}\">formularz</a> i <a href=\"https://portal.contoso.test/{sAMAccountName}\">portal</a></p>"));

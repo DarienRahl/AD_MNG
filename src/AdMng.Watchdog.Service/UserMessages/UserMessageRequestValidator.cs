@@ -222,7 +222,11 @@ public static class UserMessageRequestValidator
             Add(issues, "htmlBody", UserMessageIssueCodes.MissingImage, "The HTML body references an image the message does not carry.");
         }
 
-        if (result.Changes.Any(c => c.IsSecurity && c.Kind != HtmlChangeKind.MissingImage))
+        if (result.Changes.Any(c => c.Kind == HtmlChangeKind.TooDeep))
+        {
+            Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body is nested too deeply.");
+        }
+        else if (result.Changes.Any(c => c.IsSecurity && c.Kind != HtmlChangeKind.MissingImage))
         {
             Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body contains active content, remote resources or hidden content.");
         }

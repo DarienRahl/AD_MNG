@@ -53,13 +53,7 @@ public static class MessageHtmlChecks
             var html = text.Html;
             issues.AddRange(UserMessageRules.FindForbiddenHtml(html).Select(h => new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, h)));
             var result = MessageHtmlSanitizer.Sanitize(html, TemplateOptions(template, html));
-            foreach (var change in result.Changes.Where(c => c.IsSecurity))
-            {
-                issues.Add(change.Kind == HtmlChangeKind.MissingImage
-                    ? new MessageIssue(HtmlIssueCodes.ImageMissing, MessageIssueSeverity.Error, change.Detail)
-                    : new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, FindingText(change.Kind, change.Detail)));
-            }
-
+            issues.AddRange(result.Changes.Where(c => c.IsSecurity).Select(IssueOf));
             if (result.Html.Length > MessageHtmlLimits.MaxHtmlLength)
             {
                 issues.Add(new MessageIssue(HtmlIssueCodes.HtmlTooLong, MessageIssueSeverity.Error, Number(result.Html.Length)));
@@ -155,13 +149,7 @@ public static class MessageHtmlChecks
             Mode = HtmlSanitizeMode.Document,
             InlineImageIds = images.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase),
         });
-        foreach (var change in result.Changes.Where(c => c.IsSecurity))
-        {
-            issues.Add(change.Kind == HtmlChangeKind.MissingImage
-                ? new MessageIssue(HtmlIssueCodes.ImageMissing, MessageIssueSeverity.Error, change.Detail)
-                : new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, FindingText(change.Kind, change.Detail)));
-        }
-
+        issues.AddRange(result.Changes.Where(c => c.IsSecurity).Select(IssueOf));
         var inline = result.ImageIds
             .Select(id => images.FirstOrDefault(p => string.Equals(p.Key, id, StringComparison.OrdinalIgnoreCase)).Value)
             .OfType<MessageImage>()
@@ -201,6 +189,11 @@ public static class MessageHtmlChecks
         ArgumentNullException.ThrowIfNull(html);
         var mode = ModeOf(html);
         var run = HtmlSanitizerRun.Parse(html, new HtmlSanitizeOptions { Mode = mode });
+        if (run.TooDeep)
+        {
+            return html;   // refused by the validation of the message anyway
+        }
+
         var images = run.Document.Descendants<IElement>()
             .Where(e => e.LocalName == "img" && e.GetAttribute("src") is { } src && src.Trim().StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -275,13 +268,21 @@ public static class MessageHtmlChecks
     {
         var mode = ModeOf(html);
         var run = HtmlSanitizerRun.Parse(html, new HtmlSanitizeOptions { Mode = mode });
-        if (!change(run.Document))
+        if (run.TooDeep || !change(run.Document))
         {
             return html;
         }
 
         return mode == HtmlSanitizeMode.Fragment ? HtmlSerializer.Children(run.Root) : HtmlSerializer.Document(run.Root);
     }
+
+    /// <summary>The issue of a security finding: <c>ImageMissing</c>, <c>HtmlTooDeep</c> or <c>HtmlNotAllowed</c>.</summary>
+    private static MessageIssue IssueOf(HtmlChange change) => change.Kind switch
+    {
+        HtmlChangeKind.MissingImage => new MessageIssue(HtmlIssueCodes.ImageMissing, MessageIssueSeverity.Error, change.Detail),
+        HtmlChangeKind.TooDeep => new MessageIssue(HtmlIssueCodes.HtmlTooDeep, MessageIssueSeverity.Error, change.Detail),
+        _ => new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, FindingText(change.Kind, change.Detail)),
+    };
 
     /// <summary>How a security finding is shown as the argument of <c>HtmlNotAllowed</c> (as the first gate shows its
     /// constructs: <c>&lt;script&gt;</c>, <c>onclick=</c>, <c>javascript:</c>).</summary>

@@ -7872,6 +7872,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Rich.Problem.ContentTruncated" xml:space="preserve">
     <value>Treść jest dłuższa niż limit albo osiągnięto limit obrazów szablonu ({0}).</value>
   </data>
+  <data name="UserMessages.Rich.Problem.TooDeep" xml:space="preserve">
+    <value>Treść jest zagnieżdżona głębiej niż {0} poziomów i nie została wklejona – skopiuj prostszy fragment wiadomości.</value>
+  </data>
   <data name="UserMessages.Issue.ImageMissing" xml:space="preserve">
     <value>Wersja HTML odwołuje się do obrazu, którego szablon nie ma (albo brak jego pliku): {0}</value>
   </data>
@@ -7883,6 +7886,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="UserMessages.Issue.HtmlTooLong" xml:space="preserve">
     <value>Wersja HTML jest za długa (znaki: {0}).</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlTooDeep" xml:space="preserve">
+    <value>Wersja HTML jest zagnieżdżona głębiej niż {0} poziomów.</value>
   </data>
   <data name="UserMessages.Issue.LinkTextMismatch" xml:space="preserve">
     <value>Tekst łącza pokazuje inny adres niż ten, do którego prowadzi łącze ({0}).</value>

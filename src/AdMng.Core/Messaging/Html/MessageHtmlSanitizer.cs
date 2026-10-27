@@ -69,11 +69,15 @@ public enum HtmlChangeKind
 
     /// <summary>A field in an image <c>src</c> (images are static template assets).</summary>
     FieldInImageSource,
+
+    /// <summary>The HTML is nested deeper than <see cref="MessageHtmlLimits.MaxNestingDepth"/>: nothing of it is kept
+    /// (detail: the limit).</summary>
+    TooDeep,
 }
 
 /// <summary>One change of <see cref="MessageHtmlSanitizer.Sanitize"/>; <see cref="IsSecurity"/>: active content, event
 /// handlers, disallowed URL schemes, remote resources, <c>cid:</c> without an image, fields in an image source, CSS that
-/// hides or overlays content.</summary>
+/// hides or overlays content, HTML nested too deeply.</summary>
 public sealed record HtmlChange(HtmlChangeKind Kind, bool IsSecurity, string? Detail = null);
 
 /// <summary>A security finding of <see cref="MessageHtmlSanitizer.Validate"/>.</summary>
@@ -157,6 +161,10 @@ internal sealed partial class HtmlSanitizerRun
 
     public IReadOnlyList<HtmlChange> Changes => _changes;
 
+    /// <summary>The HTML was nested deeper than <see cref="MessageHtmlLimits.MaxNestingDepth"/>; the run holds an empty
+    /// document instead (and the <see cref="HtmlChangeKind.TooDeep"/> change).</summary>
+    public bool TooDeep { get; private init; }
+
     public static HtmlSanitizerRun Execute(string html, HtmlSanitizeOptions options)
     {
         var run = Parse(html, options);
@@ -178,6 +186,13 @@ internal sealed partial class HtmlSanitizerRun
             document = parser.ParseDocument(html);
         }
 
+        // Every walk below recurses: HTML nested too deeply is replaced by an empty document before any of them runs.
+        var tooDeep = HtmlNesting.IsTooDeep(document);
+        if (tooDeep)
+        {
+            document = parser.ParseDocument("<!DOCTYPE html><html><head></head><body></body></html>");
+        }
+
         if (document.Body is null)
         {
             // A frameset document: no body to keep.
@@ -186,7 +201,13 @@ internal sealed partial class HtmlSanitizerRun
         }
 
         var root = options.Mode == HtmlSanitizeMode.Fragment ? document.Body! : document.DocumentElement;
-        return new HtmlSanitizerRun(document, root, options);
+        var run = new HtmlSanitizerRun(document, root, options) { TooDeep = tooDeep };
+        if (tooDeep)
+        {
+            run._changes.Add(new HtmlChange(HtmlChangeKind.TooDeep, true, MessageHtmlLimits.MaxNestingDepth.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        return run;
     }
 
     public void Sanitize()

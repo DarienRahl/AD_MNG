@@ -30,6 +30,10 @@ public class HtmlToTextTests
     public void Html_BecomesText(string html, string expected) => Assert.Equal(expected, HtmlToText.Convert(html));
 
     [Fact]
+    public void HtmlNestedTooDeeply_GivesNoText_WithoutAWalkOverIt() =>
+        Assert.Equal(string.Empty, SmallStack.Run(() => HtmlToText.Convert(SmallStack.Nested(5_000))));
+
+    [Fact]
     public void Documents_UseTheirBody() =>
         Assert.Equal("treść", HtmlToText.Convert("<!DOCTYPE html><html><head><title>t</title></head><body><p>treść</p></body></html>"));
 }

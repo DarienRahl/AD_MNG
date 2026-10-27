@@ -248,6 +248,17 @@ public class PastedHtmlImporterTests
         Assert.Equal("<ul><li> koniec</li>\n<li>drugi</li>\n</ul>\n<p>po</p>\n", result.Html);
     }
 
+    [Fact]
+    public void ContentNestedTooDeeply_IsNotImported_WithoutAWalkOverIt()
+    {
+        var html = "<html><body><!--StartFragment-->" + SmallStack.Nested(5_000) + "<!--EndFragment--></body></html>";
+        var request = new HtmlImportRequest { Document = CfHtmlParser.Parse(CfHtmlFixture.Build(html)) };
+        var result = SmallStack.Run(() => PastedHtmlImporter.ImportAsync(request, CancellationToken.None).GetAwaiter().GetResult());
+        Assert.Equal(string.Empty, result.Html);
+        Assert.Equal(string.Empty, result.SuggestedText);
+        Assert.Contains(result.Problems, p => p.Kind == HtmlImportProblemKind.TooDeep && p.Severity == MessageIssueSeverity.Error && p.Detail == "256");
+    }
+
     [Theory]
     [InlineData("{givenName}", true)]
     [InlineData("{$passwordExpires:d MMMM yyyy}", true)]

@@ -102,6 +102,12 @@ public static partial class PastedHtmlImporter
 
         // 1–5: parse, cascade, comments, Office elements, Word lists, fragment with its inherited context.
         var fragment = Prepare(request.Document.Html);
+        if (fragment is null)
+        {
+            problems.Add(new HtmlImportProblem(HtmlImportProblemKind.TooDeep, MessageIssueSeverity.Error,
+                MessageHtmlLimits.MaxNestingDepth.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+            return new HtmlImportResult(string.Empty, [], problems, string.Empty);
+        }
 
         // Images: read once, before the (synchronous) sanitizer runs.
         var images = await ResolveImagesAsync(fragment, request, problems, cancellationToken).ConfigureAwait(false);
@@ -177,10 +183,15 @@ public static partial class PastedHtmlImporter
     // ---- preparation ----------------------------------------------------------------------------------------------------
 
     /// <summary>Steps 1–5: the fragment's HTML with every style inlined, Office constructs resolved and the inherited
-    /// properties of its context on a wrapper <c>div</c>.</summary>
-    internal static string Prepare(string html)
+    /// properties of its context on a wrapper <c>div</c>; null when the HTML is nested deeper than
+    /// <see cref="MessageHtmlLimits.MaxNestingDepth"/> (the range copy recurses).</summary>
+    internal static string? Prepare(string html)
     {
         var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
+        if (HtmlNesting.IsTooDeep(document))
+        {
+            return null;
+        }
         var rules = new List<CssRule>();
         foreach (var style in document.Descendants<IElement>().Where(e => e.LocalName == "style").ToList())
         {

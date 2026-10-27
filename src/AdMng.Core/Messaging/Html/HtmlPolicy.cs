@@ -9,6 +9,11 @@ public static class MessageHtmlLimits
 
     /// <summary>The HTML length an AdMng Watchdog without the U1c contract accepts.</summary>
     public const int LegacyMaxHtmlLength = 100_000;
+
+    /// <summary>Element nesting below the document root that any HTML of a message may have (Outlook and Word nest some
+    /// tens of levels). Deeper HTML is refused as a whole before any tree walk: the walks recurse, and a stack overflow
+    /// cannot be caught – it would end AD Manager or the AdMng Watchdog.</summary>
+    public const int MaxNestingDepth = 256;
 }
 
 /// <summary>

@@ -18,6 +18,9 @@ public static class HtmlIssueCodes
     /// <summary>The HTML of a message or a template is longer than the limit (error; argument: the length).</summary>
     public const string HtmlTooLong = "HtmlTooLong";
 
+    /// <summary>The HTML is nested deeper than <c>MessageHtmlLimits.MaxNestingDepth</c> (error; argument: the limit).</summary>
+    public const string HtmlTooDeep = "HtmlTooDeep";
+
     /// <summary>A link's text names another host than its target (warning; argument: the target host).</summary>
     public const string LinkTextMismatch = "LinkTextMismatch";
 
@@ -25,5 +28,5 @@ public static class HtmlIssueCodes
     public const string HtmlNormalized = "HtmlNormalized";
 
     /// <summary>Every code (localization test).</summary>
-    public static IReadOnlyList<string> All { get; } = [ImageMissing, ImagesTooLarge, ImagesOmitted, HtmlTooLong, LinkTextMismatch, HtmlNormalized];
+    public static IReadOnlyList<string> All { get; } = [ImageMissing, ImagesTooLarge, ImagesOmitted, HtmlTooLong, HtmlTooDeep, LinkTextMismatch, HtmlNormalized];
 }

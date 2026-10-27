@@ -145,6 +145,7 @@ public sealed class UserMessageInlineImageApiTests : IAsyncLifetime
     [InlineData("remoteImage", "forbiddenHtml")]
     [InlineData("positionFixed", "forbiddenHtml")]
     [InlineData("hiddenText", "forbiddenHtml")]
+    [InlineData("deeplyNested", "forbiddenHtml")]
     [InlineData("longHtml", "tooLong")]
     public async Task InvalidImagesOrHtml_Are400_WithTheirIssue_AndNothingIsQueued(string variant, string code)
     {
@@ -326,6 +327,7 @@ public sealed class UserMessageInlineImageApiTests : IAsyncLifetime
             "remoteImage" => request with { HtmlBody = html.Replace("</p>", "<img src=\"https://tracker.example/p.gif\"></p>", StringComparison.Ordinal) },
             "positionFixed" => request with { HtmlBody = html.Replace("<p>", "<p style=\"position:fixed;top:0\">", StringComparison.Ordinal) },
             "hiddenText" => request with { HtmlBody = html + "<div style=\"display:none\">ukryte</div>" },
+            "deeplyNested" => request with { HtmlBody = html.Replace("</p>", string.Concat(Enumerable.Repeat("<div>", 5_000)) + "głęboko</p>", StringComparison.Ordinal) },
             _ => request with { HtmlBody = "<p>" + new string('ż', UserMessageLimits.MaxHtmlLength) + "</p>" },
         };
 

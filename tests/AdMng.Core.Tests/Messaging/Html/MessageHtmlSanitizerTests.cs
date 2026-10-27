@@ -337,6 +337,33 @@ public class MessageHtmlSanitizerTests
         Assert.Contains(result.Changes, c => c.Detail == "title" && !c.IsSecurity);
     }
 
+    // ---- nesting --------------------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void HtmlNestedTooDeeply_IsRefusedAsAWhole_WithoutAWalkOverIt()
+    {
+        // 20 000 levels overflowed a thread-pool thread's stack in the recursive walks (the process ended); on this small
+        // stack a few thousand would.
+        var html = SmallStack.Nested(5_000);
+        foreach (var mode in new[] { HtmlSanitizeMode.Fragment, HtmlSanitizeMode.Document })
+        {
+            var options = Fragment with { Mode = mode };
+            var result = SmallStack.Run(() => MessageHtmlSanitizer.Sanitize(html, options));
+            Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.TooDeep && c.IsSecurity && c.Detail == "256");
+            Assert.DoesNotContain("Zażółć", result.Html, StringComparison.Ordinal);
+            Assert.Contains(SmallStack.Run(() => MessageHtmlSanitizer.Validate(html, options)), f => f.Kind == HtmlChangeKind.TooDeep);
+        }
+    }
+
+    [Fact]
+    public void HtmlWithinTheNestingLimit_IsKept()
+    {
+        // html > body > 250 div: 252 levels.
+        var result = MessageHtmlSanitizer.Sanitize(SmallStack.Nested(250), Fragment);
+        Assert.DoesNotContain(result.Changes, c => c.Kind == HtmlChangeKind.TooDeep);
+        Assert.Contains("Zażółć gęślą jaźń", result.Html, StringComparison.Ordinal);
+    }
+
     // ---- Validate and the guarantees ------------------------------------------------------------------------------------
 
     [Fact]

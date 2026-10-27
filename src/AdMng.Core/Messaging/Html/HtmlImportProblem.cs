@@ -45,6 +45,10 @@ public enum HtmlImportProblemKind
 
     /// <summary>The content is longer than the limit and was cut, or the template's image limits were reached.</summary>
     ContentTruncated,
+
+    /// <summary>The content is nested deeper than <see cref="MessageHtmlLimits.MaxNestingDepth"/> and was not imported
+    /// (detail: the limit).</summary>
+    TooDeep,
 }
 
 /// <summary>One finding of a paste. <see cref="Detail"/> is a tag, property, host, scheme, reason or field name – never text

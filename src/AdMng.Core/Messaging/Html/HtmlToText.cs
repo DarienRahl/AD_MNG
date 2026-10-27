@@ -28,7 +28,8 @@ public static class HtmlToText
         "head", "style", "script", "title", "template", "noscript", "svg", "math",
     };
 
-    /// <summary>The text of an HTML fragment or document.</summary>
+    /// <summary>The text of an HTML fragment or document (empty when it is nested deeper than
+    /// <see cref="MessageHtmlLimits.MaxNestingDepth"/> – such HTML is refused by every check).</summary>
     public static string Convert(string? html)
     {
         if (string.IsNullOrWhiteSpace(html))
@@ -37,6 +38,11 @@ public static class HtmlToText
         }
 
         var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
+        if (HtmlNesting.IsTooDeep(document))
+        {
+            return string.Empty;
+        }
+
         var writer = new TextWriterState();
         Walk(document.Body ?? document.DocumentElement, writer, new Context(null, 0, Preformatted: false, InCell: false));
         return writer.Result();

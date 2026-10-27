@@ -318,7 +318,10 @@ double-quoted; text escaped minimally (`&amp; &lt; &gt; &nbsp;`), so Polish lett
 
 **Limits:** the HTML of one language ≤ `MessageHtmlLimits.MaxHtmlLength` = **400 000** characters after sanitizing
 (Outlook HTML is verbose after inlining; U1b's 100 000 is too small) – longer → template error `HtmlTooLong`; the
-Watchdog reports its own value (section 9.1).
+Watchdog reports its own value (section 9.1). Nesting ≤ `MessageHtmlLimits.MaxNestingDepth` = **256** element levels:
+deeper HTML is refused as a whole right after parsing, by an iterative check, before any (recursive) tree walk – a stack
+overflow cannot be caught and would end AD Manager or the service (template error `HtmlTooDeep`, paste problem `TooDeep`,
+service `forbiddenHtml`).
 
 ## 5. Placeholder repair
 

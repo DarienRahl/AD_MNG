@@ -7872,6 +7872,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Rich.Problem.ContentTruncated" xml:space="preserve">
     <value>The content is longer than the limit, or the template's image limits were reached ({0}).</value>
   </data>
+  <data name="UserMessages.Rich.Problem.TooDeep" xml:space="preserve">
+    <value>The content is nested more than {0} levels deep and was not imported – copy a simpler part of the message.</value>
+  </data>
   <data name="UserMessages.Issue.ImageMissing" xml:space="preserve">
     <value>The HTML version references an image the template does not have (or its file is missing): {0}</value>
   </data>
@@ -7883,6 +7886,9 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="UserMessages.Issue.HtmlTooLong" xml:space="preserve">
     <value>The HTML version is too long ({0} characters).</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlTooDeep" xml:space="preserve">
+    <value>The HTML version is nested more than {0} levels deep.</value>
   </data>
   <data name="UserMessages.Issue.LinkTextMismatch" xml:space="preserve">
     <value>The text of a link shows another address than the link leads to ({0}).</value>
