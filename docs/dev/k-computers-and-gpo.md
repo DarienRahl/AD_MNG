@@ -1041,8 +1041,13 @@ operation from the command through the preview to the fake and the refreshed doc
 backup/restore/import on a test-only temporary folder, comparison, WMI editor, delegation and security filtering
 (MS16-072), PDC note, SYSVOL unavailable per reason, tree and shell, settings, lifetimes. App (Windows CI only): every
 window registered and rendered, tree nodes and menus, documents in the main window, enforce through the real preview
-window, new linked GPO through the dialogs, backup and comparison windows, preview diff; screenshot
+window, new linked GPO through the dialogs, backup and comparison windows, the GPO picker (exclusions, filter, choice),
+preview diff; screenshot
 `23-group-policy.png`. Lab (`SambaTool` collection): see 10; all objects `K2T-<run>` in their own OU, removed at the end.
+The Watchdog's lab tests of GPO content (`GpoContentLabTests`, through the moved parsers) pass unchanged; on the shared
+lab, Watchdog and directory lab tests can fail with client-side LDAP timeouts while another suite holds Samba's single
+write transaction, and the Kerberos ones need the DC's DNS name in `/etc/hosts` (tools/testlab/README.md) – a rerun on
+a quiet lab is green.
 
 **Not verified here (Windows only):** the WPF windows and views, the UI tests, the smoke test and screenshot 23 (CI on
 Windows), `WindowsSysvolFileWriter` against a Windows DC, the folder picker (`OpenFolderDialog`), and every pilot item of
