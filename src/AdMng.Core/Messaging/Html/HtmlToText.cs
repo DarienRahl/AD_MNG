@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
 
 namespace AdMng.Core.Messaging.Html;
 
@@ -37,8 +36,7 @@ public static class HtmlToText
             return string.Empty;
         }
 
-        var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
-        if (HtmlNesting.IsTooDeep(document))
+        if (HtmlNesting.ParseDocument(html) is not { } document)
         {
             return string.Empty;
         }

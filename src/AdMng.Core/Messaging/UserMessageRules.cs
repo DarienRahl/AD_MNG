@@ -271,7 +271,7 @@ public static partial class UserMessageRules
 
     /// <summary>The index after the <c>&gt;</c> that ends the tag starting before <paramref name="start"/> (a quote opens a
     /// value only after <c>=</c>), or the end of the text.</summary>
-    private static int TagEnd(string html, int start)
+    internal static int TagEnd(string html, int start)
     {
         char? quote = null;
         var afterEquals = false;

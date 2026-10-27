@@ -323,7 +323,11 @@ double-quoted; text escaped minimally (`&amp; &lt; &gt; &nbsp;`), so Polish lett
 Watchdog reports its own value (section 9.1). Nesting ≤ `MessageHtmlLimits.MaxNestingDepth` = **256** element levels:
 deeper HTML is refused as a whole right after parsing, by an iterative check, before any (recursive) tree walk – a stack
 overflow cannot be caught and would end AD Manager or the service (template error `HtmlTooDeep`, paste problem `TooDeep`,
-service `forbiddenHtml`).
+service `forbiddenHtml`); a cheap estimate from the text (more than 1 024 open start tags) refuses it before parsing, since
+the tree builder's cost grows with the square of the depth. Style sheets are inlined up to
+`MessageHtmlLimits.MaxStyleRuleMatches` = 2 000 000 rules × elements; over it they are dropped without inlining (cosmetic –
+AD Manager sends inlined HTML). The service validates at most `ApiLimits.ConcurrentUserMessageValidations` = 2 messages at
+once, across all callers.
 
 ## 5. Placeholder repair
 

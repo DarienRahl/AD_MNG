@@ -45,6 +45,7 @@ public sealed partial class UserMessageService
     private readonly IWatchdogSignals _signals;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<UserMessageService> _logger;
+    private readonly SemaphoreSlim _validation = new(ApiLimits.ConcurrentUserMessageValidations, ApiLimits.ConcurrentUserMessageValidations);
 
     public UserMessageService(
         IWatchdogConfigProvider configuration,
@@ -117,7 +118,18 @@ public sealed partial class UserMessageService
             return Unavailable(UserMessageIssueCodes.SmtpNotConfigured, "The e-mail channel (SMTP) of the service is disabled or incomplete.");
         }
 
-        var issues = UserMessageRequestValidator.Validate(request, smtp, settings, out var content);
+        IReadOnlyList<ConfigIssue> issues;
+        UserMessageContent? content;
+        await _validation.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            issues = UserMessageRequestValidator.Validate(request, smtp, settings, out content);
+        }
+        finally
+        {
+            _validation.Release();
+        }
+
         if (issues.Count > 0 || content is null)
         {
             return ApiResults.Invalid(issues, "The message is not valid.");

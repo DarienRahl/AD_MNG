@@ -14,6 +14,11 @@ public static class MessageHtmlLimits
     /// tens of levels). Deeper HTML is refused as a whole before any tree walk: the walks recurse, and a stack overflow
     /// cannot be caught – it would end AD Manager or the AdMng Watchdog.</summary>
     public const int MaxNestingDepth = 256;
+
+    /// <summary>Style rules × elements the sanitizer inlines (every rule is matched against every element). Over it the
+    /// style sheets are dropped without being inlined – a cosmetic change, never a security one: AD Manager sends inlined
+    /// HTML, and a style sheet that large in a message is no real one (7 000 rules × 34 000 elements took 40 s).</summary>
+    public const long MaxStyleRuleMatches = 2_000_000;
 }
 
 /// <summary>

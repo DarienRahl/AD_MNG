@@ -187,8 +187,7 @@ public static partial class PastedHtmlImporter
     /// <see cref="MessageHtmlLimits.MaxNestingDepth"/> (the range copy recurses).</summary>
     internal static string? Prepare(string html)
     {
-        var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
-        if (HtmlNesting.IsTooDeep(document))
+        if (HtmlNesting.ParseDocument(html) is not { } document)
         {
             return null;
         }

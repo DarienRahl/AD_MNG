@@ -175,23 +175,10 @@ internal sealed partial class HtmlSanitizerRun
     /// <summary>Parses without sanitizing.</summary>
     public static HtmlSanitizerRun Parse(string html, HtmlSanitizeOptions options)
     {
-        var parser = new HtmlParser(new HtmlParserOptions { IsScripting = false });
-        IDocument document;
-        if (options.Mode == HtmlSanitizeMode.Fragment)
-        {
-            document = parser.ParseDocument("<!DOCTYPE html><html><head></head><body>" + html + "</body></html>");
-        }
-        else
-        {
-            document = parser.ParseDocument(html);
-        }
-
         // Every walk below recurses: HTML nested too deeply is replaced by an empty document before any of them runs.
-        var tooDeep = HtmlNesting.IsTooDeep(document);
-        if (tooDeep)
-        {
-            document = parser.ParseDocument("<!DOCTYPE html><html><head></head><body></body></html>");
-        }
+        var parsed = HtmlNesting.ParseDocument(options.Mode == HtmlSanitizeMode.Fragment ? "<!DOCTYPE html><html><head></head><body>" + html + "</body></html>" : html);
+        var tooDeep = parsed is null;
+        var document = parsed ?? new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument("<!DOCTYPE html><html><head></head><body></body></html>");
 
         if (document.Body is null)
         {
@@ -213,7 +200,7 @@ internal sealed partial class HtmlSanitizerRun
     public void Sanitize()
     {
         var rules = CollectStyleRules();
-        if (rules.Count > 0)
+        if (rules.Count > 0 && rules.Count * (long)(Root.Descendants<IElement>().Count() + 1) <= MessageHtmlLimits.MaxStyleRuleMatches)
         {
             CssInliner.Inline(Root, rules);
         }

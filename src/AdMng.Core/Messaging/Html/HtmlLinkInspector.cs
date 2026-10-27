@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
 
 namespace AdMng.Core.Messaging.Html;
 
@@ -21,7 +20,11 @@ public static partial class HtmlLinkInspector
             return [];
         }
 
-        var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
+        if (HtmlNesting.ParseDocument(html) is not { } document)
+        {
+            return [];   // refused by the sanitizer
+        }
+
         return [.. document.Descendants<IElement>()
             .Where(e => e.LocalName == "a" && e.HasAttribute("href"))
             .Select(e => new HtmlLink(e.GetAttribute("href")!.Trim(), e.TextContent.Trim()))];

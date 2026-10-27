@@ -20,6 +20,10 @@ public static class ApiLimits
     /// <summary>Concurrent requests per caller.</summary>
     public const int ConcurrentRequestsPerCaller = 4;
 
+    /// <summary>Messages to users validated at once, by all callers together (the HTML check is CPU work; the wait for the
+    /// SMTP attempt is not limited by it).</summary>
+    public const int ConcurrentUserMessageValidations = 2;
+
     /// <summary>Longest acknowledge comment.</summary>
     public const int MaxCommentLength = 500;
 
