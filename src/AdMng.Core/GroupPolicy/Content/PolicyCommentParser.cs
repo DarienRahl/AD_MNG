@@ -1,7 +1,6 @@
 using System.Xml.Linq;
-using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// Policy comments: <c>Machine|User/comment.cmtx</c> (XML, namespace <c>http://www.microsoft.com/GroupPolicy/CommentDefinitions</c>:

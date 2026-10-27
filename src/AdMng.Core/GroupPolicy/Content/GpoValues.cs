@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace AdMng.Watchdog.Core.Gpo;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>Canonical setting values and keys (stage B design 8.5).</summary>
 public static class GpoValues

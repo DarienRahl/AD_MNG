@@ -1,8 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
-using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// <c>Machine/Registry.pol</c> and <c>User/Registry.pol</c> ([MS-GPREG] 2.2.1, "Registry Policy File Format"): the header

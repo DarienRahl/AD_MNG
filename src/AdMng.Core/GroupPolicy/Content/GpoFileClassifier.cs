@@ -1,4 +1,4 @@
-namespace AdMng.Watchdog.Core.Gpo;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>What the service does with a file of the GPO folder (stage B design 8.4).</summary>
 public enum GpoFileRole
@@ -61,7 +61,7 @@ public sealed record GpoFile(string Path, GpoFileRole Role, GpoScope Scope, stri
     public bool IsContent => Role != GpoFileRole.Inventory;
 }
 
-/// <summary>Maps a normalized relative path (<see cref="GpoRelativePath"/>) to its role – case-insensitive like SYSVOL.</summary>
+/// <summary>Maps a normalized relative path (normalized: '/'-separated, no empty, <c>.</c> or <c>..</c> segments) to its role – case-insensitive like SYSVOL.</summary>
 public static class GpoFileClassifier
 {
     public static GpoFile Classify(string path)

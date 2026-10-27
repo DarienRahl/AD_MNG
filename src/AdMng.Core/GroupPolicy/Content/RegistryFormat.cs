@@ -1,4 +1,4 @@
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>Registry names shared by the security template and Registry.pol parsers.</summary>
 public static class RegistryFormat

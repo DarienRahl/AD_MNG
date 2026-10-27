@@ -1,4 +1,4 @@
-namespace AdMng.Watchdog.Core.Gpo;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// The sensitive categories of stage B design 8.6: privilege rights; group membership / restricted groups; GPP groups

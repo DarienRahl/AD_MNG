@@ -1,7 +1,6 @@
 using System.Text;
-using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// Advanced audit policy <c>Machine/Microsoft/Windows NT/Audit/audit.csv</c> ([MS-GPAC] 2.2.1.2; UTF-8, BOM optional): a

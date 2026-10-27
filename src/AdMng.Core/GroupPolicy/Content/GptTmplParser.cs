@@ -1,6 +1,4 @@
-using AdMng.Core.GroupPolicy;
-
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// The security template <c>Machine/Microsoft/Windows NT/SecEdit/GptTmpl.inf</c> ([MS-GPSB] 2.2, UTF-16LE with BOM).

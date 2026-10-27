@@ -1,7 +1,6 @@
 using System.Xml.Linq;
-using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// Group Policy Preferences files <c>Machine|User/Preferences/&lt;Type&gt;/&lt;Type&gt;.xml</c> ([MS-GPPREF] 2.2.1 and the

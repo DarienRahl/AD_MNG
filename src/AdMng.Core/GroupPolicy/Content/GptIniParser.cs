@@ -1,10 +1,9 @@
 using System.Globalization;
-using AdMng.Core.GroupPolicy;
 
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>The fields of <c>GPT.INI</c> the service uses.</summary>
-public sealed record GptIni(int? Version, string? DisplayName);
+public sealed record GptIniInfo(int? Version, string? DisplayName);
 
 /// <summary>
 /// <c>GPT.INI</c> at the root of the GPO folder ([MS-GPOL] 2.2.4): <c>[General]</c> with <c>Version=&lt;decimal&gt;</c> –
@@ -13,7 +12,7 @@ public sealed record GptIni(int? Version, string? DisplayName);
 /// </summary>
 public static class GptIniParser
 {
-    public static GptIni Parse(ReadOnlySpan<byte> content)
+    public static GptIniInfo Parse(ReadOnlySpan<byte> content)
     {
         var text = GpoText.DecodeAnsiOrUtf8(content, allowAnsi: true);
         int? version = null;
@@ -42,6 +41,6 @@ public static class GptIniParser
             }
         }
 
-        return new GptIni(version, displayName);
+        return new GptIniInfo(version, displayName);
     }
 }

@@ -1,6 +1,4 @@
-using AdMng.Core.GroupPolicy;
-
-namespace AdMng.Watchdog.Core.Gpo.Parsers;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// <c>Machine|User/Scripts/scripts.ini</c> and <c>psscripts.ini</c> ([MS-GPSCR] 2.2.2, UTF-16LE): sections

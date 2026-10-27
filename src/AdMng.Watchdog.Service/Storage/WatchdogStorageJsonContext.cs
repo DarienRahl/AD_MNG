@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Core.Model;
 

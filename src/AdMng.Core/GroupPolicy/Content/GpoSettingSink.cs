@@ -1,6 +1,4 @@
-using AdMng.Watchdog.Contracts.Configuration;
-
-namespace AdMng.Watchdog.Core.Gpo;
+namespace AdMng.Core.GroupPolicy.Content;
 
 /// <summary>
 /// Collects the settings of one file for a parser: canonicalizes values and keys, applies the 200-character cap and the
@@ -8,10 +6,13 @@ namespace AdMng.Watchdog.Core.Gpo;
 /// </summary>
 public sealed class GpoSettingSink
 {
+    /// <summary>Default capacity: the most settings one GPO may hold (10 000, the Watchdog's limit as well).</summary>
+    public const int DefaultCapacity = 10_000;
+
     private readonly List<GpoSetting> _settings = [];
     private readonly int _capacity;
 
-    public GpoSettingSink(string source, int capacity = GpoContentSettings.MaxSettings)
+    public GpoSettingSink(string source, int capacity = DefaultCapacity)
     {
         ArgumentNullException.ThrowIfNull(source);
         Source = source;
