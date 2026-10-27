@@ -372,7 +372,10 @@ The existing flow stays and only affects its own scope:
 
    *Plik → Zamknij okno* (`Alt+F4`, `Ui.CloseWindow`) replaces the single *Zakończ*.
 2. **`OnClosed`.** WPF closes the owned child windows. Then:
-   * the navigator cancels `ConnectionContext.Lifetime` (planning, comparison, non-activity reads);
+   * the navigator cancels `ConnectionContext.Lifetime` (planning, comparison, non-activity reads). For the other
+     windows the connection is gone from this moment, not after steps 2-3 (which may take seconds):
+     `ConnectionContext.EndLifetime` unregisters it, ends the read contexts other windows pinned, makes `Pin()` return
+     null and raises `Closed` (8.2);
    * it marks the scope's `DialogService` and `NotificationService` as closed. From then on a leftover continuation
      of this connection can no longer show a dialog: messages and confirmations are dropped and logged by type only,
      and confirmations return `false`. Without this, an error of a planning or list load of the closed window would
@@ -385,8 +388,8 @@ The existing flow stays and only affects its own scope:
    It then awaits `scope.DisposeAsync()` on the UI thread. `SessionManager.DisposeAsync` is idempotent, so the
    scope's second call is a no-op and never blocks the UI (rule 6). An abandoned unbind must not keep the
    credential: `LdapDirectorySession.DisposeAsync` clears it **before** it awaits the watchers and the pool (9).
-4. **Unregister.** `ConnectionContext.Dispose` unregisters it. Comparison windows of other connections that used it
-   see `Closed` (8.2).
+4. **Dispose the context.** `ConnectionContext.Dispose` drops its remaining subscribers (it was unregistered and
+   `Closed` was raised in step 2).
 5. **Remove the entry.** Only now does the manager remove the window's entry, and if it was the last one, call
    `IAppShutdown.Shutdown()` (3.5). The process may therefore live up to about 10 s without a window after the last
    window closed. It never exits before its sessions were closed or abandoned.

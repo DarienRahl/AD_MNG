@@ -184,6 +184,37 @@ public sealed class ConnectionScopeTests
     }
 
     [Fact]
+    public async Task AWindowThatStartsClosing_IsGoneForOtherWindows_BeforeItsSessionCloses()
+    {
+        await using var host = CreateHost(out _, out _);
+        await using var a = host.CreateConnection();
+        await using var b = host.CreateConnection();
+        await a.ConnectAsync(user: "jan.kowalski");
+        var inB = (FakeDomainControllerSession)await b.ConnectAsync(Fabrikam, "anna.zielinska");
+        var pinned = b.Context.Pin();
+        Assert.NotNull(pinned);
+        var closed = 0;
+        b.Context.Closed += (_, _) => closed++;
+
+        // The first step of the close pipeline; its activities and its session close later (up to seconds).
+        b.Context.EndLifetime();
+
+        Assert.True(b.Context.IsClosing);
+        Assert.Equal(1, closed);
+        Assert.Null(host.Registry.Find(b.Context.Id));
+        Assert.Equal([a.Context.Id], host.Registry.Connections.Select(c => c.Id));
+        Assert.Null(b.Context.Pin());
+        Assert.True(pinned.IsEnded);
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => pinned.Reader.GetAsync(inB.Info.DefaultNamingContext, ["name"], TestContext.Current.CancellationToken));
+        Assert.Same(inB, b.Sessions.Current);
+        Assert.False(inB.IsDisposed);
+
+        await b.DisposeAsync();
+        Assert.Equal(1, closed);
+        Assert.True(inB.IsDisposed);
+    }
+
+    [Fact]
     public async Task AClosedConnectionScope_IsCollected()
     {
         await using var host = CreateHost(out _, out _);

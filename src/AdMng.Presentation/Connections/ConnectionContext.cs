@@ -5,8 +5,8 @@ namespace AdMng.Presentation.Connections;
 /// <summary>
 /// One connection window (scoped per window): its id, the profile and colour the connect dialog chose, the identity of its
 /// current session (title, strip, badge) and its lifetime. It follows its own <see cref="ISessionManager"/> and keeps its
-/// entry in <see cref="ConnectionRegistry"/> up to date; <see cref="Dispose"/> unregisters it, and after that a session
-/// change (a bind that completes late) is ignored. Holds no credential.
+/// entry in <see cref="ConnectionRegistry"/> up to date. When the main window starts closing (<see cref="EndLifetime"/>) it
+/// leaves the registry at once, and after that a session change (a bind that completes late) is ignored. Holds no credential.
 /// </summary>
 public sealed class ConnectionContext : IConnectionHandle, IDisposable
 {
@@ -17,6 +17,7 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
     private readonly Lock _pinnedGate = new();
     private readonly List<ConnectionReadContext> _pinned = [];
     private ConnectionIdentity? _identity;
+    private int _closing;
     private int _disposed;
 
     public ConnectionContext(ISessionManager sessions, ConnectionRegistry registry)
@@ -58,6 +59,9 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
     /// <summary>The window closed (<see cref="Dispose"/>).</summary>
     public bool IsClosed => Volatile.Read(ref _disposed) == 1;
 
+    /// <summary>The main window started closing (<see cref="EndLifetime"/>): other windows no longer see or read this connection.</summary>
+    public bool IsClosing => Volatile.Read(ref _closing) == 1;
+
     public event EventHandler? Changed;
 
     public event EventHandler? Closed;
@@ -66,11 +70,11 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
 
     /// <summary>
     /// A read context of the current session for another window's read-only feature (the comparison), or null while not
-    /// connected or after the window closed. It ends when this window's session changes or the window closes.
+    /// connected or once the window started closing. It ends when this window's session changes or the window starts closing.
     /// </summary>
     public ConnectionReadContext? Pin()
     {
-        if (IsClosed || _sessions.Current is not { } session)
+        if (IsClosing || _sessions.Current is not { } session)
         {
             return null;
         }
@@ -82,8 +86,8 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
         {
             _pinned.RemoveAll(c => c.IsEnded);
 
-            // The session changed or the window closed while the context was built: it never reads.
-            if (IsClosed || !ReferenceEquals(session, _sessions.Current))
+            // The session changed or the window started closing while the context was built: it never reads.
+            if (IsClosing || !ReferenceEquals(session, _sessions.Current))
             {
                 context.End();
                 return null;
@@ -95,7 +99,11 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
         return context;
     }
 
-    /// <summary>Cancels <see cref="Lifetime"/> (the main window starts closing). Idempotent.</summary>
+    /// <summary>
+    /// The main window starts closing: cancels <see cref="Lifetime"/> and closes the connection for the other windows at
+    /// once, not after the close pipeline (activities, then the session, may take seconds): it leaves the registry, the
+    /// read contexts they pinned end, <see cref="Pin"/> returns null and <see cref="Closed"/> is raised. Idempotent.
+    /// </summary>
     public void EndLifetime()
     {
         try
@@ -110,12 +118,22 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
         {
             // A registration callback threw; the token is cancelled anyway.
         }
+
+        if (Interlocked.Exchange(ref _closing, 1) == 1)
+        {
+            return;
+        }
+
+        EndPinned(keep: null);
+        _registry.Unregister(this);
+        var closed = Interlocked.Exchange(ref Closed, null);
+        closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>A token cancelled by <paramref name="token"/> or by the window's <see cref="Lifetime"/>.</summary>
     public CancellationTokenSource LinkLifetime(CancellationToken token) => CancellationTokenSource.CreateLinkedTokenSource(_lifetime, token);
 
-    /// <summary>Unregisters the window, ends its lifetime, raises <see cref="Closed"/> once and drops its subscribers.</summary>
+    /// <summary>Ends its lifetime (unregistered, <see cref="Closed"/> raised once, if not yet) and drops its subscribers.</summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 1)
@@ -125,13 +143,8 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
 
         _sessions.SessionChanged -= OnSessionChanged;
         EndLifetime();
-        EndPinned(keep: null);
-        _registry.Unregister(this);
-        var closed = Closed;
-        Closed = null;
         Changed = null;
         SessionChanged = null;
-        closed?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The id only (no domain, no account).</summary>
@@ -141,7 +154,7 @@ public sealed class ConnectionContext : IConnectionHandle, IDisposable
 
     private void OnSessionChanged(object? sender, EventArgs e)
     {
-        if (!IsClosed)
+        if (!IsClosing)
         {
             // Other windows' reads of the previous session end first (their reads then fail as "ended", never as a read
             // through another session); then the identity and the listeners follow.

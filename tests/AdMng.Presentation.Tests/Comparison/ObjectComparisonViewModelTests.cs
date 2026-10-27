@@ -352,6 +352,32 @@ public sealed class ObjectComparisonViewModelTests
     }
 
     [Fact]
+    public async Task BStartsClosing_SideBIsClosedAtOnce_AndNoLongerOffered()
+    {
+        var domains = await ComparisonDomains.CreateAsync();
+        var (host, a, b) = await domains.OpenAsync();
+        await using var _ = host;
+        using var comparison = await a.Compare(domains.Contoso.Company.LukaszWisniewski).RunAsync();
+        var target = comparison.SelectedTarget;
+
+        // B's main window is gone; its close pipeline still waits for its activities and its session.
+        b.Context.EndLifetime();
+
+        Assert.True(comparison.SideB.IsEnded);
+        Assert.Equal("The connection fabrikam.test · FABRIKAM\\anna.zielinska was closed – its results stay visible.", comparison.SideB.EndedMessage);
+        Assert.False(comparison.HasTargets);
+        Assert.Null(host.Registry.Find(b.Context.Id));
+        Assert.NotNull(b.Sessions.Current);
+
+        // A comparison opened now does not offer B, and B pins nothing for anyone.
+        using var another = await a.Compare(domains.Contoso.Company.LukaszWisniewski).RunAsync();
+        Assert.False(another.HasTargets);
+        Assert.False(another.HasResult);
+        Assert.Null(b.Context.Pin());
+        Assert.NotNull(target);
+    }
+
+    [Fact]
     public async Task BSwitchesItsDomainController_SideBEnds_AndRefreshReadsThroughTheNewSession()
     {
         var domains = await ComparisonDomains.CreateAsync();
