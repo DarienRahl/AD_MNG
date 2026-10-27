@@ -2,7 +2,8 @@
 
 Roadmap track K (README, "Ścieżka K – Komputery i zasady grupy (GPO)"). This note is **binding** for the K1 and K2
 implementers, who build in parallel from it (section 11 splits the files between them), and it is the architecture
-sketch for K3–K5. Status: design, October 2026. Nothing here is built yet.
+sketch for K3–K5. Status: K1 and K2 built and merged (`feature/k12`, October 2026; sections 14–16 say how they
+were built and what is still open); K3–K5 design only.
 
 The scope was decided with the user and is not re-opened here:
 
@@ -1062,7 +1063,7 @@ unless listed below.
 * **GPP passwords**: restore and import plans carry the warning `IssueCodes.GpoGppPassword` (MS14-025) naming the
   preference files that hold a non-empty `cpassword` – paths only, never the value.
 * **WMI filter editor**: *Sprawdź na komputerze…* is not there yet – it needs K1's `IRemoteComputerClient`; the editor
-  shows a note (`GroupPolicy.WmiTestLater`). To add after the K1 merge.
+  shows a note (`GroupPolicy.WmiTestLater`). Still open after the K1 merge (section 16).
 * **Shell target of the Group Policy commands** (`gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`,
   `gpo.blockInheritance`): the command parameter (tree menu: a DN, a container or site node, a container row), else a
   single selected OU or domain row of the list, else the current list's container, else the selected tree container;
@@ -1117,3 +1118,58 @@ a quiet lab is green.
 **Not verified here (Windows only):** the WPF windows and views, the UI tests, the smoke test and screenshot 23 (CI on
 Windows), `WindowsSysvolFileWriter` against a Windows DC, the folder picker (`OpenFolderDialog`), and every pilot item of
 12 (GPMC compatibility of backups in both directions, GPMC permission masks, `msWMI-Parm2` fixtures, `gpresult /h`).
+
+## 16. K1 and K2 merged
+
+Branch `feature/k12` from `feature/k-design`, October 2026: `git merge --no-ff feature/k1-computers` (K1 review 1–18,
+`71ffc5c`), then `git merge --no-ff feature/k2-gpo` (K2 review 1–14, `c753650`). Both branches already shared the K1.1
+commit `d46e370` (tag `k1.1-acl`, merged into K2 before K2.4), so the ACL foundation merged once.
+
+**Conflicts and how they were resolved.** The first merge was clean (K1 only). The second had three conflicts; every
+other shared file of 11.2 and of the two "beyond 11.2" lists merged additively as planned (`AppHost`, `DialogService`,
+`ToolWindows`, `SmokeTest`, `MainWindow.xaml`, `ObjectListView.xaml`, `Glyphs`, `ObjectIcons`, `AppSettings`,
+`ServiceCollectionExtensions`, `ShellViewModel.Commands/Palette`, `RollbackPlanner`, `Strings*.resx`, `HostTests`,
+`ScreenshotTests`, `ConnectionLifetimes`, README, ARCHITECTURE and this note).
+
+* `Core/Batch/BatchExecutor.Security.cs` and `BatchExecutor.cs` – a real semantic overlap, both sides kept. K1 review 7
+  moved "what the step actually changed" to the public `ChangeResult.AppliedAcl` (the union of the ACEs written by every
+  attempt, used by the audit and by `RollbackPlanner.Executed`, so an ACE another administrator added meanwhile is
+  neither claimed nor removed). K2 review 1 introduced `AclChange.ReplacesExplicit` (copy with permissions, restore of
+  a deleted GPO) with the applied delta on the private `StepOutcome.AppliedAcl`. Merged: the executor turns a
+  `ReplacesExplicit` delta into the exact delta (`ExactDelta`: the wanted ACEs plus the removal of every explicit ACE
+  read that is not one of them) before `DaclEditor.Apply`, a succeeded step reports the applied ACEs (removals of the
+  schema default entries included) in `ChangeResult.AppliedAcl`, and a failed `ReplacesExplicit` step audits the exact
+  delta it tried (`StepOutcome.TriedAcl`, renamed from K2's `AppliedAcl`; the planned delta lacks the removals). The
+  rollback of such a step never runs on its own – the object is created by the same plan, whose rollback deletes it –
+  and `AclChange.Inverse()` drops the flag anyway. New tests in `ModifySecurityPipelineTests`
+  (`ReplacesExplicit_ReportsTheRemovedAcesInTheResultAndTheAudit_AndKeepsInheritedOnes`,
+  `ReplacesExplicit_ThatFails_AuditsTheExactDeltaItTried`).
+* `tests/AdMng.App.UiTests/Infrastructure/UiTestContext.cs` – only the class comment: it names both K2's
+  `FakeSysvol` writer (`context.Sysvol`) and K1's four remote fakes; the code (writer replacement before `configure`, the
+  remote fakes after it) merged cleanly.
+
+**Checked after the merge.** `Strings.resx` and `Strings.pl.resx`: 3762 keys each, the same set, no duplicates. No
+palette shortcut or command id is used twice (`gpo.containerPolicies` is both the list toolbar button and a context
+menu item by design). `ShellViewModel.Commands.cs` carries both `.. GroupPolicyStateCommands` and
+`.. ComputerStateCommands`; `XamlSourceTests` (K2) reads the command ids of every `ShellViewModel*.cs` partial, so it
+covers K1's `computer.*` ids. The smoke test renders K1's windows (`RenderComputerWindows`) and K2's documents and
+windows (`RenderGroupPolicyAsync`); screenshots 22 (computers) and 23 (Group Policy) keep their numbers.
+
+**Unblocked by the merge, not built yet (follow-ups):**
+
+* *Sprawdź na komputerze…* in the WMI filter editor (5.3): needs a WQL query method on K1's `IRemoteComputerSession`
+  (today: operating system, logged-on users, services, policy refresh, restart) and a CIM implementation in
+  `AdMng.Remote`; the editor keeps the `GroupPolicy.WmiTestLater` note until then.
+* The K5 modelling report (section 6) can now combine K1's computer facts (site, OU) with K2's link and inheritance
+  reads; nothing of it exists yet.
+* Permission awareness of the Group Policy commands (15) is still open.
+
+**Tests on the merged branch** (Linux, `dotnet build AdMng.slnx`: 0 warnings, 0 errors): `AdMng.Core.Tests` 1209,
+`AdMng.Presentation.Tests` 1227, `AdMng.Remote.Tests` 75, `AdMng.Watchdog.Core.Tests` 2279 (+4 skipped),
+`AdMng.Watchdog.Service.Tests` 819 (+16 skipped) – all passed. Samba lab (`AdMng.Directory.IntegrationTests`,
+`ComputerLabTests` 7, `GroupPolicyManagementLabTests` 5, `SessionLogonsTests` 4): 16 passed; a read-only check
+afterwards found no `K1T`/`K2T` objects left on the shared lab.
+
+**Not verified on the merged branch (Windows only):** `AdMng.App.UiTests` (both tracks' UI tests, `HostTests`,
+`XamlSourceTests`, screenshots 22 and 23) and `AdMng.exe --smoke-test` compile here and run on Windows CI only; every
+pilot item of 12 and of 14/15 still stands.

@@ -70,8 +70,9 @@ zapasowej…*, *Importuj ustawienia…*, *Porównaj* (dokładnie dwa zaznaczone)
 ### Filtry WMI
 
 Filtry domeny z zapytaniami, autorem, datą i listą GPO, które ich używają; *Nowy…*, *Edytuj…*, *Usuń…* (usunięcie
-najpierw odłącza filtr od tych GPO). Edytor filtru: nazwa, opis i zapytania WQL (przestrzeń nazw + zapytanie). Próba
-zapytania na wybranym komputerze pojawi się razem ze zdalnymi akcjami z etapu K1.
+najpierw odłącza filtr od tych GPO). Edytor filtru: nazwa, opis i zapytania WQL (przestrzeń nazw + zapytanie). Próby
+zapytania na wybranym komputerze jeszcze nie ma – wymaga rozszerzenia zdalnych akcji z etapu K1 (CIM przez WinRM,
+[KOMPUTERY.md](KOMPUTERY.md)) o zapytania WQL.
 
 ## 3. Operacje
 
@@ -185,4 +186,4 @@ SHA-256 – nie treść plików.
   (`gpresult /h`).
 - Brak: edycji ustawień (K3, K4), raportu „co dostanie komputer” (K5), tabel migracji i kopiowania GPO między
   domenami, GPO wzorcowych (Starter GPO), porównania GPO z innego okna połączenia, próby filtru WMI na komputerze
-  (po połączeniu z K1), sprawdzania uprawnień operatora przed zmianą.
+  (wymaga zapytań WQL w zdalnych akcjach K1), sprawdzania uprawnień operatora przed zmianą.

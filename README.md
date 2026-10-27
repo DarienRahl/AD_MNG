@@ -186,7 +186,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["⬜ K · Komputery<br/>i zasady grupy (GPO)<br/>ADMX, zdalne akcje"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1, K2: 🟡; ADMX: ⬜)"]
     end
     A --> B
     B ~~~ C
@@ -194,8 +194,8 @@ flowchart TB
     classDef wip fill:#fff8c5,stroke:#9a6700,color:#3b2300
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
-    class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7,M365,TEAM,K todo
+    class F1,F2,W,U,K wip
+    class F3,F4,F5,F6,F7,M365,TEAM todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -215,7 +215,7 @@ flowchart TB
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
-| K | Komputery i zasady grupy (GPO) (ścieżka równoległa, następna w kolejce) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | ⬜ zaplanowane |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery i K2 – GPO w drzewie: zaimplementowane, czekają na pilotaż na Windows Server AD; K3–K5: ⬜) |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1178,13 +1178,13 @@ Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegół�
 
 </details>
 
-### Ścieżka K – Komputery i zasady grupy (GPO) ⬜
+### Ścieżka K – Komputery i zasady grupy (GPO) 🟡 (K1 i K2: 🟡)
 
 **Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
 cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
 ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
-zmian, z możliwością cofnięcia. Ścieżka równoległa, **pierwsza w kolejce** po zmianach w wiadomościach (U1c, U1d);
-zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+zmian, z możliwością cofnięcia. Ścieżka równoległa: K1 (komputery) i K2 (GPO w drzewie) mają pierwszą wersję, K3–K5
+są zaprojektowane; zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
 
 <details>
 <summary><b>Szczegóły ścieżki K</b> – komputery, GPO w drzewie, edytor ADMX, zabezpieczenia, raport, etapy</summary>
@@ -1242,14 +1242,18 @@ zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog
   z podsieci, CSV), karta *Stan* we właściwościach, przygotowanie konta z prawem dołączenia, *Resetuj konto*, okno
   *Zdalne akcje* (CIM przez WinRM, tylko Kerberos) i narzędzia (ping, mstsc, *Zarządzanie komputerem*, *Podgląd
   zdarzeń*); opis: [KOMPUTERY.md](docs/KOMPUTERY.md). Czeka na pilotaż na Windows Server 2025 i Windows 11.
-- **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie zapasowe.
-  🟡 **Zrobione:** węzły *Obiekty zasad grupy*, *Filtry WMI* i *Lokacje*, karty GPO (zakres, szczegóły, ustawienia do
-  odczytu, delegowanie, stan AD/SYSVOL) i *Zasady grupy* domeny, OU i lokacji; nowe GPO, kopia, zmiana nazwy, usunięcie,
-  łączenie, kolejność, wymuszanie, wyłączanie połączeń, blokowanie dziedziczenia, stan GPO, filtrowanie zabezpieczeń
-  (MS16-072), filtry WMI, delegowanie, kopie zapasowe w formacie GPMC (przywracanie, import ustawień), porównanie dwóch
-  GPO; każda zmiana AD i SYSVOL przez podgląd planu zmian z różnicami plików, PowerShell i cofnięciem. Sprawdzone na
-  fałszywym katalogu i laboratorium Samba; okna WPF i zgodność z GPMC – CI na Windows i pilotaż. Opis:
-  [ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
+- 🟡 **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie
+  zapasowe. Pierwsza wersja gotowa: węzły *Obiekty zasad grupy*, *Filtry WMI* i *Lokacje*, karty GPO (zakres, szczegóły,
+  ustawienia do odczytu, delegowanie, stan AD/SYSVOL) i *Zasady grupy* domeny, OU i lokacji; nowe GPO, kopia, zmiana
+  nazwy, usunięcie, łączenie, kolejność, wymuszanie, wyłączanie połączeń, blokowanie dziedziczenia, stan GPO,
+  filtrowanie zabezpieczeń (MS16-072), filtry WMI, delegowanie, kopie zapasowe w formacie GPMC (przywracanie, import
+  ustawień), porównanie dwóch GPO; każda zmiana AD i SYSVOL przez podgląd planu zmian z różnicami plików, PowerShell i
+  cofnięciem. Sprawdzone na fałszywym katalogu i laboratorium Samba; okna WPF i zgodność z GPMC – CI na Windows i
+  pilotaż. Opis: [ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
+- 🟡 **K1 + K2 razem:** oba etapy działają w jednej wersji programu – prawo dołączenia komputera, filtrowanie
+  zabezpieczeń i delegowanie GPO zmieniają uprawnienia tą samą akcją planu zmian (z audytem tylko tego, co naprawdę
+  zmieniło listę ACL, i cofnięciem). Testy jednostkowe i laboratorium Samba przechodzą na połączonej wersji; okna WPF
+  obu etapów sprawdza CI na Windows, resztę – pilotaż. Próba filtru WMI na komputerze (K2 + zdalne akcje K1) – później.
 - **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne).
 - **K4** – ustawienia zabezpieczeń.
 - **K5** – raport „co dostanie komputer”.
@@ -1567,6 +1571,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
 | 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
+| 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
 

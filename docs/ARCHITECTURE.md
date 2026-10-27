@@ -199,8 +199,11 @@ Projekt: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdz. 3.1 i 
 - **Zapisy uprawnień (K1.1)** – akcja `ChangeAction.ModifySecurity` w potoku zmian: `AclChange` to delta ACE, którą
   wykonawca nakłada na świeżo odczytany DACL (`DaclEditor`) i zapisuje z kontrolką SD flags `DACL_SECURITY_INFORMATION`
   (`ModifyOptions.SecurityDescriptorFlags`) – właściciel, grupa i SACL nie są zapisywane. Cofnięcie to delta odwrotna,
-  eksport PowerShell – `Get-Acl`/`Set-Acl` na dysku `AD:` przypiętym do DC planu. Z tej akcji korzysta też K2
-  (filtrowanie zabezpieczeń, delegowanie GPO).
+  eksport PowerShell – `Get-Acl`/`Set-Acl` na dysku `AD:` przypiętym do DC planu. Wynik kroku
+  (`ChangeResult.AppliedAcl`) to ta część delty, która naprawdę zmieniła DACL – z niej korzystają dziennik audytu i
+  cofnięcie, więc ACE dodany w międzyczasie przez kogoś innego nie jest ani przypisywany planowi, ani usuwany. Z tej akcji
+  korzysta też K2 (filtrowanie zabezpieczeń, delegowanie GPO); kopia GPO z uprawnieniami i przywrócenie usuniętego GPO
+  używają delty „dokładnej” (`AclChange.ReplacesExplicit`), która usuwa też jawne ACE, których nie ma w źródle.
 - **Cykl życia** – przygotowanie konta w kreatorze „Nowy → Komputer” (krok tworzenia + `ModifySecurity` w jednym planie),
   `ResetComputerAccountOperation` (losowe 120 znaków, tylko w pamięci planu) i reguły `PlanValidation` dla kont DC.
 - **AdMng.Remote** (osobny projekt, `net10.0`, wywołania Windows chronione) – `CimRemoteComputerClient`
