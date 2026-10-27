@@ -294,13 +294,15 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
         try
         {
             var options = ToSettings().ToOptions();
-            var person = SalutationPerson.Of(
+            SalutationPerson Person(MessageLanguage language) => SalutationPerson.Of(
                 Clean(CheckTitle),
                 Clean(CheckDisplayName) ?? $"{CheckGivenName} {CheckSurname}".Trim(),
                 Clean(CheckGivenName),
                 Clean(CheckSurname),
                 null,
-                options);
+                options,
+                language: language);
+            var person = Person(MessageLanguage.Polish);
             var title = person.Title;
             CheckTitleResult = _localizer.Format(
                 L.Salutations.CheckTitleResult,
@@ -316,7 +318,8 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
                 gender.Detail);
             CheckGenderResult = _localizer.Format(L.Salutations.CheckGenderResult, SalutationText.Value(_localizer, source), SalutationText.Source(_localizer, source));
             CheckPolish = SalutationResolver.Salutation(person, MessageLanguage.Polish, SalutationVariant.Full, options).Text;
-            CheckEnglish = SalutationResolver.Salutation(person, MessageLanguage.English, SalutationVariant.Full, options).Text;
+            // English messages do not apply the Polish name rule.
+            CheckEnglish = SalutationResolver.Salutation(Person(MessageLanguage.English), MessageLanguage.English, SalutationVariant.Full, options).Text;
         }
         finally
         {

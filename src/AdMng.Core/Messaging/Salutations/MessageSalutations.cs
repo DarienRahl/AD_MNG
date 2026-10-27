@@ -42,6 +42,7 @@ public sealed class MessageSalutations
     private readonly DirectoryObject? _manager;
     private readonly Gender? _override;
     private readonly Gender? _managerOverride;
+    private readonly MessageLanguage _language;
     private readonly ISchemaCatalog? _schema;
     private readonly ICollection<MessageIssue>? _issues;
     private readonly Usage _accountUsage = new();
@@ -56,6 +57,7 @@ public sealed class MessageSalutations
     /// <param name="schema">Schema of the session (confidential attributes are never read).</param>
     /// <param name="issues">The message's issue list the findings are added to, or null.</param>
     /// <param name="managerOverride">Gender of the manager chosen in the preview for this message, or null.</param>
+    /// <param name="language">Language of the message (the Polish name rule applies to Polish messages only).</param>
     public MessageSalutations(
         DirectoryObject account,
         DirectoryObject? manager,
@@ -63,28 +65,35 @@ public sealed class MessageSalutations
         Gender? accountOverride = null,
         ISchemaCatalog? schema = null,
         ICollection<MessageIssue>? issues = null,
-        Gender? managerOverride = null)
+        Gender? managerOverride = null,
+        MessageLanguage language = MessageLanguage.Polish)
     {
         _account = account ?? throw new ArgumentNullException(nameof(account));
         _manager = manager;
         Options = options ?? throw new ArgumentNullException(nameof(options));
         _override = accountOverride;
         _managerOverride = managerOverride;
+        _language = language;
         _schema = schema;
         _issues = issues;
     }
 
     public SalutationOptions Options { get; }
 
-    public SalutationPerson Account => _accountPerson ??= SalutationPerson.From(_account, Options, _override, _schema);
+    public SalutationPerson Account => _accountPerson ??= SalutationPerson.From(_account, Options, _override, _schema, _language);
 
-    public SalutationPerson? Manager => _manager is null ? null : _managerPerson ??= SalutationPerson.From(_manager, Options, _managerOverride, _schema);
+    public SalutationPerson? Manager => _manager is null ? null : _managerPerson ??= SalutationPerson.From(_manager, Options, _managerOverride, _schema, _language);
 
     /// <summary>
     /// The salutation fields of a planned message: the settings of the sender merged with the template, the overrides of the
     /// request for the account and for its manager (both by the account's DN – the message they were chosen for).
     /// </summary>
-    public static MessageSalutations For(UserMessagePlanRequest request, DirectoryObject account, DirectoryObject? manager, ICollection<MessageIssue>? issues)
+    public static MessageSalutations For(
+        UserMessagePlanRequest request,
+        DirectoryObject account,
+        DirectoryObject? manager,
+        ICollection<MessageIssue>? issues,
+        MessageLanguage language = MessageLanguage.Polish)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(account);
@@ -96,14 +105,15 @@ public sealed class MessageSalutations
             OverrideFor(request.GenderOverrides, account.DistinguishedName),
             request.Schema,
             issues,
-            OverrideFor(request.ManagerGenderOverrides, account.DistinguishedName));
+            OverrideFor(request.ManagerGenderOverrides, account.DistinguishedName),
+            language);
     }
 
     /// <summary>The salutation fields of field data built without the planner (default options, no findings).</summary>
     public static MessageSalutations For(UserMessageFieldData data)
     {
         ArgumentNullException.ThrowIfNull(data);
-        return new MessageSalutations(data.Account, data.Manager, SalutationOptions.Default);
+        return new MessageSalutations(data.Account, data.Manager, SalutationOptions.Default, language: data.Language);
     }
 
     /// <summary>Evaluates a salutation field (<see cref="SalutationFields.IsSalutationField"/>) and records what it needed.</summary>

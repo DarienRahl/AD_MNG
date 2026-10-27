@@ -35,6 +35,42 @@ public sealed class GenderGuesserTests
         Assert.Equal(GenderGuesser.FirstGivenName(givenName), info.Detail);
     }
 
+    [Theory]
+    [InlineData("Jennifer", "Smith", Gender.Feminine)]
+    [InlineData("Karen", "Miller", Gender.Feminine)]
+    [InlineData("Sabine", "Müller", Gender.Feminine)]
+    [InlineData("Yvonne", "Schmidt", Gender.Feminine)]
+    [InlineData("Christine", "Dupont", Gender.Feminine)]
+    [InlineData("Kerstin", "Lindqvist", Gender.Feminine)]
+    [InlineData("Ilya", "Petrov", Gender.Masculine)]
+    [InlineData("Misha", "Kowalczyk", Gender.Masculine)]
+    [InlineData("Kostya", "Iwanow", Gender.Masculine)]
+    public void CommonNonPolishNames_AreExceptionsToTheRule(string givenName, string surname, Gender gender)
+    {
+        var info = Guess(givenName, surname);
+
+        Assert.Equal((gender, DerivedValueSource.NameException), (info.Gender, info.Source));
+        Assert.Equal(gender, GenderGuesser.Guess(null, null, Gender.Unknown, givenName, surname, Options, polishNameRule: false).Gender);
+    }
+
+    [Fact]
+    public void EnglishMessages_DoNotApplyThePolishRule()
+    {
+        // Outside the lists the rule gives no signal: unknown (neutral "Dear John Smith" and a warning) …
+        var john = GenderGuesser.Guess(null, null, Gender.Unknown, "John", "Smith", Options, polishNameRule: false);
+        Assert.Equal((Gender.Unknown, DerivedValueSource.None), (john.Gender, john.Source));
+        Assert.Equal(Gender.Unknown, GenderGuesser.Guess(null, null, Gender.Unknown, "Brenda", "Lee", Options, polishNameRule: false).Gender);
+
+        // … the lists, the surname, the attribute and the operator's list still decide.
+        Assert.Equal(DerivedValueSource.Surname, GenderGuesser.Guess(null, null, Gender.Unknown, "Jan", "Kowalski", Options, polishNameRule: false).Source);
+        Assert.Equal(Gender.Feminine, GenderGuesser.Guess(null, "F", Gender.Unknown, "John", "Smith", Options, polishNameRule: false).Gender);
+        var listed = Options with { GivenNames = [new GivenNameGender("John", Gender.Masculine)] };
+        Assert.Equal(DerivedValueSource.OperatorList, GenderGuesser.Guess(null, null, Gender.Unknown, "John", "Smith", listed, polishNameRule: false).Source);
+
+        // No conflict between a rule that does not apply and the surname.
+        Assert.Equal((Gender.Feminine, false), (GenderGuesser.Guess(null, null, Gender.Unknown, "Jan", "Kowalska", Options, polishNameRule: false) is var j ? (j.Gender, j.IsConflict) : default));
+    }
+
     [Fact]
     public void Kuba_IsAnExceptionAndWinsOverAFeminineSurname()
     {

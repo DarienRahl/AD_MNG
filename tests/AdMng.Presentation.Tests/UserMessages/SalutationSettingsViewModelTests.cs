@@ -52,6 +52,13 @@ public sealed class SalutationSettingsViewModelTests
         section.CheckSurname = "Wójcik";
         Assert.Equal("Szanowny Księże Doktorze", section.CheckPolish);
         Assert.Equal("Dear Father Wójcik", section.CheckEnglish);
+
+        // The Polish name rule applies to Polish messages only.
+        section.CheckTitle = string.Empty;
+        section.CheckGivenName = "John";
+        section.CheckSurname = "Smith";
+        Assert.Equal("Szanowny Panie", section.CheckPolish);
+        Assert.Equal("Dear John Smith", section.CheckEnglish);
     }
 
     [Fact]

@@ -53,7 +53,13 @@ public sealed record SalutationPerson
     /// <param name="options">Settings merged with the template's options.</param>
     /// <param name="overrideGender">Chosen in the preview for this run, or null.</param>
     /// <param name="schema">Schema of the session: confidential attributes are never read as title or gender.</param>
-    public static SalutationPerson From(DirectoryObject person, SalutationOptions options, Gender? overrideGender = null, ISchemaCatalog? schema = null)
+    /// <param name="language">Language of the message (the Polish name rule applies to Polish messages only).</param>
+    public static SalutationPerson From(
+        DirectoryObject person,
+        SalutationOptions options,
+        Gender? overrideGender = null,
+        ISchemaCatalog? schema = null,
+        MessageLanguage language = MessageLanguage.Polish)
     {
         ArgumentNullException.ThrowIfNull(person);
         ArgumentNullException.ThrowIfNull(options);
@@ -66,10 +72,11 @@ public sealed record SalutationPerson
             person.GetString(Attr.Sn),
             Read(options.UsableGenderAttribute),
             options,
-            overrideGender);
+            overrideGender,
+            language);
     }
 
-    /// <summary>A person of typed values (the settings' check box and tests).</summary>
+    /// <summary>A person of typed values (the settings' check box and tests) for a message in <paramref name="language"/>.</summary>
     public static SalutationPerson Of(
         string? titleValue,
         string? displayName,
@@ -77,7 +84,8 @@ public sealed record SalutationPerson
         string? surname,
         string? genderValue,
         SalutationOptions options,
-        Gender? overrideGender = null)
+        Gender? overrideGender = null,
+        MessageLanguage language = MessageLanguage.Polish)
     {
         ArgumentNullException.ThrowIfNull(options);
         var title = TitleParser.Parse(titleValue, displayName, givenName, surname, options.Titles, options.TitleFromDisplayName);
@@ -87,7 +95,9 @@ public sealed record SalutationPerson
             Surname = surname,
             DisplayName = displayName,
             Title = title,
-            Gender = GenderGuesser.WithTitle(GenderGuesser.Guess(overrideGender, genderValue, title.HonorificGender, givenName, surname, options), title),
+            Gender = GenderGuesser.WithTitle(
+                GenderGuesser.Guess(overrideGender, genderValue, title.HonorificGender, givenName, surname, options, language == MessageLanguage.Polish),
+                title),
         };
     }
 }

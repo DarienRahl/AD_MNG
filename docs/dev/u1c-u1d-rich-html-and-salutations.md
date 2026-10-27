@@ -758,7 +758,10 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
    * in the built-in **unisex** list → no name signal;
    * in the built-in **masculine-ending-in-a** list → masculine (guessed, *exception*);
    * in the built-in **feminine-not-ending-in-a** list → feminine (guessed, *exception*);
-   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*).
+   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*) – **Polish messages only** (as
+     built): recipients of English messages mostly have names the Polish rule does not fit (Jennifer, Karen, Ilya), so
+     there a name outside the lists gives no signal (the surname may decide; else the neutral "Dear {name}" and
+     `GenderUnknown`).
 5. **Surname** (`sn`, first part of a hyphenated one): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
    With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception) → **conflict** →
    unknown (warning `GenderConflict`); agreeing → keeps the name result.
@@ -776,8 +779,11 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
   mercedes, nikol, nicole, dagmar, astrid, sigrid, agnes, rachel, sarah, hannah, deborah, esther, judith, lilian, vivien,
   michelle, emily, amy, lily, lili, ann, anne, mary, marie, sophie, chloe, zoe, julie, claire, jeanne, louise, elizabeth,
   catherine, kathleen, margaret, irene, doris, alice, charlotte, isabel, heike, elke, silke, ute, gudrun, karin, birgit,
-  ellen, helen, kathrin, jasmin, lubow, liubov;
-* unisex / ambiguous: sasza, andrea, nicola, nikola, kim, alex, robin, jean, dominique, toni, kai, noa, maxime, akira.
+  ellen, helen, kathrin, jasmin, lubow, liubov; as built also common English, German, French and Spanish names (jennifer,
+  karen, susan, megan, sabine, yvonne, christine, kerstin, iris …) and, masculine ending in -a, the English
+  transliterations of Russian names (ilya, misha, grisha, kostya, vanya, pasha …), mattia, luka;
+* unisex / ambiguous: sasza, andrea, nicola, nikola, kim, alex, robin, jean, dominique, toni, kai, noa, maxime, akira
+  (as built also sasha, zhenya).
 
 The **per-template default** (`MessageTemplate.Salutation.UnknownGender`: *z ustawień* (default) / neutral / masculine
 / feminine) and the settings default (`SalutationSettings.UnknownGender`, default neutral) decide what an unknown gender

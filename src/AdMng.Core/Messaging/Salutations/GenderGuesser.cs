@@ -40,7 +40,11 @@ public static class GenderGuesser
     /// <param name="givenName">Given name.</param>
     /// <param name="surname">Surname.</param>
     /// <param name="options">Value lists and the operator's given-name list.</param>
-    public static GenderInfo Guess(Gender? overrideGender, string? attributeValue, Gender honorific, string? givenName, string? surname, SalutationOptions options)
+    /// <param name="polishNameRule">
+    /// Apply the Polish rule "ends in -a → feminine, else masculine" to names outside the lists – only for Polish messages:
+    /// recipients of English messages mostly have names it does not fit (Jennifer, Karen, Ilya), so there it gives no signal.
+    /// </param>
+    public static GenderInfo Guess(Gender? overrideGender, string? attributeValue, Gender honorific, string? givenName, string? surname, SalutationOptions options, bool polishNameRule = true)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (overrideGender is { } chosen)
@@ -78,6 +82,10 @@ public static class GenderGuesser
         }
 
         var byName = FromGivenName(first);
+        if (!polishNameRule && byName?.Source == DerivedValueSource.NameRule)
+        {
+            byName = null;
+        }
         var surnamePart = FirstSurnamePart(surname);
         var bySurname = FromSurname(surnamePart);
         if (byName is not { } name)

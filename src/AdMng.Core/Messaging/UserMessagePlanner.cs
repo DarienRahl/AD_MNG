@@ -389,7 +389,7 @@ public sealed class UserMessagePlanner
             TimeZone = sender.TimeZone,
             Inputs = request.Inputs,
             Domain = request.Domain,
-            Salutation = Salutations.MessageSalutations.For(request, account, entry.Manager, issues),
+            Salutation = Salutations.MessageSalutations.For(request, account, entry.Manager, issues, language),
         };
         var text = template.Text(language);
         var empty = new List<string>();

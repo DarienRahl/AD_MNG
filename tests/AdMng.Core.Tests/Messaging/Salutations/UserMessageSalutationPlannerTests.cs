@@ -187,6 +187,30 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void EnglishMessages_DoNotGuessByThePolishNameRule()
+    {
+        const string JohnDn = "CN=John Smith,OU=Wykładowcy,DC=contoso,DC=test";
+        const string JenniferDn = "CN=Jennifer Smith,OU=Wykładowcy,DC=contoso,DC=test";
+        DirectoryObject Account(string dn, string givenName, string language) => User(dn,
+            [(Attr.GivenName, givenName), (Attr.Sn, "Smith"), (Attr.DisplayName, $"{givenName} Smith"), (Attr.Mail, $"{givenName.ToLowerInvariant()}@contoso.test"), ("preferredLanguage", language)]);
+        var template = Template("{$salutation},", "{$salutation},");
+
+        var plan = Plan(template, [new(JohnDn, Account(JohnDn, "John", "en-GB")), new(JenniferDn, Account(JenniferDn, "Jennifer", "en-GB"))]);
+
+        // John: the rule does not apply to English recipients – neutral and a warning, never a wrong "Mr"/"Ms".
+        var john = plan.Messages[0];
+        Assert.StartsWith("Dear John Smith,", john.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderUnknown, MessageIssueSeverity.Warning, "John Smith"), john.Issues);
+
+        // Jennifer is on the list: "Ms", not "Mr" by the rule.
+        Assert.StartsWith("Dear Ms Smith,", plan.Messages[1].Message!.TextBody, StringComparison.Ordinal);
+
+        // The same John in a Polish message: the Polish rule applies.
+        var polish = Plan(template, [new(JohnDn, Account(JohnDn, "John", "pl-PL"))]).Messages[0];
+        Assert.StartsWith("Szanowny Panie,", polish.Message!.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Replan_KeepsADuplicateAddressWarning()
     {
         var template = Template("{$salutation},");

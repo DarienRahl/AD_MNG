@@ -38,7 +38,7 @@ public sealed class SalutationFieldsTests
         Language = language,
         TimeZone = Warsaw,
         Domain = "contoso.test",
-        Salutation = new MessageSalutations(account, manager, options ?? SalutationOptions.Default, issues: issues),
+        Salutation = new MessageSalutations(account, manager, options ?? SalutationOptions.Default, issues: issues, language: language),
     };
 
     [Fact]
