@@ -251,7 +251,10 @@ public sealed class MessageSalutations
         };
     }
 
-    /// <summary>The finding of a gender that a field needed, or null.</summary>
+    /// <summary>
+    /// The finding of a gender that a field needed, or null: an unknown gender is a warning whether it rendered neutral or with
+    /// the default gender of the settings / the template; only the operator's own choice in the preview is none.
+    /// </summary>
     private string? GenderIssue(GenderInfo gender)
     {
         if (gender.Source == DerivedValueSource.Override)
@@ -266,7 +269,7 @@ public sealed class MessageSalutations
 
         if (gender.Gender == Gender.Unknown)
         {
-            return Options.UnknownGender == UnknownGenderMode.Neutral ? SalutationIssueCodes.GenderUnknown : SalutationIssueCodes.GenderGuessed;
+            return Options.UnknownGender == UnknownGenderMode.Neutral ? SalutationIssueCodes.GenderUnknown : SalutationIssueCodes.GenderDefaulted;
         }
 
         return gender.IsGuess ? SalutationIssueCodes.GenderGuessed : null;

@@ -179,7 +179,8 @@ public sealed class UserMessageSalutationComposerTests
         Assert.Equal("≈ Szanowny Panie", Item(composer, "Stanisław Kowalczyk").SalutationColumnText);
         var kim = Item(composer, "Sasza Kim");
         Assert.Equal("⚠ Szanowna Pani", kim.SalutationColumnText);
-        Assert.Equal(PlannedMessageStatus.Ready, kim.Status);
+        Assert.Equal(PlannedMessageStatus.Warning, kim.Status);
+        Assert.Contains("Unknown gender (Sasza Kim) – the default gender of the settings or the template is used.", kim.IssuesText, StringComparison.Ordinal);
 
         composer.TemplateName = "Hasło – zwroty";
         await composer.SaveTemplateCommand.ExecuteAsync(null);

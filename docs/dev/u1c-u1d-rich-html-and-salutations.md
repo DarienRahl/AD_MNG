@@ -820,8 +820,9 @@ access). Composer: a small **Zwroty** group under the recipient mode (*używaj t
   `title`, `gender`, `salutation` (and the manager twins when used); sources `Attribute`, `TitleAttribute`,
   `DisplayName`, `OperatorList`, `NameException`, `NameRule`, `Surname`, `Override`, `Fallback`.
 * Issues (`SalutationIssueCodes`, Core, B's file; texts `UserMessages.Issue.{code}`): `GenderGuessed` (info, detail:
-  source + name), `TitleFromDisplayName` (info), `GenderUnknown`, `GenderConflict`, `TitleUnrecognized`,
-  `SurnameMissing` (warnings), `GenderValueUnknown` (info).
+  source + name), `TitleFromDisplayName` (info), `GenderUnknown`, `GenderConflict`, `GenderDefaulted` (an unknown
+  gender rendered with the default gender of the settings / the template), `TitleUnrecognized`, `SurnameMissing`
+  (warnings), `GenderValueUnknown` (info).
 * Preview list: new column **Zwrot** – the rendered salutation with `≈` (guessed, tooltip with the source) or `⚠`
   (neutral fallback / conflict). Details pane: **Pola wyliczone** – title (source), gender (source, "zgadnięte"),
   salutation – and a **Płeć** selector *automatycznie / Pan / Pani / neutralnie* that re-plans only that message
@@ -865,8 +866,9 @@ Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/
 * Words of the display name equal to the given name or the surname are never a title or an absorbed university
   (`prof. NOWAK Jan`), and a suffix after the last comma counts only when every word of it is covered.
 * Findings: `GenderGuessed` carries the deciding word (first given name or surname) – the source is shown by the
-  derived fields; an unknown gender rendered with the default gender of the settings / the template is
-  `GenderGuessed` (info), not `GenderUnknown`; a neutral override is the operator's choice (no finding, no ⚠).
+  derived fields; an unknown gender rendered with the default gender of the settings / the template is the warning
+  `GenderDefaulted` (the gender is still unknown – section 17), not `GenderUnknown`; a neutral override is the
+  operator's choice (no finding, no ⚠).
 * `PlannedUserMessage.Derived`: `title` and `gender` (with the `manager` prefix for the manager) for every person whose
   fields the template uses, `salutation` only when a `{$salutation}` field of that person is used (manager mode shows
   the manager's salutation in the column); `DerivedFieldValue.Issue` names the finding behind a value. The salutation

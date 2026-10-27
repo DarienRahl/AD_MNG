@@ -8001,6 +8001,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Issue.GenderConflict" xml:space="preserve">
     <value>Given name and surname suggest different genders ({0}) – the fallback salutation is used.</value>
   </data>
+  <data name="UserMessages.Issue.GenderDefaulted" xml:space="preserve">
+    <value>Unknown gender ({0}) – the default gender of the settings or the template is used.</value>
+  </data>
   <data name="UserMessages.Issue.TitleUnrecognized" xml:space="preserve">
     <value>Title words not in the title table: {0}.</value>
   </data>

@@ -262,8 +262,12 @@ public sealed class UserMessageSalutationPlannerTests
 
         var sasza = plan.Messages[1];
         Assert.StartsWith("Szanowna Pani,", sasza.Message!.TextBody, StringComparison.Ordinal);
-        Assert.Equal(PlannedMessageStatus.Ready, sasza.Status);
-        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderGuessed, MessageIssueSeverity.Info, "Sasza Kim"), sasza.Issues);
+
+        // The default gender of the template stands in for an unknown one: still a warning.
+        Assert.Equal(PlannedMessageStatus.Warning, sasza.Status);
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderDefaulted, MessageIssueSeverity.Warning, "Sasza Kim"), sasza.Issues);
+        Assert.DoesNotContain(sasza.Issues, i => i.Code == SalutationIssueCodes.GenderGuessed);
+        Assert.Contains(sasza.Derived, d => d is { Field: "gender", Value: "Feminine", Source: DerivedValueSource.Fallback, Issue: SalutationIssueCodes.GenderDefaulted });
         Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderValueUnknown, MessageIssueSeverity.Info, "?"), sasza.Issues);
 
         var unrecognized = Plan(Template("{$salutation},"), [new(ProfessorDn, Professor(("personalTitle", "dr MBA")))]).Messages[0];

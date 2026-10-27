@@ -6,7 +6,7 @@ namespace AdMng.Core.Messaging.Salutations;
 /// </summary>
 public static class SalutationIssueCodes
 {
-    /// <summary>Info: the gender was guessed from the given name or the surname, or the default gender was used.</summary>
+    /// <summary>Info: the gender was guessed from the given name, the surname or the title.</summary>
     public const string GenderGuessed = "GenderGuessed";
 
     /// <summary>Info: the title was recognized in the display name.</summary>
@@ -17,6 +17,9 @@ public static class SalutationIssueCodes
 
     /// <summary>Warning: the given name and the surname disagree – the neutral text (or the default gender) was used.</summary>
     public const string GenderConflict = "GenderConflict";
+
+    /// <summary>Warning: the gender is unknown – the default gender of the settings / the template was used.</summary>
+    public const string GenderDefaulted = "GenderDefaulted";
 
     /// <summary>Warning: words of the title attribute are not in the title table.</summary>
     public const string TitleUnrecognized = "TitleUnrecognized";
@@ -29,12 +32,12 @@ public static class SalutationIssueCodes
 
     /// <summary>Every code (localization test).</summary>
     public static IReadOnlyList<string> All { get; } =
-        [GenderGuessed, TitleFromDisplayName, GenderUnknown, GenderConflict, TitleUnrecognized, SurnameMissing, GenderValueUnknown];
+        [GenderGuessed, TitleFromDisplayName, GenderUnknown, GenderConflict, GenderDefaulted, TitleUnrecognized, SurnameMissing, GenderValueUnknown];
 
     /// <summary>The severity of a code.</summary>
     public static MessageIssueSeverity Severity(string code) => code switch
     {
-        GenderUnknown or GenderConflict or TitleUnrecognized or SurnameMissing => MessageIssueSeverity.Warning,
+        GenderUnknown or GenderConflict or GenderDefaulted or TitleUnrecognized or SurnameMissing => MessageIssueSeverity.Warning,
         _ => MessageIssueSeverity.Info,
     };
 }

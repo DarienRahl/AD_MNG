@@ -8001,6 +8001,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Issue.GenderConflict" xml:space="preserve">
     <value>Imię i nazwisko wskazują różną płeć ({0}) – użyto zwrotu zastępczego.</value>
   </data>
+  <data name="UserMessages.Issue.GenderDefaulted" xml:space="preserve">
+    <value>Nieznana płeć ({0}) – użyto płci domyślnej z ustawień lub szablonu.</value>
+  </data>
   <data name="UserMessages.Issue.TitleUnrecognized" xml:space="preserve">
     <value>Słowa tytułu spoza tabeli tytułów: {0}.</value>
   </data>
