@@ -307,7 +307,7 @@ public sealed class DialogService : IDialogService, IUserMessageLauncher, IObjec
 
     private Task<bool> ShowMessageAsync(MessageDialogViewModel dialog, bool withHeader = true) => OnUiThreadAsync(() =>
     {
-        if (withHeader && _connection?.Identity is { } identity)
+        if (withHeader && HeaderIdentity() is { } identity)
         {
             // Every information, error and confirmation dialog names the domain it is about.
             dialog.ConnectionHeader = ConnectionChrome.HeaderText(identity, _localizer);
@@ -318,6 +318,14 @@ public sealed class DialogService : IDialogService, IUserMessageLauncher, IObjec
         _windows.ShowDialog(window);
         return window is IDialogResultWindow { Result: true };
     });
+
+    /// <summary>
+    /// The domain a message is about: that of the window it is shown over, when that child window keeps the identity it
+    /// was opened with (a batch editor of contoso.test still asks about contoso's passwords after the main window
+    /// reconnected to fabrikam.test); else the connection's current identity (main window, background work).
+    /// </summary>
+    private ConnectionIdentity? HeaderIdentity() =>
+        (_windows.GetOwner() is { } owner ? ConnectionChrome.GetIdentity(owner) : null) ?? _connection?.Identity;
 
     /// <summary>Shows a modal dialog for <paramref name="viewModel"/>; true when it reported a positive result.</summary>
     private bool ShowModal(object viewModel)

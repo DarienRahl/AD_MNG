@@ -519,7 +519,10 @@ window, the badge and the connect window follow the live context.
 * **Message dialogs.** `MessageDialogViewModel` gets `ConnectionLabel` and `ConnectionColor`, which the scoped
   `DialogService` fills for every information, error and confirmation dialog. The dialog shows the strip and the
   line *Domena: contoso.test (CONTOSO\jan.kowalski)* above the message. This covers all 31 `ConfirmAsync` /
-  `ConfirmTypedAsync` call sites without touching them. Exception: the application error dialog of 2.7 has no header.
+  `ConfirmTypedAsync` call sites without touching them. The identity is that of the dialog's owner when it is a child
+  window (its snapshot: a batch editor of contoso.test still names contoso when it asks about its passwords after the
+  main window reconnected to fabrikam.test), else the connection's current one. Exception: the application error
+  dialog of 2.7 has no header.
 * **Taskbar.** `TaskbarItemInfo.Overlay` shows a dot in the connection colour and `Description` the label. This is
   best effort: Windows shows the overlay depending on taskbar grouping. The title is the reliable cue.
 

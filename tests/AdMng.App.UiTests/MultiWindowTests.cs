@@ -229,6 +229,52 @@ public sealed class MultiWindowTests
     });
 
     [Fact]
+    public Task AQuestionOverAChildWindowOfTheOldDomain_NamesThatDomain_AfterTheWindowReconnected() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await CreateContextAsync();
+        var manager = Manager(context);
+        var window = await OpenAsync(manager, FakeDirectoryBuilder.DefaultDomain);
+        window.Shell.ShowSessionLogCommand.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        var log = Application.Current.Windows.OfType<SessionLogWindow>().Single();
+        var services = Services(manager, window);
+        var sessions = services.GetRequiredService<ISessionManager>();
+        await sessions.DisconnectAsync();
+        await sessions.ConnectAsync(new ConnectionOptions { Domain = Fabrikam }, null, CancellationToken.None);
+        await UiWait.UntilAsync(() => window.Title.StartsWith(Fabrikam, StringComparison.Ordinal), "the main window to follow the new domain");
+        var dialogs = services.GetRequiredService<IDialogService>();
+
+        async Task<MessageDialogWindow> AskAsync()
+        {
+            MessageDialogWindow? shown = null;
+            var drive = UiWait.DriveModalAsync<MessageDialogWindow>(dialog =>
+            {
+                shown = dialog;
+                dialog.ViewModel.CancelCommand.Execute(null);
+                return Task.CompletedTask;
+            });
+            _ = await dialogs.ConfirmAsync("Eksport wyników", "Czy zapisać hasła do pliku?", destructive: false);
+            await drive;
+            return shown!;
+        }
+
+        // Asked over the contoso child window: its domain, not the main window's new one.
+        log.Activate();
+        await UiWait.UntilAsync(() => log.IsActive, "the contoso session log to be active");
+        var overLog = await AskAsync();
+        Assert.Same(log, overLog.Owner);
+        Assert.StartsWith("Domain: contoso.test", overLog.ViewModel.ConnectionHeader, StringComparison.Ordinal);
+
+        // Asked over the main window: the connection's current domain.
+        window.Activate();
+        await UiWait.UntilAsync(() => window.IsActive, "the main window to be active");
+        var overMain = await AskAsync();
+        Assert.Same(window, overMain.Owner);
+        Assert.StartsWith("Domain: fabrikam.test", overMain.ViewModel.ConnectionHeader, StringComparison.Ordinal);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task AnUnhandledError_IsShownOnTheActiveConnection_WithoutAConnectionHeader() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await CreateContextAsync();
