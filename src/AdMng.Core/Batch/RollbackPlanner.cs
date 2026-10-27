@@ -132,6 +132,10 @@ public sealed partial class RollbackPlanner : IRollbackPlanner
                     issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
                         "A restored object is not deleted again by a rollback; delete it explicitly if it must go."));
                     break;
+                case ChangeAction.ModifySecurity when change.Acl is { IsEmpty: false } acl:
+                    // The inverse delta: the planner kept only ACEs that were missing (added) or present (removed).
+                    steps.Add(new PlannedChange { Action = ChangeAction.ModifySecurity, Acl = acl.Inverse() });
+                    break;
             }
         }
 

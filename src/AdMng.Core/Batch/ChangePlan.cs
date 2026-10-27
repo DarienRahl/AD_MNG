@@ -71,6 +71,13 @@ public enum ChangeAction
     /// (its original or a new name under its original or a new parent). See <see cref="RecycleBin.PlanRestoreAsync"/>.
     /// </summary>
     Restore,
+
+    /// <summary>
+    /// Change the DACL of the object: <see cref="PlannedChange.Acl"/> holds the explicit ACEs to add and to remove. The
+    /// executor reads nTSecurityDescriptor (DACL), applies the delta (<see cref="Security.DaclEditor"/>) and writes the
+    /// result with the SD flags control DACL_SECURITY_INFORMATION – owner, group and SACL are never written.
+    /// </summary>
+    ModifySecurity,
 }
 
 /// <summary>How <see cref="AttributeChange.NewValues"/> relate to the current values.</summary>
@@ -160,6 +167,21 @@ public static class IssueCodes
     public const string TargetIsSameContainer = "TargetIsSameContainer";
     public const string CannotCreateChild = "CannotCreateChild";
 
+    /// <summary>Disabling, deleting or resetting the account of a domain controller (use the demotion of the role instead).</summary>
+    public const string DomainControllerAccount = "DomainControllerAccount";
+
+    /// <summary>A domain controller is moved out of OU=Domain Controllers (default Group Policy of DCs no longer applies).</summary>
+    public const string DomainControllerOutsideOu = "DomainControllerOutsideOu";
+
+    /// <summary>Resetting a computer account breaks the computer's trust relationship until it is re-joined or repaired.</summary>
+    public const string ComputerTrustLost = "ComputerTrustLost";
+
+    /// <summary>Deleting a computer deletes its child objects too – BitLocker recovery passwords among them.</summary>
+    public const string DeletesBitLockerRecovery = "DeletesBitLockerRecovery";
+
+    /// <summary>The DACL of the object could not be read (no right to read permissions, or no descriptor).</summary>
+    public const string SecurityNotReadable = "SecurityNotReadable";
+
     /// <summary>The object has child objects and the delete does not include the subtree.</summary>
     public const string HasChildren = "HasChildren";
 
@@ -236,6 +258,9 @@ public sealed record PlannedChange
     public GpoVersionChange? GpoVersion { get; init; }
 
     public bool DeleteSubtree { get; init; }
+
+    /// <summary>ACEs added and removed by <see cref="ChangeAction.ModifySecurity"/> (a delta on the DACL read at execution).</summary>
+    public Security.AclChange? Acl { get; init; }
 
     public IReadOnlyList<ValidationIssue> Issues { get; init; } = [];
 

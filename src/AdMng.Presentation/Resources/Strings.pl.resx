@@ -7527,6 +7527,117 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
     <value>{0} nie odpowiedział: {1}</value>
   </data>
+  <data name="ChangeAction.ModifySecurity" xml:space="preserve">
+    <value>Zmień uprawnienia</value>
+  </data>
+  <data name="Issue.DomainControllerAccount" xml:space="preserve">
+    <value>To jest konto kontrolera domeny – zamiast tego obniż poziom kontrolera domeny.</value>
+  </data>
+  <data name="Issue.DomainControllerOutsideOu" xml:space="preserve">
+    <value>Kontroler domeny opuszcza jednostkę Domain Controllers: przestanie go obejmować zasada Default Domain Controllers Policy.</value>
+  </data>
+  <data name="Issue.ComputerTrustLost" xml:space="preserve">
+    <value>Komputer straci relację zaufania z domeną: dołącz go ponownie albo napraw kanał (Test-ComputerSecureChannel -Repair).</value>
+  </data>
+  <data name="Issue.DeletesBitLockerRecovery" xml:space="preserve">
+    <value>Razem z komputerem zostaną usunięte jego obiekty podrzędne – także hasła odzyskiwania funkcji BitLocker.</value>
+  </data>
+  <data name="Issue.SecurityNotReadable" xml:space="preserve">
+    <value>Nie można odczytać uprawnień obiektu.</value>
+  </data>
+  <data name="Computers.Acl.Added" xml:space="preserve">
+    <value>dodane: {0}</value>
+  </data>
+  <data name="Computers.Acl.Removed" xml:space="preserve">
+    <value>usunięte: {0}</value>
+  </data>
+  <data name="Computers.Acl.Allow" xml:space="preserve">
+    <value>Zezwalaj – {0}</value>
+  </data>
+  <data name="Computers.Acl.Deny" xml:space="preserve">
+    <value>Odmawiaj – {0}</value>
+  </data>
+  <data name="Computers.Acl.Inherited" xml:space="preserve">
+    <value>(także dla obiektów podrzędnych)</value>
+  </data>
+  <data name="Computers.Acl.Right.FullControl" xml:space="preserve">
+    <value>pełna kontrola</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericRead" xml:space="preserve">
+    <value>odczyt</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericWrite" xml:space="preserve">
+    <value>zapis</value>
+  </data>
+  <data name="Computers.Acl.Right.ResetPassword" xml:space="preserve">
+    <value>resetowanie hasła</value>
+  </data>
+  <data name="Computers.Acl.Right.AccountRestrictions" xml:space="preserve">
+    <value>odczyt i zapis ograniczeń konta</value>
+  </data>
+  <data name="Computers.Acl.Right.DnsHostName" xml:space="preserve">
+    <value>sprawdzony zapis do nazwy hosta DNS</value>
+  </data>
+  <data name="Computers.Acl.Right.ServicePrincipalName" xml:space="preserve">
+    <value>sprawdzony zapis do głównej nazwy usługi</value>
+  </data>
+  <data name="Computers.Acl.Right.ApplyGroupPolicy" xml:space="preserve">
+    <value>zastosowanie zasad grupy</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRight" xml:space="preserve">
+    <value>wszystkie prawa rozszerzone</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRightOf" xml:space="preserve">
+    <value>prawo rozszerzone {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadProperty" xml:space="preserve">
+    <value>odczyt wszystkich właściwości</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadPropertyOf" xml:space="preserve">
+    <value>odczyt {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteProperty" xml:space="preserve">
+    <value>zapis wszystkich właściwości</value>
+  </data>
+  <data name="Computers.Acl.Right.WritePropertyOf" xml:space="preserve">
+    <value>zapis {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.Self" xml:space="preserve">
+    <value>wszystkie sprawdzone zapisy</value>
+  </data>
+  <data name="Computers.Acl.Right.SelfOf" xml:space="preserve">
+    <value>sprawdzony zapis {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.CreateChild" xml:space="preserve">
+    <value>tworzenie obiektów podrzędnych</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteChild" xml:space="preserve">
+    <value>usuwanie obiektów podrzędnych</value>
+  </data>
+  <data name="Computers.Acl.Right.ListChildren" xml:space="preserve">
+    <value>wyświetlanie zawartości</value>
+  </data>
+  <data name="Computers.Acl.Right.ListObject" xml:space="preserve">
+    <value>wyświetlanie obiektu</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteTree" xml:space="preserve">
+    <value>usuwanie poddrzewa</value>
+  </data>
+  <data name="Computers.Acl.Right.Delete" xml:space="preserve">
+    <value>usuwanie</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadControl" xml:space="preserve">
+    <value>odczyt uprawnień</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteDacl" xml:space="preserve">
+    <value>modyfikowanie uprawnień</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteOwner" xml:space="preserve">
+    <value>modyfikowanie właściciela</value>
+  </data>
+  <data name="Computers.Acl.Right.Other" xml:space="preserve">
+    <value>prawa 0x{0}</value>
+  </data>
   <data name="UserMessages.WindowTitle" xml:space="preserve">
     <value>Wyślij wiadomość do użytkowników ({0})</value>
   </data>

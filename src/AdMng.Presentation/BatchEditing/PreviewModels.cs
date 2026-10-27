@@ -4,6 +4,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Formatting;
 using AdMng.Core.Ldap;
 using AdMng.Core.Schema;
+using AdMng.Presentation.Computers;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
@@ -292,6 +293,22 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                     break;
                 case ChangeAction.Restore:
                     Add(action, localizer[L.Batch.Container], string.Empty, ParentPath(change.TargetDn ?? string.Empty), change.Issues, isChange: true);
+                    break;
+                case ChangeAction.ModifySecurity when change.Acl is { } acl:
+                    // One row per ACE: trustee, the rights, removed (before) / added (after); the step's findings on the first.
+                    var stepIssues = change.Issues;
+                    foreach (var ace in acl.Removed)
+                    {
+                        Add(action, ace.TrusteeName ?? ace.TrusteeSid, localizer.Format(L.Computers.AclRemoved, AceText.Describe(ace, localizer)), string.Empty, stepIssues, isChange: true);
+                        stepIssues = [];
+                    }
+
+                    foreach (var ace in acl.Added)
+                    {
+                        Add(action, ace.TrusteeName ?? ace.TrusteeSid, string.Empty, localizer.Format(L.Computers.AclAdded, AceText.Describe(ace, localizer)), stepIssues, isChange: true);
+                        stepIssues = [];
+                    }
+
                     break;
                 case ChangeAction.ResetPassword:
                     Add(action, localizer[L.Batch.Password], string.Empty, change.Password is null ? string.Empty : SecretAttributes.Mask, change.Issues, isChange: true);

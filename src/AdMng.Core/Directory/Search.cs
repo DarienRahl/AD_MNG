@@ -117,6 +117,14 @@ public sealed record ModifyOptions
     /// </summary>
     public bool Permissive { get; init; }
 
+    /// <summary>
+    /// SD flags control (LDAP_SERVER_SD_FLAGS_OID) sent with the modify: which parts of a written nTSecurityDescriptor
+    /// the DC takes (<see cref="ActiveDirectory.SecurityDescriptorRights.Dacl"/> for a DACL change – owner, group and SACL
+    /// stay as they are, and no SeSecurityPrivilege is needed). <see cref="ActiveDirectory.SecurityDescriptorRights.None"/>
+    /// = no control.
+    /// </summary>
+    public ActiveDirectory.SecurityDescriptorRights SecurityDescriptorFlags { get; init; }
+
     public static ModifyOptions Default { get; } = new();
 
     public static ModifyOptions Idempotent { get; } = new() { Permissive = true };
