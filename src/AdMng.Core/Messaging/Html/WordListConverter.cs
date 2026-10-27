@@ -62,7 +62,8 @@ public static partial class WordListConverter
         return count;
     }
 
-    /// <summary>The level of a Word list paragraph (<c>mso-list:l0 level2 lfo1</c> → 2), or null.</summary>
+    /// <summary>The level of a Word list paragraph (<c>mso-list:l0 level2 lfo1</c> → 2; Word has nine, so any other
+    /// number is clamped to 1–9), or null.</summary>
     public static int? ListLevel(IElement element)
     {
         if (element.LocalName is not ("p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "div"))
@@ -71,7 +72,12 @@ public static partial class WordListConverter
         }
 
         var match = MsoListPattern().Match(element.GetAttribute("style") ?? string.Empty);
-        return match.Success ? int.Parse(match.Groups["level"].Value, CultureInfo.InvariantCulture) : null;
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        return int.TryParse(match.Groups["level"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var level) ? Math.Clamp(level, 1, 9) : 9;
     }
 
     /// <summary>The list kind of a marker ("1." → ol decimal start 1, "·" → ul disc).</summary>

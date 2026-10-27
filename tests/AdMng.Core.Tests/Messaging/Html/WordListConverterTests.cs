@@ -82,6 +82,18 @@ public class WordListConverterTests
     }
 
     [Fact]
+    public void LevelsOutOfRange_AreClamped_NeverThrow()
+    {
+        // level99999999999 overflowed int.Parse – the importer never throws on content.
+        var html = Import(Item("level99999999999", "·", "głęboko") + Item("level0", "·", "płytko"));
+        Assert.Contains("<li>głęboko</li>", html, StringComparison.Ordinal);
+        Assert.Contains("<li>płytko</li>", html, StringComparison.Ordinal);
+
+        var document = new AngleSharp.Html.Parser.HtmlParser().ParseDocument("<p style='mso-list:l0 level99999999999 lfo1'>a</p><p style='mso-list:l0 level0 lfo1'>b</p>");
+        Assert.Equal([9, 1], document.Body!.Children.Select(WordListConverter.ListLevel));
+    }
+
+    [Fact]
     public void OnlyMarkedParagraphs_AreLevels()
     {
         var parser = new AngleSharp.Html.Parser.HtmlParser();
