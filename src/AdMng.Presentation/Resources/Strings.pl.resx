@@ -7875,6 +7875,48 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Rich.Problem.TooDeep" xml:space="preserve">
     <value>Treść jest zagnieżdżona głębiej niż {0} poziomów i nie została wklejona – skopiuj prostszy fragment wiadomości.</value>
   </data>
+  <data name="UserMessages.Rich.Reason.Empty" xml:space="preserve">
+    <value>brak danych</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.UnknownFormat" xml:space="preserve">
+    <value>to nie PNG, JPEG ani GIF</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TypeMismatch" xml:space="preserve">
+    <value>typ nie zgadza się z zawartością</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Malformed" xml:space="preserve">
+    <value>plik uszkodzony lub niepełny</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TooLarge" xml:space="preserve">
+    <value>większy niż 1 MB</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DimensionsTooLarge" xml:space="preserve">
+    <value>za duże wymiary lub animacja</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.IdMismatch" xml:space="preserve">
+    <value>identyfikator nie pasuje do obrazu</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.EmptySource" xml:space="preserve">
+    <value>brak adresu</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.FieldSource" xml:space="preserve">
+    <value>pole zamiast obrazu</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Limit" xml:space="preserve">
+    <value>osiągnięto limit obrazów wiadomości lub szablonu</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NoFileAccess" xml:space="preserve">
+    <value>plik lokalny, którego nie można tu odczytać</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NetworkPath" xml:space="preserve">
+    <value>ścieżka sieciowa lub inny folder – nigdy nieotwierane</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DataUri" xml:space="preserve">
+    <value>nieprawidłowy adres data:</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.RelativeSource" xml:space="preserve">
+    <value>adres względny</value>
+  </data>
   <data name="UserMessages.Issue.ImageMissing" xml:space="preserve">
     <value>Wersja HTML odwołuje się do obrazu, którego szablon nie ma (albo brak jego pliku): {0}</value>
   </data>

@@ -54,7 +54,11 @@ public sealed class HtmlPasteProblemViewModel
         ArgumentNullException.ThrowIfNull(localizer);
         Problem = problem;
         Count = count;
-        var text = localizer.Format(L.UserMessagesRich.ProblemKey(problem.Kind), problem.Detail ?? string.Empty);
+        // The detail of an image or link problem is a reason code ("TooLarge", "network" …): shown in the operator's language.
+        var detail = problem.Kind is HtmlImportProblemKind.ImageRejected or HtmlImportProblemKind.ImageUnreadable or HtmlImportProblemKind.LinkRemoved
+            ? UserMessageText.Reason(localizer, problem.Detail)
+            : problem.Detail ?? string.Empty;
+        var text = localizer.Format(L.UserMessagesRich.ProblemKey(problem.Kind), detail);
         Text = count > 1 ? localizer.Format(L.UserMessagesRich.ProblemCount, text, count) : text;
         if (problem.Kind == HtmlImportProblemKind.LinkOutsideAllowedDomains && problem.Detail is { Length: > 0 } host)
         {

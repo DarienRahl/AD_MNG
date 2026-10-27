@@ -20,6 +20,7 @@ public sealed partial class RichHtmlLocalizationTests
     public static IEnumerable<string> Keys() =>
         typeof(L.UserMessagesRich).GetFields(BindingFlags.Public | BindingFlags.Static).Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()!)
             .Concat(Enum.GetValues<HtmlImportProblemKind>().Select(L.UserMessagesRich.ProblemKey))
+            .Concat(L.UserMessagesRich.Reasons.Values.Distinct().Select(L.UserMessagesRich.ReasonKey))
             .Concat(HtmlIssueCodes.All.Select(UserMessageText.IssueKey))
             .Concat(new[] { WatchdogUserMessageTransport.ImagesNotSupportedCode, WatchdogUserMessageTransport.ImageStorageCode, "smtp.invalidImage" }.Select(UserMessageText.CodeKey))
             .Append("Watchdog.Hint." + DeliveryHints.MessageTooLarge);
@@ -59,6 +60,25 @@ public sealed partial class RichHtmlLocalizationTests
         Assert.Equal(
             "Wysyłka bez obrazów – każdy obraz zastąpiono jego opisem.",
             UserMessageText.Issue(Polish, new MessageIssue(HtmlIssueCodes.ImagesOmitted, MessageIssueSeverity.Info)));
+    }
+
+    [Fact]
+    public void ReasonCodesOfImagesAndLinks_ReadInPolish()
+    {
+        string Problem(HtmlImportProblemKind kind, string detail) =>
+            new HtmlPasteProblemViewModel(new HtmlImportProblem(kind, MessageIssueSeverity.Warning, detail), 1, Polish).Text;
+
+        Assert.Equal("Nie przyjęto obrazu: za duże wymiary lub animacja", Problem(HtmlImportProblemKind.ImageRejected, "DimensionsTooLarge"));
+        Assert.Equal("Nie przyjęto obrazu: typ nie zgadza się z zawartością", Problem(HtmlImportProblemKind.ImageRejected, "TypeMismatch"));
+        Assert.Equal("Nie przyjęto obrazu: osiągnięto limit obrazów wiadomości lub szablonu", Problem(HtmlImportProblemKind.ImageRejected, "limit"));
+        Assert.Equal("Nie można odczytać obrazu: ścieżka sieciowa lub inny folder – nigdy nieotwierane", Problem(HtmlImportProblemKind.ImageUnreadable, "network"));
+        // Anything else stays as it is: a file name, a media type, an element named like a code.
+        Assert.Equal("Nie można odczytać obrazu: clip_image001.png", Problem(HtmlImportProblemKind.ImageUnreadable, "clip_image001.png"));
+        Assert.Equal("Nie przyjęto obrazu: image/webp", Problem(HtmlImportProblemKind.ImageRejected, "image/webp"));
+        Assert.Contains(": data", Problem(HtmlImportProblemKind.RemovedElement, "data"), StringComparison.Ordinal);
+        Assert.Equal(
+            "Obraz nie został przyjęty (większy niż 1 MB): tylko PNG, JPEG i GIF do 1 MB i 4096 × 4096 px.",
+            Polish.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Polish, nameof(Core.Messaging.Images.MessageImageError.TooLarge))));
     }
 
     private static IReadOnlyList<string> Placeholders(string text) =>

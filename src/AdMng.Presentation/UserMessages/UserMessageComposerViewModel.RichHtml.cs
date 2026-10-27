@@ -155,7 +155,9 @@ public sealed partial class UserMessageComposerViewModel
         var (image, error) = HtmlPasteWorkflow.ImageOf(Paste.ReadClipboard(), _images.Count + 1);
         if (image is null)
         {
-            RichStatusText = error is { } refused ? Localizer.Format(L.UserMessagesRich.ImageNotAccepted, refused) : Localizer[L.UserMessagesRich.ClipboardNoImage];
+            RichStatusText = error is { } refused
+                ? Localizer.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Localizer, refused.ToString()))
+                : Localizer[L.UserMessagesRich.ClipboardNoImage];
             return;
         }
 
@@ -462,7 +464,7 @@ public sealed partial class UserMessageComposerViewModel
         OnPropertyChanged(nameof(HasPasteProblems));
         if (result.Kind == HtmlPasteKind.Image && result.Images.Count == 0)
         {
-            RichStatusText = Localizer.Format(L.UserMessagesRich.ImageNotAccepted, result.Problems.FirstOrDefault()?.Detail ?? string.Empty);
+            RichStatusText = Localizer.Format(L.UserMessagesRich.ImageNotAccepted, UserMessageText.Reason(Localizer, result.Problems.FirstOrDefault()?.Detail));
             return;
         }
 

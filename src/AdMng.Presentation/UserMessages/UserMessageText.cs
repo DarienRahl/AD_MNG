@@ -70,6 +70,15 @@ public static class UserMessageText
             .Concat(KnownCodes.Select(CodeKey))
             .Concat(Enum.GetValues<SmtpTestStage>().Select(StageKey));
 
+    /// <summary>A reason code of a refused image or link (<c>TooLarge</c>, <c>network</c> … –
+    /// <see cref="L.UserMessagesRich.Reasons"/>) in the operator's language; any other detail (a host, a file name, a media
+    /// type, a scheme) as it is.</summary>
+    public static string Reason(ILocalizer localizer, string? detail)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        return detail is not null && L.UserMessagesRich.Reasons.TryGetValue(detail, out var suffix) ? localizer[L.UserMessagesRich.ReasonKey(suffix)] : detail ?? string.Empty;
+    }
+
     /// <summary>"Brak adresu e-mail (mail ani proxyAddresses)." …</summary>
     public static string Issue(ILocalizer localizer, MessageIssue issue)
     {

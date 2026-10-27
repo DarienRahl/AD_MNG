@@ -66,5 +66,24 @@ public static partial class L
 
         /// <summary><c>UserMessages.Rich.Problem.{kind}</c>.</summary>
         public static string ProblemKey(Core.Messaging.Html.HtmlImportProblemKind kind) => "UserMessages.Rich.Problem." + kind;
+
+        /// <summary>The reason codes of refused images and links (the <c>MessageImageError</c> names and the importer's own
+        /// codes) → the suffix of their text <c>UserMessages.Rich.Reason.{suffix}</c> (<see cref="ReasonKey"/>).</summary>
+        public static IReadOnlyDictionary<string, string> Reasons { get; } = new Dictionary<string, string>(
+            Enum.GetNames<Core.Messaging.Images.MessageImageError>().Select(n => KeyValuePair.Create(n, n))
+                .Concat(
+                [
+                    KeyValuePair.Create("empty", "EmptySource"),
+                    KeyValuePair.Create("field", "FieldSource"),
+                    KeyValuePair.Create("limit", "Limit"),
+                    KeyValuePair.Create("file", "NoFileAccess"),
+                    KeyValuePair.Create("network", "NetworkPath"),
+                    KeyValuePair.Create("data", "DataUri"),
+                    KeyValuePair.Create("relative", "RelativeSource"),
+                ]),
+            StringComparer.Ordinal);
+
+        /// <summary><c>UserMessages.Rich.Reason.{suffix}</c>.</summary>
+        public static string ReasonKey(string suffix) => "UserMessages.Rich.Reason." + suffix;
     }
 }

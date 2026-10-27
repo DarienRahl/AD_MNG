@@ -7875,6 +7875,48 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Rich.Problem.TooDeep" xml:space="preserve">
     <value>The content is nested more than {0} levels deep and was not imported – copy a simpler part of the message.</value>
   </data>
+  <data name="UserMessages.Rich.Reason.Empty" xml:space="preserve">
+    <value>no data</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.UnknownFormat" xml:space="preserve">
+    <value>not PNG, JPEG or GIF</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TypeMismatch" xml:space="preserve">
+    <value>the type does not match the content</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Malformed" xml:space="preserve">
+    <value>a damaged or incomplete file</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TooLarge" xml:space="preserve">
+    <value>larger than 1 MB</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DimensionsTooLarge" xml:space="preserve">
+    <value>dimensions or animation too large</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.IdMismatch" xml:space="preserve">
+    <value>the identifier does not match the image</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.EmptySource" xml:space="preserve">
+    <value>no address</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.FieldSource" xml:space="preserve">
+    <value>a field instead of an image</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Limit" xml:space="preserve">
+    <value>the image limit of the message or template is reached</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NoFileAccess" xml:space="preserve">
+    <value>a local file that cannot be read here</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NetworkPath" xml:space="preserve">
+    <value>a network path or another folder – never opened</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DataUri" xml:space="preserve">
+    <value>an invalid data: address</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.RelativeSource" xml:space="preserve">
+    <value>a relative address</value>
+  </data>
   <data name="UserMessages.Issue.ImageMissing" xml:space="preserve">
     <value>The HTML version references an image the template does not have (or its file is missing): {0}</value>
   </data>
