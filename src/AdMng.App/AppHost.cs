@@ -11,6 +11,7 @@ using AdMng.Core.Directory;
 using AdMng.Core.Formatting;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Core.PrivilegedAccess;
 using AdMng.Core.Security;
 using AdMng.Core.Templates;
@@ -32,6 +33,7 @@ using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
 using AdMng.Watchdog.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -184,6 +186,12 @@ public static class AppHost
         services.AddSingleton<IDirectSmtpTransportFactory>(sp => new SmtpTransportFactory(sp.GetRequiredService<TimeProvider>()));
         services.AddScoped<IUserMessageLauncher>(sp => sp.GetRequiredService<DialogService>());
         services.AddWindow<UserMessageComposerViewModel, UserMessagesWindow>();
+
+        // ---- U1c: formatted messages (design note docs/dev/u1c-u1d-rich-html-and-salutations.md) – application-wide and
+        // without per-connection state: the one WebView2 environment of the rendered previews (its temp folder is deleted at
+        // exit) and the reader of Outlook's clipboard images that expands 8.3 names of the temp folder. ----
+        services.AddSingleton<WebView2Host>();
+        services.Replace(ServiceDescriptor.Singleton<IPastedImageSource>(_ => new PastedImageFileSource(expandShortNames: ShortPathNames.Expand)));
 
         // ---- Comparison of objects between connections (design note docs/dev/multi-window.md 8), opened by DialogService ----
         services.AddScoped<IObjectComparisonLauncher>(sp => sp.GetRequiredService<DialogService>());

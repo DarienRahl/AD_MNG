@@ -8,6 +8,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:AdMng.App.Controls"
+        xmlns:conv="clr-namespace:AdMng.App.Converters"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:um="clr-namespace:AdMng.Presentation.UserMessages;assembly=AdMng.Presentation"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
@@ -55,6 +56,9 @@
 
   <Window.InputBindings>
     <KeyBinding Key="F5" Command="{Binding PlanCommand}" />
+    <KeyBinding Key="V"
+                Command="{Binding PasteFormattedCommand}"
+                Modifiers="Control+Shift" />
   </Window.InputBindings>
 
   <DockPanel>
@@ -118,6 +122,42 @@
                      Style="{StaticResource Ad.SecondaryText}"
                      Text="{Binding StatusText, Mode=OneWay}" />
         </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!--
+      U1c (design note u1c-u1d section 9.6): the messages do not fit the chosen transport (images to an older AdMng Watchdog,
+      over its limits or its storage, HTML longer than it takes) – nothing is sent until the operator chooses.
+    -->
+    <Border x:Name="TransportFitBar"
+            Margin="16,0,16,8"
+            DockPanel.Dock="Bottom"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding IsTransportFitVisible, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <DockPanel>
+        <StackPanel VerticalAlignment="Center"
+                    DockPanel.Dock="Right"
+                    Orientation="Horizontal">
+          <Button x:Name="SendDirectForRunButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding SendDirectForRunCommand}"
+                  Content="{l:Tr UserMessages.Rich.SendDirect}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button x:Name="SendWithoutImagesButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding SendWithoutImagesCommand}"
+                  Content="{l:Tr UserMessages.Rich.SendWithoutImages}"
+                  Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+          <Button x:Name="DismissTransportFitButton"
+                  Margin="6,0,0,0"
+                  Command="{Binding DismissTransportFitCommand}"
+                  Content="{l:Tr UserMessages.Rich.FitCancel}" />
+        </StackPanel>
+        <TextBlock x:Name="TransportFitTextBlock"
+                   VerticalAlignment="Center"
+                   AutomationProperties.LiveSetting="Assertive"
+                   Text="{Binding TransportFitText, Mode=OneWay}"
+                   TextWrapping="Wrap" />
       </DockPanel>
     </Border>
 
@@ -328,16 +368,198 @@
                      Text="{Binding Body, UpdateSourceTrigger=PropertyChanged}"
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto" />
-            <Expander Margin="0,10,0,0" Header="{l:Tr UserMessages.Html}">
-              <TextBox x:Name="HtmlBox"
-                       Height="160"
-                       Margin="0,6,0,0"
-                       AcceptsReturn="True"
-                       AutomationProperties.Name="{l:Tr UserMessages.Html}"
-                       FontFamily="Cascadia Mono, Consolas"
-                       Text="{Binding Html, UpdateSourceTrigger=PropertyChanged}"
-                       TextWrapping="Wrap"
-                       VerticalScrollBarVisibility="Auto" />
+            <!--
+              U1c (design note u1c-u1d section 12): the formatted content – paste from Outlook, Word or a browser, a bitmap at
+              the caret, the formatting preview or the source, text from the HTML; the image strip and the paste results.
+            -->
+            <Expander x:Name="HtmlExpander" Margin="0,10,0,0" Header="{l:Tr UserMessages.Rich.Section}">
+              <StackPanel Margin="0,6,0,0">
+                <WrapPanel x:Name="RichToolbar">
+                  <Button x:Name="PasteFormattedButton"
+                          Margin="0,0,6,6"
+                          AutomationProperties.Name="{l:Tr UserMessages.Rich.PasteFormatted}"
+                          Command="{Binding PasteFormattedCommand}"
+                          Content="{l:Tr UserMessages.Rich.PasteFormatted}"
+                          ToolTip="{l:Tr UserMessages.Rich.PasteFormattedTip}" />
+                  <Button x:Name="PasteImageButton"
+                          Margin="0,0,6,6"
+                          AutomationProperties.Name="{l:Tr UserMessages.Rich.PasteImage}"
+                          Command="{Binding PasteImageCommand}"
+                          Content="{l:Tr UserMessages.Rich.PasteImage}" />
+                  <Button x:Name="HtmlPreviewToggleButton"
+                          Margin="0,0,6,6"
+                          Command="{Binding ToggleHtmlPreviewCommand}">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Content" Value="{l:Tr UserMessages.Rich.ShowPreview}" />
+                        <Setter Property="AutomationProperties.Name" Value="{l:Tr UserMessages.Rich.ShowPreview}" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding ShowHtmlPreview, Mode=OneWay}" Value="True">
+                            <Setter Property="Content" Value="{l:Tr UserMessages.Rich.ShowSource}" />
+                            <Setter Property="AutomationProperties.Name" Value="{l:Tr UserMessages.Rich.ShowSource}" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
+                  <Button x:Name="GenerateTextButton"
+                          Margin="0,0,6,6"
+                          AutomationProperties.Name="{l:Tr UserMessages.Rich.GenerateText}"
+                          Command="{Binding GenerateTextCommand}"
+                          Content="{l:Tr UserMessages.Rich.GenerateText}" />
+                  <Button x:Name="CancelPasteButton"
+                          Margin="0,0,6,6"
+                          Command="{Binding CancelPasteCommand}"
+                          Content="{l:Tr UserMessages.Rich.CancelPaste}"
+                          Style="{StaticResource Ad.CollapsedWhenDisabledButton}" />
+                </WrapPanel>
+                <DockPanel Margin="0,0,0,6" Visibility="{Binding RichStatusText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+                  <ProgressBar Width="40"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               DockPanel.Dock="Left"
+                               IsIndeterminate="True"
+                               Visibility="{Binding IsPasting, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  <Button x:Name="RemoveMissingImagesButton"
+                          Margin="8,0,0,0"
+                          Command="{Binding RemoveMissingImagesCommand}"
+                          Content="{l:Tr UserMessages.Rich.RemoveMissing}"
+                          DockPanel.Dock="Right"
+                          Visibility="{Binding HasMissingImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  <TextBlock x:Name="RichStatusTextBlock"
+                             VerticalAlignment="Center"
+                             AutomationProperties.LiveSetting="Polite"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding RichStatusText, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                </DockPanel>
+                <Grid Height="260">
+                  <TextBox x:Name="HtmlBox"
+                           AcceptsReturn="True"
+                           AutomationProperties.Name="{l:Tr UserMessages.Html}"
+                           FontFamily="Cascadia Mono, Consolas"
+                           Text="{Binding Html, UpdateSourceTrigger=PropertyChanged}"
+                           TextWrapping="Wrap"
+                           VerticalScrollBarVisibility="Auto"
+                           Visibility="{Binding ShowHtmlPreview, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+                  <c:HtmlPreviewView x:Name="ComposePreviewView"
+                                     IsRenderingAllowed="{Binding RenderedPreviewEnabled, Mode=OneWay}"
+                                     Preview="{Binding ComposePreview, Mode=OneWay}"
+                                     Visibility="{Binding ShowHtmlPreview, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                </Grid>
+                <TextBlock Margin="0,4,0,0"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Html}"
+                           TextWrapping="Wrap" />
+
+                <!-- The images of the edited template (both languages). -->
+                <StackPanel Visibility="{Binding HasTemplateImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource Label}" Text="{l:Tr UserMessages.Rich.Images}" />
+                  <ItemsControl x:Name="TemplateImagesList"
+                                AutomationProperties.Name="{l:Tr UserMessages.Rich.Images}"
+                                Focusable="False"
+                                ItemsSource="{Binding TemplateImages, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type um:MessageImageItemViewModel}">
+                        <Border Width="200"
+                                Margin="0,0,8,8"
+                                Padding="8"
+                                AutomationProperties.Name="{Binding Name, Mode=OneWay}"
+                                Style="{StaticResource Ad.Card}">
+                          <DockPanel>
+                            <Button Margin="0,6,0,0"
+                                    HorizontalAlignment="Left"
+                                    AutomationProperties.Name="{l:Tr UserMessages.Rich.RemoveImage}"
+                                    Command="{Binding DataContext.RemoveImageCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding Mode=OneWay}"
+                                    Content="{l:Tr UserMessages.Rich.RemoveImage}"
+                                    DockPanel.Dock="Bottom" />
+                            <TextBlock DockPanel.Dock="Bottom"
+                                       Style="{StaticResource Ad.SecondaryText}"
+                                       Text="{Binding SizeText, Mode=OneWay}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock DockPanel.Dock="Bottom"
+                                       Text="{Binding Name, Mode=OneWay}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Name, Mode=OneWay}" />
+                            <Image Height="64"
+                                   Margin="0,0,0,6"
+                                   HorizontalAlignment="Left"
+                                   Source="{Binding Data, Mode=OneWay, Converter={x:Static conv:MessageImageThumbnailConverter.Instance}}"
+                                   Stretch="Uniform" />
+                          </DockPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <!-- The results of the last paste with their actions. -->
+                <StackPanel Visibility="{Binding HasPasteProblems, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                  <TextBlock Style="{StaticResource Label}" Text="{l:Tr UserMessages.Rich.Problems}" />
+                  <ItemsControl x:Name="PasteProblemsList"
+                                AutomationProperties.Name="{l:Tr UserMessages.Rich.Problems}"
+                                Focusable="False"
+                                ItemsSource="{Binding PasteProblems, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type um:HtmlPasteProblemViewModel}">
+                        <DockPanel Margin="0,0,0,6">
+                          <TextBlock Width="20"
+                                     VerticalAlignment="Top"
+                                     DockPanel.Dock="Left">
+                            <TextBlock.Style>
+                              <Style TargetType="TextBlock" BasedOn="{StaticResource Ad.GlyphText}">
+                                <Setter Property="FontSize" Value="13" />
+                                <Setter Property="Text" Value="{x:Static c:Glyphs.Info}" />
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsWarning, Mode=OneWay}" Value="True">
+                                    <Setter Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </TextBlock.Style>
+                          </TextBlock>
+                          <WrapPanel Margin="0,4,0,0"
+                                     DockPanel.Dock="Bottom"
+                                     Visibility="{Binding CanAllowDomain, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                            <ItemsControl Focusable="False" ItemsSource="{Binding DomainChoices, Mode=OneWay}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <WrapPanel />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type um:HtmlPasteDomainChoice}">
+                                  <Button Margin="0,0,6,0"
+                                          AutomationProperties.Name="{Binding Text, Mode=OneWay}"
+                                          Command="{Binding DataContext.AllowLinkDomainCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          CommandParameter="{Binding Mode=OneWay}"
+                                          Content="{Binding Text, Mode=OneWay}" />
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </WrapPanel>
+                          <Button Margin="8,0,0,0"
+                                  VerticalAlignment="Top"
+                                  AutomationProperties.Name="{l:Tr UserMessages.Rich.RemoveLink}"
+                                  Command="{Binding DataContext.RemoveLinkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  Content="{l:Tr UserMessages.Rich.RemoveLink}"
+                                  DockPanel.Dock="Right"
+                                  Visibility="{Binding CanRemoveLink, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                          <TextBlock Text="{Binding Text, Mode=OneWay}" TextWrapping="Wrap" />
+                        </DockPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
             </Expander>
 
             <StackPanel Visibility="{Binding HasInputs, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
@@ -502,15 +724,28 @@
                      Style="{StaticResource Ad.SecondaryText}"
                      Text="{Binding TestResultText, Mode=OneWay}"
                      TextWrapping="Wrap" />
-          <TabControl Margin="0,10,0,0">
-            <TabItem Header="{l:Tr UserMessages.TextTab}">
+          <!-- U1c: the message as it is sent – rendered (images from memory), its text part and its HTML source. -->
+          <TextBlock x:Name="SelectedImagesText"
+                     Margin="0,8,0,0"
+                     DockPanel.Dock="Top"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{Binding InlineImagesText, Mode=OneWay}"
+                     Visibility="{Binding HasInlineImages, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <TabControl x:Name="MessageTabs" Margin="0,10,0,0">
+            <TabItem x:Name="MessageViewTab" Header="{l:Tr UserMessages.Rich.TabView}">
+              <c:HtmlPreviewView x:Name="MessagePreviewView"
+                                 IsRenderingAllowed="{Binding DataContext.RenderedPreviewEnabled, Mode=OneWay, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 Preview="{Binding HtmlPreview, Mode=OneWay}" />
+            </TabItem>
+            <TabItem x:Name="MessageTextTab" Header="{l:Tr UserMessages.Rich.TabText}">
               <TextBox x:Name="SelectedTextBody"
                        AutomationProperties.Name="{l:Tr UserMessages.TextTab}"
                        Style="{StaticResource ReadOnlyText}"
                        Text="{Binding TextBody, Mode=OneWay}" />
             </TabItem>
-            <TabItem Header="{l:Tr UserMessages.HtmlTab}">
-              <TextBox AutomationProperties.Name="{l:Tr UserMessages.HtmlTab}"
+            <TabItem x:Name="MessageSourceTab" Header="{l:Tr UserMessages.Rich.TabSource}">
+              <TextBox x:Name="SelectedHtmlBody"
+                       AutomationProperties.Name="{l:Tr UserMessages.HtmlTab}"
                        FontFamily="Cascadia Mono, Consolas"
                        Style="{StaticResource ReadOnlyText}"
                        Text="{Binding HtmlBody, Mode=OneWay}" />

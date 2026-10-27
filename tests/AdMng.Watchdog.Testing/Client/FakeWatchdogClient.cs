@@ -116,7 +116,8 @@ public sealed class FakeWatchdogClient : IWatchdogClient
     public Func<string, TestChannelRequest, DeliveryTestResult>? ChannelTestHandler { get; set; }
 
     /// <summary>Result of <c>GET /user-messages/status</c> (default: like a fresh service – the SMTP channel
-    /// smtp.contoso.com:587 is configured, messages to users are switched off).</summary>
+    /// smtp.contoso.com:587 is configured, messages to users are switched off; inline images (U1c) are supported with the
+    /// service's limits, see <see cref="WithoutInlineImages"/> for an older service).</summary>
     public UserMessagingStatusDto UserMessagingStatus { get; set; } = new()
     {
         Enabled = false,
@@ -125,7 +126,35 @@ public sealed class FakeWatchdogClient : IWatchdogClient
         Sender = "watchdog@contoso.com",
         MaxMessagesPerHour = 300,
         MaxMessagesPerDay = 2000,
+        Capabilities = [UserMessagingCapabilities.InlineImages],
+        MaxInlineImages = UserMessageLimits.MaxInlineImages,
+        MaxInlineImageBytes = UserMessageLimits.MaxInlineImageBytes,
+        MaxInlineImagesTotalBytes = UserMessageLimits.MaxInlineImagesTotalBytes,
+        MaxHtmlLength = UserMessageLimits.MaxHtmlLength,
+        MaxStoredImageBytes = 256L * 1024 * 1024,
     };
+
+    /// <summary>The status of an older (U1b) service, or one with <c>userMessages.allowInlineImages</c> off: no
+    /// capabilities, no image limits, HTML up to 100 000 characters.</summary>
+    public static UserMessagingStatusDto WithoutInlineImages(UserMessagingStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return status with
+        {
+            Capabilities = [],
+            MaxInlineImages = 0,
+            MaxInlineImageBytes = 0,
+            MaxInlineImagesTotalBytes = 0,
+            MaxHtmlLength = 100_000,
+            StoredImageBytes = 0,
+            MaxStoredImageBytes = 0,
+        };
+    }
+
+    /// <summary>How the fake answers a message with images while <see cref="UserMessagingStatus"/> lacks the
+    /// <c>inlineImages</c> capability: true (default) = like an older service (400 <c>invalidJson</c>, the member is
+    /// unknown), false = like a new service with images switched off (400 <c>imagesDisabled</c>).</summary>
+    public bool RejectImagesAsOlderService { get; set; } = true;
 
     /// <summary>Result of <c>POST /user-messages</c> per request (default: Delivered, 250). A repeated id answers the first
     /// result with <see cref="UserMessageResult.Duplicate"/> like the service.</summary>
@@ -744,6 +773,17 @@ public sealed class FakeWatchdogClient : IWatchdogClient
                     StatusCode = 409,
                     ProblemType = ApiProblem.UserMessagesUnavailable,
                     Issues = [new ConfigIssue { Path = "userMessages.enabled", Code = UserMessageIssueCodes.Disabled, Severity = IssueSeverity.Error, Message = "off" }],
+                };
+            }
+
+            if (request.InlineImages.Count > 0 && !UserMessagingStatus.Capabilities.Contains(UserMessagingCapabilities.InlineImages))
+            {
+                var (path, code) = RejectImagesAsOlderService ? ("$", "invalidJson") : ("inlineImages", UserMessageIssueCodes.ImagesDisabled);
+                throw new WatchdogClientException(WatchdogClientErrorKind.Validation, "The request was rejected.")
+                {
+                    StatusCode = 400,
+                    ProblemType = ApiProblem.Validation,
+                    Issues = [new ConfigIssue { Path = path, Code = code, Severity = IssueSeverity.Error, Message = code }],
                 };
             }
 

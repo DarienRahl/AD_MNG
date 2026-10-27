@@ -32,6 +32,11 @@ Extensions: **U1c** (a formatted message pasted from Outlook, inline images, ren
 | `UserMessageSettingsViewModel` | Presentation | The "Wiadomości e-mail" tab of the settings window with *Testuj połączenie* and *Wyślij wiadomość testową do mnie*. |
 | `IUserMessageLauncher` (U2 hook) | App (`DialogService`) | Opens the window: property sheet (Account tab), list context menu / palette `object.sendMessage`, account review lists (template matching the check). |
 
+U1c adds the HTML sanitizer and importer (`Messaging/Html`, AngleSharp), inline images (`Messaging/Images`), the shared
+MIME body (`AdMng.Mail/UserMessageMimeBody`), the image store, paste workflow and transport fit (Presentation) and the
+clipboard reader and WebView2 preview (App) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+section 1.
+
 ## 2. Templates and fields
 
 * A template has a **Polish and an English text** (subject, text body, optional HTML body). The recipient's
@@ -107,6 +112,10 @@ domain). **No attachments** – the transport contract has no attachment field. 
 plus the AD DNS domain and the sender's domain; a host matches a domain or its subdomain; mailto: links are allowed.
 No protocol logger is attached to the SMTP client (it would log content).
 
+U1c: the HTML part becomes `multipart/related` with inline images (`Content-ID`, `cid:` references, inline disposition –
+still never an attachment), the HTML is checked by the shared sanitizer and may be up to 400 000 characters –
+[u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md) sections 4, 7 and 8.
+
 ## 6. Direct SMTP (AdMng.Mail)
 
 * TLS: **STARTTLS required** (default; the server must offer it, else the connection fails with the hint "server does
@@ -153,6 +162,11 @@ status from `GET /api/v1/user-messages/status`, send through `POST /api/v1/user-
 service applies its own sender, queue, retries and log). An unavailable Watchdog is shown with its reason
 (`UserMessages.Problem.Watchdog{NotConfigured,Disabled,Forbidden,Unreachable,NotSupported}`).
 
+U1c: `OutgoingUserMessage.InlineImages` and `UserMessageTransportStatus.Capabilities` (images, their limits, the HTML
+length, the room left in the service's outbox); the window checks the planned messages against them before sending
+(`TransportFit`) and never switches transport or drops images silently –
+[u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md) sections 7.3 and 9.6.
+
 ## 8. UI
 
 `UserMessagesWindow` (modeless, one per launch): top – transport line and the recipients count; three stages in one
@@ -189,6 +203,11 @@ threshold, allowed domains, transport choice, SMTP host/port/TLS/certificate/aut
 Binding rules for the service side: CLAUDE.md rules 1–2 with the ADR-0008/0009 exceptions – the service may keep the
 rendered message in its outbox payload until it is sent (ADR-0008, "Uzupełnienie: wiadomości do użytkowników (U1b)"),
 everything else stays value-free.
+
+U1c (contract v2): `inlineImages` in the request, the `inlineImages` capability and limits in the status, HTML up to
+400 000 characters, a 6 MiB body limit for this route only, `userMessages.allowInlineImages` / `maxStoredImageMb`,
+migration 0007 (`outbox.image_bytes`) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+section 9; ADR-0008 "Uzupełnienie: obrazy w treści wiadomości do użytkowników (U1c)". The limits below are U1b's.
 
 **Contract** (`AdMng.Watchdog.Contracts`, `Api/UserMessageDtos.cs`, routes `WatchdogRoutes.UserMessages` /
 `UserMessagesStatus`):

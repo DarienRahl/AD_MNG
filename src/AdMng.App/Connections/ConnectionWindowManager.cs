@@ -367,6 +367,9 @@ public sealed class ConnectionWindowManager : IConnectionWindows, IAppErrorPrese
         }
 
         public bool SetSecret(string secret) => false;
+
+        /// <summary>No formatted paste without a connection window (U1c).</summary>
+        public ClipboardContent? ReadFormatted() => null;
     }
 }
 

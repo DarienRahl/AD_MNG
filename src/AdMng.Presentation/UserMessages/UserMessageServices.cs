@@ -1,6 +1,7 @@
 using AdMng.Core.Audit;
 using AdMng.Core.Csv;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Settings;
 
@@ -20,7 +21,8 @@ public sealed class UserMessageServices
         IAuditLog auditLog,
         TimeProvider time,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
-        MessageRateLimiter? rateLimiter = null)
+        MessageRateLimiter? rateLimiter = null,
+        IPastedImageSource? pastedImages = null)
     {
         Templates = templates ?? throw new ArgumentNullException(nameof(templates));
         Transports = transports ?? throw new ArgumentNullException(nameof(transports));
@@ -32,6 +34,7 @@ public sealed class UserMessageServices
         // Application-wide (registered as a singleton): the daily budget counts the sends of every connection window.
         RateLimiter = rateLimiter ?? new MessageRateLimiter(time, delay);
         Reports = new UserMessageReportExporter(csv);
+        PastedImages = pastedImages;
     }
 
     public UserMessageTemplateLibrary Templates { get; }
@@ -48,6 +51,9 @@ public sealed class UserMessageServices
     public MessageRateLimiter RateLimiter { get; }
 
     public UserMessageReportExporter Reports { get; }
+
+    /// <summary>Reads the <c>file:</c> images of pasted Outlook messages (U1c); null = such images are unreadable.</summary>
+    public IPastedImageSource? PastedImages { get; }
 
     /// <summary>Retry policy (tests shorten it).</summary>
     public UserMessageDispatchOptions DispatchOptions { get; set; } = new();

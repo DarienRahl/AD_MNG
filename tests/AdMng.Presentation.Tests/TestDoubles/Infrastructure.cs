@@ -304,6 +304,11 @@ internal sealed class FakeClipboard : IClipboardService
 {
     public string? Text { get; private set; }
 
+    /// <summary>What "Wklej sformatowaną treść" reads (U1c); null = nothing formatted.</summary>
+    public ClipboardContent? Formatted { get; set; }
+
+    public ClipboardContent? ReadFormatted() => Formatted;
+
     /// <summary>The last text was put there with <see cref="SetSecret"/>.</summary>
     public bool IsSecret { get; private set; }
 

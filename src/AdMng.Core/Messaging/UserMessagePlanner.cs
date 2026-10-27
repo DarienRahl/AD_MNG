@@ -146,6 +146,12 @@ public sealed record UserMessagePlanRequest
     /// <summary>Values of <c>{$input:name}</c>.</summary>
     public IReadOnlyDictionary<string, string> Inputs { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>The template's images by content id (U1c; loaded by the composer before planning).</summary>
+    public IReadOnlyDictionary<string, Images.MessageImage> Images { get; init; } = new Dictionary<string, Images.MessageImage>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>"Send without images" (U1c): every image becomes its alternative text; the preview shows exactly that.</summary>
+    public bool OmitImages { get; init; }
+
     public required UserMessageSender Sender { get; init; }
 
     public required IReadOnlyList<UserMessageAccount> Accounts { get; init; }
@@ -208,8 +214,14 @@ public sealed class UserMessagePlanner
     public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template) =>
         [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.</summary>
-    public IReadOnlyList<MessageIssue> CheckTemplate(MessageTemplate template, IReadOnlyDictionary<string, string>? inputs = null, ISchemaCatalog? schema = null)
+    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.
+    /// <paramref name="checkHtml"/> false leaves out the HTML part (<see cref="Html.MessageHtmlChecks.CheckTemplate"/>,
+    /// sanitizer runs over both languages – CPU work an editor runs off the UI thread).</summary>
+    public IReadOnlyList<MessageIssue> CheckTemplate(
+        MessageTemplate template,
+        IReadOnlyDictionary<string, string>? inputs = null,
+        ISchemaCatalog? schema = null,
+        bool checkHtml = true)
     {
         ArgumentNullException.ThrowIfNull(template);
         var issues = new List<MessageIssue>();
@@ -233,10 +245,10 @@ public sealed class UserMessagePlanner
             }
         }
 
-        foreach (var text in template.Texts())
+        // U1c: the restricted HTML (first gate + the sanitizer's findings), images, length, link texts, normalization.
+        if (checkHtml)
         {
-            issues.AddRange(UserMessageRules.FindForbiddenHtml(text.Html)
-                .Select(h => new MessageIssue(MessageIssueCodes.HtmlNotAllowed, MessageIssueSeverity.Error, h)));
+            issues.AddRange(Html.MessageHtmlChecks.CheckTemplate(template));
         }
 
         if (inputs is not null)
@@ -370,6 +382,9 @@ public sealed class UserMessagePlanner
         var htmlBody = string.IsNullOrWhiteSpace(text.Html)
             ? UserMessageRules.TextToHtml(body)
             : _fields.Render(text.Html, data, WebUtility.HtmlEncode, Empty);
+
+        // U1c: images (or "send without images"), the text part from the HTML, the whole document checked again.
+        var rich = Html.MessageHtmlChecks.Message(request, text, language, ref htmlBody, ref body, issues);
         if (empty.Count > 0)
         {
             issues.Add(new MessageIssue(MessageIssueCodes.EmptyField, MessageIssueSeverity.Warning, string.Join(", ", empty)));
@@ -405,7 +420,8 @@ public sealed class UserMessagePlanner
                 ReplyTo = sender.ReplyTo,
                 Subject = subject,
                 TextBody = UserMessageRules.TextDocument(body, footer),
-                HtmlBody = UserMessageRules.HtmlDocument(htmlBody, footer, language),
+                HtmlBody = rich.HtmlDocument ?? UserMessageRules.HtmlDocument(htmlBody, footer, language),
+                InlineImages = rich.InlineImages,
                 Language = language,
             };
         return new PlannedUserMessage

@@ -27,4 +27,10 @@
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
     <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
   </ItemGroup>
+  <ItemGroup Label="Messages (U1c)">
+    <!-- HTML5 (WHATWG) parser of the message sanitizer shared by AD Manager and the Watchdog validator (pure managed). -->
+    <PackageVersion Include="AngleSharp" Version="1.8.4" />
+    <!-- The rendered preview of HTML bodies (AdMng.App only; Evergreen runtime, fallback to the source view). -->
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
 </Project>

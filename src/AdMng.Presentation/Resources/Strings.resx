@@ -5289,6 +5289,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Watchdog.Hint.smtp.basicAuthDisabled" xml:space="preserve">
     <value>Basic SMTP AUTH is disabled for the tenant – use OAuth2 (Exchange Online) or a relay.</value>
   </data>
+  <data name="Watchdog.Hint.smtp.messageTooLarge" xml:space="preserve">
+    <value>The server refused the message as too large (552 / 5.3.4) – use smaller images or fewer of them, or raise the server's size limit.</value>
+  </data>
   <data name="Watchdog.Hint.smtp.directSendRejected" xml:space="preserve">
     <value>Direct send was rejected (5.7.68) – use an authenticated connection or a connector.</value>
   </data>
@@ -7670,6 +7673,279 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="UserMessages.Html" xml:space="preserve">
     <value>HTML version (optional; empty = generated from the text)</value>
+  </data>
+  <data name="UserMessages.Rich.Section" xml:space="preserve">
+    <value>Formatted content (HTML)</value>
+  </data>
+  <data name="UserMessages.Rich.PasteFormatted" xml:space="preserve">
+    <value>Paste formatted content</value>
+  </data>
+  <data name="UserMessages.Rich.PasteFormattedTip" xml:space="preserve">
+    <value>Pastes a message copied from Outlook, Word or a browser with its formatting and images (Ctrl+Shift+V). Scripts, remote images and hidden content are removed.</value>
+  </data>
+  <data name="UserMessages.Rich.PasteImage" xml:space="preserve">
+    <value>Paste image</value>
+  </data>
+  <data name="UserMessages.Rich.ShowPreview" xml:space="preserve">
+    <value>Formatting preview</value>
+  </data>
+  <data name="UserMessages.Rich.ShowSource" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="UserMessages.Rich.GenerateText" xml:space="preserve">
+    <value>Generate text from HTML</value>
+  </data>
+  <data name="UserMessages.Rich.GenerateTextConfirm" xml:space="preserve">
+    <value>Replace the text version with text generated from the HTML version?</value>
+  </data>
+  <data name="UserMessages.Rich.ReplaceHtmlConfirm" xml:space="preserve">
+    <value>Replace the HTML version of this language with the pasted content?</value>
+  </data>
+  <data name="UserMessages.Rich.CancelPaste" xml:space="preserve">
+    <value>Stop pasting</value>
+  </data>
+  <data name="UserMessages.Rich.Pasting" xml:space="preserve">
+    <value>Pasting the formatted content…</value>
+  </data>
+  <data name="UserMessages.Rich.Pasted" xml:space="preserve">
+    <value>Pasted: {0} image(s), {1} note(s) below.</value>
+  </data>
+  <data name="UserMessages.Rich.PastedText" xml:space="preserve">
+    <value>The clipboard has no formatted content – the plain text was pasted.</value>
+  </data>
+  <data name="UserMessages.Rich.PasteCancelled" xml:space="preserve">
+    <value>Pasting was stopped.</value>
+  </data>
+  <data name="UserMessages.Rich.ClipboardEmpty" xml:space="preserve">
+    <value>The clipboard holds nothing that can be pasted.</value>
+  </data>
+  <data name="UserMessages.Rich.ClipboardTooLarge" xml:space="preserve">
+    <value>The clipboard content is larger than 8 MB and was not pasted.</value>
+  </data>
+  <data name="UserMessages.Rich.ClipboardNoImage" xml:space="preserve">
+    <value>The clipboard holds no image.</value>
+  </data>
+  <data name="UserMessages.Rich.ImageNotAccepted" xml:space="preserve">
+    <value>The image was not accepted ({0}): only PNG, JPEG and GIF up to 1 MB and 4096 × 4096 px.</value>
+  </data>
+  <data name="UserMessages.Rich.ImageInserted" xml:space="preserve">
+    <value>Image {0} inserted.</value>
+  </data>
+  <data name="UserMessages.Rich.TemplateImageLimit" xml:space="preserve">
+    <value>A template has at most 20 images and 4 MB of images.</value>
+  </data>
+  <data name="UserMessages.Rich.Images" xml:space="preserve">
+    <value>Images in the content</value>
+  </data>
+  <data name="UserMessages.Rich.ImageSize" xml:space="preserve">
+    <value>{0} × {1} px, {2}</value>
+  </data>
+  <data name="UserMessages.Rich.RemoveImage" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="UserMessages.Rich.ImagesLoading" xml:space="preserve">
+    <value>Loading the template's images…</value>
+  </data>
+  <data name="UserMessages.Rich.ImagesMissing" xml:space="preserve">
+    <value>{0} image(s) of the template could not be read (file missing or changed) – remove them or paste them again.</value>
+  </data>
+  <data name="UserMessages.Rich.Problems" xml:space="preserve">
+    <value>Paste results</value>
+  </data>
+  <data name="UserMessages.Rich.ProblemCount" xml:space="preserve">
+    <value>{0} (×{1})</value>
+  </data>
+  <data name="UserMessages.Rich.AllowDomain" xml:space="preserve">
+    <value>Allow domain {0}</value>
+  </data>
+  <data name="UserMessages.Rich.DomainAllowed" xml:space="preserve">
+    <value>Links to {0} are allowed now (settings of messages to users).</value>
+  </data>
+  <data name="UserMessages.Rich.RemoveLink" xml:space="preserve">
+    <value>Remove link</value>
+  </data>
+  <data name="UserMessages.Rich.LinkRemoved" xml:space="preserve">
+    <value>Links to {0} were removed; their text stays.</value>
+  </data>
+  <data name="UserMessages.Rich.TabView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="UserMessages.Rich.TabText" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="UserMessages.Rich.TabSource" xml:space="preserve">
+    <value>HTML source</value>
+  </data>
+  <data name="UserMessages.Rich.PreviewUnavailable" xml:space="preserve">
+    <value>The formatted preview is not available on this computer (Microsoft Edge WebView2 Runtime is missing) – the HTML source is shown.</value>
+  </data>
+  <data name="UserMessages.Rich.PreviewDisabled" xml:space="preserve">
+    <value>The formatted preview is switched off in the settings – the HTML source is shown.</value>
+  </data>
+  <data name="UserMessages.Rich.PreviewDownload" xml:space="preserve">
+    <value>Download WebView2 Runtime</value>
+  </data>
+  <data name="UserMessages.Rich.PreviewEmpty" xml:space="preserve">
+    <value>No HTML version – the message is sent as text.</value>
+  </data>
+  <data name="UserMessages.Rich.InlineImages" xml:space="preserve">
+    <value>Images in the content: {0} ({1})</value>
+  </data>
+  <data name="UserMessages.Rich.FitImagesNotSupported" xml:space="preserve">
+    <value>AdMng Watchdog does not take images in messages (an older version, or images are switched off) – {0} message(s) have images.</value>
+  </data>
+  <data name="UserMessages.Rich.FitImagesOverLimits" xml:space="preserve">
+    <value>The images of {0} message(s) exceed the limits of AdMng Watchdog.</value>
+  </data>
+  <data name="UserMessages.Rich.FitImageStorage" xml:space="preserve">
+    <value>The outbox of AdMng Watchdog has no room for more images now ({0} message(s) have images).</value>
+  </data>
+  <data name="UserMessages.Rich.FitHtmlTooLong" xml:space="preserve">
+    <value>The HTML version of {0} message(s) is longer than AdMng Watchdog accepts.</value>
+  </data>
+  <data name="UserMessages.Rich.SendDirect" xml:space="preserve">
+    <value>Send directly through SMTP</value>
+  </data>
+  <data name="UserMessages.Rich.SendWithoutImages" xml:space="preserve">
+    <value>Send without images</value>
+  </data>
+  <data name="UserMessages.Rich.FitCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="UserMessages.Rich.ViaSmtpForRun" xml:space="preserve">
+    <value>Sending directly through SMTP (this send only): {0}</value>
+  </data>
+  <data name="UserMessages.Rich.RunWithoutImages" xml:space="preserve">
+    <value>without images</value>
+  </data>
+  <data name="UserMessages.Rich.RunDirect" xml:space="preserve">
+    <value>directly through SMTP</value>
+  </data>
+  <data name="UserMessages.Rich.ImportImagesRejected" xml:space="preserve">
+    <value>{0} image(s) were not imported (invalid or over the limits) – their templates keep the text.</value>
+  </data>
+  <data name="UserMessages.Rich.ImageFolderLarge" xml:space="preserve">
+    <value>The images of the templates take more than 64 MB.</value>
+  </data>
+  <data name="UserMessages.Rich.RemoveMissing" xml:space="preserve">
+    <value>Remove missing images</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.RemovedElement" xml:space="preserve">
+    <value>Removed an element that is not allowed: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.RemovedAttribute" xml:space="preserve">
+    <value>Removed an attribute that is not allowed: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.RemovedStyle" xml:space="preserve">
+    <value>Removed formatting that is not allowed: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.RemoteImageRemoved" xml:space="preserve">
+    <value>Removed an image from the web ({0}) – remote content is never loaded.</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.ImageRejected" xml:space="preserve">
+    <value>An image was not accepted: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.ImageUnreadable" xml:space="preserve">
+    <value>An image could not be read: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.LinkRemoved" xml:space="preserve">
+    <value>Removed a link with a scheme that is not allowed ({0}); its text stays.</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.LinkOutsideAllowedDomains" xml:space="preserve">
+    <value>A link points outside the allowed domains: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.LinkUnwrapped" xml:space="preserve">
+    <value>A Safe Links address was replaced by the original one ({0}).</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.LinkTextMismatch" xml:space="preserve">
+    <value>The text of a link shows another address than the link leads to ({0}) – check it.</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.PlaceholderRepaired" xml:space="preserve">
+    <value>A field split by the formatting was joined again: {0}</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.ClipboardOffsets" xml:space="preserve">
+    <value>The clipboard's positions were invalid; the fragment markers were used.</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.ClipboardEncoding" xml:space="preserve">
+    <value>The clipboard's HTML was not valid UTF-8; invalid characters were replaced.</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.ContentTruncated" xml:space="preserve">
+    <value>The content is longer than the limit, or the template's image limits were reached ({0}).</value>
+  </data>
+  <data name="UserMessages.Rich.Problem.TooDeep" xml:space="preserve">
+    <value>The content is nested more than {0} levels deep and was not imported – copy a simpler part of the message.</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Empty" xml:space="preserve">
+    <value>no data</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.UnknownFormat" xml:space="preserve">
+    <value>not PNG, JPEG or GIF</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TypeMismatch" xml:space="preserve">
+    <value>the type does not match the content</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Malformed" xml:space="preserve">
+    <value>a damaged or incomplete file</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.TooLarge" xml:space="preserve">
+    <value>larger than 1 MB</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DimensionsTooLarge" xml:space="preserve">
+    <value>dimensions or animation too large</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.IdMismatch" xml:space="preserve">
+    <value>the identifier does not match the image</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.EmptySource" xml:space="preserve">
+    <value>no address</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.FieldSource" xml:space="preserve">
+    <value>a field instead of an image</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.Limit" xml:space="preserve">
+    <value>the image limit of the message or template is reached</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NoFileAccess" xml:space="preserve">
+    <value>a local file that cannot be read here</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.NetworkPath" xml:space="preserve">
+    <value>a network path or another folder – never opened</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.DataUri" xml:space="preserve">
+    <value>an invalid data: address</value>
+  </data>
+  <data name="UserMessages.Rich.Reason.RelativeSource" xml:space="preserve">
+    <value>a relative address</value>
+  </data>
+  <data name="UserMessages.Issue.ImageMissing" xml:space="preserve">
+    <value>The HTML version references an image the template does not have (or its file is missing): {0}</value>
+  </data>
+  <data name="UserMessages.Issue.ImagesTooLarge" xml:space="preserve">
+    <value>Too many images or too many image bytes ({0}): at most 10 images and 2 MB per message, 20 images and 4 MB per template.</value>
+  </data>
+  <data name="UserMessages.Issue.ImagesOmitted" xml:space="preserve">
+    <value>Sent without images – each image is replaced by its description.</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlTooLong" xml:space="preserve">
+    <value>The HTML version is too long ({0} characters).</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlTooDeep" xml:space="preserve">
+    <value>The HTML version is nested more than {0} levels deep.</value>
+  </data>
+  <data name="UserMessages.Issue.LinkTextMismatch" xml:space="preserve">
+    <value>The text of a link shows another address than the link leads to ({0}).</value>
+  </data>
+  <data name="UserMessages.Issue.HtmlNormalized" xml:space="preserve">
+    <value>The HTML version will be tidied when the template is saved (formatting the messages cannot use is dropped).</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.imagesNotSupported" xml:space="preserve">
+    <value>AdMng Watchdog does not take images in messages (an older version, or images were switched off) – the send stopped; send without images or directly through SMTP.</value>
+  </data>
+  <data name="UserMessages.Code.watchdog.imageStorage" xml:space="preserve">
+    <value>The outbox of AdMng Watchdog has no room for more images now – send the rest later or without images.</value>
+  </data>
+  <data name="UserMessages.Code.smtp.invalidImage" xml:space="preserve">
+    <value>An image of the message did not pass the service's check and was not sent.</value>
   </data>
   <data name="UserMessages.Condition" xml:space="preserve">
     <value>Send condition</value>

@@ -14,6 +14,19 @@ public sealed record RenderedEmail
     /// <summary>A message to a user (<see cref="DeliveryKind.UserMessage"/>): its own header From, Reply-To, To and CC
     /// instead of <see cref="OutboxMessage.Recipients"/>. Kept only in the payload, which is dropped once sent.</summary>
     public UserMessageEnvelope? UserMessage { get; init; }
+    /// <summary>Inline images of a message to a user (U1c), referenced by <c>cid:</c> from <see cref="HtmlBody"/> – only in
+    /// the payload (dropped once sent), never in the audit, the delivery log or a log line.</summary>
+    public IReadOnlyList<RenderedInlineImage> InlineImages { get; init; } = [];
+}
+
+/// <summary>An inline image of a message to a user (U1c), checked by the service before it was queued.</summary>
+public sealed record RenderedInlineImage
+{
+    public required string ContentId { get; init; }
+    public required string MediaType { get; init; }
+    public required string FileName { get; init; }
+    public required byte[] Data { get; init; }
+    public override string ToString() => $"RenderedInlineImage({ContentId}, {Data.Length} B)";
 }
 
 /// <summary>Addresses of a message to a user (README U1b) – the outbox payload only; the envelope sender is always the

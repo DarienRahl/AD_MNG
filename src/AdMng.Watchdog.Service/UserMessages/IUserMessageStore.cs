@@ -21,7 +21,7 @@ public sealed record UserMessageAuditRecord
     public override string ToString() => $"UserMessageAuditRecord({MessageId:N}, {RecipientCount} recipients)";
 }
 
-/// <summary>What <see cref="IUserMessageStore.SubmitAsync"/> did.</summary>
+/// <summary>What <c>IUserMessageStore.SubmitAsync</c> did.</summary>
 public enum UserMessageSubmitOutcome
 {
     /// <summary>The audit row and the outbox message were stored.</summary>
@@ -38,9 +38,13 @@ public enum UserMessageSubmitOutcome
 
     /// <summary><c>userMessages.maxMessagesPerDay</c> reached – nothing stored.</summary>
     DailyLimit,
+
+    /// <summary>The message has images and the images in the outbox would exceed <c>userMessages.maxStoredImageMb</c> –
+    /// nothing stored (U1c).</summary>
+    ImageStorageFull,
 }
 
-/// <summary>Result of <see cref="IUserMessageStore.SubmitAsync"/>: the outbox row (new or of the earlier submission) or
+/// <summary>Result of <c>IUserMessageStore.SubmitAsync</c>: the outbox row (new or of the earlier submission) or
 /// the time until the limit frees a slot.</summary>
 public sealed record UserMessageSubmission(UserMessageSubmitOutcome Outcome, long? OutboxId = null, TimeSpan? RetryAfter = null);
 
@@ -48,10 +52,25 @@ public sealed record UserMessageSubmission(UserMessageSubmitOutcome Outcome, lon
 public interface IUserMessageStore
 {
     /// <summary>In one transaction: an earlier row with the id → Duplicate/Conflict; the sliding-window limits (submitted
-    /// in the last hour / day, all callers) → HourlyLimit/DailyLimit; otherwise the outbox message and the audit row are
-    /// inserted (Created).</summary>
-    Task<UserMessageSubmission> SubmitAsync(UserMessageAuditRecord record, OutboxMessage message, int maxPerHour, int maxPerDay, CancellationToken cancellationToken);
+    /// in the last hour / day, all callers) → HourlyLimit/DailyLimit; a message with images whose bytes would take the
+    /// images held in the outbox above <paramref name="maxStoredImageBytes"/> → ImageStorageFull; otherwise the outbox
+    /// message and the audit row are inserted (Created).</summary>
+    Task<UserMessageSubmission> SubmitAsync(
+        UserMessageAuditRecord record,
+        OutboxMessage message,
+        int maxPerHour,
+        int maxPerDay,
+        long maxStoredImageBytes,
+        CancellationToken cancellationToken);
+
+    /// <summary><see cref="SubmitAsync(UserMessageAuditRecord, OutboxMessage, int, int, long, CancellationToken)"/> without an
+    /// image cap.</summary>
+    Task<UserMessageSubmission> SubmitAsync(UserMessageAuditRecord record, OutboxMessage message, int maxPerHour, int maxPerDay, CancellationToken cancellationToken) =>
+        SubmitAsync(record, message, maxPerHour, maxPerDay, long.MaxValue, cancellationToken);
 
     /// <summary>Messages submitted in the last hour and the last 24 hours before <paramref name="now"/>.</summary>
     Task<(int LastHour, int LastDay)> CountAsync(DateTimeOffset now, CancellationToken cancellationToken);
+
+    /// <summary>Bytes of the inline images held in outbox payloads (messages not sent yet or given up, U1c).</summary>
+    Task<long> StoredImageBytesAsync(CancellationToken cancellationToken);
 }

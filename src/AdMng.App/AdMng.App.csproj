@@ -20,6 +20,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- U1c: the rendered preview of messages (WebView2Host, HtmlPreviewView); the source view is the fallback. -->
+    <PackageReference Include="Microsoft.Web.WebView2" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\AdMng.ico" />

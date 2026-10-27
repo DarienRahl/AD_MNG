@@ -67,6 +67,21 @@ public sealed class ClipboardService(INotificationService notifications, ILocali
         return true;
     }
 
+    /// <summary>The formatted content for "Wklej sformatowaną treść" (U1c, <see cref="ClipboardHtmlReader"/>); a busy
+    /// clipboard is reported like a failed copy.</summary>
+    public ClipboardContent? ReadFormatted()
+    {
+        try
+        {
+            return ClipboardHtmlReader.Read();
+        }
+        catch (ExternalException ex)
+        {
+            ReportBusy(ex);
+            return null;
+        }
+    }
+
     /// <summary>The text plus the formats that keep it out of clipboard history, cloud clipboard and clipboard monitors.</summary>
     internal static DataObject CreateSecretData(string secret)
     {
@@ -127,7 +142,7 @@ public sealed class ClipboardService(INotificationService notifications, ILocali
 
     private void ReportBusy(ExternalException ex)
     {
-        // Never log the text (it may contain directory values or a password) - only that the clipboard was busy.
+        // Never log the text (it may contain directory values, a password or a pasted message) - only that the clipboard was busy.
         logger.LogWarning("The clipboard could not be opened (HRESULT 0x{HResult:X8}).", ex.HResult);
         notifications.Show(NotificationSeverity.Warning, localizer[L.Ui.ClipboardBusy]);
     }

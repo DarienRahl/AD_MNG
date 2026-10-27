@@ -44,7 +44,13 @@ public static class ApiResults
 
     /// <summary>Reads a JSON body of a contract type (≤ <see cref="ApiLimits.MaxRequestBodyBytes"/>). Returns the value or the
     /// error response: 415 for another content type, 413 for a larger body, 400 for malformed JSON or an empty body.</summary>
-    public static async Task<(T? Value, IResult? Error)> ReadJsonAsync<T>(HttpRequest request, bool allowEmpty, CancellationToken cancellationToken)
+    public static Task<(T? Value, IResult? Error)> ReadJsonAsync<T>(HttpRequest request, bool allowEmpty, CancellationToken cancellationToken)
+        where T : class =>
+        ReadJsonAsync<T>(request, allowEmpty, ApiLimits.MaxRequestBodyBytes, cancellationToken);
+
+    /// <summary>Reads a JSON body of a contract type of at most <paramref name="maxBytes"/> (one route raises the limit,
+    /// U1c: <see cref="ApiLimits.MaxUserMessageBodyBytes"/>).</summary>
+    public static async Task<(T? Value, IResult? Error)> ReadJsonAsync<T>(HttpRequest request, bool allowEmpty, long maxBytes, CancellationToken cancellationToken)
         where T : class
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -54,7 +60,7 @@ public static class ApiResults
             return (null, Problem(StatusCodes.Status415UnsupportedMediaType, ApiProblem.Validation, "Only application/json request bodies are accepted."));
         }
 
-        if (request.ContentLength > ApiLimits.MaxRequestBodyBytes)
+        if (request.ContentLength > maxBytes)
         {
             return (null, Problem(StatusCodes.Status413PayloadTooLarge, ApiProblem.Validation, "The request body is too large."));
         }
@@ -64,7 +70,7 @@ public static class ApiResults
         int read;
         while ((read = await request.Body.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
         {
-            if (buffer.Length + read > ApiLimits.MaxRequestBodyBytes)
+            if (buffer.Length + read > maxBytes)
             {
                 return (null, Problem(StatusCodes.Status413PayloadTooLarge, ApiProblem.Validation, "The request body is too large."));
             }

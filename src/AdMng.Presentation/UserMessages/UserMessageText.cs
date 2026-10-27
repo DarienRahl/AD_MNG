@@ -21,7 +21,8 @@ public static class UserMessageText
         ["auth", "auth.noCredential", "auth.unencrypted", "auth.mechanismNotOffered", "config.host", "config.pin", "address", "tls", "timeout", "io", "smtp.notSupported",
          "watchdog.queued", "watchdog.disabled", "watchdog.senderNotAllowed", "watchdog.invalid", "watchdog.conflict", "watchdog.limit",
          "watchdog.forbidden", "watchdog.notSupported", "watchdog.notConfigured", "watchdog.unreachable", "watchdog.serverError",
-         "smtp.disabled", "userMessages.disabled"];
+         "smtp.disabled", "userMessages.disabled",
+         WatchdogUserMessageTransport.ImagesNotSupportedCode, WatchdogUserMessageTransport.ImageStorageCode, "smtp.invalidImage"];
 
     public static string IssueKey(string code) => "UserMessages.Issue." + code;
 
@@ -54,6 +55,7 @@ public static class UserMessageText
     /// <summary>Every key of the dynamic families (localization test).</summary>
     public static IEnumerable<string> AllDynamicKeys() =>
         MessageIssueCodes.All.Select(IssueKey)
+            .Concat(HtmlIssueCodes.All.Select(IssueKey))
             .Concat(Enum.GetValues<PlannedMessageStatus>().Select(StatusKey))
             .Concat(Enum.GetValues<UserMessageReportStatus>().Select(ReportStatusKey))
             .Concat(Enum.GetValues<UserMessageNotSentReason>().Where(r => r != UserMessageNotSentReason.None).Select(NotSentKey))
@@ -67,6 +69,15 @@ public static class UserMessageText
             .Concat(UserMessageTransportChoiceResult.All.Select(ProblemKey))
             .Concat(KnownCodes.Select(CodeKey))
             .Concat(Enum.GetValues<SmtpTestStage>().Select(StageKey));
+
+    /// <summary>A reason code of a refused image or link (<c>TooLarge</c>, <c>network</c> … –
+    /// <see cref="L.UserMessagesRich.Reasons"/>) in the operator's language; any other detail (a host, a file name, a media
+    /// type, a scheme) as it is.</summary>
+    public static string Reason(ILocalizer localizer, string? detail)
+    {
+        ArgumentNullException.ThrowIfNull(localizer);
+        return detail is not null && L.UserMessagesRich.Reasons.TryGetValue(detail, out var suffix) ? localizer[L.UserMessagesRich.ReasonKey(suffix)] : detail ?? string.Empty;
+    }
 
     /// <summary>"Brak adresu e-mail (mail ani proxyAddresses)." …</summary>
     public static string Issue(ILocalizer localizer, MessageIssue issue)

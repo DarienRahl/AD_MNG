@@ -257,6 +257,29 @@ public sealed class UserMessageComposerTests
     }
 
     [Fact]
+    public async Task HtmlChecks_RunOffTheUiThread_AfterAPauseInEditing_OncePerHtml()
+    {
+        var scenario = await CreateAsync();
+        var composer = await scenario.OpenAsync([scenario.Company.JanKowalski]);
+
+        composer.Html = "<p style=\"position:fixed\">Nakładka – zażółć gęślą jaźń</p>";
+
+        // The setter returned before the sanitizer ran (it waits for a pause in typing, then runs in the background).
+        Assert.DoesNotContain("position:", composer.TemplateErrors ?? string.Empty, StringComparison.Ordinal);
+        await B2Harness.WaitUntilAsync(() => composer.TemplateErrors?.Contains("position:", StringComparison.Ordinal) == true);
+
+        // Editing the subject or the text keeps the HTML result at once (the HTML did not change); a syntax error shows at once.
+        composer.Subject = "Nowy temat {";
+        Assert.Contains("position:", composer.TemplateErrors, StringComparison.Ordinal);
+        Assert.Contains("{", composer.TemplateErrors, StringComparison.Ordinal);
+
+        // Fixed HTML: the finding goes after the next pause.
+        composer.Subject = "Nowy temat";
+        composer.Html = "<p>Zażółć gęślą jaźń</p>";
+        await B2Harness.WaitUntilAsync(() => composer.TemplateErrors is null);
+    }
+
+    [Fact]
     public async Task Templates_AreSavedExportedImportedAndDeleted_AsTextOnly()
     {
         var scenario = await CreateAsync();

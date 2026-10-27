@@ -12,10 +12,47 @@ public enum UserMessageTransportKind
     Watchdog,
 }
 
+/// <summary>
+/// What a transport accepts (U1c, design note section 9.6): inline images and their limits, the longest HTML body and, for
+/// the AdMng Watchdog, how many bytes of images its outbox may still hold. Direct SMTP has the Core limits; an AdMng
+/// Watchdog without the U1c contract has <see cref="Legacy"/>.
+/// </summary>
+public sealed record UserMessageTransportCapabilities
+{
+    public bool InlineImages { get; init; }
+
+    public int MaxInlineImages { get; init; }
+
+    public long MaxInlineImageBytes { get; init; }
+
+    public long MaxInlineImagesTotalBytes { get; init; }
+
+    public int MaxHtmlLength { get; init; } = Html.MessageHtmlLimits.LegacyMaxHtmlLength;
+
+    /// <summary>Bytes of images the service's outbox may still take (null: no such limit, e.g. direct SMTP).</summary>
+    public long? ImageStorageAvailableBytes { get; init; }
+
+    /// <summary>Direct SMTP: the Core limits.</summary>
+    public static UserMessageTransportCapabilities Direct { get; } = new()
+    {
+        InlineImages = true,
+        MaxInlineImages = Images.MessageImageLimits.MaxImagesPerMessage,
+        MaxInlineImageBytes = Images.MessageImageLimits.MaxImageBytes,
+        MaxInlineImagesTotalBytes = Images.MessageImageLimits.MaxImagesBytesPerMessage,
+        MaxHtmlLength = Html.MessageHtmlLimits.MaxHtmlLength,
+    };
+
+    /// <summary>An AdMng Watchdog without the U1c contract: no images, HTML up to 100 000 characters.</summary>
+    public static UserMessageTransportCapabilities Legacy { get; } = new();
+}
+
 /// <summary>Whether a transport can be used now; <see cref="Reason"/> is a code (localization key suffix) when not.</summary>
 public sealed record UserMessageTransportStatus(bool IsAvailable, string? Reason = null)
 {
     public static UserMessageTransportStatus Available { get; } = new(true);
+
+    /// <summary>What the transport accepts (U1c); direct SMTP by default.</summary>
+    public UserMessageTransportCapabilities Capabilities { get; init; } = UserMessageTransportCapabilities.Direct;
 
     public const string NotConfigured = "notConfigured";
     public const string NotSupported = "notSupported";

@@ -41,6 +41,16 @@ Dokument opisuje budowę aplikacji i zasady, które ją kształtują. Decyzje z 
 Zależności idą wyłącznie w dół. `AdMng.Core` nie zależy od żadnej biblioteki LDAP, więc cała logika domenowa jest
 testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tylko w testach).
 
+**Wiadomości do użytkowników (U1, U1c).** `AdMng.Mail` (net10.0, MailKit) wysyła wiadomości bezpośrednio przez SMTP i
+buduje treść MIME (`UserMessageMimeBody`: `multipart/alternative` tekstu i HTML, a z obrazami osadzonymi
+`multipart/related` z `Content-ID`) – tej samej klasy używa usługa Watchdog (`AdMng.Watchdog.Service` odwołuje się do
+`AdMng.Mail`), więc oba sposoby wysyłki dają tę samą strukturę wiadomości. `AdMng.Core` korzysta z **AngleSharp**
+(parser HTML5, czysto zarządzany, działa na Linuksie) w sanitizerze HTML wiadomości (`Messaging/Html`), wspólnym dla AD
+Managera i walidatora usługi; CSS (parser i wpisywanie reguł w `style`) to własny, mały kod. `AdMng.App` jako jedyny
+używa **WebView2** (`Microsoft.Web.WebView2`, środowisko Evergreen) do podglądu sformatowanej wiadomości – bez skryptów,
+nawigacji i sieci, z treścią i obrazami z pamięci, a bez środowiska WebView2 pokazuje źródło HTML
+([docs/dev/u1c-u1d-rich-html-and-salutations.md](dev/u1c-u1d-rich-html-and-salutations.md) rozdz. 4 i 10).
+
 ## Sesja katalogu
 
 - `IDirectoryConnector.ConnectAsync` lokalizuje DC (DsGetDcName z uwzględnieniem lokacji albo DC wskazany ręcznie),
@@ -210,7 +220,7 @@ serwer Debian 12/13 poza domeną (Tier 0), konto komputera CONTOSO\ADMNG-WD$ z k
 |---|---|
 | `AdMng.Watchdog.Contracts` | model zdarzenia, DTO API, konfiguracja, trasy, JSON (bez zależności) |
 | `AdMng.Watchdog.Core` | cała logika (wykrywanie, migawki, atrybucja, reguły, planowanie powiadomień, formatery e-mail/Teams/webhook, raport dzienny) – testowana na Linuksie z `FakeDirectorySession` i zarejestrowanymi zdarzeniami; rejestracja `AddWatchdogCore()` |
-| `AdMng.Watchdog.Service` | host: API, autoryzacja (role z `tokenGroups`), magazyn SQLite, Data Protection (klucz w poświadczeniu systemd), transporty (MailKit, `HttpClient`), odczyt plików OpenWEC, czytnik SYSVOL (smbclient), samokontrola konta usługi, hosty zadań; do usunięcia po 0.3.0 – hosting Windows, HTTP.sys, DPAPI-NG, czytnik dzienników przez RPC, skrypty instalacyjne |
+| `AdMng.Watchdog.Service` | host: API, autoryzacja (role z `tokenGroups`), magazyn SQLite, Data Protection (klucz w poświadczeniu systemd), transporty (MailKit, `HttpClient`; treść MIME wiadomości do użytkowników z `AdMng.Mail`), odczyt plików OpenWEC, czytnik SYSVOL (smbclient), samokontrola konta usługi, hosty zadań; do usunięcia po 0.3.0 – hosting Windows, HTTP.sys, DPAPI-NG, czytnik dzienników przez RPC, skrypty instalacyjne |
 | `AdMng.Watchdog.Keytab` | narzędzie `admng-watchdog-keytab`: zmiana hasła konta `ADMNG-WD$` i keytab (MIT libkrb5) |
 | `packaging/`, `tools/packaging` | pakiety Debiana `admng-watchdog` i `admng-openwec`: jednostki systemd, skrypty instalacyjne, budowanie i test instalacji |
 | `AdMng.Watchdog.Client` | klient HTTPS/Kerberos API (`IWatchdogClient`) używany przez AD_MNG |

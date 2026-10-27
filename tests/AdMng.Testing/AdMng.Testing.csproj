@@ -10,4 +10,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\AdMng.Core\AdMng.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- U1c: clipboard HTML transcribed from Outlook, Word and browsers (structure verbatim, Polish sample text). -->
+    <EmbeddedResource Include="RichHtml\Fixtures\*.html" />
+    <EmbeddedResource Include="RichHtml\Expected\*.html" />
+  </ItemGroup>
 </Project>

@@ -72,6 +72,11 @@ public sealed class SmtpCredentialCache
 /// <c>watchdog.conflict</c>; 429 → TransportFailed <c>watchdog.limit</c>; 401/403 → AuthenticationFailed
 /// <c>watchdog.forbidden</c>; 404 / other API version → TransportFailed <c>watchdog.notSupported</c>; certificate →
 /// TransportFailed <c>tls</c>; unreachable, timeout, 5xx → Transient (retried with the same id).</item>
+/// <item>U1c: the status carries the service's capabilities (<see cref="UserMessageTransportCapabilities"/>: inline images and
+/// their limits, the HTML length, the room left for images); inline images are sent only to a service that reports
+/// <c>inlineImages</c>. A message with images to a service without it, or a 400 <c>invalidJson</c> / <c>imagesDisabled</c>
+/// for a message with images (downgraded between status and send) → TransportFailed <c>watchdog.imagesNotSupported</c>
+/// (never retried without images); 429 <c>imageStorageFull</c> → TransportFailed <c>watchdog.imageStorage</c>.</item>
 /// </list>
 /// </summary>
 public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null) : IUserMessageTransport
@@ -95,7 +100,7 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
         try
         {
             var status = await client.GetUserMessagingStatusAsync(cancellationToken).ConfigureAwait(false);
-            return status.Available ? UserMessageTransportStatus.Available : new UserMessageTransportStatus(false, UserMessageTransportStatus.Disabled);
+            return new UserMessageTransportStatus(status.Available, status.Available ? null : UserMessageTransportStatus.Disabled) { Capabilities = CapabilitiesOf(status) };
         }
         catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Cancelled && cancellationToken.IsCancellationRequested)
         {
@@ -135,12 +140,41 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
         }
 
         return status.Available
-            ? new Connection(client)
+            ? new Connection(client, CapabilitiesOf(status))
             : throw new UserMessageTransportException(new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.disabled"));
     }
 
-    /// <summary>The request of a rendered message (nothing is changed: the service checks it again).</summary>
-    public static WatchdogMessageRequest ToRequest(OutgoingUserMessage message)
+    /// <summary>What a service with this status accepts (U1c); an older service (no capabilities) takes no images and HTML up
+    /// to 100 000 characters.</summary>
+    public static UserMessageTransportCapabilities CapabilitiesOf(UserMessagingStatusDto status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        var htmlLength = status.MaxHtmlLength > 0 ? status.MaxHtmlLength : UserMessageTransportCapabilities.Legacy.MaxHtmlLength;
+        if (!(status.Capabilities ?? []).Contains(UserMessagingCapabilities.InlineImages, StringComparer.Ordinal))
+        {
+            return UserMessageTransportCapabilities.Legacy with { MaxHtmlLength = htmlLength };
+        }
+
+        return new UserMessageTransportCapabilities
+        {
+            InlineImages = status.MaxInlineImages > 0,
+            MaxInlineImages = status.MaxInlineImages,
+            MaxInlineImageBytes = status.MaxInlineImageBytes,
+            MaxInlineImagesTotalBytes = status.MaxInlineImagesTotalBytes,
+            MaxHtmlLength = htmlLength,
+            ImageStorageAvailableBytes = status.MaxStoredImageBytes > 0 ? Math.Max(0, status.MaxStoredImageBytes - status.StoredImageBytes) : null,
+        };
+    }
+
+    /// <summary>Code of a message with images the service cannot take (an older version, or images switched off).</summary>
+    public const string ImagesNotSupportedCode = "watchdog.imagesNotSupported";
+
+    /// <summary>Code of a message refused because the images waiting in the service's outbox reached its cap.</summary>
+    public const string ImageStorageCode = "watchdog.imageStorage";
+
+    /// <summary>The request of a rendered message (nothing is changed: the service checks it again); the inline images go
+    /// with it only when the service takes images (<paramref name="withImages"/>).</summary>
+    public static WatchdogMessageRequest ToRequest(OutgoingUserMessage message, bool withImages = true)
     {
         ArgumentNullException.ThrowIfNull(message);
         return new WatchdogMessageRequest
@@ -154,6 +188,9 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
             TextBody = message.TextBody,
             HtmlBody = message.HtmlBody,
             Language = MessageLanguages.Code(message.Language),
+            InlineImages = withImages
+                ? [.. message.InlineImages.Select(i => new UserMessageImageDto { ContentId = i.ContentId, MediaType = i.MediaType, Data = i.Data, FileName = i.FileName })]
+                : [],
         };
     }
 
@@ -174,10 +211,22 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
         };
     }
 
-    /// <summary>A failed call of the service, classified (see the class remarks).</summary>
-    public static UserMessageDelivery Classify(WatchdogClientException exception)
+    /// <summary>A failed call of the service, classified (see the class remarks); <paramref name="hadImages"/>: the message
+    /// carried inline images (an <c>invalidJson</c> then means a service that does not take them).</summary>
+    public static UserMessageDelivery Classify(WatchdogClientException exception, bool hadImages = false)
     {
         ArgumentNullException.ThrowIfNull(exception);
+        if (exception.Issues.Any(i => i.Code == UserMessageIssueCodes.ImageStorageFull))
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, ImageStorageCode);
+        }
+
+        if (hadImages && exception.Kind == WatchdogClientErrorKind.Validation
+            && exception.Issues.Any(i => i.Code is "invalidJson" or UserMessageIssueCodes.ImagesDisabled))
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, ImagesNotSupportedCode);
+        }
+
         if (exception.ProblemType == ApiProblem.UserMessagesUnavailable)
         {
             return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, "watchdog.disabled");
@@ -222,14 +271,21 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
         new() { Address = address.Address, DisplayName = string.IsNullOrWhiteSpace(address.DisplayName) ? null : address.DisplayName };
 
     /// <summary>One "connection" = the configured API client; nothing to close.</summary>
-    private sealed class Connection(IWatchdogClient client) : IUserMessageConnection
+    private sealed class Connection(IWatchdogClient client, UserMessageTransportCapabilities capabilities) : IUserMessageConnection
     {
         public async Task<UserMessageDelivery> SendAsync(OutgoingUserMessage message, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(message);
+            var hasImages = message.InlineImages.Count > 0;
+            if (hasImages && !capabilities.InlineImages)
+            {
+                // Never sent without its images, and never with a member the service would reject.
+                return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, ImagesNotSupportedCode);
+            }
+
             try
             {
-                return FromResult(await client.SendUserMessageAsync(ToRequest(message), cancellationToken).ConfigureAwait(false));
+                return FromResult(await client.SendUserMessageAsync(ToRequest(message, hasImages), cancellationToken).ConfigureAwait(false));
             }
             catch (WatchdogClientException ex) when (ex.Kind == WatchdogClientErrorKind.Cancelled && cancellationToken.IsCancellationRequested)
             {
@@ -237,7 +293,7 @@ public sealed class WatchdogUserMessageTransport(IWatchdogClient? client = null)
             }
             catch (WatchdogClientException ex)
             {
-                return Classify(ex);
+                return Classify(ex, hasImages);
             }
         }
 

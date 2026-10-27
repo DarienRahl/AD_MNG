@@ -15,6 +15,8 @@
     <ProjectReference Include="..\AdMng.Watchdog.Core\AdMng.Watchdog.Core.csproj" />
     <ProjectReference Include="..\AdMng.Directory\AdMng.Directory.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Contracts\AdMng.Watchdog.Contracts.csproj" />
+    <!-- U1c: the one MIME body builder of messages to users (inline images in multipart/related), shared with AD Manager. -->
+    <ProjectReference Include="..\AdMng.Mail\AdMng.Mail.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />

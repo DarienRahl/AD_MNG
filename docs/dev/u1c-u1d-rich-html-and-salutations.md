@@ -210,7 +210,9 @@ mutation-XSS class of bugs a regex or a non-conforming parser (HtmlAgilityPack) 
 `Directory.Packages.props` (new `ItemGroup Label="Messages (U1c)"`). **Not** used: `HtmlSanitizer` (Ganss.Xss) – generic
 policy, no Office pre-processing, and it drags in `AngleSharp.Css` (pre-1.0); `AngleSharp.Css` itself – CSS is handled by
 the small `CssParser` below, which only needs declarations, simple rules and a selector subset, and whose output we fully
-control. The existing regex check `UserMessageRules.FindForbiddenHtml` stays as a cheap first gate (and for older clients).
+control. The existing regex check `UserMessageRules.FindForbiddenHtml` stays as a cheap first gate (and for older clients);
+it looks for handlers and URL schemes in the markup only (tags, comments, `<style>`), never in the text – a pasted
+"Termin (data: 5.11.2026)" or "Status online = tak" is not markup (review U1c, finding 3).
 
 ### 4.2 API
 
@@ -280,7 +282,7 @@ Numeric attributes: digits (and `%` for widths), ≤ 5 digits; colours: `#rgb`, 
 | Allowed properties | Value rules |
 |---|---|
 | `color background-color` | colour: `#hex`, `rgb()/rgba()` with numbers, CSS names; `windowtext` → `#000000`, `window` → `#FFFFFF`; `auto` dropped |
-| `font font-family font-size font-style font-weight font-variant line-height letter-spacing word-spacing text-transform text-indent text-align vertical-align white-space direction` | keywords, lengths (`px pt em rem % cm mm in`, ≥ 0 except `text-indent` and `letter-spacing`), family names as identifiers or strings (re-serialized with single quotes) |
+| `font font-family font-size font-style font-weight font-variant line-height letter-spacing word-spacing text-transform text-indent text-align vertical-align white-space direction` | keywords, lengths (`px pt em rem % cm mm in`, ≥ 0 except `text-indent` and `letter-spacing`, clamped to −1in and −2px), family names as identifiers or strings (re-serialized with single quotes); a font size below 4px on an element with text of that size is a security finding (an empty 1pt spacer paragraph stays) |
 | `text-decoration text-decoration-line text-decoration-style text-decoration-color` | keywords, colour |
 | `margin padding` and their `-top/-right/-bottom/-left` | lengths ≥ 0 (**no negative margins** – they can pull content over the fixed footer) |
 | `border` and every `border-*` longhand, `border-collapse border-spacing border-radius` | lengths ≥ 0, styles, colours |
@@ -318,7 +320,14 @@ double-quoted; text escaped minimally (`&amp; &lt; &gt; &nbsp;`), so Polish lett
 
 **Limits:** the HTML of one language ≤ `MessageHtmlLimits.MaxHtmlLength` = **400 000** characters after sanitizing
 (Outlook HTML is verbose after inlining; U1b's 100 000 is too small) – longer → template error `HtmlTooLong`; the
-Watchdog reports its own value (section 9.1).
+Watchdog reports its own value (section 9.1). Nesting ≤ `MessageHtmlLimits.MaxNestingDepth` = **256** element levels:
+deeper HTML is refused as a whole right after parsing, by an iterative check, before any (recursive) tree walk – a stack
+overflow cannot be caught and would end AD Manager or the service (template error `HtmlTooDeep`, paste problem `TooDeep`,
+service `forbiddenHtml`); a cheap estimate from the text (more than 1 024 open start tags) refuses it before parsing, since
+the tree builder's cost grows with the square of the depth. Style sheets are inlined up to
+`MessageHtmlLimits.MaxStyleRuleMatches` = 2 000 000 rules × elements; over it they are dropped without inlining (cosmetic –
+AD Manager sends inlined HTML). The service validates at most `ApiLimits.ConcurrentUserMessageValidations` = 2 messages at
+once, across all callers.
 
 ## 5. Placeholder repair
 
@@ -350,7 +359,9 @@ across `<br>` or a block boundary:
   **"Zezwól na domenę …"** – adds a domain to `UserMessages.AllowedLinkDomains` through `ISettingsStore.UpdateAsync`
   (the operator picks the host or one of its parent domains; `LinkDomainSuggestions` never offers a single label and, for
   two-letter country TLDs with a second level of ≤ 3 letters – `com.pl`, `gov.pl`, `edu.pl`, `co.uk` – nothing shorter
-  than three labels) – and **"Usuń łącze"** (unwraps the anchor in the HTML of the edited language).
+  than three labels; a host of a service shared by many tenants – `forms.office.com`, `contoso.sharepoint.com`,
+  `*.blob.core.windows.net`, `*.github.io`, link shorteners, `LinkDomainSuggestions.SharedDomains` – is offered as the
+  host only, never `office.com` or `sharepoint.com`) – and **"Usuń łącze"** (unwraps the anchor in the HTML of the edited language).
 * **Text/target mismatch**: an anchor whose visible text is itself a URL or host (`haslo.contoso.pl`) with a different
   host than its `href` → `LinkTextMismatch` (warning at paste; template-level warning issue in the plan) – the classic
   phishing shape, worth a look even in our own templates.
@@ -363,7 +374,7 @@ across `<br>` or a block boundary:
 
 | Source | Rule |
 |---|---|
-| `file:///…/msohtmlclip1/NN/clip_imageNNN.png\|jpg\|gif` (Outlook, Word) | `ClipboardImagePolicy`: a `file:` URI with a **local drive path** (no UNC `\\server\share`, no `\\?\` / `\\.\` device paths, no `file://host/…`) whose final path (8.3 names expanded, links resolved, reparse points rejected) lies under the user's temp folder. Read once, asynchronously, at most `MaxImageBytes + 1` bytes. Anything else is **not opened** (a UNC path would leak NTLM credentials to a foreign server) → `ImageUnreadable`. Only the basename (`clip_image001.png`) is kept as the MIME file name; the path (it contains the Windows user name) is never stored or logged. |
+| `file:///…/msohtmlclip1/NN/clip_imageNNN.png\|jpg\|gif` (Outlook, Word) | `ClipboardImagePolicy`: a `file:` URI with a **local drive path** (no UNC `\\server\share`, no `\\?\` / `\\.\` device paths, no `file://host/…`) whose final path (8.3 names expanded, links resolved, reparse points rejected) is `msohtmlclip<n>\<nn>\clip_image<n>.png\|jpg\|jpeg\|gif` directly in the user's temp folder – any other picture there (another program's, named by HTML copied from a web page) is never read (review U1c, finding 7). Read once, asynchronously, at most `MaxImageBytes + 1` bytes. Anything else is **not opened** (a UNC path would leak NTLM credentials to a foreign server) → `ImageUnreadable`. Only the basename (`clip_image001.png`) is kept as the MIME file name; the path (it contains the Windows user name) is never stored or logged. |
 | `data:image/png\|jpeg\|gif;base64,…` (browsers) | Decoded in Core; base64 longer than the limit allows is rejected before decoding; any other media type (notably `image/svg+xml`) → `ImageRejected`. |
 | `http(s)://…`, `blob:`, `cid:` (other apps), relative | **Never fetched** → removed with `RemoteImageRemoved` / `ImageUnreadable`. Exception: when the HTML has exactly one such `<img>` and the clipboard also carries a bitmap (`PNG`/DIB – "Copy image" in a browser), the bitmap is used for it. |
 | `PNG` / DIB without HTML | The image alone (section 2). |
@@ -376,12 +387,14 @@ tested on Linux with a temp-folder fake; the App only supplies the clipboard byt
 * Type by **magic bytes only** (the extension and a declared media type must agree or the image is rejected):
   PNG `89 50 4E 47 0D 0A 1A 0A`, JPEG `FF D8 FF`, GIF `GIF87a` / `GIF89a`.
 * Dimensions read from the headers without decoding (PNG `IHDR`, GIF logical screen, JPEG first `SOFn`): each side
-  1–4096 px and ≤ 16 777 216 px in total (decompression bombs in the recipients' clients).
+  1–4096 px and ≤ 16 777 216 px in total (decompression bombs in the recipients' clients); every GIF frame lies inside
+  the logical screen, at most 200 frames and 67 108 864 frame pixels together (review U1c, finding 9).
 * Structure walked to its end (PNG chunks with CRC, JPEG segments to `EOI`, GIF blocks to the trailer); a truncated or
   malformed file is rejected.
 * **Metadata stripped** by lossless surgery, never by re-encoding: PNG `tEXt zTXt iTXt eXIf tIME` chunks; JPEG `APP1`
   (Exif/XMP), `APP13` (IPTC) and `COM` segments (`APP0` JFIF, `APP2` ICC and `APP14` Adobe stay); GIF comment
-  extensions. Photos pasted from a phone lose GPS position and author (RODO).
+  extensions. Photos pasted from a phone lose GPS position and author (RODO); an Exif orientation other than 1 stays,
+  alone in a minimal `APP1`, so the photo is not shown sideways (stripping stays idempotent; review U1c, finding 12).
 
 ### 7.3 Model and limits
 
@@ -424,7 +437,10 @@ The `Content-ID` is derived from the content, so the same image always has the s
   before planning, off the UI thread) and `OmitImages: bool`.
 * Per message, after rendering the HTML document: `Validate` (document mode, the referenced ids) → `HtmlNotAllowed`;
   the referenced images in order of first reference → `OutgoingUserMessage.InlineImages` (an image missing from the
-  dictionary → `ImageMissing` error; per-message limits → `ImagesTooLarge` error); HTML length → `HtmlTooLong`.
+  dictionary → `ImageMissing` error; per-message limits → `ImagesTooLarge` error); HTML length → `HtmlTooLong`. The
+  **sanitized** document is `OutgoingUserMessage.HtmlBody` – sent by direct SMTP and the AdMng Watchdog alike and shown
+  by the preview – so what the sanitizer treats as cosmetic (comments, `<style>` rules it does not inline) never
+  reaches a recipient (review U1c, finding 4). Imported templates files are normalized like a saved template.
 * `OmitImages` ("send without images", section 9.6): every `<img src="cid:…">` is replaced by
   `<span>[alt]</span>` (nothing without alt) before validation, `InlineImages` stays empty and every message gets the
   info issue `ImagesOmitted` – the preview shows exactly the HTML that will be sent.
@@ -458,7 +474,8 @@ multipart/alternative
 Rules: only images referenced by the HTML are added (an unreferenced related part is shown as an attachment by some
 clients); every reference has its part; headers as in U1 §5 (`Auto-Submitted`, `X-Auto-Response-Suppress`,
 `X-AdMng-Message: user-notification`, `Message-ID`); the image parts carry no other headers (no `Content-Location`, no
-dates). A server that announces `SIZE` smaller than the message, or answers 552 / 5.3.4, is classified as a permanent
+dates). A server that announces `SIZE` smaller than the message, or answers 5.3.4, 5.2.3 or a bare 552 (552 5.2.2 is a
+full mailbox – no hint; `DeliveryHints.IsMessageTooLarge`), is classified as a permanent
 rejection (`smtp.552.5.3.4`) with the new hint `DeliveryHints.MessageTooLarge = "smtp.messageTooLarge"` – in both
 classifiers (AdMng.Mail `SmtpFailureClassifier`, the service's `SmtpErrorClassifier`), text
 `Watchdog.Hint.smtp.messageTooLarge` in both `Strings` resx files.
@@ -499,7 +516,12 @@ image), `unreferencedImage` (an image the HTML does not reference), `imageIdMism
 
 The capability `inlineImages` is reported only when the service supports images **and** `userMessages.allowInlineImages`
 is on (new setting, default **on** – an administrator may forbid images; config audit rating Medium). Clients without
-images are unaffected; an older AD Manager keeps working against the new service.
+images are unaffected; an older AD Manager keeps working against the new service: a request **without** inline images
+is refused only for what U1b refused (the first gate, plus HTML nested too deeply) – what U1b allowed and the sanitizer
+refuses (a remote image, hidden content, an overlay, an element outside the allow-list) is removed from the sanitized
+document the service sends (review U1c, finding 5). A request with images (only U1c clients send them) is refused for
+every security finding. The new AD Manager itself shows such U1b templates as errors (`HtmlNotAllowed`) until they are
+fixed – e.g. the remote logo pasted again as an embedded image.
 
 ### 9.2 Request size
 
@@ -644,6 +666,15 @@ images from the working template); preview stage – the selected message, tabs 
 * **Preview stage** – the details `TabControl` gets **Widok** first; the transport bar of section 9.6 sits above the
   send button.
 * Keyboard: Ctrl+Shift+V = paste formatted; the buttons have automation names for the UI tests.
+
+**As built (track A):** the status line of the section has **Usuń brakujące obrazy** when a saved template's image files
+are missing or changed; after saving a template with images the window warns once the image folder exceeds 64 MiB; the
+transport bar sits above the window footer (Wyślij bezpośrednio przez SMTP · Wyślij bez obrazów · Anuluj); the
+"Wklej obraz" caret is the one the operator placed in the HTML source (a text set by the window forgets it, so the image
+goes to the end). The setting `UserMessages.RenderedPreview` exists (default on, honoured by both previews) but has no
+check box yet – the settings window belongs to track B, so the check box is part of the integration step (22.4). The
+release screenshot is `24-user-messages-rich-html.png` (class `ScreenshotTestsRichHtml`; 22 and 23 are track K's, 25 is
+U1d's); it shows the HTML source, because a WebView2 window is not part of a WPF render.
 
 ## 13. Security checklist (A)
 

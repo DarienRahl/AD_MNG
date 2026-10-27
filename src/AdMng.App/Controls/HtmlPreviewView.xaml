@@ -1,0 +1,53 @@
+<!--
+  The rendered preview of an HTML body (U1c, design note u1c-u1d section 10): WebView2 with every request answered from
+  memory (the document and its inline images; anything else 403), scripts and everything else off – or, when WebView2 is
+  missing, switched off in the settings or forced off (ADMNG_UI_NO_WEBVIEW2=1), the HTML source with a one-line note.
+-->
+<UserControl x:Class="AdMng.App.Controls.HtmlPreviewView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             AutomationProperties.Name="{l:Tr UserMessages.Rich.TabView}">
+  <Grid>
+    <Border x:Name="BrowserHost"
+            Background="White"
+            BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1" />
+    <DockPanel x:Name="FallbackPanel" Visibility="Collapsed">
+      <Border x:Name="FallbackBar"
+              Margin="0,0,0,6"
+              DockPanel.Dock="Top"
+              Style="{StaticResource Ad.WarningBar}">
+        <StackPanel>
+          <TextBlock x:Name="UnavailableText"
+                     Text="{l:Tr UserMessages.Rich.PreviewUnavailable}"
+                     TextWrapping="Wrap" />
+          <TextBlock x:Name="DisabledText"
+                     Text="{l:Tr UserMessages.Rich.PreviewDisabled}"
+                     TextWrapping="Wrap"
+                     Visibility="Collapsed" />
+          <TextBlock x:Name="DownloadLinkText" Margin="0,4,0,0">
+            <Hyperlink x:Name="DownloadLink" Click="OnDownloadClick">
+              <Run Text="{l:Tr UserMessages.Rich.PreviewDownload}" />
+            </Hyperlink>
+          </TextBlock>
+        </StackPanel>
+      </Border>
+      <TextBox x:Name="SourceBox"
+               AcceptsReturn="True"
+               AutomationProperties.Name="{l:Tr UserMessages.Rich.TabSource}"
+               FontFamily="Cascadia Mono, Consolas"
+               HorizontalScrollBarVisibility="Auto"
+               IsReadOnly="True"
+               TextWrapping="Wrap"
+               VerticalScrollBarVisibility="Auto" />
+    </DockPanel>
+    <TextBlock x:Name="EmptyText"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Style="{StaticResource Ad.SecondaryText}"
+               Text="{l:Tr UserMessages.Rich.PreviewEmpty}"
+               TextWrapping="Wrap"
+               Visibility="Collapsed" />
+  </Grid>
+</UserControl>
