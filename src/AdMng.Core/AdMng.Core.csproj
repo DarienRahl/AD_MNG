@@ -7,6 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- U1c: the HTML5 parser of MessageHtmlSanitizer (pure parser, no network or LDAP code). -->
+    <PackageReference Include="AngleSharp" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AdMng.Core.Tests" />
