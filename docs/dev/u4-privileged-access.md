@@ -81,7 +81,13 @@ values is completed by ranged retrieval (the only per-account read, and only the
 nested are followed too (Domain Users in a privileged group gives every user the finding).
 
 **Operator's groups and accounts**: marks in the settings – SID and portable DN (`{domain}`), level, note, nothing else.
-A marked group's members get `MarkedGroup` findings, a marked account `MarkedAccount`.
+A marked group's members get `MarkedGroup` findings, a marked account `MarkedAccount`. A mark matches by its SID; the
+DN is the fallback (a mark without a SID, a builtin SID, or a group recreated in the same domain). The marks are shared
+by the windows of every domain (`docs/dev/multi-window.md` 16), so the DN is used only when the SID's domain part is the
+reviewed domain's SID (or the mark has no domain SID): in a test clone with the same OU layout, a mark made in contoso
+would otherwise mark fabrikam's group of the same name, with the contoso operator's note. A mark of another domain
+still matches by SID (a group of another domain of the forest in the graph). *Oznacz grupy…* takes a mark of another
+domain with the same portable DN for a new one, not a duplicate.
 
 **Filter rules**: a saved filter used as "mark as privileged with level X" for accounts (`ConditionAccount`) or for groups
 (`ConditionGroup`, the members get it through the graph). The server part of the filter runs as one DN-only search per

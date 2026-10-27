@@ -743,7 +743,10 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             RootDomainSid = singleDomainForest ? policy.DomainSid : null,
             LevelOverrides = settings.OverrideMap(),
             Marks = [.. settings.Marks.Select(m => new PrivilegeMark(
-                m.Sid, m.Dn?.Replace(Views.SavedView.DomainPlaceholder, nc, StringComparison.OrdinalIgnoreCase), m.Level, m.Note))],
+                m.Sid,
+                IsOfDomain(m.Sid, policy.DomainSid) ? m.Dn?.Replace(Views.SavedView.DomainPlaceholder, nc, StringComparison.OrdinalIgnoreCase) : null,
+                m.Level,
+                m.Note))],
             Rules = rules,
             IncludeComputers = settings.IncludeComputers,
             IncludeServiceAccounts = settings.IncludeServiceAccounts,
@@ -751,6 +754,23 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
             Peers = settings.Peers,
             PageSize = _services.Settings.Current.PageSize,
         };
+    }
+
+    /// <summary>
+    /// Whether a mark's portable DN may identify its principal in the domain of <paramref name="domainSid"/>: the evaluator
+    /// falls back to the DN when the SID is not in the group graph. The marks are shared by the windows of every domain, so
+    /// the DN of a mark made in another domain (its SID's domain part differs) would name a different principal that only
+    /// happens to have the same name and OU (test/production clones); such a mark matches by its SID only. Marks without
+    /// a domain SID (none, or a builtin one such as S-1-5-32-544) keep their DN.
+    /// </summary>
+    private static bool IsOfDomain(string? sid, string? domainSid) =>
+        DomainPart(sid) is not { } domain || domainSid is null || string.Equals(domain, domainSid, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The domain SID of a domain principal's SID (S-1-5-21-a-b-c-RID); null for none or a builtin/well-known SID.</summary>
+    private static string? DomainPart(string? sid)
+    {
+        var dash = sid?.LastIndexOf('-') ?? -1;
+        return dash > 0 && PrivilegedGroupCatalog.IsDomainSid(sid![..dash]) ? sid[..dash] : null;
     }
 
     // ---- Refresh after changes ---------------------------------------------------------------------------------
@@ -1003,7 +1023,8 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         {
             var sid = objects.TryGetValue(DnKey.For(dn), out var obj) ? obj.ObjectSid : null;
             var portable = Views.SavedView.ToPortableDn(dn, nc);
-            if (Marks.Any(m => (sid is not null && string.Equals(m.Sid, sid, StringComparison.OrdinalIgnoreCase)) || DistinguishedName.AreEqual(m.Dn, portable)))
+            if (Marks.Any(m => (sid is not null && string.Equals(m.Sid, sid, StringComparison.OrdinalIgnoreCase))
+                || (DistinguishedName.AreEqual(m.Dn, portable) && (DomainPart(sid) is not { } domain || IsOfDomain(m.Sid, domain)))))
             {
                 continue;
             }

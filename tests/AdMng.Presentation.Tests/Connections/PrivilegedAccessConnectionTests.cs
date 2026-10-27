@@ -95,6 +95,55 @@ public sealed class PrivilegedAccessConnectionTests
         Assert.Equal(raised.Value, tabOfA.GroupLevels[0].Level.Value);
     }
 
+    [Fact]
+    public async Task AGroupMarkedInOneDomain_DoesNotMarkTheSameNamedGroupOfAnotherDomain_WhichCanBeMarkedThere()
+    {
+        // Two domains with the same OU layout (a test clone) and their own domain SIDs.
+        var contoso = new FakeDirectoryBuilder();
+        var contosoSample = contoso.AddPrivilegedAccessSample(contoso.AddSampleCompany());
+        var fabrikam = new FakeDirectoryBuilder(Fabrikam, domainSid: "S-1-5-21-1004336348-1177238915-682003330");
+        var fabrikamSample = fabrikam.AddPrivilegedAccessSample(fabrikam.AddSampleCompany());
+        await using var host = new ConnectionScopeHost(domains: [contoso.Build(), fabrikam.Build()]);
+        await using var a = host.CreateConnection();
+        await using var b = host.CreateConnection();
+        await a.ConnectAsync(user: "jan.kowalski");
+        await b.ConnectAsync(Fabrikam, "anna.zielińska");
+        var settings = host.Provider.GetRequiredService<ISettingsStore>();
+
+        // Contoso marks its payroll group.
+        using var reviewOfA = await RunAsync(a);
+        a.Dialogs.PickedObjects.Enqueue([contosoSample.Payroll]);
+        await reviewOfA.Privileges.MarkGroupCommand.ExecuteAsync(null);
+        reviewOfA.Privileges.Marks[0].Note = "Płace contoso";
+        await reviewOfA.RunCommand.ExecuteAsync(null);
+        Assert.Contains(MarkedGroupNotes(reviewOfA.Privileges, "Dorota Łukasiewicz"), n => n == "Płace contoso");
+
+        // The fabrikam window: the mark's SID is contoso's, so its DN does not name fabrikam's group of the same name.
+        using var reviewOfB = await RunAsync(b);
+        Assert.Null(reviewOfB.Privileges.Error);
+        Assert.Empty(MarkedGroupNotes(reviewOfB.Privileges, "Dorota Łukasiewicz"));
+
+        // Fabrikam marks its own group: a second mark (not taken for the contoso one), which its members get.
+        b.Dialogs.PickedObjects.Enqueue([fabrikamSample.Payroll]);
+        await reviewOfB.Privileges.MarkGroupCommand.ExecuteAsync(null);
+        var marks = settings.Current.AccountReview.Privileges.Marks;
+        Assert.Equal(2, marks.Count);
+        Assert.Equal(marks[0].Dn, marks[1].Dn);
+        Assert.StartsWith("S-1-5-21-1004336348-1177238915-682003330-", marks[1].Sid, StringComparison.Ordinal);
+        reviewOfB.Privileges.Marks[1].Note = "Płace fabrikam";
+        await reviewOfB.RunCommand.ExecuteAsync(null);
+        Assert.Equal(["Płace fabrikam"], MarkedGroupNotes(reviewOfB.Privileges, "Dorota Łukasiewicz"));
+
+        // Marking contoso's group again is still recognised as a duplicate.
+        a.Dialogs.PickedObjects.Enqueue([contosoSample.Payroll]);
+        await reviewOfA.Privileges.MarkGroupCommand.ExecuteAsync(null);
+        Assert.Equal(2, settings.Current.AccountReview.Privileges.Marks.Count);
+    }
+
+    private static List<string?> MarkedGroupNotes(PrivilegedAccessViewModel tab, string name) =>
+        [.. tab.Items.Where(r => r.Name == name).SelectMany(r => r.Facts.Findings)
+            .Where(f => f.Kind == PrivilegeFindingKind.MarkedGroup).Select(f => f.Note)];
+
     private static async Task<AccountReviewViewModel> RunAsync(TestConnection window)
     {
         var review = window.Get<IDialogViewModelFactory>().CreateAccountReview();
