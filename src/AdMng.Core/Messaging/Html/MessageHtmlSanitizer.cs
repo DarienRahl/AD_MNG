@@ -446,7 +446,39 @@ internal sealed partial class HtmlSanitizerRun
             }
         }
 
+        // Text too small to read hides it (font-size:0.1px, font:1px Arial); an empty spacer paragraph of 1pt stays.
+        if (CssValues.FontSizePixels(kept) < CssValues.MinReadableFontPixels && HasTextOfItsSize(element))
+        {
+            kept.Remove("font-size");
+            kept.Remove("font");
+            _changes.Add(new HtmlChange(HtmlChangeKind.RemovedStyle, true, "font-size"));
+        }
+
         SetStyle(element, kept);
+    }
+
+    /// <summary>True when the element has visible text in its own font size: text below it that no element with its own
+    /// <c>font</c> or <c>font-size</c> encloses.</summary>
+    private static bool HasTextOfItsSize(IElement element)
+    {
+        var stack = new Stack<INode>(element.ChildNodes);
+        while (stack.Count > 0)
+        {
+            switch (stack.Pop())
+            {
+                case IText text when text.Data.Any(c => !char.IsWhiteSpace(c)):
+                    return true;
+                case IElement child when !CssParser.ParseDeclarations(child.GetAttribute("style")).Any(d => d.Property is "font" or "font-size"):
+                    foreach (var node in child.ChildNodes)
+                    {
+                        stack.Push(node);
+                    }
+
+                    break;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Writes declarations in the fixed order of <see cref="HtmlPolicy.CssProperties"/> (or removes the attribute).</summary>

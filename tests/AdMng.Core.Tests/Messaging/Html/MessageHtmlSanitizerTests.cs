@@ -205,6 +205,43 @@ public class MessageHtmlSanitizerTests
     }
 
     [Theory]
+    [InlineData("text-indent:-9999px", "text-indent:-1in")]
+    [InlineData("text-indent:-500em", "text-indent:-1in")]
+    [InlineData("text-indent:-100%", "text-indent:-1in")]
+    [InlineData("letter-spacing:-100px", "letter-spacing:-2px")]
+    [InlineData("letter-spacing:-1em", "letter-spacing:-2px")]
+    public void TextMovedOrSqueezedOutOfSight_IsClamped(string style, string expected)
+    {
+        var result = MessageHtmlSanitizer.Sanitize($"<p style='{style}'>Zażółć gęślą jaźń</p>", Fragment);
+        Assert.Equal($"<p style=\"{expected}\">Zażółć gęślą jaźń</p>", result.Html.TrimEnd('\n'));
+        Assert.DoesNotContain(result.Changes, c => c.IsSecurity);
+    }
+
+    [Theory]
+    [InlineData("<span style='font-size:0.1px'>ukryte</span>")]
+    [InlineData("<span style='font-size:2pt'>ukryte</span>")]
+    [InlineData("<span style='font-size:0.1em'>ukryte</span>")]
+    [InlineData("<span style='font:1px Arial'>ukryte</span>")]
+    [InlineData("<div style='font-size:1px;line-height:0'><span>ukryte</span></div>")]
+    public void TextTooSmallToRead_IsASecurityFinding(string html)
+    {
+        var result = MessageHtmlSanitizer.Sanitize("<p>widoczne " + html + "</p>", Fragment);
+        Assert.Contains(result.Changes, c => c.Kind == HtmlChangeKind.RemovedStyle && c.Detail == "font-size" && c.IsSecurity);
+        Assert.Contains(MessageHtmlSanitizer.Validate("<p>widoczne " + html + "</p>", Fragment), f => f.Kind == HtmlChangeKind.RemovedStyle);
+    }
+
+    [Theory]
+    [InlineData("<p style=\"font-size:1pt\">&nbsp;</p>")]
+    [InlineData("<div style=\"font-size:1pt\"><p style=\"font-size:11pt\">Tekst</p>\n</div>")]
+    [InlineData("<span style=\"font-size:xx-small\">mały</span>")]
+    public void SmallFontsWithoutHiddenText_Stay(string html)
+    {
+        var result = MessageHtmlSanitizer.Sanitize(html, Fragment);
+        Assert.Equal(html, result.Html.TrimEnd('\n'));
+        Assert.DoesNotContain(result.Changes, c => c.IsSecurity);
+    }
+
+    [Theory]
     [InlineData("<p style='display:none'>ukryte</p>")]
     [InlineData("<p style='mso-hide:all'>ukryte</p>")]
     [InlineData("<style>.u{display:none}</style><p class=u>ukryte</p>")]

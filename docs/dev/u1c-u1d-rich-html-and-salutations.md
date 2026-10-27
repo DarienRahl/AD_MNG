@@ -282,7 +282,7 @@ Numeric attributes: digits (and `%` for widths), ≤ 5 digits; colours: `#rgb`, 
 | Allowed properties | Value rules |
 |---|---|
 | `color background-color` | colour: `#hex`, `rgb()/rgba()` with numbers, CSS names; `windowtext` → `#000000`, `window` → `#FFFFFF`; `auto` dropped |
-| `font font-family font-size font-style font-weight font-variant line-height letter-spacing word-spacing text-transform text-indent text-align vertical-align white-space direction` | keywords, lengths (`px pt em rem % cm mm in`, ≥ 0 except `text-indent` and `letter-spacing`), family names as identifiers or strings (re-serialized with single quotes) |
+| `font font-family font-size font-style font-weight font-variant line-height letter-spacing word-spacing text-transform text-indent text-align vertical-align white-space direction` | keywords, lengths (`px pt em rem % cm mm in`, ≥ 0 except `text-indent` and `letter-spacing`, clamped to −1in and −2px), family names as identifiers or strings (re-serialized with single quotes); a font size below 4px on an element with text of that size is a security finding (an empty 1pt spacer paragraph stays) |
 | `text-decoration text-decoration-line text-decoration-style text-decoration-color` | keywords, colour |
 | `margin padding` and their `-top/-right/-bottom/-left` | lengths ≥ 0 (**no negative margins** – they can pull content over the fixed footer) |
 | `border` and every `border-*` longhand, `border-collapse border-spacing border-radius` | lengths ≥ 0, styles, colours |

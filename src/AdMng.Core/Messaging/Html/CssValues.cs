@@ -19,7 +19,8 @@ internal enum CssVerdict
 /// <summary>
 /// Value rules of the allowed CSS properties (design note section 4.3): colours (<c>#hex</c>, <c>rgb()</c>/<c>rgba()</c>
 /// with numbers, CSS names; <c>windowtext</c> → <c>#000000</c>, <c>window</c> → <c>#FFFFFF</c>), lengths in
-/// <c>px pt em rem % cm mm in</c> (≥ 0 except <c>text-indent</c> and <c>letter-spacing</c>; no negative margins), keywords,
+/// <c>px pt em rem % cm mm in</c> (≥ 0 except <c>text-indent</c> and <c>letter-spacing</c>, which are clamped to −1in and
+/// −2px – further they move or squeeze text out of sight; no negative margins), keywords,
 /// font families as identifiers or strings (re-serialized with single quotes). Numbers are re-serialized invariantly
 /// (<c>12.0pt</c> → <c>12pt</c>, <c>.5in</c> → <c>0.5in</c>), keywords in lower case. Anything containing <c>url(</c>,
 /// <c>expression(</c>, <c>\</c>, <c>/*</c>, <c>@</c>, <c>&lt;</c>, <c>javascript:</c> or a control character is dropped,
@@ -27,6 +28,14 @@ internal enum CssVerdict
 /// </summary>
 internal static class CssValues
 {
+    /// <summary>Text smaller than this (in px) cannot be read: hiding it is a security finding (the sanitizer checks
+    /// elements with text, so Outlook's 1pt spacer paragraphs stay).</summary>
+    public const double MinReadableFontPixels = 4;
+
+    /// <summary>The CSS pixels of a unit (<c>%</c> is the caller's base; <c>em</c>/<c>rem</c> at the default 16px).</summary>
+    private static readonly (string Unit, double Pixels)[] UnitPixels =
+        [("px", 1), ("pt", 96d / 72), ("rem", 16), ("em", 16), ("cm", 96 / 2.54), ("mm", 96 / 25.4), ("in", 96)];
+
     private static readonly HashSet<string> AllowedProperties = new(HtmlPolicy.CssProperties, StringComparer.Ordinal);
 
     /// <summary>Properties whose presence is a security finding whatever the value (they hide, overlay or bind code).</summary>
@@ -132,9 +141,9 @@ internal static class CssValues
             "font" => Font(raw),
             "font-size" => FontSize(raw),
             "line-height" => LineHeight(raw),
-            "letter-spacing" => raw.Equals("normal", StringComparison.OrdinalIgnoreCase) ? "normal" : Length(raw, allowNegative: true),
+            "letter-spacing" => raw.Equals("normal", StringComparison.OrdinalIgnoreCase) ? "normal" : AtLeast(Length(raw, allowNegative: true), -2, "-2px", 0.16),
             "word-spacing" => raw.Equals("normal", StringComparison.OrdinalIgnoreCase) ? "normal" : Length(raw, allowNegative: false),
-            "text-indent" => Length(raw, allowNegative: true),
+            "text-indent" => AtLeast(Length(raw, allowNegative: true), -96, "-1in", 6),
             "vertical-align" => VerticalAligns.Contains(raw) ? raw.ToLowerInvariant() : Length(raw, allowNegative: false),
             "text-decoration" => TextDecoration(raw),
             "text-decoration-line" => Repeat(raw, 3, t => DecorationLines.Contains(t) ? t.ToLowerInvariant() : null),
@@ -252,6 +261,48 @@ internal static class CssValues
 
         return Number(v) is "0" or "-0" ? "0" : null;
     }
+
+    /// <summary>The CSS pixels of a normalized length (<paramref name="percentBase"/> pixels per <c>%</c>), or null.</summary>
+    public static double? Pixels(string length, double percentBase)
+    {
+        var v = length.Trim().ToLowerInvariant();
+        if (v.EndsWith('%'))
+        {
+            return Parse(v[..^1]) * percentBase;
+        }
+
+        foreach (var (unit, pixels) in UnitPixels)
+        {
+            if (v.EndsWith(unit, StringComparison.Ordinal))
+            {
+                return Parse(v[..^unit.Length]) * pixels;
+            }
+        }
+
+        return Parse(v) is 0 ? 0 : null;
+
+        static double? Parse(string number) =>
+            double.TryParse(number, NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
+
+    /// <summary>The font size of filtered declarations in pixels (<c>font-size</c>, else the size of the <c>font</c>
+    /// shorthand; a keyword such as <c>small</c> is readable), or null.</summary>
+    public static double? FontSizePixels(IReadOnlyDictionary<string, string> declarations)
+    {
+        if (declarations.TryGetValue("font-size", out var size))
+        {
+            return Pixels(size, 0.16);
+        }
+
+        return declarations.TryGetValue("font", out var font)
+            ? font.Split(' ', StringSplitOptions.RemoveEmptyEntries).Where(t => char.IsAsciiDigit(t[0]) || t[0] == '.')
+                .Select(t => Pixels(t.Split('/')[0], 0.16)).FirstOrDefault(p => p is not null)
+            : null;
+    }
+
+    /// <summary>A length, or <paramref name="floor"/> when it is below <paramref name="minimumPixels"/>.</summary>
+    private static string? AtLeast(string? length, double minimumPixels, string floor, double percentBase) =>
+        length is not null && Pixels(length, percentBase) < minimumPixels ? floor : length;
 
     /// <summary>A plain number normalized ("12.0" → "12", ".5" → "0.5"), or null.</summary>
     public static string? Number(string value)
