@@ -52,6 +52,97 @@ public static class FakeSecurityDescriptor
         return result;
     }
 
+    /// <summary>
+    /// What AD stores when <paramref name="written"/> is written with the SD flags control <paramref name="flags"/>: the
+    /// named parts (owner, group, DACL, SACL – with their control bits) come from <paramref name="written"/>, the others
+    /// stay as in <paramref name="stored"/> (null = the object had no descriptor). Null when a descriptor is malformed or
+    /// a named part is missing from <paramref name="written"/>.
+    /// </summary>
+    public static byte[]? Merge(byte[]? stored, byte[] written, SecurityDescriptorRights flags)
+    {
+        ArgumentNullException.ThrowIfNull(written);
+        if (!TrySplit(written, out var newParts) || (stored is not null && !TrySplit(stored, out _)))
+        {
+            return null;
+        }
+
+        var oldParts = stored is not null && TrySplit(stored, out var parsed) ? parsed : new Parts(0, null, null, null, null);
+        Parts Pick(SecurityDescriptorRights part) => flags.HasFlag(part) ? newParts : oldParts;
+        var owner = Pick(SecurityDescriptorRights.Owner).Owner;
+        var group = Pick(SecurityDescriptorRights.Group).Group;
+        var daclSource = Pick(SecurityDescriptorRights.Dacl);
+        var saclSource = Pick(SecurityDescriptorRights.Sacl);
+        if ((flags.HasFlag(SecurityDescriptorRights.Owner) && owner is null) || (flags.HasFlag(SecurityDescriptorRights.Dacl) && daclSource.Dacl is null))
+        {
+            return null;
+        }
+
+        const ushort DaclBits = 0x0004 | 0x0008 | 0x0100 | 0x0400 | 0x1000;
+        const ushort SaclBits = 0x0010 | 0x0020 | 0x0200 | 0x0800 | 0x2000;
+        var control = (ushort)(SelfRelative | (daclSource.Control & DaclBits) | (saclSource.Control & SaclBits));
+        var length = 20 + (owner?.Length ?? 0) + (group?.Length ?? 0) + (saclSource.Sacl?.Length ?? 0) + (daclSource.Dacl?.Length ?? 0);
+        var result = new byte[length];
+        result[0] = 1;
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(2), control);
+        var offset = 20;
+        offset = Put(result, owner, 4, offset);
+        offset = Put(result, group, 8, offset);
+        offset = Put(result, saclSource.Sacl, 12, offset);
+        Put(result, daclSource.Dacl, 16, offset);
+        return result;
+    }
+
+    private static int Put(byte[] target, byte[]? part, int field, int offset)
+    {
+        if (part is null)
+        {
+            return offset;
+        }
+
+        BinaryPrimitives.WriteInt32LittleEndian(target.AsSpan(field), offset);
+        part.CopyTo(target, offset);
+        return offset + part.Length;
+    }
+
+    private static byte[]? ReadSid(byte[] descriptor, int field)
+    {
+        var offset = BinaryPrimitives.ReadInt32LittleEndian(descriptor.AsSpan(field));
+        if (offset <= 0 || offset + 8 > descriptor.Length)
+        {
+            return null;
+        }
+
+        var length = 8 + (descriptor[offset + 1] * 4);
+        return offset + length <= descriptor.Length ? descriptor.AsSpan(offset, length).ToArray() : null;
+    }
+
+    private static byte[]? ReadAcl(byte[] descriptor, int field, ushort control, ushort presentBit)
+    {
+        var offset = BinaryPrimitives.ReadInt32LittleEndian(descriptor.AsSpan(field));
+        if ((control & presentBit) == 0 || offset <= 0 || offset + 8 > descriptor.Length)
+        {
+            return null;
+        }
+
+        var size = BinaryPrimitives.ReadUInt16LittleEndian(descriptor.AsSpan(offset + 2));
+        return size >= 8 && offset + size <= descriptor.Length ? descriptor.AsSpan(offset, size).ToArray() : null;
+    }
+
+    private static bool TrySplit(byte[] descriptor, out Parts parts)
+    {
+        parts = new Parts(0, null, null, null, null);
+        if (descriptor.Length < 20 || descriptor[0] != 1)
+        {
+            return false;
+        }
+
+        var control = BinaryPrimitives.ReadUInt16LittleEndian(descriptor.AsSpan(2));
+        parts = new Parts(control, ReadSid(descriptor, 4), ReadSid(descriptor, 8), ReadAcl(descriptor, 12, control, 0x0010), ReadAcl(descriptor, 16, control, DaclPresent));
+        return true;
+    }
+
+    private sealed record Parts(ushort Control, byte[]? Owner, byte[]? Group, byte[]? Sacl, byte[]? Dacl);
+
     private static byte[] EncodeAce(FakeAce ace)
     {
         var sid = AdConvert.SidToBytes(ace.Sid);

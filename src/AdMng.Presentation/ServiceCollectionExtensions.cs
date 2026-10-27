@@ -8,6 +8,7 @@ using AdMng.Core.Security;
 using AdMng.Core.Templates;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Computers;
 using AdMng.Presentation.Connection;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
@@ -61,6 +62,7 @@ public static class ServiceCollectionExtensions
 
         // Saved filters (U4) are shared settings like saved views: one library for every connection window.
         services.TryAddSingleton<Filters.FilterLibrary>();
+        services.AddAdMngComputers();
 
         // Grant sources of the privileged access review beyond the groups and settings (README U4b: ACL delegations).
         // Application-wide and stateless: a source reads only through the session of the scan context, i.e. the session of

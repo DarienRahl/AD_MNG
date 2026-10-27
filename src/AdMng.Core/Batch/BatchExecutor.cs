@@ -112,7 +112,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled);
 
     /// <summary>State of one execution.</summary>
-    private sealed class Run
+    private sealed partial class Run
     {
         private readonly BatchExecutor _owner;
         private readonly IDirectorySession _session;
@@ -452,6 +452,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     // noSuchObject on a retry: the attempt that timed out restored it (the deleted object is gone and the
                     // object at the target DN is this one, not somebody else's object with the same name).
                     return ToOutcome(change, await ConfirmRestoreAsync(restored, targetDn, objectPlan.ObjectGuid).ConfigureAwait(false), newDn: true);
+                case ChangeAction.ModifySecurity:
+                    return await ModifySecurityAsync(change, dn).ConfigureAwait(false);
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
@@ -853,6 +855,16 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     // DN in CN=Deleted Objects, new value = the DN the object got back.
                     var restoredDn = outcome.NewDn ?? change.TargetDn ?? dn;
                     Record(change.Action, new AuditEntry(now, info.BoundIdentity, info.Server, restoredDn, change.Action.ToString(), null, dn, restoredDn, succeeded, error));
+                    break;
+                case ChangeAction.ModifySecurity:
+                    // The ACEs (rights and trustee SIDs, no names): old value = removed, new value = added. A succeeded step
+                    // records what changed the DACL, not an ACE that was already there; a failed one what it tried.
+                    var acl = outcome.Result.AppliedAcl ?? change.Acl;
+                    Record(change.Action, Entry(
+                        change.Action.ToString(),
+                        Attr.NtSecurityDescriptor,
+                        Join([.. acl?.Removed.Select(a => a.Describe()) ?? []]),
+                        Join([.. acl?.Added.Select(a => a.Describe()) ?? []])));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).

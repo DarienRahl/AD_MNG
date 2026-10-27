@@ -99,8 +99,9 @@ only string values and the session cannot send the SD flags control on a modify.
   `nTSecurityDescriptor` with the SD flags control `DACL_SECURITY_INFORMATION` (4), applies the delta and writes the
   result with the same control (`ModifyOptions.SecurityDescriptorFlags`, new; `LdapDirectorySession` adds the
   `SecurityDescriptorFlagControl`; `FakeDirectorySession` honours it). There is no compare-and-swap for descriptors:
-  the delta is re-applied on the fresh DACL, so concurrent unrelated ACL changes are kept. Rollback = the inverse delta
-  (added ↔ removed). PowerShell: `$acl = Get-Acl -Path "AD:$dn"`, one `ActiveDirectoryAccessRule` per ACE with
+  the delta is re-applied on the fresh DACL, so concurrent unrelated ACL changes are kept. Audit and rollback use the
+  part of the delta that changed the DACL at execution (`ChangeResult.AppliedAcl`): an ACE another administrator added
+  meanwhile is neither claimed nor removed. Rollback = the inverse of that (added ↔ removed). PowerShell: `$acl = Get-Acl -Path "AD:$dn"`, one `ActiveDirectoryAccessRule` per ACE with
   `AddAccessRule` / `RemoveAccessRuleSpecific`, `Set-Acl` – with `-Server` through `New-PSDrive` pinned to the plan's DC
   (the `AD:` drive of the ActiveDirectory module). The preview shows one row per ACE: trustee name, right names
   (`SecurityDescriptorSummary.KnownRightName`, the U4b right texts), *dodane* / *usunięte*.
@@ -269,8 +270,9 @@ bits (`GpoVersion.FromInt32` / `ToInt32`). Rules:
 
 * `ComputerType` (Core/Computers): `Workstation`, `Server`, `DomainController`, `ReadOnlyDomainController`, `Unknown`.
   `ComputerClassifier`: UAC `SERVER_TRUST_ACCOUNT` (8192) → DC, `PARTIAL_SECRETS_ACCOUNT` (67108864) → RODC (primary
-  group 516/521 as a second signal), `operatingSystem` containing "Server" → server, a Windows client string or build →
-  workstation, no `operatingSystem` → unknown (prestaged and never joined, or a non-Windows system that set nothing).
+  group 516/521 as a second signal), `operatingSystem` containing "Server" (or "Azure Stack HCI" / "Azure Local") →
+  server, a Windows client string or build → workstation, no `operatingSystem` → unknown (prestaged and never joined, a
+  cluster name object, or a non-Windows system that set nothing).
   Mapping to U4c's `ComputerRole` for shared code; `ComputerRole` itself is not changed.
 * `ComputerFacts`: DN, name, `dNSHostName`, `sAMAccountName`, SID, type, enabled, `operatingSystem`,
   `operatingSystemVersion` (`"10.0 (26100)"` → major, minor, build), `operatingSystemServicePack`,
@@ -280,8 +282,11 @@ bits (`GpoVersion.FromInt32` / `ToInt32`). Rules:
 * `WindowsReleaseCatalog` (built-in table, `ValidAsOf` date) → `WindowsReleaseMatch(Release?, EditionClass,
   EndOfSupport?, SupportState)`. The build decides the release – **not** the product string: early Windows 11 builds
   wrote "Windows 10 …" into `operatingSystem`, so build ≥ 22000 on a client string is Windows 11. The product string
-  decides the family (Server) and the edition class (`HomePro`, `EnterpriseEducation`, `Ltsc`, `IotLtsc`, `Server`),
-  because end dates differ by edition. `SupportState`: `Supported`, `EndingSoon` (≤ N days, default 90), `Ended`,
+  decides the family (Server) and the edition class (`HomePro`, `EnterpriseEducation`, `Ltsc`, `IotLtsc`, `Server`,
+  `AzureLocal`), because end dates differ by edition. Strings without "Windows" that are Windows Server based count as
+  Windows: "Hyper-V Server" (class `Server`, the dates of the Server release of its build) and "Azure Stack HCI" /
+  "Azure Local" (class `AzureLocal`, its own end of service per version: 20H2 2022-12-13, 21H2 2023-11-14, 22H2
+  2025-05-31; 23H2 and 24H2 per solution version, so no date). `SupportState`: `Supported`, `EndingSoon` (≤ N days, default 90), `Ended`,
   `Unknown` (build not in the catalogue), `NotWindows`. Operator overrides in the settings (build + edition class →
   date, e.g. bought ESU for Windows 10) win. The window shows *Katalog wersji z dnia …* and a warning when it is older
   than 9 months. Orientation rows (the implementer re-checks every date against Microsoft Lifecycle when filling the
@@ -365,7 +370,7 @@ whole list where it makes sense; every change through `IChangeCoordinator`):
 | *Właściwości*, *Edycja zbiorcza…*, *Eksportuj CSV…* | as U2 (CSV: file chosen by the operator, regional separator, formula protection, DN column) |
 | *Dokładne ostatnie logowanie*, *Ustal lokację* | 4.2, 4.4 |
 | *Zdalne akcje…*, *Pulpit zdalny*, *Ping* | 4.7, 4.8 |
-| *Wyłącz…*, *Przenieś…*, *Usuń…*, *Resetuj konto…* | 4.6 (batch preview above the threshold, typed confirmation naming the domain) |
+| *Wyłącz…*, *Przenieś…*, *Usuń…*, *Resetuj konto…* | 4.6 (batch preview above the threshold, typed confirmation naming the domain; the reset never opens the batch editor – it would offer the machine passwords for export – so its typed confirmation names the accounts, the first 20 and how many more) |
 | *Ustaw właściciela…* | `SetValuesOperation(managedBy, [dn])` from the object picker |
 
 After every published change the affected rows are read again (debounced), as U2.
@@ -379,8 +384,9 @@ support state; *Ogólne* adds the type; a new page *Stan* (last logon approximat
 `tools:remote:<DN>`): header (computer, DNS name, *Połączenie: WinRM, Kerberos jako CONTOSO\admin*), *Stan* (ping,
 WinRM reachable, OS from CIM with UBR and last boot), *Zalogowani użytkownicy*, *Usługi* (filter *automatyczne,
 zatrzymane*), actions *Odśwież zasady grupy*, *Uruchom ponownie…* (dialog `RestartComputerViewModel`: delay 0–1 440
-min, default 10; message up to 500 characters, default text from the resources; *zamknij aplikacje bez pytania*; for a
-server or DC a typed confirmation of the computer name), *Anuluj zaplanowane ponowne uruchomienie*, the tool launchers,
+min, default 10; message up to 500 characters, default text from the resources; *zamknij aplikacje bez pytania*; for
+everything but a known workstation – server, DC, unknown type such as a cluster name object – a typed confirmation of
+the computer name), *Anuluj zaplanowane ponowne uruchomienie*, the tool launchers,
 and the in-memory action log of the window.
 
 **Entry points**: object list context menu and *Akcja* menu, submenu *Komputer* (`computer.remote`,
@@ -473,17 +479,18 @@ the calls. Nothing runs on the UI thread.
 | System | `Win32_OperatingSystem` (`Caption`, `Version`, `BuildNumber`, `LastBootUpTime`), UBR via `StdRegProv.GetDWORDValue` `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion!UBR` | the patch level AD does not have |
 | Logged-on users | `Win32_ComputerSystem.UserName` (console) + `Win32_Process WHERE Name='explorer.exe'` → `GetOwner` (domain, user), `SessionId`, `CreationDate` | console vs other sessions; disconnected RDP sessions still show (CIM has no session state – stated in the UI) |
 | Services | `Win32_Service` `Name DisplayName State StartMode DelayedAutoStart StartName` | read only (start/stop is a non-goal of K1) |
-| Refresh policy (computer) | `Win32_Process.Create` with the constant `gpupdate.exe /target:computer /force /wait:0`, then poll the process until it exits (≤ 10 min) and read `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Extension-List\{00000000-0000-0000-0000-000000000000}` (end time, status) | result *zakończone o …* / *trwa*; no output captured |
-| Refresh policy (users) | one-time scheduled task through `root/Microsoft/Windows/TaskScheduler` `PS_ScheduledTask` (`RegisterByXml`): principal group `S-1-5-4` (INTERACTIVE), action `gpupdate.exe /target:user /force`, start now + random 0–60 s, deleted after run – what `Invoke-GPUpdate` does | setting `RefreshUserPolicy`, off until the pilot confirms it |
+| Refresh policy (computer) | `Win32_Process.Create` with the constant `gpupdate.exe /target:computer /force /wait:0`, which returns at once while the Group Policy service keeps processing – so not the process but `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Group Policy\State\Machine\Extension-List\{00000000-0000-0000-0000-000000000000}` is watched: end time (`EndTimeHi/Lo`) read before the launch, then polled until it is later (≤ 10 min), then status. Not the default `/wait`: gpupdate could block on a restart/logoff prompt in session 0 | result *zakończone o …* / *trwa*; no output captured |
+| Refresh policy (users) | one-time scheduled task through `root/Microsoft/Windows/TaskScheduler` `PS_ScheduledTask` (`RegisterByXml`): principal group `S-1-5-4` (INTERACTIVE), action `gpupdate.exe /target:user /force`, registration trigger with a 5 s delay (not a time trigger: the workstation's "now + 5 s" can already be past on a computer whose clock runs ahead, and the task would never start), expires after 10 min and is deleted – what `Invoke-GPUpdate` does | setting `RefreshUserPolicy`, off until the pilot confirms it |
 | Restart | `Win32_OperatingSystem.Win32ShutdownTracker(Timeout = delay s, Comment = message, ReasonCode = 0x80000000 (planned, other), Flags = 2 reboot (+4 force))` | the message is shown to the logged-on users; always confirmed |
-| Abort restart | `Win32_Process.Create` with the constant `shutdown.exe /a` | – |
+| Abort restart | `Win32_Process.Create` with the constant `shutdown.exe /a` | its exit code is not observed: the result says *cancellation requested*, not confirmed |
 
 **Rights** (all with the window's account on the target): WinRM itself admits local *Administrators* and *Remote
 Management Users*; `root\cimv2` remote access, `GetOwner` of other users' processes, `Win32_Process.Create` and the
 shutdown privilege need **local Administrators** (on DCs: Domain Admins). The window says so when it gets
 `AccessDenied`. Prerequisite on the computers (K1's Polish doc `docs/KOMPUTERY.md`, with a GPO recipe): service
 *Windows Remote Management* automatic, *Zezwalaj na zdalne zarządzanie serwerem przy użyciu usługi WinRM* (listener
-filter), firewall rule *Windows Remote Management (HTTP-In)* limited to the admin subnet.
+filter `*`: it selects the computer's own addresses WinRM listens on, not the clients), firewall rule *Windows Remote
+Management (HTTP-In)* with its remote addresses (scope) limited to the admin subnet.
 
 **Equivalents and audit.** Each action records an `AuditEntry` (`Action = "Remote.Restart"` etc., DN = the computer,
 `Server` = its DNS name, the delay/forced flag as the new value; the message text is not recorded) and a PowerShell
@@ -502,7 +509,8 @@ Win32ShutdownTracker -Arguments @{ Timeout = 600; Comment = '…'; ReasonCode = 
 * **Pulpit zdalny** – `mstsc.exe /v:<dns name>`; **no credential is passed** (no `cmdkey`, nothing in Credential
   Manager – rule 2); mstsc uses the operator's saved credentials or asks.
 * **Zarządzanie komputerem**, **Podgląd zdarzeń** – `mmc.exe compmgmt.msc /computer:<host>`, `eventvwr.exe <host>`.
-  A Windows-account window starts them directly. Otherwise `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)` (what
+  A Windows-account window starts them directly (CreateProcess with `__COMPAT_LAYER=RunAsInvoker`: CreateProcess cannot
+  elevate mmc's `highestAvailable` or the auto-elevating eventvwr and fails with 740 for a local administrator). Otherwise `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)` (what
   `runas /netonly` does): the local identity stays, network access uses the window's credential; the password goes in
   a zeroed unmanaged buffer; the child gets `__COMPAT_LAYER=RunAsInvoker` (mmc would otherwise ask for elevation, which
   `CreateProcessWithLogonW` cannot satisfy – remote management needs none). The credential then lives in the LSA logon
@@ -975,7 +983,40 @@ window's session log.
 
 ## 14. K1 as built
 
-(Filled in by the K1 implementer.)
+Branch `feature/k1-computers`, October 2026. Everything of section 4 is built; the milestones are the commits
+`K1.1` (tag `k1.1-acl`) … `K1.5`. Deviations and additions, so that K2 and the merge know them:
+
+* **Catalogue.** Windows Server 2025 ends **2034-11-14** (the table in 4.1 said 2034-10-10). The dates were set with
+  `ValidAsOf` 2026-10-27; the sandbox had no access to the Microsoft Lifecycle pages, so the pilot must compare the
+  table once more (the window warns after 9 months anyway). Builds 28000 (26H1) and 25398 (Server 23H2) were added.
+* **Shared files beyond 11.2 (all additive, K2 does not touch them):** `Core/Batch/BatchReportExporter.cs` (machine
+  passwords of computer objects are never written to a report, K1.3); `Shell/ShellViewModel.Commands.cs`
+  (`.. ComputerStateCommands` in the state refresh list); `AdMng.App.csproj` (reference to `AdMng.Remote`);
+  `Views/PropertiesWindow.xaml` (the template of the *Stan* page, before the `AttributeEditorPageViewModel` template, and an
+  `xmlns:cv`); `Views/MainWindow.xaml` also gets the *Zdalne akcje…* button in the details pane's quick actions (after
+  `object.move`, visible for computers) – the entry point of 4.5; tests: `AccountReviewTestSupport.cs`,
+  `PropertySheetTests.cs` (the *Stan* page in the computer's page list), `ServiceRegistrationTests.cs`, `SettingsTests.cs`.
+  New K1 test helpers: `tests/AdMng.Testing/FakeSecurityDescriptor.cs`, `tests/AdMng.App.UiTests/Computers/**`.
+* **Settings.** `ComputerSettingsViewModel` (Presentation/Computers) is the *Komputery* tab: WinRM options, restart
+  defaults, the end-of-support horizon (also editable in the review), expected containers of workstations and servers
+  (one portable DN per line, validated) and the operator's end-of-support dates. Rules for other types stay as stored.
+* **UI tests.** `UiTestContext` replaces the four remote services with the `AdMng.Testing` fakes **after** the test's
+  `configure` (a test that registered an instance keeps it). `TestDialogService` (object dialog tests) does not implement
+  `IComputerDialogs`; the screenshot test builds its review through `ComputerUiSupport.FactoryWithComputerDialogs` (the real
+  `DialogService`) instead of changing that shared helper. Screenshot `22-computers.png`: the end-of-support tile with
+  `LOD-PC107` selected; it does not pin the clock (Windows 7 and Server 2012 R2 stay "ended" on any day).
+* **Not built (left for later):** the optional *Właściciel obiektu* column of the review (the owner is shown on the
+  *Stan* page only); the Windows CI loopback test of `CimRemoteComputerClient` through a Negotiate test hook (the client
+  is Kerberos-only and has no such hook – it is covered by the pilot); remote service start/stop (non-goal, question 3).
+* **Lab tests** (`ComputerLabTests`, Samba 4.19): inventory of `OU=Firma` equals `ldapsearch` (password on stdin);
+  `lastLogon` on the lab DC; a run site `K1T-<run>` with the subnet `10.250.<n>.0/24` (description `K1T …`) resolved by
+  `SiteTopology`/`ComputerSites`, both removed in `finally`; prestage plan (create + four ACEs for `helpdesk.test`) read
+  back; reset computer account over LDAPS; disable, move, delete through the planner and `DomainControllerAccount` for the
+  lab DC. Objects live in `OU=K1T-…` below the run OU.
+* **Still to confirm on Windows (pilot, section 12):** CIM with Kerberos and an explicit credential of another account,
+  `Win32ShutdownTracker` with message and delay, the user policy refresh task (`RefreshUserPolicy`, off by default),
+  `CreateProcessWithLogonW` + `RunAsInvoker` for mmc, KB5020276 reuse with prestaged accounts, the inventory against
+  `Get-ADComputer`, the catalogue dates, and every WPF window of K1 (UI tests and the smoke test run on Windows CI only).
 
 ## 15. K2 as built
 

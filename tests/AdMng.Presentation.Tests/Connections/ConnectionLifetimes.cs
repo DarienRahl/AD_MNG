@@ -37,6 +37,8 @@ internal static class ConnectionLifetimes
         typeof(UserMessageServices),
         typeof(WatchdogServices),
         typeof(WatchdogObjectHistoryLauncher),
+        typeof(Presentation.Computers.ComputerViewModelFactory),
+        typeof(Presentation.Computers.ComputerActions),
         typeof(Func<WatchdogDocumentViewModel>),
         typeof(ConnectionContext),
         typeof(ShellViewModel),
@@ -52,5 +54,6 @@ internal static class ConnectionLifetimes
         typeof(SmtpCredentialCache),
         typeof(WatchdogConnectionService),
         typeof(ConnectionRegistry),
+        typeof(Core.Computers.WindowsReleaseCatalog),
     ];
 }

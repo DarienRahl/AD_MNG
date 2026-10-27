@@ -132,6 +132,10 @@ public sealed class HostTests
     private static readonly Type[] SharedApp =
     [
         typeof(ConnectionWindowManager),
+        typeof(Core.Computers.Remote.IRemoteComputerClient),
+        typeof(Core.Computers.Remote.ILocalToolLauncher),
+        typeof(Core.Computers.Remote.IPingService),
+        typeof(Core.Computers.Remote.IHostAddressResolver),
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
     ];

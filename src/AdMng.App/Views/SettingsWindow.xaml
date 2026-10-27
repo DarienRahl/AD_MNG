@@ -1,6 +1,7 @@
 <!-- Settings (SettingsViewModel, modal): tab "Ogólne" – language, theme, directory, batch and view options, the Watchdog
      certificate pin; tab "Wiadomości e-mail" (README U1) – sender, limits, allowed link domains, transport and the direct
-     SMTP connection with its tests (the SMTP password box is read only for a test and never saved). Save applies at once. -->
+     SMTP connection with its tests (the SMTP password box is read only for a test and never saved); tab "Komputery" (K1) – WinRM,
+     restart defaults, own end-of-support dates, expected containers. Save applies at once. -->
 <Window x:Class="AdMng.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -463,6 +464,202 @@
                          FontFamily="Cascadia Mono, Consolas"
                          Text="{Binding TestResult, Mode=OneWay}"
                          TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+        <!-- Computers (K1): WinRM, restart defaults, expected containers, own end-of-support dates. -->
+        <TabItem x:Name="ComputersTab"
+                 DataContext="{Binding Computers, Mode=OneWay}"
+                 Header="{l:Tr Computers.Settings.Tab}">
+          <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,0,24,16">
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Computers.Settings.RemoteHeader}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Computers.Settings.Timeout}" />
+                <TextBox x:Name="RemoteTimeoutBox"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr Computers.Settings.Timeout}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding RemoteTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="1" Style="{StaticResource SettingLabel}" Text="{l:Tr Computers.Settings.Port}" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                  <TextBox x:Name="RemotePortBox"
+                           AutomationProperties.Name="{l:Tr Computers.Settings.Port}"
+                           Style="{StaticResource NumberBox}"
+                           Text="{Binding RemotePortText, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Margin="10,6,0,0"
+                             VerticalAlignment="Center"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding PortHint, Mode=OneWay}" />
+                </StackPanel>
+              </Grid>
+              <CheckBox x:Name="RemoteHttpsBox"
+                        Margin="0,10,0,0"
+                        IsChecked="{Binding RemoteUseHttps}">
+                <TextBlock Text="{l:Tr Computers.Settings.UseHttps}" TextWrapping="Wrap" />
+              </CheckBox>
+              <CheckBox x:Name="RefreshUserPolicyBox"
+                        Margin="0,8,0,0"
+                        IsChecked="{Binding RefreshUserPolicy}">
+                <TextBlock Text="{l:Tr Computers.Settings.RefreshUserPolicy}" TextWrapping="Wrap" />
+              </CheckBox>
+              <TextBlock Margin="28,2,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Computers.Settings.RefreshUserPolicyHint}"
+                         TextWrapping="Wrap" />
+
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Computers.Settings.RestartHeader}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Computers.Settings.RestartDelay}" />
+                <TextBox x:Name="RestartDelayBox"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr Computers.Settings.RestartDelay}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding RestartDelayMinutes, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Grid.Row="1"
+                           VerticalAlignment="Top"
+                           Style="{StaticResource SettingLabel}"
+                           Text="{l:Tr Computers.Settings.RestartMessage}" />
+                <TextBox x:Name="RestartMessageBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Height="72"
+                         Margin="0,6,0,0"
+                         AcceptsReturn="True"
+                         AutomationProperties.Name="{l:Tr Computers.Settings.RestartMessage}"
+                         Text="{Binding RestartMessage, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" />
+                <TextBlock Grid.Row="2"
+                           Grid.Column="1"
+                           Margin="0,2,0,0"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr Computers.Settings.RestartMessageHint}"
+                           TextWrapping="Wrap" />
+              </Grid>
+
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Computers.Settings.OverridesHeader}" />
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="220" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr Computers.Settings.EndingSoonDays}" />
+                <TextBox x:Name="EndingSoonDaysBox"
+                         Grid.Column="1"
+                         AutomationProperties.Name="{l:Tr Computers.Settings.EndingSoonDays}"
+                         Style="{StaticResource NumberBox}"
+                         Text="{Binding EndingSoonDays, UpdateSourceTrigger=PropertyChanged}" />
+              </Grid>
+              <TextBlock Margin="0,10,0,4"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Computers.Settings.OverridesHint}"
+                         TextWrapping="Wrap" />
+              <ItemsControl x:Name="OverridesList" Focusable="False" ItemsSource="{Binding Overrides, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <DockPanel Margin="0,2,0,2">
+                      <Button Margin="8,0,0,0"
+                              AutomationProperties.Name="{l:Tr Computers.Settings.RemoveOverride}"
+                              Command="{Binding DataContext.RemoveOverrideCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding Mode=OneWay}"
+                              Content="{x:Static c:Glyphs.Delete}"
+                              DockPanel.Dock="Right"
+                              Style="{StaticResource Ad.SmallIconButton}"
+                              ToolTip="{l:Tr Computers.Settings.RemoveOverride}" />
+                      <TextBlock VerticalAlignment="Center" Text="{Binding Text, Mode=OneWay}" />
+                    </DockPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                         Text="{l:Tr Computers.Settings.NoOverrides}"
+                         Visibility="{Binding HasOverrides, Mode=OneWay, Converter={StaticResource Ad.InverseBoolToVisibility}}" />
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="100" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="150" />
+                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto" />
+                  <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Computers.Settings.Build}" />
+                <TextBlock Grid.Column="2" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Computers.Settings.Edition}" />
+                <TextBlock Grid.Column="4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr Computers.Settings.EndOfSupport}" />
+                <TextBox x:Name="NewBuildBox"
+                         Grid.Row="1"
+                         Margin="0,4,0,0"
+                         AutomationProperties.Name="{l:Tr Computers.Settings.Build}"
+                         Text="{Binding NewBuild, UpdateSourceTrigger=PropertyChanged}" />
+                <ComboBox x:Name="NewEditionBox"
+                          Grid.Row="1"
+                          Grid.Column="2"
+                          Margin="0,4,0,0"
+                          AutomationProperties.Name="{l:Tr Computers.Settings.Edition}"
+                          DisplayMemberPath="Text"
+                          ItemsSource="{Binding Editions, Mode=OneWay}"
+                          SelectedItem="{Binding NewEdition}" />
+                <DatePicker x:Name="NewEndOfSupportPicker"
+                            Grid.Row="1"
+                            Grid.Column="4"
+                            Margin="0,4,0,0"
+                            AutomationProperties.Name="{l:Tr Computers.Settings.EndOfSupport}"
+                            SelectedDate="{Binding NewEndOfSupport}" />
+                <Button x:Name="AddOverrideButton"
+                        Grid.Row="1"
+                        Grid.Column="6"
+                        Margin="0,4,0,0"
+                        Command="{Binding AddOverrideCommand}"
+                        Content="{l:Tr Computers.Settings.AddOverride}" />
+              </Grid>
+              <TextBlock Margin="0,4,0,0"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding OverrideError, Mode=OneWay}"
+                         TextWrapping="Wrap"
+                         Visibility="{Binding OverrideError, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+
+              <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr Computers.Settings.PlacementHeader}" />
+              <TextBlock Margin="0,0,0,6"
+                         Style="{StaticResource Ad.SecondaryText}"
+                         Text="{Binding PlacementHint, Mode=OneWay}"
+                         TextWrapping="Wrap" />
+              <TextBlock Margin="0,6,0,2" Text="{l:Tr Computers.Settings.WorkstationContainers}" />
+              <TextBox x:Name="WorkstationContainersBox"
+                       Height="64"
+                       AcceptsReturn="True"
+                       AutomationProperties.Name="{l:Tr Computers.Settings.WorkstationContainers}"
+                       Text="{Binding WorkstationContainers, UpdateSourceTrigger=PropertyChanged}"
+                       VerticalScrollBarVisibility="Auto" />
+              <TextBlock Margin="0,8,0,2" Text="{l:Tr Computers.Settings.ServerContainers}" />
+              <TextBox x:Name="ServerContainersBox"
+                       Height="64"
+                       AcceptsReturn="True"
+                       AutomationProperties.Name="{l:Tr Computers.Settings.ServerContainers}"
+                       Text="{Binding ServerContainers, UpdateSourceTrigger=PropertyChanged}"
+                       VerticalScrollBarVisibility="Auto" />
             </StackPanel>
           </ScrollViewer>
         </TabItem>

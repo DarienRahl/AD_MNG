@@ -116,6 +116,12 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     /// <summary>Highest number of calls that were in progress at the same time.</summary>
     public int MaxObservedConcurrency => Volatile.Read(ref _maxObservedConcurrency);
 
+    /// <summary>
+    /// Opt-in: the nTSecurityDescriptor an object created through <see cref="AddAsync"/> gets when the request carries none
+    /// (argument: the new DN; null result = no descriptor). Unset (the default), created objects have no descriptor.
+    /// </summary>
+    public Func<string, byte[]?>? NewObjectSecurityDescriptor { get; set; }
+
     /// <summary>Permissions returned for objects without <see cref="SetPermissions"/> (default: unknown).</summary>
     public EffectivePermissions DefaultPermissions { get; set; } = EffectivePermissions.Unknown;
 
@@ -547,7 +553,10 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             Modifications = [.. modifications],
             ModifyOptions = options,
         };
-        var dn = await RunAsync(operation, cancellationToken, () => ApplyModify(distinguishedName, modifications, options?.Permissive == true)).ConfigureAwait(false);
+        var dn = await RunAsync(
+            operation,
+            cancellationToken,
+            () => ApplyModify(distinguishedName, modifications, options?.Permissive == true, options?.SecurityDescriptorFlags ?? SecurityDescriptorRights.None)).ConfigureAwait(false);
         Notify(dn);
     }
 
@@ -1035,7 +1044,11 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
     // ---------------------------------------------------------------- writes
 
-    private DistinguishedName ApplyModify(string distinguishedName, IReadOnlyList<AttributeModification> modifications, bool permissive)
+    private DistinguishedName ApplyModify(
+        string distinguishedName,
+        IReadOnlyList<AttributeModification> modifications,
+        bool permissive,
+        SecurityDescriptorRights securityDescriptorFlags = SecurityDescriptorRights.None)
     {
         var entry = FindExisting(distinguishedName);
         var work = entry.CloneAttributes();
@@ -1055,6 +1068,21 @@ public sealed partial class FakeDirectorySession : IDirectorySession
             if (string.Equals(name, Attr.PwdLastSet, StringComparison.OrdinalIgnoreCase))
             {
                 work[name] = [PwdLastSetValue(modification, values, distinguishedName)];
+                touched.Add(name);
+                continue;
+            }
+
+            if (securityDescriptorFlags != SecurityDescriptorRights.None && string.Equals(name, Attr.NtSecurityDescriptor, StringComparison.OrdinalIgnoreCase))
+            {
+                // SD flags control: only the named parts of the written descriptor replace the stored ones (as AD does).
+                if (modification.Operation != ModificationOperation.Replace || values is not [byte[] written])
+                {
+                    throw Error(53, "nTSecurityDescriptor with the SD flags control takes one replaced value.", distinguishedName);
+                }
+
+                var stored = work.TryGetValue(name, out var storedValues) && storedValues is [byte[] storedBytes] ? storedBytes : null;
+                work[name] = [FakeSecurityDescriptor.Merge(stored, written, securityDescriptorFlags)
+                    ?? throw Error(21, "The written security descriptor is malformed.", distinguishedName)];
                 touched.Add(name);
                 continue;
             }
@@ -1407,6 +1435,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
 
         var classes = ExpandClasses(requestedClasses.OfType<string>());
         work[Attr.ObjectClass] = [.. classes];
+        if (NewObjectSecurityDescriptor is { } securityFactory && !work.ContainsKey(Attr.NtSecurityDescriptor)
+            && securityFactory(distinguishedName) is { } descriptor)
+        {
+            // AD gives every new object a descriptor (owner = the creator, DACL from the class default and the parent).
+            work[Attr.NtSecurityDescriptor] = [descriptor];
+        }
+
         var rdnAttribute = Canonical(dn.Leaf.Type);
         if (work.TryGetValue(rdnAttribute, out var rdnValues) && !(rdnValues is [string rdnValue] && rdnValue.Equals(dn.Name, StringComparison.OrdinalIgnoreCase)))
         {

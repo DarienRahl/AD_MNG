@@ -24,7 +24,7 @@ public sealed class RollbackPlanner : IRollbackPlanner
         var objects = new List<ObjectPlan>();
         foreach (var objectResult in result.Objects)
         {
-            var succeeded = objectResult.Changes.Where(c => c.Succeeded).Select(c => c.Change).ToList();
+            var succeeded = objectResult.Changes.Where(c => c.Succeeded).Select(Executed).ToList();
             if (succeeded.Count > 0)
             {
                 objects.Add(CreateObjectRollback(objectResult, succeeded));
@@ -40,6 +40,15 @@ public sealed class RollbackPlanner : IRollbackPlanner
             Server = result.Server,
         };
     }
+
+    /// <summary>
+    /// The step as it was executed: a security step's delta is the part that changed the DACL, so the rollback does not
+    /// remove an ACE another administrator added between the plan and its execution.
+    /// </summary>
+    private static PlannedChange Executed(ChangeResult result) =>
+        result.AppliedAcl is { } applied && result.Change.Acl is { } planned
+            ? result.Change with { Acl = planned with { Added = applied.Added, Removed = applied.Removed } }
+            : result.Change;
 
     private static ObjectPlan CreateObjectRollback(ObjectResult objectResult, IReadOnlyList<PlannedChange> succeeded)
     {
@@ -118,6 +127,10 @@ public sealed class RollbackPlanner : IRollbackPlanner
                 case ChangeAction.Restore:
                     issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
                         "A restored object is not deleted again by a rollback; delete it explicitly if it must go."));
+                    break;
+                case ChangeAction.ModifySecurity when change.Acl is { IsEmpty: false } acl:
+                    // The inverse of what changed the DACL at execution (Executed).
+                    steps.Add(new PlannedChange { Action = ChangeAction.ModifySecurity, Acl = acl.Inverse() });
                     break;
             }
         }

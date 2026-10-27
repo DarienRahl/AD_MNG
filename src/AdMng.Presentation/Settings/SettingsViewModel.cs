@@ -48,6 +48,17 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             };
         }
 
+        // Computers (K1): the "Komputery" tab.
+        Computers = new AdMng.Presentation.Computers.ComputerSettingsViewModel(services);
+        Computers.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(AdMng.Presentation.Computers.ComputerSettingsViewModel.Error))
+            {
+                OnPropertyChanged(nameof(Error));
+                SaveCommand.NotifyCanExecuteChanged();
+            }
+        };
+
         Languages =
         [
             new(string.Empty, Localizer[L.Settings.LanguageSystem]),
@@ -132,13 +143,17 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     /// <summary>The "Wiadomości e-mail" tab (README U1), or null when the host registered no messages to users.</summary>
     public UserMessages.UserMessageSettingsViewModel? Messages { get; }
 
+    /// <summary>The "Komputery" tab (K1): WinRM, restart defaults, placement rules, catalogue overrides.</summary>
+    public AdMng.Presentation.Computers.ComputerSettingsViewModel Computers { get; }
+
     /// <summary>Localized range error of the numeric settings, or null.</summary>
     public string? Error =>
         Range(L.Settings.PageSize, PageSize, MinPageSize, MaxPageSize)
         ?? Range(L.Settings.BatchParallelism, BatchMaxParallelism, MinParallelism, MaxParallelism)
         ?? Range(L.Settings.ConfirmationThreshold, ConfirmationThreshold, MinThreshold, MaxThreshold)
         ?? Range(L.Settings.InactiveDays, InactiveDays, MinInactiveDays, MaxInactiveDays)
-        ?? Messages?.Error;
+        ?? Messages?.Error
+        ?? Computers.Error;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
@@ -168,6 +183,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             }
 
             Messages?.Apply(s);
+            Computers.Apply(s);
         }).ConfigureAwait(true);
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));

@@ -12,6 +12,12 @@ public enum ObjectIcon
     UserLocked,
     Computer,
     ComputerDisabled,
+
+    /// <summary>A member server (K1: computer review, remote actions).</summary>
+    Server,
+
+    /// <summary>A (read-only) domain controller (K1).</summary>
+    DomainController,
     Group,
     GroupDistribution,
     Contact,

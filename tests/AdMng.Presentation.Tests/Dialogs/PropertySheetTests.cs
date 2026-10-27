@@ -359,7 +359,7 @@ public class PropertySheetTests
         var (sheet, harness) = await OpenAsync(c => c.Computer1);
 
         Assert.Equal(
-            [L.Pages.General, L.Pages.OperatingSystem, L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy,
+            [L.Pages.General, L.Pages.OperatingSystem, L.Computers.StatusPage, L.Pages.MemberOf, L.Pages.Delegation, L.Pages.Location, L.Pages.ManagedBy,
              L.Pages.Object, L.Pages.AttributeEditor],
             sheet.Pages.Select(p => p.Key));
         var general = Page(sheet, L.Pages.General);

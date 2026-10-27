@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- K1 remote actions and local tools (docs/dev/k-computers-and-gpo.md 4.7, 4.8): CIM over WinRM (WS-Management,
+       Kerberos only) with the connection window's credential, Remote Desktop / Computer Management / Event Viewer
+       launchers (CreateProcessWithLogonW, LOGON_NETCREDENTIALS_ONLY), DNS and ping. Windows only at run time (every
+       Windows call is guarded); compiles everywhere. Persists nothing and never logs computer names, accounts or remote
+       output (CLAUDE.md rules 1 and 2). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Remote</RootNamespace>
+    <!-- LibraryImport (CreateProcessWithLogonW) generates unsafe marshalling code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+    <ProjectReference Include="..\AdMng.Directory\AdMng.Directory.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Management.Infrastructure" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Remote.Tests" />
+  </ItemGroup>
+</Project>

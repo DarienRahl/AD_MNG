@@ -350,6 +350,16 @@
         <MenuItem b:CommandMenu.Id="object.enable" />
         <MenuItem b:CommandMenu.Id="object.unlock" />
         <MenuItem b:CommandMenu.Id="object.resetPassword" />
+        <!-- Computers (K1): remote actions and tools for the selected computer, Reset Account. -->
+        <MenuItem x:Name="ComputerMenuItem" Header="{l:Tr Computers.ComputerMenu}">
+          <MenuItem b:CommandMenu.Id="computer.remote" />
+          <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
+          <MenuItem b:CommandMenu.Id="computer.manage" />
+          <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+          <MenuItem b:CommandMenu.Id="computer.ping" />
+          <Separator />
+          <MenuItem b:CommandMenu.Id="computer.reset" />
+        </MenuItem>
         <MenuItem b:CommandMenu.Id="object.sendMessage" />
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
@@ -426,6 +436,7 @@
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.recycleBin" />
         <MenuItem b:CommandMenu.Id="tools.accountReview" />
+        <MenuItem b:CommandMenu.Id="tools.computerReview" />
         <MenuItem b:CommandMenu.Id="tools.savedFilters" />
         <MenuItem b:CommandMenu.Id="tools.watchdog" />
         <Separator />
@@ -976,6 +987,22 @@
                   <Button Margin="0,0,6,6"
                           b:CommandMenu.Id="object.move"
                           Content="{l:Tr Commands.Move}" />
+                  <!-- Computers (K1): the remote actions window of the selected computer. -->
+                  <Button x:Name="ComputerRemoteActionsButton"
+                          Margin="0,0,6,6"
+                          b:CommandMenu.Id="computer.remote"
+                          Content="{l:Tr Computers.RemoteActionsCommand}">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Kind, Mode=OneWay}" Value="Computer">
+                            <Setter Property="Visibility" Value="Visible" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
                   <!-- "What happened to this account?" – only offered when a watchdog service is configured. -->
                   <Button x:Name="WatchdogHistoryButton"
                           Margin="0,0,6,6"
