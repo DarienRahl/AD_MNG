@@ -150,7 +150,10 @@ public sealed partial class NewObjectViewModel
         ManagedByDn = null;
     }
 
-    /// <summary>Whether the window's account is an administrator (best effort; unknown when it cannot be read).</summary>
+    /// <summary>
+    /// Whether the window's account is an owner KB5020276 trusts – Domain Admins, Enterprise Admins or
+    /// BUILTIN\Administrators, not Schema Admins (best effort; unknown when it cannot be read).
+    /// </summary>
     private async Task InitializeComputerAsync(IDirectorySession session)
     {
         if (session.Info.BoundUserDn is not { Length: > 0 } ownerDn)
@@ -160,7 +163,7 @@ public sealed partial class NewObjectViewModel
 
         try
         {
-            _ownerIsAdministrator = await Task.Run(() => PrivilegeCheck.IsPrivilegedAsync(session, ownerDn, CancellationToken.None)).ConfigureAwait(true);
+            _ownerIsAdministrator = await Task.Run(() => PrivilegeCheck.IsJoinOwnerAsync(session, ownerDn, CancellationToken.None)).ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is DirectoryException or InvalidOperationException or ObjectDisposedException)
         {

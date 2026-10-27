@@ -4,6 +4,7 @@ using AdMng.Core.Computers;
 using AdMng.Core.Model;
 using AdMng.Core.Security;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.Shell;
 
 namespace AdMng.Presentation.Tests.Computers;
 
@@ -136,6 +137,28 @@ public class PrestageTests
         harness.Dialogs.PickedObjects.Enqueue([scenario.Company.LukaszWisniewski]);
         await dialog.ChangeJoinerCommand.ExecuteAsync(null);
         Assert.EndsWith(@"The owner of the account will be CONTOSO\lukasz.wisniewski.", dialog.JoinSummary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task JoinSummary_ASchemaAdminIsNoOwnerKb5020276Trusts()
+    {
+        var scenario = await ComputerScenario.CreateAsync();
+        var harness = scenario.Harness;
+        var lukasz = scenario.Company.LukaszWisniewski;
+        harness.Builder.AddGroup("Schema Admins", scenario.Company.GroupsOu, members: [lukasz], attributes: new Dictionary<string, object?>
+        {
+            [Attr.ObjectSid] = $"{harness.Builder.DomainSid}-{WellKnownRids.SchemaAdmins}",
+        });
+        harness.Session.Info = harness.Session.Info with { BoundIdentity = @"CONTOSO\lukasz.wisniewski", BoundUserDn = lukasz };
+        var helpdesk = harness.Builder.AddGroup("GG_Helpdesk", scenario.Company.GroupsOu);
+        using var dialog = harness.Factory.CreateNewObject(ObjectKind.Computer, scenario.Company.ComputersOu);
+        await dialog.InitializeAsync();
+        harness.Dialogs.PickedObjects.Enqueue([helpdesk]);
+        await dialog.ChangeJoinerCommand.ExecuteAsync(null);
+
+        // Privileged for the shell's warning, but not one of the owners the join hardening trusts.
+        Assert.True(await PrivilegeCheck.IsPrivilegedAsync(harness.Session, lukasz, TestContext.Current.CancellationToken));
+        Assert.Contains(@"CONTOSO\lukasz.wisniewski is not an administrator: the join by CONTOSO\GG_Helpdesk fails", dialog.JoinSummary, StringComparison.Ordinal);
     }
 
     [Fact]
