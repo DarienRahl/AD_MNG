@@ -179,6 +179,30 @@ public sealed class TitleParserTests
         Assert.Equal(DerivedValueSource.None, info.Source);
     }
 
+    [Theory]
+    [InlineData("Jan Kowalski, KS", "Jan", "Kowalski")]
+    [InlineData("Kowalski Jan, DR", "Jan", "Kowalski")]
+    [InlineData("Nowak Anna, LEK", "Anna", "Nowak")]
+    [InlineData("Anna Nowak, KS", "Anna", "Nowak")]
+    [InlineData("DR Anna Nowak", "Anna", "Nowak")]
+    public void DisplayName_AllCapsCodesWithoutADot_AreNoTitles(string displayName, string givenName, string surname)
+    {
+        // "KS" = księgowość, not ksiądz: no "Szanowny Księże", no "Dear Father Kowalski", no gender from the title.
+        var person = SalutationPerson.Of(null, displayName, givenName, surname, null, SalutationOptions.Default, language: AdMng.Core.Messaging.MessageLanguage.English);
+
+        Assert.False(person.Title.HasTitle);
+        Assert.NotEqual(DerivedValueSource.DisplayName, person.Gender.Source);
+    }
+
+    [Theory]
+    [InlineData("JAN KOWALSKI, KS", "ks.")]
+    [InlineData("PROF. DR HAB. JAN KOWALSKI", "prof. dr hab.")]
+    [InlineData("Jan Kowalski, DR HAB.", "dr hab.")]
+    [InlineData("Jan Kowalski, Ks", "ks.")]
+    [InlineData("Jan Kowalski, ks.", "ks.")]
+    public void DisplayName_CapitalsOrADot_StillMakeATitle(string displayName, string title) =>
+        Assert.Equal(title, TitleParser.Parse(null, displayName, "Jan", "Kowalski", Table).Text);
+
     [Fact]
     public void DisplayName_SurnameThatLooksLikeAUniversity_IsNotAbsorbed()
     {

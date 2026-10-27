@@ -168,13 +168,17 @@ public static class TitleParser
         var nameKeys = givenKeys.Concat(surnameKeys).ToHashSet(StringComparer.Ordinal);
         bool IsName(TitleToken token) => nameKeys.Contains(token.Key);
 
+        // "Jan Kowalski, KS" (a unit code such as księgowość) is no priest: a short all-caps word without a dot is no title
+        // unless the whole display name is written in capitals ("PROF. DR HAB. JAN KOWALSKI", "JAN KOWALSKI, DR").
+        Func<TitleToken, bool>? isCode = text.Where(char.IsLetter).All(char.IsUpper) ? null : IsCode;
+
         var main = text;
         Coverage suffix = Coverage.Empty;
         var comma = text.LastIndexOf(',');
         if (comma >= 0)
         {
             var suffixTokens = Tokenize(text[(comma + 1)..]);
-            var covered = Cover(suffixTokens, table, stopAtUnknown: true, IsName);
+            var covered = Cover(suffixTokens, table, stopAtUnknown: true, IsName, isCode);
             if (covered.Parts.Count > 0 && covered.End == suffixTokens.Count)
             {
                 suffix = covered;
@@ -183,7 +187,7 @@ public static class TitleParser
         }
 
         var mainTokens = Tokenize(main);
-        var prefix = Cover(mainTokens, table, stopAtUnknown: true, IsName);
+        var prefix = Cover(mainTokens, table, stopAtUnknown: true, IsName, isCode);
         var rest = mainTokens.Skip(prefix.End).ToList();
         if (prefix.Parts.Count + suffix.Parts.Count == 0 || rest.Count == 0)
         {
@@ -252,7 +256,12 @@ public static class TitleParser
     public static bool IsUniversity(string word) =>
         word.Length is >= 2 and <= 8 && word.All(char.IsLetter) && char.IsUpper(word[0]) && word.Count(char.IsUpper) >= 2 && !Degrees.Contains(word);
 
-    private static Coverage Cover(IReadOnlyList<TitleToken> tokens, TitleTable table, bool stopAtUnknown, Func<TitleToken, bool> isName)
+    /// <summary>A short all-caps word without a dot ("KS", "DR", "LEK") – in a display name rather a code than a title.</summary>
+    private static bool IsCode(TitleToken token) =>
+        !token.EndsWithDot && token.Text.Length is 2 or 3 && token.Text.All(c => char.IsLetter(c) && char.IsUpper(c));
+
+    // isCode: words that are no title when a table spelling consists of them only (null = none).
+    private static Coverage Cover(IReadOnlyList<TitleToken> tokens, TitleTable table, bool stopAtUnknown, Func<TitleToken, bool> isName, Func<TitleToken, bool>? isCode = null)
     {
         var keys = tokens.Select(t => t.Key).ToList();
         var parts = new List<TitlePart>();
@@ -266,7 +275,7 @@ public static class TitleParser
                 break;
             }
 
-            if (table.LongestAt(keys, i) is { } spelling)
+            if (table.LongestAt(keys, i) is { } spelling && (isCode is null || !tokens.Skip(i).Take(spelling.Keys.Count).All(isCode)))
             {
                 var rule = table.Rules[spelling.Rule];
                 parts.Add(new TitlePart(rule.Title.Trim(), rule));

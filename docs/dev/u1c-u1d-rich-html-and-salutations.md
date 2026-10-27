@@ -888,7 +888,9 @@ Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/
 * `TemplateExtensionToken` also gained `ValidateArgument` (an English error or null): `{$byGender}` needs two or three
   parts. `{$byGender}` does not report an empty value either (`{$byGender:/a}` – an empty part is the operator's choice).
 * Words of the display name equal to the given name or the surname are never a title or an absorbed university
-  (`prof. NOWAK Jan`), and a suffix after the last comma counts only when every word of it is covered.
+  (`prof. NOWAK Jan`), and a suffix after the last comma counts only when every word of it is covered. A title of the
+  display name made of short all-caps words without a dot (`Jan Kowalski, KS` – a unit code such as *księgowość*, `DR`,
+  `LEK`) is no title unless the whole display name is written in capitals (`JAN KOWALSKI, KS`); `DR HAB.` still is one.
 * Findings: `GenderGuessed` carries the deciding word (first given name or surname) – the source is shown by the
   derived fields; an unknown gender rendered with the default gender of the settings / the template is the warning
   `GenderDefaulted` (the gender is still unknown – section 17), not `GenderUnknown`; a neutral override is the
