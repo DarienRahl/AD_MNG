@@ -7782,6 +7782,27 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
     <value>Wybrany użytkownik lub grupa nie ma identyfikatora zabezpieczeń.</value>
   </data>
+  <data name="Computers.Page.Status" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Computers.Status.CheckAllDomainControllers" xml:space="preserve">
+    <value>Sprawdź na wszystkich DC</value>
+  </data>
+  <data name="Computers.Status.ResolveSite" xml:space="preserve">
+    <value>Ustal</value>
+  </data>
+  <data name="Computers.Status.ObjectOwner" xml:space="preserve">
+    <value>Właściciel obiektu</value>
+  </data>
+  <data name="Computers.Status.Actions" xml:space="preserve">
+    <value>Akcje</value>
+  </data>
+  <data name="Computers.Status.ExactNotAnswered" xml:space="preserve">
+    <value>Nie wszystkie kontrolery domeny odpowiedziały: {0}</value>
+  </data>
+  <data name="Computers.Status.NotRead" xml:space="preserve">
+    <value>jeszcze nie odczytano</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Przegląd komputerów</value>
   </data>

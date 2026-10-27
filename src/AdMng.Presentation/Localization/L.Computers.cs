@@ -72,6 +72,13 @@ public static partial class L
         public const string PrestageOnlyAdmins = "Computers.Prestage.OnlyAdmins";
         public const string PrestageNoPreWindows2000 = "Computers.Prestage.NoPreWindows2000";
         public const string PrestageJoinerNotFound = "Computers.Prestage.JoinerNotFound";
+        public const string StatusPage = "Computers.Page.Status";
+        public const string CheckAllDomainControllers = "Computers.Status.CheckAllDomainControllers";
+        public const string ResolveSite = "Computers.Status.ResolveSite";
+        public const string ObjectOwner = "Computers.Status.ObjectOwner";
+        public const string StatusActions = "Computers.Status.Actions";
+        public const string ExactNotAnswered = "Computers.Status.ExactNotAnswered";
+        public const string NotRead = "Computers.Status.NotRead";
     }
 
     /// <summary>

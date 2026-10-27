@@ -23,7 +23,8 @@ public static class ComputersServiceCollectionExtensions
             sp.GetRequiredService<DialogServices>(),
             sp.GetRequiredService<IChangePlanner>(),
             sp.GetService<ILocalToolLauncher>(),
-            sp.GetService<IPingService>()));
+            sp.GetService<IPingService>(),
+            sp.GetService<IHostAddressResolver>()));
         services.TryAddScoped<ComputerViewModelFactory>();
         return services;
     }

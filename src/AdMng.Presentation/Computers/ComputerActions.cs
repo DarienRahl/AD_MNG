@@ -40,6 +40,9 @@ public interface IComputerDialogs
 
     /// <summary>Runs an action for the selected computers (tools, ping, reset).</summary>
     Task RunComputerActionAsync(ComputerAction action, IReadOnlyList<string> distinguishedNames);
+
+    /// <summary>The computer actions of this connection window (the property sheet's "Stan" page uses them).</summary>
+    ComputerActions Actions { get; }
 }
 
 /// <summary>What the restart dialog returns.</summary>
@@ -58,7 +61,8 @@ public sealed class ComputerActions(
     DialogServices services,
     IChangePlanner planner,
     ILocalToolLauncher? launcher = null,
-    IPingService? ping = null)
+    IPingService? ping = null,
+    IHostAddressResolver? resolver = null)
 {
     /// <summary>Echoes of a ping.</summary>
     public const int PingCount = 4;
@@ -78,6 +82,24 @@ public sealed class ComputerActions(
     public bool CanLaunchTools => launcher is not null;
 
     public bool CanPing => ping is not null;
+
+    /// <summary>"Ustal lokację" is possible (a resolver is registered).</summary>
+    public bool CanResolveSites => resolver is not null;
+
+    /// <summary>The site of one computer (its DC server object, or DNS and the subnets); null without a resolver.</summary>
+    public async Task<SiteResolution?> ResolveSiteAsync(IDirectorySession session, ComputerFacts computer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(computer);
+        if (resolver is null)
+        {
+            return null;
+        }
+
+        var topology = await Task.Run(() => ComputerSites.ReadTopologyAsync(session, cancellationToken), cancellationToken).ConfigureAwait(true);
+        var resolved = await Task.Run(() => ComputerSites.ResolveAsync(resolver, topology, [computer], cancellationToken), cancellationToken).ConfigureAwait(true);
+        return resolved.Values.FirstOrDefault();
+    }
 
     /// <summary>The remote target of a computer DN, or null after the operator was told why there is none.</summary>
     public async Task<RemoteTarget?> ResolveTargetAsync(IDirectorySession session, string distinguishedName, string title, CancellationToken cancellationToken = default)

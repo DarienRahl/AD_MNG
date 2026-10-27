@@ -75,7 +75,7 @@ public class ShellComputerCommandsTests
         await shell.ComputerManagementCommand.ExecuteAsync(null);
 
         Assert.Equal([scenario.Sample.Pro24H2], scenario.Dialogs.RemoteWindows);
-        Assert.Equal([ComputerAction.RemoteDesktop, ComputerAction.ComputerManagement], scenario.Dialogs.Actions.Select(a => a.Action));
+        Assert.Equal([ComputerAction.RemoteDesktop, ComputerAction.ComputerManagement], scenario.Dialogs.ActionsRun.Select(a => a.Action));
         Assert.Equal(2, scenario.Launcher.Launches.Count);
     }
 

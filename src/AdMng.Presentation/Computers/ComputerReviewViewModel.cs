@@ -1,7 +1,5 @@
 using System.Collections;
 using System.Globalization;
-using System.Net;
-using System.Net.Sockets;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Computers;
@@ -12,7 +10,6 @@ using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Changes;
-using AdMng.Presentation.Connection;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -41,9 +38,6 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
 
     /// <summary>"Dokładne ostatnie logowanie" reads at most this many computers.</summary>
     public const int MaxExactLastLogon = 500;
-
-    /// <summary>DNS lookups at the same time.</summary>
-    public const int SiteParallelism = 16;
 
     private const int FirstBatchSize = 50;
     private const int CreatorBatchSize = 50;
@@ -458,9 +452,9 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         StatusText = Localizer.Format(L.ComputerReview.ResolvingSites, rows.Count);
         try
         {
-            run.Topology ??= await Task.Run(() => ReadTopologyAsync(session, token), token).ConfigureAwait(true);
+            run.Topology ??= await Task.Run(() => ComputerSites.ReadTopologyAsync(session, token), token).ConfigureAwait(true);
             var topology = run.Topology;
-            var resolved = await Task.Run(() => ResolveAsync(resolver, topology, rows.Select(r => r.Facts).ToList(), token), token).ConfigureAwait(true);
+            var resolved = await Task.Run(() => ComputerSites.ResolveAsync(resolver, topology, rows.Select(r => r.Facts.Facts).ToList(), token), token).ConfigureAwait(true);
             if (!ReferenceEquals(run, _run))
             {
                 return;
@@ -918,76 +912,6 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
                 : OwnerState.Present,
             CreatorName = r.Facts.CreatorSidValue is { } creator && creators.TryGetValue(creator, out var name) ? name : null,
         })];
-    }
-
-    private static async Task<SiteData> ReadTopologyAsync(IDirectorySession session, CancellationToken token)
-    {
-        var topology = await SiteTopology.ReadAsync(session, token).ConfigureAwait(false);
-        IReadOnlyList<DirectoryDomainController> controllers = [];
-        try
-        {
-            controllers = await DomainControllerCatalog.ReadAsync(session, token).ConfigureAwait(false);
-        }
-        catch (DirectoryException)
-        {
-            // Without the DC list the DCs are resolved through DNS like members.
-        }
-
-        return new SiteData(topology, controllers);
-    }
-
-    private static async Task<Dictionary<string, SiteResolution>> ResolveAsync(
-        IHostAddressResolver resolver, SiteData topology, IReadOnlyList<ComputerReviewFacts> rows, CancellationToken token)
-    {
-        var result = new Dictionary<string, SiteResolution>(StringComparer.Ordinal);
-        var gate = new Lock();
-        await Parallel.ForEachAsync(rows, new ParallelOptions { MaxDegreeOfParallelism = SiteParallelism, CancellationToken = token }, async (row, ct) =>
-        {
-            var facts = row.Facts;
-            SiteResolution site;
-            var controller = facts.Type.IsDomainController() && facts.DnsHostName is { } dcHost
-                ? topology.DomainControllers.FirstOrDefault(d => DomainControllerCatalog.IsSameHost(d.HostName, dcHost))
-                : null;
-            if (controller?.Site is { } dcSite)
-            {
-                site = new SiteResolution(SiteResolutionState.DomainController, null, null, dcSite);
-            }
-            else if (!HostNames.IsValid(facts.DnsHostName))
-            {
-                site = new SiteResolution(SiteResolutionState.NotResolved, null, null, null);
-            }
-            else
-            {
-                IReadOnlyList<IPAddress> addresses;
-                try
-                {
-                    addresses = await resolver.ResolveAsync(facts.DnsHostName!, ct).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is SocketException or RemoteActionException or ArgumentException or TimeoutException)
-                {
-                    addresses = [];
-                }
-
-                var address = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork) ?? addresses.FirstOrDefault();
-                if (address is null)
-                {
-                    site = new SiteResolution(SiteResolutionState.NotResolved, null, null, null);
-                }
-                else
-                {
-                    var match = topology.Topology.Subnets.Match(address);
-                    site = match.Subnet is { } subnet
-                        ? new SiteResolution(SiteResolutionState.Resolved, match.Address, subnet.Name, subnet.SiteName)
-                        : new SiteResolution(SiteResolutionState.NoSubnet, match.Address, null, null);
-                }
-            }
-
-            lock (gate)
-            {
-                result[DnKey.For(facts.DistinguishedName)] = site;
-            }
-        }).ConfigureAwait(false);
-        return result;
     }
 
     /// <summary>Adds, updates or removes the row of an evaluated computer.</summary>
@@ -1458,9 +1382,6 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
     }
 
     private sealed record ReviewScope(string BaseDn, SearchScope Scope, string? Filter);
-
-    /// <summary>The sites and subnets of the forest and the DCs of the domain (their sites).</summary>
-    private sealed record SiteData(SiteTopology Topology, IReadOnlyList<DirectoryDomainController> DomainControllers);
 
     private sealed class ScopeException(string message) : Exception(message);
 }

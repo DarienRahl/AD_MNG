@@ -7782,6 +7782,27 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
     <value>The chosen user or group has no security identifier.</value>
   </data>
+  <data name="Computers.Page.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Computers.Status.CheckAllDomainControllers" xml:space="preserve">
+    <value>Check on all DCs</value>
+  </data>
+  <data name="Computers.Status.ResolveSite" xml:space="preserve">
+    <value>Determine</value>
+  </data>
+  <data name="Computers.Status.ObjectOwner" xml:space="preserve">
+    <value>Object owner</value>
+  </data>
+  <data name="Computers.Status.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Computers.Status.ExactNotAnswered" xml:space="preserve">
+    <value>Not every domain controller answered: {0}</value>
+  </data>
+  <data name="Computers.Status.NotRead" xml:space="preserve">
+    <value>not read yet</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Computer review</value>
   </data>

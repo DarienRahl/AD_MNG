@@ -30,7 +30,7 @@ internal sealed class ComputerScenario
         Services = new DialogServices(
             harness.Sessions, harness.Localizer, harness.Dispatcher, harness.Settings, harness.Errors, harness.Changes, harness.Time,
             Dialogs, harness.Files, harness.Clipboard, harness.Notifications, harness.Coordinator, harness.Activities, harness.Lists, harness.Regional);
-        Actions = new ComputerActions(Services, harness.Planner, Launcher, Ping);
+        Actions = new ComputerActions(Services, harness.Planner, Launcher, Ping, Resolver);
         Factory = new ComputerViewModelFactory(
             Services, harness.Engines, harness.Views, new WindowsReleaseCatalog(), Actions, harness.AuditLog, harness.PowerShell,
             new ServerConnector(harness), Resolver, Remote, Ping);
@@ -100,7 +100,7 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public int ReviewsShown { get; private set; }
 
-    public List<(ComputerAction Action, IReadOnlyList<string> Dns)> Actions { get; } = [];
+    public List<(ComputerAction Action, IReadOnlyList<string> Dns)> ActionsRun { get; } = [];
 
     /// <summary>Plays the restart dialog (null: Cancel).</summary>
     public Func<RestartComputerViewModel, bool>? RestartHandler { get; set; }
@@ -125,9 +125,11 @@ internal sealed class ComputerAwareDialogs(ScriptedDialogService inner) : IDialo
 
     public Task RunComputerActionAsync(ComputerAction action, IReadOnlyList<string> distinguishedNames)
     {
-        Actions.Add((action, distinguishedNames));
+        ActionsRun.Add((action, distinguishedNames));
         return Factory?.Actions.RunAsync(action, distinguishedNames) ?? Task.CompletedTask;
     }
+
+    public ComputerActions Actions => Factory!.Actions;
 
     public Task ShowInfoAsync(string title, string message) => Inner.ShowInfoAsync(title, message);
 
