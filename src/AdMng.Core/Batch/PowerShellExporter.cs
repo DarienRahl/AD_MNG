@@ -162,6 +162,9 @@ public sealed class PowerShellExporter : IPowerShellExporter
             case ChangeAction.Restore:
                 WriteRestore(sb, objectPlan, change, server);
                 break;
+            case ChangeAction.ModifySecurity:
+                WriteModifySecurity(sb, change, server);
+                break;
         }
     }
 
@@ -182,6 +185,103 @@ public sealed class PowerShellExporter : IPowerShellExporter
             ? $"Restore-ADObject -Identity {Quote(guid.ToString("D"))} {arguments}"
             : $"Get-ADObject -Identity $dn -IncludeDeletedObjects{server} | Restore-ADObject {arguments}");
         Line(sb, $"$dn = {Quote(target.ToString())}");
+    }
+
+    /// <summary>
+    /// A DACL delta through the AD: drive of the ActiveDirectory module: Get-Acl, one ActiveDirectoryAccessRule per ACE
+    /// (AddAccessRule / RemoveAccessRuleSpecific), Set-Acl. With a pinned DC the drive <c>ADMNG:</c> is created on it
+    /// (New-PSDrive -Server), so the read and the write go to the plan's DC.
+    /// </summary>
+    private static void WriteModifySecurity(StringBuilder sb, PlannedChange change, string server)
+    {
+        if (change.Acl is not { IsEmpty: false } acl)
+        {
+            Line(sb, "# No permission change.");
+            return;
+        }
+
+        var drive = "AD";
+        if (!string.IsNullOrEmpty(server))
+        {
+            drive = "ADMNG";
+            Line(sb, "if (-not (Get-PSDrive -Name ADMNG -ErrorAction SilentlyContinue)) { New-PSDrive -Name ADMNG -PSProvider ActiveDirectory -Root '//RootDSE/'" + server + " | Out-Null }");
+        }
+
+        Line(sb, $"$acl = Get-Acl -LiteralPath \"{drive}:$dn\"");
+        foreach (var ace in acl.Removed)
+        {
+            TrusteeComment(sb, "-", ace);
+            Line(sb, $"$acl.RemoveAccessRuleSpecific({AccessRule(ace)})");
+        }
+
+        foreach (var ace in acl.Added)
+        {
+            TrusteeComment(sb, "+", ace);
+            Line(sb, $"$acl.AddAccessRule({AccessRule(ace)})");
+        }
+
+        Line(sb, $"Set-Acl -LiteralPath \"{drive}:$dn\" -AclObject $acl");
+    }
+
+    private static void TrusteeComment(StringBuilder sb, string sign, Security.AceSpec ace)
+    {
+        var name = string.IsNullOrWhiteSpace(ace.TrusteeName) ? ace.TrusteeSid : ace.TrusteeName;
+        Line(sb, $"# {sign} {Comment(name)}: {Comment(ace.Describe())}");
+    }
+
+    /// <summary>
+    /// <c>[System.DirectoryServices.ActiveDirectoryAccessRule]::new(sid, rights, type, objectType, inheritance,
+    /// inheritedObjectType)</c> of one ACE.
+    /// </summary>
+    private static string AccessRule(Security.AceSpec ace)
+    {
+        var rights = RightsLiteral(ace.Mask);
+        var type = ace.Qualifier == Security.AceQualifier.Allow ? "Allow" : "Deny";
+        var objectType = (ace.ObjectType ?? Guid.Empty).ToString("D");
+        var inherited = (ace.InheritedObjectType ?? Guid.Empty).ToString("D");
+        return "[System.DirectoryServices.ActiveDirectoryAccessRule]::new("
+            + $"[System.Security.Principal.SecurityIdentifier]{Quote(ace.TrusteeSid)}, "
+            + $"[System.DirectoryServices.ActiveDirectoryRights]{rights}, "
+            + $"[System.Security.AccessControl.AccessControlType]'{type}', "
+            + $"[guid]'{objectType}', "
+            + $"[System.DirectoryServices.ActiveDirectorySecurityInheritance]'{Inheritance(ace.Flags)}', "
+            + $"[guid]'{inherited}')";
+    }
+
+    /// <summary>The ActiveDirectoryRights of a mask: flag names when every bit has one, the number otherwise.</summary>
+    private static string RightsLiteral(int mask)
+    {
+        (int Bit, string Name)[] names =
+        [
+            (0x1, "CreateChild"), (0x2, "DeleteChild"), (0x4, "ListChildren"), (0x8, "Self"), (0x10, "ReadProperty"),
+            (0x20, "WriteProperty"), (0x40, "DeleteTree"), (0x80, "ListObject"), (0x100, "ExtendedRight"), (0x10000, "Delete"),
+            (0x20000, "ReadControl"), (0x40000, "WriteDacl"), (0x80000, "WriteOwner"),
+        ];
+        if (mask == 0xF01FF)
+        {
+            return "'GenericAll'";
+        }
+
+        var known = names.Where(n => (mask & n.Bit) != 0).ToList();
+        return known.Sum(n => n.Bit) == mask
+            ? $"'{string.Join(", ", known.Select(n => n.Name))}'"
+            : mask.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>ActiveDirectorySecurityInheritance of the ACE flags (container inherit, inherit only, no propagate).</summary>
+    private static string Inheritance(byte flags)
+    {
+        var container = (flags & Security.SecurityDescriptorAce.ContainerInheritFlag) != 0;
+        var inheritOnly = (flags & Security.SecurityDescriptorAce.InheritOnlyFlag) != 0;
+        var noPropagate = (flags & Security.SecurityDescriptorAce.NoPropagateInheritFlag) != 0;
+        return (container, inheritOnly, noPropagate) switch
+        {
+            (false, _, _) => "None",
+            (true, false, false) => "All",
+            (true, true, false) => "Descendents",
+            (true, false, true) => "SelfAndChildren",
+            _ => "Children",
+        };
     }
 
     private static void WriteModify(StringBuilder sb, ObjectPlan objectPlan, PlannedChange change, string server, ISchemaCatalog? schema)
