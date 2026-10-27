@@ -217,8 +217,28 @@ public static class GpmcBackupFormat
         xml.WriteEndElement();
     }
 
-    /// <summary>Adds the backup to <c>manifest.xml</c>, keeping the entries of other backups (GPMC's or ours).</summary>
+    /// <summary>Serializes the read-modify-write of manifests (several windows of the process backing up into one folder).</summary>
+    private static readonly SemaphoreSlim ManifestGate = new(1, 1);
+
+    /// <summary>
+    /// Adds the backup to <c>manifest.xml</c>, keeping the entries of other backups (GPMC's or ours): the merged manifest is
+    /// written to a temporary file in the same folder and then replaces the old one, so a failed write (a full disk, a share
+    /// hiccup) leaves the existing manifest intact.
+    /// </summary>
     private static async Task MergeManifestAsync(string root, GpoBackup backup, CancellationToken cancellationToken)
+    {
+        await ManifestGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await MergeManifestLockedAsync(root, backup, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ManifestGate.Release();
+        }
+    }
+
+    private static async Task MergeManifestLockedAsync(string root, GpoBackup backup, CancellationToken cancellationToken)
     {
         var path = Path.Combine(root, ManifestFile);
         var entries = new List<string>();
@@ -229,9 +249,6 @@ public static class GpmcBackupFormat
             {
                 entries.Add(instance.OuterXml);
             }
-
-            // Hidden like GPMC's: clear the attribute while rewriting.
-            File.SetAttributes(path, FileAttributes.Normal);
         }
 
         var sb = new StringBuilder();
@@ -253,7 +270,30 @@ public static class GpmcBackupFormat
             xml.WriteEndDocument();
         }
 
-        await File.WriteAllTextAsync(path, sb.ToString(), new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+        var temp = Path.Combine(root, ManifestFile + "." + Guid.NewGuid().ToString("N") + ".tmp");
+        try
+        {
+            await File.WriteAllTextAsync(temp, sb.ToString(), new UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+            if (File.Exists(path))
+            {
+                // Hidden like GPMC's: clear the attribute so the file can be replaced.
+                File.SetAttributes(path, FileAttributes.Normal);
+            }
+
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // A leftover temporary file does not break the folder.
+            }
+        }
+
         if (OperatingSystem.IsWindows())
         {
             File.SetAttributes(path, FileAttributes.Hidden);

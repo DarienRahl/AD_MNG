@@ -78,6 +78,21 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
     }
 
     [Fact]
+    public async Task Manifest_MergedByConcurrentBackups_KeepsEveryEntry_AndLeavesNoTemporaryFile()
+    {
+        await using var sysvol = await OpenSysvolAsync();
+        var backup = await Planner.ReadBackupAsync(Session, sysvol, Sample.ServerSecurity, "Równolegle – Gdańsk", Ct);
+        var copies = Enumerable.Range(0, 12).Select(_ => backup with { BackupId = Guid.NewGuid() }).ToList();
+
+        await Task.WhenAll(copies.Select(c => Task.Run(() => GpmcBackupFormat.WriteAsync(_folder, c, "0.5.0", Ct), Ct)));
+
+        var manifest = System.Xml.Linq.XDocument.Load(Path.Combine(_folder, GpmcBackupFormat.ManifestFile));
+        var ids = manifest.Descendants().Where(e => e.Name.LocalName == "ID").Select(e => Guid.Parse(e.Value)).Order();
+        Assert.Equal(copies.Select(c => c.BackupId).Order(), ids);
+        Assert.Empty(System.IO.Directory.EnumerateFiles(_folder, "*.tmp"));
+    }
+
+    [Fact]
     public async Task Restore_OfAnExistingGpo_PutsFilesNameStatusAndPermissionsBack()
     {
         var backup = await BackUpAsync(Sample.WorkstationPasswords);
