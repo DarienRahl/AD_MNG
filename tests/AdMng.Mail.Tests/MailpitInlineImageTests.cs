@@ -14,6 +14,7 @@ namespace AdMng.Mail.Tests;
 /// ADMNG_TEST_SMTP_HOST and ADMNG_TEST_MAILPIT_API are set (tools/testlab/watchdog/start-mailpit.sh). U1c × U1d: the
 /// message pasted from Outlook with salutation fields arrives with "Szanowny Panie Profesorze" and its inline logo.
 /// </summary>
+[Collection(MailpitCollection.Name)]
 public sealed class MailpitInlineImageTests : IAsyncLifetime
 {
     private const string SkipReason = "ADMNG_TEST_SMTP_HOST / ADMNG_TEST_MAILPIT_API are not set - start Mailpit with tools/testlab/watchdog/start-mailpit.sh.";

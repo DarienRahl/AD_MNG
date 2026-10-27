@@ -12,6 +12,7 @@ namespace AdMng.Mail.Tests;
 /// set, e.g. <c>ADMNG_TEST_SMTP_HOST=127.0.0.1 ADMNG_TEST_SMTP_PORT=1025 ADMNG_TEST_MAILPIT_API=http://127.0.0.1:8025</c>.
 /// One class: the tests share Mailpit's mailbox and chaos triggers and run one after another.
 /// </summary>
+[Collection(MailpitCollection.Name)]
 public sealed class MailpitTests : IAsyncLifetime
 {
     private const string SkipReason = "ADMNG_TEST_SMTP_HOST / ADMNG_TEST_MAILPIT_API are not set - start Mailpit with tools/testlab/watchdog/start-mailpit.sh.";
