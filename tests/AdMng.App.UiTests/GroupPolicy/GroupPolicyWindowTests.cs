@@ -161,7 +161,8 @@ public sealed class GroupPolicyWindowTests
         main.UpdateLayout();
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var siteView = Assert.Single(UiWait.Descendants<GroupPolicyScopeView>(main));
-        Assert.Equal(Visibility.Collapsed, siteView.BlockInheritanceBox.Visibility);
+        // A site cannot block inheritance: the box's row (not the box itself) is collapsed.
+        Assert.False(siteView.BlockInheritanceBox.IsVisible);
 
         gpoRoot.IsSelected = true;
         await UiWait.UntilAsync(() => shell.SelectedTab is GroupPolicyObjectsDocumentViewModel { IsLoading: false, Rows.Count: 7 }, "the GPO list");
@@ -210,7 +211,7 @@ public sealed class GroupPolicyWindowTests
         await UiTestSupport.WaitForIdleAsync(rounds: 3);
         var view = Assert.Single(UiWait.Descendants<GroupPolicyScopeView>(main));
         Assert.Equal(2, view.LinksList.Items.Count);
-        Assert.Equal(Visibility.Visible, view.BlockInheritanceBox.Visibility);
+        Assert.True(view.BlockInheritanceBox.IsVisible);
         Assert.False(view.BlockInheritanceBox.IsChecked);
         Assert.NotEmpty(view.InheritanceList.Items);
         Assert.False(view.ToggleEnforcedButton.IsEnabled);
