@@ -6,7 +6,8 @@ namespace AdMng.Presentation.UserMessages;
 /// <summary>
 /// Reads the <c>file:</c> images of a pasted message (Outlook's and Word's <c>…\Temp\msohtmlclip1\01\clip_image001.png</c>)
 /// under <see cref="ClipboardImagePolicy"/> (design note u1c-u1d section 7.1): only a local drive path whose final path –
-/// 8.3 names expanded, no link or reparse point on the way – lies inside the equally resolved temp folder is opened, once,
+/// 8.3 names expanded, no link or reparse point on the way – is an Office clipboard image
+/// (<c>msohtmlclip&lt;n&gt;\&lt;nn&gt;\clip_image&lt;n&gt;.png|jpg|jpeg|gif</c>) of the equally resolved temp folder is opened, once,
 /// asynchronously, for at most <c>maxBytes + 1</c> bytes. A network path is never touched (it would leak the operator's
 /// NTLM credentials to a foreign server). Only the base name of the file is kept; the path (it contains the Windows user
 /// name) is never stored or logged.
@@ -37,6 +38,12 @@ public sealed class PastedImageFileSource : IPastedImageSource
         }
 
         var name = ClipboardImagePolicy.FileName(local);
+        if (!ClipboardImagePolicy.IsClipboardImageName(name))
+        {
+            // Another program's picture (HTML copied from a web page may name any file): not even its path is resolved.
+            return new PastedImageRead(null, name, PastedImageFailure.NotAllowed);
+        }
+
         var tempFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_tempFolder));
 
         // Nothing outside the temp folder's local drive is touched – not even to resolve its name (a mapped network drive
@@ -58,7 +65,7 @@ public sealed class PastedImageFileSource : IPastedImageSource
             return new PastedImageRead(null, name, failure);
         }
 
-        if (!ClipboardImagePolicy.IsInside(file.Path, folder.Path, _windows))
+        if (!ClipboardImagePolicy.IsClipboardImage(file.Path, folder.Path, _windows))
         {
             return new PastedImageRead(null, name, PastedImageFailure.NotAllowed);
         }

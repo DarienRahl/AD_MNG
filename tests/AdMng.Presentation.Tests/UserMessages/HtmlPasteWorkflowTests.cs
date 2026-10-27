@@ -97,8 +97,20 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
         Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + elsewhere, 1000, Ct)).Failure);
         Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + _temp + "/../" + Path.GetFileName(_outside) + "/clip_image001.png", 1000, Ct)).Failure);
 
+        // Another program's picture in the temp folder (HTML copied from a web page may name it) is never read.
+        var other = Path.Combine(_temp, "zrzut-ekranu-innej-aplikacji.png");
+        await File.WriteAllBytesAsync(other, MessageImageSamples.Png(), Ct);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + other, 1000, Ct)).Failure);
+        var renamed = Clip("logo-działu.png");
+        await File.WriteAllBytesAsync(renamed, MessageImageSamples.Png(), Ct);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + renamed, 1000, Ct)).Failure);
+        var nested = Path.Combine(_temp, "inna", "msohtmlclip1", "01");
+        Directory.CreateDirectory(nested);
+        await File.WriteAllBytesAsync(Path.Combine(nested, "clip_image001.png"), MessageImageSamples.Png(), Ct);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + Path.Combine(nested, "clip_image001.png"), 1000, Ct)).Failure);
+
         // A link inside the temp folder to a file elsewhere is refused (no reparse point on the way).
-        var link = Path.Combine(_temp, "msohtmlclip1", "01", "clip_link.png");
+        var link = Path.Combine(_temp, "msohtmlclip1", "01", "clip_image077.png");
         File.CreateSymbolicLink(link, elsewhere);
         Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + link, 1000, Ct)).Failure);
         var folderLink = Path.Combine(_temp, "msohtmlclip2");

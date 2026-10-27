@@ -49,6 +49,20 @@ public class ClipboardImagePolicyTests
     [InlineData(@"D:\Users\jkowalski\AppData\Local\Temp\a.png", false)]
     public void OnlyFilesInsideTheTempFolder(string path, bool inside) => Assert.Equal(inside, ClipboardImagePolicy.IsInside(path, Temp, windows: true));
 
+    [Theory]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\01\clip_image001.png", true)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip\02\CLIP_IMAGE012.JPEG", true)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\01\clip_image003.gif", true)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\zrzut-innej-aplikacji.png", false)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\01\logo-firmy.png", false)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\clip_image001.png", false)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\inna\msohtmlclip1\01\clip_image001.png", false)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\x1\clip_image001.png", false)]
+    [InlineData(@"C:\Users\jkowalski\AppData\Local\Temp\msohtmlclip1\01\clip_image001.emz", false)]
+    [InlineData(@"C:\Users\jkowalski\Documents\msohtmlclip1\01\clip_image001.png", false)]
+    public void OnlyTheImagesOfAnOfficeClipboardFragment(string path, bool allowed) =>
+        Assert.Equal(allowed, ClipboardImagePolicy.IsClipboardImage(path, Temp, windows: true));
+
     [Fact]
     public void ShortNames_MustBeExpandedByTheCaller()
     {

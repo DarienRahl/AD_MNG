@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace AdMng.Core.Messaging.Images;
 
 /// <summary>
@@ -6,10 +8,13 @@ namespace AdMng.Core.Messaging.Images;
 /// them as <c>file:///C:/…</c>. Only such a local drive path is accepted – a UNC path (<c>\\server\share</c>,
 /// <c>file://server/…</c>, <c>file:////server/…</c>) would make Windows authenticate to a foreign server and leak the
 /// operator's NTLM credentials, so it is never opened; device paths (<c>\\?\</c>, <c>\\.\</c>), alternate data streams and
-/// hosts are refused alike. The caller resolves the final path (8.3 names expanded, links and reparse points rejected)
-/// and checks it with <see cref="IsInside"/> against the equally resolved temp folder. Pure: no file system access.
+/// hosts are refused alike. Only the images of an Office clipboard fragment are read
+/// (<c>msohtmlclip&lt;n&gt;\&lt;nn&gt;\clip_image&lt;n&gt;.png|jpg|jpeg|gif</c>) – HTML copied from a web page may name any
+/// other picture of the temp folder, which must not end up in a mass mail. The caller resolves the final path (8.3 names
+/// expanded, links and reparse points rejected) and checks it with <see cref="IsClipboardImage"/> against the equally
+/// resolved temp folder. Pure: no file system access.
 /// </summary>
-public static class ClipboardImagePolicy
+public static partial class ClipboardImagePolicy
 {
     /// <summary>
     /// The local path of a <c>file:</c> URI, or null when it must not be opened. Windows: <c>file:///X:/…</c> (or the old
@@ -77,6 +82,31 @@ public static class ClipboardImagePolicy
         normalizedFolder = normalizedFolder.TrimEnd(separator) + separator;
         var comparison = windows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         return normalizedPath.Length > normalizedFolder.Length && normalizedPath.StartsWith(normalizedFolder, comparison);
+    }
+
+    /// <summary>True when <paramref name="fileName"/> is the name Office gives a clipboard fragment's image
+    /// (<c>clip_image001.png</c>, <c>.jpg</c>, <c>.jpeg</c>, <c>.gif</c>; case-insensitive).</summary>
+    public static bool IsClipboardImageName(string? fileName) => fileName is not null && ImageNamePattern().IsMatch(fileName);
+
+    /// <summary>
+    /// True when <paramref name="path"/> is an image of an Office clipboard fragment directly in <paramref name="folder"/>
+    /// (both resolved final paths): <c>msohtmlclip&lt;n&gt;\&lt;nn&gt;\clip_image&lt;n&gt;.png|jpg|jpeg|gif</c> (names
+    /// case-insensitive).
+    /// </summary>
+    public static bool IsClipboardImage(string? path, string? folder, bool windows)
+    {
+        if (!IsInside(path, folder, windows))
+        {
+            return false;
+        }
+
+        var separator = windows ? '\\' : '/';
+        var root = (windows ? folder!.Replace('/', '\\') : folder!).TrimEnd(separator) + separator;
+        var relative = (windows ? path!.Replace('/', '\\') : path!)[root.Length..].Split(separator);
+        return relative.Length == 3
+               && FolderPattern().IsMatch(relative[0])
+               && relative[1].Length > 0 && relative[1].All(char.IsAsciiDigit)
+               && IsClipboardImageName(relative[2]);
     }
 
     /// <summary>The base name of a path ("clip_image001.png") – the only part of a clipboard path ever kept.</summary>
@@ -152,4 +182,10 @@ public static class ClipboardImagePolicy
 
         return segments.Count == 0 ? null : segments;
     }
+
+    [GeneratedRegex(@"^clip_image\d+\.(?:png|jpe?g|gif)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex ImageNamePattern();
+
+    [GeneratedRegex(@"^msohtmlclip\d*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FolderPattern();
 }
