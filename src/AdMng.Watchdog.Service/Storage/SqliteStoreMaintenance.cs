@@ -48,6 +48,12 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
         _backups = new BackupFiles(database.BackupDirectory);
     }
 
+    /// <summary>
+    /// Free bytes on the volume of a folder (−1 when it cannot be measured) for <see cref="GetStatusAsync"/>. Tests: a
+    /// fixed value – the real volume is shared with every other process, so two measurements may differ.
+    /// </summary>
+    internal Func<string, long> FreeSpaceProbe { get; set; } = FreeSpace;
+
     public async Task<PurgeResult> PurgeAsync(RetentionSettings retention, DateTimeOffset now, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(retention);
@@ -128,7 +134,7 @@ public sealed class SqliteStoreMaintenance : IStoreMaintenance
         {
             DataDirectory = _database.DataDirectory,
             DatabaseBytes = FileSize(_database.DatabasePath) + FileSize(_database.DatabasePath + "-wal"),
-            FreeBytes = FreeSpace(_database.DataDirectory),
+            FreeBytes = FreeSpaceProbe(_database.DataDirectory),
             EventCount = count,
             OldestEventAt = oldest is { } o ? SqliteValues.FromUnixMs(o) : null,
             LastBackupAt = long.TryParse(lastBackup, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms) ? SqliteValues.FromUnixMs(ms) : null,

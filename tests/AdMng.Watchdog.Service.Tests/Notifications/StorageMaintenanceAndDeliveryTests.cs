@@ -94,6 +94,16 @@ public sealed class StorageMaintenanceAndDeliveryTests
         var events = Enumerable.Range(0, 3000).Select(i => TestData.Event(WatchEventKind.AttributesChanged)).ToArray();
         await store.Store.CommitAsync(new DetectionCommit { Events = events }, Ct);
         await store.Database.WriteAsync((c, t) => SqliteValues.Execute(c, t, "DELETE FROM events;"), Ct);
+
+        // The guard's checks are compared with a second GetStatusAsync, so nothing may change what it measures in between.
+        // Free space: the data volume is shared with every other test and process – a fixed value below 1 GiB (Error).
+        // Database size: another test's clean-up may clear every SQLite pool of this process (ClearAllPools), and when the
+        // last connection of a WAL database closes, SQLite checkpoints it and deletes the -wal file – a connection that
+        // has read the database (in WAL mode it keeps its shared lock) keeps both files as the guard measured them.
+        const long freeBytes = (700L << 20) + 4321;
+        store.Store.Maintenance.FreeSpaceProbe = _ => freeBytes;
+        using var keepFiles = store.Database.Open();
+        SqliteValues.Scalar<long>(keepFiles, null, "SELECT count(*) FROM events;");
         var retention = new RetentionSettings { MaxDatabaseMb = 1 };
         var health = new FakeHealthRegistry();
         var job = new StorageGuardJob(store.Store, new FakeConfigProvider(new WatchdogConfiguration { Retention = retention }), health,
@@ -105,6 +115,7 @@ public sealed class StorageMaintenanceAndDeliveryTests
         var expectedSize = StorageHealth.SizeCheck(status, retention, store.Clock.GetUtcNow());
         var expectedFree = StorageHealth.FreeCheck(status, store.Clock.GetUtcNow());
         Assert.NotEqual(HealthState.Ok, expectedSize.State);
+        Assert.Equal(HealthState.Error, expectedFree.State);
         var size = Assert.Single(health.Checks, c => c.Code == StorageHealth.SizeCode);
         var free = Assert.Single(health.Checks, c => c.Code == StorageHealth.FreeCode);
         Assert.Equal(expectedSize.State, size.State);
