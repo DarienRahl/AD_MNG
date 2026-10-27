@@ -796,7 +796,8 @@ identity attributes:
 * **Identity:** `objectGUID objectSid sIDHistory distinguishedName canonicalName msDS-PrincipalName objectCategory
   instanceType mS-DS-ConsistencyGuid`.
 * **Times and counters:** `whenCreated whenChanged uSNCreated uSNChanged modifyTimeStamp createTimeStamp pwdLastSet
-  lastLogon lastLogonTimestamp lastLogoff logonCount badPwdCount badPasswordTime lockoutTime`.
+  msDS-UserPasswordExpiryTimeComputed lastLogon lastLogonTimestamp lastLogoff logonCount badPwdCount badPasswordTime
+  lockoutTime`.
 * **Replication:** `dSCorePropagationData replPropertyMetaData msDS-ReplAttributeMetaData msDS-ReplValueMetaData`.
 * **`msDS-*` logon and key counters:** `msDS-LastSuccessfulInteractiveLogonTime msDS-LastFailedInteractiveLogonTime
   msDS-FailedInteractiveLogonCount msDS-FailedInteractiveLogonCountAtLastSuccessfulLogon msDS-KeyVersionNumber
@@ -804,8 +805,10 @@ identity attributes:
 * **Computers:** `msLAPS-PasswordExpirationTime ms-Mcs-AdmPwdExpirationTime`.
 * **Prefix rule:** every `msTPM-*` attribute.
 
-The constructed `msDS-User-Account-Control-Computed` and `msDS-UserPasswordExpiryTimeComputed` stay visible: they
-answer "is the account locked or expired on both sides". A unit test keeps the list a superset of
+The constructed `msDS-User-Account-Control-Computed` stays visible: its bits answer "is the account locked or is its
+password expired on both sides", and `userAccountControl` shows "password never expires".
+`msDS-UserPasswordExpiryTimeComputed` is hidden: it is `pwdLastSet` plus the policy's maximum age, so it differs for
+nearly every pair of accounts, like `pwdLastSet` itself. A unit test keeps the list a superset of
 `NoiseAttributes.Never` except `memberOf`, which has its own tab.
 
 ### 8.7 Membership

@@ -20,6 +20,10 @@ public static class ComparisonAttributes
 
         // Times and counters.
         Attr.WhenCreated, Attr.WhenChanged, Attr.UsnCreated, Attr.UsnChanged, "modifyTimeStamp", "createTimeStamp", Attr.PwdLastSet,
+
+        // Derived from pwdLastSet; whether the password expired (or never expires) shows in msDS-User-Account-Control-Computed
+        // and userAccountControl, which stay visible.
+        Attr.PasswordExpiryComputed,
         Attr.LastLogon, Attr.LastLogonTimestamp, "lastLogoff", Attr.LogonCount, Attr.BadPwdCount, Attr.BadPasswordTime, Attr.LockoutTime,
 
         // Replication.

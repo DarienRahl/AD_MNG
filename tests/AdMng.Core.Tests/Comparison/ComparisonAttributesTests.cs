@@ -31,6 +31,7 @@ public class ComparisonAttributesTests
     [InlineData("objectSid")]
     [InlineData("sIDHistory")]
     [InlineData("pwdLastSet")]
+    [InlineData("msDS-UserPasswordExpiryTimeComputed")]
     [InlineData("lockoutTime")]
     [InlineData("whenCreated")]
     [InlineData("msTPM-OwnerInformation")]
@@ -43,7 +44,6 @@ public class ComparisonAttributesTests
 
     [Theory]
     [InlineData("msDS-User-Account-Control-Computed")]
-    [InlineData("msDS-UserPasswordExpiryTimeComputed")]
     [InlineData("userAccountControl")]
     [InlineData("title")]
     public void AccountStateAndOrdinaryAttributes_StayVisible(string attribute)
