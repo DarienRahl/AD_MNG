@@ -23,6 +23,8 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
     private const string SmbClient = "/usr/bin/smbclient";
     private const string SmbCacls = "/usr/bin/smbcacls";
     private readonly List<string> _servers = [];
+    private int? _failReplace;
+    private int _replaces;
 
     /// <summary>The servers opened (the session DCs).</summary>
     public IReadOnlyList<string> OpenedOn
@@ -35,6 +37,18 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
             }
         }
     }
+
+    /// <summary>
+    /// The interrupted write of the lab tests (design note 10): the <paramref name="number"/>-th replace from now on fails with
+    /// <see cref="SysvolWriteError.Failed"/> before it reaches the server (null: no failure).
+    /// </summary>
+    public void FailReplace(int? number)
+    {
+        _failReplace = number;
+        Volatile.Write(ref _replaces, 0);
+    }
+
+    private bool ShouldFailReplace() => _failReplace is { } number && Interlocked.Increment(ref _replaces) == number;
 
     public Task<ISysvolWriteConnection> OpenForWriteAsync(IDirectorySession session, CancellationToken cancellationToken)
     {
@@ -50,10 +64,11 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
             _servers.Add(server);
         }
 
-        return Task.FromResult<ISysvolWriteConnection>(new Connection(server, domain, ip, userName, password));
+        return Task.FromResult<ISysvolWriteConnection>(new Connection(server, domain, ip, userName, password, ShouldFailReplace));
     }
 
-    private sealed partial class Connection(string server, string domain, string address, string userName, string password) : ISysvolWriteConnection
+    private sealed partial class Connection(string server, string domain, string address, string userName, string password, Func<bool> failReplace)
+        : ISysvolWriteConnection
     {
         public string Server { get; } = server;
 
@@ -151,8 +166,15 @@ internal sealed partial class SmbClientSysvolFileWriter(string address, string u
             Check(await SmbAsync("put /dev/stdin \"" + Remote(gpoId, path) + "\"", content.ToArray(), cancellationToken), "write");
         }
 
-        public async Task ReplaceAsync(Guid gpoId, string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken) =>
+        public async Task ReplaceAsync(Guid gpoId, string tempRelativePath, string targetRelativePath, CancellationToken cancellationToken)
+        {
+            if (failReplace())
+            {
+                throw new SysvolWriteException(SysvolWriteError.Failed, "The lab test interrupted this replace.");
+            }
+
             Check(await SmbAsync("rename \"" + Remote(gpoId, tempRelativePath) + "\" \"" + Remote(gpoId, targetRelativePath) + "\" -f", null, cancellationToken), "replace");
+        }
 
         public async Task DeleteFileAsync(Guid gpoId, string relativePath, CancellationToken cancellationToken) =>
             Check(await SmbAsync("del \"" + Remote(gpoId, relativePath) + "\"", null, cancellationToken), "delete");

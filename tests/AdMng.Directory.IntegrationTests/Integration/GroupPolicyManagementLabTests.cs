@@ -227,6 +227,63 @@ public sealed class GroupPolicyManagementLabTests(LabFixture lab)
     }
 
     [Fact]
+    public async Task InterruptedWrite_IsCompensated_AndTheGpoStaysAsBefore()
+    {
+        SambaTools.Require();
+        var admin = lab.Admin;
+        var run = Guid.NewGuid().ToString("N")[..6];
+        var ou = await lab.CreateOuAsync($"K2T-{run}");
+        using var tools = SambaTools.Create();
+        var source = Guid.NewGuid();
+        var target = Guid.NewGuid();
+        var created = new List<Guid>();
+        var oldScripts = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes("[Startup]\r\n0CmdLine=stare.cmd\r\n0Parameters=\r\n")).ToArray();
+        var newScripts = Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes("[Startup]\r\n0CmdLine=nowe-łódź.cmd\r\n0Parameters=\r\n")).ToArray();
+        await using var sysvol = await _writer.OpenForWriteAsync(admin, Ct);
+        try
+        {
+            created.Add(source);
+            await ExecuteOkAsync(await _planner.PlanCreateAsync(admin, $"K2T-{run} Źródło", ou, Ct, source));
+            created.Add(target);
+            await ExecuteOkAsync(await _planner.PlanCreateAsync(admin, $"K2T-{run} Cel", ou, Ct, target));
+            await tools.PutAsync(source, SecurityTemplatePath, SecurityTemplate(14), Ct);
+            await tools.PutAsync(source, ScriptsPath, newScripts, Ct);
+            await tools.PutAsync(target, SecurityTemplatePath, SecurityTemplate(8), Ct);
+            await tools.PutAsync(target, ScriptsPath, oldScripts, Ct);
+            var before = (await Reader.ReadPolicyAsync(admin, target, Ct))!.DirectoryVersion;
+            var backup = await _planner.ReadBackupAsync(admin, sysvol, source, string.Empty, Ct);
+            var plan = await _planner.PlanImportAsync(admin, sysvol, target, backup, "C:\\Kopie", Ct);
+            Assert.Equal(2, plan.Objects.SelectMany(o => o.Changes).Count(c => c.Action == ChangeAction.WriteGpoFile));
+
+            // The second file switch fails: the first one is put back from memory, the version is not raised.
+            _writer.FailReplace(2);
+            var result = await Execute(plan);
+            _writer.FailReplace(null);
+
+            Assert.Contains(result.Objects.SelectMany(o => o.Changes), c => !c.Succeeded && c.Change.Action == ChangeAction.WriteGpoFile);
+            Assert.Equal(SecurityTemplate(8), await ReadAsync(sysvol, target, SecurityTemplatePath));
+            Assert.Equal(oldScripts, await ReadAsync(sysvol, target, ScriptsPath));
+            Assert.Equal(before, (await Reader.ReadPolicyAsync(admin, target, Ct))!.DirectoryVersion);
+            await AssertNoTempFilesAsync(sysvol, target);
+        }
+        finally
+        {
+            _writer.FailReplace(null);
+            foreach (var id in created)
+            {
+                try
+                {
+                    await ExecuteOkAsync(await _planner.PlanDeleteAsync(admin, id, Ct));
+                }
+                catch (Exception ex) when (ex is DirectoryException or Xunit.Sdk.XunitException)
+                {
+                    await tools.DeleteGpoAsync(id);
+                }
+            }
+        }
+    }
+
+    [Fact]
     public async Task WmiFilterAndSecurityFiltering_ThroughThePipeline()
     {
         SambaTools.Require();
