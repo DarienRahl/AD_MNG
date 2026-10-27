@@ -98,6 +98,9 @@ public sealed class ConnectionReadContext : IDisposable
     /// <summary>True while the context reads through <paramref name="session"/>.</summary>
     internal bool IsPinnedTo(object? session) => session is not null && ReferenceEquals(Volatile.Read(ref _session), session);
 
+    /// <summary>True while both contexts read through the same session (false once either has ended).</summary>
+    internal bool ReadsSameSessionAs(ConnectionReadContext? other) => other is not null && other.IsPinnedTo(Volatile.Read(ref _session));
+
     /// <summary>At most N requests at a time; a search holds its slot until it is enumerated or abandoned.</summary>
     private sealed class LimitedReader(IDirectoryReader inner, int limit) : IDirectoryReader
     {

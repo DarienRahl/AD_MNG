@@ -53,6 +53,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     private MembershipRead? _nestedMembersB;
     private List<MembershipComparisonRowViewModel> _membershipRows = [];
     private List<MembershipComparisonRowViewModel> _memberRows = [];
+    private bool _membershipComplete;
+    private bool _membersComplete;
     private string? _matchedDn;
     private string? _targetDomain;
     private Task _lastRun = Task.CompletedTask;
@@ -220,8 +222,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool ShowNested { get; set; } = true;
 
-    /// <summary>"Członkostwo (1)".</summary>
-    public string MembershipTabHeader => TabHeader(L.Comparison.TabMembership, _membershipRows.Count(r => r.IsDifference), HasResult);
+    /// <summary>"Członkostwo (1)"; without a count until the membership of both objects is read.</summary>
+    public string MembershipTabHeader => TabHeader(L.Comparison.TabMembership, _membershipRows.Count(r => r.IsDifference), HasResult && _membershipComplete);
 
     /// <summary>Notes under the membership tab: the footnote, truncation and skipped groups.</summary>
     [ObservableProperty]
@@ -237,8 +239,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool ShowNestedMembers { get; set; }
 
-    /// <summary>"Członkowie (3)".</summary>
-    public string MembersTabHeader => TabHeader(L.Comparison.TabMembers, _memberRows.Count(r => r.IsDifference), HasResult);
+    /// <summary>"Członkowie (3)"; without a count until the members of both groups are read.</summary>
+    public string MembersTabHeader => TabHeader(L.Comparison.TabMembers, _memberRows.Count(r => r.IsDifference), HasResult && _membersComplete);
 
     /// <summary>Notes under the members tab: skipped foreign principals, truncation.</summary>
     [ObservableProperty]
@@ -528,6 +530,12 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
                 return;
             }
 
+            // A DN matched before the other window reconnected to another domain names nothing there: match again.
+            if (targetDn is not null && !NamingContextFilter.Contains(sideB.Info.DefaultNamingContext, targetDn))
+            {
+                targetDn = null;
+            }
+
             if (targetDn is null)
             {
                 var rule = SelectedRule?.Value ?? ObjectMatchRule.Automatic;
@@ -572,9 +580,15 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             IsSameObject = snapshotA.ObjectGuid is { } guid && guid == snapshotB.ObjectGuid;
             StatusText = Localizer.Format(L.Comparison.StatusFound, snapshotB.DistinguishedName);
             RebuildAttributeRows();
+
+            // The membership tabs of the previous pair go now: a run stopped or failing while they load leaves them empty
+            // (headers without a count), never the previous object's groups next to these attributes.
             _nestedA = _nestedB = _nestedMembersA = _nestedMembersB = null;
             _directA = _directB = _membersA = _membersB = MembershipRead.Empty;
+            _membershipComplete = _membersComplete = false;
             HasResult = true;
+            RebuildMembershipRows();
+            RebuildMemberRows();
 
             // Direct membership: both sides at the same time (each with its own reader and request limit).
             var directA = Task.Run(() => ComparisonReader.ReadDirectMembershipAsync(readerA, snapshotA, policyA.DomainSid, ct), ct);
@@ -587,6 +601,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
             _directA = directA.Result;
             _directB = directB.Result;
+            _membershipComplete = true;
             RebuildMembershipRows();
             if (snapshotA.Kind == ObjectKind.Group && snapshotB.Kind == ObjectKind.Group)
             {
@@ -602,6 +617,7 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
                 _membersB = membersB.Result;
             }
 
+            _membersComplete = true;
             RebuildMemberRows();
             IsRunning = false;
             _nestedLoad = LoadNestedAsync(snapshotA, snapshotB, readerA, readerB);
@@ -795,8 +811,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     /// </summary>
     private (ConnectionReadContext A, ConnectionReadContext? B) PinSides(IDirectorySession session, ComparisonTargetViewModel target)
     {
-        _sideA?.Dispose();
-        _sideB?.Dispose();
+        var previousA = _sideA;
+        var previousB = _sideB;
 
         // Side A reads through the window's pinned session only; pinned through the window's context it ends with it.
         var own = Services.Connection?.Pin();
@@ -809,9 +825,21 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         own ??= ConnectionReadContext.Create(_ownId, Services.Connection?.Identity, session, Services.Sessions.Formatter, Services.Sessions.GetDomainPolicyAsync(CancellationToken.None));
         var handle = _registry?.Find(target.Id);
         var other = handle?.Pin();
+
+        // The results on screen were read through the previous side B: they stay (with their label, formatter, readers
+        // and export names) only while the new side B reads the same session; another connection, another session of
+        // the same window (reconnected, other DC) or none drops them before anything is relabelled or read.
+        var sameSideB = other is not null && other.ReadsSameSessionAs(previousB);
+        previousA?.Dispose();
+        previousB?.Dispose();
         _sideA = own;
         _sideB = other;
         ObserveTarget(other is null ? null : handle);
+        if (!sameSideB)
+        {
+            ClearResult();
+        }
+
         return (own, other);
     }
 
@@ -852,20 +880,32 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     private void ShowSourceOnly(ObjectSnapshot a, ConnectionReadContext sideA, CancellationToken cancellationToken)
     {
         _snapshotA = a;
+        ClearResult();
+        _ = SetSourceSummaryAsync(a, sideA, cancellationToken);
+    }
+
+    /// <summary>Drops the comparison on screen: side B's object, the rows of every tab and the reads behind them.</summary>
+    private void ClearResult()
+    {
         _snapshotB = null;
         _matchedDn = null;
         HasResult = false;
         IsSameObject = false;
         SideB.Summary = null;
+        _nestedA = _nestedB = _nestedMembersA = _nestedMembersB = null;
+        _directA = _directB = _membersA = _membersB = MembershipRead.Empty;
+        _membershipComplete = _membersComplete = false;
         _attributeComparisons = [];
         _attributeRows = [];
         _membershipRows = [];
         _memberRows = [];
+        SelectedAttributeRow = null;
         AttributeRows.ReplaceAll([]);
         MembershipRows.ReplaceAll([]);
         MemberRows.ReplaceAll([]);
+        MembershipNotes = string.Empty;
+        MemberNotes = string.Empty;
         RaiseTabHeaders();
-        _ = SetSourceSummaryAsync(a, sideA, cancellationToken);
     }
 
     private async Task SetSourceSummaryAsync(ObjectSnapshot a, ConnectionReadContext sideA, CancellationToken cancellationToken)
@@ -1092,6 +1132,9 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             _nestedMemberRuns.Cancel();
             IsRunning = false;
             IsNestedLoading = false;
+
+            // The candidates were found through the previous session; the results stay visible under their label.
+            Candidates.Clear();
             SideB.MarkEnded(Localizer.Format(L.Comparison.SideChanged, SideB.Label));
         }
     });

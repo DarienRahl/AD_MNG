@@ -2,6 +2,7 @@ using System.Globalization;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Comparison;
 using AdMng.Core.Csv;
+using AdMng.Core.Directory;
 using AdMng.Core.Schema;
 using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Connections;
@@ -418,6 +419,88 @@ public sealed class ObjectComparisonViewModelTests
         Assert.True(target.IsEnded);
         await Assert.ThrowsAsync<ObjectDisposedException>(() => target.Reader.GetAsync(domains.FabrikamDomain.Company.LukaszWisniewski, [Attr.Name], Ct));
         Assert.Equal("contoso.test", b.Context.Identity?.DomainDnsName);
+    }
+
+    [Fact]
+    public async Task AFailedRunAgainstAnotherConnection_DropsThePreviousResults_InsteadOfRelabellingThem()
+    {
+        var domains = await ComparisonDomains.CreateAsync();
+        var (host, a, b) = await domains.OpenAsync(s => s.AddSingleton<ICsvCodec, CsvCodec>());
+        await using var _ = host;
+        await using var c = host.CreateConnection();
+        await c.ConnectAsync(ComparisonDomains.Fabrikam, "piotr.nowak");
+        using var comparison = a.Compare(domains.Contoso.Company.LukaszWisniewski);
+        await comparison.InitializeAsync();
+        comparison.SelectedTarget = comparison.Targets.Single(t => t.Id == b.Context.Id);
+        await comparison.CompareCommand.ExecuteAsync(null);
+        await comparison.Pending;
+        Assert.True(comparison.HasResult);
+        Assert.Equal("Wrocław", comparison.Row(Attr.City).ValueTextB);
+
+        // Window C: its DC times out reading the matched object.
+        domains.FabrikamDomain.Session.FailNext(FakeOperationKind.Get, domains.FabrikamDomain.Company.LukaszWisniewski, DirectoryErrorKind.Timeout);
+        comparison.SelectedTarget = comparison.Targets.Single(t => t.Id == c.Context.Id);
+        await comparison.CompareCommand.ExecuteAsync(null);
+        await comparison.Pending;
+
+        // Side B names window C now: nothing read through window B is left under that label, in the tabs or the CSV.
+        Assert.NotNull(comparison.ErrorText);
+        Assert.Contains("FABRIKAM\\piotr.nowak", comparison.SideB.Label, StringComparison.Ordinal);
+        Assert.False(comparison.HasResult);
+        Assert.Null(comparison.SideB.Summary);
+        Assert.Empty(comparison.AttributeRows);
+        Assert.Empty(comparison.MembershipRows);
+        Assert.Equal("Attributes", comparison.AttributesTabHeader);
+        Assert.Equal("Membership", comparison.MembershipTabHeader);
+        Assert.False(comparison.ExportCsvCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task BReconnectsToAnotherDomain_RefreshMatchesThere_AndNeverShowsFabrikamUnderItsLabel()
+    {
+        var domains = await ComparisonDomains.CreateAsync();
+        var (host, a, b) = await domains.OpenAsync();
+        await using var _ = host;
+        using var comparison = await a.Compare(domains.Contoso.Company.LukaszWisniewski).RunAsync();
+        Assert.Equal("Wrocław", comparison.Row(Attr.City).ValueTextB);
+
+        await b.ConnectAsync(user: "anna.zielinska");
+        Assert.True(comparison.SideB.IsEnded);
+        Assert.Contains("fabrikam.test", comparison.SideB.Label, StringComparison.Ordinal);
+
+        await comparison.RefreshCommand.ExecuteAsync(null);
+        await comparison.Pending;
+
+        // The fabrikam DN means nothing in contoso.test: the rule matches again there (the same object, here).
+        Assert.False(comparison.SideB.IsEnded);
+        Assert.Contains("contoso.test", comparison.SideB.Label, StringComparison.Ordinal);
+        Assert.Equal(domains.Contoso.Company.LukaszWisniewski, comparison.SideB.Summary?.DistinguishedName);
+        Assert.True(comparison.IsSameObject);
+        Assert.Empty(comparison.AttributeRows);
+        Assert.Equal("Comparison: Łukasz Wiśniewski – contoso.test ↔ contoso.test", comparison.WindowTitle);
+    }
+
+    [Fact]
+    public async Task AnotherObjectWhoseMembershipReadFails_ShowsNoGroupsOfThePreviousObject()
+    {
+        var domains = await ComparisonDomains.CreateAsync();
+        var (host, a, _) = await domains.OpenAsync();
+        await using var _ = host;
+        using var comparison = await a.Compare(domains.Contoso.Company.LukaszWisniewski).RunAsync();
+        Assert.Contains(comparison.MembershipRows, r => r.Name == "GG_Sprzedaz");
+
+        // Explicitly Jan Kowalski in fabrikam; the DC times out reading his groups.
+        comparison.SelectedRule = comparison.MatchRules.Single(r => r.Value == ObjectMatchRule.Explicit);
+        comparison.ExplicitText = domains.FabrikamDomain.Company.JanKowalski;
+        domains.FabrikamDomain.Session.FailNext(FakeOperationKind.Search, null, DirectoryErrorKind.Timeout);
+        await comparison.CompareCommand.ExecuteAsync(null);
+        await comparison.Pending;
+
+        Assert.NotNull(comparison.ErrorText);
+        Assert.True(comparison.HasResult);
+        Assert.Equal(domains.FabrikamDomain.Company.JanKowalski, comparison.SideB.Summary?.DistinguishedName);
+        Assert.Empty(comparison.MembershipRows);
+        Assert.Equal("Membership", comparison.MembershipTabHeader);
     }
 
     [Fact]
