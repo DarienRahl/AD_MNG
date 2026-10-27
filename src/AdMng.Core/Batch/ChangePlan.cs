@@ -235,6 +235,9 @@ public static class IssueCodes
 
     /// <summary>The GPO is linked to containers of another domain or to sites; those links are listed.</summary>
     public const string GpoLinkedElsewhere = "GpoLinkedElsewhere";
+
+    /// <summary>Imported settings name security principals or UNC paths of another domain (migration tables are not supported).</summary>
+    public const string GpoForeignReferences = "GpoForeignReferences";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>

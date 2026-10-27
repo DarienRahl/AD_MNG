@@ -9408,4 +9408,168 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Filters.Conditions" xml:space="preserve">
     <value>Conditions</value>
   </data>
+  <!-- K2: Group Policy (begin) -->
+  <data name="ObjectKind.GroupPolicyContainer" xml:space="preserve">
+    <value>Group Policy Object</value>
+  </data>
+  <data name="ObjectKind.WmiFilter" xml:space="preserve">
+    <value>WMI Filter</value>
+  </data>
+  <data name="ObjectKind.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ChangeAction.CreateGpoFolder" xml:space="preserve">
+    <value>Create GPO folder</value>
+  </data>
+  <data name="ChangeAction.WriteGpoFile" xml:space="preserve">
+    <value>Write GPO file</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFile" xml:space="preserve">
+    <value>Delete GPO file</value>
+  </data>
+  <data name="ChangeAction.SyncGpoFolderSecurity" xml:space="preserve">
+    <value>Synchronize folder permissions</value>
+  </data>
+  <data name="ChangeAction.SetGpoFolderSecurity" xml:space="preserve">
+    <value>Set folder permissions</value>
+  </data>
+  <data name="ChangeAction.SetGpoVersion" xml:space="preserve">
+    <value>Set GPO version</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFolder" xml:space="preserve">
+    <value>Delete GPO folder</value>
+  </data>
+  <data name="Issue.GpoVersionMissing" xml:space="preserve">
+    <value>The plan writes GPO files without raising the GPO version.</value>
+  </data>
+  <data name="Issue.GpoTooLarge" xml:space="preserve">
+    <value>The GPO is too large for a safe copy in memory.</value>
+  </data>
+  <data name="Issue.GpoVersionOverflow" xml:space="preserve">
+    <value>The GPO version reached its maximum.</value>
+  </data>
+  <data name="Issue.SysvolLeftovers" xml:space="preserve">
+    <value>The GPO folder holds leftovers of an interrupted write; they are deleted.</value>
+  </data>
+  <data name="Issue.SysvolUnavailable" xml:space="preserve">
+    <value>SYSVOL of the domain controller cannot be written.</value>
+  </data>
+  <data name="Issue.DefaultGpo" xml:space="preserve">
+    <value>The default domain policies cannot be deleted.</value>
+  </data>
+  <data name="Issue.Ms16072Read" xml:space="preserve">
+    <value>Neither Authenticated Users nor Domain Computers can read the GPO: since MS16-072 clients cannot apply its user settings.</value>
+  </data>
+  <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
+    <value>The GPO is also linked to sites or containers of another domain.</value>
+  </data>
+  <data name="PlanPreview.Bytes" xml:space="preserve">
+    <value>{0} B</value>
+  </data>
+  <data name="PlanPreview.Absent" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="PlanPreview.Version" xml:space="preserve">
+    <value>GPO version</value>
+  </data>
+  <data name="PlanPreview.VersionValue" xml:space="preserve">
+    <value>computer {0}, user {1}</value>
+  </data>
+  <data name="PlanPreview.Folder" xml:space="preserve">
+    <value>GPO folder (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.FolderSecurity" xml:space="preserve">
+    <value>Folder permissions (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.Title" xml:space="preserve">
+    <value>Preview: {0}</value>
+  </data>
+  <data name="PlanPreview.Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="PlanPreview.PowerShell" xml:space="preserve">
+    <value>PowerShell</value>
+  </data>
+  <data name="PlanPreview.Results" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="PlanPreview.ShowDiff" xml:space="preserve">
+    <value>Show differences</value>
+  </data>
+  <data name="PlanPreview.Diff" xml:space="preserve">
+    <value>Differences</value>
+  </data>
+  <data name="PlanPreview.DiffBinary" xml:space="preserve">
+    <value>Binary content: {0} → {1}.</value>
+  </data>
+  <data name="PlanPreview.DiffSettings" xml:space="preserve">
+    <value>Settings of the file (secrets masked): {0} added, {1} removed.</value>
+  </data>
+  <data name="PlanPreview.DiffText" xml:space="preserve">
+    <value>Lines of the file: {0} added, {1} removed.</value>
+  </data>
+  <data name="PlanPreview.DiffTruncated" xml:space="preserve">
+    <value>The file is long; only its beginning is compared.</value>
+  </data>
+  <data name="PlanPreview.DiffNone" xml:space="preserve">
+    <value>Select a SYSVOL file row to see its differences.</value>
+  </data>
+  <data name="PlanPreview.Summary" xml:space="preserve">
+    <value>{0} objects, {1} steps on {2}.</value>
+  </data>
+  <data name="PlanPreview.Execute" xml:space="preserve">
+    <value>Execute</value>
+  </data>
+  <data name="PlanPreview.Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="PlanPreview.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="PlanPreview.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="PlanPreview.CopyPowerShell" xml:space="preserve">
+    <value>Copy PowerShell</value>
+  </data>
+  <data name="PlanPreview.Executing" xml:space="preserve">
+    <value>Executing…</value>
+  </data>
+  <data name="PlanPreview.ResultSucceeded" xml:space="preserve">
+    <value>Done: every change was made.</value>
+  </data>
+  <data name="PlanPreview.ResultFailed" xml:space="preserve">
+    <value>Not every change was made: {0} of {1} objects failed. Undo reverts what was made.</value>
+  </data>
+  <data name="PlanPreview.RollbackShown" xml:space="preserve">
+    <value>The undo plan is shown. Execute it to revert the change.</value>
+  </data>
+  <data name="PlanPreview.NothingToUndo" xml:space="preserve">
+    <value>Nothing to undo.</value>
+  </data>
+  <data name="PlanPreview.Reverted" xml:space="preserve">
+    <value>{0} The file changes were reverted; the GPO is as before.</value>
+  </data>
+  <data name="PlanPreview.Inconsistent" xml:space="preserve">
+    <value>{0} The previous files could not be put back: the GPO is inconsistent – use “Align versions” on its Status tab.</value>
+  </data>
+  <data name="PlanPreview.SysvolUnavailable" xml:space="preserve">
+    <value>SYSVOL of the domain controller cannot be written: {0}</value>
+  </data>
+  <data name="PlanPreview.FolderChanged" xml:space="preserve">
+    <value>The GPO folder holds files the plan did not write; it was not deleted.</value>
+  </data>
+  <data name="PlanPreview.Warnings" xml:space="preserve">
+    <value>Warnings</value>
+  </data>
+  <data name="PlanPreview.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="PlanPreview.Item" xml:space="preserve">
+    <value>Attribute or file</value>
+  </data>
+  <data name="PlanPreview.SessionEnded" xml:space="preserve">
+    <value>The connection of this window ended; the plan can no longer be executed.</value>
+  </data>
+  <!-- K2: Group Policy (end) -->
 </root>

@@ -143,6 +143,9 @@ public sealed class PreviewRowViewModel : INotifyPropertyChanged
 
     /// <summary>True when the row changes something.</summary>
     public bool IsChange { get; init; }
+
+    /// <summary>The SYSVOL step of a file row (its old and new content, for "Pokaż różnice"), else null.</summary>
+    public SysvolChange? Sysvol { get; internal set; }
 }
 
 /// <summary>One object of the execution result.</summary>
@@ -313,6 +316,21 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
                 case ChangeAction.ResetPassword:
                     Add(action, localizer[L.Batch.Password], string.Empty, change.Password is null ? string.Empty : SecretAttributes.Mask, change.Issues, isChange: true);
                     break;
+                case ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile:
+                    // SYSVOL file rows: the path and the sizes; the content only through "Pokaż różnice" (K2).
+                    Add(action, change.Sysvol?.RelativePath ?? string.Empty, SizeOf(change.Sysvol?.OldContent),
+                        change.Action == ChangeAction.DeleteGpoFile ? localizer[L.PlanPreview.Absent] : SizeOf(change.Sysvol?.NewContent), change.Issues, isChange: true);
+                    rows[^1].Sysvol = change.Sysvol;
+                    break;
+                case ChangeAction.SetGpoVersion when change.GpoVersion is { } version:
+                    Add(action, localizer[L.PlanPreview.Version], VersionText(version.Old), VersionText(version.New), change.Issues, isChange: true);
+                    break;
+                case ChangeAction.CreateGpoFolder or ChangeAction.DeleteGpoFolder:
+                    Add(action, localizer[L.PlanPreview.Folder], string.Empty, string.Empty, change.Issues, isChange: true);
+                    break;
+                case ChangeAction.SyncGpoFolderSecurity or ChangeAction.SetGpoFolderSecurity:
+                    Add(action, localizer[L.PlanPreview.FolderSecurity], string.Empty, string.Empty, change.Issues, isChange: true);
+                    break;
                 default:
                     Add(action, string.Empty, string.Empty, string.Empty, change.Issues, isChange: true);
                     break;
@@ -344,6 +362,14 @@ internal sealed class PreviewBuilder(ILocalizer localizer, ErrorTranslator error
 
         return formatter.FormatValue(attribute, value, localizer.Culture);
     }
+
+    /// <summary>"1 234 B" in the UI culture, "(brak)" for an absent file.</summary>
+    private string SizeOf(byte[]? content) => content is null
+        ? localizer[L.PlanPreview.Absent]
+        : localizer.Format(L.PlanPreview.Bytes, content.Length.ToString("N0", localizer.Culture));
+
+    /// <summary>"komputer 3, użytkownik 0".</summary>
+    private string VersionText(Core.GroupPolicy.GpoVersion version) => localizer.Format(L.PlanPreview.VersionValue, version.Computer, version.User);
 
     private static string NameOf(string? dn) =>
         dn is not null && DistinguishedName.TryParse(dn, out var parsed) && !parsed.IsRoot ? parsed.Name : dn ?? string.Empty;
