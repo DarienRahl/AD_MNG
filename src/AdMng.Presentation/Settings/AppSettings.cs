@@ -75,6 +75,9 @@ public sealed class AppSettings
     /// <summary>The account review: N-day parameters, enabled checks, scope and named check sets (never results).</summary>
     public AccountReviewSettings AccountReview { get; set; } = new();
 
+    /// <summary>Computers (K1): review parameters, placement rules, catalogue overrides, remote options (never computer names or results).</summary>
+    public ComputerSettings Computers { get; set; } = new();
+
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
@@ -112,6 +115,8 @@ public sealed class AppSettings
         Watchdog.Normalize();
         AccountReview ??= new();
         AccountReview.Normalize();
+        Computers ??= new();
+        Computers.Normalize();
         UserMessages ??= new();
         UserMessages.Normalize();
         SavedFilters = [.. (SavedFilters ?? []).Select(Filters.FilterLibrary.Normalize).OfType<Filters.SavedFilter>()

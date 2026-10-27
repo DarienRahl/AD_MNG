@@ -3,8 +3,7 @@ namespace AdMng.Presentation.Localization;
 public static partial class L
 {
     /// <summary>
-    /// Computers (K1): permission rows of the preview, the computer review, remote actions and the lifecycle. Dynamic
-    /// families are documented where they are built.
+    /// Computers (K1): permission rows of the preview, the computer actions (tools, ping, reset), the type, placement and owner texts. Dynamic families: <c>Computers.Type.{ComputerType}</c>, <c>Computers.Placement.{PlacementFinding}</c>, <c>Computers.Owner.{OwnerState}</c>.
     /// </summary>
     public static class Computers
     {
@@ -39,5 +38,170 @@ public static partial class L
         public const string AclRightWriteDacl = "Computers.Acl.Right.WriteDacl";
         public const string AclRightWriteOwner = "Computers.Acl.Right.WriteOwner";
         public const string AclRightOther = "Computers.Acl.Right.Other";
+        public const string NotAComputer = "Computers.NotAComputer";
+        public const string NoDnsName = "Computers.NoDnsName";
+        public const string ToolsNotAvailable = "Computers.ToolsNotAvailable";
+        public const string ToolCredentialConfirm = "Computers.ToolCredentialConfirm";
+        public const string Ping = "Computers.Ping";
+        public const string PingReplies = "Computers.PingReplies";
+        public const string PingNoReply = "Computers.PingNoReply";
+        public const string RemoteDesktop = "Computers.RemoteDesktop";
+        public const string ComputerManagement = "Computers.ComputerManagement";
+        public const string EventViewer = "Computers.EventViewer";
+        public const string RemoteActionsCommand = "Computers.RemoteActionsCommand";
+        public const string ComputerMenu = "Computers.ComputerMenu";
+        public const string ResetAccount = "Computers.ResetAccount";
+        public const string ResetAccountCommand = "Computers.ResetAccountCommand";
+        public const string ResetConfirmOne = "Computers.ResetConfirmOne";
+        public const string ResetConfirmMany = "Computers.ResetConfirmMany";
+        public const string ResetSkipped = "Computers.ResetSkipped";
+        public const string ResetWarning = "Computers.ResetWarning";
+        public const string TypeDomainToConfirm = "Computers.TypeDomainToConfirm";
+        public const string ResetDone = "Computers.ResetDone";
+        public const string ComputerReviewCommand = "Computers.ComputerReviewCommand";
+    }
+
+    /// <summary>
+    /// The computer review window (<see cref="AdMng.Presentation.Computers.ComputerReviewViewModel"/>). Dynamic families: <c>ComputerReview.Report.{ComputerReport}</c>, <c>ComputerReview.Hint.{ComputerReport}</c>, <c>ComputerReview.Area.{ComputerReportArea}</c>, <c>ComputerReview.Column.{column id}</c>.
+    /// </summary>
+    public static class ComputerReview
+    {
+        public const string WindowTitle = "ComputerReview.WindowTitle";
+        public const string WindowTitleDomain = "ComputerReview.WindowTitleDomain";
+        public const string ScopeNotChosen = "ComputerReview.ScopeNotChosen";
+        public const string ViewNotFound = "ComputerReview.ViewNotFound";
+        public const string GroupNotFound = "ComputerReview.GroupNotFound";
+        public const string Parameters = "ComputerReview.Parameters";
+        public const string Reports = "ComputerReview.Reports";
+        public const string InactiveDays = "ComputerReview.InactiveDays";
+        public const string EndingSoonDays = "ComputerReview.EndingSoonDays";
+        public const string Run = "ComputerReview.Run";
+        public const string Status = "ComputerReview.Status";
+        public const string StatusRunning = "ComputerReview.StatusRunning";
+        public const string StatusStopped = "ComputerReview.StatusStopped";
+        public const string Empty = "ComputerReview.Empty";
+        public const string Selected = "ComputerReview.Selected";
+        public const string ExportCsv = "ComputerReview.ExportCsv";
+        public const string ExactLastLogon = "ComputerReview.ExactLastLogon";
+        public const string ReadingDomainControllers = "ComputerReview.ReadingDomainControllers";
+        public const string ExactDone = "ComputerReview.ExactDone";
+        public const string ExactOn = "ComputerReview.ExactOn";
+        public const string Never = "ComputerReview.Never";
+        public const string DaysAgo = "ComputerReview.DaysAgo";
+        public const string ResolveSites = "ComputerReview.ResolveSites";
+        public const string ResolveSitesConfirm = "ComputerReview.ResolveSitesConfirm";
+        public const string ResolvingSites = "ComputerReview.ResolvingSites";
+        public const string SitesTooltip = "ComputerReview.SitesTooltip";
+        public const string InvalidSubnets = "ComputerReview.InvalidSubnets";
+        public const string SiteNotResolved = "ComputerReview.SiteNotResolved";
+        public const string NoSubnet = "ComputerReview.NoSubnet";
+        public const string LapsUntil = "ComputerReview.LapsUntil";
+        public const string LapsNone = "ComputerReview.LapsNone";
+        public const string OwnerWithState = "ComputerReview.OwnerWithState";
+        public const string SetOwner = "ComputerReview.SetOwner";
+        public const string DisableConfirmOne = "ComputerReview.DisableConfirmOne";
+        public const string DisableConfirmMany = "ComputerReview.DisableConfirmMany";
+        public const string DeleteConfirmOne = "ComputerReview.DeleteConfirmOne";
+        public const string DeleteConfirmMany = "ComputerReview.DeleteConfirmMany";
+        public const string DeleteChildrenWarning = "ComputerReview.DeleteChildrenWarning";
+        public const string Details = "ComputerReview.Details";
+        public const string DetailName = "ComputerReview.Detail.Name";
+        public const string DetailDnsName = "ComputerReview.Detail.DnsName";
+        public const string DetailType = "ComputerReview.Detail.Type";
+        public const string DetailEnabled = "ComputerReview.Detail.Enabled";
+        public const string DetailSystem = "ComputerReview.Detail.System";
+        public const string DetailRelease = "ComputerReview.Detail.Release";
+        public const string DetailSupport = "ComputerReview.Detail.Support";
+        public const string DetailLastLogon = "ComputerReview.Detail.LastLogon";
+        public const string DetailExactLastLogon = "ComputerReview.Detail.ExactLastLogon";
+        public const string DetailCreated = "ComputerReview.Detail.Created";
+        public const string DetailAccountRenewed = "ComputerReview.Detail.AccountRenewed";
+        public const string DetailOwner = "ComputerReview.Detail.Owner";
+        public const string DetailCreator = "ComputerReview.Detail.Creator";
+        public const string DetailLaps = "ComputerReview.Detail.Laps";
+        public const string DetailSite = "ComputerReview.Detail.Site";
+        public const string DetailAddress = "ComputerReview.Detail.Address";
+        public const string DetailLocation = "ComputerReview.Detail.Location";
+        public const string DetailDescription = "ComputerReview.Detail.Description";
+        public const string DetailContainer = "ComputerReview.Detail.Container";
+        public const string DetailPlacement = "ComputerReview.Detail.Placement";
+        public const string DetailFindings = "ComputerReview.Detail.Findings";
+        public const string DetailCatalog = "ComputerReview.Detail.Catalog";
+    }
+
+    /// <summary>
+    /// The Windows release catalogue (support states, dates). Dynamic family: <c>WindowsRelease.Support.{SupportState}</c>, <c>WindowsRelease.Edition.{EditionClass}</c>.
+    /// </summary>
+    public static class WindowsRelease
+    {
+        public const string CatalogAsOf = "WindowsRelease.CatalogAsOf";
+        public const string CatalogStale = "WindowsRelease.CatalogStale";
+        public const string EndedOn = "WindowsRelease.EndedOn";
+        public const string EndsOn = "WindowsRelease.EndsOn";
+        public const string SupportedUntil = "WindowsRelease.SupportedUntil";
+        public const string Overridden = "WindowsRelease.Overridden";
+    }
+
+    /// <summary>
+    /// The remote actions window, the restart dialog and the remote errors. Dynamic families: <c>RemoteActions.Error.{RemoteErrorKind}</c>, <c>RemoteActions.Hint.{RemoteErrorKind}</c>.
+    /// </summary>
+    public static class RemoteActions
+    {
+        public const string WindowTitle = "RemoteActions.WindowTitle";
+        public const string WindowTitleShort = "RemoteActions.WindowTitleShort";
+        public const string ConnectionText = "RemoteActions.ConnectionText";
+        public const string Status = "RemoteActions.Status";
+        public const string RefreshStatus = "RemoteActions.RefreshStatus";
+        public const string PingLabel = "RemoteActions.PingLabel";
+        public const string WinRmLabel = "RemoteActions.WinRmLabel";
+        public const string SystemLabel = "RemoteActions.SystemLabel";
+        public const string LastBootLabel = "RemoteActions.LastBootLabel";
+        public const string WinRmAvailable = "RemoteActions.WinRmAvailable";
+        public const string WinRmUnavailable = "RemoteActions.WinRmUnavailable";
+        public const string StatusRead = "RemoteActions.StatusRead";
+        public const string Users = "RemoteActions.Users";
+        public const string LoadUsers = "RemoteActions.LoadUsers";
+        public const string UsersNote = "RemoteActions.UsersNote";
+        public const string UsersRead = "RemoteActions.UsersRead";
+        public const string Console = "RemoteActions.Console";
+        public const string ColumnAccount = "RemoteActions.Column.Account";
+        public const string ColumnSession = "RemoteActions.Column.Session";
+        public const string ColumnSince = "RemoteActions.Column.Since";
+        public const string ServicesTitle = "RemoteActions.Services";
+        public const string LoadServices = "RemoteActions.LoadServices";
+        public const string OnlyStoppedAutomatic = "RemoteActions.OnlyStoppedAutomatic";
+        public const string ServicesRead = "RemoteActions.ServicesRead";
+        public const string Delayed = "RemoteActions.Delayed";
+        public const string ColumnService = "RemoteActions.Column.Service";
+        public const string ColumnState = "RemoteActions.Column.State";
+        public const string ColumnStartMode = "RemoteActions.Column.StartMode";
+        public const string ColumnLogOnAs = "RemoteActions.Column.LogOnAs";
+        public const string Actions = "RemoteActions.Actions";
+        public const string ActionStatus = "RemoteActions.Action.Status";
+        public const string ActionUsers = "RemoteActions.Action.Users";
+        public const string ActionServices = "RemoteActions.Action.Services";
+        public const string ActionRefreshPolicy = "RemoteActions.Action.RefreshPolicy";
+        public const string ActionRestart = "RemoteActions.Action.Restart";
+        public const string ActionAbortRestart = "RemoteActions.Action.AbortRestart";
+        public const string PolicyRefreshed = "RemoteActions.PolicyRefreshed";
+        public const string PolicyRunning = "RemoteActions.PolicyRunning";
+        public const string PolicyUsersScheduled = "RemoteActions.PolicyUsersScheduled";
+        public const string RestartScheduled = "RemoteActions.RestartScheduled";
+        public const string RestartScheduledNow = "RemoteActions.RestartScheduledNow";
+        public const string RestartAborted = "RemoteActions.RestartAborted";
+        public const string Log = "RemoteActions.Log";
+        public const string Tools = "RemoteActions.Tools";
+        public const string RestartTitle = "RemoteActions.RestartTitle";
+        public const string RestartDelay = "RemoteActions.RestartDelay";
+        public const string RestartMessage = "RemoteActions.RestartMessage";
+        public const string RestartForce = "RemoteActions.RestartForce";
+        public const string RestartConfirm = "RemoteActions.RestartConfirm";
+        public const string RestartNow = "RemoteActions.RestartNow";
+        public const string RestartIn = "RemoteActions.RestartIn";
+        public const string RestartTypeName = "RemoteActions.RestartTypeName";
+        public const string RestartDelayRange = "RemoteActions.RestartDelayRange";
+        public const string RestartMessageTooLong = "RemoteActions.RestartMessageTooLong";
+        public const string RestartMessageLength = "RemoteActions.RestartMessageLength";
+        public const string RestartDefaultMessage = "RemoteActions.RestartDefaultMessage";
     }
 }

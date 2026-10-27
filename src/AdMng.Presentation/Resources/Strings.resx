@@ -7638,6 +7638,678 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.Acl.Right.Other" xml:space="preserve">
     <value>rights 0x{0}</value>
   </data>
+  <data name="Computers.NotAComputer" xml:space="preserve">
+    <value>The object is not a computer (any more).</value>
+  </data>
+  <data name="Computers.NoDnsName" xml:space="preserve">
+    <value>{0} has no DNS host name in Active Directory: remote actions and tools need it (Kerberos does not work with IP addresses).</value>
+  </data>
+  <data name="Computers.ToolsNotAvailable" xml:space="preserve">
+    <value>This action is available only in AD Manager on Windows.</value>
+  </data>
+  <data name="Computers.ToolCredentialConfirm" xml:space="preserve">
+    <value>The tool connects to {0} as {1} – with the credentials of this connection window. They stay in the memory of the tool's logon session until you close it (never on disk). Start it?</value>
+  </data>
+  <data name="Computers.Ping" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="Computers.PingReplies" xml:space="preserve">
+    <value>Ping {0}: {1} of {2} replies, average {3} ms.</value>
+  </data>
+  <data name="Computers.PingNoReply" xml:space="preserve">
+    <value>Ping {0}: no reply.</value>
+  </data>
+  <data name="Computers.RemoteDesktop" xml:space="preserve">
+    <value>Remote Desktop</value>
+  </data>
+  <data name="Computers.ComputerManagement" xml:space="preserve">
+    <value>Computer Management</value>
+  </data>
+  <data name="Computers.EventViewer" xml:space="preserve">
+    <value>Event Viewer</value>
+  </data>
+  <data name="Computers.RemoteActionsCommand" xml:space="preserve">
+    <value>Remote actions…</value>
+  </data>
+  <data name="Computers.ComputerMenu" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="Computers.ResetAccount" xml:space="preserve">
+    <value>Reset Account</value>
+  </data>
+  <data name="Computers.ResetAccountCommand" xml:space="preserve">
+    <value>Reset Account…</value>
+  </data>
+  <data name="Computers.ResetConfirmOne" xml:space="preserve">
+    <value>Reset the computer account {0} in the domain {1}?</value>
+  </data>
+  <data name="Computers.ResetConfirmMany" xml:space="preserve">
+    <value>Reset {0} computer accounts in the domain {1}?</value>
+  </data>
+  <data name="Computers.ResetSkipped" xml:space="preserve">
+    <value>Not reset (domain controllers or other objects): {0}.</value>
+  </data>
+  <data name="Computers.ResetWarning" xml:space="preserve">
+    <value>The computers lose their trust relationship with the domain: join them again or repair the secure channel (Test-ComputerSecureChannel -Repair). The new machine password is random and nobody sees it; the change cannot be undone.</value>
+  </data>
+  <data name="Computers.TypeDomainToConfirm" xml:space="preserve">
+    <value>Type the domain name {0} to confirm.</value>
+  </data>
+  <data name="Computers.ResetDone" xml:space="preserve">
+    <value>Computer accounts reset: {0}, failed: {1}.</value>
+  </data>
+  <data name="Computers.ComputerReviewCommand" xml:space="preserve">
+    <value>Computer review…</value>
+  </data>
+  <data name="Computers.Type.Workstation" xml:space="preserve">
+    <value>Workstation</value>
+  </data>
+  <data name="Computers.Type.Server" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="Computers.Type.DomainController" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Computers.Type.ReadOnlyDomainController" xml:space="preserve">
+    <value>Read-only domain controller</value>
+  </data>
+  <data name="Computers.Type.Unknown" xml:space="preserve">
+    <value>Unknown (no operating system)</value>
+  </data>
+  <data name="Computers.Placement.NotMovedAfterJoin" xml:space="preserve">
+    <value>not moved after the join (default Computers container)</value>
+  </data>
+  <data name="Computers.Placement.DomainControllerOutsideOu" xml:space="preserve">
+    <value>domain controller outside OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.MemberInDomainControllersOu" xml:space="preserve">
+    <value>not a domain controller, but in OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.UnexpectedContainer" xml:space="preserve">
+    <value>outside the containers allowed for its type</value>
+  </data>
+  <data name="Computers.Owner.Unknown" xml:space="preserve">
+    <value>not checked</value>
+  </data>
+  <data name="Computers.Owner.Missing" xml:space="preserve">
+    <value>no owner</value>
+  </data>
+  <data name="Computers.Owner.Present" xml:space="preserve">
+    <value>owner set</value>
+  </data>
+  <data name="Computers.Owner.Disabled" xml:space="preserve">
+    <value>owner's account disabled</value>
+  </data>
+  <data name="Computers.Owner.Deleted" xml:space="preserve">
+    <value>owner deleted</value>
+  </data>
+  <data name="ComputerReview.WindowTitle" xml:space="preserve">
+    <value>Computer review</value>
+  </data>
+  <data name="ComputerReview.WindowTitleDomain" xml:space="preserve">
+    <value>Computer review – {0}</value>
+  </data>
+  <data name="ComputerReview.ScopeNotChosen" xml:space="preserve">
+    <value>(not chosen)</value>
+  </data>
+  <data name="ComputerReview.ViewNotFound" xml:space="preserve">
+    <value>The saved view no longer exists.</value>
+  </data>
+  <data name="ComputerReview.GroupNotFound" xml:space="preserve">
+    <value>The group {0} no longer exists.</value>
+  </data>
+  <data name="ComputerReview.Parameters" xml:space="preserve">
+    <value>Reports and parameters</value>
+  </data>
+  <data name="ComputerReview.Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="ComputerReview.InactiveDays" xml:space="preserve">
+    <value>Inactive for more than (days)</value>
+  </data>
+  <data name="ComputerReview.EndingSoonDays" xml:space="preserve">
+    <value>End of support within (days)</value>
+  </data>
+  <data name="ComputerReview.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="ComputerReview.Status" xml:space="preserve">
+    <value>As of {0} · {1} computers read · {2} computers in the reports</value>
+  </data>
+  <data name="ComputerReview.StatusRunning" xml:space="preserve">
+    <value>Reading… {1} computers read · {2} in the reports so far (started {0})</value>
+  </data>
+  <data name="ComputerReview.StatusStopped" xml:space="preserve">
+    <value>Stopped at {0} · {1} computers read · {2} in the reports (incomplete)</value>
+  </data>
+  <data name="ComputerReview.Empty" xml:space="preserve">
+    <value>No computer in this report.</value>
+  </data>
+  <data name="ComputerReview.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="ComputerReview.ExportCsv" xml:space="preserve">
+    <value>Export CSV…</value>
+  </data>
+  <data name="ComputerReview.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon (all DCs)</value>
+  </data>
+  <data name="ComputerReview.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading lastLogon of {0} computers on every domain controller…</value>
+  </data>
+  <data name="ComputerReview.ExactDone" xml:space="preserve">
+    <value>{0} of {1} domain controllers answered; {2} computers were active after all.</value>
+  </data>
+  <data name="ComputerReview.ExactOn" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.Never" xml:space="preserve">
+    <value>never</value>
+  </data>
+  <data name="ComputerReview.DaysAgo" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
+  <data name="ComputerReview.ResolveSites" xml:space="preserve">
+    <value>Determine site</value>
+  </data>
+  <data name="ComputerReview.ResolveSitesConfirm" xml:space="preserve">
+    <value>Resolve the DNS names of all {0} computers of the list? The names go to this workstation's DNS resolver.</value>
+  </data>
+  <data name="ComputerReview.ResolvingSites" xml:space="preserve">
+    <value>Determining the site of {0} computers…</value>
+  </data>
+  <data name="ComputerReview.SitesTooltip" xml:space="preserve">
+    <value>The DNS name is resolved by this workstation's resolver (not by the session's domain controller); the address is matched with the subnets of the forest.</value>
+  </data>
+  <data name="ComputerReview.InvalidSubnets" xml:space="preserve">
+    <value>Subnets with an invalid name were skipped: {0}</value>
+  </data>
+  <data name="ComputerReview.SiteNotResolved" xml:space="preserve">
+    <value>not resolved</value>
+  </data>
+  <data name="ComputerReview.NoSubnet" xml:space="preserve">
+    <value>no subnet</value>
+  </data>
+  <data name="ComputerReview.LapsUntil" xml:space="preserve">
+    <value>password valid until {0}</value>
+  </data>
+  <data name="ComputerReview.LapsNone" xml:space="preserve">
+    <value>no LAPS password</value>
+  </data>
+  <data name="ComputerReview.OwnerWithState" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.SetOwner" xml:space="preserve">
+    <value>Set owner…</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmOne" xml:space="preserve">
+    <value>Disable the computer account {0} in the domain {1}? The computer can no longer log on to the domain.</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmMany" xml:space="preserve">
+    <value>Disable {0} computer accounts in the domain {1}? The computers can no longer log on to the domain.</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmOne" xml:space="preserve">
+    <value>Delete the computer account {0} in the domain {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmMany" xml:space="preserve">
+    <value>Delete {0} computer accounts in the domain {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteChildrenWarning" xml:space="preserve">
+    <value>Some computers have child objects (BitLocker recovery information, Hyper-V or cluster objects): they are deleted with them.</value>
+  </data>
+  <data name="ComputerReview.Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="ComputerReview.Detail.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ComputerReview.Detail.DnsName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="ComputerReview.Detail.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="ComputerReview.Detail.Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="ComputerReview.Detail.System" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="ComputerReview.Detail.Release" xml:space="preserve">
+    <value>Release</value>
+  </data>
+  <data name="ComputerReview.Detail.Support" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="ComputerReview.Detail.LastLogon" xml:space="preserve">
+    <value>Last logon (replicated)</value>
+  </data>
+  <data name="ComputerReview.Detail.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon</value>
+  </data>
+  <data name="ComputerReview.Detail.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ComputerReview.Detail.AccountRenewed" xml:space="preserve">
+    <value>Machine account renewed</value>
+  </data>
+  <data name="ComputerReview.Detail.Owner" xml:space="preserve">
+    <value>Owner (managed by)</value>
+  </data>
+  <data name="ComputerReview.Detail.Creator" xml:space="preserve">
+    <value>Joined by (creator)</value>
+  </data>
+  <data name="ComputerReview.Detail.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Detail.Site" xml:space="preserve">
+    <value>Site (subnet)</value>
+  </data>
+  <data name="ComputerReview.Detail.Address" xml:space="preserve">
+    <value>IP address</value>
+  </data>
+  <data name="ComputerReview.Detail.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ComputerReview.Detail.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ComputerReview.Detail.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="ComputerReview.Detail.Placement" xml:space="preserve">
+    <value>Placement</value>
+  </data>
+  <data name="ComputerReview.Detail.Findings" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="ComputerReview.Detail.Catalog" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="ComputerReview.Report.EndOfSupport" xml:space="preserve">
+    <value>Operating systems past end of support</value>
+  </data>
+  <data name="ComputerReview.Report.Releases" xml:space="preserve">
+    <value>Windows 11 and Server releases</value>
+  </data>
+  <data name="ComputerReview.Report.Inactive" xml:space="preserve">
+    <value>Inactive for N days</value>
+  </data>
+  <data name="ComputerReview.Report.NeverLoggedOn" xml:space="preserve">
+    <value>Never logged on</value>
+  </data>
+  <data name="ComputerReview.Report.ServersWithoutOwner" xml:space="preserve">
+    <value>Servers without owner</value>
+  </data>
+  <data name="ComputerReview.Report.UnexpectedContainer" xml:space="preserve">
+    <value>Computers in unexpected OUs</value>
+  </data>
+  <data name="ComputerReview.Report.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="ComputerReview.Report.WithoutOperatingSystem" xml:space="preserve">
+    <value>Without operating system</value>
+  </data>
+  <data name="ComputerReview.Hint.EndOfSupport" xml:space="preserve">
+    <value>Enabled computers whose Windows release has reached the end of support or reaches it within N days (release catalogue and your overrides).</value>
+  </data>
+  <data name="ComputerReview.Hint.Releases" xml:space="preserve">
+    <value>Computers per release; the build decides the release (early Windows 11 reported itself as "Windows 10").</value>
+  </data>
+  <data name="ComputerReview.Hint.Inactive" xml:space="preserve">
+    <value>lastLogonTimestamp is replicated up to 14 days late: use "Exact last logon" before disabling. Report only – nothing is disabled automatically.</value>
+  </data>
+  <data name="ComputerReview.Hint.NeverLoggedOn" xml:space="preserve">
+    <value>Accounts created more than N days ago that never logged on – usually prestaged and never joined.</value>
+  </data>
+  <data name="ComputerReview.Hint.ServersWithoutOwner" xml:space="preserve">
+    <value>Enabled servers whose "managed by" is empty, disabled or deleted.</value>
+  </data>
+  <data name="ComputerReview.Hint.UnexpectedContainer" xml:space="preserve">
+    <value>Computers in the default Computers container, domain controllers outside their OU and computers outside the containers your rules allow.</value>
+  </data>
+  <data name="ComputerReview.Hint.Disabled" xml:space="preserve">
+    <value>Disabled computer accounts (to move or delete them).</value>
+  </data>
+  <data name="ComputerReview.Hint.WithoutOperatingSystem" xml:space="preserve">
+    <value>No operatingSystem: prestaged accounts or systems that do not report one.</value>
+  </data>
+  <data name="ComputerReview.Area.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="ComputerReview.Area.Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="ComputerReview.Area.Order" xml:space="preserve">
+    <value>Order</value>
+  </data>
+  <data name="ComputerReview.Column.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ComputerReview.Column.DnsName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="ComputerReview.Column.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="ComputerReview.Column.System" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="ComputerReview.Column.Release" xml:space="preserve">
+    <value>Release</value>
+  </data>
+  <data name="ComputerReview.Column.Support" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="ComputerReview.Column.LastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="ComputerReview.Column.LogonDays" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="ComputerReview.Column.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon</value>
+  </data>
+  <data name="ComputerReview.Column.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ComputerReview.Column.Creator" xml:space="preserve">
+    <value>Joined by</value>
+  </data>
+  <data name="ComputerReview.Column.Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="ComputerReview.Column.Placement" xml:space="preserve">
+    <value>Placement</value>
+  </data>
+  <data name="ComputerReview.Column.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ComputerReview.Column.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ComputerReview.Column.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="ComputerReview.Column.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ComputerReview.Column.Address" xml:space="preserve">
+    <value>IP address</value>
+  </data>
+  <data name="ComputerReview.Column.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Column.AccountRenewed" xml:space="preserve">
+    <value>Machine account renewed</value>
+  </data>
+  <data name="ComputerReview.Column.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="WindowsRelease.CatalogAsOf" xml:space="preserve">
+    <value>Release catalogue as of {0}</value>
+  </data>
+  <data name="WindowsRelease.CatalogStale" xml:space="preserve">
+    <value>The release catalogue is from {0} – newer releases and dates may be missing. Add overrides in the settings or update AD Manager.</value>
+  </data>
+  <data name="WindowsRelease.EndedOn" xml:space="preserve">
+    <value>ended {0}</value>
+  </data>
+  <data name="WindowsRelease.EndsOn" xml:space="preserve">
+    <value>ends {0} (in {1} days)</value>
+  </data>
+  <data name="WindowsRelease.SupportedUntil" xml:space="preserve">
+    <value>supported until {0}</value>
+  </data>
+  <data name="WindowsRelease.Overridden" xml:space="preserve">
+    <value>{0} (your override)</value>
+  </data>
+  <data name="WindowsRelease.Support.Supported" xml:space="preserve">
+    <value>supported</value>
+  </data>
+  <data name="WindowsRelease.Support.EndingSoon" xml:space="preserve">
+    <value>ending soon</value>
+  </data>
+  <data name="WindowsRelease.Support.Ended" xml:space="preserve">
+    <value>ended</value>
+  </data>
+  <data name="WindowsRelease.Support.Unknown" xml:space="preserve">
+    <value>unknown release</value>
+  </data>
+  <data name="WindowsRelease.Support.NotWindows" xml:space="preserve">
+    <value>not Windows</value>
+  </data>
+  <data name="WindowsRelease.Edition.HomePro" xml:space="preserve">
+    <value>Home / Pro</value>
+  </data>
+  <data name="WindowsRelease.Edition.EnterpriseEducation" xml:space="preserve">
+    <value>Enterprise / Education</value>
+  </data>
+  <data name="WindowsRelease.Edition.Ltsc" xml:space="preserve">
+    <value>Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.IotLtsc" xml:space="preserve">
+    <value>IoT Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.Server" xml:space="preserve">
+    <value>Windows Server</value>
+  </data>
+  <data name="RemoteActions.WindowTitle" xml:space="preserve">
+    <value>Remote actions – {0}</value>
+  </data>
+  <data name="RemoteActions.WindowTitleShort" xml:space="preserve">
+    <value>Remote actions</value>
+  </data>
+  <data name="RemoteActions.ConnectionText" xml:space="preserve">
+    <value>Connection: WinRM ({0} {1}, Kerberos) as {2}</value>
+  </data>
+  <data name="RemoteActions.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="RemoteActions.RefreshStatus" xml:space="preserve">
+    <value>Check status</value>
+  </data>
+  <data name="RemoteActions.PingLabel" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="RemoteActions.WinRmLabel" xml:space="preserve">
+    <value>WinRM</value>
+  </data>
+  <data name="RemoteActions.SystemLabel" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="RemoteActions.LastBootLabel" xml:space="preserve">
+    <value>Last boot</value>
+  </data>
+  <data name="RemoteActions.WinRmAvailable" xml:space="preserve">
+    <value>available</value>
+  </data>
+  <data name="RemoteActions.WinRmUnavailable" xml:space="preserve">
+    <value>not available</value>
+  </data>
+  <data name="RemoteActions.StatusRead" xml:space="preserve">
+    <value>status read</value>
+  </data>
+  <data name="RemoteActions.Users" xml:space="preserve">
+    <value>Logged-on users</value>
+  </data>
+  <data name="RemoteActions.LoadUsers" xml:space="preserve">
+    <value>Show logged-on users</value>
+  </data>
+  <data name="RemoteActions.UsersNote" xml:space="preserve">
+    <value>Users with a running desktop (explorer.exe); disconnected Remote Desktop sessions are listed too.</value>
+  </data>
+  <data name="RemoteActions.UsersRead" xml:space="preserve">
+    <value>{0} users</value>
+  </data>
+  <data name="RemoteActions.Console" xml:space="preserve">
+    <value>console</value>
+  </data>
+  <data name="RemoteActions.Column.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="RemoteActions.Column.Session" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="RemoteActions.Column.Since" xml:space="preserve">
+    <value>Since</value>
+  </data>
+  <data name="RemoteActions.Services" xml:space="preserve">
+    <value>Services</value>
+  </data>
+  <data name="RemoteActions.LoadServices" xml:space="preserve">
+    <value>Show services</value>
+  </data>
+  <data name="RemoteActions.OnlyStoppedAutomatic" xml:space="preserve">
+    <value>Only automatic, stopped</value>
+  </data>
+  <data name="RemoteActions.ServicesRead" xml:space="preserve">
+    <value>{0} services, {1} automatic and stopped</value>
+  </data>
+  <data name="RemoteActions.Delayed" xml:space="preserve">
+    <value>delayed</value>
+  </data>
+  <data name="RemoteActions.Column.Service" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="RemoteActions.Column.State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="RemoteActions.Column.StartMode" xml:space="preserve">
+    <value>Startup type</value>
+  </data>
+  <data name="RemoteActions.Column.LogOnAs" xml:space="preserve">
+    <value>Log on as</value>
+  </data>
+  <data name="RemoteActions.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="RemoteActions.Action.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="RemoteActions.Action.Users" xml:space="preserve">
+    <value>Logged-on users</value>
+  </data>
+  <data name="RemoteActions.Action.Services" xml:space="preserve">
+    <value>Services</value>
+  </data>
+  <data name="RemoteActions.Action.RefreshPolicy" xml:space="preserve">
+    <value>Refresh Group Policy</value>
+  </data>
+  <data name="RemoteActions.Action.Restart" xml:space="preserve">
+    <value>Restart…</value>
+  </data>
+  <data name="RemoteActions.Action.AbortRestart" xml:space="preserve">
+    <value>Cancel scheduled restart</value>
+  </data>
+  <data name="RemoteActions.PolicyRefreshed" xml:space="preserve">
+    <value>policy refreshed (computer policy processed {0})</value>
+  </data>
+  <data name="RemoteActions.PolicyRunning" xml:space="preserve">
+    <value>gpupdate is still running</value>
+  </data>
+  <data name="RemoteActions.PolicyUsersScheduled" xml:space="preserve">
+    <value>The users' policy refresh was scheduled.</value>
+  </data>
+  <data name="RemoteActions.RestartScheduled" xml:space="preserve">
+    <value>{0} restarts in {1} min</value>
+  </data>
+  <data name="RemoteActions.RestartScheduledNow" xml:space="preserve">
+    <value>{0} restarts now</value>
+  </data>
+  <data name="RemoteActions.RestartAborted" xml:space="preserve">
+    <value>scheduled restart cancelled</value>
+  </data>
+  <data name="RemoteActions.Log" xml:space="preserve">
+    <value>Log of this window</value>
+  </data>
+  <data name="RemoteActions.Tools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="RemoteActions.RestartTitle" xml:space="preserve">
+    <value>Restart {0}</value>
+  </data>
+  <data name="RemoteActions.RestartDelay" xml:space="preserve">
+    <value>Delay (minutes)</value>
+  </data>
+  <data name="RemoteActions.RestartMessage" xml:space="preserve">
+    <value>Message to the logged-on users</value>
+  </data>
+  <data name="RemoteActions.RestartForce" xml:space="preserve">
+    <value>Close applications without asking</value>
+  </data>
+  <data name="RemoteActions.RestartConfirm" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="RemoteActions.RestartNow" xml:space="preserve">
+    <value>{0} restarts right away.</value>
+  </data>
+  <data name="RemoteActions.RestartIn" xml:space="preserve">
+    <value>{0} restarts in {1} min.</value>
+  </data>
+  <data name="RemoteActions.RestartTypeName" xml:space="preserve">
+    <value>Type the computer name {0} to confirm (server or domain controller).</value>
+  </data>
+  <data name="RemoteActions.RestartDelayRange" xml:space="preserve">
+    <value>The delay must be {0}–{1} minutes.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageTooLong" xml:space="preserve">
+    <value>The message can have at most {0} characters.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageLength" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="RemoteActions.RestartDefaultMessage" xml:space="preserve">
+    <value>The IT department will restart this computer in {0} min. Please save your work.</value>
+  </data>
+  <data name="RemoteActions.Error.Unreachable" xml:space="preserve">
+    <value>The computer does not answer.</value>
+  </data>
+  <data name="RemoteActions.Error.WinRmNotAvailable" xml:space="preserve">
+    <value>WinRM is not available on the computer.</value>
+  </data>
+  <data name="RemoteActions.Error.AuthenticationFailed" xml:space="preserve">
+    <value>Kerberos authentication failed.</value>
+  </data>
+  <data name="RemoteActions.Error.AccessDenied" xml:space="preserve">
+    <value>Access denied.</value>
+  </data>
+  <data name="RemoteActions.Error.Timeout" xml:space="preserve">
+    <value>The computer did not answer in time.</value>
+  </data>
+  <data name="RemoteActions.Error.Cancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="RemoteActions.Error.NotSupported" xml:space="preserve">
+    <value>Not possible for this computer or connection.</value>
+  </data>
+  <data name="RemoteActions.Error.Failed" xml:space="preserve">
+    <value>The remote operation failed.</value>
+  </data>
+  <data name="RemoteActions.Hint.Unreachable" xml:space="preserve">
+    <value>Check that the computer is on, that its DNS name resolves and that the firewall lets you in.</value>
+  </data>
+  <data name="RemoteActions.Hint.WinRmNotAvailable" xml:space="preserve">
+    <value>Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/KOMPUTERY.md.</value>
+  </data>
+  <data name="RemoteActions.Hint.AuthenticationFailed" xml:space="preserve">
+    <value>Check the computer's SPN (HTTP/ or WSMAN/), the clocks and that the account is a domain account; NTLM is never used.</value>
+  </data>
+  <data name="RemoteActions.Hint.AccessDenied" xml:space="preserve">
+    <value>The account of this window must be a local administrator of the computer (Domain Admins on domain controllers).</value>
+  </data>
+  <data name="RemoteActions.Hint.Timeout" xml:space="preserve">
+    <value>Raise the timeout in the settings (Computers) or try again.</value>
+  </data>
+  <data name="RemoteActions.Hint.Cancelled" xml:space="preserve">
+    <value> </value>
+  </data>
+  <data name="RemoteActions.Hint.NotSupported" xml:space="preserve">
+    <value>Remote actions need AD Manager on Windows, a DNS name of the computer and a Windows account or a typed domain account (not an LDAP simple bind).</value>
+  </data>
+  <data name="RemoteActions.Hint.Failed" xml:space="preserve">
+    <value>See the Windows event log of the computer.</value>
+  </data>
   <data name="UserMessages.WindowTitle" xml:space="preserve">
     <value>Send message to users ({0})</value>
   </data>

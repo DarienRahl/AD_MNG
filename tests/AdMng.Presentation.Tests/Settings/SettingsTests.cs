@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using AdMng.Core.Directory;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Settings;
@@ -287,6 +288,45 @@ public sealed class SettingsTests : IDisposable
         Assert.Equal(1, settings.ConfirmationThreshold);
         Assert.Equal(1, settings.InactiveDays);
         Assert.Equal(string.Empty, settings.Language);
+    }
+
+    [Fact]
+    public void Computers_NormalizeRepairsHandEditedValues_AndRoundTrip()
+    {
+        var settings = new AppSettings();
+        settings.Computers.Parameters = new Core.Computers.ComputerReportParameters { InactiveDays = 0, EndingSoonDays = 100_000 };
+        settings.Computers.DisabledReports = [Core.Computers.ComputerReport.Releases, Core.Computers.ComputerReport.Releases, (Core.Computers.ComputerReport)99];
+        settings.Computers.PlacementRules =
+        [
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Server, Containers = [" OU=Serwery,{domain} ", "ou=serwery,{domain}", ""] },
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Server, Containers = ["OU=Inne,{domain}"] },
+            new ComputerPlacementSetting { Type = Core.Computers.ComputerType.Workstation, Containers = [] },
+        ];
+        settings.Computers.ReleaseOverrides =
+        [
+            new ComputerReleaseOverrideSetting { Build = 26100, Edition = Core.Computers.EditionClass.EnterpriseEducation, EndOfSupport = new DateOnly(2027, 10, 12) },
+            new ComputerReleaseOverrideSetting { Build = 26100, Edition = Core.Computers.EditionClass.EnterpriseEducation, EndOfSupport = new DateOnly(2030, 1, 1) },
+            new ComputerReleaseOverrideSetting { Build = 0, Edition = Core.Computers.EditionClass.EnterpriseEducation },
+        ];
+        settings.Computers.RemoteTimeoutSeconds = 100_000;
+        settings.Computers.RemotePort = 70_000;
+        settings.Computers.RestartDelayMinutes = -3;
+        settings.Computers.RestartMessage = new string('ż', 600);
+
+        settings.Normalize();
+        var computers = JsonSerializer.Deserialize<AppSettings>(JsonSettingsStore.Serialize(settings), JsonSettingsStore.SerializerOptions)!.Computers;
+
+        Assert.Equal(1, computers.Parameters.InactiveDays);
+        Assert.Equal(Core.Computers.ComputerReportParameters.MaxDays, computers.Parameters.EndingSoonDays);
+        Assert.Equal([Core.Computers.ComputerReport.Releases], computers.DisabledReports);
+        var rule = Assert.Single(computers.PlacementRules);
+        Assert.Equal(["OU=Serwery,{domain}"], rule.Containers);
+        var release = Assert.Single(computers.ReleaseOverrides);
+        Assert.Equal(new DateOnly(2027, 10, 12), release.EndOfSupport);
+        Assert.Equal(Core.Computers.Remote.RemoteOptions.MaxTimeoutSeconds, computers.RemoteTimeoutSeconds);
+        Assert.Null(computers.RemotePort);
+        Assert.Equal(0, computers.RestartDelayMinutes);
+        Assert.Equal(ComputerSettings.MaxRestartMessageLength, computers.RestartMessage!.Length);
     }
 
     private sealed class BlockedAppPaths(string directory) : Services.IAppPaths

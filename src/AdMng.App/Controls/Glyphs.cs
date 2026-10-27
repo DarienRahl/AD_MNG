@@ -101,6 +101,8 @@ public static class Glyphs
     {
         ObjectIcon.User or ObjectIcon.UserDisabled or ObjectIcon.UserLocked => User,
         ObjectIcon.Computer or ObjectIcon.ComputerDisabled => Computer,
+        ObjectIcon.Server => Computer,
+        ObjectIcon.DomainController => Shield,
         ObjectIcon.Group => Group,
         ObjectIcon.GroupDistribution => Mail,
         ObjectIcon.Contact => Contact,
