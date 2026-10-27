@@ -663,7 +663,7 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   i funkcja `capitalize`. Tytuł z `personalTitle` (atrybut do zmiany w ustawieniach), a gdy go brak – z nazwy
   wyświetlanej („prof. dr hab. Jan Kowalski”, „…, prof. UW”); płeć z atrybutu wybranego w ustawieniach, ze słów
   „Pan” / „Pani” w atrybucie tytułu, z listy imion w ustawieniach, z imienia (polskie reguły z listami wyjątków: Kuba,
-  Barnaba, Beatrycze, Noemi, Jennifer, Ilya …; reguła „-a” tylko w wiadomościach po polsku), z nazwiska (-ska / -ski) i
+  Barnaba, Beatrycze, Noemi, Jennifer, Ilya …; reguła „-a” rozstrzyga tylko w wiadomościach po polsku, w angielskich jedynie blokuje sprzeczne nazwisko), z nazwiska (-ska / -ski) i
   z tytułu tylko dla jednej płci („ks.”); przy nieznanej płci zwrot neutralny z tytułem („Szanowna Pani Profesor /
   Szanowny Panie Profesorze”). Sekcja *Zwroty grzecznościowe* w ustawieniach: tabela
   tytułów (ranga, wołacz dla Pana i Pani, forma EN; *Przywróć domyślne*), lista imion, zwroty neutralne, zachowanie

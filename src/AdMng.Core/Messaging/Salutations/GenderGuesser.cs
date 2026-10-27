@@ -26,8 +26,8 @@ public sealed record GenderInfo
 /// <summary>
 /// Determines the gender (design note section 16): the operator's override for this run, the gender attribute (two value
 /// lists) or an honorific word of the title attribute, the operator's given-name list, the first given name (built-in
-/// exception lists, then "ends in -a → feminine"), the surname (-ska / -ski …; against a rule result it is a conflict),
-/// finally a title for one gender only (<see cref="WithTitle"/>). Pure.
+/// exception lists, then "ends in -a → feminine"), the surname (-ska / -ski …; against a rule result – in English
+/// messages too – it is a conflict), finally a title for one gender only (<see cref="WithTitle"/>). Pure.
 /// </summary>
 public static class GenderGuesser
 {
@@ -41,8 +41,10 @@ public static class GenderGuesser
     /// <param name="surname">Surname.</param>
     /// <param name="options">Value lists and the operator's given-name list.</param>
     /// <param name="polishNameRule">
-    /// Apply the Polish rule "ends in -a → feminine, else masculine" to names outside the lists – only for Polish messages:
-    /// recipients of English messages mostly have names it does not fit (Jennifer, Karen, Ilya), so there it gives no signal.
+    /// Let the Polish rule "ends in -a → feminine, else masculine" decide for names outside the lists – only for Polish
+    /// messages: recipients of English messages mostly have names it does not fit (Jennifer, Karen, Ilya), so there it gives
+    /// no signal of its own. It still vetoes a disagreeing surname in both languages ("Laura Nowakowski", "Paweł Gąska" →
+    /// conflict), so a -ski / -ska surname never decides against an obvious given name.
     /// </param>
     public static GenderInfo Guess(Gender? overrideGender, string? attributeValue, Gender honorific, string? givenName, string? surname, SalutationOptions options, bool polishNameRule = true)
     {
@@ -82,22 +84,24 @@ public static class GenderGuesser
         }
 
         var byName = FromGivenName(first);
+        var surnamePart = FirstSurnamePart(surname);
+        var bySurname = FromSurname(surnamePart);
+        if (byName is { Source: DerivedValueSource.NameRule } rule && bySurname != Gender.Unknown && bySurname != rule.Gender)
+        {
+            // Also in English messages: the rule cannot decide there, but it still vetoes the surname ("Laura Nowakowski").
+            return new GenderInfo { IsConflict = true, Detail = $"{first} {surname?.Trim()}".Trim(), UnknownValue = unknownValue };
+        }
+
         if (!polishNameRule && byName?.Source == DerivedValueSource.NameRule)
         {
             byName = null;
         }
-        var surnamePart = FirstSurnamePart(surname);
-        var bySurname = FromSurname(surnamePart);
+
         if (byName is not { } name)
         {
             return bySurname == Gender.Unknown
                 ? new GenderInfo { UnknownValue = unknownValue }
                 : new GenderInfo { Gender = bySurname, Source = DerivedValueSource.Surname, IsGuess = true, Detail = surname?.Trim(), UnknownValue = unknownValue };
-        }
-
-        if (name.Source == DerivedValueSource.NameRule && bySurname != Gender.Unknown && bySurname != name.Gender)
-        {
-            return new GenderInfo { IsConflict = true, Detail = $"{first} {surname?.Trim()}".Trim(), UnknownValue = unknownValue };
         }
 
         return new GenderInfo { Gender = name.Gender, Source = name.Source, IsGuess = true, Detail = first, UnknownValue = unknownValue };

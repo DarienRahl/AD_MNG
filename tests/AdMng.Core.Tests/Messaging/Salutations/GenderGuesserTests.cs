@@ -67,8 +67,25 @@ public sealed class GenderGuesserTests
         var listed = Options with { GivenNames = [new GivenNameGender("John", Gender.Masculine)] };
         Assert.Equal(DerivedValueSource.OperatorList, GenderGuesser.Guess(null, null, Gender.Unknown, "John", "Smith", listed, polishNameRule: false).Source);
 
-        // No conflict between a rule that does not apply and the surname.
-        Assert.Equal((Gender.Feminine, false), (GenderGuesser.Guess(null, null, Gender.Unknown, "Jan", "Kowalska", Options, polishNameRule: false) is var j ? (j.Gender, j.IsConflict) : default));
+        // An agreeing rule leaves the decision to the surname.
+        var agreeing = GenderGuesser.Guess(null, null, Gender.Unknown, "Anna", "Kowalska", Options, polishNameRule: false);
+        Assert.Equal((Gender.Feminine, DerivedValueSource.Surname), (agreeing.Gender, agreeing.Source));
+    }
+
+    [Theory]
+    [InlineData("Laura", "Nowakowski")]
+    [InlineData("Maria", "Kowalski")]
+    [InlineData("Paweł", "Gąska")]
+    [InlineData("Andrzej", "Laska")]
+    [InlineData("Jan", "Kowalska")]
+    public void EnglishMessages_TheRuleStillVetoesADisagreeingSurname(string givenName, string surname)
+    {
+        // The rule gives no signal of its own there, but a -ski / -ska surname never decides against it ("Dear Mr
+        // Nowakowski" to Laura): the conflict renders the neutral form with a warning, as in Polish messages.
+        var info = GenderGuesser.Guess(null, null, Gender.Unknown, givenName, surname, Options, polishNameRule: false);
+
+        Assert.Equal((Gender.Unknown, true), (info.Gender, info.IsConflict));
+        Assert.Equal($"{givenName} {surname}", info.Detail);
     }
 
     [Fact]

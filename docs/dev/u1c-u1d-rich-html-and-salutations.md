@@ -767,11 +767,13 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
    * in the built-in **feminine-not-ending-in-a** list → feminine (guessed, *exception*);
    * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*) – **Polish messages only** (as
      built): recipients of English messages mostly have names the Polish rule does not fit (Jennifer, Karen, Ilya), so
-     there a name outside the lists gives no signal (the surname may decide; else the neutral "Dear {name}" and
-     `GenderUnknown`).
+     there a name outside the lists gives no signal of its own (the surname may decide; else the neutral "Dear {name}"
+     and `GenderUnknown`) – but the rule result still vetoes a disagreeing surname (step 5), so "Laura Nowakowski" or
+     "Paweł Gąska" is a conflict, never "Dear Mr Nowakowski" / "Dear Ms Gąska".
 5. **Surname** (`sn`, first part of a hyphenated one): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
-   With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception) → **conflict** →
-   unknown (warning `GenderConflict`); agreeing → keeps the name result.
+   With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception; in English messages
+   too) → **conflict** → unknown (warning `GenderConflict`); agreeing → keeps the name result (English: the surname
+   result).
 6. **Title for one gender only** (as built): no signal from the names (no conflict) and the highest-ranked title with a
    Polish form has a form for one gender only (`ks.`, `ks. dr` – priests) → that gender (guessed, source of the title,
    detail: the title).
