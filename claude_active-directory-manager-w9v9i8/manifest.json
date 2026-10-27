@@ -105,6 +105,16 @@
     "title_en": "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)"
   },
   {
+    "file": "22-computers.png",
+    "title_pl": "Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera",
+    "title_en": "Computer review – systems past the end of support, the release and housekeeping tiles, the details of the selected computer"
+  },
+  {
+    "file": "23-group-policy.png",
+    "title_pl": "Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie",
+    "title_en": "Group Policy of the Komputery unit – linked GPOs (one disabled), inheritance with the domain\u0027s enforced GPO, the Group Policy Objects in the tree"
+  },
+  {
     "file": "24-user-messages-rich-html.png",
     "title_pl": "Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”",
     "title_en": "Messages to users – a message pasted from Outlook: the HTML content, the embedded images and the paste results with \u0022Allow domain\u0022"

@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`afcd909`](https://github.com/DarienRahl/AD_MNG/commit/afcd909aabe2c40cef7d80bf49b32bce9a91c91d) (`afcd909aabe2c40cef7d80bf49b32bce9a91c91d`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40588749841
+- Commit: [`b80470d`](https://github.com/DarienRahl/AD_MNG/commit/b80470d70d8069a9adc8b72ed8caaea460263f36) (`b80470d70d8069a9adc8b72ed8caaea460263f36`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40598786957
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -87,6 +87,14 @@
 ## Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)
 
 ![Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)](21-compare-objects.png)
+
+## Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera
+
+![Przegląd komputerów – systemy po końcu wsparcia, kafelki wersji Windows i porządku, szczegóły zaznaczonego komputera](22-computers.png)
+
+## Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie
+
+![Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie](23-group-policy.png)
 
 ## Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”
 
