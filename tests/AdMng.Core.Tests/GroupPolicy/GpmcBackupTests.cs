@@ -149,6 +149,42 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
     }
 
     [Fact]
+    public async Task RestoreAndImport_WarnAboutGppPasswords_WithoutTheirValues()
+    {
+        const string Groups = "Machine/Preferences/Groups/Groups.xml";
+        const string Secret = "j1Uyj3Vx8TY9LtLZil2uAuZkFQA/4latT76ZwgdHdhw";
+        var backup = await BackUpAsync(Sample.WorkstationPasswords);
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        var withPassword = read with
+        {
+            Files = new Dictionary<string, byte[]>(read.Files)
+            {
+                [Groups] = Encoding.UTF8.GetBytes(
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?><Groups clsid=\"{3125E937-EB16-4b4c-9934-544FC6D24D26}\">" +
+                    "<User clsid=\"{DF5F1855-51E5-4d24-8B1A-D9BDE98BA1D1}\" name=\"Administrator (wbudowany)\" uid=\"{1}\">" +
+                    $"<Properties action=\"U\" newName=\"admin.łódź\" cpassword=\"{Secret}\" userName=\"Administrator (wbudowany)\"/></User></Groups>"),
+            },
+        };
+        await using var sysvol = await OpenSysvolAsync();
+
+        var restore = await Planner.PlanRestoreAsync(Session, sysvol, withPassword, _folder, restoreLinks: false, Ct);
+        var import = await Planner.PlanImportAsync(Session, sysvol, Sample.ServerSecurity, withPassword, _folder, Ct);
+
+        foreach (var plan in new[] { restore, import })
+        {
+            var issue = Assert.Single(plan.Objects.SelectMany(o => o.Changes).SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoGppPassword);
+            Assert.Equal(IssueSeverity.Warning, issue.Severity);
+            Assert.Contains(Groups, issue.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(Secret, issue.Message, StringComparison.Ordinal);
+        }
+
+        // A removed password (cpassword="", as GPMC leaves it) is not reported.
+        var cleared = new Dictionary<string, byte[]> { [Groups] = Encoding.UTF8.GetBytes("<Groups><User><Properties cpassword=\"\" /></User></Groups>") };
+        Assert.Empty(GroupPolicyPlanner.GppPasswordFiles(cleared));
+        Assert.Empty(GroupPolicyPlanner.GppPasswordFiles(read.Files));
+    }
+
+    [Fact]
     public async Task Read_RefusesAChangedFile()
     {
         var backup = await BackUpAsync(Sample.WorkstationPasswords);

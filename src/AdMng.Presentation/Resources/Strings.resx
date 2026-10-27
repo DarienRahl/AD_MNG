@@ -10477,5 +10477,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoForeignReferences" xml:space="preserve">
     <value>The imported settings name security principals or UNC paths of another domain (migration tables are not supported) – check them after the import.</value>
   </data>
+  <data name="Issue.GpoGppPassword" xml:space="preserve">
+    <value>The settings contain Group Policy Preferences passwords (cpassword, MS14-025): every user of the domain can read and decrypt them – remove these items or use LAPS.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

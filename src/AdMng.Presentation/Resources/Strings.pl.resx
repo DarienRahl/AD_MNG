@@ -10477,5 +10477,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoForeignReferences" xml:space="preserve">
     <value>Importowane ustawienia wskazują podmioty zabezpieczeń lub ścieżki UNC innej domeny (tabele migracji nie są obsługiwane) – sprawdź je po imporcie.</value>
   </data>
+  <data name="Issue.GpoGppPassword" xml:space="preserve">
+    <value>Ustawienia zawierają hasła preferencji zasad grupy (cpassword, MS14-025): każdy użytkownik domeny może je odczytać i odszyfrować – usuń te elementy albo użyj LAPS.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

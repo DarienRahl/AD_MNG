@@ -80,6 +80,7 @@ public sealed partial class GroupPolicyPlanner
                 "The backup comes from another domain: restore it there, or import its settings into a GPO of this domain."));
         }
 
+        AddGppPasswordWarning(issues, backup.Files);
         var wmiLink = await ExistingWmiLinkAsync(session, backup.WmiFilterLink, issues, cancellationToken).ConfigureAwait(false);
         var existing = await _reader.ReadPolicyAsync(session, backup.GpoId, cancellationToken).ConfigureAwait(false);
         var objects = new List<ObjectPlan>();
@@ -198,6 +199,7 @@ public sealed partial class GroupPolicyPlanner
                 string.Create(CultureInfo.InvariantCulture, $"{foreign.Count} references to principals or paths of another domain: {string.Join(", ", foreign.Take(5))}")));
         }
 
+        AddGppPasswordWarning(issues, files);
         steps.Add(Modify([.. attributes]) with { Issues = issues });
         return Plan(session, [PolicyObject(target, steps, PowerShellEquivalent.Of(PowerShellCommand.Of("Import-GPO",
             PowerShellParameter.Literal("BackupId", backup.BackupId.ToString("D")), PowerShellParameter.Literal("Path", backupFolder ?? string.Empty),
@@ -252,6 +254,50 @@ public sealed partial class GroupPolicyPlanner
         }
 
         return [.. found];
+    }
+
+    /// <summary>
+    /// The preference files (Groups.xml, ScheduledTasks.xml, Services.xml, DataSources.xml, Drives.xml …) that hold a non-empty
+    /// <c>cpassword</c> attribute - a GPP password encrypted with the key Microsoft published (MS14-025). Only the paths are
+    /// returned, never a value.
+    /// </summary>
+    public static IReadOnlyList<string> GppPasswordFiles(IReadOnlyDictionary<string, byte[]> files)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        var found = new List<string>();
+        foreach (var (path, content) in files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            if (GpoFileClassifier.Classify(path).Role != GpoFileRole.Preferences)
+            {
+                continue;
+            }
+
+            string text;
+            try
+            {
+                text = GpoText.DecodeAnsiOrUtf8(content, allowAnsi: false);
+            }
+            catch (GpoParseException)
+            {
+                continue;
+            }
+
+            if (GppPasswordPattern().IsMatch(text))
+            {
+                found.Add(path);
+            }
+        }
+
+        return found;
+    }
+
+    private static void AddGppPasswordWarning(List<ValidationIssue> issues, IReadOnlyDictionary<string, byte[]> files)
+    {
+        if (GppPasswordFiles(files) is { Count: > 0 } withPasswords)
+        {
+            issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoGppPassword,
+                $"GPP passwords (cpassword, MS14-025) in: {string.Join(", ", withPasswords.Take(5))}"));
+        }
     }
 
     /// <summary>Write and delete steps that make the GPO folder equal <paramref name="wanted"/> (GPT.INI excluded; leftovers deleted).</summary>
@@ -360,4 +406,8 @@ public sealed partial class GroupPolicyPlanner
 
     [GeneratedRegex(@"\\\\([A-Za-z0-9][A-Za-z0-9.\-]{0,252})\\", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex UncPattern();
+
+    /// <summary>A <c>cpassword</c> attribute with a value (GPMC writes <c>cpassword=""</c> once the password was removed).</summary>
+    [GeneratedRegex(@"\bcpassword\s*=\s*(""[^""]+""|'[^']+')", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex GppPasswordPattern();
 }

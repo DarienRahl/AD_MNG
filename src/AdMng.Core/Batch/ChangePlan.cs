@@ -238,6 +238,9 @@ public static class IssueCodes
 
     /// <summary>Imported settings name security principals or UNC paths of another domain (migration tables are not supported).</summary>
     public const string GpoForeignReferences = "GpoForeignReferences";
+
+    /// <summary>Restored or imported preferences still hold GPP passwords (<c>cpassword</c>, MS14-025) that every domain user can decrypt.</summary>
+    public const string GpoGppPassword = "GpoGppPassword";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>
