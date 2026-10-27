@@ -45,6 +45,8 @@ public sealed class MessageSalutations
     private readonly ICollection<MessageIssue>? _issues;
     private bool _accountUsed;
     private bool _managerUsed;
+    private bool _accountSalutationUsed;
+    private bool _managerSalutationUsed;
     private SalutationPerson? _accountPerson;
     private SalutationPerson? _managerPerson;
 
@@ -113,31 +115,37 @@ public sealed class MessageSalutations
             UserMessageFields.ByGender => SalutationResolver.ByGender(person, argument ?? string.Empty, Options),
             _ => new SalutationResult(string.Empty),
         };
+        var isSalutation = baseField == UserMessageFields.Salutation;
         if (isManager)
         {
             _managerUsed = true;
+            _managerSalutationUsed |= isSalutation;
         }
         else
         {
             _accountUsed = true;
+            _accountSalutationUsed |= isSalutation;
         }
 
         Record(person, result);
         return result.Text;
     }
 
-    /// <summary>The derived values of the persons whose fields were used (account first), for the preview.</summary>
+    /// <summary>
+    /// The derived values of the persons whose fields were used (account first), for the preview: title and gender, and the
+    /// salutation when a <c>{$salutation}</c> field of that person was used.
+    /// </summary>
     public IReadOnlyList<DerivedFieldValue> Derived(MessageLanguage language)
     {
         var values = new List<DerivedFieldValue>();
         if (_accountUsed)
         {
-            values.AddRange(Derive(Account, string.Empty, language));
+            values.AddRange(Derive(Account, string.Empty, language, _accountSalutationUsed));
         }
 
         if (_managerUsed && Manager is { } manager)
         {
-            values.AddRange(Derive(manager, ManagerPrefix, language));
+            values.AddRange(Derive(manager, ManagerPrefix, language, _managerSalutationUsed));
         }
 
         return values;
@@ -167,7 +175,7 @@ public sealed class MessageSalutations
         return null;
     }
 
-    private IEnumerable<DerivedFieldValue> Derive(SalutationPerson person, string prefix, MessageLanguage language)
+    private IEnumerable<DerivedFieldValue> Derive(SalutationPerson person, string prefix, MessageLanguage language, bool withSalutation)
     {
         string Name(string field) => prefix.Length == 0 ? field : prefix + char.ToUpperInvariant(field[0]) + field[1..];
         var title = person.Title;
@@ -194,8 +202,16 @@ public sealed class MessageSalutations
             Issue = GenderIssue(gender),
         };
 
+        if (!withSalutation)
+        {
+            yield break;
+        }
+
         var salutation = SalutationResolver.Salutation(person, language, SalutationVariant.Full, Options);
-        var fallback = salutation.IsNeutral || (salutation.UsedGender && (isDefault || gender.IsConflict));
+        // A neutral text the operator chose (override) is no fallback.
+        var fallback = salutation.SurnameMissing
+            || (salutation.IsNeutral && gender.Source != DerivedValueSource.Override)
+            || (salutation.UsedGender && (isDefault || gender.IsConflict));
         var source = fallback ? DerivedValueSource.Fallback
             : salutation.UsedTitle && !salutation.UsedGender ? title.Source
             : salutation.UsedGender ? gender.Source

@@ -111,6 +111,7 @@ public sealed class UserMessageTemplateLibrary
                 Condition = Enum.IsDefined(t.Condition) ? t.Condition : MessageConditionKind.None,
                 Recipients = Enum.IsDefined(t.Recipients) ? t.Recipients : MessageRecipientMode.User,
                 ConditionDays = Math.Clamp(t.ConditionDays, 0, 3650),
+                Salutation = t.Salutation?.Normalized(),
             })
             .ToList();
         if (valid.Count == 0)

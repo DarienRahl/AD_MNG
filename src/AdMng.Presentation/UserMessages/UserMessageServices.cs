@@ -98,6 +98,7 @@ public static class UserMessageSenders
             AllowedLinkDomains = settings.AllowedLinkDomains,
             DefaultLanguage = language,
             TimeZone = UserMessageFields.ResolveTimeZone(settings.TimeZone),
+            Salutations = (settings.Salutations ?? new()).ToOptions(),
         };
     }
 

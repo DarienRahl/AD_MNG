@@ -565,11 +565,11 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
                 return;
             }
 
-            var accounts = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, distinguishedNames, planner.AccountAttributesFor(template), token), token).ConfigureAwait(true);
+            var accounts = await Task.Run(() => DirectoryLookup.ReadManyAsync(session, distinguishedNames, planner.AccountAttributesFor(template, SalutationOptions), token), token).ConfigureAwait(true);
             var managerDns = accounts.Values.Select(a => a.GetString(Attr.Manager)).OfType<string>().Where(m => m.Length > 0).ToList();
             var managers = managerDns.Count == 0
                 ? []
-                : await Task.Run(() => DirectoryLookup.ReadManyAsync(session, managerDns, planner.ManagerAttributesFor(template), token), token).ConfigureAwait(true);
+                : await Task.Run(() => DirectoryLookup.ReadManyAsync(session, managerDns, planner.ManagerAttributesFor(template, SalutationOptions), token), token).ConfigureAwait(true);
             var policy = await ReadPolicyAsync(token).ConfigureAwait(true);
             var now = Services.Time.GetUtcNow();
             var request = new UserMessagePlanRequest
@@ -604,6 +604,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             }
 
             ShowPlan(plan);
+            KeepForReplan(request);
             Stage = UserMessageStage.Preview;
             await RefreshTransportAsync().ConfigureAwait(true);
         }
@@ -690,6 +691,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         UserMessagePreviewFilter.Errors => item.Status == PlannedMessageStatus.Error,
         UserMessagePreviewFilter.Skipped => item.Status == PlannedMessageStatus.Skipped,
         UserMessagePreviewFilter.Excluded => item.IsExcluded,
+        UserMessagePreviewFilter.Guessed => item.HasGuessedSalutation,
         _ => true,
     };
 

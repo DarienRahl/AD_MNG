@@ -121,6 +121,9 @@ public sealed class UserMessageSettings
     /// <summary>The operator's templates (built-ins are not stored).</summary>
     public List<MessageTemplate> Templates { get; set; } = [];
 
+    /// <summary>Title-aware salutations (U1d): attributes, value lists, given names, title table, neutral texts.</summary>
+    public SalutationSettings Salutations { get; set; } = new();
+
     /// <summary>The default language as an enum.</summary>
     [JsonIgnore]
     public MessageLanguage Language => MessageLanguages.FromCode(DefaultLanguage) ?? MessageLanguage.Polish;
@@ -142,6 +145,8 @@ public sealed class UserMessageSettings
         Transport = Enum.IsDefined(Transport) ? Transport : UserMessageTransportChoice.Automatic;
         Smtp ??= new();
         Smtp.Normalize();
+        Salutations ??= new();
+        Salutations.Normalize();
         Templates = [.. (Templates ?? [])
             .Where(t => t is not null && !string.IsNullOrWhiteSpace(t.Id) && !string.IsNullOrWhiteSpace(t.Name) && !BuiltInMessageTemplates.IsBuiltIn(t.Id))
             .Select(t => t with
@@ -151,6 +156,7 @@ public sealed class UserMessageSettings
                 Condition = Enum.IsDefined(t.Condition) ? t.Condition : MessageConditionKind.None,
                 Recipients = Enum.IsDefined(t.Recipients) ? t.Recipients : MessageRecipientMode.User,
                 ConditionDays = Math.Clamp(t.ConditionDays, 0, 3650),
+                Salutation = t.Salutation?.Normalized(),
             })
             .DistinctBy(t => t.Id, StringComparer.Ordinal)
             .Take(MaxTemplates)];

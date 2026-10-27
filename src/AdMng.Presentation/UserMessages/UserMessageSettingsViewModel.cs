@@ -53,7 +53,18 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         Authentication = Authentications.First(o => o.Value == smtp.Authentication);
         SmtpUserName = smtp.UserName ?? string.Empty;
         LocalDomain = smtp.LocalDomain ?? string.Empty;
+        Salutations = new SalutationSettingsViewModel(l, current.Salutations ?? new());
+        Salutations.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SalutationSettingsViewModel.Error))
+            {
+                OnPropertyChanged(nameof(Error));
+            }
+        };
     }
+
+    /// <summary>The "Zwroty grzecznościowe" section (U1d).</summary>
+    public SalutationSettingsViewModel Salutations { get; }
 
     public IReadOnlyList<Option<string>> Languages { get; }
 
@@ -190,7 +201,8 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
                 ?? Range(L.UserMessages.SmtpPort, SmtpPort, 1, 65535)
                 ?? (IsInsecureTls && !InsecureTlsConfirmed ? l[L.UserMessages.InsecureNotConfirmed] : null)
                 ?? (IsPinned && DirectSmtpOptions.NormalizePin(PinnedSha256) is null ? l[L.UserMessages.InvalidPin] : null)
-                ?? (UsesUserName && SmtpHost.Trim().Length > 0 && SmtpUserName.Trim().Length == 0 ? l[L.UserMessages.UserNameRequired] : null);
+                ?? (UsesUserName && SmtpHost.Trim().Length > 0 && SmtpUserName.Trim().Length == 0 ? l[L.UserMessages.UserNameRequired] : null)
+                ?? Salutations.Error;
         }
     }
 
@@ -211,6 +223,7 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         target.AllowedLinkDomains = [.. Domains()];
         target.Transport = Transport.Value;
         target.Smtp = Connection();
+        Salutations.Apply(target);
         target.Normalize();
     }
 
