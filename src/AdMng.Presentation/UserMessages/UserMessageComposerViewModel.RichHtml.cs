@@ -29,6 +29,7 @@ public sealed partial class UserMessageComposerViewModel
     private bool _omitImages;
     private bool _directForRun;
     private bool _fitIsTest;
+    private bool _loadingImages;
 
     // ---- HTML section --------------------------------------------------------------------------------------------
 
@@ -36,6 +37,9 @@ public sealed partial class UserMessageComposerViewModel
     public ObservableCollection<MessageImageItemViewModel> TemplateImages { get; } = [];
 
     public bool HasTemplateImages => TemplateImages.Count > 0;
+
+    /// <summary>Images of the template whose bytes could not be read (file missing or changed): "Usuń brakujące obrazy".</summary>
+    public bool HasMissingImages => !_loadingImages && (_working.Images ?? []).Any(i => !_images.ContainsKey(i.ContentId));
 
     /// <summary>The results of the last paste, grouped, with their actions.</summary>
     public ObservableCollection<HtmlPasteProblemViewModel> PasteProblems { get; } = [];
@@ -331,12 +335,14 @@ public sealed partial class UserMessageComposerViewModel
         RichStatusText = null;
         if ((template.Images ?? []).Count == 0)
         {
+            _loadingImages = false;
             _imagesLoading = Task.CompletedTask;
             RefreshImages();
             return;
         }
 
         RichStatusText = Localizer[L.UserMessagesRich.ImagesLoading];
+        _loadingImages = true;
         _imagesLoading = LoadTemplateImagesAsync(template, version);
     }
 
@@ -573,6 +579,7 @@ public sealed partial class UserMessageComposerViewModel
             _images[image.ContentId] = image;
         }
 
+        _loadingImages = false;
         var missing = (template.Images ?? []).Count(i => !_images.ContainsKey(i.ContentId));
         RichStatusText = missing > 0 ? Localizer.Format(L.UserMessagesRich.ImagesMissing, missing) : null;
         RefreshImages();
@@ -590,7 +597,18 @@ public sealed partial class UserMessageComposerViewModel
         }
 
         OnPropertyChanged(nameof(HasTemplateImages));
+        OnPropertyChanged(nameof(HasMissingImages));
         OnPropertyChanged(nameof(ComposePreview));
+    }
+
+    /// <summary>After a template with images was saved: warns when the image files of all templates grow above 64 MB (the
+    /// folder is measured off the UI thread).</summary>
+    private async Task WarnWhenImageFolderIsLargeAsync()
+    {
+        if ((_working.Images ?? []).Count > 0 && await Task.Run(() => _messages.Templates.ImageFolderIsLarge).ConfigureAwait(true))
+        {
+            Services.Notifications.Show(NotificationSeverity.Warning, Localizer[L.UserMessagesRich.ImageFolderLarge]);
+        }
     }
 
     private void ClearTransportFit()

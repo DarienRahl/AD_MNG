@@ -62,6 +62,7 @@ public static partial class L
         public const string RunDirect = "UserMessages.Rich.RunDirect";
         public const string ImportImagesRejected = "UserMessages.Rich.ImportImagesRejected";
         public const string ImageFolderLarge = "UserMessages.Rich.ImageFolderLarge";
+        public const string RemoveMissing = "UserMessages.Rich.RemoveMissing";
 
         /// <summary><c>UserMessages.Rich.Problem.{kind}</c>.</summary>
         public static string ProblemKey(Core.Messaging.Html.HtmlImportProblemKind kind) => "UserMessages.Rich.Problem." + kind;

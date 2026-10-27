@@ -330,6 +330,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         var stored = await _messages.Templates.SaveAsync(template, _images.Values).ConfigureAwait(true);
         SelectTemplate(stored.Id);
         Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.UserMessages.TemplateSaved, stored.Name));
+        await WarnWhenImageFolderIsLargeAsync().ConfigureAwait(true);
     }
 
     private bool CanSaveTemplate() => !string.IsNullOrWhiteSpace(TemplateName);

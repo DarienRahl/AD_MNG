@@ -270,6 +270,7 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
         await WaitForImagesAsync(other, ids.Count);
         Assert.Equal(ids, other.TemplateImages.Select(i => i.ContentId).Order(StringComparer.Ordinal));
         Assert.Null(other.RichStatusText);
+        Assert.False(other.HasMissingImages);
 
         // The files disappear (another window collected them): the window says so and can remove the references.
         foreach (var file in Directory.GetFiles(rich.Store.Folder))
@@ -280,8 +281,10 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
         var third = await rich.OpenAsync(saved.Id);
         await WaitForImagesAsync(third, 0);
         Assert.StartsWith($"{ids.Count} image(s) of the template could not be read", third.RichStatusText, StringComparison.Ordinal);
+        Assert.True(third.HasMissingImages);
         third.RemoveMissingImagesCommand.Execute(null);
         Assert.DoesNotContain("cid:", third.Html, StringComparison.Ordinal);
+        Assert.False(third.HasMissingImages);
     }
 
     private static async Task PasteAsync(RichScenario rich, UserMessageComposerViewModel composer)

@@ -7827,6 +7827,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Rich.ImageFolderLarge" xml:space="preserve">
     <value>The images of the templates take more than 64 MB.</value>
   </data>
+  <data name="UserMessages.Rich.RemoveMissing" xml:space="preserve">
+    <value>Remove missing images</value>
+  </data>
   <data name="UserMessages.Rich.Problem.RemovedElement" xml:space="preserve">
     <value>Removed an element that is not allowed: {0}</value>
   </data>

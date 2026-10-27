@@ -55,6 +55,11 @@ public sealed class HostTests
         Assert.True(windows.IsRegistered(typeof(Presentation.Filters.FilterEditorViewModel)));
         Assert.Same(services.GetRequiredService<DialogService>(), services.GetRequiredService<IObjectComparisonLauncher>());
         Assert.Same(services.GetRequiredService<ILocalizer>(), TranslationSource.Localizer);
+
+        // U1c: the App's reader of Outlook's clipboard images (8.3 names expanded) replaces the Presentation default; one
+        // WebView2 environment for the whole application.
+        Assert.IsType<Presentation.UserMessages.PastedImageFileSource>(services.GetRequiredService<Core.Messaging.Html.IPastedImageSource>());
+        Assert.Same(services.GetRequiredService<WebView2Host>(), context.CreateConnection().GetRequiredService<WebView2Host>());
         context.AssertHealthy();
     });
 
@@ -134,6 +139,7 @@ public sealed class HostTests
         typeof(ConnectionWindowManager),
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
+        typeof(WebView2Host),
     ];
 
     [Fact]

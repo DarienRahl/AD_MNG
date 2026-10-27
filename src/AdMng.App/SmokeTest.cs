@@ -363,9 +363,17 @@ internal static class SmokeTest
         editor.AddGroupCommand.Execute(null);
         UiTestSupport.ShowOffScreen(windows.CreateWindow(editor));
 
-        // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled.
-        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateUserMessageComposer(
-            new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring))));
+        // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled. U1c: the
+        // formatted-content section expanded with the formatting preview of an HTML body (WebView2, or the HTML source where
+        // the runtime is missing).
+        var composer = factory.CreateUserMessageComposer(
+            new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring));
+        composer.Html = "<p style=\"font-family:'Aptos',sans-serif\">Dzień dobry <b>{givenName}</b>,</p>\n<p>hasło wygaśnie {$passwordExpires:d MMMM yyyy}.</p>\n";
+        composer.ShowHtmlPreview = true;
+        var messages = (UserMessagesWindow)windows.CreateWindow(composer);
+        UiTestSupport.ShowOffScreen(messages);
+        messages.HtmlExpander.IsExpanded = true;
+        messages.UpdateLayout();
 
         // Comparison of objects between connections, in its initial state: no other connection is open, so the window
         // says how to open one (the published app has no directory; the UI tests render a finished comparison).

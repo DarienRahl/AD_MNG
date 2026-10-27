@@ -7827,6 +7827,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Rich.ImageFolderLarge" xml:space="preserve">
     <value>Obrazy szablonów zajmują ponad 64 MB.</value>
   </data>
+  <data name="UserMessages.Rich.RemoveMissing" xml:space="preserve">
+    <value>Usuń brakujące obrazy</value>
+  </data>
   <data name="UserMessages.Rich.Problem.RemovedElement" xml:space="preserve">
     <value>Usunięto niedozwolony element: {0}</value>
   </data>
