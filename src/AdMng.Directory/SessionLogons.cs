@@ -81,8 +81,10 @@ public static class SessionLogons
             throw new RemoteActionException(RemoteErrorKind.NotSupported);
         }
 
+        // A plain name without a typed domain bound by Negotiate (NTLM takes the DC's domain), but Kerberos needs a realm:
+        // the domain of the session's DC.
         using var password = credential.SecurePassword;
-        return SessionLogon.ForCredential(account.ToString(), settings.Options.Domain, password);
+        return SessionLogon.ForCredential(account.ToString(), settings.Options.Domain ?? session.Info.DomainDnsName, password);
     }
 
     /// <summary>
