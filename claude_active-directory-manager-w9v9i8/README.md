@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`06c9f4e`](https://github.com/DarienRahl/AD_MNG/commit/06c9f4e9efebd0be7d83aba831800c0703226dee) (`06c9f4e9efebd0be7d83aba831800c0703226dee`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40502256225
+- Commit: [`4d9d045`](https://github.com/DarienRahl/AD_MNG/commit/4d9d0453a4e6b44f46f83fff5fc2075b84bd11d2) (`4d9d0453a4e6b44f46f83fff5fc2075b84bd11d2`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40585174750
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -87,4 +87,12 @@
 ## Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)
 
 ![Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)](21-compare-objects.png)
+
+## Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”
+
+![Wiadomości do użytkowników – wiadomość wklejona z Outlooka: treść HTML, osadzone obrazy i wyniki wklejania z akcją „Zezwól na domenę”](24-user-messages-rich-html.png)
+
+## Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości
+
+![Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości](25-user-messages-salutations.png)
 
