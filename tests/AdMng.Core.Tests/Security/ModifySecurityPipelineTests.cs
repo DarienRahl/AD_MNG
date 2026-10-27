@@ -225,6 +225,54 @@ public class ModifySecurityPipelineTests
         Assert.Equal(ExtendedRightIds.ResetPassword, Assert.Single(Aces(), a => a.Sid == _helpdeskSid).ObjectType);
     }
 
+    /// <summary>A step that sets exactly <see cref="Join"/> as the explicit ACEs (K2: a GPO copied with its permissions).</summary>
+    private ChangePlan ExactPlan() => new()
+    {
+        Title = "Uprawnienia",
+        Server = Session.Info.Server,
+        CreatedAt = _time.GetUtcNow(),
+        Objects = [new ObjectPlan
+        {
+            DistinguishedName = _company.Computer1,
+            DisplayName = "WAW-PC001",
+            Changes = [new PlannedChange { Action = ChangeAction.ModifySecurity, Acl = Join with { ReplacesExplicit = true } }],
+        }],
+    };
+
+    [Fact]
+    public async Task ReplacesExplicit_ReportsTheRemovedAcesInTheResultAndTheAudit_AndKeepsInheritedOnes()
+    {
+        var result = await Executor.ExecuteAsync(Session, ExactPlan(), Fast, null, Ct);
+
+        var step = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.True(step.Succeeded);
+        Assert.Equal(2, step.AppliedAcl!.Added.Count);
+        Assert.Equal(DomainAdminsSid, Assert.Single(step.AppliedAcl.Removed).TrusteeSid);
+        Assert.DoesNotContain(Aces(), a => a.Sid == DomainAdminsSid);
+        Assert.Contains(Aces(), a => a.Sid == "S-1-5-11" && a.IsInherited);
+        var entry = Assert.Single(_audit.Entries);
+        Assert.True(entry.Succeeded);
+        Assert.Contains(DomainAdminsSid, entry.OldValue, StringComparison.Ordinal);
+        Assert.Equal(DomainAdminsSid, Owner());
+    }
+
+    [Fact]
+    public async Task ReplacesExplicit_ThatFails_AuditsTheExactDeltaItTried()
+    {
+        Session.FailNext(FakeOperationKind.Modify, _company.Computer1, DirectoryErrorKind.AccessDenied);
+
+        var result = await Executor.ExecuteAsync(Session, ExactPlan(), Fast, null, Ct);
+
+        var step = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.False(step.Succeeded);
+        Assert.Null(step.AppliedAcl);
+        Assert.Contains(Aces(), a => a.Sid == DomainAdminsSid);
+        var entry = Assert.Single(_audit.Entries);
+        Assert.False(entry.Succeeded);
+        Assert.Contains(DomainAdminsSid, entry.OldValue, StringComparison.Ordinal);
+        Assert.Contains(_helpdeskSid, entry.NewValue, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task PowerShell_UsesGetAclAndSetAclOnTheDriveOfTheDc()
     {
