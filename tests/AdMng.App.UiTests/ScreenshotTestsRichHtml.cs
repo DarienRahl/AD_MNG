@@ -1,4 +1,3 @@
-using System.IO;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
@@ -37,14 +36,11 @@ public sealed class ScreenshotTestsRichHtml
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
         {
-            var folder = Path.Combine(Path.GetTempPath(), "msohtmlclip1", "admng-shot-" + Guid.NewGuid().ToString("N"));
-            System.IO.Directory.CreateDirectory(folder);
-            File.WriteAllBytes(Path.Combine(folder, "clip_image001.png"), MessageImageSamples.Png(120, 40, seed: 0x31));
-            File.WriteAllBytes(Path.Combine(folder, "clip_image002.png"), MessageImageSamples.Png(200, 100, seed: 0x32));
-            File.WriteAllBytes(Path.Combine(folder, "clip_image003.jpg"), MessageImageSamples.Jpeg(160, 90));
-            var html = CfHtmlFixture.Html("outlook-classic").Replace(
-                "file:///C:/Users/JKOWAL~1/AppData/Local/Temp/msohtmlclip1/01/", new Uri(folder + Path.DirectorySeparatorChar).AbsoluteUri, StringComparison.Ordinal);
-            var clipboard = new ContentClipboard(new ClipboardContent(CfHtmlFixture.Build(html), null, null, null));
+            using var clip = new OfficeClipFolder();
+            clip.Add("clip_image001.png", MessageImageSamples.Png(120, 40, seed: 0x31));
+            clip.Add("clip_image002.png", MessageImageSamples.Png(200, 100, seed: 0x32));
+            clip.Add("clip_image003.jpg", MessageImageSamples.Jpeg(160, 90));
+            var clipboard = new ContentClipboard(new ClipboardContent(CfHtmlFixture.Build(clip.OutlookHtml()), null, null, null));
             var (context, dialogs) = await TestDialogService.CreateContextAsync("pl", services =>
             {
                 services.Replace(ServiceDescriptor.Singleton<IDirectSmtpTransportFactory>(new FakeUserMessageTransport()));
@@ -84,14 +80,6 @@ public sealed class ScreenshotTestsRichHtml
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
                 themes.Apply(ThemePreference.System);
                 await UiTestSupport.WaitForIdleAsync(rounds: 2);
-                try
-                {
-                    System.IO.Directory.Delete(folder, recursive: true);
-                }
-                catch (IOException)
-                {
-                    // Cleaned by Windows with the temp folder.
-                }
             }
         });
     }
