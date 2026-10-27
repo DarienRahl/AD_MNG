@@ -214,8 +214,14 @@ public sealed class UserMessagePlanner
     public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template) =>
         [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager)).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.</summary>
-    public IReadOnlyList<MessageIssue> CheckTemplate(MessageTemplate template, IReadOnlyDictionary<string, string>? inputs = null, ISchemaCatalog? schema = null)
+    /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.
+    /// <paramref name="checkHtml"/> false leaves out the HTML part (<see cref="Html.MessageHtmlChecks.CheckTemplate"/>,
+    /// sanitizer runs over both languages – CPU work an editor runs off the UI thread).</summary>
+    public IReadOnlyList<MessageIssue> CheckTemplate(
+        MessageTemplate template,
+        IReadOnlyDictionary<string, string>? inputs = null,
+        ISchemaCatalog? schema = null,
+        bool checkHtml = true)
     {
         ArgumentNullException.ThrowIfNull(template);
         var issues = new List<MessageIssue>();
@@ -240,7 +246,10 @@ public sealed class UserMessagePlanner
         }
 
         // U1c: the restricted HTML (first gate + the sanitizer's findings), images, length, link texts, normalization.
-        issues.AddRange(Html.MessageHtmlChecks.CheckTemplate(template));
+        if (checkHtml)
+        {
+            issues.AddRange(Html.MessageHtmlChecks.CheckTemplate(template));
+        }
 
         if (inputs is not null)
         {

@@ -5,6 +5,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Directory;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Core.Model;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
@@ -29,11 +30,19 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     /// <summary>Session log action of a send (<see cref="AuditEntry.Action"/>).</summary>
     public const string SessionLogAction = "SendUserMessages";
 
+    /// <summary>The pause in editing after which the HTML part of the template check runs (off the UI thread).</summary>
+    public static readonly TimeSpan HtmlCheckDelay = TimeSpan.FromMilliseconds(300);
+
     private readonly UserMessageServices _messages;
     private readonly SerialCancellation _plans = new();
     private readonly List<UserMessageItemViewModel> _items = [];
     private MessageTemplate _working;
     private bool _loading;
+    private IReadOnlyList<MessageIssue> _syntaxIssues = [];
+    private IReadOnlyList<MessageIssue> _htmlIssues = [];
+    private HtmlCheckKey? _htmlIssuesKey;
+    private HtmlCheckKey? _htmlCheckPending;
+    private Debouncer? _htmlCheck;
     private CancellationTokenSource? _sending;
     private IUserMessageTransport? _transport;
     private Task _currentRun = Task.CompletedTask;
@@ -253,6 +262,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     protected override void Dispose(bool disposing)
     {
         _messages.Templates.Changed -= OnTemplatesChanged;
+        _htmlCheck?.Cancel();
         _plans.Cancel();
         _sending?.Cancel();
         base.Dispose(disposing);
@@ -561,7 +571,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             var planner = _messages.Planner;
             var template = _working with { ConditionDays = ConditionDays };
             var inputs = Inputs.ToDictionary(i => i.Name, i => i.Value, StringComparer.OrdinalIgnoreCase);
-            var templateIssues = planner.CheckTemplate(template, inputs, session.Schema);
+            var templateIssues = await Task.Run(() => planner.CheckTemplate(template, inputs, session.Schema), token).ConfigureAwait(true);
             if (templateIssues.Any(i => i.Severity == MessageIssueSeverity.Error))
             {
                 Error = string.Join(Environment.NewLine, templateIssues.Select(i => UserMessageText.Issue(Localizer, i)));
@@ -944,10 +954,38 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         RefreshTemplateCheck();
     }
 
+    /// <summary>The template check while editing (rule 6): syntax, fields and inputs at once; the HTML part – the
+    /// sanitizer over both languages, up to a few hundred milliseconds for a pasted Outlook message – off the UI thread
+    /// after a pause in typing, once per HTML (editing the subject or the text does not run it again).</summary>
     private void RefreshTemplateCheck()
     {
-        var issues = _messages.Planner.CheckTemplate(_working, null, OpenedSessionSchema);
-        TemplateErrors = issues.Count == 0 ? null : string.Join(Environment.NewLine, issues.Select(i => UserMessageText.Issue(Localizer, i)));
+        _syntaxIssues = _messages.Planner.CheckTemplate(_working, null, OpenedSessionSchema, checkHtml: false);
+        var key = HtmlCheckKey.Of(_working);
+        if (key == _htmlIssuesKey)
+        {
+            _htmlCheckPending = null;
+            _htmlCheck?.Cancel();
+        }
+        else if (key != _htmlCheckPending)
+        {
+            _htmlIssues = [];
+            _htmlIssuesKey = null;
+            _htmlCheckPending = key;
+            var template = _working;
+            _ = (_htmlCheck ??= new Debouncer(Services.Time, HtmlCheckDelay)).RunAsync(async token =>
+            {
+                var issues = await Task.Run(() => MessageHtmlChecks.CheckTemplate(template), token).ConfigureAwait(true);
+                if (!token.IsCancellationRequested && !IsDisposed && key == _htmlCheckPending)
+                {
+                    _htmlIssues = issues;
+                    _htmlIssuesKey = key;
+                    _htmlCheckPending = null;
+                    ShowTemplateErrors();
+                }
+            });
+        }
+
+        ShowTemplateErrors();
         var names = _messages.Planner.InputsOf(_working).Where(n => !UserMessageRules.IsForbiddenInputName(n)).ToList();
         var keep = Inputs.ToDictionary(i => i.Name, i => i.Value, StringComparer.OrdinalIgnoreCase);
         if (!names.SequenceEqual(Inputs.Select(i => i.Name), StringComparer.OrdinalIgnoreCase))
@@ -960,6 +998,23 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
             OnPropertyChanged(nameof(HasInputs));
         }
+    }
+
+    private void ShowTemplateErrors()
+    {
+        var issues = _syntaxIssues.Concat(_htmlIssues).Distinct().ToList();
+        TemplateErrors = issues.Count == 0 ? null : string.Join(Environment.NewLine, issues.Select(i => UserMessageText.Issue(Localizer, i)));
+    }
+
+    /// <summary>What the HTML part of the template check depends on: both HTML bodies and the template's images.</summary>
+    private sealed record HtmlCheckKey(string? Polish, string? English, string Images)
+    {
+        public static HtmlCheckKey Of(MessageTemplate template) => new(
+            template.Polish.Html,
+            template.English.Html,
+            string.Join(",", (template.Images ?? []).Select(i => i.ContentId)));
+
+        public override string ToString() => $"HtmlCheckKey({Polish?.Length ?? 0}, {English?.Length ?? 0})";
     }
 
     private IReadOnlyList<Option<string>> CreateTemplateOptions() =>
