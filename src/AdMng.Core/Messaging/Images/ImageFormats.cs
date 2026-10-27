@@ -28,7 +28,9 @@ public enum MessageImageError
     /// <summary>Larger than <see cref="MessageImageLimits.MaxImageBytes"/>.</summary>
     TooLarge,
 
-    /// <summary>A side is 0 or above <see cref="MessageImageLimits.MaxSide"/>, or more than <see cref="MessageImageLimits.MaxPixels"/> pixels.</summary>
+    /// <summary>A side is 0 or above <see cref="MessageImageLimits.MaxSide"/>, or more than <see cref="MessageImageLimits.MaxPixels"/> pixels;
+    /// a GIF frame outside its logical screen, more than <see cref="MessageImageLimits.MaxGifFrames"/> frames or
+    /// <see cref="MessageImageLimits.MaxGifFramePixels"/> frame pixels.</summary>
     DimensionsTooLarge,
 
     /// <summary>The content id does not match the bytes (AdMng Watchdog check).</summary>
@@ -380,6 +382,7 @@ public static class ImageFormats
         var kept = new List<(int, int)> { (0, Math.Min(position, data.Length)) };
         var removed = new List<string>();
         var frames = 0;
+        var framePixels = 0L;
         while (true)
         {
             if (position >= data.Length)
@@ -423,6 +426,19 @@ public static class ImageFormats
                 throw Malformed();
             }
 
+            // Every frame lies inside the logical screen (whose size the limits checked) – a 1 × 1 screen with a
+            // 65 535 × 65 535 frame, or thousands of frames, would be a decompression bomb for every recipient.
+            var left = BinaryPrimitives.ReadUInt16LittleEndian(data[position..]);
+            var top = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 2)..]);
+            var frameWidth = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 4)..]);
+            var frameHeight = BinaryPrimitives.ReadUInt16LittleEndian(data[(position + 6)..]);
+            framePixels += (long)frameWidth * frameHeight;
+            if (left + frameWidth > width || top + frameHeight > height || ++frames > MessageImageLimits.MaxGifFrames
+                || framePixels > MessageImageLimits.MaxGifFramePixels)
+            {
+                throw new MessageImageException(MessageImageError.DimensionsTooLarge);
+            }
+
             var imagePacked = data[position + 8];
             position += 9;
             if ((imagePacked & 0x80) != 0)
@@ -439,7 +455,6 @@ public static class ImageFormats
 
             position = SkipSubBlocks(data, position);
             kept.Add((start, position - start));
-            frames++;
         }
 
         return frames > 0 ? new ImageStructure(ImageKind.Gif, width, height, Merge(kept), removed) : throw Malformed();

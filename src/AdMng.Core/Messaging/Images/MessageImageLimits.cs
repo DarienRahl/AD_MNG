@@ -21,6 +21,12 @@ public static class MessageImageLimits
     /// <summary>Pixels of an image (decompression bombs in the recipients' clients).</summary>
     public const long MaxPixels = 16_777_216;
 
+    /// <summary>Frames of an animated GIF (each one is decoded by the recipients' clients and the preview).</summary>
+    public const int MaxGifFrames = 200;
+
+    /// <summary>Pixels of all frames of a GIF together (a 640 × 480 animation of 200 frames is about 61 million).</summary>
+    public const long MaxGifFramePixels = 4 * MaxPixels;
+
     /// <summary>Images of one template (both languages).</summary>
     public const int MaxImagesPerTemplate = 20;
 

@@ -53,6 +53,49 @@ public class ImageFormatsTests
         Assert.Equal(MessageImageError.DimensionsTooLarge, Assert.Throws<MessageImageException>(() => ImageFormats.Inspect(bomb)).Error);
     }
 
+    [Theory]
+    [InlineData(1, 1, 1, 65_535, 65_535)]
+    [InlineData(1, 100, 100, 101, 1)]
+    [InlineData(1, 100, 100, 1, 101)]
+    [InlineData(MessageImageLimits.MaxGifFrames + 1, 4, 4, 4, 4)]
+    [InlineData(5, 4096, 4096, 4096, 4096)]
+    public void GifFrames_OutsideTheScreen_TooManyOrTooLarge_AreRefused(int frames, int screenWidth, int screenHeight, int frameWidth, int frameHeight) =>
+        Assert.Equal(MessageImageError.DimensionsTooLarge,
+            Assert.Throws<MessageImageException>(() => ImageFormats.Inspect(Animation(frames, screenWidth, screenHeight, frameWidth, frameHeight))).Error);
+
+    [Fact]
+    public void AnAnimatedGif_WithinItsScreen_IsAccepted()
+    {
+        var gif = ImageFormats.Inspect(Animation(MessageImageLimits.MaxGifFrames, 64, 48, 32, 24));
+        Assert.Equal((ImageKind.Gif, 64, 48), (gif.Kind, gif.Width, gif.Height));
+    }
+
+    /// <summary>A GIF with a logical screen and <paramref name="frames"/> frames of the given size at (0, 0); the image data
+    /// is a placeholder (the walker never decodes it).</summary>
+    private static byte[] Animation(int frames, int screenWidth, int screenHeight, int frameWidth, int frameHeight)
+    {
+        using var stream = new MemoryStream();
+        stream.Write("GIF89a"u8);
+        var screen = new byte[7];
+        BinaryPrimitives.WriteUInt16LittleEndian(screen, (ushort)screenWidth);
+        BinaryPrimitives.WriteUInt16LittleEndian(screen.AsSpan(2), (ushort)screenHeight);
+        screen[4] = 0x80;
+        stream.Write(screen);
+        stream.Write([0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF]);
+        for (var i = 0; i < frames; i++)
+        {
+            var descriptor = new byte[10];
+            descriptor[0] = 0x2C;
+            BinaryPrimitives.WriteUInt16LittleEndian(descriptor.AsSpan(5), (ushort)frameWidth);
+            BinaryPrimitives.WriteUInt16LittleEndian(descriptor.AsSpan(7), (ushort)frameHeight);
+            stream.Write(descriptor);
+            stream.Write([0x02, 0x02, 0x44, 0x01, 0x00]);
+        }
+
+        stream.WriteByte(0x3B);
+        return stream.ToArray();
+    }
+
     [Fact]
     public void ZeroSize_IsRefused() =>
         Assert.Equal(MessageImageError.DimensionsTooLarge, Assert.Throws<MessageImageException>(() => ImageFormats.Inspect(MessageImageSamples.Gif(0, 4))).Error);

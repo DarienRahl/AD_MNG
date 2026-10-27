@@ -387,7 +387,8 @@ tested on Linux with a temp-folder fake; the App only supplies the clipboard byt
 * Type by **magic bytes only** (the extension and a declared media type must agree or the image is rejected):
   PNG `89 50 4E 47 0D 0A 1A 0A`, JPEG `FF D8 FF`, GIF `GIF87a` / `GIF89a`.
 * Dimensions read from the headers without decoding (PNG `IHDR`, GIF logical screen, JPEG first `SOFn`): each side
-  1–4096 px and ≤ 16 777 216 px in total (decompression bombs in the recipients' clients).
+  1–4096 px and ≤ 16 777 216 px in total (decompression bombs in the recipients' clients); every GIF frame lies inside
+  the logical screen, at most 200 frames and 67 108 864 frame pixels together (review U1c, finding 9).
 * Structure walked to its end (PNG chunks with CRC, JPEG segments to `EOI`, GIF blocks to the trailer); a truncated or
   malformed file is rejected.
 * **Metadata stripped** by lossless surgery, never by re-encoding: PNG `tEXt zTXt iTXt eXIf tIME` chunks; JPEG `APP1`
