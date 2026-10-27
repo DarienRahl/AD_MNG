@@ -384,6 +384,8 @@ public sealed class ScreenshotTests
         await UiWait.UntilAsync(() => window.ItemsList.Items.Count == 5, "the five planned messages");
         window.ItemsList.SelectedItem = window.ViewModel.AllItems.First(i => i.Name == "Łukasz Wiśniewski");
 
+        // U1c: "Widok" (WebView2, a native window a WPF render cannot capture) is the first tab – the picture shows the text.
+        window.MessageTabs.SelectedItem = window.MessageTextTab;
         await ScreenshotWriter.SaveAsync(window, UserMessages, dark: false);
     }, configure: services => services.Replace(ServiceDescriptor.Singleton<Core.Messaging.IDirectSmtpTransportFactory>(new AdMng.Testing.FakeUserMessageTransport())));
 
