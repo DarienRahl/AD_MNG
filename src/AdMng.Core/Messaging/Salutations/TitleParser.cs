@@ -74,8 +74,9 @@ public sealed record TitleInfo
 /// prefix and/or a suffix after the last comma of the display name – accepted only when the rest still contains the given
 /// name or the surname. Words are compared case- and diacritics-insensitively, ignoring a trailing dot; a word with inner
 /// dots is split after each dot. The longest table spelling at each position is taken; <c>n.</c> + up to two words of
-/// which the last ends in a dot (<c>dr n. med.</c>) and a university abbreviation after a row with <c>prof.</c> in its
-/// title (<c>prof. UW</c>, <c>prof. uczelni AGH</c>, <c>PWr</c>) are absorbed as written. Pure.
+/// which the last ends in a dot (<c>dr n. med.</c>), one lower-case abbreviation of a discipline directly after a row
+/// (<c>dr med.</c>, <c>mgr farm.</c>) and a university abbreviation after a row with <c>prof.</c> in its title
+/// (<c>prof. UW</c>, <c>prof. uczelni AGH</c>, <c>PWr</c>) are absorbed as written. Pure.
 /// </summary>
 public static class TitleParser
 {
@@ -261,6 +262,10 @@ public static class TitleParser
     public static bool IsUniversity(string word) =>
         word.Length is >= 2 and <= 8 && word.All(char.IsLetter) && char.IsUpper(word[0]) && word.Count(char.IsUpper) >= 2 && !Degrees.Contains(word);
 
+    /// <summary>A lower-case abbreviation of at least two letters ending in a dot ("med.", "farm.", "hum.", "arch.").</summary>
+    private static bool IsDiscipline(TitleToken token) =>
+        token.EndsWithDot && token.Text.Length >= 3 && token.Text[..^1].All(char.IsLower);
+
     private static bool IsHonorific(TitleToken token) => MasculineHonorifics.Contains(token.Key) || FeminineHonorifics.Contains(token.Key);
 
     /// <summary>A short all-caps word without a dot ("KS", "DR", "LEK") – in a display name rather a code than a title.</summary>
@@ -311,7 +316,10 @@ public static class TitleParser
         return new Coverage(parts, covered, unrecognized, i);
     }
 
-    /// <summary>Length of an absorbed qualifier (<c>n. med.</c>, <c>n. o zdr.</c>) or university at <paramref name="i"/>; 0 = none.</summary>
+    /// <summary>
+    /// Length of an absorbed qualifier (<c>n. med.</c>, <c>n. o zdr.</c>), discipline (<c>med.</c>, <c>farm.</c>) or
+    /// university at <paramref name="i"/>; 0 = none.
+    /// </summary>
     private static int Absorbed(IReadOnlyList<TitleToken> tokens, int i, TitlePart previous, Func<TitleToken, bool> isName)
     {
         var token = tokens[i];
@@ -328,6 +336,12 @@ public static class TitleParser
             }
 
             return 0;
+        }
+
+        // A discipline directly after a row of the table: "dr med.", "dr hab. med.", "dr inż. arch.", "mgr farm.", "lic. piel.".
+        if (previous.Rule is not null && IsDiscipline(token) && !isName(token))
+        {
+            return 1;
         }
 
         // After every professor row: "prof. UW", "ks. prof. KUL", "prof. uczelni PW", "prof. nadzw. PŁ".

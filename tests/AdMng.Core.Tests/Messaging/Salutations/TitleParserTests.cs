@@ -21,6 +21,12 @@ public sealed class TitleParserTests
     [InlineData("mgr inz", "mgr inż.", "mgr")]
     [InlineData("doktor habilitowany", "dr hab.", "dr hab.")]
     [InlineData("prof. zw. dr hab.", "prof. dr hab.", "prof.")]
+    [InlineData("prof. dr hab. med.", "prof. dr hab. med.", "prof.")]
+    [InlineData("dr med.", "dr med.", "dr")]
+    [InlineData("dr inż. arch.", "dr inż. arch.", "dr")]
+    [InlineData("mgr farm.", "mgr farm.", "mgr")]
+    [InlineData("lic. piel.", "lic. piel.", "lic.")]
+    [InlineData("Dr. med.", "dr med.", "dr")]
     public void Attribute_RecognizesTheChain_InCanonicalSpelling(string value, string title, string highest)
     {
         var info = TitleParser.ParseAttribute(value, Table);
@@ -162,6 +168,9 @@ public sealed class TitleParserTests
     [InlineData("Kowalski Jan, dr hab.", "Jan", "Kowalski", "", "dr hab.", "Kowalski Jan")]
     [InlineData("lek. med. Grażyna Dąbrowska", "Grażyna", "Dąbrowska", "lek.", "", "Grażyna Dąbrowska")]
     [InlineData("prof. PWr Tomasz Wójcik", "Tomasz", "Wójcik", "prof. PWr", "", "Tomasz Wójcik")]
+    [InlineData("dr med. Jan Kowalski", "Jan", "Kowalski", "dr med.", "", "Jan Kowalski")]
+    [InlineData("dr inż. arch. Jan Kowalski", "Jan", "Kowalski", "dr inż. arch.", "", "Jan Kowalski")]
+    [InlineData("Jan Kowalski, dr hab. med.", "Jan", "Kowalski", "", "dr hab. med.", "Jan Kowalski")]
     public void DisplayName_PrefixAndSuffix(string displayName, string givenName, string surname, string prefix, string suffix, string rest)
     {
         var info = TitleParser.Parse(null, displayName, givenName, surname, Table);
