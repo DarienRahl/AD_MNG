@@ -116,6 +116,8 @@ public sealed class MessageSalutations
         };
         var usage = isManager ? _managerUsage : _accountUsage;
         usage.Used = true;
+        usage.UsedGender |= result.UsedGender;
+        usage.ConsultedTitle |= result.ConsultedTitle && Options.UseTitles;
         if (baseField == UserMessageFields.Salutation && !usage.Salutations.Any(s => s.Variant == variant))
         {
             usage.Salutations.Add((variant, result));
@@ -173,28 +175,31 @@ public sealed class MessageSalutations
     private IEnumerable<DerivedFieldValue> Derive(SalutationPerson person, string prefix, Usage usage)
     {
         string Name(string field) => prefix.Length == 0 ? field : prefix + char.ToUpperInvariant(field[0]) + field[1..];
+        // A guess or a finding marks the title and the gender only when a field of the template needed them.
         var title = person.Title;
         var titleText = Options.UseTitles ? title.Text : string.Empty;
+        var titleConsulted = usage.ConsultedTitle;
         yield return new DerivedFieldValue(
             Name(TitleField),
             titleText,
             Options.UseTitles ? title.Source : DerivedValueSource.None,
-            Options.UseTitles && title.Source == DerivedValueSource.DisplayName,
+            titleConsulted && title.Source == DerivedValueSource.DisplayName,
             title.Unrecognized.Count > 0 ? string.Join(' ', title.Unrecognized) : null)
         {
-            Issue = title.Unrecognized.Count > 0 ? SalutationIssueCodes.TitleUnrecognized : null,
+            Issue = titleConsulted && title.Unrecognized.Count > 0 ? SalutationIssueCodes.TitleUnrecognized : null,
         };
 
         var gender = person.Gender;
         var (effective, isDefault) = SalutationResolver.EffectiveGender(gender, Options);
+        var genderUsed = usage.UsedGender;
         yield return new DerivedFieldValue(
             Name(GenderField),
-            effective.ToString(),
-            isDefault || gender.IsConflict ? DerivedValueSource.Fallback : gender.Source,
-            gender.IsGuess || isDefault,
+            (genderUsed ? effective : gender.Gender).ToString(),
+            genderUsed && (isDefault || (effective == Gender.Unknown && gender.Source != DerivedValueSource.Override)) ? DerivedValueSource.Fallback : gender.Source,
+            genderUsed && (gender.IsGuess || isDefault),
             gender.Detail)
         {
-            Issue = GenderIssue(gender),
+            Issue = genderUsed ? GenderIssue(gender) : null,
         };
 
         if (usage.Salutations.Count == 0)
@@ -309,6 +314,12 @@ public sealed class MessageSalutations
     private sealed class Usage
     {
         public bool Used { get; set; }
+
+        /// <summary>A rendered field depended on the gender.</summary>
+        public bool UsedGender { get; set; }
+
+        /// <summary>A rendered field looked at the title (titles switched on).</summary>
+        public bool ConsultedTitle { get; set; }
 
         /// <summary>The <c>{$salutation}</c> variants rendered with their results (each variant once).</summary>
         public List<(SalutationVariant Variant, SalutationResult Result)> Salutations { get; } = [];

@@ -869,8 +869,13 @@ Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/
   `GenderGuessed` (info), not `GenderUnknown`; a neutral override is the operator's choice (no finding, no ⚠).
 * `PlannedUserMessage.Derived`: `title` and `gender` (with the `manager` prefix for the manager) for every person whose
   fields the template uses, `salutation` only when a `{$salutation}` field of that person is used (manager mode shows
-  the manager's salutation in the column); `DerivedFieldValue.Issue` names the finding behind a value. The *Zgadnięte
-  zwroty* filter lists messages with a guessed or fallback value or a value with a finding.
+  the manager's salutation in the column); `DerivedFieldValue.Issue` names the finding behind a value. The salutation
+  value is the variant the template rendered (the fullest one when several: `Full`, `noTitle`, `vocative`,
+  `vocativeNoTitle`), marked by the worst of the variants rendered. The title and the gender carry a guess, a fallback
+  or a finding only when a rendered field needed them (`{$titledName}` alone never marks the gender, `{$byGender}`
+  alone never marks a display-name title). Without `{$salutation}` the *Zwrot* column shows only the mark (`≈` / `⚠`)
+  of a gender that `{$honorific}` / `{$byGender}` used. The *Zgadnięte zwroty* filter lists messages with a guessed or
+  fallback value or a value with a finding.
 * A template with *używaj tytułów* off renders `{$title}` empty and `{$titledName}` without the title.
 * The composer's *Zwroty* options read and write `MessageTemplate.Salutation` of the edited template and are refreshed
   when another template is selected (an `OnPropertyChanged` override in the partial class – no extra hook line in the

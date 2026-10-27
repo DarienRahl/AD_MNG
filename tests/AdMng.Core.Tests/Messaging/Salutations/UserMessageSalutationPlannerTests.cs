@@ -165,6 +165,28 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void DerivedTitleAndGender_AreMarkedOnlyWhenAFieldNeededThem()
+    {
+        // Only {$titledName}: nothing depends on the gender, so Sasza Kim's unknown gender is neither a guess nor a finding.
+        var titled = Plan(BodyOnly("{$titledName},"), [new(SaszaDn, Sasza())]).Messages[0];
+        Assert.Equal(PlannedMessageStatus.Ready, titled.Status);
+        Assert.Empty(titled.Issues);
+        Assert.Equal(["title", "gender"], titled.Derived.Select(d => d.Field));
+        Assert.All(titled.Derived, d => Assert.False(d.IsGuess || d.IsFallback || d.Issue is not null, d.Field));
+
+        // Only {$byGender}: the display-name title was not looked at – only the gender is a guess.
+        var ewa = Plan(BodyOnly("{$byGender:zmienił/zmieniła}"), [new(EwaDn, Ewa())]).Messages[0];
+        Assert.StartsWith("zmieniła", ewa.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(ewa.Derived, d => d is { Field: "title", IsGuess: false, Source: DerivedValueSource.DisplayName });
+        Assert.Contains(ewa.Derived, d => d is { Field: "gender", IsGuess: true, Issue: SalutationIssueCodes.GenderGuessed });
+        Assert.DoesNotContain(ewa.Issues, i => i.Code == SalutationIssueCodes.TitleFromDisplayName);
+
+        // Only {$honorific}: the neutral "Pan/Pani" marks the gender as a fallback.
+        var honorific = Plan(BodyOnly("{$honorific}"), [new(SaszaDn, Sasza())]).Messages[0];
+        Assert.Contains(honorific.Derived, d => d is { Field: "gender", Source: DerivedValueSource.Fallback, Issue: SalutationIssueCodes.GenderUnknown });
+    }
+
+    [Fact]
     public void Replan_KeepsADuplicateAddressWarning()
     {
         var template = Template("{$salutation},");

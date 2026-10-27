@@ -78,6 +78,28 @@ public sealed class UserMessageSalutationComposerTests
     }
 
     [Fact]
+    public async Task ColumnAndFilter_FollowTheFieldsTheTemplateUses()
+    {
+        // Only {$honorific} / {$byGender}: no salutation, but a neutral "Pan/Pani" is marked in the column.
+        var (_, _, composer) = await OpenAsync("Prosimy, aby {$honorific} {$byGender:zmienił/zmieniła} hasło.");
+        await composer.PlanCommand.ExecuteAsync(null);
+
+        Assert.Equal("⚠", Item(composer, "Sasza Kim").SalutationColumnText);
+        Assert.Equal("fallback (settings or template)", Item(composer, "Sasza Kim").SalutationToolTip);
+        Assert.Equal("≈", Item(composer, "Kuba Mazur").SalutationColumnText);
+        Assert.Equal(string.Empty, Item(composer, "Nikola Lewandowski").SalutationColumnText);
+
+        // Only {$titledName}: nothing depends on the gender – Sasza Kim is no guessed salutation.
+        composer.Body = "{$titledName},";
+        await composer.PlanCommand.ExecuteAsync(null);
+        composer.Filter = composer.Filters.Single(f => f.Value == UserMessagePreviewFilter.Guessed);
+
+        Assert.DoesNotContain(composer.Items, i => i.Name == "Sasza Kim");
+        Assert.Equal(string.Empty, Item(composer, "Sasza Kim").SalutationColumnText);
+        Assert.Contains(composer.Items, i => i.Name == "dr Anna Nowak");
+    }
+
+    [Fact]
     public async Task GenderOverride_ReplansThatMessageOnly_AndNeverTouchesTheSettings()
     {
         var (scenario, sample, composer) = await OpenAsync();

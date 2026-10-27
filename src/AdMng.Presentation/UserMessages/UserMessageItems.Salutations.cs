@@ -28,13 +28,21 @@ public sealed partial class UserMessageItemViewModel
         Planned.Derived.FirstOrDefault(d => d.Field == MessageSalutations.SalutationField)
         ?? Planned.Derived.FirstOrDefault(d => SalutationText.IsSalutationField(d.Field));
 
-    /// <summary>The "Zwrot" column: "≈ Szanowna Pani", "⚠ Szanowna Pani / Szanowny Panie", "Szanowny Panie Profesorze".</summary>
+    /// <summary>
+    /// The "Zwrot" column: "≈ Szanowna Pani", "⚠ Szanowna Pani / Szanowny Panie", "Szanowny Panie Profesorze"; without a
+    /// <c>{$salutation}</c> field only the mark of a guessed or fallback gender that <c>{$honorific}</c> / <c>{$byGender}</c>
+    /// used ("⚠" for "Pan/Pani").
+    /// </summary>
     public string SalutationColumnText => Salutation is { } salutation
         ? $"{SalutationText.Mark(salutation)} {salutation.Value}".Trim()
-        : string.Empty;
+        : SalutationText.Mark(MarkedGender);
 
-    /// <summary>Tooltip of the column: where the salutation came from.</summary>
-    public string? SalutationToolTip => Salutation is { } salutation ? SalutationText.Source(_localizer, salutation) : null;
+    /// <summary>Tooltip of the column: where the salutation (or the marked gender) came from.</summary>
+    public string? SalutationToolTip => (Salutation ?? MarkedGender) is { } value ? SalutationText.Source(_localizer, value) : null;
+
+    /// <summary>A gender a field used that is guessed or a fallback (account first), or null.</summary>
+    private DerivedFieldValue? MarkedGender =>
+        Planned.Derived.FirstOrDefault(d => SalutationText.IsGenderField(d.Field) && (d.IsFallback || d.IsGuess));
 
     /// <summary>The rows of "Pola wyliczone".</summary>
     public IReadOnlyList<DerivedValueRow> DerivedRows =>
