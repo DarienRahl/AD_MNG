@@ -105,6 +105,7 @@ public sealed partial class ShellViewModel
             new("tools.accountReview", L.Commands.AccountReview, tools, string.Empty, ShowAccountReviewCommand),
             new("tools.savedFilters", L.Commands.SavedFilters, tools, string.Empty, ShowSavedFiltersCommand),
             new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
+            .. GroupPolicyCommandDescriptors(),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
             new("session.newWindow", L.Commands.NewConnectionWindow, session, "Ctrl+Shift+N", NewConnectionWindowCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),

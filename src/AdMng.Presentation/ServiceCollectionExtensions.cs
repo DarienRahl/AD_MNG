@@ -12,6 +12,7 @@ using AdMng.Presentation.Connection;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -66,6 +67,7 @@ public static class ServiceCollectionExtensions
         // Application-wide and stateless: a source reads only through the session of the scan context, i.e. the session of
         // the connection window that runs the review.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<Core.PrivilegedAccess.IPrivilegeGrantSource, Core.PrivilegedAccess.DirectoryAclGrantSource>());
+        services.AddAdMngGroupPolicy();
 
         // One connection window = one DI scope (design note docs/dev/multi-window.md 2.2): its session, change bus, audit
         // log, executor, activities and everything built on them. Never resolved from the root provider. A host that

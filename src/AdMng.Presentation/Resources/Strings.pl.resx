@@ -9571,5 +9571,911 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="PlanPreview.SessionEnded" xml:space="preserve">
     <value>Połączenie tego okna zakończyło się; planu nie można już wykonać.</value>
   </data>
+  <data name="GroupPolicy.ObjectsTitle" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ObjectsNodeHelp" xml:space="preserve">
+    <value>Wszystkie obiekty zasad grupy domeny</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersTitle" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="GroupPolicy.SitesTitle" xml:space="preserve">
+    <value>Lokacje</value>
+  </data>
+  <data name="GroupPolicy.ScopeTitle" xml:space="preserve">
+    <value>Zasady grupy – {0}</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCommand" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCommand" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="GroupPolicy.ContainerPoliciesCommand" xml:space="preserve">
+    <value>Zasady grupy</value>
+  </data>
+  <data name="GroupPolicy.NewLinkedCommand" xml:space="preserve">
+    <value>Utwórz GPO w tej domenie i połącz je tutaj…</value>
+  </data>
+  <data name="GroupPolicy.LinkExistingCommand" xml:space="preserve">
+    <value>Połącz istniejący GPO…</value>
+  </data>
+  <data name="GroupPolicy.BlockInheritanceCommand" xml:space="preserve">
+    <value>Zablokuj dziedziczenie</value>
+  </data>
+  <data name="GroupPolicy.ToggleTreeCommand" xml:space="preserve">
+    <value>Zasady grupy w drzewie</value>
+  </data>
+  <data name="GroupPolicy.GpoStatusCommand" xml:space="preserve">
+    <value>Stan GPO</value>
+  </data>
+  <data name="GroupPolicy.BackupCommand" xml:space="preserve">
+    <value>Kopia zapasowa…</value>
+  </data>
+  <data name="GroupPolicy.RestoreCommand" xml:space="preserve">
+    <value>Przywróć z kopii zapasowej…</value>
+  </data>
+  <data name="GroupPolicy.ImportCommand" xml:space="preserve">
+    <value>Importuj ustawienia…</value>
+  </data>
+  <data name="GroupPolicy.CopyCommand" xml:space="preserve">
+    <value>Kopiuj…</value>
+  </data>
+  <data name="GroupPolicy.RenameCommand" xml:space="preserve">
+    <value>Zmień nazwę</value>
+  </data>
+  <data name="GroupPolicy.DeleteCommand" xml:space="preserve">
+    <value>Usuń…</value>
+  </data>
+  <data name="GroupPolicy.CompareCommand" xml:space="preserve">
+    <value>Porównaj</value>
+  </data>
+  <data name="GroupPolicy.CompareWithCommand" xml:space="preserve">
+    <value>Porównaj z…</value>
+  </data>
+  <data name="GroupPolicy.HistoryCommand" xml:space="preserve">
+    <value>Historia w Watchdogu</value>
+  </data>
+  <data name="GroupPolicy.NewCommand" xml:space="preserve">
+    <value>Nowe…</value>
+  </data>
+  <data name="GroupPolicy.OpenCommand" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="GroupPolicy.EditCommand" xml:space="preserve">
+    <value>Edytuj…</value>
+  </data>
+  <data name="GroupPolicy.RefreshCommand" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="GroupPolicy.ChangeDcCommand" xml:space="preserve">
+    <value>Zmień kontroler…</value>
+  </data>
+  <data name="GroupPolicy.Selected" xml:space="preserve">
+    <value>Zaznaczono: {0}</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCount" xml:space="preserve">
+    <value>Obiekty zasad grupy: {0}, z różnymi wersjami w AD i SYSVOL: {1}</value>
+  </data>
+  <data name="GroupPolicy.ObjectLoaded" xml:space="preserve">
+    <value>Połączenia: {0}, ustawienia: {1}</value>
+  </data>
+  <data name="GroupPolicy.ScopeLoaded" xml:space="preserve">
+    <value>Połączone GPO: {0}, stosowane: {1}</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCount" xml:space="preserve">
+    <value>Filtry WMI: {0}</value>
+  </data>
+  <data name="GroupPolicy.StatusEnabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="GroupPolicy.StatusUserDisabled" xml:space="preserve">
+    <value>Ustawienia konfiguracji użytkownika wyłączone</value>
+  </data>
+  <data name="GroupPolicy.StatusComputerDisabled" xml:space="preserve">
+    <value>Ustawienia konfiguracji komputera wyłączone</value>
+  </data>
+  <data name="GroupPolicy.StatusAllDisabled" xml:space="preserve">
+    <value>Wszystkie ustawienia wyłączone</value>
+  </data>
+  <data name="GroupPolicy.LevelRead" xml:space="preserve">
+    <value>Odczyt</value>
+  </data>
+  <data name="GroupPolicy.LevelApply" xml:space="preserve">
+    <value>Odczyt (z filtrowania zabezpieczeń)</value>
+  </data>
+  <data name="GroupPolicy.LevelEdit" xml:space="preserve">
+    <value>Edycja ustawień</value>
+  </data>
+  <data name="GroupPolicy.LevelEditDeleteModifySecurity" xml:space="preserve">
+    <value>Edycja ustawień, usuwanie, modyfikowanie zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.LevelCustom" xml:space="preserve">
+    <value>Niestandardowe</value>
+  </data>
+  <data name="GroupPolicy.KindDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.KindOrganizationalUnit" xml:space="preserve">
+    <value>Jednostka organizacyjna</value>
+  </data>
+  <data name="GroupPolicy.KindSite" xml:space="preserve">
+    <value>Lokacja</value>
+  </data>
+  <data name="GroupPolicy.Yes" xml:space="preserve">
+    <value>Tak</value>
+  </data>
+  <data name="GroupPolicy.No" xml:space="preserve">
+    <value>Nie</value>
+  </data>
+  <data name="GroupPolicy.Absent" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="GroupPolicy.MaskedValue" xml:space="preserve">
+    <value>(ustawione – ukryte)</value>
+  </data>
+  <data name="GroupPolicy.UnreadableValue" xml:space="preserve">
+    <value>(nie można odczytać pliku)</value>
+  </data>
+  <data name="GroupPolicy.NotLinked" xml:space="preserve">
+    <value>(niepołączone)</value>
+  </data>
+  <data name="GroupPolicy.NoWmiFilter" xml:space="preserve">
+    <value>&lt;brak&gt;</value>
+  </data>
+  <data name="GroupPolicy.GptIniMissing" xml:space="preserve">
+    <value>brak GPT.INI</value>
+  </data>
+  <data name="GroupPolicy.VersionPair" xml:space="preserve">
+    <value>AD: {0}, SYSVOL: {1}</value>
+  </data>
+  <data name="GroupPolicy.ScopeComputer" xml:space="preserve">
+    <value>Komputer</value>
+  </data>
+  <data name="GroupPolicy.ScopeUser" xml:space="preserve">
+    <value>Użytkownik</value>
+  </data>
+  <data name="GroupPolicy.ScopeGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.DanglingLink" xml:space="preserve">
+    <value>(brak GPO {0})</value>
+  </data>
+  <data name="GroupPolicy.LinkSummary" xml:space="preserve">
+    <value>kolejność {0}, wymuszone: {1}, włączone: {2}</value>
+  </data>
+  <data name="GroupPolicy.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.ColumnStatus" xml:space="preserve">
+    <value>Stan obiektu zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnWmiFilter" xml:space="preserve">
+    <value>Filtr WMI</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinks" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionAd" xml:space="preserve">
+    <value>Wersja (AD)</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionSysvol" xml:space="preserve">
+    <value>Wersja (SYSVOL)</value>
+  </data>
+  <data name="GroupPolicy.ColumnOwner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="GroupPolicy.ColumnModified" xml:space="preserve">
+    <value>Zmodyfikowano</value>
+  </data>
+  <data name="GroupPolicy.ColumnOrder" xml:space="preserve">
+    <value>Kolejność łączy</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpo" xml:space="preserve">
+    <value>Obiekt zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnEnforced" xml:space="preserve">
+    <value>Wymuszone</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinkEnabled" xml:space="preserve">
+    <value>Połączenie włączone</value>
+  </data>
+  <data name="GroupPolicy.ColumnPrecedence" xml:space="preserve">
+    <value>Pierwszeństwo</value>
+  </data>
+  <data name="GroupPolicy.ColumnLocation" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="GroupPolicy.ColumnPath" xml:space="preserve">
+    <value>Ścieżka</value>
+  </data>
+  <data name="GroupPolicy.ColumnKind" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="GroupPolicy.ColumnTrustee" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.ColumnLevel" xml:space="preserve">
+    <value>Dozwolone uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.ColumnInherited" xml:space="preserve">
+    <value>Odziedziczone</value>
+  </data>
+  <data name="GroupPolicy.ColumnSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GroupPolicy.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="GroupPolicy.ColumnSource" xml:space="preserve">
+    <value>Plik</value>
+  </data>
+  <data name="GroupPolicy.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="GroupPolicy.ColumnState" xml:space="preserve">
+    <value>Porównanie</value>
+  </data>
+  <data name="GroupPolicy.ColumnCheck" xml:space="preserve">
+    <value>Sprawdzenie</value>
+  </data>
+  <data name="GroupPolicy.ColumnResult" xml:space="preserve">
+    <value>Wynik</value>
+  </data>
+  <data name="GroupPolicy.ColumnDescription" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GroupPolicy.ColumnQueries" xml:space="preserve">
+    <value>Zapytania</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpos" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnAuthor" xml:space="preserve">
+    <value>Autor</value>
+  </data>
+  <data name="GroupPolicy.ColumnDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.ColumnTime" xml:space="preserve">
+    <value>Czas</value>
+  </data>
+  <data name="GroupPolicy.ColumnComment" xml:space="preserve">
+    <value>Komentarz</value>
+  </data>
+  <data name="GroupPolicy.ColumnNamespace" xml:space="preserve">
+    <value>Przestrzeń nazw</value>
+  </data>
+  <data name="GroupPolicy.ColumnQuery" xml:space="preserve">
+    <value>Zapytanie</value>
+  </data>
+  <data name="GroupPolicy.ColumnGuid" xml:space="preserve">
+    <value>GUID</value>
+  </data>
+  <data name="GroupPolicy.TabScope" xml:space="preserve">
+    <value>Zakres</value>
+  </data>
+  <data name="GroupPolicy.TabDetails" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="GroupPolicy.TabSettings" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GroupPolicy.TabDelegation" xml:space="preserve">
+    <value>Delegowanie</value>
+  </data>
+  <data name="GroupPolicy.TabStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="GroupPolicy.LinksHeading" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.LinksHint" xml:space="preserve">
+    <value>Z tym obiektem GPO są połączone następujące lokacje, domeny i jednostki organizacyjne:</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHeading" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHint" xml:space="preserve">
+    <value>Ustawienia w tym obiekcie GPO mogą być stosowane tylko do następujących grup, użytkowników i komputerów:</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHeading" xml:space="preserve">
+    <value>Filtrowanie WMI</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHint" xml:space="preserve">
+    <value>Ten obiekt GPO jest połączony z następującym filtrem WMI:</value>
+  </data>
+  <data name="GroupPolicy.LinkedGposHeading" xml:space="preserve">
+    <value>Połączone obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHeading" xml:space="preserve">
+    <value>Dziedziczenie zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHint" xml:space="preserve">
+    <value>Obiekty GPO stosowane tutaj, od najwyższego pierwszeństwa (połączenia lokacji tylko dla lokacji, jak w GPMC).</value>
+  </data>
+  <data name="GroupPolicy.InheritanceBlocked" xml:space="preserve">
+    <value>Dziedziczenie jest tu zablokowane.</value>
+  </data>
+  <data name="GroupPolicy.InheritanceNotBlocked" xml:space="preserve">
+    <value>Dziedziczenie nie jest zablokowane.</value>
+  </data>
+  <data name="GroupPolicy.DelegationHint" xml:space="preserve">
+    <value>Te grupy i użytkownicy mają określone uprawnienia do tego obiektu GPO:</value>
+  </data>
+  <data name="GroupPolicy.StatusHint" xml:space="preserve">
+    <value>Spójność obiektu GPO między Active Directory a SYSVOL na tym kontrolerze domeny.</value>
+  </data>
+  <data name="GroupPolicy.SettingsHint" xml:space="preserve">
+    <value>Ustawienia odczytane z SYSVOL tego kontrolera domeny (tylko do odczytu; sekrety nigdy nie są pokazywane).</value>
+  </data>
+  <data name="GroupPolicy.LabelDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.LabelOwner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="GroupPolicy.LabelCreated" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="GroupPolicy.LabelModified" xml:space="preserve">
+    <value>Zmodyfikowano</value>
+  </data>
+  <data name="GroupPolicy.LabelUserVersion" xml:space="preserve">
+    <value>Wersja użytkownika</value>
+  </data>
+  <data name="GroupPolicy.LabelComputerVersion" xml:space="preserve">
+    <value>Wersja komputera</value>
+  </data>
+  <data name="GroupPolicy.LabelGuid" xml:space="preserve">
+    <value>Unikatowy identyfikator</value>
+  </data>
+  <data name="GroupPolicy.LabelGpoStatus" xml:space="preserve">
+    <value>Stan obiektu zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.LabelLevel" xml:space="preserve">
+    <value>Poziom uprawnień</value>
+  </data>
+  <data name="GroupPolicy.LabelName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.LabelDescription" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GroupPolicy.LabelQueries" xml:space="preserve">
+    <value>Zapytania</value>
+  </data>
+  <data name="GroupPolicy.LabelFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="GroupPolicy.LabelComment" xml:space="preserve">
+    <value>Komentarz</value>
+  </data>
+  <data name="GroupPolicy.LabelGpos" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.LabelPermissions" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.PermissionsDefault" xml:space="preserve">
+    <value>Użyj domyślnych uprawnień dla nowych obiektów GPO</value>
+  </data>
+  <data name="GroupPolicy.PermissionsKeep" xml:space="preserve">
+    <value>Zachowaj istniejące uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.UserVersion" xml:space="preserve">
+    <value>Wersja użytkownika</value>
+  </data>
+  <data name="GroupPolicy.ComputerVersion" xml:space="preserve">
+    <value>Wersja komputera</value>
+  </data>
+  <data name="GroupPolicy.MachineExtensions" xml:space="preserve">
+    <value>Rozszerzenia komputera</value>
+  </data>
+  <data name="GroupPolicy.UserExtensions" xml:space="preserve">
+    <value>Rozszerzenia użytkownika</value>
+  </data>
+  <data name="GroupPolicy.Add" xml:space="preserve">
+    <value>Dodaj…</value>
+  </data>
+  <data name="GroupPolicy.Remove" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="GroupPolicy.Apply" xml:space="preserve">
+    <value>Zastosuj</value>
+  </data>
+  <data name="GroupPolicy.ChangeLevel" xml:space="preserve">
+    <value>Zmień poziom</value>
+  </data>
+  <data name="GroupPolicy.MoveUp" xml:space="preserve">
+    <value>Wyżej</value>
+  </data>
+  <data name="GroupPolicy.MoveDown" xml:space="preserve">
+    <value>Niżej</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnforced" xml:space="preserve">
+    <value>Wymuszone</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnabled" xml:space="preserve">
+    <value>Połączenie włączone</value>
+  </data>
+  <data name="GroupPolicy.Unlink" xml:space="preserve">
+    <value>Usuń połączenie</value>
+  </data>
+  <data name="GroupPolicy.OpenContainer" xml:space="preserve">
+    <value>Otwórz zasady grupy kontenera</value>
+  </data>
+  <data name="GroupPolicy.AlignVersions" xml:space="preserve">
+    <value>Wyrównaj wersje</value>
+  </data>
+  <data name="GroupPolicy.RepairFolder" xml:space="preserve">
+    <value>Napraw uprawnienia folderu</value>
+  </data>
+  <data name="GroupPolicy.DeleteOrphanedFolder" xml:space="preserve">
+    <value>Usuń pozostały folder</value>
+  </data>
+  <data name="GroupPolicy.Browse" xml:space="preserve">
+    <value>Przeglądaj…</value>
+  </data>
+  <data name="GroupPolicy.AddQuery" xml:space="preserve">
+    <value>Dodaj zapytanie</value>
+  </data>
+  <data name="GroupPolicy.RemoveQuery" xml:space="preserve">
+    <value>Usuń zapytanie</value>
+  </data>
+  <data name="GroupPolicy.OnlyDifferences" xml:space="preserve">
+    <value>Tylko różnice</value>
+  </data>
+  <data name="GroupPolicy.Export" xml:space="preserve">
+    <value>Eksportuj CSV…</value>
+  </data>
+  <data name="GroupPolicy.CopyPowerShell" xml:space="preserve">
+    <value>Kopiuj PowerShell</value>
+  </data>
+  <data name="GroupPolicy.PdcNote" xml:space="preserve">
+    <value>Zmiany GPO wykonujesz na {0}, a emulatorem PDC jest {1} – GPMC domyślnie używa emulatora PDC.</value>
+  </data>
+  <data name="GroupPolicy.SysvolNotSupported" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: nieobsługiwany w tym środowisku – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolDistinguishedNameLogon" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: połączenie otwarto nazwą wyróżniającą, którą nie można zalogować się do udziału – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolLogonFailure" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: kontroler domeny odrzucił poświadczenia tego okna – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolAccessDenied" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: odmowa dostępu – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolUnreachable" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: nie można połączyć się z udziałem – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailed" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0} – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailedShort" xml:space="preserve">
+    <value>SYSVOL kontrolera domeny jest niedostępny.</value>
+  </data>
+  <data name="GroupPolicy.SysvolWriteFailed" xml:space="preserve">
+    <value>Nie można odczytać lub zapisać SYSVOL: {0}</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAccessDenied" xml:space="preserve">
+    <value>odmowa dostępu</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorNotFound" xml:space="preserve">
+    <value>nie znaleziono</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAlreadyExists" xml:space="preserve">
+    <value>już istnieje</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorUnreachable" xml:space="preserve">
+    <value>nie można połączyć się z udziałem</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorLogonFailure" xml:space="preserve">
+    <value>poświadczenia zostały odrzucone</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorDiskFull" xml:space="preserve">
+    <value>dysk jest pełny</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorFailed" xml:space="preserve">
+    <value>operacja nie powiodła się</value>
+  </data>
+  <data name="GroupPolicy.TooLarge" xml:space="preserve">
+    <value>GPO jest zbyt duże do bezpiecznej kopii w pamięci (ponad 2 000 pozycji, plik ponad 32 MiB lub łącznie ponad 128 MiB).</value>
+  </data>
+  <data name="GroupPolicy.BackupInvalid" xml:space="preserve">
+    <value>Kopia zapasowa nie istnieje, jest uszkodzona albo nie przechodzi kontroli (ścieżki, rozmiary lub sumy kontrolne).</value>
+  </data>
+  <data name="GroupPolicy.ParseFailed" xml:space="preserve">
+    <value>Nie można odczytać pliku obiektu GPO.</value>
+  </data>
+  <data name="GroupPolicy.FolderFailed" xml:space="preserve">
+    <value>Nie można odczytać lub zapisać folderu.</value>
+  </data>
+  <data name="GroupPolicy.Missing" xml:space="preserve">
+    <value>Obiekt GPO już nie istnieje.</value>
+  </data>
+  <data name="GroupPolicy.MissingWithFolder" xml:space="preserve">
+    <value>Obiekt GPO nie istnieje już w Active Directory, ale jego folder w SYSVOL pozostał.</value>
+  </data>
+  <data name="GroupPolicy.ContainerMissing" xml:space="preserve">
+    <value>Kontener już nie istnieje.</value>
+  </data>
+  <data name="GroupPolicy.FolderMissing" xml:space="preserve">
+    <value>Brak folderu GPO w SYSVOL tego kontrolera domeny.</value>
+  </data>
+  <data name="GroupPolicy.NoSettings" xml:space="preserve">
+    <value>Ten obiekt GPO nie ma ustawień.</value>
+  </data>
+  <data name="GroupPolicy.DefaultGpoRefused" xml:space="preserve">
+    <value>Nie można usunąć zasad Default Domain Policy ani Default Domain Controllers Policy.</value>
+  </data>
+  <data name="GroupPolicy.ConfirmDelete" xml:space="preserve">
+    <value>Usunąć obiekt GPO „{0}” wraz z połączeniami i folderem SYSVOL z domeny {1}? Bez kopii zapasowej nie można tego cofnąć.</value>
+  </data>
+  <data name="GroupPolicy.CheckSysvol" xml:space="preserve">
+    <value>SYSVOL</value>
+  </data>
+  <data name="GroupPolicy.CheckFolder" xml:space="preserve">
+    <value>Folder GPO</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderOk" xml:space="preserve">
+    <value>Istnieje</value>
+  </data>
+  <data name="GroupPolicy.CheckVersions" xml:space="preserve">
+    <value>Wersje</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsOk" xml:space="preserve">
+    <value>AD i GPT.INI są zgodne ({0}).</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsAhead" xml:space="preserve">
+    <value>GPT.INI ({1}) wyprzedza AD ({0}): nieudany zapis lub opóźnienie replikacji AD – wyrównaj wersje.</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsBehind" xml:space="preserve">
+    <value>GPT.INI ({1}) jest za AD ({0}): replikacja SYSVOL do tego kontrolera jeszcze trwa.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAcl" xml:space="preserve">
+    <value>Uprawnienia folderu</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclOk" xml:space="preserve">
+    <value>Zgodne z uprawnieniami GPO w AD.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclMismatch" xml:space="preserve">
+    <value>Niespójne z uprawnieniami GPO w AD – napraw uprawnienia folderu.</value>
+  </data>
+  <data name="GroupPolicy.CheckUnknown" xml:space="preserve">
+    <value>Nieznane</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensions" xml:space="preserve">
+    <value>Nazwy rozszerzeń</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsOk" xml:space="preserve">
+    <value>Zgodne z plikami GPO.</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsMismatch" xml:space="preserve">
+    <value>Niezgodne z plikami GPO (klienci mogą pominąć ustawienia).</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftovers" xml:space="preserve">
+    <value>Pozostałości przerwanego zapisu</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversNone" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversFound" xml:space="preserve">
+    <value>Pliki tymczasowe: {0} – następna zmiana tego GPO je usunie.</value>
+  </data>
+  <data name="GroupPolicy.NewWindowTitle" xml:space="preserve">
+    <value>Nowy obiekt GPO</value>
+  </data>
+  <data name="GroupPolicy.CopyWindowTitle" xml:space="preserve">
+    <value>Kopiuj obiekt GPO</value>
+  </data>
+  <data name="GroupPolicy.RenameWindowTitle" xml:space="preserve">
+    <value>Zmień nazwę obiektu GPO</value>
+  </data>
+  <data name="GroupPolicy.NewGpoDefaultName" xml:space="preserve">
+    <value>Nowy obiekt zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.CopyDefaultName" xml:space="preserve">
+    <value>Kopia {0}</value>
+  </data>
+  <data name="GroupPolicy.LinkTargetText" xml:space="preserve">
+    <value>Połączone z: {0}</value>
+  </data>
+  <data name="GroupPolicy.SourceText" xml:space="preserve">
+    <value>Źródło: {0}</value>
+  </data>
+  <data name="GroupPolicy.NameRequired" xml:space="preserve">
+    <value>Wpisz nazwę.</value>
+  </data>
+  <data name="GroupPolicy.NameTooLong" xml:space="preserve">
+    <value>Nazwa może mieć najwyżej {0} znaków.</value>
+  </data>
+  <data name="GroupPolicy.LinkPickerTitle" xml:space="preserve">
+    <value>Połącz istniejący GPO z {0}</value>
+  </data>
+  <data name="GroupPolicy.ComparePickerTitle" xml:space="preserve">
+    <value>Porównaj „{0}” z…</value>
+  </data>
+  <data name="GroupPolicy.PickerFilter" xml:space="preserve">
+    <value>Filtruj według nazwy</value>
+  </data>
+  <data name="GroupPolicy.TrusteePickerTitle" xml:space="preserve">
+    <value>Wybierz użytkownika, grupę lub komputer</value>
+  </data>
+  <data name="GroupPolicy.TrusteeWithoutSid" xml:space="preserve">
+    <value>Wybrany obiekt nie ma identyfikatora zabezpieczeń.</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEveryone" xml:space="preserve">
+    <value>Wszyscy</value>
+  </data>
+  <data name="GroupPolicy.TrusteeAuthenticatedUsers" xml:space="preserve">
+    <value>Użytkownicy uwierzytelnieni</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEnterpriseDomainControllers" xml:space="preserve">
+    <value>KONTROLERY DOMENY PRZEDSIĘBIORSTWA</value>
+  </data>
+  <data name="GroupPolicy.TrusteeSystem" xml:space="preserve">
+    <value>SYSTEM</value>
+  </data>
+  <data name="GroupPolicy.TrusteeCreatorOwner" xml:space="preserve">
+    <value>TWÓRCA-WŁAŚCICIEL</value>
+  </data>
+  <data name="GroupPolicy.WmiNewWindowTitle" xml:space="preserve">
+    <value>Nowy filtr WMI</value>
+  </data>
+  <data name="GroupPolicy.WmiEditWindowTitle" xml:space="preserve">
+    <value>Filtr WMI – {0}</value>
+  </data>
+  <data name="GroupPolicy.WmiQueryRequired" xml:space="preserve">
+    <value>Każde zapytanie wymaga przestrzeni nazw i zapytania WQL.</value>
+  </data>
+  <data name="GroupPolicy.WmiQueriesUnreadable" xml:space="preserve">
+    <value>(nie można odczytać zapytań)</value>
+  </data>
+  <data name="GroupPolicy.WmiUnparsedNote" xml:space="preserve">
+    <value>Nie można odczytać zapisanych zapytań; zapisanie zastąpi je zapytaniami pokazanymi tutaj.</value>
+  </data>
+  <data name="GroupPolicy.WmiTestLater" xml:space="preserve">
+    <value>Sprawdzenie zapytania na komputerze pojawi się razem ze zdalnymi akcjami (K1).</value>
+  </data>
+  <data name="GroupPolicy.BackupWindowTitle" xml:space="preserve">
+    <value>Kopia zapasowa obiektów zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.BackupBeforeDeleteTitle" xml:space="preserve">
+    <value>Usuń „{0}”</value>
+  </data>
+  <data name="GroupPolicy.RestoreWindowTitle" xml:space="preserve">
+    <value>Przywróć z kopii zapasowej</value>
+  </data>
+  <data name="GroupPolicy.ImportWindowTitle" xml:space="preserve">
+    <value>Importuj ustawienia do „{0}”</value>
+  </data>
+  <data name="GroupPolicy.BackupCompatibilityNote" xml:space="preserve">
+    <value>Zapis w formacie kopii GPMC (manifest.xml, Backup.xml, bkupInfo.xml, DomainSysvol) oraz admng.json – zgodna z GPMC, do potwierdzenia w pilotażu. Kopie trafiają wyłącznie do wybranego przez Ciebie folderu.</value>
+  </data>
+  <data name="GroupPolicy.BackupFirst" xml:space="preserve">
+    <value>Utwórz kopię zapasową przed usunięciem</value>
+  </data>
+  <data name="GroupPolicy.BackupContinue" xml:space="preserve">
+    <value>Dalej</value>
+  </data>
+  <data name="GroupPolicy.BackupRun" xml:space="preserve">
+    <value>Utwórz kopię</value>
+  </data>
+  <data name="GroupPolicy.RestoreRun" xml:space="preserve">
+    <value>Przywróć…</value>
+  </data>
+  <data name="GroupPolicy.ImportRun" xml:space="preserve">
+    <value>Importuj…</value>
+  </data>
+  <data name="GroupPolicy.PickFolderTitle" xml:space="preserve">
+    <value>Wybierz folder kopii zapasowych</value>
+  </data>
+  <data name="GroupPolicy.NoBackups" xml:space="preserve">
+    <value>Brak kopii zapasowych w tym folderze.</value>
+  </data>
+  <data name="GroupPolicy.BackupsFound" xml:space="preserve">
+    <value>Kopie zapasowe w tym folderze: {0}.</value>
+  </data>
+  <data name="GroupPolicy.BackupRunning" xml:space="preserve">
+    <value>Tworzenie kopii zapasowej…</value>
+  </data>
+  <data name="GroupPolicy.BackupActivity" xml:space="preserve">
+    <value>Kopia zapasowa GPO: {0}</value>
+  </data>
+  <data name="GroupPolicy.BackupFailed" xml:space="preserve">
+    <value>Nie udało się utworzyć {0} z {1} kopii; nic dla nich nie zapisano.</value>
+  </data>
+  <data name="GroupPolicy.BackupDone" xml:space="preserve">
+    <value>Kopie zapasowe GPO ({0}) zapisano w {1}.</value>
+  </data>
+  <data name="GroupPolicy.BackupDetails" xml:space="preserve">
+    <value>Pliki: {0}, bajty: {1}, {2}</value>
+  </data>
+  <data name="GroupPolicy.BackupWithSidecar" xml:space="preserve">
+    <value>z plikiem AD Managera (połączenia, sumy kontrolne)</value>
+  </data>
+  <data name="GroupPolicy.BackupGpmcOnly" xml:space="preserve">
+    <value>kopia GPMC bez pliku AD Managera</value>
+  </data>
+  <data name="GroupPolicy.BackupOtherDomain" xml:space="preserve">
+    <value>Kopia pochodzi z domeny {0}: przywróć ją tam albo zaimportuj jej ustawienia do GPO tej domeny.</value>
+  </data>
+  <data name="GroupPolicy.RestoreLinks" xml:space="preserve">
+    <value>Przywróć też połączenia ({0})</value>
+  </data>
+  <data name="GroupPolicy.BackupPowerShellHeading" xml:space="preserve">
+    <value>Odpowiednik w PowerShell</value>
+  </data>
+  <data name="GroupPolicy.CompareWindowTitle" xml:space="preserve">
+    <value>Porównanie „{0}” i „{1}”</value>
+  </data>
+  <data name="GroupPolicy.CompareWithoutContent" xml:space="preserve">
+    <value>Ustawień i plików nie porównano.</value>
+  </data>
+  <data name="GroupPolicy.CompareSummary" xml:space="preserve">
+    <value>Różnice: {0} z {1} pozycji</value>
+  </data>
+  <data name="GroupPolicy.CompareExport" xml:space="preserve">
+    <value>Eksportuj porównanie</value>
+  </data>
+  <data name="GroupPolicy.CompareExported" xml:space="preserve">
+    <value>Wyeksportowano wiersze: {0}.</value>
+  </data>
+  <data name="GroupPolicy.SectionCore" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.SectionPermissions" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.SectionLinks" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.SectionSettings" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GroupPolicy.SectionFiles" xml:space="preserve">
+    <value>Pliki</value>
+  </data>
+  <data name="GroupPolicy.StateSame" xml:space="preserve">
+    <value>Takie same</value>
+  </data>
+  <data name="GroupPolicy.StateDifferent" xml:space="preserve">
+    <value>Różne</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInA" xml:space="preserve">
+    <value>Tylko w A</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInB" xml:space="preserve">
+    <value>Tylko w B</value>
+  </data>
+  <data name="GroupPolicy.TitleNew" xml:space="preserve">
+    <value>Nowy obiekt GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleCopy" xml:space="preserve">
+    <value>Kopiowanie obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRename" xml:space="preserve">
+    <value>Zmiana nazwy obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelete" xml:space="preserve">
+    <value>Usunięcie obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDeleteFolder" xml:space="preserve">
+    <value>Usunięcie pozostałego folderu „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLink" xml:space="preserve">
+    <value>Połączenie „{0}” z {1}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnlink" xml:space="preserve">
+    <value>Usunięcie połączenia „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleReorder" xml:space="preserve">
+    <value>Kolejność łącza „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLinkOptions" xml:space="preserve">
+    <value>Połączenie „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleBlock" xml:space="preserve">
+    <value>Zablokowanie dziedziczenia w {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnblock" xml:space="preserve">
+    <value>Odblokowanie dziedziczenia w {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleStatus" xml:space="preserve">
+    <value>Stan obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiLink" xml:space="preserve">
+    <value>Filtr WMI obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleAlign" xml:space="preserve">
+    <value>Wyrównanie wersji „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRepair" xml:space="preserve">
+    <value>Naprawa uprawnień folderu „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleSecurityFilter" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelegation" xml:space="preserve">
+    <value>Delegowanie „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRestore" xml:space="preserve">
+    <value>Przywrócenie „{0}” z kopii zapasowej</value>
+  </data>
+  <data name="GroupPolicy.TitleImport" xml:space="preserve">
+    <value>Import ustawień do „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiNew" xml:space="preserve">
+    <value>Nowy filtr WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiEdit" xml:space="preserve">
+    <value>Filtr WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiDelete" xml:space="preserve">
+    <value>Usunięcie filtru WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.Category.Other" xml:space="preserve">
+    <value>Inne</value>
+  </data>
+  <data name="GroupPolicy.Category.AccountPolicy" xml:space="preserve">
+    <value>Zasady kont</value>
+  </data>
+  <data name="GroupPolicy.Category.AuditPolicy" xml:space="preserve">
+    <value>Zasady inspekcji</value>
+  </data>
+  <data name="GroupPolicy.Category.PrivilegeRights" xml:space="preserve">
+    <value>Przypisywanie praw użytkownika</value>
+  </data>
+  <data name="GroupPolicy.Category.GroupMembership" xml:space="preserve">
+    <value>Grupy z ograniczeniami</value>
+  </data>
+  <data name="GroupPolicy.Category.Services" xml:space="preserve">
+    <value>Usługi systemowe</value>
+  </data>
+  <data name="GroupPolicy.Category.FileRegistrySecurity" xml:space="preserve">
+    <value>Zabezpieczenia plików i rejestru</value>
+  </data>
+  <data name="GroupPolicy.Category.Registry" xml:space="preserve">
+    <value>Rejestr</value>
+  </data>
+  <data name="GroupPolicy.Category.SecurityRegistry" xml:space="preserve">
+    <value>Rejestr – ustawienia zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.Category.Scripts" xml:space="preserve">
+    <value>Skrypty</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceGroups" xml:space="preserve">
+    <value>Preferencje – lokalni użytkownicy i grupy</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceScheduledTasks" xml:space="preserve">
+    <value>Preferencje – zaplanowane zadania</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceSystemFiles" xml:space="preserve">
+    <value>Preferencje – pliki systemowe</value>
+  </data>
+  <data name="GroupPolicy.Category.Preferences" xml:space="preserve">
+    <value>Preferencje</value>
+  </data>
+  <data name="GroupPolicy.Category.EventLog" xml:space="preserve">
+    <value>Dziennik zdarzeń</value>
+  </data>
+  <data name="GroupPolicy.Category.Comments" xml:space="preserve">
+    <value>Komentarze</value>
+  </data>
+  <data name="KindPlural.GroupPolicyContainer" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="KindPlural.WmiFilter" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="KindPlural.Site" xml:space="preserve">
+    <value>Lokacje</value>
+  </data>
+  <data name="Issue.GpoForeignReferences" xml:space="preserve">
+    <value>Importowane ustawienia wskazują podmioty zabezpieczeń lub ścieżki UNC innej domeny (tabele migracji nie są obsługiwane) – sprawdź je po imporcie.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

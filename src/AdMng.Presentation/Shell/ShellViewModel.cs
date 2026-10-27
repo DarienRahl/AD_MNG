@@ -101,6 +101,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _advancedFeaturesApplied = Settings.Current.ShowAdvancedFeatures ? 1 : 0;
         Tree.NodeActivated += OnNodeActivated;
         Tree.PropertyChanged += OnTreePropertyChanged;
+        AttachGroupPolicy();
         Sessions.SessionChanged += OnSessionChanged;
         Settings.Changed += OnSettingsChanged;
         Localizer.CultureChanged += OnCultureChanged;
@@ -512,6 +513,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Tree.NodeActivated -= OnNodeActivated;
         Tree.PropertyChanged -= OnTreePropertyChanged;
+        DetachGroupPolicy();
         _activities.PropertyChanged -= OnActivitiesChanged;
         _views.Changed -= OnViewsChanged;
         Sessions.SessionChanged -= OnSessionChanged;
@@ -792,6 +794,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         var session = Sessions.Current;
         if (session is null)
+        {
+            return;
+        }
+
+        if (TryActivateGroupPolicyNode(node))
         {
             return;
         }
