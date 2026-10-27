@@ -715,7 +715,9 @@ academy: `prof. IChF PAN`, `prof. IBL PAN`; as built never a degree such as `MBA
 `LLM`, `MSc` – those stay unrecognized words); as built also one lower-case abbreviation of a discipline (at least two
 letters and a dot) directly after a row of the table (`dr med.`, `dr hab. med.`, `dr inż. arch.`, `mgr farm.`,
 `lic. piel.`) – all kept as written in `{$title}`, without effect on the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
-`{$title}` then shows the covered part only.
+`{$title}` then shows the covered part only. As built, every field that looks at the title raises it – `{$salutation}`
+and `{$salutation:vocative}` also when no word was recognized at all (`PhD`, `mec.` → "Szanowny Panie" with the
+warning), the `noTitle` variants never.
 
 **Selection** (what the salutation uses): among the table rows whose spelling occurs as a contiguous word sequence in
 the covered words, the highest rank wins; if that row has no form for the determined gender (or language), the next

@@ -160,11 +160,13 @@ public static class SalutationResolver
     {
         ArgumentNullException.ThrowIfNull(person);
         ArgumentNullException.ThrowIfNull(options);
-        var useTitle = options.UseTitles && person.Title.HasTitle && variant is SalutationVariant.Full or SalutationVariant.Vocative;
+        // The titled variants look at the title even when none was recognized (its unrecognized words are a finding).
+        var consulted = options.UseTitles && variant is SalutationVariant.Full or SalutationVariant.Vocative;
+        var useTitle = consulted && person.Title.HasTitle;
         var vocative = variant is SalutationVariant.Vocative or SalutationVariant.VocativeNoTitle;
         return language == MessageLanguage.English
-            ? English(person, useTitle, vocative, options)
-            : Polish(person, useTitle, vocative, options);
+            ? English(person, consulted, useTitle, vocative, options)
+            : Polish(person, consulted, useTitle, vocative, options);
     }
 
     /// <summary><c>{$honorific:case}</c>: Pan / Pana / Panu … or Pani / Panią …; English Mr / Ms; unknown → "Pan/Pani".</summary>
@@ -285,7 +287,7 @@ public static class SalutationResolver
         return vocative ? WithoutAdjectives(text) : text;
     }
 
-    private static SalutationResult Polish(SalutationPerson person, bool useTitle, bool vocative, SalutationOptions options)
+    private static SalutationResult Polish(SalutationPerson person, bool consulted, bool useTitle, bool vocative, SalutationOptions options)
     {
         var (gender, _) = EffectiveGender(person.Gender, options);
         if (gender == Gender.Unknown)
@@ -301,7 +303,7 @@ public static class SalutationResolver
                 return new SalutationResult(titled) { UsedGender = true, IsNeutral = true, ConsultedTitle = true, UsedTitle = true };
             }
 
-            return new SalutationResult(Neutral(person, MessageLanguage.Polish, vocative, options)) { UsedGender = true, IsNeutral = true };
+            return new SalutationResult(Neutral(person, MessageLanguage.Polish, vocative, options)) { UsedGender = true, IsNeutral = true, ConsultedTitle = consulted };
         }
 
         var masculine = gender == Gender.Masculine;
@@ -310,10 +312,10 @@ public static class SalutationResolver
             : null;
         var noun = form ?? (masculine ? SalutationData.PolishMasculineVocative : SalutationData.PolishFeminineVocative);
         var text = vocative ? noun : (masculine ? SalutationData.PolishMasculineAdjective : SalutationData.PolishFeminineAdjective) + " " + noun;
-        return new SalutationResult(text) { UsedGender = true, ConsultedTitle = useTitle, UsedTitle = form is not null };
+        return new SalutationResult(text) { UsedGender = true, ConsultedTitle = consulted, UsedTitle = form is not null };
     }
 
-    private static SalutationResult English(SalutationPerson person, bool useTitle, bool vocative, SalutationOptions options)
+    private static SalutationResult English(SalutationPerson person, bool consulted, bool useTitle, bool vocative, SalutationOptions options)
     {
         var surname = person.Surname?.Trim() ?? string.Empty;
         string Compose(string form) => vocative ? $"{form} {surname}" : $"{SalutationData.EnglishGreeting} {form} {surname}";
@@ -331,7 +333,7 @@ public static class SalutationResolver
         var (gender, _) = EffectiveGender(person.Gender, options);
         if (gender == Gender.Unknown)
         {
-            return new SalutationResult(Neutral(person, MessageLanguage.English, vocative, options)) { UsedGender = true, ConsultedTitle = useTitle, IsNeutral = true };
+            return new SalutationResult(Neutral(person, MessageLanguage.English, vocative, options)) { UsedGender = true, ConsultedTitle = consulted, IsNeutral = true };
         }
 
         if (surname.Length == 0)
@@ -339,14 +341,14 @@ public static class SalutationResolver
             return new SalutationResult(Neutral(person, MessageLanguage.English, vocative, options))
             {
                 UsedGender = true,
-                ConsultedTitle = useTitle,
+                ConsultedTitle = consulted,
                 IsNeutral = true,
                 SurnameMissing = true,
             };
         }
 
         var form = gender == Gender.Masculine ? SalutationData.EnglishMasculine : SalutationData.EnglishFeminine;
-        return new SalutationResult(Compose(form)) { UsedGender = true, ConsultedTitle = useTitle };
+        return new SalutationResult(Compose(form)) { UsedGender = true, ConsultedTitle = consulted };
     }
 
     private static string WithoutAdjectives(string text) =>

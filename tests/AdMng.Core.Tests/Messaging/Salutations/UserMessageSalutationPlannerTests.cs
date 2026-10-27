@@ -314,6 +314,24 @@ public sealed class UserMessageSalutationPlannerTests
         Assert.Contains(new MessageIssue(SalutationIssueCodes.TitleUnrecognized, MessageIssueSeverity.Warning, "MBA"), unrecognized.Issues);
     }
 
+    [Theory]
+    [InlineData("PhD")]
+    [InlineData("mec.")]
+    public void TitleAttributeWithoutAnyKnownTitle_IsAFindingOfTheSalutation(string personalTitle)
+    {
+        // Only {$salutation} uses the title: the plain "Szanowny Panie" must not hide that the title was not understood.
+        var message = Plan(BodyOnly("{$salutation},"), [new(ProfessorDn, Professor(("personalTitle", personalTitle)))]).Messages[0];
+
+        Assert.StartsWith("Szanowny Panie,", message.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.TitleUnrecognized, MessageIssueSeverity.Warning, personalTitle), message.Issues);
+        Assert.Contains(message.Derived, d => d is { Field: "title", Value: "", Issue: SalutationIssueCodes.TitleUnrecognized });
+        Assert.Equal(PlannedMessageStatus.Warning, message.Status);
+
+        // "noTitle" does not look at the title.
+        var noTitle = Plan(BodyOnly("{$salutation:noTitle},"), [new(ProfessorDn, Professor(("personalTitle", personalTitle)))]).Messages[0];
+        Assert.DoesNotContain(noTitle.Issues, i => i.Code == SalutationIssueCodes.TitleUnrecognized);
+    }
+
     [Fact]
     public void TemplateWithoutSalutationFields_HasNoDerivedValuesAndNoFindings()
     {
