@@ -52,6 +52,21 @@ public sealed record TitleInfo
 
     /// <summary><c>{$title:highest}</c>: the canonical spelling of the highest-ranked title, or empty.</summary>
     public string Highest => Candidates.FirstOrDefault()?.Title ?? string.Empty;
+
+    /// <summary>
+    /// The highest-ranked title having a Polish form (the one a Polish salutation starts from), or null.
+    /// </summary>
+    public TitleRule? FirstWithPolishForm => Candidates.FirstOrDefault(r => HasForm(r.PolishMasculine) || HasForm(r.PolishFeminine));
+
+    /// <summary>
+    /// The gender the title implies: <see cref="FirstWithPolishForm"/> has a form for one gender only ("ks." – masculine);
+    /// else unknown.
+    /// </summary>
+    public Gender ImpliedGender => FirstWithPolishForm is { } row && HasForm(row.PolishMasculine) != HasForm(row.PolishFeminine)
+        ? HasForm(row.PolishMasculine) ? Gender.Masculine : Gender.Feminine
+        : Gender.Unknown;
+
+    private static bool HasForm(string? form) => !string.IsNullOrWhiteSpace(form);
 }
 
 /// <summary>

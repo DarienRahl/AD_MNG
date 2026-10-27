@@ -26,8 +26,8 @@ public sealed record GenderInfo
 /// <summary>
 /// Determines the gender (design note section 16): the operator's override for this run, the gender attribute (two value
 /// lists) or an honorific word of the title attribute, the operator's given-name list, the first given name (built-in
-/// exception lists, then "ends in -a → feminine"), the surname (-ska / -ski …; against a rule result it is a conflict).
-/// Pure.
+/// exception lists, then "ends in -a → feminine"), the surname (-ska / -ski …; against a rule result it is a conflict),
+/// finally a title for one gender only (<see cref="WithTitle"/>). Pure.
 /// </summary>
 public static class GenderGuesser
 {
@@ -93,6 +93,19 @@ public static class GenderGuesser
         }
 
         return new GenderInfo { Gender = name.Gender, Source = name.Source, IsGuess = true, Detail = first, UnknownValue = unknownValue };
+    }
+
+    /// <summary>
+    /// <paramref name="gender"/>, or – when the names gave no signal at all (no conflict, no override) – the gender the title
+    /// implies (<see cref="TitleInfo.ImpliedGender"/>: "ks. dr" exists for priests only) as a guess with the title as detail.
+    /// </summary>
+    public static GenderInfo WithTitle(GenderInfo gender, TitleInfo title)
+    {
+        ArgumentNullException.ThrowIfNull(gender);
+        ArgumentNullException.ThrowIfNull(title);
+        return gender is { Gender: Gender.Unknown, IsConflict: false, Source: DerivedValueSource.None } && title.ImpliedGender is var implied and not Gender.Unknown
+            ? gender with { Gender = implied, Source = title.Source, IsGuess = true, Detail = title.Text }
+            : gender;
     }
 
     /// <summary>"Jan Maria" → "Jan", "Anna-Maria" → "Anna"; initials ("J.", "J") and empty → null.</summary>

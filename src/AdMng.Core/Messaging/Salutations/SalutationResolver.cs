@@ -87,7 +87,7 @@ public sealed record SalutationPerson
             Surname = surname,
             DisplayName = displayName,
             Title = title,
-            Gender = GenderGuesser.Guess(overrideGender, genderValue, title.HonorificGender, givenName, surname, options),
+            Gender = GenderGuesser.WithTitle(GenderGuesser.Guess(overrideGender, genderValue, title.HonorificGender, givenName, surname, options), title),
         };
     }
 }
@@ -271,6 +271,17 @@ public static class SalutationResolver
         var (gender, _) = EffectiveGender(person.Gender, options);
         if (gender == Gender.Unknown)
         {
+            // The default neutral text keeps a title that has both forms: "Szanowna Pani Profesor / Szanowny Panie Profesorze".
+            if (useTitle && options.NeutralPolish is null && person.Title.FirstWithPolishForm is { } row
+                && !string.IsNullOrWhiteSpace(row.PolishMasculine) && !string.IsNullOrWhiteSpace(row.PolishFeminine))
+            {
+                var (feminineForm, masculineForm) = (row.PolishFeminine.Trim(), row.PolishMasculine.Trim());
+                var titled = vocative
+                    ? $"{feminineForm} / {masculineForm}"
+                    : $"{SalutationData.PolishFeminineAdjective} {feminineForm} / {SalutationData.PolishMasculineAdjective} {masculineForm}";
+                return new SalutationResult(titled) { UsedGender = true, IsNeutral = true, ConsultedTitle = true, UsedTitle = true };
+            }
+
             return new SalutationResult(Neutral(person, MessageLanguage.Polish, vocative, options)) { UsedGender = true, IsNeutral = true };
         }
 

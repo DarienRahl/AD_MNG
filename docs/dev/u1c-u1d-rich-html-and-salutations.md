@@ -762,7 +762,10 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
 5. **Surname** (`sn`, first part of a hyphenated one): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
    With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception) → **conflict** →
    unknown (warning `GenderConflict`); agreeing → keeps the name result.
-6. Nothing → unknown (warning `GenderUnknown`).
+6. **Title for one gender only** (as built): no signal from the names (no conflict) and the highest-ranked title with a
+   Polish form has a form for one gender only (`ks.`, `ks. dr` – priests) → that gender (guessed, source of the title,
+   detail: the title).
+7. Nothing → unknown (warning `GenderUnknown`).
 
 **Built-in lists** (Core, `GivenNameLists`, minimum content – extend, never shrink):
 
@@ -793,6 +796,9 @@ renders as; a template may also switch titles off (`UseTitles`, default true) an
   `GenderUnknown`. Vocative variants: PL `Pani / Panie`, EN `{name}`. Honorific: the joined forms (`Pan/Pani`,
   `Pana/Pani`, `Panu/Pani`, `Pana/Panią`, `Panem/Panią`, `Panu/Pani`, `Panie/Pani`; EN `Mr/Ms`); `byGender`: the third
   part, else `masc/fem`.
+* **Unknown gender with a title** (as built): with the default Polish neutral text and a title row having both Polish
+  forms, the neutral text keeps the title – `Szanowna Pani Profesor / Szanowny Panie Profesorze` (vocative `Pani
+  Profesor / Panie Profesorze`); an operator's own neutral text is used as it is.
 * A warning is raised only when the template actually uses a field that needed the missing information (an EN titled
   salutation never warns about gender; a template without salutation fields never warns).
 

@@ -80,11 +80,38 @@ public sealed class SalutationResolverTests
         Assert.True(result.UsedTitle);
         Assert.False(result.IsNeutral);
 
-        // Polish needs the gender for the adjective.
+        // Polish needs the gender for the adjective: the neutral text keeps the title.
         var polish = SalutationResolver.Salutation(Person("prof.", null, "Sasza", "Kim"), MessageLanguage.Polish, SalutationVariant.Full, Options);
-        Assert.Equal("Szanowna Pani / Szanowny Panie", polish.Text);
+        Assert.Equal("Szanowna Pani Profesor / Szanowny Panie Profesorze", polish.Text);
         Assert.True(polish.UsedGender);
         Assert.True(polish.IsNeutral);
+    }
+
+    [Fact]
+    public void UnknownGender_WithATitle_KeepsTheTitle_OrTakesTheGenderTheTitleImplies()
+    {
+        // Both forms: the default neutral text with the title (no faux pas "Szanowna Pani / Szanowny Panie" to a professor).
+        var professor = Person("prof. dr hab.", null, "Sasza", "Kim");
+        Assert.Equal(Gender.Unknown, professor.Gender.Gender);
+        Assert.Equal("Szanowna Pani Profesor / Szanowny Panie Profesorze", Polish(professor));
+        Assert.Equal("Pani Profesor / Panie Profesorze", Polish(professor, SalutationVariant.Vocative));
+        Assert.Equal("Szanowna Pani / Szanowny Panie", Polish(professor, SalutationVariant.NoTitle));
+        Assert.Equal("Szanowna Pani Doktor / Szanowny Panie Doktorze", Polish(Person("dr", null, "Sasza", "Kim")));
+
+        // An operator's own neutral text stays as it is; a title without forms changes nothing.
+        var custom = Options with { NeutralPolish = "Szanowni Państwo" };
+        Assert.Equal("Szanowni Państwo", Polish(Person("prof.", null, "Sasza", "Kim", custom), options: custom));
+        Assert.Equal("Szanowna Pani / Szanowny Panie", Polish(Person("mgr inż.", null, "Sasza", "Kim")));
+
+        // A title for one gender only ("ks.") decides an unknown gender – a guess from the title.
+        var priest = Person("ks. dr", null, "J.", "Wójcik");
+        Assert.Equal((Gender.Masculine, DerivedValueSource.TitleAttribute, true, "ks. dr"), (priest.Gender.Gender, priest.Gender.Source, priest.Gender.IsGuess, priest.Gender.Detail));
+        Assert.Equal("Szanowny Księże Doktorze", Polish(priest));
+        Assert.Equal("Pan", SalutationResolver.Honorific(priest, MessageLanguage.Polish, GrammaticalCase.Nominative, Options).Text);
+
+        // … but never against the names or the operator's choice.
+        Assert.Equal(Gender.Feminine, Person("ks. dr", null, "Anna", "Nowak").Gender.Gender);
+        Assert.Equal((Gender.Unknown, DerivedValueSource.Override), (Person("ks.", null, "J.", "Wójcik", chosen: Gender.Unknown).Gender.Gender, Person("ks.", null, "J.", "Wójcik", chosen: Gender.Unknown).Gender.Source));
     }
 
     [Fact]
