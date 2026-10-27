@@ -25,6 +25,9 @@ public sealed class MessageImageStore
     /// <summary>Above this the library warns about the folder size.</summary>
     public const long WarningBytes = 64L * 1024 * 1024;
 
+    /// <summary>Attempts to move a written image into place while another save or read holds the file (Windows).</summary>
+    private const int MoveAttempts = 5;
+
     private readonly TimeProvider _time;
 
     public MessageImageStore(IAppPaths paths, TimeProvider time)
@@ -59,7 +62,7 @@ public sealed class MessageImageStore
             if (await HashOfAsync(path, cancellationToken).ConfigureAwait(false) is { } existing
                 && string.Equals(existing, image.Sha256, StringComparison.OrdinalIgnoreCase))
             {
-                File.SetLastWriteTimeUtc(path, _time.GetUtcNow().UtcDateTime);
+                Touch(path, _time.GetUtcNow().UtcDateTime);
                 continue;
             }
 
@@ -68,7 +71,7 @@ public sealed class MessageImageStore
             {
                 await File.WriteAllBytesAsync(temporary, image.Data, cancellationToken).ConfigureAwait(false);
                 File.SetLastWriteTimeUtc(temporary, _time.GetUtcNow().UtcDateTime);
-                File.Move(temporary, path, overwrite: true);
+                await MoveIntoPlaceAsync(temporary, path, image.Sha256, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -90,12 +93,16 @@ public sealed class MessageImageStore
         byte[] data;
         try
         {
-            if (new FileInfo(path) is not { Exists: true } info || info.Length > MessageImageLimits.MaxImageBytes)
+            // FileShare.Delete: a save in another window may replace the file while it is read (Windows). A missing file
+            // is a FileNotFoundException (an IOException).
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 16 * 1024, FileOptions.Asynchronous);
+            if (stream.Length > MessageImageLimits.MaxImageBytes)
             {
                 return null;
             }
 
-            data = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            data = new byte[stream.Length];
+            await stream.ReadExactlyAsync(data, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -182,12 +189,58 @@ public sealed class MessageImageStore
                 return null;
             }
 
-            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 16 * 1024, FileOptions.Asynchronous);
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 16 * 1024, FileOptions.Asynchronous);
             return Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Replaces <paramref name="path"/> with the written <paramref name="temporary"/> file. Windows refuses the replacement
+    /// (access denied, sharing violation) while another save of the same image replaces the file at the same moment or a
+    /// reader without delete sharing holds it: when the file then already holds these bytes, that save won; otherwise the
+    /// move is retried briefly.
+    /// </summary>
+    private static async Task MoveIntoPlaceAsync(string temporary, string path, string sha256, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Move(temporary, path, overwrite: true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (string.Equals(await HashOfAsync(path, cancellationToken).ConfigureAwait(false), sha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
+                if (attempt >= MoveAttempts)
+                {
+                    throw;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(20 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>Marks a kept file as recently used (garbage collection age); a file another save is replacing gets its own
+    /// time anyway.</summary>
+    private static void Touch(string path, DateTime utc)
+    {
+        try
+        {
+            File.SetLastWriteTimeUtc(path, utc);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Being replaced by another save right now.
         }
     }
 
