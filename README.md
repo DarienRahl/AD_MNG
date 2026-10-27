@@ -186,7 +186,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["⬜ K · Komputery<br/>i zasady grupy (GPO)<br/>ADMX, zdalne akcje"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a–U1d, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["⬜ K · Komputery<br/>i zasady grupy (GPO)<br/>ADMX, zdalne akcje"]
     end
     A --> B
     B ~~~ C
@@ -212,7 +212,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa, następna w kolejce) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | ⬜ zaplanowane |
@@ -507,7 +507,7 @@ na żywo i wiele domen.
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-); konta z uprawnieniami
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-i-u4-); konta z uprawnieniami
   ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji, delegowania w ACL,
   uprawnienia lokalne z GPO) – zakładka *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
@@ -626,7 +626,7 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U1c, U1d, U2 i U4: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
@@ -640,9 +640,14 @@ zakładka okna przeglądu z U2.
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
-**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP) i U1b (wysyłka przez usługę Watchdog)
-gotowe; czeka na pilotaż.** Opis techniczny: [docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), po stronie
-usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
+**Stan realizacji – U1a (strona AD Managera z wysyłką bezpośrednio przez SMTP), U1b (wysyłka przez usługę Watchdog),
+U1c (wiadomość sformatowana wklejona z Outlooka z obrazami osadzonymi) i U1d (zwroty grzecznościowe z tytułem i płcią)
+gotowe; czeka na pilotaż.** Pola zwrotów działają także we wklejonej treści HTML (wspólny test: wiadomość z Outlooka
+z polami `{$salutation}`, `{$honorific}` i `{$byGender:…}` rozciętymi przez Outlooka i z logo – „Szanowny Panie
+Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SMTP i przez Watchdoga). Opis techniczny:
+[docs/dev/u1-user-messages.md](docs/dev/u1-user-messages.md), U1c i U1d:
+[docs/dev/u1c-u1d-rich-html-and-salutations.md](docs/dev/u1c-u1d-rich-html-and-salutations.md), po stronie usługi:
+[WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowników-z-ad-managera).
 
 - ✅ Okno *Wyślij wiadomość…* z okna właściwości (karta Konto), z menu kontekstowego listy i menu Obiekt, z palety
   poleceń (`object.sendMessage`) i z każdej listy przeglądu kont (U2) – z szablonem pasującym do sprawdzenia i jego
@@ -737,7 +742,27 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   administrator / obserwator / brak / odmowa, walidacja, idempotencja, limity, przełącznik, odbiornik SMTP, odrzucenie,
   „w kolejce”), magazyn audytu, klient HTTPS, transport AD Managera na fałszywym kliencie, test laboratoryjny z Mailpit.
 - 🟡 Do weryfikacji na Windows i Exchange: uwierzytelnianie bieżącym kontem Windows (GSSAPI/NTLM) wobec Exchange
-  on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce.
+  on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce; U1c:
+  wklejanie z prawdziwego schowka Outlooka, Worda i przeglądarek, podgląd WebView2 i jego zastępczy widok źródła, wygląd
+  wysłanej wiadomości w Outlooku, Gmailu i telefonach; U1d: zwroty dla prawdziwych danych `personalTitle` i nazw
+  wyświetlanych (testy UI i zrzuty `24-…` i `25-…` działają tylko w CI na Windows).
+- ⚠ Znane ograniczenia U1c i U1d:
+  - *Wstaw pole* dopisuje pole do treści tekstowej; w treści HTML pole (np. `{$salutation}`) wpisuje się w Outlooku
+    przed skopiowaniem albo w źródle HTML – pola rozcięte przez Outlooka są naprawiane przy wklejaniu.
+  - Obrazy z internetu (`http(s)`) nigdy nie są pobierane – są usuwane z ostrzeżeniem; obraz trzeba wkleić z treścią
+    albo *Wklej obraz*. Szablon U1b z takim obrazem pokazuje błąd do czasu jego usunięcia (zasada U1c).
+  - Starsza usługa Watchdog (U1b) nie przyjmuje obrazów (AD Manager proponuje SMTP albo wysyłkę bez obrazów) i nadal
+    stosuje dawną, ostrzejszą kontrolę HTML do całej treści, więc może odrzucić wiadomość, którą nowa usługa przyjmie.
+  - Na Windows zamiana bitmapy ze schowka na PNG (gdy schowek nie ma formatu PNG) działa jeszcze w wątku interfejsu –
+    przy bardzo dużym obrazie okno chwilę nie odpowiada; wpisywanie stylów z arkusza przy wklejaniu nie ma górnego
+    limitu czasu (działa w tle, tylko na komputerze operatora).
+  - *Zezwól na domenę …* zna wybraną listę domen współdzielonych (Microsoft 365, Google, GitHub, hostingi, skracacze
+    adresów) – dla nich proponuje pełną nazwę hosta; pełnej listy sufiksów publicznych (PSL) nie ma.
+  - Płeć z imienia to reguły polskie z listami wyjątków: w wiadomościach angielskich reguła „-a” rozstrzyga tylko dla
+    imion polskich (polska litera albo lista wbudowana – „Jan” daje „Mr”); inne imiona spoza list dają zwrot
+    neutralny z ostrzeżeniem – pewną płeć daje atrybut płci albo lista imion w ustawieniach.
+  - Tytuł w atrybucie, którego ostatniej części po przecinku nie rozpoznano, może dać niepełny `{$title}`
+    (`prof. dr hab., czł. koresp. PAN` → „prof. dr hab. czł.”); zwrot i płeć są poprawne.
 
 **Zakres (specyfikacja):**
 

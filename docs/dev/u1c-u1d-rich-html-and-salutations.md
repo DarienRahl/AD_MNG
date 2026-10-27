@@ -1119,6 +1119,59 @@ status lines and `docs/ROADMAP.md` ("U1c, U1d: 🟡 zaimplementowane, czekają n
 pasted Outlook template with `{$salutation}` split by `SpellE` spans is repaired and renders "Szanowny Panie
 Profesorze" with an inline logo through both transports.
 
+### 22.4a As built – integration
+
+* **Merges.** Track A (`feature/u1c-html`, after its review fixes) and then track B (`feature/u1d-salutations`, after its
+  review fixes) were merged with `--no-ff` into the main branch instead of rebasing B on A. Both merged **without a
+  textual conflict**: the placement rules of 22.3 held for every shared file (`MessageModel.cs`, `UserMessagePlanner.cs`,
+  the composer hook lines, `UserMessageItems.cs`, `UserMessagesWindow.xaml`, `UserMessageSettings.cs`,
+  `UserMessageTemplateLibrary.cs`, both resx files – no duplicate key, the same 3 258 keys in `en` and `pl` – the README
+  bullets and this note). Screenshots as planned: `24-user-messages-rich-html.png` (A), `25-user-messages-salutations.png`
+  (B).
+* **Semantic check of the seams** (nothing had to change):
+  * The salutation tokens are extension tokens of `UserMessageFields.Engine`; that engine is the one the paste workflow
+    hands to the importer (`HtmlPasteWorkflow` via `Planner.Fields.Engine`), so `{$salutation:…}`, `{$honorific:…}`,
+    `{$byGender:a/b}` … are fields for `PlaceholderRepair` and are joined like `{givenName}`.
+  * The HTML body is rendered by the same `UserMessageFields.Render` (HTML-encoded values) as the text, so every
+    salutation field evaluated there goes through `MessageSalutations.Evaluate`: findings, `Derived` values and the *Zwrot*
+    marks also come from a template whose salutations are only in its HTML; the text part generated from the HTML
+    (`HtmlToText`) carries the rendered salutation.
+  * `AccountAttributesFor` / `ManagerAttributesFor` scan every part of the template including `Html`, so `personalTitle`
+    and the gender attribute are read for an HTML-only template.
+  * `Replan` (gender override) re-plans with the request of the shown plan, i.e. with its `Images` and `OmitImages`; the
+    re-planned message keeps its logo, and "send without images" keeps the salutations.
+  * Every normalization path rebuilds templates with `with` (settings `Normalize`, library import, `MessageHtmlChecks
+    .Normalize`), so `Salutation` (B) and `Images` (A) both survive saving, export and import.
+* **Observed while testing:** the sanitizer's cleanup unwraps spell-checker and language spans (`span.SpellE`,
+  `span.GramE`, `span lang=…`) and merges adjacent runs with the same inlined style, so most Outlook splits are already
+  one text node before `PlaceholderRepair` runs; the repair is what joins a field with formatting on a part of it (a
+  highlight on `honorific` in `{$honorific}`) – into the formatting of the longest piece.
+* **Joint tests** (one shared sample, `tests/AdMng.Testing/RichHtml/OutlookSalutationSample.cs`: classic Outlook HTML with
+  `{$salutation}`, `{$honorific}`, `{$byGender:zmienił/zmieniła}`, `{$titledName}` and `{sAMAccountName}` split by spell
+  checker spans, two runs of one class style, a language change and a highlight; a VML logo with its fallback image):
+  `Core.Tests/Messaging/PastedSalutationTemplateTests` (repair, one pooled logo for PL and EN, plan: "Szanowny Panie
+  Profesorze" inside the pasted bold coloured span, the neutral salutation with its warning, "Dear Professor Zielińska"
+  for an English recipient, gender override and "without images"), `Presentation.Tests/UserMessages/
+  PastedSalutationComposerTests` (paste of both languages in the window, *Zwrot* column marks, the *Widok* preview content,
+  override, and the send through direct SMTP and through AdMng Watchdog – both with the inline logo),
+  `Mail.Tests/PastedSalutationMimeTests` (`multipart/related` from `UserMimeMessageBuilder`), the Mailpit test
+  `MailpitInlineImageTests.ThePastedSalutationMessage_ArrivesWithItsSalutationAndInlineLogo`, and
+  `Watchdog.Service.Tests/Api/UserMessagePastedSalutationApiTests` (the planned message posted to the in-process service,
+  re-validated and delivered to the SMTP sink with the salutation and the inline logo).
+* **Test fix found by the integration run:** the two Mailpit test classes ran in parallel while `MailpitTests` sets
+  Mailpit chaos triggers (recipients refused with 550 / 451), so an inline-image send could be refused; both are now in
+  the `Mailpit` collection and run one after another.
+* **Known limitations after the merge** (README, U1, "Znane ograniczenia U1c i U1d"): *Wstaw pole* appends to the text
+  body only – a salutation field goes into the HTML body by typing it in Outlook before copying or in the HTML source;
+  the compose-time *Podgląd formatowania* shows the template with its fields unfilled (the planned messages' *Widok*
+  shows them filled), and the ≈ / ⚠ marks are in the *Zwrot* column and *Pola wyliczone*, not inside the rendered HTML;
+  the left-overs of the two reviews (A: PNG encoding of a large clipboard bitmap on the UI thread on Windows, unbounded
+  style inlining at paste on the operator's machine, an older U1b service still applying its whole-text gate, a curated
+  shared-domain list instead of the Public Suffix List; B: an unrecognized lower-case word after the last comma of the
+  title attribute can be absorbed as a discipline – `prof. dr hab., czł. koresp. PAN` → `{$title}` "prof. dr hab. czł.",
+  the salutation and gender stay right). The WPF UI tests and screenshots of both tracks were compiled here and run only
+  on the Windows CI.
+
 ### 22.5 Suggested commit sequence
 
 * **A:** (1) CF_HTML parser, image model/formats/stripper/policy; (2) CSS parser, inliner, sanitizer, AngleSharp;
