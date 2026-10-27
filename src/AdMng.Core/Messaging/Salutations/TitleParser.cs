@@ -10,7 +10,11 @@ public sealed record TitleToken(string Text, string Key)
 /// One recognized element of a title chain: a row of the table in its canonical spelling, or an absorbed qualifier
 /// (<c>n. med.</c>) or university (<c>UW</c>) as written (<see cref="Rule"/> null).
 /// </summary>
-public sealed record TitlePart(string Text, TitleRule? Rule);
+public sealed record TitlePart(string Text, TitleRule? Rule)
+{
+    /// <summary>An absorbed university after a professor row ("UW", "IChF PAN").</summary>
+    public bool IsUniversity { get; init; }
+}
 
 /// <summary>The title of a person (U1d): the recognized chain, where it came from and what the salutation can use.</summary>
 public sealed record TitleInfo
@@ -50,8 +54,27 @@ public sealed record TitleInfo
     /// <summary><c>{$title}</c>: "prof. dr hab.", "dr hab., prof. UW", "prof. UW"; empty without a title.</summary>
     public string Text => Suffix.Count == 0 ? PrefixText : Prefix.Count == 0 ? SuffixText : PrefixText + ", " + SuffixText;
 
-    /// <summary><c>{$title:highest}</c>: the canonical spelling of the highest-ranked title, or empty.</summary>
-    public string Highest => Candidates.FirstOrDefault()?.Title ?? string.Empty;
+    /// <summary>
+    /// <c>{$title:highest}</c>: the canonical spelling of the highest-ranked title, or empty; with its university when every
+    /// occurrence of that title has one ("dr hab., prof. UW" → "prof. UW" – a university professor, not the title "prof.").
+    /// </summary>
+    public string Highest
+    {
+        get
+        {
+            if (Candidates.FirstOrDefault() is not { } top)
+            {
+                return string.Empty;
+            }
+
+            var universities = new[] { Prefix, Suffix }
+                .SelectMany(parts => parts.Select((part, i) => (part, next: i + 1 < parts.Count ? parts[i + 1] : null)))
+                .Where(p => ReferenceEquals(p.part.Rule, top))
+                .Select(p => p.next is { IsUniversity: true } university ? university.Text : null)
+                .ToList();
+            return universities.Count > 0 && universities.All(u => u is not null) ? $"{top.Title.Trim()} {universities[0]}" : top.Title;
+        }
+    }
 
     /// <summary>
     /// The highest-ranked title having a Polish form (the one a Polish salutation starts from), or null.
@@ -304,9 +327,9 @@ public static class TitleParser
                 continue;
             }
 
-            if (parts.Count > 0 && Absorbed(tokens, i, parts[^1], isName) is { } length and > 0)
+            if (parts.Count > 0 && Absorbed(tokens, i, parts[^1], isName) is var (length, university) && length > 0)
             {
-                parts.Add(new TitlePart(string.Join(' ', tokens.Skip(i).Take(length).Select(t => t.Text)), null));
+                parts.Add(new TitlePart(string.Join(' ', tokens.Skip(i).Take(length).Select(t => t.Text)), null) { IsUniversity = university });
                 covered.AddRange(keys.Skip(i).Take(length));
                 i += length;
                 continue;
@@ -326,30 +349,30 @@ public static class TitleParser
 
     /// <summary>
     /// Length of an absorbed qualifier (<c>n. med.</c>, <c>n. o zdr.</c>), discipline (<c>med.</c>, <c>farm.</c>) or
-    /// university at <paramref name="i"/>; 0 = none.
+    /// university at <paramref name="i"/> (0 = none), and whether it is a university.
     /// </summary>
-    private static int Absorbed(IReadOnlyList<TitleToken> tokens, int i, TitlePart previous, Func<TitleToken, bool> isName)
+    private static (int Length, bool University) Absorbed(IReadOnlyList<TitleToken> tokens, int i, TitlePart previous, Func<TitleToken, bool> isName)
     {
         var token = tokens[i];
         if (token.Key == "n" && token.EndsWithDot)
         {
             if (i + 1 < tokens.Count && !isName(tokens[i + 1]) && tokens[i + 1].EndsWithDot)
             {
-                return 2;
+                return (2, false);
             }
 
             if (i + 2 < tokens.Count && !isName(tokens[i + 1]) && !isName(tokens[i + 2]) && tokens[i + 2].EndsWithDot)
             {
-                return 3;
+                return (3, false);
             }
 
-            return 0;
+            return (0, false);
         }
 
         // A discipline directly after a row of the table: "dr med.", "dr hab. med.", "dr inż. arch.", "mgr farm.", "lic. piel.".
         if (previous.Rule is not null && IsDiscipline(token) && !isName(token))
         {
-            return 1;
+            return (1, false);
         }
 
         // After every professor row: "prof. UW", "ks. prof. KUL", "prof. uczelni PW", "prof. nadzw. PŁ"; an institute
@@ -357,10 +380,10 @@ public static class TitleParser
         var afterProfessor = previous.Rule is { } rule && Tokenize(rule.Title).Any(t => t.Key == "prof");
         if (!afterProfessor || !IsInstitution(token))
         {
-            return 0;
+            return (0, false);
         }
 
-        return i + 1 < tokens.Count && IsInstitution(tokens[i + 1]) ? 2 : 1;
+        return (i + 1 < tokens.Count && IsInstitution(tokens[i + 1]) ? 2 : 1, true);
 
         bool IsInstitution(TitleToken word) => !isName(word) && IsUniversity(word.Text);
     }

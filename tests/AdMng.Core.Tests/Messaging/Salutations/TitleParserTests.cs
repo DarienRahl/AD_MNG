@@ -247,8 +247,23 @@ public sealed class TitleParserTests
         var info = TitleParser.Parse(null, "dr hab. Ewa Zielińska, prof. UW", "Ewa", "Zielińska", Table);
 
         Assert.Equal("dr hab., prof. UW", info.Text);
-        Assert.Equal("prof.", info.Highest);
+        Assert.Equal("prof. UW", info.Highest);
         Assert.Equal(["prof.", "dr hab.", "dr"], info.Candidates.Select(c => c.Title));
+    }
+
+    [Theory]
+    [InlineData(null, "dr hab. Ewa Zielińska, prof. UW", "prof. UW")]
+    [InlineData(null, "dr hab. inż. Ewa Zielińska, prof. PŁ", "prof. PŁ")]
+    [InlineData("dr hab., prof. IChF PAN", "Ewa Zielińska", "prof. IChF PAN")]
+    [InlineData(null, "dr hab. Ewa Zielińska, prof. uczelni", "prof. uczelni")]
+    [InlineData("prof. dr hab., prof. UW", "Ewa Zielińska", "prof.")]
+    [InlineData("prof. dr hab.", "Ewa Zielińska", "prof.")]
+    public void Highest_KeepsTheUniversityOfAUniversityProfessor(string? value, string displayName, string highest)
+    {
+        // "dr hab., prof. UW" is a university professor (like "prof. uczelni"), not the title of professor: no "prof. Ewa Zielińska".
+        var person = SalutationPerson.Of(value, displayName, "Ewa", "Zielińska", null, SalutationOptions.Default);
+
+        Assert.Equal(highest, SalutationResolver.Title(person, highest: true, SalutationOptions.Default).Text);
     }
 
     [Theory]

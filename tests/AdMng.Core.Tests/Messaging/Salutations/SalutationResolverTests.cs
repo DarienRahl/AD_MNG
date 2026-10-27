@@ -245,7 +245,7 @@ public sealed class SalutationResolverTests
     {
         var suffix = Person(null, "dr hab. Ewa Zielińska, prof. UW", "Ewa", "Zielińska");
         Assert.Equal("dr hab., prof. UW", SalutationResolver.Title(suffix, highest: false, Options).Text);
-        Assert.Equal("prof.", SalutationResolver.Title(suffix, highest: true, Options).Text);
+        Assert.Equal("prof. UW", SalutationResolver.Title(suffix, highest: true, Options).Text);
         Assert.Equal("dr hab. Ewa Zielińska, prof. UW", SalutationResolver.TitledName(suffix, Options).Text);
 
         var professor = Person("prof. dr hab.", null, "Jan", "Kowalski");

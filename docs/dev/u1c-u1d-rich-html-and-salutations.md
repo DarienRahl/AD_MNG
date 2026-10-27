@@ -667,7 +667,7 @@ in manager mode, U1 §3).
 
 | Field | Argument | Value (PL / EN) |
 |---|---|---|
-| `{$title}` | none \| `highest` | The recognized title chain in canonical spelling: `prof. dr hab.`, `dr n. med.`, `mgr inż.`; with a suffix title `dr hab., prof. UW`; `highest` → only the highest-ranked title (`prof.`). Language-independent. Empty when none. |
+| `{$title}` | none \| `highest` | The recognized title chain in canonical spelling: `prof. dr hab.`, `dr n. med.`, `mgr inż.`; with a suffix title `dr hab., prof. UW`; `highest` → only the highest-ranked title (`prof.`; as built with its university when every occurrence of that title has one: `dr hab., prof. UW` → `prof. UW`, a university professor like `prof. uczelni`, not the title `prof.`). Language-independent. Empty when none. |
 | `{$titledName}` | none | `prof. dr hab. Jan Kowalski`; with a suffix title `dr hab. Anna Nowak, prof. UW`; without a title `Jan Kowalski`. |
 | `{$salutation}` | none \| `noTitle` \| `vocative` \| `vocativeNoTitle` | Full salutation: `Szanowny Panie Profesorze`, `Szanowna Pani Doktor`, `Szanowny Panie`, `Szanowna Pani`, `Szanowny Księże` / `Dear Professor Kowalski`, `Dear Dr Nowak`, `Dear Mr Wiśniewski`, `Dear Ms Kowalska`. `noTitle` ignores the title; `vocative` drops the adjective / "Dear" (`Panie Profesorze`, `Professor Kowalski`). |
 | `{$honorific}` | none \| case: `nom gen dat acc ins loc voc` (Polish aliases `mianownik dopełniacz celownik biernik narzędnik miejscownik wołacz`, diacritics-insensitive) | The short form, capitalized as customary in letters: `Pan`/`Pani`, `Pana`/`Pani`, `Panu`/`Pani`, `Pana`/`Panią`, `Panem`/`Panią`, `Panu`/`Pani`, `Panie`/`Pani`; EN `Mr`/`Ms` (case ignored). |
