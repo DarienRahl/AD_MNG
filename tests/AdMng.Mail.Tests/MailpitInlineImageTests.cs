@@ -3,6 +3,7 @@ using System.Text.Json;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Images;
 using AdMng.Testing;
+using AdMng.Testing.RichHtml;
 using static AdMng.Mail.Tests.MailTestData;
 
 namespace AdMng.Mail.Tests;
@@ -10,7 +11,8 @@ namespace AdMng.Mail.Tests;
 /// <summary>
 /// A Polish message with a PNG and a JPEG through direct SMTP into Mailpit (U1c): Mailpit shows two inline parts with the
 /// content ids of the HTML, no attachments, and the bytes of each part equal the stripped image (SHA-256). Skipped unless
-/// ADMNG_TEST_SMTP_HOST and ADMNG_TEST_MAILPIT_API are set (tools/testlab/watchdog/start-mailpit.sh).
+/// ADMNG_TEST_SMTP_HOST and ADMNG_TEST_MAILPIT_API are set (tools/testlab/watchdog/start-mailpit.sh). U1c × U1d: the
+/// message pasted from Outlook with salutation fields arrives with "Szanowny Panie Profesorze" and its inline logo.
 /// </summary>
 public sealed class MailpitInlineImageTests : IAsyncLifetime
 {
@@ -91,6 +93,33 @@ public sealed class MailpitInlineImageTests : IAsyncLifetime
             var bytes = await _http.GetByteArrayAsync($"api/v1/message/{id}/part/{part.GetProperty("PartID").GetString()}", Token);
             Assert.Equal(image.Sha256, Convert.ToHexStringLower(SHA256.HashData(bytes)));
         }
+    }
+
+    [Fact]
+    public async Task ThePastedSalutationMessage_ArrivesWithItsSalutationAndInlineLogo()
+    {
+        Assert.SkipWhen(Host is null || Api is null, SkipReason);
+        var (planned, logo) = await OutlookSalutationSample.PlanForProfessorAsync(Token);
+        var subject = planned.Subject + " " + Guid.NewGuid().ToString("N")[..8];
+        var message = planned with { Subject = subject, To = [new MessageAddress("stanislaw.kowalczyk@contoso.test", "Stanisław Kowalczyk")] };
+
+        await using (var connection = await new SmtpUserMessageTransport(_options, null).ConnectAsync(Token))
+        {
+            var delivery = await connection.SendAsync(message, Token);
+            Assert.True(delivery.IsAccepted, delivery.Code);
+        }
+
+        var id = await FindAsync(subject);
+        Assert.NotNull(id);
+        using var details = await GetJsonAsync($"api/v1/message/{id}");
+        var root = details.RootElement;
+        Assert.Contains(OutlookSalutationSample.ProfessorSalutationHtml, root.GetProperty("HTML").GetString(), StringComparison.Ordinal);
+        Assert.StartsWith("Szanowny Panie Profesorze,", root.GetProperty("Text").GetString(), StringComparison.Ordinal);
+        Assert.Equal(0, root.GetProperty("Attachments").GetArrayLength());
+        var inline = Assert.Single(root.GetProperty("Inline").EnumerateArray());
+        Assert.Equal(logo.ContentId, inline.GetProperty("ContentID").GetString());
+        var bytes = await _http.GetByteArrayAsync($"api/v1/message/{id}/part/{inline.GetProperty("PartID").GetString()}", Token);
+        Assert.Equal(logo.Sha256, Convert.ToHexStringLower(SHA256.HashData(bytes)));
     }
 
     private async Task<JsonDocument> GetJsonAsync(string path)
