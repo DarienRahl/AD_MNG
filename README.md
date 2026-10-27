@@ -186,7 +186,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["⬜ K · Komputery<br/>i zasady grupy (GPO)<br/>ADMX, zdalne akcje"]
     end
     A --> B
     B ~~~ C
@@ -195,7 +195,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7,M365,TEAM todo
+    class F3,F4,F5,F6,F7,M365,TEAM,K todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -215,6 +215,7 @@ flowchart TB
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
+| K | Komputery i zasady grupy (GPO) (ścieżka równoległa, następna w kolejce) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1174,6 +1175,80 @@ Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegół�
 - Przeniesienie i zmiana nazwy obiektu nie gubią notatki ani przypięcia.
 - Bez połączenia z usługą AD Manager działa jak dziś, a panel „Wspólne” wyjaśnia, czego brakuje; żadnych danych
   współpracy na dysku stacji.
+
+</details>
+
+### Ścieżka K – Komputery i zasady grupy (GPO) ⬜
+
+**Cel:** pełna praca z komputerami w AD i z zasadami grupy bez GPMC i edytora GPO: inwentarz i raporty komputerów,
+cykl życia ich kont, zdalne akcje, a dla GPO – tworzenie i łączenie z OU, edycja ustawień z **najnowszych szablonów
+ADMX**, ustawienia zabezpieczeń i raport „co dostanie komputer”. Każda zmiana – w AD i w SYSVOL – przez podgląd planu
+zmian, z możliwością cofnięcia. Ścieżka równoległa, **pierwsza w kolejce** po zmianach w wiadomościach (U1c, U1d);
+zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog (treść GPO „było → jest”).
+
+<details>
+<summary><b>Szczegóły ścieżki K</b> – komputery, GPO w drzewie, edytor ADMX, zabezpieczenia, raport, etapy</summary>
+
+#### Komputery
+
+- **Inwentarz i raporty:** system i wersja z numerem kompilacji (`operatingSystem`, `operatingSystemVersion`),
+  ostatnie logowanie (także dokładne ze wszystkich DC), lokacja i podsieć, kto dołączył komputer
+  (`ms-DS-CreatorSID`), właściciel (`managedBy`), opis i lokalizacja, typ (stacja / serwer / kontroler domeny);
+  gotowe raporty: Windows 10 i inne systemy po końcu wsparcia, wersje Windows 11 / Server według kompilacji, komputery
+  nieaktywne od N dni, serwery bez właściciela, komputery w niewłaściwych OU; eksport CSV na żądanie.
+- **Cykl życia kont komputerów:** przygotowanie konta przed dołączeniem (z prawem dołączenia dla wskazanej osoby lub
+  grupy), reset konta komputera, przenoszenie, wyłączanie i usuwanie – przez silnik zmian z podglądem. Nieaktywne
+  komputery: **tylko raport** (lista z eksportem i przekazaniem do edycji zbiorczej), bez automatycznego wyłączania.
+- **Zdalne akcje** przez PowerShell Remoting (WinRM, Kerberos) **z poświadczeniami danego okna**: kto jest zalogowany,
+  `gpupdate /force`, restart z potwierdzeniem, opóźnieniem i komunikatem dla użytkownika, stan usług; do tego ping,
+  pulpit zdalny (mstsc), *Zarządzanie komputerem* i *Podgląd zdarzeń* uruchamiane dla wybranego komputera. Wymaga
+  włączonego WinRM na komputerach – instrukcja z GPO w dokumentacji. Hasła okna tylko w pamięci (zasada 2).
+
+#### GPO w drzewie okna głównego
+
+- Węzeł **„Obiekty zasad grupy”** w drzewie domeny (jak w GPMC) i karta **„Zasady grupy”** przy domenie, OU i
+  lokacjach: połączone GPO, kolejność, wymuszanie, wyłączenie połączenia, blokowanie dziedziczenia, dziedziczone GPO.
+- Nowe GPO, kopia, zmiana nazwy, usunięcie, podłączanie i odłączanie, wyłączanie części komputera / użytkownika,
+  filtrowanie zabezpieczeń i filtry WMI, delegowanie edycji GPO, kopia zapasowa i przywracanie (pliki tylko na żądanie
+  operatora), porównanie dwóch GPO.
+
+#### Edytor szablonów administracyjnych (ADMX)
+
+- Drzewo zasad komputera i użytkownika z szablonów ADMX/ADML **po polsku i angielsku**, wyszukiwanie, filtr „tylko
+  skonfigurowane”, opis zasady, obsługiwane wersje Windows; *Włączone / Wyłączone / Nieskonfigurowane* z opcjami
+  (listy, liczby, teksty); zapis do `Registry.pol` i podbicie wersji GPO w AD i w `GPT.INI` jednym planem zmian.
+- **Najnowsze szablony:** edytor czyta magazyn centralny w SYSVOL (`PolicyDefinitions`); *Zaktualizuj szablony* pobiera
+  oficjalne paczki producentów, sprawdza podpis, pokazuje różnice (nowe, zmienione i usunięte zasady oraz pliki) i po
+  potwierdzeniu zapisuje do magazynu centralnego. Produkty: **Windows 11 / Server 2025**, **Microsoft Edge**,
+  **Microsoft 365 Apps (Office)**, **Google Chrome**, **Mozilla Firefox** oraz inne przydatne: **OneDrive**,
+  **Adobe Acrobat / Reader**, **Zoom**, **FSLogix** i **Citrix Workspace**; dowolny własny szablon ADMX z pliku.
+
+#### Ustawienia zabezpieczeń
+
+- Grupy lokalne (Administratorzy, Użytkownicy pulpitu zdalnego …) przez grupy z ograniczeniami i preferencje GPO,
+  prawa użytkownika, zasady inspekcji (zaawansowane), usługi systemowe i zapora Windows – edycja `GptTmpl.inf`,
+  `Groups.xml`, `audit.csv` i ustawień zapory; wspólne parsery z zakładką *Uprawnienia* (U4c) i z Watchdogiem.
+
+#### Raport „co dostanie komputer”
+
+- Dla wybranego komputera lub OU: które GPO się zastosują, w jakiej kolejności, które ustawienie wygrywa i dlaczego
+  (łącza, wymuszanie, blokowanie dziedziczenia, filtrowanie zabezpieczeń, pętla zwrotna); filtry WMI i warunki
+  preferencji pokazane jako „zależy od komputera” – modelowanie bez łączenia się z komputerem.
+
+#### Etapy
+
+- **K1** – komputery: inwentarz i raporty, cykl życia kont, zdalne akcje przez WinRM.
+- **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie zapasowe.
+- **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne).
+- **K4** – ustawienia zabezpieczeń.
+- **K5** – raport „co dostanie komputer”.
+
+**Kryteria ukończenia**
+- GPO utworzone i zmienione w AD Managerze działa na komputerze testowym (`gpresult /h`) tak samo jak zmienione w
+  edytorze GPO Microsoftu; `Registry.pol` i wersje GPO zgodne z GPMC.
+- Aktualizacja magazynu centralnego pokazuje różnice przed zapisem i zostawia kopię poprzedniej wersji.
+- Zdalne akcje działają na Windows 11 i Server 2025 z kontem okna (także innym niż konto Windows), bez zapisywania
+  haseł; inwentarz zgodny z `Get-ADComputer`.
 
 </details>
 
