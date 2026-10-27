@@ -25,3 +25,14 @@ do lokalnej bazy, co tworzy kopię danych osobowych i ryzyko wycieku.
   VLV dla ogromnych kontenerów, równoległe zapytania, odświeżanie pojedynczego obiektu po zmianie, powiadomienia o zmianach.
 - Raporty (np. nieaktywne konta) są zapytaniami LDAP wykonywanymi na bieżąco, a nie analizą lokalnej bazy.
 - Testy i code review pilnują, by żadne logowanie nie zawierało wartości atrybutów.
+
+## Uzupełnienie: szablony wiadomości do użytkowników (U1a, U1c)
+
+Szablony wiadomości do użytkowników – temat, tekst, HTML (także wklejony z Outlooka) i **ich obrazy** (logo, zrzuty
+ekranu z instrukcji) – są **ustawieniami operatora**, jak zapisane widoki, a nie danymi katalogu: mogą być zapisane w
+folderze ustawień (`settings.json`, obrazy w `message-images\{sha256}.png|jpg|gif` obok) i w pliku eksportu szablonów,
+który operator zapisuje sam. Warunek: nic, co pochodzi z katalogu, nie trafia do szablonu ani do ustawień – pola
+`{givenName}` itp. są wypełniane dopiero w pamięci przy planie, żaden atrybut (np. `thumbnailPhoto`) nie jest źródłem
+obrazu, a wybór płci w podglądzie (U1d) działa tylko na bieżącą wysyłkę. Wygenerowane wiadomości, podgląd (także w
+WebView2 – treść i obrazy podawane z pamięci, folder tymczasowy przeglądarki usuwany przy zamknięciu) i raport istnieją
+tylko w pamięci.

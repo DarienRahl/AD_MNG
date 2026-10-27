@@ -682,6 +682,30 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   adresów), a treść usuwa zaraz po wysłaniu. AD Manager dostaje wynik pierwszej próby (przyjęta / odrzucona z kodem
   SMTP / błąd kanału zatrzymujący przebieg) albo „w kolejce usługi” (liczone jako przyjęta – usługa dokończy wysyłkę).
   Audyt w usłudze: kto, kiedy, liczba odbiorców i skrót SHA-256 adresów – bez treści.
+- ✅ Wiadomość sformatowana wklejona z Outlooka z obrazami osadzonymi w treści (U1c,
+  [opis](docs/dev/u1c-u1d-rich-html-and-salutations.md), część A): *Wklej sformatowaną treść* (Ctrl+Shift+V) bierze
+  „HTML Format” ze schowka (Outlook klasyczny i nowy, Word, Edge/Chrome, Firefox) i zachowuje czcionki, rozmiary,
+  kolory, łącza, tabele i listy – style klas Outlooka (`MsoNormal` …) wpisane w atrybuty `style`, komentarze
+  warunkowe, elementy `o:`/`v:`/`w:` i właściwości `mso-*` usunięte, listy Worda zamienione na `ul`/`ol`, łącza Safe
+  Links rozwinięte, pola rozcięte przez Outlooka (`{<span>sAMAccountName</span>}`) naprawione; ten sam sanitizer
+  (AngleSharp, listy dozwolonych znaczników, atrybutów i właściwości CSS, bez ukrytej treści i nakładek) sprawdza HTML
+  w AD Managerze i w usłudze Watchdog. Łącza do domen spoza listy dozwolonych są w *Wynikach wklejania* z akcjami
+  *Zezwól na domenę …* i *Usuń łącze*. Obrazy (`clip_image001.png` Outlooka – tylko z folderu tymczasowego, nigdy z
+  udziału sieciowego; `data:` z przeglądarek; *Wklej obraz* ze schowka) są wczytywane raz, sprawdzane (PNG, JPEG, GIF
+  po zawartości, do 1 MB i 4096 px, do 10 w wiadomości i 2 MB razem), oczyszczane z metadanych (EXIF z GPS) i wysyłane
+  jako obrazy osadzone (`multipart/related`, `Content-ID`, `cid:`), nie jako załączniki; obrazy z internetu nigdy nie są
+  pobierane (usuwane z ostrzeżeniem). Szablon z obrazami: obrazy w folderze `message-images` obok ustawień (to
+  ustawienia operatora, nie dane katalogu), eksport szablonów w wersji 2 z obrazami (wersja 1 nadal się importuje).
+  Podgląd: *Podgląd formatowania* w edytorze i karta *Widok* każdej wiadomości – WebView2 bez skryptów, nawigacji i
+  sieci (treść i obrazy tylko z pamięci, folder tymczasowy usuwany przy zamknięciu), a bez środowiska WebView2 albo po
+  wyłączeniu w ustawieniach (`UserMessages.RenderedPreview`) – źródło HTML. Watchdog przyjmuje obrazy (możliwość
+  `inlineImages` w `GET /api/v1/user-messages/status`, przełącznik `userMessages.allowInlineImages`, limit miejsca
+  `userMessages.maxStoredImageMb`, trasa do 6 MiB; obrazy tylko w treści wiadomości w kolejce, usuwane po wysłaniu); przy
+  starszej usłudze AD Manager zatrzymuje wysyłkę i proponuje *Wyślij bezpośrednio przez SMTP* albo *Wyślij bez obrazów*
+  – nigdy nie gubi obrazów po cichu. Testy jednostkowe (CF_HTML, CSS, sanitizer z próbkami złośliwymi, import próbek z
+  Outlooka, Worda i przeglądarek, obrazy, plan), MIME obu nadawców, Mailpit (dwa obrazy jako części *inline* o tych
+  samych bajtach), kontrakt i API usługi, migracja 0007, test laboratoryjny przez usługę, modelu okna, testy UI i zrzut
+  `24-user-messages-rich-html.png` (Windows).
 - ⬜ XOAUTH2 (Exchange Online) w wysyłce bezpośredniej – nie pasuje do istniejącego kodu MSAL (poufny klient usługi
   Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅).
 - ✅ Testy: jednostkowe (pola i daty z polskimi znakami w obu językach i strefie Europe/Warsaw, reguły bezpieczeństwa,

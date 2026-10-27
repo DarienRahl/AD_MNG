@@ -645,6 +645,15 @@ images from the working template); preview stage – the selected message, tabs 
   send button.
 * Keyboard: Ctrl+Shift+V = paste formatted; the buttons have automation names for the UI tests.
 
+**As built (track A):** the status line of the section has **Usuń brakujące obrazy** when a saved template's image files
+are missing or changed; after saving a template with images the window warns once the image folder exceeds 64 MiB; the
+transport bar sits above the window footer (Wyślij bezpośrednio przez SMTP · Wyślij bez obrazów · Anuluj); the
+"Wklej obraz" caret is the one the operator placed in the HTML source (a text set by the window forgets it, so the image
+goes to the end). The setting `UserMessages.RenderedPreview` exists (default on, honoured by both previews) but has no
+check box yet – the settings window belongs to track B, so the check box is part of the integration step (22.4). The
+release screenshot is `24-user-messages-rich-html.png` (class `ScreenshotTestsRichHtml`; 22 and 23 are track K's, 25 is
+U1d's); it shows the HTML source, because a WebView2 window is not part of a WPF render.
+
 ## 13. Security checklist (A)
 
 UNC/file reads restricted (7.1) · no network fetches anywhere (import, preview, send) · SVG and every non-raster

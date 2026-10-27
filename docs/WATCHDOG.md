@@ -496,9 +496,11 @@ ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
 | `userMessages.maxMessagesPerHour` | 300 | ile wiadomości przyjmie usługa w ostatnich 60 minutach – od wszystkich operatorów razem |
 | `userMessages.maxMessagesPerDay` | 2000 | to samo dla ostatnich 24 godzin |
 | `userMessages.allowedSenders` | pusta | dodatkowi dozwoleni nadawcy (*Od*) i adresy odpowiedzi: cały adres albo `@domena`; nadawca i adres odpowiedzi kanału SMTP są dozwolone zawsze |
+| `userMessages.allowInlineImages` | włączone | wiadomości mogą zawierać obrazy osadzone w treści (logo, zrzut ekranu z instrukcji – niżej); wyłączone: wiadomość z obrazami jest odrzucana (`imagesDisabled`), a AD Manager proponuje wysyłkę bez obrazów albo bezpośrednio przez SMTP |
+| `userMessages.maxStoredImageMb` | 256 (16–4096) | ile megabajtów obrazów może jednocześnie czekać w kolejce (wiadomości jeszcze niewysłane i porzucone); powyżej – 429 `imageStorageFull` dla wiadomości z obrazami, wiadomości bez obrazów nie są wstrzymywane |
 | `retention.userMessageAuditDays` | 365 | jak długo przechowywany jest audyt wysłanych wiadomości |
 
-Zmiana przełącznika i listy nadawców ma w audycie konfiguracji ważność „wysoka”. W AD Managerze ustawienie *Sposób
+Zmiana przełącznika i listy nadawców ma w audycie konfiguracji ważność „wysoka”, zmiana ustawień obrazów – „średnia”. W AD Managerze ustawienie *Sposób
 wysyłki* = *Automatycznie* (domyślne) wybiera Watchdoga, gdy połączenie z usługą jest skonfigurowane, a funkcja włączona
 – w przeciwnym razie wysyła bezpośrednio przez SMTP; *Przez AdMng Watchdog* pokazuje powód, gdy usługa nie może
 przyjąć wiadomości (wyłączone, brak uprawnień, brak połączenia, starsza wersja usługi).
@@ -510,12 +512,34 @@ wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
 
 - jedna wiadomość na konto: 1–2 adresy *Do*, razem z *DW* najwyżej 10; każdy adres to dokładnie jedna skrzynka,
 - żadnych znaków CR/LF ani innych sterujących w temacie, adresach i nazwach (wiadomość jest odrzucana, nie
-  „naprawiana”), temat do 250 znaków, treść tekstowa do 50 000 znaków, HTML do 100 000,
-- HTML bez skryptów, ramek, formularzy, `on…=`, `javascript:`/`data:`/`vbscript:`/`file:` (te same reguły co w AD
-  Managerze), język `pl` lub `en`,
-- **brak załączników** – żądanie z nieznanym polem (np. `attachments`, `bcc`) jest odrzucane,
+  „naprawiana”), temat do 250 znaków, treść tekstowa do 50 000 znaków, HTML do 400 000 (usługa sprzed U1c: 100 000),
+- HTML bez skryptów, ramek, formularzy, `on…=`, `javascript:`/`data:`/`vbscript:`/`file:` – sprawdzany **tym samym
+  sanitizerem co w AD Managerze** (parser HTML5, listy dozwolonych znaczników, atrybutów i właściwości CSS); źródłem
+  obrazu może być tylko `cid:` obrazu przesłanego w tej wiadomości; usługa wysyła dokument po tej kontroli; język `pl`
+  lub `en`,
+- **brak załączników** – żądanie z nieznanym polem (np. `attachments`, `bcc`) jest odrzucane; obrazy osadzone w treści
+  (niżej) nie są załącznikami,
 - *Od* i *Odpowiedz do* tylko z konfiguracji kanału SMTP lub listy dozwolonych nadawców; **nadawcą koperty** (MAIL
   FROM) jest zawsze `smtp.from`. Usługa nie zna listy dozwolonych domen łączy AD Managera – tę sprawdza AD Manager.
+
+**Obrazy w treści (U1c).** Wiadomość wklejona w AD Managerze z Outlooka może mieć obrazy osadzone w treści (pole
+`inlineImages`, [README, U1c](../README.md#u1--wiadomości-e-mail-do-użytkowników-smtp-)). Usługa nie ufa klientowi i przy
+każdej wiadomości sprawdza:
+
+- tylko **PNG, JPEG i GIF** – rozpoznawane po zawartości (sygnatura, struktura pliku do znacznika końca, wymiary
+  najwyżej 4096 × 4096 px), nigdy po nazwie; SVG, WebP i inne formaty są odrzucane (`invalidImage`),
+- najwyżej **10 obrazów**, **1 MiB** każdy i **2 MiB** razem (`tooLarge`),
+- identyfikator obrazu (`Content-ID`) wyliczony ze skrótu SHA-256 jego bajtów (`imageIdMismatch`), każdy obraz użyty w
+  HTML (`unreferencedImage`) i każde `cid:` w HTML wskazujące przesłany obraz (`missingImage`),
+- metadane (EXIF z GPS, XMP, IPTC, komentarze) są usuwane przed wysyłką; obrazy idą jako części *inline*
+  `multipart/related` z `Content-ID`, do których odwołuje się HTML – **nigdy jako załączniki do pobrania**.
+
+Tylko trasa `POST /api/v1/user-messages` przyjmuje treść żądania do **6 MiB** (obrazy w base64); wszystkie inne trasy API
+zostają przy 1 MB. `GET /api/v1/user-messages/status` zgłasza możliwość `inlineImages` i limity (liczba i rozmiar
+obrazów, długość HTML, zajętość i limit miejsca na obrazy w kolejce). Starsza usługa jej nie zgłasza (i odrzuca nieznane
+pole jako `invalidJson`) – AD Manager wtedy nie wysyła obrazów po cichu, tylko zatrzymuje wysyłkę i proponuje
+*Wyślij bezpośrednio przez SMTP* (tylko ta wysyłka) albo *Wyślij bez obrazów* (podgląd pokazuje wtedy opisy obrazów).
+Skrót treści do kontroli idempotencji obejmuje także obrazy.
 
 **Wynik dla AD Managera.** Wiadomość trafia do kolejki wysyłek (rodzaj „Wiadomość do użytkownika”), a żądanie czeka do
 20 sekund na pierwszą próbę SMTP:
@@ -527,14 +551,17 @@ wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
 | `Queued` (202) | limit tempa kanału, chwilowy błąd 4xx/przekroczony czas albo brak próby w 20 s | **przyjęta** z dopiskiem „w kolejce AdMng Watchdog” – usługa ponawia jak alarmy, wynik w dzienniku wysyłek |
 | `Failed` (200) | błąd uwierzytelnienia, TLS, konfiguracji kanału | nieudana; przebieg zatrzymany (pozostałe „niewysłane”), wiadomość porzucona od razu |
 | 409 / 429 | funkcja wyłączona / limit godzinowy lub dobowy (z `Retry-After`) | przebieg zatrzymany, pozostałe „niewysłane” – *Ponów nieudane* później |
+| 429 `imageStorageFull` | obrazy czekające w kolejce osiągnęły `userMessages.maxStoredImageMb` (`Retry-After` 1 h) | przebieg zatrzymany; wiadomości bez obrazów nadal przechodzą |
 
 Każde żądanie jest **idempotentne** po identyfikatorze wiadomości: ponowienie po przekroczeniu czasu albo zerwanym
 połączeniu zwraca stan pierwszego zgłoszenia i nie wysyła wiadomości drugi raz; ten sam identyfikator z inną treścią
 lub od innej osoby to 409. `GET /api/v1/user-messages/status` (administratorzy i obserwatorzy) pokazuje, czy funkcja
 działa, kanał (`host:port`), nadawcę, dozwolonych nadawców, limity i liczbę wiadomości w ostatniej godzinie i dobie.
 
-**Dane i audyt.** Temat, treść i adresy są tylko w treści wiadomości w kolejce – usuwane zaraz po wysłaniu, nieudane
-po `OutboxDeadDays` (90 dni, do ręcznego ponowienia). Dziennik wysyłek pokazuje dla wiadomości do użytkowników tylko
+**Dane i audyt.** Temat, treść, **obrazy osadzone** i adresy są tylko w treści wiadomości w kolejce – usuwane zaraz po
+wysłaniu, nieudane po `OutboxDeadDays` (90 dni, do ręcznego ponowienia). Rozmiar obrazów wiadomości w kolejce zapisuje
+kolumna `outbox.image_bytes` (po wysłaniu 0) – z niej liczony jest limit `userMessages.maxStoredImageMb`; obrazów nie ma w
+audycie, dzienniku wysyłek ani w dzienniku diagnostycznym. Dziennik wysyłek pokazuje dla wiadomości do użytkowników tylko
 rodzaj, stan, liczbę odbiorców i kody – **bez tematu i adresów**. Audyt (`user_messages` w `watchdog.db`): kto, kiedy,
 liczba odbiorców, skrót SHA-256 posortowanych adresów (pozwala sprawdzić „czy ten adres dostał wiadomość”, nie
 przechowując go) i skrót treści (kontrola idempotencji) – przez `retention.userMessageAuditDays`. Dziennik diagnostyczny
@@ -628,7 +655,7 @@ starcie – przy szerszych uprawnieniach usługa nie startuje).
 | Znormalizowane zdarzenia z dzienników DC związane ze zmianami (tylko pola potrzebne do dopasowania; wartości wyłącznie obserwowanych, nietajnych atrybutów) | `watchdog.db` | 30 dni; najstarsze usuwane wcześniej, gdy baza przekroczy limit rozmiaru (domyślnie 4096 MB) |
 | Rekordy logowań i nieudanych logowań (4624 typ 3 i 10, 4625, 4771, nieudane 4776 – bez logowań kont komputerów i anonimowych) | `watchdog.db` | 48 godzin (ustalone źródło jest kopiowane do zdarzenia) |
 | Migawka ustawień GPO (tylko najnowsza dla każdego GPO; hasła GPP i wartości wyglądające na hasła – wyłącznie informacja o obecności; skrypty – tylko skrót SHA-256) | `watchdog.db` | bieżący stan; usunięte GPO – do przywrócenia |
-| Kolejka wysyłek (treść wiadomości – także wiadomości do użytkowników z AD Managera, rozdz. 5.8) | `watchdog.db` | treść usuwana zaraz po wysłaniu; nieudane 90 dni; metadane wysłanych 30 dni (dla wiadomości do użytkowników bez tematu i adresów) |
+| Kolejka wysyłek (treść wiadomości – także wiadomości do użytkowników z AD Managera i ich obrazy osadzone, rozdz. 5.8) | `watchdog.db` | treść, także obrazy osadzone, usuwana zaraz po wysłaniu; nieudane 90 dni (obrazy razem najwyżej `userMessages.maxStoredImageMb`, domyślnie 256 MB); metadane wysłanych 30 dni (dla wiadomości do użytkowników bez tematu i adresów) |
 | Audyt wiadomości do użytkowników (kto, kiedy, liczba odbiorców, skróty SHA-256 adresów i treści) | `watchdog.db` | 365 dni (`retention.userMessageAuditDays`) |
 | Konfiguracja i historia jej zmian | `watchdog.db` | konfiguracja bieżąca; historia 3 lata |
 | Sekrety kanałów (hasło SMTP, sekret OAuth, adresy Teams/webhook, klucze podpisu) | `watchdog.db`, zaszyfrowane Data Protection i powiązane z miejscem docelowym; klucze w `keys/` zaszyfrowane kluczem z poświadczenia systemd (`/etc/admng-watchdog/credentials/dp-key.cred`, TPM2 + klucz hosta albo klucz hosta) | do usunięcia |
