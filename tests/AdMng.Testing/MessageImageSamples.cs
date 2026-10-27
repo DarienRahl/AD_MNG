@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.IO.Compression;
 using System.Text;
 
 namespace AdMng.Testing;
@@ -43,15 +42,7 @@ public static class MessageImageSamples
             }
         }
 
-        using (var compressed = new MemoryStream())
-        {
-            using (var zlib = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true))
-            {
-                zlib.Write(raw.ToArray());
-            }
-
-            Chunk(stream, "IDAT", compressed.ToArray());
-        }
+        Chunk(stream, "IDAT", StoredZlib(raw.ToArray()));
 
         Chunk(stream, "IEND", []);
         return stream.ToArray();
@@ -150,6 +141,41 @@ public static class MessageImageSamples
         BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)(payload.Length + 2));
         stream.Write(length);
         stream.Write(payload);
+    }
+
+    /// <summary>
+    /// A zlib stream of uncompressed ("stored") deflate blocks: the same bytes on every platform and CPU – the runtime's
+    /// compressor may choose other matches elsewhere, which would change the content ids the expected results pin.
+    /// </summary>
+    private static byte[] StoredZlib(byte[] data)
+    {
+        using var stream = new MemoryStream();
+        stream.Write([0x78, 0x01]);
+        var offset = 0;
+        do
+        {
+            var length = Math.Min(ushort.MaxValue, data.Length - offset);
+            stream.WriteByte(offset + length == data.Length ? (byte)1 : (byte)0);
+            var lengths = new byte[4];
+            BinaryPrimitives.WriteUInt16LittleEndian(lengths, (ushort)length);
+            BinaryPrimitives.WriteUInt16LittleEndian(lengths.AsSpan(2), (ushort)~length);
+            stream.Write(lengths);
+            stream.Write(data, offset, length);
+            offset += length;
+        }
+        while (offset < data.Length);
+
+        uint a = 1, b = 0;
+        foreach (var value in data)
+        {
+            a = (a + value) % 65521;
+            b = (b + a) % 65521;
+        }
+
+        var adler = new byte[4];
+        BinaryPrimitives.WriteUInt32BigEndian(adler, (b << 16) | a);
+        stream.Write(adler);
+        return stream.ToArray();
     }
 
     private static uint Crc32(byte[] data)

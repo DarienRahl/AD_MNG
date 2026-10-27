@@ -49,11 +49,14 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
 
     private string Clip(string name) => Path.Combine(_temp, "msohtmlclip1", "01", name);
 
-    private PastedImageFileSource Files() => new(_temp, windows: false);
+    private PastedImageFileSource Files() => new(_temp, windows: OperatingSystem.IsWindows());
+
+    /// <summary>The <c>file:</c> URI of a local path on this platform (<c>file:///C:/…</c> or <c>file:///tmp/…</c>).</summary>
+    private static string FileUri(string path) => new Uri(path).AbsoluteUri;
 
     /// <summary>The Outlook fixture with its images in this test's temp folder.</summary>
     private string OutlookHtml() =>
-        CfHtmlFixture.Html("outlook-classic").Replace("file:///C:/Users/JKOWAL~1/AppData/Local/Temp/", "file://" + _temp + "/", StringComparison.Ordinal);
+        CfHtmlFixture.Html("outlook-classic").Replace("file:///C:/Users/JKOWAL~1/AppData/Local/Temp/", FileUri(_temp) + "/", StringComparison.Ordinal);
 
     private static ClipboardContent Formatted(string html) => new(CfHtmlFixture.Build(html), null, null, null);
 
@@ -87,35 +90,41 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
     public async Task TheFileSource_ReadsOnlyLocalFilesInsideTheTempFolder()
     {
         var files = Files();
-        var inside = await files.ReadAsync("file://" + Clip("clip_image001.png"), MessageImageLimits.MaxImageBytes, Ct);
+        var inside = await files.ReadAsync(FileUri(Clip("clip_image001.png")), MessageImageLimits.MaxImageBytes, Ct);
         Assert.Null(inside.Failure);
         Assert.Equal("clip_image001.png", inside.FileName);
         Assert.Equal(await File.ReadAllBytesAsync(Clip("clip_image001.png"), Ct), inside.Data);
 
         var elsewhere = Path.Combine(_outside, "clip_image001.png");
         await File.WriteAllBytesAsync(elsewhere, MessageImageSamples.Png(), Ct);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + elsewhere, 1000, Ct)).Failure);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + _temp + "/../" + Path.GetFileName(_outside) + "/clip_image001.png", 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(elsewhere), 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(_temp) + "/../" + Path.GetFileName(_outside) + "/clip_image001.png", 1000, Ct)).Failure);
 
         // Another program's picture in the temp folder (HTML copied from a web page may name it) is never read.
         var other = Path.Combine(_temp, "zrzut-ekranu-innej-aplikacji.png");
         await File.WriteAllBytesAsync(other, MessageImageSamples.Png(), Ct);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + other, 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(other), 1000, Ct)).Failure);
         var renamed = Clip("logo-działu.png");
         await File.WriteAllBytesAsync(renamed, MessageImageSamples.Png(), Ct);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + renamed, 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(renamed), 1000, Ct)).Failure);
         var nested = Path.Combine(_temp, "inna", "msohtmlclip1", "01");
         Directory.CreateDirectory(nested);
         await File.WriteAllBytesAsync(Path.Combine(nested, "clip_image001.png"), MessageImageSamples.Png(), Ct);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + Path.Combine(nested, "clip_image001.png"), 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(Path.Combine(nested, "clip_image001.png")), 1000, Ct)).Failure);
 
-        // A link inside the temp folder to a file elsewhere is refused (no reparse point on the way).
+        // A link inside the temp folder to a file elsewhere is refused (no reparse point on the way). Windows lets only
+        // elevated or developer-mode accounts create symbolic links; without that right the link checks run on Linux only.
         var link = Path.Combine(_temp, "msohtmlclip1", "01", "clip_image077.png");
-        File.CreateSymbolicLink(link, elsewhere);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + link, 1000, Ct)).Failure);
+        if (TryCreateLink(() => File.CreateSymbolicLink(link, elsewhere)))
+        {
+            Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(link), 1000, Ct)).Failure);
+        }
+
         var folderLink = Path.Combine(_temp, "msohtmlclip2");
-        Directory.CreateSymbolicLink(folderLink, _outside);
-        Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync("file://" + folderLink + "/clip_image001.png", 1000, Ct)).Failure);
+        if (TryCreateLink(() => Directory.CreateSymbolicLink(folderLink, _outside)))
+        {
+            Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(FileUri(Path.Combine(folderLink, "clip_image001.png")), 1000, Ct)).Failure);
+        }
 
         // Network paths and hosts are never opened; missing and large files are reported.
         foreach (var uri in new[] { "file://serwer/udział/clip_image001.png", "file:////serwer/udział/clip_image001.png", "https://contoso.pl/logo.png", "C:\\Temp\\a.png" })
@@ -123,9 +132,23 @@ public sealed class HtmlPasteWorkflowTests : IDisposable
             Assert.Equal(PastedImageFailure.NotAllowed, (await files.ReadAsync(uri, 1000, Ct)).Failure);
         }
 
-        Assert.Equal(PastedImageFailure.NotFound, (await files.ReadAsync("file://" + Clip("clip_image009.png"), 1000, Ct)).Failure);
-        Assert.Equal(PastedImageFailure.TooLarge, (await files.ReadAsync("file://" + Clip("clip_image003.jpg"), 10, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.NotFound, (await files.ReadAsync(FileUri(Clip("clip_image009.png")), 1000, Ct)).Failure);
+        Assert.Equal(PastedImageFailure.TooLarge, (await files.ReadAsync(FileUri(Clip("clip_image003.jpg")), 10, Ct)).Failure);
         Assert.Equal(PastedImageFailure.NotAllowed, (await new PastedImageFileSource(_temp, windows: true).ReadAsync("file://serwer/udział/a.png", 1000, Ct)).Failure);
+    }
+
+    /// <summary>Creates a symbolic link; false only on Windows when the account lacks the right to create one.</summary>
+    private static bool TryCreateLink(Action create)
+    {
+        try
+        {
+            create();
+            return true;
+        }
+        catch (Exception ex) when (OperatingSystem.IsWindows() && ex is UnauthorizedAccessException or IOException)
+        {
+            return false;
+        }
     }
 
     [Fact]
