@@ -196,8 +196,14 @@ public static class ObjectDiffer
             return row with { State = sameOtherDomain ? AttributeComparisonState.SameOtherDomain : AttributeComparisonState.Same };
         }
 
-        var caseOnly = kind is ValueKind.Text or ValueKind.Address
-            && setA.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(setB);
+        var caseOnly = kind switch
+        {
+            ValueKind.Text => setA.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(setB),
+
+            // smtp: (secondary) and SMTP: (primary) are not a matter of letter case: only the address part is folded.
+            ValueKind.Address => setA.Select(FoldAddress).ToHashSet(StringComparer.Ordinal).SetEquals(setB.Select(FoldAddress)),
+            _ => false,
+        };
         return row with { State = AttributeComparisonState.Different, IsCaseOnly = caseOnly };
     }
 
@@ -318,6 +324,11 @@ public static class ObjectDiffer
     }
 
     private static string Text(object value) => value as string ?? Encoding.UTF8.GetString((byte[])value);
+
+    /// <summary>An address key with its letter case folded, except the <c>smtp:</c> / <c>SMTP:</c> prefix (primary or not).</summary>
+    private static string FoldAddress(string key) => key.Length > 5 && key[4] == ':' && key.StartsWith("smtp", StringComparison.OrdinalIgnoreCase)
+        ? key[..5] + key[5..].ToUpperInvariant()
+        : key.ToUpperInvariant();
 
     private enum ValueKind
     {

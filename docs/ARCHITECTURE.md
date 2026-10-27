@@ -94,6 +94,16 @@ głównym ([dev/multi-window.md](dev/multi-window.md)):
   ostatnie okno kończy program, `App.OnExit` zamyka sesje okien, które jeszcze zostały.
 - **Ustawienia** są wspólne; `JsonSettingsStore` zmienia kopię (copy-on-write) pod blokadą i zapisuje migawki z numerem
   generacji, więc okna nie nadpisują sobie zmian, a czytający nigdy nie widzi zmienianej listy.
+- **Porównanie obiektów między połączeniami** jest tylko do odczytu. Okno porównania (zakres okna A) dostaje od
+  `ConnectionContext.Pin()` okna B (`IConnectionHandle` z `ConnectionRegistry`) `ConnectionReadContext`: czytnik,
+  formatowanie, schemat, tożsamość i politykę **jednej** sesji B. Czytnik to `IDirectoryReader`
+  (`IDirectorySession : IDirectoryReader`) za `ReadOnlyDirectoryReader`, którego nie da się rzutować z powrotem na sesję,
+  z limitem 2 jednoczesnych żądań; kontekst kończy się przy zmianie sesji B albo zamknięciu okna B (odczyty rzucają
+  `ObjectDisposedException`, strona B jest oznaczana jako zakończona). Strona A czyta tak samo przez przypiętą sesję
+  okna A (reguła 4: każda strona przez kontroler swojego okna, bez nowego wiązania). Czysty diff (`ObjectDiffer`,
+  `ObjectSnapshot`, `MembershipComparer`, `GroupKey`, `ComparisonAttributes`) jest w AdMng.Core, dopasowanie i odczyt
+  (`ObjectMatcher`, `ComparisonReader`) oraz `ObjectComparisonViewModel` w Presentation. Wyniki żyją tylko w pamięci okna;
+  CSV powstaje wyłącznie na żądanie operatora.
 
 ## Potok zmian (edycja pojedyncza i zbiorcza)
 

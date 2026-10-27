@@ -114,8 +114,9 @@ public class ObjectDifferTests
         Assert.Equal(AttributeComparisonState.Different, upn.State);
         Assert.True(upn.IsCaseOnly);
 
-        // The primary address (SMTP:) is another one on side B: a real difference.
+        // The primary address (SMTP:) is another one on side B: a real difference, not a matter of letter case.
         Assert.Equal(AttributeComparisonState.Different, Row(rows, Attr.ProxyAddresses).State);
+        Assert.False(Row(rows, Attr.ProxyAddresses).IsCaseOnly);
 
         var strict = ObjectDiffer.Compare(a, b, new ComparisonOptions { CompareAddressesWithoutDomain = false });
         Assert.Equal(AttributeComparisonState.Different, Row(strict, Attr.Mail).State);

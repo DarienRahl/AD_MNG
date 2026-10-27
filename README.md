@@ -55,6 +55,16 @@ podglądem zmian, raportem i cofaniem.
   odróżnić: domena i konto na początku tytułu, kolorowy pasek i plakietka połączenia (kolor z profilu albo z nazwy
   domeny), nagłówek „Domena: …” w każdym oknie dialogowym, a potwierdzenia operacji niszczących nazywają domenę.
   Zamknięcie okna rozłącza tylko jego połączenie; ustawienia, profile i widoki są wspólne.
+- 🔍 **Porównanie obiektów między połączeniami** – *Porównaj z obiektem w innym połączeniu…* (menu kontekstowe listy,
+  menu *Akcja*, panel szczegółów, karta właściwości, paleta poleceń) dla użytkownika, grupy, komputera lub kontaktu:
+  wybierasz drugie otwarte okno, program znajduje odpowiadający obiekt (automatycznie albo według sAMAccountName,
+  prefiksu UPN, adresu e-mail, nazwy lub wskazanego DN / wyszukiwania; przy kilku trafieniach pokazuje listę do wyboru)
+  i zestawia obie strony obok siebie: atrybuty (różnice wyróżnione tłem i znakiem, DN porównywane bez sufiksu domeny,
+  adresy opcjonalnie bez domeny, atrybuty zmienne i identyfikujące – GUID, SID, daty zmian, liczniki logowań, metadane
+  replikacji – ukryte, ale dostępne, sekrety tylko jako „ustawiony / brak”), członkostwo w grupach według nazwy
+  (bezpośrednie, podstawowe i zagnieżdżone; grupy wbudowane według RID lub SID, więc *Domain Users* = *Użytkownicy
+  domeny*) i – dla grup – członków. Tylko do odczytu: każda strona czyta przez sesję swojego okna (z jej kontrolerem,
+  kontem i formatowaniem), nic nie jest kopiowane ani zapisywane; CSV powstaje tylko na żądanie.
 - 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
   logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
   zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
@@ -145,7 +155,8 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 
 <sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.4.0 – także okna
 *Przegląd kont* i *Wiadomości do użytkowników*, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” –
-są dołączone do wydania. Aktualny komplet CI
+są dołączone do wydania. Dwa okna połączeń obok siebie i porównanie obiektów między nimi pokazują zrzuty CI
+`20-two-connections.png` i `21-compare-objects.png`. Aktualny komplet CI
 publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -196,7 +207,7 @@ flowchart TB
 | 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 cały zakres zaimplementowany (także kopiowanie wartości, „Zmień kontroler domeny”, godziny logowania, WKGUID i VLV: ✅), czeka na pilotaż na Windows AD |
 | 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 zaimplementowane, czeka na testy obciążeniowe |
 | 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (karta Adresy e-mail: ✅) |
-| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡, członkostwo zagnieżdżone i eksport widoków: ✅) |
+| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡; członkostwo zagnieżdżone, eksport widoków, wiele domen w osobnych oknach i porównanie obiektów między nimi: ✅) |
 | 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
@@ -288,7 +299,15 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   tle, dziennik sesji): *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N, paleta poleceń, plakietka połączenia),
   przełącznik okien w plakietce i palecie („Przejdź do okna: …”), kolor okna w profilu połączenia, domena w tytule, w
   nagłówkach okien dialogowych i w treści potwierdzeń, *Zamknij okno* / *Zakończ program*
-  ([dev/multi-window.md](docs/dev/multi-window.md)). ⬜ Porównanie obiektu z obiektem w innym połączeniu (etap 2).
+  ([dev/multi-window.md](docs/dev/multi-window.md)).
+- ✅ **Porównanie obiektu z obiektem w innym połączeniu** – okno *Porównanie* (niemodalne, jedno na wywołanie):
+  wybór drugiego połączenia i reguły dopasowania (automatycznie, sAMAccountName, prefiks UPN, e-mail, nazwa, wskazany
+  obiekt), lista kandydatów przy niejednoznacznym wyniku, nagłówki obu stron w kolorach ich połączeń, zakładki
+  *Atrybuty* (tylko różnice, atrybuty zmienne i identyfikujące, adresy bez domeny, filtr, wartości zaznaczonego wiersza
+  z oznaczeniem *tylko A / tylko B / wspólne*, Ctrl+C), *Członkostwo* i *Członkowie* (zagnieżdżone odczytywane w tle),
+  baner „ten sam obiekt widziany przez dwa konta”, *Odśwież* po zmianie kontrolera drugiego okna, eksport CSV na żądanie.
+  Odczyt każdej strony przez jej własną, przypiętą sesję (najwyżej 2 jednoczesne żądania do drugiego okna), bez
+  żadnej ścieżki zapisu ([dev/multi-window.md, rozdział 8](docs/dev/multi-window.md#8-comparison-of-objects-between-two-connections)).
 
 #### Nawigacja i listy
 - Drzewo domeny/OU ładowane leniwie, przełącznik „Funkcje zaawansowane”; kontenery dobrze znane rozpoznawane po WKGUID
@@ -486,9 +505,10 @@ na żywo i wiele domen.
   [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
-- 🟡 Wiele domen i lasów (✅ wiele domen w osobnych oknach – [Wiele połączeń jednocześnie](#połączenie-i-sesja);
-  ⬜ jedno drzewo z kilkoma domenami, wyszukiwanie w katalogu globalnym), paleta poleceń z prefiksami, ⬜ porównanie
-  dwóch obiektów (etap 2: także między połączeniami).
+- 🟡 Wiele domen i lasów (✅ wiele domen w osobnych oknach i ✅ porównanie obiektu z obiektem w innym połączeniu –
+  atrybuty, członkostwo i członkowie grup – [Wiele połączeń jednocześnie](#połączenie-i-sesja); ⬜ jedno drzewo z
+  kilkoma domenami, wyszukiwanie w katalogu globalnym, porównanie dwóch obiektów tego samego połączenia lub całych OU),
+  paleta poleceń z prefiksami.
 
 </details>
 
@@ -882,6 +902,16 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   wartość dla wszystkich odbiorców. Edytor HTML to zwykłe pole tekstowe (bez podglądu renderowanego HTML – w podglądzie
   widać tekst i źródło HTML). Wiadomości mają stałą stopkę i nie mają załączników. Uwierzytelnianie bieżącym kontem
   Windows sprawdzono tylko testem negocjacji mechanizmów (bez Exchange).
+- **Wiele połączeń i porównanie obiektów** – okno modalne jednego połączenia (potwierdzenie, *Resetuj hasło*, *Nowy
+  obiekt*, ustawienia) na chwilę blokuje wszystkie okna programu (jeden wątek interfejsu); dwa okna tej samej domeny
+  nie widzą natychmiast swoich zmian (pomaga odświeżanie na żywo albo F5), jak dwie konsole ADUC. Porównanie jest tylko
+  do odczytu i zestawia dwa obiekty z **różnych** okien; brak wartości i brak prawa do jej odczytu wyglądają tak samo
+  („brak wartości (lub brak prawa odczytu)”). Członkostwo obejmuje tylko grupy z domeny danej strony – bez grup innych
+  domen lasu i bez członkostw przez obce podmioty zabezpieczeń (członkowie-FSP są tylko liczeni); listy grup i członków
+  są obcinane do 5000 pozycji na stronę, a członkostwo zagnieżdżone (`LDAP_MATCHING_RULE_IN_CHAIN`) w dużych domenach
+  może trwać kilka sekund. Laboratorium ma jedną domenę: dwa konta i dwie niezależne sesje sprawdzono na Sambie, inną
+  domenę (DN bez sufiksu domeny, dopasowanie grup po RID w różnych językach) – tylko testami na fałszywych katalogach.
+  Okna WPF (oba okna połączeń, okno porównania, zrzuty 20 i 21) sprawdza wyłącznie CI na Windows.
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.

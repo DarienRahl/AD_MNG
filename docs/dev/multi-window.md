@@ -1268,3 +1268,46 @@ differs from the text above:
   the badge contrast UI test (replaced by the Presentation test).
 * **Not verified here.** The App and the UI tests compile on Linux only; the UI tests, the smoke test and the
   screenshot run on Windows CI.
+
+## 15. Implementation notes, stage 2
+
+Stage 2 (section 8, the comparison tests of 10, and the stage-2 docs of 11) is implemented on `feature/multi-window`.
+Where the code differs from the text above:
+
+* **Handle.** `IConnectionHandle` offers `Pin()` and a `SessionChanged` event (raised for every session change, also
+  when the identity stays the same), but no live `Reader`, `Formatter` or `GetDomainPolicyAsync`: a run only ever uses
+  the one read context of `Pin()`, so the live properties would invite exactly the mix-up 8.2 forbids.
+  `ConnectionContext` keeps the contexts it handed out and ends those of the previous session before it raises
+  `SessionChanged`, and all of them in `Dispose`.
+* **Request limit.** The limit of 2 applies to the comparison's reads through the context. The domain policy is read by
+  the target window's own session manager (once per session, cached there), outside the limit.
+* **Run order.** The source object is read first, because its values feed the matching; then the match search and the
+  target read; then the direct membership of both sides in parallel; nested membership last, in the background. 8.9
+  had matching and both reads in parallel. *Odśwież* skips the match and re-reads the matched DN.
+* **Snapshots.** `ObjectSnapshot` never keeps the values of attributes that its own side's schema marks secret (only
+  their presence, as the mask). The differ masks with either side's schema as designed.
+* **Diff details.** FILETIME `0` and `9223372036854775807` both mean "never" and are equal. Address keys keep the
+  `smtp:` / `SMTP:` prefix with its letter case, so a primary/secondary swap is *Różne*, never *tylko wielkość liter*.
+  DN values are shown as the canonical path of each side. Large attributes (more than 1 000 values on a side) show the
+  counts in the cell and only the differences in the details list.
+* **Matching.** `UserPrincipalNamePrefix` matches `prefix@*`; users and inetOrgPersons are searched with the user filter.
+  An explicit text without `=` (or that does not parse as a DN) is an ANR search.
+* **Members tab.** Direct members (FSPs and members outside the side's naming context are counted, not listed); nested
+  members only on *Pokaż członków zagnieżdżonych*.
+* **Header.** Each side shows its strip, badge, name, type and path (DN in the tool tip), not the full account state of
+  `ObjectSummaryViewModel` (the summary is built per side with that side's formatter, schema and policy, and the window
+  shows its first lines).
+* **Remembered.** The rule per object kind and the three attribute toggles; the membership toggles are not remembered.
+* **Window title.** As a child window of the connection it gets the suffix of 4.2:
+  *Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test – contoso.test*.
+* **Entry points.** The Action menu, the list's context menu, a button in the details pane and in the property sheet,
+  and the palette. The command is disabled (with the reasons of 7) unless one comparable object is selected and another
+  connection window is connected; the window itself also explains the missing connection.
+* **Test library.** `FakeDirectoryBuilder` takes an optional schema and a GUID namespace: two fakes built with the same
+  sample data otherwise give the same object the same `objectGUID`, which would make every cross-domain comparison look
+  like the same object.
+* **Lab.** `MultiConnectionTests` as in 10.5 (all four pass against the Samba lab).
+* **Not done in this stage.** ADR-0010 (next free number at merge time) and the release notes (with the next release).
+  Comparing two objects of the same connection, more than two objects or whole OUs stays a non-goal (12).
+* **Not verified here.** The WPF window, the UI tests (`CompareObjectsWindowTests`, `HostTests`), the smoke test and
+  screenshot 21 run on Windows CI only.
