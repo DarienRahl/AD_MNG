@@ -8364,8 +8364,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="RemoteActions.RestartScheduledNow" xml:space="preserve">
     <value>{0} restarts now</value>
   </data>
-  <data name="RemoteActions.RestartAborted" xml:space="preserve">
-    <value>scheduled restart cancelled</value>
+  <data name="RemoteActions.RestartAbortRequested" xml:space="preserve">
+    <value>cancellation of a scheduled restart requested (shutdown /a; not confirmed – if no restart was pending, nothing changed)</value>
   </data>
   <data name="RemoteActions.Log" xml:space="preserve">
     <value>Log of this window</value>

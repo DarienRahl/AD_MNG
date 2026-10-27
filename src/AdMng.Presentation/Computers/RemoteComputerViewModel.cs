@@ -254,7 +254,7 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
     private Task AbortRestartAsync() => CallAsync(L.RemoteActions.ActionAbortRestart, RemoteScripts.AbortRestart, "Remote.AbortRestart", async (remote, token) =>
     {
         await remote.AbortRestartAsync(token).ConfigureAwait(true);
-        return Localizer[L.RemoteActions.RestartAborted];
+        return Localizer[L.RemoteActions.RestartAbortRequested];
     });
 
     [RelayCommand(CanExecute = nameof(HasTarget))]

@@ -217,7 +217,10 @@ public interface IRemoteComputerSession : IAsyncDisposable
     /// <summary>Schedules a restart in <paramref name="delay"/> with <paramref name="message"/> shown to the logged-on users.</summary>
     Task ScheduleRestartAsync(TimeSpan delay, string message, bool force, CancellationToken cancellationToken);
 
-    /// <summary>Cancels a scheduled restart (<c>shutdown /a</c>).</summary>
+    /// <summary>
+    /// Requests the cancellation of a scheduled restart: starts <c>shutdown /a</c> on the computer. Its exit code is not
+    /// observed, so success means the request was started, not that a pending restart was cancelled.
+    /// </summary>
     Task AbortRestartAsync(CancellationToken cancellationToken);
 }
 

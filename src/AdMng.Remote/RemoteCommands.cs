@@ -23,7 +23,7 @@ internal static class RemoteCommands
     /// </summary>
     public const string GpUpdateComputer = "gpupdate.exe /target:computer /force /wait:0";
 
-    /// <summary>Win32_Process.Create that cancels a scheduled restart.</summary>
+    /// <summary>Win32_Process.Create that requests the cancellation of a scheduled restart (its exit code is not observed).</summary>
     public const string AbortShutdown = "shutdown.exe /a";
 
     public const string CurrentVersionKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion";

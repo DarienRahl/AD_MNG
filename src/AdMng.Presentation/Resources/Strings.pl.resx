@@ -8364,8 +8364,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="RemoteActions.RestartScheduledNow" xml:space="preserve">
     <value>{0} uruchamia się ponownie teraz</value>
   </data>
-  <data name="RemoteActions.RestartAborted" xml:space="preserve">
-    <value>anulowano zaplanowane ponowne uruchomienie</value>
+  <data name="RemoteActions.RestartAbortRequested" xml:space="preserve">
+    <value>zlecono anulowanie zaplanowanego ponownego uruchomienia (shutdown /a; bez potwierdzenia – jeśli żadne nie było zaplanowane, nic się nie zmieniło)</value>
   </data>
   <data name="RemoteActions.Log" xml:space="preserve">
     <value>Dziennik tego okna</value>

@@ -237,7 +237,7 @@ public static partial class L
         public const string PolicyUsersScheduled = "RemoteActions.PolicyUsersScheduled";
         public const string RestartScheduled = "RemoteActions.RestartScheduled";
         public const string RestartScheduledNow = "RemoteActions.RestartScheduledNow";
-        public const string RestartAborted = "RemoteActions.RestartAborted";
+        public const string RestartAbortRequested = "RemoteActions.RestartAbortRequested";
         public const string Log = "RemoteActions.Log";
         public const string Tools = "RemoteActions.Tools";
         public const string RestartTitle = "RemoteActions.RestartTitle";

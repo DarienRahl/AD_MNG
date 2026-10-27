@@ -219,7 +219,10 @@ public class RemoteComputerViewModelTests
 
         await window.AbortRestartCommand.ExecuteAsync(null);
 
-        Assert.Equal("Cancel scheduled restart: scheduled restart cancelled", window.Log[0].Text);
+        // shutdown /a runs on the computer without an exit code to read: the log says it was requested, not that it worked.
+        Assert.Equal(
+            "Cancel scheduled restart: cancellation of a scheduled restart requested (shutdown /a; not confirmed – if no restart was pending, nothing changed)",
+            window.Log[0].Text);
         Assert.Equal("Remote.AbortRestart", Assert.Single(scenario.Harness.AuditLog.Entries).Action);
     }
 
