@@ -94,6 +94,9 @@ public sealed partial class ComputerSettingsViewModel : ObservableObject
 
     // ---- Placement rules -----------------------------------------------------------------------------------------
 
+    /// <summary>How the containers are written ({domain} as the placeholder of the connection's domain).</summary>
+    public string PlacementHint => Localizer.Format(L.Computers.SettingsPlacementHint, PlacementRules.DomainPlaceholder);
+
     /// <summary>Allowed containers of workstations, one portable DN per line (empty: not checked).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]

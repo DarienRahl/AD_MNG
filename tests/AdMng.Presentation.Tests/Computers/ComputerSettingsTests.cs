@@ -45,6 +45,7 @@ public class ComputerSettingsTests
         Assert.True(tab.RemoteUseHttps);
         Assert.Equal("15986", tab.RemotePortText);
         Assert.Equal("Puste: 5986", tab.PortHint);
+        Assert.Contains("OU=Stacje robocze,{domain}", tab.PlacementHint, StringComparison.Ordinal);
         Assert.True(tab.RefreshUserPolicy);
         Assert.Equal(15, tab.RestartDelayMinutes);
         Assert.Equal("Zapisz pracę – serwis o 18:00. Łukasz Wiśniewski", tab.RestartMessage);

@@ -7846,7 +7846,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Expected containers (report "Computers in unexpected OUs")</value>
   </data>
   <data name="Computers.Settings.PlacementHint" xml:space="preserve">
-    <value>One container per line, with its subtree; {domain} stands for the domain of the connection (e.g. OU=Stacje robocze,{domain}). Empty: not checked. The default computers container and OU=Domain Controllers are always checked.</value>
+    <value>One container per line, with its subtree; {0} stands for the domain of the connection (e.g. OU=Stacje robocze,{0}). Empty: not checked. The default computers container and OU=Domain Controllers are always checked.</value>
   </data>
   <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
     <value>Workstations</value>

@@ -7846,7 +7846,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Oczekiwane kontenery (raport „Komputery w niewłaściwych OU”)</value>
   </data>
   <data name="Computers.Settings.PlacementHint" xml:space="preserve">
-    <value>Jeden kontener w wierszu, razem z poddrzewem; {domain} oznacza domenę połączenia (np. OU=Stacje robocze,{domain}). Puste: bez sprawdzania. Domyślny kontener komputerów i OU=Domain Controllers są sprawdzane zawsze.</value>
+    <value>Jeden kontener w wierszu, razem z poddrzewem; {0} oznacza domenę połączenia (np. OU=Stacje robocze,{0}). Puste: bez sprawdzania. Domyślny kontener komputerów i OU=Domain Controllers są sprawdzane zawsze.</value>
   </data>
   <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
     <value>Stacje robocze</value>
