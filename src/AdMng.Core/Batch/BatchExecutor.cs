@@ -178,10 +178,11 @@ public sealed partial class BatchExecutor : IBatchExecutor
             var running = new List<Task>();
             using var gate = new SemaphoreSlim(_parallelism, _parallelism);
             var hasScheduled = false;
+            var blocked = _plan.IsBlocked;
             for (var i = 0; i < objects.Count; i++)
             {
                 var objectPlan = objects[i];
-                if (objectPlan.HasErrors || objectPlan.IsNoOp || _stopRequested)
+                if (blocked || objectPlan.HasErrors || objectPlan.IsNoOp || _stopRequested)
                 {
                     Complete(results, i, NotExecuted(objectPlan, ObjectResultStatus.Skipped));
                     continue;

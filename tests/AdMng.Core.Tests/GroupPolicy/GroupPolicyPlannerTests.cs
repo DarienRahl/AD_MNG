@@ -55,6 +55,22 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Create_WithADuplicateName_RunsNothing_NeitherChildrenNorTheLink()
+    {
+        var id = Guid.NewGuid();
+        var linksBefore = Value(Company.ComputersOu, Attr.GpLink);
+        var plan = await Planner.PlanCreateAsync(Session, "Stacje robocze – Zasady haseł", Company.ComputersOu, Ct, id);
+
+        Assert.True(plan.IsBlocked);
+        Assert.Equal(0, plan.ExecutableCount);
+        var result = await ExecuteAsync(plan);
+
+        Assert.All(result.Objects, o => Assert.Equal(ObjectResultStatus.Skipped, o.Status));
+        Assert.False(Session.Exists("CN=Machine," + GpoDn(id)));
+        Assert.Equal(linksBefore, Value(Company.ComputersOu, Attr.GpLink));
+    }
+
+    [Fact]
     public async Task Copy_TakesFilesStatusWmiFilterAndVersionOne_WithANewGuid()
     {
         var id = Guid.NewGuid();

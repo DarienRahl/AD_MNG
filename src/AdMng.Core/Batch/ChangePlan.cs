@@ -359,7 +359,14 @@ public sealed record ChangePlan
     /// </summary>
     public bool Sequential { get; init; }
 
-    public int ExecutableCount => Objects.Count(o => !o.HasErrors && !o.IsNoOp);
+    /// <summary>
+    /// The objects that will run. A <see cref="Sequential"/> plan runs all or nothing: an error on any of its objects blocks
+    /// every object (a GPO container skipped while its children and links run would leave them failing or dangling).
+    /// </summary>
+    public int ExecutableCount => IsBlocked ? 0 : Objects.Count(o => !o.HasErrors && !o.IsNoOp);
+
+    /// <summary>A sequential plan with an error on any object: nothing of it runs.</summary>
+    public bool IsBlocked => Sequential && Objects.Any(o => o.HasErrors);
 
     public int ErrorCount => Objects.Count(o => o.HasErrors);
 
