@@ -92,7 +92,15 @@ public sealed partial class BatchExecutor
                             return Failure(change, DirectoryErrorKind.NoSuchAttribute, FolderChangedMessage);
                         }
 
-                        await sysvol.DeleteGpoFolderAsync(gpoId, CancellationToken.None).ConfigureAwait(false);
+                        try
+                        {
+                            await sysvol.DeleteGpoFolderAsync(gpoId, CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (SysvolWriteException ex) when (ex.Error == SysvolWriteError.NotFound)
+                        {
+                            // Already gone (a DFSR problem, the AD-only remnant of a failed create): the step's goal holds.
+                        }
+
                         return Success(change);
                     default:
                         return Invalid(change, $"Unsupported action {change.Action}.");

@@ -161,6 +161,21 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Delete_OfAGpoWhoseFolderIsAlreadyGone_Succeeds()
+    {
+        var plan = await Planner.PlanDeleteAsync(Session, Sample.WorkstationRemoteDesktop, Ct);
+        await using (var sysvol = await OpenSysvolAsync())
+        {
+            await sysvol.DeleteGpoFolderAsync(Sample.WorkstationRemoteDesktop, Ct);
+        }
+
+        var result = await ExecuteOkAsync(plan);
+
+        Assert.All(result.Objects, o => Assert.Equal(ObjectResultStatus.Succeeded, o.Status));
+        Assert.False(Session.Exists(GpoDn(Sample.WorkstationRemoteDesktop)));
+    }
+
+    [Fact]
     public async Task Delete_OfASiteLinkedGpo_RemovesTheSiteLinkWithRemoveGpLink()
     {
         var plan = await Planner.PlanDeleteAsync(Session, Sample.SitePrinters, Ct);
