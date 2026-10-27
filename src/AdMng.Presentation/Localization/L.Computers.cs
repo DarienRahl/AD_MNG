@@ -59,6 +59,19 @@ public static partial class L
         public const string TypeDomainToConfirm = "Computers.TypeDomainToConfirm";
         public const string ResetDone = "Computers.ResetDone";
         public const string ComputerReviewCommand = "Computers.ComputerReviewCommand";
+        public const string PrestageJoiner = "Computers.Prestage.Joiner";
+        public const string PrestageJoinerNone = "Computers.Prestage.JoinerNone";
+        public const string PrestageManagedBy = "Computers.Prestage.ManagedBy";
+        public const string PrestageManagedByNone = "Computers.Prestage.ManagedByNone";
+        public const string PrestageLocation = "Computers.Prestage.Location";
+        public const string PrestageChange = "Computers.Prestage.Change";
+        public const string PrestageClear = "Computers.Prestage.Clear";
+        public const string PrestageHardening = "Computers.Prestage.Hardening";
+        public const string PrestageOwnerIsAdmin = "Computers.Prestage.OwnerIsAdmin";
+        public const string PrestageJoinFails = "Computers.Prestage.JoinFails";
+        public const string PrestageOnlyAdmins = "Computers.Prestage.OnlyAdmins";
+        public const string PrestageNoPreWindows2000 = "Computers.Prestage.NoPreWindows2000";
+        public const string PrestageJoinerNotFound = "Computers.Prestage.JoinerNotFound";
     }
 
     /// <summary>

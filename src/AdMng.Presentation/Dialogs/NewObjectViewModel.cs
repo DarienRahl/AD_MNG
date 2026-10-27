@@ -226,6 +226,10 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         {
             UpnSuffixes = await UpnFieldViewModel.ReadUpnSuffixesAsync(session, CancellationToken.None).ConfigureAwait(true);
         }
+        else if (Kind == ObjectKind.Computer && Session is { } computerSession)
+        {
+            await InitializeComputerAsync(computerSession).ConfigureAwait(true);
+        }
     }
 
     /// <summary>The DN the new object will get.</summary>
@@ -405,6 +409,7 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
                 attributes.Add((Attr.SamAccountName, SamValue()));
                 attributes.Add((Attr.UserAccountControl, ((int)UserAccountControl.WorkstationTrustAccount).ToString(CultureInfo.InvariantCulture)));
                 attributes.Add((Attr.Description, Description.Trim()));
+                attributes.AddRange(ComputerAttributes());
                 break;
         }
 
@@ -421,6 +426,10 @@ public sealed partial class NewObjectViewModel : WindowViewModelBase
         if (Kind == ObjectKind.User)
         {
             changes.AddRange(UserSteps(password));
+        }
+        else if (JoinRightsChange() is { } joinRights)
+        {
+            changes.Add(joinRights);
         }
 
         return new ChangePlan

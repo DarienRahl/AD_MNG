@@ -7743,6 +7743,45 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Computers.Owner.Deleted" xml:space="preserve">
     <value>właściciel usunięty</value>
   </data>
+  <data name="Computers.Prestage.Joiner" xml:space="preserve">
+    <value>Użytkownik lub grupa, która może dołączyć ten komputer do domeny</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNone" xml:space="preserve">
+    <value>brak – tylko administratorzy</value>
+  </data>
+  <data name="Computers.Prestage.ManagedBy" xml:space="preserve">
+    <value>Zarządzany przez</value>
+  </data>
+  <data name="Computers.Prestage.ManagedByNone" xml:space="preserve">
+    <value>nikt</value>
+  </data>
+  <data name="Computers.Prestage.Location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="Computers.Prestage.Change" xml:space="preserve">
+    <value>Zmień…</value>
+  </data>
+  <data name="Computers.Prestage.Clear" xml:space="preserve">
+    <value>Wyczyść</value>
+  </data>
+  <data name="Computers.Prestage.Hardening" xml:space="preserve">
+    <value>Od wzmocnienia dołączania do domeny z KB5020276 (2022–2023) dołączenie, które ponownie używa tego konta, udaje się tylko wtedy, gdy dołączający utworzył konto, jest członkiem Domain Admins lub Enterprise Admins albo wbudowanym Administratorem, gdy właściciel konta należy do tych grup, albo gdy zasada „Domain controller: Allow computer account re-use during domain join” (Opcje zabezpieczeń zasad lokalnych kontrolerów domeny) ufa właścicielowi. Właścicielem konta będzie {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OwnerIsAdmin" xml:space="preserve">
+    <value>{0} jest administratorem: {1} może dołączyć komputer z tym kontem.</value>
+  </data>
+  <data name="Computers.Prestage.JoinFails" xml:space="preserve">
+    <value>{0} nie jest administratorem: dołączenie przez {1} nie powiedzie się, chyba że zasada „Domain controller: Allow computer account re-use during domain join” ufa kontu {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OnlyAdmins" xml:space="preserve">
+    <value>Bez użytkownika lub grupy tylko administratorzy mogą dołączyć komputer z tym kontem.</value>
+  </data>
+  <data name="Computers.Prestage.NoPreWindows2000" xml:space="preserve">
+    <value>Opcja „Przypisz to konto komputera jako komputer sprzed Windows 2000” nie jest oferowana: hasło wyprowadzone z nazwy to znana ścieżka ataku.</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
+    <value>Wybrany użytkownik lub grupa nie ma identyfikatora zabezpieczeń.</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Przegląd komputerów</value>
   </data>

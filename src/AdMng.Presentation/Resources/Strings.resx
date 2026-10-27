@@ -7743,6 +7743,45 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.Owner.Deleted" xml:space="preserve">
     <value>owner deleted</value>
   </data>
+  <data name="Computers.Prestage.Joiner" xml:space="preserve">
+    <value>User or group that can join this computer to the domain</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNone" xml:space="preserve">
+    <value>none – only administrators</value>
+  </data>
+  <data name="Computers.Prestage.ManagedBy" xml:space="preserve">
+    <value>Managed by</value>
+  </data>
+  <data name="Computers.Prestage.ManagedByNone" xml:space="preserve">
+    <value>nobody</value>
+  </data>
+  <data name="Computers.Prestage.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Computers.Prestage.Change" xml:space="preserve">
+    <value>Change…</value>
+  </data>
+  <data name="Computers.Prestage.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Computers.Prestage.Hardening" xml:space="preserve">
+    <value>Since the domain join hardening of KB5020276 (2022–2023) a join that reuses this account succeeds only when the joiner created the account, is a Domain Admin, Enterprise Admin or the built-in Administrator, when the owner of the account is a member of those groups, or when the policy "Domain controller: Allow computer account re-use during domain join" trusts the owner. The owner of the account will be {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OwnerIsAdmin" xml:space="preserve">
+    <value>{0} is an administrator: {1} can join the computer with this account.</value>
+  </data>
+  <data name="Computers.Prestage.JoinFails" xml:space="preserve">
+    <value>{0} is not an administrator: the join by {1} fails unless the policy "Domain controller: Allow computer account re-use during domain join" trusts {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OnlyAdmins" xml:space="preserve">
+    <value>Without a user or group only administrators can join the computer with this account.</value>
+  </data>
+  <data name="Computers.Prestage.NoPreWindows2000" xml:space="preserve">
+    <value>The option "Assign this computer account as a pre-Windows 2000 computer" is not offered: a password derived from the name is a known attack path.</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
+    <value>The chosen user or group has no security identifier.</value>
+  </data>
   <data name="ComputerReview.WindowTitle" xml:space="preserve">
     <value>Computer review</value>
   </data>
