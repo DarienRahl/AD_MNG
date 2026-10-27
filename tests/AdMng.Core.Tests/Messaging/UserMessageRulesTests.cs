@@ -87,7 +87,8 @@ public class UserMessageRulesTests
     {
         var links = UserMessageRules.FindLinks("Zobacz https://sspr.contoso.test/reset. Albo www.evil.example, <a href=\"https://x.example/a?b=1&amp;c=2\">tu</a> <img src='cid:logo'>");
 
-        Assert.Equal(["https://sspr.contoso.test/reset", "www.evil.example", "https://x.example/a?b=1&c=2", "cid:logo"], links);
+        // An inline image (cid:) is not a link (U1c).
+        Assert.Equal(["https://sspr.contoso.test/reset", "www.evil.example", "https://x.example/a?b=1&c=2"], links);
     }
 
     [Fact]

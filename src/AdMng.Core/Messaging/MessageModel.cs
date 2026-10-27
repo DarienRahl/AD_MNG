@@ -151,6 +151,10 @@ public sealed record MessageTemplate
 
     public MessageTemplateText English { get; init; } = new();
 
+    /// <summary>Inline images of the HTML bodies (U1c): metadata only, the bytes are in the image store next to the
+    /// settings; both languages reference a subset by <c>cid:</c>.</summary>
+    public IReadOnlyList<Images.MessageTemplateImage> Images { get; init; } = [];
+
     public MessageConditionKind Condition { get; init; }
 
     /// <summary>Default N of the condition (changeable when sending).</summary>
@@ -208,6 +212,12 @@ public sealed record OutgoingUserMessage
     public required string TextBody { get; init; }
 
     public required string HtmlBody { get; init; }
+
+    /// <summary>
+    /// Images referenced by <c>cid:</c> from <see cref="HtmlBody"/>, sent as inline parts of <c>multipart/related</c> (U1c);
+    /// there is still no attachment field.
+    /// </summary>
+    public IReadOnlyList<Images.MessageImage> InlineImages { get; init; } = [];
 
     public MessageLanguage Language { get; init; }
 

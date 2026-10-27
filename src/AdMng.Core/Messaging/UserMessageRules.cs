@@ -104,7 +104,8 @@ public static partial class UserMessageRules
     }
 
     /// <summary>
-    /// Links in a text or HTML: <c>http(s)://</c>, <c>ftp://</c>, <c>www.</c> and every <c>href</c>/<c>src</c> value.
+    /// Links in a text or HTML: <c>http(s)://</c>, <c>ftp://</c>, <c>www.</c> and every <c>href</c>/<c>src</c> value except
+    /// inline images (<c>cid:</c>).
     /// </summary>
     public static IReadOnlyList<string> FindLinks(string? content)
     {
@@ -121,7 +122,12 @@ public static partial class UserMessageRules
 
         foreach (Match match in AttributeUrlPattern().Matches(content))
         {
-            links.Add(WebUtility.HtmlDecode(match.Groups["url"].Value).Trim());
+            // An inline image (cid:, U1c) is part of the message, not a link.
+            var value = WebUtility.HtmlDecode(match.Groups["url"].Value).Trim();
+            if (!value.StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
+            {
+                links.Add(value);
+            }
         }
 
         return [.. links.Distinct(StringComparer.Ordinal)];
