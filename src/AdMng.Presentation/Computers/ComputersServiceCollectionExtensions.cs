@@ -18,7 +18,9 @@ public static class ComputersServiceCollectionExtensions
     public static IServiceCollection AddAdMngComputers(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<WindowsReleaseCatalog>();
+        // A factory, not the type: the container would pick the IEnumerable<WindowsRelease> constructor and give it an
+        // empty sequence (no release known, nothing past its end of support).
+        services.TryAddSingleton(_ => new WindowsReleaseCatalog());
         services.TryAddScoped(sp => new ComputerActions(
             sp.GetRequiredService<DialogServices>(),
             sp.GetRequiredService<IChangePlanner>(),
