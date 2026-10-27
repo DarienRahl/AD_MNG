@@ -109,6 +109,22 @@ internal static class RemoteCommands
         return string.Concat(variables.Select(v => $"{v.Key}={v.Value}\0")) + "\0";
     }
 
+    /// <summary>
+    /// How a tool starts without the window's credential (a Windows-account window): CreateProcess, which cannot elevate –
+    /// so mmc (<c>highestAvailable</c>) and eventvwr (auto-elevating) get <c>__COMPAT_LAYER=RunAsInvoker</c> like the
+    /// net-only path; otherwise an operator who is a local administrator gets ERROR_ELEVATION_REQUIRED (740).
+    /// </summary>
+    public static System.Diagnostics.ProcessStartInfo DirectStart(LocalTool tool, string fileName, string arguments)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo(fileName, arguments) { UseShellExecute = false };
+        if (tool != LocalTool.RemoteDesktop)
+        {
+            start.Environment["__COMPAT_LAYER"] = "RunAsInvoker";
+        }
+
+        return start;
+    }
+
     /// <summary>The command line of CreateProcessWithLogonW: the quoted program and its arguments.</summary>
     public static string CommandLine(string fileName, string arguments) => $"\"{fileName}\" {arguments}";
 }

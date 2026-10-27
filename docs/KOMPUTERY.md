@@ -211,7 +211,8 @@ Do potwierdzenia na Windows Server 2025 i Windows 11 24H2/25H2 (laboratorium Sam
 - `Win32ShutdownTracker` z komunikatem i opóźnieniem wywoływany przez zdalnego administratora bez podniesienia uprawnień,
 - odświeżanie zasad użytkowników zadaniem zaplanowanym (`RefreshUserPolicy`),
 - CIM tylko z Kerberosem i jawnymi poświadczeniami innego konta niż konto Windows,
-- `CreateProcessWithLogonW` z `RunAsInvoker` dla `mmc`,
+- `CreateProcessWithLogonW` z `RunAsInvoker` dla `mmc` oraz bezpośrednie uruchomienie `mmc` i `eventvwr` z `RunAsInvoker`
+  w oknie z bieżącym kontem Windows (operator będący lokalnym administratorem, UAC włączony),
 - reguły KB5020276 dla przygotowanych kont,
 - inwentarz zgodny z `Get-ADComputer` na prawdziwej domenie.
 

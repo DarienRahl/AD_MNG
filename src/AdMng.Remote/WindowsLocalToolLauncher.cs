@@ -13,7 +13,8 @@ namespace AdMng.Remote;
 /// <list type="bullet">
 /// <item><c>mstsc.exe /v:host</c> never gets a credential (no cmdkey, nothing in Credential Manager – rule 2): mstsc uses
 /// the operator's saved credentials or asks.</item>
-/// <item>The MMC tools start directly in a Windows-account window. Otherwise <c>CreateProcessWithLogonW</c> with
+/// <item>The MMC tools start directly in a Windows-account window, with <c>__COMPAT_LAYER=RunAsInvoker</c> (CreateProcess
+/// cannot elevate mmc or the auto-elevating eventvwr). Otherwise <c>CreateProcessWithLogonW</c> with
 /// <c>LOGON_NETCREDENTIALS_ONLY</c> (what <c>runas /netonly</c> does): the local identity stays, network access uses the
 /// window's credential; the password goes in a zeroed unmanaged buffer; the child gets <c>__COMPAT_LAYER=RunAsInvoker</c>.
 /// The credential then lives in the LSA logon session of that tool until the operator closes it – never on disk.</item>
@@ -46,7 +47,7 @@ public sealed class WindowsLocalToolLauncher : ILocalToolLauncher
         var (fileName, arguments) = RemoteCommands.Tool(tool, host, Environment.SystemDirectory);
         if (!UsesWindowCredential(tool, session))
         {
-            return Task.Run(() => StartDirectly(fileName, arguments), cancellationToken);
+            return Task.Run(() => StartDirectly(tool, fileName, arguments), cancellationToken);
         }
 
         var logon = SessionLogons.Of(session);
@@ -57,7 +58,7 @@ public sealed class WindowsLocalToolLauncher : ILocalToolLauncher
                 {
                     if (logon.IsWindowsAccount)
                     {
-                        StartDirectly(fileName, arguments);
+                        StartDirectly(tool, fileName, arguments);
                     }
                     else
                     {
@@ -69,11 +70,11 @@ public sealed class WindowsLocalToolLauncher : ILocalToolLauncher
     }
 
     [SupportedOSPlatform("windows")]
-    private static void StartDirectly(string fileName, string arguments)
+    private static void StartDirectly(LocalTool tool, string fileName, string arguments)
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo(fileName, arguments) { UseShellExecute = false });
+            using var process = Process.Start(RemoteCommands.DirectStart(tool, fileName, arguments));
         }
         catch (Win32Exception ex)
         {

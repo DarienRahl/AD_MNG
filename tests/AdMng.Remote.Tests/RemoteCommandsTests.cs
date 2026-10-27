@@ -67,6 +67,30 @@ public class RemoteCommandsTests
         Assert.Matches("^AdMng-UserPolicyRefresh-[0-9a-f]{32}$", RemoteCommands.UserPolicyTaskName(Guid.NewGuid()));
     }
 
+    [Theory]
+    [InlineData(LocalTool.ComputerManagement, "RunAsInvoker")]
+    [InlineData(LocalTool.EventViewer, "RunAsInvoker")]
+    [InlineData(LocalTool.RemoteDesktop, null)]
+    public void DirectStart_OfTheMmcTools_RunsAsInvoker(LocalTool tool, string? layer)
+    {
+        // A local administrator with UAC: CreateProcess of mmc (highestAvailable) or eventvwr (auto-elevating) fails with 740.
+        var (fileName, arguments) = RemoteCommands.Tool(tool, "srv-lodz01.contoso.test", Path.Combine("C:", "Windows", "System32"));
+
+        var start = RemoteCommands.DirectStart(tool, fileName, arguments);
+
+        Assert.False(start.UseShellExecute);
+        Assert.Equal(fileName, start.FileName);
+        Assert.Equal(arguments, start.Arguments);
+        if (layer is null)
+        {
+            Assert.Equal(Environment.GetEnvironmentVariable("__COMPAT_LAYER"), start.Environment.TryGetValue("__COMPAT_LAYER", out var value) ? value : null);
+        }
+        else
+        {
+            Assert.Equal(layer, start.Environment["__COMPAT_LAYER"]);
+        }
+    }
+
     [Fact]
     public void EnvironmentBlock_AddsRunAsInvoker_SortedAndNulTerminated()
     {

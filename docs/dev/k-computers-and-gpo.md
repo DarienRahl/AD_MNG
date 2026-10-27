@@ -505,7 +505,8 @@ Win32ShutdownTracker -Arguments @{ Timeout = 600; Comment = '…'; ReasonCode = 
 * **Pulpit zdalny** – `mstsc.exe /v:<dns name>`; **no credential is passed** (no `cmdkey`, nothing in Credential
   Manager – rule 2); mstsc uses the operator's saved credentials or asks.
 * **Zarządzanie komputerem**, **Podgląd zdarzeń** – `mmc.exe compmgmt.msc /computer:<host>`, `eventvwr.exe <host>`.
-  A Windows-account window starts them directly. Otherwise `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)` (what
+  A Windows-account window starts them directly (CreateProcess with `__COMPAT_LAYER=RunAsInvoker`: CreateProcess cannot
+  elevate mmc's `highestAvailable` or the auto-elevating eventvwr and fails with 740 for a local administrator). Otherwise `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)` (what
   `runas /netonly` does): the local identity stays, network access uses the window's credential; the password goes in
   a zeroed unmanaged buffer; the child gets `__COMPAT_LAYER=RunAsInvoker` (mmc would otherwise ask for elevation, which
   `CreateProcessWithLogonW` cannot satisfy – remote management needs none). The credential then lives in the LSA logon
