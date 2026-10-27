@@ -142,6 +142,41 @@ public sealed class ScreenshotTests
         "Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem",
         "Two connections at once – contoso.test and fabrikam.test in separate windows, each with its own colour and account");
 
+    private static readonly ScreenshotInfo CompareObjects = new(
+        "21-compare-objects.png",
+        "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
+        "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)");
+
+    [Fact]
+    public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // The same person in two domains, side by side (design note docs/dev/multi-window.md 10.6).
+        await ComparisonFixture.AddFabrikamAsync(context);
+        context.Connection.ProfileName = "Contoso";
+        context.Connection.PreferredColor = ConnectionColor.Blue;
+        await UiTestContext.ConnectAsync(context.Services, FakeDirectoryBuilder.DefaultDomain, "jan.kowalski");
+        var other = context.CreateConnection();
+        var otherConnection = other.GetRequiredService<ConnectionContext>();
+        otherConnection.ProfileName = "Fabrikam";
+        otherConnection.PreferredColor = ConnectionColor.Green;
+        await UiTestContext.ConnectAsync(other, ComparisonFixture.Fabrikam, "anna.zielinska");
+
+        // The main window of contoso owns the comparison window (and gives it its chrome).
+        UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
+        var comparison = Factory(context).CreateObjectComparison(context.Company.LukaszWisniewski);
+        var window = (CompareObjectsWindow)Windows(context).CreateWindow(comparison);
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1180, 780);
+        await UiWait.InitializedAsync(window.Initialization);
+        await UiWait.UntilAsync(() => comparison.HasResult && !comparison.IsRunning && !comparison.IsNestedLoading, "the comparison");
+        comparison.SelectedAttributeRow = comparison.AttributeRows.Single(r => r.LdapName == Attr.Title);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal([Attr.City, Attr.Title], comparison.AttributeRows.Select(r => r.LdapName).Order(StringComparer.Ordinal));
+        Assert.Equal("Członkostwo (2)", comparison.MembershipTabHeader);
+        Assert.StartsWith("Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
+        await ScreenshotWriter.SaveAsync(window, CompareObjects, dark: false);
+    });
+
     [Fact]
     public Task Screenshot20_TwoConnections() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
     {

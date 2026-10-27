@@ -378,6 +378,10 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
     private bool CanCopyRow(AttributeComparisonRowViewModel? row) => (row ?? SelectedAttributeRow) is not null;
 
+    /// <summary>"Zamknij": the window closes; every read still running is cancelled.</summary>
+    [RelayCommand]
+    private void Close() => RequestClose(true);
+
     // ---- Property changes -------------------------------------------------------------------------------------
 
     partial void OnSelectedTargetChanged(ComparisonTargetViewModel? value)

@@ -485,6 +485,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   <data name="Comparison.Compare" xml:space="preserve">
     <value>Porównaj</value>
   </data>
+  <data name="Comparison.CompareShort" xml:space="preserve">
+    <value>Porównaj z innym połączeniem…</value>
+  </data>
   <data name="Comparison.Connection" xml:space="preserve">
     <value>Połączenie</value>
   </data>

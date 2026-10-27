@@ -369,6 +369,7 @@
           <MenuItem b:CommandMenu.Id="copyAs.sid" />
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
+        <MenuItem b:CommandMenu.Id="object.compareWithConnection" />
         <MenuItem b:CommandMenu.Id="object.delete" />
         <MenuItem b:CommandMenu.Id="object.rename" />
         <Separator />
@@ -980,6 +981,12 @@
                           b:CommandMenu.Id="object.watchdogHistory"
                           Content="{l:Tr Commands.WatchdogHistory}"
                           Visibility="{Binding Data.IsWatchdogHistoryAvailable, Mode=OneWay, Source={StaticResource ShellProxy}, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  <!-- The same object in another open connection (read-only comparison). -->
+                  <Button x:Name="CompareWithConnectionButton"
+                          Margin="0,0,6,6"
+                          b:CommandMenu.Id="object.compareWithConnection"
+                          Content="{l:Tr Comparison.CompareShort}"
+                          Visibility="{Binding Data.CanCompareWithConnections, Mode=OneWay, Source={StaticResource ShellProxy}, Converter={StaticResource Ad.BoolToVisibility}}" />
                 </WrapPanel>
               </StackPanel>
             </ScrollViewer>

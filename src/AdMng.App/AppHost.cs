@@ -17,6 +17,7 @@ using AdMng.Mail;
 using AdMng.Presentation;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
@@ -171,6 +172,10 @@ public static class AppHost
         services.AddSingleton<IDirectSmtpTransportFactory>(sp => new SmtpTransportFactory(sp.GetRequiredService<TimeProvider>()));
         services.AddScoped<IUserMessageLauncher>(sp => sp.GetRequiredService<DialogService>());
         services.AddWindow<UserMessageComposerViewModel, UserMessagesWindow>();
+
+        // ---- Comparison of objects between connections (design note docs/dev/multi-window.md 8), opened by DialogService ----
+        services.AddScoped<IObjectComparisonLauncher>(sp => sp.GetRequiredService<DialogService>());
+        services.AddWindow<ObjectComparisonViewModel, CompareObjectsWindow>();
 
         // ---- Watchdog: certificate confirmation on first connection (stage B design 18 item 1) ----
         services.AddWindow<WatchdogCertificateTrustViewModel, WatchdogCertificateTrustWindow>();

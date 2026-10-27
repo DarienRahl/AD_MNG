@@ -4,6 +4,7 @@ using AdMng.App.Views;
 using AdMng.Core.Directory;
 using AdMng.Core.Model;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
@@ -35,7 +36,7 @@ namespace AdMng.App.Services;
 /// the window closed (<see cref="MarkClosed"/>) leftover background work of the connection can no longer show anything:
 /// messages are dropped and confirmations answer "no" (logged by type only).
 /// </remarks>
-public sealed class DialogService : IDialogService, IUserMessageLauncher
+public sealed class DialogService : IDialogService, IUserMessageLauncher, IObjectComparisonLauncher
 {
     private readonly IWindowService _windows;
     private readonly ILocalizer _localizer;
@@ -275,6 +276,22 @@ public sealed class DialogService : IDialogService, IUserMessageLauncher
         {
             var parameters = _services.GetRequiredService<ISettingsStore>().Current.AccountReview.Parameters;
             _windows.Show(Factory.CreateUserMessageComposer(UserMessageRequest.For(distinguishedNames, reason, parameters)));
+            return true;
+        });
+    }
+
+    // ---- Comparison of objects between connections (modeless, one window per launch) ----
+
+    /// <summary>
+    /// <see cref="IObjectComparisonLauncher"/>: "Porównaj z obiektem w innym połączeniu…" for the object - read-only, owned by
+    /// this connection's main window; the other connection is chosen in the window.
+    /// </summary>
+    public Task CompareAsync(string distinguishedName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
+        return OnUiThreadAsync(() =>
+        {
+            ShowWindowModeless(Factory.CreateObjectComparison(distinguishedName), singletonKey: null);
             return true;
         });
     }

@@ -21,6 +21,9 @@ public static partial class L
         public const string MatchBy = "Comparison.MatchBy";
         public const string ExplicitHint = "Comparison.ExplicitHint";
         public const string Compare = "Comparison.Compare";
+
+        /// <summary>The short label of the command on buttons (details pane, property sheet).</summary>
+        public const string CompareShort = "Comparison.CompareShort";
         public const string Stop = "Comparison.Stop";
         public const string Refresh = "Comparison.Refresh";
         public const string ExportCsv = "Comparison.ExportCsv";

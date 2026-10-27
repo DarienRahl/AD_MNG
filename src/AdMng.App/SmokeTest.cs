@@ -328,7 +328,7 @@ internal static class SmokeTest
 
     /// <summary>
     /// Settings (both tabs), session log, PowerShell history, the AD Recycle Bin, the account review, the message window, the
-    /// CSV import with a parsed table and the batch editor with every operation editor. None of them needs a directory: without a session the batch
+    /// comparison window, the CSV import with a parsed table and the batch editor with every operation editor. None of them needs a directory: without a session the batch
     /// editor and the Recycle Bin show "not connected", the account review cannot run.
     /// </summary>
     private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
@@ -350,6 +350,10 @@ internal static class SmokeTest
         // Messages to users (U1), disconnected: the editor with a built-in template; "Przygotuj podgląd" is disabled.
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateUserMessageComposer(
             new UserMessageRequest(["CN=Jan Kowalski,OU=IT,DC=contoso,DC=test"], Core.Messaging.BuiltInMessageTemplates.PasswordExpiring))));
+
+        // Comparison of objects between connections, in its initial state: no other connection is open, so the window
+        // says how to open one (the published app has no directory; the UI tests render a finished comparison).
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateObjectComparison("CN=Łukasz Wiśniewski,OU=IT,OU=Pracownicy,OU=Firma,DC=contoso,DC=test")));
 
         var import = factory.CreateBatchEditor(new BatchEditorRequest([]));
         import.CsvImport!.Load(new CsvTable(

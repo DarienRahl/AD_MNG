@@ -9,6 +9,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.Csv;
 using AdMng.Core.Directory;
 using AdMng.Presentation.AccountReview;
+using AdMng.Presentation.Comparison;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -46,6 +47,8 @@ public sealed class HostTests
         Assert.True(windows.IsRegistered(typeof(MessageDialogViewModel)));
         Assert.True(windows.IsRegistered(typeof(SavedViewEditorViewModel)));
         Assert.True(windows.IsRegistered(typeof(ColumnChooserViewModel)));
+        Assert.True(windows.IsRegistered(typeof(ObjectComparisonViewModel)));
+        Assert.Same(services.GetRequiredService<DialogService>(), services.GetRequiredService<IObjectComparisonLauncher>());
         Assert.Same(services.GetRequiredService<ILocalizer>(), TranslationSource.Localizer);
         context.AssertHealthy();
     });
@@ -63,6 +66,7 @@ public sealed class HostTests
         typeof(IFileDialogService),
         typeof(ConnectionNavigator),
         typeof(IUserMessageLauncher),
+        typeof(IObjectComparisonLauncher),
     ];
 
     [Fact]
