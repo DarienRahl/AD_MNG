@@ -19,6 +19,18 @@ public class LinkDomainSuggestionsTests
     public void Suggestions_NeverOfferAPublicSuffix(string host, string[] expected) =>
         Assert.Equal(expected, LinkDomainSuggestions.For(host));
 
+    [Theory]
+    [InlineData("forms.office.com")]
+    [InlineData("contoso.sharepoint.com")]
+    [InlineData("contoso-my.sharepoint.com")]
+    [InlineData("magazyn.blob.core.windows.net")]
+    [InlineData("zespol-it.github.io")]
+    [InlineData("docs.google.com")]
+    [InlineData("contoso.zoom.us")]
+    [InlineData("bit.ly")]
+    public void HostsOfSharedServices_AreOfferedAsTheHostOnly(string host) =>
+        Assert.Equal([host], LinkDomainSuggestions.For(host));
+
     [Fact]
     public void InternationalNames_ArePunycode()
     {

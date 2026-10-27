@@ -359,7 +359,9 @@ across `<br>` or a block boundary:
   **"Zezwól na domenę …"** – adds a domain to `UserMessages.AllowedLinkDomains` through `ISettingsStore.UpdateAsync`
   (the operator picks the host or one of its parent domains; `LinkDomainSuggestions` never offers a single label and, for
   two-letter country TLDs with a second level of ≤ 3 letters – `com.pl`, `gov.pl`, `edu.pl`, `co.uk` – nothing shorter
-  than three labels) – and **"Usuń łącze"** (unwraps the anchor in the HTML of the edited language).
+  than three labels; a host of a service shared by many tenants – `forms.office.com`, `contoso.sharepoint.com`,
+  `*.blob.core.windows.net`, `*.github.io`, link shorteners, `LinkDomainSuggestions.SharedDomains` – is offered as the
+  host only, never `office.com` or `sharepoint.com`) – and **"Usuń łącze"** (unwraps the anchor in the HTML of the edited language).
 * **Text/target mismatch**: an anchor whose visible text is itself a URL or host (`haslo.contoso.pl`) with a different
   host than its `href` → `LinkTextMismatch` (warning at paste; template-level warning issue in the plan) – the classic
   phishing shape, worth a look even in our own templates.
