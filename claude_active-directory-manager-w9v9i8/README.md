@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`e25e001`](https://github.com/DarienRahl/AD_MNG/commit/e25e001f8da509de1df4ff25f817f9763a679c95) (`e25e001f8da509de1df4ff25f817f9763a679c95`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40414761005
+- Commit: [`27d869c`](https://github.com/DarienRahl/AD_MNG/commit/27d869c9a4c97474d01046a5d64ddbec341d8714) (`27d869c9a4c97474d01046a5d64ddbec341d8714`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40453089489
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -79,4 +79,12 @@
 ## Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia
 
 ![Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia](19-privileged-access.png)
+
+## Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem
+
+![Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem](20-two-connections.png)
+
+## Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)
+
+![Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)](21-compare-objects.png)
 
