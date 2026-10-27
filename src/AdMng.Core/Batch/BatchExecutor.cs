@@ -2,6 +2,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch.Planning;
 using AdMng.Core.Directory;
+using AdMng.Core.GroupPolicy;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
@@ -56,14 +57,21 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private readonly IAuditLog _auditLog;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<BatchExecutor>? _logger;
+    private readonly ISysvolFileWriter? _sysvolWriter;
 
-    public BatchExecutor(IAuditLog auditLog, TimeProvider timeProvider, ILogger<BatchExecutor>? logger = null)
+    /// <param name="auditLog">Audit log of the connection window.</param>
+    /// <param name="timeProvider">Clock.</param>
+    /// <param name="logger">Diagnostics (value-free).</param>
+    /// <param name="sysvolWriter">SYSVOL writer for the GPO steps (design note docs/dev/k-computers-and-gpo.md 3.3); without
+    /// it SYSVOL steps fail.</param>
+    public BatchExecutor(IAuditLog auditLog, TimeProvider timeProvider, ILogger<BatchExecutor>? logger = null, ISysvolFileWriter? sysvolWriter = null)
     {
         ArgumentNullException.ThrowIfNull(auditLog);
         ArgumentNullException.ThrowIfNull(timeProvider);
         _auditLog = auditLog;
         _timeProvider = timeProvider;
         _logger = logger;
+        _sysvolWriter = sysvolWriter;
     }
 
     /// <inheritdoc />
@@ -109,10 +117,17 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private readonly record struct Attempted<T>(T? Value, int Attempts, Exception? Error);
 
     /// <summary>Outcome of one step.</summary>
-    private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled);
+    private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled)
+    {
+        /// <summary>
+        /// The exact ACE delta a failed <see cref="Security.AclChange.ReplacesExplicit"/> step tried (audited instead of the
+        /// planned one, which lacks the removals); a succeeded step has <see cref="ChangeResult.AppliedAcl"/>.
+        /// </summary>
+        public Security.AclChange? TriedAcl { get; init; }
+    }
 
     /// <summary>State of one execution.</summary>
-    private sealed class Run
+    private sealed partial class Run
     {
         private readonly BatchExecutor _owner;
         private readonly IDirectorySession _session;
@@ -142,7 +157,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
             _options = options;
             _progress = progress;
             _cancellationToken = cancellationToken;
-            _parallelism = Math.Clamp(options.MaxDegreeOfParallelism, 1, MaxParallelism);
+            // A sequential plan (every GPO plan) runs its objects one by one in plan order.
+            _parallelism = plan.Sequential ? 1 : Math.Clamp(options.MaxDegreeOfParallelism, 1, MaxParallelism);
             _dependencies = RestoreDependencies(plan.Objects);
             if (_dependencies is not null)
             {
@@ -165,10 +181,11 @@ public sealed partial class BatchExecutor : IBatchExecutor
             var running = new List<Task>();
             using var gate = new SemaphoreSlim(_parallelism, _parallelism);
             var hasScheduled = false;
+            var blocked = _plan.IsBlocked;
             for (var i = 0; i < objects.Count; i++)
             {
                 var objectPlan = objects[i];
-                if (objectPlan.HasErrors || objectPlan.IsNoOp || _stopRequested)
+                if (blocked || objectPlan.HasErrors || objectPlan.IsNoOp || _stopRequested)
                 {
                     Complete(results, i, NotExecuted(objectPlan, ObjectResultStatus.Skipped));
                     continue;
@@ -219,6 +236,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
             }
 
             await Task.WhenAll(running).ConfigureAwait(false);
+            await CloseSysvolAsync().ConfigureAwait(false);
             var finishedAt = Now;
             var wasCancelled = _cancellationToken.IsCancellationRequested
                 || results.Any(r => r.Status == ObjectResultStatus.Cancelled);
@@ -333,7 +351,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     else
                     {
                         status = anySucceeded ? ObjectResultStatus.PartiallySucceeded : ObjectResultStatus.Failed;
-                        if (_options.StopOnFirstError)
+                        if (_options.StopOnFirstError || _plan.Sequential)
                         {
                             _stopRequested = true;
                         }
@@ -370,6 +388,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
         {
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    return await SysvolStepAsync(objectPlan, change, dn).ConfigureAwait(false);
                 case ChangeAction.Modify:
                     return await ModifyAsync(change, dn).ConfigureAwait(false);
                 case ChangeAction.AddMember or ChangeAction.RemoveMember:
@@ -452,6 +473,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     // noSuchObject on a retry: the attempt that timed out restored it (the deleted object is gone and the
                     // object at the target DN is this one, not somebody else's object with the same name).
                     return ToOutcome(change, await ConfirmRestoreAsync(restored, targetDn, objectPlan.ObjectGuid).ConfigureAwait(false), newDn: true);
+                case ChangeAction.ModifySecurity:
+                    return await ModifySecurityAsync(change, dn).ConfigureAwait(false);
                 default:
                     return Invalid(change, $"Unsupported action {change.Action}.");
             }
@@ -821,6 +844,14 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    foreach (var (attribute, oldValue, newValue) in SysvolAuditValues(change))
+                    {
+                        Record(change.Action, Entry(change.Action.ToString(), attribute, oldValue, newValue));
+                    }
+
+                    break;
                 case ChangeAction.Modify or ChangeAction.Create:
                     if (change.Attributes.Count == 0)
                     {
@@ -853,6 +884,16 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     // DN in CN=Deleted Objects, new value = the DN the object got back.
                     var restoredDn = outcome.NewDn ?? change.TargetDn ?? dn;
                     Record(change.Action, new AuditEntry(now, info.BoundIdentity, info.Server, restoredDn, change.Action.ToString(), null, dn, restoredDn, succeeded, error));
+                    break;
+                case ChangeAction.ModifySecurity:
+                    // The ACEs (rights and trustee SIDs, no names): old value = removed, new value = added. A succeeded step
+                    // records what changed the DACL, not an ACE that was already there; a failed one what it tried.
+                    var acl = outcome.Result.AppliedAcl ?? outcome.TriedAcl ?? change.Acl;
+                    Record(change.Action, Entry(
+                        change.Action.ToString(),
+                        Attr.NtSecurityDescriptor,
+                        Join([.. acl?.Removed.Select(a => a.Describe()) ?? []]),
+                        Join([.. acl?.Added.Select(a => a.Describe()) ?? []])));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).

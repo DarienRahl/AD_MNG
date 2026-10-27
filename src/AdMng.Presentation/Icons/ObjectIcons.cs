@@ -12,6 +12,12 @@ public enum ObjectIcon
     UserLocked,
     Computer,
     ComputerDisabled,
+
+    /// <summary>A member server (K1: computer review, remote actions).</summary>
+    Server,
+
+    /// <summary>A (read-only) domain controller (K1).</summary>
+    DomainController,
     Group,
     GroupDistribution,
     Contact,
@@ -30,6 +36,15 @@ public enum ObjectIcon
 
     /// <summary>The Watchdog document tab and the watchdog's own events.</summary>
     Watchdog,
+
+    /// <summary>A group policy object and the "Obiekty zasad grupy" node (K2).</summary>
+    GroupPolicy,
+
+    /// <summary>A WMI filter and the "Filtry WMI" node (K2).</summary>
+    WmiFilter,
+
+    /// <summary>A site and the "Lokacje" node (K2).</summary>
+    Site,
 }
 
 /// <summary>Chooses the icon of a directory object (ADUC conventions: down arrow for disabled accounts, padlock for locked).</summary>
@@ -58,6 +73,9 @@ public static class ObjectIcons
         ObjectKind.ForeignSecurityPrincipal => ObjectIcon.ForeignPrincipal,
         ObjectKind.PrintQueue => ObjectIcon.Printer,
         ObjectKind.SharedFolder => ObjectIcon.SharedFolder,
+        ObjectKind.GroupPolicyContainer => ObjectIcon.GroupPolicy,
+        ObjectKind.WmiFilter => ObjectIcon.WmiFilter,
+        ObjectKind.Site => ObjectIcon.Site,
         _ => ObjectIcon.Unknown,
     };
 }

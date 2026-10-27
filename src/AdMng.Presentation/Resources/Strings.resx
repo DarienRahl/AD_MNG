@@ -7530,6 +7530,951 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
     <value>{0} did not answer: {1}</value>
   </data>
+  <data name="ChangeAction.ModifySecurity" xml:space="preserve">
+    <value>Change permissions</value>
+  </data>
+  <data name="Issue.DomainControllerAccount" xml:space="preserve">
+    <value>This is the account of a domain controller – demote the domain controller instead.</value>
+  </data>
+  <data name="Issue.DomainControllerOutsideOu" xml:space="preserve">
+    <value>The domain controller leaves the Domain Controllers OU: the Default Domain Controllers Policy no longer applies to it.</value>
+  </data>
+  <data name="Issue.ComputerTrustLost" xml:space="preserve">
+    <value>The computer loses its trust relationship with the domain: join it again or repair the secure channel (Test-ComputerSecureChannel -Repair).</value>
+  </data>
+  <data name="Issue.DeletesBitLockerRecovery" xml:space="preserve">
+    <value>The computer's child objects are deleted with it – BitLocker recovery passwords among them.</value>
+  </data>
+  <data name="Issue.SecurityNotReadable" xml:space="preserve">
+    <value>The permissions of the object cannot be read.</value>
+  </data>
+  <data name="Computers.Acl.Added" xml:space="preserve">
+    <value>added: {0}</value>
+  </data>
+  <data name="Computers.Acl.Removed" xml:space="preserve">
+    <value>removed: {0}</value>
+  </data>
+  <data name="Computers.Acl.Allow" xml:space="preserve">
+    <value>Allow – {0}</value>
+  </data>
+  <data name="Computers.Acl.Deny" xml:space="preserve">
+    <value>Deny – {0}</value>
+  </data>
+  <data name="Computers.Acl.Inherited" xml:space="preserve">
+    <value>(also for child objects)</value>
+  </data>
+  <data name="Computers.Acl.Right.FullControl" xml:space="preserve">
+    <value>full control</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericRead" xml:space="preserve">
+    <value>read</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericWrite" xml:space="preserve">
+    <value>write</value>
+  </data>
+  <data name="Computers.Acl.Right.ResetPassword" xml:space="preserve">
+    <value>reset password</value>
+  </data>
+  <data name="Computers.Acl.Right.AccountRestrictions" xml:space="preserve">
+    <value>read and write account restrictions</value>
+  </data>
+  <data name="Computers.Acl.Right.DnsHostName" xml:space="preserve">
+    <value>validated write to DNS host name</value>
+  </data>
+  <data name="Computers.Acl.Right.ServicePrincipalName" xml:space="preserve">
+    <value>validated write to service principal name</value>
+  </data>
+  <data name="Computers.Acl.Right.ApplyGroupPolicy" xml:space="preserve">
+    <value>apply group policy</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRight" xml:space="preserve">
+    <value>all extended rights</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRightOf" xml:space="preserve">
+    <value>extended right {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadProperty" xml:space="preserve">
+    <value>read all properties</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadPropertyOf" xml:space="preserve">
+    <value>read {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteProperty" xml:space="preserve">
+    <value>write all properties</value>
+  </data>
+  <data name="Computers.Acl.Right.WritePropertyOf" xml:space="preserve">
+    <value>write {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.Self" xml:space="preserve">
+    <value>all validated writes</value>
+  </data>
+  <data name="Computers.Acl.Right.SelfOf" xml:space="preserve">
+    <value>validated write {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.CreateChild" xml:space="preserve">
+    <value>create child objects</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteChild" xml:space="preserve">
+    <value>delete child objects</value>
+  </data>
+  <data name="Computers.Acl.Right.ListChildren" xml:space="preserve">
+    <value>list contents</value>
+  </data>
+  <data name="Computers.Acl.Right.ListObject" xml:space="preserve">
+    <value>list object</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteTree" xml:space="preserve">
+    <value>delete subtree</value>
+  </data>
+  <data name="Computers.Acl.Right.Delete" xml:space="preserve">
+    <value>delete</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadControl" xml:space="preserve">
+    <value>read permissions</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteDacl" xml:space="preserve">
+    <value>modify permissions</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteOwner" xml:space="preserve">
+    <value>modify owner</value>
+  </data>
+  <data name="Computers.Acl.Right.Other" xml:space="preserve">
+    <value>rights 0x{0}</value>
+  </data>
+  <data name="Computers.NotAComputer" xml:space="preserve">
+    <value>The object is not a computer (any more).</value>
+  </data>
+  <data name="Computers.NoDnsName" xml:space="preserve">
+    <value>{0} has no DNS host name in Active Directory: remote actions and tools need it (Kerberos does not work with IP addresses).</value>
+  </data>
+  <data name="Computers.ToolsNotAvailable" xml:space="preserve">
+    <value>This action is available only in AD Manager on Windows.</value>
+  </data>
+  <data name="Computers.ToolCredentialConfirm" xml:space="preserve">
+    <value>The tool connects to {0} as {1} – with the credentials of this connection window. They stay in the memory of the tool's logon session until you close it (never on disk). Start it?</value>
+  </data>
+  <data name="Computers.Ping" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="Computers.PingReplies" xml:space="preserve">
+    <value>Ping {0}: {1} of {2} replies, average {3} ms.</value>
+  </data>
+  <data name="Computers.PingNoReply" xml:space="preserve">
+    <value>Ping {0}: no reply.</value>
+  </data>
+  <data name="Computers.RemoteDesktop" xml:space="preserve">
+    <value>Remote Desktop</value>
+  </data>
+  <data name="Computers.ComputerManagement" xml:space="preserve">
+    <value>Computer Management</value>
+  </data>
+  <data name="Computers.EventViewer" xml:space="preserve">
+    <value>Event Viewer</value>
+  </data>
+  <data name="Computers.RemoteActionsCommand" xml:space="preserve">
+    <value>Remote actions…</value>
+  </data>
+  <data name="Computers.ComputerMenu" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="Computers.ResetAccount" xml:space="preserve">
+    <value>Reset Account</value>
+  </data>
+  <data name="Computers.ResetAccountCommand" xml:space="preserve">
+    <value>Reset Account…</value>
+  </data>
+  <data name="Computers.ResetConfirmOne" xml:space="preserve">
+    <value>Reset the computer account {0} in the domain {1}?</value>
+  </data>
+  <data name="Computers.ResetConfirmMany" xml:space="preserve">
+    <value>Reset {0} computer accounts in the domain {1}?</value>
+  </data>
+  <data name="Computers.ResetSkipped" xml:space="preserve">
+    <value>Not reset (domain controllers or other objects): {0}.</value>
+  </data>
+  <data name="Computers.ResetTargets" xml:space="preserve">
+    <value>Accounts: {0}.</value>
+  </data>
+  <data name="Computers.ResetTargetsMore" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
+  <data name="Computers.ResetWarning" xml:space="preserve">
+    <value>The computers lose their trust relationship with the domain: join them again or repair the secure channel (Test-ComputerSecureChannel -Repair). The new machine password is random and nobody sees it; the change cannot be undone.</value>
+  </data>
+  <data name="Computers.TypeDomainToConfirm" xml:space="preserve">
+    <value>Type the domain name {0} to confirm.</value>
+  </data>
+  <data name="Computers.ResetDone" xml:space="preserve">
+    <value>Computer accounts reset: {0}, failed: {1}.</value>
+  </data>
+  <data name="Computers.ComputerReviewCommand" xml:space="preserve">
+    <value>Computer review…</value>
+  </data>
+  <data name="Computers.Type.Workstation" xml:space="preserve">
+    <value>Workstation</value>
+  </data>
+  <data name="Computers.Type.Server" xml:space="preserve">
+    <value>Server</value>
+  </data>
+  <data name="Computers.Type.DomainController" xml:space="preserve">
+    <value>Domain controller</value>
+  </data>
+  <data name="Computers.Type.ReadOnlyDomainController" xml:space="preserve">
+    <value>Read-only domain controller</value>
+  </data>
+  <data name="Computers.Type.Unknown" xml:space="preserve">
+    <value>Unknown (no operating system)</value>
+  </data>
+  <data name="Computers.Placement.NotMovedAfterJoin" xml:space="preserve">
+    <value>not moved after the join (default Computers container)</value>
+  </data>
+  <data name="Computers.Placement.DomainControllerOutsideOu" xml:space="preserve">
+    <value>domain controller outside OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.MemberInDomainControllersOu" xml:space="preserve">
+    <value>not a domain controller, but in OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.UnexpectedContainer" xml:space="preserve">
+    <value>outside the containers allowed for its type</value>
+  </data>
+  <data name="Computers.Owner.Unknown" xml:space="preserve">
+    <value>not checked</value>
+  </data>
+  <data name="Computers.Owner.Missing" xml:space="preserve">
+    <value>no owner</value>
+  </data>
+  <data name="Computers.Owner.Present" xml:space="preserve">
+    <value>owner set</value>
+  </data>
+  <data name="Computers.Owner.Disabled" xml:space="preserve">
+    <value>owner's account disabled</value>
+  </data>
+  <data name="Computers.Owner.Deleted" xml:space="preserve">
+    <value>owner deleted</value>
+  </data>
+  <data name="Computers.Prestage.Joiner" xml:space="preserve">
+    <value>User or group that can join this computer to the domain</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNone" xml:space="preserve">
+    <value>none – only administrators</value>
+  </data>
+  <data name="Computers.Prestage.ManagedBy" xml:space="preserve">
+    <value>Managed by</value>
+  </data>
+  <data name="Computers.Prestage.ManagedByNone" xml:space="preserve">
+    <value>nobody</value>
+  </data>
+  <data name="Computers.Prestage.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Computers.Prestage.Change" xml:space="preserve">
+    <value>Change…</value>
+  </data>
+  <data name="Computers.Prestage.Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Computers.Prestage.Hardening" xml:space="preserve">
+    <value>Since the domain join hardening of KB5020276 (2022–2023) a join that reuses this account succeeds only when the joiner created the account, is a Domain Admin, Enterprise Admin or the built-in Administrator, when the owner of the account is a member of those groups, or when the policy "Domain controller: Allow computer account re-use during domain join" trusts the owner. The owner of the account will be {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OwnerIsAdmin" xml:space="preserve">
+    <value>{0} is an administrator: {1} can join the computer with this account.</value>
+  </data>
+  <data name="Computers.Prestage.JoinFails" xml:space="preserve">
+    <value>{0} is not an administrator: the join by {1} fails unless the policy "Domain controller: Allow computer account re-use during domain join" trusts {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OnlyAdmins" xml:space="preserve">
+    <value>Without a user or group only administrators can join the computer with this account.</value>
+  </data>
+  <data name="Computers.Prestage.NoPreWindows2000" xml:space="preserve">
+    <value>The option "Assign this computer account as a pre-Windows 2000 computer" is not offered: a password derived from the name is a known attack path.</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
+    <value>The chosen user or group has no security identifier.</value>
+  </data>
+  <data name="Computers.Page.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Computers.Status.CheckAllDomainControllers" xml:space="preserve">
+    <value>Check on all DCs</value>
+  </data>
+  <data name="Computers.Status.ResolveSite" xml:space="preserve">
+    <value>Determine</value>
+  </data>
+  <data name="Computers.Status.ObjectOwner" xml:space="preserve">
+    <value>Object owner</value>
+  </data>
+  <data name="Computers.Status.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Computers.Status.ExactNotAnswered" xml:space="preserve">
+    <value>Not every domain controller answered: {0}</value>
+  </data>
+  <data name="Computers.Status.NotRead" xml:space="preserve">
+    <value>not read yet</value>
+  </data>
+  <data name="Computers.Settings.Tab" xml:space="preserve">
+    <value>Computers</value>
+  </data>
+  <data name="Computers.Settings.RemoteHeader" xml:space="preserve">
+    <value>Remote actions (WinRM, Kerberos)</value>
+  </data>
+  <data name="Computers.Settings.Timeout" xml:space="preserve">
+    <value>Timeout (seconds)</value>
+  </data>
+  <data name="Computers.Settings.UseHttps" xml:space="preserve">
+    <value>Use HTTPS (5986) instead of HTTP with Kerberos encryption (5985)</value>
+  </data>
+  <data name="Computers.Settings.Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Computers.Settings.PortHint" xml:space="preserve">
+    <value>Empty: {0}</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicy" xml:space="preserve">
+    <value>"Refresh Group Policy" also refreshes the policy of logged-on users (scheduled task)</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicyHint" xml:space="preserve">
+    <value>Off until it is confirmed in the pilot on Windows; the computer policy is always refreshed.</value>
+  </data>
+  <data name="Computers.Settings.RestartHeader" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="Computers.Settings.RestartDelay" xml:space="preserve">
+    <value>Default delay (minutes)</value>
+  </data>
+  <data name="Computers.Settings.RestartMessage" xml:space="preserve">
+    <value>Default message to the users</value>
+  </data>
+  <data name="Computers.Settings.RestartMessageHint" xml:space="preserve">
+    <value>Empty: the built-in text of the interface language.</value>
+  </data>
+  <data name="Computers.Settings.EndingSoonDays" xml:space="preserve">
+    <value>Warn about the end of support (days ahead)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHeader" xml:space="preserve">
+    <value>Expected containers (report "Computers in unexpected OUs")</value>
+  </data>
+  <data name="Computers.Settings.PlacementHint" xml:space="preserve">
+    <value>One container per line, with its subtree; {0} stands for the domain of the connection (e.g. OU=Stacje robocze,{0}). Empty: not checked. The default computers container and OU=Domain Controllers are always checked.</value>
+  </data>
+  <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
+    <value>Workstations</value>
+  </data>
+  <data name="Computers.Settings.ServerContainers" xml:space="preserve">
+    <value>Servers</value>
+  </data>
+  <data name="Computers.Settings.ContainerInvalid" xml:space="preserve">
+    <value>{0}: "{1}" is not a valid distinguished name.</value>
+  </data>
+  <data name="Computers.Settings.OverridesHeader" xml:space="preserve">
+    <value>End of support set by you</value>
+  </data>
+  <data name="Computers.Settings.OverridesHint" xml:space="preserve">
+    <value>Wins over the built-in catalogue, e.g. for Extended Security Updates you bought for Windows 10.</value>
+  </data>
+  <data name="Computers.Settings.Build" xml:space="preserve">
+    <value>Build</value>
+  </data>
+  <data name="Computers.Settings.Edition" xml:space="preserve">
+    <value>Edition</value>
+  </data>
+  <data name="Computers.Settings.EndOfSupport" xml:space="preserve">
+    <value>End of support</value>
+  </data>
+  <data name="Computers.Settings.AddOverride" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Computers.Settings.RemoveOverride" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="Computers.Settings.NoOverrides" xml:space="preserve">
+    <value>No dates of your own – the built-in catalogue applies.</value>
+  </data>
+  <data name="Computers.Settings.BuildInvalid" xml:space="preserve">
+    <value>The build is a positive number, e.g. 19045.</value>
+  </data>
+  <data name="Computers.Settings.TooManyOverrides" xml:space="preserve">
+    <value>At most {0} dates.</value>
+  </data>
+  <data name="ComputerReview.WindowTitle" xml:space="preserve">
+    <value>Computer review</value>
+  </data>
+  <data name="ComputerReview.WindowTitleDomain" xml:space="preserve">
+    <value>Computer review – {0}</value>
+  </data>
+  <data name="ComputerReview.ScopeNotChosen" xml:space="preserve">
+    <value>(not chosen)</value>
+  </data>
+  <data name="ComputerReview.ViewNotFound" xml:space="preserve">
+    <value>The saved view no longer exists.</value>
+  </data>
+  <data name="ComputerReview.GroupNotFound" xml:space="preserve">
+    <value>The group {0} no longer exists.</value>
+  </data>
+  <data name="ComputerReview.Parameters" xml:space="preserve">
+    <value>Reports and parameters</value>
+  </data>
+  <data name="ComputerReview.Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="ComputerReview.InactiveDays" xml:space="preserve">
+    <value>Inactive for more than (days)</value>
+  </data>
+  <data name="ComputerReview.EndingSoonDays" xml:space="preserve">
+    <value>End of support within (days)</value>
+  </data>
+  <data name="ComputerReview.Run" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="ComputerReview.Status" xml:space="preserve">
+    <value>As of {0} · {1} computers read · {2} computers in the reports</value>
+  </data>
+  <data name="ComputerReview.StatusRunning" xml:space="preserve">
+    <value>Reading… {1} computers read · {2} in the reports so far (started {0})</value>
+  </data>
+  <data name="ComputerReview.StatusStopped" xml:space="preserve">
+    <value>Stopped at {0} · {1} computers read · {2} in the reports (incomplete)</value>
+  </data>
+  <data name="ComputerReview.Empty" xml:space="preserve">
+    <value>No computer in this report.</value>
+  </data>
+  <data name="ComputerReview.NotRun" xml:space="preserve">
+    <value>Choose the scope and the reports and press "Check" (F5). The computers are read from the domain controller of this window; the results stay in memory only.</value>
+  </data>
+  <data name="ComputerReview.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="ComputerReview.ExportCsv" xml:space="preserve">
+    <value>Export CSV…</value>
+  </data>
+  <data name="ComputerReview.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon (all DCs)</value>
+  </data>
+  <data name="ComputerReview.ReadingDomainControllers" xml:space="preserve">
+    <value>Reading lastLogon of {0} computers on every domain controller…</value>
+  </data>
+  <data name="ComputerReview.ExactDone" xml:space="preserve">
+    <value>{0} of {1} domain controllers answered; {2} computers were active after all.</value>
+  </data>
+  <data name="ComputerReview.ExactLimitConfirm" xml:space="preserve">
+    <value>Only the first {0} of {1} computers in the current order are compared against every domain controller; the others keep the replicated value. Select the computers to check, or continue with the first {0}?</value>
+  </data>
+  <data name="ComputerReview.ExactChecked" xml:space="preserve">
+    <value>Checked {0} of {1} computers.</value>
+  </data>
+  <data name="ComputerReview.ExactOn" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.Never" xml:space="preserve">
+    <value>never</value>
+  </data>
+  <data name="ComputerReview.DaysAgo" xml:space="preserve">
+    <value>{0} days ago</value>
+  </data>
+  <data name="ComputerReview.ResolveSites" xml:space="preserve">
+    <value>Determine site</value>
+  </data>
+  <data name="ComputerReview.ResolveSitesConfirm" xml:space="preserve">
+    <value>Resolve the DNS names of all {0} computers of the list? The names go to this workstation's DNS resolver.</value>
+  </data>
+  <data name="ComputerReview.ResolvingSites" xml:space="preserve">
+    <value>Determining the site of {0} computers…</value>
+  </data>
+  <data name="ComputerReview.SitesTooltip" xml:space="preserve">
+    <value>The DNS name is resolved by this workstation's resolver (not by the session's domain controller); the address is matched with the subnets of the forest.</value>
+  </data>
+  <data name="ComputerReview.InvalidSubnets" xml:space="preserve">
+    <value>Subnets with an invalid name were skipped: {0}</value>
+  </data>
+  <data name="ComputerReview.SiteNotResolved" xml:space="preserve">
+    <value>not resolved</value>
+  </data>
+  <data name="ComputerReview.NoSubnet" xml:space="preserve">
+    <value>no subnet</value>
+  </data>
+  <data name="ComputerReview.LapsUntil" xml:space="preserve">
+    <value>password valid until {0}</value>
+  </data>
+  <data name="ComputerReview.LapsNone" xml:space="preserve">
+    <value>no LAPS password</value>
+  </data>
+  <data name="ComputerReview.OwnerWithState" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.SetOwner" xml:space="preserve">
+    <value>Set owner…</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmOne" xml:space="preserve">
+    <value>Disable the computer account {0} in the domain {1}? The computer can no longer log on to the domain.</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmMany" xml:space="preserve">
+    <value>Disable {0} computer accounts in the domain {1}? The computers can no longer log on to the domain.</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmOne" xml:space="preserve">
+    <value>Delete the computer account {0} in the domain {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmMany" xml:space="preserve">
+    <value>Delete {0} computer accounts in the domain {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteChildrenWarning" xml:space="preserve">
+    <value>Some computers have child objects (BitLocker recovery information, Hyper-V or cluster objects): they are deleted with them.</value>
+  </data>
+  <data name="ComputerReview.Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="ComputerReview.Detail.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ComputerReview.Detail.DnsName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="ComputerReview.Detail.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="ComputerReview.Detail.Enabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="ComputerReview.Detail.System" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="ComputerReview.Detail.Release" xml:space="preserve">
+    <value>Release</value>
+  </data>
+  <data name="ComputerReview.Detail.Support" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="ComputerReview.Detail.LastLogon" xml:space="preserve">
+    <value>Last logon (replicated)</value>
+  </data>
+  <data name="ComputerReview.Detail.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon</value>
+  </data>
+  <data name="ComputerReview.Detail.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ComputerReview.Detail.AccountRenewed" xml:space="preserve">
+    <value>Machine account renewed</value>
+  </data>
+  <data name="ComputerReview.Detail.Owner" xml:space="preserve">
+    <value>Owner (managed by)</value>
+  </data>
+  <data name="ComputerReview.Detail.Creator" xml:space="preserve">
+    <value>Joined by (creator)</value>
+  </data>
+  <data name="ComputerReview.Detail.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Detail.Site" xml:space="preserve">
+    <value>Site (subnet)</value>
+  </data>
+  <data name="ComputerReview.Detail.Address" xml:space="preserve">
+    <value>IP address</value>
+  </data>
+  <data name="ComputerReview.Detail.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ComputerReview.Detail.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ComputerReview.Detail.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="ComputerReview.Detail.Placement" xml:space="preserve">
+    <value>Placement</value>
+  </data>
+  <data name="ComputerReview.Detail.Findings" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="ComputerReview.Detail.Catalog" xml:space="preserve">
+    <value>Catalogue</value>
+  </data>
+  <data name="ComputerReview.Report.EndOfSupport" xml:space="preserve">
+    <value>Operating systems past end of support</value>
+  </data>
+  <data name="ComputerReview.Report.Releases" xml:space="preserve">
+    <value>Windows 11 and Server releases</value>
+  </data>
+  <data name="ComputerReview.Report.Inactive" xml:space="preserve">
+    <value>Inactive for N days</value>
+  </data>
+  <data name="ComputerReview.Report.NeverLoggedOn" xml:space="preserve">
+    <value>Never logged on</value>
+  </data>
+  <data name="ComputerReview.Report.ServersWithoutOwner" xml:space="preserve">
+    <value>Servers without owner</value>
+  </data>
+  <data name="ComputerReview.Report.UnexpectedContainer" xml:space="preserve">
+    <value>Computers in unexpected OUs</value>
+  </data>
+  <data name="ComputerReview.Report.Disabled" xml:space="preserve">
+    <value>Disabled</value>
+  </data>
+  <data name="ComputerReview.Report.WithoutOperatingSystem" xml:space="preserve">
+    <value>Without operating system</value>
+  </data>
+  <data name="ComputerReview.Hint.EndOfSupport" xml:space="preserve">
+    <value>Enabled computers whose Windows release has reached the end of support or reaches it within N days (release catalogue and your overrides).</value>
+  </data>
+  <data name="ComputerReview.Hint.Releases" xml:space="preserve">
+    <value>Computers per release; the build decides the release (early Windows 11 reported itself as "Windows 10").</value>
+  </data>
+  <data name="ComputerReview.Hint.Inactive" xml:space="preserve">
+    <value>lastLogonTimestamp is replicated up to 14 days late: use "Exact last logon" before disabling. Report only – nothing is disabled automatically.</value>
+  </data>
+  <data name="ComputerReview.Hint.NeverLoggedOn" xml:space="preserve">
+    <value>Accounts created more than N days ago that never logged on – usually prestaged and never joined.</value>
+  </data>
+  <data name="ComputerReview.Hint.ServersWithoutOwner" xml:space="preserve">
+    <value>Enabled servers whose "managed by" is empty, disabled or deleted.</value>
+  </data>
+  <data name="ComputerReview.Hint.UnexpectedContainer" xml:space="preserve">
+    <value>Computers in the default Computers container, domain controllers outside their OU and computers outside the containers your rules allow.</value>
+  </data>
+  <data name="ComputerReview.Hint.Disabled" xml:space="preserve">
+    <value>Disabled computer accounts (to move or delete them).</value>
+  </data>
+  <data name="ComputerReview.Hint.WithoutOperatingSystem" xml:space="preserve">
+    <value>No operatingSystem: prestaged accounts or systems that do not report one.</value>
+  </data>
+  <data name="ComputerReview.Area.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="ComputerReview.Area.Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="ComputerReview.Area.Order" xml:space="preserve">
+    <value>Order</value>
+  </data>
+  <data name="ComputerReview.Column.Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="ComputerReview.Column.DnsName" xml:space="preserve">
+    <value>DNS name</value>
+  </data>
+  <data name="ComputerReview.Column.Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="ComputerReview.Column.System" xml:space="preserve">
+    <value>Operating system</value>
+  </data>
+  <data name="ComputerReview.Column.Release" xml:space="preserve">
+    <value>Release</value>
+  </data>
+  <data name="ComputerReview.Column.Support" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="ComputerReview.Column.LastLogon" xml:space="preserve">
+    <value>Last logon</value>
+  </data>
+  <data name="ComputerReview.Column.LogonDays" xml:space="preserve">
+    <value>Inactive</value>
+  </data>
+  <data name="ComputerReview.Column.ExactLastLogon" xml:space="preserve">
+    <value>Exact last logon</value>
+  </data>
+  <data name="ComputerReview.Column.Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="ComputerReview.Column.Creator" xml:space="preserve">
+    <value>Joined by</value>
+  </data>
+  <data name="ComputerReview.Column.Owner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="ComputerReview.Column.Placement" xml:space="preserve">
+    <value>Placement</value>
+  </data>
+  <data name="ComputerReview.Column.Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ComputerReview.Column.Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="ComputerReview.Column.Container" xml:space="preserve">
+    <value>Container</value>
+  </data>
+  <data name="ComputerReview.Column.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ComputerReview.Column.Address" xml:space="preserve">
+    <value>IP address</value>
+  </data>
+  <data name="ComputerReview.Column.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Column.AccountRenewed" xml:space="preserve">
+    <value>Machine account renewed</value>
+  </data>
+  <data name="ComputerReview.Column.DistinguishedName" xml:space="preserve">
+    <value>Distinguished name</value>
+  </data>
+  <data name="WindowsRelease.CatalogAsOf" xml:space="preserve">
+    <value>Release catalogue as of {0}</value>
+  </data>
+  <data name="WindowsRelease.CatalogStale" xml:space="preserve">
+    <value>The release catalogue is from {0} – newer releases and dates may be missing. Add overrides in the settings or update AD Manager.</value>
+  </data>
+  <data name="WindowsRelease.EndedOn" xml:space="preserve">
+    <value>ended {0}</value>
+  </data>
+  <data name="WindowsRelease.EndsOn" xml:space="preserve">
+    <value>ends {0} (in {1} days)</value>
+  </data>
+  <data name="WindowsRelease.SupportedUntil" xml:space="preserve">
+    <value>supported until {0}</value>
+  </data>
+  <data name="WindowsRelease.Overridden" xml:space="preserve">
+    <value>{0} (your override)</value>
+  </data>
+  <data name="WindowsRelease.Support.Supported" xml:space="preserve">
+    <value>supported</value>
+  </data>
+  <data name="WindowsRelease.Support.EndingSoon" xml:space="preserve">
+    <value>ending soon</value>
+  </data>
+  <data name="WindowsRelease.Support.Ended" xml:space="preserve">
+    <value>ended</value>
+  </data>
+  <data name="WindowsRelease.Support.Unknown" xml:space="preserve">
+    <value>unknown release</value>
+  </data>
+  <data name="WindowsRelease.Support.NotWindows" xml:space="preserve">
+    <value>not Windows</value>
+  </data>
+  <data name="WindowsRelease.Edition.HomePro" xml:space="preserve">
+    <value>Home / Pro</value>
+  </data>
+  <data name="WindowsRelease.Edition.EnterpriseEducation" xml:space="preserve">
+    <value>Enterprise / Education</value>
+  </data>
+  <data name="WindowsRelease.Edition.Ltsc" xml:space="preserve">
+    <value>Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.IotLtsc" xml:space="preserve">
+    <value>IoT Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.Server" xml:space="preserve">
+    <value>Windows Server</value>
+  </data>
+  <data name="WindowsRelease.Edition.AzureLocal" xml:space="preserve">
+    <value>Azure Stack HCI / Azure Local</value>
+  </data>
+  <data name="RemoteActions.WindowTitle" xml:space="preserve">
+    <value>Remote actions – {0}</value>
+  </data>
+  <data name="RemoteActions.WindowTitleShort" xml:space="preserve">
+    <value>Remote actions</value>
+  </data>
+  <data name="RemoteActions.ConnectionText" xml:space="preserve">
+    <value>Connection: WinRM ({0} {1}, Kerberos) as {2}</value>
+  </data>
+  <data name="RemoteActions.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="RemoteActions.RefreshStatus" xml:space="preserve">
+    <value>Check status</value>
+  </data>
+  <data name="RemoteActions.PingLabel" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="RemoteActions.WinRmLabel" xml:space="preserve">
+    <value>WinRM</value>
+  </data>
+  <data name="RemoteActions.SystemLabel" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="RemoteActions.LastBootLabel" xml:space="preserve">
+    <value>Last boot</value>
+  </data>
+  <data name="RemoteActions.WinRmAvailable" xml:space="preserve">
+    <value>available</value>
+  </data>
+  <data name="RemoteActions.WinRmUnavailable" xml:space="preserve">
+    <value>not available</value>
+  </data>
+  <data name="RemoteActions.StatusRead" xml:space="preserve">
+    <value>status read</value>
+  </data>
+  <data name="RemoteActions.Users" xml:space="preserve">
+    <value>Logged-on users</value>
+  </data>
+  <data name="RemoteActions.LoadUsers" xml:space="preserve">
+    <value>Show logged-on users</value>
+  </data>
+  <data name="RemoteActions.UsersNote" xml:space="preserve">
+    <value>Users with a running desktop (explorer.exe); disconnected Remote Desktop sessions are listed too.</value>
+  </data>
+  <data name="RemoteActions.UsersRead" xml:space="preserve">
+    <value>{0} users</value>
+  </data>
+  <data name="RemoteActions.Console" xml:space="preserve">
+    <value>console</value>
+  </data>
+  <data name="RemoteActions.Column.Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="RemoteActions.Column.Session" xml:space="preserve">
+    <value>Session</value>
+  </data>
+  <data name="RemoteActions.Column.Since" xml:space="preserve">
+    <value>Since</value>
+  </data>
+  <data name="RemoteActions.Services" xml:space="preserve">
+    <value>Services</value>
+  </data>
+  <data name="RemoteActions.LoadServices" xml:space="preserve">
+    <value>Show services</value>
+  </data>
+  <data name="RemoteActions.OnlyStoppedAutomatic" xml:space="preserve">
+    <value>Only automatic, stopped</value>
+  </data>
+  <data name="RemoteActions.ServicesRead" xml:space="preserve">
+    <value>{0} services, {1} automatic and stopped</value>
+  </data>
+  <data name="RemoteActions.Delayed" xml:space="preserve">
+    <value>delayed</value>
+  </data>
+  <data name="RemoteActions.Column.Service" xml:space="preserve">
+    <value>Service</value>
+  </data>
+  <data name="RemoteActions.Column.State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="RemoteActions.Column.StartMode" xml:space="preserve">
+    <value>Startup type</value>
+  </data>
+  <data name="RemoteActions.Column.LogOnAs" xml:space="preserve">
+    <value>Log on as</value>
+  </data>
+  <data name="RemoteActions.Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="RemoteActions.Action.Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="RemoteActions.Action.Users" xml:space="preserve">
+    <value>Logged-on users</value>
+  </data>
+  <data name="RemoteActions.Action.Services" xml:space="preserve">
+    <value>Services</value>
+  </data>
+  <data name="RemoteActions.Action.RefreshPolicy" xml:space="preserve">
+    <value>Refresh Group Policy</value>
+  </data>
+  <data name="RemoteActions.Action.Restart" xml:space="preserve">
+    <value>Restart…</value>
+  </data>
+  <data name="RemoteActions.Action.AbortRestart" xml:space="preserve">
+    <value>Cancel scheduled restart</value>
+  </data>
+  <data name="RemoteActions.PolicyRefreshed" xml:space="preserve">
+    <value>policy refreshed (computer policy processed {0})</value>
+  </data>
+  <data name="RemoteActions.PolicyRunning" xml:space="preserve">
+    <value>gpupdate is still running</value>
+  </data>
+  <data name="RemoteActions.PolicyUsersScheduled" xml:space="preserve">
+    <value>The users' policy refresh was scheduled.</value>
+  </data>
+  <data name="RemoteActions.RestartScheduled" xml:space="preserve">
+    <value>{0} restarts in {1} min</value>
+  </data>
+  <data name="RemoteActions.RestartScheduledNow" xml:space="preserve">
+    <value>{0} restarts now</value>
+  </data>
+  <data name="RemoteActions.RestartAbortRequested" xml:space="preserve">
+    <value>cancellation of a scheduled restart requested (shutdown /a; not confirmed – if no restart was pending, nothing changed)</value>
+  </data>
+  <data name="RemoteActions.Log" xml:space="preserve">
+    <value>Log of this window</value>
+  </data>
+  <data name="RemoteActions.Tools" xml:space="preserve">
+    <value>Tools</value>
+  </data>
+  <data name="RemoteActions.RestartTitle" xml:space="preserve">
+    <value>Restart {0}</value>
+  </data>
+  <data name="RemoteActions.RestartDelay" xml:space="preserve">
+    <value>Delay (minutes)</value>
+  </data>
+  <data name="RemoteActions.RestartMessage" xml:space="preserve">
+    <value>Message to the logged-on users</value>
+  </data>
+  <data name="RemoteActions.RestartForce" xml:space="preserve">
+    <value>Close applications without asking</value>
+  </data>
+  <data name="RemoteActions.RestartConfirm" xml:space="preserve">
+    <value>Restart</value>
+  </data>
+  <data name="RemoteActions.RestartNow" xml:space="preserve">
+    <value>{0} restarts right away.</value>
+  </data>
+  <data name="RemoteActions.RestartIn" xml:space="preserve">
+    <value>{0} restarts in {1} min.</value>
+  </data>
+  <data name="RemoteActions.RestartTypeName" xml:space="preserve">
+    <value>Type the computer name {0} to confirm (server, domain controller or computer of unknown type).</value>
+  </data>
+  <data name="RemoteActions.RestartDelayRange" xml:space="preserve">
+    <value>The delay must be {0}–{1} minutes.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageTooLong" xml:space="preserve">
+    <value>The message can have at most {0} characters.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageLength" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="RemoteActions.RestartDefaultMessage" xml:space="preserve">
+    <value>The IT department will restart this computer in {0} min. Please save your work.</value>
+  </data>
+  <data name="RemoteActions.Error.Unreachable" xml:space="preserve">
+    <value>The computer does not answer.</value>
+  </data>
+  <data name="RemoteActions.Error.WinRmNotAvailable" xml:space="preserve">
+    <value>WinRM is not available on the computer.</value>
+  </data>
+  <data name="RemoteActions.Error.AuthenticationFailed" xml:space="preserve">
+    <value>Kerberos authentication failed.</value>
+  </data>
+  <data name="RemoteActions.Error.AccessDenied" xml:space="preserve">
+    <value>Access denied.</value>
+  </data>
+  <data name="RemoteActions.Error.Timeout" xml:space="preserve">
+    <value>The computer did not answer in time.</value>
+  </data>
+  <data name="RemoteActions.Error.Cancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="RemoteActions.Error.NotSupported" xml:space="preserve">
+    <value>Not possible for this computer or connection.</value>
+  </data>
+  <data name="RemoteActions.Error.Failed" xml:space="preserve">
+    <value>The remote operation failed.</value>
+  </data>
+  <data name="RemoteActions.Hint.Unreachable" xml:space="preserve">
+    <value>Check that the computer is on, that its DNS name resolves and that the firewall lets you in.</value>
+  </data>
+  <data name="RemoteActions.Hint.WinRmNotAvailable" xml:space="preserve">
+    <value>Enable WinRM by Group Policy (service, listener, firewall rule) – see docs/KOMPUTERY.md.</value>
+  </data>
+  <data name="RemoteActions.Hint.AuthenticationFailed" xml:space="preserve">
+    <value>Check the computer's SPN (HTTP/ or WSMAN/), the clocks and that the account is a domain account; NTLM is never used.</value>
+  </data>
+  <data name="RemoteActions.Hint.AccessDenied" xml:space="preserve">
+    <value>The account of this window must be a local administrator of the computer (Domain Admins on domain controllers).</value>
+  </data>
+  <data name="RemoteActions.Hint.Timeout" xml:space="preserve">
+    <value>Raise the timeout in the settings (Computers) or try again.</value>
+  </data>
+  <data name="RemoteActions.Hint.Cancelled" xml:space="preserve">
+    <value> </value>
+  </data>
+  <data name="RemoteActions.Hint.NotSupported" xml:space="preserve">
+    <value>Remote actions need AD Manager on Windows, a DNS name of the computer and a Windows account or a typed domain account (not an LDAP simple bind).</value>
+  </data>
+  <data name="RemoteActions.Hint.Failed" xml:space="preserve">
+    <value>See the Windows event log of the computer.</value>
+  </data>
   <data name="UserMessages.WindowTitle" xml:space="preserve">
     <value>Send message to users ({0})</value>
   </data>
@@ -9828,4 +10773,1104 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Filters.Conditions" xml:space="preserve">
     <value>Conditions</value>
   </data>
+  <!-- K2: Group Policy (begin) -->
+  <data name="ObjectKind.GroupPolicyContainer" xml:space="preserve">
+    <value>Group Policy Object</value>
+  </data>
+  <data name="ObjectKind.WmiFilter" xml:space="preserve">
+    <value>WMI Filter</value>
+  </data>
+  <data name="ObjectKind.Site" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="ChangeAction.CreateGpoFolder" xml:space="preserve">
+    <value>Create GPO folder</value>
+  </data>
+  <data name="ChangeAction.WriteGpoFile" xml:space="preserve">
+    <value>Write GPO file</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFile" xml:space="preserve">
+    <value>Delete GPO file</value>
+  </data>
+  <data name="ChangeAction.SyncGpoFolderSecurity" xml:space="preserve">
+    <value>Synchronize folder permissions</value>
+  </data>
+  <data name="ChangeAction.SetGpoFolderSecurity" xml:space="preserve">
+    <value>Set folder permissions</value>
+  </data>
+  <data name="ChangeAction.SetGpoVersion" xml:space="preserve">
+    <value>Set GPO version</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFolder" xml:space="preserve">
+    <value>Delete GPO folder</value>
+  </data>
+  <data name="Issue.GpoVersionMissing" xml:space="preserve">
+    <value>The plan writes GPO files without raising the GPO version.</value>
+  </data>
+  <data name="Issue.GpoTooLarge" xml:space="preserve">
+    <value>The GPO is too large for a safe copy in memory.</value>
+  </data>
+  <data name="Issue.GpoVersionOverflow" xml:space="preserve">
+    <value>The GPO version reached its maximum.</value>
+  </data>
+  <data name="Issue.SysvolLeftovers" xml:space="preserve">
+    <value>The GPO folder holds leftovers of an interrupted write; they are deleted.</value>
+  </data>
+  <data name="Issue.SysvolUnavailable" xml:space="preserve">
+    <value>SYSVOL of the domain controller cannot be written.</value>
+  </data>
+  <data name="Issue.DefaultGpo" xml:space="preserve">
+    <value>The default domain policies cannot be deleted.</value>
+  </data>
+  <data name="Issue.Ms16072Read" xml:space="preserve">
+    <value>Neither Authenticated Users nor Domain Computers can read the GPO: since MS16-072 clients cannot apply its user settings.</value>
+  </data>
+  <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
+    <value>The forest has other domains ({0}): links to this GPO from their OUs are not found or removed – check them in GPMC.</value>
+  </data>
+  <data name="PlanPreview.Bytes" xml:space="preserve">
+    <value>{0} B</value>
+  </data>
+  <data name="PlanPreview.Absent" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="PlanPreview.Version" xml:space="preserve">
+    <value>GPO version</value>
+  </data>
+  <data name="PlanPreview.VersionValue" xml:space="preserve">
+    <value>computer {0}, user {1}</value>
+  </data>
+  <data name="PlanPreview.Folder" xml:space="preserve">
+    <value>GPO folder (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.FolderSecurity" xml:space="preserve">
+    <value>Folder permissions (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.Title" xml:space="preserve">
+    <value>Preview: {0}</value>
+  </data>
+  <data name="PlanPreview.Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="PlanPreview.PowerShell" xml:space="preserve">
+    <value>PowerShell</value>
+  </data>
+  <data name="PlanPreview.Results" xml:space="preserve">
+    <value>Results</value>
+  </data>
+  <data name="PlanPreview.ShowDiff" xml:space="preserve">
+    <value>Show differences</value>
+  </data>
+  <data name="PlanPreview.Diff" xml:space="preserve">
+    <value>Differences</value>
+  </data>
+  <data name="PlanPreview.DiffBinary" xml:space="preserve">
+    <value>Binary content: {0} → {1}.</value>
+  </data>
+  <data name="PlanPreview.DiffSettings" xml:space="preserve">
+    <value>Settings of the file (secrets masked): {0} added, {1} removed.</value>
+  </data>
+  <data name="PlanPreview.DiffText" xml:space="preserve">
+    <value>Lines of the file: {0} added, {1} removed.</value>
+  </data>
+  <data name="PlanPreview.DiffTruncated" xml:space="preserve">
+    <value>The file is long; only its beginning is compared.</value>
+  </data>
+  <data name="PlanPreview.DiffNone" xml:space="preserve">
+    <value>Select a SYSVOL file row to see its differences.</value>
+  </data>
+  <data name="PlanPreview.Summary" xml:space="preserve">
+    <value>{0} objects, {1} steps on {2}.</value>
+  </data>
+  <data name="PlanPreview.Execute" xml:space="preserve">
+    <value>Execute</value>
+  </data>
+  <data name="PlanPreview.Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="PlanPreview.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="PlanPreview.Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="PlanPreview.CopyPowerShell" xml:space="preserve">
+    <value>Copy PowerShell</value>
+  </data>
+  <data name="PlanPreview.Executing" xml:space="preserve">
+    <value>Executing…</value>
+  </data>
+  <data name="PlanPreview.ResultSucceeded" xml:space="preserve">
+    <value>Done: every change was made.</value>
+  </data>
+  <data name="PlanPreview.ResultFailed" xml:space="preserve">
+    <value>Not every change was made: {0} of {1} objects failed. Undo reverts what was made.</value>
+  </data>
+  <data name="PlanPreview.RollbackShown" xml:space="preserve">
+    <value>The undo plan is shown. Execute it to revert the change.</value>
+  </data>
+  <data name="PlanPreview.NothingToUndo" xml:space="preserve">
+    <value>Nothing to undo.</value>
+  </data>
+  <data name="PlanPreview.Reverted" xml:space="preserve">
+    <value>{0} The file changes were reverted; the GPO is as before.</value>
+  </data>
+  <data name="PlanPreview.Inconsistent" xml:space="preserve">
+    <value>{0} The previous files could not be put back: the GPO is inconsistent – use “Align versions” on its Status tab.</value>
+  </data>
+  <data name="PlanPreview.SysvolUnavailable" xml:space="preserve">
+    <value>SYSVOL of the domain controller cannot be written: {0}</value>
+  </data>
+  <data name="PlanPreview.FolderChanged" xml:space="preserve">
+    <value>The GPO folder holds files the plan did not write; it was not deleted.</value>
+  </data>
+  <data name="PlanPreview.Warnings" xml:space="preserve">
+    <value>Warnings</value>
+  </data>
+  <data name="PlanPreview.Object" xml:space="preserve">
+    <value>Object</value>
+  </data>
+  <data name="PlanPreview.Item" xml:space="preserve">
+    <value>Attribute or file</value>
+  </data>
+  <data name="PlanPreview.SessionEnded" xml:space="preserve">
+    <value>The connection of this window ended; the plan can no longer be executed.</value>
+  </data>
+  <data name="GroupPolicy.ObjectsTitle" xml:space="preserve">
+    <value>Group Policy Objects</value>
+  </data>
+  <data name="GroupPolicy.ObjectsNodeHelp" xml:space="preserve">
+    <value>Every group policy object of the domain</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersTitle" xml:space="preserve">
+    <value>WMI Filters</value>
+  </data>
+  <data name="GroupPolicy.SitesTitle" xml:space="preserve">
+    <value>Sites</value>
+  </data>
+  <data name="GroupPolicy.ScopeTitle" xml:space="preserve">
+    <value>Group Policy – {0}</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCommand" xml:space="preserve">
+    <value>Group Policy Objects</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCommand" xml:space="preserve">
+    <value>WMI Filters</value>
+  </data>
+  <data name="GroupPolicy.ContainerPoliciesCommand" xml:space="preserve">
+    <value>Group Policy</value>
+  </data>
+  <data name="GroupPolicy.NewLinkedCommand" xml:space="preserve">
+    <value>Create a GPO in this domain, and Link it here…</value>
+  </data>
+  <data name="GroupPolicy.LinkExistingCommand" xml:space="preserve">
+    <value>Link an Existing GPO…</value>
+  </data>
+  <data name="GroupPolicy.BlockInheritanceCommand" xml:space="preserve">
+    <value>Block Inheritance</value>
+  </data>
+  <data name="GroupPolicy.ToggleTreeCommand" xml:space="preserve">
+    <value>Group Policy in the tree</value>
+  </data>
+  <data name="GroupPolicy.GpoStatusCommand" xml:space="preserve">
+    <value>GPO Status</value>
+  </data>
+  <data name="GroupPolicy.BackupCommand" xml:space="preserve">
+    <value>Back Up…</value>
+  </data>
+  <data name="GroupPolicy.RestoreCommand" xml:space="preserve">
+    <value>Restore from Backup…</value>
+  </data>
+  <data name="GroupPolicy.ImportCommand" xml:space="preserve">
+    <value>Import Settings…</value>
+  </data>
+  <data name="GroupPolicy.CopyCommand" xml:space="preserve">
+    <value>Copy…</value>
+  </data>
+  <data name="GroupPolicy.RenameCommand" xml:space="preserve">
+    <value>Rename</value>
+  </data>
+  <data name="GroupPolicy.DeleteCommand" xml:space="preserve">
+    <value>Delete…</value>
+  </data>
+  <data name="GroupPolicy.CompareCommand" xml:space="preserve">
+    <value>Compare</value>
+  </data>
+  <data name="GroupPolicy.CompareWithCommand" xml:space="preserve">
+    <value>Compare with…</value>
+  </data>
+  <data name="GroupPolicy.HistoryCommand" xml:space="preserve">
+    <value>History in the Watchdog</value>
+  </data>
+  <data name="GroupPolicy.NewCommand" xml:space="preserve">
+    <value>New…</value>
+  </data>
+  <data name="GroupPolicy.OpenCommand" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="GroupPolicy.EditCommand" xml:space="preserve">
+    <value>Edit…</value>
+  </data>
+  <data name="GroupPolicy.RefreshCommand" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="GroupPolicy.ChangeDcCommand" xml:space="preserve">
+    <value>Change Domain Controller…</value>
+  </data>
+  <data name="GroupPolicy.Selected" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCount" xml:space="preserve">
+    <value>{0} group policy objects, {1} with different versions in AD and SYSVOL</value>
+  </data>
+  <data name="GroupPolicy.ObjectLoaded" xml:space="preserve">
+    <value>{0} links, {1} settings</value>
+  </data>
+  <data name="GroupPolicy.ScopeLoaded" xml:space="preserve">
+    <value>{0} linked GPOs, {1} applied</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCount" xml:space="preserve">
+    <value>{0} WMI filters</value>
+  </data>
+  <data name="GroupPolicy.StatusEnabled" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="GroupPolicy.StatusUserDisabled" xml:space="preserve">
+    <value>User configuration settings disabled</value>
+  </data>
+  <data name="GroupPolicy.StatusComputerDisabled" xml:space="preserve">
+    <value>Computer configuration settings disabled</value>
+  </data>
+  <data name="GroupPolicy.StatusAllDisabled" xml:space="preserve">
+    <value>All settings disabled</value>
+  </data>
+  <data name="GroupPolicy.LevelRead" xml:space="preserve">
+    <value>Read</value>
+  </data>
+  <data name="GroupPolicy.LevelApply" xml:space="preserve">
+    <value>Read (from Security Filtering)</value>
+  </data>
+  <data name="GroupPolicy.LevelEdit" xml:space="preserve">
+    <value>Edit settings</value>
+  </data>
+  <data name="GroupPolicy.LevelEditDeleteModifySecurity" xml:space="preserve">
+    <value>Edit settings, delete, modify security</value>
+  </data>
+  <data name="GroupPolicy.LevelWithApply" xml:space="preserve">
+    <value>{0} + apply (security filtering)</value>
+  </data>
+  <data name="GroupPolicy.LevelCustom" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="GroupPolicy.KindDomain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="GroupPolicy.KindOrganizationalUnit" xml:space="preserve">
+    <value>Organizational unit</value>
+  </data>
+  <data name="GroupPolicy.KindSite" xml:space="preserve">
+    <value>Site</value>
+  </data>
+  <data name="GroupPolicy.Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="GroupPolicy.No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="GroupPolicy.Absent" xml:space="preserve">
+    <value>(not present)</value>
+  </data>
+  <data name="GroupPolicy.MaskedValue" xml:space="preserve">
+    <value>(set – hidden)</value>
+  </data>
+  <data name="GroupPolicy.UnreadableValue" xml:space="preserve">
+    <value>(file could not be read)</value>
+  </data>
+  <data name="GroupPolicy.NotLinked" xml:space="preserve">
+    <value>(not linked)</value>
+  </data>
+  <data name="GroupPolicy.NoWmiFilter" xml:space="preserve">
+    <value>&lt;none&gt;</value>
+  </data>
+  <data name="GroupPolicy.GptIniMissing" xml:space="preserve">
+    <value>GPT.INI missing</value>
+  </data>
+  <data name="GroupPolicy.VersionPair" xml:space="preserve">
+    <value>AD: {0}, SYSVOL: {1}</value>
+  </data>
+  <data name="GroupPolicy.ScopeComputer" xml:space="preserve">
+    <value>Computer</value>
+  </data>
+  <data name="GroupPolicy.ScopeUser" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="GroupPolicy.ScopeGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.DanglingLink" xml:space="preserve">
+    <value>(missing GPO {0})</value>
+  </data>
+  <data name="GroupPolicy.LinkSummary" xml:space="preserve">
+    <value>order {0}, enforced: {1}, enabled: {2}</value>
+  </data>
+  <data name="GroupPolicy.ColumnName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="GroupPolicy.ColumnStatus" xml:space="preserve">
+    <value>GPO Status</value>
+  </data>
+  <data name="GroupPolicy.ColumnWmiFilter" xml:space="preserve">
+    <value>WMI Filter</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinks" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionAd" xml:space="preserve">
+    <value>Version (AD)</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionSysvol" xml:space="preserve">
+    <value>Version (SYSVOL)</value>
+  </data>
+  <data name="GroupPolicy.ColumnOwner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="GroupPolicy.ColumnModified" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="GroupPolicy.ColumnOrder" xml:space="preserve">
+    <value>Link Order</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.ColumnEnforced" xml:space="preserve">
+    <value>Enforced</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinkEnabled" xml:space="preserve">
+    <value>Link Enabled</value>
+  </data>
+  <data name="GroupPolicy.ColumnPrecedence" xml:space="preserve">
+    <value>Precedence</value>
+  </data>
+  <data name="GroupPolicy.ColumnLocation" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="GroupPolicy.ColumnPath" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="GroupPolicy.ColumnKind" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="GroupPolicy.ColumnTrustee" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="GroupPolicy.ColumnLevel" xml:space="preserve">
+    <value>Allowed Permissions</value>
+  </data>
+  <data name="GroupPolicy.ColumnInherited" xml:space="preserve">
+    <value>Inherited</value>
+  </data>
+  <data name="GroupPolicy.ColumnSetting" xml:space="preserve">
+    <value>Setting</value>
+  </data>
+  <data name="GroupPolicy.ColumnValue" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="GroupPolicy.ColumnSource" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="GroupPolicy.ColumnSection" xml:space="preserve">
+    <value>Section</value>
+  </data>
+  <data name="GroupPolicy.ColumnState" xml:space="preserve">
+    <value>Comparison</value>
+  </data>
+  <data name="GroupPolicy.ColumnCheck" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="GroupPolicy.ColumnResult" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="GroupPolicy.ColumnDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="GroupPolicy.ColumnQueries" xml:space="preserve">
+    <value>Queries</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpos" xml:space="preserve">
+    <value>GPOs</value>
+  </data>
+  <data name="GroupPolicy.ColumnAuthor" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="GroupPolicy.ColumnDomain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="GroupPolicy.ColumnTime" xml:space="preserve">
+    <value>Time</value>
+  </data>
+  <data name="GroupPolicy.ColumnComment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="GroupPolicy.ColumnNamespace" xml:space="preserve">
+    <value>Namespace</value>
+  </data>
+  <data name="GroupPolicy.ColumnQuery" xml:space="preserve">
+    <value>Query</value>
+  </data>
+  <data name="GroupPolicy.ColumnGuid" xml:space="preserve">
+    <value>GUID</value>
+  </data>
+  <data name="GroupPolicy.TabScope" xml:space="preserve">
+    <value>Scope</value>
+  </data>
+  <data name="GroupPolicy.TabDetails" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="GroupPolicy.TabSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="GroupPolicy.TabDelegation" xml:space="preserve">
+    <value>Delegation</value>
+  </data>
+  <data name="GroupPolicy.TabStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="GroupPolicy.LinksHeading" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="GroupPolicy.LinksHint" xml:space="preserve">
+    <value>The following sites, domains, and OUs are linked to this GPO:</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHeading" xml:space="preserve">
+    <value>Security Filtering</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHint" xml:space="preserve">
+    <value>The settings in this GPO can only apply to the following groups, users, and computers:</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHeading" xml:space="preserve">
+    <value>WMI Filtering</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHint" xml:space="preserve">
+    <value>This GPO is linked to the following WMI filter:</value>
+  </data>
+  <data name="GroupPolicy.LinkedGposHeading" xml:space="preserve">
+    <value>Linked Group Policy Objects</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHeading" xml:space="preserve">
+    <value>Group Policy Inheritance</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHint" xml:space="preserve">
+    <value>GPOs that apply here, highest precedence first (site links only for sites, as in GPMC).</value>
+  </data>
+  <data name="GroupPolicy.InheritanceBlocked" xml:space="preserve">
+    <value>Inheritance is blocked here.</value>
+  </data>
+  <data name="GroupPolicy.InheritanceNotBlocked" xml:space="preserve">
+    <value>Inheritance is not blocked.</value>
+  </data>
+  <data name="GroupPolicy.DelegationHint" xml:space="preserve">
+    <value>These groups and users have the specified permission for this GPO:</value>
+  </data>
+  <data name="GroupPolicy.StatusHint" xml:space="preserve">
+    <value>Consistency of the GPO between Active Directory and SYSVOL on this domain controller.</value>
+  </data>
+  <data name="GroupPolicy.SettingsHint" xml:space="preserve">
+    <value>Settings read from SYSVOL of this domain controller (read-only; secrets are never shown).</value>
+  </data>
+  <data name="GroupPolicy.LabelDomain" xml:space="preserve">
+    <value>Domain</value>
+  </data>
+  <data name="GroupPolicy.LabelOwner" xml:space="preserve">
+    <value>Owner</value>
+  </data>
+  <data name="GroupPolicy.LabelCreated" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="GroupPolicy.LabelModified" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="GroupPolicy.LabelUserVersion" xml:space="preserve">
+    <value>User version</value>
+  </data>
+  <data name="GroupPolicy.LabelComputerVersion" xml:space="preserve">
+    <value>Computer version</value>
+  </data>
+  <data name="GroupPolicy.LabelGuid" xml:space="preserve">
+    <value>Unique ID</value>
+  </data>
+  <data name="GroupPolicy.LabelGpoStatus" xml:space="preserve">
+    <value>GPO Status</value>
+  </data>
+  <data name="GroupPolicy.LabelLevel" xml:space="preserve">
+    <value>Permission level</value>
+  </data>
+  <data name="GroupPolicy.LabelName" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="GroupPolicy.LabelDescription" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="GroupPolicy.LabelQueries" xml:space="preserve">
+    <value>Queries</value>
+  </data>
+  <data name="GroupPolicy.LabelFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="GroupPolicy.LabelComment" xml:space="preserve">
+    <value>Comment</value>
+  </data>
+  <data name="GroupPolicy.LabelGpos" xml:space="preserve">
+    <value>Group policy objects</value>
+  </data>
+  <data name="GroupPolicy.LabelPermissions" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="GroupPolicy.PermissionsDefault" xml:space="preserve">
+    <value>Use the default permissions for new GPOs</value>
+  </data>
+  <data name="GroupPolicy.PermissionsKeep" xml:space="preserve">
+    <value>Preserve the existing permissions</value>
+  </data>
+  <data name="GroupPolicy.UserVersion" xml:space="preserve">
+    <value>User version</value>
+  </data>
+  <data name="GroupPolicy.ComputerVersion" xml:space="preserve">
+    <value>Computer version</value>
+  </data>
+  <data name="GroupPolicy.MachineExtensions" xml:space="preserve">
+    <value>Computer extensions</value>
+  </data>
+  <data name="GroupPolicy.UserExtensions" xml:space="preserve">
+    <value>User extensions</value>
+  </data>
+  <data name="GroupPolicy.Add" xml:space="preserve">
+    <value>Add…</value>
+  </data>
+  <data name="GroupPolicy.Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="GroupPolicy.Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="GroupPolicy.ChangeLevel" xml:space="preserve">
+    <value>Change level</value>
+  </data>
+  <data name="GroupPolicy.MoveUp" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="GroupPolicy.MoveDown" xml:space="preserve">
+    <value>Down</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnforced" xml:space="preserve">
+    <value>Enforced</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnabled" xml:space="preserve">
+    <value>Link Enabled</value>
+  </data>
+  <data name="GroupPolicy.Unlink" xml:space="preserve">
+    <value>Delete Link</value>
+  </data>
+  <data name="GroupPolicy.OpenContainer" xml:space="preserve">
+    <value>Open Group Policy of the container</value>
+  </data>
+  <data name="GroupPolicy.AlignVersions" xml:space="preserve">
+    <value>Align versions</value>
+  </data>
+  <data name="GroupPolicy.RepairFolder" xml:space="preserve">
+    <value>Repair folder permissions</value>
+  </data>
+  <data name="GroupPolicy.DeleteOrphanedFolder" xml:space="preserve">
+    <value>Delete the remaining folder</value>
+  </data>
+  <data name="GroupPolicy.Browse" xml:space="preserve">
+    <value>Browse…</value>
+  </data>
+  <data name="GroupPolicy.AddQuery" xml:space="preserve">
+    <value>Add query</value>
+  </data>
+  <data name="GroupPolicy.RemoveQuery" xml:space="preserve">
+    <value>Remove query</value>
+  </data>
+  <data name="GroupPolicy.OnlyDifferences" xml:space="preserve">
+    <value>Only differences</value>
+  </data>
+  <data name="GroupPolicy.Export" xml:space="preserve">
+    <value>Export CSV…</value>
+  </data>
+  <data name="GroupPolicy.CopyPowerShell" xml:space="preserve">
+    <value>Copy PowerShell</value>
+  </data>
+  <data name="GroupPolicy.PdcNote" xml:space="preserve">
+    <value>GPO changes are made on {0}, but the PDC emulator is {1} – GPMC uses the PDC emulator by default.</value>
+  </data>
+  <data name="GroupPolicy.SysvolNotSupported" xml:space="preserve">
+    <value>SYSVOL unavailable on {0}: not supported by this host – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolDistinguishedNameLogon" xml:space="preserve">
+    <value>SYSVOL unavailable on {0}: the connection was opened with a distinguished name, which cannot log on to the share – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolLogonFailure" xml:space="preserve">
+    <value>SYSVOL unavailable on {0}: the domain controller refused the credentials of this window – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolAccessDenied" xml:space="preserve">
+    <value>SYSVOL unavailable on {0}: access denied – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolUnreachable" xml:space="preserve">
+    <value>SYSVOL unavailable on {0}: the share cannot be reached – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailed" xml:space="preserve">
+    <value>SYSVOL unavailable on {0} – changes that write SYSVOL are disabled.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailedShort" xml:space="preserve">
+    <value>SYSVOL of the domain controller is unavailable.</value>
+  </data>
+  <data name="GroupPolicy.SysvolWriteFailed" xml:space="preserve">
+    <value>SYSVOL could not be read or written: {0}</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAccessDenied" xml:space="preserve">
+    <value>access denied</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorNotFound" xml:space="preserve">
+    <value>not found</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAlreadyExists" xml:space="preserve">
+    <value>already exists</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorUnreachable" xml:space="preserve">
+    <value>the share cannot be reached</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorLogonFailure" xml:space="preserve">
+    <value>the credentials were refused</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorDiskFull" xml:space="preserve">
+    <value>the disk is full</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorFailed" xml:space="preserve">
+    <value>the operation failed</value>
+  </data>
+  <data name="GroupPolicy.TooLarge" xml:space="preserve">
+    <value>The GPO is too large for a safe copy in memory (more than 2 000 entries, a file over 32 MiB or more than 128 MiB in total).</value>
+  </data>
+  <data name="GroupPolicy.BackupInvalid" xml:space="preserve">
+    <value>The backup is missing, damaged or fails a check (paths, sizes or checksums).</value>
+  </data>
+  <data name="GroupPolicy.ParseFailed" xml:space="preserve">
+    <value>A file of the GPO could not be read.</value>
+  </data>
+  <data name="GroupPolicy.FolderFailed" xml:space="preserve">
+    <value>The folder could not be read or written.</value>
+  </data>
+  <data name="GroupPolicy.Missing" xml:space="preserve">
+    <value>The GPO no longer exists.</value>
+  </data>
+  <data name="GroupPolicy.MissingWithFolder" xml:space="preserve">
+    <value>The GPO no longer exists in Active Directory, but its SYSVOL folder is still there.</value>
+  </data>
+  <data name="GroupPolicy.ContainerMissing" xml:space="preserve">
+    <value>The container no longer exists.</value>
+  </data>
+  <data name="GroupPolicy.FolderMissing" xml:space="preserve">
+    <value>The GPO folder is missing in SYSVOL of this domain controller.</value>
+  </data>
+  <data name="GroupPolicy.NoSettings" xml:space="preserve">
+    <value>This GPO has no settings.</value>
+  </data>
+  <data name="GroupPolicy.DefaultGpoRefused" xml:space="preserve">
+    <value>The Default Domain Policy and the Default Domain Controllers Policy cannot be deleted.</value>
+  </data>
+  <data name="GroupPolicy.ConfirmDelete" xml:space="preserve">
+    <value>Delete the GPO „{0}” with its links and its SYSVOL folder from the domain {1}? This cannot be undone without a backup.</value>
+  </data>
+  <data name="GroupPolicy.CheckSysvol" xml:space="preserve">
+    <value>SYSVOL</value>
+  </data>
+  <data name="GroupPolicy.CheckFolder" xml:space="preserve">
+    <value>GPO folder</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderOk" xml:space="preserve">
+    <value>Present</value>
+  </data>
+  <data name="GroupPolicy.CheckVersions" xml:space="preserve">
+    <value>Versions</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsOk" xml:space="preserve">
+    <value>AD and GPT.INI agree ({0}).</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsAhead" xml:space="preserve">
+    <value>GPT.INI ({1}) is ahead of AD ({0}): a failed write or AD replication lag – align the versions.</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsBehind" xml:space="preserve">
+    <value>GPT.INI ({1}) is behind AD ({0}): SYSVOL replication to this DC is pending.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAcl" xml:space="preserve">
+    <value>Folder permissions</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclOk" xml:space="preserve">
+    <value>Consistent with the GPO's permissions in AD.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclMismatch" xml:space="preserve">
+    <value>Inconsistent with the GPO's permissions in AD – repair the folder permissions.</value>
+  </data>
+  <data name="GroupPolicy.CheckUnknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensions" xml:space="preserve">
+    <value>Extension names</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsOk" xml:space="preserve">
+    <value>Match the files of the GPO.</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsMismatch" xml:space="preserve">
+    <value>Do not match the files of the GPO (settings may be ignored by clients).</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftovers" xml:space="preserve">
+    <value>Leftovers of interrupted writes</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversNone" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversFound" xml:space="preserve">
+    <value>{0} temporary files – the next change of this GPO deletes them.</value>
+  </data>
+  <data name="GroupPolicy.NewWindowTitle" xml:space="preserve">
+    <value>New GPO</value>
+  </data>
+  <data name="GroupPolicy.CopyWindowTitle" xml:space="preserve">
+    <value>Copy GPO</value>
+  </data>
+  <data name="GroupPolicy.RenameWindowTitle" xml:space="preserve">
+    <value>Rename GPO</value>
+  </data>
+  <data name="GroupPolicy.NewGpoDefaultName" xml:space="preserve">
+    <value>New Group Policy Object</value>
+  </data>
+  <data name="GroupPolicy.CopyDefaultName" xml:space="preserve">
+    <value>Copy of {0}</value>
+  </data>
+  <data name="GroupPolicy.LinkTargetText" xml:space="preserve">
+    <value>Linked to: {0}</value>
+  </data>
+  <data name="GroupPolicy.SourceText" xml:space="preserve">
+    <value>Source: {0}</value>
+  </data>
+  <data name="GroupPolicy.NameRequired" xml:space="preserve">
+    <value>Enter a name.</value>
+  </data>
+  <data name="GroupPolicy.NameTooLong" xml:space="preserve">
+    <value>The name may have at most {0} characters.</value>
+  </data>
+  <data name="GroupPolicy.LinkPickerTitle" xml:space="preserve">
+    <value>Link an existing GPO to {0}</value>
+  </data>
+  <data name="GroupPolicy.ComparePickerTitle" xml:space="preserve">
+    <value>Compare „{0}” with…</value>
+  </data>
+  <data name="GroupPolicy.PickerFilter" xml:space="preserve">
+    <value>Filter by name</value>
+  </data>
+  <data name="GroupPolicy.TrusteePickerTitle" xml:space="preserve">
+    <value>Select a user, group or computer</value>
+  </data>
+  <data name="GroupPolicy.TrusteeWithoutSid" xml:space="preserve">
+    <value>The selected object has no security identifier.</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEveryone" xml:space="preserve">
+    <value>Everyone</value>
+  </data>
+  <data name="GroupPolicy.TrusteeAuthenticatedUsers" xml:space="preserve">
+    <value>Authenticated Users</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEnterpriseDomainControllers" xml:space="preserve">
+    <value>ENTERPRISE DOMAIN CONTROLLERS</value>
+  </data>
+  <data name="GroupPolicy.TrusteeSystem" xml:space="preserve">
+    <value>SYSTEM</value>
+  </data>
+  <data name="GroupPolicy.TrusteeCreatorOwner" xml:space="preserve">
+    <value>CREATOR OWNER</value>
+  </data>
+  <data name="GroupPolicy.WmiNewWindowTitle" xml:space="preserve">
+    <value>New WMI Filter</value>
+  </data>
+  <data name="GroupPolicy.WmiEditWindowTitle" xml:space="preserve">
+    <value>WMI Filter – {0}</value>
+  </data>
+  <data name="GroupPolicy.WmiQueryRequired" xml:space="preserve">
+    <value>Every query needs a namespace and a WQL query.</value>
+  </data>
+  <data name="GroupPolicy.WmiQueriesUnreadable" xml:space="preserve">
+    <value>(the queries cannot be read)</value>
+  </data>
+  <data name="GroupPolicy.WmiUnparsedNote" xml:space="preserve">
+    <value>The stored queries could not be read; saving replaces them with the queries shown here.</value>
+  </data>
+  <data name="GroupPolicy.WmiTestLater" xml:space="preserve">
+    <value>Testing a query on a computer comes with the remote actions (K1).</value>
+  </data>
+  <data name="GroupPolicy.BackupWindowTitle" xml:space="preserve">
+    <value>Back Up Group Policy Objects</value>
+  </data>
+  <data name="GroupPolicy.BackupBeforeDeleteTitle" xml:space="preserve">
+    <value>Delete „{0}”</value>
+  </data>
+  <data name="GroupPolicy.RestoreWindowTitle" xml:space="preserve">
+    <value>Restore from Backup</value>
+  </data>
+  <data name="GroupPolicy.ImportWindowTitle" xml:space="preserve">
+    <value>Import Settings into „{0}”</value>
+  </data>
+  <data name="GroupPolicy.BackupCompatibilityNote" xml:space="preserve">
+    <value>Written in GPMC's backup format (manifest.xml, Backup.xml, bkupInfo.xml, DomainSysvol) plus admng.json – GPMC compatible, to be confirmed in the pilot. Backups are written only to the folder you choose.</value>
+  </data>
+  <data name="GroupPolicy.BackupFirst" xml:space="preserve">
+    <value>Create a backup before deleting</value>
+  </data>
+  <data name="GroupPolicy.BackupContinue" xml:space="preserve">
+    <value>Continue</value>
+  </data>
+  <data name="GroupPolicy.BackupRun" xml:space="preserve">
+    <value>Back Up</value>
+  </data>
+  <data name="GroupPolicy.RestoreRun" xml:space="preserve">
+    <value>Restore…</value>
+  </data>
+  <data name="GroupPolicy.ImportRun" xml:space="preserve">
+    <value>Import…</value>
+  </data>
+  <data name="GroupPolicy.PickFolderTitle" xml:space="preserve">
+    <value>Choose the backup folder</value>
+  </data>
+  <data name="GroupPolicy.NoBackups" xml:space="preserve">
+    <value>No backups in this folder.</value>
+  </data>
+  <data name="GroupPolicy.BackupsFound" xml:space="preserve">
+    <value>{0} backups in this folder.</value>
+  </data>
+  <data name="GroupPolicy.BackupRunning" xml:space="preserve">
+    <value>Backing up…</value>
+  </data>
+  <data name="GroupPolicy.BackupActivity" xml:space="preserve">
+    <value>Back up {0} GPOs</value>
+  </data>
+  <data name="GroupPolicy.BackupFailed" xml:space="preserve">
+    <value>{0} of {1} backups failed; nothing was written for them.</value>
+  </data>
+  <data name="GroupPolicy.BackupDone" xml:space="preserve">
+    <value>{0} GPOs backed up to {1}.</value>
+  </data>
+  <data name="GroupPolicy.BackupWithoutDirectorySettings" xml:space="preserve">
+    <value>{0} of them hold settings kept as directory objects (software installation, wireless or wired network policies) that the backups do not contain.</value>
+  </data>
+  <data name="GroupPolicy.BackupDetails" xml:space="preserve">
+    <value>{0} files, {1} bytes, {2}</value>
+  </data>
+  <data name="GroupPolicy.BackupWithSidecar" xml:space="preserve">
+    <value>with the AD Manager sidecar (links, checksums)</value>
+  </data>
+  <data name="GroupPolicy.BackupGpmcOnly" xml:space="preserve">
+    <value>GPMC backup without the AD Manager sidecar</value>
+  </data>
+  <data name="GroupPolicy.BackupOtherDomain" xml:space="preserve">
+    <value>The backup comes from the domain {0}: restore it there, or import its settings into a GPO of this domain.</value>
+  </data>
+  <data name="GroupPolicy.RestoreLinks" xml:space="preserve">
+    <value>Also restore the links ({0})</value>
+  </data>
+  <data name="GroupPolicy.BackupPowerShellHeading" xml:space="preserve">
+    <value>PowerShell equivalent</value>
+  </data>
+  <data name="GroupPolicy.CompareWindowTitle" xml:space="preserve">
+    <value>Compare „{0}” and „{1}”</value>
+  </data>
+  <data name="GroupPolicy.CompareWithoutContent" xml:space="preserve">
+    <value>Settings and files were not compared.</value>
+  </data>
+  <data name="GroupPolicy.CompareSummary" xml:space="preserve">
+    <value>{0} differences in {1} items</value>
+  </data>
+  <data name="GroupPolicy.CompareExport" xml:space="preserve">
+    <value>Export the comparison</value>
+  </data>
+  <data name="GroupPolicy.CompareExported" xml:space="preserve">
+    <value>{0} rows exported.</value>
+  </data>
+  <data name="GroupPolicy.SectionCore" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.SectionPermissions" xml:space="preserve">
+    <value>Permissions</value>
+  </data>
+  <data name="GroupPolicy.SectionLinks" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="GroupPolicy.SectionSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="GroupPolicy.SectionFiles" xml:space="preserve">
+    <value>Files</value>
+  </data>
+  <data name="GroupPolicy.StateSame" xml:space="preserve">
+    <value>Same</value>
+  </data>
+  <data name="GroupPolicy.StateDifferent" xml:space="preserve">
+    <value>Different</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInA" xml:space="preserve">
+    <value>Only in A</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInB" xml:space="preserve">
+    <value>Only in B</value>
+  </data>
+  <data name="GroupPolicy.TitleNew" xml:space="preserve">
+    <value>New GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleCopy" xml:space="preserve">
+    <value>Copy GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRename" xml:space="preserve">
+    <value>Rename GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelete" xml:space="preserve">
+    <value>Delete GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDeleteFolder" xml:space="preserve">
+    <value>Delete the remaining folder of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLink" xml:space="preserve">
+    <value>Link „{0}” to {1}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnlink" xml:space="preserve">
+    <value>Delete the link of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleReorder" xml:space="preserve">
+    <value>Link order of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLinkOptions" xml:space="preserve">
+    <value>Link of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleBlock" xml:space="preserve">
+    <value>Block inheritance on {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnblock" xml:space="preserve">
+    <value>Allow inheritance on {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleStatus" xml:space="preserve">
+    <value>GPO status of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiLink" xml:space="preserve">
+    <value>WMI filter of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleAlign" xml:space="preserve">
+    <value>Align the versions of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRepair" xml:space="preserve">
+    <value>Repair the folder permissions of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleSecurityFilter" xml:space="preserve">
+    <value>Security filtering of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelegation" xml:space="preserve">
+    <value>Delegation of „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRestore" xml:space="preserve">
+    <value>Restore „{0}” from a backup</value>
+  </data>
+  <data name="GroupPolicy.TitleImport" xml:space="preserve">
+    <value>Import settings into „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiNew" xml:space="preserve">
+    <value>New WMI filter „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiEdit" xml:space="preserve">
+    <value>WMI filter „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiDelete" xml:space="preserve">
+    <value>Delete WMI filter „{0}”</value>
+  </data>
+  <data name="GroupPolicy.Category.Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="GroupPolicy.Category.AccountPolicy" xml:space="preserve">
+    <value>Account policies</value>
+  </data>
+  <data name="GroupPolicy.Category.AuditPolicy" xml:space="preserve">
+    <value>Audit policy</value>
+  </data>
+  <data name="GroupPolicy.Category.PrivilegeRights" xml:space="preserve">
+    <value>User rights assignment</value>
+  </data>
+  <data name="GroupPolicy.Category.GroupMembership" xml:space="preserve">
+    <value>Restricted groups</value>
+  </data>
+  <data name="GroupPolicy.Category.Services" xml:space="preserve">
+    <value>System services</value>
+  </data>
+  <data name="GroupPolicy.Category.FileRegistrySecurity" xml:space="preserve">
+    <value>File and registry security</value>
+  </data>
+  <data name="GroupPolicy.Category.Registry" xml:space="preserve">
+    <value>Registry</value>
+  </data>
+  <data name="GroupPolicy.Category.SecurityRegistry" xml:space="preserve">
+    <value>Security-relevant registry</value>
+  </data>
+  <data name="GroupPolicy.Category.Scripts" xml:space="preserve">
+    <value>Scripts</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceGroups" xml:space="preserve">
+    <value>Preferences – local users and groups</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceScheduledTasks" xml:space="preserve">
+    <value>Preferences – scheduled tasks</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceSystemFiles" xml:space="preserve">
+    <value>Preferences – system files</value>
+  </data>
+  <data name="GroupPolicy.Category.Preferences" xml:space="preserve">
+    <value>Preferences</value>
+  </data>
+  <data name="GroupPolicy.Category.EventLog" xml:space="preserve">
+    <value>Event log</value>
+  </data>
+  <data name="GroupPolicy.Category.Comments" xml:space="preserve">
+    <value>Comments</value>
+  </data>
+  <data name="KindPlural.GroupPolicyContainer" xml:space="preserve">
+    <value>Group Policy Objects</value>
+  </data>
+  <data name="KindPlural.WmiFilter" xml:space="preserve">
+    <value>WMI Filters</value>
+  </data>
+  <data name="KindPlural.Site" xml:space="preserve">
+    <value>Sites</value>
+  </data>
+  <data name="Issue.GpoForeignReferences" xml:space="preserve">
+    <value>The imported settings name security principals or UNC paths of another domain ({0}: {1}; migration tables are not supported) – check them after the import.</value>
+  </data>
+  <data name="Issue.GpoGppPassword" xml:space="preserve">
+    <value>The settings contain Group Policy Preferences passwords (cpassword, MS14-025) in {0}: every user of the domain can read and decrypt them – remove these items or use LAPS.</value>
+  </data>
+  <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
+    <value>The new GPO gets exactly the permissions listed here: the default entries missing from them (such as Apply Group Policy for Authenticated Users) are removed.</value>
+  </data>
+  <data name="Issue.GpoDirectorySettings" xml:space="preserve">
+    <value>The GPO holds settings kept as directory objects (software installation, wireless or wired network policies) that are not copied, backed up or restored – recreate them in GPMC.</value>
+  </data>
+  <data name="Issue.GpoExists" xml:space="preserve">
+    <value>The GPO exists: its SYSVOL folder is in use and is not deleted.</value>
+  </data>
+  <data name="Issue.GpoFolderExists" xml:space="preserve">
+    <value>A SYSVOL folder with the GPO's GUID is left over from its delete: remove it first with "Delete the remaining folder" in the GPO's view.</value>
+  </data>
+  <data name="Issue.GpoWmiFilterMissing" xml:space="preserve">
+    <value>The WMI filter of the backup does not exist in this domain: the GPO is restored without a WMI filter.</value>
+  </data>
+  <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
+    <value>The backup comes from the domain {0}: restore it there, or import its settings into a GPO of this domain.</value>
+  </data>
+  <data name="Issue.GpoVersionJump" xml:space="preserve">
+    <value>The deleted GPO's last version is unknown (no Recycle Bin): the version is raised well above the backup's so that every client processes the restored settings again.</value>
+  </data>
+  <!-- K2: Group Policy (end) -->
 </root>

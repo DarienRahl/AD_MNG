@@ -3,14 +3,17 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using AdMng.App.Connections;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.Views;
 using AdMng.Core.Csv;
 using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -26,8 +29,8 @@ namespace AdMng.App;
 
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
-/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation and the
-/// dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
+/// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation, the
+/// computer windows (K1) and the dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
 /// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
 /// nothing touches a directory or a watchdog service.
 /// </summary>
@@ -152,6 +155,7 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(main);
         await main.Shell.InitializeAsync().ConfigureAwait(true);
         await RenderWatchdogTabAsync(main).ConfigureAwait(true);
+        await RenderGroupPolicyAsync(main, services).ConfigureAwait(true);
         main.Shell.CommandPalette.OpenCommand.Execute(null);
 
         // A second connection window (its own scope, disconnected: grey strip, "Nie połączono") and the connect window of
@@ -180,6 +184,7 @@ internal static class SmokeTest
 
         // ---- C2a: object dialogs in the disconnected state the factory produces without a DC (the property sheet and
         // Reset Password show "not connected"). The object and container pickers need a session: UI tests cover them.
+        RenderComputerWindows(services, windows);
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
         RenderToolWindows(services, windows); // C2b
 
@@ -297,6 +302,56 @@ internal static class SmokeTest
         }
 
         watchdog.ServiceUrlInput = string.Empty;
+        await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Group Policy (K2), disconnected: the four documents ("not connected"), the name dialog (new, copy, rename), the GPO
+    /// picker, the backup window in every mode, the comparison, the WMI filter editor (new, edit) and the change plan
+    /// preview with SYSVOL rows (a sample plan; nothing is executed). No DC and no SYSVOL share is contacted.
+    /// </summary>
+    private static async Task RenderGroupPolicyAsync(MainWindow main, IServiceProvider services)
+    {
+        var shell = main.Shell;
+        if (!shell.IsGroupPolicyAvailable)
+        {
+            throw new InvalidOperationException("The main window has no Group Policy services.");
+        }
+
+        foreach (var request in new GroupPolicyDocumentRequest[]
+        {
+            new(GroupPolicyDocumentKind.Objects),
+            new(GroupPolicyDocumentKind.Object) { GpoId = GroupPolicySamples.PasswordsId, Name = "Stacje robocze – Zasady haseł", Tab = GpoDocumentTab.Status },
+            new(GroupPolicyDocumentKind.Scope) { ContainerDn = "OU=Komputery,OU=Firma," + GroupPolicySamples.DomainDn, Name = "Komputery" },
+            new(GroupPolicyDocumentKind.WmiFilters),
+        })
+        {
+            var document = shell.OpenGroupPolicyDocument(request) ?? throw new InvalidOperationException("A Group Policy document did not open.");
+            await document.LoadAsync().ConfigureAwait(true);
+            await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
+        }
+
+        var windows = services.GetRequiredService<IWindowService>();
+        var gp = services.GetRequiredService<GroupPolicyServices>();
+        var passwords = GroupPolicySamples.Gpo(GroupPolicySamples.PasswordsId, "Stacje robocze – Zasady haseł");
+        var remoteDesktop = GroupPolicySamples.Gpo(GroupPolicySamples.RemoteDesktopId, "Stacje robocze – Pulpit zdalny");
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.New, "Nowy obiekt zasad grupy", "Komputery")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.Copy, "Kopia Stacje robocze – Zasady haseł", null, passwords.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new NewGpoViewModel(gp.Ui, NewGpoMode.Rename, passwords.DisplayName, null, passwords.DisplayName)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoPickerViewModel(gp.Ui, gp.Reader, "Połącz istniejący GPO z Komputery", multiSelect: false, [])));
+        foreach (var mode in Enum.GetValues<GpoBackupMode>())
+        {
+            UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoBackupViewModel(gp, mode, mode == GpoBackupMode.Restore ? [] : [passwords])));
+        }
+
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoComparisonViewModel(gp, passwords, remoteDesktop)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, null)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter())));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new ChangePlanPreviewViewModel(gp.Ui, gp.Engines,
+            new ChangePlanPreviewRequest(GroupPolicySamples.Plan("dc01.contoso.test"), "Import ustawień")
+            {
+                Notes = [gp.Localizer.Format(L.GroupPolicy.PdcNote, "dc01.contoso.test", "dc02.contoso.test")],
+            })));
         await UiTestSupport.WaitForIdleAsync(rounds: 2).ConfigureAwait(true);
     }
 
@@ -437,4 +492,25 @@ internal static class SmokeTest
 
     [DllImport("kernel32.dll")]
     private static extern nint GetStdHandle(int standardHandle);
+
+    /// <summary>
+    /// Computers (K1), disconnected: the computer review (scope, parameters, reports; "Sprawdź" disabled), the remote actions
+    /// of a computer ("not connected", every action disabled), the restart dialog of a server (typed name) and of a
+    /// workstation, and the "Komputery" tab of the settings. No computer, DC or DNS server is contacted.
+    /// </summary>
+    private static void RenderComputerWindows(IServiceProvider services, IWindowService windows)
+    {
+        var computers = services.GetRequiredService<Presentation.Computers.ComputerViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateReview()));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRemote("CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test")));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=SRV-PLIKI01,OU=Serwery,OU=Firma,DC=contoso,DC=test", "SRV-PLIKI01", "srv-pliki01.contoso.test", Core.Computers.ComputerType.Server))));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(computers.CreateRestart(new Core.Computers.Remote.RemoteTarget(
+            "CN=WAW-PC001,OU=Komputery,OU=Firma,DC=contoso,DC=test", "WAW-PC001", "waw-pc001.contoso.test", Core.Computers.ComputerType.Workstation))));
+
+        var settings = (SettingsWindow)windows.CreateWindow(services.GetRequiredService<IDialogViewModelFactory>().CreateSettings());
+        UiTestSupport.ShowOffScreen(settings);
+        settings.SettingsTabs.SelectedItem = settings.ComputersTab;
+        settings.UpdateLayout();
+    }
 }

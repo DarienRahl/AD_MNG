@@ -1,3 +1,4 @@
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Detection;
 using EventAttribution = AdMng.Watchdog.Contracts.Events.Attribution;

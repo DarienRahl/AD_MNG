@@ -301,6 +301,12 @@ internal sealed class LdapDirectorySession : IDirectorySession
             request.Controls.Add(new PermissiveModifyControl());
         }
 
+        if (options is { SecurityDescriptorFlags: not SecurityDescriptorRights.None and var sdFlags })
+        {
+            // Only the named parts of a written nTSecurityDescriptor are applied (a DACL edit needs no SeSecurityPrivilege).
+            request.Controls.Add(new SecurityDescriptorFlagControl((SecurityMasks)(int)sdFlags) { IsCritical = true });
+        }
+
         // Replace (and permissive add/delete) can be repeated safely after a lost connection.
         var idempotent = permissive || modifications.All(m => m.Operation == ModificationOperation.Replace);
         await ExecuteAsync(

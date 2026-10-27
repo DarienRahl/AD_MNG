@@ -34,8 +34,10 @@ public sealed partial class XamlSourceTests
     public void EveryCommandIdUsedInXaml_IsAShellCommand()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Runs with the Windows test suite.");
-        var palette = File.ReadAllText(Path.Combine(SourceDirectory(), "..", "AdMng.Presentation", "Shell", "ShellViewModel.Palette.cs"));
-        var ids = DescriptorId().Matches(palette).Select(m => m.Groups["id"].Value).ToHashSet(StringComparer.Ordinal);
+        // The palette and the descriptor lists of the feature partials (ShellViewModel.GroupPolicy.cs, ...) it spreads in.
+        var ids = System.IO.Directory.EnumerateFiles(Path.Combine(SourceDirectory(), "..", "AdMng.Presentation", "Shell"), "ShellViewModel*.cs")
+            .SelectMany(file => DescriptorId().Matches(File.ReadAllText(file)).Select(m => m.Groups["id"].Value))
+            .ToHashSet(StringComparer.Ordinal);
         var used = XamlFiles()
             .SelectMany(file => CommandId().Matches(File.ReadAllText(file)).Select(m => (File: Path.GetFileName(file), Id: m.Groups["id"].Value)))
             .ToList();

@@ -1,5 +1,7 @@
 using System.Windows.Threading;
+using AdMng.App.Computers;
 using AdMng.App.Connections;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.Views;
@@ -110,6 +112,9 @@ public static class AppHost
         services.AddSingleton<ISysvolFileReader, WindowsSysvolFileReader>();
         services.AddSingleton<IPrivilegeGrantSource>(sp => new GroupPolicyGrantSource(sp.GetRequiredService<ISysvolFileReader>()));
 
+        // Group Policy (K2): the SYSVOL writer of the session's DC and the GPO windows.
+        services.AddAdMngGroupPolicyApp();
+
         // AdMng Watchdog service (HTTPS + Kerberos; configured from the settings by WatchdogConnectionService).
         services.AddSingleton<IWatchdogClient, WatchdogHttpClient>();
 
@@ -177,6 +182,9 @@ public static class AppHost
 
         // ---- Account review, README U2 and U4 (opened through ToolWindows) ----
         services.AddWindow<AccountReviewViewModel, AccountReviewWindow>();
+
+        // ---- Computers, K1: review, remote actions over WinRM, local tools (opened through ToolWindows / DialogService) ----
+        services.AddAdMngComputersApp();
 
         // ---- Saved filters of the filter builder, README U4 (the list through ToolWindows, the editor modal) ----
         services.AddWindow<Presentation.Filters.SavedFiltersViewModel, SavedFiltersWindow>();

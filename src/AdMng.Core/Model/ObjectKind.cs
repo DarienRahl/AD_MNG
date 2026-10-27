@@ -22,6 +22,15 @@ public enum ObjectKind
     SharedFolder,
     LostAndFound,
     BitLockerRecovery,
+
+    /// <summary>A group policy container (K2: GPO plans and GPO nodes; lists keep showing it as a container).</summary>
+    GroupPolicyContainer,
+
+    /// <summary>A WMI filter (<c>msWMI-Som</c>, K2).</summary>
+    WmiFilter,
+
+    /// <summary>A site of the forest (K2: GPO links of sites).</summary>
+    Site,
 }
 
 /// <summary>Maps objectClass values to <see cref="ObjectKind"/>.</summary>

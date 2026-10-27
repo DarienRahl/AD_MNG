@@ -80,6 +80,31 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
         EntryAdded?.Invoke(this, entry);
     }
 
+    /// <summary>
+    /// Records a ready script that is not a change plan – the CIM equivalent of a remote action (K1). The script must not
+    /// contain secrets (the caller writes <c>Get-Credential</c> instead of a credential).
+    /// </summary>
+    /// <param name="title">Title of the action.</param>
+    /// <param name="server">The computer (or DC) the action went to.</param>
+    /// <param name="script">The PowerShell.</param>
+    /// <param name="domain">DNS name of the session's domain.</param>
+    /// <param name="executedAt">When the action finished.</param>
+    public void RecordScript(string title, string server, string script, string? domain, DateTimeOffset executedAt)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        var entry = new PowerShellHistoryEntry(title ?? string.Empty, executedAt, server ?? string.Empty, 1, script, domain ?? string.Empty);
+        lock (_gate)
+        {
+            _entries.Add(entry);
+            if (_entries.Count > Capacity)
+            {
+                _entries.RemoveRange(0, _entries.Count - Capacity);
+            }
+        }
+
+        EntryAdded?.Invoke(this, entry);
+    }
+
     public void Clear()
     {
         lock (_gate)

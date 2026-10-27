@@ -148,6 +148,29 @@ Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo �
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).
 
+**SYSVOL w potoku zmian (zasada 5 obejmuje także pliki GPO).** Od K2 plan może zawierać kroki SYSVOL obok kroków LDAP:
+`CreateGpoFolder`, `WriteGpoFile`, `DeleteGpoFile`, `SyncGpoFolderSecurity`, `SetGpoFolderSecurity`, `SetGpoVersion`,
+`DeleteGpoFolder` (`PlannedChange.Sysvol`, `.GpoVersion`), a plan GPO jest sekwencyjny (`ChangePlan.Sequential`) i niesie
+semantyczne odpowiedniki PowerShell (`ObjectPlan.PowerShell`: `New-GPO`, `Set-GPLink`, `Restore-GPO` …). Wykonawca
+otwiera jedno połączenie SYSVOL na przebieg – na kontrolerze sesji, poświadczeniami okna (`ISysvolFileWriter`, zasady 2
+i 4) – a pliki jednego GPO zapisuje transakcją `GpoTransaction`: pliki tymczasowe obok docelowych, sprawdzenie,
+podmiana, na końcu wersja w `GPT.INI` i porównanie-z-zamianą `versionNumber` w AD; błąd lub zmiana GPO przez kogoś
+innego przywraca pliki z pamięci. Wersje tylko rosną (także przy cofaniu), plan cofnięcia odwraca kolejność obiektów.
+Dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików – nigdy treść. Nic poza potokiem nie pisze do SYSVOL.
+
+### Zasady grupy (K2)
+
+`AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPO, połączenia, dziedziczenie, filtry WMI, lokacje, emulator PDC,
+foldery GPO wczytywane do pamięci w limitach), `GroupPolicyPlanner` (plan każdej operacji – tworzenie, kopia, zmiana
+nazwy, usunięcie, `gPLink`/`gPOptions`, stan, filtry WMI, filtrowanie zabezpieczeń i delegowanie przez `ModifySecurity`
+K1 z poziomami GPMC, wyrównanie wersji, uprawnienia folderu, przywracanie i import), `GpmcBackupFormat` (kopie w
+układzie GPMC + `admng.json`, odczyt jak niezaufanych danych), `GroupPolicyComparer` oraz parsery treści GPO wspólne z
+Watchdogiem (`GroupPolicy/Content`). `AdMng.Presentation/GroupPolicy`: usługi i akcje na okno połączenia (Scoped),
+cztery karty (`IShellDocument`), węzły drzewa, modele okien i okno podglądu planu (`ChangePlanPreviewViewModel`).
+`AdMng.App/GroupPolicy`: widoki WPF, okna i `WindowsSysvolFileWriter` (`AdMng.Directory`). Kopie zapasowe i eksport
+porównania trafiają wyłącznie do miejsc wskazanych przez operatora (zasada 1). Opis dla użytkownika:
+[ZASADY-GRUPY.md](ZASADY-GRUPY.md); specyfikacja: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),
@@ -172,6 +195,39 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
 - **Edytor zbiorczy:** kreator operacje → podgląd → wykonanie → wyniki → cofnięcie; import CSV z mapowaniem kolumn.
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
+
+## Komputery (K1)
+
+Projekt: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdz. 3.1 i 4; opis dla administratora:
+[KOMPUTERY.md](KOMPUTERY.md).
+
+- **Core/Computers** – czysta logika bez LDAP: `ComputerFacts` (fakty z jednego wyniku wyszukiwania), `ComputerClassifier`
+  (stacja / serwer / DC / RODC z `userAccountControl`, grupy podstawowej i `operatingSystem`), `WindowsReleaseCatalog`
+  (kompilacja + klasa wydania → data końca wsparcia, nadpisania z ustawień), `ComputerInventory.Evaluate` (stan
+  komputera dla raportów), `ComputerReports` (filtry LDAP raportów przez `LdapFilter`), `PlacementRules`, `SubnetMap` i
+  `SiteTopology` (lokacje i podsieci z konfiguracji DC sesji), `ComputerJoinRights` (cztery ACE prawa dołączenia).
+- **Zapisy uprawnień (K1.1)** – akcja `ChangeAction.ModifySecurity` w potoku zmian: `AclChange` to delta ACE, którą
+  wykonawca nakłada na świeżo odczytany DACL (`DaclEditor`) i zapisuje z kontrolką SD flags `DACL_SECURITY_INFORMATION`
+  (`ModifyOptions.SecurityDescriptorFlags`) – właściciel, grupa i SACL nie są zapisywane. Cofnięcie to delta odwrotna,
+  eksport PowerShell – `Get-Acl`/`Set-Acl` na dysku `AD:` przypiętym do DC planu. Wynik kroku
+  (`ChangeResult.AppliedAcl`) to ta część delty, która naprawdę zmieniła DACL – z niej korzystają dziennik audytu i
+  cofnięcie, więc ACE dodany w międzyczasie przez kogoś innego nie jest ani przypisywany planowi, ani usuwany. Z tej akcji
+  korzysta też K2 (filtrowanie zabezpieczeń, delegowanie GPO); kopia GPO z uprawnieniami i przywrócenie usuniętego GPO
+  używają delty „dokładnej” (`AclChange.ReplacesExplicit`), która usuwa też jawne ACE, których nie ma w źródle.
+- **Cykl życia** – przygotowanie konta w kreatorze „Nowy → Komputer” (krok tworzenia + `ModifySecurity` w jednym planie),
+  `ResetComputerAccountOperation` (losowe 120 znaków, tylko w pamięci planu) i reguły `PlanValidation` dla kont DC.
+- **AdMng.Remote** (osobny projekt, `net10.0`, wywołania Windows chronione) – `CimRemoteComputerClient`
+  (`Microsoft.Management.Infrastructure`: CIM przez WS-Management, tylko Kerberos, poświadczenia okna z
+  `SessionLogons` w AdMng.Directory jako `SecureString` usuwany z sesją CIM), `WindowsLocalToolLauncher` (mstsc bez
+  poświadczeń; `compmgmt.msc`/`eventvwr` przez `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)`), DNS i ping. Odwołuje
+  się do niego tylko `AdMng.App`, więc pakiet CIM nie trafia do usługi Watchdog na Linuksie.
+- **Presentation/Computers** – `ComputerReviewViewModel` (strumień jak w przeglądzie kont, kafelki, kolumny raportu,
+  odczyt na żądanie z wszystkich DC i lokacji), `RemoteComputerViewModel` i `RestartComputerViewModel`, `ComputerActions`
+  (cel zdalny, narzędzia, ping, reset konta), karta „Stan” właściwości i karta „Komputery” ustawień.
+  `ComputerViewModelFactory` i `ComputerActions` są **Scoped** (okno połączenia); klient CIM, narzędzia, ping i resolver
+  DNS są singletonami bez stanu – każde wywołanie dostaje sesję (poświadczenie) okna, które pyta.
+- **Dane** – wyniki przeglądu, adresy, lokacje i wyniki zdalnych akcji są tylko w pamięci okna; dziennik sesji zapisuje
+  akcje zdalne bez treści komunikatu restartu, a logi diagnostyczne nie zawierają nazw komputerów.
 
 ## Bezpieczeństwo
 

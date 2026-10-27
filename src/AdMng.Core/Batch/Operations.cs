@@ -108,3 +108,15 @@ public sealed record RemoveFromGroupsOperation(IReadOnlyList<string> GroupDns) :
 
 /// <summary>Deletes objects. Cannot be combined with other operations.</summary>
 public sealed record DeleteOperation(bool IncludeSubtree = false) : BatchOperation;
+
+/// <summary>
+/// "Resetuj konto" of a computer (K1 design note 4.6): a password reset of the machine account with a random password of
+/// <see cref="GeneratedLength"/> characters generated at plan time that nobody sees - it is never shown, copied, exported or
+/// written to a report. The computer loses its trust relationship until it is joined again or its secure channel is
+/// repaired. Domain controllers are refused. Not reversible.
+/// </summary>
+public sealed record ResetComputerAccountOperation : BatchOperation
+{
+    /// <summary>Length of the generated machine password.</summary>
+    public const int GeneratedLength = 120;
+}

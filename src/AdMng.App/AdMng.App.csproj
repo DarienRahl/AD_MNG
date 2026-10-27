@@ -15,6 +15,7 @@
     <ProjectReference Include="..\AdMng.Directory\AdMng.Directory.csproj" />
     <ProjectReference Include="..\AdMng.Mail\AdMng.Mail.csproj" />
     <ProjectReference Include="..\AdMng.Presentation\AdMng.Presentation.csproj" />
+    <ProjectReference Include="..\AdMng.Remote\AdMng.Remote.csproj" />
     <ProjectReference Include="..\AdMng.Watchdog.Client\AdMng.Watchdog.Client.csproj" />
   </ItemGroup>
   <ItemGroup>

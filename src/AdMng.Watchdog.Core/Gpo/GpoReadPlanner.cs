@@ -1,3 +1,4 @@
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Contracts.Configuration;
 
 namespace AdMng.Watchdog.Core.Gpo;

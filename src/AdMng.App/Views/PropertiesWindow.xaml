@@ -11,6 +11,7 @@
         xmlns:ad="clr-namespace:AdMng.Core.ActiveDirectory;assembly=AdMng.Core"
         xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:conv="clr-namespace:AdMng.App.Converters"
+        xmlns:cv="clr-namespace:AdMng.Presentation.Computers;assembly=AdMng.Presentation"
         xmlns:dlg="clr-namespace:AdMng.Presentation.Dialogs;assembly=AdMng.Presentation"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:ps="clr-namespace:AdMng.Presentation.PropertySheets;assembly=AdMng.Presentation"
@@ -1435,6 +1436,86 @@
                      VerticalScrollBarVisibility="Auto" />
           </Grid>
         </Grid>
+      </DockPanel>
+    </DataTemplate>
+
+    <!-- Computers (K1): "Stan" – type, system, support, last logon (exact on demand), site, creator, owner, LAPS, and the
+         remote actions and tools of the computer. Read only. -->
+    <DataTemplate DataType="{x:Type cv:ComputerStatusPageViewModel}">
+      <DockPanel Margin="16,10,16,16">
+        <StackPanel DockPanel.Dock="Bottom">
+          <TextBlock Margin="0,10,0,6"
+                     Style="{StaticResource Ad.SectionHeader}"
+                     Text="{l:Tr Computers.Status.Actions}"
+                     Visibility="{Binding CanUseRemote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <WrapPanel x:Name="ComputerStatusActions" Visibility="{Binding CanUseRemote, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <Button Margin="0,0,6,6"
+                    Command="{Binding RemoteActionsCommand}"
+                    Content="{l:Tr Computers.RemoteActionsCommand}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Margin="0,0,6,6"
+                    Command="{Binding RemoteDesktopCommand}"
+                    Content="{l:Tr Computers.RemoteDesktop}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Margin="0,0,6,6"
+                    Command="{Binding ComputerManagementCommand}"
+                    Content="{l:Tr Computers.ComputerManagement}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Margin="0,0,6,6"
+                    Command="{Binding EventViewerCommand}"
+                    Content="{l:Tr Computers.EventViewer}"
+                    Style="{StaticResource SmallButton}" />
+            <Button Margin="0,0,6,6"
+                    Command="{Binding PingCommand}"
+                    Content="{l:Tr Computers.Ping}"
+                    Style="{StaticResource SmallButton}" />
+          </WrapPanel>
+        </StackPanel>
+        <WrapPanel Margin="0,0,0,8" DockPanel.Dock="Top">
+          <Button Margin="0,0,6,6"
+                  Command="{Binding ReadExactLastLogonCommand}"
+                  Content="{l:Tr Computers.Status.CheckAllDomainControllers}"
+                  Style="{StaticResource SmallButton}"
+                  Visibility="{Binding CanReadExactLastLogon, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <Button Margin="0,0,6,6"
+                  Command="{Binding ResolveSiteCommand}"
+                  Content="{l:Tr Computers.Status.ResolveSite}"
+                  Style="{StaticResource SmallButton}"
+                  ToolTip="{l:Tr ComputerReview.SitesTooltip}"
+                  Visibility="{Binding CanResolveSite, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+          <ProgressBar Width="60"
+                       Margin="4,0,0,6"
+                       VerticalAlignment="Center"
+                       IsIndeterminate="True"
+                       Visibility="{Binding IsReading, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        </WrapPanel>
+        <TextBlock Margin="0,0,0,8"
+                   DockPanel.Dock="Top"
+                   Style="{StaticResource ErrorText}"
+                   Text="{Binding Error, Mode=OneWay}"
+                   Visibility="{Binding Error, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+        <ScrollViewer Focusable="False" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <ItemsControl Focusable="False" Grid.IsSharedSizeScope="True" ItemsSource="{Binding Details, Mode=OneWay}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type cv:ComputerDetailViewModel}">
+                <Grid Margin="0,0,0,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="150" SharedSizeGroup="ComputerStatusLabel" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Margin="0,4,12,0"
+                             VerticalAlignment="Top"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding Label, Mode=OneWay}" />
+                  <TextBox Grid.Column="1"
+                           AutomationProperties.Name="{Binding Label, Mode=OneWay}"
+                           Style="{StaticResource Ad.SelectableText}"
+                           Text="{Binding Value, Mode=OneWay}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
       </DockPanel>
     </DataTemplate>
 

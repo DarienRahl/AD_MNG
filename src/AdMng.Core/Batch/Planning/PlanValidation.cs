@@ -51,6 +51,67 @@ internal static class PlanValidation
     public static ValidationIssue ProtectedAccountError(string? attribute = null) =>
         Error(IssueCodes.ProtectedObject, ProtectedAccountMessage, attribute);
 
+    /// <summary>The account of a (read-only) domain controller: SERVER_TRUST_ACCOUNT or PARTIAL_SECRETS_ACCOUNT.</summary>
+    public static bool IsDomainControllerAccount(DirectoryObject current)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        var uac = (UserAccountControl)(current.GetInt32(Attr.UserAccountControl) ?? 0);
+        return (uac & (UserAccountControl.ServerTrustAccount | UserAccountControl.PartialSecretsAccount)) != 0;
+    }
+
+    /// <summary>K1: disabling, deleting or resetting a domain controller's account (the role is demoted instead).</summary>
+    public static ValidationIssue DomainControllerAccountError() =>
+        Error(IssueCodes.DomainControllerAccount, "This is the account of a domain controller: demote the domain controller instead of disabling, deleting or resetting its account.");
+
+    /// <summary>K1: a domain controller moved out of OU=Domain Controllers of its domain gets a warning on the move step.</summary>
+    public static void WarnAboutDomainControllerMove(PlanningContext context, DirectoryObject current, DistinguishedName target, StepDraft step)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(step);
+        if (!IsDomainControllerAccount(current) || !DistinguishedName.TryParse(context.Session.Info.DefaultNamingContext, out var domain))
+        {
+            return;
+        }
+
+        var dcOu = domain.Child("OU", "Domain Controllers");
+        if (target != dcOu && !target.IsDescendantOf(dcOu))
+        {
+            step.Issues.Add(Warning(IssueCodes.DomainControllerOutsideOu,
+                "The domain controller leaves OU=Domain Controllers: the Default Domain Controllers Policy no longer applies to it."));
+        }
+    }
+
+    /// <summary>
+    /// K1: deleting a computer with its subtree also deletes its BitLocker recovery information (and Hyper-V / cluster
+    /// objects below it): a warning on the delete step when such children exist.
+    /// </summary>
+    public static async Task WarnAboutComputerChildrenAsync(PlanningContext context, ObjectPlanDraft draft, StepDraft step)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(draft);
+        ArgumentNullException.ThrowIfNull(step);
+        if (draft.Current is not { Kind: ObjectKind.Computer })
+        {
+            return;
+        }
+
+        var search = new DirectorySearch
+        {
+            BaseDn = draft.DistinguishedName,
+            Scope = SearchScope.OneLevel,
+            Filter = "(objectClass=*)",
+            SizeLimit = 1,
+            PageSize = 1,
+        };
+        await foreach (var _ in context.Session.SearchAsync(search, context.CancellationToken).ConfigureAwait(false))
+        {
+            step.Issues.Add(Warning(IssueCodes.DeletesBitLockerRecovery,
+                "The computer's child objects are deleted with it - BitLocker recovery passwords among them."));
+            break;
+        }
+    }
+
     /// <summary>Built-in Administrator (RID 500), krbtgt (RID 502) and domain controller (incl. RODC) accounts.</summary>
     public static bool IsProtectedAccount(DirectoryObject current)
     {

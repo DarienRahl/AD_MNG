@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using AdMng.Core.GroupPolicy.Content;
 using AdMng.Watchdog.Contracts.Events;
 using AdMng.Watchdog.Core.Gpo;
 using AdMng.Watchdog.Service.Secrets;

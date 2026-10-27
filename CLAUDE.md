@@ -49,6 +49,8 @@ commit messages and these notes are in English.
 | `src/AdMng.Directory` | net10.0 | S.DS.P implementation of `IDirectoryConnector`/`IDirectorySession` |
 | `src/AdMng.Presentation` | net10.0 | View models (CommunityToolkit.Mvvm), UI service interfaces, localization (resx en + pl), settings. **No WPF types.** |
 | `src/AdMng.App` | net10.0-windows | WPF views (XAML), Generic Host/DI, Windows-only services |
+| `src/AdMng.Remote` | net10.0 | Remote actions on computers (K1): CIM over WinRM (`Microsoft.Management.Infrastructure`, Kerberos with the window's credentials, never stored), ping, local tools (mstsc, Computer Management, Event Viewer); used by the App only, never shipped in the Watchdog package |
+| `tests/AdMng.Remote.Tests` | net10.0 | Remote action tests (CIM mapping, error classification, host name checks, command lines) |
 | `src/AdMng.Mail` | net10.0 | Direct SMTP transport of user messages (U1, MailKit): TLS modes, certificate policy, authentication, failure classification; the SMTP password lives only in memory |
 | `tests/AdMng.Mail.Tests` | net10.0 | SMTP transport tests (in-process test servers; Mailpit with `ADMNG_TEST_SMTP_*`) |
 | `tests/AdMng.Testing` | net10.0 | Shared test library: `FakeDirectorySession` (in-memory directory with real LDAP modify semantics), `FakeDirectoryBuilder.AddSampleCompany()` |

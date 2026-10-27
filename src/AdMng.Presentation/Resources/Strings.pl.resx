@@ -7530,6 +7530,951 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="AccountStatus.DomainControllerFailed" xml:space="preserve">
     <value>{0} nie odpowiedział: {1}</value>
   </data>
+  <data name="ChangeAction.ModifySecurity" xml:space="preserve">
+    <value>Zmień uprawnienia</value>
+  </data>
+  <data name="Issue.DomainControllerAccount" xml:space="preserve">
+    <value>To jest konto kontrolera domeny – zamiast tego obniż poziom kontrolera domeny.</value>
+  </data>
+  <data name="Issue.DomainControllerOutsideOu" xml:space="preserve">
+    <value>Kontroler domeny opuszcza jednostkę Domain Controllers: przestanie go obejmować zasada Default Domain Controllers Policy.</value>
+  </data>
+  <data name="Issue.ComputerTrustLost" xml:space="preserve">
+    <value>Komputer straci relację zaufania z domeną: dołącz go ponownie albo napraw kanał (Test-ComputerSecureChannel -Repair).</value>
+  </data>
+  <data name="Issue.DeletesBitLockerRecovery" xml:space="preserve">
+    <value>Razem z komputerem zostaną usunięte jego obiekty podrzędne – także hasła odzyskiwania funkcji BitLocker.</value>
+  </data>
+  <data name="Issue.SecurityNotReadable" xml:space="preserve">
+    <value>Nie można odczytać uprawnień obiektu.</value>
+  </data>
+  <data name="Computers.Acl.Added" xml:space="preserve">
+    <value>dodane: {0}</value>
+  </data>
+  <data name="Computers.Acl.Removed" xml:space="preserve">
+    <value>usunięte: {0}</value>
+  </data>
+  <data name="Computers.Acl.Allow" xml:space="preserve">
+    <value>Zezwalaj – {0}</value>
+  </data>
+  <data name="Computers.Acl.Deny" xml:space="preserve">
+    <value>Odmawiaj – {0}</value>
+  </data>
+  <data name="Computers.Acl.Inherited" xml:space="preserve">
+    <value>(także dla obiektów podrzędnych)</value>
+  </data>
+  <data name="Computers.Acl.Right.FullControl" xml:space="preserve">
+    <value>pełna kontrola</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericRead" xml:space="preserve">
+    <value>odczyt</value>
+  </data>
+  <data name="Computers.Acl.Right.GenericWrite" xml:space="preserve">
+    <value>zapis</value>
+  </data>
+  <data name="Computers.Acl.Right.ResetPassword" xml:space="preserve">
+    <value>resetowanie hasła</value>
+  </data>
+  <data name="Computers.Acl.Right.AccountRestrictions" xml:space="preserve">
+    <value>odczyt i zapis ograniczeń konta</value>
+  </data>
+  <data name="Computers.Acl.Right.DnsHostName" xml:space="preserve">
+    <value>sprawdzony zapis do nazwy hosta DNS</value>
+  </data>
+  <data name="Computers.Acl.Right.ServicePrincipalName" xml:space="preserve">
+    <value>sprawdzony zapis do głównej nazwy usługi</value>
+  </data>
+  <data name="Computers.Acl.Right.ApplyGroupPolicy" xml:space="preserve">
+    <value>zastosowanie zasad grupy</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRight" xml:space="preserve">
+    <value>wszystkie prawa rozszerzone</value>
+  </data>
+  <data name="Computers.Acl.Right.ExtendedRightOf" xml:space="preserve">
+    <value>prawo rozszerzone {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadProperty" xml:space="preserve">
+    <value>odczyt wszystkich właściwości</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadPropertyOf" xml:space="preserve">
+    <value>odczyt {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteProperty" xml:space="preserve">
+    <value>zapis wszystkich właściwości</value>
+  </data>
+  <data name="Computers.Acl.Right.WritePropertyOf" xml:space="preserve">
+    <value>zapis {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.Self" xml:space="preserve">
+    <value>wszystkie sprawdzone zapisy</value>
+  </data>
+  <data name="Computers.Acl.Right.SelfOf" xml:space="preserve">
+    <value>sprawdzony zapis {0}</value>
+  </data>
+  <data name="Computers.Acl.Right.CreateChild" xml:space="preserve">
+    <value>tworzenie obiektów podrzędnych</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteChild" xml:space="preserve">
+    <value>usuwanie obiektów podrzędnych</value>
+  </data>
+  <data name="Computers.Acl.Right.ListChildren" xml:space="preserve">
+    <value>wyświetlanie zawartości</value>
+  </data>
+  <data name="Computers.Acl.Right.ListObject" xml:space="preserve">
+    <value>wyświetlanie obiektu</value>
+  </data>
+  <data name="Computers.Acl.Right.DeleteTree" xml:space="preserve">
+    <value>usuwanie poddrzewa</value>
+  </data>
+  <data name="Computers.Acl.Right.Delete" xml:space="preserve">
+    <value>usuwanie</value>
+  </data>
+  <data name="Computers.Acl.Right.ReadControl" xml:space="preserve">
+    <value>odczyt uprawnień</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteDacl" xml:space="preserve">
+    <value>modyfikowanie uprawnień</value>
+  </data>
+  <data name="Computers.Acl.Right.WriteOwner" xml:space="preserve">
+    <value>modyfikowanie właściciela</value>
+  </data>
+  <data name="Computers.Acl.Right.Other" xml:space="preserve">
+    <value>prawa 0x{0}</value>
+  </data>
+  <data name="Computers.NotAComputer" xml:space="preserve">
+    <value>Obiekt nie jest (już) komputerem.</value>
+  </data>
+  <data name="Computers.NoDnsName" xml:space="preserve">
+    <value>{0} nie ma w Active Directory nazwy hosta DNS, a zdalne akcje i narzędzia jej wymagają (Kerberos nie działa z adresami IP).</value>
+  </data>
+  <data name="Computers.ToolsNotAvailable" xml:space="preserve">
+    <value>Ta akcja jest dostępna tylko w AD Manager w systemie Windows.</value>
+  </data>
+  <data name="Computers.ToolCredentialConfirm" xml:space="preserve">
+    <value>Narzędzie połączy się z {0} jako {1} – z poświadczeniami tego okna połączenia. Pozostaną one w pamięci sesji logowania narzędzia do jego zamknięcia (nigdy na dysku). Uruchomić?</value>
+  </data>
+  <data name="Computers.Ping" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="Computers.PingReplies" xml:space="preserve">
+    <value>Ping {0}: {1} z {2} odpowiedzi, średnio {3} ms.</value>
+  </data>
+  <data name="Computers.PingNoReply" xml:space="preserve">
+    <value>Ping {0}: brak odpowiedzi.</value>
+  </data>
+  <data name="Computers.RemoteDesktop" xml:space="preserve">
+    <value>Pulpit zdalny</value>
+  </data>
+  <data name="Computers.ComputerManagement" xml:space="preserve">
+    <value>Zarządzanie komputerem</value>
+  </data>
+  <data name="Computers.EventViewer" xml:space="preserve">
+    <value>Podgląd zdarzeń</value>
+  </data>
+  <data name="Computers.RemoteActionsCommand" xml:space="preserve">
+    <value>Zdalne akcje…</value>
+  </data>
+  <data name="Computers.ComputerMenu" xml:space="preserve">
+    <value>Komputer</value>
+  </data>
+  <data name="Computers.ResetAccount" xml:space="preserve">
+    <value>Resetuj konto</value>
+  </data>
+  <data name="Computers.ResetAccountCommand" xml:space="preserve">
+    <value>Resetuj konto…</value>
+  </data>
+  <data name="Computers.ResetConfirmOne" xml:space="preserve">
+    <value>Zresetować konto komputera {0} w domenie {1}?</value>
+  </data>
+  <data name="Computers.ResetConfirmMany" xml:space="preserve">
+    <value>Zresetować {0} kont komputerów w domenie {1}?</value>
+  </data>
+  <data name="Computers.ResetSkipped" xml:space="preserve">
+    <value>Nie zostaną zresetowane (kontrolery domeny lub inne obiekty): {0}.</value>
+  </data>
+  <data name="Computers.ResetTargets" xml:space="preserve">
+    <value>Konta: {0}.</value>
+  </data>
+  <data name="Computers.ResetTargetsMore" xml:space="preserve">
+    <value>{0} i jeszcze {1}</value>
+  </data>
+  <data name="Computers.ResetWarning" xml:space="preserve">
+    <value>Komputery stracą relację zaufania z domeną: dołącz je ponownie albo napraw kanał (Test-ComputerSecureChannel -Repair). Nowe hasło konta jest losowe i nikt go nie zobaczy; zmiany nie można cofnąć.</value>
+  </data>
+  <data name="Computers.TypeDomainToConfirm" xml:space="preserve">
+    <value>Wpisz nazwę domeny {0}, aby potwierdzić.</value>
+  </data>
+  <data name="Computers.ResetDone" xml:space="preserve">
+    <value>Zresetowano konta komputerów: {0}, nieudane: {1}.</value>
+  </data>
+  <data name="Computers.ComputerReviewCommand" xml:space="preserve">
+    <value>Przegląd komputerów…</value>
+  </data>
+  <data name="Computers.Type.Workstation" xml:space="preserve">
+    <value>Stacja robocza</value>
+  </data>
+  <data name="Computers.Type.Server" xml:space="preserve">
+    <value>Serwer</value>
+  </data>
+  <data name="Computers.Type.DomainController" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="Computers.Type.ReadOnlyDomainController" xml:space="preserve">
+    <value>Kontroler domeny tylko do odczytu</value>
+  </data>
+  <data name="Computers.Type.Unknown" xml:space="preserve">
+    <value>Nieznany (brak systemu operacyjnego)</value>
+  </data>
+  <data name="Computers.Placement.NotMovedAfterJoin" xml:space="preserve">
+    <value>nieprzeniesiony po dołączeniu (domyślny kontener Computers)</value>
+  </data>
+  <data name="Computers.Placement.DomainControllerOutsideOu" xml:space="preserve">
+    <value>kontroler domeny poza OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.MemberInDomainControllersOu" xml:space="preserve">
+    <value>nie jest kontrolerem domeny, a jest w OU=Domain Controllers</value>
+  </data>
+  <data name="Computers.Placement.UnexpectedContainer" xml:space="preserve">
+    <value>poza kontenerami dozwolonymi dla tego typu</value>
+  </data>
+  <data name="Computers.Owner.Unknown" xml:space="preserve">
+    <value>nie sprawdzono</value>
+  </data>
+  <data name="Computers.Owner.Missing" xml:space="preserve">
+    <value>brak właściciela</value>
+  </data>
+  <data name="Computers.Owner.Present" xml:space="preserve">
+    <value>właściciel ustawiony</value>
+  </data>
+  <data name="Computers.Owner.Disabled" xml:space="preserve">
+    <value>konto właściciela wyłączone</value>
+  </data>
+  <data name="Computers.Owner.Deleted" xml:space="preserve">
+    <value>właściciel usunięty</value>
+  </data>
+  <data name="Computers.Prestage.Joiner" xml:space="preserve">
+    <value>Użytkownik lub grupa, która może dołączyć ten komputer do domeny</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNone" xml:space="preserve">
+    <value>brak – tylko administratorzy</value>
+  </data>
+  <data name="Computers.Prestage.ManagedBy" xml:space="preserve">
+    <value>Zarządzany przez</value>
+  </data>
+  <data name="Computers.Prestage.ManagedByNone" xml:space="preserve">
+    <value>nikt</value>
+  </data>
+  <data name="Computers.Prestage.Location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="Computers.Prestage.Change" xml:space="preserve">
+    <value>Zmień…</value>
+  </data>
+  <data name="Computers.Prestage.Clear" xml:space="preserve">
+    <value>Wyczyść</value>
+  </data>
+  <data name="Computers.Prestage.Hardening" xml:space="preserve">
+    <value>Od wzmocnienia dołączania do domeny z KB5020276 (2022–2023) dołączenie, które ponownie używa tego konta, udaje się tylko wtedy, gdy dołączający utworzył konto, jest członkiem Domain Admins lub Enterprise Admins albo wbudowanym Administratorem, gdy właściciel konta należy do tych grup, albo gdy zasada „Domain controller: Allow computer account re-use during domain join” (Opcje zabezpieczeń zasad lokalnych kontrolerów domeny) ufa właścicielowi. Właścicielem konta będzie {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OwnerIsAdmin" xml:space="preserve">
+    <value>{0} jest administratorem: {1} może dołączyć komputer z tym kontem.</value>
+  </data>
+  <data name="Computers.Prestage.JoinFails" xml:space="preserve">
+    <value>{0} nie jest administratorem: dołączenie przez {1} nie powiedzie się, chyba że zasada „Domain controller: Allow computer account re-use during domain join” ufa kontu {0}.</value>
+  </data>
+  <data name="Computers.Prestage.OnlyAdmins" xml:space="preserve">
+    <value>Bez użytkownika lub grupy tylko administratorzy mogą dołączyć komputer z tym kontem.</value>
+  </data>
+  <data name="Computers.Prestage.NoPreWindows2000" xml:space="preserve">
+    <value>Opcja „Przypisz to konto komputera jako komputer sprzed Windows 2000” nie jest oferowana: hasło wyprowadzone z nazwy to znana ścieżka ataku.</value>
+  </data>
+  <data name="Computers.Prestage.JoinerNotFound" xml:space="preserve">
+    <value>Wybrany użytkownik lub grupa nie ma identyfikatora zabezpieczeń.</value>
+  </data>
+  <data name="Computers.Page.Status" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Computers.Status.CheckAllDomainControllers" xml:space="preserve">
+    <value>Sprawdź na wszystkich DC</value>
+  </data>
+  <data name="Computers.Status.ResolveSite" xml:space="preserve">
+    <value>Ustal</value>
+  </data>
+  <data name="Computers.Status.ObjectOwner" xml:space="preserve">
+    <value>Właściciel obiektu</value>
+  </data>
+  <data name="Computers.Status.Actions" xml:space="preserve">
+    <value>Akcje</value>
+  </data>
+  <data name="Computers.Status.ExactNotAnswered" xml:space="preserve">
+    <value>Nie wszystkie kontrolery domeny odpowiedziały: {0}</value>
+  </data>
+  <data name="Computers.Status.NotRead" xml:space="preserve">
+    <value>jeszcze nie odczytano</value>
+  </data>
+  <data name="Computers.Settings.Tab" xml:space="preserve">
+    <value>Komputery</value>
+  </data>
+  <data name="Computers.Settings.RemoteHeader" xml:space="preserve">
+    <value>Zdalne akcje (WinRM, Kerberos)</value>
+  </data>
+  <data name="Computers.Settings.Timeout" xml:space="preserve">
+    <value>Limit czasu (sekundy)</value>
+  </data>
+  <data name="Computers.Settings.UseHttps" xml:space="preserve">
+    <value>Używaj HTTPS (5986) zamiast HTTP z szyfrowaniem Kerberos (5985)</value>
+  </data>
+  <data name="Computers.Settings.Port" xml:space="preserve">
+    <value>Port</value>
+  </data>
+  <data name="Computers.Settings.PortHint" xml:space="preserve">
+    <value>Puste: {0}</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicy" xml:space="preserve">
+    <value>„Odśwież zasady grupy” odświeża też zasady zalogowanych użytkowników (zadanie zaplanowane)</value>
+  </data>
+  <data name="Computers.Settings.RefreshUserPolicyHint" xml:space="preserve">
+    <value>Wyłączone do potwierdzenia w pilotażu na Windows; zasady komputera są odświeżane zawsze.</value>
+  </data>
+  <data name="Computers.Settings.RestartHeader" xml:space="preserve">
+    <value>Ponowne uruchomienie</value>
+  </data>
+  <data name="Computers.Settings.RestartDelay" xml:space="preserve">
+    <value>Domyślne opóźnienie (minuty)</value>
+  </data>
+  <data name="Computers.Settings.RestartMessage" xml:space="preserve">
+    <value>Domyślny komunikat dla użytkowników</value>
+  </data>
+  <data name="Computers.Settings.RestartMessageHint" xml:space="preserve">
+    <value>Puste: wbudowany tekst w języku interfejsu.</value>
+  </data>
+  <data name="Computers.Settings.EndingSoonDays" xml:space="preserve">
+    <value>Ostrzegaj przed końcem wsparcia (dni naprzód)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHeader" xml:space="preserve">
+    <value>Oczekiwane kontenery (raport „Komputery w niewłaściwych OU”)</value>
+  </data>
+  <data name="Computers.Settings.PlacementHint" xml:space="preserve">
+    <value>Jeden kontener w wierszu, razem z poddrzewem; {0} oznacza domenę połączenia (np. OU=Stacje robocze,{0}). Puste: bez sprawdzania. Domyślny kontener komputerów i OU=Domain Controllers są sprawdzane zawsze.</value>
+  </data>
+  <data name="Computers.Settings.WorkstationContainers" xml:space="preserve">
+    <value>Stacje robocze</value>
+  </data>
+  <data name="Computers.Settings.ServerContainers" xml:space="preserve">
+    <value>Serwery</value>
+  </data>
+  <data name="Computers.Settings.ContainerInvalid" xml:space="preserve">
+    <value>{0}: „{1}” nie jest poprawną nazwą wyróżniającą.</value>
+  </data>
+  <data name="Computers.Settings.OverridesHeader" xml:space="preserve">
+    <value>Własne daty końca wsparcia</value>
+  </data>
+  <data name="Computers.Settings.OverridesHint" xml:space="preserve">
+    <value>Mają pierwszeństwo przed wbudowanym katalogiem, np. dla zakupionych rozszerzonych aktualizacji zabezpieczeń (ESU) Windows 10.</value>
+  </data>
+  <data name="Computers.Settings.Build" xml:space="preserve">
+    <value>Kompilacja</value>
+  </data>
+  <data name="Computers.Settings.Edition" xml:space="preserve">
+    <value>Wydanie</value>
+  </data>
+  <data name="Computers.Settings.EndOfSupport" xml:space="preserve">
+    <value>Koniec wsparcia</value>
+  </data>
+  <data name="Computers.Settings.AddOverride" xml:space="preserve">
+    <value>Dodaj</value>
+  </data>
+  <data name="Computers.Settings.RemoveOverride" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="Computers.Settings.NoOverrides" xml:space="preserve">
+    <value>Brak własnych dat – obowiązuje wbudowany katalog.</value>
+  </data>
+  <data name="Computers.Settings.BuildInvalid" xml:space="preserve">
+    <value>Kompilacja to liczba dodatnia, np. 19045.</value>
+  </data>
+  <data name="Computers.Settings.TooManyOverrides" xml:space="preserve">
+    <value>Najwyżej {0} dat.</value>
+  </data>
+  <data name="ComputerReview.WindowTitle" xml:space="preserve">
+    <value>Przegląd komputerów</value>
+  </data>
+  <data name="ComputerReview.WindowTitleDomain" xml:space="preserve">
+    <value>Przegląd komputerów – {0}</value>
+  </data>
+  <data name="ComputerReview.ScopeNotChosen" xml:space="preserve">
+    <value>(nie wybrano)</value>
+  </data>
+  <data name="ComputerReview.ViewNotFound" xml:space="preserve">
+    <value>Zapisany widok już nie istnieje.</value>
+  </data>
+  <data name="ComputerReview.GroupNotFound" xml:space="preserve">
+    <value>Grupa {0} już nie istnieje.</value>
+  </data>
+  <data name="ComputerReview.Parameters" xml:space="preserve">
+    <value>Raporty i parametry</value>
+  </data>
+  <data name="ComputerReview.Reports" xml:space="preserve">
+    <value>Raporty</value>
+  </data>
+  <data name="ComputerReview.InactiveDays" xml:space="preserve">
+    <value>Nieaktywne od (dni)</value>
+  </data>
+  <data name="ComputerReview.EndingSoonDays" xml:space="preserve">
+    <value>Koniec wsparcia w ciągu (dni)</value>
+  </data>
+  <data name="ComputerReview.Run" xml:space="preserve">
+    <value>Sprawdź</value>
+  </data>
+  <data name="ComputerReview.Status" xml:space="preserve">
+    <value>Stan na godz. {0} · odczytano {1} komputerów · {2} komputerów w raportach</value>
+  </data>
+  <data name="ComputerReview.StatusRunning" xml:space="preserve">
+    <value>Trwa odczyt… odczytano {1} komputerów · {2} w raportach (start {0})</value>
+  </data>
+  <data name="ComputerReview.StatusStopped" xml:space="preserve">
+    <value>Przerwano o {0} · odczytano {1} komputerów · {2} w raportach (niepełne)</value>
+  </data>
+  <data name="ComputerReview.Empty" xml:space="preserve">
+    <value>Brak komputerów w tym raporcie.</value>
+  </data>
+  <data name="ComputerReview.NotRun" xml:space="preserve">
+    <value>Wybierz zakres i raporty, a potem naciśnij „Sprawdź” (F5). Komputery są odczytywane z kontrolera domeny tego okna; wyniki pozostają tylko w pamięci.</value>
+  </data>
+  <data name="ComputerReview.Selected" xml:space="preserve">
+    <value>Zaznaczono: {0}</value>
+  </data>
+  <data name="ComputerReview.ExportCsv" xml:space="preserve">
+    <value>Eksportuj CSV…</value>
+  </data>
+  <data name="ComputerReview.ExactLastLogon" xml:space="preserve">
+    <value>Dokładne ostatnie logowanie (wszystkie DC)</value>
+  </data>
+  <data name="ComputerReview.ReadingDomainControllers" xml:space="preserve">
+    <value>Odczyt lastLogon {0} komputerów na wszystkich kontrolerach domeny…</value>
+  </data>
+  <data name="ComputerReview.ExactDone" xml:space="preserve">
+    <value>Odpowiedziało {0} z {1} kontrolerów domeny; aktywnych okazało się {2} komputerów.</value>
+  </data>
+  <data name="ComputerReview.ExactLimitConfirm" xml:space="preserve">
+    <value>Ze wszystkimi kontrolerami domeny zostanie porównanych tylko pierwszych {0} z {1} komputerów w bieżącej kolejności; pozostałe zachowają wartość replikowaną. Zaznacz komputery do sprawdzenia albo kontynuuj z pierwszymi {0}?</value>
+  </data>
+  <data name="ComputerReview.ExactChecked" xml:space="preserve">
+    <value>Sprawdzono {0} z {1} komputerów.</value>
+  </data>
+  <data name="ComputerReview.ExactOn" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.Never" xml:space="preserve">
+    <value>nigdy</value>
+  </data>
+  <data name="ComputerReview.DaysAgo" xml:space="preserve">
+    <value>{0} dni temu</value>
+  </data>
+  <data name="ComputerReview.ResolveSites" xml:space="preserve">
+    <value>Ustal lokację</value>
+  </data>
+  <data name="ComputerReview.ResolveSitesConfirm" xml:space="preserve">
+    <value>Rozwiązać nazwy DNS wszystkich {0} komputerów listy? Nazwy trafią do resolvera DNS tej stacji.</value>
+  </data>
+  <data name="ComputerReview.ResolvingSites" xml:space="preserve">
+    <value>Ustalanie lokacji {0} komputerów…</value>
+  </data>
+  <data name="ComputerReview.SitesTooltip" xml:space="preserve">
+    <value>Nazwę DNS rozwiązuje resolver tej stacji (nie kontroler domeny sesji); adres jest dopasowywany do podsieci lasu.</value>
+  </data>
+  <data name="ComputerReview.InvalidSubnets" xml:space="preserve">
+    <value>Pominięto podsieci o niepoprawnej nazwie: {0}</value>
+  </data>
+  <data name="ComputerReview.SiteNotResolved" xml:space="preserve">
+    <value>nie rozwiązano</value>
+  </data>
+  <data name="ComputerReview.NoSubnet" xml:space="preserve">
+    <value>brak podsieci</value>
+  </data>
+  <data name="ComputerReview.LapsUntil" xml:space="preserve">
+    <value>hasło ważne do {0}</value>
+  </data>
+  <data name="ComputerReview.LapsNone" xml:space="preserve">
+    <value>brak hasła LAPS</value>
+  </data>
+  <data name="ComputerReview.OwnerWithState" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="ComputerReview.SetOwner" xml:space="preserve">
+    <value>Ustaw właściciela…</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmOne" xml:space="preserve">
+    <value>Wyłączyć konto komputera {0} w domenie {1}? Komputer nie będzie mógł logować się do domeny.</value>
+  </data>
+  <data name="ComputerReview.DisableConfirmMany" xml:space="preserve">
+    <value>Wyłączyć {0} kont komputerów w domenie {1}? Komputery nie będą mogły logować się do domeny.</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmOne" xml:space="preserve">
+    <value>Usunąć konto komputera {0} w domenie {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteConfirmMany" xml:space="preserve">
+    <value>Usunąć {0} kont komputerów w domenie {1}?</value>
+  </data>
+  <data name="ComputerReview.DeleteChildrenWarning" xml:space="preserve">
+    <value>Niektóre komputery mają obiekty podrzędne (informacje odzyskiwania funkcji BitLocker, obiekty Hyper-V lub klastra): zostaną usunięte razem z nimi.</value>
+  </data>
+  <data name="ComputerReview.Details" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="ComputerReview.Detail.Name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="ComputerReview.Detail.DnsName" xml:space="preserve">
+    <value>Nazwa DNS</value>
+  </data>
+  <data name="ComputerReview.Detail.Type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="ComputerReview.Detail.Enabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="ComputerReview.Detail.System" xml:space="preserve">
+    <value>System operacyjny</value>
+  </data>
+  <data name="ComputerReview.Detail.Release" xml:space="preserve">
+    <value>Wersja</value>
+  </data>
+  <data name="ComputerReview.Detail.Support" xml:space="preserve">
+    <value>Wsparcie</value>
+  </data>
+  <data name="ComputerReview.Detail.LastLogon" xml:space="preserve">
+    <value>Ostatnie logowanie (replikowane)</value>
+  </data>
+  <data name="ComputerReview.Detail.ExactLastLogon" xml:space="preserve">
+    <value>Dokładne ostatnie logowanie</value>
+  </data>
+  <data name="ComputerReview.Detail.Created" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="ComputerReview.Detail.AccountRenewed" xml:space="preserve">
+    <value>Hasło konta komputera zmienione</value>
+  </data>
+  <data name="ComputerReview.Detail.Owner" xml:space="preserve">
+    <value>Właściciel (zarządzany przez)</value>
+  </data>
+  <data name="ComputerReview.Detail.Creator" xml:space="preserve">
+    <value>Dołączył (twórca)</value>
+  </data>
+  <data name="ComputerReview.Detail.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Detail.Site" xml:space="preserve">
+    <value>Lokacja (podsieć)</value>
+  </data>
+  <data name="ComputerReview.Detail.Address" xml:space="preserve">
+    <value>Adres IP</value>
+  </data>
+  <data name="ComputerReview.Detail.Location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="ComputerReview.Detail.Description" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="ComputerReview.Detail.Container" xml:space="preserve">
+    <value>Kontener</value>
+  </data>
+  <data name="ComputerReview.Detail.Placement" xml:space="preserve">
+    <value>Umieszczenie</value>
+  </data>
+  <data name="ComputerReview.Detail.Findings" xml:space="preserve">
+    <value>Raporty</value>
+  </data>
+  <data name="ComputerReview.Detail.Catalog" xml:space="preserve">
+    <value>Katalog</value>
+  </data>
+  <data name="ComputerReview.Report.EndOfSupport" xml:space="preserve">
+    <value>Systemy po końcu wsparcia</value>
+  </data>
+  <data name="ComputerReview.Report.Releases" xml:space="preserve">
+    <value>Wersje Windows 11 i Server</value>
+  </data>
+  <data name="ComputerReview.Report.Inactive" xml:space="preserve">
+    <value>Nieaktywne od N dni</value>
+  </data>
+  <data name="ComputerReview.Report.NeverLoggedOn" xml:space="preserve">
+    <value>Nigdy niezalogowane</value>
+  </data>
+  <data name="ComputerReview.Report.ServersWithoutOwner" xml:space="preserve">
+    <value>Serwery bez właściciela</value>
+  </data>
+  <data name="ComputerReview.Report.UnexpectedContainer" xml:space="preserve">
+    <value>Komputery w niewłaściwych OU</value>
+  </data>
+  <data name="ComputerReview.Report.Disabled" xml:space="preserve">
+    <value>Wyłączone</value>
+  </data>
+  <data name="ComputerReview.Report.WithoutOperatingSystem" xml:space="preserve">
+    <value>Bez systemu operacyjnego</value>
+  </data>
+  <data name="ComputerReview.Hint.EndOfSupport" xml:space="preserve">
+    <value>Włączone komputery, których wersja Windows straciła wsparcie lub straci je w ciągu N dni (katalog wersji i Twoje wyjątki).</value>
+  </data>
+  <data name="ComputerReview.Hint.Releases" xml:space="preserve">
+    <value>Komputery według wersji; o wersji decyduje kompilacja (wczesne Windows 11 przedstawiały się jako „Windows 10”).</value>
+  </data>
+  <data name="ComputerReview.Hint.Inactive" xml:space="preserve">
+    <value>lastLogonTimestamp replikuje się z opóźnieniem do 14 dni: przed wyłączeniem użyj „Dokładne ostatnie logowanie”. Tylko raport – nic nie jest wyłączane automatycznie.</value>
+  </data>
+  <data name="ComputerReview.Hint.NeverLoggedOn" xml:space="preserve">
+    <value>Konta utworzone ponad N dni temu, które nigdy się nie zalogowały – zwykle utworzone z wyprzedzeniem i nigdy nie dołączone.</value>
+  </data>
+  <data name="ComputerReview.Hint.ServersWithoutOwner" xml:space="preserve">
+    <value>Włączone serwery, których pole „zarządzany przez” jest puste, wskazuje konto wyłączone lub usunięte.</value>
+  </data>
+  <data name="ComputerReview.Hint.UnexpectedContainer" xml:space="preserve">
+    <value>Komputery w domyślnym kontenerze Computers, kontrolery domeny poza swoją jednostką i komputery poza kontenerami dozwolonymi przez Twoje reguły.</value>
+  </data>
+  <data name="ComputerReview.Hint.Disabled" xml:space="preserve">
+    <value>Wyłączone konta komputerów (do przeniesienia lub usunięcia).</value>
+  </data>
+  <data name="ComputerReview.Hint.WithoutOperatingSystem" xml:space="preserve">
+    <value>Brak operatingSystem: konta utworzone z wyprzedzeniem lub systemy, które go nie podają.</value>
+  </data>
+  <data name="ComputerReview.Area.System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="ComputerReview.Area.Activity" xml:space="preserve">
+    <value>Aktywność</value>
+  </data>
+  <data name="ComputerReview.Area.Order" xml:space="preserve">
+    <value>Porządek</value>
+  </data>
+  <data name="ComputerReview.Column.Name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="ComputerReview.Column.DnsName" xml:space="preserve">
+    <value>Nazwa DNS</value>
+  </data>
+  <data name="ComputerReview.Column.Type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="ComputerReview.Column.System" xml:space="preserve">
+    <value>System operacyjny</value>
+  </data>
+  <data name="ComputerReview.Column.Release" xml:space="preserve">
+    <value>Wersja</value>
+  </data>
+  <data name="ComputerReview.Column.Support" xml:space="preserve">
+    <value>Wsparcie</value>
+  </data>
+  <data name="ComputerReview.Column.LastLogon" xml:space="preserve">
+    <value>Ostatnie logowanie</value>
+  </data>
+  <data name="ComputerReview.Column.LogonDays" xml:space="preserve">
+    <value>Nieaktywny</value>
+  </data>
+  <data name="ComputerReview.Column.ExactLastLogon" xml:space="preserve">
+    <value>Dokładne ostatnie logowanie</value>
+  </data>
+  <data name="ComputerReview.Column.Created" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="ComputerReview.Column.Creator" xml:space="preserve">
+    <value>Dołączył</value>
+  </data>
+  <data name="ComputerReview.Column.Owner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="ComputerReview.Column.Placement" xml:space="preserve">
+    <value>Umieszczenie</value>
+  </data>
+  <data name="ComputerReview.Column.Location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="ComputerReview.Column.Description" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="ComputerReview.Column.Container" xml:space="preserve">
+    <value>Kontener</value>
+  </data>
+  <data name="ComputerReview.Column.Site" xml:space="preserve">
+    <value>Lokacja</value>
+  </data>
+  <data name="ComputerReview.Column.Address" xml:space="preserve">
+    <value>Adres IP</value>
+  </data>
+  <data name="ComputerReview.Column.Laps" xml:space="preserve">
+    <value>LAPS</value>
+  </data>
+  <data name="ComputerReview.Column.AccountRenewed" xml:space="preserve">
+    <value>Hasło konta zmienione</value>
+  </data>
+  <data name="ComputerReview.Column.DistinguishedName" xml:space="preserve">
+    <value>Nazwa wyróżniająca</value>
+  </data>
+  <data name="WindowsRelease.CatalogAsOf" xml:space="preserve">
+    <value>Katalog wersji z dnia {0}</value>
+  </data>
+  <data name="WindowsRelease.CatalogStale" xml:space="preserve">
+    <value>Katalog wersji pochodzi z {0} – może brakować nowszych wersji i dat. Dodaj wyjątki w ustawieniach albo zaktualizuj AD Manager.</value>
+  </data>
+  <data name="WindowsRelease.EndedOn" xml:space="preserve">
+    <value>zakończone {0}</value>
+  </data>
+  <data name="WindowsRelease.EndsOn" xml:space="preserve">
+    <value>kończy się {0} (za {1} dni)</value>
+  </data>
+  <data name="WindowsRelease.SupportedUntil" xml:space="preserve">
+    <value>wspierane do {0}</value>
+  </data>
+  <data name="WindowsRelease.Overridden" xml:space="preserve">
+    <value>{0} (Twój wyjątek)</value>
+  </data>
+  <data name="WindowsRelease.Support.Supported" xml:space="preserve">
+    <value>wspierane</value>
+  </data>
+  <data name="WindowsRelease.Support.EndingSoon" xml:space="preserve">
+    <value>wkrótce koniec wsparcia</value>
+  </data>
+  <data name="WindowsRelease.Support.Ended" xml:space="preserve">
+    <value>zakończone</value>
+  </data>
+  <data name="WindowsRelease.Support.Unknown" xml:space="preserve">
+    <value>nieznana wersja</value>
+  </data>
+  <data name="WindowsRelease.Support.NotWindows" xml:space="preserve">
+    <value>nie Windows</value>
+  </data>
+  <data name="WindowsRelease.Edition.HomePro" xml:space="preserve">
+    <value>Home / Pro</value>
+  </data>
+  <data name="WindowsRelease.Edition.EnterpriseEducation" xml:space="preserve">
+    <value>Enterprise / Education</value>
+  </data>
+  <data name="WindowsRelease.Edition.Ltsc" xml:space="preserve">
+    <value>Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.IotLtsc" xml:space="preserve">
+    <value>IoT Enterprise LTSC</value>
+  </data>
+  <data name="WindowsRelease.Edition.Server" xml:space="preserve">
+    <value>Windows Server</value>
+  </data>
+  <data name="WindowsRelease.Edition.AzureLocal" xml:space="preserve">
+    <value>Azure Stack HCI / Azure Local</value>
+  </data>
+  <data name="RemoteActions.WindowTitle" xml:space="preserve">
+    <value>Zdalne akcje – {0}</value>
+  </data>
+  <data name="RemoteActions.WindowTitleShort" xml:space="preserve">
+    <value>Zdalne akcje</value>
+  </data>
+  <data name="RemoteActions.ConnectionText" xml:space="preserve">
+    <value>Połączenie: WinRM ({0} {1}, Kerberos) jako {2}</value>
+  </data>
+  <data name="RemoteActions.Status" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="RemoteActions.RefreshStatus" xml:space="preserve">
+    <value>Sprawdź stan</value>
+  </data>
+  <data name="RemoteActions.PingLabel" xml:space="preserve">
+    <value>Ping</value>
+  </data>
+  <data name="RemoteActions.WinRmLabel" xml:space="preserve">
+    <value>WinRM</value>
+  </data>
+  <data name="RemoteActions.SystemLabel" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="RemoteActions.LastBootLabel" xml:space="preserve">
+    <value>Ostatni rozruch</value>
+  </data>
+  <data name="RemoteActions.WinRmAvailable" xml:space="preserve">
+    <value>dostępne</value>
+  </data>
+  <data name="RemoteActions.WinRmUnavailable" xml:space="preserve">
+    <value>niedostępne</value>
+  </data>
+  <data name="RemoteActions.StatusRead" xml:space="preserve">
+    <value>odczytano stan</value>
+  </data>
+  <data name="RemoteActions.Users" xml:space="preserve">
+    <value>Zalogowani użytkownicy</value>
+  </data>
+  <data name="RemoteActions.LoadUsers" xml:space="preserve">
+    <value>Pokaż zalogowanych</value>
+  </data>
+  <data name="RemoteActions.UsersNote" xml:space="preserve">
+    <value>Użytkownicy z uruchomionym pulpitem (explorer.exe); rozłączone sesje pulpitu zdalnego też są na liście.</value>
+  </data>
+  <data name="RemoteActions.UsersRead" xml:space="preserve">
+    <value>{0} użytkowników</value>
+  </data>
+  <data name="RemoteActions.Console" xml:space="preserve">
+    <value>konsola</value>
+  </data>
+  <data name="RemoteActions.Column.Account" xml:space="preserve">
+    <value>Konto</value>
+  </data>
+  <data name="RemoteActions.Column.Session" xml:space="preserve">
+    <value>Sesja</value>
+  </data>
+  <data name="RemoteActions.Column.Since" xml:space="preserve">
+    <value>Od</value>
+  </data>
+  <data name="RemoteActions.Services" xml:space="preserve">
+    <value>Usługi</value>
+  </data>
+  <data name="RemoteActions.LoadServices" xml:space="preserve">
+    <value>Pokaż usługi</value>
+  </data>
+  <data name="RemoteActions.OnlyStoppedAutomatic" xml:space="preserve">
+    <value>Tylko automatyczne, zatrzymane</value>
+  </data>
+  <data name="RemoteActions.ServicesRead" xml:space="preserve">
+    <value>{0} usług, {1} automatycznych zatrzymanych</value>
+  </data>
+  <data name="RemoteActions.Delayed" xml:space="preserve">
+    <value>opóźnione</value>
+  </data>
+  <data name="RemoteActions.Column.Service" xml:space="preserve">
+    <value>Usługa</value>
+  </data>
+  <data name="RemoteActions.Column.State" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="RemoteActions.Column.StartMode" xml:space="preserve">
+    <value>Typ uruchomienia</value>
+  </data>
+  <data name="RemoteActions.Column.LogOnAs" xml:space="preserve">
+    <value>Logowanie jako</value>
+  </data>
+  <data name="RemoteActions.Actions" xml:space="preserve">
+    <value>Akcje</value>
+  </data>
+  <data name="RemoteActions.Action.Status" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="RemoteActions.Action.Users" xml:space="preserve">
+    <value>Zalogowani użytkownicy</value>
+  </data>
+  <data name="RemoteActions.Action.Services" xml:space="preserve">
+    <value>Usługi</value>
+  </data>
+  <data name="RemoteActions.Action.RefreshPolicy" xml:space="preserve">
+    <value>Odśwież zasady grupy</value>
+  </data>
+  <data name="RemoteActions.Action.Restart" xml:space="preserve">
+    <value>Uruchom ponownie…</value>
+  </data>
+  <data name="RemoteActions.Action.AbortRestart" xml:space="preserve">
+    <value>Anuluj zaplanowane ponowne uruchomienie</value>
+  </data>
+  <data name="RemoteActions.PolicyRefreshed" xml:space="preserve">
+    <value>zasady odświeżone (zasady komputera przetworzono {0})</value>
+  </data>
+  <data name="RemoteActions.PolicyRunning" xml:space="preserve">
+    <value>gpupdate nadal trwa</value>
+  </data>
+  <data name="RemoteActions.PolicyUsersScheduled" xml:space="preserve">
+    <value>Zaplanowano odświeżenie zasad użytkowników.</value>
+  </data>
+  <data name="RemoteActions.RestartScheduled" xml:space="preserve">
+    <value>{0} uruchomi się ponownie za {1} min</value>
+  </data>
+  <data name="RemoteActions.RestartScheduledNow" xml:space="preserve">
+    <value>{0} uruchamia się ponownie teraz</value>
+  </data>
+  <data name="RemoteActions.RestartAbortRequested" xml:space="preserve">
+    <value>zlecono anulowanie zaplanowanego ponownego uruchomienia (shutdown /a; bez potwierdzenia – jeśli żadne nie było zaplanowane, nic się nie zmieniło)</value>
+  </data>
+  <data name="RemoteActions.Log" xml:space="preserve">
+    <value>Dziennik tego okna</value>
+  </data>
+  <data name="RemoteActions.Tools" xml:space="preserve">
+    <value>Narzędzia</value>
+  </data>
+  <data name="RemoteActions.RestartTitle" xml:space="preserve">
+    <value>Uruchom ponownie {0}</value>
+  </data>
+  <data name="RemoteActions.RestartDelay" xml:space="preserve">
+    <value>Opóźnienie (minuty)</value>
+  </data>
+  <data name="RemoteActions.RestartMessage" xml:space="preserve">
+    <value>Komunikat dla zalogowanych użytkowników</value>
+  </data>
+  <data name="RemoteActions.RestartForce" xml:space="preserve">
+    <value>Zamknij aplikacje bez pytania</value>
+  </data>
+  <data name="RemoteActions.RestartConfirm" xml:space="preserve">
+    <value>Uruchom ponownie</value>
+  </data>
+  <data name="RemoteActions.RestartNow" xml:space="preserve">
+    <value>{0} uruchomi się ponownie natychmiast.</value>
+  </data>
+  <data name="RemoteActions.RestartIn" xml:space="preserve">
+    <value>{0} uruchomi się ponownie za {1} min.</value>
+  </data>
+  <data name="RemoteActions.RestartTypeName" xml:space="preserve">
+    <value>Wpisz nazwę komputera {0}, aby potwierdzić (serwer, kontroler domeny lub komputer nieznanego typu).</value>
+  </data>
+  <data name="RemoteActions.RestartDelayRange" xml:space="preserve">
+    <value>Opóźnienie musi wynosić {0}–{1} minut.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageTooLong" xml:space="preserve">
+    <value>Komunikat może mieć najwyżej {0} znaków.</value>
+  </data>
+  <data name="RemoteActions.RestartMessageLength" xml:space="preserve">
+    <value>{0} / {1}</value>
+  </data>
+  <data name="RemoteActions.RestartDefaultMessage" xml:space="preserve">
+    <value>Komputer zostanie ponownie uruchomiony przez dział IT za {0} min. Zapisz swoją pracę.</value>
+  </data>
+  <data name="RemoteActions.Error.Unreachable" xml:space="preserve">
+    <value>Komputer nie odpowiada.</value>
+  </data>
+  <data name="RemoteActions.Error.WinRmNotAvailable" xml:space="preserve">
+    <value>Usługa WinRM jest niedostępna na komputerze.</value>
+  </data>
+  <data name="RemoteActions.Error.AuthenticationFailed" xml:space="preserve">
+    <value>Uwierzytelnienie Kerberos nie powiodło się.</value>
+  </data>
+  <data name="RemoteActions.Error.AccessDenied" xml:space="preserve">
+    <value>Odmowa dostępu.</value>
+  </data>
+  <data name="RemoteActions.Error.Timeout" xml:space="preserve">
+    <value>Komputer nie odpowiedział na czas.</value>
+  </data>
+  <data name="RemoteActions.Error.Cancelled" xml:space="preserve">
+    <value>Przerwano.</value>
+  </data>
+  <data name="RemoteActions.Error.NotSupported" xml:space="preserve">
+    <value>Niemożliwe dla tego komputera lub połączenia.</value>
+  </data>
+  <data name="RemoteActions.Error.Failed" xml:space="preserve">
+    <value>Zdalna operacja nie powiodła się.</value>
+  </data>
+  <data name="RemoteActions.Hint.Unreachable" xml:space="preserve">
+    <value>Sprawdź, czy komputer jest włączony, czy jego nazwa DNS się rozwiązuje i czy zapora go przepuszcza.</value>
+  </data>
+  <data name="RemoteActions.Hint.WinRmNotAvailable" xml:space="preserve">
+    <value>Włącz WinRM zasadą grupy (usługa, nasłuchiwanie, reguła zapory) – zobacz docs/KOMPUTERY.md.</value>
+  </data>
+  <data name="RemoteActions.Hint.AuthenticationFailed" xml:space="preserve">
+    <value>Sprawdź SPN komputera (HTTP/ lub WSMAN/), zegary i czy konto jest kontem domenowym; NTLM nie jest używany.</value>
+  </data>
+  <data name="RemoteActions.Hint.AccessDenied" xml:space="preserve">
+    <value>Konto tego okna musi być lokalnym administratorem komputera (Domain Admins na kontrolerach domeny).</value>
+  </data>
+  <data name="RemoteActions.Hint.Timeout" xml:space="preserve">
+    <value>Zwiększ limit czasu w ustawieniach (Komputery) albo spróbuj ponownie.</value>
+  </data>
+  <data name="RemoteActions.Hint.Cancelled" xml:space="preserve">
+    <value> </value>
+  </data>
+  <data name="RemoteActions.Hint.NotSupported" xml:space="preserve">
+    <value>Zdalne akcje wymagają AD Manager w systemie Windows, nazwy DNS komputera oraz konta Windows lub wpisanego konta domenowego (nie prostego wiązania LDAP).</value>
+  </data>
+  <data name="RemoteActions.Hint.Failed" xml:space="preserve">
+    <value>Zajrzyj do dziennika zdarzeń Windows na komputerze.</value>
+  </data>
   <data name="UserMessages.WindowTitle" xml:space="preserve">
     <value>Wyślij wiadomość do użytkowników ({0})</value>
   </data>
@@ -9828,4 +10773,1104 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Filters.Conditions" xml:space="preserve">
     <value>Warunki</value>
   </data>
+  <!-- K2: Group Policy (begin) -->
+  <data name="ObjectKind.GroupPolicyContainer" xml:space="preserve">
+    <value>Obiekt zasad grupy</value>
+  </data>
+  <data name="ObjectKind.WmiFilter" xml:space="preserve">
+    <value>Filtr WMI</value>
+  </data>
+  <data name="ObjectKind.Site" xml:space="preserve">
+    <value>Lokacja</value>
+  </data>
+  <data name="ChangeAction.CreateGpoFolder" xml:space="preserve">
+    <value>Utwórz folder GPO</value>
+  </data>
+  <data name="ChangeAction.WriteGpoFile" xml:space="preserve">
+    <value>Zapisz plik GPO</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFile" xml:space="preserve">
+    <value>Usuń plik GPO</value>
+  </data>
+  <data name="ChangeAction.SyncGpoFolderSecurity" xml:space="preserve">
+    <value>Wyrównaj uprawnienia folderu</value>
+  </data>
+  <data name="ChangeAction.SetGpoFolderSecurity" xml:space="preserve">
+    <value>Ustaw uprawnienia folderu</value>
+  </data>
+  <data name="ChangeAction.SetGpoVersion" xml:space="preserve">
+    <value>Ustaw wersję GPO</value>
+  </data>
+  <data name="ChangeAction.DeleteGpoFolder" xml:space="preserve">
+    <value>Usuń folder GPO</value>
+  </data>
+  <data name="Issue.GpoVersionMissing" xml:space="preserve">
+    <value>Plan zapisuje pliki GPO bez podniesienia wersji GPO.</value>
+  </data>
+  <data name="Issue.GpoTooLarge" xml:space="preserve">
+    <value>GPO jest zbyt duże do bezpiecznej kopii w pamięci.</value>
+  </data>
+  <data name="Issue.GpoVersionOverflow" xml:space="preserve">
+    <value>Wersja GPO osiągnęła maksimum.</value>
+  </data>
+  <data name="Issue.SysvolLeftovers" xml:space="preserve">
+    <value>Folder GPO zawiera pozostałości przerwanego zapisu; zostaną usunięte.</value>
+  </data>
+  <data name="Issue.SysvolUnavailable" xml:space="preserve">
+    <value>Nie można zapisywać w SYSVOL kontrolera domeny.</value>
+  </data>
+  <data name="Issue.DefaultGpo" xml:space="preserve">
+    <value>Domyślnych zasad domeny nie można usunąć.</value>
+  </data>
+  <data name="Issue.Ms16072Read" xml:space="preserve">
+    <value>Ani Użytkownicy uwierzytelnieni, ani Komputery domeny nie mogą odczytać GPO: od MS16-072 klienci nie zastosują jego ustawień użytkownika.</value>
+  </data>
+  <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
+    <value>Las zawiera inne domeny ({0}): połączeń tego GPO z ich jednostkami organizacyjnymi nie odnaleziono ani nie usunięto – sprawdź je w GPMC.</value>
+  </data>
+  <data name="PlanPreview.Bytes" xml:space="preserve">
+    <value>{0} B</value>
+  </data>
+  <data name="PlanPreview.Absent" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="PlanPreview.Version" xml:space="preserve">
+    <value>Wersja GPO</value>
+  </data>
+  <data name="PlanPreview.VersionValue" xml:space="preserve">
+    <value>komputer {0}, użytkownik {1}</value>
+  </data>
+  <data name="PlanPreview.Folder" xml:space="preserve">
+    <value>Folder GPO (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.FolderSecurity" xml:space="preserve">
+    <value>Uprawnienia folderu (SYSVOL)</value>
+  </data>
+  <data name="PlanPreview.Title" xml:space="preserve">
+    <value>Podgląd: {0}</value>
+  </data>
+  <data name="PlanPreview.Changes" xml:space="preserve">
+    <value>Zmiany</value>
+  </data>
+  <data name="PlanPreview.PowerShell" xml:space="preserve">
+    <value>PowerShell</value>
+  </data>
+  <data name="PlanPreview.Results" xml:space="preserve">
+    <value>Wyniki</value>
+  </data>
+  <data name="PlanPreview.ShowDiff" xml:space="preserve">
+    <value>Pokaż różnice</value>
+  </data>
+  <data name="PlanPreview.Diff" xml:space="preserve">
+    <value>Różnice</value>
+  </data>
+  <data name="PlanPreview.DiffBinary" xml:space="preserve">
+    <value>Zawartość binarna: {0} → {1}.</value>
+  </data>
+  <data name="PlanPreview.DiffSettings" xml:space="preserve">
+    <value>Ustawienia pliku (sekrety zamaskowane): dodano {0}, usunięto {1}.</value>
+  </data>
+  <data name="PlanPreview.DiffText" xml:space="preserve">
+    <value>Wiersze pliku: dodano {0}, usunięto {1}.</value>
+  </data>
+  <data name="PlanPreview.DiffTruncated" xml:space="preserve">
+    <value>Plik jest długi; porównano tylko jego początek.</value>
+  </data>
+  <data name="PlanPreview.DiffNone" xml:space="preserve">
+    <value>Zaznacz wiersz pliku SYSVOL, aby zobaczyć różnice.</value>
+  </data>
+  <data name="PlanPreview.Summary" xml:space="preserve">
+    <value>Obiektów: {0}, kroków: {1}, kontroler: {2}.</value>
+  </data>
+  <data name="PlanPreview.Execute" xml:space="preserve">
+    <value>Wykonaj</value>
+  </data>
+  <data name="PlanPreview.Undo" xml:space="preserve">
+    <value>Cofnij</value>
+  </data>
+  <data name="PlanPreview.Close" xml:space="preserve">
+    <value>Zamknij</value>
+  </data>
+  <data name="PlanPreview.Cancel" xml:space="preserve">
+    <value>Anuluj</value>
+  </data>
+  <data name="PlanPreview.CopyPowerShell" xml:space="preserve">
+    <value>Kopiuj PowerShell</value>
+  </data>
+  <data name="PlanPreview.Executing" xml:space="preserve">
+    <value>Wykonywanie…</value>
+  </data>
+  <data name="PlanPreview.ResultSucceeded" xml:space="preserve">
+    <value>Gotowe: wykonano wszystkie zmiany.</value>
+  </data>
+  <data name="PlanPreview.ResultFailed" xml:space="preserve">
+    <value>Nie wykonano wszystkich zmian: {0} z {1} obiektów z błędem. Cofnij odwraca to, co wykonano.</value>
+  </data>
+  <data name="PlanPreview.RollbackShown" xml:space="preserve">
+    <value>Pokazano plan cofnięcia. Wykonaj go, aby odwrócić zmianę.</value>
+  </data>
+  <data name="PlanPreview.NothingToUndo" xml:space="preserve">
+    <value>Nie ma czego cofać.</value>
+  </data>
+  <data name="PlanPreview.Reverted" xml:space="preserve">
+    <value>{0} Zmiany plików cofnięto; GPO jest jak przedtem.</value>
+  </data>
+  <data name="PlanPreview.Inconsistent" xml:space="preserve">
+    <value>{0} Nie udało się przywrócić poprzednich plików: GPO niespójne – użyj „Wyrównaj wersje” na karcie Stan.</value>
+  </data>
+  <data name="PlanPreview.SysvolUnavailable" xml:space="preserve">
+    <value>Nie można zapisywać w SYSVOL kontrolera domeny: {0}</value>
+  </data>
+  <data name="PlanPreview.FolderChanged" xml:space="preserve">
+    <value>Folder GPO zawiera pliki, których plan nie zapisał; nie usunięto go.</value>
+  </data>
+  <data name="PlanPreview.Warnings" xml:space="preserve">
+    <value>Ostrzeżenia</value>
+  </data>
+  <data name="PlanPreview.Object" xml:space="preserve">
+    <value>Obiekt</value>
+  </data>
+  <data name="PlanPreview.Item" xml:space="preserve">
+    <value>Atrybut lub plik</value>
+  </data>
+  <data name="PlanPreview.SessionEnded" xml:space="preserve">
+    <value>Połączenie tego okna zakończyło się; planu nie można już wykonać.</value>
+  </data>
+  <data name="GroupPolicy.ObjectsTitle" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ObjectsNodeHelp" xml:space="preserve">
+    <value>Wszystkie obiekty zasad grupy domeny</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersTitle" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="GroupPolicy.SitesTitle" xml:space="preserve">
+    <value>Lokacje</value>
+  </data>
+  <data name="GroupPolicy.ScopeTitle" xml:space="preserve">
+    <value>Zasady grupy – {0}</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCommand" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCommand" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="GroupPolicy.ContainerPoliciesCommand" xml:space="preserve">
+    <value>Zasady grupy</value>
+  </data>
+  <data name="GroupPolicy.NewLinkedCommand" xml:space="preserve">
+    <value>Utwórz GPO w tej domenie i połącz je tutaj…</value>
+  </data>
+  <data name="GroupPolicy.LinkExistingCommand" xml:space="preserve">
+    <value>Połącz istniejący GPO…</value>
+  </data>
+  <data name="GroupPolicy.BlockInheritanceCommand" xml:space="preserve">
+    <value>Zablokuj dziedziczenie</value>
+  </data>
+  <data name="GroupPolicy.ToggleTreeCommand" xml:space="preserve">
+    <value>Zasady grupy w drzewie</value>
+  </data>
+  <data name="GroupPolicy.GpoStatusCommand" xml:space="preserve">
+    <value>Stan GPO</value>
+  </data>
+  <data name="GroupPolicy.BackupCommand" xml:space="preserve">
+    <value>Kopia zapasowa…</value>
+  </data>
+  <data name="GroupPolicy.RestoreCommand" xml:space="preserve">
+    <value>Przywróć z kopii zapasowej…</value>
+  </data>
+  <data name="GroupPolicy.ImportCommand" xml:space="preserve">
+    <value>Importuj ustawienia…</value>
+  </data>
+  <data name="GroupPolicy.CopyCommand" xml:space="preserve">
+    <value>Kopiuj…</value>
+  </data>
+  <data name="GroupPolicy.RenameCommand" xml:space="preserve">
+    <value>Zmień nazwę</value>
+  </data>
+  <data name="GroupPolicy.DeleteCommand" xml:space="preserve">
+    <value>Usuń…</value>
+  </data>
+  <data name="GroupPolicy.CompareCommand" xml:space="preserve">
+    <value>Porównaj</value>
+  </data>
+  <data name="GroupPolicy.CompareWithCommand" xml:space="preserve">
+    <value>Porównaj z…</value>
+  </data>
+  <data name="GroupPolicy.HistoryCommand" xml:space="preserve">
+    <value>Historia w Watchdogu</value>
+  </data>
+  <data name="GroupPolicy.NewCommand" xml:space="preserve">
+    <value>Nowe…</value>
+  </data>
+  <data name="GroupPolicy.OpenCommand" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="GroupPolicy.EditCommand" xml:space="preserve">
+    <value>Edytuj…</value>
+  </data>
+  <data name="GroupPolicy.RefreshCommand" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="GroupPolicy.ChangeDcCommand" xml:space="preserve">
+    <value>Zmień kontroler…</value>
+  </data>
+  <data name="GroupPolicy.Selected" xml:space="preserve">
+    <value>Zaznaczono: {0}</value>
+  </data>
+  <data name="GroupPolicy.ObjectsCount" xml:space="preserve">
+    <value>Obiekty zasad grupy: {0}, z różnymi wersjami w AD i SYSVOL: {1}</value>
+  </data>
+  <data name="GroupPolicy.ObjectLoaded" xml:space="preserve">
+    <value>Połączenia: {0}, ustawienia: {1}</value>
+  </data>
+  <data name="GroupPolicy.ScopeLoaded" xml:space="preserve">
+    <value>Połączone GPO: {0}, stosowane: {1}</value>
+  </data>
+  <data name="GroupPolicy.WmiFiltersCount" xml:space="preserve">
+    <value>Filtry WMI: {0}</value>
+  </data>
+  <data name="GroupPolicy.StatusEnabled" xml:space="preserve">
+    <value>Włączone</value>
+  </data>
+  <data name="GroupPolicy.StatusUserDisabled" xml:space="preserve">
+    <value>Ustawienia konfiguracji użytkownika wyłączone</value>
+  </data>
+  <data name="GroupPolicy.StatusComputerDisabled" xml:space="preserve">
+    <value>Ustawienia konfiguracji komputera wyłączone</value>
+  </data>
+  <data name="GroupPolicy.StatusAllDisabled" xml:space="preserve">
+    <value>Wszystkie ustawienia wyłączone</value>
+  </data>
+  <data name="GroupPolicy.LevelRead" xml:space="preserve">
+    <value>Odczyt</value>
+  </data>
+  <data name="GroupPolicy.LevelApply" xml:space="preserve">
+    <value>Odczyt (z filtrowania zabezpieczeń)</value>
+  </data>
+  <data name="GroupPolicy.LevelEdit" xml:space="preserve">
+    <value>Edycja ustawień</value>
+  </data>
+  <data name="GroupPolicy.LevelEditDeleteModifySecurity" xml:space="preserve">
+    <value>Edycja ustawień, usuwanie, modyfikowanie zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.LevelWithApply" xml:space="preserve">
+    <value>{0} + stosowanie (filtrowanie zabezpieczeń)</value>
+  </data>
+  <data name="GroupPolicy.LevelCustom" xml:space="preserve">
+    <value>Niestandardowe</value>
+  </data>
+  <data name="GroupPolicy.KindDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.KindOrganizationalUnit" xml:space="preserve">
+    <value>Jednostka organizacyjna</value>
+  </data>
+  <data name="GroupPolicy.KindSite" xml:space="preserve">
+    <value>Lokacja</value>
+  </data>
+  <data name="GroupPolicy.Yes" xml:space="preserve">
+    <value>Tak</value>
+  </data>
+  <data name="GroupPolicy.No" xml:space="preserve">
+    <value>Nie</value>
+  </data>
+  <data name="GroupPolicy.Absent" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="GroupPolicy.MaskedValue" xml:space="preserve">
+    <value>(ustawione – ukryte)</value>
+  </data>
+  <data name="GroupPolicy.UnreadableValue" xml:space="preserve">
+    <value>(nie można odczytać pliku)</value>
+  </data>
+  <data name="GroupPolicy.NotLinked" xml:space="preserve">
+    <value>(niepołączone)</value>
+  </data>
+  <data name="GroupPolicy.NoWmiFilter" xml:space="preserve">
+    <value>&lt;brak&gt;</value>
+  </data>
+  <data name="GroupPolicy.GptIniMissing" xml:space="preserve">
+    <value>brak GPT.INI</value>
+  </data>
+  <data name="GroupPolicy.VersionPair" xml:space="preserve">
+    <value>AD: {0}, SYSVOL: {1}</value>
+  </data>
+  <data name="GroupPolicy.ScopeComputer" xml:space="preserve">
+    <value>Komputer</value>
+  </data>
+  <data name="GroupPolicy.ScopeUser" xml:space="preserve">
+    <value>Użytkownik</value>
+  </data>
+  <data name="GroupPolicy.ScopeGpo" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.DanglingLink" xml:space="preserve">
+    <value>(brak GPO {0})</value>
+  </data>
+  <data name="GroupPolicy.LinkSummary" xml:space="preserve">
+    <value>kolejność {0}, wymuszone: {1}, włączone: {2}</value>
+  </data>
+  <data name="GroupPolicy.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.ColumnStatus" xml:space="preserve">
+    <value>Stan obiektu zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnWmiFilter" xml:space="preserve">
+    <value>Filtr WMI</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinks" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionAd" xml:space="preserve">
+    <value>Wersja (AD)</value>
+  </data>
+  <data name="GroupPolicy.ColumnVersionSysvol" xml:space="preserve">
+    <value>Wersja (SYSVOL)</value>
+  </data>
+  <data name="GroupPolicy.ColumnOwner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="GroupPolicy.ColumnModified" xml:space="preserve">
+    <value>Zmodyfikowano</value>
+  </data>
+  <data name="GroupPolicy.ColumnOrder" xml:space="preserve">
+    <value>Kolejność łączy</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpo" xml:space="preserve">
+    <value>Obiekt zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnEnforced" xml:space="preserve">
+    <value>Wymuszone</value>
+  </data>
+  <data name="GroupPolicy.ColumnLinkEnabled" xml:space="preserve">
+    <value>Połączenie włączone</value>
+  </data>
+  <data name="GroupPolicy.ColumnPrecedence" xml:space="preserve">
+    <value>Pierwszeństwo</value>
+  </data>
+  <data name="GroupPolicy.ColumnLocation" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="GroupPolicy.ColumnPath" xml:space="preserve">
+    <value>Ścieżka</value>
+  </data>
+  <data name="GroupPolicy.ColumnKind" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="GroupPolicy.ColumnTrustee" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.ColumnLevel" xml:space="preserve">
+    <value>Dozwolone uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.ColumnInherited" xml:space="preserve">
+    <value>Odziedziczone</value>
+  </data>
+  <data name="GroupPolicy.ColumnSetting" xml:space="preserve">
+    <value>Ustawienie</value>
+  </data>
+  <data name="GroupPolicy.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="GroupPolicy.ColumnSource" xml:space="preserve">
+    <value>Plik</value>
+  </data>
+  <data name="GroupPolicy.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="GroupPolicy.ColumnState" xml:space="preserve">
+    <value>Porównanie</value>
+  </data>
+  <data name="GroupPolicy.ColumnCheck" xml:space="preserve">
+    <value>Sprawdzenie</value>
+  </data>
+  <data name="GroupPolicy.ColumnResult" xml:space="preserve">
+    <value>Wynik</value>
+  </data>
+  <data name="GroupPolicy.ColumnDescription" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GroupPolicy.ColumnQueries" xml:space="preserve">
+    <value>Zapytania</value>
+  </data>
+  <data name="GroupPolicy.ColumnGpos" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.ColumnAuthor" xml:space="preserve">
+    <value>Autor</value>
+  </data>
+  <data name="GroupPolicy.ColumnDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.ColumnTime" xml:space="preserve">
+    <value>Czas</value>
+  </data>
+  <data name="GroupPolicy.ColumnComment" xml:space="preserve">
+    <value>Komentarz</value>
+  </data>
+  <data name="GroupPolicy.ColumnNamespace" xml:space="preserve">
+    <value>Przestrzeń nazw</value>
+  </data>
+  <data name="GroupPolicy.ColumnQuery" xml:space="preserve">
+    <value>Zapytanie</value>
+  </data>
+  <data name="GroupPolicy.ColumnGuid" xml:space="preserve">
+    <value>GUID</value>
+  </data>
+  <data name="GroupPolicy.TabScope" xml:space="preserve">
+    <value>Zakres</value>
+  </data>
+  <data name="GroupPolicy.TabDetails" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="GroupPolicy.TabSettings" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GroupPolicy.TabDelegation" xml:space="preserve">
+    <value>Delegowanie</value>
+  </data>
+  <data name="GroupPolicy.TabStatus" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="GroupPolicy.LinksHeading" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.LinksHint" xml:space="preserve">
+    <value>Z tym obiektem GPO są połączone następujące lokacje, domeny i jednostki organizacyjne:</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHeading" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.SecurityFilteringHint" xml:space="preserve">
+    <value>Ustawienia w tym obiekcie GPO mogą być stosowane tylko do następujących grup, użytkowników i komputerów:</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHeading" xml:space="preserve">
+    <value>Filtrowanie WMI</value>
+  </data>
+  <data name="GroupPolicy.WmiFilteringHint" xml:space="preserve">
+    <value>Ten obiekt GPO jest połączony z następującym filtrem WMI:</value>
+  </data>
+  <data name="GroupPolicy.LinkedGposHeading" xml:space="preserve">
+    <value>Połączone obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHeading" xml:space="preserve">
+    <value>Dziedziczenie zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.InheritanceHint" xml:space="preserve">
+    <value>Obiekty GPO stosowane tutaj, od najwyższego pierwszeństwa (połączenia lokacji tylko dla lokacji, jak w GPMC).</value>
+  </data>
+  <data name="GroupPolicy.InheritanceBlocked" xml:space="preserve">
+    <value>Dziedziczenie jest tu zablokowane.</value>
+  </data>
+  <data name="GroupPolicy.InheritanceNotBlocked" xml:space="preserve">
+    <value>Dziedziczenie nie jest zablokowane.</value>
+  </data>
+  <data name="GroupPolicy.DelegationHint" xml:space="preserve">
+    <value>Te grupy i użytkownicy mają określone uprawnienia do tego obiektu GPO:</value>
+  </data>
+  <data name="GroupPolicy.StatusHint" xml:space="preserve">
+    <value>Spójność obiektu GPO między Active Directory a SYSVOL na tym kontrolerze domeny.</value>
+  </data>
+  <data name="GroupPolicy.SettingsHint" xml:space="preserve">
+    <value>Ustawienia odczytane z SYSVOL tego kontrolera domeny (tylko do odczytu; sekrety nigdy nie są pokazywane).</value>
+  </data>
+  <data name="GroupPolicy.LabelDomain" xml:space="preserve">
+    <value>Domena</value>
+  </data>
+  <data name="GroupPolicy.LabelOwner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="GroupPolicy.LabelCreated" xml:space="preserve">
+    <value>Utworzono</value>
+  </data>
+  <data name="GroupPolicy.LabelModified" xml:space="preserve">
+    <value>Zmodyfikowano</value>
+  </data>
+  <data name="GroupPolicy.LabelUserVersion" xml:space="preserve">
+    <value>Wersja użytkownika</value>
+  </data>
+  <data name="GroupPolicy.LabelComputerVersion" xml:space="preserve">
+    <value>Wersja komputera</value>
+  </data>
+  <data name="GroupPolicy.LabelGuid" xml:space="preserve">
+    <value>Unikatowy identyfikator</value>
+  </data>
+  <data name="GroupPolicy.LabelGpoStatus" xml:space="preserve">
+    <value>Stan obiektu zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.LabelLevel" xml:space="preserve">
+    <value>Poziom uprawnień</value>
+  </data>
+  <data name="GroupPolicy.LabelName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="GroupPolicy.LabelDescription" xml:space="preserve">
+    <value>Opis</value>
+  </data>
+  <data name="GroupPolicy.LabelQueries" xml:space="preserve">
+    <value>Zapytania</value>
+  </data>
+  <data name="GroupPolicy.LabelFolder" xml:space="preserve">
+    <value>Folder</value>
+  </data>
+  <data name="GroupPolicy.LabelComment" xml:space="preserve">
+    <value>Komentarz</value>
+  </data>
+  <data name="GroupPolicy.LabelGpos" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.LabelPermissions" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.PermissionsDefault" xml:space="preserve">
+    <value>Użyj domyślnych uprawnień dla nowych obiektów GPO</value>
+  </data>
+  <data name="GroupPolicy.PermissionsKeep" xml:space="preserve">
+    <value>Zachowaj istniejące uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.UserVersion" xml:space="preserve">
+    <value>Wersja użytkownika</value>
+  </data>
+  <data name="GroupPolicy.ComputerVersion" xml:space="preserve">
+    <value>Wersja komputera</value>
+  </data>
+  <data name="GroupPolicy.MachineExtensions" xml:space="preserve">
+    <value>Rozszerzenia komputera</value>
+  </data>
+  <data name="GroupPolicy.UserExtensions" xml:space="preserve">
+    <value>Rozszerzenia użytkownika</value>
+  </data>
+  <data name="GroupPolicy.Add" xml:space="preserve">
+    <value>Dodaj…</value>
+  </data>
+  <data name="GroupPolicy.Remove" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="GroupPolicy.Apply" xml:space="preserve">
+    <value>Zastosuj</value>
+  </data>
+  <data name="GroupPolicy.ChangeLevel" xml:space="preserve">
+    <value>Zmień poziom</value>
+  </data>
+  <data name="GroupPolicy.MoveUp" xml:space="preserve">
+    <value>Wyżej</value>
+  </data>
+  <data name="GroupPolicy.MoveDown" xml:space="preserve">
+    <value>Niżej</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnforced" xml:space="preserve">
+    <value>Wymuszone</value>
+  </data>
+  <data name="GroupPolicy.ToggleEnabled" xml:space="preserve">
+    <value>Połączenie włączone</value>
+  </data>
+  <data name="GroupPolicy.Unlink" xml:space="preserve">
+    <value>Usuń połączenie</value>
+  </data>
+  <data name="GroupPolicy.OpenContainer" xml:space="preserve">
+    <value>Otwórz zasady grupy kontenera</value>
+  </data>
+  <data name="GroupPolicy.AlignVersions" xml:space="preserve">
+    <value>Wyrównaj wersje</value>
+  </data>
+  <data name="GroupPolicy.RepairFolder" xml:space="preserve">
+    <value>Napraw uprawnienia folderu</value>
+  </data>
+  <data name="GroupPolicy.DeleteOrphanedFolder" xml:space="preserve">
+    <value>Usuń pozostały folder</value>
+  </data>
+  <data name="GroupPolicy.Browse" xml:space="preserve">
+    <value>Przeglądaj…</value>
+  </data>
+  <data name="GroupPolicy.AddQuery" xml:space="preserve">
+    <value>Dodaj zapytanie</value>
+  </data>
+  <data name="GroupPolicy.RemoveQuery" xml:space="preserve">
+    <value>Usuń zapytanie</value>
+  </data>
+  <data name="GroupPolicy.OnlyDifferences" xml:space="preserve">
+    <value>Tylko różnice</value>
+  </data>
+  <data name="GroupPolicy.Export" xml:space="preserve">
+    <value>Eksportuj CSV…</value>
+  </data>
+  <data name="GroupPolicy.CopyPowerShell" xml:space="preserve">
+    <value>Kopiuj PowerShell</value>
+  </data>
+  <data name="GroupPolicy.PdcNote" xml:space="preserve">
+    <value>Zmiany GPO wykonujesz na {0}, a emulatorem PDC jest {1} – GPMC domyślnie używa emulatora PDC.</value>
+  </data>
+  <data name="GroupPolicy.SysvolNotSupported" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: nieobsługiwany w tym środowisku – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolDistinguishedNameLogon" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: połączenie otwarto nazwą wyróżniającą, którą nie można zalogować się do udziału – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolLogonFailure" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: kontroler domeny odrzucił poświadczenia tego okna – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolAccessDenied" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: odmowa dostępu – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolUnreachable" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0}: nie można połączyć się z udziałem – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailed" xml:space="preserve">
+    <value>SYSVOL niedostępny na {0} – zmiany zapisujące SYSVOL są wyłączone.</value>
+  </data>
+  <data name="GroupPolicy.SysvolFailedShort" xml:space="preserve">
+    <value>SYSVOL kontrolera domeny jest niedostępny.</value>
+  </data>
+  <data name="GroupPolicy.SysvolWriteFailed" xml:space="preserve">
+    <value>Nie można odczytać lub zapisać SYSVOL: {0}</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAccessDenied" xml:space="preserve">
+    <value>odmowa dostępu</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorNotFound" xml:space="preserve">
+    <value>nie znaleziono</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorAlreadyExists" xml:space="preserve">
+    <value>już istnieje</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorUnreachable" xml:space="preserve">
+    <value>nie można połączyć się z udziałem</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorLogonFailure" xml:space="preserve">
+    <value>poświadczenia zostały odrzucone</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorDiskFull" xml:space="preserve">
+    <value>dysk jest pełny</value>
+  </data>
+  <data name="GroupPolicy.SysvolErrorFailed" xml:space="preserve">
+    <value>operacja nie powiodła się</value>
+  </data>
+  <data name="GroupPolicy.TooLarge" xml:space="preserve">
+    <value>GPO jest zbyt duże do bezpiecznej kopii w pamięci (ponad 2 000 pozycji, plik ponad 32 MiB lub łącznie ponad 128 MiB).</value>
+  </data>
+  <data name="GroupPolicy.BackupInvalid" xml:space="preserve">
+    <value>Kopia zapasowa nie istnieje, jest uszkodzona albo nie przechodzi kontroli (ścieżki, rozmiary lub sumy kontrolne).</value>
+  </data>
+  <data name="GroupPolicy.ParseFailed" xml:space="preserve">
+    <value>Nie można odczytać pliku obiektu GPO.</value>
+  </data>
+  <data name="GroupPolicy.FolderFailed" xml:space="preserve">
+    <value>Nie można odczytać lub zapisać folderu.</value>
+  </data>
+  <data name="GroupPolicy.Missing" xml:space="preserve">
+    <value>Obiekt GPO już nie istnieje.</value>
+  </data>
+  <data name="GroupPolicy.MissingWithFolder" xml:space="preserve">
+    <value>Obiekt GPO nie istnieje już w Active Directory, ale jego folder w SYSVOL pozostał.</value>
+  </data>
+  <data name="GroupPolicy.ContainerMissing" xml:space="preserve">
+    <value>Kontener już nie istnieje.</value>
+  </data>
+  <data name="GroupPolicy.FolderMissing" xml:space="preserve">
+    <value>Brak folderu GPO w SYSVOL tego kontrolera domeny.</value>
+  </data>
+  <data name="GroupPolicy.NoSettings" xml:space="preserve">
+    <value>Ten obiekt GPO nie ma ustawień.</value>
+  </data>
+  <data name="GroupPolicy.DefaultGpoRefused" xml:space="preserve">
+    <value>Nie można usunąć zasad Default Domain Policy ani Default Domain Controllers Policy.</value>
+  </data>
+  <data name="GroupPolicy.ConfirmDelete" xml:space="preserve">
+    <value>Usunąć obiekt GPO „{0}” wraz z połączeniami i folderem SYSVOL z domeny {1}? Bez kopii zapasowej nie można tego cofnąć.</value>
+  </data>
+  <data name="GroupPolicy.CheckSysvol" xml:space="preserve">
+    <value>SYSVOL</value>
+  </data>
+  <data name="GroupPolicy.CheckFolder" xml:space="preserve">
+    <value>Folder GPO</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderOk" xml:space="preserve">
+    <value>Istnieje</value>
+  </data>
+  <data name="GroupPolicy.CheckVersions" xml:space="preserve">
+    <value>Wersje</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsOk" xml:space="preserve">
+    <value>AD i GPT.INI są zgodne ({0}).</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsAhead" xml:space="preserve">
+    <value>GPT.INI ({1}) wyprzedza AD ({0}): nieudany zapis lub opóźnienie replikacji AD – wyrównaj wersje.</value>
+  </data>
+  <data name="GroupPolicy.CheckVersionsBehind" xml:space="preserve">
+    <value>GPT.INI ({1}) jest za AD ({0}): replikacja SYSVOL do tego kontrolera jeszcze trwa.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAcl" xml:space="preserve">
+    <value>Uprawnienia folderu</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclOk" xml:space="preserve">
+    <value>Zgodne z uprawnieniami GPO w AD.</value>
+  </data>
+  <data name="GroupPolicy.CheckFolderAclMismatch" xml:space="preserve">
+    <value>Niespójne z uprawnieniami GPO w AD – napraw uprawnienia folderu.</value>
+  </data>
+  <data name="GroupPolicy.CheckUnknown" xml:space="preserve">
+    <value>Nieznane</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensions" xml:space="preserve">
+    <value>Nazwy rozszerzeń</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsOk" xml:space="preserve">
+    <value>Zgodne z plikami GPO.</value>
+  </data>
+  <data name="GroupPolicy.CheckExtensionsMismatch" xml:space="preserve">
+    <value>Niezgodne z plikami GPO (klienci mogą pominąć ustawienia).</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftovers" xml:space="preserve">
+    <value>Pozostałości przerwanego zapisu</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversNone" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="GroupPolicy.CheckLeftoversFound" xml:space="preserve">
+    <value>Pliki tymczasowe: {0} – następna zmiana tego GPO je usunie.</value>
+  </data>
+  <data name="GroupPolicy.NewWindowTitle" xml:space="preserve">
+    <value>Nowy obiekt GPO</value>
+  </data>
+  <data name="GroupPolicy.CopyWindowTitle" xml:space="preserve">
+    <value>Kopiuj obiekt GPO</value>
+  </data>
+  <data name="GroupPolicy.RenameWindowTitle" xml:space="preserve">
+    <value>Zmień nazwę obiektu GPO</value>
+  </data>
+  <data name="GroupPolicy.NewGpoDefaultName" xml:space="preserve">
+    <value>Nowy obiekt zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.CopyDefaultName" xml:space="preserve">
+    <value>Kopia {0}</value>
+  </data>
+  <data name="GroupPolicy.LinkTargetText" xml:space="preserve">
+    <value>Połączone z: {0}</value>
+  </data>
+  <data name="GroupPolicy.SourceText" xml:space="preserve">
+    <value>Źródło: {0}</value>
+  </data>
+  <data name="GroupPolicy.NameRequired" xml:space="preserve">
+    <value>Wpisz nazwę.</value>
+  </data>
+  <data name="GroupPolicy.NameTooLong" xml:space="preserve">
+    <value>Nazwa może mieć najwyżej {0} znaków.</value>
+  </data>
+  <data name="GroupPolicy.LinkPickerTitle" xml:space="preserve">
+    <value>Połącz istniejący GPO z {0}</value>
+  </data>
+  <data name="GroupPolicy.ComparePickerTitle" xml:space="preserve">
+    <value>Porównaj „{0}” z…</value>
+  </data>
+  <data name="GroupPolicy.PickerFilter" xml:space="preserve">
+    <value>Filtruj według nazwy</value>
+  </data>
+  <data name="GroupPolicy.TrusteePickerTitle" xml:space="preserve">
+    <value>Wybierz użytkownika, grupę lub komputer</value>
+  </data>
+  <data name="GroupPolicy.TrusteeWithoutSid" xml:space="preserve">
+    <value>Wybrany obiekt nie ma identyfikatora zabezpieczeń.</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEveryone" xml:space="preserve">
+    <value>Wszyscy</value>
+  </data>
+  <data name="GroupPolicy.TrusteeAuthenticatedUsers" xml:space="preserve">
+    <value>Użytkownicy uwierzytelnieni</value>
+  </data>
+  <data name="GroupPolicy.TrusteeEnterpriseDomainControllers" xml:space="preserve">
+    <value>KONTROLERY DOMENY PRZEDSIĘBIORSTWA</value>
+  </data>
+  <data name="GroupPolicy.TrusteeSystem" xml:space="preserve">
+    <value>SYSTEM</value>
+  </data>
+  <data name="GroupPolicy.TrusteeCreatorOwner" xml:space="preserve">
+    <value>TWÓRCA-WŁAŚCICIEL</value>
+  </data>
+  <data name="GroupPolicy.WmiNewWindowTitle" xml:space="preserve">
+    <value>Nowy filtr WMI</value>
+  </data>
+  <data name="GroupPolicy.WmiEditWindowTitle" xml:space="preserve">
+    <value>Filtr WMI – {0}</value>
+  </data>
+  <data name="GroupPolicy.WmiQueryRequired" xml:space="preserve">
+    <value>Każde zapytanie wymaga przestrzeni nazw i zapytania WQL.</value>
+  </data>
+  <data name="GroupPolicy.WmiQueriesUnreadable" xml:space="preserve">
+    <value>(nie można odczytać zapytań)</value>
+  </data>
+  <data name="GroupPolicy.WmiUnparsedNote" xml:space="preserve">
+    <value>Nie można odczytać zapisanych zapytań; zapisanie zastąpi je zapytaniami pokazanymi tutaj.</value>
+  </data>
+  <data name="GroupPolicy.WmiTestLater" xml:space="preserve">
+    <value>Sprawdzenie zapytania na komputerze pojawi się razem ze zdalnymi akcjami (K1).</value>
+  </data>
+  <data name="GroupPolicy.BackupWindowTitle" xml:space="preserve">
+    <value>Kopia zapasowa obiektów zasad grupy</value>
+  </data>
+  <data name="GroupPolicy.BackupBeforeDeleteTitle" xml:space="preserve">
+    <value>Usuń „{0}”</value>
+  </data>
+  <data name="GroupPolicy.RestoreWindowTitle" xml:space="preserve">
+    <value>Przywróć z kopii zapasowej</value>
+  </data>
+  <data name="GroupPolicy.ImportWindowTitle" xml:space="preserve">
+    <value>Importuj ustawienia do „{0}”</value>
+  </data>
+  <data name="GroupPolicy.BackupCompatibilityNote" xml:space="preserve">
+    <value>Zapis w formacie kopii GPMC (manifest.xml, Backup.xml, bkupInfo.xml, DomainSysvol) oraz admng.json – zgodna z GPMC, do potwierdzenia w pilotażu. Kopie trafiają wyłącznie do wybranego przez Ciebie folderu.</value>
+  </data>
+  <data name="GroupPolicy.BackupFirst" xml:space="preserve">
+    <value>Utwórz kopię zapasową przed usunięciem</value>
+  </data>
+  <data name="GroupPolicy.BackupContinue" xml:space="preserve">
+    <value>Dalej</value>
+  </data>
+  <data name="GroupPolicy.BackupRun" xml:space="preserve">
+    <value>Utwórz kopię</value>
+  </data>
+  <data name="GroupPolicy.RestoreRun" xml:space="preserve">
+    <value>Przywróć…</value>
+  </data>
+  <data name="GroupPolicy.ImportRun" xml:space="preserve">
+    <value>Importuj…</value>
+  </data>
+  <data name="GroupPolicy.PickFolderTitle" xml:space="preserve">
+    <value>Wybierz folder kopii zapasowych</value>
+  </data>
+  <data name="GroupPolicy.NoBackups" xml:space="preserve">
+    <value>Brak kopii zapasowych w tym folderze.</value>
+  </data>
+  <data name="GroupPolicy.BackupsFound" xml:space="preserve">
+    <value>Kopie zapasowe w tym folderze: {0}.</value>
+  </data>
+  <data name="GroupPolicy.BackupRunning" xml:space="preserve">
+    <value>Tworzenie kopii zapasowej…</value>
+  </data>
+  <data name="GroupPolicy.BackupActivity" xml:space="preserve">
+    <value>Kopia zapasowa GPO: {0}</value>
+  </data>
+  <data name="GroupPolicy.BackupFailed" xml:space="preserve">
+    <value>Nie udało się utworzyć {0} z {1} kopii; nic dla nich nie zapisano.</value>
+  </data>
+  <data name="GroupPolicy.BackupDone" xml:space="preserve">
+    <value>Kopie zapasowe GPO ({0}) zapisano w {1}.</value>
+  </data>
+  <data name="GroupPolicy.BackupWithoutDirectorySettings" xml:space="preserve">
+    <value>{0} z nich zawiera ustawienia przechowywane jako obiekty katalogu (instalacja oprogramowania, zasady sieci bezprzewodowej lub przewodowej), których kopie zapasowe nie obejmują.</value>
+  </data>
+  <data name="GroupPolicy.BackupDetails" xml:space="preserve">
+    <value>Pliki: {0}, bajty: {1}, {2}</value>
+  </data>
+  <data name="GroupPolicy.BackupWithSidecar" xml:space="preserve">
+    <value>z plikiem AD Managera (połączenia, sumy kontrolne)</value>
+  </data>
+  <data name="GroupPolicy.BackupGpmcOnly" xml:space="preserve">
+    <value>kopia GPMC bez pliku AD Managera</value>
+  </data>
+  <data name="GroupPolicy.BackupOtherDomain" xml:space="preserve">
+    <value>Kopia pochodzi z domeny {0}: przywróć ją tam albo zaimportuj jej ustawienia do GPO tej domeny.</value>
+  </data>
+  <data name="GroupPolicy.RestoreLinks" xml:space="preserve">
+    <value>Przywróć też połączenia ({0})</value>
+  </data>
+  <data name="GroupPolicy.BackupPowerShellHeading" xml:space="preserve">
+    <value>Odpowiednik w PowerShell</value>
+  </data>
+  <data name="GroupPolicy.CompareWindowTitle" xml:space="preserve">
+    <value>Porównanie „{0}” i „{1}”</value>
+  </data>
+  <data name="GroupPolicy.CompareWithoutContent" xml:space="preserve">
+    <value>Ustawień i plików nie porównano.</value>
+  </data>
+  <data name="GroupPolicy.CompareSummary" xml:space="preserve">
+    <value>Różnice: {0} z {1} pozycji</value>
+  </data>
+  <data name="GroupPolicy.CompareExport" xml:space="preserve">
+    <value>Eksportuj porównanie</value>
+  </data>
+  <data name="GroupPolicy.CompareExported" xml:space="preserve">
+    <value>Wyeksportowano wiersze: {0}.</value>
+  </data>
+  <data name="GroupPolicy.SectionCore" xml:space="preserve">
+    <value>GPO</value>
+  </data>
+  <data name="GroupPolicy.SectionPermissions" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="GroupPolicy.SectionLinks" xml:space="preserve">
+    <value>Połączenia</value>
+  </data>
+  <data name="GroupPolicy.SectionSettings" xml:space="preserve">
+    <value>Ustawienia</value>
+  </data>
+  <data name="GroupPolicy.SectionFiles" xml:space="preserve">
+    <value>Pliki</value>
+  </data>
+  <data name="GroupPolicy.StateSame" xml:space="preserve">
+    <value>Takie same</value>
+  </data>
+  <data name="GroupPolicy.StateDifferent" xml:space="preserve">
+    <value>Różne</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInA" xml:space="preserve">
+    <value>Tylko w A</value>
+  </data>
+  <data name="GroupPolicy.StateOnlyInB" xml:space="preserve">
+    <value>Tylko w B</value>
+  </data>
+  <data name="GroupPolicy.TitleNew" xml:space="preserve">
+    <value>Nowy obiekt GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleCopy" xml:space="preserve">
+    <value>Kopiowanie obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRename" xml:space="preserve">
+    <value>Zmiana nazwy obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelete" xml:space="preserve">
+    <value>Usunięcie obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDeleteFolder" xml:space="preserve">
+    <value>Usunięcie pozostałego folderu „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLink" xml:space="preserve">
+    <value>Połączenie „{0}” z {1}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnlink" xml:space="preserve">
+    <value>Usunięcie połączenia „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleReorder" xml:space="preserve">
+    <value>Kolejność łącza „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleLinkOptions" xml:space="preserve">
+    <value>Połączenie „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleBlock" xml:space="preserve">
+    <value>Zablokowanie dziedziczenia w {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleUnblock" xml:space="preserve">
+    <value>Odblokowanie dziedziczenia w {0}</value>
+  </data>
+  <data name="GroupPolicy.TitleStatus" xml:space="preserve">
+    <value>Stan obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiLink" xml:space="preserve">
+    <value>Filtr WMI obiektu GPO „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleAlign" xml:space="preserve">
+    <value>Wyrównanie wersji „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRepair" xml:space="preserve">
+    <value>Naprawa uprawnień folderu „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleSecurityFilter" xml:space="preserve">
+    <value>Filtrowanie zabezpieczeń „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleDelegation" xml:space="preserve">
+    <value>Delegowanie „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleRestore" xml:space="preserve">
+    <value>Przywrócenie „{0}” z kopii zapasowej</value>
+  </data>
+  <data name="GroupPolicy.TitleImport" xml:space="preserve">
+    <value>Import ustawień do „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiNew" xml:space="preserve">
+    <value>Nowy filtr WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiEdit" xml:space="preserve">
+    <value>Filtr WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.TitleWmiDelete" xml:space="preserve">
+    <value>Usunięcie filtru WMI „{0}”</value>
+  </data>
+  <data name="GroupPolicy.Category.Other" xml:space="preserve">
+    <value>Inne</value>
+  </data>
+  <data name="GroupPolicy.Category.AccountPolicy" xml:space="preserve">
+    <value>Zasady kont</value>
+  </data>
+  <data name="GroupPolicy.Category.AuditPolicy" xml:space="preserve">
+    <value>Zasady inspekcji</value>
+  </data>
+  <data name="GroupPolicy.Category.PrivilegeRights" xml:space="preserve">
+    <value>Przypisywanie praw użytkownika</value>
+  </data>
+  <data name="GroupPolicy.Category.GroupMembership" xml:space="preserve">
+    <value>Grupy z ograniczeniami</value>
+  </data>
+  <data name="GroupPolicy.Category.Services" xml:space="preserve">
+    <value>Usługi systemowe</value>
+  </data>
+  <data name="GroupPolicy.Category.FileRegistrySecurity" xml:space="preserve">
+    <value>Zabezpieczenia plików i rejestru</value>
+  </data>
+  <data name="GroupPolicy.Category.Registry" xml:space="preserve">
+    <value>Rejestr</value>
+  </data>
+  <data name="GroupPolicy.Category.SecurityRegistry" xml:space="preserve">
+    <value>Rejestr – ustawienia zabezpieczeń</value>
+  </data>
+  <data name="GroupPolicy.Category.Scripts" xml:space="preserve">
+    <value>Skrypty</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceGroups" xml:space="preserve">
+    <value>Preferencje – lokalni użytkownicy i grupy</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceScheduledTasks" xml:space="preserve">
+    <value>Preferencje – zaplanowane zadania</value>
+  </data>
+  <data name="GroupPolicy.Category.PreferenceSystemFiles" xml:space="preserve">
+    <value>Preferencje – pliki systemowe</value>
+  </data>
+  <data name="GroupPolicy.Category.Preferences" xml:space="preserve">
+    <value>Preferencje</value>
+  </data>
+  <data name="GroupPolicy.Category.EventLog" xml:space="preserve">
+    <value>Dziennik zdarzeń</value>
+  </data>
+  <data name="GroupPolicy.Category.Comments" xml:space="preserve">
+    <value>Komentarze</value>
+  </data>
+  <data name="KindPlural.GroupPolicyContainer" xml:space="preserve">
+    <value>Obiekty zasad grupy</value>
+  </data>
+  <data name="KindPlural.WmiFilter" xml:space="preserve">
+    <value>Filtry WMI</value>
+  </data>
+  <data name="KindPlural.Site" xml:space="preserve">
+    <value>Lokacje</value>
+  </data>
+  <data name="Issue.GpoForeignReferences" xml:space="preserve">
+    <value>Importowane ustawienia wskazują podmioty zabezpieczeń lub ścieżki UNC innej domeny (liczba: {0} – {1}; tabele migracji nie są obsługiwane) – sprawdź je po imporcie.</value>
+  </data>
+  <data name="Issue.GpoGppPassword" xml:space="preserve">
+    <value>Ustawienia zawierają hasła preferencji zasad grupy (cpassword, MS14-025) w {0}: każdy użytkownik domeny może je odczytać i odszyfrować – usuń te elementy albo użyj LAPS.</value>
+  </data>
+  <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
+    <value>Nowe GPO otrzyma dokładnie wymienione tu uprawnienia: domyślne wpisy, których wśród nich nie ma (np. Zastosuj zasady grupy dla Użytkowników uwierzytelnionych), zostaną usunięte.</value>
+  </data>
+  <data name="Issue.GpoDirectorySettings" xml:space="preserve">
+    <value>GPO zawiera ustawienia przechowywane jako obiekty katalogu (instalacja oprogramowania, zasady sieci bezprzewodowej lub przewodowej), które nie są kopiowane, archiwizowane ani przywracane – odtwórz je w GPMC.</value>
+  </data>
+  <data name="Issue.GpoExists" xml:space="preserve">
+    <value>GPO istnieje: jego folder w SYSVOL jest używany i nie zostanie usunięty.</value>
+  </data>
+  <data name="Issue.GpoFolderExists" xml:space="preserve">
+    <value>W SYSVOL pozostał folder z identyfikatorem tego GPO: najpierw usuń go poleceniem „Usuń pozostały folder” w widoku GPO.</value>
+  </data>
+  <data name="Issue.GpoWmiFilterMissing" xml:space="preserve">
+    <value>Filtr WMI z kopii zapasowej nie istnieje w tej domenie: GPO zostanie przywrócone bez filtru WMI.</value>
+  </data>
+  <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
+    <value>Kopia zapasowa pochodzi z domeny {0}: przywróć ją tam albo zaimportuj jej ustawienia do GPO tej domeny.</value>
+  </data>
+  <data name="Issue.GpoVersionJump" xml:space="preserve">
+    <value>Ostatnia wersja usuniętego GPO jest nieznana (brak Kosza AD): wersja zostanie podniesiona wyraźnie ponad wersję z kopii, aby każdy klient ponownie przetworzył przywrócone ustawienia.</value>
+  </data>
+  <!-- K2: Group Policy (end) -->
 </root>

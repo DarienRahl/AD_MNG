@@ -90,6 +90,12 @@
                 ToolTip="{l:Tr Common.Clear}"
                 Visibility="{Binding Text, ElementName=QuickFilterBox, Converter={StaticResource Ad.EmptyToCollapsed}}" />
       </Grid>
+      <!-- Group Policy (K2): "Zasady grupy" of the domain or OU shown (or selected). -->
+      <Button x:Name="GroupPolicyButton"
+              Margin="0,0,8,0"
+              VerticalAlignment="Center"
+              b:CommandMenu.Id="gpo.containerPolicies"
+              DockPanel.Dock="Right" />
       <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
         <c:ObjectIconView Margin="0,0,8,0"
                           VerticalAlignment="Center"
@@ -224,8 +230,19 @@
             <MenuItem b:CommandMenu.Id="object.enable" />
             <MenuItem b:CommandMenu.Id="object.unlock" />
             <MenuItem b:CommandMenu.Id="object.resetPassword" />
+            <!-- Computers (K1). -->
+            <MenuItem x:Name="ComputerContextMenuItem" Header="{l:Tr Computers.ComputerMenu}">
+              <MenuItem b:CommandMenu.Id="computer.remote" />
+              <MenuItem b:CommandMenu.Id="computer.remoteDesktop" />
+              <MenuItem b:CommandMenu.Id="computer.manage" />
+              <MenuItem b:CommandMenu.Id="computer.eventViewer" />
+              <MenuItem b:CommandMenu.Id="computer.ping" />
+              <Separator />
+              <MenuItem b:CommandMenu.Id="computer.reset" />
+            </MenuItem>
             <MenuItem b:CommandMenu.Id="object.sendMessage" />
             <MenuItem b:CommandMenu.Id="object.move" />
+            <MenuItem b:CommandMenu.Id="gpo.containerPolicies" />
             <MenuItem b:CommandMenu.Id="object.batchEdit" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.copyRows" />

@@ -33,4 +33,7 @@
     <!-- The rendered preview of HTML bodies (AdMng.App only; Evergreen runtime, fallback to the source view). -->
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
   </ItemGroup>
+  <ItemGroup Label="AD Manager – computers (K1)">
+    <PackageVersion Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
+  </ItemGroup>
 </Project>

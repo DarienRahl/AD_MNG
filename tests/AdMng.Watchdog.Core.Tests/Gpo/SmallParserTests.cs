@@ -1,7 +1,7 @@
 using System.Text;
 using AdMng.Core.GroupPolicy;
-using AdMng.Watchdog.Core.Gpo;
-using AdMng.Watchdog.Core.Gpo.Parsers;
+using AdMng.Core.GroupPolicy.Content;
+using GpoVersion = AdMng.Watchdog.Core.Gpo.GpoVersion;
 
 namespace AdMng.Watchdog.Core.Tests.Gpo;
 

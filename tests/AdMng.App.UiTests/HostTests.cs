@@ -77,6 +77,7 @@ public sealed class HostTests
         typeof(ConnectionNavigator),
         typeof(IUserMessageLauncher),
         typeof(IObjectComparisonLauncher),
+        typeof(Presentation.GroupPolicy.IGroupPolicyDialogs),
     ];
 
     [Fact]
@@ -137,9 +138,14 @@ public sealed class HostTests
     private static readonly Type[] SharedApp =
     [
         typeof(ConnectionWindowManager),
+        typeof(Core.Computers.Remote.IRemoteComputerClient),
+        typeof(Core.Computers.Remote.ILocalToolLauncher),
+        typeof(Core.Computers.Remote.IPingService),
+        typeof(Core.Computers.Remote.IHostAddressResolver),
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
         typeof(WebView2Host),
+        typeof(ISysvolFileWriter),
     ];
 
     [Fact]

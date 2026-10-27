@@ -143,7 +143,10 @@ internal static class SysvolErrors
     };
 }
 
-/// <summary>The Windows side: a logon session of the run's own for other credentials, and the file reads.</summary>
+/// <summary>
+/// The Windows side, shared by the reader and the writer (<see cref="WindowsSysvolFileWriter"/>): a logon session of the
+/// run's own for other credentials, and the file reads.
+/// </summary>
 [SupportedOSPlatform("windows")]
 internal static partial class WindowsSysvol
 {
@@ -152,17 +155,29 @@ internal static partial class WindowsSysvol
 
     public static ISysvolConnection Open(string server, string domain, SysvolLogon logon)
     {
-        var share = @"\\" + server + @"\SYSVOL";
+        var share = Share(server);
+        return new Connection(server, domain, share, LogOnForShare(share, domain, logon));
+    }
+
+    /// <summary><c>\\&lt;server&gt;\SYSVOL</c>.</summary>
+    internal static string Share(string server) => @"\\" + server + @"\SYSVOL";
+
+    /// <summary>
+    /// The token of a logon session of the run's own for a session with other credentials (null for the process identity),
+    /// checked by a first access to the Policies folder. The caller disposes it.
+    /// </summary>
+    internal static SafeAccessTokenHandle? LogOnForShare(string share, string domain, SysvolLogon logon)
+    {
         if (logon.Credential is not { } credential || logon.LogonParts is not { } parts)
         {
-            return new Connection(server, domain, share, token: null);
+            return null;
         }
 
         var token = LogOn(parts.User, parts.Domain, credential);
         try
         {
             Probe(share + @"\" + domain + @"\Policies", token);
-            return new Connection(server, domain, share, token);
+            return token;
         }
         catch
         {
@@ -217,28 +232,53 @@ internal static partial class WindowsSysvol
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool LogonUser(string user, string? domain, IntPtr password, int logonType, int logonProvider, out IntPtr token);
 
-    private sealed class Connection(string server, string domain, string share, SafeAccessTokenHandle? token) : ISysvolConnection
+    /// <summary>A read connection; <see cref="WindowsSysvolFileWriter"/> derives its write connection from it.</summary>
+    internal class Connection(string server, string domain, string share, SafeAccessTokenHandle? token) : ISysvolConnection
     {
         private int _disposed;
 
         public string Server { get; } = server;
 
-        public async Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
+        /// <summary>The logon session of the run (null: the process identity).</summary>
+        protected SafeAccessTokenHandle? Token { get; } = token;
+
+        protected bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+        /// <summary>The UNC path of a GPO folder (<paramref name="relativePath"/> null) or of a path below it (validated).</summary>
+        protected string GpoPath(Guid gpoId, string? relativePath)
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-            if (!SysvolPaths.TryNormalize(relativePath, out var normalized) || gpoId == Guid.Empty)
+            if (gpoId == Guid.Empty)
+            {
+                throw new ArgumentException("The GPO has no GUID.", nameof(gpoId));
+            }
+
+            var folder = share + @"\" + domain + @"\Policies\" + SysvolPaths.FolderName(gpoId);
+            if (relativePath is null)
+            {
+                return folder;
+            }
+
+            if (!SysvolPaths.TryNormalize(relativePath, out var normalized))
             {
                 throw new ArgumentException("The path is not a path below a GPO folder.", nameof(relativePath));
             }
 
+            return folder + @"\" + normalized.Replace('/', '\\');
+        }
+
+        /// <summary>Runs a blocking file call as the run's logon session (or the process identity).</summary>
+        protected T AsLogon<T>(Func<T> call) => Token is null ? call() : WindowsIdentity.RunImpersonated(Token, call);
+
+        public async Task<SysvolFileResult> ReadGpoFileAsync(Guid gpoId, string relativePath, long maxBytes, CancellationToken cancellationToken)
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxBytes);
-            var path = share + @"\" + domain + @"\Policies\" + SysvolPaths.FolderName(gpoId) + @"\" + normalized.Replace('/', '\\');
+            var path = GpoPath(gpoId, relativePath ?? throw new ArgumentNullException(nameof(relativePath)));
             try
             {
                 // CreateFile on a UNC path blocks (SMB round trips): off the calling thread, as the run's own logon session
                 // when the session has other credentials (the open handle keeps that SMB session for the reads).
-                var stream = await Task.Run(() => token is null ? Open(path) : WindowsIdentity.RunImpersonated(token, () => Open(path)), cancellationToken)
-                    .ConfigureAwait(false);
+                var stream = await Task.Run(() => AsLogon(() => Open(path)), cancellationToken).ConfigureAwait(false);
                 await using (stream.ConfigureAwait(false))
                 {
                     if (stream.Length > maxBytes)
@@ -280,9 +320,10 @@ internal static partial class WindowsSysvol
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
             {
-                token?.Dispose();
+                Token?.Dispose();
             }
 
+            GC.SuppressFinalize(this);
             return ValueTask.CompletedTask;
         }
 

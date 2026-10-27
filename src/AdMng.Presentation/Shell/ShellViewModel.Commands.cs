@@ -48,12 +48,13 @@ public sealed partial class ShellViewModel
     private IRelayCommand[] StateCommands => _stateCommands ??=
     [
         ChangeDomainControllerCommand,
+        .. GroupPolicyStateCommands,
         RefreshCommand, PropertiesCommand, DeleteCommand, BeginRenameCommand, MoveCommand, EnableCommand, DisableCommand,
         UnlockCommand, ResetPasswordCommand, AddToGroupCommand, BatchEditCommand, NewUserCommand, NewGroupCommand,
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
-        SendMessageCommand, CompareWithConnectionCommand,
+        SendMessageCommand, CompareWithConnectionCommand, .. ComputerStateCommands,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
