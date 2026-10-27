@@ -468,10 +468,10 @@
                     ItemsSource="{Binding SelectedAttributeRow.Details, Mode=OneWay}">
             <ListView.View>
               <GridView AllowsColumnReorder="False">
-                <GridViewColumn Width="50"
+                <GridViewColumn Width="72"
                                 DisplayMemberBinding="{Binding Side, Mode=OneTime}"
                                 Header="{l:Tr Comparison.ColumnSide}" />
-                <GridViewColumn Width="620"
+                <GridViewColumn Width="598"
                                 DisplayMemberBinding="{Binding Text, Mode=OneTime}"
                                 Header="{l:Tr Comparison.ColumnValue}" />
                 <GridViewColumn Width="140"
