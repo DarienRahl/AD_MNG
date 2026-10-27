@@ -857,12 +857,14 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     Record(change.Action, new AuditEntry(now, info.BoundIdentity, info.Server, restoredDn, change.Action.ToString(), null, dn, restoredDn, succeeded, error));
                     break;
                 case ChangeAction.ModifySecurity:
-                    // The ACEs (rights and trustee SIDs, no names): old value = removed, new value = added.
+                    // The ACEs (rights and trustee SIDs, no names): old value = removed, new value = added. A succeeded step
+                    // records what changed the DACL, not an ACE that was already there; a failed one what it tried.
+                    var acl = outcome.Result.AppliedAcl ?? change.Acl;
                     Record(change.Action, Entry(
                         change.Action.ToString(),
                         Attr.NtSecurityDescriptor,
-                        Join([.. change.Acl?.Removed.Select(a => a.Describe()) ?? []]),
-                        Join([.. change.Acl?.Added.Select(a => a.Describe()) ?? []])));
+                        Join([.. acl?.Removed.Select(a => a.Describe()) ?? []]),
+                        Join([.. acl?.Added.Select(a => a.Describe()) ?? []])));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).

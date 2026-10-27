@@ -99,8 +99,9 @@ only string values and the session cannot send the SD flags control on a modify.
   `nTSecurityDescriptor` with the SD flags control `DACL_SECURITY_INFORMATION` (4), applies the delta and writes the
   result with the same control (`ModifyOptions.SecurityDescriptorFlags`, new; `LdapDirectorySession` adds the
   `SecurityDescriptorFlagControl`; `FakeDirectorySession` honours it). There is no compare-and-swap for descriptors:
-  the delta is re-applied on the fresh DACL, so concurrent unrelated ACL changes are kept. Rollback = the inverse delta
-  (added ↔ removed). PowerShell: `$acl = Get-Acl -Path "AD:$dn"`, one `ActiveDirectoryAccessRule` per ACE with
+  the delta is re-applied on the fresh DACL, so concurrent unrelated ACL changes are kept. Audit and rollback use the
+  part of the delta that changed the DACL at execution (`ChangeResult.AppliedAcl`): an ACE another administrator added
+  meanwhile is neither claimed nor removed. Rollback = the inverse of that (added ↔ removed). PowerShell: `$acl = Get-Acl -Path "AD:$dn"`, one `ActiveDirectoryAccessRule` per ACE with
   `AddAccessRule` / `RemoveAccessRuleSpecific`, `Set-Acl` – with `-Server` through `New-PSDrive` pinned to the plan's DC
   (the `AD:` drive of the ActiveDirectory module). The preview shows one row per ACE: trustee name, right names
   (`SecurityDescriptorSummary.KnownRightName`, the U4b right texts), *dodane* / *usunięte*.

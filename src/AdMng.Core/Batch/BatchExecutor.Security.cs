@@ -16,7 +16,8 @@ public sealed partial class BatchExecutor
         /// Reads nTSecurityDescriptor (SD flags owner, group, DACL – no SACL), applies the step's ACE delta to the DACL as it
         /// is NOW and writes the DACL-only result with the SD flags control DACL_SECURITY_INFORMATION. There is no
         /// compare-and-swap for descriptors: the delta is re-applied to the fresh DACL (also on a retry), so ACL changes
-        /// made by others meanwhile are kept. A delta that changes nothing writes nothing.
+        /// made by others meanwhile are kept. A delta that changes nothing writes nothing. What actually changed the DACL is
+        /// the result's <see cref="ChangeResult.AppliedAcl"/>.
         /// </summary>
         private async Task<StepOutcome> ModifySecurityAsync(PlannedChange change, string dn)
         {
@@ -25,6 +26,7 @@ public sealed partial class BatchExecutor
                 return Invalid(change, "The security step has no ACE to add or remove.");
             }
 
+            AclChange? applied = null;
             var attempted = await InvokeAsync(change.Action, async () =>
             {
                 var current = await _session.GetAsync(dn, [Attr.NtSecurityDescriptor], CancellationToken.None).ConfigureAwait(false)
@@ -43,6 +45,8 @@ public sealed partial class BatchExecutor
 
                 if (edited.Changed)
                 {
+                    // Kept before the write: a write that timed out may have reached the DC, and its retry finds nothing to do.
+                    applied = Union(applied, edited.Applied);
                     await _session.ModifyAsync(
                         dn,
                         [AttributeModification.Replace(Attr.NtSecurityDescriptor, edited.Descriptor)],
@@ -52,7 +56,17 @@ public sealed partial class BatchExecutor
 
                 return true;
             }).ConfigureAwait(false);
-            return ToOutcome(change, attempted);
+            var outcome = ToOutcome(change, attempted);
+            return outcome.Result.Succeeded
+                ? outcome with { Result = outcome.Result with { AppliedAcl = applied ?? new AclChange([], []) } }
+                : outcome;
         }
+
+        /// <summary>The ACEs applied by two attempts of the same step (each ACE once).</summary>
+        private static AclChange Union(AclChange? first, AclChange second) => first is null
+            ? second
+            : new AclChange(
+                [.. first.Added, .. second.Added.Where(a => !first.Added.Any(a.SameAce))],
+                [.. first.Removed, .. second.Removed.Where(r => !first.Removed.Any(r.SameAce))]);
     }
 }

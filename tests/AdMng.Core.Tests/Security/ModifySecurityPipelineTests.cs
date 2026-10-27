@@ -200,6 +200,32 @@ public class ModifySecurityPipelineTests
     }
 
     [Fact]
+    public async Task AnAceAnotherAdministratorAddedAfterThePlan_IsNeitherAuditedNorRolledBack()
+    {
+        var plan = await PlanAsync(Join);
+        // Between the plan and its execution another administrator grants the same reset-password right.
+        Session.SetValues(_company.Computer1, Attr.NtSecurityDescriptor, FakeSecurityDescriptor.Build(
+            DomainAdminsSid,
+            DomainAdminsSid,
+            FakeAce.FullControl(DomainAdminsSid),
+            new FakeAce(FakeAce.AccessAllowedObject, 0, 0x100, _helpdeskSid, ExtendedRightIds.ResetPassword)));
+
+        var result = await Executor.ExecuteAsync(Session, plan, Fast, null, Ct);
+
+        var step = Assert.Single(Assert.Single(result.Objects).Changes);
+        Assert.True(step.Succeeded);
+        Assert.Equal(ExtendedRightIds.AccountRestrictions, Assert.Single(step.AppliedAcl!.Added).ObjectType);
+        var entry = Assert.Single(_audit.Entries);
+        Assert.DoesNotContain("User-Force-Change-Password", entry.NewValue, StringComparison.Ordinal);
+
+        var rollback = new RollbackPlanner().CreateRollbackPlan(result);
+        var undo = Assert.Single(Assert.Single(rollback.Objects).Changes);
+        Assert.Equal(ExtendedRightIds.AccountRestrictions, Assert.Single(undo.Acl!.Removed).ObjectType);
+        await Executor.ExecuteAsync(Session, rollback, Fast, null, Ct);
+        Assert.Equal(ExtendedRightIds.ResetPassword, Assert.Single(Aces(), a => a.Sid == _helpdeskSid).ObjectType);
+    }
+
+    [Fact]
     public async Task PowerShell_UsesGetAclAndSetAclOnTheDriveOfTheDc()
     {
         var plan = await PlanAsync(Join with { Removed = [] });

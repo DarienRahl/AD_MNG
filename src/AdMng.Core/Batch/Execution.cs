@@ -84,7 +84,15 @@ public sealed record ChangeResult(
     bool Succeeded,
     DirectoryErrorKind? ErrorKind = null,
     string? ErrorMessage = null,
-    int Attempts = 1);
+    int Attempts = 1)
+{
+    /// <summary>
+    /// A succeeded <see cref="ChangeAction.ModifySecurity"/>: the part of the step's delta that changed the DACL as it was
+    /// at execution (empty when everything was already there). The audit and the rollback use it, so an ACE another
+    /// administrator added meanwhile is neither claimed nor removed. Null for other steps.
+    /// </summary>
+    public Security.AclChange? AppliedAcl { get; init; }
+}
 
 /// <summary>Outcome of one object.</summary>
 public sealed record ObjectResult(
