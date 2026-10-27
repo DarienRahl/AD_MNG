@@ -448,7 +448,7 @@ public sealed class UserMessagePlanner
             Status = StatusOf(issues),
             Issues = [.. issues.Distinct()],
             Message = message,
-            Derived = data.Salutation?.Derived(language) ?? [],
+            Derived = data.Salutation?.Derived() ?? [],
         };
     }
 

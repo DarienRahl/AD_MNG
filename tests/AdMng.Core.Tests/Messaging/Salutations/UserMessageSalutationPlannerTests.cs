@@ -145,6 +145,26 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void DerivedSalutation_IsTheVariantTheTemplateRendered_MarkedByTheWorstOne()
+    {
+        // English, title "prof.", unknown gender: "noTitle" renders the neutral text – the column must not show "Dear Professor Kim".
+        var english = Plan(Template("{$salutation},", "{$salutation:noTitle},"), [new(SaszaDn, Sasza(("preferredLanguage", "en-US"), ("personalTitle", "prof.")))]).Messages[0];
+        Assert.StartsWith("Dear Sasza Kim,", english.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(english.Derived, d => d is { Field: "salutation", Value: "Dear Sasza Kim", Source: DerivedValueSource.Fallback, Issue: SalutationIssueCodes.GenderUnknown });
+
+        // Only the vocative: the column shows what the mail says.
+        var vocative = Plan(BodyOnly("{$salutation:vocative},"), [new(ProfessorDn, Professor())]).Messages[0];
+        Assert.StartsWith("Panie Profesorze,", vocative.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(vocative.Derived, d => d is { Field: "salutation", Value: "Panie Profesorze" });
+
+        // Several variants: the fullest one is shown, a fallback of another one marks it.
+        var mixed = Plan(Template("{$salutation},", "{$salutation:noTitle} / {$salutation}"), [new(SaszaDn, Sasza(("personalTitle", "prof."), ("preferredLanguage", "en")))]).Messages[0];
+        Assert.StartsWith("Dear Sasza Kim / Dear Professor Kim", mixed.Message!.TextBody, StringComparison.Ordinal);
+        var salutation = Assert.Single(mixed.Derived, d => d.Field == "salutation");
+        Assert.Equal(("Dear Professor Kim", DerivedValueSource.Fallback, SalutationIssueCodes.GenderUnknown), (salutation.Value, salutation.Source, salutation.Issue));
+    }
+
+    [Fact]
     public void Replan_KeepsADuplicateAddressWarning()
     {
         var template = Template("{$salutation},");

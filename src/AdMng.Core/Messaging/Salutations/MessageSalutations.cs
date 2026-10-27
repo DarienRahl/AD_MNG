@@ -43,10 +43,8 @@ public sealed class MessageSalutations
     private readonly Gender? _override;
     private readonly ISchemaCatalog? _schema;
     private readonly ICollection<MessageIssue>? _issues;
-    private bool _accountUsed;
-    private bool _managerUsed;
-    private bool _accountSalutationUsed;
-    private bool _managerSalutationUsed;
+    private readonly Usage _accountUsage = new();
+    private readonly Usage _managerUsage = new();
     private SalutationPerson? _accountPerson;
     private SalutationPerson? _managerPerson;
 
@@ -106,25 +104,21 @@ public sealed class MessageSalutations
         }
 
         var baseField = SalutationFields.BaseField(field);
+        var variant = SalutationResolver.ParseVariant(argument);
         var result = baseField switch
         {
             UserMessageFields.Title => SalutationResolver.Title(person, string.Equals(SalutationKey.Of(argument), "highest", StringComparison.Ordinal), Options),
             UserMessageFields.TitledName => SalutationResolver.TitledName(person, Options),
-            UserMessageFields.Salutation => SalutationResolver.Salutation(person, language, SalutationResolver.ParseVariant(argument), Options),
+            UserMessageFields.Salutation => SalutationResolver.Salutation(person, language, variant, Options),
             UserMessageFields.Honorific => SalutationResolver.Honorific(person, language, SalutationResolver.ParseCase(argument) ?? GrammaticalCase.Nominative, Options),
             UserMessageFields.ByGender => SalutationResolver.ByGender(person, argument ?? string.Empty, Options),
             _ => new SalutationResult(string.Empty),
         };
-        var isSalutation = baseField == UserMessageFields.Salutation;
-        if (isManager)
+        var usage = isManager ? _managerUsage : _accountUsage;
+        usage.Used = true;
+        if (baseField == UserMessageFields.Salutation && !usage.Salutations.Any(s => s.Variant == variant))
         {
-            _managerUsed = true;
-            _managerSalutationUsed |= isSalutation;
-        }
-        else
-        {
-            _accountUsed = true;
-            _accountSalutationUsed |= isSalutation;
+            usage.Salutations.Add((variant, result));
         }
 
         Record(person, result);
@@ -133,19 +127,20 @@ public sealed class MessageSalutations
 
     /// <summary>
     /// The derived values of the persons whose fields were used (account first), for the preview: title and gender, and the
-    /// salutation when a <c>{$salutation}</c> field of that person was used.
+    /// salutation when a <c>{$salutation}</c> field of that person was used – the text of the fullest variant rendered
+    /// (<see cref="SalutationVariant.Full"/> first), marked by the worst of the variants rendered.
     /// </summary>
-    public IReadOnlyList<DerivedFieldValue> Derived(MessageLanguage language)
+    public IReadOnlyList<DerivedFieldValue> Derived()
     {
         var values = new List<DerivedFieldValue>();
-        if (_accountUsed)
+        if (_accountUsage.Used)
         {
-            values.AddRange(Derive(Account, string.Empty, language, _accountSalutationUsed));
+            values.AddRange(Derive(Account, string.Empty, _accountUsage));
         }
 
-        if (_managerUsed && Manager is { } manager)
+        if (_managerUsage.Used && Manager is { } manager)
         {
-            values.AddRange(Derive(manager, ManagerPrefix, language, _managerSalutationUsed));
+            values.AddRange(Derive(manager, ManagerPrefix, _managerUsage));
         }
 
         return values;
@@ -175,7 +170,7 @@ public sealed class MessageSalutations
         return null;
     }
 
-    private IEnumerable<DerivedFieldValue> Derive(SalutationPerson person, string prefix, MessageLanguage language, bool withSalutation)
+    private IEnumerable<DerivedFieldValue> Derive(SalutationPerson person, string prefix, Usage usage)
     {
         string Name(string field) => prefix.Length == 0 ? field : prefix + char.ToUpperInvariant(field[0]) + field[1..];
         var title = person.Title;
@@ -202,12 +197,26 @@ public sealed class MessageSalutations
             Issue = GenderIssue(gender),
         };
 
-        if (!withSalutation)
+        if (usage.Salutations.Count == 0)
         {
             yield break;
         }
 
-        var salutation = SalutationResolver.Salutation(person, language, SalutationVariant.Full, Options);
+        var rendered = usage.Salutations.OrderBy(s => s.Variant).Select(s => SalutationValue(Name(SalutationField), person, s.Result, isDefault)).ToList();
+        var shown = rendered[0];
+        yield return shown with
+        {
+            Source = rendered.Any(r => r.IsFallback) ? DerivedValueSource.Fallback : shown.Source,
+            IsGuess = rendered.Any(r => r.IsGuess),
+            Issue = rendered.Select(r => r.Issue).OfType<string>().OrderByDescending(SalutationIssueCodes.Severity).FirstOrDefault(),
+        };
+    }
+
+    /// <summary>The derived value of one rendered <c>{$salutation}</c> variant.</summary>
+    private DerivedFieldValue SalutationValue(string field, SalutationPerson person, SalutationResult salutation, bool isDefault)
+    {
+        var title = person.Title;
+        var gender = person.Gender;
         // A neutral text the operator chose (override) is no fallback.
         var fallback = salutation.SurnameMissing
             || (salutation.IsNeutral && gender.Source != DerivedValueSource.Override)
@@ -217,7 +226,7 @@ public sealed class MessageSalutations
             : salutation.UsedGender ? gender.Source
             : title.Source;
         var guessed = (salutation.UsedGender && (gender.IsGuess || isDefault)) || (salutation.UsedTitle && title.Source == DerivedValueSource.DisplayName);
-        yield return new DerivedFieldValue(Name(SalutationField), salutation.Text, source, guessed)
+        return new DerivedFieldValue(field, salutation.Text, source, guessed)
         {
             Issue = salutation.SurnameMissing ? SalutationIssueCodes.SurnameMissing : salutation.UsedGender ? GenderIssue(gender) : null,
         };
@@ -294,6 +303,15 @@ public sealed class MessageSalutations
         {
             _issues.Add(issue);
         }
+    }
+
+    /// <summary>What the rendering of one person's fields used.</summary>
+    private sealed class Usage
+    {
+        public bool Used { get; set; }
+
+        /// <summary>The <c>{$salutation}</c> variants rendered with their results (each variant once).</summary>
+        public List<(SalutationVariant Variant, SalutationResult Result)> Salutations { get; } = [];
     }
 }
 
