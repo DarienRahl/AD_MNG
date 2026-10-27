@@ -33,7 +33,10 @@ public static class GivenNameLists
         "chantal", "yvette", "inge", "anke", "frauke", "ilse", "gisele", "beatriz", "raquel", "pilar", "dolores", "swati",
         "jyoti", "preeti", "priti", "shruti", "lakshmi", "gauri", "aarti", "arti", "bharti", "shanti", "parvati", "devi",
         "pallavi", "shalini", "nalini", "malini", "kirti", "deepti", "smriti", "aditi", "nandini", "sakshi", "ayse", "elif",
-        "zeynep", "merve");
+        "zeynep", "merve", "katherine", "kathryn", "kate", "katie", "jane", "janet", "grace", "rose", "stephanie", "diane",
+        "dianne", "leah", "amelie", "danielle", "gabrielle", "joanne", "suzanne", "valerie", "melanie", "elaine", "eleanor",
+        "josephine", "pauline", "heather", "holly", "wendy", "judy", "betty", "sally", "ivy", "hazel", "ljubow", "lyubov",
+        "ljubov");
 
     /// <summary>
     /// Frequent Polish given names: in English messages the "-a" rule decides for these (and for names with Polish
@@ -68,8 +71,8 @@ public static class GivenNameLists
 
     /// <summary>Names used for both genders (no signal from the name; the surname may decide).</summary>
     public static IReadOnlySet<string> Unisex { get; } = Keys(
-        "sasza", "sasha", "zhenya", "andrea", "nicola", "nikola", "kim", "alex", "robin", "jean", "dominique", "toni", "kai", "noa",
-        "maxime", "akira");
+        "sasza", "sasha", "saša", "zhenya", "andrea", "nicola", "nikola", "kim", "alex", "robin", "jean", "dominique", "toni", "kai",
+        "noa", "maxime", "akira");
 
     private static FrozenSet<string> Keys(params string[] names) =>
         names.Select(SalutationKey.Of).ToFrozenSet(StringComparer.Ordinal);

@@ -75,6 +75,39 @@ public sealed class GenderGuesserTests
         Assert.Equal((gender, DerivedValueSource.NameException), (info.Gender, info.Source));
     }
 
+    [Theory]
+    [InlineData("Katherine")]
+    [InlineData("Kate")]
+    [InlineData("Jane")]
+    [InlineData("Grace")]
+    [InlineData("Rose")]
+    [InlineData("Stephanie")]
+    [InlineData("Diane")]
+    [InlineData("Leah")]
+    [InlineData("Amélie")]
+    [InlineData("Danielle")]
+    [InlineData("Gabrielle")]
+    [InlineData("Ljubow")]
+    public void FeminineNamesNotEndingInA_AreNoPan(string givenName)
+    {
+        // A Polish message: the "-a" rule would say "Szanowny Panie".
+        var info = Guess(givenName, "Nowak");
+
+        Assert.Equal((Gender.Feminine, DerivedValueSource.NameException), (info.Gender, info.Source));
+    }
+
+    [Theory]
+    [InlineData("Nowak", Gender.Unknown)]
+    [InlineData("Kowalski", Gender.Masculine)]
+    public void Sasa_IsUnisex(string surname, Gender gender)
+    {
+        // Saša (Serbian, Croatian) is mostly a man's name: no "Szanowna Pani" by the "-a" rule.
+        var info = Guess("Saša", surname);
+
+        Assert.Equal(gender, info.Gender);
+        Assert.NotEqual(DerivedValueSource.NameRule, info.Source);
+    }
+
     [Fact]
     public void EnglishMessages_DoNotApplyThePolishRule()
     {
