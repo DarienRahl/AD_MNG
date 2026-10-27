@@ -252,12 +252,16 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
 
     // ---- Lifetime ---------------------------------------------------------------------------------------------
 
-    /// <summary>Preselects the only other connection and compares at once; otherwise waits for the operator's choice.</summary>
+    /// <summary>
+    /// With the only other connection preselected, compares at once; otherwise reads the source object (side A and the
+    /// rules of its kind) and waits for the operator's choice.
+    /// </summary>
     public override async Task InitializeAsync()
     {
         if (SelectedTarget is null)
         {
             StatusText = HasTargets ? Localizer[L.Comparison.StatusChooseTarget] : string.Empty;
+            await (_lastRun = LoadSourceAsync()).ConfigureAwait(true);
             return;
         }
 
@@ -634,6 +638,47 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
             {
                 IsRunning = false;
             }
+        }
+    }
+
+    /// <summary>Side A only (no other connection chosen yet): the source object's summary and the rules of its kind.</summary>
+    private async Task LoadSourceAsync()
+    {
+        if (Session is not { } session)
+        {
+            return;
+        }
+
+        var run = _runs.Next();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(run, Services.Connection?.Lifetime ?? CancellationToken.None);
+        var ct = linked.Token;
+        using var side = ConnectionReadContext.Create(
+            _ownId, Services.Connection?.Identity, session, Services.Sessions.Formatter, Services.Sessions.GetDomainPolicyAsync(CancellationToken.None));
+        try
+        {
+            var reader = side.Reader;
+            var snapshot = await Task.Run(() => ComparisonReader.ReadAsync(reader, _sourceDn, ct), ct).ConfigureAwait(true);
+            if (snapshot is null || !_runs.IsCurrent(run))
+            {
+                return;
+            }
+
+            Name = snapshot.Name;
+            Kind = snapshot.Kind;
+            RebuildRules(Services.Settings.Current.Comparison.RuleFor(Kind));
+            var policy = await side.Policy.WaitAsync(ct).ConfigureAwait(true);
+            if (_runs.IsCurrent(run))
+            {
+                SideA.Summary = Summary(snapshot, side, policy, Services.Time.GetUtcNow());
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Closed, or a comparison started meanwhile.
+        }
+        catch (Exception ex) when (ex is DirectoryException or ObjectDisposedException or SessionEndedException)
+        {
+            // Shown by "Porównaj" (which reads the object again); side A stays empty until then.
         }
     }
 

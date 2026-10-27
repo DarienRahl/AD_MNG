@@ -319,6 +319,12 @@ public sealed class ObjectComparisonViewModelTests
         Assert.Equal("No other connection is open. Open a second connection (Ctrl+Shift+N) to compare.", comparison.NoTargetsMessage);
         Assert.False(comparison.CompareCommand.CanExecute(null));
 
+        // Side A is read meanwhile: its summary and the rules of a user account.
+        Assert.Equal("Łukasz Wiśniewski", comparison.SideA.Summary?.Name);
+        Assert.Equal(ObjectMatcher.Choices(Core.Model.ObjectKind.User), comparison.MatchRules.Select(r => r.Value));
+        Assert.Equal(ObjectMatchRule.Automatic, comparison.SelectedRule?.Value);
+        Assert.Null(comparison.SideB.Summary);
+
         // A second window that connects now appears and is preselected.
         await using var b = host.CreateConnection();
         await b.ConnectAsync(ComparisonDomains.Fabrikam, "anna.zielinska");
