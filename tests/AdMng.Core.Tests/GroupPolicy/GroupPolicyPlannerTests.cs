@@ -4,6 +4,7 @@ using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Security;
+using AdMng.Testing;
 
 namespace AdMng.Core.Tests.GroupPolicy;
 
@@ -384,6 +385,54 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
         await ExecuteOkAsync(new RollbackPlanner().CreateRollbackPlan(result));
 
         Assert.Equal(before, Value(Company.ComputersOu, Attr.GpLink));
+    }
+
+    [Fact]
+    public async Task Rollback_OfAGpoDelete_DoesNotPutBackLinksToTheDeletedGpo()
+    {
+        var result = await ExecuteOkAsync(await Planner.PlanDeleteAsync(Session, Sample.WorkstationRemoteDesktop, Ct));
+        var linksAfterDelete = Value(Company.ComputersOu, Attr.GpLink);
+
+        var rollback = new RollbackPlanner().CreateRollbackPlan(result);
+
+        Assert.All(rollback.Objects, o => Assert.DoesNotContain(o.Changes, c => c.Attributes.Any(a => a.Attribute == Attr.GpLink)));
+        Assert.Contains(rollback.Objects.SelectMany(o => o.Issues), i => i.Code == IssueCodes.NotReversible && i.Attribute == Attr.GpLink);
+        Assert.Equal(0, rollback.ExecutableCount);
+        await ExecuteAsync(rollback);
+        Assert.Equal(linksAfterDelete, Value(Company.ComputersOu, Attr.GpLink));
+    }
+
+    [Fact]
+    public async Task Rollback_OfAGpoDeleteWhoseContainerDeleteFailed_PutsTheLinksBack()
+    {
+        var before = Value(Company.ComputersOu, Attr.GpLink);
+        var plan = await Planner.PlanDeleteAsync(Session, Sample.WorkstationRemoteDesktop, Ct);
+        Session.BeforeOperation = op =>
+        {
+            if (op.Kind == FakeOperationKind.Delete && op.DistinguishedName == GpoDn(Sample.WorkstationRemoteDesktop))
+            {
+                throw new AdMng.Core.Directory.DirectoryException(AdMng.Core.Directory.DirectoryErrorKind.AccessDenied, "Brak uprawnień.");
+            }
+        };
+        var result = await ExecuteAsync(plan);
+        Session.BeforeOperation = null;
+        Assert.True(Session.Exists(GpoDn(Sample.WorkstationRemoteDesktop)));
+
+        await ExecuteOkAsync(new RollbackPlanner().CreateRollbackPlan(result));
+
+        Assert.Equal(before, Value(Company.ComputersOu, Attr.GpLink));
+    }
+
+    [Fact]
+    public async Task Rollback_OfAWmiFilterDelete_DoesNotPutBackTheFilterLink()
+    {
+        var result = await ExecuteOkAsync(await Planner.PlanDeleteWmiFilterAsync(Session, Sample.WmiFilterDn, Ct));
+
+        var rollback = new RollbackPlanner().CreateRollbackPlan(result);
+
+        Assert.All(rollback.Objects, o => Assert.DoesNotContain(o.Changes, c => c.Attributes.Any(a => a.Attribute == "gPCWQLFilter")));
+        Assert.Contains(rollback.Objects.SelectMany(o => o.Issues), i => i.Code == IssueCodes.NotReversible && i.Attribute == "gPCWQLFilter");
+        Assert.Null(Value(GpoDn(Sample.WorkstationPasswords), "gPCWQLFilter"));
     }
 
     [Fact]
