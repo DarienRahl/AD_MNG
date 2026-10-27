@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using AdMng.App.Computers;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
@@ -32,6 +31,14 @@ namespace AdMng.App.UiTests.Computers;
 public sealed class ComputerWindowsTests
 {
     private const string FileServerHost = "srv-pliki01.contoso.test";
+
+    /// <summary>What a click on an enabled command button does (raising the Click event alone does not run the command).</summary>
+    private static void Click(Button button)
+    {
+        Assert.True(button.IsEnabled, $"{button.Name} is disabled");
+        Assert.True(button.Command.CanExecute(button.CommandParameter), $"{button.Name} cannot execute");
+        button.Command.Execute(button.CommandParameter);
+    }
 
     [Fact]
     public Task ToolsMenu_OpensOneReview_TheEndOfSupportTileListsOldSystems_AndTheDetailsFollowTheSelection() => WpfTestHost.RunAsync(async () =>
@@ -165,7 +172,7 @@ public sealed class ComputerWindowsTests
             dialog.TypedNameBox.Text = "srv-pliki01";
             await UiTestSupport.WaitForIdleAsync();
             Assert.True(dialog.ConfirmButton.IsEnabled);
-            dialog.ConfirmButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Click(dialog.ConfirmButton);
         });
         await vm.RestartCommand.ExecuteAsync(null);
         await drive;
@@ -209,7 +216,7 @@ public sealed class ComputerWindowsTests
         window.DelayBox.Text = "0";
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(window.ConfirmButton.IsEnabled);
-        window.ConfirmButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Click(window.ConfirmButton);
         await UiTestSupport.WaitForIdleAsync(rounds: 2);
         Assert.Equal(TimeSpan.Zero, window.ViewModel.Request?.Delay);
         Assert.True(window.Result);
@@ -345,7 +352,7 @@ public sealed class ComputerWindowsTests
         window.NewEndOfSupportPicker.SelectedDate = new DateTime(2028, 10, 10);
         await UiTestSupport.WaitForIdleAsync();
         Assert.True(window.AddOverrideButton.IsEnabled);
-        window.AddOverrideButton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+        Click(window.AddOverrideButton);
         await UiTestSupport.WaitForIdleAsync();
         Assert.Single(window.OverridesList.Items);
 
