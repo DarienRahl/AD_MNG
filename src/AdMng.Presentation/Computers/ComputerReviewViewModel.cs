@@ -907,12 +907,22 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         return [.. rows.Select(r => r with
         {
             Owner = r.Facts.ManagedBy is not { } owner ? OwnerState.Missing
-                : !owners.TryGetValue(DnKey.For(owner), out var found) ? OwnerState.Deleted
-                : found.IsDisabled ? OwnerState.Disabled
+                : owners.TryGetValue(DnKey.For(owner), out var found) ? (found.IsDisabled ? OwnerState.Disabled : OwnerState.Present)
+                : IsInDomainOf(run.Session, owner) ? OwnerState.Deleted
                 : OwnerState.Present,
             CreatorName = r.Facts.CreatorSidValue is { } creator && creators.TryGetValue(creator, out var name) ? name : null,
         })];
     }
+
+    /// <summary>
+    /// Whether <paramref name="distinguishedName"/> belongs to the session's own domain, the only one the owner search reads.
+    /// An owner in another domain of the forest (also a child domain, whose DN ends with this one's) is not checked, so it is
+    /// never reported as deleted.
+    /// </summary>
+    private static bool IsInDomainOf(IDirectorySession session, string distinguishedName) =>
+        !DistinguishedName.TryParse(distinguishedName, out var dn)
+        || !DistinguishedName.TryParse(session.Info.DefaultNamingContext, out var domain)
+        || dn.DomainComponent.Equals(domain);
 
     /// <summary>Adds, updates or removes the row of an evaluated computer.</summary>
     private void Place(RunContext run, ComputerReviewFacts facts)

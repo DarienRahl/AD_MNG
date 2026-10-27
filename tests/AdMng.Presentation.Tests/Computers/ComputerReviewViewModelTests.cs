@@ -77,6 +77,20 @@ public class ComputerReviewViewModelTests
     }
 
     [Fact]
+    public async Task ServersWithoutOwner_AnOwnerInAnotherDomainOfTheForest_IsNotReportedAsDeleted()
+    {
+        var scenario = await CreateAsync();
+        var session = scenario.Harness.Session;
+        // A child domain (its DN ends with this domain's) and a deleted account of this domain.
+        session.SetValues(scenario.Sample.AppServer, Attr.ManagedBy, "CN=Wiesława Żak,OU=Użytkownicy,DC=oddział,DC=contoso,DC=test");
+        session.SetValues(scenario.Sample.MisplacedServer, Attr.ManagedBy, "CN=Józef Usunięty,OU=Użytkownicy,OU=Firma,DC=contoso,DC=test");
+        using var review = await scenario.RunAsync();
+
+        Assert.Equal(["SRV-SQL03", "SRV-ZLY05"], Names(review, ComputerReport.ServersWithoutOwner));
+        Assert.Equal("Józef Usunięty (owner deleted)", Row(review, ComputerReport.ServersWithoutOwner, "SRV-ZLY05")[ComputerReviewColumns.Owner]);
+    }
+
+    [Fact]
     public async Task Releases_GetOneTilePerRelease_MostComputersFirst()
     {
         var scenario = await CreateAsync();
