@@ -175,7 +175,10 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         IReadOnlyList<ValidationIssue> elsewhere = otherDomains.Count == 0
             ? []
             : [new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoLinkedElsewhere,
-                $"The forest has other domains ({string.Join(", ", otherDomains)}): links to this GPO from their OUs are not found or removed.")];
+                $"The forest has other domains ({string.Join(", ", otherDomains)}): links to this GPO from their OUs are not found or removed.")
+            {
+                Arguments = [string.Join(", ", otherDomains)],
+            }];
 
         // The links go first (a link to a missing GPO would be left behind otherwise), then the GPO; nothing of a refused
         // delete runs.

@@ -226,6 +226,7 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
             var issue = Assert.Single(plan.Objects.SelectMany(o => o.Changes).SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoGppPassword);
             Assert.Equal(IssueSeverity.Warning, issue.Severity);
             Assert.Contains(Groups, issue.Message, StringComparison.Ordinal);
+            Assert.Equal([Groups], issue.Arguments);
             Assert.DoesNotContain(Secret, issue.Message, StringComparison.Ordinal);
         }
 
@@ -272,6 +273,24 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
         var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
 
         Assert.Equal(1, read.DirectoryObjectCount);
+    }
+
+    [Fact]
+    public async Task Restore_FromAnotherDomain_OrWithoutItsWmiFilter_UsesDedicatedCodes()
+    {
+        var backup = await BackUpAsync(Sample.WorkstationPasswords);
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        await using var sysvol = await OpenSysvolAsync();
+
+        var foreign = await Planner.PlanRestoreAsync(Session, sysvol, read with { Domain = "wrocław.example" }, _folder, restoreLinks: false, Ct);
+        var withoutFilter = await Planner.PlanRestoreAsync(Session, sysvol, read with { WmiFilterLink = "[contoso.test;{00000000-1111-2222-3333-444444444444};0]" },
+            _folder, restoreLinks: false, Ct);
+
+        var other = Assert.Single(foreign.Objects.SelectMany(o => o.Changes).SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoBackupOtherDomain);
+        Assert.Equal(["wrocław.example"], other.Arguments);
+        Assert.Contains(withoutFilter.Objects.SelectMany(o => o.Changes).SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoWmiFilterMissing);
+        Assert.DoesNotContain(foreign.Objects.Concat(withoutFilter.Objects).SelectMany(o => o.Changes).SelectMany(c => c.Issues),
+            i => i.Code is IssueCodes.NotFound or IssueCodes.NotApplicable);
     }
 
     [Fact]

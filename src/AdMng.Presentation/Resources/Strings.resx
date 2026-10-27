@@ -9461,7 +9461,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Neither Authenticated Users nor Domain Computers can read the GPO: since MS16-072 clients cannot apply its user settings.</value>
   </data>
   <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
-    <value>The forest has other domains: links to this GPO from their OUs are not found or removed – check them in GPMC.</value>
+    <value>The forest has other domains ({0}): links to this GPO from their OUs are not found or removed – check them in GPMC.</value>
   </data>
   <data name="PlanPreview.Bytes" xml:space="preserve">
     <value>{0} B</value>
@@ -10481,10 +10481,10 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Sites</value>
   </data>
   <data name="Issue.GpoForeignReferences" xml:space="preserve">
-    <value>The imported settings name security principals or UNC paths of another domain (migration tables are not supported) – check them after the import.</value>
+    <value>The imported settings name security principals or UNC paths of another domain ({0}: {1}; migration tables are not supported) – check them after the import.</value>
   </data>
   <data name="Issue.GpoGppPassword" xml:space="preserve">
-    <value>The settings contain Group Policy Preferences passwords (cpassword, MS14-025): every user of the domain can read and decrypt them – remove these items or use LAPS.</value>
+    <value>The settings contain Group Policy Preferences passwords (cpassword, MS14-025) in {0}: every user of the domain can read and decrypt them – remove these items or use LAPS.</value>
   </data>
   <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
     <value>The new GPO gets exactly the permissions listed here: the default entries missing from them (such as Apply Group Policy for Authenticated Users) are removed.</value>
@@ -10497,6 +10497,12 @@ Anyone who can read the file can see these values - store it securely and delete
   </data>
   <data name="Issue.GpoFolderExists" xml:space="preserve">
     <value>A SYSVOL folder with the GPO's GUID is left over from its delete: remove it first with "Delete the remaining folder" in the GPO's view.</value>
+  </data>
+  <data name="Issue.GpoWmiFilterMissing" xml:space="preserve">
+    <value>The WMI filter of the backup does not exist in this domain: the GPO is restored without a WMI filter.</value>
+  </data>
+  <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
+    <value>The backup comes from the domain {0}: restore it there, or import its settings into a GPO of this domain.</value>
   </data>
   <!-- K2: Group Policy (end) -->
 </root>

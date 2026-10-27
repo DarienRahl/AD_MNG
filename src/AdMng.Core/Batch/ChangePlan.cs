@@ -136,7 +136,14 @@ public enum IssueSeverity
 /// A validation finding. <see cref="Code"/> is stable and used by the UI to show a localized message;
 /// <see cref="Message"/> is an English fallback with details.
 /// </summary>
-public sealed record ValidationIssue(IssueSeverity Severity, string Code, string Message, string? Attribute = null);
+public sealed record ValidationIssue(IssueSeverity Severity, string Code, string Message, string? Attribute = null)
+{
+    /// <summary>
+    /// Values for the placeholders (<c>{0}</c>, <c>{1}</c> …) of the localized text of <see cref="Code"/> - file names,
+    /// counts, domain names; never secrets. Empty: the text takes the attribute's name, or none.
+    /// </summary>
+    public IReadOnlyList<string> Arguments { get; init; } = [];
+}
 
 /// <summary>Stable issue codes produced by planners and validators.</summary>
 public static class IssueCodes
@@ -247,6 +254,12 @@ public static class IssueCodes
     /// network policies) that a copy, backup, restore or import of AD Manager does not carry.
     /// </summary>
     public const string GpoDirectorySettings = "GpoDirectorySettings";
+
+    /// <summary>Restore: the backup's WMI filter does not exist in this domain; the GPO is restored without its filter link.</summary>
+    public const string GpoWmiFilterMissing = "GpoWmiFilterMissing";
+
+    /// <summary>Restore: the backup comes from another domain ({0}): restore it there or import its settings.</summary>
+    public const string GpoBackupOtherDomain = "GpoBackupOtherDomain";
 
     /// <summary>"Usuń pozostały folder": the GPO container exists (again), so its SYSVOL folder is not left over.</summary>
     public const string GpoExists = "GpoExists";

@@ -78,8 +78,11 @@ public sealed partial class GroupPolicyPlanner
         var issues = new List<ValidationIssue>();
         if (!string.Equals(backup.Domain, session.Info.DomainDnsName, StringComparison.OrdinalIgnoreCase))
         {
-            issues.Add(new ValidationIssue(IssueSeverity.Error, IssueCodes.NotApplicable,
-                "The backup comes from another domain: restore it there, or import its settings into a GPO of this domain."));
+            issues.Add(new ValidationIssue(IssueSeverity.Error, IssueCodes.GpoBackupOtherDomain,
+                "The backup comes from another domain: restore it there, or import its settings into a GPO of this domain.")
+            {
+                Arguments = [backup.Domain],
+            });
         }
 
         AddGppPasswordWarning(issues, backup.Files);
@@ -205,8 +208,12 @@ public sealed partial class GroupPolicyPlanner
         var domainSid = (await session.GetAsync(session.Info.DefaultNamingContext, [Attr.ObjectSid], cancellationToken).ConfigureAwait(false))?.ObjectSid;
         if (ForeignReferences(files, domainSid, session.Info.DomainDnsName) is { Count: > 0 } foreign)
         {
+            var shown = string.Join(", ", foreign.Take(5));
             issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoForeignReferences,
-                string.Create(CultureInfo.InvariantCulture, $"{foreign.Count} references to principals or paths of another domain: {string.Join(", ", foreign.Take(5))}")));
+                string.Create(CultureInfo.InvariantCulture, $"{foreign.Count} references to principals or paths of another domain: {shown}"))
+            {
+                Arguments = [foreign.Count.ToString(CultureInfo.InvariantCulture), shown],
+            });
         }
 
         AddGppPasswordWarning(issues, files);
@@ -306,8 +313,11 @@ public sealed partial class GroupPolicyPlanner
     {
         if (GppPasswordFiles(files) is { Count: > 0 } withPasswords)
         {
-            issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoGppPassword,
-                $"GPP passwords (cpassword, MS14-025) in: {string.Join(", ", withPasswords.Take(5))}"));
+            var shown = string.Join(", ", withPasswords.Take(5));
+            issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoGppPassword, $"GPP passwords (cpassword, MS14-025) in: {shown}")
+            {
+                Arguments = [shown],
+            });
         }
     }
 
@@ -394,7 +404,7 @@ public sealed partial class GroupPolicyPlanner
             return WmiFilterLinks.Format(session.Info.DomainDnsName, id);
         }
 
-        issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotFound, "The WMI filter of the backup does not exist in this domain; the GPO is restored without it.",
+        issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoWmiFilterMissing, "The WMI filter of the backup does not exist in this domain; the GPO is restored without it.",
             GroupPolicyAttributes.WqlFilter));
         return null;
     }

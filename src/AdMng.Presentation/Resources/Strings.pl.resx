@@ -9461,7 +9461,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Ani Użytkownicy uwierzytelnieni, ani Komputery domeny nie mogą odczytać GPO: od MS16-072 klienci nie zastosują jego ustawień użytkownika.</value>
   </data>
   <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
-    <value>Las zawiera inne domeny: połączeń tego GPO z ich jednostkami organizacyjnymi nie odnaleziono ani nie usunięto – sprawdź je w GPMC.</value>
+    <value>Las zawiera inne domeny ({0}): połączeń tego GPO z ich jednostkami organizacyjnymi nie odnaleziono ani nie usunięto – sprawdź je w GPMC.</value>
   </data>
   <data name="PlanPreview.Bytes" xml:space="preserve">
     <value>{0} B</value>
@@ -10481,10 +10481,10 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Lokacje</value>
   </data>
   <data name="Issue.GpoForeignReferences" xml:space="preserve">
-    <value>Importowane ustawienia wskazują podmioty zabezpieczeń lub ścieżki UNC innej domeny (tabele migracji nie są obsługiwane) – sprawdź je po imporcie.</value>
+    <value>Importowane ustawienia wskazują podmioty zabezpieczeń lub ścieżki UNC innej domeny (liczba: {0} – {1}; tabele migracji nie są obsługiwane) – sprawdź je po imporcie.</value>
   </data>
   <data name="Issue.GpoGppPassword" xml:space="preserve">
-    <value>Ustawienia zawierają hasła preferencji zasad grupy (cpassword, MS14-025): każdy użytkownik domeny może je odczytać i odszyfrować – usuń te elementy albo użyj LAPS.</value>
+    <value>Ustawienia zawierają hasła preferencji zasad grupy (cpassword, MS14-025) w {0}: każdy użytkownik domeny może je odczytać i odszyfrować – usuń te elementy albo użyj LAPS.</value>
   </data>
   <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
     <value>Nowe GPO otrzyma dokładnie wymienione tu uprawnienia: domyślne wpisy, których wśród nich nie ma (np. Zastosuj zasady grupy dla Użytkowników uwierzytelnionych), zostaną usunięte.</value>
@@ -10497,6 +10497,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Issue.GpoFolderExists" xml:space="preserve">
     <value>W SYSVOL pozostał folder z identyfikatorem tego GPO: najpierw usuń go poleceniem „Usuń pozostały folder” w widoku GPO.</value>
+  </data>
+  <data name="Issue.GpoWmiFilterMissing" xml:space="preserve">
+    <value>Filtr WMI z kopii zapasowej nie istnieje w tej domenie: GPO zostanie przywrócone bez filtru WMI.</value>
+  </data>
+  <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
+    <value>Kopia zapasowa pochodzi z domeny {0}: przywróć ją tam albo zaimportuj jej ustawienia do GPO tej domeny.</value>
   </data>
   <!-- K2: Group Policy (end) -->
 </root>
