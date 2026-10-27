@@ -72,6 +72,7 @@ public sealed class HostTests
         typeof(ConnectionNavigator),
         typeof(IUserMessageLauncher),
         typeof(IObjectComparisonLauncher),
+        typeof(Presentation.GroupPolicy.IGroupPolicyDialogs),
     ];
 
     [Fact]
@@ -134,6 +135,7 @@ public sealed class HostTests
         typeof(ConnectionWindowManager),
         typeof(AppearanceService),
         typeof(ISysvolFileReader),
+        typeof(ISysvolFileWriter),
     ];
 
     [Fact]

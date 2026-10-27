@@ -1,0 +1,169 @@
+<!--
+  "Zasady grupy" of a domain head, OU or site (GroupPolicyScopeDocumentViewModel), as GPMC: "Połączone obiekty zasad
+  grupy" (link order, enforced, link enabled, GPO status, WMI filter, modified; Up / Down, Enforced, Link Enabled, Delete
+  Link, Link an Existing GPO, Create and link), "Zablokuj dziedziczenie" (not for sites) and "Dziedziczenie zasad grupy"
+  (precedence, read-only).
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyScopeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <c:BindingProxy x:Key="ScopeProxy" Data="{Binding}" />
+    <Style x:Key="LinkRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding GpoName, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnLinkDoubleClick" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding Enabled, Mode=OneWay}" Value="False">
+          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="RowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding GpoName, Mode=OneWay}" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="LinkExistingButton" Margin="0,0,6,0" Command="{Binding LinkExistingCommand}" Content="{l:Tr GroupPolicy.LinkExistingCommand}" />
+        <Button x:Name="CreateAndLinkButton" Margin="0,0,6,0" Command="{Binding CreateAndLinkCommand}" Content="{l:Tr GroupPolicy.NewLinkedCommand}" />
+        <Button x:Name="RefreshButton"
+                AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+      </StackPanel>
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="{Binding Icon, Mode=OneWay}" Size="18" />
+        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding PathText, Mode=OneWay}" />
+      </StackPanel>
+    </DockPanel>
+    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+
+    <!-- Block inheritance (domain and OUs) -->
+    <DockPanel Margin="0,0,0,8"
+               DockPanel.Dock="Top"
+               Visibility="{Binding CanBlockInheritance, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <CheckBox x:Name="BlockInheritanceBox"
+                Command="{Binding ToggleBlockInheritanceCommand}"
+                Content="{l:Tr GroupPolicy.BlockInheritanceCommand}"
+                DockPanel.Dock="Left"
+                IsChecked="{Binding BlocksInheritance, Mode=OneWay}" />
+      <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding BlockInheritanceText, Mode=OneWay}" />
+    </DockPanel>
+
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="120" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="120" />
+      </Grid.RowDefinitions>
+      <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GroupPolicy.LinkedGposHeading}" />
+      <ListView x:Name="LinksList"
+                Grid.Row="1"
+                AutomationProperties.Name="{l:Tr GroupPolicy.LinkedGposHeading}"
+                ItemContainerStyle="{StaticResource LinkRowStyle}"
+                ItemsSource="{Binding Links, Mode=OneWay}"
+                SelectedItem="{Binding SelectedLink}">
+        <ListView.InputBindings>
+          <KeyBinding Key="Delete" Command="{Binding Data.UnlinkCommand, Source={StaticResource ScopeProxy}}" />
+          <KeyBinding Key="Up" Command="{Binding Data.MoveUpCommand, Source={StaticResource ScopeProxy}}" Modifiers="Alt" />
+          <KeyBinding Key="Down" Command="{Binding Data.MoveDownCommand, Source={StaticResource ScopeProxy}}" Modifiers="Alt" />
+        </ListView.InputBindings>
+        <ListView.ContextMenu>
+          <ContextMenu>
+            <MenuItem Command="{Binding Data.OpenGpoCommand, Source={StaticResource ScopeProxy}}" FontWeight="SemiBold" Header="{l:Tr GroupPolicy.OpenCommand}" />
+            <Separator />
+            <MenuItem Command="{Binding Data.ToggleEnforcedCommand, Source={StaticResource ScopeProxy}}" Header="{l:Tr GroupPolicy.ToggleEnforced}" />
+            <MenuItem Command="{Binding Data.ToggleEnabledCommand, Source={StaticResource ScopeProxy}}" Header="{l:Tr GroupPolicy.ToggleEnabled}" />
+            <MenuItem Command="{Binding Data.MoveUpCommand, Source={StaticResource ScopeProxy}}" Header="{l:Tr GroupPolicy.MoveUp}" InputGestureText="Alt+Up" />
+            <MenuItem Command="{Binding Data.MoveDownCommand, Source={StaticResource ScopeProxy}}" Header="{l:Tr GroupPolicy.MoveDown}" InputGestureText="Alt+Down" />
+            <Separator />
+            <MenuItem Command="{Binding Data.UnlinkCommand, Source={StaticResource ScopeProxy}}" Header="{l:Tr GroupPolicy.Unlink}" InputGestureText="Delete" />
+          </ContextMenu>
+        </ListView.ContextMenu>
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridViewColumn Width="110" DisplayMemberBinding="{Binding Order, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnOrder}" />
+            <GridViewColumn Width="280" Header="{l:Tr GroupPolicy.ColumnGpo}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpm:ScopeLinkRowViewModel}">
+                  <DockPanel>
+                    <c:ObjectIconView Margin="0,0,6,0" VerticalAlignment="Center" DockPanel.Dock="Left" Icon="GroupPolicy" Size="16" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding GpoName, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                  </DockPanel>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="110" Header="{l:Tr GroupPolicy.ColumnEnforced}">
+              <GridViewColumn.CellTemplate>
+                <DataTemplate DataType="{x:Type gpm:ScopeLinkRowViewModel}">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Margin="0,0,6,0"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"
+                               Style="{StaticResource Ad.GlyphText}"
+                               Text="{x:Static c:Glyphs.Lock}"
+                               Visibility="{Binding Enforced, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                    <TextBlock VerticalAlignment="Center" Text="{Binding EnforcedText, Mode=OneWay}" />
+                  </StackPanel>
+                </DataTemplate>
+              </GridViewColumn.CellTemplate>
+            </GridViewColumn>
+            <GridViewColumn Width="150" DisplayMemberBinding="{Binding EnabledText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLinkEnabled}" />
+            <GridViewColumn Width="200" DisplayMemberBinding="{Binding StatusText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnStatus}" />
+            <GridViewColumn Width="160" DisplayMemberBinding="{Binding WmiFilterText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnWmiFilter}" />
+            <GridViewColumn Width="140" DisplayMemberBinding="{Binding ChangedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnModified}" />
+          </GridView>
+        </ListView.View>
+      </ListView>
+      <WrapPanel Grid.Row="2" Margin="0,6,0,12">
+        <Button x:Name="MoveUpButton" Margin="0,0,6,4" Command="{Binding MoveUpCommand}" Content="{l:Tr GroupPolicy.MoveUp}" />
+        <Button x:Name="MoveDownButton" Margin="0,0,6,4" Command="{Binding MoveDownCommand}" Content="{l:Tr GroupPolicy.MoveDown}" />
+        <Button x:Name="ToggleEnforcedButton" Margin="12,0,6,4" Command="{Binding ToggleEnforcedCommand}" Content="{l:Tr GroupPolicy.ToggleEnforced}" />
+        <Button x:Name="ToggleEnabledButton" Margin="0,0,6,4" Command="{Binding ToggleEnabledCommand}" Content="{l:Tr GroupPolicy.ToggleEnabled}" />
+        <Button x:Name="UnlinkButton" Margin="12,0,6,4" Command="{Binding UnlinkCommand}" Content="{l:Tr GroupPolicy.Unlink}" />
+      </WrapPanel>
+
+      <TextBlock Grid.Row="3" Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GroupPolicy.InheritanceHeading}" />
+      <TextBlock Grid.Row="4" Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.InheritanceHint}" TextWrapping="Wrap" />
+      <ListView x:Name="InheritanceList"
+                Grid.Row="5"
+                AutomationProperties.Name="{l:Tr GroupPolicy.InheritanceHeading}"
+                ItemContainerStyle="{StaticResource RowStyle}"
+                ItemsSource="{Binding Inheritance, Mode=OneWay}">
+        <ListView.View>
+          <GridView AllowsColumnReorder="False">
+            <GridViewColumn Width="110" DisplayMemberBinding="{Binding Precedence, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPrecedence}" />
+            <GridViewColumn Width="280" DisplayMemberBinding="{Binding GpoName, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnGpo}" />
+            <GridViewColumn Width="240" DisplayMemberBinding="{Binding LocationText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLocation}" />
+            <GridViewColumn Width="110" DisplayMemberBinding="{Binding EnforcedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnEnforced}" />
+            <GridViewColumn Width="200" DisplayMemberBinding="{Binding StatusText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnStatus}" />
+            <GridViewColumn Width="160" DisplayMemberBinding="{Binding WmiFilterText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnWmiFilter}" />
+          </GridView>
+        </ListView.View>
+      </ListView>
+    </Grid>
+  </DockPanel>
+</UserControl>

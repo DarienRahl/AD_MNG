@@ -1,0 +1,82 @@
+<!-- "Filtry WMI" (WmiFiltersDocumentViewModel): the filters of the domain, their queries and the GPOs that use them. -->
+<UserControl x:Class="AdMng.App.GroupPolicy.WmiFiltersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <c:BindingProxy x:Key="FiltersProxy" Data="{Binding}" />
+    <Style x:Key="FilterRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="MinHeight" Value="28" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,2" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="NewButton" Margin="0,0,6,0" Command="{Binding NewCommand}" Content="{l:Tr GroupPolicy.NewCommand}" />
+        <Button x:Name="EditButton" Margin="0,0,6,0" Command="{Binding EditCommand}" Content="{l:Tr GroupPolicy.EditCommand}" />
+        <Button x:Name="DeleteButton" Margin="0,0,6,0" Command="{Binding DeleteCommand}" Content="{l:Tr GroupPolicy.DeleteCommand}" />
+        <Button x:Name="RefreshButton"
+                AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+      </StackPanel>
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="WmiFilter" Size="18" />
+        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" />
+      </StackPanel>
+    </DockPanel>
+    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+
+    <ListView x:Name="FiltersList"
+              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+              ItemContainerStyle="{StaticResource FilterRowStyle}"
+              ItemsSource="{Binding Rows, Mode=OneWay}"
+              SelectedItem="{Binding SelectedRow}">
+      <ListView.InputBindings>
+        <KeyBinding Key="Enter" Command="{Binding Data.EditCommand, Source={StaticResource FiltersProxy}}" />
+        <KeyBinding Key="Delete" Command="{Binding Data.DeleteCommand, Source={StaticResource FiltersProxy}}" />
+      </ListView.InputBindings>
+      <ListView.View>
+        <GridView AllowsColumnReorder="False">
+          <GridViewColumn Width="220" DisplayMemberBinding="{Binding Name, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnName}" />
+          <GridViewColumn Width="260" Header="{l:Tr GroupPolicy.ColumnDescription}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:WmiFilterRowViewModel}">
+                <TextBlock Text="{Binding Description, Mode=OneWay}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="380" Header="{l:Tr GroupPolicy.ColumnQueries}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:WmiFilterRowViewModel}">
+                <TextBlock FontFamily="Consolas" Text="{Binding QueriesText, Mode=OneWay}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="220" Header="{l:Tr GroupPolicy.ColumnGpos}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:WmiFilterRowViewModel}">
+                <TextBlock Text="{Binding GposText, Mode=OneWay}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="190" DisplayMemberBinding="{Binding AuthorText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnAuthor}" />
+          <GridViewColumn Width="140" DisplayMemberBinding="{Binding ChangedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnModified}" />
+        </GridView>
+      </ListView.View>
+    </ListView>
+  </DockPanel>
+</UserControl>

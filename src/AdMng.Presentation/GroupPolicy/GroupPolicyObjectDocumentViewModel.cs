@@ -118,7 +118,15 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
     public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedTabIndex))]
     public partial GpoDocumentTab SelectedTab { get; set; }
+
+    /// <summary><see cref="SelectedTab"/> as the index of the view's tab control.</summary>
+    public int SelectedTabIndex
+    {
+        get => (int)SelectedTab;
+        set => SelectedTab = Enum.IsDefined((GpoDocumentTab)value) ? (GpoDocumentTab)value : GpoDocumentTab.Scope;
+    }
 
     /// <summary>The GPO no longer exists in AD (deleted meanwhile).</summary>
     [ObservableProperty]

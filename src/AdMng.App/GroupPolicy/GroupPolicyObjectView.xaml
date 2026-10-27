@@ -1,0 +1,290 @@
+<!--
+  One GPO (GroupPolicyObjectDocumentViewModel), GPMC's tabs: Zakres (links, security filtering, WMI filter), Szczegóły
+  (domain, owner, dates, versions of AD and SYSVOL, GUID, GPO status), Ustawienia (the normalized settings, read-only,
+  secrets never shown), Delegowanie (GPMC levels) and Stan (AD/SYSVOL consistency with "Wyrównaj wersje" and "Napraw
+  uprawnienia folderu"). Every change opens the change plan preview.
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyObjectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <Style x:Key="RowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+    </Style>
+    <Style x:Key="Value" TargetType="TextBox" BasedOn="{StaticResource Ad.SelectableText}">
+      <Setter Property="Margin" Value="0,4,0,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,4,16,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <Button x:Name="RenameButton" Margin="0,0,6,0" Command="{Binding RenameCommand}" Content="{l:Tr GroupPolicy.RenameCommand}" />
+        <Button x:Name="BackupButton" Margin="0,0,6,0" Command="{Binding BackupCommand}" Content="{l:Tr GroupPolicy.BackupCommand}" />
+        <Button x:Name="CompareButton" Margin="0,0,6,0" Command="{Binding CompareCommand}" Content="{l:Tr GroupPolicy.CompareWithCommand}" />
+        <Button x:Name="HistoryButton" Margin="0,0,6,0" Command="{Binding HistoryCommand}" Content="{l:Tr GroupPolicy.HistoryCommand}" />
+        <Button x:Name="DeleteButton" Margin="0,0,6,0" Command="{Binding DeleteCommand}" Content="{l:Tr GroupPolicy.DeleteCommand}" />
+        <Button x:Name="RefreshButton"
+                AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+                Command="{Binding RefreshCommand}"
+                Content="{x:Static c:Glyphs.Refresh}"
+                Style="{StaticResource Ad.IconButton}"
+                ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+      </StackPanel>
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0" VerticalAlignment="Center" Icon="GroupPolicy" Size="18" />
+        <TextBlock x:Name="TitleText" VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center" Style="{StaticResource Ad.SecondaryText}" Text="{Binding GuidText, Mode=OneWay}" />
+      </StackPanel>
+    </DockPanel>
+    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+    <Border Margin="0,0,0,6"
+            DockPanel.Dock="Top"
+            Style="{StaticResource Ad.WarningBar}"
+            Visibility="{Binding HasOrphanedFolder, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+      <Button x:Name="DeleteOrphanButton" HorizontalAlignment="Left" Command="{Binding DeleteOrphanedFolderCommand}" Content="{l:Tr GroupPolicy.DeleteOrphanedFolder}" />
+    </Border>
+
+    <TabControl x:Name="GpoTabs" SelectedIndex="{Binding SelectedTabIndex}">
+      <!-- Zakres -->
+      <TabItem x:Name="ScopeTab" Header="{l:Tr GroupPolicy.TabScope}">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="4,8,4,4">
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GroupPolicy.LinksHeading}" />
+            <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.LinksHint}" TextWrapping="Wrap" />
+            <ListView x:Name="LinksList"
+                      MinHeight="90"
+                      MaxHeight="220"
+                      AutomationProperties.Name="{l:Tr GroupPolicy.LinksHeading}"
+                      ItemContainerStyle="{StaticResource RowStyle}"
+                      ItemsSource="{Binding Links, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedLink}">
+              <ListView.View>
+                <GridView AllowsColumnReorder="False">
+                  <GridViewColumn Width="200" DisplayMemberBinding="{Binding ContainerName, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLocation}" />
+                  <GridViewColumn Width="260" DisplayMemberBinding="{Binding PathText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPath}" />
+                  <GridViewColumn Width="150" DisplayMemberBinding="{Binding KindText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnKind}" />
+                  <GridViewColumn Width="110" DisplayMemberBinding="{Binding EnforcedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnEnforced}" />
+                  <GridViewColumn Width="150" DisplayMemberBinding="{Binding EnabledText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLinkEnabled}" />
+                </GridView>
+              </ListView.View>
+            </ListView>
+            <WrapPanel Margin="0,6,0,12">
+              <Button x:Name="OpenContainerButton" Margin="0,0,6,4" Command="{Binding OpenLinkContainerCommand}" Content="{l:Tr GroupPolicy.OpenContainer}" />
+              <Button x:Name="ToggleEnforcedButton" Margin="0,0,6,4" Command="{Binding ToggleEnforcedCommand}" Content="{l:Tr GroupPolicy.ToggleEnforced}" />
+              <Button x:Name="ToggleEnabledButton" Margin="0,0,6,4" Command="{Binding ToggleEnabledCommand}" Content="{l:Tr GroupPolicy.ToggleEnabled}" />
+              <Button x:Name="UnlinkButton" Margin="0,0,6,4" Command="{Binding UnlinkCommand}" Content="{l:Tr GroupPolicy.Unlink}" />
+            </WrapPanel>
+
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GroupPolicy.SecurityFilteringHeading}" />
+            <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.SecurityFilteringHint}" TextWrapping="Wrap" />
+            <ListView x:Name="SecurityFilterList"
+                      MinHeight="80"
+                      MaxHeight="200"
+                      AutomationProperties.Name="{l:Tr GroupPolicy.SecurityFilteringHeading}"
+                      DisplayMemberPath="Name"
+                      ItemsSource="{Binding SecurityFilter, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedFilterTrustee}" />
+            <WrapPanel Margin="0,6,0,12">
+              <Button x:Name="AddFilterButton" Margin="0,0,6,4" Command="{Binding AddSecurityFilterCommand}" Content="{l:Tr GroupPolicy.Add}" />
+              <Button x:Name="RemoveFilterButton" Margin="0,0,6,4" Command="{Binding RemoveSecurityFilterCommand}" Content="{l:Tr GroupPolicy.Remove}" />
+            </WrapPanel>
+
+            <TextBlock Style="{StaticResource Ad.SectionHeader}" Text="{l:Tr GroupPolicy.WmiFilteringHeading}" />
+            <TextBlock Margin="0,0,0,4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.WmiFilteringHint}" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal">
+              <ComboBox x:Name="WmiFilterBox"
+                        MinWidth="260"
+                        AutomationProperties.Name="{l:Tr GroupPolicy.WmiFilteringHeading}"
+                        DisplayMemberPath="Text"
+                        ItemsSource="{Binding WmiFilters, Mode=OneWay}"
+                        SelectedItem="{Binding SelectedWmiFilter}" />
+              <Button x:Name="ApplyWmiButton" Margin="8,0,0,0" Command="{Binding ApplyWmiFilterCommand}" Content="{l:Tr GroupPolicy.Apply}" />
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- Szczegóły -->
+      <TabItem x:Name="DetailsTab" Header="{l:Tr GroupPolicy.TabDetails}">
+        <Grid Margin="8,10,8,8" VerticalAlignment="Top">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+          <TextBlock Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelDomain}" />
+          <TextBox Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelDomain}" Style="{StaticResource Value}" Text="{Binding DomainText, Mode=OneWay}" />
+          <TextBlock Grid.Row="1" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelOwner}" />
+          <TextBox Grid.Row="1" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelOwner}" Style="{StaticResource Value}" Text="{Binding OwnerText, Mode=OneWay}" />
+          <TextBlock Grid.Row="2" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelCreated}" />
+          <TextBox Grid.Row="2" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelCreated}" Style="{StaticResource Value}" Text="{Binding CreatedText, Mode=OneWay}" />
+          <TextBlock Grid.Row="3" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelModified}" />
+          <TextBox Grid.Row="3" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelModified}" Style="{StaticResource Value}" Text="{Binding ChangedText, Mode=OneWay}" />
+          <TextBlock Grid.Row="4" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelUserVersion}" />
+          <TextBox Grid.Row="4" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelUserVersion}" Style="{StaticResource Value}" Text="{Binding UserVersionText, Mode=OneWay}" />
+          <TextBlock Grid.Row="5" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelComputerVersion}" />
+          <TextBox Grid.Row="5" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelComputerVersion}" Style="{StaticResource Value}" Text="{Binding ComputerVersionText, Mode=OneWay}" />
+          <TextBlock Grid.Row="6" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelGuid}" />
+          <TextBox Grid.Row="6" Grid.Column="1" AutomationProperties.Name="{l:Tr GroupPolicy.LabelGuid}" Style="{StaticResource Value}" Text="{Binding GuidText, Mode=OneWay}" />
+          <TextBlock Grid.Row="7" Style="{StaticResource Label}" Text="{l:Tr GroupPolicy.LabelGpoStatus}" />
+          <StackPanel Grid.Row="7" Grid.Column="1" Margin="0,4,0,4" Orientation="Horizontal">
+            <ComboBox x:Name="StatusBox"
+                      MinWidth="320"
+                      AutomationProperties.Name="{l:Tr GroupPolicy.LabelGpoStatus}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding StatusOptions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedStatus}" />
+            <Button x:Name="ApplyStatusButton" Margin="8,0,0,0" Command="{Binding ApplyStatusCommand}" Content="{l:Tr GroupPolicy.Apply}" />
+          </StackPanel>
+        </Grid>
+      </TabItem>
+
+      <!-- Ustawienia -->
+      <TabItem x:Name="SettingsTab" Header="{l:Tr GroupPolicy.TabSettings}">
+        <DockPanel Margin="4,8,4,4">
+          <TextBlock Margin="0,0,0,4" DockPanel.Dock="Top" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.SettingsHint}" TextWrapping="Wrap" />
+          <TextBlock x:Name="SettingsNote"
+                     Margin="0,0,0,6"
+                     DockPanel.Dock="Top"
+                     Text="{Binding SettingsNote, Mode=OneWay}"
+                     TextWrapping="Wrap"
+                     Visibility="{Binding SettingsNote, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}" />
+          <ListView x:Name="SettingsList"
+                    AutomationProperties.Name="{l:Tr GroupPolicy.TabSettings}"
+                    ItemContainerStyle="{StaticResource RowStyle}"
+                    ItemsSource="{Binding Settings, Mode=OneWay}"
+                    VirtualizingPanel.IsVirtualizing="True">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="230" DisplayMemberBinding="{Binding PathText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnPath}" />
+                <GridViewColumn Width="360" Header="{l:Tr GroupPolicy.ColumnSetting}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
+                      <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="260" Header="{l:Tr GroupPolicy.ColumnValue}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:GpoSettingRowViewModel}">
+                      <TextBlock Text="{Binding Value, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Value, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="240" DisplayMemberBinding="{Binding Source, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnSource}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Delegowanie -->
+      <TabItem x:Name="DelegationTab" Header="{l:Tr GroupPolicy.TabDelegation}">
+        <DockPanel Margin="4,8,4,4">
+          <TextBlock Margin="0,0,0,4" DockPanel.Dock="Top" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.DelegationHint}" TextWrapping="Wrap" />
+          <WrapPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
+            <TextBlock Margin="0,0,8,4" VerticalAlignment="Center" Text="{l:Tr GroupPolicy.LabelLevel}" />
+            <ComboBox x:Name="LevelBox"
+                      MinWidth="300"
+                      Margin="0,0,8,4"
+                      AutomationProperties.Name="{l:Tr GroupPolicy.LabelLevel}"
+                      DisplayMemberPath="Text"
+                      ItemsSource="{Binding LevelOptions, Mode=OneWay}"
+                      SelectedItem="{Binding SelectedLevel}" />
+            <Button x:Name="AddDelegationButton" Margin="0,0,6,4" Command="{Binding AddDelegationCommand}" Content="{l:Tr GroupPolicy.Add}" />
+            <Button x:Name="ChangeLevelButton" Margin="0,0,6,4" Command="{Binding ChangeLevelCommand}" Content="{l:Tr GroupPolicy.ChangeLevel}" />
+            <Button x:Name="RemoveDelegationButton" Margin="0,0,6,4" Command="{Binding RemoveDelegationCommand}" Content="{l:Tr GroupPolicy.Remove}" />
+          </WrapPanel>
+          <ListView x:Name="DelegationList"
+                    AutomationProperties.Name="{l:Tr GroupPolicy.TabDelegation}"
+                    ItemContainerStyle="{StaticResource RowStyle}"
+                    ItemsSource="{Binding Delegation, Mode=OneWay}"
+                    SelectedItem="{Binding SelectedTrustee}">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="300" Header="{l:Tr GroupPolicy.ColumnTrustee}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:GpoTrusteeRowViewModel}">
+                      <TextBlock Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Sid, Mode=OneWay}" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="380" DisplayMemberBinding="{Binding LevelText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnLevel}" />
+                <GridViewColumn Width="130" DisplayMemberBinding="{Binding InheritedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnInherited}" />
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+
+      <!-- Stan -->
+      <TabItem x:Name="StatusTab" Header="{l:Tr GroupPolicy.TabStatus}">
+        <DockPanel Margin="4,8,4,4">
+          <TextBlock Margin="0,0,0,6" DockPanel.Dock="Top" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr GroupPolicy.StatusHint}" TextWrapping="Wrap" />
+          <WrapPanel Margin="0,6,0,0" DockPanel.Dock="Bottom">
+            <Button x:Name="AlignVersionsButton" Margin="0,0,6,4" Command="{Binding AlignVersionsCommand}" Content="{l:Tr GroupPolicy.AlignVersions}" />
+            <Button x:Name="RepairFolderButton" Margin="0,0,6,4" Command="{Binding RepairFolderSecurityCommand}" Content="{l:Tr GroupPolicy.RepairFolder}" />
+          </WrapPanel>
+          <ListView x:Name="ChecksList"
+                    AutomationProperties.Name="{l:Tr GroupPolicy.TabStatus}"
+                    ItemsSource="{Binding Checks, Mode=OneWay}">
+            <ListView.View>
+              <GridView AllowsColumnReorder="False">
+                <GridViewColumn Width="36">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
+                      <TextBlock x:Name="CheckGlyph"
+                                 Foreground="{DynamicResource SystemFillColorSuccessBrush}"
+                                 Style="{StaticResource Ad.GlyphText}"
+                                 Text="{x:Static c:Glyphs.Completed}" />
+                      <DataTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsOk, Mode=OneWay}" Value="False">
+                          <Setter TargetName="CheckGlyph" Property="Text" Value="{x:Static c:Glyphs.Warning}" />
+                          <Setter TargetName="CheckGlyph" Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                        </DataTrigger>
+                      </DataTemplate.Triggers>
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+                <GridViewColumn Width="240" DisplayMemberBinding="{Binding Text, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnCheck}" />
+                <GridViewColumn Width="620" Header="{l:Tr GroupPolicy.ColumnResult}">
+                  <GridViewColumn.CellTemplate>
+                    <DataTemplate DataType="{x:Type gpm:GpoCheckRowViewModel}">
+                      <TextBlock Text="{Binding Detail, Mode=OneWay}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </GridViewColumn.CellTemplate>
+                </GridViewColumn>
+              </GridView>
+            </ListView.View>
+          </ListView>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</UserControl>

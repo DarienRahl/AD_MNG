@@ -13,6 +13,7 @@ using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -152,6 +153,11 @@ public sealed class ScreenshotTests
         "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
         "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)");
 
+    private static readonly ScreenshotInfo GroupPolicy = new(
+        "23-group-policy.png",
+        "Zasady grupy jednostki Komputery – połączone GPO (jedno wyłączone), dziedziczenie z wymuszonym GPO domeny, obiekty zasad grupy w drzewie",
+        "Group Policy of the Komputery unit – linked GPOs (one disabled), inheritance with the domain's enforced GPO, the Group Policy Objects in the tree");
+
     [Fact]
     public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
     {
@@ -180,6 +186,34 @@ public sealed class ScreenshotTests
         Assert.Equal("Członkostwo (2)", comparison.MembershipTabHeader);
         Assert.StartsWith("Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
         await ScreenshotWriter.SaveAsync(window, CompareObjects, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot23_GroupPolicy() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // K2 (design note docs/dev/k-computers-and-gpo.md 10): "Zasady grupy" of OU=Komputery, the GPO node expanded.
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        await context.ConnectAsync();
+        var window = context.Services.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, MainWindowWidth, MainWindowHeight);
+        var shell = window.Shell;
+        await shell.InitializeAsync();
+        await shell.NavigateAsync(ListLocation.ForContainer(context.Company.ComputersOu));
+        await shell.Tree.ExpandToAsync(context.Company.ComputersOu);
+        var gpoRoot = shell.Tree.GroupPolicyObjectsNode!;
+        gpoRoot.IsExpanded = true;
+        await gpoRoot.EnsureChildrenLoadedAsync();
+
+        shell.OpenContainerPoliciesCommand.Execute(context.Company.ComputersOu);
+        var scope = Assert.IsType<GroupPolicyScopeDocumentViewModel>(shell.SelectedTab);
+        await UiWait.UntilAsync(() => !scope.IsLoading && scope.Links.Count == 2 && scope.Inheritance.Count > 0, "the Group Policy of OU=Komputery");
+        scope.SelectedLink = scope.Links.Single(l => l.Link.GpoId == sample.WorkstationPasswords);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal(7, gpoRoot.Children.Count);
+        Assert.Contains(scope.Links, l => !l.Enabled);
+        Assert.Contains(scope.Inheritance, r => r.GpoName == "Serwery – Zabezpieczenia" && r.EnforcedText == "Tak");
+        await ScreenshotWriter.SaveAsync(window, GroupPolicy, dark: false);
     });
 
     [Fact]

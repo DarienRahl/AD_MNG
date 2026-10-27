@@ -228,7 +228,13 @@ public sealed partial class GroupPolicyScopeDocumentViewModel : GroupPolicyDocum
     private Task CreateAndLinkAsync() => RunAsync(() => Actions.NewAsync(ContainerDn, _name));
 
     [RelayCommand(CanExecute = nameof(CanToggleBlock))]
-    private Task ToggleBlockInheritanceAsync() => RunAsync(() => Actions.SetBlockInheritanceAsync(ContainerDn, _name, !BlocksInheritance));
+    private async Task ToggleBlockInheritanceAsync()
+    {
+        await RunAsync(() => Actions.SetBlockInheritanceAsync(ContainerDn, _name, !BlocksInheritance)).ConfigureAwait(true);
+
+        // A check box toggles itself when clicked: after a cancelled preview it shows the state as read again.
+        OnPropertyChanged(nameof(BlocksInheritance));
+    }
 
     [RelayCommand(CanExecute = nameof(CanOpenGpo))]
     private void OpenGpo(ScopeLinkRowViewModel? row)

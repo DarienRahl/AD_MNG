@@ -1,0 +1,137 @@
+<!--
+  "Obiekty zasad grupy" (GroupPolicyObjectsDocumentViewModel): every GPO of the domain with status, WMI filter, links,
+  versions of AD and SYSVOL (a mismatch is marked), owner and modification time; New, Copy, Rename, Delete, Back Up,
+  Restore, Import Settings and Compare (two selected). Every change opens the change plan preview.
+-->
+<UserControl x:Class="AdMng.App.GroupPolicy.GroupPolicyObjectsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:AdMng.App.Controls"
+             xmlns:gp="clr-namespace:AdMng.App.GroupPolicy"
+             xmlns:gpm="clr-namespace:AdMng.Presentation.GroupPolicy;assembly=AdMng.Presentation"
+             xmlns:l="clr-namespace:AdMng.App.Localization"
+             xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             AutomationProperties.Name="{Binding Title, Mode=OneWay}">
+  <UserControl.Resources>
+    <sys:Double x:Key="GridViewColumnHeaderMinHeight">28</sys:Double>
+    <c:BindingProxy x:Key="DocumentProxy" Data="{Binding}" />
+    <Style x:Key="GpoRowStyle" TargetType="ListViewItem" BasedOn="{StaticResource {x:Static GridView.GridViewItemContainerStyleKey}}">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="2,0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="AutomationProperties.Name" Value="{Binding Name, Mode=OneWay}" />
+      <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick" />
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel Margin="8,6,8,8">
+    <!-- Header and actions -->
+    <DockPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+        <c:ObjectIconView Margin="0,0,8,0"
+                          VerticalAlignment="Center"
+                          Icon="{Binding Icon, Mode=OneWay}"
+                          Size="18" />
+        <TextBlock VerticalAlignment="Center"
+                   FontWeight="SemiBold"
+                   Text="{Binding Title, Mode=OneWay}" />
+      </StackPanel>
+    </DockPanel>
+    <WrapPanel Margin="0,0,0,6" DockPanel.Dock="Top">
+      <Button x:Name="NewButton" Margin="0,0,6,4" Command="{Binding NewCommand}" Content="{l:Tr GroupPolicy.NewCommand}" />
+      <Button x:Name="CopyButton" Margin="0,0,6,4" Command="{Binding CopyCommand}" Content="{l:Tr GroupPolicy.CopyCommand}" />
+      <Button x:Name="RenameButton" Margin="0,0,6,4" Command="{Binding RenameCommand}" Content="{l:Tr GroupPolicy.RenameCommand}" />
+      <Button x:Name="DeleteButton" Margin="0,0,6,4" Command="{Binding DeleteCommand}" Content="{l:Tr GroupPolicy.DeleteCommand}" />
+      <Button x:Name="BackupButton" Margin="12,0,6,4" Command="{Binding BackupCommand}" Content="{l:Tr GroupPolicy.BackupCommand}" />
+      <Button x:Name="RestoreButton" Margin="0,0,6,4" Command="{Binding RestoreCommand}" Content="{l:Tr GroupPolicy.RestoreCommand}" />
+      <Button x:Name="ImportButton" Margin="0,0,6,4" Command="{Binding ImportCommand}" Content="{l:Tr GroupPolicy.ImportCommand}" />
+      <Button x:Name="CompareButton" Margin="12,0,6,4" Command="{Binding CompareCommand}" Content="{l:Tr GroupPolicy.CompareCommand}" />
+      <Button x:Name="HistoryButton" Margin="0,0,6,4" Command="{Binding HistoryCommand}" Content="{l:Tr GroupPolicy.HistoryCommand}" />
+      <Button x:Name="RefreshButton"
+              Margin="12,0,0,4"
+              AutomationProperties.Name="{l:Tr GroupPolicy.RefreshCommand}"
+              Command="{Binding RefreshCommand}"
+              Content="{x:Static c:Glyphs.Refresh}"
+              Style="{StaticResource Ad.IconButton}"
+              ToolTip="{l:Tr GroupPolicy.RefreshCommand}" />
+    </WrapPanel>
+    <gp:GroupPolicyBanners DockPanel.Dock="Top" />
+
+    <ListView x:Name="GpoList"
+              AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+              ItemContainerStyle="{StaticResource GpoRowStyle}"
+              ItemsSource="{Binding Rows, Mode=OneWay}"
+              SelectedItem="{Binding SelectedRow}"
+              SelectionChanged="OnSelectionChanged"
+              SelectionMode="Extended"
+              VirtualizingPanel.IsVirtualizing="True">
+      <ListView.InputBindings>
+        <KeyBinding Key="Enter" Command="{Binding Data.OpenCommand, Source={StaticResource DocumentProxy}}" />
+        <KeyBinding Key="Delete" Command="{Binding Data.DeleteCommand, Source={StaticResource DocumentProxy}}" />
+        <KeyBinding Key="F2" Command="{Binding Data.RenameCommand, Source={StaticResource DocumentProxy}}" />
+      </ListView.InputBindings>
+      <ListView.ContextMenu>
+        <ContextMenu>
+          <MenuItem Command="{Binding Data.OpenCommand, Source={StaticResource DocumentProxy}}" FontWeight="SemiBold" Header="{l:Tr GroupPolicy.OpenCommand}" />
+          <Separator />
+          <MenuItem Command="{Binding Data.CopyCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.CopyCommand}" />
+          <MenuItem Command="{Binding Data.RenameCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.RenameCommand}" InputGestureText="F2" />
+          <MenuItem Command="{Binding Data.DeleteCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.DeleteCommand}" InputGestureText="Delete" />
+          <Separator />
+          <MenuItem Command="{Binding Data.BackupCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.BackupCommand}" />
+          <MenuItem Command="{Binding Data.ImportCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.ImportCommand}" />
+          <MenuItem Command="{Binding Data.CompareCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.CompareCommand}" />
+          <MenuItem Command="{Binding Data.HistoryCommand, Source={StaticResource DocumentProxy}}" Header="{l:Tr GroupPolicy.HistoryCommand}" />
+        </ContextMenu>
+      </ListView.ContextMenu>
+      <ListView.View>
+        <GridView AllowsColumnReorder="False">
+          <GridViewColumn Width="290" Header="{l:Tr GroupPolicy.ColumnName}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoRowViewModel}">
+                <DockPanel ToolTip="{Binding GuidText, Mode=OneWay}">
+                  <c:ObjectIconView Margin="0,0,6,0"
+                                    VerticalAlignment="Center"
+                                    DockPanel.Dock="Left"
+                                    Icon="GroupPolicy"
+                                    Size="16" />
+                  <TextBlock VerticalAlignment="Center" Text="{Binding Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="190" DisplayMemberBinding="{Binding StatusText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnStatus}" />
+          <GridViewColumn Width="150" DisplayMemberBinding="{Binding WmiFilterText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnWmiFilter}" />
+          <GridViewColumn Width="170" Header="{l:Tr GroupPolicy.ColumnLinks}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoRowViewModel}">
+                <TextBlock Text="{Binding LinksText, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTip="{Binding LinksText, Mode=OneWay}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="160" DisplayMemberBinding="{Binding DirectoryVersionText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnVersionAd}" />
+          <GridViewColumn Width="180" Header="{l:Tr GroupPolicy.ColumnVersionSysvol}">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate DataType="{x:Type gpm:GpoRowViewModel}">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock x:Name="MismatchGlyph"
+                             Margin="0,0,6,0"
+                             VerticalAlignment="Center"
+                             Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                             Style="{StaticResource Ad.GlyphText}"
+                             Text="{x:Static c:Glyphs.Warning}"
+                             Visibility="{Binding HasVersionMismatch, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+                  <TextBlock VerticalAlignment="Center" Text="{Binding SysvolVersionText, Mode=OneWay}" />
+                </StackPanel>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Width="180" DisplayMemberBinding="{Binding OwnerText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnOwner}" />
+          <GridViewColumn Width="140" DisplayMemberBinding="{Binding ChangedText, Mode=OneWay}" Header="{l:Tr GroupPolicy.ColumnModified}" />
+        </GridView>
+      </ListView.View>
+    </ListView>
+  </DockPanel>
+</UserControl>

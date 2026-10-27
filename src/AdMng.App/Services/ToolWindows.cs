@@ -16,7 +16,7 @@ namespace AdMng.App.Services;
 /// The factory is resolved on first use: it depends on <see cref="IDialogService"/> (through DialogServices), which
 /// depends on this class. One per connection window (scoped): the "one window" tool keys mean one per connection.
 /// </remarks>
-public sealed class ToolWindows(IServiceProvider services, IWindowService windows, Presentation.Connections.ConnectionContext? connection = null)
+public sealed partial class ToolWindows(IServiceProvider services, IWindowService windows, Presentation.Connections.ConnectionContext? connection = null)
 {
     /// <summary>Singleton key of the session log window (one per connection window).</summary>
     public const string SessionLogKey = "tools:session-log";

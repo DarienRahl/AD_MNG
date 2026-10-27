@@ -16,7 +16,8 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// <summary>
 /// The real application host for one UI test: every service as in production except the directory connector (the
 /// in-memory sample company of <see cref="FakeDirectoryBuilder"/>), SYSVOL (an empty <see cref="FakeSysvolFileReader"/>,
-/// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own) and the settings folder
+/// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own; the Group Policy views
+/// write to <see cref="Sysvol"/>) and the settings folder
 /// (a temporary directory). Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
 /// <remarks>
@@ -39,9 +40,11 @@ internal sealed class UiTestContext : IAsyncDisposable
         SampleCompany company,
         FakeDirectoryConnector connector,
         RecordingShutdown shutdown,
-        string settingsDirectory)
+        string settingsDirectory,
+        FakeSysvol sysvol)
     {
         Host = host;
+        Sysvol = sysvol;
         Shutdown = shutdown;
         Directory = directory;
         Company = company;
@@ -64,6 +67,12 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public FakeDirectoryBuilder Directory { get; }
 
+    /// <summary>
+    /// The writable SYSVOL of the Group Policy views (K2): the GPO folders of the fake domain controller (empty until a
+    /// test adds them, e.g. with <see cref="FakeDirectoryBuilder.AddGroupPolicyManagementSample"/>).
+    /// </summary>
+    public FakeSysvol Sysvol { get; }
+
     public SampleCompany Company { get; }
 
     public FakeDirectoryConnector Connector { get; }
@@ -81,6 +90,7 @@ internal sealed class UiTestContext : IAsyncDisposable
         var company = directory.AddSampleCompany();
         var connector = new FakeDirectoryConnector(directory.Build());
         var shutdown = new RecordingShutdown();
+        var sysvol = new FakeSysvol();
         var settingsDirectory = Path.Combine(Path.GetTempPath(), "AdMng-uitests-" + Guid.NewGuid().ToString("N"));
         var options = new StartupOptions(Language: language, SettingsDirectory: settingsDirectory);
         var host = AppHost.Build(options, services =>
@@ -88,9 +98,10 @@ internal sealed class UiTestContext : IAsyncDisposable
             services.Replace(ServiceDescriptor.Singleton<IDirectoryConnector>(connector));
             services.Replace(ServiceDescriptor.Singleton<IAppShutdown>(shutdown));
             services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(new FakeSysvolFileReader()));
+            services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileWriter>(sysvol));
             configure?.Invoke(services);
         });
-        var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory);
+        var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory, sysvol);
         await AppHost.InitializeAsync(host.Services, options);
         WpfTestHost.Bindings.Clear();
         return context;

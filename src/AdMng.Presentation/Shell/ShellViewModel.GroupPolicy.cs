@@ -1,6 +1,7 @@
 using AdMng.Core.Directory;
 using AdMng.Core.GroupPolicy.Management;
 using AdMng.Core.Ldap;
+using AdMng.Core.Model;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
@@ -193,8 +194,9 @@ public sealed partial class ShellViewModel
     private bool CanBlockInheritance(object? parameter) => CanUseGroupPolicy() && GroupPolicyTarget(parameter) is { IsSite: false };
 
     /// <summary>
-    /// The container a Group Policy command acts on: the parameter (a DN, a container or site node), else the current list's
-    /// container, else the selected tree container - when it is the domain head, an OU or a site.
+    /// The container a Group Policy command acts on: the parameter (a DN, a container or site node), else the one
+    /// selected domain or OU row, else the current list's container, else the selected tree container - when it is the domain
+    /// head, an OU or a site.
     /// </summary>
     private GroupPolicyTargetInfo? GroupPolicyTarget(object? parameter)
     {
@@ -209,6 +211,7 @@ public sealed partial class ShellViewModel
             ContainerNodeViewModel node => (node.Dn, node.Name),
             SiteNodeViewModel site => (site.Dn, site.Name),
             ObjectRowViewModel row when row.IsContainer => (row.Dn, row.Name),
+            _ when CurrentSelection is [{ Kind: ObjectKind.OrganizationalUnit or ObjectKind.Domain } selectedRow] => (selectedRow.Dn, selectedRow.Name),
             _ => SelectedDocument?.Location is { Kind: ListLocationKind.Container } location
                 ? (location.BaseDn, location.Title)
                 : Tree.SelectedNode is ContainerNodeViewModel selected ? (selected.Dn, selected.Name) : ((string?)null, (string?)null),

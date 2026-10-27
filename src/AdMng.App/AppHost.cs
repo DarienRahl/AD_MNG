@@ -1,5 +1,6 @@
 using System.Windows.Threading;
 using AdMng.App.Connections;
+using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
 using AdMng.App.Services;
 using AdMng.App.Views;
@@ -107,6 +108,9 @@ public static class AppHost
         // SYSVOL is opened on that session's DC with that session's credential (never another window's).
         services.AddSingleton<ISysvolFileReader, WindowsSysvolFileReader>();
         services.AddSingleton<IPrivilegeGrantSource>(sp => new GroupPolicyGrantSource(sp.GetRequiredService<ISysvolFileReader>()));
+
+        // Group Policy (K2): the SYSVOL writer of the session's DC and the GPO windows.
+        services.AddAdMngGroupPolicyApp();
 
         // AdMng Watchdog service (HTTPS + Kerberos; configured from the settings by WatchdogConnectionService).
         services.AddSingleton<IWatchdogClient, WatchdogHttpClient>();
