@@ -65,6 +65,9 @@ public sealed class GpoTrusteeRowViewModel
 
     public bool Inherited { get; init; }
 
+    /// <summary>Allowed Apply Group Policy (in the security filtering), whatever the level.</summary>
+    public bool Applies { get; init; }
+
     public required string InheritedText { get; init; }
 
     /// <summary>A custom ACE set: only removable as a whole.</summary>
@@ -316,11 +319,14 @@ public sealed partial class GroupPolicyObjectDocumentViewModel : GroupPolicyDocu
             Sid = p.Sid,
             Name = TrusteeNames.NameOf(names, p.Sid),
             Level = p.Level,
-            LevelText = GroupPolicyText.Level(Localizer, p.Level),
+            LevelText = p.Applies && p.Level is GpoPermissionLevel.Edit or GpoPermissionLevel.EditDeleteModifySecurity or GpoPermissionLevel.Custom
+                ? Localizer.Format(L.GroupPolicy.LevelWithApply, GroupPolicyText.Level(Localizer, p.Level))
+                : GroupPolicyText.Level(Localizer, p.Level),
             Inherited = p.Inherited,
+            Applies = p.Applies,
             InheritedText = GroupPolicyText.YesNo(Localizer, p.Inherited),
         }).OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
-        SecurityFilter = [.. rows.Where(r => r.Level == GpoPermissionLevel.Apply && !r.Inherited)];
+        SecurityFilter = [.. rows.Where(r => r.Applies && !r.Inherited)];
         SelectedFilterTrustee = null;
         WmiFilters = [new GpoOption<WmiFilterInfo?>(null, Localizer[L.GroupPolicy.NoWmiFilter]), .. filters.Select(f => new GpoOption<WmiFilterInfo?>(f, f.Name))];
         SelectedWmiFilter = WmiFilters.FirstOrDefault(o => o.Value is { } f && string.Equals(f.Id, gpo.WmiFilterId, StringComparison.OrdinalIgnoreCase))

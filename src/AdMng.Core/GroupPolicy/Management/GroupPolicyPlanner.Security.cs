@@ -40,7 +40,8 @@ public sealed partial class GroupPolicyPlanner
 
     /// <summary>
     /// Sets the delegation level of a trustee (<c>Set-GPPermission -PermissionLevel GpoRead|GpoEdit|GpoEditDeleteModifySecurity
-    /// -Replace</c>): its explicit ACEs are replaced by those of the level.
+    /// -Replace</c>): its explicit ACEs are replaced by those of the level, except its Apply Group Policy ACEs - the security
+    /// filtering is changed on its own tab, not by a delegation level.
     /// </summary>
     public Task<ChangePlan> PlanSetDelegationAsync(IDirectorySession session, ISysvolWriteConnection? sysvol, Guid gpoId, string trusteeSid, string? trusteeName,
         GpoPermissionLevel level, CancellationToken cancellationToken)
@@ -51,7 +52,9 @@ public sealed partial class GroupPolicyPlanner
         }
 
         return PlanPermissionAsync(session, sysvol, gpoId, trusteeSid, trusteeName, cancellationToken, "Delegation",
-            (descriptor, sid) => new AclChange(GpoPermissionLevels.AcesFor(sid, level, trusteeName), GpoPermissionLevels.ExplicitAcesOf(descriptor, sid)),
+            (descriptor, sid) => new AclChange(GpoPermissionLevels.AcesFor(sid, level, trusteeName),
+                [.. GpoPermissionLevels.ExplicitAcesOf(descriptor, sid).Where(a => !(a.Qualifier == AceQualifier.Allow && a.ObjectType is not null
+                    && GpoPermissionLevels.IsApply(a.Mask, a.ObjectType) && a.Mask == GpoPermissionLevels.ControlAccess))]),
             [PowerShellParameter.Literal("PermissionLevel", level switch
             {
                 GpoPermissionLevel.Read => "GpoRead",

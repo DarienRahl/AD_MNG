@@ -78,6 +78,26 @@ public sealed class GroupPolicyDocumentTests
     }
 
     [Fact]
+    public async Task Gpo_TrusteeWithEditAndApply_IsInTheSecurityFiltering()
+    {
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        var it = h.B2.Builder.SidOf(h.Company.GroupIt);
+        await using (var sysvol = await h.Sysvol.OpenForWriteAsync(h.Session, CancellationToken.None))
+        {
+            var plan = await h.Planner.PlanSetDelegationAsync(h.Session, sysvol, h.Sample.WorkstationRemoteDesktop, it, "CONTOSO\\GG_IT", GpoPermissionLevel.Edit, CancellationToken.None);
+            await h.Executor.ExecuteAsync(h.Session, plan, new Core.Batch.BatchOptions(), null, CancellationToken.None);
+        }
+
+        using var document = await h.GpoAsync(h.Sample.WorkstationRemoteDesktop, GpoDocumentTab.Delegation);
+
+        var filter = Assert.Single(document.SecurityFilter);
+        Assert.Equal(it, filter.Sid);
+        var row = Assert.Single(document.Delegation, r => r.Sid == it);
+        Assert.Equal(GpoPermissionLevel.Edit, row.Level);
+        Assert.Equal("Edycja ustawień + stosowanie (filtrowanie zabezpieczeń)", row.LevelText);
+    }
+
+    [Fact]
     public async Task Gpo_DelegatedEditor_AndPasswordSettings()
     {
         var h = await GroupPolicyHarness.CreateAsync(Polish);

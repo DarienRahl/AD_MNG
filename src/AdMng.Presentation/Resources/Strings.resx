@@ -9691,6 +9691,9 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="GroupPolicy.LevelEditDeleteModifySecurity" xml:space="preserve">
     <value>Edit settings, delete, modify security</value>
   </data>
+  <data name="GroupPolicy.LevelWithApply" xml:space="preserve">
+    <value>{0} + apply (security filtering)</value>
+  </data>
   <data name="GroupPolicy.LevelCustom" xml:space="preserve">
     <value>Custom</value>
   </data>

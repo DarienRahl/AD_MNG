@@ -25,7 +25,14 @@ public enum GpoPermissionLevel
 /// <param name="Sid">Trustee SID.</param>
 /// <param name="Level">The highest level the trustee's ACEs give.</param>
 /// <param name="Inherited">The rights come only from inherited ACEs (they cannot be changed on the GPO).</param>
-public sealed record GpoPermission(string Sid, GpoPermissionLevel Level, bool Inherited);
+public sealed record GpoPermission(string Sid, GpoPermissionLevel Level, bool Inherited)
+{
+    /// <summary>
+    /// The trustee is allowed Apply Group Policy (security filtering), whatever its level - a trustee with Edit settings and
+    /// Apply is <see cref="GpoPermissionLevel.Edit"/> but in the security filtering too.
+    /// </summary>
+    public bool Applies { get; init; }
+}
 
 /// <summary>
 /// The GPMC permission levels of a GPO's container (design note docs/dev/k-computers-and-gpo.md 5.3): <i>Read</i> =
@@ -83,7 +90,7 @@ public static class GpoPermissionLevels
 
         return [.. summary.Aces
             .GroupBy(a => a.Sid, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new GpoPermission(g.Key, LevelOf(g.ToList()), g.All(a => a.IsInherited)))
+            .Select(g => new GpoPermission(g.Key, LevelOf(g.ToList()), g.All(a => a.IsInherited)) { Applies = AppliesOf(g.ToList()) })
             .OrderBy(p => p.Sid, StringComparer.OrdinalIgnoreCase)];
     }
 
@@ -116,6 +123,21 @@ public static class GpoPermissionLevels
 
         return GpoPermissionLevel.Custom;
     }
+
+    /// <summary>
+    /// Whether one trustee's ACEs allow Apply Group Policy on the container itself (inherit-only ACEs do not count) and no
+    /// deny ACE takes it away - independent of <see cref="LevelOf"/>.
+    /// </summary>
+    public static bool AppliesOf(IReadOnlyList<SecurityDescriptorAce> aces)
+    {
+        ArgumentNullException.ThrowIfNull(aces);
+        var effective = aces.Where(a => !a.IsInheritOnly).ToList();
+        return effective.Any(a => a.IsAllow && IsApply(a.Mask, a.ObjectType)) && !effective.Any(a => a.IsDeny && IsApply(a.Mask, a.ObjectType));
+    }
+
+    /// <summary>An ACE that grants (or denies) Apply Group Policy: control access for that right or for all extended rights.</summary>
+    public static bool IsApply(int mask, Guid? objectType) =>
+        (mask & ControlAccess) != 0 && (objectType is null || objectType == GroupPolicySecurityFilter.ApplyGroupPolicyRight);
 
     /// <summary>The explicit ACEs of a trustee in a descriptor (what a level change or a removal takes away).</summary>
     public static IReadOnlyList<AceSpec> ExplicitAcesOf(byte[]? descriptor, string sid)

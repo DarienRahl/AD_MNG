@@ -87,6 +87,7 @@ public static partial class L
         public const string LevelEdit = "GroupPolicy.LevelEdit";
         public const string LevelEditDeleteModifySecurity = "GroupPolicy.LevelEditDeleteModifySecurity";
         public const string LevelCustom = "GroupPolicy.LevelCustom";
+        public const string LevelWithApply = "GroupPolicy.LevelWithApply";
         public const string KindDomain = "GroupPolicy.KindDomain";
         public const string KindOrganizationalUnit = "GroupPolicy.KindOrganizationalUnit";
         public const string KindSite = "GroupPolicy.KindSite";

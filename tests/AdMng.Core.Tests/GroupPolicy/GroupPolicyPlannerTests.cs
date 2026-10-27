@@ -377,6 +377,20 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Delegation_SetLevel_KeepsTheTrusteesSecurityFiltering()
+    {
+        // GG_IT is in the security filtering of "Stacje robocze – Pulpit zdalny" (Read + Apply).
+        await using var sysvol = await OpenSysvolAsync();
+        var sid = Builder.SidOf(Company.GroupIt);
+
+        await ExecuteOkAsync(await Planner.PlanSetDelegationAsync(Session, sysvol, Sample.WorkstationRemoteDesktop, sid, "CONTOSO\\GG_IT", GpoPermissionLevel.Edit, Ct));
+
+        var trustee = Assert.Single(GpoPermissionLevels.Read(Session.Snapshot(GpoDn(Sample.WorkstationRemoteDesktop))!.GetBytes(Attr.NtSecurityDescriptor)), p => p.Sid == sid);
+        Assert.Equal(GpoPermissionLevel.Edit, trustee.Level);
+        Assert.True(trustee.Applies);
+    }
+
+    [Fact]
     public async Task Rollback_OfALinkChange_RestoresTheValue()
     {
         var before = Value(Company.ComputersOu, Attr.GpLink);

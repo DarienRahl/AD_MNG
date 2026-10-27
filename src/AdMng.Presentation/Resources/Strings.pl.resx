@@ -9691,6 +9691,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="GroupPolicy.LevelEditDeleteModifySecurity" xml:space="preserve">
     <value>Edycja ustawień, usuwanie, modyfikowanie zabezpieczeń</value>
   </data>
+  <data name="GroupPolicy.LevelWithApply" xml:space="preserve">
+    <value>{0} + stosowanie (filtrowanie zabezpieczeń)</value>
+  </data>
   <data name="GroupPolicy.LevelCustom" xml:space="preserve">
     <value>Niestandardowe</value>
   </data>
