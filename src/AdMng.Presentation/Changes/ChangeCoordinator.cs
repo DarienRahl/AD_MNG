@@ -282,7 +282,7 @@ public sealed class ChangeCoordinator : IChangeCoordinator
         using var registration = cancellationToken.Register(activity.RequestCancellation);
         var result = await execution.ConfigureAwait(true);
         _changes.Publish(DirectoryChanges.FromResult(result));
-        _history?.Record(result, title, session.Schema);
+        _history?.Record(result, title, session.Schema, session.Info.DomainDnsName);
         return result;
     }
 

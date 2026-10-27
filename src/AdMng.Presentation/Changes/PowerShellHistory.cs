@@ -9,11 +9,13 @@ namespace AdMng.Presentation.Changes;
 /// <param name="Server">Domain controller.</param>
 /// <param name="ObjectCount">Objects executed.</param>
 /// <param name="Script">PowerShell (ActiveDirectory module); passwords and secret attribute values are never embedded (Read-Host).</param>
-public sealed record PowerShellHistoryEntry(string Title, DateTimeOffset ExecutedAt, string Server, int ObjectCount, string Script);
+/// <param name="Domain">DNS name of the domain the change was executed in: a connection window keeps its history when it
+/// reconnects to another domain, so every entry names its own.</param>
+public sealed record PowerShellHistoryEntry(string Title, DateTimeOffset ExecutedAt, string Server, int ObjectCount, string Script, string Domain = "");
 
 /// <summary>
 /// In-memory history of the equivalent PowerShell of every plan executed through <see cref="IChangeCoordinator"/>
-/// in this session (for review, documentation or automation). Never written to disk unless the operator exports
+/// in this connection window - in every session it had, each entry with its domain (for review, documentation or automation). Never written to disk unless the operator exports
 /// or copies a script. Thread-safe.
 /// </summary>
 public sealed class PowerShellHistory(IPowerShellExporter exporter)
@@ -44,7 +46,8 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
     /// <param name="result">The executed batch.</param>
     /// <param name="title">Title of the change.</param>
     /// <param name="schema">Schema of the session: values of its confidential attributes are not embedded either.</param>
-    public void Record(BatchResult result, string title, ISchemaCatalog? schema = null)
+    /// <param name="domain">DNS name of the session's domain.</param>
+    public void Record(BatchResult result, string title, ISchemaCatalog? schema = null, string? domain = null)
     {
         ArgumentNullException.ThrowIfNull(result);
         var executed = result.Objects.Where(o => o.Changes.Count > 0).Select(o => o.Plan).ToList();
@@ -64,7 +67,7 @@ public sealed class PowerShellHistory(IPowerShellExporter exporter)
             return;
         }
 
-        var entry = new PowerShellHistoryEntry(title ?? string.Empty, result.FinishedAt, result.Server, executed.Count, script);
+        var entry = new PowerShellHistoryEntry(title ?? string.Empty, result.FinishedAt, result.Server, executed.Count, script, domain ?? string.Empty);
         lock (_gate)
         {
             _entries.Add(entry);

@@ -4347,7 +4347,7 @@ Type {1} to confirm.</value>
     <value>Values (one per line)</value>
   </data>
   <data name="ToolsUi.HistoryDetails" xml:space="preserve">
-    <value>{0} · {1} · objects: {2}</value>
+    <value>{0} · {3} · {1} · objects: {2}</value>
   </data>
   <data name="ToolsUi.LogEmpty" xml:space="preserve">
     <value>No entries to show.</value>

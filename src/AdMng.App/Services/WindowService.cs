@@ -261,7 +261,8 @@ public sealed class WindowService : IWindowService
 
     /// <summary>
     /// Gives every window the UI language (number/date formatting of bindings, spell checking), the connection id and -
-    /// except the main, connect, settings and message windows - the connection's identity chrome (a snapshot).
+    /// except the main, connect, settings and message windows and the PowerShell history (which outlives the window's
+    /// sessions and names the domain of each entry) - the connection's identity chrome (a snapshot).
     /// </summary>
     private void Prepare(Window window)
     {
@@ -272,7 +273,7 @@ public sealed class WindowService : IWindowService
         }
 
         ConnectionChrome.SetConnectionId(window, _connection.Id);
-        if (_localizer is not null && window is not (MainWindow or ConnectWindow or SettingsWindow or MessageDialogWindow))
+        if (_localizer is not null && window is not (MainWindow or ConnectWindow or SettingsWindow or MessageDialogWindow or PowerShellHistoryWindow))
         {
             ConnectionChrome.Apply(window, _connection.Identity, _localizer);
         }

@@ -184,6 +184,27 @@ public sealed class ConnectionScopeTests
     }
 
     [Fact]
+    public async Task ThePowerShellHistoryOfAWindowThatReconnected_NamesTheDomainOfEachEntry()
+    {
+        await using var host = CreateHost(out var contoso, out var fabrikam);
+        await using var a = host.CreateConnection();
+        await a.ConnectAsync(user: "jan.kowalski");
+        await a.Get<IChangeCoordinator>().ApplyAsync(
+            new ChangeRequest([contoso.Company.LukaszWisniewski], [new SetAttributeOperation(Attr.Title, "Kierownik zespołu")], "Stanowisko w contoso"),
+            TestContext.Current.CancellationToken);
+
+        await a.ConnectAsync(Fabrikam, "anna.zielinska");
+        await a.Get<IChangeCoordinator>().ApplyAsync(
+            new ChangeRequest([fabrikam.Company.LukaszWisniewski], [new SetAttributeOperation(Attr.Title, "Główny księgowy")], "Stanowisko we fabrikam"),
+            TestContext.Current.CancellationToken);
+        using var history = a.Get<Presentation.Dialogs.IDialogViewModelFactory>().CreatePowerShellHistory();
+
+        Assert.Equal(
+            [("Stanowisko we fabrikam", Fabrikam), ("Stanowisko w contoso", "contoso.test")],
+            history.Items.Select(i => (i.Title, i.Domain)));
+    }
+
+    [Fact]
     public async Task AWindowThatStartsClosing_IsGoneForOtherWindows_BeforeItsSessionCloses()
     {
         await using var host = CreateHost(out _, out _);

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.App.UiTests.Infrastructure;
@@ -96,6 +97,11 @@ public sealed class ToolWindowTests
 
         var item = Assert.Single(history.Items);
         Assert.Same(item, history.SelectedItem);
+
+        // Each entry names its domain; the window carries no single domain's chrome (it outlives the window's sessions).
+        Assert.Equal("contoso.test", item.Domain);
+        Assert.Null(ConnectionChrome.GetIdentity(window));
+        Assert.DoesNotContain("contoso.test", window.Title, StringComparison.Ordinal);
         Assert.False(string.IsNullOrWhiteSpace(item.Script));
         Assert.Equal(item.Script, window.ScriptBox.Text);
         Assert.Equal(Visibility.Collapsed, window.EmptyHint.Visibility);

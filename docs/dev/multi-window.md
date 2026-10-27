@@ -515,7 +515,9 @@ window, the badge and the connect window follow the live context.
     binding-error listener of the UI tests covers the re-parented content.
   * The settings window gets no chrome, because settings are shared (it still carries the connection id, 2.4). Its
     title is *Ustawienia (wspólne dla wszystkich okien)*.
-  * The PowerShell history gets the chrome, because it is the history of this connection.
+  * The PowerShell history gets no chrome either: it is the history of this connection window, which keeps it when it
+    reconnects to another domain, so one domain in its header would misname the other entries. Each entry names its
+    domain (and DC) instead.
 * **Message dialogs.** `MessageDialogViewModel` gets `ConnectionLabel` and `ConnectionColor`, which the scoped
   `DialogService` fills for every information, error and confirmation dialog. The dialog shows the strip and the
   line *Domena: contoso.test (CONTOSO\jan.kowalski)* above the message. This covers all 31 `ConfirmAsync` /
