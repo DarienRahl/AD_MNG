@@ -42,18 +42,18 @@ internal static class RemoteCommands
 
     /// <summary>
     /// The one-time task that refreshes the user policy of every logged-on user (what Invoke-GPUpdate does): principal
-    /// group INTERACTIVE (S-1-5-4), <c>gpupdate.exe /target:user /force</c>, a start within the next minute (random
-    /// delay up to 60 s), deleted after it ran.
+    /// group INTERACTIVE (S-1-5-4), <c>gpupdate.exe /target:user /force</c>, started 5 s after its registration (a
+    /// registration trigger, so the start does not depend on the clocks of the workstation and the computer agreeing – a
+    /// time trigger a few seconds in the computer's past would never fire), deleted once it expired 10 minutes later.
     /// </summary>
     public static string UserPolicyTaskXml(DateTimeOffset now)
     {
-        var start = now.ToUniversalTime().AddSeconds(5).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         var end = now.ToUniversalTime().AddMinutes(10).ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         return $"""
             <?xml version="1.0" encoding="UTF-16"?>
             <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
               <RegistrationInfo><Description>AD Manager: Group Policy refresh of the logged-on users</Description></RegistrationInfo>
-              <Triggers><TimeTrigger><StartBoundary>{start}</StartBoundary><EndBoundary>{end}</EndBoundary><RandomDelay>PT60S</RandomDelay><Enabled>true</Enabled></TimeTrigger></Triggers>
+              <Triggers><RegistrationTrigger><EndBoundary>{end}</EndBoundary><Enabled>true</Enabled><Delay>PT5S</Delay></RegistrationTrigger></Triggers>
               <Principals><Principal id="Users"><GroupId>S-1-5-4</GroupId><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
               <Settings><DeleteExpiredTaskAfter>PT0S</DeleteExpiredTaskAfter><StartWhenAvailable>false</StartWhenAvailable><ExecutionTimeLimit>PT10M</ExecutionTimeLimit><Hidden>true</Hidden><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries></Settings>
               <Actions Context="Users"><Exec><Command>gpupdate.exe</Command><Arguments>/target:user /force</Arguments></Exec></Actions>

@@ -56,8 +56,12 @@ public class RemoteCommandsTests
         Assert.Equal("S-1-5-4", xml.Descendants(ns + "GroupId").Single().Value);
         Assert.Equal("gpupdate.exe", xml.Descendants(ns + "Command").Single().Value);
         Assert.Equal("/target:user /force", xml.Descendants(ns + "Arguments").Single().Value);
-        Assert.Equal("2026-10-27T09:00:05Z", xml.Descendants(ns + "StartBoundary").Single().Value);
-        Assert.Equal("2026-10-27T09:10:00Z", xml.Descendants(ns + "EndBoundary").Single().Value);
+        // Started by its registration, not at a time of the workstation's clock the computer's clock may already have passed.
+        var trigger = Assert.Single(xml.Descendants(ns + "Triggers").Single().Elements());
+        Assert.Equal(ns + "RegistrationTrigger", trigger.Name);
+        Assert.Equal("PT5S", trigger.Element(ns + "Delay")?.Value);
+        Assert.Empty(xml.Descendants(ns + "StartBoundary"));
+        Assert.Equal("2026-10-27T09:10:00Z", trigger.Element(ns + "EndBoundary")?.Value);
         Assert.Equal("PT0S", xml.Descendants(ns + "DeleteExpiredTaskAfter").Single().Value);
         Assert.Equal("LeastPrivilege", xml.Descendants(ns + "RunLevel").Single().Value);
         Assert.Matches("^AdMng-UserPolicyRefresh-[0-9a-f]{32}$", RemoteCommands.UserPolicyTaskName(Guid.NewGuid()));
