@@ -655,6 +655,21 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   zablokowane / odblokowane, musi zmienić hasło, konto zostanie wyłączone, wiadomość dowolna), warunek wysyłki z N,
   tryb adresatów (użytkownik, przełożony, użytkownik + przełożony w DW, użytkownik albo przełożony). Biblioteka
   szablonów w ustawieniach (zapis kopii, usuwanie, eksport i import JSON – sam tekst).
+- ✅ Zwroty grzecznościowe z tytułem i płcią (U1d, [opis](docs/dev/u1c-u1d-rich-html-and-salutations.md), część B):
+  pola `{$salutation}` („Szanowny Panie Profesorze”, „Szanowna Pani Doktor”, „Szanowny Księże”, „Szanowny Panie”; EN
+  „Dear Professor Kowalski”, „Dear Dr Nowak”, „Dear Ms Kowalska”; warianty `noTitle`, `vocative`, `vocativeNoTitle`),
+  `{$title}` (`prof. dr hab.`, `{$title:highest}`), `{$titledName}`, `{$honorific:dopełniacz}` (Pan / Pana / Panu …
+  w siedmiu przypadkach), `{$byGender:zmienił/zmieniła}`, ich odpowiedniki dla przełożonego (`{$managerSalutation}` …)
+  i funkcja `capitalize`. Tytuł z `personalTitle` (atrybut do zmiany w ustawieniach), a gdy go brak – z nazwy
+  wyświetlanej („prof. dr hab. Jan Kowalski”, „…, prof. UW”); płeć z atrybutu wybranego w ustawieniach, ze słów
+  „Pan” / „Pani” w atrybucie tytułu, z listy imion w ustawieniach, z imienia (polskie reguły z listami wyjątków: Kuba,
+  Barnaba, Beatrycze, Noemi …) i z nazwiska (-ska / -ski). Sekcja *Zwroty grzecznościowe* w ustawieniach: tabela
+  tytułów (ranga, wołacz dla Pana i Pani, forma EN; *Przywróć domyślne*), lista imion, zwroty neutralne, zachowanie
+  przy nieznanej płci i pole *Sprawdź*; w szablonie *Używaj tytułów* i *Gdy płeć nieznana*. Podgląd: kolumna *Zwrot*
+  z ≈ (zgadnięte) i ⚠ (zwrot neutralny lub zastępczy), *Pola wyliczone*, filtr *Zgadnięte zwroty* i wybór płci jednej
+  wiadomości tylko na tę wysyłkę (bez zapisu – żadna wartość z katalogu nie trafia do ustawień). Ostrzeżenia tylko dla
+  pól, których szablon używa; szablony wbudowane bez zmian. Testy jednostkowe (tytuły, płeć, zwroty, pola, plan), modelu
+  okna i ustawień na fałszywym DC, test UI i zrzut `23-user-messages-salutations.png` (Windows).
 - ✅ Potok: plan (świeży odczyt kont i przełożonych z przypiętego DC) → walidacja → podgląd każdej wiadomości (filtr,
   wykluczanie, wiadomość testowa do siebie) → wysyłka w tle (postęp, przerwanie, limit tempa i dobowy limit odbiorców,
   ponawianie błędów 4xx na nowym połączeniu, zatrzymanie przy błędzie uwierzytelnienia lub TLS, potwierdzenie przez

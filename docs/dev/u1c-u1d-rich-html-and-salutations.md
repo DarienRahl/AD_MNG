@@ -855,6 +855,31 @@ Other cases: `{$honorific:celownik}` → *Panu / Pani* ("przypominamy Panu"), `{
 ("prosimy Panią"), `{$honorific:narzędnik}` → *Panem / Panią* ("kontakt z Panem"); `{$titledName}` → *prof. dr hab. Jan
 Kowalski*; `{$title|capitalize}` → *Prof. dr hab.*
 
+### 20a. As built (track B)
+
+Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/`, Presentation
+`Settings/SalutationSettings.cs`, `UserMessages/*Salutation*`):
+
+* `TemplateExtensionToken` also gained `ValidateArgument` (an English error or null): `{$byGender}` needs two or three
+  parts. `{$byGender}` does not report an empty value either (`{$byGender:/a}` – an empty part is the operator's choice).
+* Words of the display name equal to the given name or the surname are never a title or an absorbed university
+  (`prof. NOWAK Jan`), and a suffix after the last comma counts only when every word of it is covered.
+* Findings: `GenderGuessed` carries the deciding word (first given name or surname) – the source is shown by the
+  derived fields; an unknown gender rendered with the default gender of the settings / the template is
+  `GenderGuessed` (info), not `GenderUnknown`; a neutral override is the operator's choice (no finding, no ⚠).
+* `PlannedUserMessage.Derived`: `title` and `gender` (with the `manager` prefix for the manager) for every person whose
+  fields the template uses, `salutation` only when a `{$salutation}` field of that person is used (manager mode shows
+  the manager's salutation in the column); `DerivedFieldValue.Issue` names the finding behind a value. The *Zgadnięte
+  zwroty* filter lists messages with a guessed or fallback value or a value with a finding.
+* A template with *używaj tytułów* off renders `{$title}` empty and `{$titledName}` without the title.
+* The composer's *Zwroty* options read and write `MessageTemplate.Salutation` of the edited template and are refreshed
+  when another template is selected (an `OnPropertyChanged` override in the partial class – no extra hook line in the
+  shared file); a gender change in the preview is posted to the dispatcher and replaces that item only.
+* Settings: an emptied title attribute is stored as `""` (null would bring the default back); the neutral texts are
+  stored only when they differ from the defaults.
+* The screenshot test class is `ScreenshotTestsSalutations`, so the CI step's filter
+  `FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests` takes it without a workflow change.
+
 ---
 
 # Part C – tests and implementation tracks
