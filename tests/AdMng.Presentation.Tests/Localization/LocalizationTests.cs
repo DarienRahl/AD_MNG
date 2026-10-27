@@ -176,6 +176,21 @@ public partial class LocalizationTests
         Assert.Equal("Object not found.", l.IssueText(new ValidationIssue(IssueSeverity.Error, IssueCodes.NotFound, "detail")));
     }
 
+    [Fact]
+    public void IssueText_FillsThePlaceholdersFromTheIssuesArguments()
+    {
+        var l = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+
+        var password = l.IssueText(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoGppPassword, "detail") { Arguments = ["Machine/Preferences/Groups/Groups.xml"] });
+        var domain = l.IssueText(new ValidationIssue(IssueSeverity.Error, IssueCodes.GpoBackupOtherDomain, "detail") { Arguments = ["wrocław.example"] });
+        var filter = l.IssueText(new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoWmiFilterMissing, "detail", "gPCWQLFilter"));
+
+        Assert.Contains("Machine/Preferences/Groups/Groups.xml", password, StringComparison.Ordinal);
+        Assert.StartsWith("Ustawienia zawierają hasła", password, StringComparison.Ordinal);
+        Assert.Contains("z domeny wrocław.example", domain, StringComparison.Ordinal);
+        Assert.Contains("bez filtru WMI", filter, StringComparison.Ordinal);
+    }
+
     private static HashSet<string> Placeholders(string value) =>
         PlaceholderRegex().Matches(value).Select(m => m.Value).ToHashSet(StringComparer.Ordinal);
 

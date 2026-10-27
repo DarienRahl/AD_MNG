@@ -598,7 +598,7 @@ ExecutePlanAsync(plan, title, session)`).
 | Operation | Steps (object: steps) | PowerShell |
 |---|---|---|
 | Create | GPC: `Create` (`objectClass=groupPolicyContainer`, `displayName`, `gPCFileSysPath=\\<domain>\SysVol\<domain>\Policies\{GUID}`, `gPCFunctionalityVersion=2`, `versionNumber=0`, `flags=0`; the DACL from the schema default), `CreateGpoFolder`, `SyncGpoFolderSecurity`; `CN=Machine`: `Create`; `CN=User`: `Create`; optional container: `Modify gPLink` | `New-GPO -Name … -Domain … -Server $server`; `New-GPLink -Guid … -Target … -LinkEnabled Yes` |
-| Copy (within the domain) | as Create with a new GUID and the source's files (`WriteGpoFile` each, `GPT.INI` excluded), extension names and `flags`, the WMI filter link; versions: each half 1 when the source half is non-zero, else 0 (a new GUID has no client history); permissions default, or the source's explicit ACEs (`ModifySecurity`) | `Copy-GPO -SourceGuid … -TargetName … [-CopyAcl]` |
+| Copy (within the domain) | as Create with a new GUID and the source's files (`WriteGpoFile` each, `GPT.INI` excluded), extension names and `flags`, the WMI filter link; versions: each half 1 when the source half is non-zero, else 0 (a new GUID has no client history); permissions default, or exactly the source's explicit ACEs (`ModifySecurity` with `AclChange.ReplacesExplicit`: the schema default entries the source lacks are removed, so its security filtering survives) | `Copy-GPO -SourceGuid … -TargetName … [-CopyAcl]` |
 | Rename | GPC: `Modify displayName` (CAS); `GPT.INI` untouched (GPMC does not update it) | `Rename-GPO -Guid … -TargetName …` |
 | Delete | every container linking it (domain NC and sites): `Modify gPLink` without the link; GPC: `Delete` (subtree: `CN=Machine`, `CN=User`), `DeleteGpoFolder`. The two default GPOs are refused. The dialog offers *Utwórz kopię zapasową przed usunięciem* (default on). A folder delete that fails leaves an orphaned folder, reported with *Usuń pozostały folder* | `Remove-GPO -Guid …` (removes the links of the domain); `Remove-GPLink -Guid … -Target <site DN>` for site links |
 | Link / unlink / reorder / enforce / enable | container: one `Modify gPLink` (CAS on the whole value) | `New-GPLink` / `Remove-GPLink` / `Set-GPLink -Order` / `-Enforced Yes|No` / `-LinkEnabled Yes|No` |
@@ -679,8 +679,10 @@ Manager backup. Until both pilot checks pass the backup window says *zgodna z GP
 * **Restore** (the GPO of the backup's GUID): existing GPO → plan: `WriteGpoFile`/`DeleteGpoFile` so that the folder
   equals the backup, `Modify` of `displayName`, `flags`, `gPCMachineExtensionNames`, `gPCUserExtensionNames`,
   `gPCWQLFilter` (when the filter exists), `ModifySecurity` to the backup's explicit ACEs, `SyncGpoFolderSecurity`,
-  `SetGpoVersion` (+1 on each half from the current maximum). Deleted GPO → the create steps with the backup's GUID and
-  content (version = backup + 1 on each non-empty half). Links are not part of a GPMC restore; *Przywróć też połączenia
+  `SetGpoVersion` (+1 on each half from the current maximum). Deleted GPO → the create steps with the backup's GUID,
+  content and exactly its explicit ACEs (version = 1 above the higher of the backup's and the deleted GPO's last
+  `versionNumber` from Deleted Objects; without the Recycle Bin 1 + 1000 above the backup's, never back for clients); a
+  leftover SYSVOL folder with the GUID refuses the plan. Links are not part of a GPMC restore; *Przywróć też połączenia
   (N)* from the sidecar is an option, off by default.
 * **Import settings** (into a chosen GPO, as `Import-GPO`): content, extension names and the version bump only – no
   DACL, status or WMI link. Security principals and UNC paths of another domain found in `GptTmpl.inf` / GPP are listed
@@ -1020,4 +1022,98 @@ Branch `feature/k1-computers`, October 2026. Everything of section 4 is built; t
 
 ## 15. K2 as built
 
-(Filled in by the K2 implementer.)
+Branch `feature/k2-gpo` (not `feature/k2-group-policy`), from `feature/k-design`, with `k1.1-acl` merged (never
+cherry-picked) before K2.4. Commits in order: the content parser move (`104f625`), K2.1 in two parts (`87d24ee`,
+`bf7958b` – tagged `k2.1-sysvol`), the K1.1 merge, Core (`134ddad`), lab (`e7985d9`), Presentation (`2b4f090`), App
+(`7d3438b`), then documentation and the lab/backup follow-ups. Everything of sections 3.2–3.4 and 5 is implemented
+unless listed below.
+
+**Deviations and additions**
+
+* **`GpoSettingsDiffer` stayed in the Watchdog.** Its output is the Watchdog event contract (`AttributeChange` rows of
+  `AdMng.Watchdog.Contracts`), which `AdMng.Core` cannot reference. The parsers, the setting model, the secret rules and
+  the file classifier moved (`AdMng.Core/GroupPolicy/Content`, `GpoContentParser` replaces the per-file switch of
+  `GpoSnapshotBuilder`); AD Manager's own diff is `GpoFileDiff` (preview) and `GroupPolicyComparer` (comparison).
+  Fallout fixed in the Watchdog tests: `tests/AdMng.Watchdog.Core.Tests/Gpo/SmallParserTests.cs` aliases `GpoVersion`
+  (ambiguous between `AdMng.Core.GroupPolicy` and `AdMng.Watchdog.Core.Gpo`).
+* **Shared files beyond 11.2** (to be kept when K1 merges): `Shell/ShellViewModel.cs` has three one-line hooks –
+  `AttachGroupPolicy()` after the `Tree.PropertyChanged` subscription, `DetachGroupPolicy()` in `Dispose`, and
+  `if (TryActivateGroupPolicyNode(node)) { return; }` at the top of `OnNodeActivated`; `Shell/ShellViewModel.Commands.cs`
+  has `.. GroupPolicyStateCommands,` right after `ChangeDomainControllerCommand,` (not next to K1's line);
+  `NavigationTreeViewModel` (K2-owned) takes an optional `GroupPolicyViewModelFactory`, so no other constructor changed.
+  `tests/AdMng.App.UiTests/XamlSourceTests.cs` now reads the palette command ids from every `ShellViewModel*.cs`
+  partial (it read only `ShellViewModel.Palette.cs`; this also covers K1's `computer.*` ids).
+* **SmokeTest**: `RenderGroupPolicyAsync(main, services)` (the windows need the connection's services), after
+  `RenderWatchdogTabAsync`; it renders the four documents disconnected and every GPO window from `GroupPolicySamples`
+  (App, sample data only, never written anywhere).
+* **SYSVOL unavailable** disables only operations that write SYSVOL (create, copy, delete, delete leftover folder,
+  security filtering, delegation, restore, import, align versions, repair folder permissions). Link, unlink, order,
+  enforce, enable, block inheritance, GPO status, rename and the WMI filter link and filters change AD only and stay
+  enabled. Each reason has its own banner text; reads from LDAP are always shown.
+* **Permission awareness (5.2) is not implemented**: commands are enabled by session and SYSVOL state only, not by
+  `allowedChildClassesEffective` / `allowedAttributesEffective`. A refused write fails in the preview's results; SYSVOL
+  changes are compensated (3.3), LDAP steps already executed are undone with *Cofnij*. Follow-up item.
+* **Link existing GPO** uses a single-select picker (one link per plan, GPOs already linked to the target are not
+  offered). *Porównaj z…* uses the same picker.
+* **Backup** runs as an activity of the activity center with one synthetic `ObjectResult` per GPO (no `BatchResult`,
+  not audited, as designed); the window remembers the folder (`GroupPolicySettings.LastBackupFolder`), a comment
+  template (`BackupCommentTemplate`, `{0}` = local time) and the *backup before delete* choice. Nothing else of K2 is in
+  the settings (`ShowInTree`).
+* **GPP passwords**: restore and import plans carry the warning `IssueCodes.GpoGppPassword` (MS14-025) naming the
+  preference files that hold a non-empty `cpassword` – paths only, never the value.
+* **WMI filter editor**: *Sprawdź na komputerze…* is not there yet – it needs K1's `IRemoteComputerClient`; the editor
+  shows a note (`GroupPolicy.WmiTestLater`). To add after the K1 merge.
+* **Shell target of the Group Policy commands** (`gpo.containerPolicies`, `gpo.newLinked`, `gpo.linkExisting`,
+  `gpo.blockInheritance`): the command parameter (tree menu: a DN, a container or site node, a container row), else a
+  single selected OU or domain row of the list, else the current list's container, else the selected tree container;
+  only a domain head, an OU or a site qualifies.
+* **Tree menus** also have *Otwórz* (GPO node, bold), *Nowe…* / *Przywróć z kopii zapasowej…* / *Odśwież* on *Obiekty
+  zasad grupy*, *Nowy…* on *Filtry WMI* and *Odśwież* on *Lokacje*.
+* **`GPT.INI` versions of the list** are read when the list loads (4 in parallel), not lazily per visible row.
+* **UI test host**: `UiTestContext` replaces `ISysvolFileWriter` with its `FakeSysvol` (`context.Sysvol`); the
+  `ISysvolFileReader` replacement (U4c) stays the empty `FakeSysvolFileReader`. The GPO views read SYSVOL through the
+  write connection. `HostTests`: `IGroupPolicyDialogs` per connection, `ISysvolFileWriter` shared.
+* **Lab**: the interrupted write is tested on the lab too (`SmbClientSysvolFileWriter.FailReplace(n)` fails the n-th
+  replace before it reaches the server); the optional Watchdog scenario (one `GroupPolicyChanged` +
+  `GroupPolicySettingsChanged` per AD Manager change) was not run.
+
+**Review fixes** (commits *K2 review 1–14*):
+
+* Copy with permissions and restore of a deleted GPO set exactly the source's explicit ACEs
+  (`AclChange.ReplacesExplicit`; the executor removes the explicit ACEs it reads that the source lacks and audits the
+  applied delta) – the schema default's Authenticated Users Apply no longer undoes security filtering.
+* Settings kept as directory objects below `CN=Machine`/`CN=User` (software installation, wireless/wired policies) are
+  counted (`GroupPolicyReader.CountDirectorySettingsAsync`, sidecar `directoryObjects`, GPMC `DSObject` entries) and
+  warned about (`GpoDirectorySettings`) on copy, backup, restore and import; they are still not carried.
+* Rollback drops inverse `gPLink` / `gPCWQLFilter` values that name a GPO or WMI filter the batch deleted.
+* Security filtering lists every trustee allowed Apply (`GpoPermission.Applies`), whatever its level; a delegation
+  level change keeps the Apply ACE.
+* A sequential plan with an error on any object runs nothing (`ChangePlan.IsBlocked`).
+* Missing GPO folder = deleted; *Usuń pozostały folder* is refused while the GPO exists, also at execution
+  (`SysvolChange.OnlyIfContainerMissing`); restoring a deleted GPO over a leftover folder is refused.
+* *Pokaż różnice* never shows an unparseable preferences file or a file naming `cpassword` as text.
+* `manifest.xml` is written to a temporary file and moved over the old one, merges serialized in the process.
+* Delete warns in a forest with other domains (`GpoLinkedElsewhere`): `gPLink` is not in the GC, their links are found
+  only on their DCs (rule 4).
+* Dedicated issue codes (`GpoWmiFilterMissing`, `GpoBackupOtherDomain`, `GpoExists`, `GpoFolderExists`,
+  `GpoPermissionsReplaced`, `GpoVersionJump`) and `ValidationIssue.Arguments` for the `{0}` placeholders of the
+  localized texts.
+
+**Tests.** Core: versions, `GPT.INI`, `gPLink`, folder ACL mapping, transaction and compensation, SYSVOL pipeline
+(executor, rollback, PowerShell, audit), reader, every planner operation on the fake directory + `FakeSysvol`, GPMC
+backups (layout, round trip, hostile input, restore, import, GPP passwords), comparison. Presentation: documents, every
+operation from the command through the preview to the fake and the refreshed document, typed delete confirmation,
+backup/restore/import on a test-only temporary folder, comparison, WMI editor, delegation and security filtering
+(MS16-072), PDC note, SYSVOL unavailable per reason, tree and shell, settings, lifetimes. App (Windows CI only): every
+window registered and rendered, tree nodes and menus, documents in the main window, enforce through the real preview
+window, new linked GPO through the dialogs, backup and comparison windows, the GPO picker (exclusions, filter, choice),
+preview diff; screenshot
+`23-group-policy.png`. Lab (`SambaTool` collection): see 10; all objects `K2T-<run>` in their own OU, removed at the end.
+The Watchdog's lab tests of GPO content (`GpoContentLabTests`, through the moved parsers) pass unchanged; on the shared
+lab, Watchdog and directory lab tests can fail with client-side LDAP timeouts while another suite holds Samba's single
+write transaction, and the Kerberos ones need the DC's DNS name in `/etc/hosts` (tools/testlab/README.md) – a rerun on
+a quiet lab is green.
+
+**Not verified here (Windows only):** the WPF windows and views, the UI tests, the smoke test and screenshot 23 (CI on
+Windows), `WindowsSysvolFileWriter` against a Windows DC, the folder picker (`OpenFolderDialog`), and every pilot item of
+12 (GPMC compatibility of backups in both directions, GPMC permission masks, `msWMI-Parm2` fixtures, `gpresult /h`).

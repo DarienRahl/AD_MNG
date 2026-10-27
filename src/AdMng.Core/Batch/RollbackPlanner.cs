@@ -1,5 +1,6 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Ldap;
+using AdMng.Core.Model;
 
 namespace AdMng.Core.Batch;
 
@@ -15,20 +16,27 @@ namespace AdMng.Core.Batch;
 /// password stays (it cannot be undone), so "must change password at next logon" must stay as well.
 /// A created object is rolled back by deleting it.
 /// </remarks>
-public sealed class RollbackPlanner : IRollbackPlanner
+public sealed partial class RollbackPlanner : IRollbackPlanner
 {
     /// <inheritdoc />
     public ChangePlan CreateRollbackPlan(BatchResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
         var objects = new List<ObjectPlan>();
+        var deleted = DeletedReferents(result);
         foreach (var objectResult in result.Objects)
         {
             var succeeded = objectResult.Changes.Where(c => c.Succeeded).Select(Executed).ToList();
             if (succeeded.Count > 0)
             {
-                objects.Add(CreateObjectRollback(objectResult, succeeded));
+                objects.Add(WithoutReferencesTo(CreateObjectRollback(objectResult, succeeded), deleted));
             }
+        }
+
+        // A sequential plan (GPO plans) is undone in reverse object order: links before the container, children before it.
+        if (result.Plan.Sequential)
+        {
+            objects.Reverse();
         }
 
         var title = string.IsNullOrEmpty(result.Plan.Title) ? "Rollback" : $"Rollback: {result.Plan.Title}";
@@ -38,6 +46,7 @@ public sealed class RollbackPlanner : IRollbackPlanner
             Title = title,
             CreatedAt = result.FinishedAt,
             Server = result.Server,
+            Sequential = result.Plan.Sequential,
         };
     }
 
@@ -58,6 +67,8 @@ public sealed class RollbackPlanner : IRollbackPlanner
 
         if (succeeded.Any(c => c.Action == ChangeAction.Create))
         {
+            // A new GPO: its folder goes first (only while it holds nothing but what the plan wrote).
+            steps.AddRange(RollbackOfCreatedGpoFolder(succeeded));
             steps.Add(new PlannedChange { Action = ChangeAction.Delete });
             return Build(objectResult, steps, issues);
         }
@@ -80,6 +91,10 @@ public sealed class RollbackPlanner : IRollbackPlanner
             var change = succeeded[i];
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    InvertSysvol(change, succeeded, steps, issues);
+                    break;
                 case ChangeAction.Modify:
                     var attributes = new List<AttributeChange>();
                     foreach (var attribute in change.Attributes)
@@ -136,6 +151,68 @@ public sealed class RollbackPlanner : IRollbackPlanner
         }
 
         return Build(objectResult, steps, issues);
+    }
+
+    /// <summary>
+    /// The <c>{GUID}</c> names of the GPOs and WMI filters the batch deleted (their Delete step succeeded): a rollback must
+    /// not put back links (<c>gPLink</c>) or filter links (<c>gPCWQLFilter</c>) to them, which would point to nothing.
+    /// </summary>
+    private static HashSet<string> DeletedReferents(BatchResult result)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var objectResult in result.Objects)
+        {
+            if (objectResult.Plan.Kind is ObjectKind.GroupPolicyContainer or ObjectKind.WmiFilter
+                && objectResult.Changes.Any(c => c.Succeeded && c.Change.Action == ChangeAction.Delete)
+                && DistinguishedName.TryParse(objectResult.Plan.DistinguishedName, out var dn) && !dn.IsRoot)
+            {
+                names.Add(dn.Leaf.Value);
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>The rollback without the inverse values that name a deleted GPO or WMI filter (a not-reversible warning each).</summary>
+    private static ObjectPlan WithoutReferencesTo(ObjectPlan rollback, HashSet<string> deleted)
+    {
+        if (deleted.Count == 0)
+        {
+            return rollback;
+        }
+
+        var issues = new List<ValidationIssue>(rollback.Issues);
+        var steps = new List<PlannedChange>();
+        foreach (var step in rollback.Changes)
+        {
+            if (step.Action != ChangeAction.Modify)
+            {
+                steps.Add(step);
+                continue;
+            }
+
+            var kept = new List<AttributeChange>();
+            foreach (var attribute in step.Attributes)
+            {
+                if ((string.Equals(attribute.Attribute, Attr.GpLink, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(attribute.Attribute, GroupPolicy.GroupPolicyAttributes.WqlFilter, StringComparison.OrdinalIgnoreCase))
+                    && attribute.NewValues.Any(v => deleted.Any(d => v.Contains(d, StringComparison.OrdinalIgnoreCase))))
+                {
+                    issues.Add(new ValidationIssue(IssueSeverity.Warning, IssueCodes.NotReversible,
+                        "The value names a GPO or WMI filter the batch deleted; it is not put back.", attribute.Attribute));
+                    continue;
+                }
+
+                kept.Add(attribute);
+            }
+
+            if (kept.Count > 0)
+            {
+                steps.Add(step with { Attributes = kept });
+            }
+        }
+
+        return rollback with { Changes = steps, Issues = issues };
     }
 
     private static ObjectPlan Build(ObjectResult objectResult, List<PlannedChange> steps, List<ValidationIssue> issues) => new()

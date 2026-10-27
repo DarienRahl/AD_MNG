@@ -15,6 +15,15 @@ public static class GroupPolicyAttributes
     public const string MachineExtensionNames = "gPCMachineExtensionNames";
     public const string WqlFilter = "gPCWQLFilter";
     public const string ServerReference = "serverReference";
+    public const string VersionNumber = "versionNumber";
+    public const string UserExtensionNames = "gPCUserExtensionNames";
+    public const string FunctionalityVersion = "gPCFunctionalityVersion";
+
+    /// <summary>objectClass of a group policy container.</summary>
+    public const string ContainerClass = "groupPolicyContainer";
+
+    /// <summary>objectClass of a WMI filter (<c>CN=SOM,CN=WMIPolicy,CN=System</c>).</summary>
+    public const string WmiFilterClass = "msWMI-Som";
 }
 
 /// <summary>A group policy container (GPC) of <c>CN=Policies,CN=System</c>.</summary>

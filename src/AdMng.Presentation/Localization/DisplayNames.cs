@@ -150,6 +150,11 @@ public static partial class DisplayNames
         }
 
         var template = localizer[key];
+        if (issue.Arguments.Count > 0 && template.Contains("{0}", StringComparison.Ordinal))
+        {
+            return localizer.Format(key, [.. issue.Arguments]);
+        }
+
         if (issue.Attribute is null)
         {
             // Attribute specific texts need the attribute; fall back to the planner's detailed message.

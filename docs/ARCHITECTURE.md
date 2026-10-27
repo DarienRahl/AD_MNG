@@ -138,6 +138,29 @@ Wartości w planie są tekstem; atrybutów binarnych nie edytuje się zbiorczo �
 logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowym, a do DC trafia jako 21 bajtów
 (`PipelineValues`).
 
+**SYSVOL w potoku zmian (zasada 5 obejmuje także pliki GPO).** Od K2 plan może zawierać kroki SYSVOL obok kroków LDAP:
+`CreateGpoFolder`, `WriteGpoFile`, `DeleteGpoFile`, `SyncGpoFolderSecurity`, `SetGpoFolderSecurity`, `SetGpoVersion`,
+`DeleteGpoFolder` (`PlannedChange.Sysvol`, `.GpoVersion`), a plan GPO jest sekwencyjny (`ChangePlan.Sequential`) i niesie
+semantyczne odpowiedniki PowerShell (`ObjectPlan.PowerShell`: `New-GPO`, `Set-GPLink`, `Restore-GPO` …). Wykonawca
+otwiera jedno połączenie SYSVOL na przebieg – na kontrolerze sesji, poświadczeniami okna (`ISysvolFileWriter`, zasady 2
+i 4) – a pliki jednego GPO zapisuje transakcją `GpoTransaction`: pliki tymczasowe obok docelowych, sprawdzenie,
+podmiana, na końcu wersja w `GPT.INI` i porównanie-z-zamianą `versionNumber` w AD; błąd lub zmiana GPO przez kogoś
+innego przywraca pliki z pamięci. Wersje tylko rosną (także przy cofaniu), plan cofnięcia odwraca kolejność obiektów.
+Dziennik audytu zapisuje ścieżki, rozmiary i SHA-256 plików – nigdy treść. Nic poza potokiem nie pisze do SYSVOL.
+
+### Zasady grupy (K2)
+
+`AdMng.Core/GroupPolicy`: `GroupPolicyReader` (GPO, połączenia, dziedziczenie, filtry WMI, lokacje, emulator PDC,
+foldery GPO wczytywane do pamięci w limitach), `GroupPolicyPlanner` (plan każdej operacji – tworzenie, kopia, zmiana
+nazwy, usunięcie, `gPLink`/`gPOptions`, stan, filtry WMI, filtrowanie zabezpieczeń i delegowanie przez `ModifySecurity`
+K1 z poziomami GPMC, wyrównanie wersji, uprawnienia folderu, przywracanie i import), `GpmcBackupFormat` (kopie w
+układzie GPMC + `admng.json`, odczyt jak niezaufanych danych), `GroupPolicyComparer` oraz parsery treści GPO wspólne z
+Watchdogiem (`GroupPolicy/Content`). `AdMng.Presentation/GroupPolicy`: usługi i akcje na okno połączenia (Scoped),
+cztery karty (`IShellDocument`), węzły drzewa, modele okien i okno podglądu planu (`ChangePlanPreviewViewModel`).
+`AdMng.App/GroupPolicy`: widoki WPF, okna i `WindowsSysvolFileWriter` (`AdMng.Directory`). Kopie zapasowe i eksport
+porównania trafiają wyłącznie do miejsc wskazanych przez operatora (zasada 1). Opis dla użytkownika:
+[ZASADY-GRUPY.md](ZASADY-GRUPY.md); specyfikacja: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md).
+
 ## Interfejs użytkownika
 
 - **Okno główne:** pasek menu i narzędzi (jak ADUC), pasek adresu (DN lub ścieżka `contoso.test/Firma/IT`),

@@ -1243,6 +1243,13 @@ zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog
   *Zdalne akcje* (CIM przez WinRM, tylko Kerberos) i narzędzia (ping, mstsc, *Zarządzanie komputerem*, *Podgląd
   zdarzeń*); opis: [KOMPUTERY.md](docs/KOMPUTERY.md). Czeka na pilotaż na Windows Server 2025 i Windows 11.
 - **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie zapasowe.
+  🟡 **Zrobione:** węzły *Obiekty zasad grupy*, *Filtry WMI* i *Lokacje*, karty GPO (zakres, szczegóły, ustawienia do
+  odczytu, delegowanie, stan AD/SYSVOL) i *Zasady grupy* domeny, OU i lokacji; nowe GPO, kopia, zmiana nazwy, usunięcie,
+  łączenie, kolejność, wymuszanie, wyłączanie połączeń, blokowanie dziedziczenia, stan GPO, filtrowanie zabezpieczeń
+  (MS16-072), filtry WMI, delegowanie, kopie zapasowe w formacie GPMC (przywracanie, import ustawień), porównanie dwóch
+  GPO; każda zmiana AD i SYSVOL przez podgląd planu zmian z różnicami plików, PowerShell i cofnięciem. Sprawdzone na
+  fałszywym katalogu i laboratorium Samba; okna WPF i zgodność z GPMC – CI na Windows i pilotaż. Opis:
+  [ZASADY-GRUPY.md](docs/ZASADY-GRUPY.md).
 - **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne).
 - **K4** – ustawienia zabezpieczeń.
 - **K5** – raport „co dostanie komputer”.
@@ -1355,6 +1362,14 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   *Zapisane filtry* są osobne w każdym oknie połączenia, ale zapisane filtry i ustawienia zakładki *Uprawnienia* są
   wspólne: zmiana w jednym oknie przebudowuje listy ustawień zakładki w pozostałych (ostatni zapis wygrywa, gdy dwa
   okna zmieniają to samo pole jednocześnie).
+- **Zasady grupy (K2)** – sprawdzone na fałszywym katalogu i na laboratorium Samba 4.19 (SYSVOL przez `smbclient`);
+  zapis SYSVOL na Windows, okna WPF i zrzut 23 sprawdza tylko CI na Windows. Zgodność kopii zapasowych z GPMC w obie
+  strony, maski poziomów uprawnień GPMC, format zapytań filtrów WMI i działanie GPO utworzonego w AD Managerze na
+  kliencie (`gpresult /h`) potwierdzi pilotaż. Zmiany GPO idą na kontroler okna – gdy nie jest nim emulator PDC, karty
+  ostrzegają (przełączenie tylko ręczne). Uprawnienia operatora nie są sprawdzane z góry (brak prawa = błąd w wynikach
+  podglądu, pliki SYSVOL wracają do stanu sprzed zmiany). Ustawienia GPO są tylko do odczytu (edycja: K3, K4); brak tabel
+  migracji, kopiowania między domenami, GPO wzorcowych, porównania z GPO innego okna i próby filtru WMI na komputerze.
+  Szczegóły: [ZASADY-GRUPY.md, rozdział 9](docs/ZASADY-GRUPY.md#9-ograniczenia-i-pilotaż).
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.

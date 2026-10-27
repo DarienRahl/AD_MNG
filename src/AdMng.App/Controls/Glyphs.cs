@@ -93,6 +93,12 @@ public static class Glyphs
     public const string Accept = "\uE8FB";
     public const string Health = "\uE95E";
 
+    /// <summary>A group policy object (a document: GPMC's scroll).</summary>
+    public const string GroupPolicy = "\uE8A5";
+
+    /// <summary>A site of the forest (a globe).</summary>
+    public const string Site = "\uE909";
+
     /// <summary>Badge of the well-known containers in the navigation tree (a house: the default container).</summary>
     public const string WellKnown = "\uE80F";
 
@@ -118,6 +124,9 @@ public static class Glyphs
         ObjectIcon.Pinned => Pin,
         ObjectIcon.Folder => Folder,
         ObjectIcon.Watchdog => Watchdog,
+        ObjectIcon.GroupPolicy => GroupPolicy,
+        ObjectIcon.WmiFilter => Filter,
+        ObjectIcon.Site => Site,
         _ => Unknown,
     };
 
@@ -136,6 +145,8 @@ public static class Glyphs
             or ObjectIcon.Folder or ObjectIcon.SharedFolder => IconTone.Container,
         ObjectIcon.Query or ObjectIcon.QuickFilter or ObjectIcon.Pinned => IconTone.Muted,
         ObjectIcon.Watchdog => IconTone.Container,
+        ObjectIcon.GroupPolicy or ObjectIcon.Site => IconTone.Container,
+        ObjectIcon.WmiFilter => IconTone.Muted,
         _ => IconTone.Neutral,
     };
 }

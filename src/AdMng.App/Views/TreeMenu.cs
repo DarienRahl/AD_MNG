@@ -3,6 +3,7 @@ using System.Windows.Input;
 using AdMng.App.Behaviors;
 using AdMng.App.Localization;
 using AdMng.Core.Model;
+using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -36,6 +37,7 @@ internal static class TreeMenu
 
                 items.Add(new Separator());
                 items.Add(NewMenu(shell, container));
+                AddGroupPolicyItems(items, shell, container);
                 items.Add(new Separator());
                 if (container.IsPinnedEntry)
                 {
@@ -62,6 +64,33 @@ internal static class TreeMenu
                 items.Add(Item(L.Common.MoveDown, shell.MoveViewDownCommand, view));
                 break;
 
+            case GpoNodeViewModel gpo:
+                AddGpoItems(items, gpo);
+                break;
+
+            case GroupPolicyObjectsNodeViewModel gpoRoot:
+                items.Add(Item(L.GroupPolicy.OpenCommand, shell.OpenGroupPolicyObjectsCommand));
+                items.Add(Item(L.GroupPolicy.NewCommand, new AsyncRelayCommand(() => gpoRoot.GroupPolicy.Actions.NewAsync())));
+                items.Add(Item(L.GroupPolicy.RestoreCommand, new AsyncRelayCommand(gpoRoot.GroupPolicy.Actions.RestoreAsync)));
+                items.Add(new Separator());
+                items.Add(Item(L.GroupPolicy.RefreshCommand, gpoRoot.RefreshCommand));
+                break;
+
+            case WmiFiltersNodeViewModel wmi:
+                items.Add(Item(L.GroupPolicy.OpenCommand, shell.OpenWmiFiltersCommand));
+                items.Add(Item(L.GroupPolicy.NewCommand, new AsyncRelayCommand(() => wmi.GroupPolicy.Actions.NewWmiFilterAsync())));
+                break;
+
+            case SitesNodeViewModel sites:
+                items.Add(Item(L.GroupPolicy.RefreshCommand, sites.RefreshCommand));
+                break;
+
+            case SiteNodeViewModel site:
+                items.Add(Item(L.GroupPolicy.ContainerPoliciesCommand, shell.OpenContainerPoliciesCommand, site.Dn));
+                items.Add(Item(L.GroupPolicy.NewLinkedCommand, shell.NewLinkedGpoCommand, site.Dn));
+                items.Add(Item(L.GroupPolicy.LinkExistingCommand, shell.LinkExistingGpoCommand, site.Dn));
+                break;
+
             case FolderNodeViewModel folder when ReferenceEquals(folder, shell.Tree.ViewsNode):
                 items.Add(CommandItem("view.importViews", shell));
                 items.Add(CommandItem("view.exportViews", shell));
@@ -69,6 +98,47 @@ internal static class TreeMenu
         }
 
         return items;
+    }
+
+    /// <summary>
+    /// Group Policy of a domain or OU (K2): "Zasady grupy", "Utwórz GPO w tej domenie i połącz je tutaj…", "Połącz istniejący
+    /// GPO…", "Zablokuj dziedziczenie" (as GPMC) - when the window has the Group Policy services.
+    /// </summary>
+    private static void AddGroupPolicyItems(List<Control> items, ShellViewModel shell, ContainerNodeViewModel container)
+    {
+        if (!shell.IsGroupPolicyAvailable || container.Kind is not (ObjectKind.Domain or ObjectKind.OrganizationalUnit))
+        {
+            return;
+        }
+
+        items.Add(new Separator());
+        items.Add(Item(L.GroupPolicy.ContainerPoliciesCommand, shell.OpenContainerPoliciesCommand, container.Dn));
+        items.Add(Item(L.GroupPolicy.NewLinkedCommand, shell.NewLinkedGpoCommand, container.Dn));
+        items.Add(Item(L.GroupPolicy.LinkExistingCommand, shell.LinkExistingGpoCommand, container.Dn));
+        items.Add(Item(L.GroupPolicy.BlockInheritanceCommand, shell.ToggleBlockInheritanceCommand, container.Dn));
+    }
+
+    /// <summary>A GPO node: Stan GPO, Kopia zapasowa…, Kopiuj, Zmień nazwę, Usuń, Porównaj z…, Historia w Watchdogu.</summary>
+    private static void AddGpoItems(List<Control> items, GpoNodeViewModel node)
+    {
+        var actions = node.GroupPolicy.Actions;
+        var gpo = node.Gpo;
+        var open = Item(L.GroupPolicy.OpenCommand, new RelayCommand(() => actions.OpenGpo(gpo.Id, gpo.DisplayName)));
+        open.FontWeight = System.Windows.FontWeights.SemiBold;
+        items.Add(open);
+        items.Add(Item(L.GroupPolicy.GpoStatusCommand, new RelayCommand(() => actions.OpenGpo(gpo.Id, gpo.DisplayName, GpoDocumentTab.Status))));
+        items.Add(new Separator());
+        items.Add(Item(L.GroupPolicy.BackupCommand, new AsyncRelayCommand(() => actions.BackupAsync([gpo]))));
+        items.Add(Item(L.GroupPolicy.CopyCommand, new AsyncRelayCommand(() => actions.CopyAsync(gpo))));
+        items.Add(Item(L.GroupPolicy.RenameCommand, new AsyncRelayCommand(() => actions.RenameAsync(gpo))));
+        var delete = Item(L.GroupPolicy.DeleteCommand, new AsyncRelayCommand(() => actions.DeleteAsync(gpo)));
+        delete.IsEnabled = !gpo.IsDefault;
+        items.Add(delete);
+        items.Add(new Separator());
+        items.Add(Item(L.GroupPolicy.CompareWithCommand, new AsyncRelayCommand(() => actions.CompareAsync(gpo))));
+        var history = Item(L.GroupPolicy.HistoryCommand, new AsyncRelayCommand(() => actions.ShowHistoryAsync(gpo)));
+        history.IsEnabled = actions.CanShowHistory;
+        items.Add(history);
     }
 
     private static MenuItem NewMenu(ShellViewModel shell, ContainerNodeViewModel container)
