@@ -120,6 +120,20 @@ public sealed class TitleParserTests
         Assert.Equal("Szanowna Pani Profesor", SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
     }
 
+    [Theory]
+    [InlineData("Professor", "prof.", "Szanowna Pani Profesor", "Dear Professor Nowak")]
+    [InlineData("Doctor", "dr", "Szanowna Pani Doktor", "Dear Dr Nowak")]
+    [InlineData("Professor Doctor", "prof. dr", "Szanowna Pani Profesor", "Dear Professor Nowak")]
+    public void Attribute_EnglishSpellings_AreTheSameTitles(string value, string title, string polish, string english)
+    {
+        var person = SalutationPerson.Of(value, "Anna Nowak", "Anna", "Nowak", null, SalutationOptions.Default);
+
+        Assert.Equal(title, person.Title.Text);
+        Assert.Empty(person.Title.Unrecognized);
+        Assert.Equal(polish, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+        Assert.Equal(english, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.English, SalutationVariant.Full, SalutationOptions.Default).Text);
+    }
+
     [Fact]
     public void Attribute_HonorificBeforeATitle_KeepsBoth()
     {

@@ -26,7 +26,7 @@ public sealed class SalutationSettingsViewModelTests
         Assert.Equal("Szanowna Pani / Szanowny Panie", section.NeutralPolish);
         Assert.Equal("Dear {name}", section.NeutralEnglish);
         Assert.Equal(SalutationData.DefaultTitles.Count, section.Titles.Count);
-        Assert.Equal(("prof.", "prof, profesor, prof. zw.", 100), (section.Titles[3].Title, section.Titles[3].Variants, section.Titles[3].Rank));
+        Assert.Equal(("prof.", "prof, profesor, professor, prof. zw.", 100), (section.Titles[3].Title, section.Titles[3].Variants, section.Titles[3].Rank));
         Assert.Equal(("prof. uczelni", "prof. ucz.", 101), (section.Titles[4].Title, section.Titles[4].Variants, section.Titles[4].Rank));
         Assert.Equal(["zwrot neutralny i ostrzeżenie", "jak do mężczyzny (Pan)", "jak do kobiety (Pani)"], section.UnknownGenderModes.Select(m => m.Text));
         Assert.Equal("Używany, gdy płeć jest nieznana; {name} = imię i nazwisko.", section.NeutralHint);

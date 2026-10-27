@@ -727,12 +727,12 @@ vocative, EN form (empty = no title-specific form). Defaults:
 | `ks. prof.` | – | 120 | Księże Profesorze | – | Father |
 | `ks. dr hab.` | – | 118 | Księże Profesorze | – | Father |
 | `ks. dr` | – | 115 | Księże Doktorze | – | Father |
-| `prof.` | `prof`, `profesor`, `prof. zw.` | 100 | Panie Profesorze | Pani Profesor | Professor |
+| `prof.` | `prof`, `profesor`, `professor`, `prof. zw.` | 100 | Panie Profesorze | Pani Profesor | Professor |
 | `prof. uczelni` | `prof. ucz.` | 101 | Panie Profesorze | Pani Profesor | Professor |
 | `prof. nadzw.` | `prof. nzw.`, `prof. ndzw.` | 101 | Panie Profesorze | Pani Profesor | Professor |
 | `dr hab.` | `dr. hab.`, `doktor habilitowany` | 90 | Panie Profesorze | Pani Profesor | Dr |
 | `ks.` | `ks`, `ksiądz` | 80 | Księże | – | Father |
-| `dr` | `dr.`, `doktor` | 70 | Panie Doktorze | Pani Doktor | Dr |
+| `dr` | `dr.`, `doktor`, `doctor` | 70 | Panie Doktorze | Pani Doktor | Dr |
 | `lek.` | `lek. med.`, `lekarz` | 60 | Panie Doktorze | Pani Doktor | Dr |
 | `lek. dent.` | `lek. stom.` | 61 | Panie Doktorze | Pani Doktor | Dr |
 | `lek. wet.` | – | 61 | Panie Doktorze | Pani Doktor | Dr |
