@@ -68,6 +68,13 @@ public static class GpoFileDiff
             }
         }
 
+        // A preferences file the parser could not read, or any file naming a GPP password, is never shown as raw text: masked
+        // values are never displayed.
+        if (file.Role == GpoFileRole.Preferences || MayHoldGppPassword(oldContent) || MayHoldGppPassword(newContent))
+        {
+            return new GpoFileDiffResult(GpoFileDiffKind.Binary, []);
+        }
+
         var extension = Path.GetExtension(relativePath);
         if (TextExtensions.Contains(extension) || file.Role is GpoFileRole.ScriptFile or GpoFileRole.GptIni)
         {
@@ -116,6 +123,13 @@ public static class GpoFileDiff
         };
         return setting.Key + " = " + value;
     }
+
+    /// <summary>The bytes name <c>cpassword</c> in an 8-bit or UTF-16 encoding (case-insensitive).</summary>
+    private static bool MayHoldGppPassword(byte[]? content) =>
+        content is not null
+        && (System.Text.Encoding.Latin1.GetString(content).Contains("cpassword", StringComparison.OrdinalIgnoreCase)
+            || System.Text.Encoding.Unicode.GetString(content).Contains("cpassword", StringComparison.OrdinalIgnoreCase)
+            || System.Text.Encoding.BigEndianUnicode.GetString(content).Contains("cpassword", StringComparison.OrdinalIgnoreCase));
 
     private static IReadOnlyList<string>? Text(byte[]? content)
     {

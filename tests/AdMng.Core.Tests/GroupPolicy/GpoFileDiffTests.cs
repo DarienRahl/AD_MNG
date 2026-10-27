@@ -51,4 +51,18 @@ public class GpoFileDiffTests
         Assert.DoesNotContain(diff.Lines, l => l.Text.Contains("tajne", StringComparison.Ordinal));
         Assert.Contains(diff.Lines, l => l.Text.EndsWith("= ***", StringComparison.Ordinal));
     }
+
+    [Theory]
+    [InlineData("Machine/Preferences/Groups/Groups.xml")]
+    [InlineData("Machine/Scripts/Startup/kopia-groups.xml")]
+    public void UnparseableFileWithAGppPassword_IsNeverShownAsText(string path)
+    {
+        // Malformed XML (the parser throws): the raw text would show the cpassword value.
+        var broken = Encoding.UTF8.GetBytes("<Groups><User name=\"admin\"><Properties cpassword=\"tajne-haslo-łódź\" </User>");
+
+        var diff = GpoFileDiff.Compare(path, null, broken);
+
+        Assert.Equal(GpoFileDiffKind.Binary, diff.Kind);
+        Assert.DoesNotContain(diff.Lines, l => l.Text.Contains("tajne", StringComparison.Ordinal));
+    }
 }
