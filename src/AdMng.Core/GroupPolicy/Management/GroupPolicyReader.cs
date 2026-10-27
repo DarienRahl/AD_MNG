@@ -359,6 +359,45 @@ public sealed class GroupPolicyReader
         return [.. result.Order(StringComparer.OrdinalIgnoreCase)];
     }
 
+    /// <summary>
+    /// The last version of a deleted GPO with this GUID, read from <c>CN=Deleted Objects</c> (Show Deleted): a Recycle Bin
+    /// forest keeps <c>versionNumber</c> on deleted objects, a tombstone does not (null then, as when nothing is found).
+    /// </summary>
+    public async Task<GpoVersion?> ReadDeletedVersionAsync(IDirectorySession session, Guid gpoId, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var name = SysvolPaths.FolderName(gpoId);
+        GpoVersion? result = null;
+        try
+        {
+            await foreach (var deleted in session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = Batch.RecycleBin.GetDeletedObjectsContainer(session.Info.DefaultNamingContext),
+                Scope = SearchScope.OneLevel,
+                Filter = LdapFilter.And(
+                    LdapFilter.Equal(Attr.ObjectClass, GroupPolicyAttributes.ContainerClass),
+                    LdapFilter.Or(LdapFilter.Equal(Attr.MsDsLastKnownRdn, name), LdapFilter.StartsWith(Attr.Cn, name))),
+                Attributes = [GroupPolicyAttributes.VersionNumber],
+                PageSize = PageSize,
+                IncludeDeleted = true,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (int.TryParse(deleted.GetString(GroupPolicyAttributes.VersionNumber), System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out var raw))
+                {
+                    var version = GpoVersion.FromInt32(raw);
+                    result = result is { } seen ? GpoVersion.Max(seen, version) : version;
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.NoSuchObject or DirectoryErrorKind.AccessDenied)
+        {
+            // No readable Deleted Objects container: the version is unknown.
+        }
+
+        return result;
+    }
+
     /// <summary>The WMI filters of the domain, sorted by name.</summary>
     public async Task<IReadOnlyList<WmiFilterInfo>> ReadWmiFiltersAsync(IDirectorySession session, CancellationToken cancellationToken)
     {

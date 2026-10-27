@@ -140,6 +140,38 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
     }
 
     [Fact]
+    public async Task Restore_OfADeletedGpo_GoesAboveTheVersionItHadWhenDeleted()
+    {
+        // Backed up at 0/4, then edited twice (0/6, 0/7) and deleted: clients may have processed 0/7.
+        var backup = await BackUpAsync(Sample.WorkstationPasswords);
+        Session.SetValues(GpoDn(Sample.WorkstationPasswords), "versionNumber", new GpoVersion(0, 7).ToInt32().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        await ExecuteOkAsync(await Planner.PlanDeleteAsync(Session, Sample.WorkstationPasswords, Ct));
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        await using var sysvol = await OpenSysvolAsync();
+
+        await ExecuteOkAsync(await Planner.PlanRestoreAsync(Session, sysvol, read, _folder, restoreLinks: false, Ct));
+
+        Assert.Equal(new GpoVersion(0, 8).ToInt32().ToString(System.Globalization.CultureInfo.InvariantCulture), Value(GpoDn(Sample.WorkstationPasswords), "versionNumber"));
+    }
+
+    [Fact]
+    public async Task Restore_OfADeletedGpo_WithoutRecycleBin_JumpsWellAboveTheBackup()
+    {
+        var backup = await BackUpAsync(Sample.WorkstationPasswords);
+        Session.Info = Session.Info with { RecycleBinEnabled = false };
+        await ExecuteOkAsync(await Planner.PlanDeleteAsync(Session, Sample.WorkstationPasswords, Ct));
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        await using var sysvol = await OpenSysvolAsync();
+
+        var plan = await Planner.PlanRestoreAsync(Session, sysvol, read, _folder, restoreLinks: false, Ct);
+        await ExecuteOkAsync(plan);
+
+        Assert.Contains(plan.Objects[0].Changes.SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoVersionJump && i.Severity == IssueSeverity.Info);
+        var expected = new GpoVersion(0, 4 + 1 + GroupPolicyPlanner.VersionJumpWithoutHistory);
+        Assert.Equal(expected.ToInt32().ToString(System.Globalization.CultureInfo.InvariantCulture), Value(GpoDn(Sample.WorkstationPasswords), "versionNumber"));
+    }
+
+    [Fact]
     public async Task Restore_OfADeletedFilteredGpo_KeepsItsSecurityFiltering()
     {
         // "Stacje robocze – Pulpit zdalny" applies to GG_IT only; the re-created container starts with the default DACL.

@@ -10504,5 +10504,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
     <value>Kopia zapasowa pochodzi z domeny {0}: przywróć ją tam albo zaimportuj jej ustawienia do GPO tej domeny.</value>
   </data>
+  <data name="Issue.GpoVersionJump" xml:space="preserve">
+    <value>Ostatnia wersja usuniętego GPO jest nieznana (brak Kosza AD): wersja zostanie podniesiona wyraźnie ponad wersję z kopii, aby każdy klient ponownie przetworzył przywrócone ustawienia.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

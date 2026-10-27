@@ -10504,5 +10504,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoBackupOtherDomain" xml:space="preserve">
     <value>The backup comes from the domain {0}: restore it there, or import its settings into a GPO of this domain.</value>
   </data>
+  <data name="Issue.GpoVersionJump" xml:space="preserve">
+    <value>The deleted GPO's last version is unknown (no Recycle Bin): the version is raised well above the backup's so that every client processes the restored settings again.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

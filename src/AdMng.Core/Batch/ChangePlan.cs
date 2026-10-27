@@ -261,6 +261,9 @@ public static class IssueCodes
     /// <summary>Restore: the backup comes from another domain ({0}): restore it there or import its settings.</summary>
     public const string GpoBackupOtherDomain = "GpoBackupOtherDomain";
 
+    /// <summary>Restore of a deleted GPO without its last version (no Recycle Bin): the version jumps well above the backup's.</summary>
+    public const string GpoVersionJump = "GpoVersionJump";
+
     /// <summary>"Usuń pozostały folder": the GPO container exists (again), so its SYSVOL folder is not left over.</summary>
     public const string GpoExists = "GpoExists";
 

@@ -60,10 +60,18 @@ public sealed partial class GroupPolicyPlanner
     }
 
     /// <summary>
+    /// How far a re-created GPO's version halves go above the backup's when the deleted GPO's last version is unknown (no
+    /// Recycle Bin): edits made between the backup and the delete must not leave a client with an equal, already processed
+    /// version.
+    /// </summary>
+    public const int VersionJumpWithoutHistory = 1000;
+
+    /// <summary>
     /// Restores the GPO of a backup (<c>Restore-GPO</c>): an existing GPO gets the backup's files (written, deleted), name,
     /// status, extension names, WMI filter link (when the filter exists), explicit ACEs and the folder DACL, with both
     /// version halves raised from the current maximum; a deleted GPO is created again with the backup's GUID and content
-    /// (each non-empty half at the backup's version + 1). Links are not part of a GPMC restore: with
+    /// (each non-empty half above the deleted GPO's last version, or <see cref="VersionJumpWithoutHistory"/> above the
+    /// backup's when the Recycle Bin did not keep it). Links are not part of a GPMC restore: with
     /// <paramref name="restoreLinks"/> the sidecar's links are added where the container exists.
     /// </summary>
     public async Task<ChangePlan> PlanRestoreAsync(IDirectorySession session, ISysvolWriteConnection sysvol, GpoBackup backup, string backupFolder, bool restoreLinks,
@@ -102,9 +110,22 @@ public sealed partial class GroupPolicyPlanner
             }
 
             var files = backup.Files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase).ToList();
+
+            // Never down for the clients (design note 3.4): above the deleted GPO's last version when the Recycle Bin kept it,
+            // otherwise well above the backup's (the GPO may have been edited between the backup and its delete).
+            var deletedVersion = await _reader.ReadDeletedVersionAsync(session, backup.GpoId, cancellationToken).ConfigureAwait(false);
+            var floor = deletedVersion is { } last ? GpoVersion.Max(backup.Version, last) : backup.Version;
+            var step = deletedVersion is null ? 1 + VersionJumpWithoutHistory : 1;
+            int Half(bool used, int value) => used ? Math.Min(value + step, GpoVersion.MaxHalf) : 0;
             var version = new GpoVersion(
-                files.Any(f => IsBelow(f.Key, "User")) || backup.Version.User > 0 ? Math.Min(backup.Version.User + 1, GpoVersion.MaxHalf) : 0,
-                files.Any(f => IsBelow(f.Key, "Machine")) || backup.Version.Computer > 0 ? Math.Min(backup.Version.Computer + 1, GpoVersion.MaxHalf) : 0);
+                Half(files.Any(f => IsBelow(f.Key, "User")) || floor.User > 0, floor.User),
+                Half(files.Any(f => IsBelow(f.Key, "Machine")) || floor.Computer > 0, floor.Computer));
+            if (deletedVersion is null && version != GpoVersion.Zero)
+            {
+                nameIssues.Add(new ValidationIssue(IssueSeverity.Info, IssueCodes.GpoVersionJump,
+                    "The deleted GPO's last version is unknown: the version is raised well above the backup's so that clients reprocess it."));
+            }
+
             objects.AddRange(NewPolicyObjects(session, backup.GpoId, backup.DisplayName, [.. issues, .. nameIssues], powerShell,
                 extra: create => create with
                 {
