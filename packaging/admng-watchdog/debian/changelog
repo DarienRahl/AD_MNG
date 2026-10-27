@@ -1,5 +1,14 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
+  * AdMng 0.5.0: no functional change of the service. The privileged group
+    catalogue, the security descriptor parser and the GPO file parsers moved
+    to AdMng.Core (shared with AD Manager's privileged access review); the
+    service uses them from there unchanged.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 27 Oct 2026 12:00:00 +0000
+
+admng-watchdog (0.4.0-1) unstable; urgency=medium
+
   * Messages to users from AD Manager (AdMng 0.4.0): POST /api/v1/user-messages
     and GET /api/v1/user-messages/status for the Watchdog Admins and Viewers
     roles, configuration section userMessages (off by default, allowed

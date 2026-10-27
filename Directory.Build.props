@@ -12,7 +12,7 @@
     <Product>AD Manager</Product>
     <Company>AD_MNG</Company>
     <Copyright>AD_MNG contributors</Copyright>
-    <VersionPrefix>0.4.0</VersionPrefix>
+    <VersionPrefix>0.5.0</VersionPrefix>
     <NeutralLanguage>en</NeutralLanguage>
     <SatelliteResourceLanguages>en;pl</SatelliteResourceLanguages>
     <!-- WPF projects can be compiled (not run) on Linux/macOS for CI and agents. -->
