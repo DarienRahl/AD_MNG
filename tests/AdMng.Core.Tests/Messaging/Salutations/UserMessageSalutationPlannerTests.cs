@@ -211,6 +211,20 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void EnglishMessages_GuessPolishNamesByTheRule()
+    {
+        const string JanDn = "CN=Jan Nowak,OU=Wykładowcy,DC=contoso,DC=test";
+        var jan = User(JanDn,
+            [(Attr.GivenName, "Jan"), (Attr.Sn, "Nowak"), (Attr.DisplayName, "Jan Nowak"), (Attr.Mail, "jan.nowak@contoso.test"), ("preferredLanguage", "en-GB")]);
+
+        var message = Plan(Template("{$salutation},", "{$salutation},"), [new(JanDn, jan)]).Messages[0];
+
+        Assert.StartsWith("Dear Mr Nowak,", message.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderGuessed, MessageIssueSeverity.Info, "Jan"), message.Issues);
+        Assert.DoesNotContain(message.Issues, i => i.Code == SalutationIssueCodes.GenderUnknown);
+    }
+
+    [Fact]
     public void Findings_NameTheAccount_EvenWithoutAnyName()
     {
         const string ScannerDn = "CN=Skaner Sekretariat,OU=Urządzenia,DC=contoso,DC=test";

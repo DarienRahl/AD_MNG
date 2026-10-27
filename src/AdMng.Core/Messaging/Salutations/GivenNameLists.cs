@@ -35,6 +35,37 @@ public static class GivenNameLists
         "pallavi", "shalini", "nalini", "malini", "kirti", "deepti", "smriti", "aditi", "nandini", "sakshi", "ayse", "elif",
         "zeynep", "merve");
 
+    /// <summary>
+    /// Frequent Polish given names: in English messages the "-a" rule decides for these (and for names with Polish
+    /// letters) only – "Jan Nowak" with preferredLanguage=en is still "Dear Mr Nowak". No name used for the other gender
+    /// in English ("Marian").
+    /// </summary>
+    public static IReadOnlySet<string> Polish { get; } = Keys(
+        "jan", "piotr", "krzysztof", "andrzej", "tomasz", "paweł", "michał", "marcin", "grzegorz", "józef", "łukasz", "adam",
+        "zbigniew", "jerzy", "tadeusz", "mateusz", "dariusz", "mariusz", "wojciech", "ryszard", "jakub", "henryk", "robert",
+        "rafał", "kazimierz", "jacek", "maciej", "kamil", "janusz", "marek", "władysław", "stanisław", "mirosław", "sławomir",
+        "bogdan", "roman", "zdzisław", "edward", "mieczysław", "damian", "wiesław", "czesław", "leszek", "daniel", "karol",
+        "przemysław", "bartosz", "sebastian", "artur", "patryk", "dawid", "szymon", "kacper", "filip", "wiktor", "igor",
+        "hubert", "dominik", "oskar", "antoni", "franciszek", "aleksander", "stefan", "zenon", "waldemar", "bogusław",
+        "eugeniusz", "lech", "witold", "ireneusz", "emil", "adrian", "konrad", "krystian", "norbert", "arkadiusz", "jarosław",
+        "radosław", "bolesław", "gabriel", "julian", "ludwik", "leon", "feliks", "ignacy", "wacław", "zygmunt", "bronisław",
+        "edmund", "kornel", "cezary", "remigiusz", "tymoteusz", "bartłomiej", "miłosz", "oliwer", "nikodem", "borys",
+        "ksawery", "jędrzej", "maksymilian", "fabian", "benedykt", "wincenty", "bernard", "tymon", "leonard", "olaf", "eryk",
+        "marcel", "iwo", "kajetan", "gustaw", "seweryn", "sylwester", "teodor", "tobiasz", "mikołaj", "lucjan", "florian",
+        "juliusz", "klemens", "konstanty", "leopold", "maurycy", "walenty", "wawrzyniec", "włodzimierz", "bogumił", "anna",
+        "maria", "katarzyna", "małgorzata", "agnieszka", "krystyna", "barbara", "ewa", "elżbieta", "zofia", "janina", "teresa",
+        "joanna", "magdalena", "monika", "jadwiga", "danuta", "irena", "halina", "helena", "beata", "aleksandra", "marta",
+        "dorota", "marianna", "grażyna", "jolanta", "stanisława", "iwona", "karolina", "bożena", "urszula", "justyna",
+        "renata", "alicja", "paulina", "sylwia", "natalia", "wanda", "agata", "aneta", "izabela", "ewelina", "marzena",
+        "wiesława", "genowefa", "patrycja", "kazimiera", "edyta", "stefania", "julia", "zuzanna", "wiktoria", "oliwia", "maja",
+        "lena", "hanna", "amelia", "gabriela", "kinga", "emilia", "weronika", "klaudia", "dominika", "angelika", "martyna",
+        "kamila", "daria", "nina", "anita", "lucyna", "mirosława", "bogumiła", "czesława", "władysława", "ilona", "lidia",
+        "kornelia", "regina", "róża", "celina", "leokadia", "zdzisława", "bogusława", "henryka", "józefa", "zyta", "aniela",
+        "franciszka", "antonina", "apolonia", "bronisława", "eugenia", "felicja", "honorata", "ludmiła", "rozalia", "sabina",
+        "wioletta", "żaneta", "adrianna", "aurelia", "blanka", "elwira", "eliza", "jagoda", "jowita", "judyta", "klara",
+        "liliana", "malwina", "marcelina", "marlena", "matylda", "milena", "roksana", "alina", "cecylia", "faustyna", "kalina",
+        "karina", "łucja", "michalina", "dagmara", "magda", "zenona", "teodora");
+
     /// <summary>Names used for both genders (no signal from the name; the surname may decide).</summary>
     public static IReadOnlySet<string> Unisex { get; } = Keys(
         "sasza", "sasha", "zhenya", "andrea", "nicola", "nikola", "kim", "alex", "robin", "jean", "dominique", "toni", "kai", "noa",

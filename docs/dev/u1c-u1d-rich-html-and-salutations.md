@@ -774,11 +774,13 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
    * in the built-in **unisex** list → no name signal;
    * in the built-in **masculine-ending-in-a** list → masculine (guessed, *exception*);
    * in the built-in **feminine-not-ending-in-a** list → feminine (guessed, *exception*);
-   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*) – **Polish messages only** (as
-     built): recipients of English messages mostly have names the Polish rule does not fit (Jennifer, Karen, Ilya), so
-     there a name outside the lists gives no signal of its own (the surname may decide; else the neutral "Dear {name}"
-     and `GenderUnknown`) – but the rule result still vetoes a disagreeing surname (step 5), so "Laura Nowakowski" or
-     "Paweł Gąska" is a conflict, never "Dear Mr Nowakowski" / "Dear Ms Gąska".
+   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*). As built, in **English messages**
+     only for Polish names – a Polish letter (`ą ć ę ł ń ś ź ż`) or the built-in list of frequent Polish given names
+     (`GivenNameLists.Polish`: "Jan Nowak" with `preferredLanguage=en` → "Dear Mr Nowak" ≈, as "Szanowny Panie" in
+     Polish): recipients of English messages mostly have names the Polish rule does not fit (Jennifer, Karen, Ilya), so
+     there any other name outside the lists gives no signal of its own (the surname may decide; else the neutral "Dear
+     {name}" and `GenderUnknown`) – but the rule result still vetoes a disagreeing surname (step 5), so "Laura
+     Nowakowski" or "Paweł Gąska" is a conflict, never "Dear Mr Nowakowski" / "Dear Ms Gąska".
 5. **Surname** (`sn`; as built every part of a hyphenated one – the adjectival part is often the second one,
    `Nowak-Kowalska`; parts that disagree give no signal): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
    With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception; in English messages

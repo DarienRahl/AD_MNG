@@ -58,7 +58,7 @@ public sealed class MessageSalutations
     /// <param name="schema">Schema of the session (confidential attributes are never read).</param>
     /// <param name="issues">The message's issue list the findings are added to, or null.</param>
     /// <param name="managerOverride">Gender of the manager chosen in the preview for this message, or null.</param>
-    /// <param name="language">Language of the message (the Polish name rule applies to Polish messages only).</param>
+    /// <param name="language">Language of the message (in English messages the Polish name rule decides for Polish names only).</param>
     public MessageSalutations(
         DirectoryObject account,
         DirectoryObject? manager,

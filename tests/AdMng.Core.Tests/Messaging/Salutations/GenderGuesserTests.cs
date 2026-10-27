@@ -84,15 +84,42 @@ public sealed class GenderGuesserTests
         Assert.Equal(Gender.Unknown, GenderGuesser.Guess(null, null, Gender.Unknown, "Brenda", "Lee", Options, polishNameRule: false).Gender);
 
         // … the lists, the surname, the attribute and the operator's list still decide.
-        Assert.Equal(DerivedValueSource.Surname, GenderGuesser.Guess(null, null, Gender.Unknown, "Jan", "Kowalski", Options, polishNameRule: false).Source);
+        Assert.Equal(DerivedValueSource.Surname, GenderGuesser.Guess(null, null, Gender.Unknown, "John", "Kowalski", Options, polishNameRule: false).Source);
         Assert.Equal(Gender.Feminine, GenderGuesser.Guess(null, "F", Gender.Unknown, "John", "Smith", Options, polishNameRule: false).Gender);
         var listed = Options with { GivenNames = [new GivenNameGender("John", Gender.Masculine)] };
         Assert.Equal(DerivedValueSource.OperatorList, GenderGuesser.Guess(null, null, Gender.Unknown, "John", "Smith", listed, polishNameRule: false).Source);
 
         // An agreeing rule leaves the decision to the surname.
-        var agreeing = GenderGuesser.Guess(null, null, Gender.Unknown, "Anna", "Kowalska", Options, polishNameRule: false);
+        var agreeing = GenderGuesser.Guess(null, null, Gender.Unknown, "Brenda", "Kowalska", Options, polishNameRule: false);
         Assert.Equal((Gender.Feminine, DerivedValueSource.Surname), (agreeing.Gender, agreeing.Source));
     }
+
+    [Theory]
+    [InlineData("Jan", "Nowak", Gender.Masculine)]
+    [InlineData("Anna", "Nowak", Gender.Feminine)]
+    [InlineData("Krzysztof", "Smith", Gender.Masculine)]
+    [InlineData("Paweł", "Brown", Gender.Masculine)]
+    [InlineData("Małgorzata", "Brown", Gender.Feminine)]
+    [InlineData("Anna Maria", "Kowalska", Gender.Feminine)]
+    public void EnglishMessages_ApplyThePolishRule_ToPolishNames(string givenName, string surname, Gender gender)
+    {
+        // A Polish employee with preferredLanguage=en: "Dear Mr Nowak" (a guess), as "Szanowny Panie" in Polish.
+        var info = GenderGuesser.Guess(null, null, Gender.Unknown, givenName, surname, Options, polishNameRule: false);
+
+        Assert.Equal((gender, DerivedValueSource.NameRule, true), (info.Gender, info.Source, info.IsGuess));
+    }
+
+    [Theory]
+    [InlineData("Jan", true)]
+    [InlineData("JAN", true)]
+    [InlineData("Łucja", true)]
+    [InlineData("Zdzisław", true)]
+    [InlineData("Grzegorz", true)]
+    [InlineData("John", false)]
+    [InlineData("Brenda", false)]
+    [InlineData("Marian", false)]
+    [InlineData("Ramón", false)]
+    public void LooksPolish(string givenName, bool expected) => Assert.Equal(expected, GenderGuesser.LooksPolish(givenName));
 
     [Theory]
     [InlineData("Laura", "Nowakowski")]
@@ -279,5 +306,7 @@ public sealed class GenderGuesserTests
         Assert.True(GivenNameLists.FeminineNotEndingInA.Count >= 60);
         Assert.Empty(GivenNameLists.Unisex.Intersect(GivenNameLists.MasculineEndingInA));
         Assert.Empty(GivenNameLists.Unisex.Intersect(GivenNameLists.FeminineNotEndingInA));
+        Assert.Empty(GivenNameLists.Polish.Intersect(GivenNameLists.Unisex));
+        Assert.True(GivenNameLists.Polish.Count >= 200);
     }
 }

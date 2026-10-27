@@ -661,10 +661,12 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   `{$title}` (`prof. dr hab.`, `{$title:highest}`), `{$titledName}`, `{$honorific:dopełniacz}` (Pan / Pana / Panu …
   w siedmiu przypadkach), `{$byGender:zmienił/zmieniła}`, ich odpowiedniki dla przełożonego (`{$managerSalutation}` …)
   i funkcja `capitalize`. Tytuł z `personalTitle` (atrybut do zmiany w ustawieniach), a gdy go brak – z nazwy
-  wyświetlanej („prof. dr hab. Jan Kowalski”, „…, prof. UW”); płeć z atrybutu wybranego w ustawieniach, ze słów
-  „Pan” / „Pani” w atrybucie tytułu, z listy imion w ustawieniach, z imienia (polskie reguły z listami wyjątków: Kuba,
-  Barnaba, Beatrycze, Noemi, Jennifer, Ilya …; reguła „-a” rozstrzyga tylko w wiadomościach po polsku, w angielskich jedynie blokuje sprzeczne nazwisko), z nazwiska (-ska / -ski) i
-  z tytułu tylko dla jednej płci („ks.”); przy nieznanej płci zwrot neutralny z tytułem („Szanowna Pani Profesor /
+  wyświetlanej („prof. dr hab. Jan Kowalski”, „…, prof. UW”, „…, prof. IChF PAN”); płeć z atrybutu wybranego
+  w ustawieniach, ze słowa „Pan” / „Pani” na początku atrybutu tytułu (nie „PAN” – Polska Akademia Nauk), z listy imion
+  w ustawieniach, z imienia (polskie reguły z listami wyjątków: Kuba, Barnaba, Beatrycze, Noemi, Jennifer, Ilya …;
+  w wiadomościach angielskich reguła „-a” rozstrzyga tylko dla imion polskich – z polską literą albo z wbudowanej
+  listy – a dla pozostałych jedynie blokuje sprzeczne nazwisko), z nazwiska (-ska / -ski, także w drugim członie:
+  Nowak-Kowalska) i z tytułu tylko dla jednej płci („ks.”); przy nieznanej płci zwrot neutralny z tytułem („Szanowna Pani Profesor /
   Szanowny Panie Profesorze”). Sekcja *Zwroty grzecznościowe* w ustawieniach: tabela
   tytułów (ranga, wołacz dla Pana i Pani, forma EN; *Przywróć domyślne*), lista imion, zwroty neutralne, zachowanie
   przy nieznanej płci i pole *Sprawdź*; w szablonie *Używaj tytułów* i *Gdy płeć nieznana*. Podgląd: kolumna *Zwrot*

@@ -318,7 +318,7 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
                 gender.Detail);
             CheckGenderResult = _localizer.Format(L.Salutations.CheckGenderResult, SalutationText.Value(_localizer, source), SalutationText.Source(_localizer, source));
             CheckPolish = SalutationResolver.Salutation(person, MessageLanguage.Polish, SalutationVariant.Full, options).Text;
-            // English messages do not apply the Polish name rule.
+            // In English messages the Polish name rule decides for Polish names only.
             CheckEnglish = SalutationResolver.Salutation(Person(MessageLanguage.English), MessageLanguage.English, SalutationVariant.Full, options).Text;
         }
         finally

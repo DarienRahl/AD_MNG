@@ -59,7 +59,7 @@ public sealed record SalutationPerson
     /// <param name="options">Settings merged with the template's options.</param>
     /// <param name="overrideGender">Chosen in the preview for this run, or null.</param>
     /// <param name="schema">Schema of the session: confidential attributes are never read as title or gender.</param>
-    /// <param name="language">Language of the message (the Polish name rule applies to Polish messages only).</param>
+    /// <param name="language">Language of the message (in English messages the Polish name rule decides for Polish names only).</param>
     public static SalutationPerson From(
         DirectoryObject person,
         SalutationOptions options,

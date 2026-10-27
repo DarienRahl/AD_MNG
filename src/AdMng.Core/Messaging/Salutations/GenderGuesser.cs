@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace AdMng.Core.Messaging.Salutations;
 
 /// <summary>The gender of a person with where it came from (U1d).</summary>
@@ -26,13 +28,17 @@ public sealed record GenderInfo
 /// <summary>
 /// Determines the gender (design note section 16): the operator's override for this run, the gender attribute (two value
 /// lists) or an honorific word of the title attribute, the operator's given-name list, the first given name (built-in
-/// exception lists, then "ends in -a → feminine"), the surname (-ska / -ski …; against a rule result – in English
-/// messages too – it is a conflict), finally a title for one gender only (<see cref="WithTitle"/>). Pure.
+/// exception lists, then "ends in -a → feminine" – in English messages for Polish names only), the surname (-ska / -ski
+/// …; against a rule result – in English messages too – it is a conflict), finally a title for one gender only
+/// (<see cref="WithTitle"/>). Pure.
 /// </summary>
 public static class GenderGuesser
 {
     private static readonly string[] FeminineSurnameEndings = ["ska", "cka", "dzka"];
     private static readonly string[] MasculineSurnameEndings = ["ski", "cki", "dzki"];
+
+    /// <summary>Letters found in Polish names only (not "ó" – Spanish, Hungarian …).</summary>
+    private static readonly SearchValues<char> PolishLetters = SearchValues.Create("ąćęłńśźżĄĆĘŁŃŚŹŻ");
 
     /// <param name="overrideGender">Chosen in the preview (<see cref="Gender.Unknown"/> = neutral on purpose); null = none.</param>
     /// <param name="attributeValue">Value of the gender attribute, or null.</param>
@@ -41,10 +47,11 @@ public static class GenderGuesser
     /// <param name="surname">Surname.</param>
     /// <param name="options">Value lists and the operator's given-name list.</param>
     /// <param name="polishNameRule">
-    /// Let the Polish rule "ends in -a → feminine, else masculine" decide for names outside the lists – only for Polish
-    /// messages: recipients of English messages mostly have names it does not fit (Jennifer, Karen, Ilya), so there it gives
-    /// no signal of its own. It still vetoes a disagreeing surname in both languages ("Laura Nowakowski", "Paweł Gąska" →
-    /// conflict), so a -ski / -ska surname never decides against an obvious given name.
+    /// Let the Polish rule "ends in -a → feminine, else masculine" decide for every name outside the lists (Polish
+    /// messages). False (English messages): recipients mostly have names it does not fit (Jennifer, Karen, Ilya), so it
+    /// decides only for Polish names – with Polish letters or on <see cref="GivenNameLists.Polish"/> ("Jan Nowak" → "Dear Mr
+    /// Nowak") – and gives no signal of its own for the others. It still vetoes a disagreeing surname in both languages
+    /// ("Laura Nowakowski", "Paweł Gąska" → conflict), so a -ski / -ska surname never decides against an obvious given name.
     /// </param>
     public static GenderInfo Guess(Gender? overrideGender, string? attributeValue, Gender honorific, string? givenName, string? surname, SalutationOptions options, bool polishNameRule = true)
     {
@@ -91,7 +98,7 @@ public static class GenderGuesser
             return new GenderInfo { IsConflict = true, Detail = $"{first} {surname?.Trim()}".Trim(), UnknownValue = unknownValue };
         }
 
-        if (!polishNameRule && byName?.Source == DerivedValueSource.NameRule)
+        if (!polishNameRule && byName?.Source == DerivedValueSource.NameRule && !LooksPolish(first!))
         {
             byName = null;
         }
@@ -117,6 +124,13 @@ public static class GenderGuesser
         return gender is { Gender: Gender.Unknown, IsConflict: false, Source: DerivedValueSource.None } && title.ImpliedGender is var implied and not Gender.Unknown
             ? gender with { Gender = implied, Source = title.Source, IsGuess = true, Detail = title.Text }
             : gender;
+    }
+
+    /// <summary>A given name the Polish rule fits in English messages too: Polish letters or a frequent Polish name.</summary>
+    public static bool LooksPolish(string firstGivenName)
+    {
+        ArgumentNullException.ThrowIfNull(firstGivenName);
+        return firstGivenName.AsSpan().ContainsAny(PolishLetters) || GivenNameLists.Polish.Contains(SalutationKey.Of(firstGivenName));
     }
 
     /// <summary>"Jan Maria" → "Jan", "Anna-Maria" → "Anna"; initials ("J.", "J") and empty → null.</summary>
