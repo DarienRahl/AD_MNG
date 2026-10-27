@@ -511,7 +511,12 @@ image), `unreferencedImage` (an image the HTML does not reference), `imageIdMism
 
 The capability `inlineImages` is reported only when the service supports images **and** `userMessages.allowInlineImages`
 is on (new setting, default **on** – an administrator may forbid images; config audit rating Medium). Clients without
-images are unaffected; an older AD Manager keeps working against the new service.
+images are unaffected; an older AD Manager keeps working against the new service: a request **without** inline images
+is refused only for what U1b refused (the first gate, plus HTML nested too deeply) – what U1b allowed and the sanitizer
+refuses (a remote image, hidden content, an overlay, an element outside the allow-list) is removed from the sanitized
+document the service sends (review U1c, finding 5). A request with images (only U1c clients send them) is refused for
+every security finding. The new AD Manager itself shows such U1b templates as errors (`HtmlNotAllowed`) until they are
+fixed – e.g. the remote logo pasted again as an embedded image.
 
 ### 9.2 Request size
 

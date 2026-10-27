@@ -516,7 +516,9 @@ wygrywa jak wszędzie. Konfigurację zmienia tylko administrator.
 - HTML bez skryptów, ramek, formularzy, `on…=`, `javascript:`/`data:`/`vbscript:`/`file:` – sprawdzany **tym samym
   sanitizerem co w AD Managerze** (parser HTML5, listy dozwolonych znaczników, atrybutów i właściwości CSS); źródłem
   obrazu może być tylko `cid:` obrazu przesłanego w tej wiadomości; usługa wysyła dokument po tej kontroli; język `pl`
-  lub `en`,
+  lub `en`; wiadomość **bez** obrazów osadzonych (tak wysyła także AD Manager sprzed U1c) jest odrzucana tylko za to,
+  co odrzucała wersja U1b (skrypty, ramki, formularze, `on…=`, niedozwolone schematy, zbyt głębokie zagnieżdżenie) –
+  obraz z serwera WWW, ukryty tekst czy nakładka są z niej usuwane przed wysyłką, a nie powodują odrzucenia,
 - **brak załączników** – żądanie z nieznanym polem (np. `attachments`, `bcc`) jest odrzucane; obrazy osadzone w treści
   (niżej) nie są załącznikami,
 - *Od* i *Odpowiedz do* tylko z konfiguracji kanału SMTP lub listy dozwolonych nadawców; **nadawcą koperty** (MAIL

@@ -147,6 +147,46 @@ public sealed class UserMessageInlineImageApiTests : IAsyncLifetime
         Assert.Contains("Termin (data: 5.11.2026)", mime.HtmlBody, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task AMessageWithoutImages_AsAnOlderAdManagerSendsIt_IsSent_WithWhatU1cRefusesRemoved()
+    {
+        // AD Manager before U1c checked only the first gate: a remote logo of the company domain, a hidden preheader and an
+        // overlay were allowed. The service removes them from the document it sends instead of failing the whole run.
+        await ConfigureAsync(_sink.Port);
+        using var viewer = _factory.Viewer();
+        var html = "<div style=\"display:none\">Podgląd: hasło wygasa</div><p><img src=\"https://contoso.test/logo.png\" alt=\"Logo\"></p>"
+            + "<p style=\"position:fixed;top:0\">Dzień dobry, Zofio! Zażółć gęślą jaźń.</p><p><button>Kliknij</button></p>";
+        var request = Request() with
+        {
+            HtmlBody = UserMessageRules.HtmlDocument(html, BuiltInMessageTemplates.Footer(MessageLanguage.Polish), MessageLanguage.Polish),
+            InlineImages = [],
+        };
+
+        using var response = await viewer.PostAsync(WatchdogRoutes.UserMessages, ApiJson.Content(request), Ct);
+
+        Assert.True(response.StatusCode == HttpStatusCode.OK, $"{response.StatusCode}: {await response.Content.ReadAsStringAsync(Ct)}");
+        var sent = MimeMessage.Load(new MemoryStream(Assert.Single(_sink.Messages).Data), Ct).HtmlBody;
+        Assert.Contains("Dzień dobry, Zofio! Zażółć gęślą jaźń.", sent, StringComparison.Ordinal);
+        foreach (var removed in new[] { "Podgląd", "https://contoso.test/logo.png", "position", "<button" })
+        {
+            Assert.DoesNotContain(removed, sent, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task AMessageWithoutImages_IsStillRefused_ForWhatTheFirstGateRefuses()
+    {
+        await ConfigureAsync(_sink.Port);
+        using var viewer = _factory.Viewer();
+        var request = Request() with { HtmlBody = "<p onclick=\"x()\">Zażółć</p>", InlineImages = [] };
+
+        using var response = await viewer.PostAsync(WatchdogRoutes.UserMessages, ApiJson.Content(request), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(UserMessageIssueCodes.ForbiddenHtml, await ApiJson.IssueCodesAsync(response));
+        Assert.Empty(_sink.Messages);
+    }
+
     [Theory]
     [InlineData("notAnImage", "invalidImage")]
     [InlineData("svg", "invalidImage")]

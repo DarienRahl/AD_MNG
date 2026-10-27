@@ -28,7 +28,10 @@ public sealed record UserMessageContent(string? HtmlBody, IReadOnlyList<MessageI
 /// (<c>tooLarge</c>), valid PNG / JPEG / GIF (<c>invalidImage</c>), identified by the SHA-256 of their bytes
 /// (<c>imageIdMismatch</c>) and referenced by the HTML (<c>unreferencedImage</c>). The service then sends the sanitized
 /// document and the stripped images, so cosmetic policy differences between versions never fail a run, security
-/// differences always do.</para>
+/// differences do. A request without inline images may come from AD Manager before U1c, which checked only the first
+/// gate: what that allowed and the sanitizer refuses (a remote image, hidden content, an overlay, an element outside the
+/// allow-list) is removed from the document the service sends instead of being refused, so an older AD Manager keeps
+/// working (U1c clients sanitize the HTML themselves).</para>
 /// </summary>
 public static class UserMessageRequestValidator
 {
@@ -222,11 +225,12 @@ public static class UserMessageRequestValidator
             Add(issues, "htmlBody", UserMessageIssueCodes.MissingImage, "The HTML body references an image the message does not carry.");
         }
 
+        var legacy = (request.InlineImages ?? []).Count == 0;
         if (result.Changes.Any(c => c.Kind == HtmlChangeKind.TooDeep))
         {
             Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body is nested too deeply.");
         }
-        else if (result.Changes.Any(c => c.IsSecurity && c.Kind != HtmlChangeKind.MissingImage))
+        else if (!legacy && result.Changes.Any(c => c.IsSecurity && c.Kind != HtmlChangeKind.MissingImage))
         {
             Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body contains active content, remote resources or hidden content.");
         }
