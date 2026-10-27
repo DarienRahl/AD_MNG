@@ -292,8 +292,10 @@ public sealed class GroupPolicyManagementLabTests(LabFixture lab)
         var ou = await lab.CreateOuAsync($"K2T-{run}");
         using var tools = SambaTools.Create();
         var gpoId = Guid.NewGuid();
+        var copyId = Guid.NewGuid();
         var filterId = Guid.NewGuid();
         var created = false;
+        var copied = false;
         var filterDn = default(string);
         await using var sysvol = await _writer.OpenForWriteAsync(admin, Ct);
         try
@@ -331,11 +333,23 @@ public sealed class GroupPolicyManagementLabTests(LabFixture lab)
             Assert.Contains(GpoPermissionLevels.Read(gpo.SecurityDescriptor), p => p.Sid == "S-1-5-11" && p.Level == GpoPermissionLevel.Read);
             Assert.True(GpoFolderAcl.IsConsistent(await sysvol.GetGpoFolderSecurityAsync(gpoId, Ct), gpo.SecurityDescriptor));
 
+            // A copy with its permissions keeps the filtering: Samba's default DACL for the new container (Authenticated
+            // Users with Apply Group Policy) is replaced by exactly the source's explicit ACEs.
+            copied = true;
+            await ExecuteOkAsync(await _planner.PlanCopyAsync(admin, sysvol, gpoId, $"K2T-{run} Serwery – Kopia z uprawnieniami", copyPermissions: true, Ct, copyId));
+            var copy = await Reader.ReadPolicyAsync(admin, copyId, Ct);
+            Assert.DoesNotContain("S-1-5-11", copy!.SecurityFilter!.Allowed);
+            Assert.Contains(groupSid, copy.SecurityFilter.Allowed);
+            Assert.Contains(GpoPermissionLevels.Read(copy.SecurityDescriptor), p => p.Sid == "S-1-5-11" && p.Level == GpoPermissionLevel.Read);
+            Assert.True(GpoFolderAcl.IsConsistent(await sysvol.GetGpoFolderSecurityAsync(copyId, Ct), copy.SecurityDescriptor));
+
             await ExecuteOkAsync(await _planner.PlanDeleteWmiFilterAsync(admin, filter.Dn, Ct));
             filterDn = null;
             Assert.DoesNotContain(await Reader.ReadWmiFiltersAsync(admin, Ct), f => f.Id == filter.Id);
             Assert.Null((await Reader.ReadPolicyAsync(admin, gpoId, Ct))!.WmiFilterLink);
 
+            await ExecuteOkAsync(await _planner.PlanDeleteAsync(admin, copyId, Ct));
+            copied = false;
             await ExecuteOkAsync(await _planner.PlanDeleteAsync(admin, gpoId, Ct));
             created = false;
         }
@@ -344,6 +358,11 @@ public sealed class GroupPolicyManagementLabTests(LabFixture lab)
             if (filterDn is not null)
             {
                 await admin.DeleteAsync(filterDn, subtree: false, CancellationToken.None);
+            }
+
+            if (copied)
+            {
+                await tools.DeleteGpoAsync(copyId);
             }
 
             if (created)
