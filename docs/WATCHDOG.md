@@ -488,7 +488,9 @@ wyłączone” …, [README, U1](../README.md#u1--wiadomości-e-mail-do-użytkow
 **przez tę usługę** – wtedy korzysta z jej kanału SMTP (także Exchange Online z OAuth2), sekretów, kolejki z
 ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
 
-**Włączenie:** zakładka Watchdog → *Kanały i SMTP* → karta *Wiadomości do użytkowników (z AD Managera)* (Admin):
+**Włączenie:** zakładka Watchdog → *Kanały i SMTP* → karta *Wiadomości do użytkowników (z AD Managera)* (Admin). Karta
+zmienia pierwsze cztery ustawienia z tabeli; `userMessages.allowInlineImages`, `userMessages.maxStoredImageMb`
+i `retention.userMessageAuditDays` zmienia administrator Watchdoga przez API (niżej):
 
 | Ustawienie | Domyślnie | Znaczenie |
 |---|---|---|
@@ -499,6 +501,12 @@ ponawianiem i dziennika wysyłek. Funkcja jest **domyślnie wyłączona**.
 | `userMessages.allowInlineImages` | włączone | wiadomości mogą zawierać obrazy osadzone w treści (logo, zrzut ekranu z instrukcji – niżej); wyłączone: wiadomość z obrazami jest odrzucana (`imagesDisabled`), a AD Manager proponuje wysyłkę bez obrazów albo bezpośrednio przez SMTP |
 | `userMessages.maxStoredImageMb` | 256 (16–4096) | ile megabajtów obrazów może jednocześnie czekać w kolejce (wiadomości jeszcze niewysłane i porzucone); powyżej – 429 `imageStorageFull` dla wiadomości z obrazami, wiadomości bez obrazów nie są wstrzymywane |
 | `retention.userMessageAuditDays` | 365 | jak długo przechowywany jest audyt wysłanych wiadomości |
+
+**Zmiana przez API** (z biletem Kerberos konta administratora Watchdoga): odczyt
+`curl --negotiate -u : -D naglowki.txt -o config.json https://admng-wd.contoso.com:8443/api/v1/config`, zmiana wartości
+w `configuration.userMessages` (albo `configuration.retention`) pliku `config.json`, potem zapis
+`curl --negotiate -u : -X PUT -H 'X-AdMng-Client: 1' -H 'Content-Type: application/json' -H 'If-Match: <ETag z naglowki.txt>' --data-binary @config.json https://admng-wd.contoso.com:8443/api/v1/config`.
+Gdy w międzyczasie ktoś zmienił konfigurację, usługa odpowiada 412 – odczytaj ją ponownie. Oba pliki usuń po zmianie.
 
 Zmiana przełącznika i listy nadawców ma w audycie konfiguracji ważność „wysoka”, zmiana ustawień obrazów – „średnia”. W AD Managerze ustawienie *Sposób
 wysyłki* = *Automatycznie* (domyślne) wybiera Watchdoga, gdy połączenie z usługą jest skonfigurowane, a funkcja włączona

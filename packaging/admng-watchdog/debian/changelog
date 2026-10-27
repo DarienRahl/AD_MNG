@@ -1,5 +1,40 @@
 admng-watchdog (@VERSION@) unstable; urgency=medium
 
+  * Inline images in messages to users (AdMng 0.6.0, contract v2):
+    POST /api/v1/user-messages accepts inlineImages (PNG, JPEG or GIF
+    checked by content, at most 4096 x 4096 px, 10 images, 1 MiB each and
+    2 MiB together, Content-ID derived from the SHA-256 of the bytes, every
+    image referenced by the HTML); metadata is stripped and the images are
+    sent as inline parts of multipart/related through the MIME builder
+    shared with AD Manager. GET /api/v1/user-messages/status reports the
+    inlineImages capability and the limits.
+  * New settings userMessages.allowInlineImages (default on, off = 400
+    imagesDisabled) and userMessages.maxStoredImageMb (default 256, range
+    16-4096): images held in the outbox (unsent and given-up messages) are
+    capped, over the cap 429 imageStorageFull with Retry-After 1 h;
+    messages without images are not affected. Images live only in the
+    outbox payload, are deleted once sent (a given-up message keeps them
+    until the outbox retention, 90 days by default) and never reach the
+    audit, the delivery log or the diagnostic log. Migration 0007 adds
+    outbox.image_bytes. AD Manager 0.6.0 does not edit the two settings
+    yet; they are changed through PUT /api/v1/config.
+  * POST /api/v1/user-messages alone accepts a request body of up to 6 MiB
+    (every other route keeps 1 MB); the HTML body limit is 400,000
+    characters (was 100,000). The HTML is checked by the message sanitizer
+    shared with AD Manager (AngleSharp) and the sanitized document is sent;
+    a message without images is refused only for what 0.4.0 refused and for
+    nesting deeper than 256 levels, so AD Manager 0.4.0 and 0.5.0 keep
+    working.
+  * New delivery hint smtp.messageTooLarge for 5.3.4, 5.2.3 and a bare 552.
+  * The remaining GPO content parsers (security template, audit.csv,
+    Registry.pol, preferences, scripts, comments, GPT.INI), the setting
+    model and the secret rules moved to AdMng.Core (shared with AD
+    Manager's Group Policy views); no change of the service's behaviour.
+
+ -- AD_MNG contributors <admng-watchdog@contoso.com>  Tue, 27 Oct 2026 23:30:00 +0000
+
+admng-watchdog (0.5.0-1) unstable; urgency=medium
+
   * AdMng 0.5.0: no functional change of the service. The privileged group
     catalogue, the security descriptor parser and the GPO file parsers moved
     to AdMng.Core (shared with AD Manager's privileged access review); the

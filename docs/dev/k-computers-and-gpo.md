@@ -1170,6 +1170,9 @@ windows (`RenderGroupPolicyAsync`); screenshots 22 (computers) and 23 (Group Pol
 `ComputerLabTests` 7, `GroupPolicyManagementLabTests` 5, `SessionLogonsTests` 4): 16 passed; a read-only check
 afterwards found no `K1T`/`K2T` objects left on the shared lab.
 
-**Not verified on the merged branch (Windows only):** `AdMng.App.UiTests` (both tracks' UI tests, `HostTests`,
-`XamlSourceTests`, screenshots 22 and 23) and `AdMng.exe --smoke-test` compile here and run on Windows CI only; every
-pilot item of 12 and of 14/15 still stands.
+**Verified on Windows CI after the merge into the U1c/U1d branch** (run 40598786957, b80470d): `AdMng.App.UiTests`
+(both tracks' UI tests, `HostTests`, `XamlSourceTests`, screenshots 22 and 23) and `AdMng.exe --smoke-test`. The first
+Windows runs found test expectations to correct (titles name the domain, controls hidden through their row) and one
+product defect: the container built `WindowsReleaseCatalog` through its `IEnumerable<WindowsRelease>` constructor, an
+empty catalogue (fixed with a factory registration, `ComputersRegistrationTests`). Every pilot item of 12 and of 14/15
+still stands.
