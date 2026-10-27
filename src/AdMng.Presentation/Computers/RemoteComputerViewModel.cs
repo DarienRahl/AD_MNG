@@ -151,9 +151,12 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
 
     // ---- Commands ----------------------------------------------------------------------------------------------------
 
-    /// <summary>"Odśwież stan": ping and the operating system (with UBR and last boot).</summary>
+    /// <summary>
+    /// "Odśwież stan": ping and the operating system (with UBR and last boot). The window is busy from the first echo on
+    /// (up to 8 s when the computer drops ICMP), so no other action can start meanwhile and Stop ends the ping too.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanCall))]
-    private async Task RefreshStatusAsync()
+    private Task RefreshStatusAsync() => RunExclusiveAsync(async token =>
     {
         if (Target is not { } target)
         {
@@ -162,9 +165,10 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
 
         if (_ping is not null)
         {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _closed.Token);
             try
             {
-                var result = await _ping.PingAsync(target.DnsHostName, ComputerActions.PingCount, ComputerActions.PingTimeout, _closed.Token).ConfigureAwait(true);
+                var result = await _ping.PingAsync(target.DnsHostName, ComputerActions.PingCount, ComputerActions.PingTimeout, linked.Token).ConfigureAwait(true);
                 PingText = RemoteText.Ping(Localizer, result);
             }
             catch (RemoteActionException ex)
@@ -177,16 +181,16 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
             }
         }
 
-        await CallAsync(L.RemoteActions.ActionStatus, RemoteScripts.OperatingSystem, auditAction: null, async (remote, token) =>
+        await CallCoreAsync(token, L.RemoteActions.ActionStatus, RemoteScripts.OperatingSystem, auditAction: null, async (remote, callToken) =>
         {
-            var os = await remote.GetOperatingSystemAsync(token).ConfigureAwait(true);
+            var os = await remote.GetOperatingSystemAsync(callToken).ConfigureAwait(true);
             WinRmText = Localizer[L.RemoteActions.WinRmAvailable];
             var release = os.BuildNumber is { } build && WindowsReleaseCatalog.EditionOf(os.Caption) is { } edition ? _catalog.Find(build, edition)?.Release : null;
             SystemText = release is null ? $"{os.Caption} ({os.FullBuild})" : $"{os.Caption} – {release} ({os.FullBuild})";
             LastBootText = os.LastBoot is { } boot ? Moment(boot) : string.Empty;
             return Localizer[L.RemoteActions.StatusRead];
         }).ConfigureAwait(true);
-    }
+    });
 
     [RelayCommand(CanExecute = nameof(CanCall))]
     private Task LoadUsersAsync() => CallAsync(L.RemoteActions.ActionUsers, RemoteScripts.LoggedOnUsers, auditAction: null, async (remote, token) =>
@@ -309,10 +313,40 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
     // ---- Helpers -------------------------------------------------------------------------------------------------------
 
     /// <summary>
+    /// One remote action at a time: a call that starts while another one runs is refused – it never cancels the running
+    /// one (a restart in flight must not end as "cancelled" because a status read finished).
+    /// </summary>
+    private Task CallAsync(string titleKey, string command, string? auditAction, Func<IRemoteComputerSession, CancellationToken, Task<string>> call, string? auditValue = null) =>
+        RunExclusiveAsync(token => CallCoreAsync(token, titleKey, command, auditAction, call, auditValue));
+
+    /// <summary>Runs <paramref name="work"/> with the window busy and a token Stop cancels; refused while busy.</summary>
+    private async Task RunExclusiveAsync(Func<CancellationToken, Task> work)
+    {
+        if (IsBusy || Target is null || _remote is null || Session is null)
+        {
+            return;
+        }
+
+        var token = _calls.Next();
+        IsBusy = true;
+        try
+        {
+            await work(token).ConfigureAwait(true);
+        }
+        finally
+        {
+            if (!IsDisposed)
+            {
+                IsBusy = false;
+            }
+        }
+    }
+
+    /// <summary>
     /// One remote action: a CIM session (the window's credential, Kerberos), the call, the log line; audited when
     /// <paramref name="auditAction"/> is set; its PowerShell equivalent recorded after a success.
     /// </summary>
-    private async Task CallAsync(string titleKey, string command, string? auditAction, Func<IRemoteComputerSession, CancellationToken, Task<string>> call, string? auditValue = null)
+    private async Task CallCoreAsync(CancellationToken token, string titleKey, string command, string? auditAction, Func<IRemoteComputerSession, CancellationToken, Task<string>> call, string? auditValue = null)
     {
         if (Target is not { } target || _remote is not { } remote || Session is not { } session)
         {
@@ -320,9 +354,7 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
         }
 
         var options = Options();
-        var token = _calls.Next();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, _closed.Token, Services.Connection?.Lifetime ?? CancellationToken.None);
-        IsBusy = true;
         Error = null;
         var title = Localizer[titleKey];
         string? error = null;
@@ -345,13 +377,6 @@ public sealed partial class RemoteComputerViewModel : WindowViewModelBase
         catch (OperationCanceledException)
         {
             error = RemoteText.Error(Localizer, RemoteErrorKind.Cancelled);
-        }
-        finally
-        {
-            if (!IsDisposed)
-            {
-                IsBusy = false;
-            }
         }
 
         if (error is not null)

@@ -307,6 +307,51 @@ public class RemoteComputerViewModelTests
     }
 
     [Fact]
+    public async Task RefreshStatus_IsBusyWhilePinging_AndAnotherActionNeitherStartsNorCancelsIt()
+    {
+        // Windows clients drop ICMP: the ping phase runs into its timeouts (up to 8 s).
+        var (scenario, window, _) = await OpenAsync();
+        using var _window = window;
+        scenario.Ping.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var status = window.RefreshStatusCommand.ExecuteAsync(null);
+        await scenario.Ping.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.True(window.IsBusy);
+        Assert.False(window.RestartCommand.CanExecute(null));
+        Assert.False(window.LoadUsersCommand.CanExecute(null));
+        Assert.True(window.StopCommand.CanExecute(null));
+
+        // A call that slips through (a stale CanExecute) is refused instead of cancelling the running one.
+        await window.LoadUsersCommand.ExecuteAsync(null);
+        Assert.Empty(scenario.Remote.Calls);
+        Assert.True(window.IsBusy);
+
+        scenario.Ping.Hold.SetResult();
+        await status.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        Assert.False(window.IsBusy);
+        Assert.Null(window.Error);
+        Assert.Equal("Status: status read", Assert.Single(window.Log).Text);
+        Assert.Equal(["Connect", "OperatingSystem", "Dispose"], scenario.Remote.Calls.Select(c => c.Operation));
+    }
+
+    [Fact]
+    public async Task Stop_EndsThePingPhaseOfTheStatusRefresh()
+    {
+        var (scenario, window, _) = await OpenAsync();
+        using var _window = window;
+        scenario.Ping.Hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var status = window.RefreshStatusCommand.ExecuteAsync(null);
+        await scenario.Ping.Held.Task.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        window.StopCommand.Execute(null);
+        await status.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+
+        Assert.False(window.IsBusy);
+        Assert.Empty(scenario.Remote.Calls);
+        Assert.True(window.RestartCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Stop_CancelsTheCall_AndSaysSo()
     {
         var (scenario, window, _) = await OpenAsync();

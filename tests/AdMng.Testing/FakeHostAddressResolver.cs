@@ -48,11 +48,23 @@ public sealed class FakePingService : IPingService
 
     public List<string> Pinged { get; } = [];
 
-    public Task<PingResult> PingAsync(string host, int count, TimeSpan timeout, CancellationToken cancellationToken)
+    /// <summary>When set, a ping waits for it (a computer that drops ICMP: every echo runs into its timeout).</summary>
+    public TaskCompletionSource? Hold { get; set; }
+
+    /// <summary>Completes when a ping started to wait for <see cref="Hold"/>.</summary>
+    public TaskCompletionSource Held { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public async Task<PingResult> PingAsync(string host, int count, TimeSpan timeout, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Pinged.Add(host);
+        if (Hold is { } hold)
+        {
+            Held.TrySetResult();
+            await hold.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         var answer = Answering.TryGetValue(host, out var roundTrip) ? roundTrip : (TimeSpan?)null;
-        return Task.FromResult(new PingResult(host, answer is null ? null : IPAddress.Parse("10.10.1.15"), [.. Enumerable.Repeat(answer, count)]));
+        return new PingResult(host, answer is null ? null : IPAddress.Parse("10.10.1.15"), [.. Enumerable.Repeat(answer, count)]);
     }
 }
