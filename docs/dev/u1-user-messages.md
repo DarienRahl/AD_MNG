@@ -9,6 +9,9 @@ DNs through `LdapFilter`/`DistinguishedName` (rule 3); the plan reads only from 
 is written to the directory (rule 5 does not apply – a message is not a directory change); every directory call and
 every send is async with cancellation (rule 6).
 
+Extensions: **U1c** (a formatted message pasted from Outlook, inline images, rendered preview, Watchdog contract v2) and
+**U1d** (title-aware salutations) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md).
+
 ## 1. Pieces
 
 | Piece | Project | Purpose |
