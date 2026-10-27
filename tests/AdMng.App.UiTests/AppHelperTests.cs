@@ -119,12 +119,24 @@ public sealed class AppHelperTests
     }
 
     [Fact]
-    public void BindingErrorListener_IgnoresOnlyFluentItemContainerNoise()
+    public void BindingErrorListener_IgnoresOnlyFluentTemplateNoise()
     {
         SkipUnlessWindows();
         Assert.True(BindingErrorListener.IsThemeNoise(
             "Cannot find source for binding with reference 'RelativeSource FindAncestor, AncestorType='System.Windows.Controls.ItemsControl', "
             + "AncestorLevel='1''. BindingExpression:Path=HorizontalContentAlignment; DataItem=null;"));
+
+        // The DatePicker template's text box during a theme switch (seen in the smoke test of the published app).
+        Assert.True(BindingErrorListener.IsThemeNoise(
+            "Cannot find source for binding with reference 'RelativeSource FindAncestor, AncestorType='System.Windows.Controls.DatePicker', "
+            + "AncestorLevel='1''. BindingExpression:Path=(0); DataItem=null; target element is 'DatePickerTextBox' (Name=''); "
+            + "target property is 'Name' (type 'String')"));
+
+        // The same ancestor lookup from application XAML (another element or property) is still an error.
+        Assert.False(BindingErrorListener.IsThemeNoise(
+            "Cannot find source for binding with reference 'RelativeSource FindAncestor, AncestorType='System.Windows.Controls.DatePicker', "
+            + "AncestorLevel='1''. BindingExpression:Path=SelectedDate; DataItem=null; target element is 'TextBlock' (Name=''); "
+            + "target property is 'Text' (type 'String')"));
         Assert.False(BindingErrorListener.IsThemeNoise("BindingExpression path error: 'Nmae' property not found on 'object'"));
     }
 

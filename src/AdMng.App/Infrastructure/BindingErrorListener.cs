@@ -51,16 +51,24 @@ public sealed class BindingErrorListener : TraceListener
     }
 
     /// <summary>
-    /// Errors that come from the Fluent theme's own item container styles (ListBoxItem / MenuItem bind their content
-    /// alignment to the ancestor ItemsControl and WPF reports the lookup while a container is not yet attached). They
-    /// are not caused by application XAML and are ignored.
+    /// Errors that come from the Fluent theme's own templates, not from application XAML, and are ignored:
+    /// <list type="bullet">
+    /// <item>item container styles – ListBoxItem / MenuItem bind their content alignment to the ancestor ItemsControl
+    /// and WPF reports the lookup while a container is not yet attached;</item>
+    /// <item>the DatePicker template – its DatePickerTextBox binds its accessible name to the ancestor DatePicker, and
+    /// when the theme is switched while a date picker is open (light/dark at run time, the smoke test does it) WPF
+    /// reports the lookup for the text box of the replaced template.</item>
+    /// </list>
     /// </summary>
     public static bool IsThemeNoise(string message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        return message.Contains("AncestorType='System.Windows.Controls.ItemsControl'", StringComparison.Ordinal)
-            && (message.Contains("Path=HorizontalContentAlignment", StringComparison.Ordinal)
-                || message.Contains("Path=VerticalContentAlignment", StringComparison.Ordinal));
+        return (message.Contains("AncestorType='System.Windows.Controls.ItemsControl'", StringComparison.Ordinal)
+                && (message.Contains("Path=HorizontalContentAlignment", StringComparison.Ordinal)
+                    || message.Contains("Path=VerticalContentAlignment", StringComparison.Ordinal)))
+            || (message.Contains("AncestorType='System.Windows.Controls.DatePicker'", StringComparison.Ordinal)
+                && message.Contains("target element is 'DatePickerTextBox'", StringComparison.Ordinal)
+                && message.Contains("target property is 'Name'", StringComparison.Ordinal));
     }
 
     public override void TraceEvent(TraceEventCache? eventCache, string source, TraceEventType eventType, int id, string? message) =>
