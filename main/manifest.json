@@ -88,5 +88,20 @@
     "file": "18-user-messages.png",
     "title_pl": "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
     "title_en": "Messages to users – the preview of the \u0022password expires\u0022 message of every recipient before sending"
+  },
+  {
+    "file": "19-privileged-access.png",
+    "title_pl": "Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia",
+    "title_en": "Account review – the Privileges tab: accounts with rights beyond a plain user, their levels and the path of a right"
+  },
+  {
+    "file": "20-two-connections.png",
+    "title_pl": "Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem",
+    "title_en": "Two connections at once – contoso.test and fabrikam.test in separate windows, each with its own colour and account"
+  },
+  {
+    "file": "21-compare-objects.png",
+    "title_pl": "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
+    "title_en": "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)"
   }
 ]

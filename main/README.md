@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `main`
 
 - Gałąź: `main`
-- Commit: [`30d210e`](https://github.com/DarienRahl/AD_MNG/commit/30d210ef8de9986815fe252712a9955088ebd883) (`30d210ef8de9986815fe252712a9955088ebd883`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40363121475
+- Commit: [`0239fab`](https://github.com/DarienRahl/AD_MNG/commit/0239fab6a1217f9567679affa61c427338143cec) (`0239fab6a1217f9567679affa61c427338143cec`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40468066132
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -75,4 +75,16 @@
 ## Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką
 
 ![Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką](18-user-messages.png)
+
+## Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia
+
+![Przegląd kont – zakładka Uprawnienia: konta z uprawnieniami ponad zwykłego użytkownika, poziomy i ścieżka uprawnienia](19-privileged-access.png)
+
+## Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem
+
+![Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem](20-two-connections.png)
+
+## Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)
+
+![Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)](21-compare-objects.png)
 
