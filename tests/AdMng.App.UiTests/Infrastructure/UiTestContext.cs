@@ -108,6 +108,13 @@ internal sealed class UiTestContext : IAsyncDisposable
     /// Another connection window's scope (its own session, dialogs, toasts…), not connected yet; disposed with the context.
     /// Resolve its <c>MainWindow</c> at most once.
     /// </summary>
+    /// <remarks>
+    /// The scope is not one of <see cref="ConnectionWindowManager"/>'s windows: it is in the <c>ConnectionRegistry</c> (the
+    /// comparison window lists it as a target) but not in <c>IConnectionWindows.OpenWindows</c>, so the window switcher
+    /// and the shell's "another connection window is open" checks (e.g. "Porównaj z obiektem w innym połączeniu…") do not
+    /// see it. A test of those opens the window as the operator does: <see cref="ConnectionWindowManager.OpenNewConnection"/>
+    /// and its connect window.
+    /// </remarks>
     public IServiceProvider CreateConnection()
     {
         var scope = Host.Services.CreateAsyncScope();

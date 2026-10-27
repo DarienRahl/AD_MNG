@@ -8,7 +8,7 @@ using AdMng.App.UiTests.Infrastructure;
 using AdMng.App.Views;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Comparison;
-using AdMng.Presentation.Connections;
+using AdMng.Core.Directory;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Services;
 using AdMng.Testing;
@@ -31,8 +31,13 @@ public sealed class CompareObjectsWindowTests
         await using var context = await UiTestContext.CreateAsync(configure: s => s.AddSingleton<IFileDialogService>(files));
         await ComparisonFixture.AddFabrikamAsync(context);
         await UiTestContext.ConnectAsync(context.Services, FakeDirectoryBuilder.DefaultDomain, "jan.kowalski");
-        var other = context.CreateConnection();
-        await UiTestContext.ConnectAsync(other, ComparisonFixture.Fabrikam, "anna.zielinska");
+
+        // B is a connection window as the operator opens it ("Nowe połączenie w nowym oknie…", its connect window, its main
+        // window): the command asks the window manager whether another connection window is open, and a bare connection
+        // scope (UiTestContext.CreateConnection) is not one of its windows.
+        var manager = context.Host.Services.GetRequiredService<ConnectionWindowManager>();
+        var fabrikam = await OpenConnectionWindowAsync(manager, ComparisonFixture.Fabrikam, "anna.zielinska");
+        var fabrikamId = ConnectionChrome.GetConnectionId(fabrikam)!.Value;
         var main = context.Services.GetRequiredService<MainWindow>();
         UiTestSupport.ShowOffScreen(main);
         await main.Shell.InitializeAsync();
@@ -54,7 +59,7 @@ public sealed class CompareObjectsWindowTests
         Assert.Same(main, window.Owner);
         Assert.True(ConnectionChrome.BelongsTo(window, context.Connection.Id));
         Assert.Equal("Comparison: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test – contoso.test", window.Title);
-        Assert.Equal(other.GetRequiredService<ConnectionContext>().Id, comparison.SelectedTarget?.Id);
+        Assert.Equal(fabrikamId, comparison.SelectedTarget?.Id);
         Assert.Equal([Attr.City, Attr.Title], comparison.AttributeRows.Select(r => r.LdapName).Order(StringComparer.Ordinal));
         Assert.Equal(2, window.AttributesList.Items.Count);
         Assert.Equal("Attributes (2)", window.AttributesTab.Header);
@@ -104,11 +109,12 @@ public sealed class CompareObjectsWindowTests
         }
 
         // B's window closes: side B ends, its results stay.
-        await ((IAsyncDisposable)other).DisposeAsync();
+        fabrikam.Close();
         await UiWait.UntilAsync(() => comparison.SideB.IsEnded, "side B ended");
         Assert.Contains("was closed", comparison.SideB.EndedMessage, StringComparison.Ordinal);
         Assert.NotEmpty(comparison.AttributeRows);
         Assert.Equal(AttributeComparisonState.Different, comparison.AttributeRows.First(r => r.LdapName == Attr.Title).State);
+        await UiWait.UntilAsync(() => manager.Count == 0, "B's connection window to end");
         context.AssertHealthy();
     });
 
@@ -132,4 +138,34 @@ public sealed class CompareObjectsWindowTests
         Assert.Equal(Visibility.Collapsed, window.MembersTab.Visibility);
         context.AssertHealthy();
     });
+
+    /// <summary>
+    /// "Nowe połączenie w nowym oknie…" and its connect window: <paramref name="user"/> signs in to <paramref name="domain"/>
+    /// with a password typed into the window; returns the new connection window's main window.
+    /// </summary>
+    private static async Task<MainWindow> OpenConnectionWindowAsync(ConnectionWindowManager manager, string domain, string user)
+    {
+        var before = Application.Current.Windows.OfType<ConnectWindow>().ToList();
+        manager.OpenNewConnection();
+        await UiWait.UntilAsync(
+            () => Application.Current.Windows.OfType<ConnectWindow>().Any(w => w.IsVisible && !before.Contains(w)),
+            "the connect window of the new connection");
+        var connect = Application.Current.Windows.OfType<ConnectWindow>().Single(w => w.IsVisible && !before.Contains(w));
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        var id = ConnectionChrome.GetConnectionId(connect);
+        Assert.NotNull(id);
+
+        connect.ViewModel.Domain = domain;
+        connect.ViewModel.Authentication = AuthenticationMode.Credentials;
+        connect.ViewModel.UserName = user;
+        connect.PasswordBox.Password = "Hasło-tylko-w-pamięci";
+        await connect.ViewModel.ConnectCommand.ExecuteAsync(null);
+        await UiWait.UntilAsync(
+            () => Application.Current.Windows.OfType<MainWindow>().Any(w => w.IsVisible && ConnectionChrome.BelongsTo(w, id.Value)),
+            $"the main window of {domain}");
+        var main = Application.Current.Windows.OfType<MainWindow>().Single(w => ConnectionChrome.BelongsTo(w, id.Value));
+        await UiWait.UntilAsync(() => main.Shell.Connection?.Identity?.DomainDnsName == domain, "the identity of the new window");
+        await UiTestSupport.WaitForIdleAsync(rounds: 2);
+        return main;
+    }
 }
