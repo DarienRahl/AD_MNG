@@ -287,6 +287,23 @@
                         SelectedItem="{Binding RecipientMode}" />
             </WrapPanel>
 
+            <!-- U1d: the template's salutation options ("Zwroty") -->
+            <WrapPanel x:Name="SalutationOptionsPanel" Margin="0,10,0,0">
+              <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.Salutation.Group}" />
+              <CheckBox x:Name="UseTitlesBox"
+                        Margin="0,0,18,0"
+                        VerticalAlignment="Center"
+                        Content="{l:Tr UserMessages.Salutation.UseTitles}"
+                        IsChecked="{Binding UseTitles}" />
+              <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.Salutation.UnknownGender}" />
+              <ComboBox x:Name="TemplateUnknownGenderBox"
+                        MinWidth="240"
+                        AutomationProperties.Name="{l:Tr UserMessages.Salutation.UnknownGender}"
+                        DisplayMemberPath="Text"
+                        ItemsSource="{Binding UnknownGenderChoices, Mode=OneWay}"
+                        SelectedItem="{Binding TemplateUnknownGender}" />
+            </WrapPanel>
+
             <DockPanel Margin="0,12,0,0">
               <TextBlock Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.TextLanguage}" />
               <ComboBox x:Name="EditLanguageBox"
@@ -425,6 +442,16 @@
                   <GridViewColumn Width="60"
                                   DisplayMemberBinding="{Binding LanguageText, Mode=OneWay}"
                                   Header="{l:Tr UserMessages.ColumnLanguage}" />
+                  <!-- U1d: the salutation with ≈ (guessed) or ⚠ (fallback) -->
+                  <GridViewColumn Width="210" Header="{l:Tr UserMessages.Salutation.ColumnSalutation}">
+                    <GridViewColumn.CellTemplate>
+                      <DataTemplate DataType="{x:Type um:UserMessageItemViewModel}">
+                        <TextBlock Text="{Binding SalutationColumnText, Mode=OneWay}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding SalutationToolTip, Mode=OneWay}" />
+                      </DataTemplate>
+                    </GridViewColumn.CellTemplate>
+                  </GridViewColumn>
                   <GridViewColumn Width="300"
                                   DisplayMemberBinding="{Binding IssuesText, Mode=OneWay}"
                                   Header="{l:Tr UserMessages.ColumnIssues}" />
@@ -489,6 +516,54 @@
                        Text="{Binding Subject, Mode=OneWay}"
                        TextWrapping="Wrap" />
           </Grid>
+          <!-- U1d: "Pola wyliczone" and the gender of this message for this send only -->
+          <Border x:Name="DerivedFieldsPanel"
+                  Margin="0,8,0,0"
+                  DockPanel.Dock="Top"
+                  Style="{StaticResource Ad.Card}"
+                  Visibility="{Binding HasDerived, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+            <StackPanel>
+              <TextBlock FontWeight="SemiBold" Text="{l:Tr UserMessages.Salutation.DerivedFields}" />
+              <ItemsControl x:Name="DerivedFieldsList"
+                            Grid.IsSharedSizeScope="True"
+                            Focusable="False"
+                            ItemsSource="{Binding DerivedRows, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="{x:Type um:DerivedValueRow}">
+                    <Grid Margin="0,2,0,0">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="DerivedLabel" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="*" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Margin="0,0,8,0" Style="{StaticResource Ad.SecondaryText}" Text="{Binding Label, Mode=OneWay}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Mark, Mode=OneWay}" />
+                      <TextBlock Grid.Column="2" TextWrapping="Wrap">
+                        <Run FontWeight="SemiBold" Text="{Binding Value, Mode=OneWay}" />
+                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Source, Mode=OneWay, StringFormat='({0})'}" />
+                      </TextBlock>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <DockPanel Margin="0,6,0,0">
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.Salutation.GenderOverride}" />
+                <ComboBox x:Name="GenderOverrideBox"
+                          Width="160"
+                          AutomationProperties.Name="{l:Tr UserMessages.Salutation.GenderOverride}"
+                          DisplayMemberPath="Text"
+                          DockPanel.Dock="Left"
+                          ItemsSource="{Binding DataContext.GenderChoices, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                          SelectedValue="{Binding GenderChoice}"
+                          SelectedValuePath="Value" />
+                <TextBlock Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.GenderOverrideHint}"
+                           TextWrapping="Wrap" />
+              </DockPanel>
+            </StackPanel>
+          </Border>
           <TextBlock Margin="0,8,0,0"
                      DockPanel.Dock="Top"
                      Foreground="{DynamicResource SystemFillColorCautionBrush}"

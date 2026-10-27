@@ -1,12 +1,14 @@
 <!-- Settings (SettingsViewModel, modal): tab "Ogólne" – language, theme, directory, batch and view options, the Watchdog
      certificate pin; tab "Wiadomości e-mail" (README U1) – sender, limits, allowed link domains, transport and the direct
-     SMTP connection with its tests (the SMTP password box is read only for a test and never saved). Save applies at once. -->
+     SMTP connection with its tests (the SMTP password box is read only for a test and never saved) and the salutations
+     (U1d: title and gender attributes, given names, title table, "Sprawdź" box). Save applies at once. -->
 <Window x:Class="AdMng.App.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:AdMng.App.Controls"
         xmlns:l="clr-namespace:AdMng.App.Localization"
         xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        xmlns:um="clr-namespace:AdMng.Presentation.UserMessages;assembly=AdMng.Presentation"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="660"
         MinWidth="520"
@@ -463,6 +465,288 @@
                          FontFamily="Cascadia Mono, Consolas"
                          Text="{Binding TestResult, Mode=OneWay}"
                          TextWrapping="Wrap" />
+
+              <!-- Salutations (U1d): attributes, value lists, neutral texts, given names, title table, check box -->
+              <StackPanel x:Name="SalutationsSection" DataContext="{Binding Salutations, Mode=OneWay}">
+                <TextBlock Style="{StaticResource SettingsSection}" Text="{l:Tr UserMessages.Salutation.Section}" />
+                <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.Hint}"
+                           TextWrapping="Wrap" />
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                  <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.TitleAttribute}" />
+                  <TextBox x:Name="TitleAttributeBox"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.TitleAttribute}"
+                           Text="{Binding TitleAttribute, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{l:Tr UserMessages.Salutation.TitleAttributeHint}" />
+                  <CheckBox x:Name="TitleFromDisplayNameBox"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Margin="0,6,0,0"
+                            Content="{l:Tr UserMessages.Salutation.TitleFromDisplayName}"
+                            IsChecked="{Binding TitleFromDisplayName}" />
+                  <TextBlock Grid.Row="2" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.GenderAttribute}" />
+                  <TextBox x:Name="GenderAttributeBox"
+                           Grid.Row="2"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.GenderAttribute}"
+                           Text="{Binding GenderAttribute, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{l:Tr UserMessages.Salutation.GenderAttributeHint}" />
+                  <TextBlock Grid.Row="3" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.MasculineValues}" />
+                  <TextBox Grid.Row="3"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.MasculineValues}"
+                           Text="{Binding MasculineValuesText, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="4" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.FeminineValues}" />
+                  <TextBox Grid.Row="4"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.FeminineValues}"
+                           Text="{Binding FeminineValuesText, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="5"
+                             Grid.Column="1"
+                             Margin="0,4,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{l:Tr UserMessages.Salutation.ValuesHint}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="6" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.NeutralPolish}" />
+                  <TextBox x:Name="NeutralPolishBox"
+                           Grid.Row="6"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.NeutralPolish}"
+                           Text="{Binding NeutralPolish, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="7" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.NeutralEnglish}" />
+                  <TextBox Grid.Row="7"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.NeutralEnglish}"
+                           Text="{Binding NeutralEnglish, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="8"
+                             Grid.Column="1"
+                             Margin="0,4,0,0"
+                             Style="{StaticResource Ad.SecondaryText}"
+                             Text="{Binding NeutralHint, Mode=OneWay}"
+                             TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="9" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.UnknownGender}" />
+                  <ComboBox x:Name="UnknownGenderBox"
+                            Grid.Row="9"
+                            Grid.Column="1"
+                            AutomationProperties.Name="{l:Tr UserMessages.Salutation.UnknownGender}"
+                            ItemsSource="{Binding UnknownGenderModes, Mode=OneWay}"
+                            SelectedItem="{Binding UnknownGender}"
+                            Style="{StaticResource SettingCombo}" />
+                </Grid>
+
+                <!-- The operator's given names -->
+                <DockPanel Margin="0,14,0,2">
+                  <Button x:Name="AddGivenNameButton"
+                          Command="{Binding AddGivenNameCommand}"
+                          Content="{l:Tr UserMessages.Salutation.AddGivenName}"
+                          DockPanel.Dock="Right" />
+                  <TextBlock VerticalAlignment="Center"
+                             FontWeight="SemiBold"
+                             Text="{l:Tr UserMessages.Salutation.GivenNames}" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.GivenNamesHint}"
+                           TextWrapping="Wrap" />
+                <ScrollViewer MaxHeight="150" Margin="0,6,0,0" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl x:Name="GivenNamesList" Focusable="False" ItemsSource="{Binding GivenNames, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type um:GivenNameRowViewModel}">
+                        <Grid Margin="0,0,4,4">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <TextBox AutomationProperties.Name="{l:Tr UserMessages.Salutation.GivenName}" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                          <ComboBox Grid.Column="2"
+                                    AutomationProperties.Name="{l:Tr UserMessages.Salutation.Gender}"
+                                    DisplayMemberPath="Text"
+                                    ItemsSource="{Binding DataContext.Genders, RelativeSource={RelativeSource AncestorType=ItemsControl}, Mode=OneWay}"
+                                    SelectedValue="{Binding Gender}"
+                                    SelectedValuePath="Value" />
+                          <Button Grid.Column="3"
+                                  Margin="4,0,0,0"
+                                  AutomationProperties.Name="{l:Tr Common.Remove}"
+                                  Command="{Binding DataContext.RemoveGivenNameCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  Content="{x:Static c:Glyphs.Delete}"
+                                  Style="{StaticResource Ad.IconButton}"
+                                  ToolTip="{l:Tr Common.Remove}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+
+                <!-- The title table -->
+                <DockPanel Margin="0,14,0,2">
+                  <Button x:Name="ResetTitlesButton"
+                          Margin="6,0,0,0"
+                          Command="{Binding ResetTitlesCommand}"
+                          Content="{l:Tr UserMessages.Salutation.ResetTitles}"
+                          DockPanel.Dock="Right" />
+                  <Button x:Name="AddTitleButton"
+                          Command="{Binding AddTitleCommand}"
+                          Content="{l:Tr UserMessages.Salutation.AddTitle}"
+                          DockPanel.Dock="Right" />
+                  <TextBlock VerticalAlignment="Center"
+                             FontWeight="SemiBold"
+                             Text="{l:Tr UserMessages.Salutation.Titles}" />
+                </DockPanel>
+                <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.TitlesHint}"
+                           TextWrapping="Wrap" />
+                <Grid Margin="0,6,24,2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.1*" />
+                    <ColumnDefinition Width="1.6*" />
+                    <ColumnDefinition Width="0.6*" />
+                    <ColumnDefinition Width="1.4*" />
+                    <ColumnDefinition Width="1.4*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.TitleColumn}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.Variants}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="2" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.Rank}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="3" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.PolishMasculine}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="4" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.PolishFeminine}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="5" Style="{StaticResource Ad.SecondaryText}" Text="{l:Tr UserMessages.Salutation.EnglishForm}" TextTrimming="CharacterEllipsis" />
+                </Grid>
+                <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl x:Name="TitlesList" Focusable="False" ItemsSource="{Binding Titles, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type um:TitleRowViewModel}">
+                        <Grid Margin="0,0,0,4">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.6*" />
+                            <ColumnDefinition Width="0.6*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                          </Grid.ColumnDefinitions>
+                          <TextBox Margin="0,0,4,0" AutomationProperties.Name="{l:Tr UserMessages.Salutation.TitleColumn}" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+                          <TextBox Grid.Column="1"
+                                   Margin="0,0,4,0"
+                                   AutomationProperties.Name="{l:Tr UserMessages.Salutation.Variants}"
+                                   Text="{Binding Variants, UpdateSourceTrigger=PropertyChanged}"
+                                   ToolTip="{Binding Variants, Mode=OneWay}" />
+                          <TextBox Grid.Column="2"
+                                   Margin="0,0,4,0"
+                                   HorizontalContentAlignment="Right"
+                                   AutomationProperties.Name="{l:Tr UserMessages.Salutation.Rank}"
+                                   Text="{Binding Rank, UpdateSourceTrigger=PropertyChanged}" />
+                          <TextBox Grid.Column="3"
+                                   Margin="0,0,4,0"
+                                   AutomationProperties.Name="{l:Tr UserMessages.Salutation.PolishMasculine}"
+                                   Text="{Binding PolishMasculine, UpdateSourceTrigger=PropertyChanged}" />
+                          <TextBox Grid.Column="4"
+                                   Margin="0,0,4,0"
+                                   AutomationProperties.Name="{l:Tr UserMessages.Salutation.PolishFeminine}"
+                                   Text="{Binding PolishFeminine, UpdateSourceTrigger=PropertyChanged}" />
+                          <TextBox Grid.Column="5" AutomationProperties.Name="{l:Tr UserMessages.Salutation.EnglishForm}" Text="{Binding English, UpdateSourceTrigger=PropertyChanged}" />
+                          <Button Grid.Column="6"
+                                  Margin="4,0,0,0"
+                                  AutomationProperties.Name="{l:Tr Common.Remove}"
+                                  Command="{Binding DataContext.RemoveTitleCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                  CommandParameter="{Binding Mode=OneWay}"
+                                  Content="{x:Static c:Glyphs.Delete}"
+                                  Style="{StaticResource Ad.IconButton}"
+                                  ToolTip="{l:Tr Common.Remove}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+
+                <!-- "Sprawdź": typed values only, no directory access -->
+                <TextBlock Margin="0,14,0,2"
+                           FontWeight="SemiBold"
+                           Text="{l:Tr UserMessages.Salutation.Check}" />
+                <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.CheckHint}"
+                           TextWrapping="Wrap" />
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+                  <TextBlock Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.CheckTitle}" />
+                  <TextBox x:Name="CheckTitleBox"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.CheckTitle}"
+                           Text="{Binding CheckTitle, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="1" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.CheckDisplayName}" />
+                  <TextBox x:Name="CheckDisplayNameBox"
+                           Grid.Row="1"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.CheckDisplayName}"
+                           Text="{Binding CheckDisplayName, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="2" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.GivenName}" />
+                  <TextBox x:Name="CheckGivenNameBox"
+                           Grid.Row="2"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.GivenName}"
+                           Text="{Binding CheckGivenName, UpdateSourceTrigger=PropertyChanged}" />
+                  <TextBlock Grid.Row="3" Style="{StaticResource SettingLabel}" Text="{l:Tr UserMessages.Salutation.Surname}" />
+                  <TextBox x:Name="CheckSurnameBox"
+                           Grid.Row="3"
+                           Grid.Column="1"
+                           Margin="0,6,0,0"
+                           AutomationProperties.Name="{l:Tr UserMessages.Salutation.Surname}"
+                           Text="{Binding CheckSurname, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+                <Border Margin="0,8,0,0" Style="{StaticResource Ad.Card}">
+                  <StackPanel>
+                    <TextBlock x:Name="CheckTitleResultText" Text="{Binding CheckTitleResult, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="CheckGenderResultText" Text="{Binding CheckGenderResult, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="CheckPolishText"
+                               Margin="0,4,0,0"
+                               AutomationProperties.LiveSetting="Polite"
+                               FontWeight="SemiBold"
+                               Text="{Binding CheckPolish, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="CheckEnglishText"
+                               FontWeight="SemiBold"
+                               Text="{Binding CheckEnglish, Mode=OneWay}"
+                               TextWrapping="Wrap" />
+                  </StackPanel>
+                </Border>
+              </StackPanel>
             </StackPanel>
           </ScrollViewer>
         </TabItem>

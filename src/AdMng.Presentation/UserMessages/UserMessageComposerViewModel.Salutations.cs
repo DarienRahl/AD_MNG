@@ -90,7 +90,8 @@ public sealed partial class UserMessageComposerViewModel
     {
         if (e.PropertyName == nameof(UserMessageItemViewModel.GenderChoice) && sender is UserMessageItemViewModel item)
         {
-            ReplanWithGender(item);
+            // Posted: the selector that changed the value is replaced with the item (no re-entrant binding update).
+            _ = Services.Dispatcher.InvokeAsync(() => ReplanWithGender(item));
         }
     }
 

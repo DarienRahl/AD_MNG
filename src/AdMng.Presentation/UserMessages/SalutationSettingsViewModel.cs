@@ -136,14 +136,14 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
 
     public ObservableCollection<GivenNameRowViewModel> GivenNames { get; }
 
+    /// <summary>The row added last (focus) or chosen; "remove" without a row removes it.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveGivenNameCommand))]
     public partial GivenNameRowViewModel? SelectedGivenName { get; set; }
 
     public ObservableCollection<TitleRowViewModel> Titles { get; }
 
+    /// <summary>The row added last (focus) or chosen; "remove" without a row removes it.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RemoveTitleCommand))]
     public partial TitleRowViewModel? SelectedTitle { get; set; }
 
     // ---- "Sprawdź" -----------------------------------------------------------------------------------------------
@@ -197,16 +197,19 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
         SelectedGivenName = row;
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedGivenName))]
-    private void RemoveGivenName()
+    /// <summary>Removes <paramref name="row"/> (the row's button), else the selected row.</summary>
+    [RelayCommand]
+    private void RemoveGivenName(GivenNameRowViewModel? row)
     {
-        if (SelectedGivenName is { } row)
+        if ((row ?? SelectedGivenName) is { } removed)
         {
-            GivenNames.Remove(row);
+            GivenNames.Remove(removed);
+            if (ReferenceEquals(SelectedGivenName, removed))
+            {
+                SelectedGivenName = null;
+            }
         }
     }
-
-    private bool HasSelectedGivenName() => SelectedGivenName is not null;
 
     [RelayCommand]
     private void AddTitle()
@@ -216,16 +219,19 @@ public sealed partial class SalutationSettingsViewModel : ObservableObject
         SelectedTitle = row;
     }
 
-    [RelayCommand(CanExecute = nameof(HasSelectedTitle))]
-    private void RemoveTitle()
+    /// <summary>Removes <paramref name="row"/> (the row's button), else the selected row.</summary>
+    [RelayCommand]
+    private void RemoveTitle(TitleRowViewModel? row)
     {
-        if (SelectedTitle is { } row)
+        if ((row ?? SelectedTitle) is { } removed)
         {
-            Titles.Remove(row);
+            Titles.Remove(removed);
+            if (ReferenceEquals(SelectedTitle, removed))
+            {
+                SelectedTitle = null;
+            }
         }
     }
-
-    private bool HasSelectedTitle() => SelectedTitle is not null;
 
     /// <summary>"Przywróć domyślne": the built-in title table (saved as "defaults", so later improvements apply).</summary>
     [RelayCommand]
