@@ -129,26 +129,34 @@ public sealed class GroupPolicyBackupAndCompareTests
             Assert.Equal(0, mkfifo.ExitCode);
         }
 
-        var shown = new TaskCompletionSource<GpoBackupViewModel>(TaskCreationOptions.RunContinuationsAsynchronously);
-        h.Windows.BackupHandler = window =>
+        var ct = TestContext.Current.CancellationToken;
+        var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Windows.BackupHandler = async window =>
         {
-            shown.TrySetResult(window);
-            return Task.FromResult(false);
+            shown.TrySetResult();
+            await released.Task;
+
+            // The window stays open until the read got the bytes (not XML) and reported it.
+            await B2Harness.WaitUntilAsync(() => window.Error is not null);
+            return false;
         };
         using var objects = await h.ObjectsAsync();
-        var restore = Task.Run(() => objects.RestoreCommand.ExecuteAsync(null), TestContext.Current.CancellationToken);
-        try
+        var restore = Task.Run(() => objects.RestoreCommand.ExecuteAsync(null), ct);
+
+        // The window opens (its first backup selected) while the read still waits for the FIFO.
+        var opened = await Task.WhenAny(shown.Task, Task.Delay(TimeSpan.FromSeconds(10), ct)) == shown.Task;
+
+        // Opened read-write, the FIFO does not block us; the handle stays a writer until the read is over.
+        await using (var writer = new FileStream(xml, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite, bufferSize: 1))
         {
-            // The window opens (its first backup selected) while the read still waits.
-            Assert.Same(shown.Task, await Task.WhenAny(shown.Task, Task.Delay(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)));
-        }
-        finally
-        {
-            // Release the reader with something that is not XML.
-            await File.WriteAllTextAsync(xml, "nie XML", TestContext.Current.CancellationToken);
+            await writer.WriteAsync("nie XML – Łódź"u8.ToArray(), ct);
+            await writer.FlushAsync(ct);
+            released.TrySetResult();
+            await restore;
         }
 
-        await restore;
+        Assert.True(opened, "The window waited for the backup read.");
     }
 
     [Fact]
