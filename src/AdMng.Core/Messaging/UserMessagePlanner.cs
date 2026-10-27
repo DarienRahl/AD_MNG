@@ -91,6 +91,9 @@ public sealed record PlannedUserMessage
     /// <summary>The rendered message (also for skipped accounts, for the preview); null when it could not be built.</summary>
     public OutgoingUserMessage? Message { get; init; }
 
+    /// <summary>Title, gender and salutation derived for the salutation fields the template uses (U1d preview).</summary>
+    public IReadOnlyList<Salutations.DerivedFieldValue> Derived { get; init; } = [];
+
     /// <summary>Ready or with warnings, and rendered.</summary>
     public bool CanSend => Message is not null && Status is PlannedMessageStatus.Ready or PlannedMessageStatus.Warning;
 
@@ -127,6 +130,9 @@ public sealed record UserMessageSender
     public MessageLanguage DefaultLanguage { get; init; } = MessageLanguage.Polish;
 
     public required TimeZoneInfo TimeZone { get; init; }
+
+    /// <summary>Salutation settings (U1d: title and gender attributes, title table, neutral texts).</summary>
+    public Salutations.SalutationOptions Salutations { get; init; } = Messaging.Salutations.SalutationOptions.Default;
 }
 
 /// <summary>An account to message, as read from the DC (null <see cref="Account"/>: not found any more).</summary>
@@ -169,6 +175,15 @@ public sealed record UserMessagePlanRequest
 
     /// <summary>Schema of the session (confidential attributes are forbidden fields too).</summary>
     public ISchemaCatalog? Schema { get; init; }
+
+    /// <summary>Gender chosen in the preview for this run by account DN (U1d; <c>Unknown</c> = neutral on purpose).</summary>
+    public IReadOnlyDictionary<string, Salutations.Gender> GenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
+
+    /// <summary>
+    /// Gender of the manager chosen in the preview of one message, by the account DN of that message (U1d, the manager
+    /// fields such as <c>{$managerSalutation}</c>; <c>Unknown</c> = neutral on purpose).
+    /// </summary>
+    public IReadOnlyDictionary<string, Salutations.Gender> ManagerGenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
 }
 
 /// <summary>
@@ -205,14 +220,17 @@ public sealed class UserMessagePlanner
     public IReadOnlyList<string> InputsOf(MessageTemplate template) =>
         [.. TokenArguments(template, UserMessageFields.Input).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Attributes to read for the accounts of <paramref name="template"/>.</summary>
-    public IReadOnlyList<string> AccountAttributesFor(MessageTemplate template) =>
+    /// <summary>Attributes to read for the accounts of <paramref name="template"/> (with the salutation attributes of <paramref name="salutations"/> when used).</summary>
+    public IReadOnlyList<string> AccountAttributesFor(MessageTemplate template, Salutations.SalutationOptions? salutations = null) =>
         [.. BaseAccountAttributes.Concat(Parts(template).SelectMany(p => _fields.Engine.Parse(p).ReferencedAttributes))
+            .Concat(Salutations.SalutationFields.AccountAttributes(Parts(template).SelectMany(p => _fields.Engine.Parse(p).SpecialTokens), salutations))
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>Attributes to read for the managers.</summary>
-    public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template) =>
-        [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager)).Distinct(StringComparer.OrdinalIgnoreCase)];
+    /// <summary>Attributes to read for the managers (with the salutation attributes of <paramref name="salutations"/> when used).</summary>
+    public IReadOnlyList<string> ManagerAttributesFor(MessageTemplate template, Salutations.SalutationOptions? salutations = null) =>
+        [.. BaseManagerAttributes.Concat(TokenArguments(template, UserMessageFields.Manager))
+            .Concat(Salutations.SalutationFields.ManagerAttributes(Parts(template).SelectMany(p => _fields.Engine.Parse(p).SpecialTokens), salutations))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>Template level validation: syntax, forbidden fields and inputs, disallowed HTML, missing input values.
     /// <paramref name="checkHtml"/> false leaves out the HTML part (<see cref="Html.MessageHtmlChecks.CheckTemplate"/>,
@@ -311,6 +329,23 @@ public sealed class UserMessagePlanner
         return new UserMessagePlan(templateIssues, messages);
     }
 
+    /// <summary>
+    /// Plans the message at <paramref name="index"/> of the plan of <paramref name="request"/> again (U1d: a gender chosen in
+    /// the preview, <see cref="UserMessagePlanRequest.GenderOverrides"/>); a duplicate-address warning of
+    /// <paramref name="previous"/> is kept. The template must have passed <see cref="Plan"/>.
+    /// </summary>
+    public PlannedUserMessage Replan(UserMessagePlanRequest request, int index, PlannedUserMessage? previous = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var accounts = request.Accounts.DistinctBy(a => a.DistinguishedName, StringComparer.OrdinalIgnoreCase).ToList();
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, accounts.Count);
+        var planned = PlanOne(request, accounts[index], index, AllowedDomains(request), new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        return previous?.Issues.FirstOrDefault(i => i.Code == MessageIssueCodes.DuplicateAddress) is { } duplicate && planned.Recipient == previous.Recipient
+            ? WithIssue(planned, duplicate)
+            : planned;
+    }
+
     private PlannedUserMessage PlanOne(
         UserMessagePlanRequest request,
         UserMessageAccount entry,
@@ -366,6 +401,7 @@ public sealed class UserMessagePlanner
             TimeZone = sender.TimeZone,
             Inputs = request.Inputs,
             Domain = request.Domain,
+            Salutation = Salutations.MessageSalutations.For(request, account, entry.Manager, issues, language),
         };
         var text = template.Text(language);
         var empty = new List<string>();
@@ -434,6 +470,7 @@ public sealed class UserMessagePlanner
             Status = StatusOf(issues),
             Issues = [.. issues.Distinct()],
             Message = message,
+            Derived = data.Salutation?.Derived() ?? [],
         };
     }
 

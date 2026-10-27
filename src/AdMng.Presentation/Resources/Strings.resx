@@ -8040,6 +8040,261 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.SettingsTab" xml:space="preserve">
     <value>E-mail messages</value>
   </data>
+  <data name="UserMessages.Salutation.Section" xml:space="preserve">
+    <value>Salutations</value>
+  </data>
+  <data name="UserMessages.Salutation.Hint" xml:space="preserve">
+    <value>Template fields address the recipient by title and gender (salutation, title, titledName, honorific, byGender – see the field list of the message window). Only templates that use them are affected.</value>
+  </data>
+  <data name="UserMessages.Salutation.TitleAttribute" xml:space="preserve">
+    <value>Title attribute</value>
+  </data>
+  <data name="UserMessages.Salutation.TitleAttributeHint" xml:space="preserve">
+    <value>Default personalTitle; empty = none. Never title (the job title).</value>
+  </data>
+  <data name="UserMessages.Salutation.TitleFromDisplayName" xml:space="preserve">
+    <value>Recognize the title in the display name (e.g. prof. dr hab. Jan Kowalski)</value>
+  </data>
+  <data name="UserMessages.Salutation.GenderAttribute" xml:space="preserve">
+    <value>Gender attribute</value>
+  </data>
+  <data name="UserMessages.Salutation.GenderAttributeHint" xml:space="preserve">
+    <value>Optional, e.g. extensionAttribute5; empty = the gender from the given name and the surname.</value>
+  </data>
+  <data name="UserMessages.Salutation.MasculineValues" xml:space="preserve">
+    <value>Values: man</value>
+  </data>
+  <data name="UserMessages.Salutation.FeminineValues" xml:space="preserve">
+    <value>Values: woman</value>
+  </data>
+  <data name="UserMessages.Salutation.ValuesHint" xml:space="preserve">
+    <value>Separated by commas; case and diacritics do not matter.</value>
+  </data>
+  <data name="UserMessages.Salutation.NeutralPolish" xml:space="preserve">
+    <value>Neutral salutation (PL)</value>
+  </data>
+  <data name="UserMessages.Salutation.NeutralEnglish" xml:space="preserve">
+    <value>Neutral salutation (EN)</value>
+  </data>
+  <data name="UserMessages.Salutation.NeutralHint" xml:space="preserve">
+    <value>Used when the gender is unknown; {0} = given name and surname.</value>
+  </data>
+  <data name="UserMessages.Salutation.UnknownGender" xml:space="preserve">
+    <value>When the gender is unknown</value>
+  </data>
+  <data name="UserMessages.Salutation.UnknownGender.FromSettings" xml:space="preserve">
+    <value>as in the settings</value>
+  </data>
+  <data name="UserMessages.Salutation.UnknownGender.Neutral" xml:space="preserve">
+    <value>neutral salutation and a warning</value>
+  </data>
+  <data name="UserMessages.Salutation.UnknownGender.Masculine" xml:space="preserve">
+    <value>as to a man (Mr)</value>
+  </data>
+  <data name="UserMessages.Salutation.UnknownGender.Feminine" xml:space="preserve">
+    <value>as to a woman (Ms)</value>
+  </data>
+  <data name="UserMessages.Salutation.GivenNames" xml:space="preserve">
+    <value>Given names</value>
+  </data>
+  <data name="UserMessages.Salutation.GivenNamesHint" xml:space="preserve">
+    <value>The gender of given names the built-in rules get wrong – typed by you, never copied from the directory.</value>
+  </data>
+  <data name="UserMessages.Salutation.GivenName" xml:space="preserve">
+    <value>Given name</value>
+  </data>
+  <data name="UserMessages.Salutation.Surname" xml:space="preserve">
+    <value>Surname</value>
+  </data>
+  <data name="UserMessages.Salutation.Gender" xml:space="preserve">
+    <value>Gender</value>
+  </data>
+  <data name="UserMessages.Salutation.AddGivenName" xml:space="preserve">
+    <value>Add given name</value>
+  </data>
+  <data name="UserMessages.Salutation.Titles" xml:space="preserve">
+    <value>Title table</value>
+  </data>
+  <data name="UserMessages.Salutation.TitlesHint" xml:space="preserve">
+    <value>The highest-ranked title with a form for the gender decides the salutation; mgr, inż. and lic. have none (plain Szanowny Panie / Szanowna Pani).</value>
+  </data>
+  <data name="UserMessages.Salutation.TitleColumn" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="UserMessages.Salutation.Variants" xml:space="preserve">
+    <value>Variants</value>
+  </data>
+  <data name="UserMessages.Salutation.Rank" xml:space="preserve">
+    <value>Rank</value>
+  </data>
+  <data name="UserMessages.Salutation.PolishMasculine" xml:space="preserve">
+    <value>PL vocative (man)</value>
+  </data>
+  <data name="UserMessages.Salutation.PolishFeminine" xml:space="preserve">
+    <value>PL vocative (woman)</value>
+  </data>
+  <data name="UserMessages.Salutation.EnglishForm" xml:space="preserve">
+    <value>EN form</value>
+  </data>
+  <data name="UserMessages.Salutation.AddTitle" xml:space="preserve">
+    <value>Add title</value>
+  </data>
+  <data name="UserMessages.Salutation.ResetTitles" xml:space="preserve">
+    <value>Restore defaults</value>
+  </data>
+  <data name="UserMessages.Salutation.Check" xml:space="preserve">
+    <value>Check</value>
+  </data>
+  <data name="UserMessages.Salutation.CheckHint" xml:space="preserve">
+    <value>Type the values of an account – only the settings above are used, nothing is read from the directory.</value>
+  </data>
+  <data name="UserMessages.Salutation.CheckTitle" xml:space="preserve">
+    <value>Title (attribute)</value>
+  </data>
+  <data name="UserMessages.Salutation.CheckDisplayName" xml:space="preserve">
+    <value>Display name</value>
+  </data>
+  <data name="UserMessages.Salutation.CheckTitleResult" xml:space="preserve">
+    <value>Title: {0} ({1})</value>
+  </data>
+  <data name="UserMessages.Salutation.CheckGenderResult" xml:space="preserve">
+    <value>Gender: {0} ({1})</value>
+  </data>
+  <data name="UserMessages.Salutation.NoTitle" xml:space="preserve">
+    <value>(none)</value>
+  </data>
+  <data name="UserMessages.Salutation.InvalidAttribute" xml:space="preserve">
+    <value>{0}: not a valid attribute name, or an attribute not allowed in messages.</value>
+  </data>
+  <data name="UserMessages.Salutation.InvalidRank" xml:space="preserve">
+    <value>Title table: the rank must be between {0} and {1}.</value>
+  </data>
+  <data name="UserMessages.Salutation.Group" xml:space="preserve">
+    <value>Salutations</value>
+  </data>
+  <data name="UserMessages.Salutation.UseTitles" xml:space="preserve">
+    <value>Use titles</value>
+  </data>
+  <data name="UserMessages.Salutation.ColumnSalutation" xml:space="preserve">
+    <value>Salutation</value>
+  </data>
+  <data name="UserMessages.Salutation.DerivedFields" xml:space="preserve">
+    <value>Derived fields</value>
+  </data>
+  <data name="UserMessages.Salutation.GenderOverride" xml:space="preserve">
+    <value>Gender</value>
+  </data>
+  <data name="UserMessages.Salutation.ManagerGenderOverride" xml:space="preserve">
+    <value>Manager's gender</value>
+  </data>
+  <data name="UserMessages.Salutation.GenderOverrideHint" xml:space="preserve">
+    <value>For this send only – it is not saved.</value>
+  </data>
+  <data name="UserMessages.Salutation.FieldAcademicTitle" xml:space="preserve">
+    <value>academic title</value>
+  </data>
+  <data name="UserMessages.Salutation.FieldJobTitle" xml:space="preserve">
+    <value>job title</value>
+  </data>
+  <data name="UserMessages.Salutation.Guessed" xml:space="preserve">
+    <value>guessed</value>
+  </data>
+  <data name="UserMessages.Salutation.Choice.Automatic" xml:space="preserve">
+    <value>automatic</value>
+  </data>
+  <data name="UserMessages.Salutation.Choice.Masculine" xml:space="preserve">
+    <value>Mr</value>
+  </data>
+  <data name="UserMessages.Salutation.Choice.Feminine" xml:space="preserve">
+    <value>Ms</value>
+  </data>
+  <data name="UserMessages.Salutation.Choice.Neutral" xml:space="preserve">
+    <value>neutral</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.title" xml:space="preserve">
+    <value>Title</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.gender" xml:space="preserve">
+    <value>Gender</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.salutation" xml:space="preserve">
+    <value>Salutation</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.managerTitle" xml:space="preserve">
+    <value>Manager's title</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.managerGender" xml:space="preserve">
+    <value>Manager's gender</value>
+  </data>
+  <data name="UserMessages.Salutation.Field.managerSalutation" xml:space="preserve">
+    <value>Salutation of the manager</value>
+  </data>
+  <data name="UserMessages.Salutation.Gender.Unknown" xml:space="preserve">
+    <value>unknown</value>
+  </data>
+  <data name="UserMessages.Salutation.Gender.Masculine" xml:space="preserve">
+    <value>man (Mr)</value>
+  </data>
+  <data name="UserMessages.Salutation.Gender.Feminine" xml:space="preserve">
+    <value>woman (Ms)</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.None" xml:space="preserve">
+    <value>none</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.Attribute" xml:space="preserve">
+    <value>gender attribute</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.TitleAttribute" xml:space="preserve">
+    <value>title attribute</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.DisplayName" xml:space="preserve">
+    <value>display name</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.OperatorList" xml:space="preserve">
+    <value>given names of the settings</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.NameException" xml:space="preserve">
+    <value>given name (exception list)</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.NameRule" xml:space="preserve">
+    <value>given name (rule)</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.Surname" xml:space="preserve">
+    <value>surname</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.Override" xml:space="preserve">
+    <value>chosen for this send</value>
+  </data>
+  <data name="UserMessages.Salutation.Source.Fallback" xml:space="preserve">
+    <value>fallback (settings or template)</value>
+  </data>
+  <data name="UserMessages.Filter.Guessed" xml:space="preserve">
+    <value>Guessed salutations</value>
+  </data>
+  <data name="UserMessages.Issue.GenderGuessed" xml:space="preserve">
+    <value>The salutation uses a guessed gender ({0}).</value>
+  </data>
+  <data name="UserMessages.Issue.TitleFromDisplayName" xml:space="preserve">
+    <value>Title {0} recognized in the display name.</value>
+  </data>
+  <data name="UserMessages.Issue.GenderUnknown" xml:space="preserve">
+    <value>Unknown gender ({0}) – the neutral salutation is used.</value>
+  </data>
+  <data name="UserMessages.Issue.GenderConflict" xml:space="preserve">
+    <value>Given name and surname suggest different genders ({0}) – the fallback salutation is used.</value>
+  </data>
+  <data name="UserMessages.Issue.GenderDefaulted" xml:space="preserve">
+    <value>Unknown gender ({0}) – the default gender of the settings or the template is used.</value>
+  </data>
+  <data name="UserMessages.Issue.TitleUnrecognized" xml:space="preserve">
+    <value>Title words not in the title table: {0}.</value>
+  </data>
+  <data name="UserMessages.Issue.SurnameMissing" xml:space="preserve">
+    <value>No surname ({0}) – the English salutation is neutral.</value>
+  </data>
+  <data name="UserMessages.Issue.GenderValueUnknown" xml:space="preserve">
+    <value>Unknown value of the gender attribute: {0}.</value>
+  </data>
   <data name="UserMessages.GeneralTab" xml:space="preserve">
     <value>General</value>
   </data>

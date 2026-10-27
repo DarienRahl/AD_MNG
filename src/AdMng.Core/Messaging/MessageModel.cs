@@ -162,6 +162,9 @@ public sealed record MessageTemplate
 
     public MessageRecipientMode Recipients { get; init; } = MessageRecipientMode.User;
 
+    /// <summary>Salutation options of the template (U1d: titles, unknown gender, neutral texts); null = the settings.</summary>
+    public Salutations.TemplateSalutationOptions? Salutation { get; init; }
+
     /// <summary>The text of <paramref name="language"/>; an empty one falls back to the other language.</summary>
     public MessageTemplateText Text(MessageLanguage language) =>
         (TextLanguage(language) == MessageLanguage.English ? English : Polish) ?? new();

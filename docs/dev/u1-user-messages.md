@@ -55,6 +55,10 @@ section 1.
   `{$passwordExpiresInDays}` = `AccountStatus.PasswordDaysLeft` (calendar days, 0 = today). Password expiry always from
   `msDS-UserPasswordExpiryTimeComputed` (FGPP); "never expires" and "must change" are separate states – the fields are
   empty then and the condition decides who is skipped.
+* **Salutations (U1d):** `{$salutation}`, `{$title}`, `{$titledName}`, `{$honorific:case}`, `{$byGender:masc/fem}` and
+  their `manager…` twins (title from `personalTitle` or the display name, gender from the attribute or the names, title
+  table and given names in the settings) – [u1c-u1d-rich-html-and-salutations.md](u1c-u1d-rich-html-and-salutations.md)
+  Part B.
 * Inputs `{$input:name}` are typed by the operator in the window (one value for all recipients). An empty input is a
   plan error.
 * **No password field:** a template that references a secret attribute (`SecretAttributes.IsSecret`), any attribute whose

@@ -1,5 +1,6 @@
 using System.Globalization;
 using AdMng.Core.ActiveDirectory;
+using AdMng.Core.Messaging.Salutations;
 using AdMng.Core.Model;
 using AdMng.Core.Templates;
 
@@ -27,6 +28,12 @@ public sealed record UserMessageFieldData
 
     /// <summary>DNS domain ({$domain}).</summary>
     public string? Domain { get; init; }
+
+    /// <summary>
+    /// The salutation fields of this message (U1d, <c>{$salutation}</c> …) with the planner's options and finding list;
+    /// null: default options, no findings.
+    /// </summary>
+    public MessageSalutations? Salutation { get; init; }
 }
 
 /// <summary>
@@ -40,6 +47,11 @@ public sealed record UserMessageFieldData
 /// <item><c>{$lastLogon:format}</c> (lastLogonTimestamp), <c>{$lockedSince:format}</c>, <c>{$today:format}</c>.</item>
 /// <item><c>{$manager:attribute}</c> – an attribute of the manager, e.g. <c>{$manager:displayName}</c>.</item>
 /// <item><c>{$input:name}</c> – a value typed by the operator when sending (one for all recipients).</item>
+/// <item>U1d salutations (<see cref="MessageSalutations"/>): <c>{$title}</c> / <c>{$title:highest}</c>, <c>{$titledName}</c>,
+/// <c>{$salutation}</c> (<c>noTitle</c>, <c>vocative</c>, <c>vocativeNoTitle</c>), <c>{$honorific}</c> /
+/// <c>{$honorific:dopełniacz}</c> (seven cases), <c>{$byGender:zmienił/zmieniła[/neutral]}</c> and the manager twins
+/// <c>{$managerTitle}</c>, <c>{$managerTitledName}</c>, <c>{$managerSalutation}</c>, <c>{$managerHonorific}</c>,
+/// <c>{$managerByGender:…}</c> – plain text in the message language.</item>
 /// </list>
 /// A date without a format uses <see cref="DefaultDateFormat"/> ("5 listopada 2026"). Thread-safe.
 /// </summary>
@@ -54,6 +66,16 @@ public sealed class UserMessageFields
     public const string Today = "today";
     public const string Manager = "manager";
     public const string Input = "input";
+    public const string Title = "title";
+    public const string TitledName = "titledName";
+    public const string Salutation = "salutation";
+    public const string Honorific = "honorific";
+    public const string ByGender = "byGender";
+    public const string ManagerTitle = "managerTitle";
+    public const string ManagerTitledName = "managerTitledName";
+    public const string ManagerSalutation = "managerSalutation";
+    public const string ManagerHonorific = "managerHonorific";
+    public const string ManagerByGender = "managerByGender";
 
     /// <summary>Format of dates without an explicit one (with genitive month names in Polish).</summary>
     public const string DefaultDateFormat = "d MMMM yyyy";
@@ -73,15 +95,19 @@ public sealed class UserMessageFields
         new(Today, TemplateTokenArgument.Optional, IsDateFormat: true),
         new(Manager, TemplateTokenArgument.Required),
         new(Input, TemplateTokenArgument.Required),
+        .. SalutationTokens(string.Empty),
+        .. SalutationTokens(Manager),
     ];
 
     /// <summary>Field examples for the editor's "insert field" list.</summary>
     public static IReadOnlyList<string> Examples { get; } =
     [
-        "{givenName}", "{sn}", "{displayName}", "{sAMAccountName}", "{userPrincipalName}", "{mail}", "{department}",
+        "{givenName}", "{sn}", "{displayName}", "{sAMAccountName}", "{userPrincipalName}", "{mail}", "{department}", "{title}",
         "{$passwordExpires:d MMMM yyyy}", "{$passwordExpiresInDays}", "{$accountExpires:d MMMM yyyy}", "{$accountExpiresInDays}",
         "{$lastLogon:d MMMM yyyy}", "{$lockedSince:d MMMM yyyy, HH:mm}", "{$today:d MMMM yyyy}", "{$manager:displayName}",
         "{$manager:mail}", "{$input:termin}",
+        "{$salutation}", "{$salutation:noTitle}", "{$title}", "{$titledName}", "{$honorific}", "{$honorific:dopełniacz}",
+        "{$byGender:zmienił/zmieniła}", "{$managerSalutation}",
     ];
 
     /// <summary>The template engine with the message tokens (separate from the batch editor's instance).</summary>
@@ -149,9 +175,34 @@ public sealed class UserMessageFields
                 ? manager.GetString(attribute.Trim()) ?? string.Empty
                 : string.Empty,
             Input => argument is { Length: > 0 } input && FindInput(data.Inputs, input) is { } value ? value : string.Empty,
+            _ when SalutationFields.IsSalutationField(name) => (data.Salutation ?? MessageSalutations.For(data)).Evaluate(name, argument, data.Language),
             _ => string.Empty,
         };
     }
+
+    /// <summary>
+    /// The salutation tokens (U1d) of the account (<paramref name="prefix"/> empty) or the manager ("manager"): an empty
+    /// <c>{$title}</c> is normal (no "empty field" warning), arguments are checked against their allowed values.
+    /// </summary>
+    private static IEnumerable<TemplateExtensionToken> SalutationTokens(string prefix)
+    {
+        string Name(string field) => prefix.Length == 0 ? field : prefix + char.ToUpperInvariant(field[0]) + field[1..];
+        yield return new(Name(Title), TemplateTokenArgument.Optional) { AllowedArguments = ["highest"], ReportsEmpty = false };
+        yield return new(Name(TitledName), TemplateTokenArgument.None);
+        yield return new(Name(Salutation), TemplateTokenArgument.Optional) { AllowedArguments = ["noTitle", "vocative", "vocativeNoTitle"] };
+        yield return new(Name(Honorific), TemplateTokenArgument.Optional) { AllowedArguments = [.. SalutationData.CaseNames.Select(c => c.Name)] };
+        yield return new(Name(ByGender), TemplateTokenArgument.Required)
+        {
+            ValidateArgument = ValidateByGender,
+            // An empty part is the operator's choice ("zmienił{$byGender:/a}"), never missing data.
+            ReportsEmpty = false,
+        };
+    }
+
+    private static string? ValidateByGender(string argument) =>
+        argument.Split('/').Length is 2 or 3
+            ? null
+            : "use two or three texts separated by '/': masculine/feminine[/neutral], e.g. 'zmienił/zmieniła'.";
 
     private static string? FindInput(IReadOnlyDictionary<string, string> inputs, string name)
     {

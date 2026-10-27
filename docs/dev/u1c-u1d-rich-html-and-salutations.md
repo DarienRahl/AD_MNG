@@ -698,7 +698,7 @@ in manager mode, U1 §3).
 
 | Field | Argument | Value (PL / EN) |
 |---|---|---|
-| `{$title}` | none \| `highest` | The recognized title chain in canonical spelling: `prof. dr hab.`, `dr n. med.`, `mgr inż.`; with a suffix title `dr hab., prof. UW`; `highest` → only the highest-ranked title (`prof.`). Language-independent. Empty when none. |
+| `{$title}` | none \| `highest` | The recognized title chain in canonical spelling: `prof. dr hab.`, `dr n. med.`, `mgr inż.`; with a suffix title `dr hab., prof. UW`; `highest` → only the highest-ranked title (`prof.`; as built with its university when every occurrence of that title has one: `dr hab., prof. UW` → `prof. UW`, a university professor like `prof. uczelni`, not the title `prof.`). Language-independent. Empty when none. |
 | `{$titledName}` | none | `prof. dr hab. Jan Kowalski`; with a suffix title `dr hab. Anna Nowak, prof. UW`; without a title `Jan Kowalski`. |
 | `{$salutation}` | none \| `noTitle` \| `vocative` \| `vocativeNoTitle` | Full salutation: `Szanowny Panie Profesorze`, `Szanowna Pani Doktor`, `Szanowny Panie`, `Szanowna Pani`, `Szanowny Księże` / `Dear Professor Kowalski`, `Dear Dr Nowak`, `Dear Mr Wiśniewski`, `Dear Ms Kowalska`. `noTitle` ignores the title; `vocative` drops the adjective / "Dear" (`Panie Profesorze`, `Professor Kowalski`). |
 | `{$honorific}` | none \| case: `nom gen dat acc ins loc voc` (Polish aliases `mianownik dopełniacz celownik biernik narzędnik miejscownik wołacz`, diacritics-insensitive) | The short form, capitalized as customary in letters: `Pan`/`Pani`, `Pana`/`Pani`, `Panu`/`Pani`, `Pana`/`Panią`, `Panem`/`Panią`, `Panu`/`Pani`, `Panie`/`Pani`; EN `Mr`/`Ms` (case ignored). |
@@ -721,8 +721,11 @@ The salutation fields render as plain text (HTML-encoded in the HTML body, `Head
 display name is still parsed); the source is recorded for the preview:
 
 1. The **title attribute** of the settings (default `personalTitle`; empty = none). Never `title` – that is the job
-   title. Honorific words found there (`Pan Pani Mr Mr. Mrs Mrs. Ms Ms. Miss`) are not titles: they set the gender with
-   source *attribute* (section 16) and are removed from the title.
+   title. An honorific word as its first word (`Pan Pani Mr Mr. Mrs Mrs. Ms Ms. Miss`) is not a title: it sets the
+   gender with source *attribute* (section 16) and is removed from the title. As built, only as the first word and not
+   written in capitals – `PAN` (Polska Akademia Nauk: `dr hab., prof. IChF PAN`, `czł. koresp. PAN`) or `MS` (Master of
+   Science) elsewhere or in capitals is a title word or an unrecognized one, never a gender. As built, a fully covered part after the last comma
+   is a suffix as in the display name (`dr hab., prof. UW` → `{$titledName}` "dr hab. Ewa Zielińska, prof. UW").
 2. The **display name** (setting *Rozpoznawaj tytuł z nazwy wyświetlanej*, default on): a title prefix
    (`prof. dr hab. Jan Kowalski`, `dr Kowalski Jan`) and/or a suffix after the last comma (`…, prof. UW`,
    `…, dr hab.`). Accepted only when the rest still contains the `givenName` or the `sn` (case- and
@@ -736,10 +739,16 @@ display name is still parsed); the source is recorded for the preview:
 **Coverage** (what `{$title}` shows): from the start of the source (and of the suffix), the longest table spelling
 (canonical or variant, itself tokenized) matching the next words is taken, repeatedly; output uses the canonical
 spelling. Two absorbed patterns: the qualifier `n.` + up to two following words of which the last ends in a dot
-(`dr n. med.`, `dr hab. n. o zdr.`) and, after `prof.`, a university abbreviation (2–8 letters, starts upper-case, at
-least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`) – both kept as written in `{$title}`, without effect on
-the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
-`{$title}` then shows the covered part only.
+(`dr n. med.`, `dr hab. n. o zdr.`) and, after a row with `prof.` in its title (`prof.`, `ks. prof.`, as built also
+`prof. uczelni`, `prof. nadzw.`), a university abbreviation (2–8 letters, starts upper-case, at
+least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`; as built up to two of them for an institute of the
+academy: `prof. IChF PAN`, `prof. IBL PAN`; as built never a degree such as `MBA`, `PhD`, `DSc`,
+`LLM`, `MSc` – those stay unrecognized words); as built also one lower-case abbreviation of a discipline (at least two
+letters and a dot) directly after a row of the table (`dr med.`, `dr hab. med.`, `dr inż. arch.`, `mgr farm.`,
+`lic. piel.`) – all kept as written in `{$title}`, without effect on the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
+`{$title}` then shows the covered part only. As built, every field that looks at the title raises it – `{$salutation}`
+and `{$salutation:vocative}` also when no word was recognized at all (`PhD`, `mec.` → "Szanowny Panie" with the
+warning), the `noTitle` variants never.
 
 **Selection** (what the salutation uses): among the table rows whose spelling occurs as a contiguous word sequence in
 the covered words, the highest rank wins; if that row has no form for the determined gender (or language), the next
@@ -754,17 +763,24 @@ vocative, EN form (empty = no title-specific form). Defaults:
 | `ks. prof.` | – | 120 | Księże Profesorze | – | Father |
 | `ks. dr hab.` | – | 118 | Księże Profesorze | – | Father |
 | `ks. dr` | – | 115 | Księże Doktorze | – | Father |
-| `prof.` | `prof`, `profesor`, `prof. zw.`, `prof. nadzw.`, `prof. uczelni`, `prof. ucz.` | 100 | Panie Profesorze | Pani Profesor | Professor |
+| `prof.` | `prof`, `profesor`, `professor`, `prof. zw.` | 100 | Panie Profesorze | Pani Profesor | Professor |
+| `prof. uczelni` | `prof. ucz.` | 101 | Panie Profesorze | Pani Profesor | Professor |
+| `prof. nadzw.` | `prof. nzw.`, `prof. ndzw.` | 101 | Panie Profesorze | Pani Profesor | Professor |
 | `dr hab.` | `dr. hab.`, `doktor habilitowany` | 90 | Panie Profesorze | Pani Profesor | Dr |
 | `ks.` | `ks`, `ksiądz` | 80 | Księże | – | Father |
-| `dr` | `dr.`, `doktor` | 70 | Panie Doktorze | Pani Doktor | Dr |
-| `lek.` | `lek. med.`, `lek. dent.`, `lek. wet.`, `lekarz` | 60 | Panie Doktorze | Pani Doktor | Dr |
+| `dr` | `dr.`, `doktor`, `doctor` | 70 | Panie Doktorze | Pani Doktor | Dr |
+| `lek.` | `lek. med.`, `lekarz` | 60 | Panie Doktorze | Pani Doktor | Dr |
+| `lek. dent.` | `lek. stom.` | 61 | Panie Doktorze | Pani Doktor | Dr |
+| `lek. wet.` | – | 61 | Panie Doktorze | Pani Doktor | Dr |
 | `mgr` | `mgr.`, `magister` | 20 | – | – | – |
 | `inż.` | `inż`, `inz.`, `inz`, `inżynier` | 20 | – | – | – |
 | `lic.` | `lic`, `licencjat` | 10 | – | – | – |
 
-Notes on the defaults: a *doktor habilitowany* is customarily addressed "Panie Profesorze / Pani Profesor" in Polish
-correspondence (changeable); *magister / inżynier / licencjat* are shown in `{$title}` and `{$titledName}` but give
+Notes on the defaults: variants are other spellings of the **same** title (`{$title}` prints the canonical one); a
+different title with the same forms has its own row – *profesor uczelni* / *profesor nadzwyczajny* are positions
+(usually of a *dr hab.*), not the title of professor, and a *lekarz dentysta* / *weterynarii* is no physician – ranked
+just above the row its spelling contains, so `{$title:highest}` keeps it (as built). A *doktor habilitowany* is
+customarily addressed "Panie Profesorze / Pani Profesor" in Polish correspondence (changeable); *magister / inżynier / licencjat* are shown in `{$title}` and `{$titledName}` but give
 the plain "Szanowny Panie / Szanowna Pani" (titular "Panie Inżynierze" is archaic); military and other titles are added
 by the operator (e.g. `płk` – Panie Pułkowniku / Pani Pułkownik / Colonel). Limits: ≤ 100 rows, spellings and forms
 ≤ 100 characters, header-safe.
@@ -789,11 +805,22 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
    * in the built-in **unisex** list → no name signal;
    * in the built-in **masculine-ending-in-a** list → masculine (guessed, *exception*);
    * in the built-in **feminine-not-ending-in-a** list → feminine (guessed, *exception*);
-   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*).
-5. **Surname** (`sn`, first part of a hyphenated one): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
-   With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception) → **conflict** →
-   unknown (warning `GenderConflict`); agreeing → keeps the name result.
-6. Nothing → unknown (warning `GenderUnknown`).
+   * ends in `a` → feminine (guessed, *rule*), otherwise masculine (guessed, *rule*). As built, in **English messages**
+     only for Polish names – a Polish letter (`ą ć ę ł ń ś ź ż`) or the built-in list of frequent Polish given names
+     (`GivenNameLists.Polish`: "Jan Nowak" with `preferredLanguage=en` → "Dear Mr Nowak" ≈, as "Szanowny Panie" in
+     Polish): recipients of English messages mostly have names the Polish rule does not fit (Jennifer, Karen, Ilya), so
+     there any other name outside the lists gives no signal of its own (the surname may decide; else the neutral "Dear
+     {name}" and `GenderUnknown`) – but the rule result still vetoes a disagreeing surname (step 5), so "Laura
+     Nowakowski" or "Paweł Gąska" is a conflict, never "Dear Mr Nowakowski" / "Dear Ms Gąska".
+5. **Surname** (`sn`; as built every part of a hyphenated one – the adjectival part is often the second one,
+   `Nowak-Kowalska`; parts that disagree give no signal): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
+   With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception; in English messages
+   too) → **conflict** → unknown (warning `GenderConflict`); agreeing → keeps the name result (English: the surname
+   result).
+6. **Title for one gender only** (as built): no signal from the names (no conflict) and the highest-ranked title with a
+   Polish form has a form for one gender only (`ks.`, `ks. dr` – priests) → that gender (guessed, source of the title,
+   detail: the title).
+7. Nothing → unknown (warning `GenderUnknown`).
 
 **Built-in lists** (Core, `GivenNameLists`, minimum content – extend, never shrink):
 
@@ -804,8 +831,15 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
   mercedes, nikol, nicole, dagmar, astrid, sigrid, agnes, rachel, sarah, hannah, deborah, esther, judith, lilian, vivien,
   michelle, emily, amy, lily, lili, ann, anne, mary, marie, sophie, chloe, zoe, julie, claire, jeanne, louise, elizabeth,
   catherine, kathleen, margaret, irene, doris, alice, charlotte, isabel, heike, elke, silke, ute, gudrun, karin, birgit,
-  ellen, helen, kathrin, jasmin, lubow, liubov;
-* unisex / ambiguous: sasza, andrea, nicola, nikola, kim, alex, robin, jean, dominique, toni, kai, noa, maxime, akira.
+  ellen, helen, kathrin, jasmin, lubow, liubov; as built also common English, German, French and Spanish names (jennifer,
+  karen, susan, megan, sabine, yvonne, christine, kerstin, iris, katherine, kate, jane, grace, rose, stephanie, diane,
+  leah, amelie, danielle, gabrielle …, ljubow, lyubov), Indian and Turkish names (swati, jyoti, preeti,
+  shruti, lakshmi, devi, aditi …, ayse, elif, zeynep, merve) and, masculine ending in -a, the English
+  transliterations of Russian names (ilya, misha, grisha, kostya, vanya, pasha …), mattia, luka, savva, attila, Indian
+  names (aditya, krishna, chaitanya, surya, rama, shiva, the -endra names: ravindra, rajendra, narendra …), yahya,
+  zakaria, taha and Japanese names (takuya, kazuya, tetsuya, kenta, yuta, ryota, shota);
+* unisex / ambiguous: sasza, andrea, nicola, nikola, kim, alex, robin, jean, dominique, toni, kai, noa, maxime, akira
+  (as built also sasha, saša, zhenya).
 
 The **per-template default** (`MessageTemplate.Salutation.UnknownGender`: *z ustawień* (default) / neutral / masculine
 / feminine) and the settings default (`SalutationSettings.UnknownGender`, default neutral) decide what an unknown gender
@@ -821,9 +855,14 @@ renders as; a template may also switch titles off (`UseTitles`, default true) an
 * **Unknown gender** (and the template/settings default is neutral): the **neutral text** of the language – defaults PL
   `Szanowna Pani / Szanowny Panie`, EN `Dear {name}` (`{name}` = `givenName sn`, else the display name without its
   title; with no name at all the fixed last resort `Szanowni Państwo` / `Dear Sir or Madam`) – plus the warning
-  `GenderUnknown`. Vocative variants: PL `Pani / Panie`, EN `{name}`. Honorific: the joined forms (`Pan/Pani`,
+  `GenderUnknown`. Vocative variants: PL `Pani / Panie`, EN `{name}`. As built: without given name and surname a title
+  prefix or suffix is cut from the display name for `{name}` ("dr Jan Kowalski" → "Dear Jan Kowalski"; never used as
+  the person's title), and a finding names the account by its login or RDN when it has no name at all. Honorific: the joined forms (`Pan/Pani`,
   `Pana/Pani`, `Panu/Pani`, `Pana/Panią`, `Panem/Panią`, `Panu/Pani`, `Panie/Pani`; EN `Mr/Ms`); `byGender`: the third
   part, else `masc/fem`.
+* **Unknown gender with a title** (as built): with the default Polish neutral text and a title row having both Polish
+  forms, the neutral text keeps the title – `Szanowna Pani Profesor / Szanowny Panie Profesorze` (vocative `Pani
+  Profesor / Panie Profesorze`); an operator's own neutral text is used as it is.
 * A warning is raised only when the template actually uses a field that needed the missing information (an EN titled
   salutation never warns about gender; a template without salutation fields never warns).
 
@@ -851,8 +890,9 @@ access). Composer: a small **Zwroty** group under the recipient mode (*używaj t
   `title`, `gender`, `salutation` (and the manager twins when used); sources `Attribute`, `TitleAttribute`,
   `DisplayName`, `OperatorList`, `NameException`, `NameRule`, `Surname`, `Override`, `Fallback`.
 * Issues (`SalutationIssueCodes`, Core, B's file; texts `UserMessages.Issue.{code}`): `GenderGuessed` (info, detail:
-  source + name), `TitleFromDisplayName` (info), `GenderUnknown`, `GenderConflict`, `TitleUnrecognized`,
-  `SurnameMissing` (warnings), `GenderValueUnknown` (info).
+  source + name), `TitleFromDisplayName` (info), `GenderUnknown`, `GenderConflict`, `GenderDefaulted` (an unknown
+  gender rendered with the default gender of the settings / the template), `TitleUnrecognized`, `SurnameMissing`
+  (warnings), `GenderValueUnknown` (info).
 * Preview list: new column **Zwrot** – the rendered salutation with `≈` (guessed, tooltip with the source) or `⚠`
   (neutral fallback / conflict). Details pane: **Pola wyliczone** – title (source), gender (source, "zgadnięte"),
   salutation – and a **Płeć** selector *automatycznie / Pan / Pani / neutralnie* that re-plans only that message
@@ -885,6 +925,46 @@ uprzejmie informujemy, że hasło do {$honorific:dopełniacz} konta {sAMAccountN
 Other cases: `{$honorific:celownik}` → *Panu / Pani* ("przypominamy Panu"), `{$honorific:biernik}` → *Pana / Panią*
 ("prosimy Panią"), `{$honorific:narzędnik}` → *Panem / Panią* ("kontakt z Panem"); `{$titledName}` → *prof. dr hab. Jan
 Kowalski*; `{$title|capitalize}` → *Prof. dr hab.*
+
+### 20a. As built (track B)
+
+Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/`, Presentation
+`Settings/SalutationSettings.cs`, `UserMessages/*Salutation*`):
+
+* `TemplateExtensionToken` also gained `ValidateArgument` (an English error or null): `{$byGender}` needs two or three
+  parts. `{$byGender}` does not report an empty value either (`{$byGender:/a}` – an empty part is the operator's choice).
+* Words of the display name equal to the given name or the surname are never a title or an absorbed university
+  (`prof. NOWAK Jan`), and a suffix after the last comma counts only when every word of it is covered. A title of the
+  display name made of short all-caps words without a dot (`Jan Kowalski, KS` – a unit code such as *księgowość*, `DR`,
+  `LEK`) is no title unless the whole display name is written in capitals (`JAN KOWALSKI, KS`); `DR HAB.` still is one.
+* Findings: `GenderGuessed` carries the deciding word (first given name or surname) – the source is shown by the
+  derived fields; an unknown gender rendered with the default gender of the settings / the template is the warning
+  `GenderDefaulted` (the gender is still unknown – section 17), not `GenderUnknown`; a neutral override is the
+  operator's choice (no finding, no ⚠).
+* `PlannedUserMessage.Derived`: `title` and `gender` (with the `manager` prefix for the manager) for every person whose
+  fields the template uses, `salutation` only when a `{$salutation}` field of that person is used (manager mode shows
+  the manager's salutation in the column); `DerivedFieldValue.Issue` names the finding behind a value. The salutation
+  value is the variant the template rendered (the fullest one when several: `Full`, `noTitle`, `vocative`,
+  `vocativeNoTitle`), marked by the worst of the variants rendered. The title and the gender carry a guess, a fallback
+  or a finding only when a rendered field needed them (`{$titledName}` alone never marks the gender, `{$byGender}`
+  alone never marks a display-name title). Without `{$salutation}` the *Zwrot* column shows only the mark (`≈` / `⚠`)
+  of a gender that `{$honorific}` / `{$byGender}` used. The *Zgadnięte zwroty* filter lists messages with a guessed or
+  fallback value or a value with a finding.
+* A template with *używaj tytułów* off renders `{$title}` empty and `{$titledName}` without the title.
+* The composer's *Zwroty* options read and write `MessageTemplate.Salutation` of the edited template and are refreshed
+  when another template is selected (an `OnPropertyChanged` override in the partial class – no extra hook line in the
+  shared file); a gender change in the preview is posted to the dispatcher and replaces that item only.
+* *Pola wyliczone* has one gender selector per person whose fields the template uses: *Płeć* (the account,
+  `UserMessagePlanRequest.GenderOverrides`) and *Płeć przełożonego* (the manager fields such as
+  `{$managerSalutation}`, `ManagerGenderOverrides`) – both keyed by the account DN of the message, so a choice re-plans
+  that message only.
+* Settings: an emptied title attribute is stored as `""` (null would bring the default back); the neutral texts are
+  stored only when they differ from the defaults.
+* `{title}` (the job title, attribute `title`) and `{$title}` (the academic title) differ by one character: the
+  composer's *Wstaw pole* list carries `{title}` and labels both (*stanowisko* / *tytuł naukowy*). No template finding for the mix – the template bar is an error bar, and the mandatory preview of
+  every message shows which one was used.
+* The screenshot test class is `ScreenshotTestsSalutations`, so the CI step's filter
+  `FullyQualifiedName~AdMng.App.UiTests.ScreenshotTests` takes it without a workflow change.
 
 ---
 
@@ -955,7 +1035,7 @@ OU, so `AddSampleCompany()` counts do not change).
 with WebView2 and – with `ADMNG_UI_NO_WEBVIEW2=1` – falls back to the source view, no binding errors), screenshot
 `22-user-messages-rich-html.png` (new test file), `HostTests` lifetimes, `SmokeTest` opens the preview tab. B:
 `UserMessagesSalutationWindowTests` (column, details panel, override, settings section) and screenshot
-`23-user-messages-salutations.png` (new test file).
+`25-user-messages-salutations.png` (new test file; 22 and 23 belong to track K – see 22.4).
 
 ## 22. Implementation tracks
 
@@ -1028,6 +1108,10 @@ Not touched by either track (left to the integration step): the README status li
 row, the "Ścieżka U" heading), `docs/ROADMAP.md`, release notes and versions, CLAUDE.md.
 
 ### 22.4 Integration step (after both merges)
+
+Screenshot numbers: track K (`docs/dev/k-computers-and-gpo.md`) owns `22-computers.png` and `23-group-policy.png`;
+U1d uses `25-user-messages-salutations.png`; U1c renumbers its `22-user-messages-rich-html.png` to the next free one
+(24) and the README / design-note references with it.
 
 Rebase the second track on the first, build the solution with 0 warnings, run Core, Presentation, Mail, Watchdog Core
 and Service tests twice, the Mailpit and lab tests, the Windows UI job (both screenshots); then update the README

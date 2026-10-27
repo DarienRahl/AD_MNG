@@ -52,7 +52,25 @@ public enum TemplateTokenArgument
 /// evaluated by <see cref="TemplateContext.Extension"/>. <paramref name="IsDateFormat"/>: the argument is validated as a
 /// date format (like <c>{$date:format}</c>).
 /// </summary>
-public sealed record TemplateExtensionToken(string Name, TemplateTokenArgument Argument, bool IsDateFormat = false);
+public sealed record TemplateExtensionToken(string Name, TemplateTokenArgument Argument, bool IsDateFormat = false)
+{
+    /// <summary>
+    /// The only arguments the token accepts (compared case- and diacritics-insensitively, e.g. <c>dopełniacz</c> =
+    /// <c>dopelniacz</c>); another argument is a syntax error listing them. Null: any argument.
+    /// </summary>
+    public IReadOnlyList<string>? AllowedArguments { get; init; }
+
+    /// <summary>
+    /// Validates the argument: an English error text (without the position), or null when it is valid. Null: no check.
+    /// </summary>
+    public Func<string, string?>? ValidateArgument { get; init; }
+
+    /// <summary>
+    /// An empty value is reported to <see cref="TemplateContext.EmptyValue"/> (default). False for tokens whose empty value
+    /// is normal, e.g. <c>{$title}</c> of a person without a title.
+    /// </summary>
+    public bool ReportsEmpty { get; init; } = true;
+}
 
 /// <summary>A special or extension token used by a template (name as declared, argument as written).</summary>
 public sealed record TemplateTokenUse(string Name, string? Argument);
@@ -76,6 +94,7 @@ public sealed record TemplateParseResult(bool IsValid, IReadOnlyList<string> Err
 /// <item><c>{attr}</c> - first value of an attribute, e.g. <c>{givenName}</c>.</item>
 /// <item><c>{attr|f1|f2:arg}</c> - pipe functions applied left to right:
 /// <c>lower</c>, <c>upper</c>, <c>title</c>, <c>trim</c>, <c>nodiacritics</c> (ą→a, ł→l, ż→z ...),
+/// <c>capitalize</c> (upper-cases the first letter only: <c>prof. dr hab.</c> → <c>Prof. dr hab.</c>),
 /// <c>first:N</c>, <c>last:N</c>, <c>replace:old:new</c>, <c>default:text</c>, <c>nospaces</c>,
 /// <c>alnum</c> (letters and digits only), <c>sam</c> (valid sAMAccountName: no diacritics, no
 /// <c>"/\[]:;|=,+*?&lt;&gt;@</c> or spaces, max 20 chars).</item>

@@ -31,7 +31,7 @@ public sealed class TemplateEngine : ITemplateEngine
     private const int MaxCachedTemplates = 512;
 
     private static readonly string[] KnownFunctions =
-        ["lower", "upper", "title", "trim", "nodiacritics", "first", "last", "replace", "default", "nospaces", "alnum", "sam"];
+        ["lower", "upper", "title", "capitalize", "trim", "nodiacritics", "first", "last", "replace", "default", "nospaces", "alnum", "sam"];
 
     private static readonly string[] KnownSpecialTokens = ["dn", "rdn", "parent", "parentName", "domain", "counter", "date"];
 
@@ -134,7 +134,7 @@ public sealed class TemplateEngine : ITemplateEngine
             value = Apply(function, value);
         }
 
-        if (string.IsNullOrWhiteSpace(value))
+        if (token.ReportsEmpty && string.IsNullOrWhiteSpace(value))
         {
             context.EmptyValue?.Invoke(token.Source);
         }
@@ -165,6 +165,7 @@ public sealed class TemplateEngine : ITemplateEngine
         "lower" => value.ToLowerInvariant(),
         "upper" => value.ToUpperInvariant(),
         "title" => ToTitleCase(value),
+        "capitalize" => Capitalize(value),
         "trim" => value.Trim(),
         "nodiacritics" => RemoveDiacritics(value),
         "first" => FirstTextElements(value, function.Count),
@@ -196,6 +197,20 @@ public sealed class TemplateEngine : ITemplateEngine
         }
 
         return sb.ToString();
+    }
+
+    /// <summary>Upper-cases the first letter only ("prof. dr hab." → "Prof. dr hab."); the rest stays as it is.</summary>
+    private static string Capitalize(string value)
+    {
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (char.IsLetter(value[i]))
+            {
+                return char.IsUpper(value[i]) ? value : string.Concat(value.AsSpan(0, i), char.ToUpperInvariant(value[i]).ToString(), value.AsSpan(i + 1));
+            }
+        }
+
+        return value;
     }
 
     private static string FirstTextElements(string value, int count)
@@ -258,7 +273,8 @@ public sealed class TemplateEngine : ITemplateEngine
         string? Special,
         string? SpecialArgument,
         bool IsExtension,
-        IReadOnlyList<TemplateFunction> Functions) : Segment;
+        IReadOnlyList<TemplateFunction> Functions,
+        bool ReportsEmpty = true) : Segment;
 
     private sealed record TemplateFunction(string Name, int Count = 0, string? Arg1 = null, string? Arg2 = null);
 
@@ -394,6 +410,7 @@ public sealed class TemplateEngine : ITemplateEngine
             string? special = null;
             string? specialArgument = null;
             var isExtension = false;
+            var reportsEmpty = true;
             if (head[0] is { Value: '$', Escaped: false })
             {
                 var nameAndArgs = Split(head.Skip(1).ToList(), ':');
@@ -408,6 +425,7 @@ public sealed class TemplateEngine : ITemplateEngine
                 {
                     special = extension.Name;
                     isExtension = true;
+                    reportsEmpty = extension.ReportsEmpty;
                     ValidateExtensionArgument(extension, specialArgument, head[0].Position, errors);
                 }
                 else if (special is null)
@@ -452,7 +470,7 @@ public sealed class TemplateEngine : ITemplateEngine
 
             if (errors.Count == errorCount)
             {
-                parser.Segments.Add(new TokenSegment(source, attribute, special, specialArgument, isExtension, functions));
+                parser.Segments.Add(new TokenSegment(source, attribute, special, specialArgument, isExtension, functions, reportsEmpty));
                 if (special is not null && !parser.SpecialTokens.Any(t => string.Equals(t.Name, special, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(t.Argument, specialArgument, StringComparison.Ordinal)))
                 {
@@ -471,6 +489,19 @@ public sealed class TemplateEngine : ITemplateEngine
                 case TemplateTokenArgument.Required when string.IsNullOrWhiteSpace(argument):
                     errors.Add($"Special token '${extension.Name}' at position {position} requires an argument, e.g. '{{${extension.Name}:name}}'.");
                     return;
+            }
+
+            if (argument is not null && extension.AllowedArguments is { } allowed
+                && !allowed.Any(a => string.Equals(Diacritics.Remove(a.Trim()), Diacritics.Remove(argument.Trim()), StringComparison.OrdinalIgnoreCase)))
+            {
+                errors.Add($"Invalid argument '{argument}' for '${extension.Name}' at position {position}. Allowed: {string.Join(", ", allowed)}.");
+                return;
+            }
+
+            if (argument is not null && extension.ValidateArgument?.Invoke(argument) is { } invalid)
+            {
+                errors.Add($"Invalid argument '{argument}' for '${extension.Name}' at position {position}: {invalid}");
+                return;
             }
 
             if (extension.IsDateFormat && argument is not null)
@@ -515,7 +546,7 @@ public sealed class TemplateEngine : ITemplateEngine
             var args = pieces.Skip(1).Select(Text).ToList();
             switch (name)
             {
-                case "lower" or "upper" or "title" or "trim" or "nodiacritics" or "nospaces" or "alnum" or "sam":
+                case "lower" or "upper" or "title" or "capitalize" or "trim" or "nodiacritics" or "nospaces" or "alnum" or "sam":
                     if (args.Count > 0)
                     {
                         errors.Add($"Function '{name}' at position {position} does not take arguments.");
