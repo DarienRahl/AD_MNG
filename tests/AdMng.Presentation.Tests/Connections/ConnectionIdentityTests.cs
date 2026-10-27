@@ -193,6 +193,21 @@ public sealed class ConnectionIdentityTests
         Assert.True(NamingContextFilter.Contains(null, "OU=Sprzedaż,DC=fabrikam,DC=test"));
     }
 
+    [Fact]
+    public void NamingContextFilter_LeavesAChildDomainToItsOwnWindow()
+    {
+        // contoso.test and its child emea.contoso.test, each open in a window.
+        Assert.False(NamingContextFilter.Contains("DC=contoso,DC=test", "OU=Kadry,DC=emea,DC=contoso,DC=test"));
+        Assert.False(NamingContextFilter.Contains("DC=contoso,DC=test", "DC=emea,DC=contoso,DC=test"));
+        Assert.False(NamingContextFilter.Contains("dc=CONTOSO,dc=test", "OU=Księgowość,dc=Emea,DC=contoso,DC=test"));
+        Assert.True(NamingContextFilter.Contains("DC=emea,DC=contoso,DC=test", "OU=Kadry,DC=emea,DC=contoso,DC=test"));
+        Assert.False(NamingContextFilter.Contains("DC=emea,DC=contoso,DC=test", "OU=IT,OU=Firma,DC=contoso,DC=test"));
+
+        // A DC= component further down (a DNS zone in the domain partition) is still the window's own domain.
+        Assert.True(NamingContextFilter.Contains("DC=contoso,DC=test", "DC=contoso.test,CN=MicrosoftDNS,CN=System,DC=contoso,DC=test"));
+        Assert.True(NamingContextFilter.Contains("O=Firma", "OU=Łódź,O=Firma"));
+    }
+
     private static ConnectionScopeHost CreateHost() =>
         new(domains: [new FakeDirectoryBuilder().Build(), new FakeDirectoryBuilder(Fabrikam).Build()]);
 }

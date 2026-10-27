@@ -561,7 +561,7 @@ label and colour where a view model needs them (comparison). It is constructed p
 | Connection profiles | One list; editing a profile in one window's connect dialog is seen by the next connect dialog. New field `Color`. |
 | Saved views (`ViewLibrary`) | Portable (`{domain}`), so they show in every window and resolve against that window's naming context. |
 | Pinned containers | Stored as absolute DNs. A window shows only pins under its own `DefaultNamingContext` (`DistinguishedName.IsDescendantOf` or equal); the others stay in the settings and are not deleted. |
-| Recent containers | `AppSettings.MaxRecentContainers` goes from 10 to 30. Each window shows its 10 newest entries under its own naming context, so domain A's history is not pushed out by B. |
+| Recent containers | `AppSettings.MaxRecentContainers` goes from 10 to 30. Each window shows its 10 newest entries in its own naming context (not a child domain's below it: the RDN directly under a `DC=` naming context must not be another `DC=`), so domain A's history is not pushed out by B. |
 | Localization, theme | `TranslationSource.Localizer` and `AppearanceService` are app-wide; a language switch re-renders all windows. |
 | Watchdog address and certificate pin, SMTP settings, templates, daily message budget | App-wide (6). |
 
