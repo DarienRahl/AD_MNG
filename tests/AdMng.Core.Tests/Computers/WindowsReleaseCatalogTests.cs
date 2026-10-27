@@ -33,6 +33,11 @@ public class WindowsReleaseCatalogTests
     [InlineData("Windows Server 2012 R2 Standard", "6.3 (9600)", "Windows Server 2012 R2", "2023-10-10", SupportState.Ended)]
     [InlineData("Windows 7 Professional", "6.1 (7601)", "Windows 7 SP1", "2020-01-14", SupportState.Ended)]
     [InlineData("Windows 8.1 Pro", "6.3 (9600)", "Windows 8.1", "2023-01-10", SupportState.Ended)]
+    [InlineData("Hyper-V Server 2012 R2", "6.3 (9600)", "Windows Server 2012 R2", "2023-10-10", SupportState.Ended)]
+    [InlineData("Hyper-V Server 2019", "10.0 (17763)", "Windows Server 2019", "2029-01-09", SupportState.Supported)]
+    [InlineData("Azure Stack HCI", "10.0 (20348)", "Azure Stack HCI 21H2", "2023-11-14", SupportState.Ended)]
+    [InlineData("Azure Stack HCI", "10.0 (20349)", "Azure Stack HCI 22H2", "2025-05-31", SupportState.Ended)]
+    [InlineData("Azure Stack HCI", "10.0 (17784)", "Azure Stack HCI 20H2", "2022-12-13", SupportState.Ended)]
     public void Match_UsesTheBuildAndTheEditionClass(string os, string version, string release, string end, SupportState state)
     {
         var match = Match(os, version);
@@ -62,6 +67,9 @@ public class WindowsReleaseCatalogTests
     [InlineData("Windows 10 IoT Enterprise LTSC", EditionClass.IotLtsc)]
     [InlineData("Windows Server 2025 Datacenter Azure Edition", EditionClass.Server)]
     [InlineData("Windows Storage Server 2016", EditionClass.Server)]
+    [InlineData("Hyper-V Server 2016", EditionClass.Server)]
+    [InlineData("Azure Stack HCI", EditionClass.AzureLocal)]
+    [InlineData("Azure Local", EditionClass.AzureLocal)]
     public void EditionOf_ClassifiesTheProductString(string os, EditionClass expected) =>
         Assert.Equal(expected, WindowsReleaseCatalog.EditionOf(os));
 
@@ -78,6 +86,21 @@ public class WindowsReleaseCatalogTests
         Assert.Equal(SupportState.NotWindows, match.State);
         Assert.Null(match.Release);
         Assert.Null(match.Edition);
+    }
+
+    [Fact]
+    public void AzureLocal_HasItsOwnLifecycle_NotThatOfTheServerReleaseOfItsBuild()
+    {
+        // Build 25398 is also Windows Server 23H2 (ended 2025-10-24); Azure Local 23H2 is supported per solution version.
+        var local = Match("Azure Stack HCI", "10.0 (25398)");
+        Assert.Equal("Azure Local 23H2", local.Release!.Release);
+        Assert.Equal(EditionClass.AzureLocal, local.Edition);
+        Assert.Equal(SupportState.Unknown, local.State);
+        Assert.Equal(SupportState.Ended, Match("Windows Server Datacenter", "10.0 (25398)").State);
+
+        // Build 20348 is Windows Server 2022 (supported to 2031) but Azure Stack HCI 21H2 ended in 2023.
+        Assert.Equal(SupportState.Supported, Match("Windows Server 2022 Standard", "10.0 (20348)").State);
+        Assert.Equal(SupportState.Ended, Match("Azure Stack HCI", "10.0 (20348)").State);
     }
 
     [Fact]

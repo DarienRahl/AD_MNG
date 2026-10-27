@@ -15,8 +15,14 @@ public enum EditionClass
     /// <summary>IoT Enterprise LTSC / LTSB.</summary>
     IotLtsc,
 
-    /// <summary>Windows Server (any edition).</summary>
+    /// <summary>Windows Server (any edition) and Hyper-V Server, which follows the Windows Server release of its build.</summary>
     Server,
+
+    /// <summary>
+    /// Azure Stack HCI / Azure Local: Windows Server based, but each version has its own end of service (six months after
+    /// the next one), not that of the Windows Server release of the same build.
+    /// </summary>
+    AzureLocal,
 }
 
 /// <summary>Support state of a computer's operating system.</summary>
@@ -114,6 +120,8 @@ public sealed class WindowsReleaseCatalog
 
         void Server(int build, string release, string? end) => rows.Add(new(build, EditionClass.Server, release, Date(end)));
 
+        void AzureLocal(int build, string release, string? end) => rows.Add(new(build, EditionClass.AzureLocal, release, Date(end)));
+
         // Windows 11 (feature updates: Home/Pro 24 months, Enterprise/Education 36 months).
         Client(28000, "Windows 11 26H1", null, null);
         Client(26200, "Windows 11 25H2", "2027-10-12", "2028-10-10");
@@ -152,14 +160,22 @@ public sealed class WindowsReleaseCatalog
         Server(7600, "Windows Server 2008 R2", "2020-01-14");
         Server(6003, "Windows Server 2008", "2020-01-14");
         Server(6002, "Windows Server 2008", "2020-01-14");
+
+        // Azure Stack HCI / Azure Local (end of service per version; from 23H2 each solution version is supported for a
+        // limited time, which the OS build does not tell – no date).
+        AzureLocal(26100, "Azure Local 24H2", null);
+        AzureLocal(25398, "Azure Local 23H2", null);
+        AzureLocal(20349, "Azure Stack HCI 22H2", "2025-05-31");
+        AzureLocal(20348, "Azure Stack HCI 21H2", "2023-11-14");
+        AzureLocal(17784, "Azure Stack HCI 20H2", "2022-12-13");
         return rows;
 
         static DateOnly? Date(string? value) => value is null ? null : DateOnly.ParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>
-    /// The edition class of an operatingSystem value (null when it is not Windows): Server, IoT LTSC, LTSC/LTSB,
-    /// Enterprise/Education (Pro Education counts as Pro), else Home/Pro.
+    /// The edition class of an operatingSystem value (null when it is not Windows): Azure Stack HCI / Azure Local, Server
+    /// (also Hyper-V Server), IoT LTSC, LTSC/LTSB, Enterprise/Education (Pro Education counts as Pro), else Home/Pro.
     /// </summary>
     public static EditionClass? EditionOf(string? operatingSystem)
     {
@@ -170,6 +186,11 @@ public sealed class WindowsReleaseCatalog
 
         var os = operatingSystem!;
         bool Has(string text) => os.Contains(text, StringComparison.OrdinalIgnoreCase);
+        if (Has("Azure Stack HCI") || Has("Azure Local"))
+        {
+            return EditionClass.AzureLocal;
+        }
+
         if (Has("Server"))
         {
             return EditionClass.Server;
@@ -189,9 +210,16 @@ public sealed class WindowsReleaseCatalog
         return Has("Enterprise") || Has("Education") ? EditionClass.EnterpriseEducation : EditionClass.HomePro;
     }
 
-    /// <summary>The value names Windows (everything else – Samba, Linux, macOS, empty – is not).</summary>
+    /// <summary>
+    /// The value names Windows or a Windows Server based Microsoft product whose string lacks "Windows" (Hyper-V Server,
+    /// Azure Stack HCI, Azure Local); everything else – Samba, Linux, macOS, empty – is not.
+    /// </summary>
     public static bool IsWindows(string? operatingSystem) =>
-        !string.IsNullOrWhiteSpace(operatingSystem) && operatingSystem.Contains("Windows", StringComparison.OrdinalIgnoreCase);
+        !string.IsNullOrWhiteSpace(operatingSystem)
+        && (operatingSystem.Contains("Windows", StringComparison.OrdinalIgnoreCase)
+            || operatingSystem.Contains("Hyper-V Server", StringComparison.OrdinalIgnoreCase)
+            || operatingSystem.Contains("Azure Stack HCI", StringComparison.OrdinalIgnoreCase)
+            || operatingSystem.Contains("Azure Local", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The catalogue row of a build and edition class, or null.</summary>
     public WindowsRelease? Find(int build, EditionClass edition)

@@ -282,8 +282,11 @@ bits (`GpoVersion.FromInt32` / `ToInt32`). Rules:
 * `WindowsReleaseCatalog` (built-in table, `ValidAsOf` date) → `WindowsReleaseMatch(Release?, EditionClass,
   EndOfSupport?, SupportState)`. The build decides the release – **not** the product string: early Windows 11 builds
   wrote "Windows 10 …" into `operatingSystem`, so build ≥ 22000 on a client string is Windows 11. The product string
-  decides the family (Server) and the edition class (`HomePro`, `EnterpriseEducation`, `Ltsc`, `IotLtsc`, `Server`),
-  because end dates differ by edition. `SupportState`: `Supported`, `EndingSoon` (≤ N days, default 90), `Ended`,
+  decides the family (Server) and the edition class (`HomePro`, `EnterpriseEducation`, `Ltsc`, `IotLtsc`, `Server`,
+  `AzureLocal`), because end dates differ by edition. Strings without "Windows" that are Windows Server based count as
+  Windows: "Hyper-V Server" (class `Server`, the dates of the Server release of its build) and "Azure Stack HCI" /
+  "Azure Local" (class `AzureLocal`, its own end of service per version: 20H2 2022-12-13, 21H2 2023-11-14, 22H2
+  2025-05-31; 23H2 and 24H2 per solution version, so no date). `SupportState`: `Supported`, `EndingSoon` (≤ N days, default 90), `Ended`,
   `Unknown` (build not in the catalogue), `NotWindows`. Operator overrides in the settings (build + edition class →
   date, e.g. bought ESU for Windows 10) win. The window shows *Katalog wersji z dnia …* and a warning when it is older
   than 9 months. Orientation rows (the implementer re-checks every date against Microsoft Lifecycle when filling the

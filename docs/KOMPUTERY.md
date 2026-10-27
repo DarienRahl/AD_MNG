@@ -43,8 +43,10 @@ wybiera *Wyłącz…*, *Przenieś…* albo *Usuń…*. Każda z tych akcji pokaz
 
 **Katalog wersji Windows.** O wersji decyduje **numer kompilacji**, a nie nazwa systemu. Wczesne kompilacje Windows 11
 zapisywały w `operatingSystem` „Windows 10 …”, więc kompilacja 22000 lub wyższa oznacza Windows 11. Nazwa systemu
-określa rodzinę (Server) i klasę wydania (Home/Pro, Enterprise/Education, LTSC, IoT LTSC, Server), bo daty końca wsparcia
-różnią się między wydaniami. Okno podaje datę katalogu (*Katalog wersji z dnia …*) i ostrzega, gdy ma on ponad 9
+określa rodzinę (Server) i klasę wydania (Home/Pro, Enterprise/Education, LTSC, IoT LTSC, Server, Azure Stack HCI /
+Azure Local), bo daty końca wsparcia różnią się między wydaniami. Hyper-V Server ma daty Windows Server tej samej
+kompilacji, a Azure Stack HCI / Azure Local – własne daty dla każdej wersji (od 23H2 wsparcie zależy od wersji
+rozwiązania, więc katalog nie podaje daty). Okno podaje datę katalogu (*Katalog wersji z dnia …*) i ostrzega, gdy ma on ponad 9
 miesięcy. Własne daty, na przykład po wykupieniu ESU dla Windows 10, wpisuje się w *Ustawienia → Komputery*. Mają one
 pierwszeństwo przed katalogiem.
 

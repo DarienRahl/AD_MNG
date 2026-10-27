@@ -8241,6 +8241,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="WindowsRelease.Edition.Server" xml:space="preserve">
     <value>Windows Server</value>
   </data>
+  <data name="WindowsRelease.Edition.AzureLocal" xml:space="preserve">
+    <value>Azure Stack HCI / Azure Local</value>
+  </data>
   <data name="RemoteActions.WindowTitle" xml:space="preserve">
     <value>Zdalne akcje – {0}</value>
   </data>
