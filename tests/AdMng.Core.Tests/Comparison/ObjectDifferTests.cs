@@ -124,6 +124,32 @@ public class ObjectDifferTests
     }
 
     [Fact]
+    public void Addresses_WithoutDomain_AreCountedPerKey_SoAnExtraRoutingAddressIsADifference()
+    {
+        var a = User(Contoso, LukaszIn(ContosoNc),
+            (Attr.ProxyAddresses, ["SMTP:jan.wójcik@contoso.com", "smtp:jan.wójcik@contoso.mail.onmicrosoft.com", "smtp:jan.wójcik@contoso.onmicrosoft.com"]));
+        var b = User(Fabrikam, LukaszIn(FabrikamNc),
+            (Attr.ProxyAddresses, ["SMTP:jan.wójcik@fabrikam.com", "smtp:jan.wójcik@fabrikam.onmicrosoft.com"]));
+
+        var row = Row(ObjectDiffer.Compare(a, b), Attr.ProxyAddresses);
+        var reversed = Row(ObjectDiffer.Compare(b, a), Attr.ProxyAddresses);
+
+        Assert.Equal(AttributeComparisonState.Different, row.State);
+        Assert.True(row.IsDifference);
+        Assert.False(row.IsCaseOnly);
+        Assert.Equal((2, 1, 0), (row.CommonCount, row.OnlyACount, row.OnlyBCount));
+        Assert.Single(row.ValuesA, v => v.Side == ValueSide.OnlyA);
+        Assert.All(row.ValuesB, v => Assert.Equal(ValueSide.Both, v.Side));
+        Assert.Equal((2, 0, 1), (reversed.CommonCount, reversed.OnlyACount, reversed.OnlyBCount));
+        Assert.Single(reversed.ValuesB, v => v.Side == ValueSide.OnlyB);
+
+        // As many addresses per local part on both sides: the same, in another domain.
+        var c = User(Fabrikam, LukaszIn(FabrikamNc),
+            (Attr.ProxyAddresses, ["SMTP:jan.wójcik@fabrikam.com", "smtp:jan.wójcik@fabrikam.mail.onmicrosoft.com", "smtp:jan.wójcik@fabrikam.onmicrosoft.com"]));
+        Assert.Equal(AttributeComparisonState.SameOtherDomain, Row(ObjectDiffer.Compare(a, c), Attr.ProxyAddresses).State);
+    }
+
+    [Fact]
     public void Times_AreComparedAsInstants()
     {
         var a = User(Contoso, LukaszIn(ContosoNc),

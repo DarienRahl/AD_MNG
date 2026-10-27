@@ -170,17 +170,21 @@ public static class ObjectDiffer
         var kind = KindOf(name, isDn, a.Schema, b.Schema, options);
         var keysA = valuesA.Select(v => Key(v, kind, a.DefaultNamingContext)).ToList();
         var keysB = valuesB.Select(v => Key(v, kind, b.DefaultNamingContext)).ToList();
-        var setA = keysA.ToHashSet(StringComparer.Ordinal);
-        var setB = keysB.ToHashSet(StringComparer.Ordinal);
-        var marksA = valuesA.Select((v, i) => new ComparedValue(v, setB.Contains(keysA[i]) ? ValueSide.Both : ValueSide.OnlyA)).ToList();
-        var marksB = valuesB.Select((v, i) => new ComparedValue(v, setA.Contains(keysB[i]) ? ValueSide.Both : ValueSide.OnlyB)).ToList();
+
+        // Multisets, not sets: without the domain, smtp:jan@contoso.com and smtp:jan@contoso.onmicrosoft.com share a key,
+        // and three such addresses against two are a difference (the surplus value is marked "only A").
+        var unmatchedB = Counts(keysB);
+        var marksA = valuesA.Select((v, i) => new ComparedValue(v, Take(unmatchedB, keysA[i]) ? ValueSide.Both : ValueSide.OnlyA)).ToList();
+        var unmatchedA = Counts(keysA);
+        var marksB = valuesB.Select((v, i) => new ComparedValue(v, Take(unmatchedA, keysB[i]) ? ValueSide.Both : ValueSide.OnlyB)).ToList();
+        var common = marksA.Count(m => m.Side == ValueSide.Both);
         row = row with
         {
             ValuesA = marksA,
             ValuesB = marksB,
-            CommonCount = setA.Count(setB.Contains),
-            OnlyACount = setA.Count(k => !setB.Contains(k)),
-            OnlyBCount = setB.Count(k => !setA.Contains(k)),
+            CommonCount = common,
+            OnlyACount = valuesA.Count - common,
+            OnlyBCount = valuesB.Count - common,
         };
 
         if (valuesA.Count == 0 || valuesB.Count == 0)
@@ -188,7 +192,7 @@ public static class ObjectDiffer
             return row with { State = OneSided(name, valuesA.Count > 0, valuesB.Count > 0, a, b) };
         }
 
-        if (setA.SetEquals(setB))
+        if (row.OnlyACount == 0 && row.OnlyBCount == 0)
         {
             // Equal keys: for addresses the full values may still differ in their domain part.
             var sameOtherDomain = kind == ValueKind.Address
@@ -198,13 +202,51 @@ public static class ObjectDiffer
 
         var caseOnly = kind switch
         {
-            ValueKind.Text => setA.ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(setB),
+            ValueKind.Text => SameMultiset(keysA.Select(k => k.ToUpperInvariant()), keysB.Select(k => k.ToUpperInvariant())),
 
             // smtp: (secondary) and SMTP: (primary) are not a matter of letter case: only the address part is folded.
-            ValueKind.Address => setA.Select(FoldAddress).ToHashSet(StringComparer.Ordinal).SetEquals(setB.Select(FoldAddress)),
+            ValueKind.Address => SameMultiset(keysA.Select(FoldAddress), keysB.Select(FoldAddress)),
             _ => false,
         };
         return row with { State = AttributeComparisonState.Different, IsCaseOnly = caseOnly };
+    }
+
+    private static Dictionary<string, int> Counts(IEnumerable<string> keys)
+    {
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var key in keys)
+        {
+            counts[key] = counts.GetValueOrDefault(key) + 1;
+        }
+
+        return counts;
+    }
+
+    /// <summary>Pairs one value of <paramref name="key"/> with an unpaired value of the other side, if one is left.</summary>
+    private static bool Take(Dictionary<string, int> unmatched, string key)
+    {
+        var left = unmatched.GetValueOrDefault(key);
+        if (left <= 0)
+        {
+            return false;
+        }
+
+        unmatched[key] = left - 1;
+        return true;
+    }
+
+    private static bool SameMultiset(IEnumerable<string> a, IEnumerable<string> b)
+    {
+        var counts = Counts(a);
+        foreach (var key in b)
+        {
+            if (!Take(counts, key))
+            {
+                return false;
+            }
+        }
+
+        return counts.Values.All(n => n == 0);
     }
 
     /// <summary>OnlyA / OnlyB, or "Brak w schemacie" when the side without values has no such attribute in its schema.</summary>
