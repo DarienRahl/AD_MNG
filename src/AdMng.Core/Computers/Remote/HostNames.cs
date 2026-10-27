@@ -6,8 +6,10 @@ namespace AdMng.Core.Computers.Remote;
 public static class HostNames
 {
     /// <summary>
-    /// A DNS host name: 1–253 characters, labels of 1–63 letters, digits and hyphens (not at a label's ends), a trailing dot
-    /// allowed. IP addresses are refused – Kerberos needs the host's name (its SPN).
+    /// A DNS host name: 1–253 characters, labels of 1–63 letters, digits, hyphens and underscores (neither at a label's
+    /// ends; Windows allows underscores in computer names and Microsoft DNS registers them), a trailing dot allowed. IP
+    /// addresses are refused – Kerberos needs the host's name (its SPN). Nothing else passes, so a name is safe on the
+    /// tools' command lines.
     /// </summary>
     public static bool IsValid(string? host)
     {
@@ -24,7 +26,7 @@ public static class HostNames
 
         foreach (var label in name.Split('.'))
         {
-            if (label.Length is 0 or > 63 || label[0] == '-' || label[^1] == '-' || !label.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'))
+            if (label.Length is 0 or > 63 || label[0] is '-' or '_' || label[^1] is '-' or '_' || !label.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
             {
                 return false;
             }
