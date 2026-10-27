@@ -85,4 +85,24 @@ public class AclPreviewTests
             "Odmawiaj – usuwanie, prawa 0x01000000",
             AceText.Describe(new AceSpec { Qualifier = AceQualifier.Deny, Mask = 0x01010000, TrusteeSid = Sid }, localizer));
     }
+
+    [Fact]
+    public void AceText_NamesAKnownRightOnlyWithItsMask_OtherwiseDescribesTheBits()
+    {
+        var localizer = new ResxLocalizer(CultureInfo.GetCultureInfo("pl-PL"));
+
+        Assert.Equal(
+            "Zezwalaj – odczyt i zapis ograniczeń konta",
+            AceText.Describe(AceSpec.Allow(Sid, 0x30, ExtendedRightIds.AccountRestrictions), localizer));
+        Assert.Equal(
+            "Zezwalaj – odczyt User-Account-Restrictions",
+            AceText.Describe(AceSpec.Allow(Sid, 0x10, ExtendedRightIds.AccountRestrictions), localizer));
+        Assert.Equal(
+            "Zezwalaj – zapis User-Account-Restrictions",
+            AceText.Describe(AceSpec.Allow(Sid, 0x20, ExtendedRightIds.AccountRestrictions), localizer));
+        Assert.DoesNotContain(
+            "resetowanie hasła",
+            AceText.Describe(AceSpec.Allow(Sid, 0x130, ExtendedRightIds.ResetPassword), localizer),
+            StringComparison.Ordinal);
+    }
 }

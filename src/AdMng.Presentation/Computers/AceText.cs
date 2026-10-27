@@ -15,13 +15,14 @@ public static class AceText
     private const int GenericWrite = 0x20028;
     private const int FullControl = 0xF01FF;
 
-    private static readonly Dictionary<Guid, string> KnownObjectTypes = new()
+    /// <summary>The names of the rights ADUC grants, valid only with exactly that mask (control access, read+write, validated write).</summary>
+    private static readonly Dictionary<Guid, (string Key, int Mask)> KnownObjectTypes = new()
     {
-        [ExtendedRightIds.ResetPassword] = L.Computers.AclRightResetPassword,
-        [ExtendedRightIds.AccountRestrictions] = L.Computers.AclRightAccountRestrictions,
-        [ExtendedRightIds.ValidatedWriteDnsHostName] = L.Computers.AclRightDnsHostName,
-        [ExtendedRightIds.ValidatedWriteServicePrincipalName] = L.Computers.AclRightServicePrincipalName,
-        [ExtendedRightIds.ApplyGroupPolicy] = L.Computers.AclRightApplyGroupPolicy,
+        [ExtendedRightIds.ResetPassword] = (L.Computers.AclRightResetPassword, 0x100),
+        [ExtendedRightIds.AccountRestrictions] = (L.Computers.AclRightAccountRestrictions, 0x30),
+        [ExtendedRightIds.ValidatedWriteDnsHostName] = (L.Computers.AclRightDnsHostName, 0x08),
+        [ExtendedRightIds.ValidatedWriteServicePrincipalName] = (L.Computers.AclRightServicePrincipalName, 0x08),
+        [ExtendedRightIds.ApplyGroupPolicy] = (L.Computers.AclRightApplyGroupPolicy, 0x100),
     };
 
     private static readonly (int Bit, string Key, string? KeyOf)[] Bits =
@@ -66,10 +67,11 @@ public static class AceText
             return localizer[L.Computers.AclRightFullControl];
         }
 
-        if (ace.ObjectType is { } objectType && KnownObjectTypes.TryGetValue(objectType, out var known))
+        if (ace.ObjectType is { } objectType && KnownObjectTypes.TryGetValue(objectType, out var known) && mask == known.Mask)
         {
-            // The rights ADUC grants for the right/property set (control access, read+write, validated write).
-            return localizer[known];
+            // The rights ADUC grants for the right/property set (control access, read+write, validated write); any
+            // other mask (read only, write only …) is described bit by bit below.
+            return localizer[known.Key];
         }
 
         var parts = new List<string>();
