@@ -242,10 +242,11 @@ public sealed class AccountReviewWindowTests
         var list = Assert.Single(Application.Current.Windows.OfType<SavedFiltersWindow>());
         Assert.Same(list, windows.FindOpen(ToolWindows.SavedFiltersKey));
 
-        // A tool window of the connection: owned by its main window, with its identity chrome.
+        // A tool window of the connection, owned by its main window; the filters are shared by all windows and the window
+        // is reused after a reconnect, so it names no domain (the builder it opens does).
         Assert.Same(main, list.Owner);
-        Assert.Equal("Zapisane filtry – contoso.test", list.Title);
-        Assert.Equal("contoso.test", Connections.ConnectionChrome.GetIdentity(list)?.DomainDnsName);
+        Assert.Equal("Zapisane filtry", list.Title);
+        Assert.Null(Connections.ConnectionChrome.GetIdentity(list));
         Assert.Single(list.FiltersList.Items);
         Assert.Equal(Visibility.Collapsed, list.EmptyHint.Visibility);
 

@@ -20,8 +20,9 @@ public sealed record SavedFilterItemViewModel(SavedFilter Filter, string Summary
 
 /// <summary>
 /// "Zapisane filtry" (Tools menu, the account review): the operator's saved filters - New, Edit, Delete, export and import
-/// as JSON for the team (text only). One window per application; it never acts in the directory session (the editor's
-/// attribute list and test use the current session).
+/// as JSON for the team (text only). One window per connection window; it never acts in the directory session, so it is
+/// reused after the connection window reconnected and names no domain (the editor's attribute list, group picker and test
+/// use the window's current session, and the editor names that domain).
 /// </summary>
 public sealed partial class SavedFiltersViewModel : WindowViewModelBase
 {

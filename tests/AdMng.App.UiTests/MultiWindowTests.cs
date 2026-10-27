@@ -110,12 +110,14 @@ public sealed class MultiWindowTests
         Assert.Equal(2, filters.Count);
         var review = Assert.Single(reviews, w => ConnectionChrome.BelongsTo(w, fabrikamId));
         var list = Assert.Single(filters, w => ConnectionChrome.BelongsTo(w, fabrikamId));
-        foreach (var tool in (Window[])[review, list])
-        {
-            Assert.Same(fabrikam, tool.Owner);
-            Assert.EndsWith(" – fabrikam.test", tool.Title, StringComparison.Ordinal);
-            Assert.Equal(Fabrikam, ConnectionChrome.GetIdentity(tool)?.DomainDnsName);
-        }
+        Assert.Same(fabrikam, review.Owner);
+        Assert.EndsWith(" – fabrikam.test", review.Title, StringComparison.Ordinal);
+        Assert.Equal(Fabrikam, ConnectionChrome.GetIdentity(review)?.DomainDnsName);
+
+        // The saved filters are shared and their window outlives the connection window's sessions: no domain's chrome.
+        Assert.Same(fabrikam, list.Owner);
+        Assert.DoesNotContain(Fabrikam, list.Title, StringComparison.Ordinal);
+        Assert.Null(ConnectionChrome.GetIdentity(list));
 
         // Asking again activates the connection's own windows; the other connection's stay as they are.
         await fabrikam.Shell.ShowAccountReviewCommand.ExecuteAsync(null);
@@ -279,6 +281,44 @@ public sealed class MultiWindowTests
 
         Assert.EndsWith(" – contoso.test", log.Title, StringComparison.Ordinal);
         Assert.Equal("contoso.test", ConnectionChrome.GetIdentity(log)?.DomainDnsName);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task TheSavedFilters_AreReusedAfterTheWindowReconnected_AndOnlyTheirBuilderNamesTheNewDomain() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await CreateContextAsync();
+        var manager = Manager(context);
+        var window = await OpenAsync(manager, FakeDirectoryBuilder.DefaultDomain);
+        await window.Shell.ShowSavedFiltersCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        var list = Application.Current.Windows.OfType<SavedFiltersWindow>().Single();
+
+        var sessions = Services(manager, window).GetRequiredService<ISessionManager>();
+        await sessions.DisconnectAsync();
+        await sessions.ConnectAsync(new ConnectionOptions { Domain = Fabrikam }, null, CancellationToken.None);
+        await UiWait.UntilAsync(() => window.Title.StartsWith(Fabrikam, StringComparison.Ordinal), "the main window to follow the new domain");
+
+        // Not session-bound, so asking again activates the same window: it must not name the domain it was opened in.
+        await window.Shell.ShowSavedFiltersCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Same(list, Application.Current.Windows.OfType<SavedFiltersWindow>().Single());
+        Assert.DoesNotContain("contoso.test", list.Title, StringComparison.Ordinal);
+        Assert.Null(ConnectionChrome.GetIdentity(list));
+
+        // The builder reads the window's current session (fabrikam) and names it.
+        FilterEditorWindow? builder = null;
+        var drive = UiWait.DriveModalAsync<FilterEditorWindow>(editor =>
+        {
+            builder = editor;
+            editor.ViewModel.CancelCommand.Execute(null);
+            return Task.CompletedTask;
+        });
+        await list.ViewModel.NewCommand.ExecuteAsync(null);
+        await drive;
+        Assert.NotNull(builder);
+        Assert.EndsWith(" – fabrikam.test", builder.Title, StringComparison.Ordinal);
+        Assert.Equal(Fabrikam, ConnectionChrome.GetIdentity(builder)?.DomainDnsName);
         context.AssertHealthy();
     });
 

@@ -410,7 +410,8 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         var filterId = FilterOptions.FirstOrDefault()?.Value;
         if (filterId is null)
         {
-            if (await SavedFiltersViewModel.CreateOrEditAsync(_services, _filters, null).ConfigureAwait(true) is not { } created)
+            // The builder reads the connection window's current session: not from a review whose session ended.
+            if (_isSessionEnded() || await SavedFiltersViewModel.CreateOrEditAsync(_services, _filters, null).ConfigureAwait(true) is not { } created)
             {
                 return;
             }
@@ -436,7 +437,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         return SaveSettingsAsync();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditFilters))]
     private async Task NewFilterAsync()
     {
         if (await SavedFiltersViewModel.CreateOrEditAsync(_services, _filters, null).ConfigureAwait(true) is not null)
@@ -445,8 +446,14 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditFilters))]
     private Task ManageFiltersAsync() => _services.Dialogs.ShowSavedFiltersAsync();
+
+    /// <summary>
+    /// The builder and the saved filters window read the connection window's current session, which is no longer the
+    /// review's once its session ended (a reconnect to another domain).
+    /// </summary>
+    private bool CanEditFilters() => !_isSessionEnded();
 
     /// <summary>Called by the view when the list's selection changed.</summary>
     public void NotifySelectionChanged()
@@ -1210,6 +1217,8 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         SendMessageCommand.NotifyCanExecuteChanged();
         MarkGroupCommand.NotifyCanExecuteChanged();
         MarkAccountCommand.NotifyCanExecuteChanged();
+        NewFilterCommand.NotifyCanExecuteChanged();
+        ManageFiltersCommand.NotifyCanExecuteChanged();
     }
 
     private void UpdateStatus(bool stopped = false)

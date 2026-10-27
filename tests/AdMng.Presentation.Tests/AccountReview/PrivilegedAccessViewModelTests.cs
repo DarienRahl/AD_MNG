@@ -325,6 +325,8 @@ public class PrivilegedAccessViewModelTests
         var tab = review.Privileges;
         tab.SelectedItem = Row(tab, "Jolanta Ćwik");
         Assert.True(tab.DisableCommand.CanExecute(null));
+        Assert.True(tab.NewFilterCommand.CanExecute(null));
+        Assert.True(tab.ManageFiltersCommand.CanExecute(null));
 
         await harness.Sessions.DisconnectAsync();
 
@@ -332,6 +334,15 @@ public class PrivilegedAccessViewModelTests
         Assert.False(tab.DisableCommand.CanExecute(null));
         Assert.False(tab.OpenCommand.CanExecute(null));
         Assert.False(review.RunCommand.CanExecute(null));
+
+        // The builder and the saved filters window would read the connection window's next session, not the review's.
+        Assert.False(tab.NewFilterCommand.CanExecute(null));
+        Assert.False(tab.ManageFiltersCommand.CanExecute(null));
+        Assert.False(tab.HasFilters);
+        var editors = harness.Dialogs.FilterEditors.Count;
+        await tab.AddRuleCommand.ExecuteAsync(null);
+        Assert.Equal(editors, harness.Dialogs.FilterEditors.Count);
+        Assert.Empty(tab.Rules);
     }
 
     private static async Task<(B2Harness Harness, PrivilegedSample Sample)> CreateAsync(CultureInfo? culture = null)

@@ -369,7 +369,8 @@ The two tracks were built in parallel from U4a and merged; this is how they run 
   With one DI scope per connection window (`docs/dev/multi-window.md`, section 16 for the merge) the sources, the
   SYSVOL reader and `FilterLibrary` stay application-wide singletons - they hold no window state, and every run reads
   through the session of the window that runs it - while the factory, the account review, the saved filters window
-  and the filter builder belong to the connection window (its session, dialogs, owner and identity chrome).
+  and the filter builder belong to the connection window (its session, dialogs, owner and identity chrome; the saved
+  filters window, reused after a reconnect, names no domain).
 * **Shared pieces.** The security descriptor parser moved once to `AdMng.Core/Security` (U4b's move, cherry-picked
   unchanged into U4c, identical in the merge): U4b parses the descriptors of the containers, Tier 0 objects and GPOs with
   it, U4c's `GroupPolicySecurityFilter` reads the *Apply Group Policy* ACEs of the GPO descriptors with it, and the

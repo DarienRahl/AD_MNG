@@ -518,6 +518,9 @@ window, the badge and the connect window follow the live context.
   * The PowerShell history gets no chrome either: it is the history of this connection window, which keeps it when it
     reconnects to another domain, so one domain in its header would misname the other entries. Each entry names its
     domain (and DC) instead.
+  * The saved filters window (U4, section 16) gets no chrome for the same reason: it is not session-bound, so the
+    connection window reuses it after a reconnect, and the filters are shared by all windows. The filter builder it
+    opens is a dialog with the chrome of the session it reads.
 * **Message dialogs.** `MessageDialogViewModel` gets `ConnectionLabel` and `ConnectionColor`, which the scoped
   `DialogService` fills for every information, error and confirmation dialog. The dialog shows the strip and the
   line *Domena: contoso.test (CONTOSO\jan.kowalski)* above the message. This covers all 31 `ConfirmAsync` /
@@ -1337,9 +1340,14 @@ single-window model. Where U4 meets the scopes:
   (`AccountReviewViewModel` with `PrivilegedAccessViewModel`, `SavedFiltersViewModel`, `FilterEditorViewModel`) are
   created by the scoped `DialogViewModelFactory` or with `new` from the window's `DialogServices`, as before.
 * **Windows.** *Przegląd kont* (`tools:account-review`) and *Zapisane filtry* (`tools:saved-filters`) are tool windows of
-  the connection: one per connection window, owned by its main window, with the identity chrome (title suffix, strip,
-  header); the filter builder is a modal dialog of the connection (owner: its active window). Nothing in their code
-  changed: the scoped `ToolWindows`, `WindowService` and `DialogService` give them this.
+  the connection: one per connection window, owned by its main window; the filter builder is a modal dialog of the
+  connection (owner: its active window) and reads the connection window's current session. The account review is
+  session-bound and gets the identity chrome (title suffix, strip, header). The saved filters window is not
+  session-bound (`UsesSession => false`): the connection window reuses it after a reconnect to another domain, so it gets
+  no chrome (like the PowerShell history, 4.4) - a snapshot would name the old domain over a builder that reads the new
+  one. The builder names its domain itself. An account review whose session ended offers neither the builder
+  (*Nowy filtr…*, *Dodaj regułę* without filters) nor *Zapisane filtry…*: both would read the connection window's next
+  session from a window labelled with the old one.
 * **Copy-on-write settings.** `FilterLibrary.Changed` compares the serialized filters, like `ViewLibrary` (record equality
   never holds for the new lists of every update). The settings of the *Uprawnienia* tab (group levels, marks, rules,
   peers, account types, deep scan) are shared too: the tab reloads them when another window saved a different version
@@ -1351,7 +1359,8 @@ single-window model. Where U4 meets the scopes:
   the session of its own window, SYSVOL only on that window's DC; privilege settings across two windows),
   `SavedFiltersTests.Library_IgnoresUnrelatedChanges_OfTheCopyOnWriteSettingsFile`; UI tests (Windows CI only):
   `HostTests` (U4 windows registered, SYSVOL reader and grant sources shared), `MultiWindowTests` (the U4 tool windows of
-  two connections with their owners and chrome, the builder as a dialog of its connection) and the saved filters test
-  of `AccountReviewWindowTests` (title with the domain suffix).
+  two connections with their owners and chrome, the builder as a dialog of its connection; the saved filters window
+  reused after a reconnect names no domain, its builder the new one) and the saved filters test of
+  `AccountReviewWindowTests` (title without a domain suffix).
 * **ADR.** U4 took no ADR number, so ADR-0010 (*Okno na połączenie – zakres DI na okno*) is still free; it is not written
   yet.
