@@ -17,6 +17,18 @@ public partial class RestartComputerWindow : Window, IDialogResultWindow
         UiLanguage.ApplyTo(this);
         DataContext = viewModel;
         _lifecycle = new WindowViewModelLifecycle(this, viewModel);
+
+        // Like a destructive message dialog: with the typed name Enter confirms, without it Enter cancels – typing a
+        // delay of 0 and pressing Enter must not restart a workstation at once.
+        if (viewModel.NeedsTypedName)
+        {
+            ConfirmButton.IsDefault = true;
+        }
+        else
+        {
+            CancelButton.IsDefault = true;
+        }
+
         Loaded += (_, _) => (viewModel.NeedsTypedName ? TypedNameBox : (UIElement)DelayBox).Focus();
     }
 

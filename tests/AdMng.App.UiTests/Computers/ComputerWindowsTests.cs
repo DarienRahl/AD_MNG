@@ -167,6 +167,7 @@ public sealed class ComputerWindowsTests
             await UiTestSupport.WaitForIdleAsync();
             Assert.True(dialog.ViewModel.NeedsTypedName);
             Assert.True(dialog.TypedNameBox.IsVisible);
+            Assert.True(dialog.ConfirmButton.IsDefault);
             Assert.False(dialog.ConfirmButton.IsEnabled);
             dialog.RestartMessageBox.Text = message;
             dialog.TypedNameBox.Text = "srv-pliki01";
@@ -205,6 +206,10 @@ public sealed class ComputerWindowsTests
 
         Assert.False(window.TypedNameBox.IsVisible);
         Assert.True(window.ConfirmButton.IsEnabled);
+
+        // Enter cancels: "0" + Enter in the delay box must not restart the workstation at once.
+        Assert.False(window.ConfirmButton.IsDefault);
+        Assert.True(window.CancelButton.IsDefault);
         Assert.Contains("10", window.SummaryText.Text, StringComparison.Ordinal);
         Assert.Contains("10", window.RestartMessageBox.Text, StringComparison.Ordinal);
 

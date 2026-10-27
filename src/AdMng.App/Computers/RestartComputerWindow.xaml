@@ -1,5 +1,6 @@
 <!-- "Uruchom ponownie…" (RestartComputerViewModel, modal, K1 design note 4.5): delay, the message shown to the logged-on
-     users, "close applications without asking" and, for a server or a DC, the computer name typed as confirmation. -->
+     users, "close applications without asking" and, for anything but a known workstation, the computer name typed as
+     confirmation. -->
 <Window x:Class="AdMng.App.Computers.RestartComputerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,10 +22,10 @@
   <DockPanel>
     <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
       <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <!-- The default button is set in code: Enter never restarts a computer whose name was not typed. -->
         <Button x:Name="ConfirmButton"
                 Command="{Binding ConfirmCommand}"
                 Content="{l:Tr RemoteActions.RestartConfirm}"
-                IsDefault="True"
                 Style="{StaticResource Ad.DangerDialogButton}" />
         <Button x:Name="CancelButton"
                 Command="{Binding CancelCommand}"
