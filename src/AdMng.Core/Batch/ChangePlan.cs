@@ -233,7 +233,10 @@ public static class IssueCodes
     /// </summary>
     public const string Ms16072Read = "Ms16072Read";
 
-    /// <summary>The GPO is linked to containers of another domain or to sites; those links are listed.</summary>
+    /// <summary>
+    /// GPO delete in a forest with other domains: links from their OUs are found only on their own DCs, so the delete does
+    /// not remove them (the domains are listed).
+    /// </summary>
     public const string GpoLinkedElsewhere = "GpoLinkedElsewhere";
 
     /// <summary>Imported settings name security principals or UNC paths of another domain (migration tables are not supported).</summary>

@@ -9461,7 +9461,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>Neither Authenticated Users nor Domain Computers can read the GPO: since MS16-072 clients cannot apply its user settings.</value>
   </data>
   <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
-    <value>The GPO is also linked to sites or containers of another domain.</value>
+    <value>The forest has other domains: links to this GPO from their OUs are not found or removed – check them in GPMC.</value>
   </data>
   <data name="PlanPreview.Bytes" xml:space="preserve">
     <value>{0} B</value>

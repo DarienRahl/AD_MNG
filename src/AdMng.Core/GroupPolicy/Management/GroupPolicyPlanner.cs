@@ -141,7 +141,8 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
 
     /// <summary>
     /// A delete (<c>Remove-GPO</c>): every container of the domain and every site that links the GPO loses the link, then
-    /// the container (subtree: CN=Machine, CN=User) and the SYSVOL folder. The default GPOs are refused.
+    /// the container (subtree: CN=Machine, CN=User) and the SYSVOL folder. The default GPOs are refused; in a forest with
+    /// other domains a warning says that their OUs' links are not removed.
     /// </summary>
     public async Task<ChangePlan> PlanDeleteAsync(IDirectorySession session, Guid gpoId, CancellationToken cancellationToken)
     {
@@ -169,12 +170,19 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
             ? [new ValidationIssue(IssueSeverity.Error, IssueCodes.DefaultGpo, "The default domain policies cannot be deleted.")]
             : [];
 
+        // Links from OUs of other domains of the forest are found only on their DCs (GPMC searches each domain): warn.
+        var otherDomains = await _reader.ReadOtherDomainsAsync(session, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<ValidationIssue> elsewhere = otherDomains.Count == 0
+            ? []
+            : [new ValidationIssue(IssueSeverity.Warning, IssueCodes.GpoLinkedElsewhere,
+                $"The forest has other domains ({string.Join(", ", otherDomains)}): links to this GPO from their OUs are not found or removed.")];
+
         // The links go first (a link to a missing GPO would be left behind otherwise), then the GPO; nothing of a refused
         // delete runs.
         objects = [.. objects.Select(o => refused.Count == 0 ? o : o with { Issues = refused })];
         objects.Add(PolicyObject(gpo,
         [
-            new PlannedChange { Action = ChangeAction.Delete, DeleteSubtree = true, Issues = refused },
+            new PlannedChange { Action = ChangeAction.Delete, DeleteSubtree = true, Issues = [.. refused, .. elsewhere] },
             new PlannedChange { Action = ChangeAction.DeleteGpoFolder, Sysvol = new SysvolChange { GpoId = gpoId } },
         ], PowerShellEquivalent.Of(PowerShellCommand.Of("Remove-GPO", GuidParameter(gpoId), Domain(session), PowerShellParameter.Server))));
         return Plan(session, objects, $"Delete GPO {gpo.DisplayName}");

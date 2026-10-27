@@ -326,6 +326,39 @@ public sealed class GroupPolicyReader
         return count;
     }
 
+    /// <summary>
+    /// The DNS names of the forest's other domains (the domain crossRefs of <c>CN=Partitions</c>, read on the session's DC),
+    /// sorted. Their OUs may link this domain's GPOs, which only a search of their own DCs finds.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> ReadOtherDomainsAsync(IDirectorySession session, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        var result = new List<string>();
+        try
+        {
+            await foreach (var crossRef in session.SearchAsync(new DirectorySearch
+            {
+                BaseDn = DistinguishedName.Parse(session.Info.ConfigurationNamingContext).Child("CN", "Partitions").ToString(),
+                Scope = SearchScope.OneLevel,
+                Filter = LdapFilter.And(LdapFilter.Equal(Attr.ObjectClass, "crossRef"), LdapFilter.BitAnd("systemFlags", 2)),
+                Attributes = ["nCName", "dnsRoot"],
+                PageSize = PageSize,
+            }, cancellationToken).ConfigureAwait(false))
+            {
+                if (crossRef.GetString("nCName") is { } nc && !DistinguishedName.AreEqual(nc, session.Info.DefaultNamingContext))
+                {
+                    result.Add(crossRef.GetString("dnsRoot") ?? nc);
+                }
+            }
+        }
+        catch (DirectoryException ex) when (ex.Kind is DirectoryErrorKind.NoSuchObject or DirectoryErrorKind.AccessDenied)
+        {
+            // No partitions container readable: nothing to warn about.
+        }
+
+        return [.. result.Order(StringComparer.OrdinalIgnoreCase)];
+    }
+
     /// <summary>The WMI filters of the domain, sorted by name.</summary>
     public async Task<IReadOnlyList<WmiFilterInfo>> ReadWmiFiltersAsync(IDirectorySession session, CancellationToken cancellationToken)
     {

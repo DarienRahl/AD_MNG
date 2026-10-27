@@ -9461,7 +9461,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Ani Użytkownicy uwierzytelnieni, ani Komputery domeny nie mogą odczytać GPO: od MS16-072 klienci nie zastosują jego ustawień użytkownika.</value>
   </data>
   <data name="Issue.GpoLinkedElsewhere" xml:space="preserve">
-    <value>GPO jest połączone także z lokacjami lub kontenerami innej domeny.</value>
+    <value>Las zawiera inne domeny: połączeń tego GPO z ich jednostkami organizacyjnymi nie odnaleziono ani nie usunięto – sprawdź je w GPMC.</value>
   </data>
   <data name="PlanPreview.Bytes" xml:space="preserve">
     <value>{0} B</value>

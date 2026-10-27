@@ -224,6 +224,36 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task Delete_InAForestWithOtherDomains_WarnsThatTheirLinksStay()
+    {
+        Assert.DoesNotContain((await Planner.PlanDeleteAsync(Session, Sample.ServerSecurity, Ct)).Objects[^1].Changes[0].Issues,
+            i => i.Code == IssueCodes.GpoLinkedElsewhere);
+        var partitions = "CN=Partitions," + Session.Info.ConfigurationNamingContext;
+        if (!Session.Exists(partitions))
+        {
+            Session.Seed(partitions, new Dictionary<string, object?> { [Attr.ObjectClass] = new[] { "top", "crossRefContainer" } });
+        }
+
+        foreach (var (name, nc, dns) in new[] { ("CONTOSO", Builder.DomainDn, "contoso.test"), ("KRAKOW", "DC=krakow,DC=contoso,DC=test", "kraków.contoso.test") })
+        {
+            Session.Seed($"CN={name},{partitions}", new Dictionary<string, object?>
+            {
+                [Attr.ObjectClass] = new[] { "top", "crossRef" },
+                ["nCName"] = nc,
+                ["dnsRoot"] = dns,
+                ["systemFlags"] = 3,
+            });
+        }
+
+        var plan = await Planner.PlanDeleteAsync(Session, Sample.ServerSecurity, Ct);
+
+        var issue = Assert.Single(plan.Objects[^1].Changes[0].Issues, i => i.Code == IssueCodes.GpoLinkedElsewhere);
+        Assert.Equal(IssueSeverity.Warning, issue.Severity);
+        Assert.Contains("kraków.contoso.test", issue.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("(contoso.test", issue.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Delete_OfASiteLinkedGpo_RemovesTheSiteLinkWithRemoveGpLink()
     {
         var plan = await Planner.PlanDeleteAsync(Session, Sample.SitePrinters, Ct);
