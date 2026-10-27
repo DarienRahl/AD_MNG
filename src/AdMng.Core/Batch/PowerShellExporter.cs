@@ -56,6 +56,13 @@ public sealed class PowerShellExporter : IPowerShellExporter
                 continue;
             }
 
+            if (objectPlan.PowerShell is { } equivalent)
+            {
+                // Semantic cmdlets (GPO plans): written instead of the per-step lines.
+                WriteEquivalent(sb, equivalent, server);
+                continue;
+            }
+
             Line(sb, $"$dn = {Quote(objectPlan.DistinguishedName)}");
             foreach (var change in objectPlan.Changes)
             {
@@ -111,6 +118,15 @@ public sealed class PowerShellExporter : IPowerShellExporter
         }
 
         Line(sb, "#Requires -Modules ActiveDirectory");
+        foreach (var module in plan.Objects
+                     .Where(o => !o.HasErrors && o.PowerShell is not null)
+                     .SelectMany(o => o.PowerShell!.Commands.Select(c => c.Module))
+                     .Where(m => !string.Equals(m, "ActiveDirectory", StringComparison.OrdinalIgnoreCase) && m.All(c => char.IsAsciiLetterOrDigit(c) || c == '.'))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            Line(sb, $"#Requires -Modules {module}");
+        }
+
         Line(sb, "$ErrorActionPreference = 'Stop'");
         if (!string.IsNullOrEmpty(server))
         {
@@ -131,6 +147,10 @@ public sealed class PowerShellExporter : IPowerShellExporter
     {
         switch (change.Action)
         {
+            case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                WriteSysvolComment(sb, change);
+                break;
             case ChangeAction.Modify:
                 WriteModify(sb, objectPlan, change, server, schema);
                 break;
@@ -163,6 +183,79 @@ public sealed class PowerShellExporter : IPowerShellExporter
                 WriteRestore(sb, objectPlan, change, server);
                 break;
         }
+    }
+
+    /// <summary>
+    /// The structured commands of <see cref="ObjectPlan.PowerShell"/>: every literal quoted with <see cref="Quote"/>, numbers
+    /// and booleans as such, <c>-Server $server</c> only when the script has a server. An empty list: covered by an earlier
+    /// object's command.
+    /// </summary>
+    private static void WriteEquivalent(StringBuilder sb, PowerShellEquivalent equivalent, string? server)
+    {
+        if (equivalent.Commands.Count == 0)
+        {
+            Line(sb, "# Covered by the command of an earlier object.");
+            return;
+        }
+
+        foreach (var command in equivalent.Commands)
+        {
+            if (!string.IsNullOrEmpty(command.Comment))
+            {
+                Line(sb, $"# {Comment(command.Comment)}");
+            }
+
+            var text = new StringBuilder(command.Cmdlet);
+            foreach (var parameter in command.Parameters)
+            {
+                switch (parameter.Kind)
+                {
+                    case PowerShellValueKind.Switch:
+                        text.Append(" -").Append(parameter.Name);
+                        break;
+                    case PowerShellValueKind.Server when !string.IsNullOrEmpty(server):
+                        text.Append(" -").Append(parameter.Name).Append(" $server");
+                        break;
+                    case PowerShellValueKind.Server:
+                        break;
+                    case PowerShellValueKind.Number when long.TryParse(parameter.Value, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var number):
+                        text.Append(" -").Append(parameter.Name).Append(' ').Append(number.ToString(CultureInfo.InvariantCulture));
+                        break;
+                    case PowerShellValueKind.Boolean:
+                        text.Append(" -").Append(parameter.Name).Append(parameter.Value == "true" ? " $true" : " $false");
+                        break;
+                    default:
+                        text.Append(" -").Append(parameter.Name).Append(' ').Append(Quote(parameter.Value ?? string.Empty));
+                        break;
+                }
+            }
+
+            Line(sb, command.Property is { } property
+                ? $"({text}).{property} = {Quote(command.PropertyValue ?? string.Empty)}"
+                : text.ToString());
+        }
+    }
+
+    /// <summary>
+    /// A SYSVOL step without a semantic cmdlet (a rollback plan, or a step of a plan without <see cref="ObjectPlan.PowerShell"/>):
+    /// a comment with the path and byte counts - never file content.
+    /// </summary>
+    private static void WriteSysvolComment(StringBuilder sb, PlannedChange change)
+    {
+        var sysvol = change.Sysvol;
+        var path = sysvol?.RelativePath is { } relative ? Comment(relative) : string.Empty;
+        string Size(byte[]? content) => content is null ? "absent" : string.Create(CultureInfo.InvariantCulture, $"{content.Length} B");
+        var text = change.Action switch
+        {
+            ChangeAction.WriteGpoFile => $"write {path} ({Size(sysvol?.OldContent)} -> {Size(sysvol?.NewContent)}) - no equivalent cmdlet; use Restore-GPO or Set-GPRegistryValue",
+            ChangeAction.DeleteGpoFile => $"delete {path} ({Size(sysvol?.OldContent)}) - no equivalent cmdlet; use Restore-GPO",
+            ChangeAction.SetGpoVersion => $"GPO version {change.GpoVersion?.ToString() ?? string.Empty} (GPT.INI and versionNumber) - written by the GroupPolicy cmdlets themselves",
+            ChangeAction.CreateGpoFolder => "create the GPO folder - done by New-GPO",
+            ChangeAction.SyncGpoFolderSecurity or ChangeAction.SetGpoFolderSecurity => "folder permissions of the GPO - kept consistent by Set-GPPermission",
+            ChangeAction.DeleteGpoFolder => "delete the GPO folder - done by Remove-GPO",
+            _ => change.Action.ToString(),
+        };
+        Line(sb, $"# SYSVOL: {text}");
     }
 
     /// <summary>

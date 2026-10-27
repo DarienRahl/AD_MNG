@@ -2,6 +2,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Audit;
 using AdMng.Core.Batch.Planning;
 using AdMng.Core.Directory;
+using AdMng.Core.GroupPolicy;
 using AdMng.Core.Ldap;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
@@ -56,14 +57,21 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private readonly IAuditLog _auditLog;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<BatchExecutor>? _logger;
+    private readonly ISysvolFileWriter? _sysvolWriter;
 
-    public BatchExecutor(IAuditLog auditLog, TimeProvider timeProvider, ILogger<BatchExecutor>? logger = null)
+    /// <param name="auditLog">Audit log of the connection window.</param>
+    /// <param name="timeProvider">Clock.</param>
+    /// <param name="logger">Diagnostics (value-free).</param>
+    /// <param name="sysvolWriter">SYSVOL writer for the GPO steps (design note docs/dev/k-computers-and-gpo.md 3.3); without
+    /// it SYSVOL steps fail.</param>
+    public BatchExecutor(IAuditLog auditLog, TimeProvider timeProvider, ILogger<BatchExecutor>? logger = null, ISysvolFileWriter? sysvolWriter = null)
     {
         ArgumentNullException.ThrowIfNull(auditLog);
         ArgumentNullException.ThrowIfNull(timeProvider);
         _auditLog = auditLog;
         _timeProvider = timeProvider;
         _logger = logger;
+        _sysvolWriter = sysvolWriter;
     }
 
     /// <inheritdoc />
@@ -112,7 +120,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled);
 
     /// <summary>State of one execution.</summary>
-    private sealed class Run
+    private sealed partial class Run
     {
         private readonly BatchExecutor _owner;
         private readonly IDirectorySession _session;
@@ -142,7 +150,8 @@ public sealed partial class BatchExecutor : IBatchExecutor
             _options = options;
             _progress = progress;
             _cancellationToken = cancellationToken;
-            _parallelism = Math.Clamp(options.MaxDegreeOfParallelism, 1, MaxParallelism);
+            // A sequential plan (every GPO plan) runs its objects one by one in plan order.
+            _parallelism = plan.Sequential ? 1 : Math.Clamp(options.MaxDegreeOfParallelism, 1, MaxParallelism);
             _dependencies = RestoreDependencies(plan.Objects);
             if (_dependencies is not null)
             {
@@ -219,6 +228,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
             }
 
             await Task.WhenAll(running).ConfigureAwait(false);
+            await CloseSysvolAsync().ConfigureAwait(false);
             var finishedAt = Now;
             var wasCancelled = _cancellationToken.IsCancellationRequested
                 || results.Any(r => r.Status == ObjectResultStatus.Cancelled);
@@ -333,7 +343,7 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     else
                     {
                         status = anySucceeded ? ObjectResultStatus.PartiallySucceeded : ObjectResultStatus.Failed;
-                        if (_options.StopOnFirstError)
+                        if (_options.StopOnFirstError || _plan.Sequential)
                         {
                             _stopRequested = true;
                         }
@@ -370,6 +380,9 @@ public sealed partial class BatchExecutor : IBatchExecutor
         {
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    return await SysvolStepAsync(objectPlan, change, dn).ConfigureAwait(false);
                 case ChangeAction.Modify:
                     return await ModifyAsync(change, dn).ConfigureAwait(false);
                 case ChangeAction.AddMember or ChangeAction.RemoveMember:
@@ -821,6 +834,14 @@ public sealed partial class BatchExecutor : IBatchExecutor
 
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    foreach (var (attribute, oldValue, newValue) in SysvolAuditValues(change))
+                    {
+                        Record(change.Action, Entry(change.Action.ToString(), attribute, oldValue, newValue));
+                    }
+
+                    break;
                 case ChangeAction.Modify or ChangeAction.Create:
                     if (change.Attributes.Count == 0)
                     {

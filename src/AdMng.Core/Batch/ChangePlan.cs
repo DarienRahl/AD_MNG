@@ -30,6 +30,38 @@ public enum ChangeAction
     /// <summary>Delete the object (<see cref="PlannedChange.DeleteSubtree"/> for containers).</summary>
     Delete,
 
+    /// <summary>
+    /// SYSVOL (design note docs/dev/k-computers-and-gpo.md 3.3): create the GPO folder <c>{GUID}</c> of the object (a group
+    /// policy container) with <c>Machine</c>, <c>User</c> and <c>GPT.INI</c> (<c>[General]\r\nVersion=0\r\n</c>).
+    /// <see cref="PlannedChange.Sysvol"/> names the GPO.
+    /// </summary>
+    CreateGpoFolder,
+
+    /// <summary>
+    /// SYSVOL: write one file of the GPO folder (<see cref="PlannedChange.Sysvol"/>: path, old content or null for a new
+    /// file, new content). Staged, verified and switched by the GPO transaction together with the other content steps of the
+    /// object and committed by its <see cref="SetGpoVersion"/>.
+    /// </summary>
+    WriteGpoFile,
+
+    /// <summary>SYSVOL: delete one file of the GPO folder (<see cref="PlannedChange.Sysvol"/> carries its old content for verification and rollback).</summary>
+    DeleteGpoFile,
+
+    /// <summary>SYSVOL: read the container's DACL now, map it to file rights and write it as the DACL of the GPO folder.</summary>
+    SyncGpoFolderSecurity,
+
+    /// <summary>SYSVOL: write the given folder DACL (<see cref="SysvolChange.NewFolderSecurity"/>; rollbacks of a sync).</summary>
+    SetGpoFolderSecurity,
+
+    /// <summary>
+    /// GPO version (<see cref="PlannedChange.GpoVersion"/>): the <c>Version=</c> line of <c>GPT.INI</c>, then
+    /// <c>versionNumber</c> of the container as compare-and-swap - the commit point of the GPO transaction.
+    /// </summary>
+    SetGpoVersion,
+
+    /// <summary>SYSVOL: delete the whole GPO folder (not reversible; with <see cref="SysvolChange.OnlyIfPristine"/> only an unchanged new folder).</summary>
+    DeleteGpoFolder,
+
     /// <summary>Create the object at <see cref="ObjectPlan.DistinguishedName"/> with <see cref="PlannedChange.Attributes"/> as initial values.</summary>
     Create,
 
@@ -154,6 +186,33 @@ public static class IssueCodes
     /// attributes a tombstone keeps (group memberships and most other attributes are lost).
     /// </summary>
     public const string TombstoneReanimation = "TombstoneReanimation";
+
+    /// <summary>A GPO plan writes content files of an object without a <see cref="ChangeAction.SetGpoVersion"/> step.</summary>
+    public const string GpoVersionMissing = "GpoVersionMissing";
+
+    /// <summary>A GPO folder exceeds the limits of an in-memory copy (entries, file size, plan size).</summary>
+    public const string GpoTooLarge = "GpoTooLarge";
+
+    /// <summary>A half of the GPO version is at 65 535 and cannot be raised.</summary>
+    public const string GpoVersionOverflow = "GpoVersionOverflow";
+
+    /// <summary>The GPO folder holds leftovers of an interrupted write (<c>*.admng-*.tmp</c>); the plan deletes them.</summary>
+    public const string SysvolLeftovers = "SysvolLeftovers";
+
+    /// <summary>SYSVOL of the session's DC cannot be written (the message says why).</summary>
+    public const string SysvolUnavailable = "SysvolUnavailable";
+
+    /// <summary>The default GPOs (Default Domain Policy, Default Domain Controllers Policy) cannot be deleted.</summary>
+    public const string DefaultGpo = "DefaultGpo";
+
+    /// <summary>
+    /// MS16-072: neither Authenticated Users nor Domain Computers can read the GPO after the change, so clients cannot
+    /// read its user part either.
+    /// </summary>
+    public const string Ms16072Read = "Ms16072Read";
+
+    /// <summary>The GPO is linked to containers of another domain or to sites; those links are listed.</summary>
+    public const string GpoLinkedElsewhere = "GpoLinkedElsewhere";
 }
 
 /// <summary>One step for one object. Steps of an object run sequentially in list order.</summary>
@@ -170,15 +229,23 @@ public sealed record PlannedChange
     /// <summary>New password for <see cref="ChangeAction.ResetPassword"/>. Sensitive: never log, never persist.</summary>
     public string? Password { get; init; }
 
+    /// <summary>SYSVOL step data (<see cref="ChangeAction.CreateGpoFolder"/> … <see cref="ChangeAction.DeleteGpoFolder"/>).</summary>
+    public SysvolChange? Sysvol { get; init; }
+
+    /// <summary>Old and new version of <see cref="ChangeAction.SetGpoVersion"/>.</summary>
+    public GpoVersionChange? GpoVersion { get; init; }
+
     public bool DeleteSubtree { get; init; }
 
     public IReadOnlyList<ValidationIssue> Issues { get; init; } = [];
 
     public bool HasErrors => Issues.Any(i => i.Severity == IssueSeverity.Error);
 
-    /// <summary>Never print the password.</summary>
+    /// <summary>Never print the password, nor SYSVOL content (paths and byte counts only).</summary>
     public override string ToString() =>
-        $"{Action} target={TargetDn} attributes=[{string.Join(", ", Attributes.Select(a => a.Attribute))}]";
+        $"{Action} target={TargetDn} attributes=[{string.Join(", ", Attributes.Select(a => a.Attribute))}]"
+        + (Sysvol is null ? string.Empty : $" sysvol=[{Sysvol}]")
+        + (GpoVersion is null ? string.Empty : $" version=[{GpoVersion}]");
 }
 
 /// <summary>All planned steps for one directory object.</summary>
@@ -203,6 +270,12 @@ public sealed record ObjectPlan
 
     /// <summary>Source row number when planned from CSV (1-based, header excluded).</summary>
     public int? SourceRow { get; init; }
+
+    /// <summary>
+    /// The semantic PowerShell of this object (GPO cmdlets such as <c>New-GPO</c>, <c>New-GPLink</c>): when set, the exporter
+    /// writes these commands instead of one line per step; an empty list means "covered by the command of an earlier object".
+    /// </summary>
+    public PowerShellEquivalent? PowerShell { get; init; }
 
     public IReadOnlyList<PlannedChange> Changes { get; init; } = [];
 
@@ -235,6 +308,13 @@ public sealed record ChangePlan
 
     /// <summary>DC the current values were read from (execution must use the same DC).</summary>
     public string? Server { get; init; }
+
+    /// <summary>
+    /// Execute the objects one by one in plan order and stop at the first failure, whatever the batch options say (every
+    /// GPO plan: the container must exist before its children and before a container links it). The rollback of a
+    /// sequential plan is sequential too and lists the objects in reverse order.
+    /// </summary>
+    public bool Sequential { get; init; }
 
     public int ExecutableCount => Objects.Count(o => !o.HasErrors && !o.IsNoOp);
 

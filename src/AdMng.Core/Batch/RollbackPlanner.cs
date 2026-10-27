@@ -15,7 +15,7 @@ namespace AdMng.Core.Batch;
 /// password stays (it cannot be undone), so "must change password at next logon" must stay as well.
 /// A created object is rolled back by deleting it.
 /// </remarks>
-public sealed class RollbackPlanner : IRollbackPlanner
+public sealed partial class RollbackPlanner : IRollbackPlanner
 {
     /// <inheritdoc />
     public ChangePlan CreateRollbackPlan(BatchResult result)
@@ -31,6 +31,12 @@ public sealed class RollbackPlanner : IRollbackPlanner
             }
         }
 
+        // A sequential plan (GPO plans) is undone in reverse object order: links before the container, children before it.
+        if (result.Plan.Sequential)
+        {
+            objects.Reverse();
+        }
+
         var title = string.IsNullOrEmpty(result.Plan.Title) ? "Rollback" : $"Rollback: {result.Plan.Title}";
         return new ChangePlan
         {
@@ -38,6 +44,7 @@ public sealed class RollbackPlanner : IRollbackPlanner
             Title = title,
             CreatedAt = result.FinishedAt,
             Server = result.Server,
+            Sequential = result.Plan.Sequential,
         };
     }
 
@@ -49,6 +56,8 @@ public sealed class RollbackPlanner : IRollbackPlanner
 
         if (succeeded.Any(c => c.Action == ChangeAction.Create))
         {
+            // A new GPO: its folder goes first (only while it holds nothing but what the plan wrote).
+            steps.AddRange(RollbackOfCreatedGpoFolder(succeeded));
             steps.Add(new PlannedChange { Action = ChangeAction.Delete });
             return Build(objectResult, steps, issues);
         }
@@ -71,6 +80,10 @@ public sealed class RollbackPlanner : IRollbackPlanner
             var change = succeeded[i];
             switch (change.Action)
             {
+                case ChangeAction.CreateGpoFolder or ChangeAction.WriteGpoFile or ChangeAction.DeleteGpoFile or ChangeAction.SyncGpoFolderSecurity
+                    or ChangeAction.SetGpoFolderSecurity or ChangeAction.SetGpoVersion or ChangeAction.DeleteGpoFolder:
+                    InvertSysvol(change, succeeded, steps, issues);
+                    break;
                 case ChangeAction.Modify:
                     var attributes = new List<AttributeChange>();
                     foreach (var attribute in change.Attributes)
