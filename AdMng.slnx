@@ -5,6 +5,7 @@
     <Project Path="src/AdMng.Directory/AdMng.Directory.csproj" />
     <Project Path="src/AdMng.Mail/AdMng.Mail.csproj" />
     <Project Path="src/AdMng.Presentation/AdMng.Presentation.csproj" />
+    <Project Path="src/AdMng.Remote/AdMng.Remote.csproj" />
     <Project Path="src/AdMng.Watchdog.Client/AdMng.Watchdog.Client.csproj" />
     <Project Path="src/AdMng.Watchdog.Contracts/AdMng.Watchdog.Contracts.csproj" />
     <Project Path="src/AdMng.Watchdog.Core/AdMng.Watchdog.Core.csproj" />
@@ -17,6 +18,7 @@
     <Project Path="tests/AdMng.Directory.IntegrationTests/AdMng.Directory.IntegrationTests.csproj" />
     <Project Path="tests/AdMng.Mail.Tests/AdMng.Mail.Tests.csproj" />
     <Project Path="tests/AdMng.Presentation.Tests/AdMng.Presentation.Tests.csproj" />
+    <Project Path="tests/AdMng.Remote.Tests/AdMng.Remote.Tests.csproj" />
     <Project Path="tests/AdMng.Testing/AdMng.Testing.csproj" />
     <Project Path="tests/AdMng.Watchdog.Core.Tests/AdMng.Watchdog.Core.Tests.csproj" />
     <Project Path="tests/AdMng.Watchdog.IntegrationTests/AdMng.Watchdog.IntegrationTests.csproj" />

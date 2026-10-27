@@ -27,4 +27,7 @@
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
     <PackageVersion Include="xunit.v3.assert" Version="3.2.2" />
   </ItemGroup>
+  <ItemGroup Label="AD Manager – computers (K1)">
+    <PackageVersion Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
+  </ItemGroup>
 </Project>
