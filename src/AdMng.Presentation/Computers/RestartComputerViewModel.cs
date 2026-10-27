@@ -10,7 +10,8 @@ namespace AdMng.Presentation.Computers;
 /// <summary>
 /// "Uruchom ponownie…" (K1 design note 4.5): delay 0–1 440 minutes (default from the settings, 10), a message of up to
 /// 500 characters shown to the logged-on users (default text from the resources), "close applications without asking",
-/// and for a server or a domain controller the computer name typed as confirmation. Modal; the result is
+/// and for anything but a known workstation (server, domain controller, unknown type) the computer name typed as
+/// confirmation. Modal; the result is
 /// <see cref="Request"/>.
 /// </summary>
 public sealed partial class RestartComputerViewModel : WindowViewModelBase
@@ -45,14 +46,14 @@ public sealed partial class RestartComputerViewModel : WindowViewModelBase
     [ObservableProperty]
     public partial bool Force { get; set; }
 
-    /// <summary>The typed computer name (servers and DCs).</summary>
+    /// <summary>The typed computer name (everything but a known workstation).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]
     [NotifyCanExecuteChangedFor(nameof(ConfirmCommand))]
     public partial string TypedName { get; set; } = string.Empty;
 
-    /// <summary>A server or a DC: the name must be typed.</summary>
-    public bool NeedsTypedName => Target.IsServerOrDomainController;
+    /// <summary>Not a known workstation (server, DC, unknown type): the name must be typed.</summary>
+    public bool NeedsTypedName => Target.RestartNeedsTypedName;
 
     public string TypeNamePrompt => Localizer.Format(L.RemoteActions.RestartTypeName, Target.Name);
 

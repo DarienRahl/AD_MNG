@@ -18,8 +18,8 @@ public enum ComputerType
 
 /// <summary>
 /// Classifies computer accounts: userAccountControl SERVER_TRUST_ACCOUNT → DC, PARTIAL_SECRETS_ACCOUNT → RODC (primary group
-/// 516 / 521 as a second signal), an operatingSystem naming a server → server, a Windows client (or another named system)
-/// → workstation, no operatingSystem → unknown.
+/// 516 / 521 as a second signal), an operatingSystem naming a server (Windows Server, Hyper-V Server, Azure Stack HCI /
+/// Azure Local) → server, a Windows client (or another named system) → workstation, no operatingSystem → unknown.
 /// </summary>
 public static class ComputerClassifier
 {
@@ -41,8 +41,18 @@ public static class ComputerClassifier
             return ComputerType.Unknown;
         }
 
-        return operatingSystem.Contains("Server", StringComparison.OrdinalIgnoreCase) ? ComputerType.Server : ComputerType.Workstation;
+        return IsServerOperatingSystem(operatingSystem) ? ComputerType.Server : ComputerType.Workstation;
     }
+
+    /// <summary>
+    /// The operatingSystem value names a server system: anything with "Server" (Windows Server, Hyper-V Server) and the
+    /// Windows Server based hyperconverged hosts "Azure Stack HCI" / "Azure Local", whose strings lack "Server".
+    /// </summary>
+    public static bool IsServerOperatingSystem(string? operatingSystem) =>
+        !string.IsNullOrWhiteSpace(operatingSystem)
+        && (operatingSystem.Contains("Server", StringComparison.OrdinalIgnoreCase)
+            || operatingSystem.Contains("Azure Stack HCI", StringComparison.OrdinalIgnoreCase)
+            || operatingSystem.Contains("Azure Local", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>A (read-only) domain controller.</summary>
     public static bool IsDomainController(this ComputerType type) =>

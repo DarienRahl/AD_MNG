@@ -8395,7 +8395,7 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>{0} uruchomi się ponownie za {1} min.</value>
   </data>
   <data name="RemoteActions.RestartTypeName" xml:space="preserve">
-    <value>Wpisz nazwę komputera {0}, aby potwierdzić (serwer lub kontroler domeny).</value>
+    <value>Wpisz nazwę komputera {0}, aby potwierdzić (serwer, kontroler domeny lub komputer nieznanego typu).</value>
   </data>
   <data name="RemoteActions.RestartDelayRange" xml:space="preserve">
     <value>Opóźnienie musi wynosić {0}–{1} minut.</value>

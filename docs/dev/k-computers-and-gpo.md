@@ -270,8 +270,9 @@ bits (`GpoVersion.FromInt32` / `ToInt32`). Rules:
 
 * `ComputerType` (Core/Computers): `Workstation`, `Server`, `DomainController`, `ReadOnlyDomainController`, `Unknown`.
   `ComputerClassifier`: UAC `SERVER_TRUST_ACCOUNT` (8192) → DC, `PARTIAL_SECRETS_ACCOUNT` (67108864) → RODC (primary
-  group 516/521 as a second signal), `operatingSystem` containing "Server" → server, a Windows client string or build →
-  workstation, no `operatingSystem` → unknown (prestaged and never joined, or a non-Windows system that set nothing).
+  group 516/521 as a second signal), `operatingSystem` containing "Server" (or "Azure Stack HCI" / "Azure Local") →
+  server, a Windows client string or build → workstation, no `operatingSystem` → unknown (prestaged and never joined, a
+  cluster name object, or a non-Windows system that set nothing).
   Mapping to U4c's `ComputerRole` for shared code; `ComputerRole` itself is not changed.
 * `ComputerFacts`: DN, name, `dNSHostName`, `sAMAccountName`, SID, type, enabled, `operatingSystem`,
   `operatingSystemVersion` (`"10.0 (26100)"` → major, minor, build), `operatingSystemServicePack`,
@@ -380,8 +381,9 @@ support state; *Ogólne* adds the type; a new page *Stan* (last logon approximat
 `tools:remote:<DN>`): header (computer, DNS name, *Połączenie: WinRM, Kerberos jako CONTOSO\admin*), *Stan* (ping,
 WinRM reachable, OS from CIM with UBR and last boot), *Zalogowani użytkownicy*, *Usługi* (filter *automatyczne,
 zatrzymane*), actions *Odśwież zasady grupy*, *Uruchom ponownie…* (dialog `RestartComputerViewModel`: delay 0–1 440
-min, default 10; message up to 500 characters, default text from the resources; *zamknij aplikacje bez pytania*; for a
-server or DC a typed confirmation of the computer name), *Anuluj zaplanowane ponowne uruchomienie*, the tool launchers,
+min, default 10; message up to 500 characters, default text from the resources; *zamknij aplikacje bez pytania*; for
+everything but a known workstation – server, DC, unknown type such as a cluster name object – a typed confirmation of
+the computer name), *Anuluj zaplanowane ponowne uruchomienie*, the tool launchers,
 and the in-memory action log of the window.
 
 **Entry points**: object list context menu and *Akcja* menu, submenu *Komputer* (`computer.remote`,

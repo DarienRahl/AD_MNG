@@ -8395,7 +8395,7 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>{0} restarts in {1} min.</value>
   </data>
   <data name="RemoteActions.RestartTypeName" xml:space="preserve">
-    <value>Type the computer name {0} to confirm (server or domain controller).</value>
+    <value>Type the computer name {0} to confirm (server, domain controller or computer of unknown type).</value>
   </data>
   <data name="RemoteActions.RestartDelayRange" xml:space="preserve">
     <value>The delay must be {0}–{1} minutes.</value>

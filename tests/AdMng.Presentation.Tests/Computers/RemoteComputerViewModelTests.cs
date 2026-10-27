@@ -194,7 +194,7 @@ public class RemoteComputerViewModelTests
         {
             Assert.True(d.NeedsTypedName);
             Assert.False(d.ConfirmCommand.CanExecute(null));
-            Assert.Equal("Type the computer name SRV-PLIKI01 to confirm (server or domain controller).", d.Error);
+            Assert.Equal("Type the computer name SRV-PLIKI01 to confirm (server, domain controller or computer of unknown type).", d.Error);
             d.TypedName = "srv-pliki";
             Assert.False(d.ConfirmCommand.CanExecute(null));
             d.TypedName = "srv-pliki01 ";
@@ -430,6 +430,27 @@ public class RestartComputerViewModelTests
 
         dialog.ConfirmCommand.Execute(null);
         Assert.Equal(new RestartRequest(TimeSpan.FromMinutes(1440), new string('x', 500), false), dialog.Request);
+    }
+
+    [Theory]
+    [InlineData(Core.Computers.ComputerType.Unknown, true)]
+    [InlineData(Core.Computers.ComputerType.Server, true)]
+    [InlineData(Core.Computers.ComputerType.ReadOnlyDomainController, true)]
+    [InlineData(Core.Computers.ComputerType.Workstation, false)]
+    public async Task TypedName_IsNeededForEverythingButAKnownWorkstation(Core.Computers.ComputerType type, bool needed)
+    {
+        // A cluster name object (no operatingSystem) restarts the node that owns it.
+        var scenario = await ComputerScenario.CreateAsync("pl-PL");
+        using var dialog = scenario.Factory.CreateRestart(new RemoteTarget("CN=KLASTER-ŁÓDŹ,OU=Serwery,OU=Firma,DC=contoso,DC=test", "KLASTER-LODZ", "klaster-lodz.contoso.test", type));
+
+        Assert.Equal(needed, dialog.NeedsTypedName);
+        Assert.Equal(!needed, dialog.ConfirmCommand.CanExecute(null));
+        if (needed)
+        {
+            Assert.Equal("Wpisz nazwę komputera KLASTER-LODZ, aby potwierdzić (serwer, kontroler domeny lub komputer nieznanego typu).", dialog.Error);
+            dialog.TypedName = "klaster-lodz";
+            Assert.True(dialog.ConfirmCommand.CanExecute(null));
+        }
     }
 
     [Fact]

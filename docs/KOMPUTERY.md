@@ -130,7 +130,7 @@ komputera, jego nazwę DNS i sposób połączenia, np. *Połączenie: WinRM (HTT
 | *Pokaż zalogowanych* | konto przy konsoli i właściciele procesów `explorer.exe` z numerem sesji. CIM nie zna stanu sesji, więc rozłączone sesje RDP też są na liście. |
 | *Pokaż usługi* | usługi z trybem uruchamiania i kontem, z filtrem *automatyczne, zatrzymane*. Uruchamianie i zatrzymywanie usług nie należy do K1. |
 | *Odśwież zasady grupy* | `gpupdate /target:computer /force` na komputerze. Okno czeka na zakończenie (do 10 minut) i podaje czas z rejestru zasad. Odświeżenie zasad zalogowanych użytkowników (zadanie zaplanowane) włącza się w ustawieniach – do potwierdzenia w pilotażu. |
-| *Uruchom ponownie…* | opóźnienie 0–1440 minut (domyślnie 10), komunikat do 500 znaków (wyświetlany zalogowanym użytkownikom dosłownie), opcja *Zamknij aplikacje bez pytania*. Dla serwera i kontrolera domeny trzeba wpisać nazwę komputera. |
+| *Uruchom ponownie…* | opóźnienie 0–1440 minut (domyślnie 10), komunikat do 500 znaków (wyświetlany zalogowanym użytkownikom dosłownie), opcja *Zamknij aplikacje bez pytania*. Nazwę komputera trzeba wpisać dla wszystkiego poza znaną stacją roboczą: serwera, kontrolera domeny i komputera nieznanego typu (bez `operatingSystem` – na przykład obiekt nazwy klastra, którego ponowne uruchomienie trafia do węzła będącego jego właścicielem). |
 | *Anuluj zaplanowane ponowne uruchomienie* | `shutdown /a` na komputerze. Okno nie zna wyniku polecenia, więc zapisuje tylko, że anulowanie zlecono – jeśli żadne ponowne uruchomienie nie było zaplanowane, nic się nie zmienia. |
 
 Ważne zasady:

@@ -102,8 +102,12 @@ public sealed record RemoteTarget
 
     public ComputerType Type { get; }
 
-    /// <summary>A server or a domain controller: a restart needs the typed computer name.</summary>
-    public bool IsServerOrDomainController => Type is ComputerType.Server || Type.IsDomainController();
+    /// <summary>
+    /// A restart needs the typed computer name for everything but a known workstation: servers, domain controllers and
+    /// computers of unknown type (no operatingSystem – cluster name objects and their virtual computer objects restart the
+    /// node that owns them).
+    /// </summary>
+    public bool RestartNeedsTypedName => Type is not ComputerType.Workstation;
 }
 
 /// <summary>Options of the remote client (settings).</summary>
