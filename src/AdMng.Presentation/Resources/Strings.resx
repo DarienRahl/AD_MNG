@@ -10492,5 +10492,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoDirectorySettings" xml:space="preserve">
     <value>The GPO holds settings kept as directory objects (software installation, wireless or wired network policies) that are not copied, backed up or restored – recreate them in GPMC.</value>
   </data>
+  <data name="Issue.GpoExists" xml:space="preserve">
+    <value>The GPO exists: its SYSVOL folder is in use and is not deleted.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

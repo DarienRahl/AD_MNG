@@ -176,6 +176,38 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
     }
 
     [Fact]
+    public async Task DeleteOrphanedFolder_OfALiveGpo_IsRefused_AndGuardedAtExecution()
+    {
+        var refused = await Planner.PlanDeleteOrphanedFolderAsync(Session, Sample.WorkstationRemoteDesktop, "Stacje robocze – Pulpit zdalny", Ct);
+        Assert.Contains(refused.Objects[0].Changes[0].Issues, i => i.Code == IssueCodes.GpoExists && i.Severity == IssueSeverity.Error);
+
+        // Planned while the container was missing (replication lag), the GPO is back with the same GUID before it runs.
+        var dn = GpoDn(Sample.WorkstationRemoteDesktop);
+        var plan = await Planner.PlanDeleteOrphanedFolderAsync(Session, Guid.NewGuid(), "Pozostałość", Ct);
+        var stale = plan with { Objects = [plan.Objects[0] with { DistinguishedName = dn, Changes = [plan.Objects[0].Changes[0] with
+        {
+            Sysvol = plan.Objects[0].Changes[0].Sysvol! with { GpoId = Sample.WorkstationRemoteDesktop },
+        }] }] };
+        Assert.Equal(0, stale.ErrorCount);
+
+        var result = await ExecuteAsync(stale);
+
+        Assert.False(result.Objects[0].Changes[0].Succeeded);
+        Assert.True(Sysvol.FolderExists(Sample.WorkstationRemoteDesktop));
+    }
+
+    [Fact]
+    public async Task DeleteOrphanedFolder_OfADeletedGpo_DeletesTheFolder()
+    {
+        var id = Sample.WorkstationRemoteDesktop;
+        await Session.DeleteAsync(GpoDn(id), subtree: true, Ct);
+
+        await ExecuteOkAsync(await Planner.PlanDeleteOrphanedFolderAsync(Session, id, "Stacje robocze – Pulpit zdalny", Ct));
+
+        Assert.False(Sysvol.FolderExists(id));
+    }
+
+    [Fact]
     public async Task Delete_OfASiteLinkedGpo_RemovesTheSiteLinkWithRemoveGpLink()
     {
         var plan = await Planner.PlanDeleteAsync(Session, Sample.SitePrinters, Ct);

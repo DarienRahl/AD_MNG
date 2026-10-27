@@ -245,6 +245,9 @@ public static class IssueCodes
     /// </summary>
     public const string GpoDirectorySettings = "GpoDirectorySettings";
 
+    /// <summary>"Usuń pozostały folder": the GPO container exists (again), so its SYSVOL folder is not left over.</summary>
+    public const string GpoExists = "GpoExists";
+
     /// <summary>A copied or restored GPO gets exactly the source's explicit permissions; the default entries it lacks are removed.</summary>
     public const string GpoPermissionsReplaced = "GpoPermissionsReplaced";
 

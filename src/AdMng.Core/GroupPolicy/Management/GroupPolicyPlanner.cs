@@ -180,17 +180,31 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         return Plan(session, objects, $"Delete GPO {gpo.DisplayName}");
     }
 
-    /// <summary>The SYSVOL folder left behind by a delete whose folder step failed.</summary>
-    public ChangePlan PlanDeleteOrphanedFolder(IDirectorySession session, Guid gpoId, string name)
+    /// <summary>
+    /// The SYSVOL folder left behind by a delete whose folder step failed. Refused while the GPO container exists (read now
+    /// on the session's DC, and checked again by the executor right before the delete).
+    /// </summary>
+    public async Task<ChangePlan> PlanDeleteOrphanedFolderAsync(IDirectorySession session, Guid gpoId, string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         var dn = GpLinkValue.GpoDn(gpoId, session.Info.DefaultNamingContext);
+        IReadOnlyList<ValidationIssue> issues = await _reader.ReadPolicyAsync(session, gpoId, cancellationToken).ConfigureAwait(false) is null
+            ? []
+            : [new ValidationIssue(IssueSeverity.Error, IssueCodes.GpoExists, "The GPO exists: its folder is not left over.")];
         return Plan(session, [new ObjectPlan
         {
             DistinguishedName = dn,
             DisplayName = name,
             Kind = ObjectKind.GroupPolicyContainer,
-            Changes = [new PlannedChange { Action = ChangeAction.DeleteGpoFolder, Sysvol = new SysvolChange { GpoId = gpoId } }],
+            Changes =
+            [
+                new PlannedChange
+                {
+                    Action = ChangeAction.DeleteGpoFolder,
+                    Sysvol = new SysvolChange { GpoId = gpoId, OnlyIfContainerMissing = true },
+                    Issues = issues,
+                },
+            ],
         }], $"Delete GPO folder {name}");
     }
 

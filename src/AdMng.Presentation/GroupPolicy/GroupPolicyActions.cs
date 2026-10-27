@@ -121,7 +121,7 @@ public sealed class GroupPolicyActions(GroupPolicyServices services)
     /// <summary>"Usuń pozostały folder": the SYSVOL folder a failed delete left behind.</summary>
     public Task<bool> DeleteOrphanedFolderAsync(Guid gpoId, string name) =>
         RunAsync(Localizer.Format(L.GroupPolicy.TitleDeleteFolder, name), SysvolUse.Required,
-            (session, _, _) => Task.FromResult(Services.Planner.PlanDeleteOrphanedFolder(session, gpoId, name)));
+            (session, _, token) => Services.Planner.PlanDeleteOrphanedFolderAsync(session, gpoId, name, token));
 
     // ---- Links and inheritance ----------------------------------------------------------------------------------------
 

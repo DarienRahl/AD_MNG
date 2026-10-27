@@ -92,6 +92,12 @@ public sealed partial class BatchExecutor
                             return Failure(change, DirectoryErrorKind.NoSuchAttribute, FolderChangedMessage);
                         }
 
+                        if (change.Sysvol is { OnlyIfContainerMissing: true }
+                            && await _session.GetAsync(dn, [Attr.ObjectClass], CancellationToken.None).ConfigureAwait(false) is not null)
+                        {
+                            return Failure(change, DirectoryErrorKind.AlreadyExists, "The GPO exists: its folder is not left over and is not deleted.");
+                        }
+
                         try
                         {
                             await sysvol.DeleteGpoFolderAsync(gpoId, CancellationToken.None).ConfigureAwait(false);

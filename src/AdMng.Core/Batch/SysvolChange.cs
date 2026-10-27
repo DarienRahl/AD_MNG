@@ -35,6 +35,12 @@ public sealed record SysvolChange
     /// </summary>
     public bool OnlyIfPristine { get; init; }
 
+    /// <summary>
+    /// <see cref="ChangeAction.DeleteGpoFolder"/> of an orphaned folder: delete it only while the GPO container (the step's
+    /// object) does not exist - it may have been restored with the same GUID since the plan was made.
+    /// </summary>
+    public bool OnlyIfContainerMissing { get; init; }
+
     /// <summary>With <see cref="OnlyIfPristine"/>: the files the plan wrote (path → content) that may be in the folder.</summary>
     public IReadOnlyDictionary<string, byte[]>? PristineFiles { get; init; }
 
