@@ -474,7 +474,8 @@ multipart/alternative
 Rules: only images referenced by the HTML are added (an unreferenced related part is shown as an attachment by some
 clients); every reference has its part; headers as in U1 §5 (`Auto-Submitted`, `X-Auto-Response-Suppress`,
 `X-AdMng-Message: user-notification`, `Message-ID`); the image parts carry no other headers (no `Content-Location`, no
-dates). A server that announces `SIZE` smaller than the message, or answers 552 / 5.3.4, is classified as a permanent
+dates). A server that announces `SIZE` smaller than the message, or answers 5.3.4, 5.2.3 or a bare 552 (552 5.2.2 is a
+full mailbox – no hint; `DeliveryHints.IsMessageTooLarge`), is classified as a permanent
 rejection (`smtp.552.5.3.4`) with the new hint `DeliveryHints.MessageTooLarge = "smtp.messageTooLarge"` – in both
 classifiers (AdMng.Mail `SmtpFailureClassifier`, the service's `SmtpErrorClassifier`), text
 `Watchdog.Hint.smtp.messageTooLarge` in both `Strings` resx files.

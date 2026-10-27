@@ -109,10 +109,20 @@ public class InlineImageMimeTests
     [InlineData(552, "5.3.4 Message size exceeds fixed maximum message size", "smtp.552.5.3.4")]
     [InlineData(552, "Message exceeds the maximum size allowed by the server", "smtp.552")]
     [InlineData(554, "5.3.4 Message too big for system", "smtp.554.5.3.4")]
+    [InlineData(552, "5.2.3 Message length exceeds administrative limit", "smtp.552.5.2.3")]
     public void TooLarge_IsAPermanentRejectionWithItsHint(int status, string reply, string code)
     {
         var delivery = SmtpFailureClassifier.ClassifyReply(status, reply);
         Assert.Equal((UserMessageDeliveryOutcome.Rejected, code, DeliveryHints.MessageTooLarge), (delivery.Outcome, delivery.Code, delivery.Hint));
+    }
+
+    [Theory]
+    [InlineData(552, "5.2.2 Mailbox full", "smtp.552.5.2.2")]
+    [InlineData(552, "5.7.1 Message rejected by policy", "smtp.552.5.7.1")]
+    public void A552ThatIsNotAboutSize_HasNoSizeHint(int status, string reply, string code)
+    {
+        var delivery = SmtpFailureClassifier.ClassifyReply(status, reply);
+        Assert.Equal((UserMessageDeliveryOutcome.Rejected, code, (string?)null), (delivery.Outcome, delivery.Code, delivery.Hint));
     }
 
     [Fact]

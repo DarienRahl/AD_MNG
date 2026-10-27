@@ -27,7 +27,13 @@ public static class DeliveryHints
     public const string TeamsAuthMismatch = "teams.authMismatch";             // SAS vs OAuth error texts
     public const string WebhookGone = "webhook.gone";                         // 410
     public const string SecretRebindRequired = "secret.rebindRequired";       // stored secret bound to another destination
-    public const string MessageTooLarge = "smtp.messageTooLarge";             // 552 / 5.3.4, SIZE smaller than the message (U1c)
+    public const string MessageTooLarge = "smtp.messageTooLarge";             // 5.3.4 / 5.2.3 / bare 552, SIZE smaller than the message (U1c)
+
+    /// <summary>True when a rejection says the message is too large (<see cref="MessageTooLarge"/>): the enhanced code
+    /// 5.3.4 (too big for the system) or 5.2.3 (over the administrative limit), or 552 without an enhanced code. 552 with
+    /// another one is not – 552 5.2.2 is a full mailbox of one recipient.</summary>
+    public static bool IsMessageTooLarge(int status, string? enhancedStatus) =>
+        enhancedStatus is "5.3.4" or "5.2.3" || (status == 552 && enhancedStatus is null);
 }
 
 /// <summary>Result of a test send (<c>POST /api/v1/test/…</c>).</summary>

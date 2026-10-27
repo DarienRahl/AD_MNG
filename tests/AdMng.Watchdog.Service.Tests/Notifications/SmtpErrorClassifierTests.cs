@@ -24,6 +24,7 @@ public sealed class SmtpErrorClassifierTests
     [InlineData(550, "5.7.68 TenantInboundAttribution; Direct Send not allowed", DeliveryOutcome.ChannelBroken, DeliveryHints.DirectSendRejected)]
     [InlineData(550, "5.1.1 User unknown", DeliveryOutcome.Permanent, null)]
     [InlineData(552, "5.3.4 Message size exceeds fixed limit", DeliveryOutcome.Permanent, DeliveryHints.MessageTooLarge)]
+    [InlineData(552, "5.2.2 Mailbox full", DeliveryOutcome.Permanent, null)]
     [InlineData(554, "Transaction failed", DeliveryOutcome.Permanent, null)]
     public void Replies(int status, string reply, DeliveryOutcome expected, string? hint)
     {

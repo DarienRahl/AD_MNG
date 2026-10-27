@@ -71,7 +71,8 @@ public static partial class SmtpFailureClassifier
         }
 
         // The message (with its inline images, U1c) is larger than the server accepts: a permanent rejection of this message.
-        if (status == 552 || enhanced == "5.3.4")
+        // 552 alone says so only without an enhanced code – 552 5.2.2 is a full mailbox.
+        if (DeliveryHints.IsMessageTooLarge(status, enhanced))
         {
             return new UserMessageDelivery(UserMessageDeliveryOutcome.Rejected, code, status, DeliveryHints.MessageTooLarge);
         }
