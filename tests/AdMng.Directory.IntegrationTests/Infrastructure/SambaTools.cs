@@ -68,6 +68,18 @@ internal sealed partial class SambaTools : IDisposable
         Assert.True(result.Exit == 0, "samba-tool dsacl set failed: " + result.Output + result.Error);
     }
 
+    /// <summary>
+    /// A read-only <c>samba-tool gpo</c> verb (README K2 lab tests: <c>show</c>, <c>getlink</c>, <c>getinheritance</c>);
+    /// returns its output, asserting success.
+    /// </summary>
+    public async Task<string> GpoQueryAsync(string verb, string argument, CancellationToken cancellationToken)
+    {
+        Assert.Contains(verb, new[] { "show", "getlink", "getinheritance" });
+        var result = await SambaToolAsync(["gpo", verb, argument], cancellationToken);
+        Assert.True(result.Exit == 0, $"samba-tool gpo {verb} failed: " + result.Output + result.Error);
+        return result.Output;
+    }
+
     /// <summary><c>samba-tool gpo del</c> (removes the links, the container and the SYSVOL folder; best effort).</summary>
     public async Task DeleteGpoAsync(Guid gpo)
     {

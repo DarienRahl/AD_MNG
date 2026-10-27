@@ -161,7 +161,8 @@ public static class GpoFolderAcl
             return false;
         }
 
-        var actual = folder.Aces.Where(a => a.IsAllow && !a.IsInherited)
+        // An ACE without rights (Samba copies the Apply Group Policy object ACE with an empty mask) grants nothing.
+        var actual = folder.Aces.Where(a => a.IsAllow && !a.IsInherited && a.Mask != 0)
             .Select(a => new FileAce(a.Sid, (byte)(a.Flags & (ObjectInherit | ContainerInherit | InheritOnly)), a.Mask))
             .ToHashSet();
         return actual.SetEquals(expected);
