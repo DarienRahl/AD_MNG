@@ -78,9 +78,9 @@ zapytania na wybranym komputerze pojawi się razem ze zdalnymi akcjami z etapu K
 | Operacja | Co zmienia | Odpowiednik w PowerShell |
 |---|---|---|
 | Nowe GPO (opcjonalnie od razu połączone) | obiekt `groupPolicyContainer` z `CN=Machine` i `CN=User`, folder `{GUID}` w SYSVOL z `GPT.INI`, uprawnienia folderu, połączenie | `New-GPO`, `New-GPLink` |
-| Kopiuj | nowe GPO z plikami, stanem i filtrem WMI źródła; uprawnienia domyślne albo – na życzenie – jawne wpisy źródła | `Copy-GPO [-CopyAcl]` |
+| Kopiuj | nowe GPO z plikami, stanem i filtrem WMI źródła; uprawnienia domyślne albo – na życzenie – dokładnie jawne wpisy źródła (jego filtrowanie zabezpieczeń zostaje) | `Copy-GPO [-CopyAcl]` |
 | Zmień nazwę | `displayName` | `Rename-GPO` |
-| Usuń | połączenia w domenie i lokacjach, obiekt GPO, folder SYSVOL; dwóch domyślnych GPO nie da się usunąć | `Remove-GPO`, `Remove-GPLink` (lokacje) |
+| Usuń | połączenia w domenie i lokacjach, obiekt GPO, folder SYSVOL; dwóch domyślnych GPO nie da się usunąć; w lesie z innymi domenami podgląd ostrzega, że ich połączenia zostają | `Remove-GPO`, `Remove-GPLink` (lokacje) |
 | Połącz / odłącz / kolejność / wymuszone / włączone | `gPLink` kontenera | `New-GPLink`, `Remove-GPLink`, `Set-GPLink` |
 | Zablokuj dziedziczenie | `gPOptions` domeny lub OU | `Set-GPInheritance` |
 | Stan GPO | `flags` | `(Get-GPO …).GpoStatus = …` |
@@ -91,7 +91,12 @@ zapytania na wybranym komputerze pojawi się razem ze zdalnymi akcjami z etapu K
 
 **Usuwanie GPO** wymaga przepisania nazwy GPO; komunikat podaje domenę. Najpierw okno proponuje kopię zapasową
 (*Utwórz kopię zapasową przed usunięciem* – domyślnie włączone, wybór jest zapamiętywany). Gdy folderu nie udało się
-usunąć, karta GPO pokazuje *Usuń pozostały folder*.
+usunąć, karta GPO pokazuje *Usuń pozostały folder* (odmawia, gdy GPO znów istnieje). *Cofnij* po usunięciu GPO lub
+filtru WMI nie przywraca połączeń ani filtrów wskazujących usunięty obiekt.
+
+**Ustawienia przechowywane w katalogu** – instalacja oprogramowania (magazyn klas), zasady sieci bezprzewodowej i
+przewodowej – leżą pod `CN=Machine`/`CN=User` obiektu GPO, nie w SYSVOL. Kopiowanie, kopia zapasowa, przywracanie i
+import ich nie przenoszą; podgląd i okno kopii zapasowej mówią o tym wprost.
 
 **Filtrowanie zabezpieczeń i MS16-072.** Od czerwca 2016 komputery czytają GPO użytkownika w kontekście komputera.
 Usunięcie *Użytkowników uwierzytelnionych* z filtrowania zostawia im prawo *Odczyt* (jak GPMC), a podgląd ostrzega,
@@ -132,7 +137,9 @@ Zgodność w obie strony potwierdzi pilotaż na kontrolerze Windows – okno kop
   `Backup-GPO`. Katalog nie jest zmieniany, a nieudana kopia usuwa to, co zdążyła zapisać.
 - **Przywróć z kopii zapasowej** – lista kopii w folderze (nazwa, domena, czas, komentarz); istniejące GPO dostaje
   pliki, nazwę, stan, nazwy rozszerzeń, filtr WMI (jeśli istnieje) i jawne uprawnienia z kopii, wersje rosną; usunięte
-  GPO powstaje ponownie z tym samym GUID. **Przywróć też połączenia (N)** – opcja, domyślnie wyłączona (GPMC nie
+  GPO powstaje ponownie z tym samym GUID i dokładnie jawnymi uprawnieniami z kopii, z wersją powyżej ostatniej wersji
+  usuniętego GPO (Kosz AD ją przechowuje; bez Kosza wersja rośnie o 1001 ponad wersję z kopii). Pozostały folder
+  SYSVOL z tym samym GUID trzeba najpierw usunąć. **Przywróć też połączenia (N)** – opcja, domyślnie wyłączona (GPMC nie
   przywraca połączeń). Kopia z innej domeny nie jest przywracana – można zaimportować jej ustawienia.
 - **Importuj ustawienia** – do wybranego GPO trafia tylko zawartość (pliki, nazwy rozszerzeń, wersja), bez nazwy,
   stanu, filtru WMI i uprawnień. Podmioty zabezpieczeń i ścieżki UNC innej domeny są wymieniane w ostrzeżeniu (tabel

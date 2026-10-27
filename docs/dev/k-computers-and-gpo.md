@@ -590,7 +590,7 @@ ExecutePlanAsync(plan, title, session)`).
 | Operation | Steps (object: steps) | PowerShell |
 |---|---|---|
 | Create | GPC: `Create` (`objectClass=groupPolicyContainer`, `displayName`, `gPCFileSysPath=\\<domain>\SysVol\<domain>\Policies\{GUID}`, `gPCFunctionalityVersion=2`, `versionNumber=0`, `flags=0`; the DACL from the schema default), `CreateGpoFolder`, `SyncGpoFolderSecurity`; `CN=Machine`: `Create`; `CN=User`: `Create`; optional container: `Modify gPLink` | `New-GPO -Name … -Domain … -Server $server`; `New-GPLink -Guid … -Target … -LinkEnabled Yes` |
-| Copy (within the domain) | as Create with a new GUID and the source's files (`WriteGpoFile` each, `GPT.INI` excluded), extension names and `flags`, the WMI filter link; versions: each half 1 when the source half is non-zero, else 0 (a new GUID has no client history); permissions default, or the source's explicit ACEs (`ModifySecurity`) | `Copy-GPO -SourceGuid … -TargetName … [-CopyAcl]` |
+| Copy (within the domain) | as Create with a new GUID and the source's files (`WriteGpoFile` each, `GPT.INI` excluded), extension names and `flags`, the WMI filter link; versions: each half 1 when the source half is non-zero, else 0 (a new GUID has no client history); permissions default, or exactly the source's explicit ACEs (`ModifySecurity` with `AclChange.ReplacesExplicit`: the schema default entries the source lacks are removed, so its security filtering survives) | `Copy-GPO -SourceGuid … -TargetName … [-CopyAcl]` |
 | Rename | GPC: `Modify displayName` (CAS); `GPT.INI` untouched (GPMC does not update it) | `Rename-GPO -Guid … -TargetName …` |
 | Delete | every container linking it (domain NC and sites): `Modify gPLink` without the link; GPC: `Delete` (subtree: `CN=Machine`, `CN=User`), `DeleteGpoFolder`. The two default GPOs are refused. The dialog offers *Utwórz kopię zapasową przed usunięciem* (default on). A folder delete that fails leaves an orphaned folder, reported with *Usuń pozostały folder* | `Remove-GPO -Guid …` (removes the links of the domain); `Remove-GPLink -Guid … -Target <site DN>` for site links |
 | Link / unlink / reorder / enforce / enable | container: one `Modify gPLink` (CAS on the whole value) | `New-GPLink` / `Remove-GPLink` / `Set-GPLink -Order` / `-Enforced Yes|No` / `-LinkEnabled Yes|No` |
@@ -671,8 +671,10 @@ Manager backup. Until both pilot checks pass the backup window says *zgodna z GP
 * **Restore** (the GPO of the backup's GUID): existing GPO → plan: `WriteGpoFile`/`DeleteGpoFile` so that the folder
   equals the backup, `Modify` of `displayName`, `flags`, `gPCMachineExtensionNames`, `gPCUserExtensionNames`,
   `gPCWQLFilter` (when the filter exists), `ModifySecurity` to the backup's explicit ACEs, `SyncGpoFolderSecurity`,
-  `SetGpoVersion` (+1 on each half from the current maximum). Deleted GPO → the create steps with the backup's GUID and
-  content (version = backup + 1 on each non-empty half). Links are not part of a GPMC restore; *Przywróć też połączenia
+  `SetGpoVersion` (+1 on each half from the current maximum). Deleted GPO → the create steps with the backup's GUID,
+  content and exactly its explicit ACEs (version = 1 above the higher of the backup's and the deleted GPO's last
+  `versionNumber` from Deleted Objects; without the Recycle Bin 1 + 1000 above the backup's, never back for clients); a
+  leftover SYSVOL folder with the GUID refuses the plan. Links are not part of a GPMC restore; *Przywróć też połączenia
   (N)* from the sidecar is an option, off by default.
 * **Import settings** (into a chosen GPO, as `Import-GPO`): content, extension names and the version bump only – no
   DACL, status or WMI link. Security principals and UNC paths of another domain found in `GptTmpl.inf` / GPP are listed
@@ -1033,6 +1035,28 @@ unless listed below.
 * **Lab**: the interrupted write is tested on the lab too (`SmbClientSysvolFileWriter.FailReplace(n)` fails the n-th
   replace before it reaches the server); the optional Watchdog scenario (one `GroupPolicyChanged` +
   `GroupPolicySettingsChanged` per AD Manager change) was not run.
+
+**Review fixes** (commits *K2 review 1–14*):
+
+* Copy with permissions and restore of a deleted GPO set exactly the source's explicit ACEs
+  (`AclChange.ReplacesExplicit`; the executor removes the explicit ACEs it reads that the source lacks and audits the
+  applied delta) – the schema default's Authenticated Users Apply no longer undoes security filtering.
+* Settings kept as directory objects below `CN=Machine`/`CN=User` (software installation, wireless/wired policies) are
+  counted (`GroupPolicyReader.CountDirectorySettingsAsync`, sidecar `directoryObjects`, GPMC `DSObject` entries) and
+  warned about (`GpoDirectorySettings`) on copy, backup, restore and import; they are still not carried.
+* Rollback drops inverse `gPLink` / `gPCWQLFilter` values that name a GPO or WMI filter the batch deleted.
+* Security filtering lists every trustee allowed Apply (`GpoPermission.Applies`), whatever its level; a delegation
+  level change keeps the Apply ACE.
+* A sequential plan with an error on any object runs nothing (`ChangePlan.IsBlocked`).
+* Missing GPO folder = deleted; *Usuń pozostały folder* is refused while the GPO exists, also at execution
+  (`SysvolChange.OnlyIfContainerMissing`); restoring a deleted GPO over a leftover folder is refused.
+* *Pokaż różnice* never shows an unparseable preferences file or a file naming `cpassword` as text.
+* `manifest.xml` is written to a temporary file and moved over the old one, merges serialized in the process.
+* Delete warns in a forest with other domains (`GpoLinkedElsewhere`): `gPLink` is not in the GC, their links are found
+  only on their DCs (rule 4).
+* Dedicated issue codes (`GpoWmiFilterMissing`, `GpoBackupOtherDomain`, `GpoExists`, `GpoFolderExists`,
+  `GpoPermissionsReplaced`, `GpoVersionJump`) and `ValidationIssue.Arguments` for the `{0}` placeholders of the
+  localized texts.
 
 **Tests.** Core: versions, `GPT.INI`, `gPLink`, folder ACL mapping, transaction and compensation, SYSVOL pipeline
 (executor, rollback, PowerShell, audit), reader, every planner operation on the fake directory + `FakeSysvol`, GPMC
