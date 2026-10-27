@@ -140,7 +140,8 @@ public sealed class GroupPolicyWindowTests
         Assert.Single(gpoView.LinksList.Items);
         Assert.True(gpoView.DeleteButton.IsEnabled);
         Assert.True(gpoView.RenameButton.IsEnabled);
-        Assert.Equal(Visibility.Collapsed, gpoView.DeleteOrphanButton.Visibility);
+        // The button sits in the orphaned-folder bar, which is collapsed for a GPO with its folder.
+        Assert.False(gpoView.DeleteOrphanButton.IsVisible);
 
         // The settings of the security template and the status tab.
         gpoView.GpoTabs.SelectedItem = gpoView.SettingsTab;
@@ -372,7 +373,8 @@ public sealed class GroupPolicyWindowTests
         await UiWait.InitializedAsync(picker.Initialization);
         await UiWait.UntilAsync(() => !picker.ViewModel.IsLoading, "the GPOs of the domain");
         await UiTestSupport.WaitForIdleAsync();
-        Assert.Equal("Połącz istniejący GPO z Komputery", picker.Title);
+        // Every window of a connection names its domain in the title (several connections at once).
+        Assert.Equal("Połącz istniejący GPO z Komputery – contoso.test", picker.Title);
         Assert.Equal(Visibility.Collapsed, picker.ErrorBar.Visibility);
         Assert.Equal(all.Count - 1, picker.GpoList.Items.Count);
         Assert.DoesNotContain(picker.GpoList.Items.Cast<GpoPickerItem>(), i => i.Gpo.Id == sample.WorkstationPasswords);

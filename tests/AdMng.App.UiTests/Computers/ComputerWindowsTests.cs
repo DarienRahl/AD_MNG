@@ -40,6 +40,24 @@ public sealed class ComputerWindowsTests
         button.Command.Execute(button.CommandParameter);
     }
 
+    /// <summary>Waits (bounded) for <paramref name="condition"/>; on timeout the failure names what the review shows.</summary>
+    private static async Task WaitForAsync(ComputerReviewViewModel review, Func<bool> condition, string description)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                Assert.Fail($"Timed out waiting for: {description}. Selected tile: {review.SelectedTile?.Report}; busy: {review.IsBusy}; "
+                            + $"items: {string.Join(", ", review.Items.Select(r => r.Name))}; "
+                            + $"tiles: {string.Join(", ", review.Tiles.Select(t => $"{t.Report}{(t.Release is null ? "" : "/" + t.Release)}={t.CountText}"))}; "
+                            + $"status: {review.StatusText}; error: {review.Error}");
+            }
+
+            await UiTestSupport.WaitForIdleAsync(rounds: 1);
+        }
+    }
+
     [Fact]
     public Task ToolsMenu_OpensOneReview_TheEndOfSupportTileListsOldSystems_AndTheDetailsFollowTheSelection() => WpfTestHost.RunAsync(async () =>
     {
@@ -82,7 +100,8 @@ public sealed class ComputerWindowsTests
 
         // End of support: Windows 7 and Server 2012 R2 ended long ago (independent of the day the test runs).
         window.TilesList.SelectedItem = review.Tiles.Single(t => t.Report == ComputerReport.EndOfSupport);
-        await UiTestSupport.WaitForIdleAsync();
+        await WaitForAsync(review, () => review.SelectedTile?.Report == ComputerReport.EndOfSupport && review.Items.Any(r => r.Name == "LOD-PC107"),
+            "Windows 7 in the end-of-support list");
         Assert.Equal(review.Columns.Count, window.ItemsGrid.Columns.Count);
         var windows7 = review.Items.Single(r => r.Name == "LOD-PC107");
         Assert.Contains(review.Items, r => r.Name == "SRV-STARY04");
