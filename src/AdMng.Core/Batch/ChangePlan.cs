@@ -239,6 +239,9 @@ public static class IssueCodes
     /// <summary>Imported settings name security principals or UNC paths of another domain (migration tables are not supported).</summary>
     public const string GpoForeignReferences = "GpoForeignReferences";
 
+    /// <summary>A copied or restored GPO gets exactly the source's explicit permissions; the default entries it lacks are removed.</summary>
+    public const string GpoPermissionsReplaced = "GpoPermissionsReplaced";
+
     /// <summary>Restored or imported preferences still hold GPP passwords (<c>cpassword</c>, MS14-025) that every domain user can decrypt.</summary>
     public const string GpoGppPassword = "GpoGppPassword";
 }

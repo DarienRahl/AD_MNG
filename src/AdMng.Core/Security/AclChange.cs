@@ -168,6 +168,14 @@ public sealed record AclChange(IReadOnlyList<AceSpec> Added, IReadOnlyList<AceSp
     /// </summary>
     public IReadOnlyList<string> PlannedFrom { get; init; } = [];
 
+    /// <summary>
+    /// The explicit ACEs become exactly <see cref="Added"/>: the executor also removes every explicit ACE it reads that
+    /// <see cref="Added"/> does not hold. Only for an object the same plan creates - a GPO copied or restored with its
+    /// permissions, whose new container starts with the schema default DACL (Authenticated Users' Apply Group Policy
+    /// among it) that the source's security filtering may lack.
+    /// </summary>
+    public bool ReplacesExplicit { get; init; }
+
     /// <summary>The inverse delta (added ↔ removed) – the rollback.</summary>
     public AclChange Inverse() => new(Removed, Added);
 

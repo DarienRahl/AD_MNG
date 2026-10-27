@@ -301,6 +301,12 @@ public sealed class PowerShellExporter : IPowerShellExporter
         }
 
         Line(sb, $"$acl = Get-Acl -LiteralPath \"{drive}:$dn\"");
+        if (acl.ReplacesExplicit)
+        {
+            // The explicit entries become exactly the added ones.
+            Line(sb, "$acl.Access | Where-Object { -not $_.IsInherited } | ForEach-Object { $acl.RemoveAccessRuleSpecific($_) }");
+        }
+
         foreach (var ace in acl.Removed)
         {
             TrusteeComment(sb, "-", ace);

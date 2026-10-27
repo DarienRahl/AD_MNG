@@ -3,6 +3,7 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.GroupPolicy;
 using AdMng.Core.GroupPolicy.Management;
+using AdMng.Core.Security;
 
 namespace AdMng.Core.Tests.GroupPolicy;
 
@@ -83,6 +84,33 @@ public class GroupPolicyPlannerTests : GroupPolicyTestBed
 
         var permissions = GpoPermissionLevels.Read(Session.Snapshot(GpoDn(id))!.GetBytes(Attr.NtSecurityDescriptor));
         Assert.Contains(permissions, p => p.Sid == Builder.SidOf(Company.LukaszWisniewski) && p.Level == GpoPermissionLevel.Edit);
+    }
+
+    [Fact]
+    public async Task Copy_WithPermissions_OfAFilteredGpo_KeepsItsSecurityFiltering()
+    {
+        // "Stacje robocze – Pulpit zdalny" applies to GG_IT only: Authenticated Users may read it but not apply it.
+        var id = Guid.NewGuid();
+        await using var sysvol = await OpenSysvolAsync();
+        var plan = await Planner.PlanCopyAsync(Session, sysvol, Sample.WorkstationRemoteDesktop, "Kopia – Pulpit zdalny (GG_IT)", copyPermissions: true, Ct, id);
+
+        var security = Assert.Single(plan.Objects[0].Changes, c => c.Action == ChangeAction.ModifySecurity);
+        Assert.True(security.Acl!.ReplacesExplicit);
+        Assert.Contains(security.Issues, i => i.Code == IssueCodes.GpoPermissionsReplaced);
+        await ExecuteOkAsync(plan);
+
+        var copied = Session.Snapshot(GpoDn(id))!.GetBytes(Attr.NtSecurityDescriptor)!;
+        var source = Session.Snapshot(GpoDn(Sample.WorkstationRemoteDesktop))!.GetBytes(Attr.NtSecurityDescriptor)!;
+        var permissions = GpoPermissionLevels.Read(copied);
+        Assert.Equal(GpoPermissionLevel.Read, Assert.Single(permissions, p => p.Sid == GpoPermissionLevels.AuthenticatedUsersSid).Level);
+        Assert.Equal(GpoPermissionLevel.Apply, Assert.Single(permissions, p => p.Sid == Builder.SidOf(Company.GroupIt)).Level);
+        Assert.True(DaclEditor.TryReadExplicit(copied, out var copiedAces));
+        Assert.True(DaclEditor.TryReadExplicit(source, out var sourceAces));
+        Assert.Equal(sourceAces.Count, copiedAces.Count);
+        Assert.All(sourceAces, a => Assert.Contains(copiedAces, c => c.SameAce(a)));
+        Assert.True(GpoFolderAcl.IsConsistent(Sysvol.FolderSecurity(id), copied));
+        var audit = Assert.Single(Audit.Entries, e => e.Action == nameof(ChangeAction.ModifySecurity) && e.DistinguishedName == GpoDn(id));
+        Assert.Contains(GpoPermissionLevels.AuthenticatedUsersSid, audit.OldValue ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]

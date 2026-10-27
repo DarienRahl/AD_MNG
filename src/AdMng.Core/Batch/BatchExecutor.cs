@@ -117,7 +117,11 @@ public sealed partial class BatchExecutor : IBatchExecutor
     private readonly record struct Attempted<T>(T? Value, int Attempts, Exception? Error);
 
     /// <summary>Outcome of one step.</summary>
-    private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled);
+    private sealed record StepOutcome(ChangeResult Result, string? NewDn, bool Cancelled)
+    {
+        /// <summary>The ACE delta a <see cref="Security.AclChange.ReplacesExplicit"/> step applied (audited instead of the planned one).</summary>
+        public Security.AclChange? AppliedAcl { get; init; }
+    }
 
     /// <summary>State of one execution.</summary>
     private sealed partial class Run
@@ -879,11 +883,12 @@ public sealed partial class BatchExecutor : IBatchExecutor
                     break;
                 case ChangeAction.ModifySecurity:
                     // The ACEs (rights and trustee SIDs, no names): old value = removed, new value = added.
+                    var acl = outcome.AppliedAcl ?? change.Acl;
                     Record(change.Action, Entry(
                         change.Action.ToString(),
                         Attr.NtSecurityDescriptor,
-                        Join([.. change.Acl?.Removed.Select(a => a.Describe()) ?? []]),
-                        Join([.. change.Acl?.Added.Select(a => a.Describe()) ?? []])));
+                        Join([.. acl?.Removed.Select(a => a.Describe()) ?? []]),
+                        Join([.. acl?.Added.Select(a => a.Describe()) ?? []])));
                     break;
                 default:
                     // ResetPassword, Delete: no values (and never the password).

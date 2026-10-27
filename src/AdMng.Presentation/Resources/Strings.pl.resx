@@ -10480,5 +10480,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoGppPassword" xml:space="preserve">
     <value>Ustawienia zawierają hasła preferencji zasad grupy (cpassword, MS14-025): każdy użytkownik domeny może je odczytać i odszyfrować – usuń te elementy albo użyj LAPS.</value>
   </data>
+  <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
+    <value>Nowe GPO otrzyma dokładnie wymienione tu uprawnienia: domyślne wpisy, których wśród nich nie ma (np. Zastosuj zasady grupy dla Użytkowników uwierzytelnionych), zostaną usunięte.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

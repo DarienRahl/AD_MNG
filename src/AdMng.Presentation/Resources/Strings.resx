@@ -10480,5 +10480,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoGppPassword" xml:space="preserve">
     <value>The settings contain Group Policy Preferences passwords (cpassword, MS14-025): every user of the domain can read and decrypt them – remove these items or use LAPS.</value>
   </data>
+  <data name="Issue.GpoPermissionsReplaced" xml:space="preserve">
+    <value>The new GPO gets exactly the permissions listed here: the default entries missing from them (such as Apply Group Policy for Authenticated Users) are removed.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

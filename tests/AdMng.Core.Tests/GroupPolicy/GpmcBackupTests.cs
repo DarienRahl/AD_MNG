@@ -85,6 +85,8 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
         Sysvol.Put(Sample.WorkstationPasswords, SecurityTemplate.RelativePath, FakeSysvolFileReader.Utf16("[Unicode]\r\nUnicode=yes\r\n[System Access]\r\nMinimumPasswordLength = 4\r\n"));
         Sysvol.PutText(Sample.WorkstationPasswords, "Machine/Scripts/Startup/obce.cmd", "echo obcy");
         Session.SetValues(GpoDn(Sample.WorkstationPasswords), Attr.DisplayName, "Zmieniona nazwa");
+        Session.SetValues(GpoDn(Sample.WorkstationPasswords), "flags", "3");
+        Session.SeedAttributes(GpoDn(Sample.WorkstationPasswords), new Dictionary<string, object?> { [Attr.NtSecurityDescriptor] = Builder.DefaultGroupPolicySecurityDescriptor() });
         var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
         await using var sysvol = await OpenSysvolAsync();
 
@@ -100,8 +102,27 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
         Assert.Equal(originalTemplate, Sysvol.Get(Sample.WorkstationPasswords, SecurityTemplate.RelativePath));
         Assert.Null(Sysvol.Get(Sample.WorkstationPasswords, "Machine/Scripts/Startup/obce.cmd"));
         Assert.Equal("Stacje robocze – Zasady haseł", Value(GpoDn(Sample.WorkstationPasswords), Attr.DisplayName));
+        Assert.Equal("0", Value(GpoDn(Sample.WorkstationPasswords), "flags"));
         var version = GpoVersion.FromInt32(int.Parse(Value(GpoDn(Sample.WorkstationPasswords), "versionNumber")!, System.Globalization.CultureInfo.InvariantCulture));
         Assert.Equal(new GpoVersion(1, 5), version);
+        var permissions = GpoPermissionLevels.Read(Session.Snapshot(GpoDn(Sample.WorkstationPasswords))!.GetBytes(Attr.NtSecurityDescriptor));
+        Assert.Contains(permissions, p => p.Sid == Builder.SidOf(Company.LukaszWisniewski) && p.Level == GpoPermissionLevel.Edit);
+    }
+
+    [Fact]
+    public async Task Restore_OfADeletedFilteredGpo_KeepsItsSecurityFiltering()
+    {
+        // "Stacje robocze – Pulpit zdalny" applies to GG_IT only; the re-created container starts with the default DACL.
+        var backup = await BackUpAsync(Sample.WorkstationRemoteDesktop);
+        await ExecuteOkAsync(await Planner.PlanDeleteAsync(Session, Sample.WorkstationRemoteDesktop, Ct));
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        await using var sysvol = await OpenSysvolAsync();
+
+        await ExecuteOkAsync(await Planner.PlanRestoreAsync(Session, sysvol, read, _folder, restoreLinks: true, Ct));
+
+        var permissions = GpoPermissionLevels.Read(Session.Snapshot(GpoDn(Sample.WorkstationRemoteDesktop))!.GetBytes(Attr.NtSecurityDescriptor));
+        Assert.Equal(GpoPermissionLevel.Read, Assert.Single(permissions, p => p.Sid == GpoPermissionLevels.AuthenticatedUsersSid).Level);
+        Assert.Equal(GpoPermissionLevel.Apply, Assert.Single(permissions, p => p.Sid == Builder.SidOf(Company.GroupIt)).Level);
     }
 
     [Fact]

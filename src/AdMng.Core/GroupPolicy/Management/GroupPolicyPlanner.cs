@@ -61,7 +61,7 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
     /// <summary>
     /// A copy within the domain (<c>Copy-GPO</c>): a new GUID with the source's files (GPT.INI excluded), extension names,
     /// status and WMI filter link; versions 1 on each half the source uses (a new GUID has no client history); the
-    /// permissions are the default, or with <paramref name="copyPermissions"/> the source's explicit ACEs are added.
+    /// permissions are the default, or with <paramref name="copyPermissions"/> exactly the source's explicit ACEs.
     /// </summary>
     /// <exception cref="GpoTooLargeException">The source folder exceeds the in-memory limits.</exception>
     public async Task<ChangePlan> PlanCopyAsync(
@@ -448,7 +448,13 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         steps.AddRange(content ?? []);
         if (security is { IsEmpty: false })
         {
-            steps.Add(AclPlanning.ForNewObject(security));
+            steps.Add(AclPlanning.ForNewObject(security) with
+            {
+                Issues = security.ReplacesExplicit
+                    ? [new ValidationIssue(IssueSeverity.Info, IssueCodes.GpoPermissionsReplaced,
+                        "The new GPO gets exactly these permissions: the default entries it lacks (such as Authenticated Users' Apply Group Policy) are removed.")]
+                    : [],
+            });
         }
 
         steps.Add(new PlannedChange { Action = ChangeAction.SyncGpoFolderSecurity, Sysvol = new SysvolChange { GpoId = gpoId } });
@@ -489,7 +495,10 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         ];
     }
 
-    /// <summary>The source's explicit ACEs as an addition to the copy's default DACL.</summary>
+    /// <summary>
+    /// The source's explicit ACEs as the exact explicit ACEs of the copy (<c>Copy-GPO -CopyAcl</c>, a GPMC restore): the
+    /// schema default entries the source lacks are removed, so its security filtering survives.
+    /// </summary>
     private static AclChange? CopiedAces(byte[]? descriptor)
     {
         if (descriptor is null || !SecurityDescriptorSummary.TryParse(descriptor, out var summary) || summary is null)
@@ -498,7 +507,7 @@ public sealed partial class GroupPolicyPlanner(GroupPolicyReader reader, TimePro
         }
 
         var aces = summary.Aces.Select(AceSpec.FromAce).OfType<AceSpec>().Where(a => AceSpec.IsValidSid(a.TrusteeSid) && a.Mask != 0).ToList();
-        return aces.Count == 0 ? null : new AclChange(aces, []);
+        return aces.Count == 0 ? null : new AclChange(aces, []) { ReplacesExplicit = true };
     }
 
     private async Task<ObjectPlan?> LinkObjectAsync(
