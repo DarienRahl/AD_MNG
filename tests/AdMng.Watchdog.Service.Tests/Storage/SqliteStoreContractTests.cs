@@ -27,6 +27,8 @@ public sealed class SqliteStoreContractTests : WatchdogStoreContractTests<Sqlite
         return Task.FromResult(store);
     }
 
+    protected override Task<long> StoredImageBytesAsync(SqliteWatchdogStore store) => store.UserMessages.StoredImageBytesAsync(CancellationToken.None);
+
     public void Dispose()
     {
         foreach (var directory in _directories)

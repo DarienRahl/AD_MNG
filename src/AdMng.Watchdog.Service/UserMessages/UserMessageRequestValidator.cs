@@ -1,10 +1,19 @@
+using System.Security.Cryptography;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
+using AdMng.Core.Messaging.Images;
 using AdMng.Watchdog.Contracts.Api;
 using AdMng.Watchdog.Contracts.Configuration;
 using AdMng.Watchdog.Core.Model;
 using AdMng.Watchdog.Service.Notifications;
 
 namespace AdMng.Watchdog.Service.UserMessages;
+
+/// <summary>What the service sends for a valid request (U1c): the sanitized HTML document and the checked, stripped images.</summary>
+public sealed record UserMessageContent(string? HtmlBody, IReadOnlyList<MessageImage> Images)
+{
+    public override string ToString() => $"UserMessageContent({Images.Count} images)";
+}
 
 /// <summary>
 /// The service's own check of a message to a user (README U1b) – the same security rules AD Manager applied
@@ -13,12 +22,24 @@ namespace AdMng.Watchdog.Service.UserMessages;
 /// HTML, a known language and – the service decides who the message comes from – From / Reply-To only from
 /// <c>smtp.from</c>, <c>smtp.replyTo</c> and <c>userMessages.allowedSenders</c>. Attachments cannot be expressed (the
 /// request type rejects unknown members). Issue paths are camelCase JSON paths; messages never quote a value.
+/// <para>U1c (design note section 9.3): the HTML body is checked by the shared <see cref="MessageHtmlSanitizer"/> in
+/// document mode – security findings are <c>forbiddenHtml</c>, a <c>cid:</c> without its image <c>missingImage</c> – and
+/// inline images must be allowed (<c>userMessages.allowInlineImages</c>, else <c>imagesDisabled</c>), within the limits
+/// (<c>tooLarge</c>), valid PNG / JPEG / GIF (<c>invalidImage</c>), identified by the SHA-256 of their bytes
+/// (<c>imageIdMismatch</c>) and referenced by the HTML (<c>unreferencedImage</c>). The service then sends the sanitized
+/// document and the stripped images, so cosmetic policy differences between versions never fail a run, security
+/// differences always do.</para>
 /// </summary>
 public static class UserMessageRequestValidator
 {
     /// <summary>The issues of <paramref name="request"/> (empty = valid).</summary>
-    public static IReadOnlyList<ConfigIssue> Validate(UserMessageRequest request, SmtpSettings smtp, UserMessagingSettings settings)
+    public static IReadOnlyList<ConfigIssue> Validate(UserMessageRequest request, SmtpSettings smtp, UserMessagingSettings settings) =>
+        Validate(request, smtp, settings, out _);
+
+    /// <summary>The issues of <paramref name="request"/> (empty = valid) and, when valid, what the service sends.</summary>
+    public static IReadOnlyList<ConfigIssue> Validate(UserMessageRequest request, SmtpSettings smtp, UserMessagingSettings settings, out UserMessageContent? content)
     {
+        content = null;
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(smtp);
         ArgumentNullException.ThrowIfNull(settings);
@@ -83,6 +104,8 @@ public static class UserMessageRequestValidator
             Add(issues, "textBody", UserMessageIssueCodes.TooLong, "The text body is too long.");
         }
 
+        var images = Images(request, settings, issues);
+        string? sanitized = null;
         if (request.HtmlBody is { Length: > 0 } html)
         {
             if (html.Length > UserMessageLimits.MaxHtmlLength)
@@ -93,6 +116,14 @@ public static class UserMessageRequestValidator
             {
                 Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body contains forbidden elements, handlers or URL schemes.");
             }
+            else
+            {
+                sanitized = CheckHtml(html, request, issues);
+            }
+        }
+        else if ((request.InlineImages ?? []).Count > 0)
+        {
+            Add(issues, "htmlBody", UserMessageIssueCodes.Required, "Inline images need an HTML body that references them.");
         }
 
         if (MessageLanguages.FromCode(request.Language) is null || request.Language.Trim().Length > 5)
@@ -100,7 +131,113 @@ public static class UserMessageRequestValidator
             Add(issues, "language", UserMessageIssueCodes.InvalidLanguage, "The language is pl or en.");
         }
 
+        if (issues.Count == 0)
+        {
+            content = new UserMessageContent(sanitized, [.. images.Values]);
+        }
+
         return issues;
+    }
+
+    /// <summary>The checked images by content id (U1c); every problem is an issue.</summary>
+    private static Dictionary<string, MessageImage> Images(UserMessageRequest request, UserMessagingSettings settings, List<ConfigIssue> issues)
+    {
+        var result = new Dictionary<string, MessageImage>(StringComparer.OrdinalIgnoreCase);
+        var images = request.InlineImages ?? [];
+        if (images.Count == 0)
+        {
+            return result;
+        }
+
+        if (!settings.AllowInlineImages)
+        {
+            Add(issues, "inlineImages", UserMessageIssueCodes.ImagesDisabled, "Inline images are switched off in the service (userMessages.allowInlineImages).");
+            return result;
+        }
+
+        if (images.Count > UserMessageLimits.MaxInlineImages
+            || images.Sum(i => (long)(i?.Data?.Length ?? 0)) > UserMessageLimits.MaxInlineImagesTotalBytes)
+        {
+            Add(issues, "inlineImages", UserMessageIssueCodes.TooLarge, "The message has too many images or too many image bytes.");
+            return result;
+        }
+
+        for (var i = 0; i < images.Count; i++)
+        {
+            var path = $"inlineImages[{i}]";
+            var image = images[i];
+            if (image?.Data is not { Length: > 0 } data || string.IsNullOrWhiteSpace(image.ContentId) || string.IsNullOrWhiteSpace(image.MediaType))
+            {
+                Add(issues, path, UserMessageIssueCodes.InvalidImage, "An image needs a content id, a media type and its bytes.");
+                continue;
+            }
+
+            if (data.Length > UserMessageLimits.MaxInlineImageBytes)
+            {
+                Add(issues, path + ".data", UserMessageIssueCodes.TooLarge, "An image is larger than 1 MiB.");
+                continue;
+            }
+
+            if (!string.Equals(image.ContentId.Trim(), MessageImage.ContentIdFor(Convert.ToHexStringLower(SHA256.HashData(data))), StringComparison.OrdinalIgnoreCase))
+            {
+                Add(issues, path + ".contentId", UserMessageIssueCodes.ImageIdMismatch, "The content id is not derived from the image's SHA-256.");
+                continue;
+            }
+
+            if (image.FileName is { } name && (name.Length > 64 || name.Any(c => char.IsControl(c) || c is '/' or '\\')))
+            {
+                Add(issues, path + ".fileName", UserMessageIssueCodes.InvalidImage, "A file name is at most 64 characters without a path.");
+                continue;
+            }
+
+            try
+            {
+                var created = MessageImage.Create(data, image.FileName, image.MediaType, i + 1);
+                if (!result.TryAdd(image.ContentId.Trim(), created with { ContentId = image.ContentId.Trim().ToLowerInvariant() }))
+                {
+                    Add(issues, path + ".contentId", UserMessageIssueCodes.InvalidImage, "The same image is sent twice.");
+                }
+            }
+            catch (MessageImageException)
+            {
+                Add(issues, path, UserMessageIssueCodes.InvalidImage, "An image is not a valid PNG, JPEG or GIF within the limits.");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>The shared sanitizer's security findings and the image references of the HTML; returns the sanitized
+    /// document the service sends.</summary>
+    private static string CheckHtml(string html, UserMessageRequest request, List<ConfigIssue> issues)
+    {
+        var declared = (request.InlineImages ?? []).Where(i => !string.IsNullOrWhiteSpace(i?.ContentId)).Select(i => i.ContentId.Trim());
+        var result = MessageHtmlSanitizer.Sanitize(html, new HtmlSanitizeOptions
+        {
+            Mode = HtmlSanitizeMode.Document,
+            InlineImageIds = declared.ToHashSet(StringComparer.OrdinalIgnoreCase),
+        });
+        if (result.Changes.Any(c => c.IsSecurity && c.Kind == HtmlChangeKind.MissingImage))
+        {
+            Add(issues, "htmlBody", UserMessageIssueCodes.MissingImage, "The HTML body references an image the message does not carry.");
+        }
+
+        if (result.Changes.Any(c => c.IsSecurity && c.Kind != HtmlChangeKind.MissingImage))
+        {
+            Add(issues, "htmlBody", UserMessageIssueCodes.ForbiddenHtml, "The HTML body contains active content, remote resources or hidden content.");
+        }
+
+        var referenced = result.ImageIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var list = request.InlineImages ?? [];
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i]?.ContentId is { } id && !referenced.Contains(id.Trim()))
+            {
+                Add(issues, $"inlineImages[{i}]", UserMessageIssueCodes.UnreferencedImage, "The HTML body does not reference this image.");
+            }
+        }
+
+        return result.Html;
     }
 
     /// <summary>The addresses of a valid request as the outbox stores them: From / Reply-To default to the channel's.</summary>

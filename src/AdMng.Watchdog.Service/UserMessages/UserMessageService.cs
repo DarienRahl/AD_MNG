@@ -85,8 +85,19 @@ public sealed partial class UserMessageService
             MaxMessagesPerDay = settings.MaxMessagesPerDay,
             SubmittedLastHour = hour,
             SubmittedLastDay = day,
+            Capabilities = settings.AllowInlineImages ? [UserMessagingCapabilities.InlineImages] : [],
+            MaxInlineImages = settings.AllowInlineImages ? UserMessageLimits.MaxInlineImages : 0,
+            MaxInlineImageBytes = settings.AllowInlineImages ? UserMessageLimits.MaxInlineImageBytes : 0,
+            MaxInlineImagesTotalBytes = settings.AllowInlineImages ? UserMessageLimits.MaxInlineImagesTotalBytes : 0,
+            MaxHtmlLength = UserMessageLimits.MaxHtmlLength,
+            StoredImageBytes = await _store.StoredImageBytesAsync(cancellationToken).ConfigureAwait(false),
+            MaxStoredImageBytes = MaxStoredImageBytes(settings),
         };
     }
+
+    /// <summary><c>userMessages.maxStoredImageMb</c> in bytes.</summary>
+    public static long MaxStoredImageBytes(UserMessagingSettings settings) =>
+        Math.Clamp((settings ?? new UserMessagingSettings()).MaxStoredImageMb, 16, 4096) * 1024L * 1024L;
 
     /// <summary><c>POST /api/v1/user-messages</c> (the body already read).</summary>
     public async Task<IResult> SubmitAsync(UserMessageRequest request, ClaimsPrincipal user, CancellationToken cancellationToken)
@@ -106,8 +117,8 @@ public sealed partial class UserMessageService
             return Unavailable(UserMessageIssueCodes.SmtpNotConfigured, "The e-mail channel (SMTP) of the service is disabled or incomplete.");
         }
 
-        var issues = UserMessageRequestValidator.Validate(request, smtp, settings);
-        if (issues.Count > 0)
+        var issues = UserMessageRequestValidator.Validate(request, smtp, settings, out var content);
+        if (issues.Count > 0 || content is null)
         {
             return ApiResults.Invalid(issues, "The message is not valid.");
         }
@@ -135,15 +146,18 @@ public sealed partial class UserMessageService
             {
                 Subject = request.Subject.Trim(),
                 TextBody = request.TextBody,
-                HtmlBody = request.HtmlBody ?? string.Empty,
+                // U1c: the shared sanitizer's document and the checked, stripped images – only in the payload.
+                HtmlBody = content.HtmlBody ?? string.Empty,
                 UserMessage = envelope,
+                InlineImages = [.. content.Images.Select(i => new RenderedInlineImage { ContentId = i.ContentId, MediaType = i.MediaType, FileName = i.FileName, Data = i.Data })],
             },
             CreatedAt = now,
             NextAttemptAt = now,
         };
 
         using var registration = _notifier.Register(messageId);
-        var submission = await _store.SubmitAsync(record, message, settings.MaxMessagesPerHour, settings.MaxMessagesPerDay, cancellationToken).ConfigureAwait(false);
+        var submission = await _store.SubmitAsync(record, message, settings.MaxMessagesPerHour, settings.MaxMessagesPerDay, MaxStoredImageBytes(settings), cancellationToken)
+            .ConfigureAwait(false);
         switch (submission.Outcome)
         {
             case UserMessageSubmitOutcome.Conflict:
@@ -158,8 +172,14 @@ public sealed partial class UserMessageService
                     ApiResults.Problem(StatusCodes.Status429TooManyRequests, ApiProblem.RateLimited, "The limit of messages to users is reached.",
                         [Issue(hourly ? "userMessages.maxMessagesPerHour" : "userMessages.maxMessagesPerDay",
                             hourly ? UserMessageIssueCodes.HourlyLimit : UserMessageIssueCodes.DailyLimit, "The limit of messages to users is reached.")]));
+            case UserMessageSubmitOutcome.ImageStorageFull:
+                Log.ImageStorageFull(_logger, messageId, record.ByAccount);
+                return new LimitedResult(
+                    submission.RetryAfter ?? TimeSpan.FromHours(1),
+                    ApiResults.Problem(StatusCodes.Status429TooManyRequests, ApiProblem.RateLimited, "The images waiting in the outbox reached the service's cap.",
+                        [Issue("userMessages.maxStoredImageMb", UserMessageIssueCodes.ImageStorageFull, "The images waiting in the outbox reached the service's cap.")]));
             case UserMessageSubmitOutcome.Created:
-                Log.Submitted(_logger, messageId, record.ByAccount, record.RecipientCount, submission.OutboxId ?? 0);
+                Log.Submitted(_logger, messageId, record.ByAccount, record.RecipientCount, content.Images.Count, submission.OutboxId ?? 0);
                 _signals.Raise(WatchdogSignal.OutboxEnqueued);
                 break;
             default:
@@ -276,8 +296,8 @@ public sealed partial class UserMessageService
     private static partial class Log
     {
         [LoggerMessage(EventId = 2610, Level = LogLevel.Information,
-            Message = "Message to a user {MessageId} submitted by {Account}: {RecipientCount} recipient(s), outbox {OutboxId}.")]
-        public static partial void Submitted(ILogger logger, string messageId, string account, int recipientCount, long outboxId);
+            Message = "Message to a user {MessageId} submitted by {Account}: {RecipientCount} recipient(s), {ImageCount} inline image(s), outbox {OutboxId}.")]
+        public static partial void Submitted(ILogger logger, string messageId, string account, int recipientCount, int imageCount, long outboxId);
 
         [LoggerMessage(EventId = 2611, Level = LogLevel.Information, Message = "Message to a user {MessageId} submitted again by {Account}.")]
         public static partial void Repeated(ILogger logger, string messageId, string account);
@@ -287,5 +307,9 @@ public sealed partial class UserMessageService
 
         [LoggerMessage(EventId = 2613, Level = LogLevel.Warning, Message = "Message to a user {MessageId} from {Account} refused: the {Window} limit is reached.")]
         public static partial void Limited(ILogger logger, string messageId, string account, string window);
+
+        [LoggerMessage(EventId = 2614, Level = LogLevel.Warning,
+            Message = "Message to a user {MessageId} from {Account} refused: the images waiting in the outbox reached userMessages.maxStoredImageMb.")]
+        public static partial void ImageStorageFull(ILogger logger, string messageId, string account);
     }
 }

@@ -154,6 +154,15 @@ public sealed partial class InMemoryWatchdogStore
 
     // ---------------------------------------------------------------- IOutboxStore
 
+    /// <summary>Bytes of inline images held in outbox payloads (U1c; the SQLite store's <c>SUM(outbox.image_bytes)</c>).</summary>
+    public long StoredImageBytes()
+    {
+        lock (_gate)
+        {
+            return _outbox.Values.Sum(r => r.Message.Email?.InlineImages?.Sum(i => (long)i.Data.Length) ?? 0);
+        }
+    }
+
     public Task<long> EnqueueAsync(OutboxMessage message, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(message);

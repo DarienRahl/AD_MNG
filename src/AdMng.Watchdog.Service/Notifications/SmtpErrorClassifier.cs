@@ -81,6 +81,12 @@ public static partial class SmtpErrorClassifier
             return ClassifiedDelivery.Failure(DeliveryOutcome.ChannelBroken, code, DeliveryHints.DirectSendRejected, status);
         }
 
+        // U1c: the message (with its inline images) is larger than the server accepts – a permanent rejection of it.
+        if (status == 552 || enhanced == "5.3.4")
+        {
+            return ClassifiedDelivery.Failure(DeliveryOutcome.Permanent, code, DeliveryHints.MessageTooLarge, status);
+        }
+
         return status switch
         {
             530 or 534 or 535 or 538 => ClassifiedDelivery.Failure(DeliveryOutcome.AuthenticationFailed, code, statusCode: status),

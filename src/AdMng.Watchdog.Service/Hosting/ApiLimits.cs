@@ -6,6 +6,11 @@ public static class ApiLimits
     /// <summary>Largest accepted request body (1 MB).</summary>
     public const long MaxRequestBodyBytes = 1024 * 1024;
 
+    /// <summary>Largest body of <c>POST /api/v1/user-messages</c> only (6 MiB, U1c): 2 MiB of inline images ≈ 2.7 MiB of
+    /// base64, 400 000 HTML characters JSON-escaped, the text body and headroom. Every other route keeps
+    /// <see cref="MaxRequestBodyBytes"/>.</summary>
+    public const long MaxUserMessageBodyBytes = 6L * 1024 * 1024;
+
     /// <summary>Largest page of events / outbox rows / audit entries.</summary>
     public const int MaxPageSize = 500;
 
