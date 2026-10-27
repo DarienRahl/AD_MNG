@@ -103,6 +103,13 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     /// <summary>Domain SID prefix for principals created with <see cref="AddAsync"/>.</summary>
     public string DomainSid { get; set; } = DefaultDomainSid;
 
+    /// <summary>
+    /// Distinguishes the objectGUIDs of this directory from those of another fake built the same way (0 = the default
+    /// GUIDs <c>a0d10000-…</c>). Two fake domains with the same sample data otherwise give the same object the same GUID,
+    /// which only two views of ONE directory may do. Set it before seeding.
+    /// </summary>
+    public int GuidNamespace { get; set; }
+
     /// <summary>Artificial latency of every call (real time) - useful to observe parallelism.</summary>
     public TimeSpan Latency { get; set; }
 
@@ -2003,7 +2010,7 @@ public sealed partial class FakeDirectorySession : IDirectorySession
     private Guid NextGuid()
     {
         var counter = ++_guidCounter;
-        return new Guid($"a0d10000-0000-4000-8000-{counter:x12}");
+        return new Guid($"a0d1{GuidNamespace & 0xFFFF:x4}-0000-4000-8000-{counter:x12}");
     }
 
     private static uint? RidOf(Entry entry) =>

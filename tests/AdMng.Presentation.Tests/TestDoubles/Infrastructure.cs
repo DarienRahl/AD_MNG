@@ -171,6 +171,9 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
 
     public int ConnectCount { get; private set; }
 
+    /// <summary>What the following connects return instead of the directory itself (e.g. another identity).</summary>
+    public IDirectorySession? NextSession { get; set; }
+
     public IReadOnlyList<DomainControllerInfo> DomainControllers { get; set; } =
     [
         new("dc02.contoso.test", "Kraków", true, false, false),
@@ -192,7 +195,7 @@ internal sealed class FakeDirectoryConnector(InMemoryDirectorySession session) :
             throw error;
         }
 
-        return Task.FromResult<IDirectorySession>(session);
+        return Task.FromResult(NextSession ?? session);
     }
 }
 
@@ -223,9 +226,23 @@ internal sealed class TempAppPaths : IAppPaths, IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(SettingsDirectory))
+        // A setting saved as it changes (a toggle, a level) is written fire-and-forget: its file may still be appearing
+        // while the folder is deleted ("Directory not empty"). Retry briefly.
+        for (var attempt = 0; ; attempt++)
         {
-            Directory.Delete(SettingsDirectory, recursive: true);
+            try
+            {
+                if (Directory.Exists(SettingsDirectory))
+                {
+                    Directory.Delete(SettingsDirectory, recursive: true);
+                }
+
+                return;
+            }
+            catch (IOException) when (attempt < 40)
+            {
+                Thread.Sleep(25);
+            }
         }
     }
 }

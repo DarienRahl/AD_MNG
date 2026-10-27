@@ -333,7 +333,7 @@
     <value>Niektórych obiektów nie można zmienić:
 {0}
 
-Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
+Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   </data>
   <data name="Changes.Failed" xml:space="preserve">
     <value>Niepowodzenia: {0}, powodzenia: {1}.</value>
@@ -437,8 +437,358 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Commands.CommandPalette" xml:space="preserve">
     <value>Paleta poleceń</value>
   </data>
+  <data name="Commands.CompareWithConnection" xml:space="preserve">
+    <value>Porównaj z obiektem w innym połączeniu…</value>
+  </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Kopiuj nazwę wyróżniającą</value>
+  </data>
+  <data name="Commands.NewConnectionWindow" xml:space="preserve">
+    <value>Nowe połączenie w nowym oknie…</value>
+  </data>
+  <data name="Comparison.AddressesWithoutDomain" xml:space="preserve">
+    <value>Porównuj adresy bez domeny</value>
+  </data>
+  <data name="Comparison.ColumnAttribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="Comparison.ColumnGroup" xml:space="preserve">
+    <value>Grupa</value>
+  </data>
+  <data name="Comparison.ColumnLdapName" xml:space="preserve">
+    <value>Nazwa LDAP</value>
+  </data>
+  <data name="Comparison.ColumnMail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Comparison.ColumnMember" xml:space="preserve">
+    <value>Członek</value>
+  </data>
+  <data name="Comparison.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Comparison.ColumnPath" xml:space="preserve">
+    <value>Ścieżka</value>
+  </data>
+  <data name="Comparison.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="Comparison.ColumnSide" xml:space="preserve">
+    <value>Gdzie</value>
+  </data>
+  <data name="Comparison.ColumnState" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Comparison.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="Comparison.Compare" xml:space="preserve">
+    <value>Porównaj</value>
+  </data>
+  <data name="Comparison.CompareShort" xml:space="preserve">
+    <value>Porównaj z innym połączeniem…</value>
+  </data>
+  <data name="Comparison.Connection" xml:space="preserve">
+    <value>Połączenie</value>
+  </data>
+  <data name="Comparison.CopiedRow" xml:space="preserve">
+    <value>wiersz porównania</value>
+  </data>
+  <data name="Comparison.DisabledNoOtherConnection" xml:space="preserve">
+    <value>Otwórz drugie połączenie (Ctrl+Shift+N)</value>
+  </data>
+  <data name="Comparison.DisabledSelectOne" xml:space="preserve">
+    <value>Zaznacz jeden obiekt: użytkownika, grupę, komputer lub kontakt</value>
+  </data>
+  <data name="Comparison.ExplicitHint" xml:space="preserve">
+    <value>DN lub tekst do wyszukania</value>
+  </data>
+  <data name="Comparison.ExportCsv" xml:space="preserve">
+    <value>Eksportuj CSV…</value>
+  </data>
+  <data name="Comparison.ExportTitle" xml:space="preserve">
+    <value>Eksport porównania</value>
+  </data>
+  <data name="Comparison.FileNamePrefix" xml:space="preserve">
+    <value>porownanie</value>
+  </data>
+  <data name="Comparison.Filter" xml:space="preserve">
+    <value>Filtr</value>
+  </data>
+  <data name="Comparison.Incomplete" xml:space="preserve">
+    <value>(niepełne)</value>
+  </data>
+  <data name="Comparison.KindDirect" xml:space="preserve">
+    <value>bezpośrednio</value>
+  </data>
+  <data name="Comparison.KindNested" xml:space="preserve">
+    <value>zagnieżdżone</value>
+  </data>
+  <data name="Comparison.KindPrimary" xml:space="preserve">
+    <value>grupa podstawowa</value>
+  </data>
+  <data name="Comparison.ListTruncated" xml:space="preserve">
+    <value>Lista obcięta do {0} pozycji.</value>
+  </data>
+  <data name="Comparison.MarkBoth" xml:space="preserve">
+    <value>wspólne</value>
+  </data>
+  <data name="Comparison.MarkOnlyA" xml:space="preserve">
+    <value>tylko A</value>
+  </data>
+  <data name="Comparison.MarkOnlyB" xml:space="preserve">
+    <value>tylko B</value>
+  </data>
+  <data name="Comparison.MatchBy" xml:space="preserve">
+    <value>Dopasuj według</value>
+  </data>
+  <data name="Comparison.MembershipFootnote" xml:space="preserve">
+    <value>Grupy innych domen lasu i członkostwa przez obce podmioty zabezpieczeń nie są pokazane. Grupy wbudowane są dopasowywane według RID lub SID, pozostałe według nazwy.</value>
+  </data>
+  <data name="Comparison.MembershipInBoth" xml:space="preserve">
+    <value>w obu</value>
+  </data>
+  <data name="Comparison.MembershipInBothDifferently" xml:space="preserve">
+    <value>w obu, inaczej</value>
+  </data>
+  <data name="Comparison.MembershipOnlyA" xml:space="preserve">
+    <value>tylko A</value>
+  </data>
+  <data name="Comparison.MembershipOnlyB" xml:space="preserve">
+    <value>tylko B</value>
+  </data>
+  <data name="Comparison.MembersSkipped" xml:space="preserve">
+    <value>Pominięto obce podmioty zabezpieczeń lub członków innych domen: {0}.</value>
+  </data>
+  <data name="Comparison.MoreValues" xml:space="preserve">
+    <value>… i {0} więcej</value>
+  </data>
+  <data name="Comparison.NestedLoading" xml:space="preserve">
+    <value>Odczytywanie członkostwa zagnieżdżonego…</value>
+  </data>
+  <data name="Comparison.NoOtherConnection" xml:space="preserve">
+    <value>Brak innego otwartego połączenia. Otwórz drugie połączenie (Ctrl+Shift+N), aby porównać.</value>
+  </data>
+  <data name="Comparison.NotComparable" xml:space="preserve">
+    <value>Porównać można tylko użytkowników, grupy, komputery i kontakty.</value>
+  </data>
+  <data name="Comparison.NoValue" xml:space="preserve">
+    <value>brak wartości (lub brak prawa odczytu)</value>
+  </data>
+  <data name="Comparison.OnlyDifferences" xml:space="preserve">
+    <value>Tylko różnice</value>
+  </data>
+  <data name="Comparison.Refresh" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Comparison.RowDistinguishedName" xml:space="preserve">
+    <value>Nazwa wyróżniająca</value>
+  </data>
+  <data name="Comparison.Rule.Automatic" xml:space="preserve">
+    <value>Automatycznie</value>
+  </data>
+  <data name="Comparison.Rule.Explicit" xml:space="preserve">
+    <value>Wskazany obiekt</value>
+  </data>
+  <data name="Comparison.Rule.Mail" xml:space="preserve">
+    <value>Adres e-mail</value>
+  </data>
+  <data name="Comparison.Rule.Name" xml:space="preserve">
+    <value>Nazwa (cn)</value>
+  </data>
+  <data name="Comparison.Rule.SamAccountName" xml:space="preserve">
+    <value>sAMAccountName</value>
+  </data>
+  <data name="Comparison.Rule.UserPrincipalNamePrefix" xml:space="preserve">
+    <value>Prefiks UPN</value>
+  </data>
+  <data name="Comparison.SameObject" xml:space="preserve">
+    <value>To ten sam obiekt widziany przez dwa konta – różnice wynikają z uprawnień do odczytu.</value>
+  </data>
+  <data name="Comparison.SecretSet" xml:space="preserve">
+    <value>ustawiony</value>
+  </data>
+  <data name="Comparison.ShowNested" xml:space="preserve">
+    <value>Pokaż zagnieżdżone</value>
+  </data>
+  <data name="Comparison.ShowNestedMembers" xml:space="preserve">
+    <value>Pokaż członków zagnieżdżonych</value>
+  </data>
+  <data name="Comparison.ShowVolatile" xml:space="preserve">
+    <value>Pokaż atrybuty zmienne i identyfikujące</value>
+  </data>
+  <data name="Comparison.SideChanged" xml:space="preserve">
+    <value>Połączenie {0} zmieniło sesję (kontroler domeny lub konto) – Odśwież</value>
+  </data>
+  <data name="Comparison.SideClosed" xml:space="preserve">
+    <value>Połączenie {0} zostało zamknięte – jego wyniki pozostają widoczne.</value>
+  </data>
+  <data name="Comparison.SourceNotFound" xml:space="preserve">
+    <value>Obiekt już nie istnieje w domenie {0}.</value>
+  </data>
+  <data name="Comparison.StateDifferent" xml:space="preserve">
+    <value>Różne</value>
+  </data>
+  <data name="Comparison.StateDifferentCase" xml:space="preserve">
+    <value>Różne (tylko wielkość liter)</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaA" xml:space="preserve">
+    <value>Brak w schemacie A</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaB" xml:space="preserve">
+    <value>Brak w schemacie B</value>
+  </data>
+  <data name="Comparison.StateOnlyA" xml:space="preserve">
+    <value>Tylko w A</value>
+  </data>
+  <data name="Comparison.StateOnlyB" xml:space="preserve">
+    <value>Tylko w B</value>
+  </data>
+  <data name="Comparison.StateSame" xml:space="preserve">
+    <value>Takie same</value>
+  </data>
+  <data name="Comparison.StateSameOtherDomain" xml:space="preserve">
+    <value>Takie same (inna domena)</value>
+  </data>
+  <data name="Comparison.StatusAmbiguous" xml:space="preserve">
+    <value>Znaleziono {0} obiektów – wybierz jeden</value>
+  </data>
+  <data name="Comparison.StatusCancelled" xml:space="preserve">
+    <value>Przerwano</value>
+  </data>
+  <data name="Comparison.StatusChooseTarget" xml:space="preserve">
+    <value>Wybierz drugie połączenie</value>
+  </data>
+  <data name="Comparison.StatusFound" xml:space="preserve">
+    <value>Znaleziono: {0}</value>
+  </data>
+  <data name="Comparison.StatusNoExplicitText" xml:space="preserve">
+    <value>Wpisz DN lub tekst do wyszukania</value>
+  </data>
+  <data name="Comparison.StatusNotFound" xml:space="preserve">
+    <value>Nie znaleziono (sprawdzone reguły: {0})</value>
+  </data>
+  <data name="Comparison.StatusNotFoundExplicit" xml:space="preserve">
+    <value>Nie znaleziono</value>
+  </data>
+  <data name="Comparison.StatusNoValue" xml:space="preserve">
+    <value>Obiekt nie ma wartości dla tej reguły</value>
+  </data>
+  <data name="Comparison.StatusOutside" xml:space="preserve">
+    <value>Ten DN nie należy do domeny {0}</value>
+  </data>
+  <data name="Comparison.StatusReading" xml:space="preserve">
+    <value>Odczytywanie…</value>
+  </data>
+  <data name="Comparison.StatusTooMany" xml:space="preserve">
+    <value>Więcej niż 50 – zawęź wyszukiwanie</value>
+  </data>
+  <data name="Comparison.Stop" xml:space="preserve">
+    <value>Przerwij</value>
+  </data>
+  <data name="Comparison.TabAttributes" xml:space="preserve">
+    <value>Atrybuty</value>
+  </data>
+  <data name="Comparison.TabMembers" xml:space="preserve">
+    <value>Członkowie</value>
+  </data>
+  <data name="Comparison.TabMembership" xml:space="preserve">
+    <value>Członkostwo</value>
+  </data>
+  <data name="Comparison.TabWithCount" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Comparison.TargetNotConnected" xml:space="preserve">
+    <value>Drugie połączenie nie jest połączone.</value>
+  </data>
+  <data name="Comparison.TargetNotFound" xml:space="preserve">
+    <value>Wybrany obiekt już nie istnieje w domenie {0}.</value>
+  </data>
+  <data name="Comparison.ValueCounts" xml:space="preserve">
+    <value>wspólne {0}, tylko A {1}, tylko B {2}</value>
+  </data>
+  <data name="Comparison.ValuesOf" xml:space="preserve">
+    <value>Wartości: {0}</value>
+  </data>
+  <data name="Comparison.WindowTitle" xml:space="preserve">
+    <value>Porównanie: {0} – {1} ↔ {2}</value>
+  </data>
+  <data name="Comparison.WindowTitleNoTarget" xml:space="preserve">
+    <value>Porównanie: {0}</value>
+  </data>
+  <data name="Connections.ApplicationError" xml:space="preserve">
+    <value>Błąd aplikacji</value>
+  </data>
+  <data name="Connections.BadgeToolTip" xml:space="preserve">
+    <value>Kontroler domeny: {0}
+Kanał: {1}
+Profil: {2}</value>
+  </data>
+  <data name="Connections.CloseWindowTitle" xml:space="preserve">
+    <value>Zamknij okno – {0}</value>
+  </data>
+  <data name="Connections.Color.Blue" xml:space="preserve">
+    <value>Niebieski</value>
+  </data>
+  <data name="Connections.Color.Brown" xml:space="preserve">
+    <value>Brązowy</value>
+  </data>
+  <data name="Connections.Color.Green" xml:space="preserve">
+    <value>Zielony</value>
+  </data>
+  <data name="Connections.Color.Indigo" xml:space="preserve">
+    <value>Indygo</value>
+  </data>
+  <data name="Connections.Color.Magenta" xml:space="preserve">
+    <value>Purpurowy</value>
+  </data>
+  <data name="Connections.Color.Purple" xml:space="preserve">
+    <value>Fioletowy</value>
+  </data>
+  <data name="Connections.Color.Slate" xml:space="preserve">
+    <value>Grafitowy</value>
+  </data>
+  <data name="Connections.Color.Teal" xml:space="preserve">
+    <value>Morski</value>
+  </data>
+  <data name="Connections.ColorAutomatic" xml:space="preserve">
+    <value>Automatyczny (z nazwy domeny)</value>
+  </data>
+  <data name="Connections.ColorLabel" xml:space="preserve">
+    <value>Kolor okna</value>
+  </data>
+  <data name="Connections.CrossConnectionDrop" xml:space="preserve">
+    <value>Nie można przenosić obiektów między połączeniami.</value>
+  </data>
+  <data name="Connections.DialogWaiting" xml:space="preserve">
+    <value>Okno {0} czeka na odpowiedź.</value>
+  </data>
+  <data name="Connections.DomainHeader" xml:space="preserve">
+    <value>Domena: {0} ({1})</value>
+  </data>
+  <data name="Connections.DomainHeaderNoAccount" xml:space="preserve">
+    <value>Domena: {0}</value>
+  </data>
+  <data name="Connections.NewConnectionTitle" xml:space="preserve">
+    <value>Nowe połączenie – {0}</value>
+  </data>
+  <data name="Connections.NoProfile" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="Connections.NotConnected" xml:space="preserve">
+    <value>Nie połączono</value>
+  </data>
+  <data name="Connections.OpenWindows" xml:space="preserve">
+    <value>Otwarte okna</value>
+  </data>
+  <data name="Connections.ProfileOpenElsewhere" xml:space="preserve">
+    <value>Ten profil jest już otwarty w oknie {0}. Ponowne połączenie otworzy drugie okno tego samego połączenia.</value>
+  </data>
+  <data name="Connections.SwitchTo" xml:space="preserve">
+    <value>Przejdź do okna: {0}</value>
+  </data>
+  <data name="Connections.WatchdogOtherDomain" xml:space="preserve">
+    <value>Usługa Watchdog monitoruje domenę {0}; to okno jest połączone z {1}. Zdarzenia można przeglądać, ale historia zmian obiektów nie jest w tym oknie dostępna.</value>
   </data>
   <data name="Copy.CanonicalPath" xml:space="preserve">
     <value>Ścieżka kanoniczna</value>
@@ -909,10 +1259,10 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Zmiana kontrolera domeny</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć te obiekty ({0})?</value>
+    <value>Czy na pewno chcesz usunąć te obiekty ({0}) z domeny {1}?</value>
   </data>
   <data name="Delete.ConfirmOne" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}”?</value>
+    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}” z domeny {2}?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
     <value>Obiekt zawiera inne obiekty. Jego usunięcie spowoduje również usunięcie całej zawartości.</value>
@@ -1257,7 +1607,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Obiektów: {0} · lista wirtualna (VLV), sortowanie na serwerze: {1} · stan na {2}</value>
   </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
-    <value>Przenieść obiekty ({0}) do {1}?</value>
+    <value>Przenieść obiekty ({0}) do {1} w domenie {2}?</value>
   </data>
   <data name="Move.InvalidTarget" xml:space="preserve">
     <value>Nie można przenieść obiektów do nich samych, do ich podkontenerów ani do kontenera, w którym już się znajdują.</value>
@@ -1418,6 +1768,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Settings.Title" xml:space="preserve">
     <value>Ustawienia</value>
   </data>
+  <data name="Settings.TitleShared" xml:space="preserve">
+    <value>Ustawienia (wspólne dla wszystkich okien)</value>
+  </data>
   <data name="Severity.Error" xml:space="preserve">
     <value>Błąd</value>
   </data>
@@ -1436,6 +1789,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Zalogowano jako: {0}</value>
   </data>
+  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
+    <value>Operacje w tle w oknie {0} nadal trwają. Czy mimo to zamknąć okno? Trwające operacje zostaną przerwane.</value>
+  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Wpisz polecenie…</value>
   </data>
@@ -1449,7 +1805,16 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Szczegóły</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Operacje w tle nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+    <value>Operacje w tle w domenie {0} nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+  </data>
+  <data name="Shell.WindowTitleConnection" xml:space="preserve">
+    <value>{0} – {1} – {2}</value>
+  </data>
+  <data name="Ui.CloseWindow" xml:space="preserve">
+    <value>Zamknij okno</value>
+  </data>
+  <data name="Ui.ExitAll" xml:space="preserve">
+    <value>Zakończ program</value>
   </data>
   <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
     <value>Dzienniki kontrolerów domeny (usługa na Windows)</value>
@@ -1922,7 +2287,7 @@ Nowoczesne zarządzanie użytkownikami, grupami, komputerami i jednostkami organ
     <value>Przed</value>
   </data>
   <data name="Batch.ConfirmExecute" xml:space="preserve">
-    <value>Zostanie zmienionych obiektów: {0} ({1}).
+    <value>Zostanie zmienionych obiektów w domenie {3}: {0} ({1}).
 Resetowania haseł i usunięć nie można cofnąć automatycznie.
 Wpisz {2}, aby potwierdzić.</value>
   </data>
@@ -3684,7 +4049,7 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
     <value>Właściwości: {0}</value>
   </data>
   <data name="ResetPassword.ConfirmMany" xml:space="preserve">
-    <value>Hasła kont zostaną zresetowane (kont: {0}).
+    <value>Hasła kont w domenie {2} zostaną zresetowane (kont: {0}).
 Wpisz {1}, aby potwierdzić.</value>
   </data>
   <data name="ResetPassword.ConfirmPassword" xml:space="preserve">
@@ -3982,7 +4347,7 @@ Wpisz {1}, aby potwierdzić.</value>
     <value>Wartości (po jednej w wierszu)</value>
   </data>
   <data name="ToolsUi.HistoryDetails" xml:space="preserve">
-    <value>{0} · {1} · obiekty: {2}</value>
+    <value>{0} · {3} · {1} · obiekty: {2}</value>
   </data>
   <data name="ToolsUi.LogEmpty" xml:space="preserve">
     <value>Brak wpisów do wyświetlenia.</value>
@@ -4138,7 +4503,7 @@ Wpisz {1}, aby potwierdzić.</value>
     <value>Przywróć ({0})</value>
   </data>
   <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
-    <value>Kosz Active Directory nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
+    <value>Kosz Active Directory w domenie {0} nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
   </data>
   <data name="RecycleBin.ActivityTitle" xml:space="preserve">
     <value>Przywracanie z Kosza AD ({0})</value>
@@ -7220,10 +7585,10 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Wysyłka wiadomości</value>
   </data>
   <data name="UserMessages.Confirm" xml:space="preserve">
-    <value>Wysłać wiadomości ({0}) przez {1}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
+    <value>Wysłać wiadomości ({0}) przez {1} do użytkowników z domeny {2}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
   </data>
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
-    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
+    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika z domeny {2}. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
   </data>
   <data name="UserMessages.Stopping" xml:space="preserve">
     <value>Przerywanie po bieżącej wiadomości...</value>

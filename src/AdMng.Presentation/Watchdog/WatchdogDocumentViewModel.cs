@@ -59,6 +59,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Status.StatusLoaded += OnStatusLoaded;
         services.Localizer.CultureChanged += OnCultureChanged;
         services.Sessions.SessionChanged += OnSessionChanged;
+        services.Connection.ServiceDomainChanged += OnServiceDomainChanged;
         UpdateState(services.Connection.HasServiceUrl ? WatchdogConnectionState.Connecting : WatchdogConnectionState.NotConfigured, null);
     }
 
@@ -142,6 +143,19 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     /// <summary>A live update failed (shown inline; the poller retries).</summary>
     [ObservableProperty]
     public partial string? LiveError { get; private set; }
+
+    /// <summary>
+    /// The service watches another domain than this window is connected to: "Usługa Watchdog monitoruje domenę
+    /// fabrikam.test; to okno jest połączone z contoso.test" (an information bar; the events stay readable). Null otherwise.
+    /// </summary>
+    public string? OtherDomainText =>
+        _services.Connection.ServiceDomain is { } watched && _services.Sessions.Current?.Info.DomainDnsName is { } own
+            && _services.Connection.IsOtherDomain(own)
+            ? _services.Localizer.Format(L.Connections.WatchdogOtherDomain, watched, own)
+            : null;
+
+    /// <summary>The service watches another domain (background badge polling is off in this window).</summary>
+    public bool IsOtherDomain => OtherDomainText is not null;
 
     // ---- Caller -----------------------------------------------------------------------------------------------
 
@@ -300,6 +314,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         _connects.Cancel();
         _services.Localizer.CultureChanged -= OnCultureChanged;
         _services.Sessions.SessionChanged -= OnSessionChanged;
+        _services.Connection.ServiceDomainChanged -= OnServiceDomainChanged;
         _poller.StatusReceived -= OnStatusReceived;
         _poller.Failed -= OnPollFailed;
         _poller.Recovered -= OnPollRecovered;
@@ -372,6 +387,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
     partial void OnIsVisibleChanged(bool value)
     {
         _poller.IsVisible = value;
+        UpdateBackgroundPolling();
         if (value && IsConnected && !_eventsLoaded)
         {
             _eventsLoaded = true;
@@ -429,6 +445,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             UpdateState(WatchdogConnectionState.Connected, null);
             _poller.IsVisible = IsVisible;
             _poller.Start();
+            UpdateBackgroundPolling();
             _eventsLoaded = IsVisible;
             var loads = new List<Task>();
 
@@ -486,14 +503,27 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         _askingCertificate = true;
         try
         {
-            var dialog = new WatchdogCertificateTrustViewModel(
-                _services.Localizer, certificate, PendingPreviousPin, HostText, _services.Time.GetUtcNow(), _services.TimeZone);
-            if (!await _services.Dialogs.ShowWatchdogCertificateTrustAsync(dialog).ConfigureAwait(true) || _disposed)
+            // One question for the whole application: when the tab of another connection window is already asking about
+            // the service's certificate, this tab waits for that answer instead of nesting a second dialog.
+            var previousPin = PendingPreviousPin;
+            var host = HostText;
+            var trusted = await _services.Connection.ConfirmCertificateOnceAsync(async () =>
+            {
+                var dialog = new WatchdogCertificateTrustViewModel(
+                    _services.Localizer, certificate, previousPin, host, _services.Time.GetUtcNow(), _services.TimeZone);
+                if (!await _services.Dialogs.ShowWatchdogCertificateTrustAsync(dialog).ConfigureAwait(true))
+                {
+                    return false;
+                }
+
+                await _services.Connection.PinCertificateAsync(certificate.Sha256).ConfigureAwait(true);
+                return true;
+            }).ConfigureAwait(true);
+            if (!trusted || _disposed)
             {
                 return false;
             }
 
-            await _services.Connection.PinCertificateAsync(certificate.Sha256).ConfigureAwait(true);
             PendingCertificate = null;
             PendingPreviousPin = null;
             return true;
@@ -503,6 +533,39 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
             _askingCertificate = false;
         }
     }
+
+    /// <summary>
+    /// Background badge polling only in windows of the domain the service watches: a hidden tab of a window connected to
+    /// another domain does not poll (the visible tab always does).
+    /// </summary>
+    private void UpdateBackgroundPolling()
+    {
+        if (_disposed || !IsConnected)
+        {
+            return;
+        }
+
+        if (!IsVisible && IsOtherDomain)
+        {
+            _poller.Stop();
+        }
+        else
+        {
+            _poller.Start();
+        }
+    }
+
+    private void OnServiceDomainChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(OtherDomainText));
+        OnPropertyChanged(nameof(IsOtherDomain));
+        UpdateBackgroundPolling();
+    }).Forget();
 
     private void SetCaller(MeDto me)
     {
@@ -516,6 +579,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void ApplyStatus(StatusDto status)
     {
+        _services.Connection.ReportStatus(status);
         Events.Details.CollectorMode = WatchdogDisplay.IsCollectorSource(status.Attribution.Source);
         UnacknowledgedHighOrAbove = status.Last24Hours.UnacknowledgedHighOrAbove;
         Rules.ApplyStatus(status);
@@ -563,6 +627,7 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
     private void OnStatusLoaded(object? sender, StatusDto status)
     {
+        _services.Connection.ReportStatus(status);
         Events.Details.CollectorMode = WatchdogDisplay.IsCollectorSource(status.Attribution.Source);
         UnacknowledgedHighOrAbove = status.Last24Hours.UnacknowledgedHighOrAbove;
         RolloutUntil = status.RolloutModeUntil;
@@ -661,6 +726,9 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
 
         Events.NotifySessionChanged();
         Rules.NotifySessionChanged();
+        OnPropertyChanged(nameof(OtherDomainText));
+        OnPropertyChanged(nameof(IsOtherDomain));
+        UpdateBackgroundPolling();
     }).Forget();
 
     private void OnCultureChanged(object? sender, EventArgs e) => _services.Dispatcher.RunAsync(() =>
@@ -682,5 +750,6 @@ public sealed partial class WatchdogDocumentViewModel : ObservableObject, IShell
         Status.Relocalize();
         Sources.Relocalize();
         OnPropertyChanged(nameof(RolloutBannerText));
+        OnPropertyChanged(nameof(OtherDomainText));
     }).Forget();
 }

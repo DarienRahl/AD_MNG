@@ -57,6 +57,10 @@ public sealed partial class ShellViewModel
             new("copyAs.guid", L.Copy.Guid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectGuid },
             new("copyAs.sid", L.Copy.Sid, L.Copy.Category, string.Empty, CopyAsCommand) { Parameter = CopyFormat.ObjectSid },
             new("object.watchdogHistory", L.Commands.WatchdogHistory, obj, string.Empty, ShowWatchdogHistoryCommand),
+            new("object.compareWithConnection", L.Commands.CompareWithConnection, obj, string.Empty, CompareWithConnectionCommand)
+            {
+                DisabledReason = _ => CompareBlockedReason(),
+            },
             new("new.user", L.Commands.NewUser, create, "Ctrl+Shift+U", NewUserCommand)
             {
                 DisabledReason = p => CreateBlockedReason(ObjectKind.User, p as string),
@@ -102,6 +106,7 @@ public sealed partial class ShellViewModel
             new("tools.savedFilters", L.Commands.SavedFilters, tools, string.Empty, ShowSavedFiltersCommand),
             new("tools.watchdog", L.Commands.Watchdog, tools, "Ctrl+Shift+A", ShowWatchdogCommand),
             new("tools.settings", L.Commands.Settings, tools, "Ctrl+OemComma", ShowSettingsCommand),
+            new("session.newWindow", L.Commands.NewConnectionWindow, session, "Ctrl+Shift+N", NewConnectionWindowCommand),
             new("session.changeDc", L.Commands.ChangeDomainController, session, string.Empty, ChangeDomainControllerCommand),
             new("session.disconnect", L.Commands.Disconnect, session, string.Empty, DisconnectCommand),
         ];

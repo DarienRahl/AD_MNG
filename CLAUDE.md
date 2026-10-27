@@ -101,6 +101,13 @@ The WPF app cannot run on Linux; it is compiled here and tested on Windows CI
 New windows: register with `services.AddWindow<TViewModel, TWindow>()` in `AppHost`, open them from
 `Services/DialogService.cs`, and add them to `SmokeTest` and a UI test.
 
+Every connection window is one DI scope (`docs/dev/multi-window.md`): services that touch a session, the change bus,
+the audit log, activities, dialogs, toasts, the clipboard or window ownership are **Scoped**, and new windows are
+created from the connection's scope (`IWindowService`). Never resolve a per-connection service from the root provider
+and never register one as a singleton before `AddAdMngPresentation` (its `TryAddScoped` would lose). A scoped service
+that subscribes to an application-wide event must unsubscribe in `Dispose`. Add new per-connection services to
+`tests/AdMng.Presentation.Tests/Connections/ConnectionLifetimes.cs` (or the App list in `HostTests`).
+
 ## Conventions
 
 - Warnings are errors (`Directory.Build.props`); keep builds at 0 warnings. Nullable enabled.

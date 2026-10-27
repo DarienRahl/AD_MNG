@@ -53,7 +53,7 @@ public sealed partial class ShellViewModel
         NewOrganizationalUnitCommand, NewComputerCommand, NewContactCommand, FindCommand, ExportListCommand, CopyDnCommand, .. CopyStateCommands,
         OpenInNewTabCommand, PinContainerCommand, SaveAsViewCommand, ChooseColumnsCommand, GoBackCommand, GoForwardCommand,
         GoUpCommand, NewTabCommand, DisconnectCommand, ImportCsvCommand, ShowRecycleBinCommand, ShowAccountReviewCommand, ShowWatchdogHistoryCommand,
-        SendMessageCommand,
+        SendMessageCommand, CompareWithConnectionCommand,
     ];
 
     /// <summary>Re-evaluates CanExecute of all selection dependent commands.</summary>
@@ -159,7 +159,8 @@ public sealed partial class ShellViewModel
             return ChangeOutcome.Blocked;
         }
 
-        var message = Localizer.Format(L.Move.ConfirmDrop, distinguishedNames.Count, AddressResolver.ToDisplayPath(targetDn));
+        var domain = Sessions.Current is { } session ? Connections.ConfirmationText.Domain(session) : string.Empty;
+        var message = Localizer.Format(L.Move.ConfirmDrop, distinguishedNames.Count, AddressResolver.ToDisplayPath(targetDn), domain);
         if (!await _dialogs.ConfirmAsync(Localizer[L.Commands.Move], message, destructive: false).ConfigureAwait(true))
         {
             return ChangeOutcome.Cancelled;
@@ -256,9 +257,11 @@ public sealed partial class ShellViewModel
             return;
         }
 
+        // The domain of the session the delete is planned in (named in the sentence, not only in the dialog header).
+        var domain = Connections.ConfirmationText.Domain(session);
         var message = selection.Count == 1
-            ? Localizer.Format(L.Delete.ConfirmOne, selection[0].Name, selection[0].TypeText)
-            : Localizer.Format(L.Delete.ConfirmMany, selection.Count);
+            ? Localizer.Format(L.Delete.ConfirmOne, selection[0].Name, selection[0].TypeText, domain)
+            : Localizer.Format(L.Delete.ConfirmMany, selection.Count, domain);
         bool confirmed;
         if (withChildren)
         {
@@ -688,15 +691,15 @@ public sealed partial class ShellViewModel
         }
     }
 
+    /// <summary>
+    /// View → Advanced Features: only stores the setting. Every window's shell (this one included) reacts to the settings
+    /// change and reloads its tree and container tabs once; this command waits for its own window's reload.
+    /// </summary>
     [RelayCommand]
     private async Task ToggleAdvancedFeaturesAsync()
     {
         await Settings.UpdateAsync(s => s.ShowAdvancedFeatures = !s.ShowAdvancedFeatures).ConfigureAwait(true);
-        await Tree.ReloadAsync().ConfigureAwait(true);
-        foreach (var document in ListDocuments.Where(d => d.Location is { Kind: ListLocationKind.Container }))
-        {
-            document.LoadAsync().Forget();
-        }
+        await _advancedFeaturesReload.ConfigureAwait(true);
     }
 
     /// <summary>Shows/hides the details pane; <see cref="OnSettingsChanged"/> fills or clears it.</summary>
@@ -726,7 +729,8 @@ public sealed partial class ShellViewModel
     {
         if (_activities.HasRunning)
         {
-            if (!await _dialogs.ConfirmAsync(Localizer[L.Commands.Disconnect], Localizer[L.Shell.DisconnectWhileRunning], destructive: true).ConfigureAwait(true))
+            var domain = Sessions.Current is { } session ? Connections.ConfirmationText.Domain(session) : string.Empty;
+            if (!await _dialogs.ConfirmAsync(Localizer[L.Commands.Disconnect], Localizer.Format(L.Shell.DisconnectWhileRunning, domain), destructive: true).ConfigureAwait(true))
             {
                 return;
             }

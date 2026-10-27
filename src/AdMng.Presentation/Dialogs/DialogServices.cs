@@ -1,4 +1,5 @@
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
@@ -9,7 +10,7 @@ using AdMng.Presentation.Settings;
 namespace AdMng.Presentation.Dialogs;
 
 /// <summary>
-/// Services shared by the dialog and secondary-window view models (parameter object, registered as a singleton
+/// Services shared by the dialog and secondary-window view models of one connection window (parameter object, scoped
 /// like <see cref="ObjectListServices"/>). Lets <see cref="IDialogViewModelFactory"/> and tests create view models
 /// with one argument instead of a dozen.
 /// </summary>
@@ -28,7 +29,8 @@ public sealed class DialogServices(
     IChangeCoordinator coordinator,
     ActivityCenterViewModel activities,
     ObjectListServices lists,
-    IRegionalSettings regional)
+    IRegionalSettings regional,
+    ConnectionContext? connection = null)
 {
     public ISessionManager Sessions { get; } = sessions ?? throw new ArgumentNullException(nameof(sessions));
 
@@ -64,4 +66,10 @@ public sealed class DialogServices(
 
     /// <summary>Regional settings of the system (CSV list separator and ANSI code page) - not the UI language.</summary>
     public IRegionalSettings Regional { get; } = regional ?? throw new ArgumentNullException(nameof(regional));
+
+    /// <summary>
+    /// The connection window these services belong to (its profile, label and colour), or null in hosts without connection
+    /// windows (tests). Never used to choose the session of a write: windows use their pinned session.
+    /// </summary>
+    public ConnectionContext? Connection { get; } = connection;
 }

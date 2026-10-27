@@ -20,14 +20,18 @@ public sealed class PowerShellHistoryItemViewModel(PowerShellHistoryEntry entry,
 
     public string Server => Entry.Server;
 
+    /// <summary>The domain the change was executed in (the window may have been connected to several).</summary>
+    public string Domain => Entry.Domain;
+
     public int ObjectCount => Entry.ObjectCount;
 
     public string Script => Entry.Script;
 }
 
 /// <summary>
-/// The equivalent PowerShell (ActiveDirectory module) of every change executed in this session, newest first.
-/// Scripts can be copied or saved explicitly; nothing is stored automatically.
+/// The equivalent PowerShell (ActiveDirectory module) of every change executed in this connection window, newest first,
+/// each with the domain it ran in: the window keeps its history when it reconnects to another domain, so the history
+/// window carries no single domain's chrome. Scripts can be copied or saved explicitly; nothing is stored automatically.
 /// </summary>
 public sealed partial class PowerShellHistoryViewModel : WindowViewModelBase
 {

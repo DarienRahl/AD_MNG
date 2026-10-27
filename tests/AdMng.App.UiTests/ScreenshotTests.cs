@@ -11,12 +11,14 @@ using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.BatchEditing;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Watchdog;
+using AdMng.Testing;
 using AdMng.Watchdog.Testing.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -139,6 +141,84 @@ public sealed class ScreenshotTests
         "18-user-messages.png",
         "Wiadomości do użytkowników – podgląd wiadomości „hasło wygasa” dla każdego odbiorcy przed wysyłką",
         "Messages to users – the preview of the \"password expires\" message of every recipient before sending");
+
+    private static readonly ScreenshotInfo TwoConnections = new(
+        "20-two-connections.png",
+        "Dwa połączenia jednocześnie – contoso.test i fabrikam.test w osobnych oknach, każde z własnym kolorem i kontem",
+        "Two connections at once – contoso.test and fabrikam.test in separate windows, each with its own colour and account");
+
+    private static readonly ScreenshotInfo CompareObjects = new(
+        "21-compare-objects.png",
+        "Porównanie obiektów między połączeniami – Łukasz Wiśniewski w contoso.test i fabrikam.test, tylko różnice (stanowisko, miasto)",
+        "Comparing objects between connections – Łukasz Wiśniewski in contoso.test and fabrikam.test, differences only (title, city)");
+
+    [Fact]
+    public Task Screenshot21_CompareObjects() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // The same person in two domains, side by side (design note docs/dev/multi-window.md 10.6).
+        await ComparisonFixture.AddFabrikamAsync(context);
+        context.Connection.ProfileName = "Contoso";
+        context.Connection.PreferredColor = ConnectionColor.Blue;
+        await UiTestContext.ConnectAsync(context.Services, FakeDirectoryBuilder.DefaultDomain, "jan.kowalski");
+        var other = context.CreateConnection();
+        var otherConnection = other.GetRequiredService<ConnectionContext>();
+        otherConnection.ProfileName = "Fabrikam";
+        otherConnection.PreferredColor = ConnectionColor.Green;
+        await UiTestContext.ConnectAsync(other, ComparisonFixture.Fabrikam, "anna.zielinska");
+
+        // The main window of contoso owns the comparison window (and gives it its chrome).
+        UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
+        var comparison = Factory(context).CreateObjectComparison(context.Company.LukaszWisniewski);
+        var window = (CompareObjectsWindow)Windows(context).CreateWindow(comparison);
+        await ScreenshotWriter.ShowWithClientSizeAsync(window, 1180, 780);
+        await UiWait.InitializedAsync(window.Initialization);
+        await UiWait.UntilAsync(() => comparison.HasResult && !comparison.IsRunning && !comparison.IsNestedLoading, "the comparison");
+        comparison.SelectedAttributeRow = comparison.AttributeRows.Single(r => r.LdapName == Attr.Title);
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.Equal([Attr.City, Attr.Title], comparison.AttributeRows.Select(r => r.LdapName).Order(StringComparer.Ordinal));
+        Assert.Equal("Członkostwo (2)", comparison.MembershipTabHeader);
+        Assert.StartsWith("Porównanie: Łukasz Wiśniewski – contoso.test ↔ fabrikam.test", window.Title, StringComparison.Ordinal);
+        await ScreenshotWriter.SaveAsync(window, CompareObjects, dark: false);
+    });
+
+    [Fact]
+    public Task Screenshot20_TwoConnections() => ShootAsync(ThemePreference.Light, connect: false, shoot: async context =>
+    {
+        // Two connection windows, two domains, two accounts (design note docs/dev/multi-window.md 10.6).
+        var fabrikamBuilder = new FakeDirectoryBuilder("fabrikam.test");
+        var fabrikamCompany = fabrikamBuilder.AddSampleCompany();
+        context.Connector.AddDomain(fabrikamBuilder.Build());
+        context.Connector.NonOwning = true;
+
+        context.Connection.ProfileName = "Contoso";
+        context.Connection.PreferredColor = ConnectionColor.Blue;
+        await UiTestContext.ConnectAsync(context.Services, FakeDirectoryBuilder.DefaultDomain, "jan.kowalski");
+        var other = context.CreateConnection();
+        var otherConnection = other.GetRequiredService<ConnectionContext>();
+        otherConnection.ProfileName = "Fabrikam";
+        otherConnection.PreferredColor = ConnectionColor.Green;
+        await UiTestContext.ConnectAsync(other, "fabrikam.test", "anna.zielinska");
+
+        var left = context.Services.GetRequiredService<MainWindow>();
+        var right = other.GetRequiredService<MainWindow>();
+        await ScreenshotWriter.ShowWithClientSizeAsync(left, 1100, 700);
+        await ScreenshotWriter.ShowWithClientSizeAsync(right, 1100, 700);
+        await left.Shell.InitializeAsync();
+        await right.Shell.InitializeAsync();
+        await left.Shell.NavigateAsync(ListLocation.ForContainer(context.Company.ItOu));
+        await left.Shell.Tree.ExpandToAsync(context.Company.ItOu);
+        await right.Shell.NavigateAsync(ListLocation.ForContainer(fabrikamCompany.SalesOu));
+        await right.Shell.Tree.ExpandToAsync(fabrikamCompany.SalesOu);
+        await UiWait.UntilAsync(
+            () => left.Shell.SelectedDocument?.IsFullyLoaded == true && right.Shell.SelectedDocument?.IsFullyLoaded == true,
+            "the lists of both windows");
+        await UiTestSupport.WaitForIdleAsync(rounds: 3);
+
+        Assert.StartsWith(@"contoso.test – CONTOSO\jan.kowalski", left.Title, StringComparison.Ordinal);
+        Assert.StartsWith(@"fabrikam.test – FABRIKAM\anna.zielinska", right.Title, StringComparison.Ordinal);
+        await ScreenshotWriter.SaveComposedAsync(left, right, TwoConnections, dark: false);
+    });
 
     [Fact]
     public Task Screenshot01_MainWindow_LightTheme() =>

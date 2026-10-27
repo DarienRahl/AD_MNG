@@ -20,13 +20,12 @@ public sealed class ViewLibrary
 
     private readonly ISettingsStore _settings;
     private readonly Lock _gate = new();
-    private SavedView[] _lastViews;
-    private PinnedContainer[] _lastPins;
+    private string _lastSnapshot;
 
     public ViewLibrary(ISettingsStore settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        (_lastViews, _lastPins) = Snapshot();
+        _lastSnapshot = Snapshot();
         _settings.Changed += OnSettingsChanged;
     }
 
@@ -150,22 +149,29 @@ public sealed class ViewLibrary
     {
         lock (_gate)
         {
-            var (views, pins) = Snapshot();
-
-            // Views are immutable records replaced on save, so element equality detects edits, adds, removals and moves.
-            if (views.SequenceEqual(_lastViews) && pins.SequenceEqual(_lastPins))
+            var snapshot = Snapshot();
+            if (string.Equals(snapshot, _lastSnapshot, StringComparison.Ordinal))
             {
                 return;
             }
 
-            (_lastViews, _lastPins) = (views, pins);
+            _lastSnapshot = snapshot;
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private (SavedView[] Views, PinnedContainer[] Pins) Snapshot() =>
-        ([.. _settings.Current.SavedViews], [.. _settings.Current.PinnedContainers]);
+    /// <summary>
+    /// The views and pins in their stored form. Record equality is no use here: a view's column and chip lists compare by
+    /// reference, and every settings update deserializes new ones (copy-on-write), so an edit, add, removal or move is
+    /// detected by the serialized form.
+    /// </summary>
+    private string Snapshot()
+    {
+        var current = _settings.Current;
+        return JsonSerializer.Serialize(current.SavedViews, JsonSettingsStore.SerializerOptions) + "\n"
+            + JsonSerializer.Serialize(current.PinnedContainers, JsonSettingsStore.SerializerOptions);
+    }
 
     private static bool IsValidBase(string? baseDn)
     {

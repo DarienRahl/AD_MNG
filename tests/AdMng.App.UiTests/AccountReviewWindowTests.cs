@@ -241,7 +241,11 @@ public sealed class AccountReviewWindowTests
         await UiTestSupport.WaitForIdleAsync();
         var list = Assert.Single(Application.Current.Windows.OfType<SavedFiltersWindow>());
         Assert.Same(list, windows.FindOpen(ToolWindows.SavedFiltersKey));
-        Assert.Equal("Zapisane filtry", list.Title);
+
+        // A tool window of the connection: owned by its main window, with its identity chrome.
+        Assert.Same(main, list.Owner);
+        Assert.Equal("Zapisane filtry – contoso.test", list.Title);
+        Assert.Equal("contoso.test", Connections.ConnectionChrome.GetIdentity(list)?.DomainDnsName);
         Assert.Single(list.FiltersList.Items);
         Assert.Equal(Visibility.Collapsed, list.EmptyHint.Visibility);
 

@@ -26,6 +26,24 @@
       </StackPanel>
     </Border>
 
+    <!-- The connection the dialog is about (several connection windows may be open): strip and "Domena: …". -->
+    <Border x:Name="ConnectionStrip"
+            Height="4"
+            Background="{Binding ConnectionColor, Mode=OneTime, Converter={StaticResource Ad.ConnectionBrush}}"
+            DockPanel.Dock="Top"
+            Visibility="{Binding HasConnectionHeader, Mode=OneTime, Converter={StaticResource Ad.BoolToVisibility}}" />
+    <Border x:Name="ConnectionHeader"
+            Padding="24,5,24,6"
+            Background="{Binding ConnectionColor, Mode=OneTime, Converter={StaticResource Ad.ConnectionBrush}}"
+            DockPanel.Dock="Top"
+            Visibility="{Binding HasConnectionHeader, Mode=OneTime, Converter={StaticResource Ad.BoolToVisibility}}">
+      <TextBlock MaxWidth="560"
+                 FontWeight="SemiBold"
+                 Foreground="White"
+                 Text="{Binding ConnectionHeader, Mode=OneTime, TargetNullValue=''}"
+                 TextWrapping="Wrap" />
+    </Border>
+
     <Grid Margin="24,20,24,20">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />

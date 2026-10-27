@@ -15,9 +15,8 @@ namespace AdMng.Presentation.Settings;
 /// counts from the next connection to the Watchdog service.
 /// </summary>
 /// <remarks>
-/// "Advanced Features" must go through the shell (it reloads the tree and the container tabs): the host sets
-/// <see cref="ShellToggleAdvancedFeatures"/> to <c>ShellViewModel.ToggleAdvancedFeaturesCommand</c>. Without it the
-/// setting is stored directly (it then applies to containers loaded later).
+/// The settings are shared by every connection window. "Advanced Features" is only stored: the shell of every window reacts
+/// to the settings change and reloads its tree and container tabs.
 /// </remarks>
 public sealed partial class SettingsViewModel : WindowViewModelBase
 {
@@ -69,7 +68,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
         PinnedCertificate = current.Watchdog.PinnedCertificateSha256;
     }
 
-    public override string WindowTitle => Localizer[L.Settings.Title];
+    public override string WindowTitle => Localizer[L.Settings.TitleShared];
 
     /// <summary>Application-wide; never acts in the directory session, so it does not end with it.</summary>
     protected override bool UsesSession => false;
@@ -133,9 +132,6 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
     /// <summary>The "Wiadomości e-mail" tab (README U1), or null when the host registered no messages to users.</summary>
     public UserMessages.UserMessageSettingsViewModel? Messages { get; }
 
-    /// <summary>The shell's Advanced Features toggle (set by the host; see the remarks of the class).</summary>
-    public IAsyncRelayCommand? ShellToggleAdvancedFeatures { get; set; }
-
     /// <summary>Localized range error of the numeric settings, or null.</summary>
     public string? Error =>
         Range(L.Settings.PageSize, PageSize, MinPageSize, MaxPageSize)
@@ -154,6 +150,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
         var language = Language.Value;
         var theme = Theme.Value;
+        var advanced = ShowAdvancedFeatures;
         await Services.Settings.UpdateAsync(s =>
         {
             s.Language = language;
@@ -164,6 +161,7 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
             s.InactiveDays = InactiveDays;
             s.LiveUpdates = LiveUpdates;
             s.ShowDetailsPane = ShowDetailsPane;
+            s.ShowAdvancedFeatures = advanced;
             if (IsPinRemoved)
             {
                 s.Watchdog.PinnedCertificateSha256 = null;
@@ -174,19 +172,6 @@ public sealed partial class SettingsViewModel : WindowViewModelBase
 
         Localizer.SetCulture(ResxLocalizer.ResolveCulture(language));
         _theme.Apply(theme);
-        if (ShowAdvancedFeatures != Services.Settings.Current.ShowAdvancedFeatures)
-        {
-            if (ShellToggleAdvancedFeatures is { } toggle)
-            {
-                await toggle.ExecuteAsync(null).ConfigureAwait(true);
-            }
-            else
-            {
-                var advanced = ShowAdvancedFeatures;
-                await Services.Settings.UpdateAsync(s => s.ShowAdvancedFeatures = advanced).ConfigureAwait(true);
-            }
-        }
-
         RequestClose(true);
     }
 

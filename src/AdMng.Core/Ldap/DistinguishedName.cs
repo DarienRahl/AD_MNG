@@ -27,6 +27,12 @@ public sealed class DistinguishedName : IEquatable<DistinguishedName>
         _text = text;
     }
 
+    /// <summary>
+    /// Placeholder for the default naming context in portable DNs (<c>OU=Firma,{domain}</c>): saved views and settings
+    /// stay valid in another domain (test/prod), and the comparison of two connections matches DN values across domains.
+    /// </summary>
+    public const string DomainPlaceholder = "{domain}";
+
     /// <summary>The empty DN (RootDSE).</summary>
     public static DistinguishedName Root { get; } = new([], string.Empty);
 
@@ -412,6 +418,44 @@ public sealed class DistinguishedName : IEquatable<DistinguishedName>
         }
 
         return hash.ToHashCode();
+    }
+
+    /// <summary>
+    /// Replaces the naming context suffix of a DN with <see cref="DomainPlaceholder"/>: <c>CN=Jan Kowalski,OU=IT,{domain}</c>
+    /// (the naming context itself becomes <c>{domain}</c>). The relative part is written with normalized escaping. A DN
+    /// outside the naming context (another partition or domain) or one that does not parse is returned unchanged.
+    /// </summary>
+    /// <param name="distinguishedName">The DN.</param>
+    /// <param name="namingContext">The default naming context of the DN's domain (<c>DC=contoso,DC=test</c>).</param>
+    public static string ToPortable(string distinguishedName, string namingContext)
+    {
+        ArgumentNullException.ThrowIfNull(distinguishedName);
+        ArgumentNullException.ThrowIfNull(namingContext);
+        if (!TryParse(distinguishedName, out var dn) || !TryParse(namingContext, out var domain))
+        {
+            return distinguishedName;
+        }
+
+        if (dn.Equals(domain))
+        {
+            return DomainPlaceholder;
+        }
+
+        if (!dn.IsDescendantOf(domain))
+        {
+            return distinguishedName;
+        }
+
+        var relative = string.Join(',', dn._rdns.Take(dn._rdns.Length - domain._rdns.Length).Select(r => r.ToString()));
+        return $"{relative},{DomainPlaceholder}";
+    }
+
+    /// <summary>The DN of a portable DN in the naming context <paramref name="namingContext"/> (the placeholder replaced).</summary>
+    public static string FromPortable(string portableDn, string namingContext)
+    {
+        ArgumentNullException.ThrowIfNull(portableDn);
+        ArgumentNullException.ThrowIfNull(namingContext);
+        return portableDn.Replace(DomainPlaceholder, namingContext, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>Case-insensitive comparison of two DN strings after normalization.</summary>

@@ -478,7 +478,10 @@ public sealed partial class ChangeDomainControllerViewModel : WindowViewModelBas
     /// <summary>The saved profile the current connection came from, when it matches the session.</summary>
     private ConnectionProfile? FindProfile()
     {
-        if (Session is not { } session || Services.Settings.Current.LastProfileName is not { } name)
+        // The profile of THIS window (another window may have connected with another profile since); the global
+        // "last profile" only in hosts without connection windows.
+        var name = Services.Connection is { } connection ? connection.ProfileName : Services.Settings.Current.LastProfileName;
+        if (Session is not { } session || name is null)
         {
             return null;
         }

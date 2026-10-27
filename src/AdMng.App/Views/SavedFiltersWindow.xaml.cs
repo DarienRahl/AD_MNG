@@ -9,7 +9,8 @@ namespace AdMng.App.Views;
 
 /// <summary>
 /// Saved filters (<see cref="SavedFiltersViewModel"/>, README U4): the list with New, Edit (double click, Enter), Delete,
-/// export and import. Modeless, one per application.
+/// export and import. Modeless, one per connection window (with its identity chrome); the filters themselves are shared by
+/// every window.
 /// </summary>
 public partial class SavedFiltersWindow : Window, IDialogResultWindow
 {

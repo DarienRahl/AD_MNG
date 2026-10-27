@@ -243,6 +243,7 @@
               <MenuItem b:CommandMenu.Id="copyAs.sid" />
             </MenuItem>
             <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
+            <MenuItem b:CommandMenu.Id="object.compareWithConnection" />
             <MenuItem b:CommandMenu.Id="view.pin" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.delete" />

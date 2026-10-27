@@ -524,6 +524,10 @@ internal sealed class LdapDirectorySession : IDirectorySession
             return;
         }
 
+        // The credential goes first: nothing binds during disposal (a new pooled connection is refused once the
+        // credential is released), and a close that hangs - and is abandoned by the caller after its time limit - must
+        // not keep the credential referenced for as long as it hangs (CLAUDE.md rule 2).
+        _pool.Factory.Settings.ClearCredential();
         foreach (var watcher in _watchers.Keys)
         {
             if (_watchers.TryRemove(watcher, out _))
@@ -533,7 +537,6 @@ internal sealed class LdapDirectorySession : IDirectorySession
         }
 
         await _pool.DisposeAsync().ConfigureAwait(false);
-        _pool.Factory.Settings.ClearCredential();
     }
 
     /// <summary>"Who am I?" extended operation (RFC 4532), e.g. <c>u:CONTOSO\jan.kowalski</c>.</summary>

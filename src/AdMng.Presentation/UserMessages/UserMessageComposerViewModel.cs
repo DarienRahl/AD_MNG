@@ -486,8 +486,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         var title = Localizer[L.UserMessages.Send];
         var threshold = Services.Settings.Current.UserMessages.ConfirmationThreshold;
         var confirmed = count > threshold
-            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, transport.Description), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
-            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, transport.Description), destructive: false).ConfigureAwait(true);
+            ? await Services.Dialogs.ConfirmTypedAsync(title, Localizer.Format(L.UserMessages.ConfirmTyped, count, transport.Description, ConfirmationDomain), count.ToString(CultureInfo.InvariantCulture)).ConfigureAwait(true)
+            : await Services.Dialogs.ConfirmAsync(title, Localizer.Format(L.UserMessages.Confirm, count, transport.Description, ConfirmationDomain), destructive: false).ConfigureAwait(true);
         if (!confirmed)
         {
             return;

@@ -9,7 +9,6 @@ using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Presentation.Views;
 using AdMng.Presentation.Watchdog;
-using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Dialogs;
 
@@ -66,13 +65,19 @@ public interface IDialogViewModelFactory
     UserMessages.UserMessageComposerViewModel CreateUserMessageComposer(UserMessages.UserMessageRequest request);
 
     /// <summary>
-    /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). Pass the main window's
-    /// <c>ShellViewModel.ToggleAdvancedFeaturesCommand</c> so that Advanced Features reloads the tree and lists.
+    /// For <see cref="IDialogService.ShowSettingsAsync"/> (modal). The settings are shared by all connection windows; every
+    /// window's shell applies a changed Advanced Features setting itself.
     /// </summary>
-    SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null);
+    SettingsViewModel CreateSettings();
+
+    /// <summary>
+    /// "Porównaj z obiektem w innym połączeniu…" (modeless, one per launch): the object of this window against the matching
+    /// object of another open connection, read-only.
+    /// </summary>
+    Comparison.ObjectComparisonViewModel CreateObjectComparison(string distinguishedName);
 }
 
-/// <summary>Default <see cref="IDialogViewModelFactory"/> (singleton).</summary>
+/// <summary>Default <see cref="IDialogViewModelFactory"/> (one per connection window: it creates the window's dialogs).</summary>
 /// <remarks>
 /// With a <see cref="WatchdogObjectHistoryLauncher"/> the property sheets offer "Historia zmian (Watchdog)"; with the
 /// <see cref="IDirectoryConnector"/> "Change domain controller" also lists what the DC locator knows (client site), and
@@ -80,7 +85,9 @@ public interface IDialogViewModelFactory
 /// <see cref="AccountReview.IUserMessageLauncher"/> (path U1) "Wyślij wiadomość…" is shown; with
 /// <see cref="UserMessages.UserMessageServices"/> the message window and the settings tab "Wiadomości e-mail" exist. The
 /// registered <see cref="Core.PrivilegedAccess.IPrivilegeGrantSource"/>s (U4b ACL delegations, U4c local rights from
-/// GPOs) are handed to the "Uprawnienia" tab of every account review, which offers their sources.
+/// GPOs) are handed to the "Uprawnienia" tab of every account review, which offers their sources. They are
+/// application-wide and stateless: a run reads only through the session of this connection window (the scan context's
+/// session). The <see cref="Filters.FilterLibrary"/> is shared by every window (saved filters are settings).
 /// </remarks>
 public sealed class DialogViewModelFactory(
     DialogServices services,
@@ -95,7 +102,9 @@ public sealed class DialogViewModelFactory(
     AccountReview.IUserMessageLauncher? messages = null,
     UserMessages.UserMessageServices? userMessages = null,
     Filters.FilterLibrary? filters = null,
-    IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null) : IDialogViewModelFactory
+    IEnumerable<Core.PrivilegedAccess.IPrivilegeGrantSource>? grantSources = null,
+    Connections.ConnectionRegistry? connections = null,
+    Comparison.IObjectComparisonLauncher? comparison = null) : IDialogViewModelFactory
 {
     private readonly AccountReview.DomainControllerReader _domainControllers = new(connector, services.Errors);
     private readonly Filters.FilterLibrary _filters = filters ?? new Filters.FilterLibrary(services.Settings);
@@ -107,6 +116,7 @@ public sealed class DialogViewModelFactory(
             HistoryLauncher = historyLauncher,
             DomainControllers = _domainControllers,
             MessageLauncher = messages,
+            ComparisonLauncher = comparison,
         };
 
     public BatchEditorViewModel CreateBatchEditor(BatchEditorRequest request) => new(services, engines, request);
@@ -140,8 +150,10 @@ public sealed class DialogViewModelFactory(
     public UserMessages.UserMessageComposerViewModel CreateUserMessageComposer(UserMessages.UserMessageRequest request) =>
         new(services, userMessages ?? throw new InvalidOperationException("Messages to users are not registered."), request);
 
-    public SettingsViewModel CreateSettings(IAsyncRelayCommand? toggleAdvancedFeatures = null) =>
-        new(services, theme, userMessages) { ShellToggleAdvancedFeatures = toggleAdvancedFeatures };
+    public SettingsViewModel CreateSettings() => new(services, theme, userMessages);
+
+    public Comparison.ObjectComparisonViewModel CreateObjectComparison(string distinguishedName) =>
+        new(services, engines.Csv, distinguishedName, connections);
 
     private NavigationTreeViewModel CreateTree() =>
         new(services.Sessions, services.Settings, services.Localizer, services.Dispatcher, services.Errors, views, services.Changes);

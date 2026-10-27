@@ -159,6 +159,35 @@ public class ChangePipelineTests
     }
 
     [Fact]
+    public async Task ApplyAsync_SessionReplacedDuringPlanning_WritesNothing()
+    {
+        // Planning is not an activity, so "Rozłącz" does not wait for it and the (modeless) connect window lets the operator
+        // reconnect - here as another account. The plan of the old session must never run with the new identity.
+        var harness = await TestHarness.ConnectedAsync();
+        var planning = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Planner.BeforePlan = async _ =>
+        {
+            planning.TrySetResult();
+            await release.Task;
+        };
+        var reader = new InMemoryDirectorySession(InMemoryDirectorySession.DefaultInfo with { BoundIdentity = @"CONTOSO\odczyt.test" });
+
+        var apply = harness.Coordinator.ApplyAsync(new ChangeRequest([Lukasz], [new SetAccountEnabledOperation(false)], "Wyłącz konto"), TestContext.Current.CancellationToken);
+        await planning.Task.WaitAsync(TestContext.Current.CancellationToken);
+        await harness.Sessions.DisconnectAsync();
+        harness.Connector.NextSession = reader;
+        await harness.Sessions.ConnectAsync(new ConnectionOptions { Domain = "contoso.test" }, null, TestContext.Current.CancellationToken);
+        release.SetResult();
+
+        Assert.Equal(ChangeOutcome.Failed, await apply);
+        Assert.Empty(harness.Executor.Plans);
+        Assert.Empty(harness.Activities.Activities);
+        var error = Assert.Single(harness.Dialogs.Errors);
+        Assert.Equal(harness.Localizer[Presentation.Localization.L.WindowSession.Ended], error.Message);
+    }
+
+    [Fact]
     public async Task Activity_CompletesWithResult()
     {
         var harness = await TestHarness.ConnectedAsync();

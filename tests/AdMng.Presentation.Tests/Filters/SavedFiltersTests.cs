@@ -121,6 +121,37 @@ public class SavedFiltersTests
     }
 
     [Fact]
+    public async Task Library_IgnoresUnrelatedChanges_OfTheCopyOnWriteSettingsFile()
+    {
+        // The real store deserializes new filters (and new condition lists) on every update of any connection window.
+        using var paths = new TestDoubles.TempAppPaths();
+        var settings = new JsonSettingsStore(paths);
+        await settings.LoadAsync(Ct);
+        var library = new FilterLibrary(settings);
+        var filter = new SavedFilter
+        {
+            Id = "ksiegowosc",
+            Name = "Księgowość – Łódź",
+            Definition = FilterDefinition.Of(new FilterCondition(Attr.Department, FilterOperator.Equals, "Księgowość")),
+        };
+        await library.SaveAsync(filter);
+        var changed = 0;
+        library.Changed += (_, _) => changed++;
+
+        await settings.UpdateAsync(s => s.AddRecentContainer("OU=Księgowość,DC=contoso,DC=test"), Ct);
+        await settings.UpdateAsync(s => s.ColumnLayouts["container"] = [new ColumnLayoutEntry("name", 300)], Ct);
+        await settings.UpdateAsync(s => s.Comparison.ShowVolatile = true, Ct);
+        Assert.Equal(0, changed);
+
+        await library.SaveAsync(library.Find("ksiegowosc")! with { Name = "Księgowość – Gdańsk" });
+        Assert.Equal(1, changed);
+        Assert.Equal("Księgowość – Gdańsk", library.Find("ksiegowosc")!.Name);
+        await library.DeleteAsync("ksiegowosc");
+        Assert.Equal(2, changed);
+        Assert.Empty(library.Filters);
+    }
+
+    [Fact]
     public async Task Window_NewEditDelete_ThroughTheEditor_AndExportImportFiles()
     {
         var harness = await B2Harness.CreateAsync();

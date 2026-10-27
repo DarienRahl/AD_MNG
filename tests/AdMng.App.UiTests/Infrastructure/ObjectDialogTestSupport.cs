@@ -115,8 +115,8 @@ internal sealed class TestDialogService(DialogService inner) : IDialogService
     {
         var context = await UiTestContext.CreateAsync(language, services =>
         {
-            services.AddSingleton<DialogService>();
-            services.Replace(ServiceDescriptor.Singleton<IDialogService>(sp => new TestDialogService(sp.GetRequiredService<DialogService>())));
+            // Per connection window, like the real dialog service it wraps (AppHost registers DialogService scoped).
+            services.Replace(ServiceDescriptor.Scoped<IDialogService>(sp => new TestDialogService(sp.GetRequiredService<DialogService>())));
             configure?.Invoke(services);
         });
         return (context, (TestDialogService)context.Services.GetRequiredService<IDialogService>());

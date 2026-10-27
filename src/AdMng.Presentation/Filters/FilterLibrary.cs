@@ -24,12 +24,12 @@ public sealed class FilterLibrary
 
     private readonly ISettingsStore _settings;
     private readonly Lock _gate = new();
-    private SavedFilter[] _last;
+    private string _lastSnapshot;
 
     public FilterLibrary(ISettingsStore settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _last = [.. _settings.Current.SavedFilters];
+        _lastSnapshot = Snapshot();
         _settings.Changed += OnSettingsChanged;
     }
 
@@ -162,17 +162,25 @@ public sealed class FilterLibrary
     {
         lock (_gate)
         {
-            SavedFilter[] current = [.. _settings.Current.SavedFilters];
-            if (current.SequenceEqual(_last))
+            var snapshot = Snapshot();
+            if (string.Equals(snapshot, _lastSnapshot, StringComparison.Ordinal))
             {
                 return;
             }
 
-            _last = current;
+            _lastSnapshot = snapshot;
         }
 
         Changed?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// The filters in their stored form. Record equality is no use here: a filter's definition holds lists that compare by
+    /// reference, and every settings update of any connection window deserializes new ones (copy-on-write settings), so an
+    /// edit, add, removal or move is detected by the serialized form - and a column width or recent container written by
+    /// another window does not rebuild every filter list.
+    /// </summary>
+    private string Snapshot() => JsonSerializer.Serialize(_settings.Current.SavedFilters, JsonSettingsStore.SerializerOptions);
 
     private sealed class FiltersFile
     {

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Text.Json;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Batch;
 using AdMng.Core.Csv;
@@ -32,7 +33,8 @@ public sealed record ReviewScope(string BaseDn, SearchScope Scope, string? Filte
 /// The "Uprawnienia" tab of the account review (README U4, design docs/dev/u4-privileged-access.md): every account of the
 /// window's scope that has any right beyond a plain domain user, with a level per finding and the path that explains it.
 /// Runs with the window's scope and "Sprawdź"; streamed and cancellable, results only in memory, CSV only on demand, every
-/// action through the change plan. The settings of the tab (levels, marks, rules, peers) are saved as they change.
+/// action through the change plan. The settings of the tab (levels, marks, rules, peers) are saved as they change; they
+/// are shared by every connection window, so a change saved by another window's account review is shown here at once.
 /// </summary>
 public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDisposable
 {
@@ -62,6 +64,8 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
     private string _sortColumn = PrivilegedAccessColumns.Level;
     private bool _sortDescending = true;
     private bool _loadingSettings;
+    private bool _savingSettings;
+    private string _settingsSnapshot = string.Empty;
     private bool _disposed;
 
     internal PrivilegedAccessViewModel(
@@ -107,8 +111,10 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
 
         LoadSettings();
         RefreshTexts();
+        _settingsSnapshot = SettingsSnapshot();
         _services.Changes.Changed += OnDirectoryChanged;
         _filters.Changed += OnFiltersChanged;
+        _services.Settings.Changed += OnSettingsChanged;
     }
 
     private ILocalizer Localizer => _services.Localizer;
@@ -570,6 +576,7 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         _refreshDebouncer.Cancel();
         _services.Changes.Changed -= OnDirectoryChanged;
         _filters.Changed -= OnFiltersChanged;
+        _services.Settings.Changed -= OnSettingsChanged;
     }
 
     partial void OnSelectedItemChanged(PrivilegedAccountRowViewModel? value)
@@ -1027,19 +1034,60 @@ public sealed partial class PrivilegedAccessViewModel : ObservableObject, IDispo
         var computers = IncludeComputers;
         var serviceAccounts = IncludeServiceAccounts;
         var deepAclScan = DeepAclScan;
-        return _services.Settings.UpdateAsync(s =>
+
+        // The settings store raises Changed synchronously inside UpdateAsync: this tab's own write is not reloaded.
+        _savingSettings = true;
+        try
         {
-            var p = s.AccountReview.Privileges;
-            p.LevelOverrides = overrides;
-            p.Marks = marks;
-            p.Rules = rules;
-            p.Peers = peers;
-            p.IncludeComputers = computers;
-            p.IncludeServiceAccounts = serviceAccounts;
-            p.DeepAclScan = deepAclScan;
-            p.Normalize();
+            var saving = _services.Settings.UpdateAsync(s =>
+            {
+                var p = s.AccountReview.Privileges;
+                p.LevelOverrides = overrides;
+                p.Marks = marks;
+                p.Rules = rules;
+                p.Peers = peers;
+                p.IncludeComputers = computers;
+                p.IncludeServiceAccounts = serviceAccounts;
+                p.DeepAclScan = deepAclScan;
+                p.Normalize();
+            });
+            _settingsSnapshot = SettingsSnapshot();
+            return saving;
+        }
+        finally
+        {
+            _savingSettings = false;
+        }
+    }
+
+    /// <summary>
+    /// The settings of the tab are shared by every connection window (copy-on-write settings): when another window's account
+    /// review saved levels, marks, rules or peers, this tab shows the stored settings, so that its own next save never undoes
+    /// that change. Its own saves and writes of other settings (column widths, recent containers) change nothing here.
+    /// </summary>
+    private void OnSettingsChanged(object? sender, EventArgs e)
+    {
+        if (_disposed || _savingSettings)
+        {
+            return;
+        }
+
+        _ = _services.Dispatcher.RunAsync(() =>
+        {
+            var snapshot = SettingsSnapshot();
+            if (_disposed || string.Equals(snapshot, _settingsSnapshot, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _settingsSnapshot = snapshot;
+            LoadSettings();
+            RefreshTexts();
         });
     }
+
+    /// <summary>The stored settings of the tab (their serialized form: the copy-on-write store gives new lists on every update).</summary>
+    private string SettingsSnapshot() => JsonSerializer.Serialize(_services.Settings.Current.AccountReview.Privileges, JsonSettingsStore.SerializerOptions);
 
     private void OnFiltersChanged(object? sender, EventArgs e) => _ = _services.Dispatcher.RunAsync(() =>
     {

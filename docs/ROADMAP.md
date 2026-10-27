@@ -10,7 +10,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | 🟡 | [Faza 1 – MVP: codzienna praca zamiast ADUC](../README.md#faza-1--mvp-codzienna-praca-zamiast-aduc-) |
 | 🟡 | [Faza 2 – Edycja zbiorcza v1 (kluczowa)](../README.md#faza-2--edycja-zbiorcza-v1-kluczowa-) |
 | ⬜ | [Faza 3 – Edycja zbiorcza v2 i zakładanie kont](../README.md#faza-3--edycja-zbiorcza-v2-i-zakładanie-kont-) |
-| ⬜ | [Faza 4 – Kosz AD, widoki i raporty](../README.md#faza-4--kosz-ad-widoki-i-raporty--kosz-ad-) |
+| ⬜ (Kosz AD: 🟡; wiele domen w osobnych oknach i porównanie obiektów między nimi: ✅) | [Faza 4 – Kosz AD, widoki i raporty](../README.md#faza-4--kosz-ad-widoki-i-raporty--kosz-ad-) |
 | ⬜ | [Faza 5 – Helpdesk+ i bezpieczeństwo](../README.md#faza-5--helpdesk-i-bezpieczeństwo-) |
 | ⬜ | [Faza 6 – Delegacja i zarządzanie](../README.md#faza-6--delegacja-i-zarządzanie-) |
 | ⬜ | [Faza 7 – Wdrożenie i dodatki](../README.md#faza-7--wdrożenie-i-dodatki-) |

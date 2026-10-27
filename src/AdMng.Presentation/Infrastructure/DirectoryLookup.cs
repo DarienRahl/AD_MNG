@@ -21,7 +21,7 @@ internal static class DirectoryLookup
     /// </summary>
     /// <returns>Found objects keyed by <see cref="DnKey"/>.</returns>
     public static async Task<Dictionary<string, DirectoryObject>> ReadManyAsync(
-        IDirectorySession session,
+        IDirectoryReader session,
         IEnumerable<string> distinguishedNames,
         IReadOnlyList<string> attributes,
         CancellationToken cancellationToken)
@@ -54,7 +54,7 @@ internal static class DirectoryLookup
 
     /// <summary>Reads all values of an attribute, completing ranged (>1500 values) results with ranged retrieval.</summary>
     public static async Task<IReadOnlyList<string>> AllValuesAsync(
-        IDirectorySession session,
+        IDirectoryReader session,
         DirectoryObject obj,
         string attribute,
         CancellationToken cancellationToken)
