@@ -143,7 +143,18 @@ public static class TitleParser
     }
 
     /// <summary>A title prefix and/or suffix of the display name; null when there is none or the rest has no name.</summary>
-    public static TitleInfo? ParseDisplayName(string? displayName, string? givenName, string? surname, TitleTable table)
+    public static TitleInfo? ParseDisplayName(string? displayName, string? givenName, string? surname, TitleTable table) =>
+        ParseDisplayName(displayName, givenName, surname, table, requireName: true);
+
+    /// <summary>
+    /// The display name without a title prefix and/or suffix ("dr Jan Kowalski" → "Jan Kowalski") for a person without given
+    /// name and surname – the name check of <see cref="ParseDisplayName(string?, string?, string?, TitleTable)"/> is not
+    /// possible, so the title found this way is never used as the title; null when there is none.
+    /// </summary>
+    public static string? WithoutTitles(string? displayName, TitleTable table) =>
+        ParseDisplayName(displayName, null, null, table, requireName: false)?.NameWithoutTitle;
+
+    private static TitleInfo? ParseDisplayName(string? displayName, string? givenName, string? surname, TitleTable table, bool requireName)
     {
         ArgumentNullException.ThrowIfNull(table);
         var text = displayName?.Trim();
@@ -180,7 +191,7 @@ public static class TitleParser
         }
 
         var restKeys = rest.Select(t => t.Key).ToList();
-        if (!ContainsSequence(restKeys, givenKeys) && !ContainsSequence(restKeys, surnameKeys))
+        if (requireName && !ContainsSequence(restKeys, givenKeys) && !ContainsSequence(restKeys, surnameKeys))
         {
             return null;
         }

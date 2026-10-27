@@ -806,7 +806,9 @@ renders as; a template may also switch titles off (`UseTitles`, default true) an
 * **Unknown gender** (and the template/settings default is neutral): the **neutral text** of the language – defaults PL
   `Szanowna Pani / Szanowny Panie`, EN `Dear {name}` (`{name}` = `givenName sn`, else the display name without its
   title; with no name at all the fixed last resort `Szanowni Państwo` / `Dear Sir or Madam`) – plus the warning
-  `GenderUnknown`. Vocative variants: PL `Pani / Panie`, EN `{name}`. Honorific: the joined forms (`Pan/Pani`,
+  `GenderUnknown`. Vocative variants: PL `Pani / Panie`, EN `{name}`. As built: without given name and surname a title
+  prefix or suffix is cut from the display name for `{name}` ("dr Jan Kowalski" → "Dear Jan Kowalski"; never used as
+  the person's title), and a finding names the account by its login or RDN when it has no name at all. Honorific: the joined forms (`Pan/Pani`,
   `Pana/Pani`, `Panu/Pani`, `Pana/Panią`, `Panem/Panią`, `Panu/Pani`, `Panie/Pani`; EN `Mr/Ms`); `byGender`: the third
   part, else `masc/fem`.
 * **Unknown gender with a title** (as built): with the default Polish neutral text and a title row having both Polish

@@ -147,6 +147,15 @@ public sealed class SalutationResolverTests
         // The display name without its title stands in for the name.
         var displayOnly = SalutationPerson.Of(null, "Sasza Kim", null, null, null, Options);
         Assert.Equal("Dear Sasza Kim", English(displayOnly));
+
+        // Without given name and surname a title prefix or suffix is cut from the display name for {name} – but it is no
+        // title of the person (nothing confirms the rest is a name).
+        var titledDisplayOnly = SalutationPerson.Of(null, "dr Jan Kowalski", null, null, null, Options);
+        Assert.Equal("Dear Jan Kowalski", English(titledDisplayOnly));
+        Assert.False(titledDisplayOnly.Title.HasTitle);
+        Assert.Equal("Kowalski Jan", SalutationPerson.Of(null, "Kowalski Jan, dr hab.", null, null, null, Options).Name);
+        Assert.Equal("dr Jan Kowalski", SalutationPerson.Of(null, "dr Jan Kowalski", null, null, null, Options with { TitleFromDisplayName = false }).Name);
+        Assert.Equal("Dr", SalutationPerson.Of(null, "Dr", null, null, null, Options).Name);
     }
 
     [Fact]

@@ -33,6 +33,12 @@ public sealed record SalutationPerson
 
     public GenderInfo Gender { get; init; } = GenderInfo.Unknown;
 
+    /// <summary>
+    /// The display name without a title prefix or suffix when the person has neither given name nor surname ("dr Jan
+    /// Kowalski" → "Jan Kowalski"), else null.
+    /// </summary>
+    public string? DisplayNameWithoutTitle { get; init; }
+
     /// <summary>"Jan Kowalski" (given name and surname), else the display name without its title, else empty.</summary>
     public string Name
     {
@@ -44,7 +50,7 @@ public sealed record SalutationPerson
                 return name;
             }
 
-            return (Title.NameWithoutTitle ?? DisplayName)?.Trim() ?? string.Empty;
+            return (Title.NameWithoutTitle ?? DisplayNameWithoutTitle ?? DisplayName)?.Trim() ?? string.Empty;
         }
     }
 
@@ -94,6 +100,9 @@ public sealed record SalutationPerson
             GivenName = givenName,
             Surname = surname,
             DisplayName = displayName,
+            DisplayNameWithoutTitle = options.TitleFromDisplayName && string.IsNullOrWhiteSpace(givenName) && string.IsNullOrWhiteSpace(surname)
+                ? TitleParser.WithoutTitles(displayName, options.Titles)
+                : null,
             Title = title,
             Gender = GenderGuesser.WithTitle(
                 GenderGuesser.Guess(overrideGender, genderValue, title.HonorificGender, givenName, surname, options, language == MessageLanguage.Polish),

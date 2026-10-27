@@ -211,6 +211,21 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void Findings_NameTheAccount_EvenWithoutAnyName()
+    {
+        const string ScannerDn = "CN=Skaner Sekretariat,OU=Urządzenia,DC=contoso,DC=test";
+        const string KioskDn = "CN=Kiosk Łódź,OU=Urządzenia,DC=contoso,DC=test";
+        var scanner = User(ScannerDn, [(Attr.SamAccountName, "skaner.sekretariat"), (Attr.Mail, "skaner@contoso.test")]);
+        var kiosk = User(KioskDn, [(Attr.Mail, "kiosk@contoso.test")]);
+
+        var plan = Plan(BodyOnly("{$salutation},"), [new(ScannerDn, scanner), new(KioskDn, kiosk)]);
+
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderUnknown, MessageIssueSeverity.Warning, "skaner.sekretariat"), plan.Messages[0].Issues);
+        Assert.Contains(new MessageIssue(SalutationIssueCodes.GenderUnknown, MessageIssueSeverity.Warning, "Kiosk Łódź"), plan.Messages[1].Issues);
+        Assert.DoesNotContain(plan.Messages.SelectMany(m => m.Issues), i => string.IsNullOrEmpty(i.Argument));
+    }
+
+    [Fact]
     public void Replan_KeepsADuplicateAddressWarning()
     {
         var template = Template("{$salutation},");

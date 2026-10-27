@@ -1,3 +1,4 @@
+using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Model;
 using AdMng.Core.Schema;
 using AdMng.Core.Templates;
@@ -147,7 +148,7 @@ public sealed class MessageSalutations
             usage.Salutations.Add((variant, result));
         }
 
-        Record(person, result);
+        Record(person, isManager ? _manager! : _account, result);
         return result.Text;
     }
 
@@ -285,14 +286,17 @@ public sealed class MessageSalutations
         return gender.IsGuess ? SalutationIssueCodes.GenderGuessed : null;
     }
 
-    private void Record(SalutationPerson person, SalutationResult result)
+    private void Record(SalutationPerson person, DirectoryObject source, SalutationResult result)
     {
         if (_issues is null)
         {
             return;
         }
 
-        var name = person.Name;
+        // The finding names the person: the name, else the login, else the RDN – never an empty "()".
+        var name = person.Name is { Length: > 0 } personName ? personName
+            : source.GetString(Attr.SamAccountName) is { Length: > 0 } login ? login
+            : source.Name;
         if (result.UsedGender)
         {
             var gender = person.Gender;
