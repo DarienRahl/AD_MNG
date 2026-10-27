@@ -503,7 +503,8 @@ public sealed partial class GpoBackupViewModel : WindowViewModelBase
         var folder = Folder.Trim();
         try
         {
-            var backup = await GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token).ConfigureAwait(true);
+            // Off the UI thread: the synchronous part (File.Exists, XML loads of up to 16 MB) may sit on a slow share.
+            var backup = await Task.Run(() => GpmcBackupFormat.ReadAsync(folder, row.Entry.BackupId, token), token).ConfigureAwait(true);
             if (token.IsCancellationRequested)
             {
                 return;

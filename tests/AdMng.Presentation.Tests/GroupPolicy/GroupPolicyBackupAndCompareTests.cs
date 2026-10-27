@@ -112,6 +112,46 @@ public sealed class GroupPolicyBackupAndCompareTests
     }
 
     [Fact]
+    public async Task Restore_ReadsTheSelectedBackupOffTheCallingThread()
+    {
+        Assert.SkipUnless(OperatingSystem.IsLinux(), "A FIFO stands in for a hanging share (mkfifo).");
+        var h = await GroupPolicyHarness.CreateAsync(Polish);
+        using var folder = new TempFolder();
+        await BackupAsync(h, folder.Path, h.Sample.WorkstationPasswords);
+        var entry = Assert.Single(GpmcBackupFormat.List(folder.Path));
+
+        // Backup.xml becomes a FIFO: reading it blocks until a writer opens it, like a file on a hanging share.
+        var xml = Path.Combine(folder.Path, SysvolPaths.FolderName(entry.BackupId), GpmcBackupFormat.BackupFile);
+        File.Delete(xml);
+        using (var mkfifo = System.Diagnostics.Process.Start("mkfifo", [xml]))
+        {
+            await mkfifo.WaitForExitAsync(TestContext.Current.CancellationToken);
+            Assert.Equal(0, mkfifo.ExitCode);
+        }
+
+        var shown = new TaskCompletionSource<GpoBackupViewModel>(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Windows.BackupHandler = window =>
+        {
+            shown.TrySetResult(window);
+            return Task.FromResult(false);
+        };
+        using var objects = await h.ObjectsAsync();
+        var restore = Task.Run(() => objects.RestoreCommand.ExecuteAsync(null), TestContext.Current.CancellationToken);
+        try
+        {
+            // The window opens (its first backup selected) while the read still waits.
+            Assert.Same(shown.Task, await Task.WhenAny(shown.Task, Task.Delay(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)));
+        }
+        finally
+        {
+            // Release the reader with something that is not XML.
+            await File.WriteAllTextAsync(xml, "nie XML", TestContext.Current.CancellationToken);
+        }
+
+        await restore;
+    }
+
+    [Fact]
     public async Task Import_IntoAnotherGpo_CopiesTheSettings_AndRaisesItsVersion()
     {
         var h = await GroupPolicyHarness.CreateAsync(Polish);
