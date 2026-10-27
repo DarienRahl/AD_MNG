@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.Text.Json;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
@@ -77,7 +78,9 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
     // Saved filters (README U4) of the last search: their client checks (constructed attributes), null when none.
     private Filters.SavedFilterPlan? _clientPlan;
-    private Filters.SavedFilter[] _savedFilterSnapshot = [];
+
+    // The saved filters the chips were built from, in their stored form (serialized, in stored order).
+    private (string Id, string Json)[] _savedFilterSnapshot = [];
 
     /// <param name="services">Shared list services.</param>
     /// <param name="session">
@@ -1688,17 +1691,25 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     /// The chips of the saved filters (sorted by name). Returns true when an active filter changed or disappeared: the
     /// rows were read with the previous definition.
     /// </summary>
+    /// <remarks>
+    /// Filters are compared in their stored (serialized) form, as <see cref="Filters.FilterLibrary"/> does: a definition
+    /// holds lists that compare by reference, and every settings write of any connection window deserializes new ones
+    /// (copy-on-write settings), so a column width or recent container written anywhere must neither rebuild the chips
+    /// nor read a list with an active chip again.
+    /// </remarks>
     private bool RefreshSavedFilterChips()
     {
         Filters.SavedFilter[] filters = [.. _services.Settings.Current.SavedFilters];
-        if (filters.SequenceEqual(_savedFilterSnapshot))
+        (string Id, string Json)[] snapshot = [.. filters.Select(f => (f.Id, JsonSerializer.Serialize(f, JsonSettingsStore.SerializerOptions)))];
+        if (snapshot.SequenceEqual(_savedFilterSnapshot))
         {
             return false;
         }
 
-        var previous = _savedFilterSnapshot.ToDictionary(f => f.Id, StringComparer.Ordinal);
+        var previous = StoredForms(_savedFilterSnapshot);
+        var current = StoredForms(snapshot);
         var active = SavedFilterChips.Where(c => c.IsActive).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
-        _savedFilterSnapshot = filters;
+        _savedFilterSnapshot = snapshot;
         foreach (var chip in SavedFilterChips)
         {
             chip.PropertyChanged -= OnChipChanged;
@@ -1720,7 +1731,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             _settingChips = false;
         }
 
-        return active.Any(id => !previous.TryGetValue(id, out var old) || !filters.Any(f => ReferenceEquals(f, old)));
+        return active.Any(id => !previous.TryGetValue(id, out var old) || !current.TryGetValue(id, out var now)
+            || !string.Equals(old, now, StringComparison.Ordinal));
+
+        static Dictionary<string, string> StoredForms((string Id, string Json)[] filters) =>
+            filters.DistinctBy(f => f.Id, StringComparer.Ordinal).ToDictionary(f => f.Id, f => f.Json, StringComparer.Ordinal);
     }
 
     private void OnSettingsChanged(object? sender, EventArgs e) => _ = _services.Dispatcher.RunAsync(() =>

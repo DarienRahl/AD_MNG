@@ -215,6 +215,54 @@ public sealed class ConnectionWindowTests
     }
 
     [Fact]
+    public async Task ASavedFilterChip_IsNotRebuiltNorReloaded_ByAnUnrelatedWriteOfAnotherWindow_ButAnEditOfItsFilterReloads()
+    {
+        var contoso = SampleDomain.Create(FakeDirectoryBuilder.DefaultDomain);
+        var fabrikam = SampleDomain.Create(Fabrikam);
+        await using var host = new ConnectionScopeHost(domains: [contoso.Session, fabrikam.Session]);
+        await using var a = host.CreateConnection();
+        await using var b = host.CreateConnection();
+        await a.ConnectAsync();
+        await b.ConnectAsync(Fabrikam);
+        var library = b.Get<Presentation.Filters.FilterLibrary>();
+        await library.SaveAsync(new Presentation.Filters.SavedFilter
+        {
+            Id = "warszawa",
+            Name = "Warszawa",
+            Definition = Core.Filters.FilterDefinition.Of(new Core.Filters.FilterCondition(Core.ActiveDirectory.Attr.City, Core.Filters.FilterOperator.Equals, "Warszawa")),
+        });
+        using var list = b.Get<Presentation.Lists.ObjectListServices>().CreateList();
+        await list.NavigateAsync(Presentation.Lists.ListLocation.ForQuery("Firma", fabrikam.Company.CompanyOu, Core.Directory.SearchScope.Subtree, "(objectClass=user)"));
+        var chip = list.SavedFilterChips.Single(c => c.Id == "warszawa");
+        chip.IsActive = true;
+        await list.CurrentLoad;
+        var search = list.LastSearch;
+        Assert.Contains("(l=Warszawa)", search!.Filter, StringComparison.Ordinal);
+        fabrikam.Session.ClearOperations();
+
+        // Window A navigates (recent containers) and resizes a column: the copy-on-write store deserializes new filters.
+        var settings = a.Get<ISettingsStore>();
+        await settings.UpdateAsync(s => s.AddRecentContainer(contoso.Company.ItOu), Ct);
+        await settings.UpdateAsync(s => s.ColumnLayouts["test"] = [new ColumnLayoutEntry("name", 120)], Ct);
+        await WaitQuietAsync(fabrikam.Session);
+        await list.CurrentLoad;
+        Assert.Same(chip, list.SavedFilterChips.Single());
+        Assert.True(chip.IsActive);
+        Assert.Same(search, list.LastSearch);
+        Assert.Equal(0, Searches(fabrikam.Session));
+
+        // Editing the active filter (in window A) reads the list again with the new definition.
+        await a.Get<Presentation.Filters.FilterLibrary>().SaveAsync(library.Find("warszawa")! with
+        {
+            Definition = Core.Filters.FilterDefinition.Of(new Core.Filters.FilterCondition(Core.ActiveDirectory.Attr.City, Core.Filters.FilterOperator.Equals, "Kraków")),
+        });
+        await WaitQuietAsync(fabrikam.Session);
+        await list.CurrentLoad;
+        Assert.Contains("(l=Kraków)", list.LastSearch!.Filter, StringComparison.Ordinal);
+        Assert.True(list.SavedFilterChips.Single().IsActive);
+    }
+
+    [Fact]
     public async Task RecentAndPinnedContainers_AreThoseOfTheWindowsDomain()
     {
         var contoso = SampleDomain.Create(FakeDirectoryBuilder.DefaultDomain);
