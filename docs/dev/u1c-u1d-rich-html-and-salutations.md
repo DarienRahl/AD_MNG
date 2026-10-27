@@ -984,7 +984,7 @@ OU, so `AddSampleCompany()` counts do not change).
 with WebView2 and – with `ADMNG_UI_NO_WEBVIEW2=1` – falls back to the source view, no binding errors), screenshot
 `22-user-messages-rich-html.png` (new test file), `HostTests` lifetimes, `SmokeTest` opens the preview tab. B:
 `UserMessagesSalutationWindowTests` (column, details panel, override, settings section) and screenshot
-`23-user-messages-salutations.png` (new test file).
+`25-user-messages-salutations.png` (new test file; 22 and 23 belong to track K – see 22.4).
 
 ## 22. Implementation tracks
 
@@ -1057,6 +1057,10 @@ Not touched by either track (left to the integration step): the README status li
 row, the "Ścieżka U" heading), `docs/ROADMAP.md`, release notes and versions, CLAUDE.md.
 
 ### 22.4 Integration step (after both merges)
+
+Screenshot numbers: track K (`docs/dev/k-computers-and-gpo.md`) owns `22-computers.png` and `23-group-policy.png`;
+U1d uses `25-user-messages-salutations.png`; U1c renumbers its `22-user-messages-rich-html.png` to the next free one
+(24) and the README / design-note references with it.
 
 Rebase the second track on the first, build the solution with 0 warnings, run Core, Presentation, Mail, Watchdog Core
 and Service tests twice, the Mailpit and lab tests, the Windows UI job (both screenshots); then update the README

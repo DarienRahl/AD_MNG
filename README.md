@@ -669,7 +669,7 @@ usługi: [WATCHDOG.md, rozdz. 5.8](docs/WATCHDOG.md#58-wiadomości-do-użytkowni
   z ≈ (zgadnięte) i ⚠ (zwrot neutralny lub zastępczy), *Pola wyliczone*, filtr *Zgadnięte zwroty* i wybór płci jednej
   wiadomości tylko na tę wysyłkę (bez zapisu – żadna wartość z katalogu nie trafia do ustawień). Ostrzeżenia tylko dla
   pól, których szablon używa; szablony wbudowane bez zmian. Testy jednostkowe (tytuły, płeć, zwroty, pola, plan), modelu
-  okna i ustawień na fałszywym DC, test UI i zrzut `23-user-messages-salutations.png` (Windows).
+  okna i ustawień na fałszywym DC, test UI i zrzut `25-user-messages-salutations.png` (Windows).
 - ✅ Potok: plan (świeży odczyt kont i przełożonych z przypiętego DC) → walidacja → podgląd każdej wiadomości (filtr,
   wykluczanie, wiadomość testowa do siebie) → wysyłka w tle (postęp, przerwanie, limit tempa i dobowy limit odbiorców,
   ponawianie błędów 4xx na nowym połączeniu, zatrzymanie przy błędzie uwierzytelnienia lub TLS, potwierdzenie przez

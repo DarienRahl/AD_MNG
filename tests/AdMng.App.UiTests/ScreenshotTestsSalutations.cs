@@ -23,12 +23,12 @@ namespace AdMng.App.UiTests;
 public sealed class ScreenshotTestsSalutations
 {
     private static readonly ScreenshotInfo Salutations = new(
-        "23-user-messages-salutations.png",
+        "25-user-messages-salutations.png",
         "Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości",
         "Messages to users – title-aware salutations: the \"Salutation\" column (≈ guessed, ⚠ neutral fallback) and the derived fields of the selected message");
 
     [Fact]
-    public Task Screenshot23_UserMessageSalutations()
+    public Task Screenshot25_UserMessageSalutations()
     {
         ScreenshotWriter.RequireOutputDirectory();
         return WpfTestHost.RunAsync(async () =>
