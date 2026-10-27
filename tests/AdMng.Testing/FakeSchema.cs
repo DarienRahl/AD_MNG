@@ -15,8 +15,10 @@ public static partial class FakeSchema
         ArgumentException.ThrowIfNullOrWhiteSpace(schemaNamingContext);
         var attributes = CreateAttributes();
         attributes.AddRange(CreateWatchdogAttributes());
+        attributes.AddRange(CreateGroupPolicyAttributes());
         var classes = CreateClasses(schemaNamingContext);
         ExtendForWatchdog(classes, schemaNamingContext);
+        ExtendForGroupPolicy(classes, schemaNamingContext);
         return new SchemaCatalog(attributes, classes, CreateDisplayNames());
     }
 
