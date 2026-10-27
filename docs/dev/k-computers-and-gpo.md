@@ -486,7 +486,8 @@ Management Users*; `root\cimv2` remote access, `GetOwner` of other users' proces
 shutdown privilege need **local Administrators** (on DCs: Domain Admins). The window says so when it gets
 `AccessDenied`. Prerequisite on the computers (K1's Polish doc `docs/KOMPUTERY.md`, with a GPO recipe): service
 *Windows Remote Management* automatic, *Zezwalaj na zdalne zarządzanie serwerem przy użyciu usługi WinRM* (listener
-filter), firewall rule *Windows Remote Management (HTTP-In)* limited to the admin subnet.
+filter `*`: it selects the computer's own addresses WinRM listens on, not the clients), firewall rule *Windows Remote
+Management (HTTP-In)* with its remote addresses (scope) limited to the admin subnet.
 
 **Equivalents and audit.** Each action records an `AuditEntry` (`Action = "Remote.Restart"` etc., DN = the computer,
 `Server` = its DNS name, the delay/forced flag as the new value; the message text is not recorded) and a PowerShell

@@ -170,13 +170,15 @@ OU ze stacjami roboczymi i serwerami (nazwy z polskiej wersji Windows, w nawiasa
    uruchamiania **Automatyczny**.
 2. *Konfiguracja komputera → Zasady → Szablony administracyjne → Składniki systemu Windows → Zdalne zarządzanie systemem
    Windows (WinRM) → Usługa WinRM*: **Zezwalaj na zdalne zarządzanie serwerem przy użyciu usługi WinRM** (*Allow remote
-   server management through WinRM*) – **Włączone**. Filtr IPv4: tylko podsieć stacji administratorów (np.
-   `10.10.5.0-10.10.5.255`), filtr IPv6 pusty albo odpowiedni zakres.
+   server management through WinRM*) – **Włączone**, filtr IPv4 `*` i filtr IPv6 `*` (albo własne podsieci zarządzanych
+   komputerów). Te filtry wybierają **adresy samego komputera**, na których WinRM nasłuchuje – nie filtrują klientów.
+   Podsieć administratorów wpisana tutaj sprawi, że komputery spoza niej nie utworzą odbiornika i każda zdalna akcja
+   skończy się błędem *WinRM niedostępny*. Pusty filtr oznacza brak nasłuchu na danym protokole.
 3. *Konfiguracja komputera → Zasady → Ustawienia systemu Windows → Ustawienia zabezpieczeń → Zapora Windows Defender z
    zabezpieczeniami zaawansowanymi → Reguły przychodzące*: nowa reguła wstępnie zdefiniowana **Zdalne zarządzanie systemem
    Windows** (*Windows Remote Management*). Zostaw tylko **Zdalne zarządzanie systemem Windows (HTTP — ruch przychodzący)**
    dla profilu *Domena*, a we właściwościach reguły, na karcie *Zakres*, ogranicz adresy zdalne do podsieci
-   administratorów.
+   administratorów (np. `10.10.5.0/24`). To jest jedyne miejsce, w którym ogranicza się, skąd wolno łączyć się z WinRM.
 4. Uprawnienia: konto (grupa) administratorów stacji musi być w lokalnej grupie *Administratorzy*, np. przez *Grupy z
    ograniczeniami* albo preferencje GPO *Lokalni użytkownicy i grupy*.
 
