@@ -120,6 +120,9 @@ public partial class HtmlPreviewView : UserControl
                 return;
             }
 
+            // The host must be visible while the control is created: WebView2 waits for its window handle.
+            BrowserHost.Visibility = Visibility.Visible;
+            FallbackPanel.Visibility = Visibility.Collapsed;
             _browserReady ??= CreateBrowserAsync(environment);
             await _browserReady.ConfigureAwait(true);
             if (_closed)
