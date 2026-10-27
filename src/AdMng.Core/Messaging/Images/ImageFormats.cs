@@ -50,7 +50,12 @@ public sealed class MessageImageException(MessageImageError error)
 /// <param name="Height">Height in pixels.</param>
 /// <param name="Kept">Byte ranges (offset, length) of the stripped image, in order.</param>
 /// <param name="Removed">Metadata blocks removed (chunk, segment or extension names), for diagnostics and tests.</param>
-public sealed record ImageStructure(ImageKind Kind, int Width, int Height, IReadOnlyList<(int Offset, int Length)> Kept, IReadOnlyList<string> Removed);
+public sealed record ImageStructure(ImageKind Kind, int Width, int Height, IReadOnlyList<(int Offset, int Length)> Kept, IReadOnlyList<string> Removed)
+{
+    /// <summary>Bytes the stripped image gets in place of a removed block, by that block's offset in the original: a JPEG's
+    /// Exif orientation (2–8) alone in a minimal <c>APP1</c>, so a phone photo is not shown sideways.</summary>
+    public IReadOnlyList<(int Offset, byte[] Bytes)> Inserted { get; init; } = [];
+}
 
 /// <summary>
 /// The raster formats of message images (design note section 7.2): type by magic bytes only, dimensions from the headers
@@ -237,6 +242,8 @@ public static class ImageFormats
     {
         var kept = new List<(int, int)> { (0, 2) };
         var removed = new List<string>();
+        var inserted = new List<(int, byte[])>();
+        var orientationDone = false;
         var position = 2;
         int width = 0, height = 0;
         var hasFrame = false;
@@ -315,9 +322,22 @@ public static class ImageFormats
             }
 
             // APP1 (Exif, XMP), APP13 (IPTC / Photoshop) and comments carry author, position and software; APP0 (JFIF),
-            // APP2 (ICC profile) and APP14 (Adobe colour transform) are needed to show the colours right.
-            if (marker is 0xE1 or 0xED or 0xFE)
+            // APP2 (ICC profile) and APP14 (Adobe colour transform) are needed to show the colours right. The Exif
+            // orientation alone survives, in a minimal APP1 (kept as it is when it already is one: stripping is idempotent).
+            var orientation = marker == 0xE1 && !orientationDone ? ExifOrientation(payload) : null;
+            if (orientation is >= 2 and <= 8 && payload.SequenceEqual(OrientationSegment(orientation.Value).AsSpan(4)))
             {
+                orientationDone = true;
+                kept.Add((start, end - start));
+            }
+            else if (marker is 0xE1 or 0xED or 0xFE)
+            {
+                if (orientation is >= 2 and <= 8)
+                {
+                    orientationDone = true;
+                    inserted.Add((start, OrientationSegment(orientation.Value)));
+                }
+
                 removed.Add(marker switch { 0xE1 => "APP1", 0xED => "APP13", _ => "COM" });
             }
             else
@@ -328,8 +348,59 @@ public static class ImageFormats
             position = end;
         }
 
-        return hasFrame && hasScan ? new ImageStructure(ImageKind.Jpeg, width, height, Merge(kept), removed) : throw Malformed();
+        return hasFrame && hasScan
+            ? new ImageStructure(ImageKind.Jpeg, width, height, Merge(kept), removed) { Inserted = inserted }
+            : throw Malformed();
     }
+
+    /// <summary>The Exif orientation (tag 0x0112 of IFD0, 1–8) of an APP1 payload, or null (not Exif, absent, malformed).</summary>
+    private static int? ExifOrientation(ReadOnlySpan<byte> payload)
+    {
+        if (payload.Length < 14 || !payload.StartsWith("Exif\0\0"u8))
+        {
+            return null;
+        }
+
+        var tiff = payload[6..];
+        var little = tiff.StartsWith("II*\0"u8);
+        if (!little && !tiff.StartsWith("MM\0*"u8))
+        {
+            return null;
+        }
+
+        uint U32(ReadOnlySpan<byte> s) => little ? BinaryPrimitives.ReadUInt32LittleEndian(s) : BinaryPrimitives.ReadUInt32BigEndian(s);
+        ushort U16(ReadOnlySpan<byte> s) => little ? BinaryPrimitives.ReadUInt16LittleEndian(s) : BinaryPrimitives.ReadUInt16BigEndian(s);
+        var ifd = U32(tiff[4..]);
+        if (ifd < 8 || ifd + 2L > tiff.Length)
+        {
+            return null;
+        }
+
+        var count = U16(tiff[(int)ifd..]);
+        for (var i = 0; i < count; i++)
+        {
+            var entry = (int)ifd + 2 + (i * 12);
+            if (entry + 12 > tiff.Length)
+            {
+                return null;
+            }
+
+            if (U16(tiff[entry..]) == 0x0112 && U16(tiff[(entry + 2)..]) == 3 && U32(tiff[(entry + 4)..]) == 1)
+            {
+                return U16(tiff[(entry + 8)..]) is var value and >= 1 and <= 8 ? value : null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A minimal APP1 segment with only the Exif orientation: big-endian TIFF, IFD0 with the one entry, no next IFD.</summary>
+    private static byte[] OrientationSegment(int orientation) =>
+    [
+        0xFF, 0xE1, 0x00, 0x22, .. "Exif\0\0"u8, .. "MM\0*"u8, 0x00, 0x00, 0x00, 0x08,
+        0x00, 0x01, 0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, (byte)orientation, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00,
+    ];
 
     /// <summary>SOF0–SOF15 except DHT (C4), JPG (C8) and DAC (CC).</summary>
     private static bool IsStartOfFrame(byte marker) => marker is >= 0xC0 and <= 0xCF and not (0xC4 or 0xC8 or 0xCC);

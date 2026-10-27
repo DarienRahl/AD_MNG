@@ -3,7 +3,8 @@ namespace AdMng.Core.Messaging.Images;
 /// <summary>
 /// Removes metadata from an image by lossless surgery – never by re-encoding, so the pixels stay byte-identical (design
 /// note section 7.2): PNG <c>tEXt zTXt iTXt eXIf tIME</c> chunks; JPEG <c>APP1</c> (Exif / XMP), <c>APP13</c> (IPTC) and
-/// <c>COM</c> segments (<c>APP0</c> JFIF, <c>APP2</c> ICC and <c>APP14</c> Adobe stay); GIF comment and XMP extensions.
+/// <c>COM</c> segments (<c>APP0</c> JFIF, <c>APP2</c> ICC and <c>APP14</c> Adobe stay; an Exif orientation other than 1
+/// stays alone in a minimal <c>APP1</c>, so a phone photo keeps its rotation); GIF comment and XMP extensions.
 /// Bytes after the image's end marker are dropped too. A photo pasted from a phone loses its GPS position and author.
 /// </summary>
 public static class ImageMetadataStripper
@@ -16,12 +17,26 @@ public static class ImageMetadataStripper
     public static byte[] Strip(ReadOnlySpan<byte> data, ImageStructure structure)
     {
         ArgumentNullException.ThrowIfNull(structure);
-        var result = new byte[structure.Kept.Sum(r => r.Length)];
+        var result = new byte[structure.Kept.Sum(r => r.Length) + structure.Inserted.Sum(i => i.Bytes.Length)];
+        var inserted = structure.Inserted.OrderBy(i => i.Offset).ToList();
+        var next = 0;
         var target = 0;
         foreach (var (offset, length) in structure.Kept)
         {
+            for (; next < inserted.Count && inserted[next].Offset <= offset; next++)
+            {
+                inserted[next].Bytes.CopyTo(result.AsSpan(target));
+                target += inserted[next].Bytes.Length;
+            }
+
             data.Slice(offset, length).CopyTo(result.AsSpan(target));
             target += length;
+        }
+
+        for (; next < inserted.Count; next++)
+        {
+            inserted[next].Bytes.CopyTo(result.AsSpan(target));
+            target += inserted[next].Bytes.Length;
         }
 
         return result;

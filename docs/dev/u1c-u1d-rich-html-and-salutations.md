@@ -393,7 +393,8 @@ tested on Linux with a temp-folder fake; the App only supplies the clipboard byt
   malformed file is rejected.
 * **Metadata stripped** by lossless surgery, never by re-encoding: PNG `tEXt zTXt iTXt eXIf tIME` chunks; JPEG `APP1`
   (Exif/XMP), `APP13` (IPTC) and `COM` segments (`APP0` JFIF, `APP2` ICC and `APP14` Adobe stay); GIF comment
-  extensions. Photos pasted from a phone lose GPS position and author (RODO).
+  extensions. Photos pasted from a phone lose GPS position and author (RODO); an Exif orientation other than 1 stays,
+  alone in a minimal `APP1`, so the photo is not shown sideways (stripping stays idempotent; review U1c, finding 12).
 
 ### 7.3 Model and limits
 
