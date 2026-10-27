@@ -160,9 +160,9 @@ public enum GroupPolicyRefreshTarget
 }
 
 /// <summary>The outcome of a policy refresh.</summary>
-/// <param name="Completed">gpupdate ended (false: still running when the wait ended).</param>
-/// <param name="FinishedAt">End of the last computer policy processing (from the Group Policy state of the computer).</param>
-/// <param name="Status">Its status (0 = success).</param>
+/// <param name="Completed">The computer policy processing started by the refresh ended (false: still running when the wait ended).</param>
+/// <param name="FinishedAt">End of that processing (from the Group Policy state of the computer); null while it is still running.</param>
+/// <param name="Status">Its status (0 = success); null while it is still running.</param>
 /// <param name="UserRefreshScheduled">The scheduled task for the users was registered.</param>
 public sealed record GroupPolicyRefreshResult(bool Completed, DateTimeOffset? FinishedAt, int? Status, bool UserRefreshScheduled);
 

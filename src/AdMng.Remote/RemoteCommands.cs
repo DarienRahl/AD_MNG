@@ -17,7 +17,10 @@ internal static class RemoteCommands
 
     public const string TaskSchedulerNamespace = "root/Microsoft/Windows/TaskScheduler";
 
-    /// <summary>Win32_Process.Create of the computer policy refresh (no wait, the process is polled).</summary>
+    /// <summary>
+    /// Win32_Process.Create of the computer policy refresh. gpupdate returns at once (no wait) and the Group Policy state
+    /// is polled for a new end time; the process itself ends before the processing does.
+    /// </summary>
     public const string GpUpdateComputer = "gpupdate.exe /target:computer /force /wait:0";
 
     /// <summary>Win32_Process.Create that cancels a scheduled restart.</summary>

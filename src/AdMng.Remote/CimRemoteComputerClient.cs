@@ -16,10 +16,10 @@ namespace AdMng.Remote;
 /// </summary>
 public sealed class CimRemoteComputerClient(TimeProvider? time = null) : IRemoteComputerClient
 {
-    /// <summary>How long a gpupdate is watched before "still running" is reported.</summary>
+    /// <summary>How long a policy refresh is watched before "still running" is reported.</summary>
     public static readonly TimeSpan PolicyRefreshWait = TimeSpan.FromMinutes(10);
 
-    /// <summary>The interval of the gpupdate process checks.</summary>
+    /// <summary>The interval of the Group Policy state checks.</summary>
     public static readonly TimeSpan PolicyPollInterval = TimeSpan.FromSeconds(2);
 
     private readonly TimeProvider _time = time ?? TimeProvider.System;
@@ -110,23 +110,26 @@ internal sealed class CimRemoteSession(CimSession cim, SessionLogon logon, Remot
         return [.. services.Select(CimMapping.Service)];
     });
 
+    /// <summary>
+    /// gpupdate /wait:0 returns at once while the Group Policy service keeps processing, so the end time of the computer
+    /// policy processing is read before the launch and polled until a later one appears (<see cref="PolicyRefreshWatch"/>).
+    /// The default /wait is not used: gpupdate could block on a restart/logoff prompt nobody answers in session 0.
+    /// </summary>
     public Task<GroupPolicyRefreshResult> RefreshGroupPolicyAsync(GroupPolicyRefreshTarget target, CancellationToken cancellationToken) => RunAsync(cancellationToken, operation =>
     {
-        var processId = CimCalls.CreateProcess(cim, RemoteCommands.GpUpdateComputer, operation);
-        var deadline = time.GetUtcNow() + CimRemoteComputerClient.PolicyRefreshWait;
-        var completed = false;
-        while (!completed && time.GetUtcNow() < deadline)
-        {
-            cancellationToken.WaitHandle.WaitOne(CimRemoteComputerClient.PolicyPollInterval);
-            cancellationToken.ThrowIfCancellationRequested();
-            completed = !CimCalls.Query(cim, RemoteCommands.CimNamespace, $"SELECT ProcessId FROM Win32_Process WHERE ProcessId = {processId}", operation).Any();
-        }
-
-        var high = CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "EndTimeHi", operation);
-        var low = CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "EndTimeLo", operation);
-        var status = CimMapping.ToInt(CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "Status", operation));
+        var before = ReadPolicyEnd(operation);
+        CimCalls.CreateProcess(cim, RemoteCommands.GpUpdateComputer, operation);
+        var end = PolicyRefreshWatch.WaitForNewRun(
+            before,
+            () => ReadPolicyEnd(operation),
+            interval => cancellationToken.WaitHandle.WaitOne(interval),
+            time,
+            CimRemoteComputerClient.PolicyRefreshWait,
+            CimRemoteComputerClient.PolicyPollInterval,
+            cancellationToken);
+        var status = end is null ? null : CimMapping.ToInt(CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "Status", operation));
         var users = target == GroupPolicyRefreshTarget.ComputerAndUsers && options.RefreshUserPolicy && ScheduleUserRefresh(operation);
-        return new GroupPolicyRefreshResult(completed, CimMapping.GroupPolicyEnd(high, low), status, users);
+        return new GroupPolicyRefreshResult(end is not null, end, status, users);
     });
 
     public Task ScheduleRestartAsync(TimeSpan delay, string message, bool force, CancellationToken cancellationToken)
@@ -173,6 +176,11 @@ internal sealed class CimRemoteSession(CimSession cim, SessionLogon logon, Remot
 
         return ValueTask.CompletedTask;
     }
+
+    /// <summary>The end of the last computer policy processing (Group Policy state of the computer).</summary>
+    private DateTimeOffset? ReadPolicyEnd(CimOperationOptions operation) => CimMapping.GroupPolicyEnd(
+        CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "EndTimeHi", operation),
+        CimCalls.ReadDword(cim, RemoteCommands.MachinePolicyStateKey, "EndTimeLo", operation));
 
     /// <summary>The users' refresh: a one-time task for INTERACTIVE through the Task Scheduler CIM provider.</summary>
     private bool ScheduleUserRefresh(CimOperationOptions operation)
