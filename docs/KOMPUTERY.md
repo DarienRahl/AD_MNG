@@ -60,7 +60,9 @@ wszystkie fakty o zaznaczonym komputerze, ustalenia raportów i wiersz katalogu.
 - *Właściwości*, *Edycja zbiorcza…*, *Eksportuj CSV…* (plik wskazany przez operatora, separator z ustawień regionalnych,
   ochrona przed formułami, kolumna DN).
 - *Dokładne ostatnie logowanie* – `lastLogon` z każdego kontrolera domeny (do 500 komputerów, najwyżej 4 kontrolery
-  naraz). Komputer, który okazuje się aktywny, znika z raportów nieaktywności.
+  naraz). Komputer, który okazuje się aktywny, znika z raportów nieaktywności. Gdy zaznaczenie lub lista ma więcej niż
+  500 komputerów, okno najpierw pyta, czy sprawdzić tylko pierwsze 500 w bieżącej kolejności, a wynik podaje, ile
+  komputerów sprawdzono z ilu.
 - *Ustal lokację* – nazwa DNS komputera jest rozwiązywana resolverem stacji operatora (limit 2 s, 16 zapytań naraz), a
   adres dopasowywany do podsieci lasu (najdłuższy prefiks, także IPv6). Lokacja kontrolera domeny to lokacja jego obiektu
   serwera. Przy ponad 500 komputerach okno najpierw pyta o zgodę. Komunikaty: *brak podsieci*, *nie rozwiązano*.

@@ -302,6 +302,43 @@ public class ComputerReviewViewModelTests
     }
 
     [Fact]
+    public async Task ExactLastLogon_ForMoreThan500Computers_AsksFirst_AndSaysHowManyWereChecked()
+    {
+        var scenario = await CreateAsync("pl-PL");
+        var harness = scenario.Harness;
+        for (var i = 0; i < ComputerReviewViewModel.MaxExactLastLogon; i++)
+        {
+            harness.Builder.AddComputer($"ŻARY-PC{i:000}", scenario.Company.ComputersOu, new Dictionary<string, object?>
+            {
+                [Attr.OperatingSystem] = "Windows 11 Pro",
+                [Attr.OperatingSystemVersion] = "10.0 (26100)",
+            });
+        }
+
+        var connected = 0;
+        harness.ConnectToServer = (current, server, _) =>
+        {
+            Interlocked.Increment(ref connected);
+            return Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(harness.Session, server));
+        };
+        using var review = await scenario.RunAsync();
+        review.SelectedTile = review.Tiles.Single(t => t.Release == "Windows 11 24H2");
+        var total = review.Items.Count;
+        Assert.True(total > ComputerReviewViewModel.MaxExactLastLogon);
+
+        // Declined: nothing is read.
+        await review.ReadExactLastLogonCommand.ExecuteAsync(null);
+        Assert.Equal($"confirm:Ze wszystkimi kontrolerami domeny zostanie porównanych tylko pierwszych 500 z {total} komputerów w bieżącej kolejności; pozostałe zachowają wartość replikowaną. Zaznacz komputery do sprawdzenia albo kontynuuj z pierwszymi 500?", harness.Dialogs.Shown[^1]);
+        Assert.Equal(0, connected);
+
+        // Confirmed: the result names the cut.
+        harness.Dialogs.ConfirmAnswers.Enqueue(true);
+        await review.ReadExactLastLogonCommand.ExecuteAsync(null);
+        Assert.True(connected > 0);
+        Assert.StartsWith($"Sprawdzono 500 z {total} komputerów. Odpowiedziało ", harness.Notifications.Items[^1].Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ResolveSites_MatchesTheAddressWithTheLongestSubnet_AndDomainControllersWithTheirServerObject()
     {
         var scenario = await CreateAsync();

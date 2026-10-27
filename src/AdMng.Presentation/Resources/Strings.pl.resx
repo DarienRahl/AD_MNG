@@ -7953,6 +7953,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="ComputerReview.ExactDone" xml:space="preserve">
     <value>Odpowiedziało {0} z {1} kontrolerów domeny; aktywnych okazało się {2} komputerów.</value>
   </data>
+  <data name="ComputerReview.ExactLimitConfirm" xml:space="preserve">
+    <value>Ze wszystkimi kontrolerami domeny zostanie porównanych tylko pierwszych {0} z {1} komputerów w bieżącej kolejności; pozostałe zachowają wartość replikowaną. Zaznacz komputery do sprawdzenia albo kontynuuj z pierwszymi {0}?</value>
+  </data>
+  <data name="ComputerReview.ExactChecked" xml:space="preserve">
+    <value>Sprawdzono {0} z {1} komputerów.</value>
+  </data>
   <data name="ComputerReview.ExactOn" xml:space="preserve">
     <value>{0} ({1})</value>
   </data>

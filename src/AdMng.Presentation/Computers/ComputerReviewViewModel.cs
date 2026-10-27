@@ -355,12 +355,22 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
         }
     }
 
-    /// <summary>"Dokładne ostatnie logowanie": lastLogon of the selection (or the list, at most 500) on every DC.</summary>
+    /// <summary>
+    /// "Dokładne ostatnie logowanie": lastLogon of the selection (or the list) on every DC – at most 500 computers. With
+    /// more, the operator is asked first, and the result says how many were checked out of how many.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(CanRead))]
     private async Task ReadExactLastLogonAsync()
     {
-        var rows = Targets().Take(MaxExactLastLogon).ToList();
+        var targets = Targets();
+        var rows = targets.Take(MaxExactLastLogon).ToList();
         if (rows.Count == 0 || Session is not { } session || _run is not { } run)
+        {
+            return;
+        }
+
+        if (targets.Count > rows.Count
+            && !await Services.Dialogs.ConfirmAsync(Localizer[L.ComputerReview.ExactLastLogon], Localizer.Format(L.ComputerReview.ExactLimitConfirm, rows.Count, targets.Count), destructive: false).ConfigureAwait(true))
         {
             return;
         }
@@ -411,6 +421,10 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
             RebuildItems();
             var failed = reads.Where(r => !r.Succeeded).ToList();
             var message = Localizer.Format(L.ComputerReview.ExactDone, answered.Count, reads.Count, active);
+            if (targets.Count > rows.Count)
+            {
+                message = Localizer.Format(L.ComputerReview.ExactChecked, rows.Count, targets.Count) + " " + message;
+            }
             if (failed.Count > 0)
             {
                 message += Environment.NewLine + string.Join(Environment.NewLine, failed.Select(f => $"{f.Server}: {f.Error}"));

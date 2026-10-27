@@ -7953,6 +7953,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="ComputerReview.ExactDone" xml:space="preserve">
     <value>{0} of {1} domain controllers answered; {2} computers were active after all.</value>
   </data>
+  <data name="ComputerReview.ExactLimitConfirm" xml:space="preserve">
+    <value>Only the first {0} of {1} computers in the current order are compared against every domain controller; the others keep the replicated value. Select the computers to check, or continue with the first {0}?</value>
+  </data>
+  <data name="ComputerReview.ExactChecked" xml:space="preserve">
+    <value>Checked {0} of {1} computers.</value>
+  </data>
   <data name="ComputerReview.ExactOn" xml:space="preserve">
     <value>{0} ({1})</value>
   </data>

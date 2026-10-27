@@ -136,6 +136,8 @@ public static partial class L
         public const string ExactLastLogon = "ComputerReview.ExactLastLogon";
         public const string ReadingDomainControllers = "ComputerReview.ReadingDomainControllers";
         public const string ExactDone = "ComputerReview.ExactDone";
+        public const string ExactLimitConfirm = "ComputerReview.ExactLimitConfirm";
+        public const string ExactChecked = "ComputerReview.ExactChecked";
         public const string ExactOn = "ComputerReview.ExactOn";
         public const string Never = "ComputerReview.Never";
         public const string DaysAgo = "ComputerReview.DaysAgo";
