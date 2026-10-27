@@ -355,6 +355,47 @@ public sealed class GroupPolicyWindowTests
     });
 
     [Fact]
+    public Task PickerWindow_ListsTheDomainsGpos_WithoutTheExcludedOnes_FiltersAndReturnsTheChosenOne() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        await context.ConnectAsync();
+        UiTestSupport.ShowOffScreen(context.Services.GetRequiredService<MainWindow>());
+        var gp = context.Services.GetRequiredService<GroupPolicyServices>();
+        var windows = context.Services.GetRequiredService<IWindowService>();
+        var all = await gp.Reader.ReadPoliciesAsync(context.Directory.Session, CancellationToken.None);
+
+        // "Połącz istniejący GPO…" offers every GPO of the domain except those already linked to the target.
+        var picker = (GpoPickerWindow)windows.CreateWindow(new GpoPickerViewModel(
+            gp.Ui, gp.Reader, "Połącz istniejący GPO z Komputery", multiSelect: false, [sample.WorkstationPasswords]));
+        UiTestSupport.ShowOffScreen(picker);
+        await UiWait.InitializedAsync(picker.Initialization);
+        await UiWait.UntilAsync(() => !picker.ViewModel.IsLoading, "the GPOs of the domain");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal("Połącz istniejący GPO z Komputery", picker.Title);
+        Assert.Equal(Visibility.Collapsed, picker.ErrorBar.Visibility);
+        Assert.Equal(all.Count - 1, picker.GpoList.Items.Count);
+        Assert.DoesNotContain(picker.GpoList.Items.Cast<GpoPickerItem>(), i => i.Gpo.Id == sample.WorkstationPasswords);
+        Assert.False(picker.OkButton.IsEnabled);
+
+        // The filter narrows the list by name (case-insensitive, Polish letters included).
+        picker.ViewModel.FilterText = "PULPIT ZDALNY";
+        await UiTestSupport.WaitForIdleAsync();
+        var item = Assert.Single(picker.GpoList.Items.Cast<GpoPickerItem>());
+        Assert.Equal("Stacje robocze – Pulpit zdalny", item.Name);
+
+        picker.GpoList.SelectedItem = item;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(picker.OkButton.IsEnabled);
+        picker.OkButton.Command.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(picker.Result);
+        Assert.False(picker.IsVisible);
+        Assert.Equal(sample.WorkstationRemoteDesktop, Assert.Single(picker.ViewModel.Result).Id);
+        context.AssertHealthy();
+    });
+
+    [Fact]
     public Task PreviewWindow_ShowsTheSysvolRows_AndTheDiffOfAFile() => WpfTestHost.RunAsync(async () =>
     {
         await using var context = await UiTestContext.CreateAsync(language: "pl");
