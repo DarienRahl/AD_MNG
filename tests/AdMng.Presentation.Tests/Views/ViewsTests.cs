@@ -177,4 +177,29 @@ public class ViewsTests
         await library.SaveViewAsync(library.FindView("a")! with { Name = "A2" });
         Assert.Equal(1, changed);
     }
+
+    [Fact]
+    public async Task Library_IgnoresUnrelatedChanges_OfTheCopyOnWriteSettingsFile()
+    {
+        // The real store deserializes new views (and new column and chip lists) on every update.
+        using var paths = new TempAppPaths();
+        var settings = new JsonSettingsStore(paths);
+        await settings.LoadAsync(TestContext.Current.CancellationToken);
+        var library = new ViewLibrary(settings);
+        await library.SaveViewAsync(new SavedView { Id = "a", Name = "Konta wyłączone – Łódź", Columns = ["name", "l"], QuickFilters = [QuickFilterKind.Disabled] });
+        await library.PinAsync(It, "IT");
+        var changed = 0;
+        library.Changed += (_, _) => changed++;
+
+        await settings.UpdateAsync(s => s.AddRecentContainer(It), TestContext.Current.CancellationToken);
+        await settings.UpdateAsync(s => s.ColumnLayouts["container"] = [new ColumnLayoutEntry("name", 300)], TestContext.Current.CancellationToken);
+        Assert.Equal(0, changed);
+
+        await library.SaveViewAsync(library.FindView("a")! with { Columns = ["name"] });
+        Assert.Equal(1, changed);
+        await library.MovePinnedAsync(It, 1);
+        Assert.Equal(1, changed);
+        await library.UnpinAsync(It);
+        Assert.Equal(2, changed);
+    }
 }
