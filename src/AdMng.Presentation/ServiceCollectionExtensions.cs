@@ -102,6 +102,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<UserMessages.WatchdogUserMessageTransport>();
         services.TryAddSingleton<UserMessages.UserMessageTransportSelector>();
         services.TryAddSingleton<UserMessages.UserMessageTemplateLibrary>();
+        // U1c: the image files of saved templates (next to the settings) and the reader of pasted Outlook images (the App
+        // registers one that expands 8.3 names).
+        services.TryAddSingleton<UserMessages.MessageImageStore>();
+        services.TryAddSingleton<Core.Messaging.Html.IPastedImageSource>(_ => new UserMessages.PastedImageFileSource());
         services.TryAddSingleton(sp => new MessageRateLimiter(sp.GetRequiredService<TimeProvider>()));
         services.TryAddScoped<UserMessages.UserMessageServices>();
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();

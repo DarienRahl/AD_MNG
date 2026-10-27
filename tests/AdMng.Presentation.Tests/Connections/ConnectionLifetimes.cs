@@ -50,6 +50,8 @@ internal static class ConnectionLifetimes
         typeof(Presentation.Filters.FilterLibrary),
         typeof(Core.Messaging.MessageRateLimiter),
         typeof(SmtpCredentialCache),
+        typeof(MessageImageStore),
+        typeof(Core.Messaging.Html.IPastedImageSource),
         typeof(WatchdogConnectionService),
         typeof(ConnectionRegistry),
     ];

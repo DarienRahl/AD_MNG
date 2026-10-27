@@ -21,7 +21,8 @@ public static class UserMessageText
         ["auth", "auth.noCredential", "auth.unencrypted", "auth.mechanismNotOffered", "config.host", "config.pin", "address", "tls", "timeout", "io", "smtp.notSupported",
          "watchdog.queued", "watchdog.disabled", "watchdog.senderNotAllowed", "watchdog.invalid", "watchdog.conflict", "watchdog.limit",
          "watchdog.forbidden", "watchdog.notSupported", "watchdog.notConfigured", "watchdog.unreachable", "watchdog.serverError",
-         "smtp.disabled", "userMessages.disabled"];
+         "smtp.disabled", "userMessages.disabled",
+         WatchdogUserMessageTransport.ImagesNotSupportedCode, WatchdogUserMessageTransport.ImageStorageCode, "smtp.invalidImage"];
 
     public static string IssueKey(string code) => "UserMessages.Issue." + code;
 
@@ -54,6 +55,7 @@ public static class UserMessageText
     /// <summary>Every key of the dynamic families (localization test).</summary>
     public static IEnumerable<string> AllDynamicKeys() =>
         MessageIssueCodes.All.Select(IssueKey)
+            .Concat(HtmlIssueCodes.All.Select(IssueKey))
             .Concat(Enum.GetValues<PlannedMessageStatus>().Select(StatusKey))
             .Concat(Enum.GetValues<UserMessageReportStatus>().Select(ReportStatusKey))
             .Concat(Enum.GetValues<UserMessageNotSentReason>().Where(r => r != UserMessageNotSentReason.None).Select(NotSentKey))

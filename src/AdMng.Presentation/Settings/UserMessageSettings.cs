@@ -116,6 +116,10 @@ public sealed class UserMessageSettings
 
     public UserMessageTransportChoice Transport { get; set; } = UserMessageTransportChoice.Automatic;
 
+    /// <summary>The formatted preview of HTML bodies (embedded WebView2, U1c); off = the HTML source only (environments that
+    /// forbid an embedded browser).</summary>
+    public bool RenderedPreview { get; set; } = true;
+
     public SmtpConnectionSettings Smtp { get; set; } = new();
 
     /// <summary>The operator's templates (built-ins are not stored).</summary>
@@ -148,6 +152,7 @@ public sealed class UserMessageSettings
             {
                 Polish = t.Polish ?? new(),
                 English = t.English ?? new(),
+                Images = [.. (t.Images ?? []).Where(i => i is not null && i.IsValid).DistinctBy(i => i.ContentId, StringComparer.OrdinalIgnoreCase).Take(Core.Messaging.Images.MessageImageLimits.MaxImagesPerTemplate)],
                 Condition = Enum.IsDefined(t.Condition) ? t.Condition : MessageConditionKind.None,
                 Recipients = Enum.IsDefined(t.Recipients) ? t.Recipients : MessageRecipientMode.User,
                 ConditionDays = Math.Clamp(t.ConditionDays, 0, 3650),

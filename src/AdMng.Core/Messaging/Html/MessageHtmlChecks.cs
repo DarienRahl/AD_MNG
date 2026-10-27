@@ -85,7 +85,8 @@ public static class MessageHtmlChecks
 
     /// <summary>
     /// The template as it is saved (cosmetic changes applied, design note section 4.2): each language's HTML sanitized in
-    /// template mode, images referenced by neither language dropped.
+    /// template mode – unless it has a security finding, which stays visible as an error and is never silently removed –
+    /// and images referenced by neither language dropped.
     /// </summary>
     public static MessageTemplate Normalize(MessageTemplate template)
     {
@@ -93,9 +94,13 @@ public static class MessageHtmlChecks
         MessageTemplateText Clean(MessageTemplateText? text)
         {
             text ??= new();
-            return string.IsNullOrWhiteSpace(text.Html)
-                ? text with { Html = null }
-                : text with { Html = MessageHtmlSanitizer.Sanitize(text.Html, TemplateOptions(template, text.Html)).Html };
+            if (string.IsNullOrWhiteSpace(text.Html))
+            {
+                return text with { Html = null };
+            }
+
+            var result = MessageHtmlSanitizer.Sanitize(text.Html, TemplateOptions(template, text.Html));
+            return result.Changes.Any(c => c.IsSecurity) ? text : text with { Html = result.Html };
         }
 
         var polish = Clean(template.Polish);
@@ -216,6 +221,63 @@ public static class MessageHtmlChecks
             {
                 image.Parent?.RemoveChild(image);
             }
+        }
+
+        return mode == HtmlSanitizeMode.Fragment ? HtmlSerializer.Children(run.Root) : HtmlSerializer.Document(run.Root);
+    }
+
+    /// <summary>Removes every <c>&lt;img src="cid:<paramref name="contentId"/>"&gt;</c> (the editor's "Usuń" of an image);
+    /// everything else stays as it is.</summary>
+    public static string RemoveImage(string html, string contentId)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentId);
+        return Edit(html, document =>
+        {
+            var images = document.Descendants<IElement>()
+                .Where(e => e.LocalName == "img" && e.GetAttribute("src") is { } src && src.Trim().StartsWith("cid:", StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(src.Trim()[4..], contentId.Trim(), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            foreach (var image in images)
+            {
+                image.Parent?.RemoveChild(image);
+            }
+
+            return images.Count > 0;
+        });
+    }
+
+    /// <summary>Unwraps every link to <paramref name="host"/> (or a subdomain), keeping its text ("Usuń łącze").</summary>
+    public static string RemoveLinks(string html, string host)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+        var target = host.Trim().ToLowerInvariant();
+        return Edit(html, document =>
+        {
+            var links = document.Descendants<IElement>()
+                .Where(e => e.LocalName == "a" && e.GetAttribute("href") is { } href
+                            && HtmlLinkInspector.HostOf(href) is { } linkHost
+                            && (linkHost == target || linkHost.EndsWith("." + target, StringComparison.Ordinal)))
+                .ToList();
+            foreach (var link in links)
+            {
+                HtmlSanitizerRun.Unwrap(link);
+            }
+
+            return links.Count > 0;
+        });
+    }
+
+    /// <summary>Parses <paramref name="html"/> in its mode, applies <paramref name="change"/> and serializes it again when it
+    /// changed something.</summary>
+    private static string Edit(string html, Func<IDocument, bool> change)
+    {
+        var mode = ModeOf(html);
+        var run = HtmlSanitizerRun.Parse(html, new HtmlSanitizeOptions { Mode = mode });
+        if (!change(run.Document))
+        {
+            return html;
         }
 
         return mode == HtmlSanitizeMode.Fragment ? HtmlSerializer.Children(run.Root) : HtmlSerializer.Document(run.Root);

@@ -13,9 +13,29 @@ public interface IFileDialogService
     Task<string?> SaveFileAsync(string title, string defaultFileName, IReadOnlyList<FileFilter> filters);
 }
 
+/// <summary>
+/// What the clipboard holds for "Wklej sformatowaną treść" (U1c, design note u1c-u1d section 2): the raw bytes of the
+/// <c>HTML Format</c> (CF_HTML, UTF-8 with byte offsets), or – when the raw read failed – the string the platform gave for it
+/// (parsed in text mode), a PNG (a bitmap converted to PNG by the platform) and the Unicode text. Read on the UI thread;
+/// everything else runs off it. <see cref="ToString"/> never shows the content.
+/// </summary>
+public sealed record ClipboardContent(byte[]? CfHtml, string? CfHtmlText, byte[]? Png, string? Text)
+{
+    public bool IsEmpty => CfHtml is not { Length: > 0 } && string.IsNullOrEmpty(CfHtmlText) && Png is not { Length: > 0 } && string.IsNullOrEmpty(Text);
+
+    public override string ToString() =>
+        $"ClipboardContent(html {CfHtml?.Length ?? CfHtmlText?.Length ?? 0}, png {Png?.Length ?? 0}, text {Text?.Length ?? 0})";
+}
+
 /// <summary>System clipboard.</summary>
 public interface IClipboardService
 {
+    /// <summary>
+    /// The formatted content of the clipboard (U1c), or null when it cannot be read or holds nothing usable. The default
+    /// (scopeless windows, test doubles) has nothing.
+    /// </summary>
+    ClipboardContent? ReadFormatted() => null;
+
     /// <summary>
     /// Puts text on the clipboard. Returns false when the clipboard could not be written (another process held it; the
     /// operator was warned) - callers then do not confirm the copy.

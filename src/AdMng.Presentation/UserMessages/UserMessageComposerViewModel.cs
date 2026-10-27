@@ -327,7 +327,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             Name = name,
             ConditionDays = ConditionDays,
         };
-        var stored = await _messages.Templates.SaveAsync(template).ConfigureAwait(true);
+        var stored = await _messages.Templates.SaveAsync(template, _images.Values).ConfigureAwait(true);
         SelectTemplate(stored.Id);
         Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.UserMessages.TemplateSaved, stored.Name));
     }
@@ -367,7 +367,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
         try
         {
-            var json = _messages.Templates.ExportJson();
+            var json = await _messages.Templates.ExportJsonAsync().ConfigureAwait(true);
             await File.WriteAllTextAsync(path, json).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.Files.Exported, _messages.Templates.Custom.Count, Path.GetFileName(path)));
         }
@@ -389,7 +389,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
 
         try
         {
-            var count = await _messages.Templates.ImportAsync(await File.ReadAllTextAsync(path).ConfigureAwait(true)).ConfigureAwait(true);
+            var count = await ImportTemplatesWithImagesAsync(await File.ReadAllTextAsync(path).ConfigureAwait(true)).ConfigureAwait(true);
             Services.Notifications.Show(NotificationSeverity.Success, Localizer.Format(L.UserMessages.TemplatesImported, count));
         }
         catch (Exception ex) when (ex is JsonException or FormatException)
@@ -436,7 +436,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             return;
         }
 
-        if (await EnsureTransportAsync().ConfigureAwait(true) is not { } transport)
+        if (await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+            || !await FitsTransportAsync(transport, [planned], test: true).ConfigureAwait(true))
         {
             return;
         }
@@ -477,7 +478,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
     private async Task SendAsync()
     {
         var items = _items.Where(i => i.CanInclude && i.IsIncluded).ToList();
-        if (items.Count == 0 || await EnsureTransportAsync().ConfigureAwait(true) is not { } transport)
+        if (items.Count == 0 || await EnsureTransportAsync().ConfigureAwait(true) is not { } transport
+            || !await FitsTransportAsync(transport, [.. items.Select(i => i.Planned)], test: false).ConfigureAwait(true))
         {
             return;
         }
@@ -578,6 +580,8 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
                 Recipients = RecipientMode.Value,
                 ConditionDays = ConditionDays,
                 Inputs = inputs,
+                Images = await PlanImagesAsync().ConfigureAwait(true),
+                OmitImages = _omitImages,
                 Sender = UserMessageSenders.From(Services.Settings.Current.UserMessages, session.Info.DomainDnsName),
                 Accounts = [.. distinguishedNames.Select(dn =>
                 {
@@ -724,7 +728,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         ProgressText = Localizer.Format(L.UserMessages.Progress, 0, items.Count, 0, 0);
         var operatorName = Session?.Info.BoundIdentity ?? string.Empty;
         var domainNc = Session?.Info.DefaultNamingContext ?? string.Empty;
-        var templateName = SelectedTemplate?.Text ?? string.Empty;
+        var templateName = WithRunNote(SelectedTemplate?.Text ?? string.Empty);
         ApplyRateSettings();
         var progress = Services.Dispatcher.CreateProgress<UserMessageProgress>(p =>
         {
@@ -894,6 +898,7 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
         try
         {
             _working = template;
+            OnTemplateLoaded(template);
             TemplateName = UserMessageTemplateLibrary.IsBuiltIn(template.Id) ? Localizer.Format(L.UserMessages.CopyName, template.Name) : template.Name;
             Condition = Conditions.First(c => c.Value == template.Condition);
             ConditionDays = conditionDays ?? template.ConditionDays;

@@ -163,6 +163,27 @@ public class UserMessageImagesPlannerTests
     }
 
     [Fact]
+    public void Normalize_KeepsHtmlWithASecurityFinding_AsItIs()
+    {
+        var template = Template("<P onclick=\"x()\">Kliknij</P>");
+        Assert.Equal("<P onclick=\"x()\">Kliknij</P>", MessageHtmlChecks.Normalize(template).Polish.Html);
+    }
+
+    [Fact]
+    public void RemoveImage_AndRemoveLinks_ChangeOnlyTheirTargets()
+    {
+        var html = $"<p>Logo <img src=\"cid:{Logo.ContentId}\" alt=\"Logo\"> i <img src=\"CID:{Screenshot.ContentId}\" alt=\"Zrzut\"></p>\n";
+        Assert.Equal($"<p>Logo  i <img src=\"CID:{Screenshot.ContentId}\" alt=\"Zrzut\"></p>\n", MessageHtmlChecks.RemoveImage(html, Logo.ContentId.ToUpperInvariant()));
+        Assert.Same(html, MessageHtmlChecks.RemoveImage(html, "img-0000000000000000@admng"));
+
+        var links = "<p><a href=\"https://haslo.contoso.pl/zmien\">zmień hasło</a>, <a href=\"https://www.portal.contoso.pl/\">portal</a>, <a href=\"https://contoso.test/\">intranet</a></p>\n";
+        Assert.Equal("<p>zmień hasło, portal, <a href=\"https://contoso.test/\">intranet</a></p>\n", MessageHtmlChecks.RemoveLinks(links, "contoso.pl"));
+        var document = MessageHtmlChecks.RemoveLinks("<html><body><p><a href=\"https://evil.example/\">a</a> b</p></body></html>", "evil.example");
+        Assert.StartsWith("<!DOCTYPE html>", document, StringComparison.Ordinal);
+        Assert.Contains("<p>a b</p>", document, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheRenderedDocument_IsValidatedAgain()
     {
         // A field value never becomes markup (it is HTML-encoded): the rendered document has no findings.
