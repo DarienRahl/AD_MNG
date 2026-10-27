@@ -61,6 +61,33 @@ public sealed class ObjectComparisonViewModelTests
     }
 
     [Fact]
+    public async Task TheValuesList_HasAnAccessibleName_WithAndWithoutASelectedRow()
+    {
+        var domains = await ComparisonDomains.CreateAsync();
+        var (host, a, _) = await domains.OpenAsync();
+        await using var _ = host;
+        using var comparison = await a.Compare(domains.Contoso.Company.LukaszWisniewski).RunAsync();
+        var changed = new List<string?>();
+        comparison.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        // AutomationProperties.Name rejects null (a binding error in the window): nothing selected still names the list.
+        Assert.Null(comparison.SelectedAttributeRow);
+        Assert.Null(comparison.SelectedValuesHeader);
+        Assert.Equal("Values of the selected attribute", comparison.ValuesListName);
+
+        comparison.SelectedAttributeRow = comparison.Row(Attr.City);
+        Assert.Contains(nameof(comparison.ValuesListName), changed);
+        Assert.NotNull(comparison.SelectedValuesHeader);
+        Assert.StartsWith("Values: ", comparison.SelectedValuesHeader, StringComparison.Ordinal);
+        Assert.Equal(comparison.SelectedValuesHeader, comparison.ValuesListName);
+
+        changed.Clear();
+        comparison.SelectedAttributeRow = null;
+        Assert.Contains(nameof(comparison.ValuesListName), changed);
+        Assert.Equal("Values of the selected attribute", comparison.ValuesListName);
+    }
+
+    [Fact]
     public async Task Toggles_ShowEqualAndVolatileAttributes_AndAddressesWithTheirDomain()
     {
         var domains = await ComparisonDomains.CreateAsync();

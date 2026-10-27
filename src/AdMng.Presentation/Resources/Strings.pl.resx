@@ -710,6 +710,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   <data name="Comparison.ValuesOf" xml:space="preserve">
     <value>Wartości: {0}</value>
   </data>
+  <data name="Comparison.ValuesOfSelection" xml:space="preserve">
+    <value>Wartości zaznaczonego atrybutu</value>
+  </data>
   <data name="Comparison.WindowTitle" xml:space="preserve">
     <value>Porównanie: {0} – {1} ↔ {2}</value>
   </data>

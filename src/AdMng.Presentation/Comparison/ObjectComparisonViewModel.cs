@@ -184,12 +184,18 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
     public BulkObservableCollection<AttributeComparisonRowViewModel> AttributeRows { get; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SelectedValuesHeader))]
+    [NotifyPropertyChangedFor(nameof(SelectedValuesHeader), nameof(ValuesListName))]
     [NotifyCanExecuteChangedFor(nameof(CopyRowCommand))]
     public partial AttributeComparisonRowViewModel? SelectedAttributeRow { get; set; }
 
     /// <summary>"Wartości: Miejscowość" for the details pane, or null.</summary>
     public string? SelectedValuesHeader => SelectedAttributeRow is { } row ? Localizer.Format(L.Comparison.ValuesOf, row.DisplayName) : null;
+
+    /// <summary>
+    /// The accessible name of the values list: <see cref="SelectedValuesHeader"/>, or "Wartości zaznaczonego atrybutu" while
+    /// no row is selected. Never null (WPF rejects a null <c>AutomationProperties.Name</c> as a binding error).
+    /// </summary>
+    public string ValuesListName => SelectedValuesHeader ?? Localizer[L.Comparison.ValuesOfSelection];
 
     /// <summary>"Tylko różnice" (on by default; remembered).</summary>
     [ObservableProperty]
@@ -309,6 +315,8 @@ public sealed partial class ObjectComparisonViewModel : WindowViewModelBase
         RebuildRules(selectedRule);
         RebuildRows();
         OnPropertyChanged(nameof(NoTargetsMessage));
+        OnPropertyChanged(nameof(SelectedValuesHeader));
+        OnPropertyChanged(nameof(ValuesListName));
     }
 
     // ---- Commands ---------------------------------------------------------------------------------------------

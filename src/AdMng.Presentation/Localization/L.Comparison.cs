@@ -144,6 +144,9 @@ public static partial class L
         /// <summary>{0} = attribute name: the header of the details pane.</summary>
         public const string ValuesOf = "Comparison.ValuesOf";
 
+        /// <summary>The accessible name of the values list while no attribute row is selected.</summary>
+        public const string ValuesOfSelection = "Comparison.ValuesOfSelection";
+
         public const string CopiedRow = "Comparison.CopiedRow";
     }
 }

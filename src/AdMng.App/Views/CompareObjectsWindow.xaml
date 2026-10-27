@@ -463,7 +463,7 @@
                      Text="{Binding SelectedValuesHeader, Mode=OneWay}" />
           <ListView x:Name="ValuesList"
                     Grid.Row="3"
-                    AutomationProperties.Name="{Binding SelectedValuesHeader, Mode=OneWay}"
+                    AutomationProperties.Name="{Binding ValuesListName, Mode=OneWay}"
                     ItemContainerStyle="{StaticResource ValueRowStyle}"
                     ItemsSource="{Binding SelectedAttributeRow.Details, Mode=OneWay}">
             <ListView.View>

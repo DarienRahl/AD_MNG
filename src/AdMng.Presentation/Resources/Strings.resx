@@ -710,6 +710,9 @@ Apply the change to the remaining {1} object(s) in the domain {2}?</value>
   <data name="Comparison.ValuesOf" xml:space="preserve">
     <value>Values: {0}</value>
   </data>
+  <data name="Comparison.ValuesOfSelection" xml:space="preserve">
+    <value>Values of the selected attribute</value>
+  </data>
   <data name="Comparison.WindowTitle" xml:space="preserve">
     <value>Comparison: {0} – {1} ↔ {2}</value>
   </data>
