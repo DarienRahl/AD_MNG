@@ -121,7 +121,7 @@ public class UserMessageImagesPlannerTests
         var planned = Assert.Single(plan.Messages);
         Assert.Empty(planned.Message!.InlineImages);
         Assert.DoesNotContain("cid:", planned.Message.HtmlBody, StringComparison.Ordinal);
-        Assert.Contains("<span>[Logo – Dział IT]</span>", planned.Message.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("Logo: [Logo – Dział IT]", planned.Message.HtmlBody, StringComparison.Ordinal);
         Assert.Contains(planned.Issues, i => i.Code == HtmlIssueCodes.ImagesOmitted && i.Severity == MessageIssueSeverity.Info);
         Assert.Equal(PlannedMessageStatus.Ready, planned.Status);
     }
@@ -203,6 +203,31 @@ public class UserMessageImagesPlannerTests
         });
         Assert.DoesNotContain(plan.Messages[0].Issues, i => i.Code == MessageIssueCodes.HtmlNotAllowed);
         Assert.Contains("&lt;img src=x onerror=alert(1)&gt;", plan.Messages[0].Message!.HtmlBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSentDocument_IsTheSanitizedOne_WhateverTheTransport()
+    {
+        // Comments and style rules the inliner skips were only "cosmetic" findings: sent as they were, Outlook classic showed
+        // the conditional comment and clients that honour <style> hid the warning.
+        // (Braces of a template are doubled.)
+        const string html = "<style>@media screen {{ .ostrzezenie {{ display:none }} }} p::after {{ content: ' Zadzwoń: +48 800 000 000' }} div > p {{ position:fixed; top:0 }}</style>"
+            + "<!--[if mso]><p>Hasło podaj telefonicznie pod numerem +48 800 000 000.</p><![endif]-->"
+            + "<div><p class=\"ostrzezenie\">Nigdy nie podawaj hasła, {givenName}.</p></div>";
+        var plan = Planner.Plan(Request(Template(html)));
+        Assert.False(plan.IsBlocked);
+        var planned = Assert.Single(plan.Messages);
+        Assert.DoesNotContain(planned.Issues, i => i.Severity == MessageIssueSeverity.Error);
+        var sent = planned.Message!.HtmlBody!;
+        Assert.Contains("Nigdy nie podawaj hasła, Łukasz.", sent, StringComparison.Ordinal);
+        foreach (var hidden in new[] { "<style", "Hasło podaj", "[if mso]", "position", "content", "ostrzezenie", "display" })
+        {
+            Assert.DoesNotContain(hidden, sent, StringComparison.Ordinal);
+        }
+
+        Assert.StartsWith("<!DOCTYPE html>", sent, StringComparison.Ordinal);
+        Assert.Contains("Nigdy nie prosimy o podanie hasła", sent, StringComparison.Ordinal);
+        Assert.Equal(sent, MessageHtmlSanitizer.Sanitize(sent, new HtmlSanitizeOptions { Mode = HtmlSanitizeMode.Document }).Html);
     }
 
     [Fact]

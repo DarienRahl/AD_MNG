@@ -143,6 +143,19 @@ public sealed class TemplateLibraryImagesTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_NormalizesTheHtml_LikeASave()
+    {
+        // A templates file is never trusted to be normalized: comments and style rules the inliner skips are dropped.
+        var json = "{\"format\":\"AdMng.MessageTemplates\",\"version\":1,\"templates\":[{\"name\":\"Z pliku\",\"polish\":{\"subject\":\"Hasło\",\"body\":\"Treść\","
+            + "\"html\":\"<!--[if mso]><p>Hasło podaj telefonicznie.</p><![endif]--><P CLASS=MsoNormal>Nigdy nie podawaj hasła – Łódź.</P>\"}}]}";
+
+        Assert.Equal(new TemplateImportResult(1, 0), await _library.ImportTemplatesAsync(json));
+
+        var imported = Assert.Single(_settings.Current.UserMessages.Templates);
+        Assert.Equal("<p>Nigdy nie podawaj hasła – Łódź.</p>\n", imported.Polish.Html);
+    }
+
+    [Fact]
     public async Task FilesOver20MiB_AreRefused()
     {
         var json = "{\"format\":\"AdMng.MessageTemplates\",\"version\":2,\"templates\":[],\"x\":\"" + new string('a', UserMessageTemplateLibrary.MaxFileLength) + "\"}";

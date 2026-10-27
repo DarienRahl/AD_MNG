@@ -169,7 +169,7 @@ public sealed class WatchdogUserMessageTransportImagesTests
         Assert.True(composer.IsWithoutImages);
         var item = Item(composer, "Jan Kowalski");
         Assert.Empty(item.InlineImages);
-        Assert.Contains("<span>[Logo – Dział IT]</span>", item.HtmlBody, StringComparison.Ordinal);
+        Assert.Contains("<p>[Logo – Dział IT]</p>", item.HtmlBody, StringComparison.Ordinal);
         Assert.Contains(item.Planned.Issues, i => i.Code == HtmlIssueCodes.ImagesOmitted);
         scenario.Harness.Dialogs.ConfirmAnswers.Enqueue(true);
         await composer.SendCommand.ExecuteAsync(null);

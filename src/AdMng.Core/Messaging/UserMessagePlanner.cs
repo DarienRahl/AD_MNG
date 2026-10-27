@@ -411,7 +411,7 @@ public sealed class UserMessagePlanner
                 ReplyTo = sender.ReplyTo,
                 Subject = subject,
                 TextBody = UserMessageRules.TextDocument(body, footer),
-                HtmlBody = UserMessageRules.HtmlDocument(htmlBody, footer, language),
+                HtmlBody = rich.HtmlDocument ?? UserMessageRules.HtmlDocument(htmlBody, footer, language),
                 InlineImages = rich.InlineImages,
                 Language = language,
             };

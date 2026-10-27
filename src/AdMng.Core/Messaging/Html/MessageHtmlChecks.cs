@@ -3,10 +3,13 @@ using AngleSharp.Dom;
 
 namespace AdMng.Core.Messaging.Html;
 
-/// <summary>The inline images of one planned message (empty for a text-only template or "send without images").</summary>
-public sealed record MessageHtmlParts(IReadOnlyList<MessageImage> InlineImages)
+/// <summary>The inline images of one planned message (empty for a text-only template or "send without images") and its
+/// sanitized HTML document – what both transports send and the preview shows (null for a text-only template).</summary>
+public sealed record MessageHtmlParts(IReadOnlyList<MessageImage> InlineImages, string? HtmlDocument = null)
 {
     public static MessageHtmlParts None { get; } = new([]);
+
+    public override string ToString() => $"MessageHtmlParts({InlineImages.Count} images, {HtmlDocument?.Length ?? 0} characters)";
 }
 
 /// <summary>
@@ -113,7 +116,9 @@ public static class MessageHtmlChecks
     /// has none; with <see cref="UserMessagePlanRequest.OmitImages"/> every <c>cid:</c> image becomes its <c>[alt]</c> text
     /// (info <see cref="HtmlIssueCodes.ImagesOmitted"/>); the whole document is validated again (<c>HtmlNotAllowed</c>,
     /// <c>ImageMissing</c>), its images collected in order of first reference within the message limits
-    /// (<c>ImagesTooLarge</c>) and its length checked (<c>HtmlTooLong</c>).
+    /// (<c>ImagesTooLarge</c>) and its length checked (<c>HtmlTooLong</c>). The sanitized document is the one sent – by
+    /// direct SMTP and the AdMng Watchdog alike – and previewed: what the sanitizer treats as cosmetic (comments, style
+    /// rules it does not inline, unknown elements) never reaches a recipient.
     /// </summary>
     public static MessageHtmlParts Message(
         UserMessagePlanRequest request,
@@ -159,12 +164,12 @@ public static class MessageHtmlChecks
             issues.Add(new MessageIssue(HtmlIssueCodes.ImagesTooLarge, MessageIssueSeverity.Error, Number(inline.Count)));
         }
 
-        if (document.Length > MessageHtmlLimits.MaxHtmlLength)
+        if (result.Html.Length > MessageHtmlLimits.MaxHtmlLength)
         {
-            issues.Add(new MessageIssue(HtmlIssueCodes.HtmlTooLong, MessageIssueSeverity.Error, Number(document.Length)));
+            issues.Add(new MessageIssue(HtmlIssueCodes.HtmlTooLong, MessageIssueSeverity.Error, Number(result.Html.Length)));
         }
 
-        return new MessageHtmlParts(inline);
+        return new MessageHtmlParts(inline, result.Html);
     }
 
     /// <summary>The content ids an HTML references by <c>cid:</c> (in order of first reference).</summary>

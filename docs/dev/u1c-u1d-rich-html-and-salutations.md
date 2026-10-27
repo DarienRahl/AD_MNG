@@ -433,7 +433,10 @@ The `Content-ID` is derived from the content, so the same image always has the s
   before planning, off the UI thread) and `OmitImages: bool`.
 * Per message, after rendering the HTML document: `Validate` (document mode, the referenced ids) → `HtmlNotAllowed`;
   the referenced images in order of first reference → `OutgoingUserMessage.InlineImages` (an image missing from the
-  dictionary → `ImageMissing` error; per-message limits → `ImagesTooLarge` error); HTML length → `HtmlTooLong`.
+  dictionary → `ImageMissing` error; per-message limits → `ImagesTooLarge` error); HTML length → `HtmlTooLong`. The
+  **sanitized** document is `OutgoingUserMessage.HtmlBody` – sent by direct SMTP and the AdMng Watchdog alike and shown
+  by the preview – so what the sanitizer treats as cosmetic (comments, `<style>` rules it does not inline) never
+  reaches a recipient (review U1c, finding 4). Imported templates files are normalized like a saved template.
 * `OmitImages` ("send without images", section 9.6): every `<img src="cid:…">` is replaced by
   `<span>[alt]</span>` (nothing without alt) before validation, `InlineImages` stays empty and every message gets the
   info issue `ImagesOmitted` – the preview shows exactly the HTML that will be sent.

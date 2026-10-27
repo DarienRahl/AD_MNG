@@ -202,7 +202,8 @@ public sealed class UserMessageTemplateLibrary
         }
 
         var lost = 0;
-        valid = [.. valid.Select(t => WithImportedImages(t, accepted, ref lost))];
+        // Stored as they are sent: sanitized like a saved template (a security finding stays visible, never removed).
+        valid = [.. valid.Select(t => MessageHtmlChecks.Normalize(WithImportedImages(t, accepted, ref lost)))];
 
         if (Images is not null)
         {
