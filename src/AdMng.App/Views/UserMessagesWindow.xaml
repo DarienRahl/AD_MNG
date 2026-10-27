@@ -546,7 +546,7 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <DockPanel Margin="0,6,0,0">
+              <DockPanel Margin="0,6,0,0" Visibility="{Binding HasAccountDerived, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
                 <TextBlock DockPanel.Dock="Left" Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.Salutation.GenderOverride}" />
                 <ComboBox x:Name="GenderOverrideBox"
                           Width="160"
@@ -555,6 +555,23 @@
                           DockPanel.Dock="Left"
                           ItemsSource="{Binding DataContext.GenderChoices, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
                           SelectedValue="{Binding GenderChoice}"
+                          SelectedValuePath="Value" />
+                <TextBlock Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource Ad.SecondaryText}"
+                           Text="{l:Tr UserMessages.Salutation.GenderOverrideHint}"
+                           TextWrapping="Wrap" />
+              </DockPanel>
+              <!-- Manager fields ({$managerSalutation} …): the manager's gender has its own selector -->
+              <DockPanel Margin="0,6,0,0" Visibility="{Binding HasManagerDerived, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}">
+                <TextBlock DockPanel.Dock="Left" Style="{StaticResource InlineLabel}" Text="{l:Tr UserMessages.Salutation.ManagerGenderOverride}" />
+                <ComboBox x:Name="ManagerGenderOverrideBox"
+                          Width="160"
+                          AutomationProperties.Name="{l:Tr UserMessages.Salutation.ManagerGenderOverride}"
+                          DisplayMemberPath="Text"
+                          DockPanel.Dock="Left"
+                          ItemsSource="{Binding DataContext.GenderChoices, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"
+                          SelectedValue="{Binding ManagerGenderChoice}"
                           SelectedValuePath="Value" />
                 <TextBlock Margin="10,0,0,0"
                            VerticalAlignment="Center"

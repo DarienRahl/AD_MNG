@@ -172,6 +172,12 @@ public sealed record UserMessagePlanRequest
 
     /// <summary>Gender chosen in the preview for this run by account DN (U1d; <c>Unknown</c> = neutral on purpose).</summary>
     public IReadOnlyDictionary<string, Salutations.Gender> GenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
+
+    /// <summary>
+    /// Gender of the manager chosen in the preview of one message, by the account DN of that message (U1d, the manager
+    /// fields such as <c>{$managerSalutation}</c>; <c>Unknown</c> = neutral on purpose).
+    /// </summary>
+    public IReadOnlyDictionary<string, Salutations.Gender> ManagerGenderOverrides { get; init; } = new Dictionary<string, Salutations.Gender>();
 }
 
 /// <summary>

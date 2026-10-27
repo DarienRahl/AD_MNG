@@ -13,12 +13,22 @@ public sealed record DerivedValueRow(string Label, string Value, string Source, 
 /// <summary>The salutation side of a planned message (U1d): the "Zwrot" column, the derived fields and the gender override.</summary>
 public sealed partial class UserMessageItemViewModel
 {
-    /// <summary>The gender the operator chose for this message in the preview; changing it re-plans the message.</summary>
+    /// <summary>The gender of the account the operator chose for this message in the preview; changing it re-plans the message.</summary>
     [ObservableProperty]
     public partial SalutationGenderChoice GenderChoice { get; set; }
 
+    /// <summary>The gender of the manager the operator chose for this message (the manager fields); changing it re-plans the message.</summary>
+    [ObservableProperty]
+    public partial SalutationGenderChoice ManagerGenderChoice { get; set; }
+
     /// <summary>The template uses salutation fields for this message.</summary>
     public bool HasDerived => Planned.Derived.Count > 0;
+
+    /// <summary>The template uses salutation fields of the account (its gender selector is shown).</summary>
+    public bool HasAccountDerived => Planned.Derived.Any(d => !SalutationText.IsManagerField(d.Field));
+
+    /// <summary>The template uses salutation fields of the manager (the manager's gender selector is shown).</summary>
+    public bool HasManagerDerived => Planned.Derived.Any(d => SalutationText.IsManagerField(d.Field));
 
     /// <summary>A derived value is guessed, a fallback or has a finding – the "Zgadnięte zwroty" filter.</summary>
     public bool HasGuessedSalutation => Planned.Derived.Any(d => d.IsGuess || d.IsFallback || d.Issue is not null);

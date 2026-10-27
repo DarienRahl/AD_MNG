@@ -14,6 +14,7 @@ namespace AdMng.Presentation.UserMessages;
 public sealed partial class UserMessageComposerViewModel
 {
     private readonly Dictionary<string, Gender> _genderOverrides = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Gender> _managerGenderOverrides = new(StringComparer.OrdinalIgnoreCase);
     private UserMessagePlanRequest? _lastRequest;
     private IReadOnlyList<Option<UnknownGenderMode?>>? _unknownGenderChoices;
     private IReadOnlyList<Option<SalutationGenderChoice>>? _genderChoices;
@@ -60,6 +61,9 @@ public sealed partial class UserMessageComposerViewModel
     /// <summary>Genders chosen in the preview of the current plan, by account DN (memory only).</summary>
     public IReadOnlyDictionary<string, Gender> GenderOverrides => _genderOverrides;
 
+    /// <summary>Genders of the managers chosen in the preview of the current plan, by the account DN of the message (memory only).</summary>
+    public IReadOnlyDictionary<string, Gender> ManagerGenderOverrides => _managerGenderOverrides;
+
     /// <summary>The salutation options of the settings (the template's are merged by the planner).</summary>
     private SalutationOptions SalutationOptions => (Services.Settings.Current.UserMessages.Salutations ?? new()).ToOptions();
 
@@ -79,6 +83,7 @@ public sealed partial class UserMessageComposerViewModel
     {
         _lastRequest = request;
         _genderOverrides.Clear();
+        _managerGenderOverrides.Clear();
         foreach (var item in _items)
         {
             item.PropertyChanged -= OnItemGenderChanged;
@@ -88,14 +93,18 @@ public sealed partial class UserMessageComposerViewModel
 
     private void OnItemGenderChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(UserMessageItemViewModel.GenderChoice) && sender is UserMessageItemViewModel item)
+        if (e.PropertyName is nameof(UserMessageItemViewModel.GenderChoice) or nameof(UserMessageItemViewModel.ManagerGenderChoice)
+            && sender is UserMessageItemViewModel item)
         {
             // Posted: the selector that changed the value is replaced with the item (no re-entrant binding update).
             _ = Services.Dispatcher.InvokeAsync(() => ReplanWithGender(item));
         }
     }
 
-    /// <summary>Re-plans one message with the gender chosen for it (the other messages and the settings stay as they are).</summary>
+    /// <summary>
+    /// Re-plans one message with the genders chosen for its account and its manager (the other messages and the settings stay
+    /// as they are).
+    /// </summary>
     private void ReplanWithGender(UserMessageItemViewModel item)
     {
         var index = _items.IndexOf(item);
@@ -105,22 +114,20 @@ public sealed partial class UserMessageComposerViewModel
         }
 
         var dn = item.Planned.DistinguishedName;
-        if (SalutationText.OverrideOf(item.GenderChoice) is { } chosen)
-        {
-            _genderOverrides[dn] = chosen;
-        }
-        else
-        {
-            _genderOverrides.Remove(dn);
-        }
-
+        SetOverride(_genderOverrides, dn, item.GenderChoice);
+        SetOverride(_managerGenderOverrides, dn, item.ManagerGenderChoice);
         var planned = _messages.Planner.Replan(
-            request with { GenderOverrides = new Dictionary<string, Gender>(_genderOverrides, StringComparer.OrdinalIgnoreCase) },
+            request with
+            {
+                GenderOverrides = new Dictionary<string, Gender>(_genderOverrides, StringComparer.OrdinalIgnoreCase),
+                ManagerGenderOverrides = new Dictionary<string, Gender>(_managerGenderOverrides, StringComparer.OrdinalIgnoreCase),
+            },
             item.Planned.Index,
             item.Planned);
         var replacement = new UserMessageItemViewModel(planned, Localizer, Services.Time.LocalTimeZone)
         {
             GenderChoice = item.GenderChoice,
+            ManagerGenderChoice = item.ManagerGenderChoice,
         };
         if (replacement.CanInclude && item.IsExcluded)
         {
@@ -144,6 +151,18 @@ public sealed partial class UserMessageComposerViewModel
         }
 
         RefreshCounts();
+    }
+
+    private static void SetOverride(Dictionary<string, Gender> overrides, string distinguishedName, SalutationGenderChoice choice)
+    {
+        if (SalutationText.OverrideOf(choice) is { } chosen)
+        {
+            overrides[distinguishedName] = chosen;
+        }
+        else
+        {
+            overrides.Remove(distinguishedName);
+        }
     }
 
     private void UpdateSalutation(Func<TemplateSalutationOptions, TemplateSalutationOptions> change) =>

@@ -880,6 +880,10 @@ Details settled while implementing (code: `src/AdMng.Core/Messaging/Salutations/
 * The composer's *Zwroty* options read and write `MessageTemplate.Salutation` of the edited template and are refreshed
   when another template is selected (an `OnPropertyChanged` override in the partial class – no extra hook line in the
   shared file); a gender change in the preview is posted to the dispatcher and replaces that item only.
+* *Pola wyliczone* has one gender selector per person whose fields the template uses: *Płeć* (the account,
+  `UserMessagePlanRequest.GenderOverrides`) and *Płeć przełożonego* (the manager fields such as
+  `{$managerSalutation}`, `ManagerGenderOverrides`) – both keyed by the account DN of the message, so a choice re-plans
+  that message only.
 * Settings: an emptied title attribute is stored as `""` (null would bring the default back); the neutral texts are
   stored only when they differ from the defaults.
 * The screenshot test class is `ScreenshotTestsSalutations`, so the CI step's filter

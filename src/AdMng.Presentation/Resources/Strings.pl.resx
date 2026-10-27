@@ -7908,6 +7908,9 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Salutation.GenderOverride" xml:space="preserve">
     <value>Płeć</value>
   </data>
+  <data name="UserMessages.Salutation.ManagerGenderOverride" xml:space="preserve">
+    <value>Płeć przełożonego</value>
+  </data>
   <data name="UserMessages.Salutation.GenderOverrideHint" xml:space="preserve">
     <value>Tylko dla tej wysyłki – nie jest zapisywana.</value>
   </data>

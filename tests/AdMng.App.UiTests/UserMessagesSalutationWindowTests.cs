@@ -57,6 +57,8 @@ public sealed class UserMessagesSalutationWindowTests
         Assert.Equal(Visibility.Visible, window.DerivedFieldsPanel.Visibility);
         Assert.Equal(3, window.DerivedFieldsList.Items.Count);
         Assert.Equal(SalutationGenderChoice.Automatic, window.GenderOverrideBox.SelectedValue);
+        Assert.True(window.GenderOverrideBox.IsVisible);
+        Assert.False(window.ManagerGenderOverrideBox.IsVisible);
 
         window.GenderOverrideBox.SelectedValue = SalutationGenderChoice.Feminine;
         await UiWait.UntilAsync(() => !ReferenceEquals(composer.AllItems.Single(i => i.Name == "Sasza Kim"), kim), "the re-planned message");

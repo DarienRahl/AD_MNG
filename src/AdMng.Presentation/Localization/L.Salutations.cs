@@ -54,6 +54,7 @@ public static partial class L
         public const string ColumnSalutation = "UserMessages.Salutation.ColumnSalutation";
         public const string DerivedFields = "UserMessages.Salutation.DerivedFields";
         public const string GenderOverride = "UserMessages.Salutation.GenderOverride";
+        public const string ManagerGenderOverride = "UserMessages.Salutation.ManagerGenderOverride";
         public const string GenderOverrideHint = "UserMessages.Salutation.GenderOverrideHint";
         public const string Guessed = "UserMessages.Salutation.Guessed";
     }

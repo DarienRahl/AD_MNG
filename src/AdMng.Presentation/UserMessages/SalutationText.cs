@@ -102,6 +102,9 @@ public static class SalutationText
     /// <summary>The field is the gender of the account or of the manager.</summary>
     public static bool IsGenderField(string field) => field is MessageSalutations.GenderField or "managerGender";
 
+    /// <summary>The derived field belongs to the manager ("managerTitle", "managerGender", "managerSalutation").</summary>
+    public static bool IsManagerField(string field) => field.StartsWith(MessageSalutations.ManagerPrefix, StringComparison.Ordinal);
+
     /// <summary>The field is the salutation of the account or of the manager.</summary>
     public static bool IsSalutationField(string field) => field is MessageSalutations.SalutationField or "managerSalutation";
 

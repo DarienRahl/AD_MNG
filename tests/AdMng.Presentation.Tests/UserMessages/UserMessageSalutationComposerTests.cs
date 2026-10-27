@@ -212,6 +212,27 @@ public sealed class UserMessageSalutationComposerTests
         Assert.Equal(
             ["Title", "Gender", "Manager's title", "Manager's gender", "Salutation of the manager"],
             kim.DerivedRows.Select(r => r.Label));
+        Assert.True(kim.HasAccountDerived);
+        Assert.True(kim.HasManagerDerived);
+
+        // The manager's selector changes the manager's salutation; the account's {$byGender} stays.
+        composer.SelectedItem = kim;
+        kim.ManagerGenderChoice = SalutationGenderChoice.Feminine;
+
+        var replanned = Item(composer, "Sasza Kim");
+        Assert.NotSame(kim, replanned);
+        Assert.Equal(SalutationGenderChoice.Feminine, replanned.ManagerGenderChoice);
+        Assert.Equal(SalutationGenderChoice.Automatic, replanned.GenderChoice);
+        Assert.Equal("Szanowna Pani Profesor", replanned.SalutationColumnText);
+        Assert.StartsWith("Szanowna Pani Profesor,\nSasza Kim nie zmienił(a) hasła.", replanned.TextBody, StringComparison.Ordinal);
+        Assert.Equal(Gender.Feminine, composer.ManagerGenderOverrides[sample.SaszaKim]);
+        Assert.Empty(composer.GenderOverrides);
+
+        // The account's selector changes the account's text, the manager's choice stays.
+        replanned.GenderChoice = SalutationGenderChoice.Masculine;
+        var both = Item(composer, "Sasza Kim");
+        Assert.StartsWith("Szanowna Pani Profesor,\nSasza Kim nie zmienił hasła.", both.TextBody, StringComparison.Ordinal);
+        Assert.Equal(SalutationGenderChoice.Feminine, both.ManagerGenderChoice);
     }
 
     [Fact]

@@ -224,6 +224,26 @@ public sealed class UserMessageSalutationPlannerTests
     }
 
     [Fact]
+    public void ManagerOverride_ChangesTheManagersFields_NotTheAccounts()
+    {
+        // The professor's manager is Sasza Kim (unknown gender); the message goes to the manager.
+        var template = BodyOnly("{$managerSalutation},\n{$byGender:zmienił/zmieniła} hasło.") with { Recipients = MessageRecipientMode.Manager };
+        var request = Request(template, [new(ProfessorDn, Professor((Attr.Manager, SaszaDn)), Sasza())]);
+        var planned = _planner.Plan(request).Messages[0];
+        Assert.StartsWith("Szanowna Pani / Szanowny Panie,\nzmienił hasło.", planned.Message!.TextBody, StringComparison.Ordinal);
+
+        var manager = _planner.Replan(request with { ManagerGenderOverrides = new Dictionary<string, Gender> { [ProfessorDn] = Gender.Feminine } }, 0);
+        Assert.StartsWith("Szanowna Pani,\nzmienił hasło.", manager.Message!.TextBody, StringComparison.Ordinal);
+        Assert.Contains(manager.Derived, d => d is { Field: "managerGender", Value: "Feminine", Source: DerivedValueSource.Override });
+        Assert.Contains(manager.Derived, d => d is { Field: "gender", Value: "Masculine", Source: DerivedValueSource.NameRule });
+        Assert.DoesNotContain(manager.Issues, i => i.Code == SalutationIssueCodes.GenderUnknown);
+
+        // The account's override changes the account only.
+        var account = _planner.Replan(request with { GenderOverrides = new Dictionary<string, Gender> { [ProfessorDn] = Gender.Feminine } }, 0);
+        Assert.StartsWith("Szanowna Pani / Szanowny Panie,\nzmieniła hasło.", account.Message!.TextBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void GenderAttribute_TemplateOptionsAndTitleFindings()
     {
         var options = SalutationOptions.Default with { GenderAttribute = "extensionAttribute5" };
