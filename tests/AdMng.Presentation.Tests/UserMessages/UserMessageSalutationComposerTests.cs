@@ -53,11 +53,13 @@ public sealed class UserMessageSalutationComposerTests
         Assert.Equal("given name (exception list) · guessed", kuba.SalutationToolTip);
         Assert.Equal(
             [
-                new DerivedValueRow("Title", "(none)", "none", string.Empty),
+                new DerivedValueRow("Title", "(none)", string.Empty, string.Empty),
                 new DerivedValueRow("Gender", "man (Mr)", "given name (exception list) · Kuba · guessed", "≈"),
                 new DerivedValueRow("Salutation", "Szanowny Panie", "given name (exception list) · guessed", "≈"),
             ],
             kuba.DerivedRows);
+        // No title found: the value says "(none)" once, without an empty or repeated source.
+        Assert.Equal(["", "(given name (exception list) · Kuba · guessed)", "(given name (exception list) · guessed)"], kuba.DerivedRows.Select(r => r.SourceText));
         Assert.Contains("Title dr recognized in the display name.", Item(composer, "dr Anna Nowak").IssuesText, StringComparison.Ordinal);
     }
 

@@ -56,6 +56,8 @@ public sealed class ScreenshotTestsSalutations
                 await composer.PlanCommand.ExecuteAsync(null);
                 await UiWait.UntilAsync(() => window.ItemsList.Items.Count == sample.All.Count, "the planned messages");
                 window.ItemsList.SelectedItem = composer.AllItems.First(i => i.Name == "Sasza Kim");
+                // The text tab: a picture cannot show WebView2's rendered "Widok" (another window's surface).
+                window.MessageTabs.SelectedItem = window.MessageTextTab;
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
 
                 await ScreenshotWriter.SaveAsync(window, Salutations, dark: false);

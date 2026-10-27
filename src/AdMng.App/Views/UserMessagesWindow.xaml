@@ -654,19 +654,10 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
-                  <GridViewColumn Width="190"
+                  <GridViewColumn Width="170"
                                   DisplayMemberBinding="{Binding Name, Mode=OneWay}"
                                   Header="{l:Tr UserMessages.ColumnName}" />
-                  <GridViewColumn Width="220"
-                                  DisplayMemberBinding="{Binding ToText, Mode=OneWay}"
-                                  Header="{l:Tr UserMessages.ColumnRecipient}" />
-                  <GridViewColumn Width="100"
-                                  DisplayMemberBinding="{Binding StatusText, Mode=OneWay}"
-                                  Header="{l:Tr UserMessages.ColumnStatus}" />
-                  <GridViewColumn Width="60"
-                                  DisplayMemberBinding="{Binding LanguageText, Mode=OneWay}"
-                                  Header="{l:Tr UserMessages.ColumnLanguage}" />
-                  <!-- U1d: the salutation with ≈ (guessed) or ⚠ (fallback) -->
+                  <!-- U1d: the salutation with ≈ (guessed) or ⚠ (fallback), next to the name so it stays in view -->
                   <GridViewColumn Width="210" Header="{l:Tr UserMessages.Salutation.ColumnSalutation}">
                     <GridViewColumn.CellTemplate>
                       <DataTemplate DataType="{x:Type um:UserMessageItemViewModel}">
@@ -676,6 +667,15 @@
                       </DataTemplate>
                     </GridViewColumn.CellTemplate>
                   </GridViewColumn>
+                  <GridViewColumn Width="100"
+                                  DisplayMemberBinding="{Binding StatusText, Mode=OneWay}"
+                                  Header="{l:Tr UserMessages.ColumnStatus}" />
+                  <GridViewColumn Width="220"
+                                  DisplayMemberBinding="{Binding ToText, Mode=OneWay}"
+                                  Header="{l:Tr UserMessages.ColumnRecipient}" />
+                  <GridViewColumn Width="60"
+                                  DisplayMemberBinding="{Binding LanguageText, Mode=OneWay}"
+                                  Header="{l:Tr UserMessages.ColumnLanguage}" />
                   <GridViewColumn Width="300"
                                   DisplayMemberBinding="{Binding IssuesText, Mode=OneWay}"
                                   Header="{l:Tr UserMessages.ColumnIssues}" />
@@ -764,7 +764,7 @@
                       <TextBlock Grid.Column="1" Text="{Binding Mark, Mode=OneWay}" />
                       <TextBlock Grid.Column="2" TextWrapping="Wrap">
                         <Run FontWeight="SemiBold" Text="{Binding Value, Mode=OneWay}" />
-                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding Source, Mode=OneWay, StringFormat='({0})'}" />
+                        <Run Foreground="{DynamicResource TextFillColorSecondaryBrush}" Text="{Binding SourceText, Mode=OneWay}" />
                       </TextBlock>
                     </Grid>
                   </DataTemplate>

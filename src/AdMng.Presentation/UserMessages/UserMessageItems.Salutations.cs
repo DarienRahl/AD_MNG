@@ -6,9 +6,14 @@ namespace AdMng.Presentation.UserMessages;
 /// <summary>One derived value of a message as the details pane shows it ("Pola wyliczone", U1d).</summary>
 /// <param name="Label">"Tytuł", "Płeć", "Zwrot", "Zwrot do przełożonego" …</param>
 /// <param name="Value">The title, the gender or the salutation.</param>
-/// <param name="Source">Where it came from, the deciding word and "zgadnięte".</param>
+/// <param name="Source">Where it came from, the deciding word and "zgadnięte"; empty when nothing was found (the value
+/// already says "(brak)").</param>
 /// <param name="Mark">"≈" (guess), "⚠" (fallback) or empty.</param>
-public sealed record DerivedValueRow(string Label, string Value, string Source, string Mark);
+public sealed record DerivedValueRow(string Label, string Value, string Source, string Mark)
+{
+    /// <summary>The source in parentheses after the value, or empty.</summary>
+    public string SourceText => Source.Length == 0 ? string.Empty : $"({Source})";
+}
 
 /// <summary>The salutation side of a planned message (U1d): the "Zwrot" column, the derived fields and the gender override.</summary>
 public sealed partial class UserMessageItemViewModel
@@ -59,6 +64,6 @@ public sealed partial class UserMessageItemViewModel
         [.. Planned.Derived.Select(d => new DerivedValueRow(
             _localizer[SalutationText.FieldKey(d.Field)],
             SalutationText.Value(_localizer, d),
-            SalutationText.Source(_localizer, d),
+            d is { Source: DerivedValueSource.None, IsGuess: false } && string.IsNullOrWhiteSpace(d.Detail) ? string.Empty : SalutationText.Source(_localizer, d),
             SalutationText.Mark(d)))];
 }
