@@ -199,7 +199,25 @@ public sealed class TitleParserTests
     [InlineData("U", false)]
     [InlineData("uw", false)]
     [InlineData("UNIWERSYTET", false)]
+    [InlineData("MBA", false)]
+    [InlineData("PhD", false)]
+    [InlineData("DSc", false)]
+    [InlineData("LLM", false)]
+    [InlineData("MSc", false)]
     public void University_Abbreviations(string word, bool expected) => Assert.Equal(expected, TitleParser.IsUniversity(word));
+
+    [Theory]
+    [InlineData("prof. MBA", "MBA")]
+    [InlineData("prof. PhD", "PhD")]
+    [InlineData("prof. dr hab. DSc", "DSc")]
+    public void Attribute_DegreeAfterProfessor_IsUnrecognized_LikeAfterDoctor(string value, string degree)
+    {
+        var info = TitleParser.ParseAttribute(value, Table);
+
+        Assert.DoesNotContain(degree, info.Text, StringComparison.Ordinal);
+        Assert.Equal([degree], info.Unrecognized);
+        Assert.Equal("prof. UW", TitleParser.ParseAttribute("prof. UW", Table).Text);
+    }
 
     [Fact]
     public void OperatorTable_AddsTitles_AndSelectsByRank()

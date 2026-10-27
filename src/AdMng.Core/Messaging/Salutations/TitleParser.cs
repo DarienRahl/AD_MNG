@@ -82,6 +82,13 @@ public static class TitleParser
     private static readonly HashSet<string> MasculineHonorifics = [.. SalutationData.MasculineHonorifics.Select(SalutationKey.Of)];
     private static readonly HashSet<string> FeminineHonorifics = [.. SalutationData.FeminineHonorifics.Select(SalutationKey.Of)];
 
+    /// <summary>Degrees that look like a university abbreviation ("prof. MBA" is no "prof. UW"); compared case-insensitively.</summary>
+    private static readonly HashSet<string> Degrees = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "MBA", "EMBA", "DBA", "PhD", "DSc", "ScD", "MSc", "BSc", "MA", "BA", "MD", "LLM", "LLB", "LLD", "MPhil", "DPhil", "MEng",
+        "BEng", "MPH", "MFA", "EdD",
+    };
+
     /// <summary>The title of a person.</summary>
     /// <param name="attributeValue">Value of the title attribute (or null).</param>
     /// <param name="displayName">The display name (parsed when the attribute yields no title).</param>
@@ -227,9 +234,12 @@ public static class TitleParser
         }
     }
 
-    /// <summary>A university abbreviation after "prof.": 2–8 letters, upper-case first, at least two upper-case letters.</summary>
+    /// <summary>
+    /// A university abbreviation after "prof.": 2–8 letters, upper-case first, at least two upper-case letters, not a degree
+    /// (MBA, PhD, DSc … – those stay unrecognized words of the title attribute).
+    /// </summary>
     public static bool IsUniversity(string word) =>
-        word.Length is >= 2 and <= 8 && word.All(char.IsLetter) && char.IsUpper(word[0]) && word.Count(char.IsUpper) >= 2;
+        word.Length is >= 2 and <= 8 && word.All(char.IsLetter) && char.IsUpper(word[0]) && word.Count(char.IsUpper) >= 2 && !Degrees.Contains(word);
 
     private static Coverage Cover(IReadOnlyList<TitleToken> tokens, TitleTable table, bool stopAtUnknown, Func<TitleToken, bool> isName)
     {

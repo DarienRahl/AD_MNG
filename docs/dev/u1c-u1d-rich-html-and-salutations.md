@@ -706,8 +706,8 @@ display name is still parsed); the source is recorded for the preview:
 (canonical or variant, itself tokenized) matching the next words is taken, repeatedly; output uses the canonical
 spelling. Two absorbed patterns: the qualifier `n.` + up to two following words of which the last ends in a dot
 (`dr n. med.`, `dr hab. n. o zdr.`) and, after `prof.`, a university abbreviation (2–8 letters, starts upper-case, at
-least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`) – both kept as written in `{$title}`, without effect on
-the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
+least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`; as built never a degree such as `MBA`, `PhD`, `DSc`,
+`LLM`, `MSc` – those stay unrecognized words) – both kept as written in `{$title}`, without effect on the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
 `{$title}` then shows the covered part only.
 
 **Selection** (what the salutation uses): among the table rows whose spelling occurs as a contiguous word sequence in
