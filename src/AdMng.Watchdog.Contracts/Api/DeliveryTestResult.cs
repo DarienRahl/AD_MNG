@@ -27,6 +27,7 @@ public static class DeliveryHints
     public const string TeamsAuthMismatch = "teams.authMismatch";             // SAS vs OAuth error texts
     public const string WebhookGone = "webhook.gone";                         // 410
     public const string SecretRebindRequired = "secret.rebindRequired";       // stored secret bound to another destination
+    public const string MessageTooLarge = "smtp.messageTooLarge";             // 552 / 5.3.4, SIZE smaller than the message (U1c)
 }
 
 /// <summary>Result of a test send (<c>POST /api/v1/test/…</c>).</summary>

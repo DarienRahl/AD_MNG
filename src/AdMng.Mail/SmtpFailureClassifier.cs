@@ -70,6 +70,12 @@ public static partial class SmtpFailureClassifier
             return new UserMessageDelivery(UserMessageDeliveryOutcome.TransportFailed, code, status, DeliveryHints.DirectSendRejected);
         }
 
+        // The message (with its inline images, U1c) is larger than the server accepts: a permanent rejection of this message.
+        if (status == 552 || enhanced == "5.3.4")
+        {
+            return new UserMessageDelivery(UserMessageDeliveryOutcome.Rejected, code, status, DeliveryHints.MessageTooLarge);
+        }
+
         return status switch
         {
             530 or 534 or 535 or 538 => new UserMessageDelivery(UserMessageDeliveryOutcome.AuthenticationFailed, code, status),
