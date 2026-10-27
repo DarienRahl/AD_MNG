@@ -1199,7 +1199,7 @@ zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog
 - **Cykl życia kont komputerów:** przygotowanie konta przed dołączeniem (z prawem dołączenia dla wskazanej osoby lub
   grupy), reset konta komputera, przenoszenie, wyłączanie i usuwanie – przez silnik zmian z podglądem. Nieaktywne
   komputery: **tylko raport** (lista z eksportem i przekazaniem do edycji zbiorczej), bez automatycznego wyłączania.
-- **Zdalne akcje** przez PowerShell Remoting (WinRM, Kerberos) **z poświadczeniami danego okna**: kto jest zalogowany,
+- **Zdalne akcje** przez WinRM (WS-Management, Kerberos) **z poświadczeniami danego okna**: kto jest zalogowany,
   `gpupdate /force`, restart z potwierdzeniem, opóźnieniem i komunikatem dla użytkownika, stan usług; do tego ping,
   pulpit zdalny (mstsc), *Zarządzanie komputerem* i *Podgląd zdarzeń* uruchamiane dla wybranego komputera. Wymaga
   włączonego WinRM na komputerach – instrukcja z GPO w dokumentacji. Hasła okna tylko w pamięci (zasada 2).
@@ -1237,7 +1237,11 @@ zastępuje „polityki ADMX” z fazy 6. Zmiany GPO od razu widzi AdMng Watchdog
 
 #### Etapy
 
-- **K1** – komputery: inwentarz i raporty, cykl życia kont, zdalne akcje przez WinRM.
+- 🟡 **K1** – komputery: inwentarz i raporty, cykl życia kont, zdalne akcje przez WinRM. Pierwsza wersja gotowa:
+  *Przegląd komputerów* (8 raportów, katalog wersji Windows z datami końca wsparcia, dokładne ostatnie logowanie, lokacja
+  z podsieci, CSV), karta *Stan* we właściwościach, przygotowanie konta z prawem dołączenia, *Resetuj konto*, okno
+  *Zdalne akcje* (CIM przez WinRM, tylko Kerberos) i narzędzia (ping, mstsc, *Zarządzanie komputerem*, *Podgląd
+  zdarzeń*); opis: [KOMPUTERY.md](docs/KOMPUTERY.md). Czeka na pilotaż na Windows Server 2025 i Windows 11.
 - **K2** – GPO w drzewie: węzeł GPO, karta „Zasady grupy”, tworzenie, łączenie, kolejność, filtrowanie, kopie zapasowe.
 - **K3** – edytor ADMX i aktualizacja magazynu centralnego (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne).
 - **K4** – ustawienia zabezpieczeń.
@@ -1297,6 +1301,13 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   „Ładowanie…” są pomijane, a komunikat mówi, ile ich było), a całego kontenera nie da się zaznaczyć – do tego służy
   Znajdź albo zapisany widok.
 - **LAPS i BitLocker** – brak kart; hasła LAPS są traktowane jako atrybuty poufne (maskowane w dzienniku).
+- **Komputery (K1) – zdalne akcje nie sprawdzone na Windows.** CIM przez WinRM (tylko Kerberos, poświadczenia okna),
+  restart z komunikatem (`Win32ShutdownTracker`), uruchamianie *Zarządzania komputerem* i *Podglądu zdarzeń* z innym
+  kontem (`runas /netonly`) i reguły KB5020276 przy przygotowanych kontach potwierdzi dopiero pilotaż; odświeżanie zasad
+  zalogowanych użytkowników jest do tego czasu wyłączone w ustawieniach. Usługi są tylko do odczytu (bez uruchamiania i
+  zatrzymywania). Lokacja komputera jest ustalana przez DNS stacji operatora, nie kontrolera domeny. Daty końca wsparcia
+  pochodzą z wbudowanego katalogu (data katalogu w oknie, własne daty w ustawieniach). Nieaktywne komputery są tylko
+  raportem – nic nie jest wyłączane automatycznie.
 - **Zakładanie kont** tylko formularzem (bez szablonów per OU, CSV i „Kopiuj użytkownika”) – faza 3.
 - **Przegląd kont (U2)** – sprawdzenia problemów (blokada, hasła, wygaśnięcia, nieaktywność, higiena haseł,
   gotowość do powiadomień) dotyczą tylko włączonych kont; „Wyłączone” i pozostałości – tylko wyłączonych (bez kont
@@ -1540,6 +1551,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🔬 [Wyniki analizy](docs/RESEARCH.md) | `dsa.msc`, ADAC, produkty konkurencyjne, techniki LDAP |
 | 🛡 [AdMng Watchdog](docs/WATCHDOG.md) | funkcje i konfiguracja usługi monitorującej |
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
+| 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
 

@@ -163,6 +163,36 @@ logowania”), który w planie, dzienniku i cofnięciu jest zapisem szesnastkowy
 - **Lokalizacja:** zasoby `Strings.resx` (en) i `Strings.pl.resx`; nazwy atrybutów z display specifiers AD (jak w
   polskim ADUC), przełączanie języka bez restartu.
 
+## Komputery (K1)
+
+Projekt: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdz. 3.1 i 4; opis dla administratora:
+[KOMPUTERY.md](KOMPUTERY.md).
+
+- **Core/Computers** – czysta logika bez LDAP: `ComputerFacts` (fakty z jednego wyniku wyszukiwania), `ComputerClassifier`
+  (stacja / serwer / DC / RODC z `userAccountControl`, grupy podstawowej i `operatingSystem`), `WindowsReleaseCatalog`
+  (kompilacja + klasa wydania → data końca wsparcia, nadpisania z ustawień), `ComputerInventory.Evaluate` (stan
+  komputera dla raportów), `ComputerReports` (filtry LDAP raportów przez `LdapFilter`), `PlacementRules`, `SubnetMap` i
+  `SiteTopology` (lokacje i podsieci z konfiguracji DC sesji), `ComputerJoinRights` (cztery ACE prawa dołączenia).
+- **Zapisy uprawnień (K1.1)** – akcja `ChangeAction.ModifySecurity` w potoku zmian: `AclChange` to delta ACE, którą
+  wykonawca nakłada na świeżo odczytany DACL (`DaclEditor`) i zapisuje z kontrolką SD flags `DACL_SECURITY_INFORMATION`
+  (`ModifyOptions.SecurityDescriptorFlags`) – właściciel, grupa i SACL nie są zapisywane. Cofnięcie to delta odwrotna,
+  eksport PowerShell – `Get-Acl`/`Set-Acl` na dysku `AD:` przypiętym do DC planu. Z tej akcji korzysta też K2
+  (filtrowanie zabezpieczeń, delegowanie GPO).
+- **Cykl życia** – przygotowanie konta w kreatorze „Nowy → Komputer” (krok tworzenia + `ModifySecurity` w jednym planie),
+  `ResetComputerAccountOperation` (losowe 120 znaków, tylko w pamięci planu) i reguły `PlanValidation` dla kont DC.
+- **AdMng.Remote** (osobny projekt, `net10.0`, wywołania Windows chronione) – `CimRemoteComputerClient`
+  (`Microsoft.Management.Infrastructure`: CIM przez WS-Management, tylko Kerberos, poświadczenia okna z
+  `SessionLogons` w AdMng.Directory jako `SecureString` usuwany z sesją CIM), `WindowsLocalToolLauncher` (mstsc bez
+  poświadczeń; `compmgmt.msc`/`eventvwr` przez `CreateProcessWithLogonW(LOGON_NETCREDENTIALS_ONLY)`), DNS i ping. Odwołuje
+  się do niego tylko `AdMng.App`, więc pakiet CIM nie trafia do usługi Watchdog na Linuksie.
+- **Presentation/Computers** – `ComputerReviewViewModel` (strumień jak w przeglądzie kont, kafelki, kolumny raportu,
+  odczyt na żądanie z wszystkich DC i lokacji), `RemoteComputerViewModel` i `RestartComputerViewModel`, `ComputerActions`
+  (cel zdalny, narzędzia, ping, reset konta), karta „Stan” właściwości i karta „Komputery” ustawień.
+  `ComputerViewModelFactory` i `ComputerActions` są **Scoped** (okno połączenia); klient CIM, narzędzia, ping i resolver
+  DNS są singletonami bez stanu – każde wywołanie dostaje sesję (poświadczenie) okna, które pyta.
+- **Dane** – wyniki przeglądu, adresy, lokacje i wyniki zdalnych akcji są tylko w pamięci okna; dziennik sesji zapisuje
+  akcje zdalne bez treści komunikatu restartu, a logi diagnostyczne nie zawierają nazw komputerów.
+
 ## Bezpieczeństwo
 
 - Hasła logowania i resetowane są tylko w pamięci; nie trafiają do ustawień, logów ani `ToString()`.

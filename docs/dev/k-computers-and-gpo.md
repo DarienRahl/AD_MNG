@@ -975,7 +975,40 @@ window's session log.
 
 ## 14. K1 as built
 
-(Filled in by the K1 implementer.)
+Branch `feature/k1-computers`, October 2026. Everything of section 4 is built; the milestones are the commits
+`K1.1` (tag `k1.1-acl`) … `K1.5`. Deviations and additions, so that K2 and the merge know them:
+
+* **Catalogue.** Windows Server 2025 ends **2034-11-14** (the table in 4.1 said 2034-10-10). The dates were set with
+  `ValidAsOf` 2026-10-27; the sandbox had no access to the Microsoft Lifecycle pages, so the pilot must compare the
+  table once more (the window warns after 9 months anyway). Builds 28000 (26H1) and 25398 (Server 23H2) were added.
+* **Shared files beyond 11.2 (all additive, K2 does not touch them):** `Core/Batch/BatchReportExporter.cs` (machine
+  passwords of computer objects are never written to a report, K1.3); `Shell/ShellViewModel.Commands.cs`
+  (`.. ComputerStateCommands` in the state refresh list); `AdMng.App.csproj` (reference to `AdMng.Remote`);
+  `Views/PropertiesWindow.xaml` (the template of the *Stan* page, before the `AttributeEditorPageViewModel` template, and an
+  `xmlns:cv`); `Views/MainWindow.xaml` also gets the *Zdalne akcje…* button in the details pane's quick actions (after
+  `object.move`, visible for computers) – the entry point of 4.5; tests: `AccountReviewTestSupport.cs`,
+  `PropertySheetTests.cs` (the *Stan* page in the computer's page list), `ServiceRegistrationTests.cs`, `SettingsTests.cs`.
+  New K1 test helpers: `tests/AdMng.Testing/FakeSecurityDescriptor.cs`, `tests/AdMng.App.UiTests/Computers/**`.
+* **Settings.** `ComputerSettingsViewModel` (Presentation/Computers) is the *Komputery* tab: WinRM options, restart
+  defaults, the end-of-support horizon (also editable in the review), expected containers of workstations and servers
+  (one portable DN per line, validated) and the operator's end-of-support dates. Rules for other types stay as stored.
+* **UI tests.** `UiTestContext` replaces the four remote services with the `AdMng.Testing` fakes **after** the test's
+  `configure` (a test that registered an instance keeps it). `TestDialogService` (object dialog tests) does not implement
+  `IComputerDialogs`; the screenshot test builds its review through `ComputerUiSupport.FactoryWithComputerDialogs` (the real
+  `DialogService`) instead of changing that shared helper. Screenshot `22-computers.png`: the end-of-support tile with
+  `LOD-PC107` selected; it does not pin the clock (Windows 7 and Server 2012 R2 stay "ended" on any day).
+* **Not built (left for later):** the optional *Właściciel obiektu* column of the review (the owner is shown on the
+  *Stan* page only); the Windows CI loopback test of `CimRemoteComputerClient` through a Negotiate test hook (the client
+  is Kerberos-only and has no such hook – it is covered by the pilot); remote service start/stop (non-goal, question 3).
+* **Lab tests** (`ComputerLabTests`, Samba 4.19): inventory of `OU=Firma` equals `ldapsearch` (password on stdin);
+  `lastLogon` on the lab DC; a run site `K1T-<run>` with the subnet `10.250.<n>.0/24` (description `K1T …`) resolved by
+  `SiteTopology`/`ComputerSites`, both removed in `finally`; prestage plan (create + four ACEs for `helpdesk.test`) read
+  back; reset computer account over LDAPS; disable, move, delete through the planner and `DomainControllerAccount` for the
+  lab DC. Objects live in `OU=K1T-…` below the run OU.
+* **Still to confirm on Windows (pilot, section 12):** CIM with Kerberos and an explicit credential of another account,
+  `Win32ShutdownTracker` with message and delay, the user policy refresh task (`RefreshUserPolicy`, off by default),
+  `CreateProcessWithLogonW` + `RunAsInvoker` for mmc, KB5020276 reuse with prestaged accounts, the inventory against
+  `Get-ADComputer`, the catalogue dates, and every WPF window of K1 (UI tests and the smoke test run on Windows CI only).
 
 ## 15. K2 as built
 
