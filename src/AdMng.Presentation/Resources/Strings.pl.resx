@@ -10495,5 +10495,8 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.GpoExists" xml:space="preserve">
     <value>GPO istnieje: jego folder w SYSVOL jest używany i nie zostanie usunięty.</value>
   </data>
+  <data name="Issue.GpoFolderExists" xml:space="preserve">
+    <value>W SYSVOL pozostał folder z identyfikatorem tego GPO: najpierw usuń go poleceniem „Usuń pozostały folder” w widoku GPO.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

@@ -10495,5 +10495,8 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.GpoExists" xml:space="preserve">
     <value>The GPO exists: its SYSVOL folder is in use and is not deleted.</value>
   </data>
+  <data name="Issue.GpoFolderExists" xml:space="preserve">
+    <value>A SYSVOL folder with the GPO's GUID is left over from its delete: remove it first with "Delete the remaining folder" in the GPO's view.</value>
+  </data>
   <!-- K2: Group Policy (end) -->
 </root>

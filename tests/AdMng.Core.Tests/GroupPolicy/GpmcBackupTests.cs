@@ -125,6 +125,21 @@ public sealed class GpmcBackupTests : GroupPolicyTestBed, IDisposable
     }
 
     [Fact]
+    public async Task Restore_OfADeletedGpo_WithItsFolderLeftOver_IsRefused()
+    {
+        var backup = await BackUpAsync(Sample.ServerSecurity);
+        await Session.DeleteAsync(GpoDn(Sample.ServerSecurity), subtree: true, Ct);
+        Assert.True(Sysvol.FolderExists(Sample.ServerSecurity));
+        var read = await GpmcBackupFormat.ReadAsync(_folder, backup.BackupId, Ct);
+        await using var sysvol = await OpenSysvolAsync();
+
+        var plan = await Planner.PlanRestoreAsync(Session, sysvol, read, _folder, restoreLinks: true, Ct);
+
+        Assert.Contains(plan.Objects[0].Changes.SelectMany(c => c.Issues), i => i.Code == IssueCodes.GpoFolderExists && i.Severity == IssueSeverity.Error);
+        Assert.Equal(0, plan.ExecutableCount);
+    }
+
+    [Fact]
     public async Task Restore_OfADeletedFilteredGpo_KeepsItsSecurityFiltering()
     {
         // "Stacje robocze – Pulpit zdalny" applies to GG_IT only; the re-created container starts with the default DACL.

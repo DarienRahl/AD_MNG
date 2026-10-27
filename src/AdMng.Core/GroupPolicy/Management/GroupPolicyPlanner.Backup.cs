@@ -90,7 +90,14 @@ public sealed partial class GroupPolicyPlanner
         if (existing is null)
         {
             var nameIssues = (await ValidateNameAsync(session, backup.DisplayName, exceptId: backup.GpoId, cancellationToken).ConfigureAwait(false))
-                .Select(i => i.Code == IssueCodes.Duplicate ? i with { Severity = IssueSeverity.Warning } : i);
+                .Select(i => i.Code == IssueCodes.Duplicate ? i with { Severity = IssueSeverity.Warning } : i).ToList();
+            if (await sysvol.GpoFolderExistsAsync(backup.GpoId, cancellationToken).ConfigureAwait(false))
+            {
+                // The folder step would fail after the container exists, and "Usuń pozostały folder" is offered only without it.
+                nameIssues.Add(new ValidationIssue(IssueSeverity.Error, IssueCodes.GpoFolderExists,
+                    "A SYSVOL folder with the GPO's GUID is left over; delete it first (Usuń pozostały folder)."));
+            }
+
             var files = backup.Files.OrderBy(f => f.Key, StringComparer.OrdinalIgnoreCase).ToList();
             var version = new GpoVersion(
                 files.Any(f => IsBelow(f.Key, "User")) || backup.Version.User > 0 ? Math.Min(backup.Version.User + 1, GpoVersion.MaxHalf) : 0,
