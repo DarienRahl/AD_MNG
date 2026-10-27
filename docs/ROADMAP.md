@@ -17,6 +17,7 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | 🟡 | [AdMng Watchdog – monitor zmian w AD](../README.md#admng-watchdog--monitor-zmian-w-ad-) |
 | 🟡 (U1, U2 i U4 – U4a, U4b, U4c: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-) |
 | ⬜ | [Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint](../README.md#ścieżka-c--microsoft-365-entra-id-exchange-online-teams-i-sharepoint-) |
+| ⬜ | [Ścieżka T – Współpraca zespołu](../README.md#ścieżka-t--współpraca-zespołu-) |
 
 ## Znane ograniczenia
 

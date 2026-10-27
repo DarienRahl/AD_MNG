@@ -186,7 +186,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"]
     end
     A --> B
     B ~~~ C
@@ -195,7 +195,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7,M365 todo
+    class F3,F4,F5,F6,F7,M365,TEAM todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -214,6 +214,7 @@ flowchart TB
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
 | U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
+| T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -1109,6 +1110,70 @@ raporty, etapy</summary>
 - Dane zgodne z centrum administracyjnym Microsoft 365 dla co najmniej 10 kont testowych (licencje, MFA, skrzynki,
   zespoły, witryny).
 - Żadnych tokenów ani danych dzierżawy na dysku poza jawnym eksportem.
+
+</details>
+
+### Ścieżka T – Współpraca zespołu ⬜
+
+**Cel:** kilku administratorów pracuje razem z różnych komputerów – widzi te same **przypięte obiekty** i **notatki
+do obiektów** („czeka na zgodę kierownika – nie odblokowywać”), bez maili i karteczek. Wymiana idzie **przez usługę
+AdMng Watchdog**, która już działa w sieci (Kerberos, role, baza, dostęp tylko z podsieci administratorów) – bez połączeń
+stacja–stacja i bez otwierania portów na stacjach; działa też przez VPN. Ścieżka równoległa; korzysta z zakładki
+Watchdog (połączenie z usługą), wielu połączeń naraz i panelu szczegółów.
+
+<details>
+<summary><b>Szczegóły ścieżki T</b> – panel „Wspólne”, notatki do obiektów, technika, etapy</summary>
+
+#### Panel „Wspólne” (przypięte obiekty zespołu)
+
+- Nowy panel po lewej stronie okna głównego, obok *Widoków* w drzewie: konta, grupy, komputery, kontakty, OU, zapisane
+  widoki i zapisane filtry **przypięte dla zespołu** – każde z notatką, autorem i datą; foldery zespołu (np. „Do
+  wyjaśnienia”, „Nowi pracownicy”, „Odejścia w tym miesiącu”).
+- *Przypnij dla zespołu…* z menu kontekstowego listy, panelu szczegółów, okna właściwości i palety poleceń; kliknięcie
+  przypięcia otwiera obiekt (przejście do OU, właściwości).
+- *Przekaż do…* – przypięcie z adresatem z zespołu: u adresata wyróżnione jako „dla Ciebie”, z możliwością oznaczenia
+  „zrobione”; odpięcie przez autora lub administratora Watchdoga.
+- Przy kilku połączeniach naraz okno pokazuje przypięcia swojej domeny (domena widoczna przy każdym przypięciu).
+
+#### Notatki do obiektów
+
+- Komentarz przy koncie, grupie, komputerze lub OU widoczny dla zespołu: w panelu szczegółów, w oknie właściwości
+  (sekcja *Notatki zespołu*) i jako znacznik na liście obiektów; autor, data, edycja i usunięcie przez autora, historia
+  zmian notatki.
+- Notatka **ważna** jest pokazywana przed zmianą obiektu (np. przed odblokowaniem albo resetem hasła) – jako
+  ostrzeżenie w podglądzie planu zmian, bez blokowania.
+- Notatki i przypięcia innych osób pojawiają się **na żywo** (jak zdarzenia w zakładce Watchdog), bez odświeżania.
+
+#### Jak to działa technicznie
+
+- Nowe API usługi AdMng Watchdog (HTTPS + Kerberos, role z grup AD): czytają i dodają administratorzy i obserwatorzy
+  Watchdoga, autor edytuje swoje wpisy, administratorzy moderują; `DeniedSids` wygrywa jak wszędzie.
+- Obiekty rozpoznawane po `objectGUID` (z DN do wyświetlenia), więc przeniesienie lub zmiana nazwy obiektu nie gubi
+  notatki ani przypięcia; usunięty obiekt – notatka oznaczona jako „obiekt usunięty”.
+- Dane współpracy (przypięcia, notatki, autorzy, daty) w bazie usługi – wymaga uzupełnienia ADR-0008/0009 (dane
+  zespołu, a nie kopia katalogu; retencja i uprawnienia jak dla zdarzeń). AD Manager nadal **niczego nie zapisuje
+  lokalnie** (zasada 1): bez połączenia z usługą panel „Wspólne” i notatki są niedostępne z wyjaśnieniem.
+- Każda zmiana przypięć i notatek trafia do dziennika usługi (kto, co, kiedy) – bez treści w dzienniku diagnostycznym.
+
+#### Etapy
+
+- **T1** – API i magazyn usługi, notatki do obiektów (panel szczegółów, okno właściwości, znacznik na liście),
+  przypięcia dla zespołu w panelu „Wspólne”.
+- **T2** – *Przekaż do…*, foldery zespołu, notatki ważne w podglądzie planu zmian, odświeżanie na żywo.
+- **Później (zgłoszone, niewybrane na teraz):** „kto nad czym pracuje” (obecność i ostrzeżenie o równoczesnej zmianie
+  tego samego obiektu) oraz zadania zespołu z przypisaniem i stanem.
+
+#### Do ustalenia z zespołem
+
+- Retencja notatek (np. bezterminowo, dopóki obiekt istnieje, albo N dni po usunięciu obiektu).
+- Czy notatki mają być widoczne dla wszystkich obserwatorów Watchdoga, czy tylko dla wybranej grupy.
+
+**Kryteria ukończenia**
+- Notatka dodana na jednej stacji pojawia się na drugiej w ciągu kilku sekund, także w drugim oknie innej domeny tylko
+  wtedy, gdy dotyczy tej domeny.
+- Przeniesienie i zmiana nazwy obiektu nie gubią notatki ani przypięcia.
+- Bez połączenia z usługą AD Manager działa jak dziś, a panel „Wspólne” wyjaśnia, czego brakuje; żadnych danych
+  współpracy na dysku stacji.
 
 </details>
 
