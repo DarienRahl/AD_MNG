@@ -53,6 +53,8 @@ public sealed class TitleParserTests
     [InlineData("prof. uczelni", "prof. uczelni")]
     [InlineData("Prof. ucz.", "prof. uczelni")]
     [InlineData("prof. nadzw. dr hab.", "prof. nadzw.")]
+    [InlineData("prof. nzw.", "prof. nadzw.")]
+    [InlineData("prof. ndzw. dr hab.", "prof. nadzw.")]
     [InlineData("lek. dent.", "lek. dent.")]
     [InlineData("lek. stom.", "lek. dent.")]
     [InlineData("lek. wet.", "lek. wet.")]
@@ -79,6 +81,20 @@ public sealed class TitleParserTests
         var dentist = SalutationPerson.Of("lek. dent.", "Anna Nowak", "Anna", "Nowak", null, SalutationOptions.Default);
         Assert.Equal("lek. dent. Anna Nowak", SalutationResolver.TitledName(dentist, SalutationOptions.Default).Text);
         Assert.Equal("Szanowna Pani Doktor", SalutationResolver.Salutation(dentist, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+    }
+
+    [Theory]
+    [InlineData("dr inż. Jan Kowalski, prof. nzw. PW", "dr inż.", "prof. nadzw. PW", "Szanowny Panie Profesorze")]
+    [InlineData("dr Jan Kowalski, prof. uczelni PW", "dr", "prof. uczelni PW", "Szanowny Panie Profesorze")]
+    [InlineData("dr hab. Jan Kowalski, prof. nadzw. PŁ", "dr hab.", "prof. nadzw. PŁ", "Szanowny Panie Profesorze")]
+    [InlineData("ks. prof. KUL Jan Kowalski", "ks. prof. KUL", "", "Szanowny Księże Profesorze")]
+    public void DisplayName_UniversityAfterEveryProfessorRow(string displayName, string prefix, string suffix, string salutation)
+    {
+        // A university position with its university is a suffix, so the professor is not addressed as a doctor.
+        var person = SalutationPerson.Of(null, displayName, "Jan", "Kowalski", null, SalutationOptions.Default);
+
+        Assert.Equal((prefix, suffix), (person.Title.PrefixText, person.Title.SuffixText));
+        Assert.Equal(salutation, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
     }
 
     [Fact]

@@ -705,7 +705,8 @@ display name is still parsed); the source is recorded for the preview:
 **Coverage** (what `{$title}` shows): from the start of the source (and of the suffix), the longest table spelling
 (canonical or variant, itself tokenized) matching the next words is taken, repeatedly; output uses the canonical
 spelling. Two absorbed patterns: the qualifier `n.` + up to two following words of which the last ends in a dot
-(`dr n. med.`, `dr hab. n. o zdr.`) and, after `prof.`, a university abbreviation (2–8 letters, starts upper-case, at
+(`dr n. med.`, `dr hab. n. o zdr.`) and, after a row with `prof.` in its title (`prof.`, `ks. prof.`, as built also
+`prof. uczelni`, `prof. nadzw.`), a university abbreviation (2–8 letters, starts upper-case, at
 least two upper-case letters: `UW`, `UJ`, `AGH`, `PWr`, `SGGW`; as built never a degree such as `MBA`, `PhD`, `DSc`,
 `LLM`, `MSc` – those stay unrecognized words) – both kept as written in `{$title}`, without effect on the salutation. Words of the title attribute that are not covered → warning `TitleUnrecognized` (detail: the words);
 `{$title}` then shows the covered part only.
@@ -725,7 +726,7 @@ vocative, EN form (empty = no title-specific form). Defaults:
 | `ks. dr` | – | 115 | Księże Doktorze | – | Father |
 | `prof.` | `prof`, `profesor`, `prof. zw.` | 100 | Panie Profesorze | Pani Profesor | Professor |
 | `prof. uczelni` | `prof. ucz.` | 101 | Panie Profesorze | Pani Profesor | Professor |
-| `prof. nadzw.` | – | 101 | Panie Profesorze | Pani Profesor | Professor |
+| `prof. nadzw.` | `prof. nzw.`, `prof. ndzw.` | 101 | Panie Profesorze | Pani Profesor | Professor |
 | `dr hab.` | `dr. hab.`, `doktor habilitowany` | 90 | Panie Profesorze | Pani Profesor | Dr |
 | `ks.` | `ks`, `ksiądz` | 80 | Księże | – | Father |
 | `dr` | `dr.`, `doktor` | 70 | Panie Doktorze | Pani Doktor | Dr |

@@ -74,8 +74,8 @@ public sealed record TitleInfo
 /// prefix and/or a suffix after the last comma of the display name – accepted only when the rest still contains the given
 /// name or the surname. Words are compared case- and diacritics-insensitively, ignoring a trailing dot; a word with inner
 /// dots is split after each dot. The longest table spelling at each position is taken; <c>n.</c> + up to two words of
-/// which the last ends in a dot (<c>dr n. med.</c>) and a university abbreviation after <c>prof.</c> (<c>UW</c>, <c>AGH</c>,
-/// <c>PWr</c>) are absorbed as written. Pure.
+/// which the last ends in a dot (<c>dr n. med.</c>) and a university abbreviation after a row with <c>prof.</c> in its
+/// title (<c>prof. UW</c>, <c>prof. uczelni AGH</c>, <c>PWr</c>) are absorbed as written. Pure.
 /// </summary>
 public static class TitleParser
 {
@@ -314,7 +314,8 @@ public static class TitleParser
             return 0;
         }
 
-        var afterProfessor = previous.Rule is { } rule && TitleParser.Tokenize(rule.Title).LastOrDefault()?.Key == "prof";
+        // After every professor row: "prof. UW", "ks. prof. KUL", "prof. uczelni PW", "prof. nadzw. PŁ".
+        var afterProfessor = previous.Rule is { } rule && Tokenize(rule.Title).Any(t => t.Key == "prof");
         return afterProfessor && !isName(token) && IsUniversity(token.Text) ? 1 : 0;
     }
 

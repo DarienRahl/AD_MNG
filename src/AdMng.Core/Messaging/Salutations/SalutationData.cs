@@ -69,7 +69,7 @@ public static class SalutationData
         Row("ks. dr", [], 115, "Księże Doktorze", null, "Father"),
         Row("prof.", ["prof", "profesor", "prof. zw."], 100, "Panie Profesorze", "Pani Profesor", "Professor"),
         Row("prof. uczelni", ["prof. ucz."], 101, "Panie Profesorze", "Pani Profesor", "Professor"),
-        Row("prof. nadzw.", [], 101, "Panie Profesorze", "Pani Profesor", "Professor"),
+        Row("prof. nadzw.", ["prof. nzw.", "prof. ndzw."], 101, "Panie Profesorze", "Pani Profesor", "Professor"),
         Row("dr hab.", ["dr. hab.", "doktor habilitowany"], 90, "Panie Profesorze", "Pani Profesor", "Dr"),
         Row("ks.", ["ks", "ksiądz"], 80, "Księże", null, "Father"),
         Row("dr", ["dr.", "doktor"], 70, "Panie Doktorze", "Pani Doktor", "Dr"),
