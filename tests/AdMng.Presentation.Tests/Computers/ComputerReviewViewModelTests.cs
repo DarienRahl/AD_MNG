@@ -1,6 +1,8 @@
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Computers;
 using AdMng.Core.Directory;
+using AdMng.Core.Model;
+using AdMng.Presentation.Changes;
 using AdMng.Presentation.Computers;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
@@ -267,6 +269,36 @@ public class ComputerReviewViewModelTests
         var win7 = Row(review, ComputerReport.EndOfSupport, "LOD-PC107");
         Assert.Equal("dc02.contoso.test", win7.Facts.ExactLastLogonServer);
         Assert.StartsWith("10/26/2026", win7.Facts.ExactLastLogon is { } exact ? exact.ToString("d", System.Globalization.CultureInfo.GetCultureInfo("en-US")) : null, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ExactLastLogon_AComputerDeletedOrMovedDuringTheRead_IsNotBroughtBack()
+    {
+        var scenario = await CreateAsync();
+        var harness = scenario.Harness;
+        var published = 0;
+        harness.ConnectToServer = (current, server, _) =>
+        {
+            if (Interlocked.Exchange(ref published, 1) == 0)
+            {
+                // Another action of the window deletes one computer and moves the other while the DCs are read.
+                harness.Changes.Publish(
+                [
+                    new DirectoryChange(DirectoryChangeKind.Deleted, scenario.Sample.Inactive, ObjectKind: ObjectKind.Computer),
+                    new DirectoryChange(DirectoryChangeKind.Moved, scenario.Sample.Windows7, "CN=LOD-PC107,OU=Do utylizacji,OU=Firma,DC=contoso,DC=test", ObjectKind.Computer),
+                ]);
+            }
+
+            return Task.FromResult<IDirectorySession>(new FakeDomainControllerSession(harness.Session, server));
+        };
+        using var review = await scenario.RunAsync();
+        review.SelectedTile = review.Tiles.Single(t => t.Report == ComputerReport.Inactive);
+
+        await review.ReadExactLastLogonCommand.ExecuteAsync(null);
+
+        Assert.Empty(harness.Dialogs.Errors);
+        Assert.Empty(Names(review, ComputerReport.Inactive));
+        Assert.DoesNotContain("LOD-PC107", Names(review, ComputerReport.EndOfSupport));
     }
 
     [Fact]

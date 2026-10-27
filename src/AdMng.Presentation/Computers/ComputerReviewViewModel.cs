@@ -378,8 +378,14 @@ public sealed partial class ComputerReviewViewModel : WindowViewModelBase
 
             var answered = reads.Where(r => r.Succeeded).ToList();
             var active = 0;
-            foreach (var row in rows)
+            foreach (var target in rows)
             {
+                // A computer deleted or moved during the read stays gone; one re-read meanwhile keeps its new facts.
+                if (!_rows.TryGetValue(DnKey.For(target.Dn), out var row))
+                {
+                    continue;
+                }
+
                 var best = answered
                     .Select(r => (r.Server, Time: r.Find(row.Dn)?.GetFileTime(Attr.LastLogon)))
                     .Where(v => v.Time is not null)
