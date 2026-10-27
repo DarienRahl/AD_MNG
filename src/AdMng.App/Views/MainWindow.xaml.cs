@@ -1,13 +1,16 @@
 using System.ComponentModel;
-using System.Reflection;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Shell;
 using System.Windows.Threading;
 using AdMng.App.Behaviors;
+using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Navigation;
@@ -21,6 +24,8 @@ namespace AdMng.App.Views;
 /// The ADUC-style main window over <see cref="ShellViewModel"/>: menu, toolbar, address bar, global search, navigation
 /// tree, document tabs, details pane, status bar with identity banner and activity center, command palette and toasts.
 /// Keyboard shortcuts come from the shell's command descriptors (object commands only while a list has the focus).
+/// One main window per connection window (design note docs/dev/multi-window.md): the title starts with the domain, a
+/// strip and a badge show the connection colour, closing it ends only its connection.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -28,13 +33,20 @@ public partial class MainWindow : Window
     private readonly ViewLibrary _views;
     private readonly ILocalizer _localizer;
     private readonly ToolWindows _tools;
+    private readonly ConnectionWindowManager? _windows;
     private GridLength _detailsWidth = new(300);
     private bool _closeConfirmed;
     private bool _confirmingClose;
     private bool _closed;
     private bool _addressPicked;
     private TreeViewItem? _dropTarget;
+    private TaskCompletionSource<bool>? _closeRequest;
 
+    /// <remarks>
+    /// <c>connection</c> and <c>windows</c>: this window's connection and the application's connection windows (null in
+    /// hosts without them). The shell is the scope's: a second main window of the same scope, or one over a shell whose
+    /// window already closed, fails (<see cref="ShellViewModel.AttachToWindow"/>).
+    /// </remarks>
     public MainWindow(
         ShellViewModel shell,
         NotificationService notifications,
@@ -42,7 +54,9 @@ public partial class MainWindow : Window
         IDialogService dialogs,
         ViewLibrary views,
         ILocalizer localizer,
-        ToolWindows tools)
+        ToolWindows tools,
+        ConnectionContext? connection = null,
+        ConnectionWindowManager? windows = null)
     {
         ArgumentNullException.ThrowIfNull(notifications);
         ArgumentNullException.ThrowIfNull(appearance);
@@ -51,6 +65,9 @@ public partial class MainWindow : Window
         _views = views ?? throw new ArgumentNullException(nameof(views));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _tools = tools ?? throw new ArgumentNullException(nameof(tools));
+        _windows = windows;
+        shell.AttachToWindow();
+        ConnectionChrome.SetConnectionId(this, connection?.Id ?? shell.Connection?.Id);
 
         InitializeComponent();
         UiLanguage.ApplyTo(this);
@@ -63,7 +80,9 @@ public partial class MainWindow : Window
 
         BuildKeyBindings();
         UpdateDetailsPane();
+        UpdateTaskbar();
         FiltersMenuItem.IsChecked = FilterToggle.IsChecked == true;
+        ExitAllMenuItem.Visibility = windows is null ? Visibility.Collapsed : Visibility.Visible;
 
         shell.FocusRequested += OnFocusRequested;
         shell.RenameRequested += OnRenameRequested;
@@ -87,6 +106,31 @@ public partial class MainWindow : Window
 
         return VisualTreeHelper.GetChildrenCount(presenter) > 0 ? VisualTreeHelper.GetChild(presenter, 0) as ObjectListView : null;
     }
+
+    /// <summary>
+    /// Closes the window after its questions (running operations, unsaved generated passwords, unsaved tabs). True when it
+    /// closed, false when the operator kept it open ("Zakończ program" stops at the first refusal).
+    /// </summary>
+    public Task<bool> TryCloseAsync()
+    {
+        if (_closed)
+        {
+            return Task.FromResult(true);
+        }
+
+        _closeRequest ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var request = _closeRequest.Task;
+        Close();
+        if (_closed)
+        {
+            _closeRequest?.TrySetResult(true);
+        }
+
+        return request;
+    }
+
+    /// <summary>The domain this window works in, for the questions before it closes.</summary>
+    private string Domain => Shell.Connection?.Identity?.DomainDnsName ?? string.Empty;
 
     protected override void OnClosing(CancelEventArgs e)
     {
@@ -112,6 +156,8 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _closed = true;
+        _closeRequest?.TrySetResult(true);
+        _closeRequest = null;
         Shell.FocusRequested -= OnFocusRequested;
         Shell.RenameRequested -= OnRenameRequested;
         Shell.PropertyChanged -= OnShellPropertyChanged;
@@ -122,24 +168,34 @@ public partial class MainWindow : Window
 
     private async void ConfirmClose()
     {
+        var closing = false;
         try
         {
+            // Only this connection window closes: the questions name its domain (title, dialog header and sentence).
+            var title = _localizer.Format(L.Connections.CloseWindowTitle, Domain);
             if (!_closed
                 && (!Shell.Activities.HasRunning
-                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Ui.ExitWhileRunning], destructive: true).ConfigureAwait(true))
+                    || await _dialogs.ConfirmAsync(title, _localizer.Format(L.Shell.CloseWindowWhileRunning, Domain), destructive: true).ConfigureAwait(true))
                 && (!_tools.HasUnsavedGeneratedPasswords
-                    || await _dialogs.ConfirmAsync(_localizer[L.Ui.Exit], _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
+                    || await _dialogs.ConfirmAsync(title, _localizer[L.Batch.DiscardPasswords], destructive: true).ConfigureAwait(true))
                 && !_closed
                 && await Shell.CanCloseDocumentsAsync().ConfigureAwait(true)
                 && !_closed)
             {
                 _closeConfirmed = true;
+                closing = true;
                 Close();
             }
         }
         finally
         {
             _confirmingClose = false;
+            if (!closing && !_closed)
+            {
+                // Kept open: "Zakończ program" stops here.
+                _closeRequest?.TrySetResult(false);
+                _closeRequest = null;
+            }
         }
     }
 
@@ -223,6 +279,9 @@ public partial class MainWindow : Window
             case nameof(ShellViewModel.IsDetailsPaneShown):
                 UpdateDetailsPane();
                 break;
+            case nameof(ShellViewModel.ConnectionColor) or nameof(ShellViewModel.ConnectionLabel):
+                UpdateTaskbar();
+                break;
             case nameof(ShellViewModel.SelectedTab):
                 // Let the new tab's list take the keyboard once it is realized (unless the operator is typing).
                 _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
@@ -260,16 +319,65 @@ public partial class MainWindow : Window
 
     private void OnConnectClick(object sender, RoutedEventArgs e) => _dialogs.ShowConnectAsync();
 
+    /// <summary>File → "Zamknij okno" (Alt+F4): this connection window only.</summary>
     private void OnExitClick(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>File → "Zakończ program": every connection window, each asking its own questions.</summary>
+    private async void OnExitAllClick(object sender, RoutedEventArgs e)
+    {
+        if (_windows is null)
+        {
+            Close();
+            return;
+        }
+
+        await _windows.ExitAllAsync(this).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// The connection badge: the open connection windows (colour dot, domain · account, DC; this one checked) and
+    /// "Nowe połączenie w nowym oknie…".
+    /// </summary>
+    private void OnConnectionBadgeClick(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = ConnectionBadge, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        menu.Items.Add(new MenuItem { Header = _localizer[L.Connections.OpenWindows], IsEnabled = false });
+        foreach (var window in Shell.OpenWindows)
+        {
+            var item = new MenuItem
+            {
+                Header = window.Server.Length > 0 ? $"{window.Label}  ({window.Server})" : window.Label,
+                IsChecked = window.IsCurrent,
+                Command = Shell.ActivateWindowCommand,
+                CommandParameter = window.Id,
+                Icon = new System.Windows.Shapes.Ellipse { Width = 10, Height = 10, Fill = ConnectionChrome.Brush(window.Color) },
+            };
+            AutomationProperties.SetName(item, window.Label);
+            menu.Items.Add(item);
+        }
+
+        menu.Items.Add(new Separator());
+        var newWindow = new MenuItem { Command = Shell.NewConnectionWindowCommand, InputGestureText = ShortcutText.Format("Ctrl+Shift+N") };
+        newWindow.SetBinding(HeaderedItemsControl.HeaderProperty, new Localization.TrBinding(L.Commands.NewConnectionWindow));
+        menu.Items.Add(newWindow);
+        ConnectionBadge.ContextMenu = menu;
+        menu.IsOpen = true;
+    }
+
+    /// <summary>The taskbar button: a dot in the connection colour and the label (best effort; the title is the reliable cue).</summary>
+    private void UpdateTaskbar()
+    {
+        TaskbarItemInfo ??= new TaskbarItemInfo();
+        TaskbarItemInfo.Description = Shell.ConnectionLabel;
+        var dot = new GeometryDrawing(ConnectionChrome.Brush(Shell.ConnectionColor), new Pen(Brushes.White, 2), new EllipseGeometry(new Point(8, 8), 7, 7));
+        var image = new DrawingImage(dot);
+        image.Freeze();
+        TaskbarItemInfo.Overlay = image;
+    }
 
     private void OnAboutClick(object sender, RoutedEventArgs e)
     {
-        var assembly = typeof(MainWindow).Assembly;
-        var version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? assembly.GetName().Version?.ToString() ?? string.Empty;
-        var plus = version.IndexOf('+', StringComparison.Ordinal);
-        version = plus > 0 ? version[..plus] : version;
-        _ = _dialogs.ShowInfoAsync(_localizer[L.Ui.About], _localizer.Format(L.Ui.AboutText, _localizer[L.App.ShortTitle], version));
+        _ = _dialogs.ShowInfoAsync(_localizer[L.Ui.About], _localizer.Format(L.Ui.AboutText, _localizer[L.App.ShortTitle], AppVersion.Display));
     }
 
     private void OnFilterToggleChanged(object sender, RoutedEventArgs e)
@@ -549,25 +657,45 @@ public partial class MainWindow : Window
         }
     }
 
-    private static string[]? DraggedDns(DragEventArgs e) =>
-        e.Data.GetDataPresent(ObjectListView.DistinguishedNamesFormat) ? e.Data.GetData(ObjectListView.DistinguishedNamesFormat) as string[] : null;
+    /// <summary>
+    /// The dragged DNs - only from a list of THIS connection window. A drag from another connection window (or another
+    /// AdMng.exe, which carries no connection id) is refused: DNs of domain A dropped on B's tree would be moved in B.
+    /// </summary>
+    private string[]? DraggedDns(DragEventArgs e) =>
+        e.Data.GetDataPresent(ObjectListView.DistinguishedNamesFormat) && IsFromThisConnection(e)
+            ? e.Data.GetData(ObjectListView.DistinguishedNamesFormat) as string[]
+            : null;
+
+    private bool IsFromThisConnection(DragEventArgs e) =>
+        e.Data.GetDataPresent(ObjectListView.ConnectionIdFormat)
+        && e.Data.GetData(ObjectListView.ConnectionIdFormat) is string id
+        && Guid.TryParse(id, out var connection)
+        && ConnectionChrome.GetConnectionId(this) == connection;
 
     private void OnTreeDragOver(object sender, DragEventArgs e)
     {
         var item = ItemFrom(e.OriginalSource);
-        var allowed = item?.DataContext is ContainerNodeViewModel target
+        var foreign = e.Data.GetDataPresent(ObjectListView.DistinguishedNamesFormat) && !IsFromThisConnection(e);
+        var allowed = !foreign
+            && item?.DataContext is ContainerNodeViewModel target
             && DraggedDns(e) is { Length: > 0 } dns
             && Shell.CanDrop(dns, target.Dn);
         e.Effects = allowed ? DragDropEffects.Move : DragDropEffects.None;
         SetDropTarget(allowed ? item : null);
+        DropRefusedText.Visibility = foreign ? Visibility.Visible : Visibility.Collapsed;
         e.Handled = true;
     }
 
-    private void OnTreeDragLeave(object sender, DragEventArgs e) => SetDropTarget(null);
+    private void OnTreeDragLeave(object sender, DragEventArgs e)
+    {
+        SetDropTarget(null);
+        DropRefusedText.Visibility = Visibility.Collapsed;
+    }
 
     private void OnTreeDrop(object sender, DragEventArgs e)
     {
         SetDropTarget(null);
+        DropRefusedText.Visibility = Visibility.Collapsed;
         if (ItemFrom(e.OriginalSource)?.DataContext is ContainerNodeViewModel target && DraggedDns(e) is { Length: > 0 } dns)
         {
             e.Handled = true;

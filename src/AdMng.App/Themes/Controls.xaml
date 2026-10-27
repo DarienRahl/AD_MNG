@@ -26,6 +26,7 @@
   <conv:SortDirectionToGlyphConverter x:Key="Ad.SortGlyph" />
   <conv:SeverityToGlyphConverter x:Key="Ad.SeverityGlyph" />
   <conv:ShortcutTextConverter x:Key="Ad.Shortcut" />
+  <conv:ConnectionColorToBrushConverter x:Key="Ad.ConnectionBrush" />
   <l:TrConverter x:Key="Ad.Tr" />
 
   <!-- Icon font: Segoe Fluent Icons (Windows 11) with Segoe MDL2 Assets fallback (Windows 10 / Server). -->

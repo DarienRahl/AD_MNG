@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Threading;
+using AdMng.App.Connections;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Localization;
-using AdMng.Presentation.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AdMng.App.Services;
@@ -11,28 +11,28 @@ namespace AdMng.App.Services;
 /// Last line of defence: unhandled exceptions on the UI thread and unobserved task exceptions are logged (type and
 /// HRESULT only - messages may contain directory values) and shown as a localized error dialog; the application keeps
 /// running. Only fatal conditions (out of memory) still terminate the process. In the smoke test a recorder replaces
-/// the dialog.
+/// the dialog. The dialog is shown by <see cref="IAppErrorPresenter"/> (the connection window manager): owned by the
+/// active connection window, without a connection header (the exception's connection is unknown), one per connection.
 /// </summary>
 public sealed class GlobalExceptionHandler
 {
     private readonly Dispatcher _dispatcher;
-    private readonly Func<IDialogService> _dialogs;
+    private readonly IAppErrorPresenter _presenter;
     private readonly ErrorTranslator _errors;
     private readonly ILocalizer _localizer;
     private readonly ILogger<GlobalExceptionHandler> _logger;
     private Application? _application;
-    private bool _showing;
 
     public GlobalExceptionHandler(
         WpfUiDispatcher dispatcher,
-        Func<IDialogService> dialogs,
+        IAppErrorPresenter presenter,
         ErrorTranslator errors,
         ILocalizer localizer,
         ILogger<GlobalExceptionHandler> logger)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         _dispatcher = dispatcher.Dispatcher;
-        _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
+        _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -115,24 +115,15 @@ public sealed class GlobalExceptionHandler
 
     private async Task ShowAsync(Exception exception)
     {
-        // One dialog at a time: a burst of identical failures must not stack dialogs.
-        if (_showing)
-        {
-            return;
-        }
-
-        _showing = true;
+        // One dialog per connection window at a time (the presenter guards): a burst of identical failures must not stack
+        // dialogs, and an error while another window's dialog is open is still shown.
         try
         {
-            await _dialogs().ShowErrorAsync(_localizer[L.Errors.Title], _errors.Translate(exception)).ConfigureAwait(true);
+            await _presenter.ShowErrorAsync(_localizer[L.Connections.ApplicationError], _errors.Translate(exception)).ConfigureAwait(true);
         }
         catch (Exception ex) when (!IsFatal(ex))
         {
             Log(ex, "Showing the error dialog failed");
-        }
-        finally
-        {
-            _showing = false;
         }
     }
 

@@ -23,12 +23,14 @@ public readonly record struct ActivityRun(ActivityViewModel Activity, Task<Batch
 /// cancel, so the operator keeps working while a large batch runs. Activities keep only what they display (title,
 /// counters, error) - never the <see cref="BatchResult"/> - and finished ones are dropped when the session changes.
 /// </summary>
-public sealed partial class ActivityCenterViewModel : ObservableObject
+public sealed partial class ActivityCenterViewModel : ObservableObject, IDisposable
 {
     private readonly IUiDispatcher _dispatcher;
     private readonly ILocalizer _localizer;
     private readonly ErrorTranslator _errors;
     private readonly TimeProvider _time;
+    private readonly ISessionManager _sessions;
+    private bool _disposed;
 
     public ActivityCenterViewModel(IUiDispatcher dispatcher, ILocalizer localizer, ErrorTranslator errors, TimeProvider time, ISessionManager sessions)
     {
@@ -36,11 +38,27 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
         _time = time ?? throw new ArgumentNullException(nameof(time));
-        ArgumentNullException.ThrowIfNull(sessions);
+        _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
 
         // Disconnect or another identity: the finished operations of the previous session (titles, object names) go.
-        sessions.SessionChanged += (_, _) => _ = _dispatcher.RunAsync(RemoveFinished);
-        _localizer.CultureChanged += (_, _) => OnCultureChanged();
+        _sessions.SessionChanged += OnSessionChanged;
+        _localizer.CultureChanged += OnLocalizerCultureChanged;
+    }
+
+    /// <summary>
+    /// Ends the subscriptions (the activity center is per connection window; the application-wide localizer must not keep a
+    /// closed window alive). Running activities are not touched: the window cancels them before it closes.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _sessions.SessionChanged -= OnSessionChanged;
+        _localizer.CultureChanged -= OnLocalizerCultureChanged;
     }
 
     /// <summary>Newest first.</summary>
@@ -111,6 +129,10 @@ public sealed partial class ActivityCenterViewModel : ObservableObject
         OnPropertyChanged(nameof(HasRunning));
         OnPropertyChanged(nameof(Summary));
     }
+
+    private void OnSessionChanged(object? sender, EventArgs e) => _ = _dispatcher.RunAsync(RemoveFinished);
+
+    private void OnLocalizerCultureChanged(object? sender, EventArgs e) => OnCultureChanged();
 
     /// <summary>Live language switch: the status bar summary and the activities' status lines in the new language.</summary>
     private void OnCultureChanged()

@@ -206,6 +206,9 @@ public static partial class FakeSchema
             Class("certificationAuthority", "top", schemaNc, "Certification-Authority", ["cACertificate"]),
             Class("msFVE-RecoveryInformation", "top", schemaNc, "ms-FVE-RecoveryInformation"),
             Class("dnsNode", "top", schemaNc, "Dns-Node", ["dNSTombstoned"]),
+
+            // Well-known principals (Authenticated Users, Everyone) as members of groups: the privileged access review (U4).
+            Class("foreignSecurityPrincipal", "top", schemaNc, "Foreign-Security-Principal", ["objectSid", "foreignIdentifier"]),
         ]);
     }
 

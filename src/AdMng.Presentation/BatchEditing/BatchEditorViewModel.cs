@@ -440,7 +440,7 @@ public sealed partial class BatchEditorViewModel : WindowViewModelBase
         if (executable > Services.Settings.Current.ConfirmationThreshold || risky)
         {
             var expected = executable.ToString(CultureInfo.InvariantCulture);
-            var message = Localizer.Format(L.Batch.ConfirmExecute, executable, ChangeTitle, expected);
+            var message = Localizer.Format(L.Batch.ConfirmExecute, executable, ChangeTitle, expected, ConfirmationDomain);
             if (!await Services.Dialogs.ConfirmTypedAsync(ChangeTitle, message, expected).ConfigureAwait(true))
             {
                 return;

@@ -113,6 +113,7 @@ public sealed partial class ObjectListViewModel
         && location.Scope == SearchScope.OneLevel
         && location.PostFilter == ListPostFilter.None
         && !ChipsRequireLockedPostFilter
+        && _clientPlan is null
         && (session.Info.SupportedControls.Count == 0 || session.Info.Supports(LdapControls.VirtualListView));
 
     /// <summary>The search of a virtual list: the list's search with the server sort (current sort column, else name).</summary>

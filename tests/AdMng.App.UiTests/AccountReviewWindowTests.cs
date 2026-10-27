@@ -8,11 +8,13 @@ using AdMng.Core.ActiveDirectory;
 using AdMng.Presentation.AccountReview;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.PropertySheets;
+using AdMng.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AdMng.App.UiTests;
 
-/// <summary>The account review window (README U2) and the account state on the Account tab.</summary>
+/// <summary>The account review window (README U2, U4), the saved filters and the account state on the Account tab.</summary>
 [Collection(UiTestCollection.Name)]
 public sealed class AccountReviewWindowTests
 {
@@ -78,6 +80,203 @@ public sealed class AccountReviewWindowTests
         await UiTestSupport.WaitForIdleAsync();
         Assert.Equal(review.Columns.Count, window.ItemsGrid.Columns.Count);
         Assert.Contains(review.Items, r => r.Name == "Zbigniew Kaźmierczak");
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PrivilegesTab_RunsWithTheScope_ShowsThePathOfTheSelectedAccount_AndFiltersByLevel() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync();
+        var sample = context.Directory.AddPrivilegedAccessSample(context.Company);
+        await context.ConnectAsync();
+        var windows = context.Services.GetRequiredService<IWindowService>();
+        var factory = context.Services.GetRequiredService<IDialogViewModelFactory>();
+        var window = (AccountReviewWindow)windows.CreateWindow(factory.CreateAccountReview());
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+
+        // The second tab; "Sprawdź" runs it.
+        window.Tabs.SelectedItem = window.PrivilegesTab;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(AccountReviewViewModel.PrivilegesTab, review.SelectedTabIndex);
+        Assert.Equal(Visibility.Visible, window.PrivilegesNotRunHint.Visibility);
+        Assert.True(window.RunButton.IsEnabled);
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+
+        var tab = review.Privileges;
+        Assert.Null(tab.Error);
+        Assert.Equal(Visibility.Collapsed, window.PrivilegesNotRunHint.Visibility);
+        Assert.Equal(tab.Items.Count, window.PrivilegesList.Items.Count);
+        Assert.Equal(4, window.LevelTilesList.Items.Count);
+        Assert.Equal(review.FooterText, window.StatusText.Text);
+        Assert.Equal(tab.StatusText, window.StatusText.Text);
+
+        // The details of an account: every finding with its path.
+        var henryk = tab.Items.Single(r => r.Name == "Henryk Żuławski");
+        Assert.Equal(sample.HenrykZulawski, henryk.Dn);
+        window.PrivilegesList.SelectedItem = henryk;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(tab.Findings.Count, window.FindingsList.Items.Count);
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Henryk Żuławski → GG_Helpdesk → GG_Wsparcie_IT → Operatorzy kont");
+        Assert.Equal("Rights of Henryk Żuławski", window.DetailsTitleText.Text);
+        Assert.True(window.RemoveFromGroupButton.IsEnabled);
+
+        // A level tile off: those accounts leave the list (Henryk is Tier 0 through Account Operators – the selection goes).
+        tab.LevelTiles.Single(t => t.Level == Core.PrivilegedAccess.PrivilegeLevel.Tier0).IsActive = false;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(tab.Items.Count, window.PrivilegesList.Items.Count);
+        Assert.DoesNotContain(tab.Items, r => r.Level == Core.PrivilegedAccess.PrivilegeLevel.Tier0);
+        Assert.DoesNotContain(henryk, tab.Items);
+
+        // The settings expander: the built-in groups with their levels.
+        window.PrivilegesSettingsExpander.IsExpanded = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Core.PrivilegedAccess.PrivilegedGroupCatalog.All.Count, window.GroupLevelsList.Items.Count);
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PrivilegesTab_OffersTheAclDelegations_WithTheDeepScanSetting() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        var sample = context.Directory.AddPrivilegedAccessSample(context.Company);
+        context.Directory.AddAclDelegationSample(context.Company, sample);
+        await context.ConnectAsync();
+        var window = (AccountReviewWindow)context.Services.GetRequiredService<IWindowService>()
+            .CreateWindow(context.Services.GetRequiredService<IDialogViewModelFactory>().CreateAccountReview());
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        var tab = review.Privileges;
+
+        // The ACL source is registered in the container: its setting is shown, off by default and saved when checked.
+        window.Tabs.SelectedItem = window.PrivilegesTab;
+        window.PrivilegesSettingsExpander.IsExpanded = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.HasAclSource);
+        Assert.Equal(Visibility.Visible, window.AclSettingsPanel.Visibility);
+        Assert.False(window.DeepAclScanBox.IsChecked);
+        window.DeepAclScanBox.IsChecked = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(tab.DeepAclScan);
+
+        // A finding of a delegation in the details pane.
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Null(tab.Error);
+        Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.DirectoryAcl && o.Count > 0);
+        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Halina Źrebiec");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Uprawnienie w zabezpieczeniach obiektu Policies");
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Pełna kontrola");
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task PrivilegesTab_LocalRightsFromGpos_AndTheNoticeBar() => WpfTestHost.RunAsync(async () =>
+    {
+        // The app's GPO source with SYSVOL in memory (the Windows reader would go to \\dc01.contoso.test\SYSVOL).
+        var sysvol = new FakeSysvolFileReader();
+        await using var context = await UiTestContext.CreateAsync(configure: services =>
+            services.Replace(ServiceDescriptor.Singleton<Core.GroupPolicy.ISysvolFileReader>(sysvol)));
+        var sample = context.Directory.AddPrivilegedAccessSample(context.Company);
+        context.Directory.AddGroupPolicySample(context.Company, sample, sysvol);
+        await context.ConnectAsync();
+        var windows = context.Services.GetRequiredService<IWindowService>();
+        var factory = context.Services.GetRequiredService<IDialogViewModelFactory>();
+        var window = (AccountReviewWindow)windows.CreateWindow(factory.CreateAccountReview());
+        UiTestSupport.ShowOffScreen(window);
+        await UiWait.InitializedAsync(window.Initialization);
+        var review = window.ViewModel;
+        window.Tabs.SelectedItem = window.PrivilegesTab;
+        await UiTestSupport.WaitForIdleAsync();
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+
+        // The source is offered next to the ACL delegations (both registered in the container); the GPP name the domain
+        // does not know is reported in the notice bar.
+        var tab = review.Privileges;
+        Assert.Null(tab.Error);
+        Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.GroupPolicy);
+        Assert.Contains(tab.SourceOptions, o => o.Source == Core.PrivilegedAccess.PrivilegeSource.DirectoryAcl);
+        Assert.Equal(Visibility.Visible, window.PrivilegesNoticeBar.Visibility);
+        Assert.Equal(tab.NoticeText, window.PrivilegesNoticeText.Text);
+
+        // A local right in the details: its title, the GPO and the computers.
+        window.PrivilegesList.SelectedItem = tab.Items.Single(r => r.Name == "Ewa Błaszczyk");
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.FindingsList), t => t.Text == "Local right from a group policy: Administrators");
+
+        // SYSVOL cannot be opened with the session's credentials: the bar says why, the other sources still run.
+        sysvol.Unavailable = Core.GroupPolicy.SysvolUnavailableReason.LogonFailure;
+        await review.RunCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.StartsWith("Local rights from GPOs were not checked", window.PrivilegesNoticeText.Text, StringComparison.Ordinal);
+        Assert.Contains(tab.Items, r => r.Name == "Henryk Żuławski");
+        context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task SavedFilters_FromTheToolsMenu_AndTheFilterBuilder_Render() => WpfTestHost.RunAsync(async () =>
+    {
+        await using var context = await UiTestContext.CreateAsync(language: "pl");
+        await context.ConnectAsync();
+        var windows = context.Services.GetRequiredService<IWindowService>();
+        Assert.True(windows.IsRegistered(typeof(Presentation.Filters.SavedFiltersViewModel)));
+        Assert.True(windows.IsRegistered(typeof(Presentation.Filters.FilterEditorViewModel)));
+        var main = context.Services.GetRequiredService<MainWindow>();
+        UiTestSupport.ShowOffScreen(main);
+        await main.Shell.InitializeAsync();
+        Assert.Contains(main.Shell.CommandDescriptors, d => d.Id == "tools.savedFilters");
+
+        await context.Services.GetRequiredService<Presentation.Filters.FilterLibrary>().SaveAsync(new Presentation.Filters.SavedFilter
+        {
+            Name = "Warszawa",
+            Definition = Core.Filters.FilterDefinition.Of(new Core.Filters.FilterCondition(Attr.City, Core.Filters.FilterOperator.Equals, "Warszawa")),
+        });
+        await main.Shell.ShowSavedFiltersCommand.ExecuteAsync(null);
+        await main.Shell.ShowSavedFiltersCommand.ExecuteAsync(null);
+        await UiTestSupport.WaitForIdleAsync();
+        var list = Assert.Single(Application.Current.Windows.OfType<SavedFiltersWindow>());
+        Assert.Same(list, windows.FindOpen(ToolWindows.SavedFiltersKey));
+
+        // A tool window of the connection, owned by its main window; the filters are shared by all windows and the window
+        // is reused after a reconnect, so it names no domain (the builder it opens does).
+        Assert.Same(main, list.Owner);
+        Assert.Equal("Zapisane filtry", list.Title);
+        Assert.Null(Connections.ConnectionChrome.GetIdentity(list));
+        Assert.Single(list.FiltersList.Items);
+        Assert.Equal(Visibility.Collapsed, list.EmptyHint.Visibility);
+
+        // The builder with two groups and a problem shown next to the condition.
+        var services = context.Services.GetRequiredService<DialogServices>();
+        var editor = new Presentation.Filters.FilterEditorViewModel(services.Sessions, services.Dialogs, services.Localizer, services.Errors, services.Time);
+        var builder = (FilterEditorWindow)windows.CreateWindow(editor);
+        UiTestSupport.ShowOffScreen(builder);
+        editor.Groups[0].Conditions[0].Attribute = Attr.Department;
+        editor.Groups[0].Conditions[0].Value = "Księgowość";
+        editor.AddGroupCommand.Execute(null);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(2, builder.GroupsList.Items.Count);
+        Assert.Equal(Visibility.Visible, builder.ErrorBar.Visibility);
+        Assert.Contains(UiWait.Descendants<TextBlock>(builder.GroupsList), t => t.Text == "Wybierz atrybut.");
+        editor.RemoveGroupCommand.Execute(editor.Groups[1]);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Collapsed, builder.ErrorBar.Visibility);
+        Assert.Equal("(department=Księgowość)", builder.PreviewBox.Text);
+        editor.IsRaw = true;
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.Equal(Visibility.Visible, builder.RawFilterBox.Visibility);
+        Assert.Equal("(department=Księgowość)", builder.RawFilterBox.Text);
+
+        // The object list shows the saved filter as a chip.
+        await main.Shell.NavigateAsync(Presentation.Lists.ListLocation.ForContainer(context.Company.ItOu));
+        await UiTestSupport.WaitForIdleAsync();
+        var view = main.SelectedListView!;
+        Assert.Equal(Visibility.Visible, view.SavedFilterChipsRow.Visibility);
+        Assert.Single(view.SavedFilterChipsList.Items);
         context.AssertHealthy();
     });
 

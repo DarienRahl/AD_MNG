@@ -10,7 +10,6 @@ using AdMng.Presentation.Navigation;
 using AdMng.Presentation.Services;
 using AdMng.Presentation.Settings;
 using AdMng.Testing;
-using CommunityToolkit.Mvvm.Input;
 
 namespace AdMng.Presentation.Tests.Dialogs;
 
@@ -612,7 +611,7 @@ public class SettingsDialogTests
     {
         var harness = await B2Harness.CreateAsync();
         using var settings = harness.Factory.CreateSettings();
-        Assert.Equal("Settings", settings.WindowTitle);
+        Assert.Equal("Settings (shared by all windows)", settings.WindowTitle);
 
         settings.Language = settings.Languages.Single(l => l.Value == "pl");
         settings.Theme = settings.Themes.Single(t => t.Value == ThemePreference.Dark);
@@ -628,30 +627,31 @@ public class SettingsDialogTests
         Assert.Equal(1000, harness.Settings.Current.PageSize);
         Assert.Equal("pl-PL", harness.Localizer.Culture.Name);
         Assert.Equal(ThemePreference.Dark, harness.Theme.Applied);
-        Assert.Equal("Ustawienia", settings.WindowTitle);
+        Assert.Equal("Ustawienia (wspólne dla wszystkich okien)", settings.WindowTitle);
     }
 
     [Fact]
-    public async Task AdvancedFeatures_GoThroughTheShellCommand()
+    public async Task AdvancedFeatures_AreOnlyStored_EveryShellAppliesThem()
     {
+        // The settings are shared by every connection window: the dialog stores the switch, and each window's shell reacts
+        // to the settings change (ShellTests cover the reload).
         var harness = await B2Harness.CreateAsync();
-        var toggled = 0;
-        var toggle = new AsyncRelayCommand(async () =>
-        {
-            toggled++;
-            await harness.Settings.UpdateAsync(s => s.ShowAdvancedFeatures = !s.ShowAdvancedFeatures);
-        });
-        using var settings = harness.Factory.CreateSettings(toggle);
+        var changes = 0;
+        harness.Settings.Changed += (_, _) => changes++;
+        using var settings = harness.Factory.CreateSettings();
 
         settings.ShowAdvancedFeatures = true;
         await settings.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal(1, toggled);
         Assert.True(harness.Settings.Current.ShowAdvancedFeatures);
+        Assert.Equal(1, changes);
+        Assert.Equal("Settings (shared by all windows)", settings.WindowTitle);
 
-        using var again = harness.Factory.CreateSettings(toggle);
+        using var again = harness.Factory.CreateSettings();
+        Assert.True(again.ShowAdvancedFeatures);
+        again.ShowAdvancedFeatures = false;
         await again.SaveCommand.ExecuteAsync(null);
-        Assert.Equal(1, toggled);
+        Assert.False(harness.Settings.Current.ShowAdvancedFeatures);
     }
 }
 

@@ -51,11 +51,7 @@ public static class GpoPathValidator
     }
 
     /// <summary>The GUID of a GPC <c>cn</c>: exactly <c>{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}</c>.</summary>
-    public static bool TryParseGpcCn(string? cn, out Guid guid)
-    {
-        guid = Guid.Empty;
-        return cn is { Length: 38 } && Guid.TryParseExact(cn, "B", out guid) && guid != Guid.Empty;
-    }
+    public static bool TryParseGpcCn(string? cn, out Guid guid) => AdMng.Core.GroupPolicy.GroupPolicyLinks.TryParseGpoId(cn, out guid);
 }
 
 /// <summary>

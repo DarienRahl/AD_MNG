@@ -585,7 +585,7 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
                 async () =>
                 {
                     var read = await session.GetAsync(dn, ["*", .. ConstructedAttributes], token).ConfigureAwait(false);
-                    return read is null ? null : await CompleteRangedAsync(session, read, token).ConfigureAwait(false);
+                    return read is null ? null : await RangedValues.CompleteAsync(session, read, token).ConfigureAwait(false);
                 },
                 token).ConfigureAwait(true);
             if (obj is null)
@@ -632,35 +632,6 @@ public sealed partial class AttributeEditorPageViewModel : PropertyPageViewModel
                 IsLoading = false;
             }
         }
-    }
-
-    /// <summary>Completes multi-valued attributes the server returned partially (more than 1500 values).</summary>
-    private static async Task<DirectoryObject> CompleteRangedAsync(IDirectorySession session, DirectoryObject obj, CancellationToken cancellationToken)
-    {
-        List<AttributeValues>? completed = null;
-        foreach (var values in obj.Attributes.Values)
-        {
-            if (!values.Name.Contains(";range=", StringComparison.OrdinalIgnoreCase) || values.Name.EndsWith("-*", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var baseName = values.Name[..values.Name.IndexOf(';', StringComparison.Ordinal)];
-            if (session.Schema.IsBinary(baseName))
-            {
-                continue;
-            }
-
-            var all = new List<object>();
-            await foreach (var value in session.GetAllValuesAsync(obj.DistinguishedName, baseName, cancellationToken).ConfigureAwait(false))
-            {
-                all.Add(value);
-            }
-
-            (completed ??= []).Add(new AttributeValues(baseName, all));
-        }
-
-        return completed is null ? obj : obj.With(completed);
     }
 
     private void ApplyFilter()

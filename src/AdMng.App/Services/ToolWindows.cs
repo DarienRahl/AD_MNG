@@ -7,41 +7,47 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AdMng.App.Services;
 
 /// <summary>
-/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review and the settings dialog: creates the
+/// Opens the batch editor, the CSV import, the session log, the PowerShell history, the AD Recycle Bin, the account review, the saved filters and the settings dialog: creates the
 /// view model through <see cref="IDialogViewModelFactory"/> and shows it with <see cref="IWindowService"/> (the windows
 /// host it with <see cref="Infrastructure.WindowViewModelLifecycle"/>). Used by <see cref="DialogService"/> and by the
 /// main window's Tools menu (PowerShell history has no <see cref="IDialogService"/> entry). UI thread only.
 /// </summary>
 /// <remarks>
 /// The factory is resolved on first use: it depends on <see cref="IDialogService"/> (through DialogServices), which
-/// depends on this class.
+/// depends on this class. One per connection window (scoped): the "one window" tool keys mean one per connection.
 /// </remarks>
-public sealed class ToolWindows(IServiceProvider services, IWindowService windows, AppNavigator navigator)
+public sealed class ToolWindows(IServiceProvider services, IWindowService windows, Presentation.Connections.ConnectionContext? connection = null)
 {
-    /// <summary>Singleton key of the session log window (one per application).</summary>
+    /// <summary>Singleton key of the session log window (one per connection window).</summary>
     public const string SessionLogKey = "tools:session-log";
 
-    /// <summary>Singleton key of the PowerShell history window (one per application).</summary>
+    /// <summary>Singleton key of the PowerShell history window (one per connection window).</summary>
     public const string PowerShellHistoryKey = "tools:powershell-history";
 
-    /// <summary>Singleton key of the AD Recycle Bin window (one per application).</summary>
+    /// <summary>Singleton key of the AD Recycle Bin window (one per connection window).</summary>
     public const string RecycleBinKey = "tools:recycle-bin";
 
-    /// <summary>Singleton key of the account review window (one per application).</summary>
+    /// <summary>Singleton key of the account review window (one per connection window).</summary>
     public const string AccountReviewKey = "tools:account-review";
+
+    /// <summary>
+    /// Singleton key of the saved filters window (one per connection window: the filters are shared settings, but the
+    /// builder picks attributes and groups and tests a filter through this connection's session).
+    /// </summary>
+    public const string SavedFiltersKey = "tools:saved-filters";
 
     private readonly IServiceProvider _services = services ?? throw new ArgumentNullException(nameof(services));
     private readonly IWindowService _windows = windows ?? throw new ArgumentNullException(nameof(windows));
-    private readonly AppNavigator _navigator = navigator ?? throw new ArgumentNullException(nameof(navigator));
 
     private IDialogViewModelFactory Factory => _services.GetRequiredService<IDialogViewModelFactory>();
 
     /// <summary>
-    /// An open batch editor holds generated passwords that were not exported. The main window asks before it closes:
-    /// owned windows are closed with it and cannot refuse.
+    /// An open batch editor of this connection holds generated passwords that were not exported. The main window asks
+    /// before it closes: owned windows are closed with it and cannot refuse.
     /// </summary>
     public bool HasUnsavedGeneratedPasswords =>
-        Application.Current?.Windows.OfType<BatchEditorWindow>().Any(w => w.ViewModel.HasUnsavedGeneratedPasswords) == true;
+        Application.Current?.Windows.OfType<BatchEditorWindow>()
+            .Any(w => (connection is null || Connections.ConnectionChrome.BelongsTo(w, connection.Id)) && w.ViewModel.HasUnsavedGeneratedPasswords) == true;
 
     /// <summary>A new (modeless) batch editor; an empty target list opens the CSV import.</summary>
     public Window ShowBatchEditor(BatchEditorRequest request)
@@ -83,14 +89,16 @@ public sealed class ToolWindows(IServiceProvider services, IWindowService window
     /// <summary>The account review (modeless; an open one is activated).</summary>
     public Window ShowAccountReview() => ShowSingleton(AccountReviewKey, () => Factory.CreateAccountReview());
 
+    /// <summary>The saved filters of the filter builder (modeless; an open one is activated).</summary>
+    public Window ShowSavedFilters() => ShowSingleton(SavedFiltersKey, () => Factory.CreateSavedFilters());
+
     /// <summary>
-    /// The settings dialog (modal). Advanced Features is applied through the main window's shell, so the tree and the
-    /// container tabs reload. Returns true when the operator saved.
+    /// The settings dialog (modal). The settings are shared by all connection windows; every window's shell applies a
+    /// changed Advanced Features setting itself. Returns true when the operator saved.
     /// </summary>
     public bool ShowSettings()
     {
-        var shell = (_navigator.MainWindow ?? Application.Current?.Windows.OfType<MainWindow>().FirstOrDefault(w => w.IsVisible))?.Shell;
-        var window = _windows.CreateWindow(Factory.CreateSettings(shell?.ToggleAdvancedFeaturesCommand));
+        var window = _windows.CreateWindow(Factory.CreateSettings());
         _windows.ShowDialog(window);
         return window is IDialogResultWindow { Result: true };
     }

@@ -205,6 +205,12 @@ public class CopyTests
         // The tree expands to the list's container in the background: the failure must hit the copy's read (searched
         // from the domain root), not a level of the tree.
         await B2Harness.WaitUntilAsync(() => shell.Tree.SelectedNode is ContainerNodeViewModel { Dn: var dn } && dn == harness.Company.ItOu);
+
+        // The session's once-per-session reads of the domain head (well-known containers, domain policy) run in the
+        // background and swallow errors: they must be done, or one of them may take the injected failure instead of the
+        // copy's read (seen on Windows CI).
+        await harness.Sessions.GetWellKnownObjectsAsync(TestContext.Current.CancellationToken);
+        await harness.Sessions.GetDomainPolicyAsync(TestContext.Current.CancellationToken);
         harness.Session.FailNext(FakeOperationKind.Search, harness.Session.Info.DefaultNamingContext, DirectoryErrorKind.Busy);
         await shell.CopyAsCommand.ExecuteAsync(CopyFormat.Mail);
 

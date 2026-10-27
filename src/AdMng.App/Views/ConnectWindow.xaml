@@ -101,6 +101,21 @@
                   SelectedItem="{Binding SelectedProfile}" />
       </DockPanel>
 
+      <!-- The chosen profile is already connected in another window (information only). -->
+      <DockPanel x:Name="ProfileOpenElsewhere"
+                 Margin="0,6,0,0"
+                 Visibility="{Binding ProfileOpenElsewhereText, Mode=OneWay, Converter={StaticResource Ad.EmptyToCollapsed}}">
+        <Ellipse Width="10"
+                 Height="10"
+                 Margin="0,3,8,0"
+                 VerticalAlignment="Top"
+                 DockPanel.Dock="Left"
+                 Fill="{Binding ProfileOpenElsewhereColor, Mode=OneWay, Converter={StaticResource Ad.ConnectionBrush}}" />
+        <TextBlock Style="{StaticResource Ad.SecondaryText}"
+                   Text="{Binding ProfileOpenElsewhereText, Mode=OneWay, TargetNullValue=''}"
+                   TextWrapping="Wrap" />
+      </DockPanel>
+
       <!-- Domain -->
       <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connect.Domain}" />
       <TextBox x:Name="DomainBox"
@@ -177,6 +192,31 @@
                 ItemsSource="{Binding SecurityModes}"
                 SelectedValue="{Binding Security}"
                 SelectedValuePath="Value" />
+
+      <!-- The window colour (strip, badge): automatic from the domain name, or chosen; saved with the profile. -->
+      <StackPanel x:Name="ColorPanel" Visibility="{Binding CanChooseColor, Mode=OneTime, Converter={StaticResource Ad.BoolToVisibility}}">
+        <TextBlock Style="{StaticResource Ad.FieldLabel}" Text="{l:Tr Connections.ColorLabel}" />
+        <ComboBox x:Name="ColorBox"
+                  AutomationProperties.Name="{l:Tr Connections.ColorLabel}"
+                  ItemsSource="{Binding Colors, Mode=OneTime}"
+                  SelectedValue="{Binding SelectedColor}"
+                  SelectedValuePath="Value">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal">
+                <Rectangle Width="14"
+                           Height="14"
+                           Margin="0,0,8,0"
+                           VerticalAlignment="Center"
+                           Fill="{Binding Value, Mode=OneTime, Converter={StaticResource Ad.ConnectionBrush}}"
+                           RadiusX="3"
+                           RadiusY="3" />
+                <TextBlock VerticalAlignment="Center" Text="{Binding Text, Mode=OneTime}" />
+              </StackPanel>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </StackPanel>
 
       <!-- Save as profile (never with a password) -->
       <CheckBox Margin="0,12,0,0"

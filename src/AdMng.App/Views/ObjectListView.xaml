@@ -35,6 +35,15 @@
       </Style.Triggers>
     </Style>
 
+    <Style x:Key="SavedChipsRowStyle" TargetType="DockPanel">
+      <Setter Property="Margin" Value="0,2,0,0" />
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding SavedFilterChips.Count, Mode=OneWay}" Value="0">
+          <Setter Property="Visibility" Value="Collapsed" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+
     <!-- "No items" hint: only when nothing is loading, there is no error and the list is empty. -->
     <Style x:Key="EmptyHintStyle" TargetType="TextBlock" BasedOn="{StaticResource Ad.SecondaryText}">
       <Setter Property="Visibility" Value="Collapsed" />
@@ -105,21 +114,47 @@
                  DockPanel.Dock="Left"
                  Style="{StaticResource Ad.SecondaryText}"
                  Text="{l:Tr List.ServerFilters}" />
-      <ItemsControl Focusable="False" ItemsSource="{Binding FilterChips}">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <ToggleButton AutomationProperties.Name="{Binding Title, Mode=OneWay}"
-                          Content="{Binding Title, Mode=OneWay}"
-                          IsChecked="{Binding IsActive}"
-                          Style="{StaticResource Ad.ChipToggleButton}" />
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <StackPanel>
+        <ItemsControl Focusable="False" ItemsSource="{Binding FilterChips}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <ToggleButton AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                            Content="{Binding Title, Mode=OneWay}"
+                            IsChecked="{Binding IsActive}"
+                            Style="{StaticResource Ad.ChipToggleButton}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- The operator's saved filters (README U4): AND-ed like the quick filters; hidden while there are none. -->
+        <DockPanel x:Name="SavedFilterChipsRow" Style="{StaticResource SavedChipsRowStyle}">
+          <TextBlock Margin="0,4,8,0"
+                     VerticalAlignment="Top"
+                     DockPanel.Dock="Left"
+                     Style="{StaticResource Ad.SecondaryText}"
+                     Text="{l:Tr Filters.ChipsLabel}" />
+          <ItemsControl x:Name="SavedFilterChipsList" Focusable="False" ItemsSource="{Binding SavedFilterChips}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <ToggleButton AutomationProperties.Name="{Binding Title, Mode=OneWay}"
+                              Content="{Binding Title, Mode=OneWay}"
+                              IsChecked="{Binding IsActive}"
+                              Style="{StaticResource Ad.ChipToggleButton}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </DockPanel>
+      </StackPanel>
     </DockPanel>
 
     <!-- Loading indicator with "stop" -->
@@ -208,6 +243,7 @@
               <MenuItem b:CommandMenu.Id="copyAs.sid" />
             </MenuItem>
             <MenuItem b:CommandMenu.Id="object.watchdogHistory" />
+            <MenuItem b:CommandMenu.Id="object.compareWithConnection" />
             <MenuItem b:CommandMenu.Id="view.pin" />
             <Separator />
             <MenuItem b:CommandMenu.Id="object.delete" />

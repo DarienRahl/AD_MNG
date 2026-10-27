@@ -20,10 +20,18 @@ internal sealed class RecordingChangePlanner : IChangePlanner
 
     public Func<BatchRequest, ChangePlan>? PlanFactory { get; set; }
 
-    public Task<ChangePlan> PlanAsync(IDirectorySession session, BatchRequest request, PlanningOptions? options, IProgress<int>? progress, CancellationToken cancellationToken)
+    /// <summary>Awaited before the plan is built (on the planning thread) - lets a test change the session meanwhile.</summary>
+    public Func<CancellationToken, Task>? BeforePlan { get; set; }
+
+    public async Task<ChangePlan> PlanAsync(IDirectorySession session, BatchRequest request, PlanningOptions? options, IProgress<int>? progress, CancellationToken cancellationToken)
     {
         _requests.Enqueue(request);
-        return Task.FromResult(PlanFactory?.Invoke(request) ?? DefaultPlan(request));
+        if (BeforePlan is { } before)
+        {
+            await before(cancellationToken);
+        }
+
+        return PlanFactory?.Invoke(request) ?? DefaultPlan(request);
     }
 
     public static ChangePlan DefaultPlan(BatchRequest request) => new()
@@ -242,6 +250,23 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) =>
         Task.FromResult(ViewEditorHandler?.Invoke(editor) ?? false);
+
+    /// <summary>Plays the filter builder (null: Cancel); every editor shown is recorded.</summary>
+    public Func<Presentation.Filters.FilterEditorViewModel, bool>? FilterEditorHandler { get; set; }
+
+    public List<Presentation.Filters.FilterEditorViewModel> FilterEditors { get; } = [];
+
+    public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor)
+    {
+        FilterEditors.Add(editor);
+        return Task.FromResult(FilterEditorHandler?.Invoke(editor) ?? false);
+    }
+
+    public Task ShowSavedFiltersAsync()
+    {
+        Shown.Add("savedFilters");
+        return Task.CompletedTask;
+    }
 
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) =>
         Task.FromResult(ColumnChooserHandler?.Invoke(chooser) ?? false);

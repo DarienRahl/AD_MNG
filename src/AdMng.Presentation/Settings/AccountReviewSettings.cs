@@ -28,6 +28,9 @@ public sealed record AccountReviewScope
 
     /// <summary>Id of the saved view.</summary>
     public string? ViewId { get; init; }
+
+    /// <summary>Id of a saved filter applied on top of the scope (every tab), null for none.</summary>
+    public string? FilterId { get; init; }
 }
 
 /// <summary>
@@ -63,9 +66,14 @@ public sealed class AccountReviewSettings
 
     public List<AccountReviewCheckSet> CheckSets { get; set; } = [];
 
+    /// <summary>The "Uprawnienia" tab (U4): levels, marks, rules, peers - never results.</summary>
+    public PrivilegedAccessSettings Privileges { get; set; } = new();
+
     /// <summary>Repairs values of a hand-edited or older settings file.</summary>
     public void Normalize()
     {
+        Privileges ??= new();
+        Privileges.Normalize();
         Parameters = (Parameters ?? new()).Normalized();
         DisabledChecks = [.. (DisabledChecks ?? []).Where(Enum.IsDefined).Distinct()];
         Scope ??= new();

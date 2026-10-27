@@ -28,7 +28,8 @@ public sealed partial class ToastViewModel : ObservableObject
 /// <summary>
 /// <see cref="INotificationService"/> as a toast queue: thread-safe <see cref="Show"/>, at most
 /// <see cref="MaxVisible"/> toasts (the oldest is dropped), auto-dismiss after a severity dependent time. Toast texts are
-/// held only while shown and never logged.
+/// held only while shown and never logged. One per connection window (scoped): toasts appear only in their own window,
+/// and none after the window closed (<see cref="MarkClosed"/>).
 /// </summary>
 public sealed class NotificationService : INotificationService
 {
@@ -42,12 +43,17 @@ public sealed class NotificationService : INotificationService
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
     }
 
+    private volatile bool _closed;
+
     /// <summary>Visible toasts, oldest first (bind on the UI thread).</summary>
     public ObservableCollection<ToastViewModel> Toasts { get; } = [];
 
+    /// <summary>The connection window closed: later toasts of its leftover work are dropped.</summary>
+    public void MarkClosed() => _closed = true;
+
     public void Show(NotificationSeverity severity, string message)
     {
-        if (string.IsNullOrWhiteSpace(message))
+        if (string.IsNullOrWhiteSpace(message) || _closed)
         {
             return;
         }

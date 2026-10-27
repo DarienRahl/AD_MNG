@@ -74,6 +74,12 @@ public interface IDialogService
     /// <summary>Shows the saved view editor. Returns true when the operator saved.</summary>
     Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor);
 
+    /// <summary>Shows the filter builder (modal, README U4). Returns true when the operator saved.</summary>
+    Task<bool> ShowFilterEditorAsync(Filters.FilterEditorViewModel editor);
+
+    /// <summary>Opens "Zapisane filtry" (modeless, one per application; an open one is activated).</summary>
+    Task ShowSavedFiltersAsync();
+
     /// <summary>Shows the column chooser of a list. Returns true when the operator applied the selection.</summary>
     Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser);
 

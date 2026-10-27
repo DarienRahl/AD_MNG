@@ -60,6 +60,10 @@ internal sealed class ScriptedDialogService : IDialogService
 
     public Task<bool> ShowSavedViewEditorAsync(SavedViewEditorViewModel editor) => Task.FromResult(false);
 
+    public Task<bool> ShowFilterEditorAsync(Presentation.Filters.FilterEditorViewModel editor) => Task.FromResult(false);
+
+    public Task ShowSavedFiltersAsync() => Task.CompletedTask;
+
     public Task<bool> ShowColumnChooserAsync(ColumnChooserViewModel chooser) => Task.FromResult(false);
 
     public Task<bool> ShowLogonHoursAsync(Presentation.Dialogs.LogonHoursViewModel editor) => Task.FromResult(false);

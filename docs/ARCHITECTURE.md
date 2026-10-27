@@ -69,6 +69,45 @@ testowana jednostkowo z użyciem `FakeDirectorySession` (katalog w pamięci, tyl
 - Błędy LDAP i kody rozszerzone AD (np. `0000052D` – polityka haseł, `data 775` – konto zablokowane) są mapowane na
   `DirectoryErrorKind` i zrozumiałe komunikaty PL/EN.
 
+### Wiele połączeń: okno główne na połączenie
+
+Kilka domen (albo ta sama domena z innym kontem) pracuje jednocześnie w jednym procesie, każda w osobnym oknie
+głównym ([dev/multi-window.md](dev/multi-window.md)):
+
+- **Zakres DI na okno.** `ConnectionWindowManager` (App, singleton) tworzy dla każdego okna połączenia
+  `AsyncServiceScope`. W zakresie żyją: `ISessionManager` (jedna sesja; wiązanie, które skończy się po zamknięciu okna,
+  jest od razu zamykane), `ConnectionContext` (id, profil, kolor, tożsamość, `Lifetime`), magistrala zmian, dziennik
+  audytu, wykonawca, centrum aktywności, koordynator, `DialogServices`, powłoka (`ShellViewModel`), usługi zakładki
+  Watchdog, a po stronie WPF `ConnectionNavigator`, `WindowService`, `DialogService`, `ToolWindows`, powiadomienia,
+  schowek i okna plików. Wspólne (singletony): ustawienia, widoki, zapisane filtry (`FilterLibrary`), lokalizacja,
+  motyw, konektor, silniki, połączenie z usługą Watchdog, pamięć hasła SMTP i dzienny limit wiadomości,
+  `ConnectionRegistry`, a także źródła uprawnień przeglądu kont (delegowania w ACL, uprawnienia lokalne z GPO) i czytnik
+  SYSVOL – bezstanowe: każdy przebieg dostaje sesję okna, które go uruchomiło, i czyta tylko przez nią (SYSVOL z jej
+  kontrolera i z jej poświadczeniem). Usług okna nigdy nie pobiera się z dostawcy głównego (`ValidateScopes`; testy
+  rejestracji sprawdzają czas życia każdej z listy).
+- **Okna potomne** powstają z zakresu okna, więc korzystają z jego sesji, dialogów i schowka; każde ma dołączoną
+  właściwość `ConnectionChrome.ConnectionId`, właściciela z tego samego połączenia, przyrostek domeny w tytule oraz
+  pasek i nagłówek w kolorze połączenia (migawka tożsamości z chwili otwarcia). Wyszukiwanie otwartych okien („jedno na
+  połączenie”) widzi tylko okna tego połączenia; przeciągnięcie obiektów z innego połączenia jest odrzucane.
+- **Zapis tylko w sesji planu.** `ChangeCoordinator.ApplyAsync` wykonuje plan w sesji, w której go zaplanował; jeśli
+  sesja się zmieniła (Rozłącz, ponowne połączenie), nic nie jest zapisywane. Potwierdzenia nazywają domenę sesji, która
+  wykona operację.
+- **Zamknięcie okna:** koniec `Lifetime`, zamknięte dialogi i powiadomienia okna (pozostała praca w tle niczego nie
+  pokaże), anulowanie jego operacji i zamknięcie sesji poza wątkiem UI (z limitem czasu), potem zwolnienie zakresu;
+  ostatnie okno kończy program, `App.OnExit` zamyka sesje okien, które jeszcze zostały.
+- **Ustawienia** są wspólne; `JsonSettingsStore` zmienia kopię (copy-on-write) pod blokadą i zapisuje migawki z numerem
+  generacji, więc okna nie nadpisują sobie zmian, a czytający nigdy nie widzi zmienianej listy.
+- **Porównanie obiektów między połączeniami** jest tylko do odczytu. Okno porównania (zakres okna A) dostaje od
+  `ConnectionContext.Pin()` okna B (`IConnectionHandle` z `ConnectionRegistry`) `ConnectionReadContext`: czytnik,
+  formatowanie, schemat, tożsamość i politykę **jednej** sesji B. Czytnik to `IDirectoryReader`
+  (`IDirectorySession : IDirectoryReader`) za `ReadOnlyDirectoryReader`, którego nie da się rzutować z powrotem na sesję,
+  z limitem 2 jednoczesnych żądań; kontekst kończy się przy zmianie sesji B albo zamknięciu okna B (odczyty rzucają
+  `ObjectDisposedException`, strona B jest oznaczana jako zakończona). Strona A czyta tak samo przez przypiętą sesję
+  okna A (reguła 4: każda strona przez kontroler swojego okna, bez nowego wiązania). Czysty diff (`ObjectDiffer`,
+  `ObjectSnapshot`, `MembershipComparer`, `GroupKey`, `ComparisonAttributes`) jest w AdMng.Core, dopasowanie i odczyt
+  (`ObjectMatcher`, `ComparisonReader`) oraz `ObjectComparisonViewModel` w Presentation. Wyniki żyją tylko w pamięci okna;
+  CSV powstaje wyłącznie na żądanie operatora.
+
 ## Potok zmian (edycja pojedyncza i zbiorcza)
 
 ```

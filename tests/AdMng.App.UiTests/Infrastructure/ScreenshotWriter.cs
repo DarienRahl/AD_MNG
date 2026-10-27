@@ -143,6 +143,50 @@ internal static class ScreenshotWriter
         TestContext.Current.TestOutputHelper?.WriteLine($"{shot.File}: {bitmap.PixelWidth} x {bitmap.PixelHeight} px - {shot.TitleEn}");
     }
 
+    /// <summary>
+    /// Like <see cref="SaveAsync"/>, for two windows side by side in one picture (two connection windows): both client
+    /// areas, top aligned, with a gap of the theme background between them.
+    /// </summary>
+    public static async Task SaveComposedAsync(Window left, Window right, ScreenshotInfo shot, bool dark)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        ArgumentNullException.ThrowIfNull(shot);
+        const int Gap = 16;
+        var directory = RequireOutputDirectory();
+        left.UpdateLayout();
+        right.UpdateLayout();
+        await UiTestSupport.WaitForIdleAsync();
+
+        var first = Render(left, dark);
+        var second = Render(right, dark);
+        var width = first.PixelWidth + Gap + second.PixelWidth;
+        var height = Math.Max(first.PixelHeight, second.PixelHeight);
+        var visual = new DrawingVisual();
+        using (var drawing = visual.RenderOpen())
+        {
+            drawing.DrawRectangle(Background(left, dark), null, new Rect(0, 0, width, height));
+            drawing.DrawImage(first, new Rect(0, 0, first.PixelWidth, first.PixelHeight));
+            drawing.DrawImage(second, new Rect(first.PixelWidth + Gap, 0, second.PixelWidth, second.PixelHeight));
+        }
+
+        var bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
+        bitmap.Freeze();
+        AssertNotBlank(bitmap, shot.File);
+
+        System.IO.Directory.CreateDirectory(directory);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using (var stream = File.Create(Path.Combine(directory, shot.File)))
+        {
+            encoder.Save(stream);
+        }
+
+        UpdateManifest(directory, shot);
+        TestContext.Current.TestOutputHelper?.WriteLine($"{shot.File}: {bitmap.PixelWidth} x {bitmap.PixelHeight} px - {shot.TitleEn}");
+    }
+
     /// <summary>The window's root visual (its template), which covers exactly the client area.</summary>
     private static FrameworkElement Root(Window window) =>
         VisualTreeHelper.GetChildrenCount(window) > 0 && VisualTreeHelper.GetChild(window, 0) is FrameworkElement root ? root : window;

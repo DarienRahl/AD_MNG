@@ -1599,6 +1599,13 @@
                 DockPanel.Dock="Left"
                 Style="{StaticResource Ad.DialogButton}"
                 Visibility="{Binding IsWatchdogHistoryAvailable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
+        <Button x:Name="CompareWithConnectionButton"
+                Margin="8,0,0,0"
+                Command="{Binding CompareWithConnectionCommand}"
+                Content="{l:Tr Comparison.CompareShort}"
+                DockPanel.Dock="Left"
+                Style="{StaticResource Ad.DialogButton}"
+                Visibility="{Binding IsComparisonAvailable, Mode=OneWay, Converter={StaticResource Ad.BoolToVisibility}}" />
         <ProgressBar Width="72"
                      Margin="12,0,0,0"
                      VerticalAlignment="Center"

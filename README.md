@@ -9,7 +9,7 @@
 **Szybki, nowoczesny następca przystawki `dsa.msc` – z edycją zbiorczą, Koszem AD i monitorem zmian w katalogu**
 
 [![CI](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml/badge.svg)](https://github.com/DarienRahl/AD_MNG/actions/workflows/ci.yml)
-[![Wersja](https://img.shields.io/badge/wersja-0.4.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
+[![Wersja](https://img.shields.io/badge/wersja-0.5.0-2ea44f)](https://github.com/DarienRahl/AD_MNG/releases)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![WPF Fluent](https://img.shields.io/badge/WPF-Fluent-0078D4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011%20%7C%20Server%202019%2B-0078D4)
@@ -49,6 +49,22 @@ podglądem zmian, raportem i cofaniem.
   w trakcie pracy (**„Zmień kontroler domeny…”** – lista DC z lokacją, GC i RODC, bez ponownego wpisywania hasła, otwarte
   karty zostają). Interfejs pokazuje, co dane konto może zmienić, a czego nie (`allowedAttributesEffective`), i wyróżnia
   konta uprzywilejowane.
+- 🪟 **Wiele połączeń jednocześnie** – *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N) otwiera kolejne okno
+  główne z własnym połączeniem: inna domena albo ta sama domena z innym kontem, każde okno z osobnym hasłem (tylko w
+  pamięci), drzewem, kartami, oknami właściwości, narzędziami, operacjami w tle i dziennikiem sesji. Okna łatwo
+  odróżnić: domena i konto na początku tytułu, kolorowy pasek i plakietka połączenia (kolor z profilu albo z nazwy
+  domeny), nagłówek „Domena: …” w każdym oknie dialogowym, a potwierdzenia operacji niszczących nazywają domenę.
+  Zamknięcie okna rozłącza tylko jego połączenie; ustawienia, profile, widoki i zapisane filtry są wspólne.
+- 🔍 **Porównanie obiektów między połączeniami** – *Porównaj z obiektem w innym połączeniu…* (menu kontekstowe listy,
+  menu *Akcja*, panel szczegółów, karta właściwości, paleta poleceń) dla użytkownika, grupy, komputera lub kontaktu:
+  wybierasz drugie otwarte okno, program znajduje odpowiadający obiekt (automatycznie albo według sAMAccountName,
+  prefiksu UPN, adresu e-mail, nazwy lub wskazanego DN / wyszukiwania; przy kilku trafieniach pokazuje listę do wyboru)
+  i zestawia obie strony obok siebie: atrybuty (różnice wyróżnione tłem i znakiem, DN porównywane bez sufiksu domeny,
+  adresy opcjonalnie bez domeny, atrybuty zmienne i identyfikujące – GUID, SID, daty zmian, liczniki logowań, metadane
+  replikacji – ukryte, ale dostępne, sekrety tylko jako „ustawiony / brak”), członkostwo w grupach według nazwy
+  (bezpośrednie, podstawowe i zagnieżdżone; grupy wbudowane według RID lub SID, więc *Domain Users* = *Użytkownicy
+  domeny*) i – dla grup – członków. Tylko do odczytu: każda strona czyta przez sesję swojego okna (z jej kontrolerem,
+  kontem i formatowaniem), nic nie jest kopiowane ani zapisywane; CSV powstaje tylko na żądanie.
 - 🪪 **Znajome karty właściwości** – użytkownik, komputer, grupa, kontakt, OU: Ogólne, Adres, Konto (z **godzinami
   logowania** – siatka tygodnia jak w ADUC), Profil, Telefony, Organizacja, Członek grup (bezpośrednio i w pełni, z
   zagnieżdżeniem), Członkowie, Zarządzany przez, Obiekt, Edytor atrybutów; akcje helpdesk (reset hasła, odblokowanie,
@@ -137,9 +153,10 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
   </tr>
 </table>
 
-<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.4.0 – także okna
-*Przegląd kont* i *Wiadomości do użytkowników*, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” –
-są dołączone do wydania. Aktualny komplet CI
+<sub>Zrzuty pochodzą z wersji 0.2.0 (polski interfejs, przykładowa firma z testów); zrzuty wersji 0.5.0 – także okna
+*Przegląd kont* (z zakładką *Uprawnienia*) i *Wiadomości do użytkowników*, dwa okna połączeń obok siebie, porównanie
+obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są dołączone do wydania.
+Aktualny komplet CI
 publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -169,7 +186,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont<br/>i wiadomości e-mail<br/>(U1a, U1b, U2: 🟡)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a, U1b, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"]
     end
     A --> B
     B ~~~ C
@@ -178,7 +195,7 @@ flowchart TB
     classDef todo fill:#f6f8fa,stroke:#8c959f,color:#1f2328
     class F0 done
     class F1,F2,W,U wip
-    class F3,F4,F5,F6,F7 todo
+    class F3,F4,F5,F6,F7,M365 todo
     style A fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style B fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
     style C fill:transparent,stroke:#8c959f,stroke-dasharray:4 4
@@ -190,12 +207,13 @@ flowchart TB
 | 1 | MVP – codzienna praca zamiast ADUC | Logowanie (różne poświadczenia), drzewo, szybkie listy, wyszukiwanie, właściwości, akcje helpdesk, tworzenie/przenoszenie/usuwanie | 🟡 cały zakres zaimplementowany (także kopiowanie wartości, „Zmień kontroler domeny”, godziny logowania, WKGUID i VLV: ✅), czeka na pilotaż na Windows AD |
 | 2 | Edycja zbiorcza v1 (kluczowa) | Operacje zbiorcze z podglądem różnic, walidacją, raportem, eksportem PowerShell, cofaniem; import CSV (aktualizacja) | 🟡 zaimplementowane, czeka na testy obciążeniowe |
 | 3 | Edycja zbiorcza v2 i zakładanie kont | Import CSV (tworzenie), szablony per OU, edytor arkuszowy, koszyk, kreatory (nieaktywne konta, zmiana nazwiska), pełna obsługa poczty | ⬜ (karta Adresy e-mail: ✅) |
-| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡, członkostwo zagnieżdżone i eksport widoków: ✅) |
+| 4 | Kosz AD, widoki i raporty | Przeglądanie i przywracanie usuniętych obiektów, kreator zapytań, przestrzenie robocze dla działów, raporty, wiele domen | ⬜ (Kosz AD: 🟡; członkostwo zagnieżdżone, eksport widoków, wiele domen w osobnych oknach i porównanie obiektów między nimi: ✅) |
 | 5 | Helpdesk+ i bezpieczeństwo | Poświadczenia bez hasła w pamięci, ochrona przed usunięciem, karta Zabezpieczenia, stan blokady na wszystkich DC, historia zmian, LAPS, BitLocker, odświeżanie na żywo | ⬜ (odświeżanie list na żywo: ✅) |
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog i U2 – przegląd stanu kont: 🟡) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
+| C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 
 Szczegóły każdej fazy są poniżej – kliknij, aby rozwinąć.
 
@@ -278,6 +296,19 @@ logowanie Kerberos z wymuszonym podpisywaniem i channel binding, test „żadnyc
   po sprawdzeniu (ta sama domena, inny DC) – błąd lub anulowanie zostawia bieżącą. Opcjonalnie zapis wybranego DC w
   profilu połączenia; zmiana trafia do dziennika sesji.
 - Profile połączeń (bez haseł), pasek tożsamości z wyróżnieniem kont uprzywilejowanych, zrozumiałe komunikaty błędów PL/EN.
+- ✅ **Wiele połączeń jednocześnie** – okno główne na połączenie (osobny zakres DI, sesja, hasło tylko w pamięci, zadania w
+  tle, dziennik sesji): *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N, paleta poleceń, plakietka połączenia),
+  przełącznik okien w plakietce i palecie („Przejdź do okna: …”), kolor okna w profilu połączenia, domena w tytule, w
+  nagłówkach okien dialogowych i w treści potwierdzeń, *Zamknij okno* / *Zakończ program*
+  ([dev/multi-window.md](docs/dev/multi-window.md)).
+- ✅ **Porównanie obiektu z obiektem w innym połączeniu** – okno *Porównanie* (niemodalne, jedno na wywołanie):
+  wybór drugiego połączenia i reguły dopasowania (automatycznie, sAMAccountName, prefiks UPN, e-mail, nazwa, wskazany
+  obiekt), lista kandydatów przy niejednoznacznym wyniku, nagłówki obu stron w kolorach ich połączeń, zakładki
+  *Atrybuty* (tylko różnice, atrybuty zmienne i identyfikujące, adresy bez domeny, filtr, wartości zaznaczonego wiersza
+  z oznaczeniem *tylko A / tylko B / wspólne*, Ctrl+C), *Członkostwo* i *Członkowie* (zagnieżdżone odczytywane w tle),
+  baner „ten sam obiekt widziany przez dwa konta”, *Odśwież* po zmianie kontrolera drugiego okna, eksport CSV na żądanie.
+  Odczyt każdej strony przez jej własną, przypiętą sesję (najwyżej 2 jednoczesne żądania do drugiego okna), bez
+  żadnej ścieżki zapisu ([dev/multi-window.md, rozdział 8](docs/dev/multi-window.md#8-comparison-of-objects-between-two-connections)).
 
 #### Nawigacja i listy
 - Drzewo domeny/OU ładowane leniwie, przełącznik „Funkcje zaawansowane”; kontenery dobrze znane rozpoznawane po WKGUID
@@ -468,14 +499,21 @@ na żywo i wiele domen.
 - 🟡 **Widoki dla działów:** ✅ przypinanie OU, zapisane widoki (zapytanie LDAP + kontener + kolumny), gotowe widoki
   wbudowane i eksport/import widoków dla zespołu; ⬜ przestrzenie robocze (np. *Pracownicy*, *Komputery*,
   *Kontrahenci*) łączące widoki z szablonami, osobne dla helpdesku i administratorów.
-- Kreator zapytań (warunki ↔ LDAP), zapisane zapytania jako foldery w drzewie, import zapytań zapisanych w ADUC (XML).
+- 🟡 Kreator zapytań: ✅ kreator filtrów (warunki ↔ LDAP, grupy I/LUB) z zapisanymi filtrami, chipami na listach
+  obiektów i eksportem/importem JSON ([ścieżka U4a](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)); ⬜ zapisane zapytania jako
+  foldery w drzewie, import zapytań zapisanych w ADUC (XML).
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u2-).
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u2-i-u4-); konta z uprawnieniami
+  ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji, delegowania w ACL,
+  uprawnienia lokalne z GPO) – zakładka *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
   (`LDAP_MATCHING_RULE_IN_CHAIN`); ⬜ raport efektywnego członkostwa wielu użytkowników.
-- Wiele domen i lasów, wyszukiwanie w katalogu globalnym, paleta poleceń z prefiksami, porównanie dwóch obiektów.
+- 🟡 Wiele domen i lasów (✅ wiele domen w osobnych oknach i ✅ porównanie obiektu z obiektem w innym połączeniu –
+  atrybuty, członkostwo i członkowie grup – [Wiele połączeń jednocześnie](#połączenie-i-sesja); ⬜ jedno drzewo z
+  kilkoma domenami, wyszukiwanie w katalogu globalnym, porównanie dwóch obiektów tego samego połączenia lub całych OU),
+  paleta poleceń z prefiksami.
 
 </details>
 
@@ -572,7 +610,7 @@ specyfikacje [dev/watchdog-spec.md](docs/dev/watchdog-spec.md) i
   LDAP przez GSSAPI, API z Negotiate i rolami, OpenWEC, SYSVOL), skrypty laboratoryjne (`tools/testlab/watchdog`)
   uruchamiane także w CI, testy instalacji pakietów w kontenerach Debian 12 i 13.
 
-**Do zrobienia przed wersją stabilną (0.4.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
+**Do zrobienia przed wersją stabilną (0.5.0 jest wersją zapoznawczą):** pilotaż na laboratorium Windows Server 2025
 z Debianem 13 i stacją administratora, potem w domenie testowej z kontrolerami 2025 i 2022 – lista kontrolna
 [WATCHDOG-LINUX.md, rozdział 7](docs/WATCHDOG-LINUX.md#7-pilotaż--lista-kontrolna) (przekazywanie zdarzeń z prawdziwych
 DC do OpenWEC i atrybucja „kto i skąd”, zmiana hasła konta komputera przy wpisie odmowy dla SELF, pierwsza
@@ -586,16 +624,17 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b i U2: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U2 i U4: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
 przeglądu – z takim samym podglądem, raportem i zabezpieczeniami jak w edycji zbiorczej. Ścieżka równoległa: korzysta
 z chipów filtrów (faza 1), silnika szablonów (faza 2) i transportu SMTP Watchdoga ([WATCHDOG.md](docs/WATCHDOG.md#52-smtp)).
-U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog.
+U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog; U4 (uprawnienia kont) to druga
+zakładka okna przeglądu z U2.
 
 <details>
-<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia</summary>
+<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów</summary>
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
@@ -787,6 +826,149 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Wymaga uzupełnienia [ADR-0008](docs/adr/0008-watchdog-dane-w-osobnym-folderze.md): kolejka wysyłek usługi przechowuje
   wtedy także wiadomości do użytkowników (retencja, ACL).
 
+#### U4 – Uprawnienia kont 🟡 (U4a, U4b i U4c: 🟡)
+
+**Cel:** jedna lista wszystkich kont, które mają jakiekolwiek uprawnienia ponad zwykłego użytkownika domeny – „nawet
+minimalnie więcej niż inni” – z poziomem każdego ustalenia (Tier 0 / wysoki / podwyższony / drobny), ścieżką „skąd to
+ma” (konto → grupa A → grupa B → Operatorzy kont) i zakresem. Cztery źródła: (1) grupy i „power users”, (2) ryzykowne
+ustawienia konta – U4a; (3) delegowania w ACL – U4b; (4) uprawnienia lokalne z GPO – U4c. Opis techniczny:
+[docs/dev/u4-privileged-access.md](docs/dev/u4-privileged-access.md).
+
+**Stan realizacji – U4 zaimplementowane w całości: U4a (grupy, ustawienia kont, podobne konta, kreator filtrów), U4b
+(delegowania w ACL) i U4c (uprawnienia lokalne z GPO); czeka na pilotaż na Windows Server AD.** Wszystko sprawdzono
+testami na fałszywym kontrolerze domeny i na laboratorium Samba 4.19, nie na Windows Server: domyślne ACL Windows,
+Exchange, LAPS, czytnik SYSVOL dla Windows i zgodność z `gpresult` potwierdzi dopiero pilotaż (szczegóły przy każdej
+części poniżej i w [znanych ograniczeniach](#znane-ograniczenia)).
+
+- ✅ Zakładka *Uprawnienia* w oknie *Przegląd kont*: ten sam zakres co U2 (domena, OU z poddrzewem, zapisany widok,
+  członkowie grupy) i nowe pole *Filtr* (zapisany filtr, dla obu zakładek); *Sprawdź* (F5) uruchamia wybraną zakładkę,
+  wyniki strumieniowane, *Przerwij*. Jedno stronicowane zapytanie o grupy zabezpieczeń (graf członkostwa w pamięci:
+  najkrótsza ścieżka zagnieżdżenia, grupa podstawowa, cykle, *Wszyscy* / *Użytkownicy uwierzytelnieni* zagnieżdżeni
+  w grupach; grupy dystrybucyjne pominięte) i jedno o konta (użytkownicy, opcjonalnie komputery i gMSA); wyniki
+  tylko w pamięci okna.
+- ✅ Źródło 1 – grupy: katalog 40 grup wbudowanych rozpoznawanych po SID/RID (nigdy po zlokalizowanej nazwie): Tier 0
+  (Administratorzy, Domain Admins, Enterprise Admins, Schema Admins, kontrolery domeny, Operatorzy kont / serwerów /
+  drukowania / kopii zapasowych, Key Admins, DnsAdmins, grupy Exchange z uprawnieniami do domeny), wysoki (Group Policy
+  Creator Owners, Cert Publishers, RODC, Organization Management), podwyższony (Użytkownicy pulpitu zdalnego, Remote
+  Management Users, Hyper-V Administrators, Replikator …) i drobny (Czytelnicy dziennika zdarzeń, Performance Monitor /
+  Log Users, Distributed COM Users, Network Configuration Operators …); poziom każdej grupy można zmienić
+  w ustawieniach zakładki. Własne grupy i konta („Oznacz grupy…”, „Oznacz konta…” – poziom i notatka) oraz reguły
+  „oznacz jako uprzywilejowane z poziomem X” z zapisanego filtra – dla kont albo dla grup (wtedy ich członkowie,
+  także zagnieżdżeni).
+- ✅ Źródło 2 – ryzykowne ustawienia konta: konta wbudowane (Administrator, krbtgt), `adminCount = 1` (także osierocony
+  – bez grupy chronionej, z akcją *Wyczyść adminCount…*), konto użytkownika z SPN (kerberoasting), delegowanie
+  nieograniczone (poza kontrolerami domeny), ograniczone i z przejściem protokołu (Tier 0, gdy cel jest na kontrolerze
+  domeny), RBCD ustawione na koncie, `sIDHistory` (wyższy poziom dla SID tej domeny lub grupy uprzywilejowanej), brak
+  preautentykacji Kerberos.
+- ✅ Odstępstwa od podobnych kont: grupa (bezpośrednia), której nie ma nikt albo mniej niż N % (domyślnie 20 %)
+  z co najmniej M (5) kont w tej samej OU, w tym samym dziale lub na tym samym stanowisku – „ma 2 grupy, których nie ma
+  nikt inny w Księgowości”; wymiary i progi w ustawieniach, przełącznik *Tylko nietypowe na tle podobnych kont*.
+- ✅ Lista kont: poziom konta (najwyższy z ustaleń), źródła, liczba ustaleń, „nietypowe”, lokalizacja; kafelki z liczbą
+  kont na każdym poziomie i przełączniki źródeł; panel szczegółów – każde ustalenie z poziomem, ścieżką *Skąd*,
+  *Zakresem*, opisem *Co daje*, wartościami (SPN, cele delegowania, SID) i notatką operatora. Akcje przez silnik zmian
+  z podglądem: *Usuń z grupy…* (grupa bezpośrednia na ścieżce wybranego ustalenia), *Wyczyść adminCount…*, *Wyłącz
+  konto*, właściwości, edycja zbiorcza, *Wyślij wiadomość…*, eksport CSV na żądanie (z kolumną wszystkich ustaleń).
+  Lista „Konta uprzywilejowane z problemem” (U2) prowadzi do zakładki („Wszystkie konta uprzywilejowane: N →”).
+- ✅ Kreator filtrów (Narzędzia → *Zapisane filtry…*, paleta poleceń, ustawienia zakładki): grupy warunków łączone I /
+  LUB; operatory równa się, różne od, zawiera, zaczyna się od, kończy się na, istnieje, nie istnieje, większe / mniejsze
+  lub równe, data starsza / nowsza niż N dni, flaga ustawiona / nieustawiona, członek grupy (także pośrednio) / nie jest
+  członkiem; atrybuty ze schematu, podgląd LDAP na żywo (zawsze przez `LdapFilter`), problemy wskazane przy warunku,
+  *Testuj* (liczba pasujących obiektów), surowy LDAP ze sprawdzeniem składni; warunki na atrybutach konstruowanych
+  sprawdzane po stronie klienta. Filtry zapisywane pod nazwą (tylko warunki – jak zapisane widoki, bez danych
+  katalogu), eksport/import JSON dla zespołu. Użycie: filtr zakresu przeglądu, chipy zapisanych filtrów na listach
+  obiektów obok szybkich filtrów (zachowywane przez *Zapisz jako widok*) i reguły uprawnień.
+- ✅ Wiele połączeń jednocześnie: *Przegląd kont* (z zakładką *Uprawnienia*), *Zapisane filtry* i kreator filtrów są
+  oknami połączenia – jedno na okno główne, z jego paskiem, kolorem i domeną w tytule; przegląd czyta tylko przez sesję
+  swojego okna (jego kontroler domeny i konto – także SYSVOL dla uprawnień lokalnych z GPO), a akcje idą przez silnik
+  zmian tego okna. Zapisane filtry i ustawienia zakładki *Uprawnienia* (poziomy grup, oznaczenia, reguły, podobne
+  konta) są wspólne dla wszystkich okien: zmiana zapisana w jednym oknie od razu pokazuje się w drugim i nie zostaje
+  cofnięta przez jego następny zapis.
+- ✅ Testy: jednostkowe (katalog grup, kompilator i ewaluator filtrów z polskimi znakami, porównanie z podobnymi kontami,
+  skaner na fałszywym katalogu z polskimi nazwami grup wbudowanych, spójność z poziomami grup Watchdoga), modeli widoku
+  (zakładka, akcje przez potok, ustawienia bez wyników przeglądu, filtry, chipy, widoki), test UI, test dymny, zrzut
+  ekranu `19-privileged-access.png`, test na laboratorium Samba (zagnieżdżenie do Operatorów kont przez dwie grupy,
+  delegowanie, SPN, osierocony `adminCount`, brak preautentykacji, każdy operator kreatora przyjęty przez serwer).
+- 🟡 Do weryfikacji na Windows Server: czas dla 10 000 kont bez zamrożeń UI, domena podrzędna (Enterprise / Schema
+  Admins z domeny głównej lasu), zgodność z `Get-ADGroupMember -Recursive` i raportami narzędzi audytowych.
+
+**U4b – delegowania w ACL** 🟡 (gotowe, czeka na pilotaż):
+
+- ✅ Źródło *Delegacje w AD*: deskryptory zabezpieczeń (właściciel i DACL, kontrolka SD flags) domeny, wszystkich OU,
+  `CN=Users`, `CN=Computers`, `CN=Builtin`, `CN=Policies` i każdego obiektu GPO, AdminSDHolder i obiektów Tier 0
+  (kontrolery domeny, Administrator, `krbtgt`, grupy chronione i grupy Tier 0) – kilka zapytań na przebieg, na
+  kontrolerze sesji, tylko w pamięci. Użytkownicy, grupy i komputery pojedynczo tylko z opcją *Głębokie skanowanie*
+  w ustawieniach zakładki (domyślnie wyłączona, wolniejsza).
+- ✅ Pomijane wartości domyślne: ACE z `defaultSecurityDescriptor` klasy w schemacie (*CREATOR OWNER* = właściciel
+  obiektu lub konto z `mS-DS-CreatorSID`, które dołączyło komputer w ramach `ms-DS-MachineAccountQuota`), domyślni powiernicy (SYSTEM, Administratorzy, Domain/Enterprise Admins, kontrolery domeny, Key Admins …)
+  i to, co AD nadaje przy instalacji (Operatorzy kont i drukowania na `CN=Users`/`CN=Computers`, Group Policy Creator
+  Owners na `CN=Policies`); uprawnienie dziedziczone pokazane raz – przy kontenerze, z którego pochodzi, i dodatkowo
+  przy obiekcie Tier 0, który je dziedziczy (np. DnsAdmins w `CN=Users`, OU kontrolerów domeny) – tam z poziomem Tier 0.
+- ✅ Prawa i poziomy: pełna kontrola, WriteDacl, WriteOwner i właściciel (Tier 0 na domenie, AdminSDHolder, obiekcie
+  Tier 0 i GPO dołączonym do domeny lub OU kontrolerów, inaczej wysoki), DCSync (`DS-Replication-Get-Changes-All`,
+  Tier 0), reset hasła, zmiana członków grup, wszystkie prawa rozszerzone, zapis wszystkich właściwości, `gPLink`,
+  edycja GPO, zapis `msDS-KeyCredentialLink` i RBCD (wysoki), tworzenie i usuwanie obiektów (podwyższony), odczyt hasła
+  LAPS (wysoki dla serwerów, inaczej podwyższony); GUID-y typów obiektów rozpoznawane ze schematu i `CN=Extended-Rights`.
+  Podmioty wpisane w RBCD konta dostają „może podszywać się pod dowolnego użytkownika wobec tego konta” (Tier 0 wobec
+  kontrolera domeny, wysoki wobec serwera).
+- ✅ Członkowie grup z ACE dostają ustalenie ze ścieżką przez graf członkostwa (konto → grupa A → grupa B), także
+  *Użytkownicy uwierzytelnieni* / *Wszyscy*; tytuł „Uprawnienie w zabezpieczeniach obiektu Firma”, prawa po polsku,
+  zakres = obiekt. Parser deskryptorów przeniesiony z Watchdoga do AdMng.Core (Watchdog korzysta z niego dalej).
+- ✅ Testy: jednostkowe na prawdziwych binarnych deskryptorach (polskie nazwy, wartości domyślne, dziedziczenie,
+  głębokie skanowanie, LAPS, SDDL), modeli widoku zakładki, test UI, test na laboratorium Samba z delegowaniem przez
+  `samba-tool dsacl` (reset hasła i członkostwo na OU testu, pełna kontrola użytkownika; zmiany tylko w OU testu).
+- 🟡 Do weryfikacji na Windows Server: brak fałszywych ustaleń na świeżej domenie Windows (domyślne ACL różnią się od
+  Samby), Exchange, LAPS (legacy i Windows LAPS), czas głębokiego skanowania dla 10 000 kont, właściciel i ACE
+  komputerów dołączonych w ramach `ms-DS-MachineAccountQuota`.
+
+**U4c – uprawnienia lokalne z GPO** 🟡 (gotowe, czeka na pilotaż):
+
+- ✅ Źródło *Uprawnienia lokalne z GPO* w zakładce *Uprawnienia*: obiekty GPO z `CN=Policies`, połączenia z `gPLink`
+  i `gPOptions` domeny, jednostek organizacyjnych i lokacji (kolejność połączeń, wymuszenie, blokada dziedziczenia,
+  połączenia wyłączone, GPO z wyłączoną konfiguracją komputera) oraz konta komputerów – zakresem ustalenia są komputery,
+  do których GPO faktycznie dociera (*Komputery w …* – kontener połączenia), z liczbą kontrolerów domeny, serwerów
+  i stacji roboczych. Ustawienia z najwyższym pierwszeństwem wygrywają jak w kliencie zasad grupy.
+- ✅ Z SYSVOL kontrolera sesji (`\\<DC sesji>\SYSVOL\…\{GUID}`, nigdy ścieżka z `gPCFileSysPath`), tylko w pamięci,
+  z limitem rozmiaru: `GptTmpl.inf` – *Grupy z ograniczeniami* (obie formy: *Członkowie* i *Członek grupy*)
+  i *Przypisywanie praw użytkownika* – oraz *Preferencje zasad grupy* `Groups.xml` (dodawanie i usuwanie członków,
+  „usuń wszystkich”, zastąp/usuń; elementy z określaniem elementów docelowych oznaczone jako warunkowe). Parsery są
+  wspólne z AdMng Watchdog (`AdMng.Core.GroupPolicy`).
+- ✅ Grupy lokalne po SID: Administratorzy (wysoki na serwerach, podwyższony na stacjach), Operatorzy kopii zapasowych
+  (wysoki), Użytkownicy zaawansowani, Użytkownicy pulpitu zdalnego, Remote Management Users (podwyższony) i drobne;
+  wrażliwe prawa: `SeDebugPrivilege`, `SeBackupPrivilege`, `SeRestorePrivilege`, `SeTakeOwnershipPrivilege`,
+  `SeLoadDriverPrivilege`, `SeImpersonatePrivilege`, `SeTcbPrivilege`, `SeAssignPrimaryTokenPrivilege`,
+  `SeEnableDelegationPrivilege`, `SeCreateTokenPrivilege`, `SeManageVolumePrivilege`, `SeRelabelPrivilege` (wysoki),
+  `SeTrustedCredManAccessPrivilege` (podwyższony, na kontrolerach domeny wysoki) oraz logowanie lokalne i przez Pulpit
+  zdalny na kontrolerach domeny (podwyższony); `SeSecurityPrivilege` pominięte (na kontrolerach mają je serwery
+  Exchange). Na kontrolerach domeny – przez *Default Domain Controllers Policy* albo każdy GPO, który do nich
+  dociera – obowiązuje poziom grupy wbudowanej z katalogu (Administratorzy, Operatorzy kopii zapasowych: Tier 0),
+  a wrażliwe prawa są Tier 0. *Grupy z ograniczeniami*, które wpisują konto do uprzywilejowanej grupy domeny z katalogu
+  (np. Domain Admins) w GPO docierającym do kontrolerów domeny, są ustaleniem z poziomem tej grupy i dopiskiem, że GPO
+  wymusza to członkostwo (usunięcie z grupy wróci przy odświeżeniu zasad). Nazwy z GPO zamieniane na SID jednym
+  wyszukiwaniem LDAP; *Wszyscy* i *Użytkownicy uwierzytelnieni* dotyczą każdego konta. Filtry zabezpieczeń GPO
+  (uprawnienie *Zastosuj zasady grupy*, także odmowa) są oceniane dla każdego komputera z jego grupami.
+- ✅ Sesja z innymi poświadczeniami niż konto Windows: SYSVOL czytany w osobnej sesji logowania na czas przebiegu
+  (`LogonUser` z nowymi poświadczeniami, jak `runas /netonly`; hasło tylko w pamięci, sesja logowania operatora nie
+  dostaje poświadczeń sesji, więc nie ma konfliktu z jego połączeniami SMB); gdy to niemożliwe (proste wiązanie z DN,
+  odmowa logowania, brak dostępu do udziału, niedostępny kontroler, system inny niż Windows), pasek nad listą mówi
+  dlaczego, a pozostałe źródła działają dalej. Tam też: nieczytelne lub nieprawidłowe pliki GPO i nazwy spoza domeny.
+- ✅ Testy: parsery (UTF-16 z BOM, `Groups.xml`, wrogi XML), rozwiązywanie połączeń, źródło na fałszywym katalogu
+  z SYSVOL w pamięci (polskie nazwy), zakładka (teksty po polsku, przełączniki, komunikaty, CSV), test UI, laboratorium
+  Samba (GPO z `samba-tool`, połączenia i blokada dziedziczenia przez LDAP, pliki zapisane `smbclient` i odczyt całości
+  przez testową implementację czytnika SYSVOL).
+- 🟡 Do weryfikacji na Windows Server: czytnik SYSVOL z poświadczeniami sesji (osobna sesja logowania `LogonUser`
+  z nowymi poświadczeniami) i kontem Windows – jeszcze nigdzie nie uruchomiony, bo wymaga Windows (testy obejmują tylko
+  rozbiór nazwy logowania i mapowanie błędów); zgodność z `gpresult` / RSoP. Nie są oceniane zapytania filtrów WMI
+  i warunki określania elementów docelowych (pokazywane jako „warunkowo”), lokacje komputerów innych niż kontrolery
+  domeny, uprawnienie *Odczyt* w filtrach zabezpieczeń ani kolejność rozszerzeń (Grupy z ograniczeniami i preferencje
+  oceniane niezależnie).
+
+**U4b i U4c razem** 🟡: oba źródła są zarejestrowane w aplikacji i działają w jednym przebiegu zakładki (przełączniki
+*Delegacje w AD* i *Uprawnienia lokalne z GPO*, wspólny pasek komunikatów); jedno konto może mieć ustalenia z obu, każde
+z własną ścieżką i zakresem. Parser deskryptorów zabezpieczeń w AdMng.Core służy delegowaniom w ACL, filtrom
+zabezpieczeń GPO i usłudze Watchdog. Sprawdzone testem obu źródeł naraz na fałszywym kontrolerze (obie próbki danych),
+testem UI (oba źródła w zakładce; uruchamiany na Windows w CI) i testami na laboratorium Samba obu źródeł w jednym przebiegu (każdy tylko we własnej
+OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged-access.md#63-u4b-and-u4c-together-as-built).
+
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
   wiadomości, raport per odbiorca, „ponów nieudane”; testy automatyczne z Mailpit na laboratorium Samba (polskie znaki
@@ -798,6 +980,135 @@ kafelki z licznikami, a kliknięcie kafelka otwiera listę kont z kolumnami wła
 - Test „żadnych danych katalogu na dysku” zaliczony także po przeglądzie i wysyłce (wiadomości są tylko na serwerze
   poczty, a przy wysyłce przez usługę – w jej kolejce zgodnie z ADR).
 - Przypomnienia automatyczne: każdy próg dokładnie raz, zmiana hasła przerywa serię, święta przesuwają wysyłkę.
+- Uprawnienia kont: 10 000 kont bez zamrożeń UI; na laboratorium Windows Server wszystkie konta z grup Tier 0
+  (także zagnieżdżone i przez grupę podstawową), z delegowaniem Kerberos i z delegowaniem w ACL (U4b) są na liście
+  z poprawnym poziomem i ścieżką; uprawnienia lokalne z GPO (U4c) zgodne z `gpresult /scope computer` komputerów
+  w OU z blokadą dziedziczenia i wymuszonymi połączeniami, także dla sesji z innymi poświadczeniami niż konto Windows;
+  test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
+
+</details>
+
+### Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint ⬜
+
+**Cel:** sprawdzanie i obsługa kont także w chmurze Microsoft 365 – od Entra ID po Exchange Online, Teams i
+SharePoint – z tego samego narzędzia, po zalogowaniu kontem administratora albo kontem z rolą **Czytelnik globalny
+(Global Reader)**. Po zalogowaniu AD Manager **sam sprawdza role zalogowanego konta** i dopasowuje do nich dostępne
+funkcje: czego rola nie pozwala zrobić, jest wyszarzone z informacją, jakiej roli potrzeba. W środowisku hybrydowym
+łączy obiekt AD z jego odpowiednikiem w Entra ID. Ścieżka równoległa; korzysta z potoku zmian (faza 2), wielu połączeń
+naraz (osobne okno na połączenie) i porównania obiektów.
+
+<details>
+<summary><b>Szczegóły ścieżki C</b> – logowanie i role, Entra ID, hybryda, Exchange Online, Teams, SharePoint,
+raporty, etapy</summary>
+
+#### Logowanie i wykrywanie ról
+
+- Logowanie interaktywne przez Microsoft (MSAL: przeglądarka systemowa lub menedżer kont Windows) z MFA i dostępem
+  warunkowym – AD Manager nigdy nie widzi hasła. Tokeny tylko w pamięci, osobno dla każdego okna połączenia (jak
+  połączenia z kilkoma domenami); zasada „nigdy nie zapisujemy haseł” obejmuje tokeny.
+- Zaraz po zalogowaniu odczyt ról zalogowanego konta: role katalogowe Entra ID (aktywne i **kwalifikujące się w PIM**,
+  także przypisane przez grupy i ograniczone do jednostek administracyjnych), role RBAC Exchange Online, role
+  administratora Teams i SharePoint.
+- Role → możliwości, na przykład:
+
+  | Rola | Co odblokowuje |
+  |---|---|
+  | Czytelnik globalny | podgląd wszystkiego i raporty, bez żadnych zmian |
+  | Administrator pomocy technicznej / użytkowników | reset hasła i unieważnienie sesji (pomoc techniczna – tylko kont bez ról), edycja użytkowników i członkostwa |
+  | Administrator uwierzytelniania | metody MFA, wymuszenie ponownej rejestracji |
+  | Administrator licencji | przydział licencji |
+  | Administrator Exchange / adresatów | skrzynki, uprawnienia do skrzynek, przekierowania |
+  | Administrator Teams | zespoły, właściciele, zasady Teams |
+  | Administrator SharePoint | witryny, administratorzy witryn, udostępnianie zewnętrzne |
+  | Administrator globalny | wszystko – z widocznym ostrzeżeniem o pracy na najwyższych uprawnieniach |
+
+- Rola kwalifikująca się w PIM: *Aktywuj rolę* (uzasadnienie, czas trwania); po aktywacji możliwości odświeżają się bez
+  ponownego logowania. Panel **„Moje uprawnienia”**: role, ich źródło (bezpośrednio, grupa, PIM) i czas wygaśnięcia.
+
+#### Entra ID
+
+- **Użytkownicy:** wyszukiwanie i właściwości, logowanie zablokowane / dozwolone, ostatnie logowanie (interaktywne
+  i nieinteraktywne), licencje i plany usług, **metody uwierzytelniania** (czy ma MFA i jakie), urządzenia, grupy (także
+  dynamiczne i z przypisanymi rolami), role administratora, użytkownicy ryzykowni (Entra ID P2), goście (zaproszenie,
+  ostatnie logowanie).
+- **Grupy:** zabezpieczeń, Microsoft 365, dynamiczne (reguła i podgląd członków), właściciele, grupy bez właściciela.
+- **Dzienniki:** logowania – kto nie mógł się zalogować i dlaczego (kod błędu, zasada dostępu warunkowego); dziennik
+  inspekcji – kto co zmienił.
+- **Aplikacje:** rejestracje i jednostki usługi z wygasającymi sekretami i certyfikatami, uprawnienia nadane aplikacjom
+  (zgody administratora).
+- **Dostęp warunkowy:** podgląd zasad i „co jeśli” dla wybranego użytkownika.
+
+#### Środowisko hybrydowe (AD + Entra ID)
+
+- Obiekt AD ↔ użytkownik Entra ID (`onPremisesImmutableId` / `objectGUID`), stan i czas ostatniej synchronizacji, błędy
+  synchronizacji (np. konflikty `proxyAddresses` lub UPN).
+- Przejście jednym kliknięciem z okna właściwości AD do konta w chmurze i z powrotem; porównanie atrybutów AD i
+  Entra ID tak jak porównanie obiektów między domenami.
+- Ostrzeżenie przy próbie zmiany w chmurze atrybutu synchronizowanego z AD – taką zmianę trzeba zrobić w AD.
+
+#### Exchange Online
+
+- **Skrzynki:** typ (użytkownika, współdzielona, zasobu), rozmiar i limit, archiwum, blokada w celu zachowania (hold),
+  aliasy, **przekierowania** – także poza firmę i przez reguły skrzynki, urządzenia mobilne.
+- **Uprawnienia:** pełny dostęp, wyślij jako, wyślij w imieniu, uprawnienia do folderów (np. kalendarza).
+- Listy dystrybucyjne i grupy Microsoft 365 jako adresaci, ukrycie w książce adresowej, śledzenie wiadomości (message
+  trace) dla użytkownika.
+
+#### Teams
+
+- Zespoły użytkownika (właściciel, członek, gość), zespoły bez właściciela, goście w zespołach, kanały prywatne i
+  współdzielone, zasady Teams przypisane użytkownikowi (spotkania, wiadomości, połączenia).
+
+#### SharePoint i OneDrive
+
+- Witryny: administratorzy i właściciele, udostępnianie zewnętrzne; OneDrive użytkownika: rozmiar, dodatkowi
+  administratorzy, łącza udostępniania utworzone przez użytkownika (anonimowe, poza firmę) – np. przy odejściu pracownika.
+
+#### Jak to działa technicznie
+
+- **Microsoft Graph** wszędzie, gdzie wystarcza (Entra ID, grupy, licencje, metody uwierzytelniania, dzienniki, Teams,
+  SharePoint); **moduły PowerShell** tam, gdzie Graph nie sięga: `ExchangeOnlineManagement`, `MicrosoftTeams`,
+  `PnP.PowerShell` – w osadzonym PowerShell 7 w procesie AD Managera, z tokenem z tego samego logowania (bez drugiego
+  logowania). Każda operacja ma równoważne polecenie PowerShell w historii, jak dziś dla AD.
+- Wyłącznie **uprawnienia delegowane**: AD Manager działa zawsze w imieniu zalogowanej osoby i nigdy z własnymi
+  uprawnieniami aplikacji – nie da więcej, niż pozwalają role tej osoby.
+- Domyślnie tylko odczyt; zmiany przez ten sam potok co w AD (plan → walidacja → podgląd → wykonanie → raport) z
+  poleceniami PowerShell do skopiowania.
+- Dane dzierżawy tylko w pamięci (jak dane katalogu), na dysk wyłącznie jawny eksport; ograniczenia API (throttling) –
+  kolejkowanie, ponawianie, postęp w centrum aktywności.
+
+#### Raporty na start
+
+- Administratorzy bez MFA, role przypisane na stałe zamiast w PIM, role nieużywane od N dni.
+- Konta i goście bez logowania od N dni, licencje na kontach wyłączonych, niewykorzystane licencje.
+- Skrzynki z przekierowaniem poza firmę, skrzynki współdzielone z włączonym logowaniem.
+- Zespoły i grupy bez właściciela, aplikacje z sekretami wygasającymi w ciągu N dni.
+
+#### Etapy
+
+- **C1** – logowanie, wykrywanie ról (z PIM), panel „Moje uprawnienia”, Entra ID tylko do odczytu: użytkownicy, grupy,
+  licencje, MFA, logowania.
+- **C2** – Exchange Online (skrzynki, uprawnienia, przekierowania, śledzenie wiadomości) i powiązanie AD ↔ Entra ID.
+- **C3** – Teams oraz SharePoint i OneDrive.
+- **C4** – zmiany przez potok dopasowane do ról: reset hasła i unieważnienie sesji, licencje, członkostwo, uprawnienia do
+  skrzynek; aktywacja ról w PIM.
+- **C5** – raporty oraz (opcjonalnie) alerty AdMng Watchdog z dzienników Entra ID: nowe role, zgody dla aplikacji,
+  logowania administratorów z nowych miejsc.
+
+#### Do ustalenia z zespołem
+
+- Rejestracja aplikacji: we własnej dzierżawie (zalecane) czy wielodostępna aplikacja AD Managera, i kto udziela zgody
+  administratora.
+- Licencje Entra ID P1/P2 – część funkcji (PIM, użytkownicy ryzykowni, dzienniki logowania) ich wymaga.
+- Czy Watchdog ma monitorować także chmurę (C5); chmury narodowe i GCC – poza zakresem na start.
+
+**Kryteria ukończenia**
+- Konto z rolą Czytelnik globalny widzi wszystkie dane i nie może niczego zmienić; konto z rolą Administrator pomocy
+  technicznej resetuje hasło zwykłego użytkownika, ale nie administratora (jak w Entra ID).
+- Po aktywacji roli w PIM nowe funkcje pojawiają się bez ponownego logowania.
+- Dane zgodne z centrum administracyjnym Microsoft 365 dla co najmniej 10 kont testowych (licencje, MFA, skrzynki,
+  zespoły, witryny).
+- Żadnych tokenów ani danych dzierżawy na dysku poza jawnym eksportem.
 
 </details>
 
@@ -859,6 +1170,17 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   jako zakres obejmuje konta, dla których jest grupą podstawową, ale nie członków przez zagnieżdżoną grupę podstawową.
   Samba nie zapisuje `lastLogon` przy prostym logowaniu LDAP; FGPP i „nigdy nie logowane” sprawdzono tylko testami na
   fałszywym DC (laboratorium wymagałoby PSO poza własną OU i starego `whenCreated`).
+- **Uprawnienia kont (U4)** – sprawdzone tylko testami na fałszywym kontrolerze i na laboratorium Samba, nie na Windows
+  Server AD: domyślne ACL świeżej domeny Windows różnią się od Samby (możliwe fałszywe ustalenia delegowań), do
+  potwierdzenia są też Exchange, LAPS i komputery dołączone w ramach `ms-DS-MachineAccountQuota`, a czytnik SYSVOL dla
+  Windows nie był jeszcze uruchomiony. Delegowania w ACL (U4b): odmowy (deny) nie są oceniane, nie są czytane
+  kontenery inne niż `CN=Users` / `CN=Computers` (np. `CN=Managed Service Accounts`, `CN=System`) ani partycja
+  konfiguracji (lokacje, PKI), właściciele zwykłych użytkowników, grup i komputerów nie są pokazywani, edycja GPO jest
+  oceniana po ACL obiektu GPO w AD (nie po uprawnieniach plików w SYSVOL), deskryptor, którego nie da się odczytać,
+  jest pomijany bez komunikatu; pojedyncze konta i grupy tylko z *Głębokim skanowaniem*. Uprawnienia lokalne z GPO
+  (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
+  członkowskich też nie; lokalne konta i grupy samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL
+  tylko na Windows. Z domeny podrzędnej nie są widoczne Enterprise / Schema Admins domeny głównej lasu.
 - **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP albo usługa Watchdog (U1b: kolejka,
   sekrety po stronie usługi, OAuth2 Exchange Online); XOAUTH2 w wysyłce bezpośredniej nie jest obsługiwany – bez
   Watchdoga dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Przez Watchdoga usługa nie zna listy
@@ -869,6 +1191,19 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   wartość dla wszystkich odbiorców. Edytor HTML to zwykłe pole tekstowe (bez podglądu renderowanego HTML – w podglądzie
   widać tekst i źródło HTML). Wiadomości mają stałą stopkę i nie mają załączników. Uwierzytelnianie bieżącym kontem
   Windows sprawdzono tylko testem negocjacji mechanizmów (bez Exchange).
+- **Wiele połączeń i porównanie obiektów** – okno modalne jednego połączenia (potwierdzenie, *Resetuj hasło*, *Nowy
+  obiekt*, ustawienia) na chwilę blokuje wszystkie okna programu (jeden wątek interfejsu); dwa okna tej samej domeny
+  nie widzą natychmiast swoich zmian (pomaga odświeżanie na żywo albo F5), jak dwie konsole ADUC. Porównanie jest tylko
+  do odczytu i zestawia dwa obiekty z **różnych** okien; brak wartości i brak prawa do jej odczytu wyglądają tak samo
+  („brak wartości (lub brak prawa odczytu)”). Członkostwo obejmuje tylko grupy z domeny danej strony – bez grup innych
+  domen lasu i bez członkostw przez obce podmioty zabezpieczeń (członkowie-FSP są tylko liczeni); listy grup i członków
+  są obcinane do 5000 pozycji na stronę, a członkostwo zagnieżdżone (`LDAP_MATCHING_RULE_IN_CHAIN`) w dużych domenach
+  może trwać kilka sekund. Laboratorium ma jedną domenę: dwa konta i dwie niezależne sesje sprawdzono na Sambie, inną
+  domenę (DN bez sufiksu domeny, dopasowanie grup po RID w różnych językach) – tylko testami na fałszywych katalogach.
+  Okna WPF (oba okna połączeń, okno porównania, zrzuty 20 i 21) sprawdza wyłącznie CI na Windows. *Przegląd kont* i
+  *Zapisane filtry* są osobne w każdym oknie połączenia, ale zapisane filtry i ustawienia zakładki *Uprawnienia* są
+  wspólne: zmiana w jednym oknie przebudowuje listy ustawień zakładki w pozostałych (ostatni zapis wygrywa, gdy dwa
+  okna zmieniają to samo pole jednocześnie).
 - **Filtr „Puste grupy”** sprawdza atrybut `member` i pomija domyślne grupy podstawowe domeny (Domain Users, Domain
   Guests, Domain Computers, Domain Controllers, Read-only Domain Controllers – po SID domeny); własna grupa, która jest
   grupą podstawową (`primaryGroupID`) części kont i nie ma innych członków, nadal może być pokazywana jako pusta.
@@ -946,6 +1281,20 @@ workflow **CI** → najnowszy zielony przebieg → *Artifacts*; przechowywany 14
 **Pierwsze uruchomienie:** okno połączenia podpowiada domenę komputera i listę kontrolerów; wybierz bieżące konto
 Windows albo podaj inne poświadczenia (`DOMENA\login` lub UPN) i tryb zabezpieczenia połączenia (domyślnie Kerberos
 z podpisywaniem i szyfrowaniem). Profil połączenia można zapisać – bez hasła.
+
+**Druga domena albo inne konto w tym samym czasie:** *Plik → Nowe połączenie w nowym oknie…* (Ctrl+Shift+N; także w
+palecie poleceń Ctrl+K i w plakietce połączenia w prawym górnym rogu) otwiera okno połączenia dla nowego okna głównego.
+Wybierz profil albo wpisz domenę (np. `fabrikam.test`), konto i hasło – hasło wpisuje się w każdym oknie osobno i nie
+jest przekazywane między oknami. W polu **Kolor okna** można wybrać kolor paska i plakietki (domyślnie automatyczny z
+nazwy domeny); zapisany profil pamięta go. Każde okno pracuje tylko w swojej domenie: tytuł zaczyna się od domeny i
+konta (`fabrikam.test – FABRIKAM\anna.zielinska – …`), okna właściwości, edytor zbiorczy i inne narzędzia otwarte z
+okna mają jego pasek i nagłówek, okna dialogowe pokazują „Domena: …”, a potwierdzenia usuwania, przenoszenia, resetu
+haseł czy wysyłki wiadomości nazywają domenę w treści. Między oknami przełączasz plakietką połączenia, paletą
+(„Przejdź do okna: …”) albo paskiem zadań. *Plik → Zamknij okno* (Alt+F4) rozłącza tylko to okno (pyta o trwające
+operacje w jego domenie); program kończy się po zamknięciu ostatniego okna albo przez *Plik → Zakończ program*.
+Ustawienia, profile, zapisane widoki i język są wspólne dla wszystkich okien; przypięte i ostatnio otwierane kontenery
+każde okno pokazuje tylko ze swojej domeny. Okna dialogowe są modalne dla całego programu (blokują na chwilę także
+pozostałe okna). Szczegóły: [docs/dev/multi-window.md](docs/dev/multi-window.md).
 
 **AdMng Watchdog** (od wersji 0.3.0 – serwer Debian 12 lub 13, amd64) jest w tym samym wydaniu jako pakiety
 `admng-watchdog_<wersja>-1_amd64.deb` (jeden dla obu wersji Debiana) i `admng-openwec_…-deb12_amd64.deb` /

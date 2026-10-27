@@ -333,7 +333,7 @@
     <value>Niektórych obiektów nie można zmienić:
 {0}
 
-Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
+Czy zastosować zmianę do pozostałych obiektów ({1}) w domenie {2}?</value>
   </data>
   <data name="Changes.Failed" xml:space="preserve">
     <value>Niepowodzenia: {0}, powodzenia: {1}.</value>
@@ -437,8 +437,361 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Commands.CommandPalette" xml:space="preserve">
     <value>Paleta poleceń</value>
   </data>
+  <data name="Commands.CompareWithConnection" xml:space="preserve">
+    <value>Porównaj z obiektem w innym połączeniu…</value>
+  </data>
   <data name="Commands.CopyDn" xml:space="preserve">
     <value>Kopiuj nazwę wyróżniającą</value>
+  </data>
+  <data name="Commands.NewConnectionWindow" xml:space="preserve">
+    <value>Nowe połączenie w nowym oknie…</value>
+  </data>
+  <data name="Comparison.AddressesWithoutDomain" xml:space="preserve">
+    <value>Porównuj adresy bez domeny</value>
+  </data>
+  <data name="Comparison.ColumnAttribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="Comparison.ColumnGroup" xml:space="preserve">
+    <value>Grupa</value>
+  </data>
+  <data name="Comparison.ColumnLdapName" xml:space="preserve">
+    <value>Nazwa LDAP</value>
+  </data>
+  <data name="Comparison.ColumnMail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Comparison.ColumnMember" xml:space="preserve">
+    <value>Członek</value>
+  </data>
+  <data name="Comparison.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Comparison.ColumnPath" xml:space="preserve">
+    <value>Ścieżka</value>
+  </data>
+  <data name="Comparison.ColumnSection" xml:space="preserve">
+    <value>Sekcja</value>
+  </data>
+  <data name="Comparison.ColumnSide" xml:space="preserve">
+    <value>Gdzie</value>
+  </data>
+  <data name="Comparison.ColumnState" xml:space="preserve">
+    <value>Stan</value>
+  </data>
+  <data name="Comparison.ColumnValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="Comparison.Compare" xml:space="preserve">
+    <value>Porównaj</value>
+  </data>
+  <data name="Comparison.CompareShort" xml:space="preserve">
+    <value>Porównaj z innym połączeniem…</value>
+  </data>
+  <data name="Comparison.Connection" xml:space="preserve">
+    <value>Połączenie</value>
+  </data>
+  <data name="Comparison.CopiedRow" xml:space="preserve">
+    <value>wiersz porównania</value>
+  </data>
+  <data name="Comparison.DisabledNoOtherConnection" xml:space="preserve">
+    <value>Otwórz drugie połączenie (Ctrl+Shift+N)</value>
+  </data>
+  <data name="Comparison.DisabledSelectOne" xml:space="preserve">
+    <value>Zaznacz jeden obiekt: użytkownika, grupę, komputer lub kontakt</value>
+  </data>
+  <data name="Comparison.ExplicitHint" xml:space="preserve">
+    <value>DN lub tekst do wyszukania</value>
+  </data>
+  <data name="Comparison.ExportCsv" xml:space="preserve">
+    <value>Eksportuj CSV…</value>
+  </data>
+  <data name="Comparison.ExportTitle" xml:space="preserve">
+    <value>Eksport porównania</value>
+  </data>
+  <data name="Comparison.FileNamePrefix" xml:space="preserve">
+    <value>porownanie</value>
+  </data>
+  <data name="Comparison.Filter" xml:space="preserve">
+    <value>Filtr</value>
+  </data>
+  <data name="Comparison.Incomplete" xml:space="preserve">
+    <value>(niepełne)</value>
+  </data>
+  <data name="Comparison.KindDirect" xml:space="preserve">
+    <value>bezpośrednio</value>
+  </data>
+  <data name="Comparison.KindNested" xml:space="preserve">
+    <value>zagnieżdżone</value>
+  </data>
+  <data name="Comparison.KindPrimary" xml:space="preserve">
+    <value>grupa podstawowa</value>
+  </data>
+  <data name="Comparison.ListTruncated" xml:space="preserve">
+    <value>Lista obcięta do {0} pozycji.</value>
+  </data>
+  <data name="Comparison.MarkBoth" xml:space="preserve">
+    <value>wspólne</value>
+  </data>
+  <data name="Comparison.MarkOnlyA" xml:space="preserve">
+    <value>tylko A</value>
+  </data>
+  <data name="Comparison.MarkOnlyB" xml:space="preserve">
+    <value>tylko B</value>
+  </data>
+  <data name="Comparison.MatchBy" xml:space="preserve">
+    <value>Dopasuj według</value>
+  </data>
+  <data name="Comparison.MembershipFootnote" xml:space="preserve">
+    <value>Grupy innych domen lasu i członkostwa przez obce podmioty zabezpieczeń nie są pokazane. Grupy wbudowane są dopasowywane według RID lub SID, pozostałe według nazwy.</value>
+  </data>
+  <data name="Comparison.MembershipInBoth" xml:space="preserve">
+    <value>w obu</value>
+  </data>
+  <data name="Comparison.MembershipInBothDifferently" xml:space="preserve">
+    <value>w obu, inaczej</value>
+  </data>
+  <data name="Comparison.MembershipOnlyA" xml:space="preserve">
+    <value>tylko A</value>
+  </data>
+  <data name="Comparison.MembershipOnlyB" xml:space="preserve">
+    <value>tylko B</value>
+  </data>
+  <data name="Comparison.MembersSkipped" xml:space="preserve">
+    <value>Pominięto obce podmioty zabezpieczeń lub członków innych domen: {0}.</value>
+  </data>
+  <data name="Comparison.MoreValues" xml:space="preserve">
+    <value>… i {0} więcej</value>
+  </data>
+  <data name="Comparison.NestedLoading" xml:space="preserve">
+    <value>Odczytywanie członkostwa zagnieżdżonego…</value>
+  </data>
+  <data name="Comparison.NoOtherConnection" xml:space="preserve">
+    <value>Brak innego otwartego połączenia. Otwórz drugie połączenie (Ctrl+Shift+N), aby porównać.</value>
+  </data>
+  <data name="Comparison.NotComparable" xml:space="preserve">
+    <value>Porównać można tylko użytkowników, grupy, komputery i kontakty.</value>
+  </data>
+  <data name="Comparison.NoValue" xml:space="preserve">
+    <value>brak wartości (lub brak prawa odczytu)</value>
+  </data>
+  <data name="Comparison.OnlyDifferences" xml:space="preserve">
+    <value>Tylko różnice</value>
+  </data>
+  <data name="Comparison.Refresh" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Comparison.RowDistinguishedName" xml:space="preserve">
+    <value>Nazwa wyróżniająca</value>
+  </data>
+  <data name="Comparison.Rule.Automatic" xml:space="preserve">
+    <value>Automatycznie</value>
+  </data>
+  <data name="Comparison.Rule.Explicit" xml:space="preserve">
+    <value>Wskazany obiekt</value>
+  </data>
+  <data name="Comparison.Rule.Mail" xml:space="preserve">
+    <value>Adres e-mail</value>
+  </data>
+  <data name="Comparison.Rule.Name" xml:space="preserve">
+    <value>Nazwa (cn)</value>
+  </data>
+  <data name="Comparison.Rule.SamAccountName" xml:space="preserve">
+    <value>sAMAccountName</value>
+  </data>
+  <data name="Comparison.Rule.UserPrincipalNamePrefix" xml:space="preserve">
+    <value>Prefiks UPN</value>
+  </data>
+  <data name="Comparison.SameObject" xml:space="preserve">
+    <value>To ten sam obiekt widziany przez dwa konta – różnice wynikają z uprawnień do odczytu.</value>
+  </data>
+  <data name="Comparison.SecretSet" xml:space="preserve">
+    <value>ustawiony</value>
+  </data>
+  <data name="Comparison.ShowNested" xml:space="preserve">
+    <value>Pokaż zagnieżdżone</value>
+  </data>
+  <data name="Comparison.ShowNestedMembers" xml:space="preserve">
+    <value>Pokaż członków zagnieżdżonych</value>
+  </data>
+  <data name="Comparison.ShowVolatile" xml:space="preserve">
+    <value>Pokaż atrybuty zmienne i identyfikujące</value>
+  </data>
+  <data name="Comparison.SideChanged" xml:space="preserve">
+    <value>Połączenie {0} zmieniło sesję (kontroler domeny lub konto) – Odśwież</value>
+  </data>
+  <data name="Comparison.SideClosed" xml:space="preserve">
+    <value>Połączenie {0} zostało zamknięte – jego wyniki pozostają widoczne.</value>
+  </data>
+  <data name="Comparison.SourceNotFound" xml:space="preserve">
+    <value>Obiekt już nie istnieje w domenie {0}.</value>
+  </data>
+  <data name="Comparison.StateDifferent" xml:space="preserve">
+    <value>Różne</value>
+  </data>
+  <data name="Comparison.StateDifferentCase" xml:space="preserve">
+    <value>Różne (tylko wielkość liter)</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaA" xml:space="preserve">
+    <value>Brak w schemacie A</value>
+  </data>
+  <data name="Comparison.StateNotInSchemaB" xml:space="preserve">
+    <value>Brak w schemacie B</value>
+  </data>
+  <data name="Comparison.StateOnlyA" xml:space="preserve">
+    <value>Tylko w A</value>
+  </data>
+  <data name="Comparison.StateOnlyB" xml:space="preserve">
+    <value>Tylko w B</value>
+  </data>
+  <data name="Comparison.StateSame" xml:space="preserve">
+    <value>Takie same</value>
+  </data>
+  <data name="Comparison.StateSameOtherDomain" xml:space="preserve">
+    <value>Takie same (inna domena)</value>
+  </data>
+  <data name="Comparison.StatusAmbiguous" xml:space="preserve">
+    <value>Znaleziono {0} obiektów – wybierz jeden</value>
+  </data>
+  <data name="Comparison.StatusCancelled" xml:space="preserve">
+    <value>Przerwano</value>
+  </data>
+  <data name="Comparison.StatusChooseTarget" xml:space="preserve">
+    <value>Wybierz drugie połączenie</value>
+  </data>
+  <data name="Comparison.StatusFound" xml:space="preserve">
+    <value>Znaleziono: {0}</value>
+  </data>
+  <data name="Comparison.StatusNoExplicitText" xml:space="preserve">
+    <value>Wpisz DN lub tekst do wyszukania</value>
+  </data>
+  <data name="Comparison.StatusNotFound" xml:space="preserve">
+    <value>Nie znaleziono (sprawdzone reguły: {0})</value>
+  </data>
+  <data name="Comparison.StatusNotFoundExplicit" xml:space="preserve">
+    <value>Nie znaleziono</value>
+  </data>
+  <data name="Comparison.StatusNoValue" xml:space="preserve">
+    <value>Obiekt nie ma wartości dla tej reguły</value>
+  </data>
+  <data name="Comparison.StatusOutside" xml:space="preserve">
+    <value>Ten DN nie należy do domeny {0}</value>
+  </data>
+  <data name="Comparison.StatusReading" xml:space="preserve">
+    <value>Odczytywanie…</value>
+  </data>
+  <data name="Comparison.StatusTooMany" xml:space="preserve">
+    <value>Więcej niż 50 – zawęź wyszukiwanie</value>
+  </data>
+  <data name="Comparison.Stop" xml:space="preserve">
+    <value>Przerwij</value>
+  </data>
+  <data name="Comparison.TabAttributes" xml:space="preserve">
+    <value>Atrybuty</value>
+  </data>
+  <data name="Comparison.TabMembers" xml:space="preserve">
+    <value>Członkowie</value>
+  </data>
+  <data name="Comparison.TabMembership" xml:space="preserve">
+    <value>Członkostwo</value>
+  </data>
+  <data name="Comparison.TabWithCount" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="Comparison.TargetNotConnected" xml:space="preserve">
+    <value>Drugie połączenie nie jest połączone.</value>
+  </data>
+  <data name="Comparison.TargetNotFound" xml:space="preserve">
+    <value>Wybrany obiekt już nie istnieje w domenie {0}.</value>
+  </data>
+  <data name="Comparison.ValueCounts" xml:space="preserve">
+    <value>wspólne {0}, tylko A {1}, tylko B {2}</value>
+  </data>
+  <data name="Comparison.ValuesOf" xml:space="preserve">
+    <value>Wartości: {0}</value>
+  </data>
+  <data name="Comparison.ValuesOfSelection" xml:space="preserve">
+    <value>Wartości zaznaczonego atrybutu</value>
+  </data>
+  <data name="Comparison.WindowTitle" xml:space="preserve">
+    <value>Porównanie: {0} – {1} ↔ {2}</value>
+  </data>
+  <data name="Comparison.WindowTitleNoTarget" xml:space="preserve">
+    <value>Porównanie: {0}</value>
+  </data>
+  <data name="Connections.ApplicationError" xml:space="preserve">
+    <value>Błąd aplikacji</value>
+  </data>
+  <data name="Connections.BadgeToolTip" xml:space="preserve">
+    <value>Kontroler domeny: {0}
+Kanał: {1}
+Profil: {2}</value>
+  </data>
+  <data name="Connections.CloseWindowTitle" xml:space="preserve">
+    <value>Zamknij okno – {0}</value>
+  </data>
+  <data name="Connections.Color.Blue" xml:space="preserve">
+    <value>Niebieski</value>
+  </data>
+  <data name="Connections.Color.Brown" xml:space="preserve">
+    <value>Brązowy</value>
+  </data>
+  <data name="Connections.Color.Green" xml:space="preserve">
+    <value>Zielony</value>
+  </data>
+  <data name="Connections.Color.Indigo" xml:space="preserve">
+    <value>Indygo</value>
+  </data>
+  <data name="Connections.Color.Magenta" xml:space="preserve">
+    <value>Purpurowy</value>
+  </data>
+  <data name="Connections.Color.Purple" xml:space="preserve">
+    <value>Fioletowy</value>
+  </data>
+  <data name="Connections.Color.Slate" xml:space="preserve">
+    <value>Grafitowy</value>
+  </data>
+  <data name="Connections.Color.Teal" xml:space="preserve">
+    <value>Morski</value>
+  </data>
+  <data name="Connections.ColorAutomatic" xml:space="preserve">
+    <value>Automatyczny (z nazwy domeny)</value>
+  </data>
+  <data name="Connections.ColorLabel" xml:space="preserve">
+    <value>Kolor okna</value>
+  </data>
+  <data name="Connections.CrossConnectionDrop" xml:space="preserve">
+    <value>Nie można przenosić obiektów między połączeniami.</value>
+  </data>
+  <data name="Connections.DialogWaiting" xml:space="preserve">
+    <value>Okno {0} czeka na odpowiedź.</value>
+  </data>
+  <data name="Connections.DomainHeader" xml:space="preserve">
+    <value>Domena: {0} ({1})</value>
+  </data>
+  <data name="Connections.DomainHeaderNoAccount" xml:space="preserve">
+    <value>Domena: {0}</value>
+  </data>
+  <data name="Connections.NewConnectionTitle" xml:space="preserve">
+    <value>Nowe połączenie – {0}</value>
+  </data>
+  <data name="Connections.NoProfile" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="Connections.NotConnected" xml:space="preserve">
+    <value>Nie połączono</value>
+  </data>
+  <data name="Connections.OpenWindows" xml:space="preserve">
+    <value>Otwarte okna</value>
+  </data>
+  <data name="Connections.ProfileOpenElsewhere" xml:space="preserve">
+    <value>Ten profil jest już otwarty w oknie {0}. Ponowne połączenie otworzy drugie okno tego samego połączenia.</value>
+  </data>
+  <data name="Connections.SwitchTo" xml:space="preserve">
+    <value>Przejdź do okna: {0}</value>
+  </data>
+  <data name="Connections.WatchdogOtherDomain" xml:space="preserve">
+    <value>Usługa Watchdog monitoruje domenę {0}; to okno jest połączone z {1}. Zdarzenia można przeglądać, ale historia zmian obiektów nie jest w tym oknie dostępna.</value>
   </data>
   <data name="Copy.CanonicalPath" xml:space="preserve">
     <value>Ścieżka kanoniczna</value>
@@ -909,10 +1262,10 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Zmiana kontrolera domeny</value>
   </data>
   <data name="Delete.ConfirmMany" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć te obiekty ({0})?</value>
+    <value>Czy na pewno chcesz usunąć te obiekty ({0}) z domeny {1}?</value>
   </data>
   <data name="Delete.ConfirmOne" xml:space="preserve">
-    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}”?</value>
+    <value>Czy na pewno chcesz usunąć obiekt {1} o nazwie „{0}” z domeny {2}?</value>
   </data>
   <data name="Delete.SubtreeWarning" xml:space="preserve">
     <value>Obiekt zawiera inne obiekty. Jego usunięcie spowoduje również usunięcie całej zawartości.</value>
@@ -1257,7 +1610,7 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Obiektów: {0} · lista wirtualna (VLV), sortowanie na serwerze: {1} · stan na {2}</value>
   </data>
   <data name="Move.ConfirmDrop" xml:space="preserve">
-    <value>Przenieść obiekty ({0}) do {1}?</value>
+    <value>Przenieść obiekty ({0}) do {1} w domenie {2}?</value>
   </data>
   <data name="Move.InvalidTarget" xml:space="preserve">
     <value>Nie można przenieść obiektów do nich samych, do ich podkontenerów ani do kontenera, w którym już się znajdują.</value>
@@ -1418,6 +1771,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Settings.Title" xml:space="preserve">
     <value>Ustawienia</value>
   </data>
+  <data name="Settings.TitleShared" xml:space="preserve">
+    <value>Ustawienia (wspólne dla wszystkich okien)</value>
+  </data>
   <data name="Severity.Error" xml:space="preserve">
     <value>Błąd</value>
   </data>
@@ -1436,6 +1792,9 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   <data name="Shell.BoundAs" xml:space="preserve">
     <value>Zalogowano jako: {0}</value>
   </data>
+  <data name="Shell.CloseWindowWhileRunning" xml:space="preserve">
+    <value>Operacje w tle w oknie {0} nadal trwają. Czy mimo to zamknąć okno? Trwające operacje zostaną przerwane.</value>
+  </data>
   <data name="Shell.CommandPalettePlaceholder" xml:space="preserve">
     <value>Wpisz polecenie…</value>
   </data>
@@ -1449,7 +1808,16 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
     <value>Szczegóły</value>
   </data>
   <data name="Shell.DisconnectWhileRunning" xml:space="preserve">
-    <value>Operacje w tle nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+    <value>Operacje w tle w domenie {0} nadal trwają. Czy mimo to rozłączyć? Trwające operacje zostaną przerwane.</value>
+  </data>
+  <data name="Shell.WindowTitleConnection" xml:space="preserve">
+    <value>{0} – {1} – {2}</value>
+  </data>
+  <data name="Ui.CloseWindow" xml:space="preserve">
+    <value>Zamknij okno</value>
+  </data>
+  <data name="Ui.ExitAll" xml:space="preserve">
+    <value>Zakończ program</value>
   </data>
   <data name="Watchdog.AttributionSource.DomainControllers" xml:space="preserve">
     <value>Dzienniki kontrolerów domeny (usługa na Windows)</value>
@@ -1570,6 +1938,12 @@ Czy zastosować zmianę do pozostałych obiektów ({1})?</value>
   </data>
   <data name="Shell.ShowAllResults" xml:space="preserve">
     <value>Pokaż wszystkie wyniki</value>
+  </data>
+  <data name="Shell.Version" xml:space="preserve">
+    <value>v{0}</value>
+  </data>
+  <data name="Shell.VersionToolTip" xml:space="preserve">
+    <value>AD Manager {0} – kliknij, aby zobaczyć szczegóły</value>
   </data>
   <data name="Shell.WindowTitleConnected" xml:space="preserve">
     <value>{0} – {1}</value>
@@ -1916,7 +2290,7 @@ Nowoczesne zarządzanie użytkownikami, grupami, komputerami i jednostkami organ
     <value>Przed</value>
   </data>
   <data name="Batch.ConfirmExecute" xml:space="preserve">
-    <value>Zostanie zmienionych obiektów: {0} ({1}).
+    <value>Zostanie zmienionych obiektów w domenie {3}: {0} ({1}).
 Resetowania haseł i usunięć nie można cofnąć automatycznie.
 Wpisz {2}, aby potwierdzić.</value>
   </data>
@@ -3678,7 +4052,7 @@ Każdy, kto odczyta plik, może zalogować się na te konta - przechowuj go bezp
     <value>Właściwości: {0}</value>
   </data>
   <data name="ResetPassword.ConfirmMany" xml:space="preserve">
-    <value>Hasła kont zostaną zresetowane (kont: {0}).
+    <value>Hasła kont w domenie {2} zostaną zresetowane (kont: {0}).
 Wpisz {1}, aby potwierdzić.</value>
   </data>
   <data name="ResetPassword.ConfirmPassword" xml:space="preserve">
@@ -3976,7 +4350,7 @@ Wpisz {1}, aby potwierdzić.</value>
     <value>Wartości (po jednej w wierszu)</value>
   </data>
   <data name="ToolsUi.HistoryDetails" xml:space="preserve">
-    <value>{0} · {1} · obiekty: {2}</value>
+    <value>{0} · {3} · {1} · obiekty: {2}</value>
   </data>
   <data name="ToolsUi.LogEmpty" xml:space="preserve">
     <value>Brak wpisów do wyświetlenia.</value>
@@ -4132,7 +4506,7 @@ Wpisz {1}, aby potwierdzić.</value>
     <value>Przywróć ({0})</value>
   </data>
   <data name="RecycleBin.TombstoneConfirm" xml:space="preserve">
-    <value>Kosz Active Directory nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
+    <value>Kosz Active Directory w domenie {0} nie jest włączony. Obiekty zostaną odtworzone z tombstone i wrócą bez większości atrybutów (członkostwa w grupach, danych kontaktowych, profilu…), więc konta trzeba będzie potem uzupełnić i sprawdzić. Kontynuować?</value>
   </data>
   <data name="RecycleBin.ActivityTitle" xml:space="preserve">
     <value>Przywracanie z Kosza AD ({0})</value>
@@ -7214,10 +7588,10 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Wysyłka wiadomości</value>
   </data>
   <data name="UserMessages.Confirm" xml:space="preserve">
-    <value>Wysłać wiadomości ({0}) przez {1}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
+    <value>Wysłać wiadomości ({0}) przez {1} do użytkowników z domeny {2}? Każdy użytkownik dostaje osobną wiadomość; wiadomości przyjętych przez serwer nie da się wycofać.</value>
   </data>
   <data name="UserMessages.ConfirmTyped" xml:space="preserve">
-    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
+    <value>Za chwilę zostanie wysłanych {0} wiadomości przez {1} – po jednej dla każdego użytkownika z domeny {2}. Wiadomości przyjętych przez serwer nie da się wycofać. Wpisz liczbę wiadomości, aby potwierdzić.</value>
   </data>
   <data name="UserMessages.Stopping" xml:space="preserve">
     <value>Przerywanie po bieżącej wiadomości...</value>
@@ -7848,5 +8222,1079 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   </data>
   <data name="Watchdog.Ui.UserMessagingSendersHint" xml:space="preserve">
     <value>Jeden adres lub @domena w wierszu; nadawca i adres odpowiedzi kanału e-mail są zawsze dozwolone.</value>
+  </data>
+  <data name="Commands.SavedFilters" xml:space="preserve">
+    <value>Zapisane filtry...</value>
+  </data>
+  <data name="PrivilegedAccess.TabAccounts" xml:space="preserve">
+    <value>Stan kont</value>
+  </data>
+  <data name="PrivilegedAccess.TabPrivileges" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="PrivilegedAccess.Settings" xml:space="preserve">
+    <value>Ustawienia uprawnień</value>
+  </data>
+  <data name="PrivilegedAccess.AccountTypes" xml:space="preserve">
+    <value>Sprawdzaj też</value>
+  </data>
+  <data name="PrivilegedAccess.IncludeComputers" xml:space="preserve">
+    <value>Komputery i kontrolery domeny</value>
+  </data>
+  <data name="PrivilegedAccess.IncludeServiceAccounts" xml:space="preserve">
+    <value>Zarządzane konta usług (gMSA)</value>
+  </data>
+  <data name="PrivilegedAccess.AclSettings" xml:space="preserve">
+    <value>Delegacje w AD (ACL)</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScan" xml:space="preserve">
+    <value>Głębokie skanowanie: także uprawnienia każdego użytkownika, grupy i komputera</value>
+  </data>
+  <data name="PrivilegedAccess.DeepAclScanNote" xml:space="preserve">
+    <value>Wolniejsze: odczytuje deskryptor zabezpieczeń każdego konta i grupy. Bez niego sprawdzane są kontenery, obiekty GPO i obiekty Tier 0; uprawnienie dziedziczone z kontenera jest pokazywane przy tym kontenerze.</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.GenericAll" xml:space="preserve">
+    <value>Pełna kontrola</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteDacl" xml:space="preserve">
+    <value>Modyfikowanie uprawnień</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteOwner" xml:space="preserve">
+    <value>Przejmowanie na własność</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.Owner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AllExtendedRights" xml:space="preserve">
+    <value>Wszystkie prawa rozszerzone</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllProperties" xml:space="preserve">
+    <value>Zapis wszystkich właściwości</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesAll" xml:space="preserve">
+    <value>Replikowanie wszystkich zmian katalogu (DCSync)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChanges" xml:space="preserve">
+    <value>Replikowanie zmian katalogu</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReplicationGetChangesInFilteredSet" xml:space="preserve">
+    <value>Replikowanie zmian katalogu w filtrowanym zestawie</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ResetPassword" xml:space="preserve">
+    <value>Resetowanie hasła</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteMember" xml:space="preserve">
+    <value>Zmiana członków grup</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.AddSelfToGroup" xml:space="preserve">
+    <value>Dodawanie i usuwanie siebie jako członka</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpLink" xml:space="preserve">
+    <value>Łączenie obiektów GPO (gPLink)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteGpoProperty" xml:space="preserve">
+    <value>Edycja obiektu GPO</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ReadLapsPassword" xml:space="preserve">
+    <value>Odczyt hasła LAPS</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteKeyCredentialLink" xml:space="preserve">
+    <value>Zapis msDS-KeyCredentialLink (shadow credentials)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.WriteAllowedToActOnBehalf" xml:space="preserve">
+    <value>Konfigurowanie delegowania opartego na zasobach</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.ActOnBehalfOfOtherIdentity" xml:space="preserve">
+    <value>Może podszywać się pod dowolnego użytkownika wobec tego konta (delegowanie oparte na zasobach)</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.CreateChild" xml:space="preserve">
+    <value>Tworzenie obiektów</value>
+  </data>
+  <data name="PrivilegedAccess.AclRight.DeleteChild" xml:space="preserve">
+    <value>Usuwanie obiektów</value>
+  </data>
+  <data name="PrivilegedAccess.Peers" xml:space="preserve">
+    <value>Porównanie z podobnymi kontami</value>
+  </data>
+  <data name="PrivilegedAccess.PeersByOu" xml:space="preserve">
+    <value>Ta sama jednostka organizacyjna</value>
+  </data>
+  <data name="PrivilegedAccess.PeersByDepartment" xml:space="preserve">
+    <value>Ten sam dział</value>
+  </data>
+  <data name="PrivilegedAccess.PeersByTitle" xml:space="preserve">
+    <value>To samo stanowisko</value>
+  </data>
+  <data name="PrivilegedAccess.PeersMinimum" xml:space="preserve">
+    <value>Co najmniej tyle podobnych kont</value>
+  </data>
+  <data name="PrivilegedAccess.PeersShare" xml:space="preserve">
+    <value>Nietypowa, gdy ma ją mniej niż tyle % z nich</value>
+  </data>
+  <data name="PrivilegedAccess.GroupLevels" xml:space="preserve">
+    <value>Poziomy grup wbudowanych</value>
+  </data>
+  <data name="PrivilegedAccess.Marks" xml:space="preserve">
+    <value>Grupy i konta oznaczone jako uprzywilejowane</value>
+  </data>
+  <data name="PrivilegedAccess.MarkGroup" xml:space="preserve">
+    <value>Oznacz grupy...</value>
+  </data>
+  <data name="PrivilegedAccess.MarkAccount" xml:space="preserve">
+    <value>Oznacz konta...</value>
+  </data>
+  <data name="PrivilegedAccess.RemoveMark" xml:space="preserve">
+    <value>Usuń oznaczenie</value>
+  </data>
+  <data name="PrivilegedAccess.Note" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="PrivilegedAccess.Rules" xml:space="preserve">
+    <value>Oznaczanie zapisanymi filtrami</value>
+  </data>
+  <data name="PrivilegedAccess.AddRule" xml:space="preserve">
+    <value>Dodaj regułę</value>
+  </data>
+  <data name="PrivilegedAccess.RemoveRule" xml:space="preserve">
+    <value>Usuń regułę</value>
+  </data>
+  <data name="PrivilegedAccess.RuleFilter" xml:space="preserve">
+    <value>Zapisany filtr</value>
+  </data>
+  <data name="PrivilegedAccess.RuleTarget" xml:space="preserve">
+    <value>Dotyczy</value>
+  </data>
+  <data name="PrivilegedAccess.NewFilter" xml:space="preserve">
+    <value>Nowy filtr...</value>
+  </data>
+  <data name="PrivilegedAccess.ManageFilters" xml:space="preserve">
+    <value>Zapisane filtry...</value>
+  </data>
+  <data name="PrivilegedAccess.NoFilters" xml:space="preserve">
+    <value>Brak zapisanych filtrów – utwórz filtr przyciskiem Nowy filtr...</value>
+  </data>
+  <data name="PrivilegedAccess.LevelLabel" xml:space="preserve">
+    <value>Poziom</value>
+  </data>
+  <data name="PrivilegedAccess.Levels" xml:space="preserve">
+    <value>Poziomy</value>
+  </data>
+  <data name="PrivilegedAccess.Sources" xml:space="preserve">
+    <value>Źródła</value>
+  </data>
+  <data name="PrivilegedAccess.OnlyPeerOutliers" xml:space="preserve">
+    <value>Tylko nietypowe na tle podobnych kont</value>
+  </data>
+  <data name="PrivilegedAccess.DetailsTitle" xml:space="preserve">
+    <value>Uprawnienia: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.NoSelection" xml:space="preserve">
+    <value>Zaznacz konto, aby zobaczyć, skąd ma uprawnienia.</value>
+  </data>
+  <data name="PrivilegedAccess.PathLabel" xml:space="preserve">
+    <value>Skąd</value>
+  </data>
+  <data name="PrivilegedAccess.ScopeLabel" xml:space="preserve">
+    <value>Zakres</value>
+  </data>
+  <data name="PrivilegedAccess.GrantsLabel" xml:space="preserve">
+    <value>Co daje</value>
+  </data>
+  <data name="PrivilegedAccess.ValuesLabel" xml:space="preserve">
+    <value>Wartości</value>
+  </data>
+  <data name="PrivilegedAccess.NoteLabel" xml:space="preserve">
+    <value>Uwaga</value>
+  </data>
+  <data name="PrivilegedAccess.RemoveFromGroup" xml:space="preserve">
+    <value>Usuń z grupy...</value>
+  </data>
+  <data name="PrivilegedAccess.RemoveFromGroupTitle" xml:space="preserve">
+    <value>Usuń z grupy {0}</value>
+  </data>
+  <data name="PrivilegedAccess.PrimaryGroupNotRemovable" xml:space="preserve">
+    <value>Uprawnienie wynika z grupy podstawowej – najpierw zmień grupę podstawową (karta Członek grupy).</value>
+  </data>
+  <data name="PrivilegedAccess.ClearAdminCount" xml:space="preserve">
+    <value>Wyczyść adminCount...</value>
+  </data>
+  <data name="PrivilegedAccess.NotRun" xml:space="preserve">
+    <value>Kliknij Sprawdź, aby zobaczyć każde konto z jakimkolwiek uprawnieniem ponad zwykłego użytkownika domeny: grupy wbudowane, oznaczone grupy i konta, ryzykowne ustawienia kont i grupy nietypowe na tle podobnych kont. Wyniki istnieją tylko w pamięci.</value>
+  </data>
+  <data name="PrivilegedAccess.Empty" xml:space="preserve">
+    <value>Żadne konto nie pasuje do wybranych poziomów i źródeł.</value>
+  </data>
+  <data name="PrivilegedAccess.Status" xml:space="preserve">
+    <value>Stan na godz. {0} · odczytano kont: {1} · z uprawnieniami ponad użytkownika domeny: {2}</value>
+  </data>
+  <data name="PrivilegedAccess.StatusRunning" xml:space="preserve">
+    <value>Sprawdzanie (stan na godz. {0}) · odczytano kont: {1} · z uprawnieniami ponad użytkownika domeny: {2}...</value>
+  </data>
+  <data name="PrivilegedAccess.StatusStopped" xml:space="preserve">
+    <value>Przerwano (stan na godz. {0}) · odczytano kont: {1} · z uprawnieniami ponad użytkownika domeny: {2} – wyniki są niepełne</value>
+  </data>
+  <data name="PrivilegedAccess.StatusPeers" xml:space="preserve">
+    <value>Porównywanie z podobnymi kontami...</value>
+  </data>
+  <data name="PrivilegedAccess.SkippedRules" xml:space="preserve">
+    <value>Pominięto reguły z niepoprawnym filtrem: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.ShowPrivileges" xml:space="preserve">
+    <value>Wszystkie konta uprzywilejowane (zakładka Uprawnienia) →</value>
+  </data>
+  <data name="PrivilegedAccess.ShowPrivilegesCount" xml:space="preserve">
+    <value>Wszystkie konta uprzywilejowane: {0} (zakładka Uprawnienia) →</value>
+  </data>
+  <data name="PrivilegedAccess.PrimaryGroup" xml:space="preserve">
+    <value>(grupa podstawowa)</value>
+  </data>
+  <data name="PrivilegedAccess.Everyone" xml:space="preserve">
+    <value>Wszyscy</value>
+  </data>
+  <data name="PrivilegedAccess.AuthenticatedUsers" xml:space="preserve">
+    <value>Użytkownicy uwierzytelnieni</value>
+  </data>
+  <data name="PrivilegedAccess.Disabled" xml:space="preserve">
+    <value>(wyłączone)</value>
+  </data>
+  <data name="PrivilegedAccess.Unusual" xml:space="preserve">
+    <value>Nietypowe</value>
+  </data>
+  <data name="PrivilegedAccess.HoldersNone" xml:space="preserve">
+    <value>nikt inny</value>
+  </data>
+  <data name="PrivilegedAccess.Holders" xml:space="preserve">
+    <value>innych: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.FindingCount" xml:space="preserve">
+    <value>uwag: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.ExportTitle" xml:space="preserve">
+    <value>Konta uprzywilejowane</value>
+  </data>
+  <data name="PrivilegedAccess.ScopeFilter" xml:space="preserve">
+    <value>Filtr</value>
+  </data>
+  <data name="PrivilegedAccess.ScopeFilterNone" xml:space="preserve">
+    <value>(brak)</value>
+  </data>
+  <data name="PrivilegedAccess.FilterInvalid" xml:space="preserve">
+    <value>Zapisany filtr {0} jest niepoprawny – popraw go w oknie Zapisane filtry.</value>
+  </data>
+  <data name="PrivilegedAccess.MarkAdded" xml:space="preserve">
+    <value>Oznaczono jako uprzywilejowane: {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Level.Tier0" xml:space="preserve">
+    <value>Tier 0</value>
+  </data>
+  <data name="PrivilegedAccess.LevelHint.Tier0" xml:space="preserve">
+    <value>Kontrola nad domeną lub lasem</value>
+  </data>
+  <data name="PrivilegedAccess.Level.High" xml:space="preserve">
+    <value>Wysoki</value>
+  </data>
+  <data name="PrivilegedAccess.LevelHint.High" xml:space="preserve">
+    <value>Kontrola nad wieloma obiektami lub droga do Tier 0</value>
+  </data>
+  <data name="PrivilegedAccess.Level.Elevated" xml:space="preserve">
+    <value>Podwyższony</value>
+  </data>
+  <data name="PrivilegedAccess.LevelHint.Elevated" xml:space="preserve">
+    <value>Dostęp do serwerów lub ryzykowne ustawienie konta</value>
+  </data>
+  <data name="PrivilegedAccess.Level.Minor" xml:space="preserve">
+    <value>Drobny</value>
+  </data>
+  <data name="PrivilegedAccess.LevelHint.Minor" xml:space="preserve">
+    <value>Drobne dodatkowe uprawnienie lub nietypowa grupa</value>
+  </data>
+  <data name="PrivilegedAccess.Level.None" xml:space="preserve">
+    <value>Brak</value>
+  </data>
+  <data name="PrivilegedAccess.LevelHint.None" xml:space="preserve">
+    <value>Nic ponad zwykłego użytkownika domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Source.Groups" xml:space="preserve">
+    <value>Grupy</value>
+  </data>
+  <data name="PrivilegedAccess.Source.OperatorRules" xml:space="preserve">
+    <value>Oznaczenia i reguły</value>
+  </data>
+  <data name="PrivilegedAccess.Source.AccountSettings" xml:space="preserve">
+    <value>Ustawienia konta</value>
+  </data>
+  <data name="PrivilegedAccess.Source.Peers" xml:space="preserve">
+    <value>Podobne konta</value>
+  </data>
+  <data name="PrivilegedAccess.Source.DirectoryAcl" xml:space="preserve">
+    <value>Delegacje w AD</value>
+  </data>
+  <data name="PrivilegedAccess.Source.GroupPolicy" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.BuiltInGroup" xml:space="preserve">
+    <value>Członek grupy {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.MarkedGroup" xml:space="preserve">
+    <value>Członek grupy {0} (oznaczonej jako uprzywilejowana)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.MarkedAccount" xml:space="preserve">
+    <value>Oznaczone jako uprzywilejowane</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.ConditionGroup" xml:space="preserve">
+    <value>Członek grupy {0} (reguła zapisanego filtra)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.ConditionAccount" xml:space="preserve">
+    <value>Pasuje do reguły zapisanego filtra</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.WellKnownAccount" xml:space="preserve">
+    <value>Wbudowane konto {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.AdminCount" xml:space="preserve">
+    <value>adminCount = 1 (chronione przez AdminSDHolder)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.OrphanedAdminCount" xml:space="preserve">
+    <value>adminCount = 1 bez grupy chronionej – dziedziczenie uprawnień pozostaje wyłączone</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.Kerberoastable" xml:space="preserve">
+    <value>Nazwa SPN na koncie użytkownika (Kerberoasting)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.UnconstrainedDelegation" xml:space="preserve">
+    <value>Nieograniczone delegowanie Kerberos</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.ConstrainedDelegation" xml:space="preserve">
+    <value>Ograniczone delegowanie</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.ProtocolTransition" xml:space="preserve">
+    <value>Ograniczone delegowanie z przejściem protokołu (dowolny użytkownik, bez hasła)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.ResourceBasedDelegation" xml:space="preserve">
+    <value>Skonfigurowane delegowanie oparte na zasobach (inne konta mogą podszywać się wobec niego pod użytkowników)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.SidHistory" xml:space="preserve">
+    <value>Historia SID (sIDHistory)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.PreauthNotRequired" xml:space="preserve">
+    <value>Bez wstępnego uwierzytelniania Kerberos (AS-REP roasting)</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.PeerOutlier" xml:space="preserve">
+    <value>Grupy nietypowe na tle podobnych kont</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.AclRight" xml:space="preserve">
+    <value>Uprawnienie w zabezpieczeniach obiektu {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Kind.LocalRight" xml:space="preserve">
+    <value>Uprawnienie lokalne z zasad grupy: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.Administrators" xml:space="preserve">
+    <value>Administratorzy</value>
+  </data>
+  <data name="PrivilegedAccess.Group.Administrators" xml:space="preserve">
+    <value>Pełna kontrola nad domeną i jej kontrolerami.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.DomainAdmins" xml:space="preserve">
+    <value>Administratorzy domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Group.DomainAdmins" xml:space="preserve">
+    <value>Pełna kontrola nad wszystkimi obiektami i komputerami domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.EnterpriseAdmins" xml:space="preserve">
+    <value>Administratorzy przedsiębiorstwa</value>
+  </data>
+  <data name="PrivilegedAccess.Group.EnterpriseAdmins" xml:space="preserve">
+    <value>Pełna kontrola nad wszystkimi domenami lasu i jego konfiguracją.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.SchemaAdmins" xml:space="preserve">
+    <value>Administratorzy schematu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.SchemaAdmins" xml:space="preserve">
+    <value>Może zmieniać schemat lasu.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.DomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Group.DomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny: replikują wszystkie sekrety domeny (DCSync).</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.AccountOperators" xml:space="preserve">
+    <value>Operatorzy kont</value>
+  </data>
+  <data name="PrivilegedAccess.Group.AccountOperators" xml:space="preserve">
+    <value>Tworzy większość kont i grup i nimi zarządza; logowanie na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.ServerOperators" xml:space="preserve">
+    <value>Operatorzy serwerów</value>
+  </data>
+  <data name="PrivilegedAccess.Group.ServerOperators" xml:space="preserve">
+    <value>Logowanie na kontrolerach domeny, zarządzanie ich usługami, kopia i przywracanie plików.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.PrintOperators" xml:space="preserve">
+    <value>Operatorzy drukarek</value>
+  </data>
+  <data name="PrivilegedAccess.Group.PrintOperators" xml:space="preserve">
+    <value>Logowanie na kontrolerach domeny i ładowanie tam sterowników drukarek.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.BackupOperators" xml:space="preserve">
+    <value>Operatorzy kopii zapasowych</value>
+  </data>
+  <data name="PrivilegedAccess.Group.BackupOperators" xml:space="preserve">
+    <value>Kopia i przywracanie każdego pliku kontrolerów domeny, także bazy AD.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.KeyAdmins" xml:space="preserve">
+    <value>Administratorzy kluczy</value>
+  </data>
+  <data name="PrivilegedAccess.Group.KeyAdmins" xml:space="preserve">
+    <value>Zarządza poświadczeniami kluczy (msDS-KeyCredentialLink) obiektów domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.EnterpriseKeyAdmins" xml:space="preserve">
+    <value>Administratorzy kluczy przedsiębiorstwa</value>
+  </data>
+  <data name="PrivilegedAccess.Group.EnterpriseKeyAdmins" xml:space="preserve">
+    <value>Zarządza poświadczeniami kluczy w całym lesie.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.DnsAdmins" xml:space="preserve">
+    <value>DnsAdmins</value>
+  </data>
+  <data name="PrivilegedAccess.Group.DnsAdmins" xml:space="preserve">
+    <value>Zarządza DNS na kontrolerach domeny (do usługi DNS można załadować bibliotekę DLL).</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.ExchangeWindowsPermissions" xml:space="preserve">
+    <value>Exchange Windows Permissions</value>
+  </data>
+  <data name="PrivilegedAccess.Group.ExchangeWindowsPermissions" xml:space="preserve">
+    <value>Exchange: może zmieniać uprawnienia obiektu domeny (droga do DCSync).</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.ExchangeTrustedSubsystem" xml:space="preserve">
+    <value>Exchange Trusted Subsystem</value>
+  </data>
+  <data name="PrivilegedAccess.Group.ExchangeTrustedSubsystem" xml:space="preserve">
+    <value>Serwery Exchange: członek grupy Exchange Windows Permissions.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.GroupPolicyCreatorOwners" xml:space="preserve">
+    <value>Twórcy-właściciele zasad grupy</value>
+  </data>
+  <data name="PrivilegedAccess.Group.GroupPolicyCreatorOwners" xml:space="preserve">
+    <value>Tworzy obiekty zasad grupy w domenie.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.CertPublishers" xml:space="preserve">
+    <value>Wydawcy certyfikatów</value>
+  </data>
+  <data name="PrivilegedAccess.Group.CertPublishers" xml:space="preserve">
+    <value>Publikuje certyfikaty w obiektach użytkowników i komputerów.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.ReadOnlyDomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny tylko do odczytu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.ReadOnlyDomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny tylko do odczytu.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.EnterpriseReadOnlyDomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny przedsiębiorstwa tylko do odczytu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.EnterpriseReadOnlyDomainControllers" xml:space="preserve">
+    <value>Kontrolery tylko do odczytu w całym lesie.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.CloneableDomainControllers" xml:space="preserve">
+    <value>Klonowalne kontrolery domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Group.CloneableDomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny, które można klonować.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.OrganizationManagement" xml:space="preserve">
+    <value>Organization Management</value>
+  </data>
+  <data name="PrivilegedAccess.Group.OrganizationManagement" xml:space="preserve">
+    <value>Exchange: administruje całą organizacją Exchange.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.Replicator" xml:space="preserve">
+    <value>Replikator</value>
+  </data>
+  <data name="PrivilegedAccess.Group.Replicator" xml:space="preserve">
+    <value>Replikacja plików na kontrolerach domeny (przestarzała).</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.RemoteDesktopUsers" xml:space="preserve">
+    <value>Użytkownicy pulpitu zdalnego</value>
+  </data>
+  <data name="PrivilegedAccess.Group.RemoteDesktopUsers" xml:space="preserve">
+    <value>Logowanie przez Pulpit zdalny na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.RemoteManagementUsers" xml:space="preserve">
+    <value>Użytkownicy zarządzania zdalnego</value>
+  </data>
+  <data name="PrivilegedAccess.Group.RemoteManagementUsers" xml:space="preserve">
+    <value>Zdalne zarządzanie (WinRM, PowerShell) kontrolerami domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.HyperVAdministrators" xml:space="preserve">
+    <value>Administratorzy funkcji Hyper-V</value>
+  </data>
+  <data name="PrivilegedAccess.Group.HyperVAdministrators" xml:space="preserve">
+    <value>Pełny dostęp do funkcji Hyper-V na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.StorageReplicaAdministrators" xml:space="preserve">
+    <value>Administratorzy funkcji Replika magazynu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.StorageReplicaAdministrators" xml:space="preserve">
+    <value>Pełny dostęp do funkcji Replika magazynu na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.IncomingForestTrustBuilders" xml:space="preserve">
+    <value>Konstruktorzy przychodzących zaufań lasu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.IncomingForestTrustBuilders" xml:space="preserve">
+    <value>Tworzy przychodzące zaufania lasów.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.NetworkConfigurationOperators" xml:space="preserve">
+    <value>Operatorzy konfiguracji sieci</value>
+  </data>
+  <data name="PrivilegedAccess.Group.NetworkConfigurationOperators" xml:space="preserve">
+    <value>Zmienia konfigurację sieci kontrolerów domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.PerformanceMonitorUsers" xml:space="preserve">
+    <value>Użytkownicy monitora wydajności</value>
+  </data>
+  <data name="PrivilegedAccess.Group.PerformanceMonitorUsers" xml:space="preserve">
+    <value>Odczytuje liczniki wydajności kontrolerów domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.PerformanceLogUsers" xml:space="preserve">
+    <value>Użytkownicy dzienników wydajności</value>
+  </data>
+  <data name="PrivilegedAccess.Group.PerformanceLogUsers" xml:space="preserve">
+    <value>Planuje dzienniki wydajności na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.WindowsAuthorizationAccessGroup" xml:space="preserve">
+    <value>Grupa dostępu autoryzacji systemu Windows</value>
+  </data>
+  <data name="PrivilegedAccess.Group.WindowsAuthorizationAccessGroup" xml:space="preserve">
+    <value>Odczytuje przynależność kont do grup (tokenGroupsGlobalAndUniversal).</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.TerminalServerLicenseServers" xml:space="preserve">
+    <value>Serwery licencji serwera terminali</value>
+  </data>
+  <data name="PrivilegedAccess.Group.TerminalServerLicenseServers" xml:space="preserve">
+    <value>Aktualizuje dane licencji Pulpitu zdalnego w kontach.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.DistributedComUsers" xml:space="preserve">
+    <value>Użytkownicy DCOM</value>
+  </data>
+  <data name="PrivilegedAccess.Group.DistributedComUsers" xml:space="preserve">
+    <value>Uruchamia obiekty DCOM na kontrolerach domeny i ich używa.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.CryptographicOperators" xml:space="preserve">
+    <value>Operatorzy kryptograficzni</value>
+  </data>
+  <data name="PrivilegedAccess.Group.CryptographicOperators" xml:space="preserve">
+    <value>Wykonuje operacje kryptograficzne na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.EventLogReaders" xml:space="preserve">
+    <value>Czytelnicy dziennika zdarzeń</value>
+  </data>
+  <data name="PrivilegedAccess.Group.EventLogReaders" xml:space="preserve">
+    <value>Odczytuje dzienniki zdarzeń kontrolerów domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.CertificateServiceDcomAccess" xml:space="preserve">
+    <value>Dostęp DCOM do usługi certyfikatów</value>
+  </data>
+  <data name="PrivilegedAccess.Group.CertificateServiceDcomAccess" xml:space="preserve">
+    <value>Łączy się z urzędami certyfikacji przez DCOM.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.RdsRemoteAccessServers" xml:space="preserve">
+    <value>Serwery dostępu zdalnego RDS</value>
+  </data>
+  <data name="PrivilegedAccess.Group.RdsRemoteAccessServers" xml:space="preserve">
+    <value>Zasoby bramy Pulpitu zdalnego.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.RdsEndpointServers" xml:space="preserve">
+    <value>Serwery punktów końcowych RDS</value>
+  </data>
+  <data name="PrivilegedAccess.Group.RdsEndpointServers" xml:space="preserve">
+    <value>Maszyny wirtualne i sesje Pulpitu zdalnego.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.RdsManagementServers" xml:space="preserve">
+    <value>Serwery zarządzania RDS</value>
+  </data>
+  <data name="PrivilegedAccess.Group.RdsManagementServers" xml:space="preserve">
+    <value>Działania administracyjne usług Pulpitu zdalnego.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.AccessControlAssistanceOperators" xml:space="preserve">
+    <value>Operatorzy pomocy kontroli dostępu</value>
+  </data>
+  <data name="PrivilegedAccess.Group.AccessControlAssistanceOperators" xml:space="preserve">
+    <value>Zdalnie odpytuje atrybuty autoryzacji i uprawnienia.</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.DnsUpdateProxy" xml:space="preserve">
+    <value>DnsUpdateProxy</value>
+  </data>
+  <data name="PrivilegedAccess.Group.DnsUpdateProxy" xml:space="preserve">
+    <value>Serwery DHCP aktualizujące DNS za klientów (rekordy pozostają niezabezpieczone).</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Forest" xml:space="preserve">
+    <value>Las domeny {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Domain" xml:space="preserve">
+    <value>Domena {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.DomainControllers" xml:space="preserve">
+    <value>Kontrolery domeny {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Account" xml:space="preserve">
+    <value>Samo konto</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Container" xml:space="preserve">
+    <value>{0}</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Computers" xml:space="preserve">
+    <value>Komputery w {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Scope.Peers" xml:space="preserve">
+    <value>Podobne konta: {0}</value>
+  </data>
+  <data name="PrivilegedAccess.Type.User" xml:space="preserve">
+    <value>Użytkownik</value>
+  </data>
+  <data name="PrivilegedAccess.Type.Computer" xml:space="preserve">
+    <value>Komputer</value>
+  </data>
+  <data name="PrivilegedAccess.Type.DomainController" xml:space="preserve">
+    <value>Kontroler domeny</value>
+  </data>
+  <data name="PrivilegedAccess.Type.ServiceAccount" xml:space="preserve">
+    <value>Zarządzane konto usługi</value>
+  </data>
+  <data name="PrivilegedAccess.Peer.OrganizationalUnit" xml:space="preserve">
+    <value>Ma grupy ({0}), których nie ma nikt lub prawie nikt z {1} innych kont w tej samej jednostce {2}.</value>
+  </data>
+  <data name="PrivilegedAccess.Peer.Department" xml:space="preserve">
+    <value>Ma grupy ({0}), których nie ma nikt lub prawie nikt z {1} innych kont działu {2}.</value>
+  </data>
+  <data name="PrivilegedAccess.Peer.Title" xml:space="preserve">
+    <value>Ma grupy ({0}), których nie ma nikt lub prawie nikt z {1} innych kont na stanowisku {2}.</value>
+  </data>
+  <data name="PrivilegedAccess.Target.Accounts" xml:space="preserve">
+    <value>Konta</value>
+  </data>
+  <data name="PrivilegedAccess.Target.Groups" xml:space="preserve">
+    <value>Grupy (ich członkowie)</value>
+  </data>
+  <data name="PrivilegedAccess.GroupName.PowerUsers" xml:space="preserve">
+    <value>Użytkownicy zaawansowani</value>
+  </data>
+  <data name="PrivilegedAccess.UserRight" xml:space="preserve">
+    <value>{0} ({1})</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeDebugPrivilege" xml:space="preserve">
+    <value>Debugowanie programów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeBackupPrivilege" xml:space="preserve">
+    <value>Wykonywanie kopii zapasowych plików i katalogów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRestorePrivilege" xml:space="preserve">
+    <value>Przywracanie plików i katalogów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Przejmowanie na własność plików lub innych obiektów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Ładowanie i zwalnianie sterowników urządzeń</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Personifikacja klienta po uwierzytelnieniu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTcbPrivilege" xml:space="preserve">
+    <value>Działanie jako część systemu operacyjnego</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Zastępowanie tokenu na poziomie procesu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Włączanie zaufania do kont komputerów i użytkowników w zakresie delegowania</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Tworzenie obiektu tokenu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Wykonywanie zadań konserwacji woluminów</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRelabelPrivilege" xml:space="preserve">
+    <value>Modyfikowanie etykiety obiektu</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Uzyskiwanie dostępu do Menedżera poświadczeń jako zaufany obiekt wywołujący</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalanie na logowanie przez Usługi pulpitu zdalnego</value>
+  </data>
+  <data name="PrivilegedAccess.UserRightName.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Zezwalanie na logowanie lokalne</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.Administrators" xml:space="preserve">
+    <value>Pełna kontrola nad komputerem: instaluje oprogramowanie i usługi, odczytuje pamięć i poświadczenia zalogowanych tam użytkowników.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.BackupOperators" xml:space="preserve">
+    <value>Odczytuje i przywraca każdy plik bez względu na uprawnienia (także bazy poświadczeń).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PowerUsers" xml:space="preserve">
+    <value>Rozszerzone uprawnienia lokalne (starsza grupa): instaluje programy i zmienia ustawienia systemu.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteDesktopUsers" xml:space="preserve">
+    <value>Logowanie przez Pulpit zdalny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.RemoteManagementUsers" xml:space="preserve">
+    <value>Zdalne zarządzanie przez WinRM i PowerShell.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.HyperVAdministrators" xml:space="preserve">
+    <value>Pełna kontrola nad maszynami wirtualnymi Hyper-V.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.NetworkConfigurationOperators" xml:space="preserve">
+    <value>Zmienia konfigurację sieci.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceMonitorUsers" xml:space="preserve">
+    <value>Odczytuje liczniki wydajności.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PerformanceLogUsers" xml:space="preserve">
+    <value>Planuje dzienniki wydajności i śledzenia.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.DistributedComUsers" xml:space="preserve">
+    <value>Uruchamia obiekty DCOM i z nich korzysta.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.CryptographicOperators" xml:space="preserve">
+    <value>Wykonuje operacje kryptograficzne.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.EventLogReaders" xml:space="preserve">
+    <value>Odczytuje dzienniki zdarzeń.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccessControlAssistanceOperators" xml:space="preserve">
+    <value>Zdalnie odczytuje uprawnienia zasobów.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.AccountOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: zarządza większością kont i grup domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.ServerOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: logowanie, zarządzanie usługami i plikami.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.PrintOperators" xml:space="preserve">
+    <value>Na kontrolerach domeny: logowanie i ładowanie sterowników drukarek.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeDebugPrivilege" xml:space="preserve">
+    <value>Odczytuje i zmienia pamięć dowolnego procesu, także LSASS (kradzież poświadczeń).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeBackupPrivilege" xml:space="preserve">
+    <value>Odczytuje każdy plik bez względu na uprawnienia (NTDS.dit, gałęzie rejestru SAM i SECURITY).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRestorePrivilege" xml:space="preserve">
+    <value>Zapisuje każdy plik bez względu na uprawnienia (podmienia pliki systemowe).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTakeOwnershipPrivilege" xml:space="preserve">
+    <value>Przejmuje na własność dowolny obiekt i nadaje sobie dostęp.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeLoadDriverPrivilege" xml:space="preserve">
+    <value>Ładuje sterowniki (kod w jądrze systemu).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeImpersonatePrivilege" xml:space="preserve">
+    <value>Personifikuje klientów – droga do uprawnień SYSTEM (ataki typu „Potato”).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTcbPrivilege" xml:space="preserve">
+    <value>Działa jako system operacyjny (tworzy dowolny token).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeAssignPrimaryTokenPrivilege" xml:space="preserve">
+    <value>Uruchamia procesy z tokenem innego konta.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeEnableDelegationPrivilege" xml:space="preserve">
+    <value>Włącza delegowanie Kerberos na kontach (droga do Tier 0).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeCreateTokenPrivilege" xml:space="preserve">
+    <value>Tworzy dowolny token dostępu (dowolne konto, dowolne grupy) – tyle co działanie jako system operacyjny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeManageVolumePrivilege" xml:space="preserve">
+    <value>Surowy dostęp do woluminów: czyta każdy plik bez względu na uprawnienia (NTDS.dit na kontrolerze) – droga do SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRelabelPrivilege" xml:space="preserve">
+    <value>Zmienia etykietę integralności dowolnego obiektu i przejmuje go – droga do SYSTEM.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeTrustedCredManAccessPrivilege" xml:space="preserve">
+    <value>Odczytuje poświadczenia zapisane przez użytkowników komputera w Menedżerze poświadczeń (jego kopię zapasową).</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeRemoteInteractiveLogonRight" xml:space="preserve">
+    <value>Logowanie na kontrolerach domeny przez Pulpit zdalny.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRight.SeInteractiveLogonRight" xml:space="preserve">
+    <value>Logowanie lokalne na kontrolerach domeny.</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMembers" xml:space="preserve">
+    <value>Grupy z ograniczeniami (członkowie grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.RestrictedGroupMemberOf" xml:space="preserve">
+    <value>Grupy z ograniczeniami (członek grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.PreferenceGroups" xml:space="preserve">
+    <value>Preferencje zasad grupy (lokalni użytkownicy i grupy)</value>
+  </data>
+  <data name="PrivilegedAccess.Mechanism.UserRightsAssignment" xml:space="preserve">
+    <value>Przypisywanie praw użytkownika</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightGrants" xml:space="preserve">
+    <value>{0} Źródło: {1} w GPO „{2}”; {3}.</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightComputers" xml:space="preserve">
+    <value>komputery: {0} (kontrolery domeny: {1}, serwery: {2}, stacje robocze: {3})</value>
+  </data>
+  <data name="PrivilegedAccess.LocalRightValues" xml:space="preserve">
+    <value>GPO „{0}”: {1}</value>
+  </data>
+  <data name="PrivilegedAccess.LinkEnforced" xml:space="preserve">
+    <value>Połączenie GPO jest wymuszone.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalTargeting" xml:space="preserve">
+    <value>Warunkowo: element preferencji ma określanie elementów docelowych – dotyczy tylko pasujących komputerów.</value>
+  </data>
+  <data name="PrivilegedAccess.ConditionalWmi" xml:space="preserve">
+    <value>Warunkowo: GPO ma filtr WMI – dotyczy tylko komputerów, na których zapytanie jest prawdziwe.</value>
+  </data>
+  <data name="PrivilegedAccess.DomainGroupEnforced" xml:space="preserve">
+    <value>Na kontrolerach domeny GPO wymusza to członkostwo w grupie domeny: usunięcie z grupy zostanie cofnięte przy następnym odświeżeniu zasad – zmień GPO.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.NotSupported" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: pliki zasad grupy z SYSVOL na {0} można odczytać tylko w systemie Windows.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.DistinguishedNameLogon" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: sesja używa prostego wiązania z nazwą wyróżniającą (DN), której nie można użyć do zalogowania się do udziału SYSVOL na {0}. Połącz się kontem Windows albo nazwą w postaci DOMENA\użytkownik lub UPN.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.LogonFailure" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: kontroler {0} odrzucił poświadczenia sesji przy połączeniu z udziałem SYSVOL.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.AccessDenied" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: brak dostępu do udziału SYSVOL na {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Unreachable" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: udział SYSVOL na {0} jest nieosiągalny.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.SysvolUnavailable.Failed" xml:space="preserve">
+    <value>Uprawnienia lokalne z GPO nie zostały sprawdzone: nie udało się otworzyć udziału SYSVOL na {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesUnreadable" xml:space="preserve">
+    <value>Nie udało się odczytać plików zasad grupy (GPO: {0}): {1}. Ich uprawnienia lokalne nie zostały uwzględnione.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.FilesInvalid" xml:space="preserve">
+    <value>Pliki zasad grupy są nieprawidłowe lub zbyt duże (GPO: {0}): {1}. Ich uprawnienia lokalne nie zostały uwzględnione.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.UnresolvedPrincipals" xml:space="preserve">
+    <value>Pominięto nazwy z zasad grupy, które nie są kontami ani grupami tej domeny ({0}): {1}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.MissingPolicies" xml:space="preserve">
+    <value>Pominięto połączenia z obiektami zasad grupy, których nie ma w tej domenie: {0}.</value>
+  </data>
+  <data name="PrivilegedAccess.Notice.GroupPolicy.PathRedirected" xml:space="preserve">
+    <value>Atrybut gPCFileSysPath wskazuje poza SYSVOL domeny (GPO: {0}): {1}. Pliki odczytano z SYSVOL kontrolera sesji.</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Name" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Login" xml:space="preserve">
+    <value>Nazwa logowania</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Type" xml:space="preserve">
+    <value>Typ</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Level" xml:space="preserve">
+    <value>Poziom</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Sources" xml:space="preserve">
+    <value>Źródła</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Findings" xml:space="preserve">
+    <value>Uwagi</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Peers" xml:space="preserve">
+    <value>Podobne konta</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Location" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="PrivilegedAccess.Column.Details" xml:space="preserve">
+    <value>Uprawnienia</value>
+  </data>
+  <data name="PrivilegedAccess.Column.DistinguishedName" xml:space="preserve">
+    <value>Nazwa wyróżniająca</value>
+  </data>
+  <data name="Filters.NewTitle" xml:space="preserve">
+    <value>Nowy filtr</value>
+  </data>
+  <data name="Filters.EditTitle" xml:space="preserve">
+    <value>Edytuj filtr</value>
+  </data>
+  <data name="Filters.SavedTitle" xml:space="preserve">
+    <value>Zapisane filtry</value>
+  </data>
+  <data name="Filters.GroupsCombine" xml:space="preserve">
+    <value>Grupy warunków łączy</value>
+  </data>
+  <data name="Filters.Group" xml:space="preserve">
+    <value>Grupa {0}</value>
+  </data>
+  <data name="Filters.ConditionsCombine" xml:space="preserve">
+    <value>Warunki łączy</value>
+  </data>
+  <data name="Filters.AddCondition" xml:space="preserve">
+    <value>Dodaj warunek</value>
+  </data>
+  <data name="Filters.RemoveCondition" xml:space="preserve">
+    <value>Usuń warunek</value>
+  </data>
+  <data name="Filters.AddGroup" xml:space="preserve">
+    <value>Dodaj grupę warunków</value>
+  </data>
+  <data name="Filters.RemoveGroup" xml:space="preserve">
+    <value>Usuń grupę</value>
+  </data>
+  <data name="Filters.Attribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="Filters.Operator" xml:space="preserve">
+    <value>Warunek</value>
+  </data>
+  <data name="Filters.Value" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="Filters.ChooseGroup" xml:space="preserve">
+    <value>Wybierz grupę...</value>
+  </data>
+  <data name="Filters.Raw" xml:space="preserve">
+    <value>Własny filtr LDAP (zaawansowane)</value>
+  </data>
+  <data name="Filters.Preview" xml:space="preserve">
+    <value>Filtr LDAP</value>
+  </data>
+  <data name="Filters.ClientCheck" xml:space="preserve">
+    <value>Atrybutów konstruowanych kontroler domeny nie ocenia w filtrze; AD Manager sprawdza je po wyszukaniu: {0}</value>
+  </data>
+  <data name="Filters.IssueAt" xml:space="preserve">
+    <value>Grupa {0}, warunek {1}: {2}</value>
+  </data>
+  <data name="Filters.And" xml:space="preserve">
+    <value>I</value>
+  </data>
+  <data name="Filters.Or" xml:space="preserve">
+    <value>LUB</value>
+  </data>
+  <data name="Filters.Saved" xml:space="preserve">
+    <value>Zapisano filtr {0}.</value>
+  </data>
+  <data name="Filters.DeleteTitle" xml:space="preserve">
+    <value>Usuń filtr</value>
+  </data>
+  <data name="Filters.DeleteConfirm" xml:space="preserve">
+    <value>Usunąć filtr {0}? Przestaną go używać zapisane widoki, przegląd kont i reguły uprawnień.</value>
+  </data>
+  <data name="Filters.ExportTitle" xml:space="preserve">
+    <value>Eksport zapisanych filtrów</value>
+  </data>
+  <data name="Filters.ImportTitle" xml:space="preserve">
+    <value>Import zapisanych filtrów</value>
+  </data>
+  <data name="Filters.Exported" xml:space="preserve">
+    <value>Wyeksportowano filtry ({0}) do pliku {1}.</value>
+  </data>
+  <data name="Filters.Imported" xml:space="preserve">
+    <value>Zaimportowano filtry: {0}, pominięto nieprawidłowe: {1}.</value>
+  </data>
+  <data name="Filters.InvalidFile" xml:space="preserve">
+    <value>Plik nie jest plikiem filtrów AD Managera.</value>
+  </data>
+  <data name="Filters.Empty" xml:space="preserve">
+    <value>Brak zapisanych filtrów. Utwórz filtr przyciskiem Nowy...</value>
+  </data>
+  <data name="Filters.New" xml:space="preserve">
+    <value>Nowy...</value>
+  </data>
+  <data name="Filters.Export" xml:space="preserve">
+    <value>Eksportuj...</value>
+  </data>
+  <data name="Filters.Import" xml:space="preserve">
+    <value>Importuj...</value>
+  </data>
+  <data name="Filters.ChipsLabel" xml:space="preserve">
+    <value>Zapisane filtry:</value>
+  </data>
+  <data name="Filters.Operator.Equals" xml:space="preserve">
+    <value>równa się</value>
+  </data>
+  <data name="Filters.Operator.NotEquals" xml:space="preserve">
+    <value>różne od</value>
+  </data>
+  <data name="Filters.Operator.Contains" xml:space="preserve">
+    <value>zawiera</value>
+  </data>
+  <data name="Filters.Operator.StartsWith" xml:space="preserve">
+    <value>zaczyna się od</value>
+  </data>
+  <data name="Filters.Operator.EndsWith" xml:space="preserve">
+    <value>kończy się na</value>
+  </data>
+  <data name="Filters.Operator.Present" xml:space="preserve">
+    <value>istnieje</value>
+  </data>
+  <data name="Filters.Operator.NotPresent" xml:space="preserve">
+    <value>nie istnieje</value>
+  </data>
+  <data name="Filters.Operator.GreaterOrEqual" xml:space="preserve">
+    <value>większe lub równe</value>
+  </data>
+  <data name="Filters.Operator.LessOrEqual" xml:space="preserve">
+    <value>mniejsze lub równe</value>
+  </data>
+  <data name="Filters.Operator.OlderThanDays" xml:space="preserve">
+    <value>data starsza niż N dni</value>
+  </data>
+  <data name="Filters.Operator.NewerThanDays" xml:space="preserve">
+    <value>data nowsza niż N dni</value>
+  </data>
+  <data name="Filters.Operator.BitSet" xml:space="preserve">
+    <value>flaga ustawiona (maska bitowa)</value>
+  </data>
+  <data name="Filters.Operator.BitNotSet" xml:space="preserve">
+    <value>flaga nieustawiona (maska bitowa)</value>
+  </data>
+  <data name="Filters.Operator.MemberOf" xml:space="preserve">
+    <value>członek grupy (także pośrednio)</value>
+  </data>
+  <data name="Filters.Operator.NotMemberOf" xml:space="preserve">
+    <value>nie jest członkiem grupy (także pośrednio)</value>
+  </data>
+  <data name="Filters.Combinator.All" xml:space="preserve">
+    <value>I (wszystkie)</value>
+  </data>
+  <data name="Filters.Combinator.Any" xml:space="preserve">
+    <value>LUB (dowolny)</value>
+  </data>
+  <data name="Filters.Issue.Empty" xml:space="preserve">
+    <value>Dodaj co najmniej jeden warunek.</value>
+  </data>
+  <data name="Filters.Issue.MissingAttribute" xml:space="preserve">
+    <value>Wybierz atrybut.</value>
+  </data>
+  <data name="Filters.Issue.InvalidAttribute" xml:space="preserve">
+    <value>Nazwa atrybutu jest niepoprawna.</value>
+  </data>
+  <data name="Filters.Issue.MissingValue" xml:space="preserve">
+    <value>Wpisz wartość.</value>
+  </data>
+  <data name="Filters.Issue.NotANumber" xml:space="preserve">
+    <value>Wpisz liczbę całkowitą.</value>
+  </data>
+  <data name="Filters.Issue.InvalidDays" xml:space="preserve">
+    <value>Wpisz od 0 do 36 500 dni.</value>
+  </data>
+  <data name="Filters.Issue.NotADate" xml:space="preserve">
+    <value>Atrybut nie zawiera daty (albo wpisz datę jako rrrr-MM-dd).</value>
+  </data>
+  <data name="Filters.Issue.InvalidMask" xml:space="preserve">
+    <value>Wpisz dodatnią maskę bitową, np. 2 lub 0x10000.</value>
+  </data>
+  <data name="Filters.Issue.InvalidGroup" xml:space="preserve">
+    <value>Wybierz grupę (poprawny DN).</value>
+  </data>
+  <data name="Filters.Issue.InvalidRawFilter" xml:space="preserve">
+    <value>Filtr LDAP jest niepoprawny (nawiasy, sekwencje ucieczki).</value>
+  </data>
+  <data name="Filters.Conditions" xml:space="preserve">
+    <value>Warunki</value>
   </data>
 </root>

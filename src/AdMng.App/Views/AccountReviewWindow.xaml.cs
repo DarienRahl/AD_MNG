@@ -11,9 +11,11 @@ using AdMng.Presentation.AccountReview;
 namespace AdMng.App.Views;
 
 /// <summary>
-/// Account review (<see cref="AccountReviewViewModel"/>, README U2). The columns of the list follow the selected check:
-/// they are rebuilt from <see cref="AccountReviewViewModel.Columns"/> (cells bound to the row indexer, headers sort). The
-/// list's multi-selection is handed to the view model; double-click or Enter opens the properties, F5 runs.
+/// Account review (<see cref="AccountReviewViewModel"/>, README U2 and U4). On the "Stan kont" tab the columns of the list
+/// follow the selected check: they are rebuilt from <see cref="AccountReviewViewModel.Columns"/> (cells bound to the row
+/// indexer, headers sort). The "Uprawnienia" tab (<see cref="PrivilegedAccessViewModel"/>) has fixed columns and a details
+/// pane. The lists' multi-selection is handed to the view models; double-click or Enter opens the properties, F5 runs the
+/// selected tab.
 /// </summary>
 public partial class AccountReviewWindow : Window, IDialogResultWindow
 {
@@ -26,6 +28,7 @@ public partial class AccountReviewWindow : Window, IDialogResultWindow
         UiLanguage.ApplyTo(this);
         DataContext = viewModel;
         viewModel.SelectedItems = ItemsList.SelectedItems;
+        viewModel.Privileges.SelectedItems = PrivilegesList.SelectedItems;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         Closed += (_, _) => viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _lifecycle = new WindowViewModelLifecycle(this, viewModel);
@@ -89,6 +92,17 @@ public partial class AccountReviewWindow : Window, IDialogResultWindow
     }
 
     private void OnItemsSelectionChanged(object sender, SelectionChangedEventArgs e) => ViewModel.NotifySelectionChanged();
+
+    private void OnPrivilegesSelectionChanged(object sender, SelectionChangedEventArgs e) => ViewModel.Privileges.NotifySelectionChanged();
+
+    private void OnPrivilegeDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListViewItem { DataContext: PrivilegedAccountRowViewModel row } && ViewModel.Privileges.OpenCommand.CanExecute(row))
+        {
+            ViewModel.Privileges.OpenCommand.Execute(row);
+            e.Handled = true;
+        }
+    }
 
     private void OnItemDoubleClick(object sender, MouseButtonEventArgs e)
     {

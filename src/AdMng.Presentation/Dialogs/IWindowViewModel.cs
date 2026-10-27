@@ -105,6 +105,12 @@ public abstract class WindowViewModelBase : ObservableObject, IWindowViewModel
     protected ISchemaCatalog? OpenedSessionSchema => _openedIn?.Schema;
 
     /// <summary>
+    /// The domain of the session this window was opened in - the only session it ever writes to - for the sentence of a
+    /// destructive confirmation (empty for a window opened while disconnected).
+    /// </summary>
+    protected string ConfirmationDomain => _openedIn is { } session ? Connections.ConfirmationText.Domain(session) : string.Empty;
+
+    /// <summary>
     /// False for windows that never act in the directory session (e.g. the PowerShell history): they do not end with
     /// it and are reused after a reconnect.
     /// </summary>

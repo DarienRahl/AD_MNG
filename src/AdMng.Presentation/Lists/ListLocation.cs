@@ -82,6 +82,9 @@ public sealed record ListLocation
     /// <summary>Quick filter chips activated when the location is shown (saved views).</summary>
     public IReadOnlyList<QuickFilterKind> QuickFilters { get; init; } = [];
 
+    /// <summary>Ids of the saved filters activated when the location is shown (saved views).</summary>
+    public IReadOnlyList<string> SavedFilters { get; init; } = [];
+
     /// <summary>Parent container for "Up" (containers: the parent DN; other kinds: the search base).</summary>
     public string? UpDn => Kind == ListLocationKind.Container
         ? (DistinguishedName.TryParse(BaseDn, out var dn) && dn.Parent is { IsRoot: false } parent ? parent.ToString() : null)

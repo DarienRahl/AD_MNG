@@ -19,8 +19,11 @@ public enum ThemePreference
 /// </summary>
 public sealed class AppSettings
 {
-    /// <summary>Maximum number of entries in <see cref="RecentContainers"/>.</summary>
-    public const int MaxRecentContainers = 10;
+    /// <summary>
+    /// Maximum number of entries in <see cref="RecentContainers"/>. Shared by every connection window, each of which shows
+    /// its 10 newest under its own naming context - so one domain's history is not pushed out by another's.
+    /// </summary>
+    public const int MaxRecentContainers = 30;
 
     public const int CurrentVersion = 1;
 
@@ -75,7 +78,16 @@ public sealed class AppSettings
     /// <summary>Messages to users (U1): sender, limits, SMTP connection without a password, operator templates (never messages).</summary>
     public UserMessageSettings UserMessages { get; set; } = new();
 
-    /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max 10).</summary>
+    /// <summary>
+    /// Saved filters of the filter builder (README U4): names, conditions and raw LDAP filters - the same kind of text as
+    /// saved views, never directory content.
+    /// </summary>
+    public List<Filters.SavedFilter> SavedFilters { get; set; } = [];
+
+    /// <summary>The comparison of objects between connections: the match rule per object kind and the switches (never values).</summary>
+    public ComparisonSettings Comparison { get; set; } = new();
+
+    /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(distinguishedName);
@@ -102,6 +114,19 @@ public sealed class AppSettings
         AccountReview.Normalize();
         UserMessages ??= new();
         UserMessages.Normalize();
+        SavedFilters = [.. (SavedFilters ?? []).Select(Filters.FilterLibrary.Normalize).OfType<Filters.SavedFilter>()
+            .DistinctBy(f => f.Id, StringComparer.Ordinal).Take(Filters.FilterLibrary.MaxFilters)];
+        SavedViews.RemoveAll(v => v is null);
+        for (var i = 0; i < SavedViews.Count; i++)
+        {
+            if (SavedViews[i].SavedFilters is null)
+            {
+                SavedViews[i] = SavedViews[i] with { SavedFilters = [] };
+            }
+        }
+
+        Comparison ??= new();
+        Comparison.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));
@@ -136,6 +161,9 @@ public sealed record ConnectionProfile
 
     /// <summary>User name for explicit credentials (DOMAIN\user or UPN). The password is never saved.</summary>
     public string? UserName { get; init; }
+
+    /// <summary>The colour of windows connected with this profile (strip, badge); null = automatic from the domain name.</summary>
+    public Connections.ConnectionColor? Color { get; init; }
 }
 
 /// <summary>A container pinned to the "Views" section of the navigation tree.</summary>

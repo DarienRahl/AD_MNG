@@ -74,7 +74,7 @@ public sealed class UserMessageApiTests : IAsyncLifetime
         Assert.Empty(mime.Attachments);
 
         // The delivery log keeps neither subject nor addresses; the payload is gone once sent.
-        var item = Assert.Single((await _factory.Store.QueryAsync(new OutboxQuery(), Ct)).Items);
+        var item = Assert.Single(await SettledOutboxAsync());
         Assert.Equal((DeliveryKind.UserMessage, OutboxStatus.Sent, null, 2, result.OutboxId), (item.Kind, item.Status, item.Subject, item.RecipientCount, (long?)item.Id));
         var (payloads, recipients) = _factory.Store.Database.Read(c => (
             SqliteValues.Scalar<long>(c, null, "SELECT count(*) FROM outbox WHERE payload IS NOT NULL;"),
@@ -288,7 +288,7 @@ public sealed class UserMessageApiTests : IAsyncLifetime
         Assert.Equal((UserMessageState.Rejected, "smtp.550.5.1.1", 550), (rejectedResult.State, rejectedResult.Code, rejectedResult.SmtpStatus));
         Assert.Equal(UserMessageState.Delivered, copyResult.State);
         Assert.Equal([Manager], copyResult.RejectedCopies);
-        var items = (await _factory.Store.QueryAsync(new OutboxQuery(), Ct)).Items;
+        var items = await SettledOutboxAsync();
         Assert.Equal(OutboxStatus.Dead, items.Single(i => i.Id == rejectedResult.OutboxId).Status);
         Assert.Equal(OutboxStatus.Sent, items.Single(i => i.Id == copyResult.OutboxId).Status);
         Assert.Null(_factory.Services.GetRequiredService<IHealthRegistry>().Channels.FirstOrDefault(c => c.ChannelId == "email")?.LastFailureAt);
@@ -312,6 +312,27 @@ public sealed class UserMessageApiTests : IAsyncLifetime
         var repeated = await ApiJson.ReadAsync<UserMessageResult>(again);
         Assert.Equal((HttpStatusCode.Accepted, UserMessageState.Queued, true, result.OutboxId), (again.StatusCode, repeated.State, repeated.Duplicate, repeated.OutboxId));
         Assert.Single((await _factory.Store.QueryAsync(new OutboxQuery(), Ct)).Items);
+    }
+
+    /// <summary>
+    /// The outbox rows once the job has recorded its attempts: the API answers from the SMTP attempt itself and the job
+    /// writes the outcome to the row right after it, so a row can still be <see cref="OutboxStatus.Sending"/> when the
+    /// answer arrives (real time, at most 30 s).
+    /// </summary>
+    private async Task<IReadOnlyList<OutboxItemDto>> SettledOutboxAsync()
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(30));
+        while (true)
+        {
+            var items = (await _factory.Store.QueryAsync(new OutboxQuery(), timeout.Token)).Items;
+            if (items.All(i => i.Status != OutboxStatus.Sending))
+            {
+                return items;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(20), timeout.Token);
+        }
     }
 
     private async Task ConfigureAsync(int port, Func<UserMessagingSettings, UserMessagingSettings>? change = null)

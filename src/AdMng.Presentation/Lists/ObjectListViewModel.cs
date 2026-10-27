@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.Text.Json;
 using AdMng.Core.ActiveDirectory;
 using AdMng.Core.Directory;
 using AdMng.Core.Ldap;
@@ -75,6 +76,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
     private bool _disposed;
     private bool _settingChips;
 
+    // Saved filters (README U4) of the last search: their client checks (constructed attributes), null when none.
+    private Filters.SavedFilterPlan? _clientPlan;
+
+    // The saved filters the chips were built from, in their stored form (serialized, in stored order).
+    private (string Id, string Json)[] _savedFilterSnapshot = [];
+
     /// <param name="services">Shared list services.</param>
     /// <param name="session">
     /// The session the list reads from; null = the current session. A window passes the session it was opened in
@@ -93,6 +100,8 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             chip.PropertyChanged += OnChipChanged;
             FilterChips.Add(chip);
         }
+
+        RefreshSavedFilterChips();
 
         Columns.CollectionChanged += (_, _) => OnPropertyChanged(nameof(VisibleColumns));
         services.Changes.Changed += OnDirectoryChanged;
@@ -126,6 +135,12 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
 
     /// <summary>Server side filter chips (AND-combined, re-query on toggle).</summary>
     public ObservableCollection<FilterChipViewModel> FilterChips { get; } = [];
+
+    /// <summary>
+    /// The operator's saved filters (README U4) as chips next to <see cref="FilterChips"/>: AND-combined with the location's
+    /// filter on the server; conditions on constructed attributes are checked on the client.
+    /// </summary>
+    public ObservableCollection<Filters.SavedFilterChipViewModel> SavedFilterChips { get; } = [];
 
     /// <summary>Client side filter over loaded rows (name, display name, logon name, description; case/diacritics insensitive).</summary>
     [ObservableProperty]
@@ -503,6 +518,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             chip.PropertyChanged -= OnChipChanged;
         }
 
+        foreach (var chip in SavedFilterChips)
+        {
+            chip.PropertyChanged -= OnChipChanged;
+        }
+
         foreach (var column in Columns)
         {
             column.PropertyChanged -= OnColumnChanged;
@@ -548,7 +568,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         _serverSort = location.Sort;
         _localSortAttribute = null;
         SetSortIndicator(location.Sort?.Attribute, location.Sort?.Descending ?? false);
-        SetChipsSilently(location.QuickFilters);
+        SetChipsSilently(location.QuickFilters, location.SavedFilters);
         _virtualLocation = false;
         _virtualRefusedSort = null;
         _serverFilter?.Cancel();
@@ -698,6 +718,27 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             filter = QuickFilters.Combine(filter, chips, _services.Time.GetUtcNow(), settings.InactiveDays, domainSid);
         }
 
+        _clientPlan = null;
+        var saved = SavedFilterChips.Where(c => c.IsActive).Select(c => settings.SavedFilters.FirstOrDefault(f => f.Id == c.Id)).OfType<Filters.SavedFilter>().ToList();
+        if (saved.Count > 0)
+        {
+            try
+            {
+                var context = new Core.Filters.FilterContext { Now = _services.Time.GetUtcNow(), DefaultNamingContext = defaultNamingContext, Schema = _session()?.Schema };
+                var plan = Filters.SavedFilterPlan.Create(saved.Select(f => f.Definition), context);
+                if (plan.ServerFilter is { } server)
+                {
+                    filter = LdapFilter.And(filter, server);
+                }
+
+                _clientPlan = plan.NeedsClientCheck ? plan : null;
+            }
+            catch (Core.Filters.FilterDefinitionException)
+            {
+                // A hand-edited settings file: the invalid filter is ignored (the editor never saves one).
+            }
+        }
+
         if (ServerTextFilter() is { } text)
         {
             filter = LdapFilter.And(filter, text);
@@ -706,6 +747,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         var attributes = ColumnSets.BaseAttributes
             .Concat(Columns.Where(c => c.IsVisible).Select(c => c.Attribute))
             .Concat(_serverSort is null ? [] : [_serverSort.Attribute])
+            .Concat(_clientPlan?.Attributes ?? [])
             .Where(a => !ColumnSets.IsPseudo(a))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -725,6 +767,9 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         baseDn.Replace(SavedView.DomainPlaceholder, defaultNamingContext, StringComparison.OrdinalIgnoreCase);
 
     private bool ChipsRequireLockedPostFilter => FilterChips.Any(c => c.IsActive && c.Kind == QuickFilterKind.Locked);
+
+    /// <summary>The object passes the client checks of the active saved filters.</summary>
+    private static bool PassesClientPlan(Filters.SavedFilterPlan? plan, DirectoryObject obj) => plan is null || plan.Matches(obj);
 
     /// <summary>Streams the search into the rows (background thread, one dispatcher call per batch).</summary>
     /// <param name="session">Session of the load.</param>
@@ -748,6 +793,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         Func<Task<bool>>? onLarge = null)
     {
         var lockedOnly = postFilter == ListPostFilter.LockedOnly || ChipsRequireLockedPostFilter;
+        var clientPlan = _clientPlan;
         var time = _services.Time;
         var largeAt = VirtualThreshold;
         return Task.Run(
@@ -767,6 +813,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                         }
 
                         onLarge = null;
+                    }
+
+                    if (!PassesClientPlan(clientPlan, obj))
+                    {
+                        continue;
                     }
 
                     var row = new ObjectRowViewModel(obj, context);
@@ -966,7 +1017,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
                     candidate = new ObjectRowViewModel(obj, context);
                 }
 
-                keep = !lockedOnly || candidate.LockState != LockState.NotLocked;
+                keep = (!lockedOnly || candidate.LockState != LockState.NotLocked) && PassesClientPlan(_clientPlan, obj);
             }
 
             if (!keep)
@@ -1611,7 +1662,7 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         }
     }
 
-    private void SetChipsSilently(IReadOnlyList<QuickFilterKind> active)
+    private void SetChipsSilently(IReadOnlyList<QuickFilterKind> active, IReadOnlyList<string>? savedFilters = null)
     {
         _settingChips = true;
         try
@@ -1619,6 +1670,11 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
             foreach (var chip in FilterChips)
             {
                 chip.IsActive = active.Contains(chip.Kind);
+            }
+
+            foreach (var chip in SavedFilterChips)
+            {
+                chip.IsActive = savedFilters?.Contains(chip.Id, StringComparer.Ordinal) == true;
             }
         }
         finally
@@ -1631,8 +1687,64 @@ public sealed partial class ObjectListViewModel : ObservableObject, IShellDocume
         ? _services.Localizer.Format(DisplayNames.ChipKey(kind), _services.Settings.Current.InactiveDays)
         : _services.Localizer[DisplayNames.ChipKey(kind)];
 
+    /// <summary>
+    /// The chips of the saved filters (sorted by name). Returns true when an active filter changed or disappeared: the
+    /// rows were read with the previous definition.
+    /// </summary>
+    /// <remarks>
+    /// Filters are compared in their stored (serialized) form, as <see cref="Filters.FilterLibrary"/> does: a definition
+    /// holds lists that compare by reference, and every settings write of any connection window deserializes new ones
+    /// (copy-on-write settings), so a column width or recent container written anywhere must neither rebuild the chips
+    /// nor read a list with an active chip again.
+    /// </remarks>
+    private bool RefreshSavedFilterChips()
+    {
+        Filters.SavedFilter[] filters = [.. _services.Settings.Current.SavedFilters];
+        (string Id, string Json)[] snapshot = [.. filters.Select(f => (f.Id, JsonSerializer.Serialize(f, JsonSettingsStore.SerializerOptions)))];
+        if (snapshot.SequenceEqual(_savedFilterSnapshot))
+        {
+            return false;
+        }
+
+        var previous = StoredForms(_savedFilterSnapshot);
+        var current = StoredForms(snapshot);
+        var active = SavedFilterChips.Where(c => c.IsActive).Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+        _savedFilterSnapshot = snapshot;
+        foreach (var chip in SavedFilterChips)
+        {
+            chip.PropertyChanged -= OnChipChanged;
+        }
+
+        SavedFilterChips.Clear();
+        _settingChips = true;
+        try
+        {
+            foreach (var filter in filters.OrderBy(f => f.Name, StringComparer.Create(_services.Localizer.Culture, ignoreCase: true)))
+            {
+                var chip = new Filters.SavedFilterChipViewModel(filter.Id, filter.Name, filter.Description) { IsActive = active.Contains(filter.Id) };
+                chip.PropertyChanged += OnChipChanged;
+                SavedFilterChips.Add(chip);
+            }
+        }
+        finally
+        {
+            _settingChips = false;
+        }
+
+        return active.Any(id => !previous.TryGetValue(id, out var old) || !current.TryGetValue(id, out var now)
+            || !string.Equals(old, now, StringComparison.Ordinal));
+
+        static Dictionary<string, string> StoredForms((string Id, string Json)[] filters) =>
+            filters.DistinctBy(f => f.Id, StringComparer.Ordinal).ToDictionary(f => f.Id, f => f.Json, StringComparer.Ordinal);
+    }
+
     private void OnSettingsChanged(object? sender, EventArgs e) => _ = _services.Dispatcher.RunAsync(() =>
     {
+        if (!_disposed && RefreshSavedFilterChips() && Location is not null)
+        {
+            LoadAsync().Forget();
+        }
+
         var days = _services.Settings.Current.InactiveDays;
         if (_disposed || days == _inactiveDays)
         {

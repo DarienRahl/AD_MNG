@@ -61,7 +61,7 @@ public class ShellChangeDomainControllerTests
         Assert.NotEmpty(tabs[0].Items);
         Assert.NotEmpty(tabs[1].Items);
         Assert.NotSame(oldDomainNode, shell.Tree.DomainNode);
-        Assert.Equal("Active Directory Users and Computers – contoso.test", shell.WindowTitle);
+        Assert.Equal(@"contoso.test – CONTOSO\Administrator – Active Directory Users and Computers", shell.WindowTitle);
         Assert.True(shell.IsConnected);
         Assert.True(shell.ChangeDomainControllerCommand.CanExecute(null));
 

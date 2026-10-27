@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Net;
 using AdMng.Core.Directory;
+using AdMng.Presentation.Connections;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -17,6 +18,12 @@ namespace AdMng.Presentation.Connection;
 /// discovered list), authentication (current Windows user or explicit credentials), channel security and saved
 /// profiles. The password is read from <see cref="PasswordInput"/> only at connect time and never stored.
 /// </summary>
+/// <remarks>
+/// In a connection window (with its <see cref="ConnectionContext"/>) the dialog also offers the window colour, tells the
+/// window which profile and colour it connected with, and says when the chosen profile is already open in another window
+/// (information only: the same domain with another account, or a second window of the same account, is supported).
+/// Every window types its own password: a credential is never taken over from another window.
+/// </remarks>
 public sealed partial class ConnectViewModel : ObservableObject
 {
     private readonly IDirectoryConnector _connector;
@@ -24,20 +31,35 @@ public sealed partial class ConnectViewModel : ObservableObject
     private readonly ISettingsStore _settings;
     private readonly ILocalizer _localizer;
     private readonly ErrorTranslator _errors;
+    private readonly ConnectionContext? _connection;
+    private readonly ConnectionRegistry? _registry;
     private bool _initialized;
 
+    /// <remarks>
+    /// <c>connection</c>: the connection window this dialog connects (null in hosts without connection windows);
+    /// <c>registry</c>: the open connection windows (for "this profile is already open in …").
+    /// </remarks>
     public ConnectViewModel(
         IDirectoryConnector connector,
         ISessionManager sessions,
         ISettingsStore settings,
         ILocalizer localizer,
-        ErrorTranslator errors)
+        ErrorTranslator errors,
+        ConnectionContext? connection = null,
+        ConnectionRegistry? registry = null)
     {
         _connector = connector ?? throw new ArgumentNullException(nameof(connector));
         _sessions = sessions ?? throw new ArgumentNullException(nameof(sessions));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
         _errors = errors ?? throw new ArgumentNullException(nameof(errors));
+        _connection = connection;
+        _registry = registry;
+        Colors =
+        [
+            new(null, localizer[L.Connections.ColorAutomatic]),
+            .. ConnectionColors.Palette.Select(c => new Option<ConnectionColor?>(c, localizer[DisplayNames.ConnectionColorKey(c)])),
+        ];
         AuthenticationModes =
         [
             new(AuthenticationMode.CurrentUser, localizer[DisplayNames.AuthenticationKey(AuthenticationMode.CurrentUser)]),
@@ -65,6 +87,27 @@ public sealed partial class ConnectViewModel : ObservableObject
     public IReadOnlyList<Option<AuthenticationMode>> AuthenticationModes { get; }
 
     public IReadOnlyList<Option<TransportSecurity>> SecurityModes { get; }
+
+    /// <summary>"Kolor okna": automatic (from the domain name) or one of the palette colours; saved with the profile.</summary>
+    public IReadOnlyList<Option<ConnectionColor?>> Colors { get; }
+
+    /// <summary>The colour chooser is offered (the dialog belongs to a connection window).</summary>
+    public bool CanChooseColor => _connection is not null;
+
+    /// <summary>The chosen window colour; null = automatic.</summary>
+    [ObservableProperty]
+    public partial ConnectionColor? SelectedColor { get; set; }
+
+    /// <summary>
+    /// "Ten profil jest już otwarty w oknie …" when the selected profile is connected in another window (information, not
+    /// a block), else null.
+    /// </summary>
+    [ObservableProperty]
+    public partial string? ProfileOpenElsewhereText { get; private set; }
+
+    /// <summary>The colour of the other window that has the selected profile open (the dot next to the hint).</summary>
+    [ObservableProperty]
+    public partial ConnectionColor? ProfileOpenElsewhereColor { get; private set; }
 
     /// <summary>Windows identity used with <see cref="AuthenticationMode.CurrentUser"/> ("CONTOSO\jan").</summary>
     public string CurrentWindowsUser => string.IsNullOrEmpty(Environment.UserDomainName)
@@ -178,13 +221,24 @@ public sealed partial class ConnectViewModel : ObservableObject
             UserName = RequiresCredentials ? UserName.Trim() : null,
         };
 
+        if (_connection is not null)
+        {
+            // What the window shows and remembers: the profile it connected with (a saved one, or the profile that is about
+            // to be saved) and the colour. Set before the bind, so the identity built on SessionChanged carries them.
+            _connection.ProfileName = SaveProfile && !string.IsNullOrWhiteSpace(ProfileName) ? ProfileName.Trim() : SelectedProfile?.Name;
+            _connection.PreferredColor = SelectedColor;
+        }
+
         IsBusy = true;
         StatusText = _localizer.Format(L.Connect.Connecting, options.Server ?? options.Domain ?? string.Empty);
         try
         {
             try
             {
-                await _sessions.ConnectAsync(options, credential, cancellationToken).ConfigureAwait(true);
+                // Closing the window (its lifetime) ends a bind still running; one that completes anyway is closed by the
+                // session manager and never becomes a connection without a window.
+                using var connecting = _connection?.LinkLifetime(cancellationToken);
+                await _sessions.ConnectAsync(options, credential, connecting?.Token ?? cancellationToken).ConfigureAwait(true);
             }
             catch (OperationCanceledException)
             {
@@ -288,6 +342,7 @@ public sealed partial class ConnectViewModel : ObservableObject
     partial void OnSelectedProfileChanged(ConnectionProfile? value)
     {
         DeleteProfileCommand.NotifyCanExecuteChanged();
+        UpdateProfileOpenElsewhere();
         if (value is null)
         {
             return;
@@ -298,6 +353,7 @@ public sealed partial class ConnectViewModel : ObservableObject
         Authentication = value.Authentication;
         Security = value.Security is TransportSecurity.None ? TransportSecurity.SignAndSeal : value.Security;
         UserName = value.UserName ?? string.Empty;
+        SelectedColor = value.Color;
         ProfileName = value.Name;
         SaveProfile = false;
         ErrorText = null;
@@ -348,6 +404,7 @@ public sealed partial class ConnectViewModel : ObservableObject
             Authentication = Authentication,
             Security = Security,
             UserName = RequiresCredentials ? UserName.Trim() : null,
+            Color = SelectedColor,
         };
         await _settings.UpdateAsync(s =>
         {
@@ -377,6 +434,18 @@ public sealed partial class ConnectViewModel : ObservableObject
 
             Profiles.Add(profile);
         }
+    }
+
+    /// <summary>The hint that the selected profile is already connected in another connection window.</summary>
+    private void UpdateProfileOpenElsewhere()
+    {
+        var name = SelectedProfile?.Name;
+        var other = name is null || _registry is null
+            ? null
+            : _registry.Connections.FirstOrDefault(c => c.Id != _connection?.Id
+                && c.Identity is { } identity && string.Equals(identity.ProfileName, name, StringComparison.Ordinal));
+        ProfileOpenElsewhereText = other?.Identity is { } open ? _localizer.Format(L.Connections.ProfileOpenElsewhere, open.Label) : null;
+        ProfileOpenElsewhereColor = other?.Identity?.Color;
     }
 
     /// <summary>Splits DOMAIN\user into user + domain (Negotiate needs them separately); UPNs are kept whole.</summary>

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using AdMng.Core.GroupPolicy;
 
 namespace AdMng.Watchdog.Core.Gpo.Parsers;
 

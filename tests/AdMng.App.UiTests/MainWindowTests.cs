@@ -40,6 +40,11 @@ public sealed class MainWindowTests
         // Nothing selected: only the "no selection" hint, not an empty summary (null DataContext → fallback value).
         Assert.Null(window.Shell.SelectedObject);
         Assert.Equal(Visibility.Collapsed, window.DetailsContent.Visibility);
+
+        // The version in the bottom-right corner and the application icon in the title bar.
+        Assert.Equal($"v{AppVersion.Version}", window.VersionText.Text);
+        Assert.True(window.VersionButton.IsVisible);
+        Assert.NotNull(window.Icon);
         context.AssertHealthy();
     });
 
@@ -315,7 +320,9 @@ public sealed class MainWindowTests
             await appearance.SetLanguageCommand.ExecuteAsync("pl");
             await UiTestSupport.WaitForIdleAsync();
             Assert.Equal("pl-PL", localizer.Culture.Name);
-            Assert.StartsWith("Użytkownicy i komputery usługi Active Directory", window.Title, StringComparison.Ordinal);
+            // The domain first (several connection windows may be open), then the account and the application.
+            Assert.StartsWith(@"contoso.test – CONTOSO\Administrator – ", window.Title, StringComparison.Ordinal);
+            Assert.EndsWith("Użytkownicy i komputery usługi Active Directory", window.Title, StringComparison.Ordinal);
         }
         finally
         {
