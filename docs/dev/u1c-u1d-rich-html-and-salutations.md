@@ -779,7 +779,8 @@ strings: they live in Core (`Messaging/Salutations/SalutationData.cs`) with both
      there a name outside the lists gives no signal of its own (the surname may decide; else the neutral "Dear {name}"
      and `GenderUnknown`) – but the rule result still vetoes a disagreeing surname (step 5), so "Laura Nowakowski" or
      "Paweł Gąska" is a conflict, never "Dear Mr Nowakowski" / "Dear Ms Gąska".
-5. **Surname** (`sn`, first part of a hyphenated one): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
+5. **Surname** (`sn`; as built every part of a hyphenated one – the adjectival part is often the second one,
+   `Nowak-Kowalska`; parts that disagree give no signal): `-ska -cka -dzka` → feminine, `-ski -cki -dzki` → masculine.
    With no name signal it decides (guessed, *surname*); against a *rule* result (not an exception; in English messages
    too) → **conflict** → unknown (warning `GenderConflict`); agreeing → keeps the name result (English: the surname
    result).

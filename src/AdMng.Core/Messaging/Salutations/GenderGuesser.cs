@@ -84,8 +84,7 @@ public static class GenderGuesser
         }
 
         var byName = FromGivenName(first);
-        var surnamePart = FirstSurnamePart(surname);
-        var bySurname = FromSurname(surnamePart);
+        var bySurname = FromSurname(surname);
         if (byName is { Source: DerivedValueSource.NameRule } rule && bySurname != Gender.Unknown && bySurname != rule.Gender)
         {
             // Also in English messages: the rule cannot decide there, but it still vetoes the surname ("Laura Nowakowski").
@@ -161,27 +160,28 @@ public static class GenderGuesser
         return (key.EndsWith('a') ? Gender.Feminine : Gender.Masculine, DerivedValueSource.NameRule);
     }
 
-    /// <summary>-ska / -cka / -dzka → feminine, -ski / -cki / -dzki → masculine, else unknown.</summary>
+    /// <summary>
+    /// -ska / -cka / -dzka → feminine, -ski / -cki / -dzki → masculine, else unknown. Every part of a double-barrelled
+    /// surname counts – the adjectival part is often the second one ("Nowak-Kowalska"); parts that disagree give none.
+    /// </summary>
     public static Gender FromSurname(string? surname)
     {
-        var key = SalutationKey.Of(surname);
+        var genders = (surname ?? string.Empty).Split(['-', '\u2013', ' ', '\t', '\u00A0'], StringSplitOptions.RemoveEmptyEntries)
+            .Select(FromSurnamePart)
+            .Where(g => g != Gender.Unknown)
+            .Distinct()
+            .ToList();
+        return genders.Count == 1 ? genders[0] : Gender.Unknown;
+    }
+
+    private static Gender FromSurnamePart(string part)
+    {
+        var key = SalutationKey.Of(part);
         if (FeminineSurnameEndings.Any(e => key.EndsWith(e, StringComparison.Ordinal)))
         {
             return Gender.Feminine;
         }
 
         return MasculineSurnameEndings.Any(e => key.EndsWith(e, StringComparison.Ordinal)) ? Gender.Masculine : Gender.Unknown;
-    }
-
-    private static string? FirstSurnamePart(string? surname)
-    {
-        var text = surname?.Trim();
-        if (string.IsNullOrEmpty(text))
-        {
-            return null;
-        }
-
-        var end = text.IndexOfAny(['-', ' ']);
-        return end < 0 ? text : text[..end];
     }
 }

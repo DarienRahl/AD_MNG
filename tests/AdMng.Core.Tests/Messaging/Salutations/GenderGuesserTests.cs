@@ -242,7 +242,31 @@ public sealed class GenderGuesserTests
     [InlineData("Zawadzki", Gender.Masculine)]
     [InlineData("Nowak", Gender.Unknown)]
     [InlineData("", Gender.Unknown)]
+    [InlineData("Nowak-Kowalska", Gender.Feminine)]
+    [InlineData("Kowalska-Nowak", Gender.Feminine)]
+    [InlineData("Nowak-Kowalski", Gender.Masculine)]
+    [InlineData("Wiśniewska-Zawadzka", Gender.Feminine)]
+    [InlineData("Kowalska-Wiśniewski", Gender.Unknown)]
     public void Surnames(string surname, Gender gender) => Assert.Equal(gender, GenderGuesser.FromSurname(surname));
+
+    [Theory]
+    [InlineData("Ewa", "Nowak-Kowalski")]
+    [InlineData("Jan", "Nowak-Kowalska")]
+    public void DoubleBarrelledSurname_EveryPartCounts_ForAConflict(string givenName, string surname)
+    {
+        // The adjectival part of a married name is often the second one.
+        var info = Guess(givenName, surname);
+
+        Assert.Equal((Gender.Unknown, true), (info.Gender, info.IsConflict));
+    }
+
+    [Fact]
+    public void DoubleBarrelledSurname_SecondPart_DecidesWithoutANameSignal()
+    {
+        var info = Guess("Sasza", "Nowak-Kowalska");
+
+        Assert.Equal((Gender.Feminine, DerivedValueSource.Surname), (info.Gender, info.Source));
+    }
 
     [Fact]
     public void BuiltInLists_HaveTheMinimumContent()
