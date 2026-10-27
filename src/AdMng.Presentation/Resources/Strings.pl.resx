@@ -7689,6 +7689,12 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Computers.ResetSkipped" xml:space="preserve">
     <value>Nie zostaną zresetowane (kontrolery domeny lub inne obiekty): {0}.</value>
   </data>
+  <data name="Computers.ResetTargets" xml:space="preserve">
+    <value>Konta: {0}.</value>
+  </data>
+  <data name="Computers.ResetTargetsMore" xml:space="preserve">
+    <value>{0} i jeszcze {1}</value>
+  </data>
   <data name="Computers.ResetWarning" xml:space="preserve">
     <value>Komputery stracą relację zaufania z domeną: dołącz je ponownie albo napraw kanał (Test-ComputerSecureChannel -Repair). Nowe hasło konta jest losowe i nikt go nie zobaczy; zmiany nie można cofnąć.</value>
   </data>

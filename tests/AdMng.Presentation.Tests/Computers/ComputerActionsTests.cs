@@ -56,6 +56,31 @@ public class ComputerActionsTests
     }
 
     [Fact]
+    public async Task ResetAccount_OfMany_NamesTheAccountsInTheConfirmation()
+    {
+        var scenario = await ComputerScenario.CreateAsync("pl-PL");
+        var harness = scenario.Harness;
+        var many = Enumerable.Range(1, ComputerActions.MaxListedResetTargets + 5)
+            .Select(i => harness.Builder.AddComputer(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"ŁÓDŹ-PC{i:000}"), scenario.Company.ComputersOu))
+            .ToList();
+        harness.Dialogs.TypedConfirmAnswers.Enqueue(false);
+
+        var result = await scenario.Actions.ResetAccountsAsync(harness.Session, [scenario.Sample.Pro24H2, scenario.Sample.Windows10], Ct);
+        var tooMany = await scenario.Actions.ResetAccountsAsync(harness.Session, many, Ct);
+
+        Assert.Null(result);
+        Assert.Null(tooMany);
+        var two = harness.Dialogs.TypedConfirmations[0].Message;
+        Assert.Contains("Konta: KRK-PC101, ", two, StringComparison.Ordinal);
+        var listed = harness.Dialogs.TypedConfirmations[1].Message;
+        Assert.StartsWith("Zresetować 25 kont komputerów w domenie contoso.test?", listed, StringComparison.Ordinal);
+        Assert.Contains("Konta: ŁÓDŹ-PC001, ŁÓDŹ-PC002, ", listed, StringComparison.Ordinal);
+        Assert.Contains("ŁÓDŹ-PC020 i jeszcze 5.", listed, StringComparison.Ordinal);
+        Assert.DoesNotContain("ŁÓDŹ-PC021", listed, StringComparison.Ordinal);
+        Assert.Empty(harness.Session.PasswordResets);
+    }
+
+    [Fact]
     public async Task ResetAccount_OfDomainControllersOnly_IsRefusedWithTheReason()
     {
         var scenario = await ComputerScenario.CreateAsync("pl-PL");

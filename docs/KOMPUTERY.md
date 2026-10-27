@@ -107,9 +107,10 @@ ktoś inny, podsumowanie kreatora uprzedza, że bez tej zasady dołączenie się
 ### Resetuj konto
 
 *Komputer → Resetuj konto…* ustawia kontu komputera losowe hasło o długości 120 znaków. Nikt go nie widzi: nie trafia do
-podglądu (maska), raportu, schowka ani eksportu PowerShell. Podgląd ostrzega, że **komputer straci relację zaufania z
-domeną** – trzeba go dołączyć ponownie albo naprawić kanał poleceniem `Test-ComputerSecureChannel -Repair`. Potwierdzenie
-wymaga wpisania nazwy domeny. Kont kontrolerów domeny nie da się resetować (do tego służy obniżenie roli kontrolera).
+raportu, schowka ani eksportu PowerShell. Reset nie przechodzi przez edytor zbiorczy (ten pozwala eksportować plan), więc
+nie ma podglądu planu – zamiast niego potwierdzenie wymienia resetowane konta (pierwsze 20 i liczbę pozostałych) oraz
+pominięte obiekty i ostrzega, że **komputer straci relację zaufania z domeną** – trzeba go dołączyć ponownie albo
+naprawić kanał poleceniem `Test-ComputerSecureChannel -Repair`. Potwierdzenie wymaga wpisania nazwy domeny. Kont kontrolerów domeny nie da się resetować (do tego służy obniżenie roli kontrolera).
 
 ### Wyłącz, przenieś, usuń
 

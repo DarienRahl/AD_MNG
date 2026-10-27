@@ -7689,6 +7689,12 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Computers.ResetSkipped" xml:space="preserve">
     <value>Not reset (domain controllers or other objects): {0}.</value>
   </data>
+  <data name="Computers.ResetTargets" xml:space="preserve">
+    <value>Accounts: {0}.</value>
+  </data>
+  <data name="Computers.ResetTargetsMore" xml:space="preserve">
+    <value>{0} and {1} more</value>
+  </data>
   <data name="Computers.ResetWarning" xml:space="preserve">
     <value>The computers lose their trust relationship with the domain: join them again or repair the secure channel (Test-ComputerSecureChannel -Repair). The new machine password is random and nobody sees it; the change cannot be undone.</value>
   </data>

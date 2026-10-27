@@ -370,7 +370,7 @@ whole list where it makes sense; every change through `IChangeCoordinator`):
 | *Właściwości*, *Edycja zbiorcza…*, *Eksportuj CSV…* | as U2 (CSV: file chosen by the operator, regional separator, formula protection, DN column) |
 | *Dokładne ostatnie logowanie*, *Ustal lokację* | 4.2, 4.4 |
 | *Zdalne akcje…*, *Pulpit zdalny*, *Ping* | 4.7, 4.8 |
-| *Wyłącz…*, *Przenieś…*, *Usuń…*, *Resetuj konto…* | 4.6 (batch preview above the threshold, typed confirmation naming the domain) |
+| *Wyłącz…*, *Przenieś…*, *Usuń…*, *Resetuj konto…* | 4.6 (batch preview above the threshold, typed confirmation naming the domain; the reset never opens the batch editor – it would offer the machine passwords for export – so its typed confirmation names the accounts, the first 20 and how many more) |
 | *Ustaw właściciela…* | `SetValuesOperation(managedBy, [dn])` from the object picker |
 
 After every published change the affected rows are read again (debounced), as U2.

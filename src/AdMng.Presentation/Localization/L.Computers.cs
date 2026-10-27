@@ -55,6 +55,8 @@ public static partial class L
         public const string ResetConfirmOne = "Computers.ResetConfirmOne";
         public const string ResetConfirmMany = "Computers.ResetConfirmMany";
         public const string ResetSkipped = "Computers.ResetSkipped";
+        public const string ResetTargets = "Computers.ResetTargets";
+        public const string ResetTargetsMore = "Computers.ResetTargetsMore";
         public const string ResetWarning = "Computers.ResetWarning";
         public const string TypeDomainToConfirm = "Computers.TypeDomainToConfirm";
         public const string ResetDone = "Computers.ResetDone";

@@ -70,6 +70,9 @@ public sealed class ComputerActions(
     /// <summary>Timeout of one echo.</summary>
     public static readonly TimeSpan PingTimeout = TimeSpan.FromSeconds(2);
 
+    /// <summary>The accounts a reset confirmation names before "and N more".</summary>
+    public const int MaxListedResetTargets = 20;
+
     private static readonly string[] TargetAttributes =
         [Attr.ObjectClass, Attr.Cn, Attr.Name, Attr.DnsHostName, Attr.UserAccountControl, Attr.PrimaryGroupId, Attr.OperatingSystem];
 
@@ -227,7 +230,9 @@ public sealed class ComputerActions(
 
     /// <summary>
     /// "Resetuj konto": plans the resets (DCs and non-computers are refused by the planner), asks for the domain typed –
-    /// the computers lose their trust relationship – and executes the plan in the session it was planned in.
+    /// the computers lose their trust relationship – and executes the plan in the session it was planned in. There is no
+    /// batch editor preview (it would offer the machine passwords for export), so the confirmation names the accounts it
+    /// resets (the first <see cref="MaxListedResetTargets"/>, then how many more).
     /// </summary>
     public async Task<BatchResult?> ResetAccountsAsync(IDirectorySession session, IReadOnlyList<string> distinguishedNames, CancellationToken cancellationToken = default)
     {
@@ -263,6 +268,16 @@ public sealed class ComputerActions(
         var message = executable.Count == 1
             ? Localizer.Format(L.Computers.ResetConfirmOne, executable[0].DisplayName, domain)
             : Localizer.Format(L.Computers.ResetConfirmMany, executable.Count, domain);
+        if (executable.Count > 1)
+        {
+            var listed = string.Join(", ", executable.Take(MaxListedResetTargets).Select(o => o.DisplayName));
+            if (executable.Count > MaxListedResetTargets)
+            {
+                listed = Localizer.Format(L.Computers.ResetTargetsMore, listed, executable.Count - MaxListedResetTargets);
+            }
+
+            message += Environment.NewLine + Localizer.Format(L.Computers.ResetTargets, listed);
+        }
         if (refused.Count > 0)
         {
             message += Environment.NewLine + Localizer.Format(L.Computers.ResetSkipped, string.Join(", ", refused.Select(r => r.DisplayName)));
