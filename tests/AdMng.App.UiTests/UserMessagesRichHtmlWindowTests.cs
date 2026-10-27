@@ -52,16 +52,20 @@ public sealed class UserMessagesRichHtmlWindowTests
         ClipboardFixture.Put(CfHtmlFixture.Build(clip.OutlookHtml()));
         dialogs.ConfirmAnswer = true;
         await composer.PasteFormattedCommand.ExecuteAsync(null);
-        await UiWait.UntilAsync(() => window.TemplateImagesList.Items.Count == 3, "the three pasted images");
+        await UiWait.UntilAsync(() => !composer.IsPasting, "the paste");
         await UiTestSupport.WaitForIdleAsync();
+        // clip_image001.png is Outlook's VML original – only its <img> fallback (clip_image002.png) and the photo are taken.
+        Assert.True(composer.TemplateImages.Count == 2, $"{composer.TemplateImages.Count} images pasted; {composer.RichStatusText}; "
+                                                        + string.Join(" | ", composer.PasteProblems.Select(p => p.Text)));
+        await UiWait.UntilAsync(() => window.TemplateImagesList.Items.Count == 2, "the two pasted images");
 
         // The images were read once from the temp folder: content ids in the HTML, thumbnails, names and sizes in the strip.
-        Assert.Equal(3, composer.TemplateImages.Count);
+        Assert.Equal(2, composer.TemplateImages.Count);
         Assert.All(composer.TemplateImages, image => Assert.Contains($"cid:{image.ContentId}", window.HtmlBox.Text, StringComparison.Ordinal));
         Assert.DoesNotContain("file:", window.HtmlBox.Text, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Szanowni Państwo,", window.HtmlBox.Text, StringComparison.Ordinal);
         Assert.Contains(UiWait.Descendants<Image>(window.TemplateImagesList), image => image.Source is not null);
-        Assert.Contains(UiWait.Descendants<TextBlock>(window.TemplateImagesList), t => t.Text == "clip_image001.png");
+        Assert.Contains(UiWait.Descendants<TextBlock>(window.TemplateImagesList), t => t.Text == "clip_image002.png");
         Assert.False(string.IsNullOrWhiteSpace(composer.Body));
         Assert.Equal(composer.RichStatusText, window.RichStatusTextBlock.Text);
 
@@ -88,7 +92,7 @@ public sealed class UserMessagesRichHtmlWindowTests
         var remove = UiWait.Descendants<Button>(window.TemplateImagesList).First(b => ReferenceEquals(b.CommandParameter, first));
         remove.Command.Execute(remove.CommandParameter);
         await UiTestSupport.WaitForIdleAsync();
-        Assert.Equal(2, window.TemplateImagesList.Items.Count);
+        Assert.Single(window.TemplateImagesList.Items);
         Assert.DoesNotContain($"cid:{first.ContentId}", composer.Html, StringComparison.Ordinal);
         context.AssertHealthy();
     });
@@ -192,6 +196,59 @@ public sealed class UserMessagesRichHtmlWindowTests
         Assert.Empty(transport.Attempts);
         context.AssertHealthy();
     });
+
+    /// <summary>
+    /// The App's image source (8.3 names expanded through <see cref="ShortPathNames"/>) reads an Office clipboard image of
+    /// the real temp folder; on failure the message tells which step of the path check refused it.
+    /// </summary>
+    [Fact]
+    public async Task TheAppsImageSource_ReadsAnOfficeClipboardImage_OfTheTempFolder()
+    {
+        using var clip = new OfficeClipFolder();
+        var png = MessageImageSamples.Png(9, 3, seed: 0x05);
+        clip.Add("clip_image001.png", png);
+        var uri = new Uri(Path.Combine(clip.Folder, "clip_image001.png")).AbsoluteUri;
+        var source = new PastedImageFileSource(expandShortNames: ShortPathNames.Expand);
+
+        var read = await source.ReadAsync(uri, MessageImageLimits.MaxImageBytes, TestContext.Current.CancellationToken);
+
+        Assert.True(read.Failure is null && read.Data is not null, $"{read.Failure}: {PathDiagnostics(uri)}");
+        Assert.Equal(png, read.Data);
+        Assert.Equal("clip_image001.png", read.FileName);
+    }
+
+    /// <summary>What the image source sees on the way to <paramref name="uri"/> (the CI runner's paths only).</summary>
+    private static string PathDiagnostics(string uri)
+    {
+        var temp = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath()));
+        var local = ClipboardImagePolicy.LocalPath(uri, windows: true);
+        var lines = new List<string>
+        {
+            $"uri={uri}",
+            $"local={local}",
+            $"temp={temp}",
+            $"temp expanded={ShortPathNames.Expand(temp)}",
+            $"local expanded={(local is null ? null : ShortPathNames.Expand(local))}",
+            $"drive={new DriveInfo(temp[..1]).DriveType}",
+        };
+        foreach (var path in new[] { ShortPathNames.Expand(temp), local is null ? null : ShortPathNames.Expand(local) })
+        {
+            if (path is null)
+            {
+                continue;
+            }
+
+            var current = Path.GetPathRoot(path)!;
+            foreach (var segment in path[current.Length..].Split('\\', StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, segment);
+                FileSystemInfo info = File.Exists(current) ? new FileInfo(current) : new DirectoryInfo(current);
+                lines.Add($"{current}: exists={info.Exists} attributes={(info.Exists ? info.Attributes : 0)} link={info.LinkTarget}");
+            }
+        }
+
+        return string.Join(Environment.NewLine, lines);
+    }
 
     /// <summary>The message window for Jan Kowalski with <paramref name="templateId"/>, the HTML section expanded.</summary>
     private static async Task<UserMessagesWindow> OpenAsync(UiTestContext context, string templateId)

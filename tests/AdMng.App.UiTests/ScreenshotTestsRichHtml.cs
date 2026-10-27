@@ -66,7 +66,7 @@ public sealed class ScreenshotTestsRichHtml
                 window.HtmlExpander.IsExpanded = true;
                 dialogs.ConfirmAnswer = true;
                 await composer.PasteFormattedCommand.ExecuteAsync(null);
-                await UiWait.UntilAsync(() => window.TemplateImagesList.Items.Count == 3, "the pasted images");
+                await UiWait.UntilAsync(() => window.TemplateImagesList.Items.Count == 2, "the pasted images");
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
                 window.HtmlExpander.BringIntoView();
                 await UiTestSupport.WaitForIdleAsync(rounds: 3);
