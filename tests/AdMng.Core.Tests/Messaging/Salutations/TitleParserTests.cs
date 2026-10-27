@@ -97,6 +97,23 @@ public sealed class TitleParserTests
         Assert.Equal(salutation, SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
     }
 
+    [Theory]
+    [InlineData("dr hab., prof. UW", "dr hab.", "prof. UW", "dr hab. Ewa Zielińska, prof. UW")]
+    [InlineData("dr hab. inż., prof. PŁ", "dr hab. inż.", "prof. PŁ", "dr hab. inż. Ewa Zielińska, prof. PŁ")]
+    [InlineData("Pani dr hab., prof. uczelni", "dr hab.", "prof. uczelni", "dr hab. Ewa Zielińska, prof. uczelni")]
+    [InlineData(", prof. UW", "", "prof. UW", "Ewa Zielińska, prof. UW")]
+    [InlineData("dr hab., MBA", "dr hab.", "", "dr hab. Ewa Zielińska")]
+    public void Attribute_TitleAfterTheLastComma_IsTheSuffix(string value, string prefix, string suffix, string titledName)
+    {
+        // As in the display name: a fully covered part after the last comma follows the name.
+        var person = SalutationPerson.Of(value, "Ewa Zielińska", "Ewa", "Zielińska", null, SalutationOptions.Default);
+
+        Assert.Equal(DerivedValueSource.TitleAttribute, person.Title.Source);
+        Assert.Equal((prefix, suffix), (person.Title.PrefixText, person.Title.SuffixText));
+        Assert.Equal(titledName, SalutationResolver.TitledName(person, SalutationOptions.Default).Text);
+        Assert.Equal("Szanowna Pani Profesor", SalutationResolver.Salutation(person, AdMng.Core.Messaging.MessageLanguage.Polish, SalutationVariant.Full, SalutationOptions.Default).Text);
+    }
+
     [Fact]
     public void Attribute_HonorificBeforeATitle_KeepsBoth()
     {

@@ -691,7 +691,8 @@ display name is still parsed); the source is recorded for the preview:
 
 1. The **title attribute** of the settings (default `personalTitle`; empty = none). Never `title` – that is the job
    title. Honorific words found there (`Pan Pani Mr Mr. Mrs Mrs. Ms Ms. Miss`) are not titles: they set the gender with
-   source *attribute* (section 16) and are removed from the title.
+   source *attribute* (section 16) and are removed from the title. As built, a fully covered part after the last comma
+   is a suffix as in the display name (`dr hab., prof. UW` → `{$titledName}` "dr hab. Ewa Zielińska, prof. UW").
 2. The **display name** (setting *Rozpoznawaj tytuł z nazwy wyświetlanej*, default on): a title prefix
    (`prof. dr hab. Jan Kowalski`, `dr Kowalski Jan`) and/or a suffix after the last comma (`…, prof. UW`,
    `…, dr hab.`). Accepted only when the rest still contains the `givenName` or the `sn` (case- and

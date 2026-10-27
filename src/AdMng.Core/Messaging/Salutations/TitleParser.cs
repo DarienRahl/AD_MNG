@@ -21,7 +21,7 @@ public sealed record TitleInfo
     /// <summary>Titles before the name ("prof. dr hab."), or the whole title from the title attribute.</summary>
     public IReadOnlyList<TitlePart> Prefix { get; init; } = [];
 
-    /// <summary>Titles after the last comma of the display name ("prof. UW").</summary>
+    /// <summary>Titles after the last comma of the display name or the title attribute ("prof. UW").</summary>
     public IReadOnlyList<TitlePart> Suffix { get; init; } = [];
 
     /// <summary><see cref="DerivedValueSource.TitleAttribute"/>, <see cref="DerivedValueSource.DisplayName"/> or none.</summary>
@@ -110,36 +110,41 @@ public static class TitleParser
             : attribute;
     }
 
-    /// <summary>The title attribute: every word is a title, an honorific word (sets the gender) or unrecognized.</summary>
+    /// <summary>
+    /// The title attribute: every word is a title, an honorific word (sets the gender) or unrecognized. A fully covered
+    /// part after the last comma is the suffix, as in the display name ("dr hab., prof. UW" → "dr hab. Ewa Zielińska, prof. UW").
+    /// </summary>
     public static TitleInfo ParseAttribute(string? value, TitleTable table)
     {
         ArgumentNullException.ThrowIfNull(table);
-        var honorific = Gender.Unknown;
-        var words = new List<TitleToken>();
-        foreach (var token in Tokenize(value))
+        var honorific = Tokenize(value).FirstOrDefault(IsHonorific) is { } word
+            ? MasculineHonorifics.Contains(word.Key) ? Gender.Masculine : Gender.Feminine
+            : Gender.Unknown;
+        var main = value;
+        var suffix = Coverage.Empty;
+        var comma = value?.LastIndexOf(',') ?? -1;
+        if (comma >= 0)
         {
-            if (MasculineHonorifics.Contains(token.Key) || FeminineHonorifics.Contains(token.Key))
+            var tail = Cover(Words(value![(comma + 1)..]), table, stopAtUnknown: false, isName: _ => false);
+            if (tail.Parts.Count > 0 && tail.Unrecognized.Count == 0)
             {
-                if (honorific == Gender.Unknown)
-                {
-                    honorific = MasculineHonorifics.Contains(token.Key) ? Gender.Masculine : Gender.Feminine;
-                }
-
-                continue;
+                suffix = tail;
+                main = value[..comma];
             }
-
-            words.Add(token);
         }
 
-        var cover = Cover(words, table, stopAtUnknown: false, isName: _ => false);
+        var cover = Cover(Words(main), table, stopAtUnknown: false, isName: _ => false);
         return new TitleInfo
         {
             Prefix = cover.Parts,
-            Source = cover.Parts.Count > 0 ? DerivedValueSource.TitleAttribute : DerivedValueSource.None,
+            Suffix = suffix.Parts,
+            Source = cover.Parts.Count + suffix.Parts.Count > 0 ? DerivedValueSource.TitleAttribute : DerivedValueSource.None,
             HonorificGender = honorific,
             Unrecognized = cover.Unrecognized,
-            Candidates = table.Candidates([cover.Keys]),
+            Candidates = table.Candidates([cover.Keys, suffix.Keys]),
         };
+
+        static List<TitleToken> Words(string? text) => [.. Tokenize(text).Where(t => !IsHonorific(t))];
     }
 
     /// <summary>A title prefix and/or suffix of the display name; null when there is none or the rest has no name.</summary>
@@ -255,6 +260,8 @@ public static class TitleParser
     /// </summary>
     public static bool IsUniversity(string word) =>
         word.Length is >= 2 and <= 8 && word.All(char.IsLetter) && char.IsUpper(word[0]) && word.Count(char.IsUpper) >= 2 && !Degrees.Contains(word);
+
+    private static bool IsHonorific(TitleToken token) => MasculineHonorifics.Contains(token.Key) || FeminineHonorifics.Contains(token.Key);
 
     /// <summary>A short all-caps word without a dot ("KS", "DR", "LEK") – in a display name rather a code than a title.</summary>
     private static bool IsCode(TitleToken token) =>
