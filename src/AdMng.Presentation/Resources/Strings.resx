@@ -11920,5 +11920,77 @@ Anyone who can read the file can see these values - store it securely and delete
   <!-- U5 send: end -->
 
   <!-- U5 app: begin -->
+  <data name="Correspondence.App.Editor.Body" xml:space="preserve">
+    <value>Message body</value>
+  </data>
+  <data name="Correspondence.App.Editor.Toolbar" xml:space="preserve">
+    <value>Formatting</value>
+  </data>
+  <data name="Correspondence.App.Editor.Bold" xml:space="preserve">
+    <value>Bold (Ctrl+B)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Italic" xml:space="preserve">
+    <value>Italic (Ctrl+I)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Underline" xml:space="preserve">
+    <value>Underline (Ctrl+U)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Bullets" xml:space="preserve">
+    <value>Bulleted list</value>
+  </data>
+  <data name="Correspondence.App.Editor.Numbering" xml:space="preserve">
+    <value>Numbered list</value>
+  </data>
+  <data name="Correspondence.App.Editor.Link" xml:space="preserve">
+    <value>Insert link…</value>
+  </data>
+  <data name="Correspondence.App.Editor.ClearFormatting" xml:space="preserve">
+    <value>Clear the formatting of the selection</value>
+  </data>
+  <data name="Correspondence.App.Editor.PastePlain" xml:space="preserve">
+    <value>Paste without formatting</value>
+  </data>
+  <data name="Correspondence.App.Editor.PastePlainHint" xml:space="preserve">
+    <value>Pastes only the text of the clipboard (Ctrl+Shift+V).</value>
+  </data>
+  <data name="Correspondence.App.Editor.Field" xml:space="preserve">
+    <value>Field to insert</value>
+  </data>
+  <data name="Correspondence.App.Editor.FieldHint" xml:space="preserve">
+    <value>Fields of the recipient list – inserted at the cursor</value>
+  </data>
+  <data name="Correspondence.App.Editor.InsertField" xml:space="preserve">
+    <value>Insert field</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkTitle" xml:space="preserve">
+    <value>Insert link</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkMessage" xml:space="preserve">
+    <value>Address (e.g. https://www.contoso.pl), an e-mail address or a field such as {{Link}}. Leave it empty to remove the link.</value>
+  </data>
+  <data name="Correspondence.App.Editor.SelectTextForLink" xml:space="preserve">
+    <value>Select the text that should become a link first.</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkInOneParagraph" xml:space="preserve">
+    <value>A link can only be made of text within one paragraph.</value>
+  </data>
+  <data name="Correspondence.App.Editor.InvalidLink" xml:space="preserve">
+    <value>A link cannot lead to this address: {0}</value>
+  </data>
+  <data name="Correspondence.App.Editor.SelectTextToClear" xml:space="preserve">
+    <value>Select the text whose formatting should be cleared first.</value>
+  </data>
+  <data name="Correspondence.App.Editor.ClipboardEmpty" xml:space="preserve">
+    <value>The clipboard holds no text.</value>
+  </data>
+  <data name="Correspondence.App.Editor.ImageNotPasted" xml:space="preserve">
+    <value>The image could not be read from the clipboard.</value>
+  </data>
+  <data name="Correspondence.App.Prompt.Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Correspondence.App.Report.Text" xml:space="preserve">
+    <value>Report</value>
+  </data>
   <!-- U5 app: end -->
 </root>
