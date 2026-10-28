@@ -132,6 +132,24 @@ public class CorrespondenceRendererTests
     }
 
     [Fact]
+    public void UnusedList_IsNotRendered_ItsFieldsNotReported()
+    {
+        var rendered = Render(new CorrespondenceDraft { Subject = "Temat", BodyHtml = "<p>Bez listy</p>", ListItemTemplate = "{{Nieznane}} {{Telefon}}" });
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+        Assert.Empty(rendered.UnknownFields);
+        Assert.Empty(rendered.EmptyFields);
+    }
+
+    [Fact]
+    public void ListOnlyInTheSubject()
+    {
+        var rendered = Render(new CorrespondenceDraft { Subject = "Dotyczy: {{lista}}", BodyHtml = "<p>x</p>", ListItemTemplate = "<b>{{Miejscowość}}</b> {{Kod pocztowy}}" },
+            Unit(Row(), Row(town: "Łódź")));
+        Assert.Equal("Dotyczy: Żórawina 55-020, Łódź 55-020", rendered.Subject);
+        Assert.DoesNotContain("<ul", rendered.HtmlDocument, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BlankListItemTemplate_ListIsEmptyAndReported()
     {
         var rendered = Render(new CorrespondenceDraft { BodyHtml = "<p>{{lista}}</p>", ListItemTemplate = "  " });

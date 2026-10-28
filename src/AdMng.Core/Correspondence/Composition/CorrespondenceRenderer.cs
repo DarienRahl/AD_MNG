@@ -22,9 +22,9 @@ public static class CorrespondenceRenderer
     /// <para>Every unit is a group (one row when not grouped): <c>{{lista}}</c> lists its rows – empty (and reported as an
     /// empty field) when the list item template is blank or the unit has no rows (a BCC message) – and <c>{{liczba}}</c> is
     /// the number of rows. List items see the row's fields only (<c>{{lista}}</c>/<c>{{liczba}}</c> there name columns, if
-    /// any). In the subject
-    /// <c>{{lista}}</c> is the text of the items joined by ", ". A paragraph holding <c>{{lista}}</c> is split around it
-    /// (a list cannot stand in a paragraph), empty halves dropped.</para>
+    /// any); they are rendered (and their fields reported) only when the subject or the body uses <c>{{lista}}</c>. In the
+    /// subject <c>{{lista}}</c> is the text of the items joined by ", ". A paragraph holding <c>{{lista}}</c> is split
+    /// around it (a list cannot stand in a paragraph), empty halves dropped.</para>
     /// <para>The signature is appended as parsed (no fields). The sanitizer removes anything outside the message policy –
     /// a script or a <c>javascript:</c> link merged from a value included – and empties <c>&lt;head&gt;</c> (Outlook takes
     /// the body as a Unicode string, no charset needed). <see cref="RenderedCorrespondence.Images"/> holds the draft and
@@ -42,13 +42,15 @@ public static class CorrespondenceRenderer
         var first = rows.Count > 0 ? rows[0] ?? ReadOnlyDictionary<string, string>.Empty : ReadOnlyDictionary<string, string>.Empty;
         var customFields = draft.CustomFields ?? [];
 
-        // The list items.
+        // The list items (only when the message lists them).
+        var bodyTemplate = ListPlacement.Prepare(FieldTemplate.RepairHtml(draft.BodyHtml));
+        var subjectUsesList = UsesList(draft.Subject);
         var listUnknown = new List<string>();
         var listEmpty = new List<string>();
         var list = string.Empty;
         var listText = string.Empty;
         var itemTemplate = FieldTemplate.RepairHtml(draft.ListItemTemplate);
-        if (!string.IsNullOrWhiteSpace(itemTemplate) && rows.Count > 0)
+        if (!string.IsNullOrWhiteSpace(itemTemplate) && rows.Count > 0 && (subjectUsesList || UsesList(bodyTemplate)))
         {
             var builder = new StringBuilder(ListStart);
             var texts = new List<string>(rows.Count);
@@ -58,7 +60,10 @@ public static class CorrespondenceRenderer
                     customFields, knownColumns);
                 var item = FieldTemplate.Merge(itemTemplate, itemFields.Lookup, FieldEncoding.Html, listUnknown, listEmpty);
                 builder.Append("<li>").Append(item).Append("</li>");
-                texts.Add(HtmlToText.Convert(item).Trim());
+                if (subjectUsesList)
+                {
+                    texts.Add(HtmlToText.Convert(item).Trim());
+                }
             }
 
             list = builder.Append("</ul>").ToString();
@@ -73,8 +78,7 @@ public static class CorrespondenceRenderer
         var subject = FieldTemplate.Merge(draft.Subject, field => IsList(field) ? listText : fields.Lookup(field), FieldEncoding.Header, unknown, empty);
 
         // Body.
-        var body = FieldTemplate.MergeCore(
-            ListPlacement.Prepare(FieldTemplate.RepairHtml(draft.BodyHtml)), fields.Lookup, FieldEncoding.Html, unknown, empty, raw: IsList);
+        var body = FieldTemplate.MergeCore(bodyTemplate, fields.Lookup, FieldEncoding.Html, unknown, empty, raw: IsList);
         var images = new Dictionary<string, MessageImage>(StringComparer.OrdinalIgnoreCase);
         foreach (var image in (draft.Images ?? ReadOnlyDictionary<string, MessageImage>.Empty).Values)
         {
@@ -112,6 +116,8 @@ public static class CorrespondenceRenderer
     public static string PlainText(string htmlDocument) => HtmlToText.Convert(htmlDocument);
 
     private static bool IsList(string field) => FieldKey.Of(field) == BuiltInFields.List;
+
+    private static bool UsesList(string? template) => FieldTemplate.Parse(template).Any(t => IsList(t.Field));
 
     private static List<string> Distinct(IEnumerable<string> names)
     {
