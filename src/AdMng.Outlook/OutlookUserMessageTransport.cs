@@ -17,7 +17,7 @@ namespace AdMng.Outlook;
 public sealed class OutlookUserMessageTransport : IUserMessageTransport
 {
     /// <summary>The delivery code of a message Outlook accepted.</summary>
-    public const string SentCode = "outlook.sent";
+    public const string SentCode = OutlookFailureCodes.Sent;
 
     /// <summary>The status reason when classic Outlook is not installed (localization key suffix).</summary>
     public const string NotInstalledReason = "notInstalled";

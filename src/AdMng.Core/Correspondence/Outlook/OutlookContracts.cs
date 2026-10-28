@@ -99,6 +99,83 @@ public sealed record OutlookFailure(OutlookFailureKind Kind, string Code, string
     public bool IsTransient => Kind is OutlookFailureKind.Busy or OutlookFailureKind.NotResponding;
 }
 
+/// <summary>
+/// The codes of <see cref="OutlookFailure.Code"/> (design note 4.3: one per <see cref="OutlookFailureKind"/>) and of a
+/// message Outlook accepted (<see cref="Sent"/>). Stable identifiers: the window localizes them as
+/// <c>Correspondence.Outlook.Code.{code}</c>, messages to users (U1) as <c>UserMessages.Code.{code}</c>.
+/// </summary>
+public static class OutlookFailureCodes
+{
+    /// <summary><see cref="OutlookFailureKind.NotSupported"/>: not Windows.</summary>
+    public const string NotSupported = "outlook.notSupported";
+
+    /// <summary><see cref="OutlookFailureKind.NotInstalled"/>: no classic Outlook (ProgID missing).</summary>
+    public const string NotInstalled = "outlook.notInstalled";
+
+    /// <summary><see cref="OutlookFailureKind.Elevated"/>: AD Manager elevated, Outlook not.</summary>
+    public const string Elevated = "outlook.elevated";
+
+    /// <summary><see cref="OutlookFailureKind.Busy"/>: Outlook refused the call for now.</summary>
+    public const string Busy = "outlook.busy";
+
+    /// <summary><see cref="OutlookFailureKind.NotResponding"/>.</summary>
+    public const string NotResponding = "outlook.notResponding";
+
+    /// <summary><see cref="OutlookFailureKind.SecurityDenied"/>: the object model guard refused.</summary>
+    public const string SecurityDenied = "outlook.denied";
+
+    /// <summary><see cref="OutlookFailureKind.Disconnected"/>: Outlook closed or the connection was lost.</summary>
+    public const string Disconnected = "outlook.disconnected";
+
+    /// <summary><see cref="OutlookFailureKind.RecipientUnresolved"/>.</summary>
+    public const string RecipientUnresolved = "outlook.recipient";
+
+    /// <summary><see cref="OutlookFailureKind.AttachmentMissing"/>.</summary>
+    public const string AttachmentMissing = "outlook.attachment";
+
+    /// <summary><see cref="OutlookFailureKind.InvalidAccount"/>: the account is not in the profile.</summary>
+    public const string InvalidAccount = "outlook.account";
+
+    /// <summary><see cref="OutlookFailureKind.ItemTooLarge"/>.</summary>
+    public const string ItemTooLarge = "outlook.tooLarge";
+
+    /// <summary><see cref="OutlookFailureKind.Cancelled"/>.</summary>
+    public const string Cancelled = "outlook.cancelled";
+
+    /// <summary><see cref="OutlookFailureKind.Unknown"/> (the HRESULT is kept for the report).</summary>
+    public const string Unknown = "outlook.error";
+
+    /// <summary>The delivery code of a message Outlook accepted (U1 transport).</summary>
+    public const string Sent = "outlook.sent";
+
+    /// <summary>The failure codes, one per <see cref="OutlookFailureKind"/>, in the order of the enum.</summary>
+    public static IReadOnlyList<string> Failures { get; } = [.. Enum.GetValues<OutlookFailureKind>().Select(Of)];
+
+    /// <summary>Every code: the failure codes, then <see cref="Sent"/>.</summary>
+    public static IReadOnlyList<string> All { get; } = [.. Failures, Sent];
+
+    /// <summary>The code of <paramref name="kind"/> (an undefined value: <see cref="Unknown"/>).</summary>
+    public static string Of(OutlookFailureKind kind) => kind switch
+    {
+        OutlookFailureKind.NotSupported => NotSupported,
+        OutlookFailureKind.NotInstalled => NotInstalled,
+        OutlookFailureKind.Elevated => Elevated,
+        OutlookFailureKind.Busy => Busy,
+        OutlookFailureKind.NotResponding => NotResponding,
+        OutlookFailureKind.SecurityDenied => SecurityDenied,
+        OutlookFailureKind.Disconnected => Disconnected,
+        OutlookFailureKind.RecipientUnresolved => RecipientUnresolved,
+        OutlookFailureKind.AttachmentMissing => AttachmentMissing,
+        OutlookFailureKind.InvalidAccount => InvalidAccount,
+        OutlookFailureKind.ItemTooLarge => ItemTooLarge,
+        OutlookFailureKind.Cancelled => Cancelled,
+        _ => Unknown,
+    };
+
+    /// <summary>True for a code of this list.</summary>
+    public static bool IsKnown(string? code) => code is not null && All.Contains(code, StringComparer.Ordinal);
+}
+
 /// <summary>A connected session, or why there is none.</summary>
 public sealed record OutlookConnectResult(IOutlookSession? Session, OutlookFailure? Failure);
 

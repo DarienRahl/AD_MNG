@@ -58,26 +58,11 @@ internal static class OutlookErrors
     public const int RegDbEClassNotReg = unchecked((int)0x80040154);
     public const int CoEClassString = unchecked((int)0x800401F3);
 
-    /// <summary>The code of a kind: <c>outlook.&lt;kind&gt;</c> (design note 4.3).</summary>
-    public static string Code(OutlookFailureKind kind) => kind switch
-    {
-        OutlookFailureKind.NotSupported => "outlook.notSupported",
-        OutlookFailureKind.NotInstalled => "outlook.notInstalled",
-        OutlookFailureKind.Elevated => "outlook.elevated",
-        OutlookFailureKind.Busy => "outlook.busy",
-        OutlookFailureKind.NotResponding => "outlook.notResponding",
-        OutlookFailureKind.SecurityDenied => "outlook.denied",
-        OutlookFailureKind.Disconnected => "outlook.disconnected",
-        OutlookFailureKind.RecipientUnresolved => "outlook.recipient",
-        OutlookFailureKind.AttachmentMissing => "outlook.attachment",
-        OutlookFailureKind.InvalidAccount => "outlook.account",
-        OutlookFailureKind.ItemTooLarge => "outlook.tooLarge",
-        OutlookFailureKind.Cancelled => "outlook.cancelled",
-        _ => "outlook.error",
-    };
+    /// <summary>The code of a kind: <c>outlook.&lt;kind&gt;</c> (design note 4.3, <see cref="OutlookFailureCodes"/>).</summary>
+    public static string Code(OutlookFailureKind kind) => OutlookFailureCodes.Of(kind);
 
-    /// <summary>Every code (localization of the failure texts).</summary>
-    public static IReadOnlyList<string> AllCodes { get; } = [.. Enum.GetValues<OutlookFailureKind>().Select(Code).Distinct()];
+    /// <summary>Every failure code (localization of the failure texts): <see cref="OutlookFailureCodes.Failures"/>.</summary>
+    public static IReadOnlyList<string> AllCodes => OutlookFailureCodes.Failures;
 
     /// <summary>A failure of <paramref name="kind"/> at <paramref name="step"/>.</summary>
     public static OutlookFailure Failure(OutlookFailureKind kind, string? step = null, int? hresult = null) =>
