@@ -130,7 +130,7 @@ public static class PersonNameKey
 /// with the surname (both orders), the folded display name without titles and remarks, and the folded surname and the
 /// parts of a compound surname – alone and with the first given name. Built once per query (linear); <see cref="Lookup"/>
 /// is a few dictionary reads plus the level check of the persons found. Persons are kept in input order and de-duplicated
-/// by DN.
+/// by DN. Lookups are thread-safe once the index is built.
 /// </summary>
 public sealed class PersonIndex
 {

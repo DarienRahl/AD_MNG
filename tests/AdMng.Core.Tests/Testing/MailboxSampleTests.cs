@@ -75,6 +75,8 @@ public class MailboxSampleTests
         Assert.Equal(sample.Sala101, Assert.Single(mailboxes, m => MailboxTypes.Of(m) == MailboxType.Room).DistinguishedName);
         Assert.Equal("faktury@contoso.test", builder.Session.GetValues(sample.Faktury, Attr.Mail).Single());
         Assert.Equal("Księgowość – faktury", builder.Session.GetValues(sample.Faktury, Attr.DisplayName).Single());
+        Assert.Equal("Skrzynka współdzielona: Księgowość – faktury", builder.Session.GetValues(sample.Faktury, Attr.Description).Single());
+        Assert.Equal("Sala konferencyjna: Sala 101", builder.Session.GetValues(sample.Sala101, Attr.Description).Single());
         Assert.Empty(builder.Session.GetValues(sample.PomocTechniczna, Attr.GivenName));
         Assert.Empty(builder.Session.GetValues(sample.PomocTechniczna, Attr.Sn));
         Assert.Equal(mailboxes.Count, mailboxes.Select(m => m.GetString(Attr.SamAccountName)).Distinct(StringComparer.OrdinalIgnoreCase).Count());

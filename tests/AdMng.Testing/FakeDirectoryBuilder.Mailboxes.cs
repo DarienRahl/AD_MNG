@@ -102,7 +102,7 @@ public sealed partial class FakeDirectoryBuilder
                 [Attr.GivenName] = givenName,
                 [Attr.Sn] = surname,
                 [Attr.DisplayName] = displayName,
-                [Attr.Description] = $"Skrzynka współdzielona: {displayName}",
+                [Attr.Description] = type == RoomMailboxType ? $"Sala konferencyjna: {displayName}" : $"Skrzynka współdzielona: {displayName}",
                 [Attr.SamAccountName] = mailbox.Length > 20 ? mailbox[..20] : mailbox,
                 [Attr.UserPrincipalName] = $"{mailbox}@{DomainDnsName}",
                 [Attr.Mail] = $"{mailbox}@{DomainDnsName}",
