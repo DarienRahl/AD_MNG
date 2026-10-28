@@ -11992,5 +11992,494 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Correspondence.App.Report.Text" xml:space="preserve">
     <value>Raport</value>
   </data>
+  <data name="Correspondence.App.Tab.Mailboxes" xml:space="preserve">
+    <value>Skrzynki</value>
+  </data>
+  <data name="Correspondence.App.Tab.Recipients" xml:space="preserve">
+    <value>1 · Odbiorcy</value>
+  </data>
+  <data name="Correspondence.App.Tab.Message" xml:space="preserve">
+    <value>2 · Wiadomość</value>
+  </data>
+  <data name="Correspondence.App.Tab.Preview" xml:space="preserve">
+    <value>3 · Podgląd</value>
+  </data>
+  <data name="Correspondence.App.Tab.Send" xml:space="preserve">
+    <value>4 · Wysyłka</value>
+  </data>
+  <data name="Correspondence.App.Tab.Responses" xml:space="preserve">
+    <value>5 · Odpowiedzi</value>
+  </data>
+  <data name="Correspondence.App.Help" xml:space="preserve">
+    <value>Pomoc</value>
+  </data>
+  <data name="Correspondence.App.OutlookState" xml:space="preserve">
+    <value>Połączenie z Outlookiem</value>
+  </data>
+  <data name="Correspondence.App.Connect" xml:space="preserve">
+    <value>Połącz z Outlookiem</value>
+  </data>
+  <data name="Correspondence.App.CheckOutlook" xml:space="preserve">
+    <value>Sprawdź Outlooka</value>
+  </data>
+  <data name="Correspondence.App.Journal" xml:space="preserve">
+    <value>Dziennik „już wysłane”…</value>
+  </data>
+  <data name="Correspondence.App.ColumnInclude" xml:space="preserve">
+    <value>Wyślij</value>
+  </data>
+  <data name="Correspondence.App.FieldName" xml:space="preserve">
+    <value>Nazwa pola</value>
+  </data>
+  <data name="Correspondence.App.FieldExpression" xml:space="preserve">
+    <value>Wyrażenie</value>
+  </data>
+  <data name="Correspondence.App.FieldValue" xml:space="preserve">
+    <value>Wartość</value>
+  </data>
+  <data name="Correspondence.App.AddField" xml:space="preserve">
+    <value>Dodaj pole</value>
+  </data>
+  <data name="Correspondence.App.Recipients.FromDownloads" xml:space="preserve">
+    <value>Wczytaj CSV z Pobranych</value>
+  </data>
+  <data name="Correspondence.App.Recipients.FromDownloadsHint" xml:space="preserve">
+    <value>Najnowszy plik kontaktów z folderu Pobrane</value>
+  </data>
+  <data name="Correspondence.App.Recipients.FromFiles" xml:space="preserve">
+    <value>Z pliku (CSV, Excel, Word…)</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Paste" xml:space="preserve">
+    <value>Wklej ze schowka</value>
+  </data>
+  <data name="Correspondence.App.Recipients.PasteHint" xml:space="preserve">
+    <value>Tabela skopiowana z Excela albo dowolny tekst z adresami</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Manual" xml:space="preserve">
+    <value>Dodaj ręcznie…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Directory" xml:space="preserve">
+    <value>Z katalogu:</value>
+  </data>
+  <data name="Correspondence.App.Recipients.FromSelection" xml:space="preserve">
+    <value>Zaznaczone obiekty</value>
+  </data>
+  <data name="Correspondence.App.Recipients.FromSelectionHint" xml:space="preserve">
+    <value>Użytkownicy, kontakty i grupy (ich członkowie) zaznaczeni w oknie połączenia</value>
+  </data>
+  <data name="Correspondence.App.Recipients.PickUsers" xml:space="preserve">
+    <value>Wybierz użytkowników…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.GroupMembers" xml:space="preserve">
+    <value>Członkowie grupy…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.MailboxOwners" xml:space="preserve">
+    <value>Właściciele skrzynek…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.MailboxOwnersHint" xml:space="preserve">
+    <value>Zapytaj osoby, do których przypisano skrzynki, czy skrzynki są nadal potrzebne</value>
+  </data>
+  <data name="Correspondence.App.Recipients.SearchHint" xml:space="preserve">
+    <value>Filtruje listę po adresie, nazwie, źródle i polach</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Grid" xml:space="preserve">
+    <value>Odbiorcy</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ColumnEmail" xml:space="preserve">
+    <value>E-mail</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ColumnName" xml:space="preserve">
+    <value>Nazwa</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ColumnSource" xml:space="preserve">
+    <value>Źródło</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ColumnStatus" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ColumnPreviouslySent" xml:space="preserve">
+    <value>Wysłano wcześniej</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Empty" xml:space="preserve">
+    <value>Nie ma jeszcze odbiorców. Wczytaj plik, wklej tabelę z Excela, dodaj użytkowników z katalogu – albo przeciągnij tu pliki z adresami.</value>
+  </data>
+  <data name="Correspondence.App.Recipients.IncludeAll" xml:space="preserve">
+    <value>Zaznacz wszystkie</value>
+  </data>
+  <data name="Correspondence.App.Recipients.IncludeNone" xml:space="preserve">
+    <value>Odznacz wszystkie</value>
+  </data>
+  <data name="Correspondence.App.Recipients.RemoveSelected" xml:space="preserve">
+    <value>Usuń zaznaczone</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Export" xml:space="preserve">
+    <value>Eksport CSV…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Clear" xml:space="preserve">
+    <value>Wyczyść listę</value>
+  </data>
+  <data name="Correspondence.App.Recipients.Exclusions" xml:space="preserve">
+    <value>Nie wysyłać</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ExclusionsHint" xml:space="preserve">
+    <value>Adresy z tej listy są pomijane – tak samo jak adresy, do których już wysłano (dziennik).</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ExclusionsFromFile" xml:space="preserve">
+    <value>Z pliku…</value>
+  </data>
+  <data name="Correspondence.App.Recipients.ExclusionsPaste" xml:space="preserve">
+    <value>Wklej</value>
+  </data>
+  <data name="Correspondence.App.Recipients.SkipAlreadySent" xml:space="preserve">
+    <value>Pomijaj już wysłane</value>
+  </data>
+  <data name="Correspondence.App.Recipients.DirectoryFields" xml:space="preserve">
+    <value>Pola odbiorców z katalogu</value>
+  </data>
+  <data name="Correspondence.App.Recipients.DirectoryFieldsHint" xml:space="preserve">
+    <value>Każde pole odbiorcy z AD to kolumna wiadomości: wyrażenie jak w wiadomościach do użytkowników, np. {{givenName}}, {{$salutation}} albo {{$honorific:biernik}}.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Scope" xml:space="preserve">
+    <value>Gdzie szukać skrzynek</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ScopeDomain" xml:space="preserve">
+    <value>Cała domena</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ScopeOu" xml:space="preserve">
+    <value>Jednostka organizacyjna</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ScopeSelection" xml:space="preserve">
+    <value>Zaznaczone obiekty</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.BrowseScope" xml:space="preserve">
+    <value>Wybierz jednostkę…</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Selection" xml:space="preserve">
+    <value>Rodzaj skrzynek</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.NoExchange" xml:space="preserve">
+    <value>Katalog nie ma atrybutów Exchange – sprawdzane są wszystkie konta użytkowników w zakresie.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ExtraFilter" xml:space="preserve">
+    <value>Dodatkowy filtr LDAP</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ExtraFilterHint" xml:space="preserve">
+    <value>Np. (department=IT); łączony z filtrem skrzynek przez AND.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Owners" xml:space="preserve">
+    <value>Właściciele</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.NameSource" xml:space="preserve">
+    <value>Imię i nazwisko właściciela odczytuj z</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.NameAttribute" xml:space="preserve">
+    <value>Atrybut</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.PersonBase" xml:space="preserve">
+    <value>Szukaj właścicieli w</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.BrowsePersonBase" xml:space="preserve">
+    <value>Wybierz jednostkę…</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.WholeDomain" xml:space="preserve">
+    <value>Cała domena</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.EnabledOwnersOnly" xml:space="preserve">
+    <value>Właścicielem może być tylko włączone konto</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.GroupByOwner" xml:space="preserve">
+    <value>Jedna wiadomość do właściciela (wszystkie jego skrzynki)</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Fields" xml:space="preserve">
+    <value>Pola skrzynek i właścicieli</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.FieldsHint" xml:space="preserve">
+    <value>Każde pole to kolumna wiadomości: wyrażenie jak w wiadomościach do użytkowników, np. {{displayName}} skrzynki albo {{$honorific:biernik}} jej właściciela.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.TargetMailbox" xml:space="preserve">
+    <value>pole skrzynki</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.TargetPerson" xml:space="preserve">
+    <value>pole właściciela</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Find" xml:space="preserve">
+    <value>Znajdź właścicieli</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnMailbox" xml:space="preserve">
+    <value>Skrzynka</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnAddress" xml:space="preserve">
+    <value>Adres skrzynki</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnOwnerName" xml:space="preserve">
+    <value>Osoba wg skrzynki</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnStatus" xml:space="preserve">
+    <value>Dopasowanie</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnOwner" xml:space="preserve">
+    <value>Właściciel</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnOwnerAddress" xml:space="preserve">
+    <value>Adres właściciela</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnDepartment" xml:space="preserve">
+    <value>Dział</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnActions" xml:space="preserve">
+    <value>Działania</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnLocation" xml:space="preserve">
+    <value>Lokalizacja</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ColumnDetail" xml:space="preserve">
+    <value>Uzasadnienie</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.PickOwner" xml:space="preserve">
+    <value>Wybierz właściciela…</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.TypeAddress" xml:space="preserve">
+    <value>Wpisz adres właściciela…</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Exclude" xml:space="preserve">
+    <value>Wyklucz</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Restore" xml:space="preserve">
+    <value>Przywróć</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.Empty" xml:space="preserve">
+    <value>Wybierz, gdzie szukać, i kliknij „Znajdź właścicieli” – tu pojawią się skrzynki i ich właściciele.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.ReviewHint" xml:space="preserve">
+    <value>Sprawdź wiersze oznaczone na żółto lub czerwono: wybierz kandydata albo inną osobę, wpisz adres – albo wyklucz skrzynkę.</value>
+  </data>
+  <data name="Correspondence.App.Mailboxes.AddToRecipients" xml:space="preserve">
+    <value>Dodaj właścicieli do odbiorców</value>
+  </data>
+  <data name="Correspondence.App.Message.SendAs" xml:space="preserve">
+    <value>Wyślij jako</value>
+  </data>
+  <data name="Correspondence.App.Message.SendAsHint" xml:space="preserve">
+    <value>Konto z Twojego profilu Outlooka; puste – konto domyślne profilu</value>
+  </data>
+  <data name="Correspondence.App.Message.OnBehalfOf" xml:space="preserve">
+    <value>W imieniu (skrzynka współdzielona)</value>
+  </data>
+  <data name="Correspondence.App.Message.Subject" xml:space="preserve">
+    <value>Temat</value>
+  </data>
+  <data name="Correspondence.App.Message.InsertFieldHint" xml:space="preserve">
+    <value>Wstawia pole w miejscu kursora w temacie albo w treści</value>
+  </data>
+  <data name="Correspondence.App.Message.Salutation" xml:space="preserve">
+    <value>Zwrot grzecznościowy – pole {{zwrot}}</value>
+  </data>
+  <data name="Correspondence.App.Message.SalutationHint" xml:space="preserve">
+    <value>Ten sam dla wszystkich odbiorców; wstawiany przez {{zwrot}}, a także przez {{nazwa}}, gdy odbiorca nie ma nazwy.</value>
+  </data>
+  <data name="Correspondence.App.Message.BodyHint" xml:space="preserve">
+    <value>Treść – możesz wkleić gotowy tekst z Worda lub Outlooka (Ctrl+V), razem z formatowaniem i obrazkami</value>
+  </data>
+  <data name="Correspondence.App.Message.Signature" xml:space="preserve">
+    <value>Podpis</value>
+  </data>
+  <data name="Correspondence.App.Message.SignatureHint" xml:space="preserve">
+    <value>Podpisy z Twojego Outlooka; ich obrazki są osadzane w treści.</value>
+  </data>
+  <data name="Correspondence.App.Message.Attachments" xml:space="preserve">
+    <value>Załączniki</value>
+  </data>
+  <data name="Correspondence.App.Message.AttachmentsDropHint" xml:space="preserve">
+    <value>Możesz tu przeciągnąć pliki</value>
+  </data>
+  <data name="Correspondence.App.Message.AttachmentsHint" xml:space="preserve">
+    <value>Idą z KAŻDĄ wiadomością tej wysyłki i zostają do zamknięcia okna.</value>
+  </data>
+  <data name="Correspondence.App.Message.AddAttachments" xml:space="preserve">
+    <value>Dodaj…</value>
+  </data>
+  <data name="Correspondence.App.Message.Sending" xml:space="preserve">
+    <value>Wysyłka</value>
+  </data>
+  <data name="Correspondence.App.Message.SendMode" xml:space="preserve">
+    <value>Sposób wysyłki</value>
+  </data>
+  <data name="Correspondence.App.Message.SendModeHint" xml:space="preserve">
+    <value>Osobna wiadomość do każdego (zalecane: adresaci się nie widzą) albo jedna wiadomość z odbiorcami w UDW (częściej trafia do spamu).</value>
+  </data>
+  <data name="Correspondence.App.Message.BccChunk" xml:space="preserve">
+    <value>Odbiorców w UDW na wiadomość (1–500)</value>
+  </data>
+  <data name="Correspondence.App.Message.Delay" xml:space="preserve">
+    <value>Odstęp między wiadomościami (s)</value>
+  </data>
+  <data name="Correspondence.App.Message.ReadReceipt" xml:space="preserve">
+    <value>Poproś o potwierdzenie przeczytania</value>
+  </data>
+  <data name="Correspondence.App.Message.DeliverLater" xml:space="preserve">
+    <value>Dostarcz dopiero o wskazanej porze</value>
+  </data>
+  <data name="Correspondence.App.Message.DeliverDate" xml:space="preserve">
+    <value>Dzień dostarczenia</value>
+  </data>
+  <data name="Correspondence.App.Message.DeliverTime" xml:space="preserve">
+    <value>Godzina (np. 8:00)</value>
+  </data>
+  <data name="Correspondence.App.Message.DeliverHint" xml:space="preserve">
+    <value>Outlook dostarczy wiadomości o tej porze; AD Managera można zamknąć.</value>
+  </data>
+  <data name="Correspondence.App.Message.UseVoting" xml:space="preserve">
+    <value>Przyciski głosowania (Outlook)</value>
+  </data>
+  <data name="Correspondence.App.Message.VotingOptions" xml:space="preserve">
+    <value>Odpowiedzi do wyboru, rozdzielone średnikiem</value>
+  </data>
+  <data name="Correspondence.App.Message.VotingHint" xml:space="preserve">
+    <value>Głosy odczytasz na karcie „5 · Odpowiedzi”.</value>
+  </data>
+  <data name="Correspondence.App.Message.CustomFields" xml:space="preserve">
+    <value>Pola własne</value>
+  </data>
+  <data name="Correspondence.App.Message.CustomFieldsHint" xml:space="preserve">
+    <value>Ta sama wartość dla wszystkich odbiorców; może zawierać inne {{pola}}.</value>
+  </data>
+  <data name="Correspondence.App.Message.GroupByAddress" xml:space="preserve">
+    <value>Jedna wiadomość na adres – wiersze jako {{lista}}, ich liczba jako {{liczba}}</value>
+  </data>
+  <data name="Correspondence.App.Message.ListItem" xml:space="preserve">
+    <value>Element listy {{lista}}</value>
+  </data>
+  <data name="Correspondence.App.Message.Templates" xml:space="preserve">
+    <value>Szablony</value>
+  </data>
+  <data name="Correspondence.App.Message.Template" xml:space="preserve">
+    <value>Szablon</value>
+  </data>
+  <data name="Correspondence.App.Message.TemplateName" xml:space="preserve">
+    <value>Nazwa szablonu</value>
+  </data>
+  <data name="Correspondence.App.Message.DeleteTemplate" xml:space="preserve">
+    <value>Usuń szablon</value>
+  </data>
+  <data name="Correspondence.App.Message.NewMessage" xml:space="preserve">
+    <value>Nowa wiadomość</value>
+  </data>
+  <data name="Correspondence.App.Message.ExportTemplates" xml:space="preserve">
+    <value>Eksportuj…</value>
+  </data>
+  <data name="Correspondence.App.Message.ImportTemplates" xml:space="preserve">
+    <value>Importuj…</value>
+  </data>
+  <data name="Correspondence.App.Preview.Recipient" xml:space="preserve">
+    <value>Pokaż tak, jak zobaczy:</value>
+  </data>
+  <data name="Correspondence.App.Preview.Width" xml:space="preserve">
+    <value>Szerokość</value>
+  </data>
+  <data name="Correspondence.App.Preview.ViaOutlook" xml:space="preserve">
+    <value>Podgląd z Outlooka</value>
+  </data>
+  <data name="Correspondence.App.Preview.ViaOutlookHint" xml:space="preserve">
+    <value>Buduje wiadomość w Outlooku, odczytuje z niej gotową treść i kasuje wersję roboczą – pokazuje dokładnie to, co dostanie odbiorca</value>
+  </data>
+  <data name="Correspondence.App.Preview.OpenInBrowser" xml:space="preserve">
+    <value>Otwórz w przeglądarce</value>
+  </data>
+  <data name="Correspondence.App.Preview.OpenInBrowserHint" xml:space="preserve">
+    <value>Pokazuje wiadomość w Twojej przeglądarce prosto z pamięci (127.0.0.1); nic nie jest zapisywane na dysku</value>
+  </data>
+  <data name="Correspondence.App.Preview.SaveHtml" xml:space="preserve">
+    <value>Zapisz jako .html…</value>
+  </data>
+  <data name="Correspondence.App.Preview.FromOutlook" xml:space="preserve">
+    <value>Treść odczytana z wiadomości zbudowanej przez Outlooka; użyta do tego wersja robocza została skasowana (jest w Elementach usuniętych).</value>
+  </data>
+  <data name="Correspondence.App.Preview.Warnings" xml:space="preserve">
+    <value>Ostrzeżenia</value>
+  </data>
+  <data name="Correspondence.App.Send.Summary" xml:space="preserve">
+    <value>Podsumowanie</value>
+  </data>
+  <data name="Correspondence.App.Send.Test" xml:space="preserve">
+    <value>Test do siebie</value>
+  </data>
+  <data name="Correspondence.App.Send.TestHint" xml:space="preserve">
+    <value>Wysyła pierwszą wiadomość (albo wybraną w podglądzie) na Twój adres, z tematem „[TEST] …”</value>
+  </data>
+  <data name="Correspondence.App.Send.Drafts" xml:space="preserve">
+    <value>Utwórz wersje robocze</value>
+  </data>
+  <data name="Correspondence.App.Send.DraftsHint" xml:space="preserve">
+    <value>Zapisuje wiadomości w „Wersjach roboczych” Outlooka – nic nie jest wysyłane ani wpisywane do dziennika</value>
+  </data>
+  <data name="Correspondence.App.Send.Send" xml:space="preserve">
+    <value>Wyślij</value>
+  </data>
+  <data name="Correspondence.App.Send.RetryFailed" xml:space="preserve">
+    <value>Ponów nieudane</value>
+  </data>
+  <data name="Correspondence.App.Send.Progress" xml:space="preserve">
+    <value>Postęp wysyłki</value>
+  </data>
+  <data name="Correspondence.App.Send.Sent" xml:space="preserve">
+    <value>wysłane</value>
+  </data>
+  <data name="Correspondence.App.Send.Failed" xml:space="preserve">
+    <value>błędy</value>
+  </data>
+  <data name="Correspondence.App.Send.Skipped" xml:space="preserve">
+    <value>pominięte</value>
+  </data>
+  <data name="Correspondence.App.Send.Results" xml:space="preserve">
+    <value>Do kogo poszło</value>
+  </data>
+  <data name="Correspondence.App.Send.ExportReport" xml:space="preserve">
+    <value>Zapisz raport…</value>
+  </data>
+  <data name="Correspondence.App.Responses.Since" xml:space="preserve">
+    <value>Wysłane od</value>
+  </data>
+  <data name="Correspondence.App.Responses.LoadCampaigns" xml:space="preserve">
+    <value>Szukaj w Elementach wysłanych</value>
+  </data>
+  <data name="Correspondence.App.Responses.Campaign" xml:space="preserve">
+    <value>Wysyłka</value>
+  </data>
+  <data name="Correspondence.App.Responses.LoadResponses" xml:space="preserve">
+    <value>Pokaż odpowiedzi</value>
+  </data>
+  <data name="Correspondence.App.Responses.Export" xml:space="preserve">
+    <value>Eksport CSV…</value>
+  </data>
+  <data name="Correspondence.App.Responses.Hint" xml:space="preserve">
+    <value>Głosy są odczytywane z „Elementów wysłanych” Outlooka (wiadomości wysłane z przyciskami głosowania); nic nie jest zapisywane na tym komputerze.</value>
+  </data>
+  <data name="Correspondence.App.Responses.ColumnRecipient" xml:space="preserve">
+    <value>Odbiorca</value>
+  </data>
+  <data name="Correspondence.App.Responses.ColumnMailboxes" xml:space="preserve">
+    <value>Skrzynki</value>
+  </data>
+  <data name="Correspondence.App.Responses.ColumnResponse" xml:space="preserve">
+    <value>Odpowiedź</value>
+  </data>
+  <data name="Correspondence.App.Responses.ColumnRespondedAt" xml:space="preserve">
+    <value>Kiedy</value>
+  </data>
+  <data name="Correspondence.App.Settings.OutlookSection" xml:space="preserve">
+    <value>Outlook</value>
+  </data>
+  <data name="Correspondence.App.Settings.OutlookAccount" xml:space="preserve">
+    <value>Wysyłaj z konta</value>
+  </data>
+  <data name="Correspondence.App.Settings.LoadOutlookAccounts" xml:space="preserve">
+    <value>Pobierz konta z Outlooka</value>
+  </data>
+  <data name="Correspondence.App.Settings.OutlookAccountHint" xml:space="preserve">
+    <value>Adres SMTP konta z profilu Outlooka na tym komputerze; puste – konto domyślne profilu.</value>
+  </data>
+  <data name="Correspondence.App.Settings.OutlookOnBehalf" xml:space="preserve">
+    <value>Wysyłaj w imieniu adresu nadawcy podanego wyżej (konto potrzebuje uprawnienia „Wyślij w imieniu”)</value>
+  </data>
   <!-- U5 app: end -->
 </root>
