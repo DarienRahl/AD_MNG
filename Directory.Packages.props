@@ -36,8 +36,4 @@
   <ItemGroup Label="AD Manager – computers (K1)">
     <PackageVersion Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
   </ItemGroup>
-  <ItemGroup Label="Korespondencja (U5)">
-    <!-- DPAPI (CurrentUser) protection of the journal key (AdMng.App only, DpapiKeyProtector). -->
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.13" />
-  </ItemGroup>
 </Project>
