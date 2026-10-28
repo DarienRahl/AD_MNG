@@ -229,7 +229,8 @@ public partial class CorrespondenceWindow : Window, IDialogResultWindow
     private void OnTabsMouseDown(object sender, MouseButtonEventArgs e)
     {
         for (var element = e.OriginalSource as DependencyObject; element is not null && !ReferenceEquals(element, CorrespondenceTabs);
-            element = element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : LogicalTreeHelper.GetParent(element))
+            element = (element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : null)
+                ?? LogicalTreeHelper.GetParent(element))
         {
             if (element is TabItem)
             {

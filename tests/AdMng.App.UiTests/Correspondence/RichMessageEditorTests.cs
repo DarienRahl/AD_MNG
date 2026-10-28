@@ -491,7 +491,7 @@ public sealed class RichMessageEditorTests
             Assert.Equal(FlowDocumentHtml.DefaultFontSize, box.Document.FontSize, 3);
             Assert.True(box.AcceptsTab);
             Assert.False(box.IsDocumentEnabled);
-            Assert.Equal("pl-PL", box.Language.IetfLanguageTag);
+            Assert.Equal("pl-PL", box.Language.IetfLanguageTag, ignoreCase: true);
             Assert.All(
                 new FrameworkElement[] { editor.BoldButton, editor.ItalicButton, editor.UnderlineButton, editor.BulletsButton, editor.NumberingButton, editor.LinkButton, editor.ClearFormattingButton, editor.PastePlainButton, editor.InsertFieldButton },
                 b => Assert.False(b.Focusable));

@@ -963,7 +963,7 @@ public static partial class FlowDocumentHtml
             {
                 var channels = parts.Take(3).Select(Channel).ToArray();
                 var alpha = parts.Length == 4 && double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
-                    ? (byte)Math.Clamp(Math.Round(a * 255), 0, 255)
+                    ? (byte)Math.Clamp(Math.Round(a * 255, MidpointRounding.AwayFromZero), 0, 255)
                     : (byte)255;
                 return channels.All(c => c is not null) ? Color.FromArgb(alpha, channels[0]!.Value, channels[1]!.Value, channels[2]!.Value) : null;
             }
@@ -1005,7 +1005,7 @@ public static partial class FlowDocumentHtml
         {
             if (part.EndsWith('%') && double.TryParse(part[..^1], NumberStyles.Float, CultureInfo.InvariantCulture, out var percent))
             {
-                return (byte)Math.Clamp(Math.Round(percent * 2.55), 0, 255);
+                return (byte)Math.Clamp(Math.Round(percent * 255 / 100, MidpointRounding.AwayFromZero), 0, 255);
             }
 
             return double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? (byte)Math.Clamp(Math.Round(number), 0, 255) : null;

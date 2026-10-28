@@ -308,7 +308,9 @@ public sealed class CorrespondenceWindowTests
         {
             RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent,
         });
-        Assert.Contains("Pozdrawiamy z Łodzi.", message.BodyHtml, StringComparison.Ordinal);
+        Assert.True(
+            message.BodyHtml.Contains("Pozdrawiamy z Łodzi.", StringComparison.Ordinal),
+            $"Header {header.Text} of {header.TemplatedParent?.GetType().Name}, tab {window.CorrespondenceTabs.SelectedIndex}, body: {message.BodyHtml}");
 
         // …and closing the window (the last draft is saved from the body).
         window.MessageEditor.MessageEditorBox.AppendText(" Do widzenia.");

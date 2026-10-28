@@ -64,6 +64,8 @@ public partial class RichMessageEditor : UserControl
         MessageEditorBox.LostKeyboardFocus += (_, _) => FlushHtml();
         DataObject.AddPastingHandler(MessageEditorBox, OnPasting);
         DataObject.AddCopyingHandler(MessageEditorBox, OnCopying);
+        CommandManager.AddPreviewCanExecuteHandler(MessageEditorBox, OnPreviewCanPaste);
+        CommandManager.AddPreviewExecutedHandler(MessageEditorBox, OnPreviewPaste);
         MessageEditorBox.CommandBindings.Add(new CommandBinding(PastePlainCommand, (_, _) => PastePlain()));
         MessageEditorBox.InputBindings.Add(new KeyBinding(PastePlainCommand, Key.V, ModifierKeys.Control | ModifierKeys.Shift));
         InsertFieldButton.IsEnabled = false;
@@ -219,6 +221,8 @@ public partial class RichMessageEditor : UserControl
         if (existing is not null && (selection.IsEmpty || (selection.Start.CompareTo(existing.ContentStart) >= 0 && selection.End.CompareTo(existing.ContentEnd) <= 0)))
         {
             existing.NavigateUri = uri;
+            // A new address changes no text, so no TextChanged: the body is written like after typing.
+            MarkDirty();
             return true;
         }
 
@@ -373,6 +377,12 @@ public partial class RichMessageEditor : UserControl
             return;
         }
 
+        MarkDirty();
+    }
+
+    /// <summary>The document changed: <see cref="Html"/> is written after the typing pause (or by <see cref="FlushHtml"/>).</summary>
+    private void MarkDirty()
+    {
         _dirty = true;
         _htmlTimer.Stop();
         _htmlTimer.Start();
@@ -572,6 +582,45 @@ public partial class RichMessageEditor : UserControl
 
         e.CancelCommand();
         PasteDetached(data);
+    }
+
+    // WPF's own paste command is disabled when the clipboard holds no format the RichTextBox reads (an "HTML Format"
+    // or a bitmap alone), and it would never raise the Pasting event then: the editor answers the paste command itself
+    // for every clipboard except its own content, which WPF pastes with its formatting.
+    private void OnPreviewCanPaste(object sender, CanExecuteRoutedEventArgs e)
+    {
+        if (e.Command != ApplicationCommands.Paste || MessageEditorBox.IsReadOnly || ClipboardData() is not { } data || IsOwnContent(data))
+        {
+            return;
+        }
+
+        // Presence only: this runs on every command re-query.
+        e.CanExecute = HasFormat(data, DataFormats.Html) || HasFormat(data, "PNG") || HasFormat(data, DataFormats.Bitmap)
+            || HasFormat(data, DataFormats.UnicodeText) || HasFormat(data, DataFormats.Text);
+        e.Handled = true;
+    }
+
+    private void OnPreviewPaste(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (e.Command != ApplicationCommands.Paste || MessageEditorBox.IsReadOnly || ClipboardData() is not { } data || IsOwnContent(data))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        PasteDetached(data);
+    }
+
+    private static IDataObject? ClipboardData()
+    {
+        try
+        {
+            return Clipboard.GetDataObject();
+        }
+        catch (ExternalException)
+        {
+            return null;
+        }
     }
 
     /// <summary>The paste of the command, continued after the event (errors reach the application's handler).</summary>

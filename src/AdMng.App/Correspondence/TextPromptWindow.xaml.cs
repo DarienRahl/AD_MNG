@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
 using AdMng.Presentation.Correspondence;
@@ -33,18 +34,22 @@ public partial class TextPromptWindow : Window, IDialogResultWindow
         }
 
         _lifecycle = new WindowViewModelLifecycle(this, viewModel);
-        Loaded += (_, _) =>
+        // After the first layout pass and the window's activation (a modal shown while another window has the
+        // focus gets it later): a one-line prompt starts with its text selected, a multiline one at its end.
+        Loaded += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Input, PlaceCaret);
+    }
+
+    private void PlaceCaret()
+    {
+        PromptTextBox.Focus();
+        if (ViewModel.IsMultiline)
         {
-            PromptTextBox.Focus();
-            if (viewModel.IsMultiline)
-            {
-                PromptTextBox.CaretIndex = PromptTextBox.Text.Length;
-            }
-            else
-            {
-                PromptTextBox.SelectAll();
-            }
-        };
+            PromptTextBox.CaretIndex = PromptTextBox.Text.Length;
+        }
+        else
+        {
+            PromptTextBox.SelectAll();
+        }
     }
 
     public TextPromptViewModel ViewModel { get; }
