@@ -44,7 +44,8 @@ public sealed record UserMessageFieldData
 /// <item><c>{$passwordExpires}</c> / <c>{$passwordExpires:format}</c>, <c>{$passwordExpiresInDays}</c> – from
 /// <c>msDS-UserPasswordExpiryTimeComputed</c> (FGPP); empty for "never expires" and "must change".</item>
 /// <item><c>{$accountExpires:format}</c> (the last valid day), <c>{$accountExpiresInDays}</c>.</item>
-/// <item><c>{$lastLogon:format}</c> (lastLogonTimestamp), <c>{$lockedSince:format}</c>, <c>{$today:format}</c>.</item>
+/// <item><c>{$lastLogon:format}</c> (lastLogonTimestamp), <c>{$lockedSince:format}</c>, <c>{$created:format}</c>
+/// (whenCreated – when a mailbox or an account was created), <c>{$today:format}</c>.</item>
 /// <item><c>{$manager:attribute}</c> – an attribute of the manager, e.g. <c>{$manager:displayName}</c>.</item>
 /// <item><c>{$input:name}</c> – a value typed by the operator when sending (one for all recipients).</item>
 /// <item>U1d salutations (<see cref="MessageSalutations"/>): <c>{$title}</c> / <c>{$title:highest}</c>, <c>{$titledName}</c>,
@@ -63,6 +64,10 @@ public sealed class UserMessageFields
     public const string AccountExpiresInDays = "accountExpiresInDays";
     public const string LastLogon = "lastLogon";
     public const string LockedSince = "lockedSince";
+
+    /// <summary>When the account was created (<c>whenCreated</c>, <see cref="AccountStatus.Created"/>).</summary>
+    public const string Created = "created";
+
     public const string Today = "today";
     public const string Manager = "manager";
     public const string Input = "input";
@@ -92,6 +97,7 @@ public sealed class UserMessageFields
         new(AccountExpiresInDays, TemplateTokenArgument.None),
         new(LastLogon, TemplateTokenArgument.Optional, IsDateFormat: true),
         new(LockedSince, TemplateTokenArgument.Optional, IsDateFormat: true),
+        new(Created, TemplateTokenArgument.Optional, IsDateFormat: true),
         new(Today, TemplateTokenArgument.Optional, IsDateFormat: true),
         new(Manager, TemplateTokenArgument.Required),
         new(Input, TemplateTokenArgument.Required),
@@ -104,8 +110,8 @@ public sealed class UserMessageFields
     [
         "{givenName}", "{sn}", "{displayName}", "{sAMAccountName}", "{userPrincipalName}", "{mail}", "{department}", "{title}",
         "{$passwordExpires:d MMMM yyyy}", "{$passwordExpiresInDays}", "{$accountExpires:d MMMM yyyy}", "{$accountExpiresInDays}",
-        "{$lastLogon:d MMMM yyyy}", "{$lockedSince:d MMMM yyyy, HH:mm}", "{$today:d MMMM yyyy}", "{$manager:displayName}",
-        "{$manager:mail}", "{$input:termin}",
+        "{$lastLogon:d MMMM yyyy}", "{$lockedSince:d MMMM yyyy, HH:mm}", "{$created:d MMMM yyyy}", "{$today:d MMMM yyyy}",
+        "{$manager:displayName}", "{$manager:mail}", "{$input:termin}",
         "{$salutation}", "{$salutation:noTitle}", "{$title}", "{$titledName}", "{$honorific}", "{$honorific:dopełniacz}",
         "{$byGender:zmienił/zmieniła}", "{$managerSalutation}",
     ];
@@ -170,6 +176,7 @@ public sealed class UserMessageFields
             AccountExpiresInDays => status.AccountDaysLeft is { } accountLeft && accountLeft >= 0 ? accountLeft.ToString(culture) : string.Empty,
             LastLogon => Date(status.LastLogon, argument, data.TimeZone, culture),
             LockedSince => Date(status.LockedSince, argument, data.TimeZone, culture),
+            Created => Date(status.Created, argument, data.TimeZone, culture),
             Today => Date(status.Now, argument, data.TimeZone, culture),
             Manager => argument is { Length: > 0 } attribute && data.Manager is { } manager
                 ? manager.GetString(attribute.Trim()) ?? string.Empty
