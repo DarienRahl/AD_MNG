@@ -3,7 +3,9 @@ using System.Windows;
 using AdMng.App.Connections;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
+using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Directory;
+using AdMng.Core.Messaging;
 using AdMng.Presentation.Connections;
 using AdMng.Presentation.Session;
 using AdMng.Testing;
@@ -18,8 +20,8 @@ namespace AdMng.App.UiTests.Infrastructure;
 /// in-memory sample company of <see cref="FakeDirectoryBuilder"/>), SYSVOL (an empty <see cref="FakeSysvolFileReader"/>,
 /// so that no test reaches \\dc01.contoso.test over the network; a test replaces it with its own; the Group Policy views
 /// write to <see cref="Sysvol"/>) and the settings folder (a temporary directory); the computer remote client, tool
-/// launcher, ping and DNS resolver are fakes (K1). Unhandled UI exceptions are recorded instead of shown. Create and
-/// dispose it on the UI thread.
+/// launcher, ping and DNS resolver are fakes (K1), so are Outlook, its signatures and the U1 Outlook transport (U5).
+/// Unhandled UI exceptions are recorded instead of shown. Create and dispose it on the UI thread.
 /// </summary>
 /// <remarks>
 /// Per-connection services live in a connection scope (design note docs/dev/multi-window.md 10.3): <see cref="Services"/>
@@ -83,6 +85,9 @@ internal sealed class UiTestContext : IAsyncDisposable
 
     public IReadOnlyList<Exception> Exceptions => _exceptions;
 
+    /// <summary>The in-memory Outlook of Korespondencja (U5), unless the test registered another client.</summary>
+    public FakeOutlookClient? Outlook => Host.Services.GetService<IOutlookClient>() as FakeOutlookClient;
+
     /// <param name="language">UI language ("en" / "pl").</param>
     /// <param name="configure">Further replacements of services (e.g. a scripted dialog service).</param>
     public static async Task<UiTestContext> CreateAsync(string language = "en", Action<IServiceCollection>? configure = null)
@@ -108,6 +113,13 @@ internal sealed class UiTestContext : IAsyncDisposable
             UseFake<Core.Computers.Remote.ILocalToolLauncher>(services, new FakeLocalToolLauncher());
             UseFake<Core.Computers.Remote.IPingService>(services, new FakePingService());
             UseFake<Core.Computers.Remote.IHostAddressResolver>(services, new FakeHostAddressResolver());
+
+            // Korespondencja (U5): no test starts or attaches to Outlook or reads the operator's signatures - an in-memory
+            // Outlook (sample profile, every item recorded), one Polish signature and the U1 Outlook transport fake, unless
+            // the test registered its own instance above.
+            UseFake<IOutlookClient>(services, new FakeOutlookClient());
+            UseFake<IOutlookSignatureSource>(services, new FakeOutlookSignatureSource());
+            UseFake<IOutlookUserMessageTransportFactory>(services, new FakeOutlookUserMessageTransportFactory());
         });
         var context = new UiTestContext(host, directory, company, connector, shutdown, settingsDirectory, sysvol);
         await AppHost.InitializeAsync(host.Services, options);
