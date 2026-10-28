@@ -40,10 +40,14 @@ public sealed record MessageTemplateImage
 
     /// <summary>True when the metadata is consistent (a content id derived from the hash, a supported type, sane sizes) –
     /// settings and imported files are checked with it.</summary>
-    public bool IsValid =>
+    public bool IsValid => IsValidUpTo(MessageImageLimits.MaxImageBytes);
+
+    /// <summary><see cref="IsValid"/> with another largest image: <c>CorrespondenceLimits.MaxImageBytes</c> for the
+    /// templates of Korespondencja (U5).</summary>
+    public bool IsValidUpTo(long maxImageBytes) =>
         MessageImage.IsContentId(ContentId) && Sha256.Length == 64 && Sha256.All(char.IsAsciiHexDigitLower)
         && string.Equals(ContentId, MessageImage.ContentIdFor(Sha256), StringComparison.Ordinal)
-        && ImageFormats.FromMediaType(MediaType) is not null && Length is > 0 and <= MessageImageLimits.MaxImageBytes;
+        && ImageFormats.FromMediaType(MediaType) is not null && Length > 0 && Length <= maxImageBytes;
 
     public override string ToString() => $"MessageTemplateImage({ContentId})";
 }

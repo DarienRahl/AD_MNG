@@ -248,12 +248,13 @@ public sealed class UserMessageTemplateLibrary
         return template with { Polish = polish, English = english, Images = kept };
     }
 
-    /// <summary>Deletes image files no template references any more (and older than ten minutes).</summary>
+    /// <summary>Deletes image files no template references any more (and older than ten minutes) – the images of the
+    /// templates of Korespondencja and its last draft (U5) are kept.</summary>
     private void CollectGarbage()
     {
         try
         {
-            Images?.CollectGarbage(_settings.Current.UserMessages.Templates);
+            Images?.CollectGarbage(_settings.Current);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

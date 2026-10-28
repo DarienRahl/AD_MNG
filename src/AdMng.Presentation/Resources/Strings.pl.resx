@@ -11905,6 +11905,288 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Problem.OutlookNotInstalled" xml:space="preserve">
     <value>Klasyczny Outlook nie jest zainstalowany na tym komputerze (nowego Outlooka nie można użyć) – wybierz inny sposób wysyłki.</value>
   </data>
+  <data name="Correspondence.WindowTitleNoDomain" xml:space="preserve">
+    <value>Korespondencja</value>
+  </data>
+  <data name="Correspondence.StopOnClose" xml:space="preserve">
+    <value>Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.</value>
+  </data>
+  <data name="Correspondence.Help" xml:space="preserve">
+    <value>Pomoc</value>
+  </data>
+  <data name="Correspondence.HelpTitle" xml:space="preserve">
+    <value>Pomoc – Korespondencja</value>
+  </data>
+  <data name="Correspondence.HelpText" xml:space="preserve">
+    <value>KOLEJNOŚĆ PRACY
+1. Odbiorcy – wczytaj adresy: z pliku (CSV, TSV, TXT, Excel, Word, OpenDocument, RTF, HTML), najnowszy plik kontaktów z folderu „Pobrane”, ze schowka, wpisane ręcznie albo przeciągnięte pliki – lub osoby z AD (zaznaczone obiekty, wybrani użytkownicy i kontakty, członkowie grupy).
+2. Wiadomość – temat i treść, podpis Outlooka, załączniki, konto nadawcy („Wyślij jako”) i „W imieniu”, tryb wysyłki, odstęp między wiadomościami, dostarczenie później, potwierdzenie przeczytania, przyciski głosowania, szablony.
+3. Podgląd – wiadomość tak, jak zobaczy ją wybrany odbiorca (komputer 700 px, telefon 380 px, pełna szerokość); „Podgląd z Outlooka”, „Otwórz w przeglądarce”, „Zapisz jako .html” i ostrzeżenia o rzeczach, które psują się w poczcie.
+4. Wysyłka – najpierw „Test do siebie”, potem „Wyślij” (albo „Utwórz wersje robocze”). „Zatrzymaj” przerywa, „Ponów nieudane” powtarza tylko wiadomości z błędem.
+5. Odpowiedzi – głosy odbiorców odczytane z „Elementów wysłanych” Outlooka.
+Skrzynki („Skrzynki…”) – zapytanie właścicieli skrzynek: imię i nazwisko zapisane na koncie skrzynki wskazują osobę, do której skrzynkę przypisano; po sprawdzeniu dopasowań właściciele trafiają na listę odbiorców (wbudowany szablon pyta, czy skrzynka jest nadal potrzebna).
+
+POLA W TEMACIE I TREŚCI
+   {{zwrot}}   – zwrot grzecznościowy z pola „Zwrot”, np. „Szanowni Państwo” (ten sam dla wszystkich)
+   {{nazwa}}   – nazwa odbiorcy, np. „Urząd Gminy Andrespol”; gdy odbiorca nie ma nazwy – zwrot grzecznościowy
+   {{email}}   – adres odbiorcy
+   {{lista}}   – przy grupowaniu po adresie: lista wierszy odbiorcy (wzór elementu ustawiasz na zakładce Wiadomość)
+   {{liczba}}  – przy grupowaniu: liczba wierszy odbiorcy
+   …oraz KAŻDA kolumna wczytanej tabeli, np. {{Miejscowość}}, {{Telefon}}, pola własne i pola z AD,
+   np. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
+   {{Pole|tekst}} wstawia „tekst”, gdy pole jest puste.
+
+   Typowy początek listu:
+      {{zwrot}},
+      w nawiązaniu do działalności {{nazwa}} w {{Miejscowość}}…
+
+   Zakładka Podgląd ostrzeże, gdy pole jest puste u części odbiorców albo gdy nazwy pola nie ma w danych.
+
+TREŚĆ
+Możesz wkleić gotowy tekst z Worda lub Outlooka (Ctrl+V) – formatowanie, tabele i obrazki zostaną zachowane. Obrazki są osadzane w wiadomości (nie jako załączniki). Podpis wybierasz z listy – to są podpisy z Twojego Outlooka. Załączniki dołączane są do KAŻDEJ wiadomości wysyłki.
+
+TRYBY
+• Osobna wiadomość do każdego – adresaci się NIE widzą (zalecane).
+• UDW – jedna wiadomość na najwyżej 500 adresatów w ukrytej kopii; częściej trafia do spamu.
+Odstęp między wiadomościami chroni przed limitami serwera (Microsoft 365: ok. 30 wiadomości na minutę, 10 000 odbiorców na dobę). Po 5 błędach z rzędu wysyłka zatrzymuje się sama.
+
+JUŻ WYSŁANE
+Każdy wysłany adres trafia do dziennika „już wysłane” i przy kolejnych wysyłkach jest pomijany. Dziennik przechowuje tylko skróty adresów (nie same adresy), datę i temat. Własne adresy do pominięcia dodasz w sekcji „Nie wysyłać”. Lista odbiorców nie jest zapisywana – po przerwaniu wczytaj plik ponownie, a wysłane adresy zostaną pominięte.
+
+GDY COŚ NIE DZIAŁA
+Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i podpisy widziane na tym komputerze oraz wykona próbę utworzenia wiadomości (bez wysyłania). Potrzebny jest klasyczny Outlook: „nowy Outlook” i Outlook w przeglądarce nie udostępniają automatyzacji. Przy pierwszej wysyłce Outlook może zapytać, czy zgadzasz się na wysłanie wiadomości przez program – to jego zabezpieczenie.</value>
+  </data>
+  <data name="Correspondence.ShowMailboxes" xml:space="preserve">
+    <value>Skrzynki…</value>
+  </data>
+  <data name="Correspondence.JournalReset" xml:space="preserve">
+    <value>Klucza dziennika „już wysłane” nie udało się odczytać (inny użytkownik albo przywrócony profil?) – założono nowy dziennik, a poprzedni zachowano jako {0}.</value>
+  </data>
+  <data name="Correspondence.JournalUnavailable" xml:space="preserve">
+    <value>Dziennika „już wysłane” nie można użyć ({0}) – wysłane adresy nie będą pomijane przy kolejnych wysyłkach.</value>
+  </data>
+  <data name="Correspondence.JournalNoProtector" xml:space="preserve">
+    <value>na tym komputerze nie można zabezpieczyć jego klucza</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Unknown" xml:space="preserve">
+    <value>Outlook: nie połączono</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Connecting" xml:space="preserve">
+    <value>Outlook: łączę…</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Connected" xml:space="preserve">
+    <value>Outlook: połączono</value>
+  </data>
+  <data name="Correspondence.Outlook.State.NotInstalled" xml:space="preserve">
+    <value>Outlook: brak klasycznego Outlooka</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Failed" xml:space="preserve">
+    <value>Outlook: brak połączenia – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.State.NotSupported" xml:space="preserve">
+    <value>Outlook: niedostępny (tylko Windows)</value>
+  </data>
+  <data name="Correspondence.Outlook.ConnectedFew" xml:space="preserve">
+    <value>Outlook: połączono ({0} konta)</value>
+  </data>
+  <data name="Correspondence.Outlook.ConnectedMany" xml:space="preserve">
+    <value>Outlook: połączono ({0} kont)</value>
+  </data>
+  <data name="Correspondence.Outlook.WithHResult" xml:space="preserve">
+    <value>{0} (kod {1})</value>
+  </data>
+  <data name="Correspondence.Outlook.DefaultAccount" xml:space="preserve">
+    <value>konto domyślne profilu</value>
+  </data>
+  <data name="Correspondence.Outlook.Check" xml:space="preserve">
+    <value>Sprawdź Outlooka</value>
+  </data>
+  <data name="Correspondence.Outlook.Connect" xml:space="preserve">
+    <value>Połącz z Outlookiem</value>
+  </data>
+  <data name="Correspondence.Outlook.Account" xml:space="preserve">
+    <value>Wyślij jako</value>
+  </data>
+  <data name="Correspondence.Outlook.OnBehalfOf" xml:space="preserve">
+    <value>W imieniu</value>
+  </data>
+  <data name="Correspondence.Outlook.OnBehalfOfHint" xml:space="preserve">
+    <value>Opcjonalnie: skrzynka współdzielona, w imieniu której idą wiadomości (wymaga prawa „Wyślij w imieniu”).</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notSupported" xml:space="preserve">
+    <value>Klasyczny Outlook działa tylko w systemie Windows.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notInstalled" xml:space="preserve">
+    <value>Nie znaleziono klasycznego Outlooka na tym komputerze. „Nowy Outlook” i Outlook w przeglądarce nie udostępniają automatyzacji.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.elevated" xml:space="preserve">
+    <value>AD Manager działa jako administrator, a Outlook nie – Windows nie pozwala im się połączyć. Uruchom AD Manager bez „Uruchom jako administrator” albo najpierw zamknij Outlooka.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.busy" xml:space="preserve">
+    <value>Outlook jest zajęty (otwarte okno dialogowe?) – zamknij okna Outlooka i spróbuj ponownie.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notResponding" xml:space="preserve">
+    <value>Outlook nie odpowiada – sprawdź, czy nie czeka na hasło albo wybór profilu.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.denied" xml:space="preserve">
+    <value>Outlook nie zgodził się na wysłanie wiadomości przez program (jego zabezpieczenie) – zezwól na to w Outlooku albo sprawdź program antywirusowy.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.disconnected" xml:space="preserve">
+    <value>Połączenie z Outlookiem zostało przerwane (Outlook zamknięty?) – uruchom Outlooka i połącz ponownie.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.recipient" xml:space="preserve">
+    <value>Outlook nie rozpoznał adresata.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.attachment" xml:space="preserve">
+    <value>Nie znaleziono pliku załącznika.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.account" xml:space="preserve">
+    <value>Wybranego konta nie ma w profilu Outlooka.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.tooLarge" xml:space="preserve">
+    <value>Wiadomość jest za duża dla skrzynki lub serwera.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.cancelled" xml:space="preserve">
+    <value>Przerwano.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.error" xml:space="preserve">
+    <value>Nieznany błąd Outlooka.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.sent" xml:space="preserve">
+    <value>Wysłano przez Outlooka.</value>
+  </data>
+  <data name="Correspondence.Outlook.CheckTitle" xml:space="preserve">
+    <value>Sprawdzenie środowiska</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagUser" xml:space="preserve">
+    <value>Użytkownik: {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagComputer" xml:space="preserve">
+    <value>Komputer:   {0} (proces {1}-bitowy)</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNotConnected" xml:space="preserve">
+    <value>Outlook: BRAK POŁĄCZENIA – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagOutlook" xml:space="preserve">
+    <value>Outlook: wersja {0}, profil: {1}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagAccounts" xml:space="preserve">
+    <value>Konta ({0}):</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagCurrentUser" xml:space="preserve">
+    <value>Bieżąca skrzynka: {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagSignatures" xml:space="preserve">
+    <value>Podpisy Outlooka ({0}):</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNoSignatures" xml:space="preserve">
+    <value>(brak plików w {0})</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestItem" xml:space="preserve">
+    <value>Test utworzenia wiadomości (bez wysyłania): {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestFailed" xml:space="preserve">
+    <value>BŁĄD – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestSkipped" xml:space="preserve">
+    <value>nie wykonano</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagFailed" xml:space="preserve">
+    <value>Nie udało się sprawdzić Outlooka: {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournal" xml:space="preserve">
+    <value>Dziennik „już wysłane”:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournalEntries" xml:space="preserve">
+    <value>{0} (wpisy: {1})</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournalNotLoaded" xml:space="preserve">
+    <value>{0} (nie wczytano)</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagDownloads" xml:space="preserve">
+    <value>Folder Pobrane:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagSignaturesFolder" xml:space="preserve">
+    <value>Folder podpisów Outlooka:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNotFound" xml:space="preserve">
+    <value>(nie znaleziono)</value>
+  </data>
+  <data name="UserMessages.Outlook.DefaultAccount" xml:space="preserve">
+    <value>konto domyślne profilu</value>
+  </data>
+  <data name="UserMessages.Outlook.Account" xml:space="preserve">
+    <value>Konto Outlooka</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountHint" xml:space="preserve">
+    <value>Adres SMTP konta z profilu Outlooka; puste – konto domyślne profilu.</value>
+  </data>
+  <data name="UserMessages.Outlook.LoadAccounts" xml:space="preserve">
+    <value>Pobierz konta z Outlooka</value>
+  </data>
+  <data name="UserMessages.Outlook.OnBehalfOfSender" xml:space="preserve">
+    <value>Wysyłaj w imieniu adresu nadawcy</value>
+  </data>
+  <data name="UserMessages.Outlook.OnBehalfOfSenderHint" xml:space="preserve">
+    <value>Adres nadawcy z tych ustawień trafia do pola „W imieniu” (wymaga prawa „Wyślij w imieniu” do tej skrzynki).</value>
+  </data>
+  <data name="UserMessages.Outlook.LoadingAccounts" xml:space="preserve">
+    <value>Łączę z Outlookiem…</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountsLoaded" xml:space="preserve">
+    <value>Konta z profilu „{0}”: {1}</value>
+  </data>
+  <data name="UserMessages.Outlook.NoAccounts" xml:space="preserve">
+    <value>Profil Outlooka nie ma kont.</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountsFailed" xml:space="preserve">
+    <value>Nie udało się pobrać kont z Outlooka: {0}</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notSupported" xml:space="preserve">
+    <value>Klasyczny Outlook działa tylko w systemie Windows.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notInstalled" xml:space="preserve">
+    <value>Klasyczny Outlook nie jest zainstalowany na tym komputerze.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.elevated" xml:space="preserve">
+    <value>AD Manager działa jako administrator, a Outlook nie – uruchom AD Manager bez „Uruchom jako administrator”.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.busy" xml:space="preserve">
+    <value>Outlook jest zajęty – spróbuj ponownie.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notResponding" xml:space="preserve">
+    <value>Outlook nie odpowiada.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.denied" xml:space="preserve">
+    <value>Outlook nie zgodził się na wysłanie wiadomości przez program.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.disconnected" xml:space="preserve">
+    <value>Połączenie z Outlookiem zostało przerwane.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.recipient" xml:space="preserve">
+    <value>Outlook nie rozpoznał adresata.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.attachment" xml:space="preserve">
+    <value>Nie znaleziono pliku załącznika.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.account" xml:space="preserve">
+    <value>Konta Outlooka z ustawień nie ma w profilu.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.tooLarge" xml:space="preserve">
+    <value>Wiadomość jest za duża dla Outlooka.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.cancelled" xml:space="preserve">
+    <value>Przerwano.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.error" xml:space="preserve">
+    <value>Nieznany błąd Outlooka.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.sent" xml:space="preserve">
+    <value>Wysłano przez Outlooka.</value>
+  </data>
   <!-- U5 shell: end -->
 
   <!-- U5 recipients: begin -->

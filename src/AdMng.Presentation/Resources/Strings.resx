@@ -11905,6 +11905,288 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Problem.OutlookNotInstalled" xml:space="preserve">
     <value>Classic Outlook is not installed on this computer (the new Outlook cannot be used) – choose another transport.</value>
   </data>
+  <data name="Correspondence.WindowTitleNoDomain" xml:space="preserve">
+    <value>Correspondence</value>
+  </data>
+  <data name="Correspondence.StopOnClose" xml:space="preserve">
+    <value>Messages are being sent through Outlook. Stop sending and close the window? Messages Outlook has already sent cannot be recalled.</value>
+  </data>
+  <data name="Correspondence.Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="Correspondence.HelpTitle" xml:space="preserve">
+    <value>Help – Correspondence</value>
+  </data>
+  <data name="Correspondence.HelpText" xml:space="preserve">
+    <value>ORDER OF WORK
+1. Recipients – load addresses: from a file (CSV, TSV, TXT, Excel, Word, OpenDocument, RTF, HTML), the newest contacts file of the Downloads folder, the clipboard, typed by hand or files dropped on the list – or people from AD (selected objects, picked users and contacts, group members).
+2. Message – subject and body, the Outlook signature, attachments, the sending account ("Send as") and "On behalf of", the sending mode, the delay between messages, later delivery, read receipt, voting buttons, templates.
+3. Preview – the message as the selected recipient sees it (desktop 700 px, phone 380 px, full width); "Preview from Outlook", "Open in browser", "Save as .html" and warnings about things that break in e-mail.
+4. Sending – first "Test to myself", then "Send" (or "Create drafts"). "Stop" interrupts, "Retry failed" repeats only the messages that failed.
+5. Responses – the recipients' votes read from Outlook's "Sent Items".
+Mailboxes ("Mailboxes…") – the mailbox owner query: the given name and surname stored on a mailbox account point to the person the mailbox is assigned to; once the matches are reviewed, the owners become recipients (a built-in template asks whether the mailbox is still needed).
+
+FIELDS IN THE SUBJECT AND THE BODY
+   {{zwrot}}   – the salutation of the "Salutation" box, e.g. "Szanowni Państwo" (the same for everyone)
+   {{nazwa}}   – the recipient's name, e.g. "Urząd Gminy Andrespol"; a recipient without a name gets the salutation
+   {{email}}   – the recipient's address
+   {{lista}}   – when grouping by address: the list of the recipient's rows (the item pattern is on the Message tab)
+   {{liczba}}  – when grouping: the number of the recipient's rows
+   …and EVERY column of the loaded table, e.g. {{Miejscowość}}, {{Telefon}}, custom fields and fields from AD,
+   e.g. {{Imię}}, {{Pana/Panią}}, {{Zwrot osobowy}}.
+   {{Field|text}} inserts "text" when the field is empty.
+
+   A typical opening:
+      {{zwrot}},
+      w nawiązaniu do działalności {{nazwa}} w {{Miejscowość}}…
+
+   The Preview tab warns when a field is empty for some recipients or when a field name is not in the data.
+
+BODY
+You can paste ready text from Word or Outlook (Ctrl+V) – formatting, tables and images are kept. Images are embedded in the message (not attached). The signature is chosen from the list – these are the signatures of your Outlook. Attachments are added to EVERY message of the run.
+
+MODES
+• A separate message to everyone – the recipients do NOT see each other (recommended).
+• BCC – one message for at most 500 recipients in blind copy; ends up in spam more often.
+The delay between messages protects against server limits (Microsoft 365: about 30 messages a minute, 10,000 recipients a day). After 5 failures in a row the run stops by itself.
+
+ALREADY SENT
+Every address sent to goes to the "already sent" journal and is skipped by later runs. The journal keeps only keyed hashes of the addresses (never the addresses), the date and the subject. Your own addresses to skip go to "Do not send". The recipient list is not saved – after an interruption load the file again and the addresses already sent are skipped.
+
+WHEN SOMETHING DOES NOT WORK
+Use "Check Outlook" – it shows the version, profile, accounts and signatures seen on this computer and tries to create a message (without sending it). Classic Outlook is required: the "new Outlook" and Outlook on the web offer no automation. At the first send Outlook may ask whether you allow a program to send messages – that is its safeguard.</value>
+  </data>
+  <data name="Correspondence.ShowMailboxes" xml:space="preserve">
+    <value>Mailboxes…</value>
+  </data>
+  <data name="Correspondence.JournalReset" xml:space="preserve">
+    <value>The key of the "already sent" journal could not be read (another user or a restored profile?) – a new journal was started; the previous one was kept as {0}.</value>
+  </data>
+  <data name="Correspondence.JournalUnavailable" xml:space="preserve">
+    <value>The "already sent" journal cannot be used ({0}) – addresses sent to are not skipped by later runs.</value>
+  </data>
+  <data name="Correspondence.JournalNoProtector" xml:space="preserve">
+    <value>its key cannot be protected on this computer</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Unknown" xml:space="preserve">
+    <value>Outlook: not connected</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Connecting" xml:space="preserve">
+    <value>Outlook: connecting…</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Connected" xml:space="preserve">
+    <value>Outlook: connected</value>
+  </data>
+  <data name="Correspondence.Outlook.State.NotInstalled" xml:space="preserve">
+    <value>Outlook: classic Outlook is not installed</value>
+  </data>
+  <data name="Correspondence.Outlook.State.Failed" xml:space="preserve">
+    <value>Outlook: not connected – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.State.NotSupported" xml:space="preserve">
+    <value>Outlook: not available here (Windows only)</value>
+  </data>
+  <data name="Correspondence.Outlook.ConnectedFew" xml:space="preserve">
+    <value>Outlook: connected ({0} accounts)</value>
+  </data>
+  <data name="Correspondence.Outlook.ConnectedMany" xml:space="preserve">
+    <value>Outlook: connected ({0} accounts)</value>
+  </data>
+  <data name="Correspondence.Outlook.WithHResult" xml:space="preserve">
+    <value>{0} (code {1})</value>
+  </data>
+  <data name="Correspondence.Outlook.DefaultAccount" xml:space="preserve">
+    <value>the profile's default account</value>
+  </data>
+  <data name="Correspondence.Outlook.Check" xml:space="preserve">
+    <value>Check Outlook</value>
+  </data>
+  <data name="Correspondence.Outlook.Connect" xml:space="preserve">
+    <value>Connect to Outlook</value>
+  </data>
+  <data name="Correspondence.Outlook.Account" xml:space="preserve">
+    <value>Send as</value>
+  </data>
+  <data name="Correspondence.Outlook.OnBehalfOf" xml:space="preserve">
+    <value>On behalf of</value>
+  </data>
+  <data name="Correspondence.Outlook.OnBehalfOfHint" xml:space="preserve">
+    <value>Optional: a shared mailbox the messages are sent on behalf of (needs the "Send on behalf" right).</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notSupported" xml:space="preserve">
+    <value>Classic Outlook works on Windows only.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notInstalled" xml:space="preserve">
+    <value>Classic Outlook was not found on this computer. The "new Outlook" and Outlook on the web offer no automation.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.elevated" xml:space="preserve">
+    <value>AD Manager runs as administrator and Outlook does not – Windows does not let them talk. Start AD Manager without "Run as administrator" or close Outlook first.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.busy" xml:space="preserve">
+    <value>Outlook is busy (an open dialog?) – close Outlook's dialogs and try again.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.notResponding" xml:space="preserve">
+    <value>Outlook does not respond – check whether it waits for a password or the choice of a profile.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.denied" xml:space="preserve">
+    <value>Outlook refused to let a program send the message (its security prompt) – allow it in Outlook or check the antivirus program.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.disconnected" xml:space="preserve">
+    <value>The connection to Outlook was lost (Outlook closed?) – start Outlook and connect again.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.recipient" xml:space="preserve">
+    <value>Outlook did not recognize the recipient.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.attachment" xml:space="preserve">
+    <value>An attachment file was not found.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.account" xml:space="preserve">
+    <value>The chosen account is not in the Outlook profile.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.tooLarge" xml:space="preserve">
+    <value>The message is too large for the mailbox or the server.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.cancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.error" xml:space="preserve">
+    <value>Unknown Outlook error.</value>
+  </data>
+  <data name="Correspondence.Outlook.Code.outlook.sent" xml:space="preserve">
+    <value>Sent through Outlook.</value>
+  </data>
+  <data name="Correspondence.Outlook.CheckTitle" xml:space="preserve">
+    <value>Checking the environment</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagUser" xml:space="preserve">
+    <value>User:      {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagComputer" xml:space="preserve">
+    <value>Computer:  {0} ({1}-bit process)</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNotConnected" xml:space="preserve">
+    <value>Outlook: NOT CONNECTED – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagOutlook" xml:space="preserve">
+    <value>Outlook: version {0}, profile: {1}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagAccounts" xml:space="preserve">
+    <value>Accounts ({0}):</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagCurrentUser" xml:space="preserve">
+    <value>Current mailbox: {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagSignatures" xml:space="preserve">
+    <value>Outlook signatures ({0}):</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNoSignatures" xml:space="preserve">
+    <value>(no files in {0})</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestItem" xml:space="preserve">
+    <value>Creating a message (without sending it): {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestOk" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestFailed" xml:space="preserve">
+    <value>ERROR – {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagTestSkipped" xml:space="preserve">
+    <value>not done</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagFailed" xml:space="preserve">
+    <value>Outlook could not be checked: {0}</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournal" xml:space="preserve">
+    <value>The "already sent" journal:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournalEntries" xml:space="preserve">
+    <value>{0} (entries: {1})</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagJournalNotLoaded" xml:space="preserve">
+    <value>{0} (not loaded)</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagDownloads" xml:space="preserve">
+    <value>Downloads folder:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagSignaturesFolder" xml:space="preserve">
+    <value>Outlook signatures folder:</value>
+  </data>
+  <data name="Correspondence.Outlook.DiagNotFound" xml:space="preserve">
+    <value>(not found)</value>
+  </data>
+  <data name="UserMessages.Outlook.DefaultAccount" xml:space="preserve">
+    <value>the profile's default account</value>
+  </data>
+  <data name="UserMessages.Outlook.Account" xml:space="preserve">
+    <value>Outlook account</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountHint" xml:space="preserve">
+    <value>The SMTP address of an account of the Outlook profile; empty – the profile's default account.</value>
+  </data>
+  <data name="UserMessages.Outlook.LoadAccounts" xml:space="preserve">
+    <value>Get the accounts from Outlook</value>
+  </data>
+  <data name="UserMessages.Outlook.OnBehalfOfSender" xml:space="preserve">
+    <value>Send on behalf of the sender address</value>
+  </data>
+  <data name="UserMessages.Outlook.OnBehalfOfSenderHint" xml:space="preserve">
+    <value>The sender address of these settings goes into "On behalf of" (needs the "Send on behalf" right of that mailbox).</value>
+  </data>
+  <data name="UserMessages.Outlook.LoadingAccounts" xml:space="preserve">
+    <value>Connecting to Outlook…</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountsLoaded" xml:space="preserve">
+    <value>Accounts of the profile "{0}": {1}</value>
+  </data>
+  <data name="UserMessages.Outlook.NoAccounts" xml:space="preserve">
+    <value>The Outlook profile has no accounts.</value>
+  </data>
+  <data name="UserMessages.Outlook.AccountsFailed" xml:space="preserve">
+    <value>The accounts could not be read from Outlook: {0}</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notSupported" xml:space="preserve">
+    <value>Classic Outlook works on Windows only.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notInstalled" xml:space="preserve">
+    <value>Classic Outlook is not installed on this computer.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.elevated" xml:space="preserve">
+    <value>AD Manager runs as administrator and Outlook does not – start AD Manager without "Run as administrator".</value>
+  </data>
+  <data name="UserMessages.Code.outlook.busy" xml:space="preserve">
+    <value>Outlook is busy – try again.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.notResponding" xml:space="preserve">
+    <value>Outlook does not respond.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.denied" xml:space="preserve">
+    <value>Outlook refused to let a program send the message.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.disconnected" xml:space="preserve">
+    <value>The connection to Outlook was lost.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.recipient" xml:space="preserve">
+    <value>Outlook did not recognize the recipient.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.attachment" xml:space="preserve">
+    <value>An attachment file was not found.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.account" xml:space="preserve">
+    <value>The Outlook account of the settings is not in the profile.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.tooLarge" xml:space="preserve">
+    <value>The message is too large for Outlook.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.cancelled" xml:space="preserve">
+    <value>Cancelled.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.error" xml:space="preserve">
+    <value>Unknown Outlook error.</value>
+  </data>
+  <data name="UserMessages.Code.outlook.sent" xml:space="preserve">
+    <value>Sent through Outlook.</value>
+  </data>
   <!-- U5 shell: end -->
 
   <!-- U5 recipients: begin -->

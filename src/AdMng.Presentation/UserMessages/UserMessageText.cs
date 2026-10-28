@@ -22,7 +22,8 @@ public static class UserMessageText
          "watchdog.queued", "watchdog.disabled", "watchdog.senderNotAllowed", "watchdog.invalid", "watchdog.conflict", "watchdog.limit",
          "watchdog.forbidden", "watchdog.notSupported", "watchdog.notConfigured", "watchdog.unreachable", "watchdog.serverError",
          "smtp.disabled", "userMessages.disabled",
-         WatchdogUserMessageTransport.ImagesNotSupportedCode, WatchdogUserMessageTransport.ImageStorageCode, "smtp.invalidImage"];
+         WatchdogUserMessageTransport.ImagesNotSupportedCode, WatchdogUserMessageTransport.ImageStorageCode, "smtp.invalidImage",
+         .. Core.Correspondence.Outlook.OutlookFailureCodes.All];
 
     public static string IssueKey(string code) => "UserMessages.Issue." + code;
 

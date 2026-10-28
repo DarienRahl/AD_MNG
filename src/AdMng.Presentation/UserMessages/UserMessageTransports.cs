@@ -345,25 +345,36 @@ public sealed record UserMessageTransportChoiceResult(IUserMessageTransport? Tra
 
 /// <summary>
 /// Chooses the transport of a send (design note section 7): the setting automatic (default) / direct SMTP / Watchdog /
-/// Outlook (U5, docs/dev/u5-outlook-correspondence.md 5: the choice Outlook uses <see cref="Outlook"/>; Automatic never
-/// does). Automatic uses the Watchdog when its connection is configured and the service reports the feature available,
-/// else direct SMTP from the settings with the session's password.
+/// Outlook (U5, docs/dev/u5-outlook-correspondence.md 5: the choice Outlook creates the transport through
+/// <see cref="OutlookTransports"/> with the account and "w imieniu" of the settings, when <see cref="Outlook"/> reports
+/// classic Outlook installed; Automatic never uses Outlook). Automatic uses the Watchdog when its connection is configured
+/// and the service reports the feature available, else direct SMTP from the settings with the session's password.
 /// </summary>
 public sealed class UserMessageTransportSelector(
     ISettingsStore settings,
     SmtpCredentialCache credentials,
     WatchdogUserMessageTransport watchdog,
     IDirectSmtpTransportFactory? smtp = null,
-    Core.Correspondence.Outlook.IOutlookClient? outlook = null)
+    Core.Correspondence.Outlook.IOutlookClient? outlook = null,
+    IOutlookUserMessageTransportFactory? outlookTransports = null)
 {
     public SmtpCredentialCache Credentials { get; } = credentials ?? throw new ArgumentNullException(nameof(credentials));
 
     /// <summary>Classic Outlook of the host (null: the choice Outlook is not supported here).</summary>
     public Core.Correspondence.Outlook.IOutlookClient? Outlook { get; } = outlook;
 
+    /// <summary>Creates the Outlook transport (AdMng.Outlook, registered by the app; null: the choice Outlook is not
+    /// supported here).</summary>
+    public IOutlookUserMessageTransportFactory? OutlookTransports { get; } = outlookTransports;
+
     public async Task<UserMessageTransportChoiceResult> SelectAsync(CancellationToken cancellationToken)
     {
         var options = settings.Current.UserMessages;
+        if (options.Transport == UserMessageTransportChoice.Outlook)
+        {
+            return SelectOutlook(options);
+        }
+
         if (options.Transport != UserMessageTransportChoice.DirectSmtp)
         {
             var status = watchdog.IsConfigured
@@ -381,6 +392,30 @@ public sealed class UserMessageTransportSelector(
         }
 
         return Smtp(options.Smtp);
+    }
+
+    /// <summary>
+    /// The Outlook transport of the settings (account, "w imieniu"): <see cref="UserMessageTransportChoiceResult.OutlookNotSupported"/>
+    /// without an Outlook client or factory (a host without Outlook, tests) or off Windows,
+    /// <see cref="UserMessageTransportChoiceResult.OutlookNotInstalled"/> without classic Outlook. Outlook is neither started
+    /// nor attached to here (that happens when the send connects).
+    /// </summary>
+    public UserMessageTransportChoiceResult SelectOutlook(UserMessageSettings options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (Outlook is null || OutlookTransports is null)
+        {
+            return new UserMessageTransportChoiceResult(null, UserMessageTransportChoiceResult.OutlookNotSupported);
+        }
+
+        return Outlook.Availability switch
+        {
+            Core.Correspondence.Outlook.OutlookAvailability.Installed => new UserMessageTransportChoiceResult(
+                OutlookTransports.Create(string.IsNullOrWhiteSpace(options.OutlookAccount) ? null : options.OutlookAccount.Trim(), options.OutlookOnBehalfOfSender)),
+            Core.Correspondence.Outlook.OutlookAvailability.NotInstalled =>
+                new UserMessageTransportChoiceResult(null, UserMessageTransportChoiceResult.OutlookNotInstalled),
+            _ => new UserMessageTransportChoiceResult(null, UserMessageTransportChoiceResult.OutlookNotSupported),
+        };
     }
 
     /// <summary>The direct SMTP transport of <paramref name="connection"/> (the current settings or unsaved values).</summary>

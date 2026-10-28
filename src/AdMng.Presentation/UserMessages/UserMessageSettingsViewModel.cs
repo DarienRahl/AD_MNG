@@ -1,4 +1,7 @@
+using System.Collections.ObjectModel;
+using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Messaging;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Infrastructure;
 using AdMng.Presentation.Localization;
@@ -13,7 +16,9 @@ namespace AdMng.Presentation.UserMessages;
 /// The "Wiadomości e-mail" tab of the settings window (README U1): sender, reply-to, CC, test address, default language,
 /// rate limit, daily budget, confirmation threshold, allowed link domains, transport and the direct SMTP connection, with
 /// "Testuj połączenie" and "Wyślij wiadomość testową do mnie" on the values typed (saved or not). The SMTP password is read
-/// from the window's box only for a test and then kept in the session memory – never in the settings.
+/// from the window's box only for a test and then kept in the session memory – never in the settings. The transport
+/// Outlook (U5) adds the account of the Outlook profile ("Pobierz konta z Outlooka" connects to Outlook to list them) and
+/// "w imieniu nadawcy".
 /// </summary>
 public sealed partial class UserMessageSettingsViewModel : ObservableObject
 {
@@ -43,6 +48,13 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         ConfirmationThreshold = current.ConfirmationThreshold;
         AllowedDomainsText = string.Join(Environment.NewLine, current.AllowedLinkDomains);
         Transport = TransportChoices.First(o => o.Value == current.Transport);
+        OutlookAccount = current.OutlookAccount ?? string.Empty;
+        OutlookOnBehalfOfSender = current.OutlookOnBehalfOfSender;
+        if (OutlookAccount.Length > 0)
+        {
+            OutlookAccounts.Add(OutlookAccount);
+        }
+
         var smtp = current.Smtp;
         SmtpHost = smtp.Host ?? string.Empty;
         SmtpPort = smtp.Port;
@@ -116,7 +128,33 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
     public partial string AllowedDomainsText { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOutlookTransport))]
     public partial Option<UserMessageTransportChoice> Transport { get; set; }
+
+    /// <summary>The transport Outlook is chosen (the account box and "w imieniu nadawcy" are shown).</summary>
+    public bool IsOutlookTransport => Transport?.Value == UserMessageTransportChoice.Outlook;
+
+    /// <summary>The SMTP address of the Outlook profile account to send from; empty: the profile's default account.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Error))]
+    public partial string OutlookAccount { get; set; }
+
+    /// <summary>Put the sender address (<see cref="FromAddress"/>) into "w imieniu" (SentOnBehalfOfName).</summary>
+    [ObservableProperty]
+    public partial bool OutlookOnBehalfOfSender { get; set; }
+
+    /// <summary>The SMTP addresses of the Outlook profile's accounts (after "Pobierz konta z Outlooka"; the saved account
+    /// before).</summary>
+    public ObservableCollection<string> OutlookAccounts { get; } = [];
+
+    /// <summary>"Pobierz konta z Outlooka" is running.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(LoadOutlookAccountsCommand))]
+    public partial bool IsLoadingOutlookAccounts { get; private set; }
+
+    /// <summary>The outcome of the last "Pobierz konta z Outlooka", or null.</summary>
+    [ObservableProperty]
+    public partial string? OutlookAccountsText { get; private set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Error))]
@@ -195,6 +233,7 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
                 ?? Address(L.UserMessages.ReplyToLabel, ReplyTo)
                 ?? Address(L.UserMessages.CcLabel, Cc)
                 ?? Address(L.UserMessages.TestAddress, TestAddress)
+                ?? Address(L.UserMessagesOutlook.Account, OutlookAccount)
                 ?? Range(L.UserMessages.MessagesPerMinute, MessagesPerMinute, 1, 600)
                 ?? Range(L.UserMessages.RecipientsPerDay, RecipientsPerDay, 1, 1_000_000)
                 ?? Range(L.UserMessages.MessageThreshold, ConfirmationThreshold, 1, 100_000)
@@ -222,6 +261,8 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
         target.ConfirmationThreshold = ConfirmationThreshold;
         target.AllowedLinkDomains = [.. Domains()];
         target.Transport = Transport.Value;
+        target.OutlookAccount = Clean(OutlookAccount);
+        target.OutlookOnBehalfOfSender = OutlookOnBehalfOfSender;
         target.Smtp = Connection();
         Salutations.Apply(target);
         target.Normalize();
@@ -307,6 +348,80 @@ public sealed partial class UserMessageSettingsViewModel : ObservableObject
             IsTesting = false;
         }
     }
+
+    /// <summary>
+    /// "Pobierz konta z Outlooka" (U5): connects to classic Outlook (attaches to the running one or starts it), lists the
+    /// SMTP addresses of the profile's accounts and ends the session. Only with Outlook installed.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanLoadOutlookAccounts))]
+    private async Task LoadOutlookAccountsAsync()
+    {
+        if (_messages.Transports.Outlook is not { } outlook)
+        {
+            return;
+        }
+
+        var l = _services.Localizer;
+        IsLoadingOutlookAccounts = true;
+        OutlookAccountsText = l[L.UserMessagesOutlook.LoadingAccounts];
+        try
+        {
+            OutlookConnectResult result;
+            try
+            {
+                result = await outlook.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (OutlookException ex)
+            {
+                result = new OutlookConnectResult(null, ex.Failure);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // A client that breaks its contract: "unknown" with its HRESULT, never the message (it may hold an address).
+                result = new OutlookConnectResult(null, new OutlookFailure(OutlookFailureKind.Unknown, OutlookFailureCodes.Unknown, "connect", ex.HResult));
+            }
+
+            if (result.Session is not { } session)
+            {
+                var failure = result.Failure ?? new OutlookFailure(OutlookFailureKind.Unknown, OutlookFailureCodes.Unknown, null, null);
+                OutlookAccountsText = l.Format(L.UserMessagesOutlook.AccountsFailed, CorrespondenceText.FailureText(l, failure));
+                return;
+            }
+
+            await using (session.ConfigureAwait(true))
+            {
+                var addresses = session.Profile.Accounts
+                    .Select(a => a?.SmtpAddress?.Trim())
+                    .Where(a => !string.IsNullOrEmpty(a))
+                    .Select(a => a!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var chosen = OutlookAccount;
+                OutlookAccounts.Clear();
+                foreach (var address in addresses)
+                {
+                    OutlookAccounts.Add(address);
+                }
+
+                if (chosen.Trim().Length > 0 && !addresses.Contains(chosen.Trim(), StringComparer.OrdinalIgnoreCase))
+                {
+                    OutlookAccounts.Add(chosen.Trim());   // kept: it may be an account of another profile
+                }
+
+                OutlookAccount = chosen;
+                OutlookAccountsText = addresses.Count == 0
+                    ? l[L.UserMessagesOutlook.NoAccounts]
+                    : l.Format(L.UserMessagesOutlook.AccountsLoaded, session.Profile.ProfileName, string.Join(", ", addresses));
+            }
+        }
+        finally
+        {
+            IsLoadingOutlookAccounts = false;
+        }
+    }
+
+    private bool CanLoadOutlookAccounts() =>
+        !IsLoadingOutlookAccounts && _messages.Transports.Outlook?.Availability == OutlookAvailability.Installed;
 
     /// <summary>Copies the certificate seen in the last test into the pin (and switches to pinning).</summary>
     [RelayCommand(CanExecute = nameof(HasSeenCertificate))]
