@@ -48,5 +48,12 @@ public sealed record RenderedCorrespondence(
     string Subject, string HtmlDocument, IReadOnlyList<MessageImage> Images,
     IReadOnlyList<string> UnknownFields, IReadOnlyList<string> EmptyFields)
 {
+    /// <summary>Bytes of <see cref="Images"/> together.</summary>
+    public long ImageBytes => Images.Sum(i => (long)i.Data.Length);
+
+    /// <summary>True when the images break a per-message limit (<see cref="CorrespondenceLimits.MaxImagesPerMessage"/>,
+    /// <see cref="CorrespondenceLimits.MaxImagesBytesPerMessage"/>): an error before sending.</summary>
+    public bool ExceedsImageLimits => Images.Count > CorrespondenceLimits.MaxImagesPerMessage || ImageBytes > CorrespondenceLimits.MaxImagesBytesPerMessage;
+
     public override string ToString() => nameof(RenderedCorrespondence);
 }
