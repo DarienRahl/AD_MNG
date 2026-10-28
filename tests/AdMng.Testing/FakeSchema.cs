@@ -10,7 +10,10 @@ public static partial class FakeSchema
 {
     public const string DefaultSchemaNamingContext = "CN=Schema,CN=Configuration,DC=contoso,DC=test";
 
-    public static SchemaCatalog Create(string schemaNamingContext = DefaultSchemaNamingContext)
+    public static SchemaCatalog Create(string schemaNamingContext = DefaultSchemaNamingContext) =>
+        CreateCore(schemaNamingContext, mailboxes: true);
+
+    private static SchemaCatalog CreateCore(string schemaNamingContext, bool mailboxes)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(schemaNamingContext);
         var attributes = CreateAttributes();
@@ -19,6 +22,12 @@ public static partial class FakeSchema
         var classes = CreateClasses(schemaNamingContext);
         ExtendForWatchdog(classes, schemaNamingContext);
         ExtendForGroupPolicy(classes, schemaNamingContext);
+        if (mailboxes)
+        {
+            attributes.AddRange(CreateMailboxAttributes());
+            ExtendForMailboxes(classes);
+        }
+
         return new SchemaCatalog(attributes, classes, CreateDisplayNames());
     }
 
