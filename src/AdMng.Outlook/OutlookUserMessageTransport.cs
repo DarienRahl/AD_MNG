@@ -28,7 +28,7 @@ public sealed class OutlookUserMessageTransport : IUserMessageTransport
         ["Auto-Submitted"] = "auto-generated",
         ["X-Auto-Response-Suppress"] = "All",
         ["X-AdMng-Message"] = "user-notification",
-    };
+    }.AsReadOnly();
 
     /// <param name="client">The Outlook client of the application.</param>
     /// <param name="account">The SMTP address of the profile account to send from; null: the profile's default account.</param>

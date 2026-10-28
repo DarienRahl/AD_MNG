@@ -15,6 +15,9 @@ namespace AdMng.Outlook;
 /// </remarks>
 public sealed class OutlookSession : IOutlookSession
 {
+    /// <summary>How long disposing waits for the worker to release the application (a hung Outlook must not hang the app).</summary>
+    private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(30);
+
     private readonly StaWorker _worker;
     private readonly OutlookMailBuilder _builder;
     private readonly OutlookCampaigns _campaigns;
@@ -152,11 +155,11 @@ public sealed class OutlookSession : IOutlookSession
 
         try
         {
-            await _worker.RunAsync(() => _release(Application), CancellationToken.None).ConfigureAwait(false);
+            await _worker.RunAsync(() => _release(Application), CancellationToken.None).WaitAsync(ReleaseTimeout).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException)
+        catch (Exception ex) when (ex is ObjectDisposedException or InvalidOperationException or TimeoutException)
         {
-            // The worker is already gone.
+            // The worker is already gone, or a COM call hangs: the background thread ends with the process.
         }
 
         await _worker.DisposeAsync().ConfigureAwait(false);

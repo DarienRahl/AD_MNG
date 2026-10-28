@@ -18,9 +18,6 @@ internal static class OutlookConstants
     public const int OlByValue = 1;
     public const int OlDiscard = 1;
     public const int OlFolderSentMail = 5;
-
-    /// <summary><c>OlTrackingStatus.olTrackingReplied</c>.</summary>
-    public const int OlTrackingReplied = 7;
 }
 
 /// <summary>MAPI property names of <c>PropertyAccessor</c> (design note 4.2 and 4.4).</summary>
@@ -678,7 +675,8 @@ internal sealed partial class OutlookMailBuilder
         }
 
         var fileName = OutlookProfileReader.Get(() => (string?)item.FileName);
-        var path = Path.Combine(files.Folder(_tempFiles).Path, files.Folder(_tempFiles).Reserve(fileName.Length > 0 ? fileName : "image"));
+        var folder = files.Folder(_tempFiles);
+        var path = Path.Combine(folder.Path, folder.Reserve(fileName.Length > 0 ? fileName : "image"));
         try
         {
             item.SaveAsFile(path);
@@ -692,6 +690,11 @@ internal sealed partial class OutlookMailBuilder
                 ? string.Empty
                 : OutlookProfileReader.Get(() => (string?)((dynamic)accessor).GetProperty(MapiProperties.AttachMimeTag));
             return new OutlookRenderedImage(contentId, MediaTypeOf(data, mimeTag, fileName), data);
+        }
+        catch (Exception ex) when (OutlookErrors.Classify(ex, OutlookSteps.Render, isElevated: false).Kind == OutlookFailureKind.Unknown)
+        {
+            // An image that cannot be saved is left out of the preview (MailerWPiA); a lost or busy Outlook still fails it.
+            return null;
         }
         finally
         {

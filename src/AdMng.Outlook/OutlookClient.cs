@@ -186,9 +186,23 @@ public sealed class OutlookClient : IOutlookClient
         }
     }
 
-    /// <summary>Removes the temp folders of dead processes once per client (design note 4.1).</summary>
-    private Task CleanupStaleOnceAsync() =>
-        Interlocked.Exchange(ref _staleCleaned, 1) == 0 ? Task.Run(() => TempFiles.CleanupStale()) : Task.CompletedTask;
+    /// <summary>Removes the temp folders of dead processes once per client (design note 4.1); best effort.</summary>
+    private async Task CleanupStaleOnceAsync()
+    {
+        if (Interlocked.Exchange(ref _staleCleaned, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Run(() => TempFiles.CleanupStale()).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Never a reason not to connect: the next start tries again.
+        }
+    }
 }
 
 /// <summary>
