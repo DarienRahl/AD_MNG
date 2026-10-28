@@ -133,7 +133,15 @@ internal sealed class StaWorker : IAsyncDisposable
         {
             if (_useMessageFilter && OperatingSystem.IsWindows())
             {
-                filter = MessageFilterRegistration.TryRegister();
+                try
+                {
+                    filter = MessageFilterRegistration.TryRegister();
+                }
+                catch (Exception)
+                {
+                    // Never a reason for the queue not to run: without the filter a busy Outlook fails sooner (outlook.busy).
+                    filter = null;
+                }
             }
 
             foreach (var item in _queue.GetConsumingEnumerable())
@@ -280,14 +288,28 @@ internal sealed class MessageFilterRegistration : IDisposable
         _previous = previous;
     }
 
-    /// <summary>Registers the filter; null when COM refuses it (not an STA thread).</summary>
+    /// <summary>Registers the filter; null when COM refuses it (not an STA thread) or it cannot be created – the worker then
+    /// runs without retries (MailerWPiA ignored this failure too).</summary>
     public static MessageFilterRegistration? TryRegister()
     {
-        var filter = Marshal.GetComInterfaceForObject<ComRetryFilter, IOleMessageFilter>(new ComRetryFilter());
+        nint filter;
+        try
+        {
+            filter = Marshal.GetComInterfaceForObject<ComRetryFilter, IOleMessageFilter>(new ComRetryFilter());
+        }
+        catch (Exception ex) when (ex is InvalidCastException or NotSupportedException or COMException or PlatformNotSupportedException)
+        {
+            return null;
+        }
+
         try
         {
             // COM keeps its own reference to the new filter and hands over its reference to the previous one.
             return ComNative.CoRegisterMessageFilter(filter, out var previous) >= 0 ? new MessageFilterRegistration(previous) : null;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            return null;
         }
         finally
         {
