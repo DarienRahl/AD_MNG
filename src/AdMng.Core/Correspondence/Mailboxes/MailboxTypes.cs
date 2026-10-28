@@ -44,6 +44,7 @@ public enum MailboxType
 /// <summary>Exchange attributes and values of mailbox accounts (design note 3.7).</summary>
 public static class MailboxTypes
 {
+    /// <summary>The Exchange recipient type of an account (Large integer); see <see cref="FromValue"/>.</summary>
     public const string RecipientTypeDetails = "msExchRecipientTypeDetails";
 
     /// <summary>Users with full access to the mailbox (auto-mapping) – a delegate confirms an owner.</summary>
