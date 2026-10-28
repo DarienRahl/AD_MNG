@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using AdMng.Core.Messaging;
 using AdMng.Core.Messaging.Images;
 using AdMng.Presentation.Services;
+using AdMng.Presentation.Settings;
 
 namespace AdMng.Presentation.UserMessages;
 
@@ -81,10 +82,14 @@ public sealed class MessageImageStore
     }
 
     /// <summary>The image of <paramref name="metadata"/>, or null when its file is missing, changed or not a valid image.</summary>
-    public async Task<MessageImage?> LoadAsync(MessageTemplateImage metadata, CancellationToken cancellationToken = default)
+    /// <param name="metadata">The image as a template stores it.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <param name="maxImageBytes">The largest image: <see cref="MessageImageLimits.MaxImageBytes"/> for messages to users,
+    /// <c>CorrespondenceLimits.MaxImageBytes</c> for Korespondencja (U5).</param>
+    public async Task<MessageImage?> LoadAsync(MessageTemplateImage metadata, CancellationToken cancellationToken = default, int maxImageBytes = MessageImageLimits.MaxImageBytes)
     {
         ArgumentNullException.ThrowIfNull(metadata);
-        if (!metadata.IsValid)
+        if (!metadata.IsValidUpTo(maxImageBytes))
         {
             return null;
         }
@@ -96,7 +101,7 @@ public sealed class MessageImageStore
             // FileShare.Delete: a save in another window may replace the file while it is read (Windows). A missing file
             // is a FileNotFoundException (an IOException).
             await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 16 * 1024, FileOptions.Asynchronous);
-            if (stream.Length > MessageImageLimits.MaxImageBytes)
+            if (stream.Length > maxImageBytes)
             {
                 return null;
             }
@@ -110,7 +115,7 @@ public sealed class MessageImageStore
         }
 
         if (!string.Equals(Convert.ToHexStringLower(SHA256.HashData(data)), metadata.Sha256, StringComparison.OrdinalIgnoreCase)
-            || !MessageImage.TryCreate(data, metadata.FileName, metadata.MediaType, out var image, out _)
+            || !MessageImage.TryCreate(data, metadata.FileName, metadata.MediaType, out var image, out _, maxImageBytes)
             || !string.Equals(image!.ContentId, metadata.ContentId, StringComparison.OrdinalIgnoreCase))
         {
             return null;
@@ -137,17 +142,46 @@ public sealed class MessageImageStore
 
     /// <summary>
     /// Deletes the image files no template of <paramref name="templates"/> references and that are older than
-    /// <see cref="GarbageAge"/> (plus abandoned temporary files). Returns the number of deleted files.
+    /// <see cref="GarbageAge"/> (plus abandoned temporary files). Returns the number of deleted files. The libraries collect
+    /// with <see cref="CollectGarbage(AppSettings)"/>, which keeps the images of every kind of template.
     /// </summary>
     public int CollectGarbage(IEnumerable<MessageTemplate> templates)
     {
         ArgumentNullException.ThrowIfNull(templates);
+        return Collect(templates.SelectMany(t => t.Images ?? []));
+    }
+
+    /// <summary>
+    /// Deletes the image files that nothing in <paramref name="settings"/> references (<see cref="ReferencedImages"/>: the
+    /// templates of messages to users, the templates of Korespondencja and its last draft) and that are older than
+    /// <see cref="GarbageAge"/> (plus abandoned temporary files). Returns the number of deleted files.
+    /// </summary>
+    public int CollectGarbage(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        return Collect(ReferencedImages(settings));
+    }
+
+    /// <summary>Every image the settings reference: the templates of messages to users (U1c), the templates of
+    /// Korespondencja and its last draft (U5).</summary>
+    public static IEnumerable<MessageTemplateImage> ReferencedImages(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        var userMessages = (settings.UserMessages?.Templates ?? []).Where(t => t is not null).SelectMany(t => t.Images ?? []);
+        var correspondence = settings.Correspondence is { } c
+            ? (c.Templates ?? []).Append(c.LastDraft).Where(t => t is not null).SelectMany(t => t!.Images ?? [])
+            : [];
+        return userMessages.Concat(correspondence).Where(i => i is not null);
+    }
+
+    private int Collect(IEnumerable<MessageTemplateImage> images)
+    {
         if (!Directory.Exists(Folder))
         {
             return 0;
         }
 
-        var referenced = templates.SelectMany(t => t.Images ?? []).Select(i => i.Sha256.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal);
+        var referenced = images.Where(i => i?.Sha256 is not null).Select(i => i.Sha256.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal);
         var cutoff = _time.GetUtcNow().UtcDateTime - GarbageAge;
         var deleted = 0;
         foreach (var file in new DirectoryInfo(Folder).EnumerateFiles())

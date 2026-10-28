@@ -139,7 +139,7 @@ public sealed class CorrespondenceSettings
         template.BodyHtml ??= "";
         template.ListItemTemplate ??= "";
         template.Images = [.. (template.Images ?? [])
-            .Where(i => i is not null && i.IsValid)
+            .Where(i => i is not null && i.IsValidUpTo(CorrespondenceLimits.MaxImageBytes))
             .DistinctBy(i => i.ContentId, StringComparer.OrdinalIgnoreCase)
             .Take(CorrespondenceLimits.MaxImagesPerMessage)];
         template.CustomFields = [.. (template.CustomFields ?? [])
