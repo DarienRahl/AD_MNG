@@ -491,6 +491,7 @@ public static partial class FlowDocumentHtml
                     case LineBreak:
                         html.Append("<br>");
                         line.AtLineStart = true;
+                        line.AfterSpace = false;
                         break;
                     case Hyperlink hyperlink when link is null:
                         var inner = new StringBuilder();
@@ -507,8 +508,12 @@ public static partial class FlowDocumentHtml
 
                         break;
                     case InlineUIContainer { Child: Image image }:
-                        WriteImage(image, html);
-                        line.AtLineStart = false;
+                        if (WriteImage(image, html))
+                        {
+                            line.AtLineStart = false;
+                            line.AfterSpace = false;
+                        }
+
                         break;
                     case Span span:
                         WriteInlines(span.Inlines, html, line, link);
@@ -517,12 +522,13 @@ public static partial class FlowDocumentHtml
             }
         }
 
-        private void WriteImage(Image image, StringBuilder html)
+        /// <summary>Writes an <c>&lt;img&gt;</c>; false when the image has no content id (it is left out).</summary>
+        private bool WriteImage(Image image, StringBuilder html)
         {
             var id = contentIdOf(image);
             if (string.IsNullOrWhiteSpace(id))
             {
-                return;
+                return false;
             }
 
             _imageIds.Add(id);
@@ -542,6 +548,7 @@ public static partial class FlowDocumentHtml
             }
 
             html.Append(" style=\"max-width:100%;height:auto\">");
+            return true;
         }
 
         /// <summary>A run: its text (line breaks, tab stops and runs of spaces kept) in a span with its formatting.</summary>
@@ -561,6 +568,7 @@ public static partial class FlowDocumentHtml
                 {
                     body.Append("<br>");
                     line.AtLineStart = true;
+                    line.AfterSpace = false;
                 }
 
                 var part = lines[i];
@@ -569,15 +577,17 @@ public static partial class FlowDocumentHtml
                     continue;
                 }
 
-                if (line.AtLineStart && part[0] == ' ')
+                if ((line.AtLineStart || line.AfterSpace) && part[0] == ' ')
                 {
-                    // A space at the start of a line would collapse in HTML.
-                    part = " " + part[1..];
+                    // A space at the start of a line, or after a space that ended the previous run, would collapse in HTML.
+                    part = "\u00A0" + part[1..];
                 }
 
                 // Runs of spaces: one breakable space, then non-breaking ones (stable when read back, also at a line end).
-                body.Append(SpaceRun().Replace(Escape(part), m => " " + string.Concat(Enumerable.Repeat("&nbsp;", m.Length - 1))));
+                var converted = SpaceRun().Replace(Escape(part), m => " " + string.Concat(Enumerable.Repeat("&nbsp;", m.Length - 1)));
+                body.Append(converted);
                 line.AtLineStart = false;
+                line.AfterSpace = converted.EndsWith(' ');
             }
 
             if (body.Length == 0)
@@ -691,10 +701,12 @@ public static partial class FlowDocumentHtml
             _ => string.Empty,
         };
 
-        /// <summary>Whether the next text starts a line (paragraph start or after a line break).</summary>
+        /// <summary>Whether the next text starts a line (paragraph start or after a line break) or follows a space.</summary>
         private sealed class LineState
         {
             public bool AtLineStart { get; set; } = true;
+
+            public bool AfterSpace { get; set; }
         }
     }
 
@@ -1570,7 +1582,7 @@ public static partial class FlowDocumentHtml
         private static bool IsLoneNonBreakingSpace(InlineCollection inlines)
         {
             var all = Flatten(inlines).ToList();
-            return all is [Run { Text: " " }];
+            return all is [Run { Text: "\u00A0" }];
 
             static IEnumerable<Inline> Flatten(InlineCollection collection)
             {
