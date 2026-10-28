@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using AdMng.App.Connections;
+using AdMng.App.Correspondence;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Infrastructure;
 using AdMng.App.Services;
@@ -12,6 +13,7 @@ using AdMng.Core.Model;
 using AdMng.Presentation.BatchEditing;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.GroupPolicy;
 using AdMng.Presentation.Lists;
@@ -30,9 +32,10 @@ namespace AdMng.App;
 /// <summary>
 /// <c>AdMng.exe --smoke-test</c> (CI on Windows): builds the real host with every service, renders the connect window,
 /// the main window (disconnected) with the Watchdog tab (not configured), the Watchdog certificate confirmation, the
-/// computer windows (K1) and the dialogs of this release off-screen in English and Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed
-/// to stderr), 2 = did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards;
-/// nothing touches a directory or a watchdog service.
+/// computer windows (K1), Korespondencja with every tab (U5) and the dialogs of this release off-screen in English and
+/// Polish, and fails on any exception or WPF binding error. Exit codes: 0 = passed, 1 = failures (printed to stderr), 2 =
+/// did not finish within 30 seconds. Settings go to a temporary folder that is deleted afterwards; nothing touches a
+/// directory, a watchdog service or Outlook (<see cref="OfflineOutlook"/>).
 /// </summary>
 /// <remarks>
 /// Every language pass works in two fresh connection scopes (design note docs/dev/multi-window.md 10.4): two main windows,
@@ -86,7 +89,9 @@ internal static class SmokeTest
         GlobalExceptionHandler? exceptions = null;
         try
         {
-            host = AppHost.Build(options with { SettingsDirectory = settingsDirectory });
+            // Never Outlook (CI agents have none, and the smoke test must not start one): Korespondencja runs over an Outlook
+            // that is not installed.
+            host = AppHost.Build(options with { SettingsDirectory = settingsDirectory }, OfflineOutlook.Use);
             exceptions = host.Services.GetRequiredService<GlobalExceptionHandler>();
             exceptions.Recorder = ex => failures.Add($"Unhandled exception: {ex}");
             exceptions.Attach(app);
@@ -187,6 +192,7 @@ internal static class SmokeTest
         RenderComputerWindows(services, windows);
         RenderObjectDialogs(windows, services.GetRequiredService<IDialogViewModelFactory>());
         RenderToolWindows(services, windows); // C2b
+        await RenderCorrespondenceAsync(services, windows, localizer).ConfigureAwait(true);
 
         await UiTestSupport.WaitForIdleAsync().ConfigureAwait(true);
         main.Shell.CommandPalette.CloseCommand.Execute(null);
@@ -390,9 +396,17 @@ internal static class SmokeTest
     private static void RenderToolWindows(IServiceProvider services, IWindowService windows)
     {
         var factory = services.GetRequiredService<IDialogViewModelFactory>();
-        var settings = (SettingsWindow)windows.CreateWindow(factory.CreateSettings());
+        var settingsViewModel = factory.CreateSettings();
+        var settings = (SettingsWindow)windows.CreateWindow(settingsViewModel);
         UiTestSupport.ShowOffScreen(settings);
         settings.SettingsTabs.SelectedItem = settings.MessagesTab;
+
+        // U5: the transport "Przez Outlooka" shows its account box and "w imieniu" (not saved: the window is never applied).
+        if (settingsViewModel.Messages is { } messageSettings)
+        {
+            messageSettings.Transport = messageSettings.TransportChoices.First(c => c.Value == UserMessageTransportChoice.Outlook);
+        }
+
         settings.UpdateLayout();
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreateSessionLog()));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(factory.CreatePowerShellHistory()));
@@ -492,6 +506,47 @@ internal static class SmokeTest
 
     [DllImport("kernel32.dll")]
     private static extern nint GetStdHandle(int standardHandle);
+
+    /// <summary>
+    /// Korespondencja (U5), disconnected and over an Outlook that is not installed (<see cref="OfflineOutlook"/>): the window
+    /// of Tools → Korespondencja with the "Skrzynki" tab shown and every tab selected once (the mailbox owners, the recipient
+    /// grid, the editor, the preview, sending and responses), then its text prompt (one line and multiline) and its report
+    /// window. Nothing is read from a directory, no Outlook is started.
+    /// </summary>
+    private static async Task RenderCorrespondenceAsync(IServiceProvider services, IWindowService windows, ILocalizer localizer)
+    {
+        var correspondence = services.GetRequiredService<CorrespondenceViewModelFactory>().Create(new CorrespondenceRequest([]));
+        var window = (CorrespondenceWindow)windows.CreateWindow(correspondence);
+        UiTestSupport.ShowOffScreen(window);
+        correspondence.ShowMailboxesCommand.Execute(null);
+        window.UpdateLayout();
+        if (window.MailboxesTab.Visibility != System.Windows.Visibility.Visible)
+        {
+            throw new InvalidOperationException("The \"Skrzynki\" tab of Korespondencja is not shown.");
+        }
+
+        foreach (var tab in window.CorrespondenceTabs.Items.OfType<System.Windows.Controls.TabItem>().ToList())
+        {
+            window.CorrespondenceTabs.SelectedItem = tab;
+            window.UpdateLayout();
+            await UiTestSupport.WaitForIdleAsync(rounds: 1).ConfigureAwait(true);
+            if (!Equals(correspondence.SelectedTab, tab.Tag))
+            {
+                throw new InvalidOperationException($"Korespondencja shows the tab {tab.Tag}, its view model {correspondence.SelectedTab}.");
+            }
+        }
+
+        // The dialogs of the window (modal there, shown modeless here): the link prompt of the editor, the multiline prompt
+        // of typed addresses and a report.
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new TextPromptViewModel(
+            localizer[L.CorrespondenceApp.LinkTitle], localizer[L.CorrespondenceApp.LinkMessage], "https://www.contoso.pl", multiline: false)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new TextPromptViewModel(
+            localizer[L.CorrespondenceApp.TabRecipients], string.Empty, "anna.zielinska@contoso.pl\nŁukasz Wiśniewski <lukasz.wisniewski@contoso.pl>", multiline: true)));
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new ReportViewModel(
+            localizer[L.CorrespondenceApp.CheckOutlook],
+            "Outlook: nie jest zainstalowany\nFolder podpisów: –\nDziennik „już wysłane”: 0 wpisów",
+            services.GetRequiredService<IClipboardService>())));
+    }
 
     /// <summary>
     /// Computers (K1), disconnected: the computer review (scope, parameters, reports; "Sprawdź" disabled), the remote actions
