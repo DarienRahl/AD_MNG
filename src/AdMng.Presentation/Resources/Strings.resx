@@ -11896,6 +11896,15 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="UserMessages.Transport.Outlook" xml:space="preserve">
     <value>Through Outlook</value>
   </data>
+  <data name="UserMessages.ViaOutlook" xml:space="preserve">
+    <value>Sending through Outlook: {0}</value>
+  </data>
+  <data name="UserMessages.Problem.OutlookNotSupported" xml:space="preserve">
+    <value>Outlook cannot be used here – classic Outlook works on Windows only.</value>
+  </data>
+  <data name="UserMessages.Problem.OutlookNotInstalled" xml:space="preserve">
+    <value>Classic Outlook is not installed on this computer (the new Outlook cannot be used) – choose another transport.</value>
+  </data>
   <!-- U5 shell: end -->
 
   <!-- U5 recipients: begin -->

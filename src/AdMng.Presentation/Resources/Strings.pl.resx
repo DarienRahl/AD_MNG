@@ -11896,6 +11896,15 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="UserMessages.Transport.Outlook" xml:space="preserve">
     <value>Przez Outlooka</value>
   </data>
+  <data name="UserMessages.ViaOutlook" xml:space="preserve">
+    <value>Wysyłka przez Outlooka: {0}</value>
+  </data>
+  <data name="UserMessages.Problem.OutlookNotSupported" xml:space="preserve">
+    <value>Outlooka nie można tu użyć – klasyczny Outlook działa tylko w systemie Windows.</value>
+  </data>
+  <data name="UserMessages.Problem.OutlookNotInstalled" xml:space="preserve">
+    <value>Klasyczny Outlook nie jest zainstalowany na tym komputerze (nowego Outlooka nie można użyć) – wybierz inny sposób wysyłki.</value>
+  </data>
   <!-- U5 shell: end -->
 
   <!-- U5 recipients: begin -->

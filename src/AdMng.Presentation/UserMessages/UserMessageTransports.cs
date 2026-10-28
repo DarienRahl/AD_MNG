@@ -315,10 +315,17 @@ public sealed record UserMessageTransportChoiceResult(IUserMessageTransport? Tra
     public const string WatchdogForbidden = "WatchdogForbidden";
     public const string WatchdogUnreachable = "WatchdogUnreachable";
 
+    /// <summary>The Outlook transport (U5) cannot be used here: not Windows, or the host has no Outlook client.</summary>
+    public const string OutlookNotSupported = "OutlookNotSupported";
+
+    /// <summary>The Outlook transport (U5): classic Outlook is not installed (ProgID "Outlook.Application" missing).</summary>
+    public const string OutlookNotInstalled = "OutlookNotInstalled";
+
     /// <summary>Every problem constant (localization test).</summary>
     public static IReadOnlyList<string> All { get; } =
     [
         SmtpNotConfigured, SmtpUnavailable, WatchdogNotConfigured, WatchdogNotSupported, WatchdogDisabled, WatchdogForbidden, WatchdogUnreachable,
+        OutlookNotSupported, OutlookNotInstalled,
     ];
 
     /// <summary>The problem of an unavailable Watchdog transport status.</summary>
@@ -337,17 +344,22 @@ public sealed record UserMessageTransportChoiceResult(IUserMessageTransport? Tra
 }
 
 /// <summary>
-/// Chooses the transport of a send (design note section 7): the setting automatic (default) / direct SMTP / Watchdog.
-/// Automatic uses the Watchdog when its connection is configured and the service reports the feature available, else
-/// direct SMTP from the settings with the session's password.
+/// Chooses the transport of a send (design note section 7): the setting automatic (default) / direct SMTP / Watchdog /
+/// Outlook (U5, docs/dev/u5-outlook-correspondence.md 5: the choice Outlook uses <see cref="Outlook"/>; Automatic never
+/// does). Automatic uses the Watchdog when its connection is configured and the service reports the feature available,
+/// else direct SMTP from the settings with the session's password.
 /// </summary>
 public sealed class UserMessageTransportSelector(
     ISettingsStore settings,
     SmtpCredentialCache credentials,
     WatchdogUserMessageTransport watchdog,
-    IDirectSmtpTransportFactory? smtp = null)
+    IDirectSmtpTransportFactory? smtp = null,
+    Core.Correspondence.Outlook.IOutlookClient? outlook = null)
 {
     public SmtpCredentialCache Credentials { get; } = credentials ?? throw new ArgumentNullException(nameof(credentials));
+
+    /// <summary>Classic Outlook of the host (null: the choice Outlook is not supported here).</summary>
+    public Core.Correspondence.Outlook.IOutlookClient? Outlook { get; } = outlook;
 
     public async Task<UserMessageTransportChoiceResult> SelectAsync(CancellationToken cancellationToken)
     {
