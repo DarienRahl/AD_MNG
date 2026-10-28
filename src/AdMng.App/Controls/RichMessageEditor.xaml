@@ -1,10 +1,145 @@
 <!--
-  The WYSIWYG editor of Korespondencja (U5, design note docs/dev/u5-outlook-correspondence.md 9.2): a RichTextBox with an
-  HTML round trip limited to the sanitized subset (FlowDocumentHtml). Scaffold: the App track adds the toolbar (B, I, U,
-  lists, link, clear formatting, paste plain, "Wstaw pole"), the paste handling and the Html synchronization.
+  The WYSIWYG editor of Korespondencja (U5, design note docs/dev/u5-outlook-correspondence.md 9.2): a toolbar (B, I, U,
+  bullets, numbering, link, clear formatting, paste without formatting, the field box and "Wstaw pole") over a RichTextBox
+  whose content is the message body as HTML of the sanitized subset (FlowDocumentHtml). The editing surface is white with
+  black text in both themes - it shows the message the way the recipient sees it.
 -->
 <UserControl x:Class="AdMng.App.Controls.RichMessageEditor"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <RichTextBox x:Name="MessageEditorBox" AcceptsTab="True" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:AdMng.App.Localization">
+  <UserControl.Resources>
+    <Style x:Key="EditorToggle"
+           BasedOn="{StaticResource Ad.IconToggleButton}"
+           TargetType="ToggleButton">
+      <Setter Property="FontFamily" Value="Segoe UI" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Margin" Value="0,0,2,4" />
+    </Style>
+    <Style x:Key="EditorButton"
+           BasedOn="{StaticResource Ad.IconButton}"
+           TargetType="Button">
+      <Setter Property="FontFamily" Value="Segoe UI" />
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Margin" Value="0,0,2,4" />
+    </Style>
+    <Style x:Key="EditorGlyphButton"
+           BasedOn="{StaticResource Ad.IconButton}"
+           TargetType="Button">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Margin" Value="0,0,2,4" />
+    </Style>
+    <Style x:Key="EditorTextButton"
+           BasedOn="{StaticResource {x:Type Button}}"
+           TargetType="Button">
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="Margin" Value="0,0,4,4" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="EditorDivider"
+           BasedOn="{StaticResource Ad.VerticalDivider}"
+           TargetType="Rectangle">
+      <Setter Property="Height" Value="20" />
+      <Setter Property="Margin" Value="4,0,6,4" />
+    </Style>
+  </UserControl.Resources>
+  <DockPanel>
+    <WrapPanel x:Name="EditorToolbar"
+               Margin="0,0,0,2"
+               AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Toolbar}"
+               DockPanel.Dock="Top">
+      <ToggleButton x:Name="BoldButton"
+                    AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Bold}"
+                    Click="OnBoldClick"
+                    Content="B"
+                    FontWeight="Bold"
+                    Style="{StaticResource EditorToggle}"
+                    ToolTip="{l:Tr Correspondence.App.Editor.Bold}" />
+      <ToggleButton x:Name="ItalicButton"
+                    AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Italic}"
+                    Click="OnItalicClick"
+                    Content="I"
+                    FontStyle="Italic"
+                    Style="{StaticResource EditorToggle}"
+                    ToolTip="{l:Tr Correspondence.App.Editor.Italic}" />
+      <ToggleButton x:Name="UnderlineButton"
+                    AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Underline}"
+                    Click="OnUnderlineClick"
+                    Style="{StaticResource EditorToggle}"
+                    ToolTip="{l:Tr Correspondence.App.Editor.Underline}">
+        <TextBlock Text="U" TextDecorations="Underline" />
+      </ToggleButton>
+      <Rectangle Style="{StaticResource EditorDivider}" />
+      <Button x:Name="BulletsButton"
+              AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Bullets}"
+              Click="OnBulletsClick"
+              Content="•"
+              Style="{StaticResource EditorButton}"
+              ToolTip="{l:Tr Correspondence.App.Editor.Bullets}" />
+      <Button x:Name="NumberingButton"
+              AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Numbering}"
+              Click="OnNumberingClick"
+              Content="1."
+              FontSize="12"
+              Style="{StaticResource EditorButton}"
+              ToolTip="{l:Tr Correspondence.App.Editor.Numbering}" />
+      <Button x:Name="LinkButton"
+              AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Link}"
+              Click="OnLinkClick"
+              Content="&#xE71B;"
+              Style="{StaticResource EditorGlyphButton}"
+              ToolTip="{l:Tr Correspondence.App.Editor.Link}" />
+      <Button x:Name="ClearFormattingButton"
+              AutomationProperties.Name="{l:Tr Correspondence.App.Editor.ClearFormatting}"
+              Click="OnClearFormattingClick"
+              Content="&#xE75C;"
+              Style="{StaticResource EditorGlyphButton}"
+              ToolTip="{l:Tr Correspondence.App.Editor.ClearFormatting}" />
+      <Rectangle Style="{StaticResource EditorDivider}" />
+      <Button x:Name="PastePlainButton"
+              Click="OnPastePlainClick"
+              Content="{l:Tr Correspondence.App.Editor.PastePlain}"
+              Style="{StaticResource EditorTextButton}"
+              ToolTip="{l:Tr Correspondence.App.Editor.PastePlainHint}" />
+      <ComboBox x:Name="FieldBox"
+                MinWidth="170"
+                Margin="4,0,4,4"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Field}"
+                ToolTip="{l:Tr Correspondence.App.Editor.FieldHint}" />
+      <Button x:Name="InsertFieldButton"
+              Click="OnInsertFieldClick"
+              Content="{l:Tr Correspondence.App.Editor.InsertField}"
+              Style="{StaticResource EditorTextButton}" />
+    </WrapPanel>
+    <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="4">
+      <RichTextBox x:Name="MessageEditorBox"
+                   Padding="8"
+                   AcceptsReturn="True"
+                   AcceptsTab="True"
+                   AutomationProperties.Name="{l:Tr Correspondence.App.Editor.Body}"
+                   Background="White"
+                   BorderThickness="0"
+                   CaretBrush="Black"
+                   FontFamily="Calibri"
+                   FontSize="11pt"
+                   Foreground="Black"
+                   HorizontalScrollBarVisibility="Disabled"
+                   IsDocumentEnabled="False"
+                   Language="pl-PL"
+                   VerticalScrollBarVisibility="Auto">
+        <RichTextBox.Resources>
+          <!-- MailerWPiA: the space below a paragraph is the message's 8 pt. -->
+          <Style TargetType="Paragraph">
+            <Setter Property="Margin" Value="0,0,0,10.667" />
+          </Style>
+        </RichTextBox.Resources>
+      </RichTextBox>
+    </Border>
+  </DockPanel>
 </UserControl>
