@@ -694,7 +694,23 @@ public partial class RichMessageEditor : UserControl
                 position = link.ElementEnd.GetInsertionPosition(LogicalDirection.Forward);
             }
 
-            var caret = blocks is [Paragraph single] ? InsertInlines(position, single) : InsertBlocks(position, fragment, blocks);
+            TextPointer caret;
+            try
+            {
+                caret = blocks is [Paragraph single] ? InsertInlines(position, single) : InsertBlocks(position, fragment, blocks);
+            }
+            catch (InvalidOperationException)
+            {
+                // A position WPF cannot split (an embedded element): the content goes to the end of the body instead.
+                foreach (var block in fragment.Blocks.ToList())
+                {
+                    fragment.Blocks.Remove(block);
+                    box.Document.Blocks.Add(block);
+                }
+
+                caret = box.Document.ContentEnd.GetInsertionPosition(LogicalDirection.Backward);
+            }
+
             box.Selection.Select(caret, caret);
         }
         finally
@@ -705,14 +721,31 @@ public partial class RichMessageEditor : UserControl
         box.Focus();
     }
 
+    /// <summary>The inlines of <paramref name="source"/> in a span at <paramref name="position"/>; when WPF refuses the
+    /// position they are back in <paramref name="source"/> and the exception is rethrown.</summary>
     private static TextPointer InsertInlines(TextPointer position, Paragraph source)
     {
         var inlines = source.Inlines.ToList();
         source.Inlines.Clear();
-        var span = new Span(inlines[0], position);
-        foreach (var inline in inlines.Skip(1))
+        Span? span = null;
+        try
         {
-            span.Inlines.Add(inline);
+            span = new Span(inlines[0], position);
+            foreach (var inline in inlines.Skip(1))
+            {
+                span.Inlines.Add(inline);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            span?.SiblingInlines?.Remove(span);
+            foreach (var inline in inlines)
+            {
+                inline.SiblingInlines?.Remove(inline);
+                source.Inlines.Add(inline);
+            }
+
+            throw;
         }
 
         return span.ElementEnd.GetInsertionPosition(LogicalDirection.Forward);
