@@ -22,9 +22,17 @@ public static class BuiltInFields
     /// <summary>zwrot, nazwa, email, lista, liczba.</summary>
     public static IReadOnlyList<string> All { get; } = [Salutation, Name, Email, List, Count];
 
+    /// <summary>Keys (<see cref="FieldKey"/>) that name the row's name.</summary>
+    internal static IReadOnlySet<string> NameKeys { get; } = new HashSet<string>(StringComparer.Ordinal) { "nazwa", "name" };
+
+    /// <summary>Keys (<see cref="FieldKey"/>) that name the address.</summary>
+    internal static IReadOnlySet<string> EmailKeys { get; } = new HashSet<string>(StringComparer.Ordinal) { "email", "mail", "adresemail" };
+
+    private static readonly HashSet<string> DuplicateColumns = new(StringComparer.Ordinal) { "nazwa", "name", "email", "mail", "adresemail", "zwrot" };
+
     /// <summary>
     /// True for columns that duplicate a built-in field (nazwa/name/email/e-mail/mail/adres e-mail/zwrot): they are hidden
     /// from "Wstaw pole".
     /// </summary>
-    public static bool IsBuiltInColumn(string column) => throw new NotImplementedException("U5 T1 core");
+    public static bool IsBuiltInColumn(string column) => DuplicateColumns.Contains(FieldKey.Of(column));
 }
