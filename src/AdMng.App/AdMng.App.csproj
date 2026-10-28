@@ -24,6 +24,8 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <!-- U1c: the rendered preview of messages (WebView2Host, HtmlPreviewView); the source view is the fallback. -->
     <PackageReference Include="Microsoft.Web.WebView2" />
+    <!-- U5: DPAPI protection of the Korespondencja journal key (DpapiKeyProtector). -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\AdMng.ico" />

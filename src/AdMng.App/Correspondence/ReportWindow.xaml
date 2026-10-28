@@ -1,15 +1,46 @@
-<!-- A read-only report of Korespondencja (ReportViewModel, modal, design note 9.4). Scaffold: the App track adds the
-     monospace text box and the "Kopiuj" / "Zamknij" buttons. -->
+<!--
+  A read-only report of Korespondencja (ReportViewModel, modal, design note 9.4): diagnostics ("Sprawdź Outlooka"), the
+  journal statistics, the help text – monospace and selectable, with "Kopiuj" (the whole text to the clipboard) and
+  "Zamknij".
+-->
 <Window x:Class="AdMng.App.Correspondence.ReportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:AdMng.App.Localization"
         Title="{Binding WindowTitle, Mode=OneWay}"
         Width="760"
         Height="560"
+        MinWidth="480"
+        MinHeight="320"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner">
-  <TextBlock x:Name="ReportText"
-             Margin="24"
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Style="{StaticResource Ad.DialogFooter}">
+      <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+        <Button x:Name="CopyButton"
+                Command="{Binding CopyCommand}"
+                Content="{l:Tr Common.Copy}"
+                Style="{StaticResource Ad.DialogButton}" />
+        <Button x:Name="CloseButton"
+                Command="{Binding CloseCommand}"
+                Content="{l:Tr Common.Close}"
+                IsCancel="True"
+                IsDefault="True"
+                Style="{StaticResource Ad.AccentDialogButton}" />
+      </StackPanel>
+    </Border>
+    <TextBox x:Name="ReportTextBox"
+             Margin="16,16,16,12"
+             Padding="8"
+             VerticalContentAlignment="Top"
+             AutomationProperties.Name="{l:Tr Correspondence.App.Report.Text}"
+             FontFamily="Cascadia Mono, Consolas, Courier New"
+             FontSize="13"
+             HorizontalScrollBarVisibility="Disabled"
+             IsReadOnly="True"
+             IsReadOnlyCaretVisible="True"
              Text="{Binding Text, Mode=OneWay}"
-             TextWrapping="Wrap" />
+             TextWrapping="Wrap"
+             VerticalScrollBarVisibility="Auto" />
+  </DockPanel>
 </Window>

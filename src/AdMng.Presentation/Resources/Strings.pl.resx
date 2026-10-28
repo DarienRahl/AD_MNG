@@ -11920,5 +11920,77 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <!-- U5 send: end -->
 
   <!-- U5 app: begin -->
+  <data name="Correspondence.App.Editor.Body" xml:space="preserve">
+    <value>Treść wiadomości</value>
+  </data>
+  <data name="Correspondence.App.Editor.Toolbar" xml:space="preserve">
+    <value>Formatowanie</value>
+  </data>
+  <data name="Correspondence.App.Editor.Bold" xml:space="preserve">
+    <value>Pogrubienie (Ctrl+B)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Italic" xml:space="preserve">
+    <value>Kursywa (Ctrl+I)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Underline" xml:space="preserve">
+    <value>Podkreślenie (Ctrl+U)</value>
+  </data>
+  <data name="Correspondence.App.Editor.Bullets" xml:space="preserve">
+    <value>Lista punktowana</value>
+  </data>
+  <data name="Correspondence.App.Editor.Numbering" xml:space="preserve">
+    <value>Lista numerowana</value>
+  </data>
+  <data name="Correspondence.App.Editor.Link" xml:space="preserve">
+    <value>Wstaw odsyłacz…</value>
+  </data>
+  <data name="Correspondence.App.Editor.ClearFormatting" xml:space="preserve">
+    <value>Wyczyść formatowanie zaznaczenia</value>
+  </data>
+  <data name="Correspondence.App.Editor.PastePlain" xml:space="preserve">
+    <value>Wklej bez formatowania</value>
+  </data>
+  <data name="Correspondence.App.Editor.PastePlainHint" xml:space="preserve">
+    <value>Wkleja sam tekst ze schowka (Ctrl+Shift+V).</value>
+  </data>
+  <data name="Correspondence.App.Editor.Field" xml:space="preserve">
+    <value>Pole do wstawienia</value>
+  </data>
+  <data name="Correspondence.App.Editor.FieldHint" xml:space="preserve">
+    <value>Pola z listy odbiorców – wstawiane w miejscu kursora</value>
+  </data>
+  <data name="Correspondence.App.Editor.InsertField" xml:space="preserve">
+    <value>Wstaw pole</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkTitle" xml:space="preserve">
+    <value>Wstaw odsyłacz</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkMessage" xml:space="preserve">
+    <value>Adres (np. https://www.contoso.pl), adres e-mail albo pole, np. {{Link}}. Puste pole usuwa odsyłacz.</value>
+  </data>
+  <data name="Correspondence.App.Editor.SelectTextForLink" xml:space="preserve">
+    <value>Zaznacz najpierw tekst, który ma być odsyłaczem.</value>
+  </data>
+  <data name="Correspondence.App.Editor.LinkInOneParagraph" xml:space="preserve">
+    <value>Odsyłacz można utworzyć tylko z tekstu w jednym akapicie.</value>
+  </data>
+  <data name="Correspondence.App.Editor.InvalidLink" xml:space="preserve">
+    <value>Odsyłacz nie może prowadzić pod ten adres: {0}</value>
+  </data>
+  <data name="Correspondence.App.Editor.SelectTextToClear" xml:space="preserve">
+    <value>Zaznacz najpierw fragment, z którego mam zdjąć formatowanie.</value>
+  </data>
+  <data name="Correspondence.App.Editor.ClipboardEmpty" xml:space="preserve">
+    <value>Schowek nie zawiera tekstu.</value>
+  </data>
+  <data name="Correspondence.App.Editor.ImageNotPasted" xml:space="preserve">
+    <value>Nie udało się odczytać obrazu ze schowka.</value>
+  </data>
+  <data name="Correspondence.App.Prompt.Text" xml:space="preserve">
+    <value>Tekst</value>
+  </data>
+  <data name="Correspondence.App.Report.Text" xml:space="preserve">
+    <value>Raport</value>
+  </data>
   <!-- U5 app: end -->
 </root>
