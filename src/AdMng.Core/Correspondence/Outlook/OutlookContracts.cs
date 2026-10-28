@@ -225,3 +225,26 @@ public interface IOutlookSignatureSource
     /// <summary>Reads and parses one signature (<see cref="OutlookSignatureParser"/>); null when it does not exist.</summary>
     Task<SignatureParseResult?> ReadAsync(string name, int ansiCodePage, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// A classified Outlook failure of an operation that has no result slot for it (<see cref="IOutlookSession.RenderAsync"/>,
+/// <see cref="IOutlookSession.DiagnoseAsync"/>, <see cref="IOutlookSession.FindCampaignsAsync"/>,
+/// <see cref="IOutlookSession.ReadResponsesAsync"/>). Like <see cref="OutlookFailure"/> it never carries the message of the
+/// original exception (it may contain addresses) and has no inner exception: only the kind, the code, the step and the
+/// HRESULT.
+/// </summary>
+public sealed class OutlookException : Exception
+{
+    public OutlookException(OutlookFailure failure)
+        : base($"Outlook failed ({failure?.Code}, step {failure?.Step ?? "-"}).")
+    {
+        Failure = failure ?? throw new ArgumentNullException(nameof(failure));
+        if (failure.HResult is { } hresult)
+        {
+            HResult = hresult;
+        }
+    }
+
+    /// <summary>The classified failure.</summary>
+    public OutlookFailure Failure { get; }
+}
