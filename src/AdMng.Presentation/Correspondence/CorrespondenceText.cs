@@ -7,8 +7,19 @@ namespace AdMng.Presentation.Correspondence;
 /// <c>Correspondence.SendMode.{value}</c>, <c>Correspondence.Width.{value}</c>, <c>Correspondence.Status.{kind}</c>,
 /// <c>Correspondence.Format.{format}</c>.
 /// </summary>
-public static class CorrespondenceText
+public static partial class CorrespondenceText
 {
-    /// <summary>Every key of the dynamic families (the localization test checks both languages); the tracks add theirs.</summary>
-    public static IReadOnlyList<string> AllDynamicKeys() => [];
+    /// <summary>Every key of the dynamic families (the localization test checks both languages).</summary>
+    public static IReadOnlyList<string> AllDynamicKeys() =>
+        [.. ShellKeys(), .. RecipientsKeys(), .. MailboxesKeys(), .. MessageKeys(), .. SendKeys()];
+
+    private static partial IEnumerable<string> ShellKeys();
+
+    private static partial IEnumerable<string> RecipientsKeys();
+
+    private static partial IEnumerable<string> MailboxesKeys();
+
+    private static partial IEnumerable<string> MessageKeys();
+
+    private static partial IEnumerable<string> SendKeys();
 }
