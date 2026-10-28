@@ -152,7 +152,7 @@ public sealed class UserMessageTemplateLibrary
 
     /// <summary>
     /// Imports templates from JSON (format versions 1 and 2): valid ones are added as copies with new ids. Every image goes
-    /// through <see cref="MessageImage.Create(ReadOnlySpan{byte}, string?, string?, int)"/> (magic bytes, limits, metadata
+    /// through <see cref="MessageImage.Create(ReadOnlySpan{byte}, string?, string?, int, int)"/> (magic bytes, limits, metadata
     /// stripped) and must have its declared SHA-256; a template whose image fails keeps its text and loses that image.
     /// </summary>
     /// <exception cref="FormatException">Not a templates file, or larger than <see cref="MaxFileLength"/>.</exception>

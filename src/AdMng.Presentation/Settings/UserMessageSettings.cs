@@ -12,6 +12,9 @@ public enum UserMessageTransportChoice
     DirectSmtp,
 
     Watchdog,
+
+    /// <summary>Through classic Outlook on this computer (U5): <see cref="UserMessageSettings.OutlookAccount"/> or the profile's default account.</summary>
+    Outlook,
 }
 
 /// <summary>The direct SMTP connection of AD Manager. Never a password (it is asked when needed and kept in memory).</summary>
@@ -122,6 +125,15 @@ public sealed class UserMessageSettings
 
     public SmtpConnectionSettings Smtp { get; set; } = new();
 
+    /// <summary>
+    /// <see cref="UserMessageTransportChoice.Outlook"/>: the SMTP address of the Outlook profile account to send from; null =
+    /// the profile's default account (U5).
+    /// </summary>
+    public string? OutlookAccount { get; set; }
+
+    /// <summary><see cref="UserMessageTransportChoice.Outlook"/>: put <see cref="FromAddress"/> into "w imieniu" (SentOnBehalfOfName).</summary>
+    public bool OutlookOnBehalfOfSender { get; set; }
+
     /// <summary>The operator's templates (built-ins are not stored).</summary>
     public List<MessageTemplate> Templates { get; set; } = [];
 
@@ -147,6 +159,7 @@ public sealed class UserMessageSettings
         ConfirmationThreshold = Math.Clamp(ConfirmationThreshold, 1, 100_000);
         AllowedLinkDomains = [.. (AllowedLinkDomains ?? []).Select(UserMessageRules.NormalizeDomain).Where(d => d.Length > 0).Distinct(StringComparer.Ordinal)];
         Transport = Enum.IsDefined(Transport) ? Transport : UserMessageTransportChoice.Automatic;
+        OutlookAccount = Clean(OutlookAccount);
         Smtp ??= new();
         Smtp.Normalize();
         Salutations ??= new();

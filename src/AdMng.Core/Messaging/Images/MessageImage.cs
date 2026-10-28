@@ -52,13 +52,17 @@ public sealed partial record MessageImage
     /// Validates, strips and hashes an image. <paramref name="fileName"/> (only its base name is used) and
     /// <paramref name="declaredMediaType"/> must agree with the content when given.
     /// </summary>
-    /// <param name="data">The bytes as read (at most <see cref="MessageImageLimits.MaxImageBytes"/> after stripping).</param>
+    /// <param name="data">The bytes as read (at most <paramref name="maxImageBytes"/> after stripping).</param>
     /// <param name="fileName">Original file name ("clip_image001.png"), or null.</param>
     /// <param name="declaredMediaType">Media type of a data: URI or a request, or null.</param>
     /// <param name="number">Number of a generated file name (<c>image{n}.png</c>).</param>
+    /// <param name="maxImageBytes">The largest image after stripping: <see cref="MessageImageLimits.MaxImageBytes"/> for
+    /// messages to users (U1c), <c>CorrespondenceLimits.MaxImageBytes</c> for Korespondencja (U5).</param>
     /// <exception cref="MessageImageException">The image is refused.</exception>
-    public static MessageImage Create(ReadOnlySpan<byte> data, string? fileName = null, string? declaredMediaType = null, int number = 1)
+    public static MessageImage Create(
+        ReadOnlySpan<byte> data, string? fileName = null, string? declaredMediaType = null, int number = 1, int maxImageBytes = MessageImageLimits.MaxImageBytes)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxImageBytes);
         if (data.IsEmpty)
         {
             throw new MessageImageException(MessageImageError.Empty);
@@ -78,7 +82,7 @@ public sealed partial record MessageImage
 
         var structure = ImageFormats.Inspect(data);
         var stripped = ImageMetadataStripper.Strip(data, structure);
-        if (stripped.Length > MessageImageLimits.MaxImageBytes)
+        if (stripped.Length > maxImageBytes)
         {
             throw new MessageImageException(MessageImageError.TooLarge);
         }
@@ -97,11 +101,13 @@ public sealed partial record MessageImage
     }
 
     /// <summary>Like <see cref="Create"/>, without an exception.</summary>
-    public static bool TryCreate(ReadOnlySpan<byte> data, string? fileName, string? declaredMediaType, out MessageImage? image, out MessageImageError error)
+    public static bool TryCreate(
+        ReadOnlySpan<byte> data, string? fileName, string? declaredMediaType, out MessageImage? image, out MessageImageError error,
+        int maxImageBytes = MessageImageLimits.MaxImageBytes)
     {
         try
         {
-            image = Create(data, fileName, declaredMediaType);
+            image = Create(data, fileName, declaredMediaType, maxImageBytes: maxImageBytes);
             error = default;
             return true;
         }

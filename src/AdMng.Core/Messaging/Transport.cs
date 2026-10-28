@@ -10,6 +10,9 @@ public enum UserMessageTransportKind
 
     /// <summary>Through the AdMng Watchdog service (README U1b).</summary>
     Watchdog,
+
+    /// <summary>Through classic Outlook on this computer (U5, AdMng.Outlook, design note docs/dev/u5-outlook-correspondence.md 5).</summary>
+    Outlook,
 }
 
 /// <summary>
@@ -44,6 +47,16 @@ public sealed record UserMessageTransportCapabilities
 
     /// <summary>An AdMng Watchdog without the U1c contract: no images, HTML up to 100 000 characters.</summary>
     public static UserMessageTransportCapabilities Legacy { get; } = new();
+
+    /// <summary>Classic Outlook (U5): the Korespondencja image limits, HTML up to 2 000 000 characters.</summary>
+    public static UserMessageTransportCapabilities Outlook { get; } = new()
+    {
+        InlineImages = true,
+        MaxInlineImages = Correspondence.Composition.CorrespondenceLimits.MaxImagesPerMessage,
+        MaxInlineImageBytes = Correspondence.Composition.CorrespondenceLimits.MaxImageBytes,
+        MaxInlineImagesTotalBytes = Correspondence.Composition.CorrespondenceLimits.MaxImagesBytesPerMessage,
+        MaxHtmlLength = 2_000_000,
+    };
 }
 
 /// <summary>Whether a transport can be used now; <see cref="Reason"/> is a code (localization key suffix) when not.</summary>

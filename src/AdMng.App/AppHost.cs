@@ -1,6 +1,7 @@
 using System.Windows.Threading;
 using AdMng.App.Computers;
 using AdMng.App.Connections;
+using AdMng.App.Correspondence;
 using AdMng.App.GroupPolicy;
 using AdMng.App.Localization;
 using AdMng.App.Services;
@@ -200,6 +201,11 @@ public static class AppHost
         // exit) and the reader of Outlook's clipboard images that expands 8.3 names of the temp folder. ----
         services.AddSingleton<WebView2Host>();
         services.Replace(ServiceDescriptor.Singleton<IPastedImageSource>(_ => new PastedImageFileSource(expandShortNames: ShortPathNames.Expand)));
+
+        // ---- Korespondencja, README U5 (design note docs/dev/u5-outlook-correspondence.md 9.1): Outlook (AdMng.Outlook), the
+        // journal key protector, the platform and the browser preview (application-wide), the window's dialogs and launcher
+        // (DialogService, scoped) and the windows. After AddAdMngPresentation. ----
+        services.AddAdMngCorrespondenceApp();
 
         // ---- Comparison of objects between connections (design note docs/dev/multi-window.md 8), opened by DialogService ----
         services.AddScoped<IObjectComparisonLauncher>(sp => sp.GetRequiredService<DialogService>());

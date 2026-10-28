@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- U5 Outlook engine (docs/dev/u5-outlook-correspondence.md 4): classic Outlook through COM late binding (dynamic, no
+       PIA) on one STA thread per session, Outlook signatures from %APPDATA%\Microsoft\Signatures and the Outlook transport
+       of messages to users (U1). Windows only at run time (every Windows call is guarded); compiles everywhere. Persists
+       nothing; never logs addresses, subjects or bodies. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>AdMng.Outlook</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AdMng.Core\AdMng.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdMng.Outlook.Tests" />
+  </ItemGroup>
+</Project>

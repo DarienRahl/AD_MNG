@@ -1,0 +1,10 @@
+<!--
+  The WYSIWYG editor of Korespondencja (U5, design note docs/dev/u5-outlook-correspondence.md 9.2): a RichTextBox with an
+  HTML round trip limited to the sanitized subset (FlowDocumentHtml). Scaffold: the App track adds the toolbar (B, I, U,
+  lists, link, clear formatting, paste plain, "Wstaw pole"), the paste handling and the Html synchronization.
+-->
+<UserControl x:Class="AdMng.App.Controls.RichMessageEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <RichTextBox x:Name="MessageEditorBox" AcceptsTab="True" />
+</UserControl>

@@ -11873,4 +11873,43 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
     <value>Ostatnia wersja usuniętego GPO jest nieznana (brak Kosza AD): wersja zostanie podniesiona wyraźnie ponad wersję z kopii, aby każdy klient ponownie przetworzył przywrócone ustawienia.</value>
   </data>
   <!-- K2: Group Policy (end) -->
+
+  <!-- U5 core: begin -->
+  <!-- U5 core: end -->
+
+  <!-- U5 outlook: begin -->
+  <!-- U5 outlook: end -->
+
+  <!-- U5 shell: begin -->
+  <data name="Correspondence.Command" xml:space="preserve">
+    <value>Korespondencja (Outlook)…</value>
+  </data>
+  <data name="Correspondence.ObjectCommand" xml:space="preserve">
+    <value>Wyślij korespondencję…</value>
+  </data>
+  <data name="Correspondence.MailboxOwnersCommand" xml:space="preserve">
+    <value>Zapytaj właścicieli skrzynek…</value>
+  </data>
+  <data name="Correspondence.WindowTitle" xml:space="preserve">
+    <value>Korespondencja – {0}</value>
+  </data>
+  <data name="UserMessages.Transport.Outlook" xml:space="preserve">
+    <value>Przez Outlooka</value>
+  </data>
+  <!-- U5 shell: end -->
+
+  <!-- U5 recipients: begin -->
+  <!-- U5 recipients: end -->
+
+  <!-- U5 mailboxes: begin -->
+  <!-- U5 mailboxes: end -->
+
+  <!-- U5 message: begin -->
+  <!-- U5 message: end -->
+
+  <!-- U5 send: begin -->
+  <!-- U5 send: end -->
+
+  <!-- U5 app: begin -->
+  <!-- U5 app: end -->
 </root>

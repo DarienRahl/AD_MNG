@@ -78,6 +78,8 @@ public sealed class HostTests
         typeof(IUserMessageLauncher),
         typeof(IObjectComparisonLauncher),
         typeof(Presentation.GroupPolicy.IGroupPolicyDialogs),
+        typeof(Presentation.Correspondence.ICorrespondenceDialogs),
+        typeof(Presentation.Correspondence.ICorrespondenceLauncher),
     ];
 
     [Fact]
@@ -146,6 +148,11 @@ public sealed class HostTests
         typeof(ISysvolFileReader),
         typeof(WebView2Host),
         typeof(ISysvolFileWriter),
+        typeof(Core.Correspondence.Outlook.IOutlookClient),
+        typeof(Core.Correspondence.Outlook.IOutlookSignatureSource),
+        typeof(Presentation.Correspondence.IBrowserPreview),
+        typeof(Presentation.Correspondence.ICorrespondenceKeyProtector),
+        typeof(Presentation.Correspondence.ICorrespondencePlatform),
     ];
 
     [Fact]

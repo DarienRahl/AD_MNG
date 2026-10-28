@@ -93,6 +93,12 @@ public sealed class AppSettings
     /// <summary>Group Policy (K2): tree visibility and backup defaults (a folder path, never GPO data).</summary>
     public GroupPolicySettings GroupPolicy { get; set; } = new();
 
+    /// <summary>
+    /// Korespondencja (U5): options, operator templates, the last draft, field definitions and mailbox options (names,
+    /// LDAP filters and portable DNs) - never recipients or directory values.
+    /// </summary>
+    public CorrespondenceSettings Correspondence { get; set; } = new();
+
     /// <summary>Puts <paramref name="distinguishedName"/> first in <see cref="RecentContainers"/> (deduplicated, max <see cref="MaxRecentContainers"/>).</summary>
     public void AddRecentContainer(string distinguishedName)
     {
@@ -137,6 +143,8 @@ public sealed class AppSettings
         Comparison.Normalize();
         GroupPolicy ??= new();
         GroupPolicy.Normalize();
+        Correspondence ??= new();
+        Correspondence.Normalize();
         ConnectionProfiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
         SavedViews.RemoveAll(v => v is null || string.IsNullOrWhiteSpace(v.Id));
         PinnedContainers.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.DistinguishedName));

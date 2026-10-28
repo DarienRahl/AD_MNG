@@ -11,6 +11,7 @@ using AdMng.Presentation.Changes;
 using AdMng.Presentation.Computers;
 using AdMng.Presentation.Connection;
 using AdMng.Presentation.Connections;
+using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.Errors;
 using AdMng.Presentation.GroupPolicy;
@@ -112,6 +113,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<Core.Messaging.Html.IPastedImageSource>(_ => new UserMessages.PastedImageFileSource());
         services.TryAddSingleton(sp => new MessageRateLimiter(sp.GetRequiredService<TimeProvider>()));
         services.TryAddScoped<UserMessages.UserMessageServices>();
+
+        // Korespondencja (U5): the template library and the journal (application-wide), the window's services and factory
+        // (per connection window). The host adds Outlook, the key protector, the platform, the dialogs and the launcher.
+        services.AddAdMngCorrespondence();
         services.TryAddScoped<IDialogViewModelFactory, DialogViewModelFactory>();
 
         // View models (one per window / dialog). The shell is per connection window: the window, its tools and the

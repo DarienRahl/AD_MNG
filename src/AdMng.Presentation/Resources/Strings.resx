@@ -11873,4 +11873,43 @@ Anyone who can read the file can see these values - store it securely and delete
     <value>The deleted GPO's last version is unknown (no Recycle Bin): the version is raised well above the backup's so that every client processes the restored settings again.</value>
   </data>
   <!-- K2: Group Policy (end) -->
+
+  <!-- U5 core: begin -->
+  <!-- U5 core: end -->
+
+  <!-- U5 outlook: begin -->
+  <!-- U5 outlook: end -->
+
+  <!-- U5 shell: begin -->
+  <data name="Correspondence.Command" xml:space="preserve">
+    <value>Correspondence (Outlook)…</value>
+  </data>
+  <data name="Correspondence.ObjectCommand" xml:space="preserve">
+    <value>Send correspondence…</value>
+  </data>
+  <data name="Correspondence.MailboxOwnersCommand" xml:space="preserve">
+    <value>Ask mailbox owners…</value>
+  </data>
+  <data name="Correspondence.WindowTitle" xml:space="preserve">
+    <value>Correspondence – {0}</value>
+  </data>
+  <data name="UserMessages.Transport.Outlook" xml:space="preserve">
+    <value>Through Outlook</value>
+  </data>
+  <!-- U5 shell: end -->
+
+  <!-- U5 recipients: begin -->
+  <!-- U5 recipients: end -->
+
+  <!-- U5 mailboxes: begin -->
+  <!-- U5 mailboxes: end -->
+
+  <!-- U5 message: begin -->
+  <!-- U5 message: end -->
+
+  <!-- U5 send: begin -->
+  <!-- U5 send: end -->
+
+  <!-- U5 app: begin -->
+  <!-- U5 app: end -->
 </root>
