@@ -81,16 +81,33 @@ public static class ContactExtractor
         return emptyTable is null ? free : free with { InvalidAddresses = free.InvalidAddresses + emptyTable.InvalidAddresses };
     }
 
-    /// <summary>One sheet or table (header within the first 8 rows); without an e-mail column its cells are free text.</summary>
+    /// <summary>One sheet or table (header within the first 8 rows; the rows above it are free text); without an e-mail
+    /// column its cells are free text.</summary>
     public static ContactImportResult FromRows(IReadOnlyList<IReadOnlyList<string>> rows, ContactSourceFormat format)
     {
         ArgumentNullException.ThrowIfNull(rows);
-        if (TryTable(rows, format, minimumCells: 1, out var table, out _))
+        if (TryTable(rows, format, minimumCells: 1, out var table, out var headerRow))
+        {
+            return WithPreamble(rows, headerRow, table, format);
+        }
+
+        return FreeText(RowsText(rows), format);
+    }
+
+    /// <summary>The table's contacts after those of the free text in the rows above its header.</summary>
+    internal static ContactImportResult WithPreamble(
+        IReadOnlyList<IReadOnlyList<string>> rows, int headerRow, ContactImportResult table, ContactSourceFormat format)
+    {
+        var above = rows.Take(headerRow).ToList();
+        if (!above.Any(r => r.Any(c => c?.Contains('@', StringComparison.Ordinal) == true)))
         {
             return table;
         }
 
-        return FreeText(RowsText(rows), format);
+        var accumulator = new ContactAccumulator();
+        accumulator.Merge(FreeText(RowsText(above), format));
+        accumulator.Merge(table);
+        return accumulator.Result(format);
     }
 
     /// <summary>The rows as text: cells joined by tab, rows by new lines.</summary>
@@ -287,8 +304,8 @@ public static class ContactExtractor
         return (name, given, surname);
     }
 
-    /// <summary>The columns of a table: every column with a header or a value, named by its trimmed header ("Kolumna N"
-    /// when empty), a repeated name made unique as "Name (2)".</summary>
+    /// <summary>The columns of a table: every column (of the first 256) with a header or a value, named by its trimmed
+    /// header ("Kolumna N" when empty), a repeated name made unique as "Name (2)".</summary>
     private static List<(int Index, string Name)> Columns(IReadOnlyList<string> header, List<IReadOnlyList<string>> data)
     {
         var width = header.Count;
@@ -296,6 +313,8 @@ public static class ContactExtractor
         {
             width = Math.Max(width, row.Count);
         }
+
+        width = Math.Min(width, SpreadsheetLimits.MaxColumns);   // a crafted row of a million cells is no contact list
 
         var columns = new List<(int Index, string Name)>();
         var keys = new HashSet<string>(StringComparer.Ordinal);

@@ -213,6 +213,16 @@ public class ContactExtractorTests
     }
 
     [Fact]
+    public void FromText_AtMost256Columns()
+    {
+        var header = "E-mail;" + string.Join(";", Enumerable.Range(1, 400).Select(i => $"K{i}"));
+        var row = "a@x.pl;" + string.Join(";", Enumerable.Range(1, 400).Select(i => i.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        var result = ContactExtractor.FromText(header + "\n" + row);
+        Assert.Equal(256, result.Columns.Count);
+        Assert.Equal(256, Assert.Single(result.Contacts).Fields.Count);
+    }
+
+    [Fact]
     public void FromText_SeveralAddressesInACell_TakesTheFirstValid()
     {
         var contact = Assert.Single(ContactExtractor.FromText("Nazwa;E-mail\nGmina;brak, sekretariat@gmina.pl, wojt@gmina.pl").Contacts);
@@ -263,6 +273,17 @@ public class ContactExtractorTests
         var result = ContactExtractor.FromRows(
             Rows([], ["", ""], ["Wykaz"], ["Nazwa", "E-mail"], ["Gmina Łomianki", "gmina@lomianki.pl"]), ContactSourceFormat.Word);
         Assert.Equal("Gmina Łomianki", Assert.Single(result.Contacts).Name);
+    }
+
+    [Fact]
+    public void FromRows_RowsAboveTheHeaderAreFreeText()
+    {
+        var result = ContactExtractor.FromRows(
+            Rows(["Wykaz – pytania: Biuro Rady <rada@gmina.pl>"], ["Nazwa", "E-mail"], ["Sołectwo Łąki", "soltys@laki.pl"]), ContactSourceFormat.Excel);
+        Assert.Equal(["rada@gmina.pl", "soltys@laki.pl"], result.Contacts.Select(c => c.Email));
+        Assert.Equal("Biuro Rady", result.Contacts[0].Name);
+        Assert.Equal(["Nazwa", "E-mail"], result.Columns);
+        Assert.Equal(ContactSourceFormat.Excel, result.Format);
     }
 
     [Fact]

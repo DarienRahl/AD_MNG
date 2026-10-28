@@ -80,6 +80,10 @@ public static class ContactFileReader
         {
             throw new InvalidDataException("The file is not well-formed XML or uses a prohibited feature (DTD).", ex);
         }
+        catch (NotSupportedException ex)
+        {
+            throw new InvalidDataException("The package uses a feature that is not supported (compression method).", ex);
+        }
     }
 
     private static string Extension(string fileName)

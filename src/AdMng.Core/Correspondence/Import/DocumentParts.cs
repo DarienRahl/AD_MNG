@@ -75,8 +75,8 @@ internal sealed class DocumentParts
         return accumulator.Result(format);
     }
 
-    /// <summary>Spreadsheet semantics: the tables that have an e-mail column, concatenated; when none has one, everything
-    /// as free text.</summary>
+    /// <summary>Spreadsheet semantics: the tables that have an e-mail column (each with the free text above its header),
+    /// concatenated; when none has one, everything as free text.</summary>
     public ContactImportResult SheetContacts(ContactSourceFormat format) => Sheets(Tables.ToList(), AllText, format);
 
     internal static ContactImportResult Sheets(
@@ -86,10 +86,10 @@ internal sealed class DocumentParts
         var any = false;
         foreach (var sheet in sheets)
         {
-            if (ContactExtractor.TryTable(sheet, format, minimumCells: 1, out var table, out _))
+            if (ContactExtractor.TryTable(sheet, format, minimumCells: 1, out var table, out var headerRow))
             {
                 any = true;
-                accumulator.Merge(table);
+                accumulator.Merge(ContactExtractor.WithPreamble(sheet, headerRow, table, format));
             }
         }
 
