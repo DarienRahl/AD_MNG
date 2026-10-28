@@ -826,7 +826,12 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             _transport = choice.Transport;
             NeedsSmtpPassword = choice.NeedsPassword;
             TransportText = choice.Transport is { } transport
-                ? Localizer.Format(transport.Kind == UserMessageTransportKind.Watchdog ? L.UserMessages.ViaWatchdog : L.UserMessages.ViaSmtp, transport.Description)
+                ? transport.Kind switch
+                {
+                    UserMessageTransportKind.Watchdog => Localizer.Format(L.UserMessages.ViaWatchdog, transport.Description),
+                    UserMessageTransportKind.Outlook => Localizer.Format(L.UserMessages.ViaOutlook, OutlookAccountText()),
+                    _ => Localizer.Format(L.UserMessages.ViaSmtp, transport.Description),
+                }
                 : Localizer[UserMessageText.ProblemKey(choice.Problem ?? UserMessageTransportChoiceResult.SmtpNotConfigured)];
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TimeoutException)
@@ -835,6 +840,10 @@ public sealed partial class UserMessageComposerViewModel : WindowViewModelBase
             TransportText = Errors.Translate(ex);
         }
     }
+
+    /// <summary>The Outlook account of the settings, or "konto domyślne profilu" (U5).</summary>
+    private string OutlookAccountText() =>
+        Services.Settings.Current.UserMessages.OutlookAccount is { Length: > 0 } account ? account : Localizer[L.UserMessagesOutlook.DefaultAccount];
 
     /// <summary>The transport for a send; asks the SMTP password from the window's box when needed (kept in memory only).</summary>
     private async Task<IUserMessageTransport?> EnsureTransportAsync()

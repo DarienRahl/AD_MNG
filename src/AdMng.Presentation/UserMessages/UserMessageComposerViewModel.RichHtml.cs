@@ -370,6 +370,10 @@ public sealed partial class UserMessageComposerViewModel
         {
             capabilities = UserMessageTransportCapabilities.Direct;
         }
+        else if (transport.Kind == UserMessageTransportKind.Outlook)
+        {
+            capabilities = UserMessageTransportCapabilities.Outlook;   // U5: the Korespondencja image limits
+        }
         else
         {
             UserMessageTransportStatus status;
