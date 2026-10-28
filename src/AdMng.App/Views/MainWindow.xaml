@@ -387,6 +387,8 @@
           <MenuItem b:CommandMenu.Id="computer.reset" />
         </MenuItem>
         <MenuItem b:CommandMenu.Id="object.sendMessage" />
+        <MenuItem b:CommandMenu.Id="object.correspondence" />
+        <MenuItem b:CommandMenu.Id="object.mailboxOwners" />
         <MenuItem b:CommandMenu.Id="object.move" />
         <MenuItem b:CommandMenu.Id="object.batchEdit" />
         <Separator />
@@ -473,6 +475,7 @@
         <Separator />
         <MenuItem b:CommandMenu.Id="tools.recycleBin" />
         <MenuItem b:CommandMenu.Id="tools.accountReview" />
+        <MenuItem b:CommandMenu.Id="tools.correspondence" />
         <MenuItem b:CommandMenu.Id="tools.computerReview" />
         <MenuItem b:CommandMenu.Id="tools.savedFilters" />
         <MenuItem b:CommandMenu.Id="tools.watchdog" />

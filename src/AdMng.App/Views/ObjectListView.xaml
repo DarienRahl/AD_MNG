@@ -241,6 +241,8 @@
               <MenuItem b:CommandMenu.Id="computer.reset" />
             </MenuItem>
             <MenuItem b:CommandMenu.Id="object.sendMessage" />
+            <MenuItem b:CommandMenu.Id="object.correspondence" />
+            <MenuItem b:CommandMenu.Id="object.mailboxOwners" />
             <MenuItem b:CommandMenu.Id="object.move" />
             <MenuItem b:CommandMenu.Id="gpo.containerPolicies" />
             <MenuItem b:CommandMenu.Id="object.batchEdit" />
