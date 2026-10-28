@@ -155,6 +155,19 @@ public interface IUserMessageConnection : IAsyncDisposable
     Task<UserMessageDelivery> SendAsync(OutgoingUserMessage message, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Creates the Outlook transport of messages to users (U5, design note docs/dev/u5-outlook-correspondence.md 5): implemented
+/// by AdMng.Outlook (<c>OutlookUserMessageTransportFactory</c>) and registered by the app, so Presentation, which does not
+/// reference AdMng.Outlook, can build the transport of the choice Outlook.
+/// </summary>
+public interface IOutlookUserMessageTransportFactory
+{
+    /// <param name="account">The SMTP address of the Outlook profile account to send from; null or blank: the profile's
+    /// default account.</param>
+    /// <param name="onBehalfOfSender">Put the message's From address into "w imieniu" (SentOnBehalfOfName).</param>
+    IUserMessageTransport Create(string? account, bool onBehalfOfSender);
+}
+
 /// <summary>TLS of the direct SMTP connection.</summary>
 public enum SmtpTlsMode
 {
