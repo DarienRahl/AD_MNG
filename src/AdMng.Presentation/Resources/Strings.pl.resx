@@ -12196,9 +12196,591 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <!-- U5 mailboxes: end -->
 
   <!-- U5 message: begin -->
+  <data name="Correspondence.Message.NoSignature" xml:space="preserve">
+    <value>(bez podpisu)</value>
+  </data>
+  <data name="Correspondence.Message.NoSignatures" xml:space="preserve">
+    <value>Nie znaleziono podpisów Outlooka w folderze {0}.</value>
+  </data>
+  <data name="Correspondence.Message.SignaturesUnreadable" xml:space="preserve">
+    <value>Nie udało się odczytać listy podpisów Outlooka: {0}</value>
+  </data>
+  <data name="Correspondence.Message.SignatureNotFound" xml:space="preserve">
+    <value>Nie znaleziono podpisu „{0}”.</value>
+  </data>
+  <data name="Correspondence.Message.SignatureUnreadable" xml:space="preserve">
+    <value>Nie udało się wczytać podpisu „{0}”: {1}</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblems" xml:space="preserve">
+    <value>Podpis „{0}”: {1}</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.tooDeep" xml:space="preserve">
+    <value>podpis jest zagnieżdżony zbyt głęboko – pominięto jego treść</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.imageUnreadable" xml:space="preserve">
+    <value>nie udało się odczytać obrazu {0}</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.imageRejected" xml:space="preserve">
+    <value>odrzucono obraz ({0})</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.imagePathRefused" xml:space="preserve">
+    <value>pominięto obraz spoza folderu podpisów ({0})</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.remoteImage" xml:space="preserve">
+    <value>usunięto obraz z serwera {0} – obrazy z sieci nie są pobierane</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.contentRemoved" xml:space="preserve">
+    <value>usunięto niedozwoloną treść ({0})</value>
+  </data>
+  <data name="Correspondence.Message.SignatureProblem.signature.linkRemoved" xml:space="preserve">
+    <value>usunięto łącze ze schematem {0}</value>
+  </data>
+  <data name="Correspondence.Message.AttachmentsHeader" xml:space="preserve">
+    <value>Załączniki</value>
+  </data>
+  <data name="Correspondence.Message.AttachmentsHeaderCount" xml:space="preserve">
+    <value>Załączniki ({0}, {1})</value>
+  </data>
+  <data name="Correspondence.Message.AttachmentMissing" xml:space="preserve">
+    <value>brak pliku</value>
+  </data>
+  <data name="Correspondence.Message.AddAttachmentsTitle" xml:space="preserve">
+    <value>Dodaj załączniki</value>
+  </data>
+  <data name="Correspondence.Message.AllFiles" xml:space="preserve">
+    <value>Wszystkie pliki</value>
+  </data>
+  <data name="Correspondence.Message.LargeAttachmentsTitle" xml:space="preserve">
+    <value>Duże załączniki</value>
+  </data>
+  <data name="Correspondence.Message.LargeAttachments" xml:space="preserve">
+    <value>Załączniki ważą razem {0}. Wiele serwerów urzędowych odrzuca wiadomości powyżej 10–20 MB – rozważ wysłanie łącza zamiast pliku. Załączniki trafiają do każdej wiadomości wysyłki.</value>
+  </data>
+  <data name="Correspondence.Message.DeliverTimeInvalid" xml:space="preserve">
+    <value>Nie rozumiem godziny „{0}” – wpisz ją w formacie 08:30.</value>
+  </data>
+  <data name="Correspondence.Message.DeliverNotFuture" xml:space="preserve">
+    <value>Termin dostarczenia musi być w przyszłości (podano {0}).</value>
+  </data>
+  <data name="Correspondence.Message.DeliverTooFar" xml:space="preserve">
+    <value>Termin dostarczenia jest dalej niż rok – sprawdź datę.</value>
+  </data>
+  <data name="Correspondence.Message.SubjectEmpty" xml:space="preserve">
+    <value>Wpisz temat wiadomości.</value>
+  </data>
+  <data name="Correspondence.Message.SubjectTooLong" xml:space="preserve">
+    <value>Temat jest dłuższy niż {0} znaków.</value>
+  </data>
+  <data name="Correspondence.Message.BodyEmpty" xml:space="preserve">
+    <value>Treść wiadomości jest pusta.</value>
+  </data>
+  <data name="Correspondence.Message.AttachmentsMissing" xml:space="preserve">
+    <value>Brakuje plików załączników: {0}. Usuń je z listy albo przywróć pliki.</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldError" xml:space="preserve">
+    <value>Pole własne „{0}”: {1}</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldNameEmpty" xml:space="preserve">
+    <value>wpisz nazwę pola</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldNameInvalid" xml:space="preserve">
+    <value>nazwa nie może zawierać znaków {0} i może mieć najwyżej {1} znaków</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldDuplicate" xml:space="preserve">
+    <value>pole o tej nazwie już jest</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldBuiltIn" xml:space="preserve">
+    <value>to nazwa pola wbudowanego</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldColumn" xml:space="preserve">
+    <value>to nazwa kolumny listy odbiorców</value>
+  </data>
+  <data name="Correspondence.Message.CustomFieldUsesCustom" xml:space="preserve">
+    <value>wartość nie może używać innych pól własnych ({0})</value>
+  </data>
+  <data name="Correspondence.Message.ImagesOverLimit" xml:space="preserve">
+    <value>Obrazy przekraczają limit wiadomości: {0} obrazów, {1} (najwyżej {2} obrazów i {3}).</value>
+  </data>
+  <data name="Correspondence.Message.VotingEmpty" xml:space="preserve">
+    <value>Wpisz odpowiedzi przycisków głosowania oddzielone średnikiem.</value>
+  </data>
+  <data name="Correspondence.Message.ImageRejected" xml:space="preserve">
+    <value>Obraz odrzucony: {0}</value>
+  </data>
+  <data name="Correspondence.Message.ImageTooLarge" xml:space="preserve">
+    <value>Obraz odrzucony: jest większy niż {0}.</value>
+  </data>
+  <data name="Correspondence.Message.ImageTooLargeReason" xml:space="preserve">
+    <value>większy niż {0}</value>
+  </data>
+  <data name="Correspondence.Message.ImageLimit" xml:space="preserve">
+    <value>W treści może być najwyżej {0} obrazów.</value>
+  </data>
+  <data name="Correspondence.Message.PasteTooLarge" xml:space="preserve">
+    <value>Wklejana treść jest za duża.</value>
+  </data>
+  <data name="Correspondence.Message.PasteProblems" xml:space="preserve">
+    <value>Wklejono z uwagami: {0}</value>
+  </data>
+  <data name="Correspondence.Message.BuiltInTemplate" xml:space="preserve">
+    <value>{0} (wbudowany)</value>
+  </data>
+  <data name="Correspondence.Message.TemplatesTitle" xml:space="preserve">
+    <value>Szablony korespondencji</value>
+  </data>
+  <data name="Correspondence.Message.ReplaceMessage" xml:space="preserve">
+    <value>Zastąpić bieżącą wiadomość szablonem „{0}”? Temat, treść i pola własne zostaną zastąpione.</value>
+  </data>
+  <data name="Correspondence.Message.TemplateNameRequired" xml:space="preserve">
+    <value>Wpisz nazwę szablonu.</value>
+  </data>
+  <data name="Correspondence.Message.TemplateSaved" xml:space="preserve">
+    <value>Zapisano szablon „{0}”.</value>
+  </data>
+  <data name="Correspondence.Message.TemplateTooMany" xml:space="preserve">
+    <value>Można zapisać najwyżej {0} szablonów – usuń niepotrzebne.</value>
+  </data>
+  <data name="Correspondence.Message.DeleteTemplate" xml:space="preserve">
+    <value>Usunąć szablon „{0}”?</value>
+  </data>
+  <data name="Correspondence.Message.TemplateDeleted" xml:space="preserve">
+    <value>Usunięto szablon „{0}”.</value>
+  </data>
+  <data name="Correspondence.Message.ExportTitle" xml:space="preserve">
+    <value>Eksport szablonów korespondencji</value>
+  </data>
+  <data name="Correspondence.Message.ImportTitle" xml:space="preserve">
+    <value>Import szablonów korespondencji</value>
+  </data>
+  <data name="Correspondence.Message.JsonFilter" xml:space="preserve">
+    <value>Szablony (*.json)</value>
+  </data>
+  <data name="Correspondence.Message.Exported" xml:space="preserve">
+    <value>Zapisano szablony: {0}</value>
+  </data>
+  <data name="Correspondence.Message.Imported" xml:space="preserve">
+    <value>Zaimportowano szablony: {0}.</value>
+  </data>
+  <data name="Correspondence.Message.ImportedImagesRejected" xml:space="preserve">
+    <value>Zaimportowano szablony: {0} (pominięte obrazy: {1}).</value>
+  </data>
+  <data name="Correspondence.Message.ImportInvalid" xml:space="preserve">
+    <value>To nie jest plik szablonów korespondencji AD Managera.</value>
+  </data>
+  <data name="Correspondence.Message.FileFailed" xml:space="preserve">
+    <value>Nie udało się odczytać ani zapisać pliku: {0}</value>
+  </data>
+  <data name="Correspondence.Message.NewMessageTitle" xml:space="preserve">
+    <value>Nowa wiadomość</value>
+  </data>
+  <data name="Correspondence.Message.NewMessage" xml:space="preserve">
+    <value>Wyczyścić temat, treść, pola własne i załączniki?</value>
+  </data>
+  <data name="Correspondence.SendMode.Individual" xml:space="preserve">
+    <value>Osobna wiadomość do każdego</value>
+  </data>
+  <data name="Correspondence.SendMode.Bcc" xml:space="preserve">
+    <value>Jedna wiadomość, odbiorcy w UDW</value>
+  </data>
+  <data name="Correspondence.Preview.From" xml:space="preserve">
+    <value>Od:</value>
+  </data>
+  <data name="Correspondence.Preview.To" xml:space="preserve">
+    <value>Do:</value>
+  </data>
+  <data name="Correspondence.Preview.Subject" xml:space="preserve">
+    <value>Temat:</value>
+  </data>
+  <data name="Correspondence.Preview.Attachments" xml:space="preserve">
+    <value>Załączniki:</value>
+  </data>
+  <data name="Correspondence.Preview.Bcc" xml:space="preserve">
+    <value>UDW:</value>
+  </data>
+  <data name="Correspondence.Preview.OnBehalf" xml:space="preserve">
+    <value>{0} (w imieniu)</value>
+  </data>
+  <data name="Correspondence.Preview.DefaultAccount" xml:space="preserve">
+    <value>konto domyślne profilu Outlooka</value>
+  </data>
+  <data name="Correspondence.Preview.None" xml:space="preserve">
+    <value>–</value>
+  </data>
+  <data name="Correspondence.Preview.SampleAddress" xml:space="preserve">
+    <value>adres@odbiorcy.pl</value>
+  </data>
+  <data name="Correspondence.Preview.OwnAddress" xml:space="preserve">
+    <value>(Twój adres)</value>
+  </data>
+  <data name="Correspondence.Preview.BccCount" xml:space="preserve">
+    <value>{0} odbiorców</value>
+  </data>
+  <data name="Correspondence.Preview.InfoImages" xml:space="preserve">
+    <value>obrazków osadzonych: {0}</value>
+  </data>
+  <data name="Correspondence.Preview.InfoFields" xml:space="preserve">
+    <value>pola: {0}</value>
+  </data>
+  <data name="Correspondence.Preview.InfoOutlook" xml:space="preserve">
+    <value>Podgląd z Outlooka · obrazków osadzonych: {0} · załączników w wiadomości: {1}</value>
+  </data>
+  <data name="Correspondence.Preview.OutlookNote" xml:space="preserve">
+    <value>Treść pobrana z Outlooka – dokładnie to wyjdzie do odbiorcy.</value>
+  </data>
+  <data name="Correspondence.Preview.OutlookDone" xml:space="preserve">
+    <value>To jest treść odczytana z gotowej wiadomości. Wersja robocza użyta do podglądu została skasowana (jest w „Elementach usuniętych”).</value>
+  </data>
+  <data name="Correspondence.Preview.UnknownFields" xml:space="preserve">
+    <value>Nieznane pola (zostaną puste): {0}. Dostępne: {1}.</value>
+  </data>
+  <data name="Correspondence.Preview.EmptyField" xml:space="preserve">
+    <value>Pole {0} jest puste u {1} z {2} odbiorców – u nich zostanie pusta luka.</value>
+  </data>
+  <data name="Correspondence.Preview.EmptyListField" xml:space="preserve">
+    <value>Pole {0} w elemencie listy jest puste w {1} z {2} wierszy.</value>
+  </data>
+  <data name="Correspondence.Preview.Ok" xml:space="preserve">
+    <value>Wygląda dobrze – treść nie używa niczego, co psuje się w skrzynkach przeglądarkowych.</value>
+  </data>
+  <data name="Correspondence.Preview.LargeAttachments" xml:space="preserve">
+    <value>Załączniki ważą razem {0} – wiele serwerów odrzuca wiadomości powyżej 10–20 MB.</value>
+  </data>
+  <data name="Correspondence.Preview.OutlookFailed" xml:space="preserve">
+    <value>Nie udało się pobrać podglądu z Outlooka: {0}</value>
+  </data>
+  <data name="Correspondence.Preview.BrowserTitle" xml:space="preserve">
+    <value>Podgląd wiadomości</value>
+  </data>
+  <data name="Correspondence.Preview.BrowserFailed" xml:space="preserve">
+    <value>Nie udało się otworzyć przeglądarki: {0}</value>
+  </data>
+  <data name="Correspondence.Preview.SaveTitle" xml:space="preserve">
+    <value>Folder na podgląd wiadomości</value>
+  </data>
+  <data name="Correspondence.Preview.Overwrite" xml:space="preserve">
+    <value>Plik {0} już jest w tym folderze. Zastąpić go?</value>
+  </data>
+  <data name="Correspondence.Preview.Saved" xml:space="preserve">
+    <value>Zapisano podgląd: {0}</value>
+  </data>
+  <data name="Correspondence.Preview.SaveFailed" xml:space="preserve">
+    <value>Nie udało się zapisać podglądu: {0}</value>
+  </data>
+  <data name="Correspondence.Width.Desktop" xml:space="preserve">
+    <value>Komputer (700 px)</value>
+  </data>
+  <data name="Correspondence.Width.Phone" xml:space="preserve">
+    <value>Telefon (380 px)</value>
+  </data>
+  <data name="Correspondence.Width.Full" xml:space="preserve">
+    <value>Pełna szerokość</value>
+  </data>
+  <data name="Correspondence.Lint.Script" xml:space="preserve">
+    <value>Treść zawiera skrypt – każdy klient poczty go usunie.</value>
+  </data>
+  <data name="Correspondence.Lint.RemoteImage" xml:space="preserve">
+    <value>Obrazek pobierany z internetu – większość skrzynek blokuje go do czasu kliknięcia „pokaż obrazki”. Wklej go do treści zamiast linkować.</value>
+  </data>
+  <data name="Correspondence.Lint.DataImage" xml:space="preserve">
+    <value>Obrazek w formacie data: – Outlook i Gmail go nie pokażą.</value>
+  </data>
+  <data name="Correspondence.Lint.AbsolutePosition" xml:space="preserve">
+    <value>Pozycjonowanie absolutne nie działa w poczcie – układ się rozjedzie.</value>
+  </data>
+  <data name="Correspondence.Lint.BackgroundImage" xml:space="preserve">
+    <value>Tło obrazkowe bywa pomijane (m.in. w Outlooku).</value>
+  </data>
+  <data name="Correspondence.Lint.TooWide" xml:space="preserve">
+    <value>Element szerszy niż 700 px ({0} px) – na telefonie wymusi przewijanie w bok.</value>
+  </data>
+  <data name="Correspondence.Lint.StyleBlock" xml:space="preserve">
+    <value>Wiadomość ma arkusz stylów; Gmail i część skrzynek go pomija, więc jej fragmenty mogą tam wyglądać skromniej.</value>
+  </data>
+  <data name="Correspondence.Lint.LinkTextMismatch" xml:space="preserve">
+    <value>Tekst łącza wskazuje inny adres niż samo łącze ({0}) – odbiorca może uznać to za próbę oszustwa.</value>
+  </data>
+  <data name="Correspondence.Lint.LargeMessage" xml:space="preserve">
+    <value>Wiadomość waży {0} z obrazami i załącznikami – wiele serwerów odrzuca wiadomości powyżej 20 MB.</value>
+  </data>
   <!-- U5 message: end -->
 
   <!-- U5 send: begin -->
+  <data name="Correspondence.Send.Title" xml:space="preserve">
+    <value>Wysyłka przez Outlooka</value>
+  </data>
+  <data name="Correspondence.Send.SummaryCount" xml:space="preserve">
+    <value>Do wysłania: {0}    (pominięci: {1}, błędne adresy: {2})</value>
+  </data>
+  <data name="Correspondence.Send.SummaryMessages" xml:space="preserve">
+    <value>Wiadomości: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummarySender" xml:space="preserve">
+    <value>Nadawca: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryOnBehalf" xml:space="preserve">
+    <value>W imieniu: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryMode" xml:space="preserve">
+    <value>Tryb: {0}</value>
+  </data>
+  <data name="Correspondence.Send.ModeIndividual" xml:space="preserve">
+    <value>osobna wiadomość do każdego</value>
+  </data>
+  <data name="Correspondence.Send.ModeGrouped" xml:space="preserve">
+    <value>jedna wiadomość na adres ze wszystkimi jego wierszami</value>
+  </data>
+  <data name="Correspondence.Send.ModeBcc" xml:space="preserve">
+    <value>jedna wiadomość na najwyżej {0} odbiorców w UDW</value>
+  </data>
+  <data name="Correspondence.Send.SummarySubject" xml:space="preserve">
+    <value>Temat: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SubjectEmptyMark" xml:space="preserve">
+    <value>– pusty –</value>
+  </data>
+  <data name="Correspondence.Send.SummarySignature" xml:space="preserve">
+    <value>Podpis: {0}</value>
+  </data>
+  <data name="Correspondence.Send.NoSignature" xml:space="preserve">
+    <value>bez podpisu</value>
+  </data>
+  <data name="Correspondence.Send.SummaryAttachments" xml:space="preserve">
+    <value>Załączniki: {0}</value>
+  </data>
+  <data name="Correspondence.Send.NoAttachments" xml:space="preserve">
+    <value>brak</value>
+  </data>
+  <data name="Correspondence.Send.AttachmentList" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryDeferred" xml:space="preserve">
+    <value>Dostarczenie wstrzymane do: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryReceipt" xml:space="preserve">
+    <value>Potwierdzenie przeczytania: tak</value>
+  </data>
+  <data name="Correspondence.Send.SummaryVoting" xml:space="preserve">
+    <value>Przyciski głosowania: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SummaryEta" xml:space="preserve">
+    <value>Szacowany czas: ok. {0}</value>
+  </data>
+  <data name="Correspondence.Send.EtaSeconds" xml:space="preserve">
+    <value>{0} s</value>
+  </data>
+  <data name="Correspondence.Send.EtaMinutes" xml:space="preserve">
+    <value>{0} min</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmSend" xml:space="preserve">
+    <value>Wysłać wiadomość do {0} odbiorców?</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmDrafts" xml:space="preserve">
+    <value>Utworzyć {0} wersji roboczych?</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmAttachments" xml:space="preserve">
+    <value>Załączniki ({0}): {1}</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmSkipped" xml:space="preserve">
+    <value>Pominięci (wykluczenia / już wysłane): {0}</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmInvalid" xml:space="preserve">
+    <value>Błędne adresy: {0}</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmDelayWarning" xml:space="preserve">
+    <value>UWAGA: przy odstępie {0} s i {1} wiadomościach serwer pocztowy może zacząć je odrzucać (limit ok. 30 na minutę). Zalecany odstęp: 3 s.</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmIrreversible" xml:space="preserve">
+    <value>Wysyłki nie da się cofnąć.</value>
+  </data>
+  <data name="Correspondence.Send.ConfirmTyped" xml:space="preserve">
+    <value>Aby potwierdzić, wpisz liczbę odbiorców ({0}).</value>
+  </data>
+  <data name="Correspondence.Send.NothingToSend" xml:space="preserve">
+    <value>Nie ma do kogo wysłać – sprawdź zaznaczenia i listę pominięć.</value>
+  </data>
+  <data name="Correspondence.Send.CannotSend" xml:space="preserve">
+    <value>Wiadomości nie można jeszcze wysłać:</value>
+  </data>
+  <data name="Correspondence.Send.OutlookUnavailable" xml:space="preserve">
+    <value>Nie można użyć Outlooka: {0}</value>
+  </data>
+  <data name="Correspondence.Send.TestTitle" xml:space="preserve">
+    <value>Test do siebie</value>
+  </data>
+  <data name="Correspondence.Send.TestPrompt" xml:space="preserve">
+    <value>Nie udało się ustalić Twojego adresu. Podaj go ręcznie:</value>
+  </data>
+  <data name="Correspondence.Send.InvalidAddress" xml:space="preserve">
+    <value>„{0}” nie jest poprawnym adresem e-mail.</value>
+  </data>
+  <data name="Correspondence.Send.ProgressStarting" xml:space="preserve">
+    <value>Przygotowuję wiadomości…</value>
+  </data>
+  <data name="Correspondence.Send.ProgressSend" xml:space="preserve">
+    <value>Wysyłam {0} z {1}</value>
+  </data>
+  <data name="Correspondence.Send.ProgressSendEta" xml:space="preserve">
+    <value>Wysyłam {0} z {1} · zostało ok. {2}</value>
+  </data>
+  <data name="Correspondence.Send.ProgressDrafts" xml:space="preserve">
+    <value>Zapisuję wersje robocze: {0} z {1}</value>
+  </data>
+  <data name="Correspondence.Send.LineSent" xml:space="preserve">
+    <value>✓ {0}</value>
+  </data>
+  <data name="Correspondence.Send.LineSentNamed" xml:space="preserve">
+    <value>✓ {0}   ({1})</value>
+  </data>
+  <data name="Correspondence.Send.LineBcc" xml:space="preserve">
+    <value>✓ wiadomość {0} z {1}: {2} odbiorców w UDW</value>
+  </data>
+  <data name="Correspondence.Send.LineFailed" xml:space="preserve">
+    <value>✗ {0} – {1}</value>
+  </data>
+  <data name="Correspondence.Send.LineBccFailed" xml:space="preserve">
+    <value>✗ wiadomość {0} z {1} ({2} odbiorców w UDW) – {3}</value>
+  </data>
+  <data name="Correspondence.Send.LineTest" xml:space="preserve">
+    <value>✓ test do {0}</value>
+  </data>
+  <data name="Correspondence.Send.LineStopped" xml:space="preserve">
+    <value>■ zatrzymano</value>
+  </data>
+  <data name="Correspondence.Send.LineFailuresInRow" xml:space="preserve">
+    <value>■ przerwano po {0} błędach z rzędu – sprawdź Outlooka i użyj „Ponów nieudane”</value>
+  </data>
+  <data name="Correspondence.Send.LineOutlookStopped" xml:space="preserve">
+    <value>■ przerwano: {0}</value>
+  </data>
+  <data name="Correspondence.Send.DoneSend" xml:space="preserve">
+    <value>Wysyłka zakończona: udane {0}, błędy {1}.</value>
+  </data>
+  <data name="Correspondence.Send.DoneDrafts" xml:space="preserve">
+    <value>Utworzono wersje robocze: udane {0}, błędy {1}.</value>
+  </data>
+  <data name="Correspondence.Send.DoneTest" xml:space="preserve">
+    <value>Test: udane {0}, błędy {1}.</value>
+  </data>
+  <data name="Correspondence.Send.DoneStopped" xml:space="preserve">
+    <value>Wysyłka przerwana: udane {0}, błędy {1}, niewysłane {2}.</value>
+  </data>
+  <data name="Correspondence.Send.NoteSavedDrafts" xml:space="preserve">
+    <value>Nieudane wiadomości zapisano w Outlooku jako wersje robocze – możesz je tam obejrzeć.</value>
+  </data>
+  <data name="Correspondence.Send.NoteJournal" xml:space="preserve">
+    <value>Adresy dopisano do dziennika „już wysłane”, więc przy kolejnej wysyłce zostaną pominięte.</value>
+  </data>
+  <data name="Correspondence.Send.NoteNoJournal" xml:space="preserve">
+    <value>Dziennik „już wysłane” jest niedostępny – wysłanych adresów nie zapisano.</value>
+  </data>
+  <data name="Correspondence.Send.NoteJournalFailed" xml:space="preserve">
+    <value>Nie udało się dopisać {0} adresów do dziennika „już wysłane”: {1}</value>
+  </data>
+  <data name="Correspondence.Send.StatusSent" xml:space="preserve">
+    <value>wysłano</value>
+  </data>
+  <data name="Correspondence.Send.StatusDraft" xml:space="preserve">
+    <value>wersja robocza</value>
+  </data>
+  <data name="Correspondence.Send.StatusTest" xml:space="preserve">
+    <value>test wysłany</value>
+  </data>
+  <data name="Correspondence.Send.StatusFailed" xml:space="preserve">
+    <value>błąd – {0}</value>
+  </data>
+  <data name="Correspondence.Send.StatusFailedDraft" xml:space="preserve">
+    <value>błąd – {0} (zapisana w Wersjach roboczych)</value>
+  </data>
+  <data name="Correspondence.Send.RetryConfirm" xml:space="preserve">
+    <value>Ponowić wysyłkę do {0} odbiorców, u których wystąpił błąd?</value>
+  </data>
+  <data name="Correspondence.Send.RetryConfirmDrafts" xml:space="preserve">
+    <value>Ponowić tworzenie wersji roboczych dla {0} odbiorców, u których wystąpił błąd?</value>
+  </data>
+  <data name="Correspondence.Send.ReportTitle" xml:space="preserve">
+    <value>Zapisz raport wysyłki</value>
+  </data>
+  <data name="Correspondence.Send.ReportHeader" xml:space="preserve">
+    <value>Raport wysyłki {0}</value>
+  </data>
+  <data name="Correspondence.Send.ReportSubject" xml:space="preserve">
+    <value>Temat: {0}</value>
+  </data>
+  <data name="Correspondence.Send.TextFilter" xml:space="preserve">
+    <value>Tekst (*.txt)</value>
+  </data>
+  <data name="Correspondence.Send.ReportSaved" xml:space="preserve">
+    <value>Zapisano raport: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SaveFailed" xml:space="preserve">
+    <value>Nie udało się zapisać pliku: {0}</value>
+  </data>
+  <data name="Correspondence.Send.SessionLog" xml:space="preserve">
+    <value>Korespondencja (Outlook)</value>
+  </data>
+  <data name="Correspondence.Send.SessionLogDrafts" xml:space="preserve">
+    <value>Korespondencja (Outlook) – wersje robocze</value>
+  </data>
+  <data name="Correspondence.Send.SessionLogTest" xml:space="preserve">
+    <value>Korespondencja (Outlook) – test</value>
+  </data>
+  <data name="Correspondence.Send.SessionLogFailures" xml:space="preserve">
+    <value>błędy: {0}, niewysłane: {1}</value>
+  </data>
+  <data name="Correspondence.Responses.Campaign" xml:space="preserve">
+    <value>{0} · {1} · {2} wiad.</value>
+  </data>
+  <data name="Correspondence.Responses.NoResponse" xml:space="preserve">
+    <value>brak odpowiedzi</value>
+  </data>
+  <data name="Correspondence.Responses.Summary" xml:space="preserve">
+    <value>Odpowiedzi: {0} z {1} · Tak: {2} · Nie: {3}</value>
+  </data>
+  <data name="Correspondence.Responses.SummaryOther" xml:space="preserve">
+    <value>Odpowiedzi: {0} z {1} · Tak: {2} · Nie: {3} · inne: {4}</value>
+  </data>
+  <data name="Correspondence.Responses.Searching" xml:space="preserve">
+    <value>Przeszukuję „Elementy wysłane”…</value>
+  </data>
+  <data name="Correspondence.Responses.Reading" xml:space="preserve">
+    <value>Odczytuję odpowiedzi…</value>
+  </data>
+  <data name="Correspondence.Responses.NoCampaigns" xml:space="preserve">
+    <value>Nie znaleziono w „Elementach wysłanych” wysyłek Korespondencji od {0}.</value>
+  </data>
+  <data name="Correspondence.Responses.CampaignsFound" xml:space="preserve">
+    <value>Znalezione wysyłki: {0} – wybierz jedną i odczytaj odpowiedzi.</value>
+  </data>
+  <data name="Correspondence.Responses.ReadFailed" xml:space="preserve">
+    <value>Nie udało się odczytać odpowiedzi: {0}</value>
+  </data>
+  <data name="Correspondence.Responses.ExportTitle" xml:space="preserve">
+    <value>Eksport odpowiedzi</value>
+  </data>
+  <data name="Correspondence.Responses.CsvFilter" xml:space="preserve">
+    <value>CSV (*.csv)</value>
+  </data>
+  <data name="Correspondence.Responses.ColumnKind" xml:space="preserve">
+    <value>Rodzaj odpowiedzi</value>
+  </data>
+  <data name="Correspondence.Responses.ColumnSentAt" xml:space="preserve">
+    <value>Wysłano</value>
+  </data>
+  <data name="Correspondence.Responses.Exported" xml:space="preserve">
+    <value>Zapisano odpowiedzi: {0}</value>
+  </data>
+  <data name="Correspondence.Responses.Kind.Yes" xml:space="preserve">
+    <value>tak</value>
+  </data>
+  <data name="Correspondence.Responses.Kind.No" xml:space="preserve">
+    <value>nie</value>
+  </data>
+  <data name="Correspondence.Responses.Kind.Other" xml:space="preserve">
+    <value>inna</value>
+  </data>
+  <data name="Correspondence.Responses.Kind.None" xml:space="preserve">
+    <value>brak</value>
+  </data>
   <!-- U5 send: end -->
 
   <!-- U5 app: begin -->
