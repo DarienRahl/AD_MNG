@@ -12190,9 +12190,504 @@ Użyj przycisku „Sprawdź Outlooka” – pokaże wersję, profil, konta i pod
   <!-- U5 shell: end -->
 
   <!-- U5 recipients: begin -->
+  <data name="Correspondence.Recipients.SourceClipboard" xml:space="preserve">
+    <value>schowek</value>
+  </data>
+  <data name="Correspondence.Recipients.SourceManual" xml:space="preserve">
+    <value>ręcznie</value>
+  </data>
+  <data name="Correspondence.Recipients.SourceDirectory" xml:space="preserve">
+    <value>AD</value>
+  </data>
+  <data name="Correspondence.Recipients.SourceGroup" xml:space="preserve">
+    <value>grupa {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.SourceMailboxes" xml:space="preserve">
+    <value>Skrzynki</value>
+  </data>
+  <data name="Correspondence.Recipients.Counts" xml:space="preserve">
+    <value>Odbiorcy: {0:N0} • do wysłania: {1:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.CountsSkipped" xml:space="preserve">
+    <value> • pominięci: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.CountsInvalid" xml:space="preserve">
+    <value> • błędne: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Exclusions" xml:space="preserve">
+    <value>Pominięcia: {0:N0} własnych + {1:N0} z dziennika</value>
+  </data>
+  <data name="Correspondence.Recipients.PreviouslySent" xml:space="preserve">
+    <value>{0:d} · {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.PreviouslySentDate" xml:space="preserve">
+    <value>{0:d}</value>
+  </data>
+  <data name="Correspondence.Recipients.NoAddress" xml:space="preserve">
+    <value>brak adresu e-mail</value>
+  </data>
+  <data name="Correspondence.Recipients.ImportedFile" xml:space="preserve">
+    <value>Wczytano plik „{0}” ({1}): {2}</value>
+  </data>
+  <data name="Correspondence.Recipients.ImportedFiles" xml:space="preserve">
+    <value>Wczytano pliki ({0}): {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.Pasted" xml:space="preserve">
+    <value>Ze schowka: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.Typed" xml:space="preserve">
+    <value>Dodano ręcznie: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.FromDirectory" xml:space="preserve">
+    <value>Z katalogu: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.NewOne" xml:space="preserve">
+    <value>{0:N0} nowy</value>
+  </data>
+  <data name="Correspondence.Recipients.NewFew" xml:space="preserve">
+    <value>{0:N0} nowe</value>
+  </data>
+  <data name="Correspondence.Recipients.NewMany" xml:space="preserve">
+    <value>{0:N0} nowych</value>
+  </data>
+  <data name="Correspondence.Recipients.DuplicatesOne" xml:space="preserve">
+    <value>{0:N0} powtórzony</value>
+  </data>
+  <data name="Correspondence.Recipients.DuplicatesFew" xml:space="preserve">
+    <value>{0:N0} powtórzone</value>
+  </data>
+  <data name="Correspondence.Recipients.DuplicatesMany" xml:space="preserve">
+    <value>{0:N0} powtórzonych</value>
+  </data>
+  <data name="Correspondence.Recipients.InvalidOne" xml:space="preserve">
+    <value>{0:N0} błędny adres</value>
+  </data>
+  <data name="Correspondence.Recipients.InvalidFew" xml:space="preserve">
+    <value>{0:N0} błędne adresy</value>
+  </data>
+  <data name="Correspondence.Recipients.InvalidMany" xml:space="preserve">
+    <value>{0:N0} błędnych adresów</value>
+  </data>
+  <data name="Correspondence.Recipients.WithoutAddress" xml:space="preserve">
+    <value>{0:N0} bez adresu e-mail</value>
+  </data>
+  <data name="Correspondence.Recipients.OtherObjects" xml:space="preserve">
+    <value>pominięte obiekty innego typu: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Recipients.OverLimit" xml:space="preserve">
+    <value>lista mieści najwyżej {0:N0} odbiorców – pominięto {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.GroupTruncated" xml:space="preserve">
+    <value>Grupa {0} ma więcej niż {1:N0} członków – dodano tylko pierwszych {1:N0}.</value>
+  </data>
+  <data name="Correspondence.Recipients.NothingFound" xml:space="preserve">
+    <value>nie znaleziono adresów e-mail</value>
+  </data>
+  <data name="Correspondence.Recipients.NoAddressesFound" xml:space="preserve">
+    <value>Nie znaleziono adresów e-mail.</value>
+  </data>
+  <data name="Correspondence.Recipients.ClipboardEmpty" xml:space="preserve">
+    <value>Schowek jest pusty – skopiuj adresy (np. z Worda, Excela lub wiadomości) i spróbuj ponownie.</value>
+  </data>
+  <data name="Correspondence.Recipients.ImportTitle" xml:space="preserve">
+    <value>Wczytywanie adresów</value>
+  </data>
+  <data name="Correspondence.Recipients.ReadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać „{0}”: {1}</value>
+  </data>
+  <data name="Correspondence.Recipients.InvalidFile" xml:space="preserve">
+    <value>plik jest uszkodzony, większy niż 50 MB albo w formacie, którego nie da się odczytać</value>
+  </data>
+  <data name="Correspondence.Recipients.Unsupported" xml:space="preserve">
+    <value>Pominięto pliki w innych formatach: {0}.</value>
+  </data>
+  <data name="Correspondence.Recipients.FilesTitle" xml:space="preserve">
+    <value>Wybierz pliki z adresami</value>
+  </data>
+  <data name="Correspondence.Recipients.FilesFilter" xml:space="preserve">
+    <value>Pliki z adresami</value>
+  </data>
+  <data name="Correspondence.Recipients.AllFiles" xml:space="preserve">
+    <value>Wszystkie pliki</value>
+  </data>
+  <data name="Correspondence.Recipients.NoDownloadsFolder" xml:space="preserve">
+    <value>Nie udało się ustalić folderu Pobrane.</value>
+  </data>
+  <data name="Correspondence.Recipients.NoDownloadsFile" xml:space="preserve">
+    <value>W folderze Pobrane ({0}) nie ma pliku pasującego do „{1}”. Użyj „Z pliku”, jeśli plik leży gdzie indziej.</value>
+  </data>
+  <data name="Correspondence.Recipients.ManualTitle" xml:space="preserve">
+    <value>Dodaj adresy ręcznie</value>
+  </data>
+  <data name="Correspondence.Recipients.ManualPrompt" xml:space="preserve">
+    <value>Wpisz adresy oddzielone przecinkiem, średnikiem lub nową linią. Możesz też wpisać „Jan Kowalski &lt;jan@urzad.pl&gt;”.</value>
+  </data>
+  <data name="Correspondence.Recipients.ExclusionsTitle" xml:space="preserve">
+    <value>Adresy do pominięcia</value>
+  </data>
+  <data name="Correspondence.Recipients.ExclusionsPrompt" xml:space="preserve">
+    <value>Wklej lub wpisz adresy, które NIE mają dostać wiadomości.</value>
+  </data>
+  <data name="Correspondence.Recipients.ExclusionsFilesTitle" xml:space="preserve">
+    <value>Wczytaj adresy do pominięcia</value>
+  </data>
+  <data name="Correspondence.Recipients.ExclusionsAdded" xml:space="preserve">
+    <value>„Nie wysyłać”: dodano {0:N0}, na liście {1:N0}.</value>
+  </data>
+  <data name="Correspondence.Recipients.ExclusionsCleared" xml:space="preserve">
+    <value>Wyczyszczono listę „Nie wysyłać”.</value>
+  </data>
+  <data name="Correspondence.Recipients.RemoveNone" xml:space="preserve">
+    <value>Najpierw zaznacz wiersze do usunięcia.</value>
+  </data>
+  <data name="Correspondence.Recipients.Removed" xml:space="preserve">
+    <value>Usunięto z listy: {0:N0}.</value>
+  </data>
+  <data name="Correspondence.Recipients.ClearTitle" xml:space="preserve">
+    <value>Wyczyść listę</value>
+  </data>
+  <data name="Correspondence.Recipients.ClearConfirm" xml:space="preserve">
+    <value>Usunąć wszystkich odbiorców ({0:N0})?</value>
+  </data>
+  <data name="Correspondence.Recipients.Cleared" xml:space="preserve">
+    <value>Lista odbiorców wyczyszczona.</value>
+  </data>
+  <data name="Correspondence.Recipients.ExportTitle" xml:space="preserve">
+    <value>Zapisz listę odbiorców</value>
+  </data>
+  <data name="Correspondence.Recipients.ExportFileName" xml:space="preserve">
+    <value>odbiorcy.csv</value>
+  </data>
+  <data name="Correspondence.Recipients.ExportNothing" xml:space="preserve">
+    <value>Nie ma czego zapisać.</value>
+  </data>
+  <data name="Correspondence.Recipients.Exported" xml:space="preserve">
+    <value>Zapisano listę odbiorców: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalTitle" xml:space="preserve">
+    <value>Dziennik „już wysłane”</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalReport" xml:space="preserve">
+    <value>Wpisy: {0:N0}
+Najstarszy: {1}
+Najnowszy: {2}
+Przechowywanie: {3:N0} dni
+Folder: {4}
+
+Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysłania i tematy w postaci wpisanej. Wiersze z adresem z dziennika są pomijane, gdy włączono „Pomijaj już wysłane”.</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalNoDate" xml:space="preserve">
+    <value>—</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalUnavailable" xml:space="preserve">
+    <value>Dziennik „już wysłane” jest niedostępny w tym oknie.</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalPruneConfirm" xml:space="preserve">
+    <value>Usunąć z dziennika wpisy starsze niż {0} dni?</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalClearConfirm" xml:space="preserve">
+    <value>Wyczyścić cały dziennik? Do każdego adresu będzie można wysłać ponownie.</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalPruned" xml:space="preserve">
+    <value>Usunięto wpisy dziennika: {0:N0}.</value>
+  </data>
+  <data name="Correspondence.Recipients.JournalCleared" xml:space="preserve">
+    <value>Dziennik wyczyszczony.</value>
+  </data>
+  <data name="Correspondence.Recipients.DirectoryTitle" xml:space="preserve">
+    <value>Odbiorcy z katalogu</value>
+  </data>
+  <data name="Correspondence.Recipients.NewFieldName" xml:space="preserve">
+    <value>Nowe pole</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldEmptyName" xml:space="preserve">
+    <value>Podaj nazwę pola.</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldInvalidName" xml:space="preserve">
+    <value>Nazwa pola może mieć najwyżej {0} znaków i nie może zawierać nawiasów klamrowych ani znaku „|”.</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldDuplicate" xml:space="preserve">
+    <value>Jest już pole o tej nazwie.</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldEmptyExpression" xml:space="preserve">
+    <value>Podaj wyrażenie, np. {{givenName}}.</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldSyntax" xml:space="preserve">
+    <value>Nieprawidłowe wyrażenie: {0}</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldForbidden" xml:space="preserve">
+    <value>Atrybutu {0} nie można użyć – zawiera dane poufne.</value>
+  </data>
+  <data name="Correspondence.Recipients.FieldUnsupported" xml:space="preserve">
+    <value>Pola {{${0}}} nie można tu użyć.</value>
+  </data>
+  <data name="Correspondence.Status.Sent" xml:space="preserve">
+    <value>wysłano</value>
+  </data>
+  <data name="Correspondence.Status.Draft" xml:space="preserve">
+    <value>wersja robocza</value>
+  </data>
+  <data name="Correspondence.Status.Test" xml:space="preserve">
+    <value>test wysłany</value>
+  </data>
+  <data name="Correspondence.Status.Failed" xml:space="preserve">
+    <value>błąd</value>
+  </data>
+  <data name="Correspondence.Status.Skipped" xml:space="preserve">
+    <value>pominięto</value>
+  </data>
+  <data name="Correspondence.Format.Text" xml:space="preserve">
+    <value>tekst</value>
+  </data>
+  <data name="Correspondence.Format.Delimited" xml:space="preserve">
+    <value>CSV</value>
+  </data>
+  <data name="Correspondence.Format.Excel" xml:space="preserve">
+    <value>Excel</value>
+  </data>
+  <data name="Correspondence.Format.Word" xml:space="preserve">
+    <value>Word</value>
+  </data>
+  <data name="Correspondence.Format.OpenDocument" xml:space="preserve">
+    <value>OpenDocument</value>
+  </data>
+  <data name="Correspondence.Format.Rtf" xml:space="preserve">
+    <value>RTF</value>
+  </data>
+  <data name="Correspondence.Format.Html" xml:space="preserve">
+    <value>HTML</value>
+  </data>
   <!-- U5 recipients: end -->
 
   <!-- U5 mailboxes: begin -->
+  <data name="Correspondence.Mailboxes.ScopeSelection" xml:space="preserve">
+    <value>Zaznaczone obiekty: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.ScopeSelectionNone" xml:space="preserve">
+    <value>Nie zaznaczono obiektów.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.ScopeOuNone" xml:space="preserve">
+    <value>Nie wybrano jednostki – kliknij „Wybierz jednostkę…”.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.PersonBaseDomain" xml:space="preserve">
+    <value>Cała domena ({0})</value>
+  </data>
+  <data name="Correspondence.Mailboxes.ExtraFilterInvalid" xml:space="preserve">
+    <value>Nieprawidłowy filtr LDAP: {0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NameAttributeInvalid" xml:space="preserve">
+    <value>„{0}” nie może zawierać nazwiska właściciela – wpisz nazwę LDAP atrybutu, który nie zawiera danych poufnych.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Progress" xml:space="preserve">
+    <value>Skrzynki: {0:N0} · osoby: {1:N0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.ProgressMailboxes" xml:space="preserve">
+    <value>Skrzynki: {0:N0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.TooManyMailboxes" xml:space="preserve">
+    <value>Znaleziono ponad {0:N0} skrzynek – zawęź zakres, rodzaj skrzynek albo filtr.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.TooManyPersons" xml:space="preserve">
+    <value>W miejscu szukania właścicieli jest ponad {0:N0} kont – wybierz węższą jednostkę.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Cancelled" xml:space="preserve">
+    <value>Przerwano – {0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Failed" xml:space="preserve">
+    <value>Nie udało się odczytać skrzynek: {0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NoMailboxes" xml:space="preserve">
+    <value>W tym zakresie nie znaleziono skrzynek.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Summary" xml:space="preserve">
+    <value>Dopasowane: {0:N0} · do sprawdzenia: {1:N0} · nieznalezione: {2:N0} · wykluczone: {3:N0}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Candidate" xml:space="preserve">
+    <value>{0} – {1}</value>
+  </data>
+  <data name="Correspondence.Mailboxes.CandidateNoAddress" xml:space="preserve">
+    <value>brak adresu</value>
+  </data>
+  <data name="Correspondence.Mailboxes.CandidateDisabled" xml:space="preserve">
+    <value>konto wyłączone</value>
+  </data>
+  <data name="Correspondence.Mailboxes.CandidateDelegate" xml:space="preserve">
+    <value>ma dostęp do skrzynki</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailDelegate" xml:space="preserve">
+    <value>ma pełny dostęp do skrzynki lub wysyła w jej imieniu</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailDisabled" xml:space="preserve">
+    <value>konto właściciela jest wyłączone</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailNoAddress" xml:space="preserve">
+    <value>właściciel nie ma adresu e-mail</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailNoName" xml:space="preserve">
+    <value>skrzynka nie zawiera imienia i nazwiska właściciela</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailNotFound" xml:space="preserve">
+    <value>nie znaleziono osoby „{0}”</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailAmbiguous" xml:space="preserve">
+    <value>kandydaci: {0} – wybierz właściciela</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailManual" xml:space="preserve">
+    <value>wybrano ręcznie</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailTyped" xml:space="preserve">
+    <value>adres wpisany ręcznie</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailExcluded" xml:space="preserve">
+    <value>wykluczona z wysyłki</value>
+  </data>
+  <data name="Correspondence.Mailboxes.DetailNotChosen" xml:space="preserve">
+    <value>nie wybrano automatycznie</value>
+  </data>
+  <data name="Correspondence.Mailboxes.TypeAddressTitle" xml:space="preserve">
+    <value>Adres właściciela</value>
+  </data>
+  <data name="Correspondence.Mailboxes.TypeAddressPrompt" xml:space="preserve">
+    <value>Adres e-mail osoby, która ma dostać wiadomość o skrzynce „{0}”:</value>
+  </data>
+  <data name="Correspondence.Mailboxes.InvalidAddress" xml:space="preserve">
+    <value>„{0}” nie jest poprawnym adresem e-mail.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.AddTitle" xml:space="preserve">
+    <value>Właściciele skrzynek</value>
+  </data>
+  <data name="Correspondence.Mailboxes.AddNothing" xml:space="preserve">
+    <value>Nie ma właścicieli do dodania – wybierz właścicieli albo wpisz ich adresy.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Added" xml:space="preserve">
+    <value>Dodano do odbiorców: skrzynki – {0:N0}, właściciele – {1:N0}.</value>
+  </data>
+  <data name="Correspondence.Mailboxes.ReadingOwners" xml:space="preserve">
+    <value>Odczytuję dane właścicieli ({0:N0})…</value>
+  </data>
+  <data name="Correspondence.Mailboxes.AddCancelled" xml:space="preserve">
+    <value>nie dodano właścicieli do odbiorców</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NewFieldName" xml:space="preserve">
+    <value>Nowe pole skrzynki</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Matched" xml:space="preserve">
+    <value>Dopasowano</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.MatchedByDelegate" xml:space="preserve">
+    <value>Dopasowano (dostęp do skrzynki)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Probable" xml:space="preserve">
+    <value>Prawdopodobne</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Ambiguous" xml:space="preserve">
+    <value>Niejednoznaczne</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NotFound" xml:space="preserve">
+    <value>Nie znaleziono</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.NoName" xml:space="preserve">
+    <value>Brak nazwiska</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.OwnerDisabled" xml:space="preserve">
+    <value>Właściciel wyłączony</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.OwnerWithoutAddress" xml:space="preserve">
+    <value>Właściciel bez adresu</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Manual" xml:space="preserve">
+    <value>Wybrano ręcznie</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Status.Excluded" xml:space="preserve">
+    <value>Wykluczona</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Selection.Shared" xml:space="preserve">
+    <value>Skrzynki współdzielone</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Selection.SharedRoomsAndEquipment" xml:space="preserve">
+    <value>Współdzielone, sale i sprzęt</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Selection.AllMailboxes" xml:space="preserve">
+    <value>Wszystkie skrzynki (także osobiste)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Selection.AllAccounts" xml:space="preserve">
+    <value>Wszystkie konta użytkowników</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NameSource.GivenNameAndSurname" xml:space="preserve">
+    <value>imienia i nazwiska (givenName, sn)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NameSource.DisplayName" xml:space="preserve">
+    <value>nazwy wyświetlanej</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NameSource.Description" xml:space="preserve">
+    <value>opisu</value>
+  </data>
+  <data name="Correspondence.Mailboxes.NameSource.Attribute" xml:space="preserve">
+    <value>innego atrybutu</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Filter.All" xml:space="preserve">
+    <value>Wszystkie</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Filter.Ready" xml:space="preserve">
+    <value>Gotowe do wysłania</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Filter.NeedsReview" xml:space="preserve">
+    <value>Do sprawdzenia</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Filter.NotFound" xml:space="preserve">
+    <value>Nieznalezione</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Filter.Excluded" xml:space="preserve">
+    <value>Wykluczone</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.None" xml:space="preserve">
+    <value>konto użytkownika</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.User" xml:space="preserve">
+    <value>skrzynka osobista</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.Linked" xml:space="preserve">
+    <value>skrzynka połączona</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.Shared" xml:space="preserve">
+    <value>skrzynka współdzielona</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.Room" xml:space="preserve">
+    <value>sala</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.Equipment" xml:space="preserve">
+    <value>sprzęt</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.RemoteUser" xml:space="preserve">
+    <value>skrzynka osobista (Exchange Online)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.RemoteShared" xml:space="preserve">
+    <value>skrzynka współdzielona (Exchange Online)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.RemoteRoom" xml:space="preserve">
+    <value>sala (Exchange Online)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.RemoteEquipment" xml:space="preserve">
+    <value>sprzęt (Exchange Online)</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Type.Other" xml:space="preserve">
+    <value>inny odbiorca</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Level.Exact" xml:space="preserve">
+    <value>zgodne imię i nazwisko</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Level.Folded" xml:space="preserve">
+    <value>zgodne bez polskich znaków</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Level.Swapped" xml:space="preserve">
+    <value>zamienione imię i nazwisko</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Level.DisplayName" xml:space="preserve">
+    <value>zgodna nazwa wyświetlana</value>
+  </data>
+  <data name="Correspondence.Mailboxes.Level.Partial" xml:space="preserve">
+    <value>zgodna część nazwiska</value>
+  </data>
   <!-- U5 mailboxes: end -->
 
   <!-- U5 message: begin -->
