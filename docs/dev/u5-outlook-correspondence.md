@@ -1001,3 +1001,204 @@ object model guard prompt on a machine without current antivirus; elevated AD Ma
 File ownership per track = the files of its sections; shared files (resx, `AppHost.cs`, `MainWindow.xaml`,
 `ObjectListView.xaml`, `SmokeTest.cs`, `HostTests.cs`, `ConnectionLifetimes.cs`, `UiTestContext.cs`) are edited only by
 the track named in their section, inside the scaffold markers where markers exist.
+
+## 14. As built (waves 1 and 2a)
+
+Waves 1 (T1 core, T2 mailboxes, T3 outlook, T7a app services) and 2a (T4 shell, T7b app window) are merged at
+`b9d4416`. Public names and signatures of the scaffold were kept; the tracks only added members. This section lists what
+differs from sections 1–13 or goes beyond them.
+
+### 14.1 Core – import, fields, composition, journal (T1)
+
+- **Added members:** `EmailAddressText.MaxNameLength`; `TextDecoding.FallbackCodePage` (1250 when the ANSI code page is
+  0, unknown or UTF-8); `ContactExtractor.HeaderRows`, `UnnamedColumnFormat`; `FieldTemplate.MaxFallbackLength` (200),
+  `Encode`; `CorrespondenceDocument.WrapperStyle`; `CorrespondenceRenderer.ListStart`;
+  `RenderedCorrespondence.ImageBytes`, `ExceedsImageLimits` (the per-message limits of 3.6); `SignatureProblemCodes`
+  ("code" or "code: detail"); `MailCompatibilityLint.MaxWidthPixels`; `JournalHashing.HashBytes`, `IsHash`.
+- **Table detection (3.1):** the header is the first of the first 8 *non-blank* rows; a row holding a valid address is
+  never a header; delimited text needs 2+ header cells. E-mail column tiers: the exact names, then `poczta`, then a header
+  containing `mail` – the first column of a tier with at least one valid address wins. The "contains name" rule skips
+  first-name, surname and login headers (so "First name" + "Last name" still give the Imię+Nazwisko rule).
+- **Free text:** contacts in file order; a later name fills an earlier empty one; addresses never start inside a word
+  (`Łucja.Żak@x.pl` does not yield `ak@x.pl`); `<mailto:…>` accepted. Text with a table reads only the lines before the
+  header as free text (other columns such as "Inne e-maile" are not imported as recipients); when no delimiter gives a
+  table with contacts, the whole text is free text. Address validity is stricter than MailerWPiA (no `..`, no dot at the
+  ends of the local part, no hyphen at a label edge, length limits); junk list wider (`example.*` and subdomains,
+  `*.sentry.io`, `*.w3.org`).
+- **Documents:** DOCX, ODT and HTML tables go through `FromRows` (not tab-joined text); `gridSpan`/`colspan` add empty
+  cells, a `vMerge` continuation repeats the cell above; `mailto:` links become "text <addr>" in every document format;
+  deleted text, field codes, fallbacks and annotations are skipped. XLSX/ODS rows above a sheet's header are free text;
+  with no e-mail column in any sheet every cell is free text. RTF: a font's `\fcharset` wins over `\ansicpg`.
+- **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
+  entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
+  forged size is caught). Unknown extension → read as text; unsupported compression or too deep HTML →
+  `InvalidDataException` (English message, never file content).
+- **Fields:** `FieldToken.Field`/`Fallback` are HTML-decoded and `&nbsp;` becomes a space. An empty value with a
+  fallback is not reported as empty; an unknown field is always reported. HTML encoding encodes only `& < > " '` and
+  turns CR/LF into `<br>`. `RepairHtml` never joins across block elements, `<br>`, comments or script/style, keeps the
+  tags inside a token (moved, not deleted) and turns `&nbsp;` into a space. Without grouping `lista`/`liczba` fall
+  through to custom fields and columns.
+- **Renderer:** every unit is a group (a single row renders `{{lista}}` with one item, `{{liczba}}` = 1); the list is
+  rendered only when used, and the paragraph holding `{{lista}}` is split around the `<ul>`; in the subject `{{lista}}` is
+  the items joined by ", "; list items take `{{nazwa}}` from the unit; the signature is appended without merging fields;
+  only images whose content id is referenced are kept; the sanitizer empties `<head>`, so the final document has no
+  `<meta charset>` (previews add their own).
+- **Signature parser:** decoding BOM → meta charset → strict UTF-8 → ANSI; web images removed with a problem, `data:`
+  images embedded; removed `<link>`/`<meta>` are not problems. **Lint** works on the parsed document (pt converted to px,
+  `max-width` ignored), one finding per kind except one `LinkTextMismatch` per host. **Grouping** compares normalized
+  addresses; rows without an address are never grouped. **Journal file:** `Hash` throws for a key that is not 32 bytes;
+  another format version or lines over 4 096 characters are skipped.
+
+### 14.2 Core – mailboxes, `{$created}`, sample data (T2)
+
+- **Matching rules refined (3.7):** *Partial* needs the same first given name also for compound surnames (otherwise "Anna
+  Kowalska-Nowak" would be a candidate for "Jan Nowak", contradicting the Archiwum row of section 10); an owner name with
+  a surname only is *Partial* against every person with that surname or compound part; *Swapped* needs both parts; the
+  *DisplayName* level also drops "(…)" remarks and `Fold` treats commas as separators ("Kowalski, Jan", "Jan Kowalski
+  (IT)"); *Exact* compares trimmed, whitespace-collapsed NFC strings. Candidates are ordered by score, folded display
+  name, then DN, capped at 20 with the chosen one always kept. `OwnerMatch.Best` is also set for `OwnerDisabled` and
+  `OwnerWithoutAddress`. All 14 rows of section 10 hold as written.
+- **Parser:** `givenName`/`sn` are also cleaned of titles and remarks; a single word keeps its attribute's meaning; text
+  sources split on commas, trim quotes, take the part after the last `:` and then after the last spaced dash (hyphen,
+  en or em dash), and are cut at 256 characters; the Attribute source refuses secret and invalid attribute names.
+- **Added members:** `MailboxTypes.Of`, `TypesOf`, `Filter` (null for `AllAccounts`), `HasExchangeAttributes`;
+  `OwnerNameParser.MaxTextLength`, `FromNames`, `ParseText`, `AttributesFor`, `IsUsableAttribute`;
+  `PersonCandidate.AttributesFor`/`From` (address = `mail`, else the valid primary SMTP proxy; display name falls back to
+  the RDN); `MailboxEntry.AttributesFor`/`From` (delegates = `msExchDelegateListLink` ∪ `publicDelegates`);
+  `MailboxOwnerMatcher.DelegateScore`, `EnabledScore`, `AddressScore`, `LevelOf`, `WeightOf`; `UserMessageFields.Created`.
+- **Testing:** `FakeSchema.MailboxAttributes`, `CreateWithoutMailboxes()` (`Create` now goes through a private
+  `CreateCore`); `FakeDirectoryBuilder.SharedMailboxType`, `RoomMailboxType`, `MailboxOwnerExpectation`,
+  `MailboxOwnerSample` (`Expected`, `Mailboxes`, `Persons`, `ExpectedFor`). `AddMailboxOwnerSample` adds the salutation
+  samples itself when missing; the second Jan Nowak is `jan.nowak2`; Agnieszka Żółć is in `OU=Sprzedaż`; the delegate
+  attributes are plain multi-valued DN attributes in the fake. Measured once (Debug): 20 000 mailboxes against 300 000
+  persons match in about 140 ms; building the index takes 3–8 s.
+
+### 14.3 AdMng.Outlook and the U1 adapter (T3)
+
+- **Contracts:** `OutlookException(OutlookFailure)` (no inner exception, no original message, `HResult` of the failure)
+  for `RenderAsync`, `DiagnoseAsync`, `FindCampaignsAsync` and `ReadResponsesAsync`, which have no failure slot;
+  `IOutlookUserMessageTransportFactory` in Core `Messaging/Transport.cs`. `OutlookClient(TimeProvider? time = null,
+  IOutlookSignatureSource? signatures = null)` (signatures feed diagnostics), `OutlookClient.Attempts`,
+  `AttemptDelay`; `OutlookUserMessageTransport.NotInstalledReason`, `Headers`; public `OutlookUserMessageTransportFactory`.
+  Internal: `OutlookSession(StaWorker, application, profile, OutlookSessionOptions)`, `ComScope`, `OutlookConstants`,
+  `MapiProperties`, `OutlookSteps`, `ComRetryPolicy`.
+- **Worker:** an item cancelled while queued never runs; once running it completes (no half-built drafts); calls from
+  the worker run inline; `DisposeAsync` lets queued items run and joins the thread (≤ 30 s); a failed filter registration
+  never stops the queue. Session disposal releases the application on the worker and never quits Outlook. A
+  `Disconnected` failure sets `IsConnected` false.
+- **Stricter than MailerWPiA:** failing to set `SentOnBehalfOfName` or `Recipient.Type`, or both ways of setting
+  `SendUsingAccount`, fails the item (no silent send from the wrong sender or a BCC left as To); `ReadReceipt`,
+  `BodyFormat`, `Importance`, `Resolve` and `PropertyAccessor` writes stay best effort. An `Unknown` error of
+  `ResolveAll` is ignored and each recipient's `Resolved` decides. A failure before `Save` closes the item with
+  `Close(olDiscard)`.
+- **Render** follows MailerWPiA's `RenderViaOutlook` (account, To only, no unresolved refusal, existing attachments only);
+  a failure deletes the draft; an image that cannot be read back is left out unless Outlook is lost or busy.
+- **Classification additions (4.3):** `E_ABORT` at the replyTo step = SecurityDenied; `MAPI_E_TOO_BIG` 0x80040305 =
+  ItemTooLarge; `REGDB_E_CLASSNOTREG` 0x80040154 and `CO_E_CLASSSTRING` 0x800401F3 = NotInstalled; FileNotFound /
+  DirectoryNotFound at the attachments step = AttachmentMissing; `PlatformNotSupportedException` = NotSupported; without
+  elevation `CO_E_SERVER_EXEC_FAILURE`/`MK_E_UNAVAILABLE` at connect are Unknown. `TargetInvocationException` and
+  single-inner `AggregateException` are unwrapped.
+- **Campaigns (4.4):** the DASL date literal is UTC `yyyy-MM-dd HH:mm` (invariant), `SentOn >= since` re-checked in
+  code (the literal is a pilot item); groups newest first; campaign ids must be 1–64 characters of `[A-Za-z0-9-]` (not
+  written otherwise; `ReadResponsesAsync` throws – no DASL injection); recipient address = `Address`, else
+  `PR_SMTP_ADDRESS`, else `ExchangeUser`, else `Name`; in a BCC campaign the sender's own To row is left out.
+  **Correction:** `olTrackingReplied` is 7, not 3 (3 is `olTrackingNotRead`); the code does not depend on it – a vote is
+  present when `AutoResponse` is not empty, and `RespondedAt` is `TrackingStatusTime` only then. Internet headers with an
+  invalid name are dropped, control characters in values become spaces.
+- **Temp files and signatures:** per-item folder `%TEMP%\AdMng-Outlook-{pid}-{16 hex}` (0700 on Unix), stale folders of
+  dead processes removed once per client; signature references must be relative, without `:`, UNC, scheme, `.`/`..`
+  segments (also URL-encoded), resolve inside the folder (symbolic links included), ≤ 2 MiB.
+- **Testing:** `FakeOutlookClient` (availability, `ConnectFailure`, Polish `Profile`, per-recipient `Script`,
+  `DefaultResult`, `Items`, `RenderResult`/`RenderFailure`, `DiagnoseResult`, `Signatures`, `Campaigns`, `Responses`,
+  `ReadFailure`, `BeforeSend`, `Sessions`, `Connections`), `FakeOutlookSession`, `FakeOutlookItem`,
+  `FakeOutlookUserMessageTransportFactory`. Not testable on Linux: `ComOutlookApplicationProvider`,
+  `MessageFilterRegistration`, `ComRetryFilter`, real RCW release.
+
+### 14.4 App services (T7a)
+
+- **`LoopbackPreviewServer`** is a public Presentation type (Linux-testable): listener started at the first `Publish`,
+  `http://127.0.0.1:{port}/{token}/` (128-bit token), `cid:` sources rewritten to `/{token}/cid/{id}`, CSP like
+  `HtmlPreviewView` plus `base-uri`/`form-action`/`frame-ancestors 'none'`, `no-store`, `nosniff`, `no-referrer`. Beyond
+  9.3: only GET with `Host` equal to `127.0.0.1:port` (DNS-rebinding guard); at most 20 documents (oldest dropped); a
+  request not complete within 10 s is dropped. `LoopbackBrowserPreview` refuses an empty preview and logs a failed
+  browser start by exception type only.
+- **`DpapiKeyProtector`** (package `System.Security.Cryptography.ProtectedData` 10.0.13, App only);
+  **`WindowsCorrespondencePlatform`** returns null when no Downloads folder exists (fallbacks `%USERPROFILE%\Downloads`,
+  then Documents); `PickFolderAsync` reuses the GPO folder picker; `ShowCorrespondenceAsync` with no DNs and the
+  Recipients start uses the singleton `ToolWindows.ShowCorrespondence`.
+- **Editor:** `RichMessageEditor.FlushHtml()`, `InsertField(string)`, `PastePlainCommand`, `HtmlDelay`; `Html` is pushed
+  300 ms after typing, on focus loss, on Unloaded or on `FlushHtml` – a body that was only loaded is never pushed back
+  normalized. Paste: CF_HTML → `Host.PasteFormattedAsync`; a bitmap alone → `AddImage`; content copied from the editor in
+  this process is pasted natively; Ctrl+Shift+V pastes plain text. The link prompt opens `TextPromptWindow` directly
+  (no `IRichEditorHost` member; no connection strip): http(s), mailto, tel and `{{field}}` targets, a bare domain gets
+  `https://`, an address `mailto:`, empty removes the link. The editing surface is white with black Calibri 11 pt in
+  every theme, pl-PL spell check in try/catch.
+- **`FlowDocumentHtml`:** lists keep type, start and nesting; several paragraphs in one list item become `div`s; cells
+  keep background, colspan and rowspan; a run of spaces becomes a space plus `&nbsp;`; images carry
+  `max-width:100%;height:auto` and alt text; headings and `th` are read as bold larger runs and written back as `p` +
+  `span` (as MailerWPiA); blockquote indentation is not kept. Added: `FontFamilyName`, `BodyPoints`, `DefaultFontSize`,
+  `HorizontalRuleTag`, `LinkBrush`, `NewDocument`, `CreateImage`, `ContentIdOf`, `IsHorizontalRule`.
+- `TextPromptWindow` and `ReportWindow` gained an `Initialization` property; 24 `Correspondence.App.*` keys.
+
+### 14.5 Shell (T4)
+
+- **`OutlookFailureCodes`** (Core): one constant per `OutlookFailureKind`, `Sent`, `Failures`, `All`, `Of(kind)`,
+  `IsKnown`; AdMng.Outlook's codes come from it. `MessageTemplateImage.IsValidUpTo(long)`.
+- **Journal:** every file operation of every instance and process holds **`journal.lock`** (empty file opened with
+  `FileShare.None`, an exclusive `flock` on Linux; 15 s timeout, retries every 5–25 ms) – .NET's `FileMode.Append` seeks
+  instead of `O_APPEND`, so concurrent writers overwrote each other. Appends still use `FileShare.ReadWrite` and flush at
+  once. The new key is protected before an old journal is moved aside (a host without a protector never moves it); an
+  unreadable key also renames a journal that holds only its header. Added: `LockFileName`, `LockTimeout`, `LockPath`,
+  `IsLoaded`; `AppendAsync` throws `InvalidOperationException` when the journal is not loaded. The section 2 amendment
+  of CLAUDE.md should also name `journal.lock`.
+- **Templates:** the built-in template has `<p>{{lista}}</p>` in a paragraph of its own; export v1 checks base64 images by
+  hash and re-sanitizes HTML; added `FromDraft`, `Copy`; `LoadLastDraft()` returns a copy.
+  `MessageImageStore.CollectGarbage(AppSettings)` (and `ReferencedImages`) keeps the images of U1 templates,
+  Korespondencja templates and the last draft; `LoadAsync(…, maxImageBytes)`.
+- **`OutlookConnectionViewModel`:** a connection starts outside the lock; "Sprawdź Outlooka" reports a diagnostics
+  failure (`DiagFailed`); accounts are written out explicitly; one account gives "Outlook: połączono" without a count.
+  Added: `Failure`, `FailureText`, `IsChecking`, `IsConnected`, `IsAvailable`, `AccountAddress`, `OwnAddress`, `Profile`,
+  `ConnectInBackground()`, `ReportFailure(OutlookFailure)`, `RefreshTexts()`. `EnsureConnectedAsync` returns null when
+  Outlook cannot be used (the state says why); `ReportFailure` after `Disconnected`/`NotResponding`/`Elevated` makes the
+  next use reconnect.
+- **`CorrespondenceViewModel`:** opening loads the last draft (images first through `Message.AddImage`) only into an
+  empty message page; the end of the session also cancels a running owner query. Added (internal): `Initialization`,
+  `SaveStateAsync`, `CurrentDraft`. `CorrespondenceText.OutlookStateKey`, `OutlookCodeKey`, `FailureText`.
+- **U1 transport (section 5):** `UserMessageTransportSelector` gained an optional 6th parameter
+  `IOutlookUserMessageTransportFactory?`, `OutlookTransports`, `SelectOutlook(UserMessageSettings)`;
+  `UserMessageSettingsViewModel` gained `IsOutlookTransport`, `OutlookAccounts`, `LoadOutlookAccountsCommand`,
+  `IsLoadingOutlookAccounts`, `OutlookAccountsText`; keys `UserMessages.Outlook.*` (`L.UserMessagesOutlook`). A client
+  that throws while loading accounts is an unknown failure (HRESULT only).
+
+### 14.6 App window (T7b)
+
+- `CorrespondenceWindow` binds every member of 6.4 and 9.1 (checked by hand against the scaffold view models); field
+  columns are rebuilt from `Recipients.Columns` with escaped indexer paths; the window is 1320×900 clamped to the work
+  area. **Scope radios** (selected objects – shown only for a MailboxOwners request –, domain, OU) through
+  `ChoiceConverter`; **`KeepChoiceConverter`** never writes a cleared candidate selection back when the virtualized
+  mailbox grid recycles a row. Pending editor text is written to `BodyHtml` before every button, on Ctrl+Tab, on a click
+  on a tab header and when the window closes (before the last draft is saved).
+- **Registration:** `OutlookClient` with the registered signature source; `OutlookUserMessageTransportFactory` as a
+  singleton over the same client (without it the U1 choice Outlook reports `OutlookNotSupported`). `OfflineOutlook`
+  (reports NotInstalled, never starts Outlook) serves the smoke test, which also renders the prompt and report windows
+  and the Outlook section of the settings. `UiTestContext` uses `FakeOutlookClient`, `FakeOutlookSignatureSource` (one
+  Polish signature) and `FakeOutlookUserMessageTransportFactory`. Settings: a result line bound to
+  `OutlookAccountsText`. Keys `Correspondence.App.Mailboxes.ScopeDomain`, `ScopeOu`, `ScopeSelection`.
+
+### 14.7 Open issues after wave 2a
+
+- The UI tests, smoke test, screenshots 26–28, `FlowDocumentHtml` writing, editor paste and every COM path run only on
+  Windows (CI or pilot); the UI tests assume documented page behaviour of wave 2b (scope = Selection for a MailboxOwners
+  request, `RecipientsAdded` switching tabs, Send marking rows, pasted TSV columns, signatures loaded at start).
+- Recipients page (T5): decide whether the file's e-mail and name columns stay in `Columns` (the grid would show them
+  next to the fixed E-mail and Nazwa columns); localize `SignatureProblemCodes`, `MailLintKind`, `ContactSourceFormat`
+  and `InvalidDataException` of `ContactFileReader`.
+- Message/send pages (T6): `AddImage` idempotent; BCC units with `Rows = []`; `ValidateForSend` with
+  `ExceedsImageLimits` and `MailCompatibilityLint.Check(html, ImageBytes + attachment bytes)`; previews take
+  `CorrespondenceDocument.BodyOf` and add their own charset; check `Journal.IsLoaded` before appending; `CanCloseAsync`
+  while sending is not unit-tested yet.
+- The rendered-preview switch of U1 (`UserMessages.RenderedPreview`) is not applied to the Korespondencja preview.
+- A test reading an Outlook signature with relative images through `OutlookSignatureFiles` + the T1 parser is still
+  missing.
+- The hints `Correspondence.App.Recipients.DirectoryFieldsHint` and `Correspondence.App.Mailboxes.FieldsHint` show the
+  example expressions with double braces (`{{givenName}}`); field expressions use the U1 syntax with single braces.
