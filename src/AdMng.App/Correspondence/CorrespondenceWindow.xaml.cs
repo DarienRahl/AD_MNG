@@ -64,7 +64,7 @@ public partial class CorrespondenceWindow : Window, IDialogResultWindow
 
         // Click is raised before a button executes its command: the body is current for every command of the window.
         AddHandler(ButtonBase.ClickEvent, new RoutedEventHandler((_, _) => MessageEditor.FlushHtml()), handledEventsToo: true);
-        CorrespondenceTabs.PreviewMouseLeftButtonDown += OnTabsMouseDown;
+        CorrespondenceTabs.PreviewMouseDown += OnTabsMouseDown;
         PreviewKeyDown += OnPreviewKeyDown;
 
         // Before the lifecycle's Closing handler: the view model saves the last draft from a current body.
@@ -228,6 +228,12 @@ public partial class CorrespondenceWindow : Window, IDialogResultWindow
     /// <summary>A click on a tab header (not on a page) changes the tab: the body is written first.</summary>
     private void OnTabsMouseDown(object sender, MouseButtonEventArgs e)
     {
+        // PreviewMouseDown tunnels through the tab control (PreviewMouseLeftButtonDown is a direct event of each element).
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
         for (var element = e.OriginalSource as DependencyObject; element is not null && !ReferenceEquals(element, CorrespondenceTabs);
             element = (element is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(element) : null)
                 ?? LogicalTreeHelper.GetParent(element))

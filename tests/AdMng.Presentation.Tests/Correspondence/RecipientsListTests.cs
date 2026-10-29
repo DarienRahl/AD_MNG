@@ -128,7 +128,7 @@ public sealed class RecipientsListTests
 
         var (title, report) = Assert.Single(scenario.Dialogs.Reports);
         Assert.Equal("Dziennik „już wysłane”", title);
-        Assert.StartsWith("Wpisy: 2\nNajstarszy: 13.10.2026 12:00\nNajnowszy: 17.11.2027 12:00\nPrzechowywanie: 365 dni\nFolder: ", report, StringComparison.Ordinal);
+        Assert.StartsWith("Wpisy: 2\nNajstarszy: 13.10.2026 12:00\nNajnowszy: 17.11.2027 12:00\nPrzechowywanie: 365 dni\nFolder: ", report.ReplaceLineEndings("\n"), StringComparison.Ordinal);
         Assert.DoesNotContain("@", report, StringComparison.Ordinal);
         Assert.Equal(["confirm:Usunąć z dziennika wpisy starsze niż 365 dni?"], scenario.Harness.Dialogs.Shown);
         Assert.Equal(1, scenario.Journal.Count);

@@ -234,7 +234,9 @@ public sealed partial class LoopbackPreviewServer : IDisposable
         _stopping = stopping;
         _port = ((IPEndPoint)listener.LocalEndpoint).Port;
         _pruneTimer = _time.CreateTimer(_ => Prune(), null, PrunePeriod, PrunePeriod);
-        _ = Task.Run(() => AcceptLoopAsync(listener, stopping.Token));
+        // The token is taken now: a Dispose before the loop starts disposes the source, and its Token would throw.
+        var token = stopping.Token;
+        _ = Task.Run(() => AcceptLoopAsync(listener, token));
         return _port;
     }
 

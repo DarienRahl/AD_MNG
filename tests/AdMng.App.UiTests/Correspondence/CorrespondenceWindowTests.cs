@@ -306,7 +306,7 @@ public sealed class CorrespondenceWindowTests
         var header = UiWait.Descendants<TextBlock>(window.PreviewTab).First();
         header.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.Left)
         {
-            RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent,
+            RoutedEvent = UIElement.PreviewMouseDownEvent,
         });
         Assert.True(
             message.BodyHtml.Contains("Pozdrawiamy z Łodzi.", StringComparison.Ordinal),
