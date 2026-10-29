@@ -1,8 +1,8 @@
 # Zrzuty ekranu – gałąź `claude/active-directory-manager-w9v9i8`
 
 - Gałąź: `claude/active-directory-manager-w9v9i8`
-- Commit: [`44665e8`](https://github.com/DarienRahl/AD_MNG/commit/44665e89fb6605f3034383cb311a5ce487130296) (`44665e89fb6605f3034383cb311a5ce487130296`)
-- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40760290037
+- Commit: [`854e38e`](https://github.com/DarienRahl/AD_MNG/commit/854e38ed350c65d676db21fa0ccde2aa4b32a396) (`854e38ed350c65d676db21fa0ccde2aa4b32a396`)
+- Przebieg CI: https://github.com/DarienRahl/AD_MNG/actions/runs/40798330549
 
 ## Okno główne – jednostka organizacyjna IT, szczegóły zaznaczonego użytkownika
 
@@ -103,4 +103,16 @@
 ## Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości
 
 ![Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości](25-user-messages-salutations.png)
+
+## Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”
+
+![Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”](26-correspondence-recipients.png)
+
+## Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze
+
+![Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze](27-correspondence-message.png)
+
+## Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni
+
+![Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni](28-correspondence-mailbox-owners.png)
 

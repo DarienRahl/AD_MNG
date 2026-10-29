@@ -123,5 +123,20 @@
     "file": "25-user-messages-salutations.png",
     "title_pl": "Wiadomości do użytkowników – zwroty grzecznościowe z tytułem i płcią: kolumna „Zwrot” (≈ zgadnięte, ⚠ zwrot neutralny) i pola wyliczone zaznaczonej wiadomości",
     "title_en": "Messages to users – title-aware salutations: the \u0022Salutation\u0022 column (≈ guessed, ⚠ neutral fallback) and the derived fields of the selected message"
+  },
+  {
+    "file": "26-correspondence-recipients.png",
+    "title_pl": "Korespondencja – odbiorcy wczytani z pliku CSV: kolumny pól, statusy wysyłki przez Outlooka i adres pominięty jako „już wysłany”",
+    "title_en": "Correspondence – recipients loaded from a CSV file: field columns, the statuses of a run through Outlook and an address skipped as \u0022already sent\u0022"
+  },
+  {
+    "file": "27-correspondence-message.png",
+    "title_pl": "Korespondencja – wiadomość: edytor z formatowaniem i polem {{Miejscowość}}, podpis z Outlooka, załączniki, przyciski głosowania i dostarczenie o wskazanej porze",
+    "title_en": "Correspondence – the message: the editor with formatting and the field {{Miejscowość}}, the Outlook signature, attachments, voting buttons and deferred delivery"
+  },
+  {
+    "file": "28-correspondence-mailbox-owners.png",
+    "title_pl": "Korespondencja – właściciele skrzynek: dopasowani, potwierdzeni przez pełnomocnictwo, niejednoznaczni z kandydatami do wyboru i nieznalezieni",
+    "title_en": "Correspondence – mailbox owners: matched, confirmed by a delegate link, ambiguous with candidates to choose from, and not found"
   }
 ]
