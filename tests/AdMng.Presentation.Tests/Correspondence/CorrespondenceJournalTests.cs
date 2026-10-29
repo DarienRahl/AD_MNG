@@ -332,7 +332,8 @@ public sealed class CorrespondenceJournalTests : IDisposable
         Assert.Equal(
             [CorrespondenceJournal.KeyFileName, CorrespondenceJournal.LockFileName, CorrespondenceJournal.FileName],
             files.Select(Path.GetFileName).Order(StringComparer.Ordinal));
-        foreach (var file in files)
+        // The key file holds 32 random (protected) bytes: any byte value may occur there, '@' too.
+        foreach (var file in files.Where(f => Path.GetFileName(f) != CorrespondenceJournal.KeyFileName))
         {
             var bytes = File.ReadAllBytes(file);
             var text = Encoding.UTF8.GetString(bytes);
