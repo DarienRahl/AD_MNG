@@ -2,6 +2,7 @@ using AdMng.Core.Audit;
 using AdMng.Core.Correspondence.Outlook;
 using AdMng.Core.Csv;
 using AdMng.Core.Messaging;
+using AdMng.Core.Messaging.Html;
 using AdMng.Presentation.UserMessages;
 
 namespace AdMng.Presentation.Correspondence;
@@ -27,7 +28,8 @@ public sealed class CorrespondenceServices
         ICorrespondenceDialogs? dialogs = null,
         ICorrespondencePlatform? platform = null,
         IBrowserPreview? browserPreview = null,
-        Func<TimeSpan, CancellationToken, Task>? delay = null)
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        IPastedImageSource? pastedImages = null)
     {
         Templates = templates ?? throw new ArgumentNullException(nameof(templates));
         Journal = journal ?? throw new ArgumentNullException(nameof(journal));
@@ -41,6 +43,7 @@ public sealed class CorrespondenceServices
         Platform = platform;
         BrowserPreview = browserPreview;
         Delay = delay ?? ((span, token) => Task.Delay(span, time, token));
+        PastedImages = pastedImages;
     }
 
     public CorrespondenceTemplateLibrary Templates { get; }
@@ -73,6 +76,9 @@ public sealed class CorrespondenceServices
 
     /// <summary>The delay between messages (tests advance a manual clock instead of waiting).</summary>
     public Func<TimeSpan, CancellationToken, Task> Delay { get; }
+
+    /// <summary>The Office clipboard image files of a formatted paste (U1c; null: such images cannot be read).</summary>
+    public IPastedImageSource? PastedImages { get; }
 
     /// <summary>The U1 template expressions of AD fields (decision D2).</summary>
     public UserMessageFields Fields { get; } = new();
