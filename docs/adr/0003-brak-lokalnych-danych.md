@@ -36,3 +36,14 @@ który operator zapisuje sam. Warunek: nic, co pochodzi z katalogu, nie trafia d
 obrazu, a wybór płci w podglądzie (U1d) działa tylko na bieżącą wysyłkę. Wygenerowane wiadomości, podgląd (także w
 WebView2 – treść i obrazy podawane z pamięci, folder tymczasowy przeglądarki usuwany przy zamknięciu) i raport istnieją
 tylko w pamięci.
+
+## Uzupełnienie: dziennik „już wysłane” Korespondencji (U5)
+
+Okno *Korespondencja* (wysyłka przez Outlooka, [KORESPONDENCJA.md](../KORESPONDENCJA.md)) pomija adresy, do których już
+wysłano, także po przerwaniu wysyłki i ponownym uruchomieniu programu. Dlatego w folderze ustawień
+(`correspondence\journal.txt`) może leżeć dziennik wysyłek – ale **bez adresów**: każdy wiersz to skrót adresu
+(HMAC-SHA-256 z losowym kluczem użytkownika, pierwsze 16 bajtów), czas wysyłki i temat tak, jak go wpisał operator (bez
+wypełnionych pól). Klucz (`journal.key`) jest zaszyfrowany DPAPI dla bieżącego użytkownika Windows, `journal.lock` to
+pusty plik blokady. Z dziennika nie da się odczytać listy adresów, a jedynie sprawdzić, czy do znanego adresu już
+wysłano. Lista odbiorców, wartości pól z AD, podgląd, raport i dopasowania właścicieli skrzynek istnieją tylko w
+pamięci; szablony Korespondencji i ostatni szkic wiadomości to ustawienia operatora, jak szablony U1.

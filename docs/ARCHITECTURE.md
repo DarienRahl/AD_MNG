@@ -49,7 +49,9 @@ buduje treść MIME (`UserMessageMimeBody`: `multipart/alternative` tekstu i HTM
 Managera i walidatora usługi; CSS (parser i wpisywanie reguł w `style`) to własny, mały kod. `AdMng.App` jako jedyny
 używa **WebView2** (`Microsoft.Web.WebView2`, środowisko Evergreen) do podglądu sformatowanej wiadomości – bez skryptów,
 nawigacji i sieci, z treścią i obrazami z pamięci, a bez środowiska WebView2 pokazuje źródło HTML
-([docs/dev/u1c-u1d-rich-html-and-salutations.md](dev/u1c-u1d-rich-html-and-salutations.md) rozdz. 4 i 10).
+([docs/dev/u1c-u1d-rich-html-and-salutations.md](dev/u1c-u1d-rich-html-and-salutations.md) rozdz. 4 i 10). Od U5
+trzecim sposobem wysyłki jest klasyczny Outlook operatora (`OutlookUserMessageTransport` w `AdMng.Outlook`, rozdział
+[Korespondencja (U5)](#korespondencja-u5)).
 
 ## Sesja katalogu
 
@@ -229,6 +231,69 @@ Projekt: [dev/k-computers-and-gpo.md](dev/k-computers-and-gpo.md), rozdz. 3.1 i 
 - **Dane** – wyniki przeglądu, adresy, lokacje i wyniki zdalnych akcji są tylko w pamięci okna; dziennik sesji zapisuje
   akcje zdalne bez treści komunikatu restartu, a logi diagnostyczne nie zawierają nazw komputerów.
 
+## Korespondencja (U5)
+
+Projekt: [dev/u5-outlook-correspondence.md](dev/u5-outlook-correspondence.md); opis dla użytkownika:
+[KORESPONDENCJA.md](KORESPONDENCJA.md). Okno *Korespondencja* to program *Korespondencja WPiA* (masowa wysyłka przez
+klasycznego Outlooka) przeniesiony do AD Managera, z odbiorcami z AD i zapytaniami do właścicieli skrzynek. Niczego nie
+zapisuje w katalogu (zasada 5 nie ma zastosowania – wiadomość nie jest zmianą AD); wszystkie odczyty idą przez sesję
+okna połączenia (zasada 4).
+
+```text
+AdMng.App/Correspondence ── okno WPF, edytor RichMessageEditor + FlowDocumentHtml, DPAPI, folder Pobrane, podgląd 127.0.0.1
+        │
+AdMng.Presentation/Correspondence ── CorrespondenceViewModel + strony, dziennik, szablony, połączenie z Outlookiem
+        │                                    │
+AdMng.Core/Correspondence                 AdMng.Outlook ── COM (dynamic) na wątku STA ──► classic Outlook (outlook.exe)
+  Import, Fields, Composition,              (tylko App; nigdy w pakiecie Watchdoga)
+  Journal, Mailboxes, Outlook (kontrakty)
+```
+
+- **AdMng.Outlook** (osobny projekt, `net10.0`, działa tylko na Windows, kompiluje się wszędzie – jak `AdMng.Remote`):
+  klasyczny Outlook przez **późne wiązanie COM** (`dynamic`, bez bibliotek PIA), każde wywołanie na jednym wątku STA
+  sesji (`StaWorker`) z filtrem komunikatów COM (ponawianie przy „Outlook zajęty” do 60 s). `OutlookClient` dołącza do
+  uruchomionego Outlooka albo go uruchamia (3 próby); `OutlookSession` wysyła lub zapisuje wersję roboczą
+  (`OutlookMailBuilder` – kolejność kroków jak w Korespondencji WPiA: konto, *w imieniu*, adresaci z rozpoznaniem,
+  temat, HTML, potwierdzenie, dostarczenie później, głosowanie, właściwości nazwane, obrazki `cid:` jako ukryte
+  załączniki, załączniki, zapis, wysyłka), buduje podgląd w Outlooku, diagnozuje środowisko i czyta głosy z *Elementów
+  wysłanych* (`OutlookCampaigns`, właściwości nazwane `AdMngCampaign`/`AdMngKeys`). `OutlookErrors` zamienia HRESULT i
+  krok na kod `outlook.*` – treść wyjątku nigdy nie jest zachowywana (może zawierać adresy). Obrazki dla Outlooka trafiają
+  do prywatnego folderu tymczasowego usuwanego zaraz po zapisie wiadomości (`OutlookTempFiles`). Tu są też podpisy
+  Outlooka (`OutlookSignatureFiles`) i transport U1 `OutlookUserMessageTransport`. Odwołuje się do niego tylko
+  `AdMng.App`.
+- **Core/Correspondence** – czysta logika: `Import` (adresy, wyłuskiwanie z tekstu i tabel, czytniki CSV, XLSX, DOCX,
+  ODT/ODS, RTF i HTML z limitami i ochroną przed bombami zip), `Fields` (pola `{{Pole}}`/`{{Pole|tekst}}`, naprawa pól
+  rozciętych znacznikami, zbiór pól odbiorcy), `Composition` (dokument wiadomości, renderer z `{{lista}}`, parser
+  podpisów Outlooka, kontrola zgodności z pocztą, grupowanie), `Journal` (skróty HMAC-SHA-256 i format pliku dziennika),
+  `Mailboxes` (rodzaje skrzynek z `msExchRecipientTypeDetails`, imię i nazwisko właściciela, indeks osób ze składaniem
+  polskich znaków, dopasowanie z poziomami i pełnomocnictwami) oraz kontrakty Outlooka (`IOutlookClient`,
+  `IOutlookSession`, `OutlookMessage`, `OutlookFailureCodes`). Pola z AD to wyrażenia `UserMessageFields` (U1, U1d,
+  nowe `{$created}`).
+- **Presentation/Correspondence** – `CorrespondenceViewModel` (okno, `WindowViewModelBase`) i strony:
+  `OutlookConnectionViewModel`, `MailboxOwnersPageViewModel`, `RecipientsPageViewModel`, `MessagePageViewModel`,
+  `PreviewPageViewModel`, `SendPageViewModel`, `ResponsesPageViewModel`. Singletony aplikacji: `CorrespondenceJournal`
+  (plik dziennika z blokadą `journal.lock` między oknami i procesami), `CorrespondenceTemplateLibrary` (szablony
+  wbudowane i operatora, eksport/import, ostatni szkic; obrazki we wspólnym `MessageImageStore`) i
+  `LoopbackPreviewServer` (podgląd w przeglądarce z pamięci na `127.0.0.1` pod losowym tokenem, 15 minut).
+  **Scoped** (okno połączenia): `CorrespondenceServices`, `CorrespondenceViewModelFactory`, dialogi i launcher
+  (`ICorrespondenceDialogs`, `ICorrespondenceLauncher` w `DialogService` App). Polecenia powłoki `tools.correspondence`,
+  `object.correspondence`, `object.mailboxOwners`. Ustawienia: `CorrespondenceSettings` w `settings.json` (opcje,
+  szablony, ostatni szkic, definicje pól, opcje skrzynek – nazwy, filtry LDAP i DN przenośne, nigdy wartości z katalogu).
+- **App/Correspondence** – `CorrespondenceWindow` (zakładki, siatki z kolumnami pól), `RichMessageEditor` (WPF
+  `RichTextBox`, wklejanie przez potok U1c) z konwerterem `FlowDocumentHtml` (dokument ↔ ograniczony, oczyszczony HTML),
+  `DpapiKeyProtector` (klucz dziennika, DPAPI bieżącego użytkownika), `WindowsCorrespondencePlatform` (folder *Pobrane*),
+  `LoopbackBrowserPreview` i rejestracja `AddAdMngCorrespondenceApp()` (klient Outlooka i transport U1 jako singletony).
+  Test dymny i testy UI podmieniają Outlooka na fałszywy – nigdy go nie uruchamiają.
+- **Dane** (zasada 1) – lista odbiorców, wartości z AD, podgląd, wyniki, dopasowania skrzynek i odpowiedzi są tylko w
+  pamięci okna. Jedyny wyjątek to dziennik „już wysłane” (`correspondence/journal.txt` obok ustawień): skróty adresów
+  (HMAC-SHA-256 z kluczem użytkownika chronionym DPAPI), czas i temat, bez adresów
+  ([ADR-0003](adr/0003-brak-lokalnych-danych.md), uzupełnienie). Dziennik sesji dostaje jeden wpis na wysyłkę bez
+  adresów i tematu.
+- **Testy** – `AdMng.Core.Tests/Correspondence` (czytniki plików, pola, kompozycja, dziennik, dopasowanie skrzynek na
+  próbce `AddMailboxOwnerSample`), `AdMng.Outlook.Tests` (fałszywy model obiektowy Outlooka w CLR, Linux i Windows),
+  `AdMng.Presentation.Tests/Correspondence` (z `FakeOutlookClient` z `AdMng.Testing`), testy UI i zrzuty 26–28 na
+  Windows. Prawdziwy Outlook – tylko pilotaż.
+
 ## Bezpieczeństwo
 
 - Hasła logowania i resetowane są tylko w pamięci; nie trafiają do ustawień, logów ani `ToString()`.
@@ -320,6 +385,7 @@ Zasady, które odróżniają usługę od reszty rozwiązania:
 |---|---|---|
 | Jednostkowe | `AdMng.Core.Tests`, `AdMng.Presentation.Tests` | xUnit v3, `FakeDirectorySession` |
 | Integracyjne | `AdMng.Directory.IntegrationTests` | Samba AD DC z `tools/testlab` (lokalnie i w CI na Ubuntu) |
+| Outlook (U5) | `AdMng.Outlook.Tests` | fałszywy model obiektowy Outlooka w CLR: kolejność kroków budowania wiadomości, obrazki `cid:`, klasyfikacja błędów, wątek STA, pliki tymczasowe, głosy, transport U1 (Linux i Windows); prawdziwy Outlook – tylko pilotaż |
 | Dymne UI | CI Windows | `AdMng.exe --smoke-test` tworzy wszystkie widoki z danymi testowymi |
 | Watchdog – silnik | `AdMng.Watchdog.Core.Tests` | `FakeDirectorySession` z emulacją USN, metadanych i kontrolera; zarejestrowane zdarzenia 47xx/5136; fałszywy zegar |
 | Watchdog – usługa | `AdMng.Watchdog.Service.Tests` | host w procesie (`WebApplicationFactory`), SQLite w folderze tymczasowym, odbiorniki SMTP/HTTP, testy higieny dzienników, odczyt plików OpenWEC z awarią na każdym kroku, rozbiór listingu smbclient, role z `tokenGroups`; testy tylko-Windows w CI Windows |

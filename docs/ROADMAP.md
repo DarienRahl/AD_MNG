@@ -15,7 +15,8 @@ podjęcia z zespołem. Ten plik zostaje tylko po to, żeby dawne odnośniki dale
 | ⬜ | [Faza 6 – Delegacja i zarządzanie](../README.md#faza-6--delegacja-i-zarządzanie-) |
 | ⬜ | [Faza 7 – Wdrożenie i dodatki](../README.md#faza-7--wdrożenie-i-dodatki-) |
 | 🟡 | [AdMng Watchdog – monitor zmian w AD](../README.md#admng-watchdog--monitor-zmian-w-ad-) |
-| 🟡 (U1 – U1a, U1b, U1c, U1d –, U2 i U4 – U4a, U4b, U4c: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-i-u4-) |
+| 🟡 (U1 – U1a, U1b, U1c, U1d –, U2 i U4 – U4a, U4b, U4c: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5: 🟡; U3: ⬜) | [Ścieżka U – Przegląd kont i wiadomości do użytkowników](../README.md#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-u4-i-u5-) |
+| 🟡 (zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; instrukcja: [KORESPONDENCJA.md](KORESPONDENCJA.md)) | [U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek](../README.md#u5--korespondencja-outlook-i-zapytania-do-właścicieli-skrzynek-) |
 | ⬜ | [Ścieżka C – Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint](../README.md#ścieżka-c--microsoft-365-entra-id-exchange-online-teams-i-sharepoint-) |
 | ⬜ | [Ścieżka T – Współpraca zespołu](../README.md#ścieżka-t--współpraca-zespołu-) |
 | 🟡 (K1, K2: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; K3–K5: ⬜) | [Ścieżka K – Komputery i zasady grupy (GPO)](../README.md#ścieżka-k--komputery-i-zasady-grupy-gpo--k1-i-k2-) |

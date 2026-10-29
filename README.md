@@ -157,7 +157,8 @@ Czego jeszcze brakuje (m.in. LAPS, BitLocker, edytor ACL, zakładanie kont z CSV
 *Przegląd komputerów*, karta *Zasady grupy* jednostki organizacyjnej, wiadomość wklejona z Outlooka z obrazami
 osadzonymi, zwroty grzecznościowe w podglądzie wiadomości, *Przegląd kont* (z zakładką *Uprawnienia*), dwa okna połączeń
 obok siebie, porównanie obiektów między nimi, potwierdzenie certyfikatu Watchdoga i podzakładka „Źródła i retencja” – są
-dołączone do wydania. Aktualny komplet CI
+dołączone do wydania. Okno *Korespondencja* (U5) pokazują zrzuty 26–28: odbiorcy wczytani z pliku z kolumnami pól,
+wiadomość w edytorze z podpisem i załącznikami oraz właściciele skrzynek po dopasowaniu. Aktualny komplet CI
 publikuje przy każdym pushu na gałęzi `screenshots` – zob. [Zrzuty ekranu z CI](#zrzuty-ekranu-z-ci).</sub>
 
 ## 🧭 Roadmapa
@@ -187,7 +188,7 @@ flowchart TB
     end
     subgraph C["Ścieżki równoległe"]
         direction LR
-        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia<br/>i wiadomości e-mail<br/>(U1a–U1d, U2, U4: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1, K2: 🟡; ADMX: ⬜)"]
+        W["🟡 W · AdMng Watchdog<br/>monitor zmian w AD"] ~~~ U["🟡 U · Przegląd kont, uprawnienia,<br/>wiadomości e-mail i korespondencja<br/>przez Outlooka<br/>(U1a–U1d, U2, U4, U5: 🟡)"] ~~~ M365["⬜ C · Microsoft 365<br/>Entra ID, Exchange Online,<br/>Teams, SharePoint"] ~~~ TEAM["⬜ T · Współpraca zespołu<br/>wspólne przypięcia<br/>i notatki do obiektów"] ~~~ K["🟡 K · Komputery<br/>i zasady grupy (GPO)<br/>(K1, K2: 🟡; ADMX: ⬜)"]
     end
     A --> B
     B ~~~ C
@@ -213,7 +214,7 @@ flowchart TB
 | 6 | Delegacja i zarządzanie | Edytor ACL, kreator delegowania i przegląd delegacji, polityki ADMX, dziennik zdarzeń operatora, rzadkie karty ADUC | ⬜ |
 | 7 | Wdrożenie i dodatki | Podpisany MSI, WDAC/AppLocker, zatwierdzanie „cztery oczy”, członkostwo czasowe (PAM) | ⬜ |
 | W | AdMng Watchdog – monitor zmian (ścieżka równoległa) | Usługa na Linuksie (Debian, systemd) wykrywająca zmiany w AD z ustaleniem wykonawcy i źródła (WEF), treść GPO, historia 3 lata, powiadomienia e-mail / raport dzienny / Teams / webhook, zakładka Watchdog w AD_MNG | 🟡 wersja zapoznawcza (pakiety Debian od 0.3.0), czeka na pilotaż na kontrolerach Windows Server |
-| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U3: ⬜) |
+| U | Przegląd kont i wiadomości do użytkowników (ścieżka równoległa) | Wiadomości e-mail (SMTP) z szablonów z danymi konta (np. „hasło wygasa dnia …”) do jednego użytkownika z okna właściwości lub do wielu naraz, przegląd wszystkich kont (zablokowane, wygasłe i wygasające hasła i konta, nieaktywne, higiena haseł), uprawnienia kont (każde konto z prawami ponad zwykłego użytkownika domeny, z poziomem i ścieżką), kreator filtrów, automatyczne przypomnienia w usłudze Watchdog, korespondencja seryjna przez klasycznego Outlooka (pliki z adresami, odbiorcy z AD, pola, podgląd, test, dziennik „już wysłane”) i zapytania do właścicieli skrzynek współdzielonych | 🟡 (U1a – wiadomości z AD Managera z bezpośrednim SMTP, U1b – wysyłka przez usługę Watchdog, U1c – wiadomości sformatowane wklejone z Outlooka z obrazami osadzonymi, U1d – zwroty grzecznościowe z tytułem i płcią, U2 – przegląd stanu kont, U4 – uprawnienia kont: U4a z grup i ustawień kont z kreatorem filtrów, U4b z delegowań w ACL i U4c z uprawnień lokalnych z GPO: 🟡 zaimplementowane, czekają na pilotaż na Windows Server AD; U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek: 🟡 zaimplementowane, czekają na pilotaż z klasycznym Outlookiem i Exchange; U3: ⬜) |
 | C | Microsoft 365: Entra ID, Exchange Online, Teams i SharePoint (ścieżka równoległa) | Logowanie kontem administratora lub Czytelnika globalnego z automatycznym wykrywaniem ról (także kwalifikujących się w PIM) i dopasowaniem dostępnych funkcji; użytkownicy, grupy, licencje, MFA i logowania w Entra ID, skrzynki i uprawnienia w Exchange Online, Teams, SharePoint i OneDrive, powiązanie konta AD z kontem w Entra ID; Microsoft Graph i moduły PowerShell | ⬜ zaplanowane |
 | T | Współpraca zespołu (ścieżka równoległa) | Kilku administratorów na różnych komputerach pracuje razem przez usługę AdMng Watchdog: panel „Wspólne” z obiektami przypiętymi dla zespołu (z notatką, autorem, „Przekaż do…”) i notatki do obiektów widoczne dla wszystkich przy koncie, grupie czy komputerze, odświeżane na żywo | ⬜ zaplanowane |
 | K | Komputery i zasady grupy (GPO) (ścieżka równoległa) | Inwentarz i raporty komputerów, cykl życia kont komputerów, zdalne akcje przez WinRM; GPO w drzewie (tworzenie, łączenie z OU, kolejność, filtrowanie), edytor szablonów administracyjnych z najnowszych ADMX (Windows, Edge, Microsoft 365 Apps, Chrome, Firefox i inne) z aktualizacją magazynu centralnego, ustawienia zabezpieczeń, raport „co dostanie komputer” | 🟡 (K1 – komputery i K2 – GPO w drzewie: zaimplementowane, czekają na pilotaż na Windows Server AD; K3–K5: ⬜) |
@@ -508,7 +509,7 @@ na żywo i wiele domen.
 - Raporty na żywo: bezpieczeństwo (PASSWD_NOTREQD, brak preautentykacji Kerberos, delegowanie nieograniczone, adminCount,
   konta z SPN), inwentaryzacja (systemy operacyjne, puste i duże grupy, liczności OU); każdy wynik można przekazać do edycji zbiorczej.
   Przegląd stanu kont użytkowników (zablokowane, terminy haseł i kont, nieaktywne) –
-  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-i-u4-); konta z uprawnieniami
+  [ścieżka U](#ścieżka-u--przegląd-kont-i-wiadomości-do-użytkowników--u1a-u1b-u1c-u1d-u2-u4-i-u5-); konta z uprawnieniami
   ponad zwykłego użytkownika (grupy, delegowanie Kerberos, SPN, adminCount, brak preautentykacji, delegowania w ACL,
   uprawnienia lokalne z GPO) – zakładka *Uprawnienia* tego okna ([U4](#u4--uprawnienia-kont--u4a-u4b-i-u4c-)).
 - ✅ Członkostwo bezpośrednie vs pełne (zagnieżdżone) na kartach *Członek grup* i *Członkowie*
@@ -627,17 +628,18 @@ w jednej instancji, wartości czasowe członkostwa (PAM TTL), podpisane pakiety 
 
 </details>
 
-### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U1c, U1d, U2 i U4: 🟡)
+### Ścieżka U – Przegląd kont i wiadomości do użytkowników 🟡 (U1a, U1b, U1c, U1d, U2, U4 i U5: 🟡)
 
 **Cel:** helpdesk jednym przebiegiem sprawdza wszystkie konta (zablokowane, wygasające hasła i konta, nieaktywne …)
 i od razu powiadamia właściwe osoby e-mailem – jedną osobę z okna właściwości albo setki z zaznaczenia lub z wyniku
 przeglądu – z takim samym podglądem, raportem i zabezpieczeniami jak w edycji zbiorczej. Ścieżka równoległa: korzysta
 z chipów filtrów (faza 1), silnika szablonów (faza 2) i transportu SMTP Watchdoga ([WATCHDOG.md](docs/WATCHDOG.md#52-smtp)).
 U1 i U2 można realizować niezależnie; U3 wymaga szablonów z U1 i usługi Watchdog; U4 (uprawnienia kont) to druga
-zakładka okna przeglądu z U2.
+zakładka okna przeglądu z U2; U5 przenosi do AD Managera program *Korespondencja WPiA* (korespondencja seryjna przez
+klasycznego Outlooka) i dodaje zapytania do właścicieli skrzynek współdzielonych.
 
 <details>
-<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów</summary>
+<summary><b>Szczegóły ścieżki U</b> – wiadomości e-mail (SMTP, Watchdog, Outlook), przegląd stanu kont, automatyczne przypomnienia, uprawnienia kont i kreator filtrów, korespondencja przez Outlooka i zapytania do właścicieli skrzynek</summary>
 
 #### U1 – Wiadomości e-mail do użytkowników (SMTP) 🟡
 
@@ -655,7 +657,8 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   N dni; odbiorców można dopisać oknem wyboru obiektów albo usunąć. Zawsze jedna wiadomość na konto.
 - ✅ Szablony: wersje PL/EN wybierane wg `preferredLanguage` (domyślny język w ustawieniach), tekst i opcjonalny HTML,
   pola edycji zbiorczej oraz `{$passwordExpires:…}`, `{$passwordExpiresInDays}`, `{$accountExpires:…}`,
-  `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$today:…}`, `{$manager:atrybut}`, `{$input:nazwa}` –
+  `{$accountExpiresInDays}`, `{$lastLogon:…}`, `{$lockedSince:…}`, `{$created:…}` (data utworzenia konta, od U5),
+  `{$today:…}`, `{$manager:atrybut}`, `{$input:nazwa}` –
   daty w języku wiadomości i strefie Europe/Warsaw (z `AccountStatus` z U2, FGPP przez
   `msDS-UserPasswordExpiryTimeComputed`). 9 szablonów wbudowanych (hasło wygasa / wygasło, konto wygasa / wygasło,
   zablokowane / odblokowane, musi zmienić hasło, konto zostanie wyłączone, wiadomość dowolna), warunek wysyłki z N,
@@ -733,8 +736,15 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   Outlooka, Worda i przeglądarek, obrazy, plan), MIME obu nadawców, Mailpit (dwa obrazy jako części *inline* o tych
   samych bajtach), kontrakt i API usługi, migracja 0007, test laboratoryjny przez usługę, modelu okna, testy UI i zrzut
   `24-user-messages-rich-html.png` (Windows).
+- ✅ Wysyłka przez Outlooka (trzeci sposób wysyłki, z etapu U5): *Ustawienia → Wiadomości e-mail → Sposób wysyłki →
+  Przez Outlooka* wysyła wiadomości klasycznym Outlookiem na komputerze operatora – z konta wybranego w sekcji *Outlook*
+  (*Pobierz konta z Outlooka*; puste – konto domyślne profilu), opcjonalnie *w imieniu* adresu nadawcy z ustawień.
+  Szablony, stopka, brak załączników, lista dozwolonych domen, podgląd, raport i „Ponów nieudane” bez zmian; okno
+  wysyłki pokazuje *Wysyłka przez Outlooka: …*, a raport kody `outlook.*` z podpowiedzią. Tryb automatyczny nadal wybiera
+  Watchdoga albo SMTP, nigdy Outlooka. Wymagania (klasyczny Outlook, ten sam poziom uprawnień co AD Manager,
+  zabezpieczenie Outlooka przed programami): [KORESPONDENCJA.md, rozdz. 10](docs/KORESPONDENCJA.md#10-wiadomości-do-użytkowników-u1-przez-outlooka).
 - ⬜ XOAUTH2 (Exchange Online) w wysyłce bezpośredniej – nie pasuje do istniejącego kodu MSAL (poufny klient usługi
-  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅).
+  Watchdog); Exchange Online z OAuth2 – przez Watchdoga (U1b, ✅) albo przez Outlooka (U5, ✅).
 - ✅ Testy: jednostkowe (pola i daty z polskimi znakami w obu językach i strefie Europe/Warsaw, reguły bezpieczeństwa,
   wstrzykiwanie nagłówków, plan i podgląd, limit tempa, ponawianie, zatrzymanie, raport CSV), modelu okna na fałszywym
   DC z polską firmą przykładową, transportu SMTP na serwerach SMTP w procesie (STARTTLS z przypiętym certyfikatem,
@@ -746,7 +756,8 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   on-premises, wysyłka do ≥ 500 odbiorców z zaznaczenia, test „żadnych danych katalogu na dysku” po wysyłce; U1c:
   wklejanie z prawdziwego schowka Outlooka, Worda i przeglądarek, podgląd WebView2 i jego zastępczy widok źródła, wygląd
   wysłanej wiadomości w Outlooku, Gmailu i telefonach; U1d: zwroty dla prawdziwych danych `personalTitle` i nazw
-  wyświetlanych (testy UI i zrzuty `24-…` i `25-…` działają tylko w CI na Windows).
+  wyświetlanych (testy UI i zrzuty `24-…` i `25-…` działają tylko w CI na Windows); wysyłka przez Outlooka – z
+  prawdziwym klasycznym Outlookiem (pilotaż U5).
 - ⚠ Znane ograniczenia U1c i U1d:
   - *Wstaw pole* dopisuje pole do treści tekstowej; w treści HTML pole (np. `{$salutation}`) wpisuje się w Outlooku
     przed skopiowaniem albo w źródle HTML – pola rozcięte przez Outlooka są naprawiane przy wklejaniu.
@@ -808,7 +819,8 @@ Profesorze” we wklejonym formatowaniu z logo osadzonym, bezpośrednio przez SM
   jest wyłączane), sekrety zaszyfrowane po stronie usługi, kolejka z ponawianiem, dziennik wysyłek i nowa rola
   „Wysyłający” wg grupy AD. Wariant bez usługi: wysyłka bezpośrednio z AD_MNG przez przekaźnik bez logowania albo
   z logowaniem bieżącym kontem Windows; hasło SMTP, jeśli jest potrzebne, tylko w pamięci na czas sesji (zasada
-  „nigdy nie zapisujemy haseł”).
+  „nigdy nie zapisujemy haseł”). Trzecia możliwość (od U5): wysyłka przez klasycznego Outlooka operatora – z jego konta
+  i profilu, bez konfiguracji SMTP w AD Managerze.
 - **Bezpieczeństwo i RODO:** w szablonie nie da się umieścić hasła (nie ma takiego pola – wysyłanie nowego hasła
   e-mailem jest zablokowane); łącza tylko do domen z listy dozwolonych, stała stopka „nigdy nie prosimy o podanie
   hasła”, bez załączników; wartości z AD są kodowane w HTML, a z tematu i nagłówków usuwane są znaki nowej linii
@@ -1042,6 +1054,63 @@ zabezpieczeń GPO i usłudze Watchdog. Sprawdzone testem obu źródeł naraz na 
 testem UI (oba źródła w zakładce; uruchamiany na Windows w CI) i testami na laboratorium Samba obu źródeł w jednym przebiegu (każdy tylko we własnej
 OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged-access.md#63-u4b-and-u4c-together-as-built).
 
+#### U5 – Korespondencja (Outlook) i zapytania do właścicieli skrzynek 🟡
+
+**Cel:** program *Korespondencja WPiA* (`MailerWPiA.exe`, masowa wysyłka tej samej wiadomości przez klasycznego
+Outlooka – osobna wiadomość do każdego, z kopią w *Elementach wysłanych*, z kontem i podpisem operatora) ze wszystkimi
+funkcjami w AD Managerze, a do tego **odbiorcy prosto z AD** i **zapytania do właścicieli skrzynek**: konto skrzynki
+współdzielonej z imieniem i nazwiskiem osoby, której ją przypisano, prowadzi do jej własnego konta, a osoba dostaje
+wiadomość „czy skrzynka jest nadal potrzebna?” z przyciskami głosowania.
+
+**Stan realizacji – zaimplementowane, czeka na pilotaż z klasycznym Outlookiem i Exchange.** Instrukcja dla
+użytkownika: [docs/KORESPONDENCJA.md](docs/KORESPONDENCJA.md); opis techniczny:
+[docs/dev/u5-outlook-correspondence.md](docs/dev/u5-outlook-correspondence.md).
+
+- ✅ Okno *Korespondencja* (okno połączenia): *Narzędzia → Korespondencja (Outlook)…* (`tools.correspondence`),
+  *Akcja → Wyślij korespondencję…* (`object.correspondence`, zaznaczeni użytkownicy, kontakty i członkowie grup) i
+  *Akcja → Zapytaj właścicieli skrzynek…* (`object.mailboxOwners`), także z menu kontekstowego listy i palety poleceń.
+  Zakładki: *Skrzynki*, *1 · Odbiorcy*, *2 · Wiadomość*, *3 · Podgląd*, *4 · Wysyłka*, *5 · Odpowiedzi*.
+- ✅ Odbiorcy: najnowszy plik kontaktów z *Pobranych*, pliki CSV/TSV/TXT, Excel (XLSX/XLSM/XLTX – według adresów
+  komórek, każdy arkusz z własnym nagłówkiem), Word (DOCX/DOTX/DOCM), OpenDocument (ODT/ODS), RTF i HTML (tabele z
+  kolumnami), schowek, tekst wpisany, przeciągnięte pliki; z AD – zaznaczone obiekty, okno wyboru, członkowie grupy
+  (zagnieżdżeni). Każda kolumna to pole `{{Kolumna}}`; pola z AD to **wyrażenia wiadomości do użytkowników** (`{givenName}`,
+  `{$salutation}`, `{$honorific:biernik}`, `{$lastLogon:d MMMM yyyy}` …) liczone na żywo z kontrolera okna. Lista *Nie
+  wysyłać*, filtr, eksport CSV na żądanie.
+- ✅ Pola `{{zwrot}}`, `{{nazwa}}`, `{{email}}`, `{{Pole|tekst gdy puste}}`, pola własne, grupowanie po adresie
+  (`{{lista}}`, `{{liczba}}`); pola rozcięte formatowaniem Worda są sklejane.
+- ✅ Wiadomość: edytor WYSIWYG (pogrubienie, kursywa, podkreślenie, listy, odsyłacze, wklejanie z Worda i Outlooka z
+  obrazkami osadzonymi), podpisy Outlooka z obrazkami, załączniki, *Wyślij jako*, *W imieniu*, dostarczenie o wskazanej
+  porze, potwierdzenie przeczytania, przyciski głosowania, osobna wiadomość do każdego albo UDW (do 500 adresatów na
+  wiadomość), odstęp między wiadomościami, szablony z eksportem i importem, ostatni szkic.
+- ✅ Podgląd jak u odbiorcy (700 px, 380 px, pełna szerokość), *Podgląd z Outlooka*, *Otwórz w przeglądarce* (z pamięci,
+  pod adresem 127.0.0.1, 15 minut), *Zapisz jako .html*, ostrzeżenia (nieznane i puste pola, rzeczy psujące się w
+  poczcie, rozmiar).
+- ✅ Wysyłka przez Outlooka na osobnym wątku (okno odpowiada): *Test do siebie*, *Utwórz wersje robocze*, *Wyślij* z
+  potwierdzeniem (powyżej 20 wiadomości – wpisanie liczby), *Zatrzymaj*, *Ponów nieudane*, zatrzymanie po 5 błędach z
+  rzędu, czas do końca, raport na żądanie; wiadomość najpierw zapisana, a przy błędzie zostaje w *Wersjach roboczych*.
+  Dziennik „już wysłane” pomija adresy, do których wysłano wcześniej – przechowuje tylko **skróty adresów** (HMAC z
+  kluczem użytkownika chronionym DPAPI), czas i temat; lista odbiorców nie jest zapisywana.
+- ✅ Zakładka *Skrzynki*: skrzynki współdzielone, sale i sprzęt albo wszystkie skrzynki (`msExchRecipientTypeDetails`,
+  także zdalne), a bez schematu Exchange – wszystkie konta w zakresie; imię i nazwisko właściciela z `givenName`/`sn`,
+  nazwy wyświetlanej, opisu albo atrybutu (bez tytułów i uwag); dopasowanie w pamięci bez względu na polskie znaki,
+  kolejność imienia i nazwiska, tytuły w nazwie wyświetlanej i nazwiska dwuczłonowe, potwierdzone pełnomocnictwem
+  (`msExchDelegateListLink`, `publicDelegates`); statusy do przeglądu, ręczny wybór osoby lub adresu, wykluczenie;
+  właściciele trafiają do odbiorców z polami skrzynki i właściciela – jedna wiadomość na skrzynkę albo na właściciela z
+  listą jego skrzynek – z wbudowanym szablonem *Czy skrzynka pocztowa jest nadal potrzebna?*.
+- ✅ Zakładka *Odpowiedzi*: głosy z *Elementów wysłanych* Outlooka przypisane do skrzynek, podsumowanie i eksport CSV.
+- ✅ Wiadomości do użytkowników (U1) mają trzeci sposób wysyłki – *Przez Outlooka* (rozdział U1 wyżej); nowe pole U1
+  `{$created:…}`.
+- ✅ Testy: jednostkowe (czytniki wszystkich formatów plików z polskimi znakami i stroną kodową 1250, ochrona przed
+  bombami zip, pola i ich naprawa, kompozycja z podpisem i obrazkami, zgodność z pocztą, dziennik, dopasowanie
+  właścicieli na próbce 14 skrzynek z polskimi nazwiskami), silnik Outlooka na fałszywym modelu obiektowym (kolejność
+  kroków, obrazki `cid:`, wersja robocza po błędzie, klasyfikacja błędów, wątek STA, odczyt głosów), modele okna na
+  fałszywym DC i fałszywym Outlooku, testy UI, test dymny i zrzuty `26-…`–`28-…` (Windows).
+- 🟡 Do weryfikacji w pilotażu: lista kontrolna w
+  [KORESPONDENCJA.md, rozdz. 14](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu) – m.in. Microsoft 365 Apps 32- i
+  64-bitowy, Exchange Online i w firmie, *W imieniu*, obrazki w Outlooku, w przeglądarce i w Gmailu, przyciski głosowania i
+  odczyt głosów, zabezpieczenie Outlooka przed programami, AD Manager uruchomiony jako administrator, 300 wiadomości z
+  odstępem 3 s, prawdziwe wartości `msExchRecipientTypeDetails` w środowisku hybrydowym.
+
 **Kryteria ukończenia**
 - Wiadomość do jednego użytkownika z okna właściwości i do ≥ 500 użytkowników z zaznaczenia: podgląd każdej
   wiadomości, raport per odbiorca, „ponów nieudane”; testy automatyczne z Mailpit na laboratorium Samba (polskie znaki
@@ -1058,6 +1127,10 @@ OU). Szczegóły: [docs/dev/u4-privileged-access.md, 6.3](docs/dev/u4-privileged
   z poprawnym poziomem i ścieżką; uprawnienia lokalne z GPO (U4c) zgodne z `gpresult /scope computer` komputerów
   w OU z blokadą dziedziczenia i wymuszonymi połączeniami, także dla sesji z innymi poświadczeniami niż konto Windows;
   test „żadnych danych katalogu na dysku” zaliczony po przeglądzie uprawnień.
+- Korespondencja (U5): 300 wiadomości przez klasycznego Outlooka z odstępem 3 s bez zamrożeń okna i bez odrzuceń,
+  obrazki osadzone widoczne w Outlooku, w przeglądarce i w Gmailu, głosy odczytane na zakładce *Odpowiedzi*; zapytanie
+  do właścicieli skrzynek na prawdziwym katalogu z Exchange (także hybrydowym) bez fałszywych dopasowań; test „żadnych
+  danych katalogu na dysku” zaliczony po wysyłce (na dysku tylko dziennik skrótów).
 
 </details>
 
@@ -1414,9 +1487,10 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   (U4c): filtry WMI i określanie elementów docelowych nie są oceniane (ustalenia „warunkowe”), lokacje komputerów
   członkowskich też nie; lokalne konta i grupy samych komputerów są poza zasięgiem (tylko to, co nadają GPO); SYSVOL
   tylko na Windows. Z domeny podrzędnej nie są widoczne Enterprise / Schema Admins domeny głównej lasu.
-- **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP albo usługa Watchdog (U1b: kolejka,
-  sekrety po stronie usługi, OAuth2 Exchange Online); XOAUTH2 w wysyłce bezpośredniej nie jest obsługiwany – bez
-  Watchdoga dla Exchange Online zostaje przekaźnik albo konto z włączonym SMTP AUTH. Przez Watchdoga usługa nie zna listy
+- **Wiadomości do użytkowników (U1)** – wysyła AD Manager bezpośrednio przez SMTP, usługa Watchdog (U1b: kolejka,
+  sekrety po stronie usługi, OAuth2 Exchange Online) albo – od U5 – klasyczny Outlook operatora; XOAUTH2 w wysyłce
+  bezpośredniej nie jest obsługiwany – bez Watchdoga dla Exchange Online zostaje przekaźnik, konto z włączonym SMTP AUTH
+  albo Outlook. Przez Watchdoga usługa nie zna listy
   dozwolonych domen łączy AD Managera (sprawdza ją AD Manager), a wiadomość „w kolejce usługi” raport pokazuje jako
   przyjętą – ostateczny wynik jest w dzienniku wysyłek Watchdoga. Hasło SMTP trzeba wpisać raz na
   sesję (nie jest zapisywane). Limit tempa i dobowy limit odbiorców liczy tylko ta instancja AD Managera (w pamięci,
@@ -1426,6 +1500,19 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
   źródło HTML. Wiadomości mają stałą stopkę i nie mają załączników (obrazy osadzone w treści nie są załącznikami).
   Uwierzytelnianie bieżącym kontem
   Windows sprawdzono tylko testem negocjacji mechanizmów (bez Exchange).
+- **Korespondencja (U5) – nie sprawdzona z prawdziwym Outlookiem.** Silnik Outlooka jest testowany na fałszywym modelu
+  obiektowym (CI nie ma Outlooka); połączenie z prawdziwym Outlookiem, zwalnianie obiektów COM, zabezpieczenie Outlooka
+  przed programami, *W imieniu*, dostarczenie o wskazanej porze, przyciski głosowania i ich odczyt (filtr daty
+  *Elementów wysłanych*), edytor na Windows i wartości `msExchRecipientTypeDetails` w środowisku hybrydowym potwierdzi
+  dopiero pilotaż ([lista](docs/KORESPONDENCJA.md#14-lista-kontrolna-pilotażu)). Działa tylko klasyczny Outlook (nie
+  „nowy Outlook” ani Outlook w przeglądarce) na tym samym poziomie uprawnień co AD Manager. Lista odbiorców nie jest
+  zapisywana (po przerwaniu wczytuje się plik ponownie, a dziennik „już wysłane” pomija wysłane adresy); dziennik zna
+  tylko skróty adresów, jest osobny dla każdego użytkownika Windows i nie przejmuje dziennika `wyslane.csv`
+  Korespondencji WPiA. Lista *Nie wysyłać* i załączniki nie są zapamiętywane. W trybie UDW pola kolumn są puste (jedna
+  wiadomość dla wszystkich). *Odpowiedzi* czytają tylko *Elementy wysłane* domyślnej skrzynki profilu, a głosy zlicza
+  Outlook nadawcy. Zapytanie do właścicieli skrzynek dopasowuje osoby po imieniu i nazwisku zapisanym na koncie
+  skrzynki – bez tych danych (albo bez schematu Exchange i pełnomocnictw) wynik wymaga ręcznego przeglądu; *Ostatnie
+  logowanie* konta skrzynki nie mówi, czy skrzynka jest używana.
 - **Wiele połączeń i porównanie obiektów** – okno modalne jednego połączenia (potwierdzenie, *Resetuj hasło*, *Nowy
   obiekt*, ustawienia) na chwilę blokuje wszystkie okna programu (jeden wątek interfejsu); dwa okna tej samej domeny
   nie widzą natychmiast swoich zmian (pomaga odświeżanie na żywo albo F5), jak dwie konsole ADUC. Porównanie jest tylko
@@ -1471,6 +1558,8 @@ Stan na październik 2026. Funkcje z kolejnych faz opisano wyżej; tu są braki 
 | Delegacja, ACL | F5–F6 | F5–F6 | F5–F6 | F5–F6 | F6 |
 | Przegląd stanu kont | U | – | – | – | – |
 | Wiadomości e-mail do użytkowników | U | – | U (członkowie jako odbiorcy) | – | – |
+| Korespondencja przez Outlooka | U5 | – | U5 (członkowie jako odbiorcy) | U5 | – |
+| Zapytania do właścicieli skrzynek | U5 (skrzynki i ich właściciele) | – | – | – | U5 (zakres) |
 
 </details>
 
@@ -1509,6 +1598,9 @@ Pełna lista pytań: [RESEARCH.md](docs/RESEARCH.md#11-pytania-otwarte-do-zespo�
 - Do uruchomienia wersji self-contained nie jest potrzebny .NET ani RSAT.
 - Podgląd renderowany wiadomości korzysta z Microsoft Edge WebView2 Runtime (jest w Windows 11 i aktualnym Windows 10,
   na Windows Server 2019 i 2022 często go nie ma); bez niego okno pokazuje źródło HTML.
+- Okno *Korespondencja* (U5) i wysyłka wiadomości do użytkowników przez Outlooka wymagają **klasycznego Outlooka**
+  (Microsoft 365 Apps albo Office 2016+) z profilem pocztowym na tym samym komputerze, uruchomionego na tym samym
+  poziomie uprawnień co AD Manager (oba bez *Uruchom jako administrator*) – zob. [KORESPONDENCJA.md](docs/KORESPONDENCJA.md#1-wymagania).
 - Do budowania: .NET SDK 10.0.
 
 **Gotowa wersja**
@@ -1649,6 +1741,7 @@ Lokalnie (Windows): `$env:ADMNG_SCREENSHOTS_DIR = "$PWD\zrzuty"; dotnet test tes
 | 🐧 [AdMng Watchdog na Linuksie](docs/WATCHDOG-LINUX.md) | wdrożenie krok po kroku: AD, kontrolery, serwer Debian, pakiety, pilotaż, wycofanie |
 | 🖥 [Komputery](docs/KOMPUTERY.md) | przegląd komputerów i raporty, cykl życia kont, zdalne akcje przez WinRM, WinRM zasadą grupy |
 | 📜 [Zasady grupy](docs/ZASADY-GRUPY.md) | obiekty zasad grupy w drzewie, karta *Zasady grupy*, operacje na GPO, filtrowanie zabezpieczeń, filtry WMI, delegowanie, kopie zapasowe, porównanie |
+| 📨 [Korespondencja](docs/KORESPONDENCJA.md) | okno *Korespondencja (Outlook)*: odbiorcy z plików i z AD, pola, wiadomość, podgląd, wysyłka przez Outlooka, dziennik „już wysłane”, zapytania do właścicieli skrzynek, odpowiedzi, rozwiązywanie problemów, pilotaż |
 | 🧪 [Laboratorium testowe](tools/testlab/README.md) | Samba AD DC z danymi „polskiej firmy”; [Watchdog w laboratorium](tools/testlab/watchdog/README.md) |
 | 🧑‍💻 [Notatki dla deweloperów](CLAUDE.md) | zasady, układ projektów, polecenia, konwencje |
 
