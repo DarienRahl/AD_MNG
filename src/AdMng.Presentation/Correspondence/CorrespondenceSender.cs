@@ -153,6 +153,9 @@ internal sealed class CorrespondenceSender
     /// <summary>The failure of a message whose images exceed the limits of one message.</summary>
     public static OutlookFailure ImagesTooLarge { get; } = new(OutlookFailureKind.ItemTooLarge, OutlookFailureCodes.ItemTooLarge, ImagesStep, null);
 
+    /// <summary>The failure of a call into a session the window already released (closed): Outlook is gone for it.</summary>
+    public static OutlookFailure SessionClosed { get; } = new(OutlookFailureKind.Disconnected, OutlookFailureCodes.Disconnected, null, null);
+
     /// <summary>
     /// The Outlook item of <paramref name="job"/>: subject (with the prefix) and body rendered with the job's unit, the images
     /// the document references, the attachments, account, "w imieniu", read receipt, deferred delivery, voting buttons and –
@@ -296,7 +299,7 @@ internal sealed class CorrespondenceSender
         catch (ObjectDisposedException)
         {
             // The window closed and released the session: nothing more can be sent.
-            return new OutlookItemResult(false, false, new OutlookFailure(OutlookFailureKind.Disconnected, OutlookFailureCodes.Disconnected, null, null));
+            return new OutlookItemResult(false, false, SessionClosed);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

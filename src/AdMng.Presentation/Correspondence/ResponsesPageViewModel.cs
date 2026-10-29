@@ -162,10 +162,9 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
                 ? Localizer.Format(L.CorrespondenceResponses.NoCampaigns, Since.Date.ToString("d", Localizer.Culture))
                 : Localizer.Format(L.CorrespondenceResponses.CampaignsFound, Campaigns.Count);
         }
-        catch (OutlookException ex)
+        catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            Outlook.ReportFailure(ex.Failure);
-            SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, CorrespondenceText.FailureText(Localizer, ex.Failure));
+            ShowFailure(ex);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -221,10 +220,9 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
             Rows.ReplaceAll(rows);
             Summarize(rows);
         }
-        catch (OutlookException ex)
+        catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
         {
-            Outlook.ReportFailure(ex.Failure);
-            SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, CorrespondenceText.FailureText(Localizer, ex.Failure));
+            ShowFailure(ex);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -276,6 +274,14 @@ public sealed partial class ResponsesPageViewModel : ObservableObject
     }
 
     private bool CanExport() => Rows.Count > 0;
+
+    /// <summary>A failed read: the failure's text (a released session is a lost Outlook), reported so the next read reconnects.</summary>
+    private void ShowFailure(Exception exception)
+    {
+        var failure = (exception as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
+        Outlook.ReportFailure(failure);
+        SummaryText = Localizer.Format(L.CorrespondenceResponses.ReadFailed, CorrespondenceText.FailureText(Localizer, failure));
+    }
 
     private void Summarize(IReadOnlyList<ResponseRowViewModel> rows)
     {

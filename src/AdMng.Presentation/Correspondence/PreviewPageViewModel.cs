@@ -185,10 +185,11 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             {
                 rendered = await session.RenderAsync(message, CancellationToken.None).ConfigureAwait(true);
             }
-            catch (OutlookException ex)
+            catch (Exception ex) when (ex is OutlookException or ObjectDisposedException)
             {
-                Outlook.ReportFailure(ex.Failure);
-                ShowFailure(Localizer.Format(L.CorrespondencePreview.OutlookFailed, CorrespondenceText.FailureText(Localizer, ex.Failure)));
+                var failure = (ex as OutlookException)?.Failure ?? CorrespondenceSender.SessionClosed;
+                Outlook.ReportFailure(failure);
+                ShowFailure(Localizer.Format(L.CorrespondencePreview.OutlookFailed, CorrespondenceText.FailureText(Localizer, failure)));
                 return;
             }
 
