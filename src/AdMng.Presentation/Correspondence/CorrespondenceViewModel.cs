@@ -47,6 +47,8 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         IsMailboxesTabVisible = request.Start == CorrespondenceStart.MailboxOwners;
         SelectedTab = IsMailboxesTabVisible ? CorrespondenceTab.Mailboxes : CorrespondenceTab.Recipients;
         Mailboxes.RecipientsAdded += OnMailboxRecipientsAdded;
+        Recipients.PropertyChanged += OnPagePropertyChanged;
+        Mailboxes.PropertyChanged += OnPagePropertyChanged;
     }
 
     /// <summary>"Korespondencja – {domain}" ("Korespondencja" for a window opened while disconnected).</summary>
@@ -166,6 +168,8 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
     {
         base.OnCultureChanged();
         Outlook.RefreshTexts();
+        Recipients.RefreshTexts();
+        Mailboxes.RefreshTexts();
     }
 
     /// <summary>The AD actions are disabled and a running mailbox owner query stops; Outlook sending keeps working.</summary>
@@ -183,6 +187,8 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
         if (disposing)
         {
             Mailboxes.RecipientsAdded -= OnMailboxRecipientsAdded;
+            Recipients.PropertyChanged -= OnPagePropertyChanged;
+            Mailboxes.PropertyChanged -= OnPagePropertyChanged;
             if (Send.IsSending && Send.StopCommand.CanExecute(null))
             {
                 Send.StopCommand.Execute(null);
@@ -207,6 +213,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
             Mailboxes.LoadFrom(settings);
             Outlook.ConnectInBackground();
             await LoadJournalAsync(settings.JournalRetentionDays).ConfigureAwait(true);
+            Recipients.RefreshJournalMarks();
             await LoadLastDraftAsync().ConfigureAwait(true);
             await RefreshSignaturesAsync().ConfigureAwait(true);
             await ApplyRequestAsync().ConfigureAwait(true);
@@ -345,6 +352,7 @@ public sealed partial class CorrespondenceViewModel : WindowViewModelBase
             return;
         }
 
+        Recipients.SelectedObjects = dns;
         try
         {
             await Recipients.AddFromDirectoryAsync(dns).ConfigureAwait(true);
