@@ -71,6 +71,32 @@ public class OutlookCampaignsTests
     }
 
     [Fact]
+    public async Task CampaignReads_OpenOneItemAtATime_SoTheLimitOfOnlineModeLosesNothing()
+    {
+        // Exchange in online mode (VDI, shared mailboxes) refuses to open more than about 250 items at once ("your server
+        // administrator has limited the number of items you can open simultaneously"): a campaign of 300 messages must still
+        // be counted and read whole.
+        await using var harness = new OutlookHarness();
+        harness.Application.OpenItemLimit = 250;
+        for (var index = 0; index < 300; index++)
+        {
+            Sent(harness, CampaignA, "2026-10-01 10:00", "Czy skrzynka jest nadal potrzebna?", $"skrzynka{index:000}@contoso.test",
+                Vote(harness, $"wlasciciel{index:000}@contoso.test", 1, index % 2 == 0 ? "Tak, nadal potrzebna" : string.Empty, Never));
+        }
+
+        var session = await harness.ConnectAsync();
+
+        var campaign = Assert.Single(await session.FindCampaignsAsync(new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero), Ct));
+        var responses = await session.ReadResponsesAsync(CampaignA, Ct);
+
+        Assert.Equal(300, campaign.Messages);
+        Assert.Equal(300, responses.Count);
+        Assert.Equal(150, responses.Count(response => response.Response is not null));
+        Assert.Equal(["skrzynka299@contoso.test"], responses[^1].Keys);
+        harness.AssertAllReleased();
+    }
+
+    [Fact]
     public async Task FindCampaignsAsync_NothingSent_IsEmpty()
     {
         await using var harness = new OutlookHarness();
