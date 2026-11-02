@@ -12130,6 +12130,183 @@ Każdy, kto odczyta plik, zobaczy te wartości - przechowuj go bezpiecznie i usu
   <data name="Issue.CentralStoreCreated" xml:space="preserve">
     <value>Domena nie ma jeszcze magazynu centralnego: aktualizacja utworzy PolicyDefinitions w SYSVOL. Od tej chwili edytor każdego administratora będzie używał go zamiast szablonów z własnego komputera.</value>
   </data>
+  <data name="CentralStore.Title" xml:space="preserve">
+    <value>Aktualizacja szablonów ADMX</value>
+  </data>
+  <data name="CentralStore.Command" xml:space="preserve">
+    <value>Zaktualizuj szablony…</value>
+  </data>
+  <data name="CentralStore.Target" xml:space="preserve">
+    <value>Magazyn centralny: {0}</value>
+  </data>
+  <data name="CentralStore.Sources" xml:space="preserve">
+    <value>Szablony</value>
+  </data>
+  <data name="CentralStore.OpenFile" xml:space="preserve">
+    <value>Z pliku…</value>
+  </data>
+  <data name="CentralStore.OpenFolder" xml:space="preserve">
+    <value>Z folderu…</value>
+  </data>
+  <data name="CentralStore.UseLocalStore" xml:space="preserve">
+    <value>Szablony tego komputera</value>
+  </data>
+  <data name="CentralStore.DownloadEdge" xml:space="preserve">
+    <value>Pobierz Microsoft Edge</value>
+  </data>
+  <data name="CentralStore.DownloadChrome" xml:space="preserve">
+    <value>Pobierz Google Chrome</value>
+  </data>
+  <data name="CentralStore.DownloadFirefox" xml:space="preserve">
+    <value>Pobierz Mozilla Firefox</value>
+  </data>
+  <data name="CentralStore.SourcesHint" xml:space="preserve">
+    <value>Plik: ZIP producenta (Chrome, Firefox, Edge), CAB (Edge), MSI (Windows), EXE (Microsoft 365 Apps) albo jeden plik ADMX z folderami językowymi obok. Edge, Chrome i Firefox są pobierane z adresów producentów przez HTTPS.</value>
+  </data>
+  <data name="CentralStore.InstallersWindowsOnly" xml:space="preserve">
+    <value>Paczki MSI, CAB i EXE są rozpakowywane tylko w systemie Windows.</value>
+  </data>
+  <data name="CentralStore.OpenFileTitle" xml:space="preserve">
+    <value>Wybierz paczkę szablonów ADMX</value>
+  </data>
+  <data name="CentralStore.OpenFolderTitle" xml:space="preserve">
+    <value>Wybierz folder z szablonami ADMX</value>
+  </data>
+  <data name="CentralStore.FileFilter" xml:space="preserve">
+    <value>Paczki szablonów (ZIP, CAB, MSI, EXE, ADMX)</value>
+  </data>
+  <data name="CentralStore.Loading" xml:space="preserve">
+    <value>Wczytywanie szablonów…</value>
+  </data>
+  <data name="CentralStore.Downloading" xml:space="preserve">
+    <value>Pobieranie szablonów {0}…</value>
+  </data>
+  <data name="CentralStore.NoPackage" xml:space="preserve">
+    <value>Wybierz szablony do skopiowania do magazynu centralnego.</value>
+  </data>
+  <data name="CentralStore.PackageSummary" xml:space="preserve">
+    <value>{0} – szablony: {1}, języki: {2}</value>
+  </data>
+  <data name="CentralStore.TrustSigned" xml:space="preserve">
+    <value>Podpisany przez {0} (podpis prawidłowy).</value>
+  </data>
+  <data name="CentralStore.TrustPinned" xml:space="preserve">
+    <value>Pobrany przez HTTPS z adresu producenta ({0}); producent nie podpisuje archiwum.</value>
+  </data>
+  <data name="CentralStore.TrustUnsigned" xml:space="preserve">
+    <value>Niepodpisany przez producenta – upewnij się, że pliki pochodzą od producenta, zanim je skopiujesz.</value>
+  </data>
+  <data name="CentralStore.TrustNotChecked" xml:space="preserve">
+    <value>Pliki wskazane przez Ciebie – ich pochodzenia nie da się sprawdzić.</value>
+  </data>
+  <data name="CentralStore.Languages" xml:space="preserve">
+    <value>Języki</value>
+  </data>
+  <data name="CentralStore.Files" xml:space="preserve">
+    <value>Pliki magazynu centralnego</value>
+  </data>
+  <data name="CentralStore.ColumnFile" xml:space="preserve">
+    <value>Plik</value>
+  </data>
+  <data name="CentralStore.ColumnStatus" xml:space="preserve">
+    <value>Zmiana</value>
+  </data>
+  <data name="CentralStore.ColumnDetail" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="CentralStore.StatusNew" xml:space="preserve">
+    <value>Nowy</value>
+  </data>
+  <data name="CentralStore.StatusChanged" xml:space="preserve">
+    <value>Zastąpiony</value>
+  </data>
+  <data name="CentralStore.StatusUnchanged" xml:space="preserve">
+    <value>Bez zmian</value>
+  </data>
+  <data name="CentralStore.StatusCollision" xml:space="preserve">
+    <value>Pominięty: zajęta przestrzeń nazw</value>
+  </data>
+  <data name="CentralStore.StatusUnreadable" xml:space="preserve">
+    <value>Pominięty: nieprawidłowy szablon</value>
+  </data>
+  <data name="CentralStore.StatusRemoved" xml:space="preserve">
+    <value>Usunięty</value>
+  </data>
+  <data name="CentralStore.StatusLeftover" xml:space="preserve">
+    <value>Usunięty (pozostałość)</value>
+  </data>
+  <data name="CentralStore.DetailCollision" xml:space="preserve">
+    <value>{0} definiuje już {1}</value>
+  </data>
+  <data name="CentralStore.DetailRemoved" xml:space="preserve">
+    <value>zastąpiony przez {0}</value>
+  </data>
+  <data name="CentralStore.DetailPolicies" xml:space="preserve">
+    <value>ustawienia +{0} / −{1}</value>
+  </data>
+  <data name="CentralStore.Summary" xml:space="preserve">
+    <value>Do zapisania: {0}, bez zmian: {1}, pominięte: {2}</value>
+  </data>
+  <data name="CentralStore.StoreMissing" xml:space="preserve">
+    <value>Domena nie ma jeszcze magazynu centralnego: aktualizacja go utworzy.</value>
+  </data>
+  <data name="CentralStore.ReplaceColliding" xml:space="preserve">
+    <value>Zastąp stare szablony z tą samą przestrzenią nazw (zostaną usunięte razem z plikami językowymi)</value>
+  </data>
+  <data name="CentralStore.MakeBackup" xml:space="preserve">
+    <value>Najpierw zrób kopię zapasową magazynu centralnego do folderu:</value>
+  </data>
+  <data name="CentralStore.BackupFolderTitle" xml:space="preserve">
+    <value>Wybierz folder kopii zapasowej</value>
+  </data>
+  <data name="CentralStore.ChooseFolder" xml:space="preserve">
+    <value>Wybierz…</value>
+  </data>
+  <data name="CentralStore.BackupWritten" xml:space="preserve">
+    <value>Kopię zapasową zapisano w {0}.</value>
+  </data>
+  <data name="CentralStore.Update" xml:space="preserve">
+    <value>Zaktualizuj…</value>
+  </data>
+  <data name="CentralStore.Close" xml:space="preserve">
+    <value>Zamknij</value>
+  </data>
+  <data name="CentralStore.PlanTitle" xml:space="preserve">
+    <value>Szablony ADMX magazynu centralnego na {0}</value>
+  </data>
+  <data name="CentralStore.Updated" xml:space="preserve">
+    <value>Magazyn centralny zaktualizowany: zapisano plików: {0}. Otwarte edytory wczytają szablony ponownie.</value>
+  </data>
+  <data name="CentralStore.ErrorNotFound" xml:space="preserve">
+    <value>Plik lub folder nie istnieje.</value>
+  </data>
+  <data name="CentralStore.ErrorUnsupported" xml:space="preserve">
+    <value>Ten plik nie jest paczką szablonów (ZIP, CAB, MSI, EXE ani ADMX).</value>
+  </data>
+  <data name="CentralStore.ErrorNoTemplates" xml:space="preserve">
+    <value>Paczka nie zawiera żadnego szablonu ADMX.</value>
+  </data>
+  <data name="CentralStore.ErrorWindowsOnly" xml:space="preserve">
+    <value>Paczki MSI, CAB i EXE są rozpakowywane tylko w systemie Windows.</value>
+  </data>
+  <data name="CentralStore.ErrorUnsigned" xml:space="preserve">
+    <value>Instalator nie ma prawidłowego podpisu producenta, więc nie zostanie uruchomiony. Pobierz go ponownie od producenta.</value>
+  </data>
+  <data name="CentralStore.ErrorDownload" xml:space="preserve">
+    <value>Pobieranie nie powiodło się (brak połączenia z producentem, odpowiedź inna niż OK albo przekierowanie poza adresy producenta).</value>
+  </data>
+  <data name="CentralStore.ErrorHash" xml:space="preserve">
+    <value>Pobrany plik nie zgadza się z sumą kontrolną lub rozmiarem podanym przez producenta – odrzucono go.</value>
+  </data>
+  <data name="CentralStore.ErrorTooLarge" xml:space="preserve">
+    <value>Paczka jest za duża.</value>
+  </data>
+  <data name="CentralStore.ErrorExtraction" xml:space="preserve">
+    <value>Nie udało się rozpakować ani odczytać paczki.</value>
+  </data>
+  <data name="CentralStore.ErrorBackup" xml:space="preserve">
+    <value>Nie udało się zapisać kopii zapasowej w wybranym folderze; niczego nie zmieniono.</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

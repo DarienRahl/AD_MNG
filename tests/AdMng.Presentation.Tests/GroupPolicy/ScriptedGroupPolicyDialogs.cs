@@ -145,4 +145,22 @@ internal sealed class ScriptedGroupPolicyDialogs : IGroupPolicyDialogs
     }
 
     public Task<string?> PickFolderAsync(string title, string? initialFolder) => Task.FromResult(Folder);
+
+    /// <summary>Drives "Zaktualizuj szablony ADMX" (null: the window is closed at once); returns whether the store changed.</summary>
+    public Func<Presentation.GroupPolicy.AdministrativeTemplates.CentralStoreUpdateViewModel, Task<bool>>? CentralStoreHandler { get; set; }
+
+    public List<Presentation.GroupPolicy.AdministrativeTemplates.CentralStoreUpdateViewModel> CentralStoreWindows { get; } = [];
+
+    public async Task<bool> ShowCentralStoreUpdateAsync(Presentation.GroupPolicy.AdministrativeTemplates.CentralStoreUpdateViewModel update)
+    {
+        CentralStoreWindows.Add(update);
+        try
+        {
+            return CentralStoreHandler is { } handler && await handler(update);
+        }
+        finally
+        {
+            update.Dispose();
+        }
+    }
 }

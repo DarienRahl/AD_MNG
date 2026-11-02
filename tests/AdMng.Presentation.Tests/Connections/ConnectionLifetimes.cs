@@ -68,5 +68,7 @@ internal static class ConnectionLifetimes
         typeof(WatchdogConnectionService),
         typeof(ConnectionRegistry),
         typeof(Core.Computers.WindowsReleaseCatalog),
+        typeof(Presentation.GroupPolicy.AdministrativeTemplates.ILocalPolicyDefinitions),
+        typeof(Presentation.GroupPolicy.AdministrativeTemplates.PolicyTemplatePackageLoader),
     ];
 }

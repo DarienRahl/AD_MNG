@@ -136,7 +136,11 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
         OpenCommand.NotifyCanExecuteChanged();
         HistoryCommand.NotifyCanExecuteChanged();
         EditTemplatesCommand.NotifyCanExecuteChanged();
+        UpdateTemplatesCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>Opens "Zaktualizuj szablony ADMX" (set by the factory; null: not offered).</summary>
+    public Func<Task<bool>>? UpdateTemplates { get; init; }
 
     private GpoInfo? Single => Selection.Count == 1 ? Selection[0].Gpo : null;
 
@@ -176,6 +180,12 @@ public sealed partial class GroupPolicyObjectsDocumentViewModel(GroupPolicyServi
 
     [RelayCommand(CanExecute = nameof(CanHistory))]
     private Task HistoryAsync() => Single is { } gpo ? Actions.ShowHistoryAsync(gpo) : Task.CompletedTask;
+
+    /// <summary>"Szablony ADMX…" (K3): the central store update window.</summary>
+    [RelayCommand(CanExecute = nameof(CanUpdateTemplates))]
+    private Task UpdateTemplatesAsync() => UpdateTemplates is { } update ? update() : Task.CompletedTask;
+
+    private bool CanUpdateTemplates() => UpdateTemplates is not null && IsSysvolWritable;
 
     /// <summary>"Edytuj szablony administracyjne" (K3): the editor of the selected GPO.</summary>
     [RelayCommand(CanExecute = nameof(CanSingle))]

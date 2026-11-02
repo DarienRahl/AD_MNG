@@ -35,7 +35,7 @@ public sealed class GroupPolicyWindowTests
         foreach (var type in new[]
         {
             typeof(ChangePlanPreviewViewModel), typeof(NewGpoViewModel), typeof(GpoPickerViewModel), typeof(GpoBackupViewModel),
-            typeof(GpoComparisonViewModel), typeof(WmiFilterEditorViewModel),
+            typeof(GpoComparisonViewModel), typeof(WmiFilterEditorViewModel), typeof(CentralStoreUpdateViewModel),
         })
         {
             Assert.True(windows.IsRegistered(type), type.Name);
@@ -87,8 +87,110 @@ public sealed class GroupPolicyWindowTests
         var edit = (WmiFilterEditorWindow)windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter()));
         UiTestSupport.ShowOffScreen(edit);
         Assert.Equal("Tylko stacje robocze", edit.NameBox.Text);
+
+        // K3: "Zaktualizuj szablony ADMX" without a connection: the sources are offered, nothing can be written.
+        var factory = context.Services.GetRequiredService<GroupPolicyViewModelFactory>();
+        Assert.True(factory.Loader.CanExtractInstallers);
+        var update = (CentralStoreUpdateWindow)windows.CreateWindow(new CentralStoreUpdateViewModel(gp, factory.Definitions, factory.Loader));
+        UiTestSupport.ShowOffScreen(update);
+        await UiTestSupport.WaitForIdleAsync();
+        Assert.True(update.OpenFileButton.IsEnabled);
+        Assert.True(update.EdgeButton.IsEnabled);
+        Assert.False(update.UpdateButton.IsEnabled);
+        Assert.Equal(Visibility.Collapsed, update.ErrorBar.Visibility);
         await UiTestSupport.WaitForIdleAsync();
         context.AssertHealthy();
+    });
+
+    [Fact]
+    public Task CentralStoreUpdate_ComparesAFolderOfTemplates_BacksUpTheStore_AndUpdatesItThroughThePreviewWindow() => WpfTestHost.RunAsync(async () =>
+    {
+        var files = new PreparedSaveDialog();
+        await using var context = await UiTestContext.CreateAsync(language: "pl", configure: s => s.AddSingleton<IFileDialogService>(files));
+        context.Directory.AddGroupPolicyManagementSample(context.Company, context.Sysvol);
+        foreach (var (path, content) in SampleAdministrativeTemplates.Files(polish: false))
+        {
+            context.Sysvol.PutPolicyDefinition(path, content);
+        }
+
+        // The package: the sample templates with their Polish files, as an unpacked folder (the ADMX file opens its folder).
+        var package = System.IO.Directory.CreateTempSubdirectory("admng-k3-package-");
+        var backups = System.IO.Directory.CreateTempSubdirectory("admng-k3-backup-");
+        try
+        {
+            foreach (var (path, content) in SampleAdministrativeTemplates.Files())
+            {
+                var file = Path.Combine([package.FullName, .. path.Split('/')]);
+                System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                await File.WriteAllBytesAsync(file, content);
+            }
+
+            files.NextOpenPath = Path.Combine(package.FullName, "contoso.admx");
+            await context.ConnectAsync();
+            var main = context.Services.GetRequiredService<MainWindow>();
+            UiTestSupport.ShowOffScreen(main);
+            var shell = main.Shell;
+            await shell.InitializeAsync();
+
+            var objects = Assert.IsType<GroupPolicyObjectsDocumentViewModel>(shell.OpenGroupPolicyDocument(new GroupPolicyDocumentRequest(GroupPolicyDocumentKind.Objects)));
+            await UiWait.UntilAsync(() => !objects.IsLoading && objects.UpdateTemplatesCommand.CanExecute(null), "the GPO list");
+            main.UpdateLayout();
+            await UiTestSupport.WaitForIdleAsync(rounds: 3);
+            Assert.True(Assert.Single(UiWait.Descendants<GroupPolicyObjectsView>(main)).UpdateTemplatesButton.IsEnabled);
+
+            var drive = UiWait.DriveModalAsync<CentralStoreUpdateWindow>(async w =>
+            {
+                await UiTestSupport.WaitForIdleAsync(rounds: 2);
+                Assert.EndsWith(@"\Policies\PolicyDefinitions", w.TargetText.Text, StringComparison.Ordinal);
+                Assert.False(w.UpdateButton.IsEnabled);
+
+                await w.ViewModel.OpenFileCommand.ExecuteAsync(null);
+                await UiWait.UntilAsync(() => !w.ViewModel.IsBusy && w.ViewModel.Rows.Count == 6, "the comparison");
+                await UiTestSupport.WaitForIdleAsync(rounds: 2);
+                Assert.Null(w.ViewModel.Error);
+                Assert.Equal(6, w.FileList.Items.Count);
+                Assert.Equal(2, w.CultureList.Items.Count);
+                Assert.Equal("Do zapisania: 2, bez zmian: 4, pominięte: 0", w.SummaryTextBlock.Text);
+
+                // The store exists: a backup folder is required before the update (the box is checked by default).
+                Assert.True(w.MakeBackupBox.IsChecked);
+                Assert.False(w.UpdateButton.IsEnabled);
+                w.ViewModel.BackupFolder = backups.FullName;
+                await UiTestSupport.WaitForIdleAsync();
+                Assert.True(w.UpdateButton.IsEnabled);
+
+                var preview = UiWait.DriveModalAsync<ChangePlanPreviewWindow>(async p =>
+                {
+                    await UiTestSupport.WaitForIdleAsync(rounds: 2);
+                    Assert.Contains("PolicyDefinitions", p.ViewModel.PowerShellScript, StringComparison.Ordinal);
+                    await p.ViewModel.ExecuteCommand.ExecuteAsync(null);
+                    await UiWait.UntilAsync(() => p.ViewModel.Step == PlanPreviewStep.Results, "the results");
+                    Assert.False(p.ViewModel.ResultHasFailures);
+                    p.ViewModel.CloseCommand.Execute(null);
+                });
+                await w.ViewModel.UpdateCommand.ExecuteAsync(null);
+                await preview;
+
+                await UiWait.UntilAsync(() => w.ViewModel.Rows.All(r => r.Status == Core.GroupPolicy.Management.CentralStoreFileStatus.Unchanged), "the new comparison");
+                await UiTestSupport.WaitForIdleAsync(rounds: 2);
+                Assert.Equal(Visibility.Visible, w.ResultBar.Visibility);
+                Assert.True(w.ViewModel.ChangedStore);
+                w.ViewModel.CloseCommand.Execute(null);
+            });
+            await objects.UpdateTemplatesCommand.ExecuteAsync(null);
+            await drive;
+
+            Assert.Equal(SampleAdministrativeTemplates.Utf8(SampleAdministrativeTemplates.ContosoAdmlPl), context.Sysvol.GetPolicyDefinition("pl-PL/contoso.adml"));
+            Assert.NotNull(context.Sysvol.GetPolicyDefinition("pl-PL/windows.adml"));
+            var backup = Assert.Single(System.IO.Directory.GetDirectories(backups.FullName));
+            Assert.True(File.Exists(Path.Combine(backup, "en-US", "contoso.adml")));
+            context.AssertHealthy();
+        }
+        finally
+        {
+            package.Delete(recursive: true);
+            backups.Delete(recursive: true);
+        }
     });
 
     [Fact]

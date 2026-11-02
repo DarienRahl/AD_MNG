@@ -44,6 +44,7 @@
       <Button x:Name="CopyButton" Margin="0,0,6,4" Command="{Binding CopyCommand}" Content="{l:Tr GroupPolicy.CopyCommand}" />
       <Button x:Name="RenameButton" Margin="0,0,6,4" Command="{Binding RenameCommand}" Content="{l:Tr GroupPolicy.RenameCommand}" />
       <Button x:Name="EditTemplatesButton" Margin="0,0,6,4" Command="{Binding EditTemplatesCommand}" Content="{l:Tr AdmTemplates.EditCommand}" />
+      <Button x:Name="UpdateTemplatesButton" Margin="0,0,6,4" Command="{Binding UpdateTemplatesCommand}" Content="{l:Tr CentralStore.Command}" />
       <Button x:Name="DeleteButton" Margin="0,0,6,4" Command="{Binding DeleteCommand}" Content="{l:Tr GroupPolicy.DeleteCommand}" />
       <Button x:Name="BackupButton" Margin="12,0,6,4" Command="{Binding BackupCommand}" Content="{l:Tr GroupPolicy.BackupCommand}" />
       <Button x:Name="RestoreButton" Margin="0,0,6,4" Command="{Binding RestoreCommand}" Content="{l:Tr GroupPolicy.RestoreCommand}" />

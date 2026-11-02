@@ -37,10 +37,12 @@ public static class GroupPolicyServiceCollectionExtensions
         services.TryAddScoped<GroupPolicyActions>();
         services.TryAddSingleton<ILocalPolicyDefinitions, WindowsLocalPolicyDefinitions>();
         services.TryAddScoped(sp => new PolicyDefinitionsService(sp.GetService<ILocalPolicyDefinitions>()));
+        services.TryAddSingleton(sp => new PolicyTemplatePackageLoader(sp.GetService<IPolicyPackageExtractor>(), sp.GetService<ILocalPolicyDefinitions>()));
         services.TryAddScoped(sp => new GroupPolicyViewModelFactory(
             sp.GetRequiredService<GroupPolicyServices>(),
             sp.GetRequiredService<GroupPolicyActions>(),
-            sp.GetRequiredService<PolicyDefinitionsService>()));
+            sp.GetRequiredService<PolicyDefinitionsService>(),
+            sp.GetRequiredService<PolicyTemplatePackageLoader>()));
         return services;
     }
 
@@ -65,5 +67,12 @@ public static class GroupPolicyServiceCollectionExtensions
         public Task<bool> ShowWmiFilterEditorAsync(WmiFilterEditorViewModel editor) => Task.FromResult(false);
 
         public Task<string?> PickFolderAsync(string title, string? initialFolder) => Task.FromResult<string?>(null);
+
+        public Task<bool> ShowCentralStoreUpdateAsync(CentralStoreUpdateViewModel update)
+        {
+            ArgumentNullException.ThrowIfNull(update);
+            update.Dispose();
+            return Task.FromResult(false);
+        }
     }
 }

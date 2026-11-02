@@ -12130,6 +12130,183 @@ Anyone who can read the file can see these values - store it securely and delete
   <data name="Issue.CentralStoreCreated" xml:space="preserve">
     <value>The domain has no central store yet: the update creates PolicyDefinitions on SYSVOL. From then on every administrator's editor uses it instead of the templates of their own computer.</value>
   </data>
+  <data name="CentralStore.Title" xml:space="preserve">
+    <value>Update ADMX templates</value>
+  </data>
+  <data name="CentralStore.Command" xml:space="preserve">
+    <value>Update templates…</value>
+  </data>
+  <data name="CentralStore.Target" xml:space="preserve">
+    <value>Central store: {0}</value>
+  </data>
+  <data name="CentralStore.Sources" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="CentralStore.OpenFile" xml:space="preserve">
+    <value>From a file…</value>
+  </data>
+  <data name="CentralStore.OpenFolder" xml:space="preserve">
+    <value>From a folder…</value>
+  </data>
+  <data name="CentralStore.UseLocalStore" xml:space="preserve">
+    <value>Templates of this computer</value>
+  </data>
+  <data name="CentralStore.DownloadEdge" xml:space="preserve">
+    <value>Download Microsoft Edge</value>
+  </data>
+  <data name="CentralStore.DownloadChrome" xml:space="preserve">
+    <value>Download Google Chrome</value>
+  </data>
+  <data name="CentralStore.DownloadFirefox" xml:space="preserve">
+    <value>Download Mozilla Firefox</value>
+  </data>
+  <data name="CentralStore.SourcesHint" xml:space="preserve">
+    <value>A file: the vendor's ZIP (Chrome, Firefox, Edge), CAB (Edge), MSI (Windows), EXE (Microsoft 365 Apps) or one ADMX file with its language folders beside it. Edge, Chrome and Firefox are downloaded from their vendors' addresses over HTTPS.</value>
+  </data>
+  <data name="CentralStore.InstallersWindowsOnly" xml:space="preserve">
+    <value>MSI, CAB and EXE packages are unpacked on Windows only.</value>
+  </data>
+  <data name="CentralStore.OpenFileTitle" xml:space="preserve">
+    <value>Choose a package of ADMX templates</value>
+  </data>
+  <data name="CentralStore.OpenFolderTitle" xml:space="preserve">
+    <value>Choose a folder of ADMX templates</value>
+  </data>
+  <data name="CentralStore.FileFilter" xml:space="preserve">
+    <value>Template packages (ZIP, CAB, MSI, EXE, ADMX)</value>
+  </data>
+  <data name="CentralStore.Loading" xml:space="preserve">
+    <value>Reading the templates…</value>
+  </data>
+  <data name="CentralStore.Downloading" xml:space="preserve">
+    <value>Downloading the templates of {0}…</value>
+  </data>
+  <data name="CentralStore.NoPackage" xml:space="preserve">
+    <value>Choose the templates to copy into the central store.</value>
+  </data>
+  <data name="CentralStore.PackageSummary" xml:space="preserve">
+    <value>{0} – templates: {1}, languages: {2}</value>
+  </data>
+  <data name="CentralStore.TrustSigned" xml:space="preserve">
+    <value>Signed by {0} (signature valid).</value>
+  </data>
+  <data name="CentralStore.TrustPinned" xml:space="preserve">
+    <value>Downloaded over HTTPS from the vendor's address ({0}); the vendor does not sign the archive.</value>
+  </data>
+  <data name="CentralStore.TrustUnsigned" xml:space="preserve">
+    <value>Not signed by its vendor – make sure the files come from the vendor before you copy them.</value>
+  </data>
+  <data name="CentralStore.TrustNotChecked" xml:space="preserve">
+    <value>Files you chose – their origin cannot be checked.</value>
+  </data>
+  <data name="CentralStore.Languages" xml:space="preserve">
+    <value>Languages</value>
+  </data>
+  <data name="CentralStore.Files" xml:space="preserve">
+    <value>Files of the central store</value>
+  </data>
+  <data name="CentralStore.ColumnFile" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="CentralStore.ColumnStatus" xml:space="preserve">
+    <value>Change</value>
+  </data>
+  <data name="CentralStore.ColumnDetail" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="CentralStore.StatusNew" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="CentralStore.StatusChanged" xml:space="preserve">
+    <value>Replaced</value>
+  </data>
+  <data name="CentralStore.StatusUnchanged" xml:space="preserve">
+    <value>Unchanged</value>
+  </data>
+  <data name="CentralStore.StatusCollision" xml:space="preserve">
+    <value>Skipped: namespace taken</value>
+  </data>
+  <data name="CentralStore.StatusUnreadable" xml:space="preserve">
+    <value>Skipped: not a valid template</value>
+  </data>
+  <data name="CentralStore.StatusRemoved" xml:space="preserve">
+    <value>Deleted</value>
+  </data>
+  <data name="CentralStore.StatusLeftover" xml:space="preserve">
+    <value>Deleted (leftover)</value>
+  </data>
+  <data name="CentralStore.DetailCollision" xml:space="preserve">
+    <value>{0} already defines {1}</value>
+  </data>
+  <data name="CentralStore.DetailRemoved" xml:space="preserve">
+    <value>replaced by {0}</value>
+  </data>
+  <data name="CentralStore.DetailPolicies" xml:space="preserve">
+    <value>settings +{0} / −{1}</value>
+  </data>
+  <data name="CentralStore.Summary" xml:space="preserve">
+    <value>To write: {0}, unchanged: {1}, skipped: {2}</value>
+  </data>
+  <data name="CentralStore.StoreMissing" xml:space="preserve">
+    <value>The domain has no central store yet: the update creates it.</value>
+  </data>
+  <data name="CentralStore.ReplaceColliding" xml:space="preserve">
+    <value>Replace old templates that declare the same namespace (they are deleted with their language files)</value>
+  </data>
+  <data name="CentralStore.MakeBackup" xml:space="preserve">
+    <value>Back up the central store to a folder first:</value>
+  </data>
+  <data name="CentralStore.BackupFolderTitle" xml:space="preserve">
+    <value>Choose the folder of the backup</value>
+  </data>
+  <data name="CentralStore.ChooseFolder" xml:space="preserve">
+    <value>Choose…</value>
+  </data>
+  <data name="CentralStore.BackupWritten" xml:space="preserve">
+    <value>Backup written to {0}.</value>
+  </data>
+  <data name="CentralStore.Update" xml:space="preserve">
+    <value>Update…</value>
+  </data>
+  <data name="CentralStore.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="CentralStore.PlanTitle" xml:space="preserve">
+    <value>ADMX templates of the central store on {0}</value>
+  </data>
+  <data name="CentralStore.Updated" xml:space="preserve">
+    <value>Central store updated: {0} files written. Open editors read the templates again.</value>
+  </data>
+  <data name="CentralStore.ErrorNotFound" xml:space="preserve">
+    <value>The file or folder does not exist.</value>
+  </data>
+  <data name="CentralStore.ErrorUnsupported" xml:space="preserve">
+    <value>This file is not a package of templates (ZIP, CAB, MSI, EXE or ADMX).</value>
+  </data>
+  <data name="CentralStore.ErrorNoTemplates" xml:space="preserve">
+    <value>The package holds no ADMX template.</value>
+  </data>
+  <data name="CentralStore.ErrorWindowsOnly" xml:space="preserve">
+    <value>MSI, CAB and EXE packages are unpacked on Windows only.</value>
+  </data>
+  <data name="CentralStore.ErrorUnsigned" xml:space="preserve">
+    <value>The installer has no valid signature of its vendor, so it is not run. Download it again from the vendor.</value>
+  </data>
+  <data name="CentralStore.ErrorDownload" xml:space="preserve">
+    <value>The download failed (no connection to the vendor, an answer other than OK, or a redirect outside the vendor's addresses).</value>
+  </data>
+  <data name="CentralStore.ErrorHash" xml:space="preserve">
+    <value>The download does not match the hash or size the vendor publishes – it was discarded.</value>
+  </data>
+  <data name="CentralStore.ErrorTooLarge" xml:space="preserve">
+    <value>The package is too large.</value>
+  </data>
+  <data name="CentralStore.ErrorExtraction" xml:space="preserve">
+    <value>The package could not be unpacked or read.</value>
+  </data>
+  <data name="CentralStore.ErrorBackup" xml:space="preserve">
+    <value>The backup could not be written to the chosen folder; nothing was changed.</value>
+  </data>
   <!-- K3: administrative templates (end) -->
 
   <!-- U5 core: begin -->

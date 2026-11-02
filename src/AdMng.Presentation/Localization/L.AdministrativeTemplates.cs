@@ -87,3 +87,70 @@ public static partial class L
         public const string PlanTitle = "AdmTemplates.PlanTitle";
     }
 }
+
+public static partial class L
+{
+    /// <summary>"Zaktualizuj szablony ADMX" (K3): the central store update window.</summary>
+    public static class CentralStore
+    {
+        public const string Title = "CentralStore.Title";
+        public const string Command = "CentralStore.Command";
+        public const string Target = "CentralStore.Target";
+        public const string Sources = "CentralStore.Sources";
+        public const string OpenFile = "CentralStore.OpenFile";
+        public const string OpenFolder = "CentralStore.OpenFolder";
+        public const string UseLocalStore = "CentralStore.UseLocalStore";
+        public const string DownloadEdge = "CentralStore.DownloadEdge";
+        public const string DownloadChrome = "CentralStore.DownloadChrome";
+        public const string DownloadFirefox = "CentralStore.DownloadFirefox";
+        public const string SourcesHint = "CentralStore.SourcesHint";
+        public const string InstallersWindowsOnly = "CentralStore.InstallersWindowsOnly";
+        public const string OpenFileTitle = "CentralStore.OpenFileTitle";
+        public const string OpenFolderTitle = "CentralStore.OpenFolderTitle";
+        public const string FileFilter = "CentralStore.FileFilter";
+        public const string Loading = "CentralStore.Loading";
+        public const string Downloading = "CentralStore.Downloading";
+        public const string NoPackage = "CentralStore.NoPackage";
+        public const string PackageSummary = "CentralStore.PackageSummary";
+        public const string TrustSigned = "CentralStore.TrustSigned";
+        public const string TrustPinned = "CentralStore.TrustPinned";
+        public const string TrustUnsigned = "CentralStore.TrustUnsigned";
+        public const string TrustNotChecked = "CentralStore.TrustNotChecked";
+        public const string Languages = "CentralStore.Languages";
+        public const string Files = "CentralStore.Files";
+        public const string ColumnFile = "CentralStore.ColumnFile";
+        public const string ColumnStatus = "CentralStore.ColumnStatus";
+        public const string ColumnDetail = "CentralStore.ColumnDetail";
+        public const string StatusNew = "CentralStore.StatusNew";
+        public const string StatusChanged = "CentralStore.StatusChanged";
+        public const string StatusUnchanged = "CentralStore.StatusUnchanged";
+        public const string StatusCollision = "CentralStore.StatusCollision";
+        public const string StatusUnreadable = "CentralStore.StatusUnreadable";
+        public const string StatusRemoved = "CentralStore.StatusRemoved";
+        public const string StatusLeftover = "CentralStore.StatusLeftover";
+        public const string DetailCollision = "CentralStore.DetailCollision";
+        public const string DetailRemoved = "CentralStore.DetailRemoved";
+        public const string DetailPolicies = "CentralStore.DetailPolicies";
+        public const string Summary = "CentralStore.Summary";
+        public const string StoreMissing = "CentralStore.StoreMissing";
+        public const string ReplaceColliding = "CentralStore.ReplaceColliding";
+        public const string MakeBackup = "CentralStore.MakeBackup";
+        public const string BackupFolderTitle = "CentralStore.BackupFolderTitle";
+        public const string ChooseFolder = "CentralStore.ChooseFolder";
+        public const string BackupWritten = "CentralStore.BackupWritten";
+        public const string Update = "CentralStore.Update";
+        public const string Close = "CentralStore.Close";
+        public const string PlanTitle = "CentralStore.PlanTitle";
+        public const string Updated = "CentralStore.Updated";
+        public const string ErrorNotFound = "CentralStore.ErrorNotFound";
+        public const string ErrorUnsupported = "CentralStore.ErrorUnsupported";
+        public const string ErrorNoTemplates = "CentralStore.ErrorNoTemplates";
+        public const string ErrorWindowsOnly = "CentralStore.ErrorWindowsOnly";
+        public const string ErrorUnsigned = "CentralStore.ErrorUnsigned";
+        public const string ErrorDownload = "CentralStore.ErrorDownload";
+        public const string ErrorHash = "CentralStore.ErrorHash";
+        public const string ErrorTooLarge = "CentralStore.ErrorTooLarge";
+        public const string ErrorExtraction = "CentralStore.ErrorExtraction";
+        public const string ErrorBackup = "CentralStore.ErrorBackup";
+    }
+}

@@ -6,7 +6,8 @@ namespace AdMng.Presentation.GroupPolicy;
 /// Creates the Group Policy documents of a connection window (scoped, design note 7): every document gets the window's
 /// <see cref="GroupPolicyServices"/> and <see cref="GroupPolicyActions"/>. Closing a tab disposes its document.
 /// </summary>
-public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService? definitions = null)
+public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, GroupPolicyActions actions, PolicyDefinitionsService? definitions = null,
+    PolicyTemplatePackageLoader? loader = null)
 {
     public GroupPolicyServices Services { get; } = services ?? throw new ArgumentNullException(nameof(services));
 
@@ -14,6 +15,16 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
 
     /// <summary>The ADMX templates of the window (K3).</summary>
     public PolicyDefinitionsService Definitions { get; } = definitions ?? new PolicyDefinitionsService();
+
+    /// <summary>The packages of "Zaktualizuj szablony" (K3).</summary>
+    public PolicyTemplatePackageLoader Loader { get; } = loader ?? new PolicyTemplatePackageLoader();
+
+    /// <summary>"Zaktualizuj szablony ADMX" of the window: the update window, then (when the store changed) the editors read the templates again.</summary>
+    public async Task<bool> UpdateTemplatesAsync()
+    {
+        var update = new CentralStoreUpdateViewModel(Services, Definitions, Loader);
+        return await Services.Dialogs.ShowCentralStoreUpdateAsync(update).ConfigureAwait(true);
+    }
 
     /// <summary>The document a request names (not loaded yet: call <see cref="GroupPolicyDocumentBase.LoadAsync"/>).</summary>
     public GroupPolicyDocumentBase Create(GroupPolicyDocumentRequest request)
@@ -27,8 +38,8 @@ public sealed class GroupPolicyViewModelFactory(GroupPolicyServices services, Gr
                 new GroupPolicyScopeDocumentViewModel(Services, Actions, dn, request.Name),
             GroupPolicyDocumentKind.WmiFilters => new WmiFiltersDocumentViewModel(Services, Actions),
             GroupPolicyDocumentKind.AdministrativeTemplates when request.GpoId is { } templatesId =>
-                new AdministrativeTemplatesEditorViewModel(Services, Actions, Definitions, templatesId, request.Name),
-            GroupPolicyDocumentKind.Objects => new GroupPolicyObjectsDocumentViewModel(Services, Actions),
+                new AdministrativeTemplatesEditorViewModel(Services, Actions, Definitions, templatesId, request.Name) { UpdateTemplates = UpdateTemplatesAsync },
+            GroupPolicyDocumentKind.Objects => new GroupPolicyObjectsDocumentViewModel(Services, Actions) { UpdateTemplates = UpdateTemplatesAsync },
             _ => throw new ArgumentException("The request names no GPO or container.", nameof(request)),
         };
     }

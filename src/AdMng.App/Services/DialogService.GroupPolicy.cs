@@ -1,5 +1,6 @@
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using Microsoft.Win32;
 
 namespace AdMng.App.Services;
@@ -53,6 +54,16 @@ public sealed partial class DialogService : IGroupPolicyDialogs
     {
         ArgumentNullException.ThrowIfNull(editor);
         return OnUiThreadAsync(() => ShowWindowModal(editor) && editor.Result is not null);
+    }
+
+    public Task<bool> ShowCentralStoreUpdateAsync(CentralStoreUpdateViewModel update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        return OnUiThreadAsync(() =>
+        {
+            ShowWindowModal(update);
+            return update.ChangedStore;
+        });
     }
 
     /// <summary>The system folder picker (the only place a backup may go: a folder the operator chooses, rule 1).</summary>

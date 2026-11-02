@@ -44,6 +44,9 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
 
     public Guid GpoId { get; }
 
+    /// <summary>Opens "Zaktualizuj szablony ADMX" (set by the factory; null: not offered).</summary>
+    public Func<Task<bool>>? UpdateTemplates { get; init; }
+
     public override string Title => Localizer.Format(L.AdministrativeTemplates.Title, _gpo?.DisplayName ?? _initialName);
 
     public override ObjectIcon Icon => ObjectIcon.GroupPolicy;
@@ -195,6 +198,19 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         return LoadAsync();
     }
 
+    /// <summary>"Zaktualizuj szablony…": the update window; the templates are read again when the store changed.</summary>
+    [RelayCommand(CanExecute = nameof(CanUpdateTemplates))]
+    private async Task UpdateTemplatesAsync()
+    {
+        if (UpdateTemplates is { } update && await update().ConfigureAwait(true))
+        {
+            _reloadDefinitions = true;
+            await LoadAsync().ConfigureAwait(true);
+        }
+    }
+
+    private bool CanUpdateTemplates() => UpdateTemplates is not null && IsSysvolWritable;
+
     /// <summary>Removes an entry no template describes (written on save).</summary>
     [RelayCommand(CanExecute = nameof(CanDeleteExtraEntry))]
     private void DeleteExtraEntry()
@@ -285,6 +301,7 @@ public sealed partial class AdministrativeTemplatesEditorViewModel : GroupPolicy
         SaveCommand.NotifyCanExecuteChanged();
         DiscardCommand.NotifyCanExecuteChanged();
         DeleteExtraEntryCommand.NotifyCanExecuteChanged();
+        UpdateTemplatesCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit));
     }
 

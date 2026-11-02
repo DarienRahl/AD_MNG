@@ -4,6 +4,7 @@ using AdMng.Core.GroupPolicy;
 using AdMng.Directory;
 using AdMng.Presentation.Changes;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AdMng.App.GroupPolicy;
@@ -27,6 +28,14 @@ public static class GroupPolicyAppRegistration
         services.AddWindow<GpoBackupViewModel, GpoBackupWindow>();
         services.AddWindow<GpoComparisonViewModel, GpoComparisonWindow>();
         services.AddWindow<WmiFilterEditorViewModel, WmiFilterEditorWindow>();
+
+        // K3: the installers and CAB archives of template packages are unpacked by Windows tools; the update window.
+        if (OperatingSystem.IsWindows())
+        {
+            services.AddSingleton<IPolicyPackageExtractor, WindowsPolicyPackageExtractor>();
+        }
+
+        services.AddWindow<CentralStoreUpdateViewModel, CentralStoreUpdateWindow>();
         return services;
     }
 }

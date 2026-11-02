@@ -1,4 +1,5 @@
 using AdMng.Presentation.Changes;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 
 namespace AdMng.Presentation.GroupPolicy;
 
@@ -29,4 +30,7 @@ public interface IGroupPolicyDialogs
 
     /// <summary>The system folder picker: a folder the operator chooses for backups (null: cancelled).</summary>
     Task<string?> PickFolderAsync(string title, string? initialFolder);
+
+    /// <summary>"Zaktualizuj szablony ADMX" (K3, modal). True when the central store was changed.</summary>
+    Task<bool> ShowCentralStoreUpdateAsync(CentralStoreUpdateViewModel update);
 }

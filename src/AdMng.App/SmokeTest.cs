@@ -16,6 +16,7 @@ using AdMng.Presentation.Connections;
 using AdMng.Presentation.Correspondence;
 using AdMng.Presentation.Dialogs;
 using AdMng.Presentation.GroupPolicy;
+using AdMng.Presentation.GroupPolicy.AdministrativeTemplates;
 using AdMng.Presentation.Lists;
 using AdMng.Presentation.Localization;
 using AdMng.Presentation.Services;
@@ -364,6 +365,8 @@ internal static class SmokeTest
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new GpoComparisonViewModel(gp, passwords, remoteDesktop)));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, null)));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new WmiFilterEditorViewModel(gp.Ui, GroupPolicySamples.Filter())));
+        var templates = services.GetRequiredService<GroupPolicyViewModelFactory>();
+        UiTestSupport.ShowOffScreen(windows.CreateWindow(new CentralStoreUpdateViewModel(gp, templates.Definitions, templates.Loader)));
         UiTestSupport.ShowOffScreen(windows.CreateWindow(new ChangePlanPreviewViewModel(gp.Ui, gp.Engines,
             new ChangePlanPreviewRequest(GroupPolicySamples.Plan("dc01.contoso.test"), "Import ustawień")
             {
