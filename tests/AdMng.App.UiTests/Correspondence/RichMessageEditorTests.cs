@@ -502,10 +502,137 @@ public sealed class RichMessageEditorTests
         });
     });
 
-    private static async Task WithEditorAsync(FakeEditorHost? host, BodyModel body, Func<RichMessageEditor, Task> test)
+    [Fact]
+    public Task TheMailboxTemplate_LoadedAndNotEdited_IsLeftAsItIs() => WpfTestHost.RunAsync(async () =>
+    {
+        var golden = TemplateHtmlFixture.MailboxStillNeeded;
+        var body = new BodyModel { Html = golden };
+        await WithEditorAsync(new FakeEditorHost(), body, async editor =>
+        {
+            var box = editor.MessageEditorBox;
+            Assert.Equal("Aptos", box.Document.FontFamily.Source);
+            Assert.Equal(16, box.Document.FontSize, 3);
+
+            // Shown, the pause over, the focus in and out, every flush the window makes, another base font, another host:
+            // the body stays the template's own text (byte for byte), nothing is written back.
+            await Task.Delay(RichMessageEditor.HtmlDelay * 2);
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.Equal(golden, body.Html);
+            box.Focus();
+            await UiTestSupport.WaitForIdleAsync();
+            Keyboard.ClearFocus();
+            editor.FlushHtml();
+            Assert.Equal(golden, body.Html);
+            editor.BaseFontSize = 11;
+            editor.BaseFontFamily = RichMessageEditor.DefaultBaseFontFamily;
+            editor.FlushHtml();
+            Assert.Equal(golden, body.Html);
+            editor.Host = new FakeEditorHost();
+            await UiTestSupport.WaitForIdleAsync();
+            editor.FlushHtml();
+            Assert.Equal(golden, body.Html);
+            Assert.Equal(golden, editor.Html);
+        }, AptosTwelve);
+    });
+
+    [Fact]
+    public Task AnEditOfOneWord_InTheMailboxTemplate_ChangesOnlyThatWord() => WpfTestHost.RunAsync(async () =>
+    {
+        var golden = TemplateHtmlFixture.MailboxStillNeeded;
+        var body = new BodyModel { Html = golden };
+        await WithEditorAsync(new FakeEditorHost(), body, editor =>
+        {
+            var before = FlowDocumentHtml.ToHtml(editor.MessageEditorBox.Document, FlowDocumentHtml.ContentIdOf);
+
+            Select(editor, "współpracę");
+            editor.MessageEditorBox.Selection.Text = "zrozumienie";
+            editor.FlushHtml();
+
+            Assert.Equal(before.Replace("współpracę", "zrozumienie", StringComparison.Ordinal), body.Html);
+            Assert.Equal(HtmlLayoutFacts.Of(golden.Replace("współpracę", "zrozumienie", StringComparison.Ordinal)), HtmlLayoutFacts.Of(body.Html));
+            Assert.Contains("{{Termin}}", body.Html, StringComparison.Ordinal);
+            Assert.Contains("{{podpis}}", body.Html, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        }, AptosTwelve);
+    });
+
+    [Fact]
+    public Task Enter_InAParagraphWithItsOwnLook_GivesTheNewParagraphTheSameLook() => WpfTestHost.RunAsync(async () =>
+    {
+        const string Paragraph = "<p style=\"mso-margin-top-alt:12pt;margin:0 0 12pt 0\">";
+        var body = new BodyModel { Html = Paragraph + "Pierwsze zdanie. Drugie zdanie.</p>" };
+        await WithEditorAsync(new FakeEditorHost(), body, editor =>
+        {
+            var box = editor.MessageEditorBox;
+            box.CaretPosition = Find(box, "Drugie").Start;
+
+            EditingCommands.EnterParagraphBreak.Execute(null, box);
+            editor.FlushHtml();
+
+            Assert.Equal(2, box.Document.Blocks.Count);
+            Assert.Equal(2, body.Html.Split(Paragraph).Length - 1);
+            Assert.Contains(Paragraph + "Drugie zdanie.</p>", body.Html, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        });
+    });
+
+    [Fact]
+    public Task TheBaseFont_IsShown_AndTextInItIsWrittenWithoutAFont() => WpfTestHost.RunAsync(async () =>
+    {
+        const string Html = "<p><span style=\"font-family:Aptos;font-size:12pt\">bazowy</span> i <span style=\"font-family:Arial\">inny</span></p>";
+        var body = new BodyModel { Html = Html };
+        await WithEditorAsync(new FakeEditorHost(), body, async editor =>
+        {
+            var box = editor.MessageEditorBox;
+            Assert.Equal("Aptos", box.Document.FontFamily.Source);
+            Assert.Equal("Aptos", box.FontFamily.Source);
+            Assert.Equal(16, box.Document.FontSize, 3);
+
+            // Not an edit: the body as it was. An edit writes the text in the base font without a font of its own.
+            await UiTestSupport.WaitForIdleAsync();
+            Assert.Equal(Html, body.Html);
+            Select(editor, "bazowy");
+            editor.MessageEditorBox.Selection.Text = "podstawowy";
+            editor.FlushHtml();
+            Assert.Contains("<p style=\"margin:0 0 8pt 0\">podstawowy i <span style=\"font-family:'Arial'\">inny</span></p>", body.Html, StringComparison.Ordinal);
+
+            // Another base size is no edit; clear formatting goes back to the base font.
+            var written = body.Html;
+            editor.BaseFontSize = 14;
+            Assert.Equal(14 * 96.0 / 72, box.Document.FontSize, 3);
+            editor.FlushHtml();
+            Assert.Equal(written, body.Html);
+            editor.BaseFontSize = 12;
+            Select(editor, "inny");
+            Click(editor.ClearFormattingButton);
+            editor.FlushHtml();
+            Assert.DoesNotContain("font-family", body.Html, StringComparison.Ordinal);
+            Assert.DoesNotContain("font-size", body.Html, StringComparison.Ordinal);
+        }, AptosTwelve);
+    });
+
+    [Fact]
+    public Task TheBaseFont_ByDefault_IsTheMessagesDefault() => WpfTestHost.RunAsync(() =>
+    {
+        var editor = new RichMessageEditor();
+        Assert.Equal("Calibri,'Segoe UI',Arial,sans-serif", editor.BaseFontFamily);
+        Assert.Equal(11d, editor.BaseFontSize);
+        Assert.Equal(FlowDocumentHtml.FontFamilyName, editor.MessageEditorBox.Document.FontFamily.Source);
+        Assert.Equal(FlowDocumentHtml.DefaultFontSize, editor.MessageEditorBox.Document.FontSize, 3);
+        return Task.CompletedTask;
+    });
+
+    private static void AptosTwelve(RichMessageEditor editor)
+    {
+        editor.BaseFontFamily = "Aptos,sans-serif";
+        editor.BaseFontSize = 12;
+    }
+
+    private static async Task WithEditorAsync(FakeEditorHost? host, BodyModel body, Func<RichMessageEditor, Task> test, Action<RichMessageEditor>? configure = null)
     {
         WpfTestHost.Bindings.Clear();
         var editor = new RichMessageEditor { Width = 760, Height = 420 };
+        configure?.Invoke(editor);
         editor.SetBinding(RichMessageEditor.HtmlProperty, new Binding(nameof(BodyModel.Html)) { Source = body, Mode = BindingMode.TwoWay });
         editor.Host = host;
         var window = new Window { Content = editor, Width = 800, Height = 480 };

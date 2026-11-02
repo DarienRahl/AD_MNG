@@ -1804,15 +1804,27 @@ public static partial class FlowDocumentHtml
                 table.Background = Frozen(new SolidColorBrush(color));
             }
 
-            var layout = new HtmlLayout
+            var attributes = AttributesOf(element, TableAttributes);
+            var extra = Extras(declarations, p => (TextProperties.Contains(p) && p != "background-color") || IsMargin(p));
+            if (!borderless)
             {
-                Margin = margin,
-                Extra = Extras(declarations, p => (TextProperties.Contains(p) && p != "background-color") || IsMargin(p)),
-                Attributes = AttributesOf(element, TableAttributes),
-                Borderless = borderless,
-            };
+                // A grid table is shown with the message's cell padding and no spacing: the HTML says so too.
+                AddMissing(attributes, "cellpadding", CellPadding.ToString(CultureInfo.InvariantCulture));
+                AddMissing(attributes, "cellspacing", "0");
+                AddMissing(extra, "border-collapse", "collapse");
+            }
+
+            var layout = new HtmlLayout { Margin = margin, Extra = extra, Attributes = attributes, Borderless = borderless };
             table.Tag = layout;
             return layout;
+
+            static void AddMissing(List<KeyValuePair<string, string>> list, string key, string value)
+            {
+                if (!list.Any(d => d.Key == key))
+                {
+                    list.Add(new KeyValuePair<string, string>(key, value));
+                }
+            }
         }
 
         /// <summary>A cell read with its layout: per-side borders from its CSS (else none in a table with
