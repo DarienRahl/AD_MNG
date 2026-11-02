@@ -207,6 +207,24 @@ public class OutlookSessionTests
     }
 
     [Fact]
+    public async Task DiagnoseAsync_ListsTheSignatures_WithoutBlockingTheCaller()
+    {
+        // Folder redirection: %APPDATA% on a share that does not answer must not freeze the window that asked (rule 6).
+        await using var harness = new OutlookHarness();
+        var session = await harness.ConnectAsync();
+        using var share = new ManualResetEventSlim();
+        harness.Signatures.Share = share;
+
+        var diagnosing = session.DiagnoseAsync(createTestItem: false, Ct);
+        share.Set();
+        var diagnostics = await diagnosing;
+
+        Assert.False(harness.Signatures.GaveUp, "DiagnoseAsync waited for the signatures folder on the caller's thread.");
+        Assert.Equal(["Jan Kowalski – podpis", "Krótki"], diagnostics.Signatures);
+        Assert.Equal(OutlookHarness.Own, diagnostics.CurrentUserAddress);
+    }
+
+    [Fact]
     public async Task DiagnoseAsync_WithoutASignatureSource_ListsNoSignatures()
     {
         await using var harness = new OutlookHarness();

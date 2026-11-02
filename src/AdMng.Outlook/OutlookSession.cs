@@ -83,14 +83,16 @@ public sealed class OutlookSession : IOutlookSession
     /// <summary>
     /// "Sprawdź Outlooka" (MailerWPiA <c>Diagnose</c>): version, profile, accounts and current user read again, the signature
     /// names (when a signature source is configured), the bitness of the process and optionally a test item that is created
-    /// and discarded without sending.
+    /// and discarded without sending. The signatures folder is listed on the thread pool: it is in <c>%APPDATA%</c>, which
+    /// folder redirection may put on a share that answers late or not at all – never on the caller's (UI) thread, nor on the
+    /// worker the Outlook calls wait for.
     /// </summary>
     /// <exception cref="OutlookException">Outlook cannot be reached (classified, step diagnose).</exception>
-    public Task<OutlookDiagnostics> DiagnoseAsync(bool createTestItem, CancellationToken cancellationToken)
+    public async Task<OutlookDiagnostics> DiagnoseAsync(bool createTestItem, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var signatures = ReadSignatureNames();
-        return Observed(_worker.RunAsync(
+        var signatures = Task.Run(ReadSignatureNames, CancellationToken.None);
+        var diagnostics = await Observed(_worker.RunAsync(
             () =>
             {
                 OutlookProfile profile;
@@ -114,12 +116,13 @@ public sealed class OutlookSession : IOutlookSession
                     profile.ProfileName,
                     profile.Accounts,
                     profile.CurrentUserAddress,
-                    signatures,
+                    [],
                     Environment.Is64BitProcess,
                     createTestItem ? testFailure is null : null,
                     testFailure);
             },
-            cancellationToken));
+            cancellationToken)).ConfigureAwait(false);
+        return diagnostics with { Signatures = await signatures.WaitAsync(cancellationToken).ConfigureAwait(false) };
     }
 
     /// <summary>The campaigns (send runs) of "Elementy wysłane" since <paramref name="since"/>, newest first.</summary>
@@ -174,6 +177,8 @@ public sealed class OutlookSession : IOutlookSession
     private static bool HasRecipient(OutlookMessage message) =>
         message.To.Concat(message.Cc).Concat(message.Bcc).Any(address => !string.IsNullOrWhiteSpace(address));
 
+    /// <summary>The signature names, or none: the folder never fails the diagnostics (it is listed in the background, where
+    /// a failure would go unobserved).</summary>
     private IReadOnlyList<string> ReadSignatureNames()
     {
         if (_signatures is null)
@@ -185,7 +190,7 @@ public sealed class OutlookSession : IOutlookSession
         {
             return _signatures.List();
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             return [];
         }

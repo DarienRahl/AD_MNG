@@ -145,7 +145,22 @@ internal sealed class FakeSignatureSource : IOutlookSignatureSource
 
     public List<string> Names { get; } = ["Jan Kowalski – podpis", "Krótki"];
 
-    public IReadOnlyList<string> List() => [.. Names];
+    /// <summary>A redirected %APPDATA% on a share that does not answer: when set, <see cref="List"/> waits for it (at most
+    /// 5 s, then <see cref="GaveUp"/>).</summary>
+    public ManualResetEventSlim? Share { get; set; }
+
+    /// <summary><see cref="List"/> waited for <see cref="Share"/> in vain.</summary>
+    public bool GaveUp { get; private set; }
+
+    public IReadOnlyList<string> List()
+    {
+        if (Share is { } share && !share.Wait(TimeSpan.FromSeconds(5)))
+        {
+            GaveUp = true;
+        }
+
+        return [.. Names];
+    }
 
     public Task<Core.Correspondence.Composition.SignatureParseResult?> ReadAsync(string name, int ansiCodePage, CancellationToken cancellationToken) =>
         Task.FromResult<Core.Correspondence.Composition.SignatureParseResult?>(null);
