@@ -12956,6 +12956,15 @@ Dziennik zawiera skróty adresów z kluczem (nigdy samych adresów), czasy wysł
   <data name="Correspondence.Preview.EmptyListField" xml:space="preserve">
     <value>Pole {0} w elemencie listy jest puste w {1} z {2} wierszy.</value>
   </data>
+  <data name="Correspondence.Preview.DateInThePast" xml:space="preserve">
+    <value>Pole {0} ma datę z przeszłości: {1} – odbiorcy zobaczą termin, który już minął.</value>
+  </data>
+  <data name="Correspondence.Preview.SignatureNotChosen" xml:space="preserve">
+    <value>Treść ma pole {{podpis}}, ale nie wybrano podpisu – w tym miejscu nic się nie pojawi.</value>
+  </data>
+  <data name="Correspondence.Preview.GroupedSubjectRowField" xml:space="preserve">
+    <value>Wiadomości są grupowane po adresie, a temat używa pola {0} – w temacie będzie wartość pierwszego wiersza grupy.</value>
+  </data>
   <data name="Correspondence.Preview.Ok" xml:space="preserve">
     <value>Wygląda dobrze – treść nie używa niczego, co psuje się w skrzynkach przeglądarkowych.</value>
   </data>

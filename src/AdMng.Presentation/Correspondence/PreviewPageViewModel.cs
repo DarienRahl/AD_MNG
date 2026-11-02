@@ -372,7 +372,8 @@ public sealed partial class PreviewPageViewModel : ObservableObject
             VotingOptions = Message.UseVoting ? Message.VotingOptionsText : null,
         };
         var attachmentNames = Message.Attachments.Select(a => a.Name).ToList();
-        return new PreviewState(options, job, set, units, bcc, attachmentNames, Message.AttachmentsBytes);
+        var today = DateOnly.FromDateTime(Services.Time.GetLocalNow().DateTime);
+        return new PreviewState(options, job, set, units, bcc, attachmentNames, Message.AttachmentsBytes, today);
     }
 
     /// <summary>The recipient choice: the first <see cref="MaxRecipients"/> units, the chosen one kept (by address).</summary>
@@ -455,6 +456,8 @@ public sealed partial class PreviewPageViewModel : ObservableObject
                 string.Join(", ", rendered.UnknownFields.Select(f => "{{" + f + "}}")), string.Join(", ", available)));
         }
 
+        warnings.AddRange(SetupWarnings(state, body, used));
+
         if (!state.IsBcc)
         {
             warnings.AddRange(EmptyFieldWarnings(state, body, listItemFields, cancellationToken));
@@ -478,6 +481,51 @@ public sealed partial class PreviewPageViewModel : ObservableObject
     }
 
     /// <summary>
+    /// How the message is set up: a date field the message uses with a date before today ("Pole {{Termin}} ma datę z
+    /// przeszłości: …"), <c>{{podpis}}</c> in the body while no signature is chosen (nothing appears there), and – grouped by
+    /// address, not BCC – a field of the subject that is a column of the rows (not a built-in or custom field): the subject
+    /// gets the group's first row.
+    /// </summary>
+    private List<string> SetupWarnings(PreviewState state, string body, IReadOnlyList<string> used)
+    {
+        var warnings = new List<string>();
+        var draft = state.Options.Draft;
+        var customFields = (draft.CustomFields ?? []).Where(f => f is not null).ToList();
+        var usedKeys = used.Select(FieldKey.Of).ToHashSet(StringComparer.Ordinal);
+        foreach (var field in customFields)
+        {
+            if (field.Kind == CustomFieldKind.Date && usedKeys.Contains(FieldKey.Of(field.Name))
+                && CustomFieldFormats.TryParseValue(field.Value, out var date) && date < state.Today)
+            {
+                warnings.Add(Localizer.Format(L.CorrespondencePreview.DateInThePast, "{{" + field.Name + "}}", CustomFieldFormats.DateText(field)));
+            }
+        }
+
+        if (draft.Signature is null && FieldTemplate.Parse(body).Any(t => FieldKey.Of(t.Field) == BuiltInFields.Signature))
+        {
+            warnings.Add(Localizer[L.CorrespondencePreview.SignatureNotChosen]);
+        }
+
+        if (draft.GroupByAddress && !state.IsBcc)
+        {
+            var custom = customFields.Select(f => FieldKey.Of(f.Name)).ToHashSet(StringComparer.Ordinal);
+            var columns = state.Set.KnownColumns.Select(FieldKey.Of).ToHashSet(StringComparer.Ordinal);
+            var rowFields = FieldTemplate.Parse(draft.Subject)
+                .Where(t => FieldKey.Of(t.Field) is var key && columns.Contains(key) && !custom.Contains(key)
+                    && !BuiltInFields.All.Contains(key) && !BuiltInFields.IsBuiltInColumn(t.Field))
+                .Select(t => t.Field)
+                .DistinctBy(FieldKey.Of, StringComparer.Ordinal)
+                .ToList();
+            if (rowFields.Count > 0)
+            {
+                warnings.Add(Localizer.Format(L.CorrespondencePreview.GroupedSubjectRowField, string.Join(", ", rowFields.Select(f => "{{" + f + "}}"))));
+            }
+        }
+
+        return warnings;
+    }
+
+    /// <summary>
     /// "Pole {{X}} jest puste u 12 z 95 odbiorców": per field of the subject and the body without a fallback (not
     /// <c>{{email}}</c>, <c>{{nazwa}}</c> – MailerWPiA – and not <c>{{lista}}</c>) over the messages of the send list, and per
     /// field of the list item template over the rows of grouped messages. <paramref name="body"/> is the body repaired as
@@ -492,7 +540,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         }
 
         var draft = state.Options.Draft;
-        var skipped = new HashSet<string>(StringComparer.Ordinal) { "email", "mail", "adresemail", "nazwa", "name", BuiltInFields.List };
+        var skipped = new HashSet<string>(StringComparer.Ordinal) { "email", "mail", "adresemail", "nazwa", "name", BuiltInFields.List, BuiltInFields.Signature };
         var fields = FieldTemplate.Parse(draft.Subject).Concat(FieldTemplate.Parse(body))
             .GroupBy(t => FieldKey.Of(t.Field), StringComparer.Ordinal)
             .Where(g => g.Key.Length > 0 && !skipped.Contains(g.Key) && g.Any(t => t.Fallback is null))
@@ -578,6 +626,7 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         OkText = string.Empty;
     }
 
+    /// <summary>What a refresh renders and checks (<paramref name="Today"/>: the window's local date, for date fields).</summary>
     private sealed record PreviewState(
         CorrespondenceSendOptions Options,
         CorrespondenceSendJob Job,
@@ -585,7 +634,8 @@ public sealed partial class PreviewPageViewModel : ObservableObject
         IReadOnlyList<SendUnit> Units,
         bool IsBcc,
         IReadOnlyList<string> AttachmentNames,
-        long AttachmentBytes)
+        long AttachmentBytes,
+        DateOnly Today)
     {
         public override string ToString() => $"{nameof(PreviewState)} ({Units.Count} messages)";
     }

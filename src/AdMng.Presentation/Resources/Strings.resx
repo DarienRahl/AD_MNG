@@ -12956,6 +12956,15 @@ The journal holds keyed hashes of the addresses (never the addresses), the send 
   <data name="Correspondence.Preview.EmptyListField" xml:space="preserve">
     <value>The field {0} of the list item is empty in {1} of {2} rows.</value>
   </data>
+  <data name="Correspondence.Preview.DateInThePast" xml:space="preserve">
+    <value>The field {0} has a date in the past: {1} – the recipients will see a date that has passed.</value>
+  </data>
+  <data name="Correspondence.Preview.SignatureNotChosen" xml:space="preserve">
+    <value>The body has {{podpis}} but no signature is chosen – nothing appears at that place.</value>
+  </data>
+  <data name="Correspondence.Preview.GroupedSubjectRowField" xml:space="preserve">
+    <value>The messages are grouped by address and the subject uses {0} – the subject will have the value of the group's first row.</value>
+  </data>
   <data name="Correspondence.Preview.Ok" xml:space="preserve">
     <value>Looks good – the body uses nothing that breaks in webmail.</value>
   </data>
