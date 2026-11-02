@@ -104,6 +104,69 @@ public class XlsxImportTests
         Assert.Equal(1, result.InvalidAddresses);
     }
 
+    private const string Styles =
+        "<styleSheet xmlns=\"" + SpreadsheetNs + "\"><numFmts count=\"5\">"
+        + "<numFmt numFmtId=\"164\" formatCode=\"00\\-000\"/>"
+        + "<numFmt numFmtId=\"165\" formatCode=\"[$-415]d\\ mmmm\\ yyyy;@\"/>"
+        + "<numFmt numFmtId=\"166\" formatCode=\"00000000000\"/>"
+        + "<numFmt numFmtId=\"167\" formatCode=\"yyyy\\-mm\\-dd\\ hh:mm\"/>"
+        + "<numFmt numFmtId=\"168\" formatCode=\"#,##0.00\\ &quot;zł&quot;\"/>"
+        + "<numFmt numFmtId=\"169\" formatCode=\"[h]:mm\"/></numFmts>"
+        + "<cellStyleXfs count=\"1\"><xf numFmtId=\"14\"/></cellStyleXfs>"
+        + "<cellXfs count=\"9\"><xf numFmtId=\"0\"/><xf numFmtId=\"14\" applyNumberFormat=\"1\"/><xf numFmtId=\"164\"/><xf numFmtId=\"165\"/>"
+        + "<xf numFmtId=\"166\"/><xf numFmtId=\"167\"/><xf numFmtId=\"168\"/><xf numFmtId=\"20\"/><xf numFmtId=\"169\"/></cellXfs></styleSheet>";
+
+    private static byte[] StyledWorkbook(string sheetData, bool date1904 = false)
+    {
+        var workbook = $"<workbook xmlns=\"{SpreadsheetNs}\" xmlns:r=\"{RelationshipsNs}\">"
+            + (date1904 ? "<workbookPr date1904=\"1\"/>" : "<workbookPr/>")
+            + "<sheets><sheet name=\"Umowy\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>";
+        var rels = "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+            + "<Relationship Id=\"rId2\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles\" Target=\"styles.xml\"/>"
+            + "</Relationships>";
+        return Zip(("xl/workbook.xml", workbook), ("xl/_rels/workbook.xml.rels", rels), ("xl/styles.xml", Styles), ("xl/worksheets/sheet1.xml", Sheet(sheetData)));
+    }
+
+    private static string Number(string reference, string value, int? style = null) =>
+        $"<c r=\"{reference}\"" + (style is { } s ? $" s=\"{s}\"" : string.Empty) + $"><v>{value}</v></c>";
+
+    [Fact]
+    public void DatesAndDigitPatterns_AreWhatExcelShows_OtherNumbersAsStored()
+    {
+        var header = InlineRow(1, ("A1", "E-mail"), ("B1", "Data umowy"), ("C1", "Kod pocztowy"), ("D1", "Podpisano"), ("E1", "PESEL"),
+            ("F1", "Spotkanie"), ("G1", "Kwota"), ("H1", "Godzina"), ("I1", "Czas pracy"), ("J1", "Telefon"), ("K1", "Formuła"));
+        var row = "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>ug@zgierz.pl</t></is></c>"
+            + Number("B2", "46096", 1) + Number("C2", "95020", 2) + Number("D2", "46096", 3) + Number("E2", "2270803628", 4)
+            + Number("F2", "46024.41666666666", 5) + Number("G2", "1234.5", 6) + Number("H2", "0.5", 7) + Number("I2", "1.75", 8)
+            + Number("J2", "48123456789") + "<c r=\"K2\" s=\"1\"><f>TODAY()</f><v>46096</v></c></row>";
+
+        var fields = Assert.Single(Read(StyledWorkbook(header + row)).Contacts).Fields;
+
+        Assert.Equal("15.03.2026", fields["Data umowy"]);     // built-in short date (14)
+        Assert.Equal("95-020", fields["Kod pocztowy"]);        // 00\-000
+        Assert.Equal("15.03.2026", fields["Podpisano"]);       // [$-415]d mmmm yyyy – numeric, the Polish way
+        Assert.Equal("02270803628", fields["PESEL"]);          // the leading zero of 00000000000
+        Assert.Equal("02.01.2026 10:00", fields["Spotkanie"]); // yyyy-mm-dd hh:mm, rounded to the second
+        Assert.Equal("1234.5", fields["Kwota"]);               // currency: as stored
+        Assert.Equal("12:00", fields["Godzina"]);              // built-in h:mm (20)
+        Assert.Equal("1.75", fields["Czas pracy"]);            // elapsed time [h]:mm: as stored
+        Assert.Equal("48123456789", fields["Telefon"]);        // General
+        Assert.Equal("15.03.2026", fields["Formuła"]);         // a formula's cached value has the cell's format too
+    }
+
+    [Fact]
+    public void Dates_Of1904Workbooks_AndOutOfRangeSerials()
+    {
+        var header = InlineRow(1, ("A1", "E-mail"), ("B1", "Data"), ("C1", "Ujemna"), ("D1", "Za duża"));
+        var row = "<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>ug@zgierz.pl</t></is></c>"
+            + Number("B2", "44634", 1) + Number("C2", "-5", 1) + Number("D2", "99999999", 1) + "</row>";
+        var fields = Assert.Single(Read(StyledWorkbook(header + row, date1904: true)).Contacts).Fields;
+        Assert.Equal("15.03.2026", fields["Data"]);
+        Assert.Equal("-5", fields["Ujemna"]);
+        Assert.Equal("99999999", fields["Za duża"]);
+    }
+
     [Fact]
     public void HeaderTypedWithAltEnter_IsOneLineFieldName()
     {

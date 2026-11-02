@@ -1049,7 +1049,11 @@ differs from sections 1–13 or goes beyond them.
   with no e-mail column in any sheet every cell is free text. What Excel hides is left out of an XLSX import – sheets in
   the state `hidden`/`veryHidden`, rows marked `hidden` (by hand, a filter, a collapsed group) – and counted
   (`ContactImportResult.HiddenSheets`/`HiddenRows`, "pominięte ukryte arkusze: 1, pominięte ukryte wiersze: 15" in the
-  status). RTF: a font's `\fcharset` wins over `\ansicpg`.
+  status). XLSX numbers keep the stored value (3.1) except what `xl/styles.xml` formats as a date or time – built-in
+  14–22 or a custom code with day, month, year, hour or second parts, 1900 or 1904 system – which becomes "15.03.2026",
+  "15.03.2026 10:00" or "10:00" (Polish order whatever the code, rounded to the second; elapsed `[h]` stays a number), and
+  a whole number in a code of digit placeholders and literals (`00\-000`, `00000000000`), which becomes "95-020" or keeps
+  the leading zero of a PESEL (`XlsxNumberFormats`). RTF: a font's `\fcharset` wins over `\ansicpg`.
 - **Limits:** 256 columns; 4 million cells and 2 million shared strings per workbook; zip entries ≤ 200 MiB, ≤ 20 000
   entries and ≤ 512 MiB in total; the ratio check (> 100) only for entries over 1 MiB; inflated bytes are counted (a
   forged size is caught). The text of a package's cells and paragraphs ≤ 50 Mi characters (`SpreadsheetLimits.MaxCharacters`:

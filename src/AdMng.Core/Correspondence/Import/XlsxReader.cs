@@ -8,7 +8,8 @@ namespace AdMng.Core.Correspondence.Import;
 /// The sheets of an XLSX/XLSM/XLTX workbook as rows of cells (design note 3.1): sheet order from <c>xl/workbook.xml</c>
 /// and its relationships; shared strings (every <c>&lt;t&gt;</c> of an <c>&lt;si&gt;</c>, rich runs joined, phonetic runs
 /// skipped); cells placed by their <c>r</c> reference (gaps stay empty), inline strings, formula strings and numbers as
-/// text, booleans <c>TRUE</c>/<c>FALSE</c>. What Excel does not show – sheets in the state <c>hidden</c> or
+/// text – a number formatted as a date or as a pattern of digits (<c>00-000</c>) as Excel shows it
+/// (<see cref="XlsxNumberFormats"/>) –, booleans <c>TRUE</c>/<c>FALSE</c>. What Excel does not show – sheets in the state <c>hidden</c> or
 /// <c>veryHidden</c>, rows marked <c>hidden</c> (hidden by hand, by a filter or a collapsed outline) – is left out and
 /// counted, unless the caller asks for it.
 /// </summary>
@@ -24,18 +25,27 @@ internal static class XlsxReader
         var relationships = Relationships(zip);
         var shared = SharedStrings(zip, relationships, new SpreadsheetLimits.Budget());
         var sheets = new List<IReadOnlyList<IReadOnlyList<string>>>();
-        var (paths, hiddenSheets) = SheetPaths(zip, relationships, includeHidden);
+        var (paths, hiddenSheets, date1904) = SheetPaths(zip, relationships, includeHidden);
+        var formats = NumberFormats(zip, relationships, date1904);
         var hiddenRows = 0;
         foreach (var path in paths)
         {
             using var reader = zip.OpenXml(path);
             if (reader is not null)
             {
-                sheets.Add(ReadSheet(reader, shared, budget, includeHidden, ref hiddenRows));
+                sheets.Add(ReadSheet(reader, shared, formats, budget, includeHidden, ref hiddenRows));
             }
         }
 
         return new XlsxWorkbook(sheets, hiddenSheets, hiddenRows);
+    }
+
+    /// <summary>The number formats of the workbook's styles part (dates and digit patterns, <see cref="XlsxNumberFormats"/>).</summary>
+    private static XlsxNumberFormats NumberFormats(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, bool date1904)
+    {
+        var path = relationships.Values.FirstOrDefault(r => r.Type.EndsWith("/styles", StringComparison.OrdinalIgnoreCase)).Target ?? "xl/styles.xml";
+        using var reader = zip.OpenXml(path) ?? zip.OpenXml("xl/styles.xml");
+        return XlsxNumberFormats.Read(reader, date1904);
     }
 
     /// <summary>Relationship id → (type, target part name) of the workbook.</summary>
@@ -61,18 +71,26 @@ internal static class XlsxReader
         return result;
     }
 
-    /// <summary>The worksheets in workbook order (hidden ones counted, not listed, unless <paramref name="includeHidden"/>);
-    /// without a usable workbook every <c>xl/worksheets/*.xml</c> in natural order.</summary>
-    private static (List<string> Paths, int Hidden) SheetPaths(SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, bool includeHidden)
+    /// <summary>The worksheets in workbook order (hidden ones counted, not listed, unless <paramref name="includeHidden"/>)
+    /// and whether dates count from 1904; without a usable workbook every <c>xl/worksheets/*.xml</c> in natural order.</summary>
+    private static (List<string> Paths, int Hidden, bool Date1904) SheetPaths(
+        SafeZip zip, Dictionary<string, (string Type, string Target)> relationships, bool includeHidden)
     {
         var paths = new List<string>();
         var hidden = 0;
+        var date1904 = false;
         using (var reader = zip.OpenXml(WorkbookPath))
         {
             if (reader is not null)
             {
                 while (reader.Read())
                 {
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "workbookPr")
+                    {
+                        date1904 = reader.GetAttribute("date1904") is "1" or "true";
+                        continue;
+                    }
+
                     if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sheet")
                     {
                         continue;
@@ -96,14 +114,14 @@ internal static class XlsxReader
 
         if (paths.Count > 0 || hidden > 0)
         {
-            return (paths, hidden);
+            return (paths, hidden, date1904);
         }
 
         return ([.. zip.Names
             .Where(n => n.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase) && n.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
                 && n.IndexOf('/', "xl/worksheets/".Length) < 0)
             .OrderBy(n => n.Length)
-            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)], 0);
+            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)], 0, date1904);
     }
 
     private static string? RelationshipId(XmlReader reader)
@@ -193,8 +211,8 @@ internal static class XlsxReader
 
     /// <summary>The rows of a sheet; rows marked hidden are counted in <paramref name="hiddenRows"/> (when they hold a value)
     /// and left out, unless <paramref name="includeHidden"/>.</summary>
-    private static List<IReadOnlyList<string>> ReadSheet(XmlReader reader, List<string> shared, SpreadsheetLimits.Budget budget,
-        bool includeHidden, ref int hiddenRows)
+    private static List<IReadOnlyList<string>> ReadSheet(XmlReader reader, List<string> shared, XlsxNumberFormats formats,
+        SpreadsheetLimits.Budget budget, bool includeHidden, ref int hiddenRows)
     {
         var rows = new List<IReadOnlyList<string>>();
         List<string>? row = null;
@@ -239,10 +257,16 @@ internal static class XlsxReader
 
             nextColumn = column == int.MaxValue ? column : column + 1;
             var type = reader.GetAttribute("t");
+            var style = reader.GetAttribute("s");
             var value = reader.IsEmptyElement ? string.Empty : CellValue(reader, type, shared, budget);
             if (value.Length == 0 || column >= SpreadsheetLimits.MaxColumns)
             {
                 continue;
+            }
+
+            if (type is null or "n" && style is not null)
+            {
+                value = formats.Apply(value, style);   // a date or a pattern such as 00-000, as Excel shows it
             }
 
             if (hiddenRow)
