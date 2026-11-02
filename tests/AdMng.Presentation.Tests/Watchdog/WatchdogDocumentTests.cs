@@ -449,6 +449,7 @@ public sealed class WatchdogDocumentTests
             await h.Client.Calls.CallsAsync(nameof(IWatchdogClient.GetEventsAsync), 2);
             tab.Dispose();
             tab.Dispose();
+            await tab.PollingCompletion; // a request the loop had begun is counted before the check
             var calls = h.Client.Calls.All.Count;
             h.Time.Advance(TimeSpan.FromMinutes(10));
             await h.Ui.IdleAsync();

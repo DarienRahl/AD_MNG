@@ -96,6 +96,9 @@ public sealed class WatchdogShellTests
 
             Assert.DoesNotContain(watchdog, shell.Documents);
             Assert.IsType<ObjectListViewModel>(shell.SelectedTab);
+
+            // The poller runs on the thread pool: after F5 it may only now begin its next long-poll (counted, then cancelled).
+            await watchdog.PollingCompletion;
             var calls = h.Client.Calls.All.Count;
             h.Time.Advance(TimeSpan.FromMinutes(5));
             await h.Ui.IdleAsync();
