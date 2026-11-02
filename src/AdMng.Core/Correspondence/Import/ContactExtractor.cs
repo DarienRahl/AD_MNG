@@ -304,8 +304,8 @@ public static class ContactExtractor
         return (name, given, surname);
     }
 
-    /// <summary>The columns of a table: every column (of the first 256) with a header or a value, named by its trimmed
-    /// header ("Kolumna N" when empty), a repeated name made unique as "Name (2)".</summary>
+    /// <summary>The columns of a table: every column (of the first 256) with a header or a value, named by its header on one
+    /// line (<see cref="ColumnName"/>; "Kolumna N" when empty), a repeated name made unique as "Name (2)".</summary>
     private static List<(int Index, string Name)> Columns(IReadOnlyList<string> header, List<IReadOnlyList<string>> data)
     {
         var width = header.Count;
@@ -320,7 +320,7 @@ public static class ContactExtractor
         var keys = new HashSet<string>(StringComparer.Ordinal);
         for (var c = 0; c < width; c++)
         {
-            var title = Cell(header, c).Trim();
+            var title = ColumnName(Cell(header, c));
             if (title.Length == 0 && !data.Any(r => Cell(r, c).Trim().Length > 0))
             {
                 continue;
@@ -337,6 +337,35 @@ public static class ContactExtractor
         }
 
         return columns;
+    }
+
+    /// <summary>
+    /// A header as a field name: every run of white space and control characters (the line break of an Excel header typed
+    /// with Alt+Enter, a multi-line quoted CSV header, a tab) becomes one space, the ends trimmed – a <c>{{field}}</c> holds
+    /// no line break, so "Kod⏎pocztowy" could never be inserted and merged.
+    /// </summary>
+    private static string ColumnName(string header)
+    {
+        var builder = new StringBuilder(header.Length);
+        var space = false;
+        foreach (var c in header)
+        {
+            if (char.IsWhiteSpace(c) || char.IsControl(c))   // white space includes U+2028 and U+2029
+            {
+                space = builder.Length > 0;
+                continue;
+            }
+
+            if (space)
+            {
+                builder.Append(' ');
+                space = false;
+            }
+
+            builder.Append(c);
+        }
+
+        return builder.ToString();
     }
 
     private static string Cell(IReadOnlyList<string> row, int index) => index >= 0 && index < row.Count ? row[index] ?? string.Empty : string.Empty;

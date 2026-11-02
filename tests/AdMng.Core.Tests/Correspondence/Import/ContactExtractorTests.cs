@@ -213,6 +213,18 @@ public class ContactExtractorTests
     }
 
     [Fact]
+    public void FromText_HeaderWithLineBreaksAndTabs_IsOneLine()
+    {
+        // A {{field}} holds no line break: "Kod⏎pocztowy" could be inserted from "Wstaw pole" but never merged.
+        var result = ContactExtractor.FromText("Nazwa;E-mail;\"Kod\r\npocztowy\";\" Nr\ttelefonu \";\"Kod pocztowy\"\nGmina Łęki;ug@leki.pl;34-100;123;x\n");
+        Assert.Equal(["Nazwa", "E-mail", "Kod pocztowy", "Nr telefonu", "Kod pocztowy (2)"], result.Columns);
+        var contact = Assert.Single(result.Contacts);
+        Assert.Equal("34-100", contact.Fields["Kod pocztowy"]);
+        Assert.Equal("123", contact.Fields["Nr telefonu"]);
+        Assert.All(result.Columns, c => Assert.Single(AdMng.Core.Correspondence.Fields.FieldTemplate.Parse("{{" + c + "}}")));
+    }
+
+    [Fact]
     public void FromText_AtMost256Columns()
     {
         var header = "E-mail;" + string.Join(";", Enumerable.Range(1, 400).Select(i => $"K{i}"));

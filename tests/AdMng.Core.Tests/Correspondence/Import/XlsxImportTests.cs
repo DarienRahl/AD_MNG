@@ -78,6 +78,16 @@ public class XlsxImportTests
     }
 
     [Fact]
+    public void HeaderTypedWithAltEnter_IsOneLineFieldName()
+    {
+        var sheet = InlineRow(1, ("A1", "Nazwa"), ("B1", "E-mail"), ("C1", "Kod\npocztowy"))
+            + InlineRow(2, ("A2", "Gmina Żórawina"), ("B2", "ug@zorawina.pl"), ("C2", "55-020"));
+        var result = Read(Xlsx(null, ("A", sheet)));
+        Assert.Equal(["Nazwa", "E-mail", "Kod pocztowy"], result.Columns);
+        Assert.Equal("55-020", Assert.Single(result.Contacts).Fields["Kod pocztowy"]);
+    }
+
+    [Fact]
     public void SheetOrderComesFromTheWorkbook()
     {
         var first = Sheet(InlineRow(1, ("A1", "E-mail")) + InlineRow(2, ("A2", "pierwszy@urzad.pl")));
