@@ -322,7 +322,12 @@ public sealed partial class SendPageViewModel : ObservableObject
         var own = Outlook.OwnAddress;
         var (jobs, jobRows) = await Task.Run(() => Jobs(rows, bcc, group, chunkSize, own)).ConfigureAwait(true);
         var recipients = bcc ? jobs.Sum(j => j.Bcc.Count) : jobs.Count;
-        Message.TryGetDeferredDelivery(out var deliverAt);
+        var (deferredValid, deliverAt) = await DeferredDeliveryAsync().ConfigureAwait(true);
+        if (!deferredValid)
+        {
+            return;
+        }
+
         if (retry is null && !await ConfirmAsync(kind, set, recipients, jobs.Count, deliverAt).ConfigureAwait(true))
         {
             return;
@@ -434,7 +439,12 @@ public sealed partial class SendPageViewModel : ObservableObject
             }
         }
 
-        Message.TryGetDeferredDelivery(out var deliverAt);
+        var (deferredValid, deliverAt) = await DeferredDeliveryAsync().ConfigureAwait(true);
+        if (!deferredValid)
+        {
+            return;
+        }
+
         var draft = await Message.DraftAsync().ConfigureAwait(true);
         await SaveDraftAsync().ConfigureAwait(true);
         var job = new CorrespondenceSendJob(unit, [address], [], [], [address]);
@@ -676,10 +686,29 @@ public sealed partial class SendPageViewModel : ObservableObject
             return true;
         }
 
-        await Services.Dialogs.ShowErrorAsync(Title,
-            Localizer[L.CorrespondenceSend.CannotSend] + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e))).ConfigureAwait(true);
+        await ShowCannotSendAsync(errors).ConfigureAwait(true);
         return false;
     }
+
+    /// <summary>
+    /// The deferred delivery time of the run (null: at once), taken once Outlook is connected – starting it may take a
+    /// while: a time no longer in the future stops the run with the reason, as the validation does, and is never turned
+    /// into a run sent at once.
+    /// </summary>
+    private async Task<(bool Valid, DateTimeOffset? At)> DeferredDeliveryAsync()
+    {
+        if (Message.TryGetDeferredDelivery(out var at))
+        {
+            return (true, at);
+        }
+
+        await ShowCannotSendAsync([Message.DeliverError ?? string.Empty]).ConfigureAwait(true);
+        return (false, null);
+    }
+
+    private Task ShowCannotSendAsync(IEnumerable<string> errors) =>
+        Services.Dialogs.ShowErrorAsync(Title,
+            Localizer[L.CorrespondenceSend.CannotSend] + Environment.NewLine + string.Join(Environment.NewLine, errors.Select(e => "• " + e)));
 
     /// <summary>The Outlook session (connected now when needed); null with the reason shown.</summary>
     private async Task<IOutlookSession?> ConnectAsync()

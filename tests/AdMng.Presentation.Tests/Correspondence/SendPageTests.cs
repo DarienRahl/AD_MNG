@@ -595,6 +595,47 @@ public sealed class SendPageTests
     }
 
     [Fact]
+    public async Task ADeferredTimeThatPassedWhileOutlookStarted_StopsTheRun_InsteadOfSendingAtOnce()
+    {
+        using var scenario = await CorrespondencePagesScenario.CreateAsync();
+        var clock = scenario.Harness.Time;
+        var services = new CorrespondenceServices(scenario.Templates, scenario.Journal, new Core.Csv.CsvCodec(), scenario.Harness.AuditLog, clock,
+            new SlowStartingOutlook(scenario.Outlook, () => clock.Advance(TimeSpan.FromMinutes(2))), scenario.Signatures, scenario.Images,
+            scenario.Dialogs, scenario.Platform, scenario.Browser, delay: (_, _) => Task.CompletedTask);
+        using var window = new CorrespondenceViewModelFactory(scenario.Harness.Services, services).Create(new CorrespondenceRequest([]));
+        await window.InitializeAsync();
+        await window.Outlook.Connecting!;
+        window.Message.Subject = Subject;
+        window.Message.BodyHtml = "<p>{{zwrot}},</p><p>zapraszamy do Łodzi.</p>";
+        CorrespondencePagesScenario.AddRows(window, CorrespondencePagesScenario.Offices());
+        window.Message.DeliverLater = true;
+        window.Message.DeliverDate = new DateTime(2026, 10, 13);
+        window.Message.DeliverTime = "12:04";                         // now 12:02: valid when "Wyślij" is clicked
+        var lost = FakeOutlookClient.Failure(OutlookFailureKind.Disconnected, "send");
+        window.Outlook.ReportFailure(lost);                           // Outlook has to be started again (two minutes)
+        scenario.Ui.ConfirmAnswers.Enqueue(true);
+
+        await window.Send.SendCommand.ExecuteAsync(null);
+
+        Assert.Empty(scenario.Outlook.Items);
+        Assert.Empty(scenario.Ui.Shown);                              // no confirmation without the deferred time
+        Assert.Equal(
+            "Wiadomości nie można jeszcze wysłać:" + NewLine + "• Termin dostarczenia musi być w przyszłości (podano 13.10.2026 12:04).",
+            Assert.Single(scenario.Ui.Errors).Message);
+
+        // The test to self as well.
+        window.Message.DeliverTime = "12:06";                         // now 12:04
+        window.Outlook.ReportFailure(lost);
+        await window.Send.SendTestCommand.ExecuteAsync(null);
+
+        Assert.Empty(scenario.Outlook.Items);
+        Assert.Equal(
+            "Wiadomości nie można jeszcze wysłać:" + NewLine + "• Termin dostarczenia musi być w przyszłości (podano 13.10.2026 12:06).",
+            scenario.Ui.Errors[^1].Message);
+        Assert.Equal(2, scenario.Ui.Errors.Count);
+    }
+
+    [Fact]
     public async Task Validation_NoRecipients_AndOutlookUnavailable_StopBeforeSending()
     {
         using var scenario = await CorrespondencePagesScenario.CreateAsync();
@@ -751,6 +792,20 @@ public sealed class SendPageTests
         Assert.Equal(
             "confirm:Trwa wysyłka przez Outlooka. Przerwać wysyłkę i zamknąć okno? Wiadomości, które Outlook już wysłał, nie da się wycofać.",
             scenario.Ui.Shown[^1]);
+    }
+
+    /// <summary>An Outlook that has to be started whenever the window connects (<paramref name="starting"/> moves the clock).</summary>
+    private sealed class SlowStartingOutlook(FakeOutlookClient inner, Action starting) : IOutlookClient
+    {
+        public OutlookAvailability Availability => inner.Availability;
+
+        public Task<OutlookConnectResult> ConnectAsync(CancellationToken cancellationToken)
+        {
+            starting();
+            return inner.ConnectAsync(cancellationToken);
+        }
+
+        public override string ToString() => nameof(SlowStartingOutlook);
     }
 
     /// <summary>A contact of an imported file (the rows go through the recipients page, journal marks included).</summary>
