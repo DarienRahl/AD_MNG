@@ -575,7 +575,7 @@ Szablon wbudowany można zapisać pod inną nazwą i zmienić (np. odsyłacz do 
 Zakładka czyta głosy z *Elementów wysłanych* Outlooka – nic nie jest zapisywane na tym komputerze.
 
 1. *Wysłane od* (domyślnie 90 dni wstecz) i *Szukaj w Elementach wysłanych* – lista wysyłek z okna *Korespondencja*, np.
-   *28.10.2026 · Czy skrzynka pocztowa jest nadal potrzebna? · 95 wiad.*
+   *28.10.2026 · Weryfikacja skrzynek pocztowych · 95 wiad.*
 2. *Wysyłka* i *Pokaż odpowiedzi* – tabela: *Odbiorca*, *Skrzynki* (których skrzynek dotyczy odpowiedź), *Odpowiedź*
    (tekst przycisku albo „brak odpowiedzi”) i *Kiedy*; podsumowanie, np. *Odpowiedzi: 40 z 95 · Tak: 30 · Nie: 10*.
 3. *Eksport CSV…* – tabela do pliku (z ochroną przed formułami).
