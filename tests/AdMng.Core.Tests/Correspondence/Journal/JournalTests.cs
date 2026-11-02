@@ -61,6 +61,52 @@ public class JournalHashingTests
     public void Hash_RefusesBlankAddresses(string? address) =>
         Assert.Throws<ArgumentException>(() => JournalHashing.Hash(Key, address!));
 
+    [Fact]
+    public void ScopedHash_IsTheHmacOfTheAddressAndTheScope()
+    {
+        var mac = HMACSHA256.HashData(Key, Encoding.UTF8.GetBytes("jan.kowalski@urzad.pl\nsekretariat@urzad.pl"));
+        var expected = Convert.ToBase64String(mac, 0, 16).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        Assert.Equal(expected, JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "sekretariat@urzad.pl"));
+        Assert.Equal(expected, JournalHashing.Hash(Key, " Jan.Kowalski@URZAD.pl ", "  Sekretariat@Urzad.PL "));
+    }
+
+    [Fact]
+    public void ScopedHashes_DifferFromUnscopedOnes_AndFromOtherScopes()
+    {
+        var unscoped = JournalHashing.Hash(Key, "jan.kowalski@urzad.pl");
+        var sekretariat = JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "sekretariat@urzad.pl");
+        var rekrutacja = JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "rekrutacja@urzad.pl");
+        var byDn = JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "CN=Archiwum Łódź,OU=Skrzynki,DC=urzad,DC=pl");
+
+        Assert.Equal(4, new[] { unscoped, sekretariat, rekrutacja, byDn }.Distinct(StringComparer.Ordinal).Count());
+        Assert.NotEqual(sekretariat, JournalHashing.Hash(Key, "anna.nowak@urzad.pl", "sekretariat@urzad.pl"));
+        Assert.Equal(byDn, JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "cn=archiwum łódź,ou=skrzynki,dc=urzad,dc=pl"));
+        Assert.All(new[] { sekretariat, rekrutacja, byDn }, h => Assert.True(JournalHashing.IsHash(h)));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ABlankScope_IsUnscoped(string? scope) =>
+        Assert.Equal(JournalHashing.Hash(Key, "jan.kowalski@urzad.pl"), JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", scope));
+
+    [Fact]
+    public void AScope_IsNeverCutLikeAnAddress() =>
+        Assert.NotEqual(
+            JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "CN=Kto?,OU=Skrzynki,DC=urzad,DC=pl"),
+            JournalHashing.Hash(Key, "jan.kowalski@urzad.pl", "CN=Kto?,OU=Archiwum,DC=urzad,DC=pl"));
+
+    [Fact]
+    public void AnAddressWithALineBreak_IsRefused_SoNoScopedInputEqualsAnUnscopedOne()
+    {
+        // "jan" scoped by "kowalski@urzad.pl" hashes "jan\nkowalski@urzad.pl": that text is refused as an address.
+        Assert.True(JournalHashing.IsHash(JournalHashing.Hash(Key, "jan", "kowalski@urzad.pl")));
+        Assert.Throws<ArgumentException>(() => JournalHashing.Hash(Key, "jan\nkowalski@urzad.pl"));
+        Assert.Throws<ArgumentException>(() => JournalHashing.Hash(Key, "jan\nkowalski@urzad.pl", "sekretariat@urzad.pl"));
+        Assert.Equal(JournalHashing.Hash(Key, "jan.kowalski@urzad.pl"), JournalHashing.Hash(Key, "\njan.kowalski@urzad.pl\n"));   // edges trimmed
+    }
+
     [Theory]
     [InlineData("AAAAAAAAAAAAAAAAAAAAAA", true)]
     [InlineData("abc-_0123456789ABCDEFGH", false)]
